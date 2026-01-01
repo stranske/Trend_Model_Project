@@ -1490,6 +1490,7 @@ def run(
     prev_final_weights: pd.Series | None = None
     # Transaction cost and turnover-cap controls (Issue #429)
     tc_bps = float(cfg.portfolio.get("transaction_cost_bps", 0.0))
+    slippage_bps = float(cfg.portfolio.get("slippage_bps", 0.0))
     max_turnover_cap = float(cfg.portfolio.get("max_turnover", 1.0))
     lambda_tc = float(cfg.portfolio.get("lambda_tc", 0.0) or 0.0)
     low_weight_strikes: dict[str, int] = {}
@@ -2091,7 +2092,10 @@ def run(
 
                 # If dedupe reduced us below the target size, fill from the remaining
                 # score-frame candidates, best-first by zscore.
-                if len(holdings) < desired_seed:
+                # Note: For top_pct mode, we respect the percentage selection and don't
+                # automatically fill up to target_n, as the intent is to select exactly
+                # that percentage of the universe.
+                if len(holdings) < desired_seed and inclusion_approach != "top_pct":
                     candidates = [c for c in sf.index if c not in holdings]
                     add_from = (
                         sf.loc[candidates].sort_values("zscore", ascending=False).index
@@ -2912,6 +2916,13 @@ def run(
             str(k): float(v) * 100.0 for k, v in final_w.items()
         }
 
+        # Construct previous weights dict for pipeline (turnover tracking)
+        prev_weights_for_pipeline: dict[str, float] | None = None
+        if prev_final_weights is not None:
+            prev_weights_for_pipeline = {
+                str(k): float(v) * 100.0 for k, v in prev_final_weights.items()
+            }
+
         res = _call_pipeline_with_diag(
             df,
             pt.in_start[:7],
@@ -2934,6 +2945,13 @@ def run(
             constraints=cfg.portfolio.get("constraints"),
             risk_free_column=risk_free_column_cfg,
             allow_risk_free_fallback=allow_risk_free_fallback_cfg,
+            # Pass turnover parameters for pipeline-level enforcement.
+            # The pipeline applies vol-scaling after which turnover may exceed
+            # the threshold-hold logic's pre-scaled cap; passing these ensures
+            # the final weights respect the turnover constraint.
+            previous_weights=prev_weights_for_pipeline,
+            max_turnover=max_turnover_cap if max_turnover_cap < 1.0 else None,
+            lambda_tc=lambda_tc if lambda_tc > 0 else None,
         )
         payload = res.value
         diag = res.diagnostic
@@ -3061,7 +3079,7 @@ def run(
             abs_diff = float((effective_w - last_effective).abs().sum())
             period_turnover = 0.5 * abs_diff
 
-        period_cost = period_turnover * (tc_bps / 10000.0)
+        period_cost = period_turnover * ((tc_bps + slippage_bps) / 10000.0)
 
         # Reconcile manager change log to the realised holdings delta.
         actual_before = set(last_effective[last_effective.abs() > eps].index)

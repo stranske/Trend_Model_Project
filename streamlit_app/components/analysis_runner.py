@@ -443,7 +443,6 @@ def _build_config(payload: AnalysisPayload) -> Config:
     shrinkage_method = str(
         state.get("shrinkage_method", "ledoit_wolf") or "ledoit_wolf"
     )
-    leverage_cap = _coerce_positive_float(state.get("leverage_cap"), default=2.0)
 
     robustness_cfg = {
         "shrinkage": {
@@ -507,9 +506,6 @@ def _build_config(payload: AnalysisPayload) -> Config:
     portfolio_cfg["sticky_add_x"] = sticky_add_periods
     portfolio_cfg["sticky_drop_y"] = sticky_drop_periods
     portfolio_cfg["ci_level"] = ci_level
-
-    # Update portfolio config with leverage cap
-    portfolio_cfg["leverage_cap"] = leverage_cap
 
     # Phase 8: Multi-period settings
     multi_period_enabled = bool(state.get("multi_period_enabled", False))
@@ -589,17 +585,9 @@ def _build_config(payload: AnalysisPayload) -> Config:
             "start_mode": "oos" if date_mode == "explicit" else "in",
         }
 
-    # Phase 16: Data/Preprocessing settings
-    missing_policy = str(state.get("missing_policy", "ffill") or "ffill")
-    winsorize_enabled = bool(state.get("winsorize_enabled", True))
-    winsorize_lower = (
-        float(state.get("winsorize_lower", 1.0) or 1.0) / 100.0
-    )  # Convert to decimal
-    winsorize_upper = float(state.get("winsorize_upper", 99.0) or 99.0) / 100.0
-
+    # Data config
     data_cfg: dict[str, Any] = {
         "allow_risk_free_fallback": True,
-        "missing_policy": missing_policy,
     }
 
     # Optional: allow the UI to explicitly choose the risk-free column.
@@ -608,12 +596,8 @@ def _build_config(payload: AnalysisPayload) -> Config:
     risk_free_column = state.get("risk_free_column")
     if isinstance(risk_free_column, str) and risk_free_column.strip():
         data_cfg["risk_free_column"] = risk_free_column.strip()
-    preprocessing_cfg = {
-        "winsorise": {
-            "enabled": winsorize_enabled,
-            "limits": [winsorize_lower, winsorize_upper],
-        },
-    }
+
+    preprocessing_cfg: dict[str, Any] = {}
 
     return Config(
         version="1",
