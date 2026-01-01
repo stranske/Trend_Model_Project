@@ -355,6 +355,10 @@ Supported keys (YAML under `portfolio.constraints`):
 | `groups` | mapping(asset->group) | `null` | Required when `group_caps` set; every asset must map to a group present. |
 | `cash_weight` | float | `null` | Fixed slice allocated to a synthetic `CASH` line; remaining weights scaled to sum to `1 - cash_weight`. |
 
+Built-in weighting schemes (`equal`, `risk_parity`/`vol_inverse`, `hrp`, `erc`, and the
+`robust_*` engines) emit non-negative weights by design; negative allocations only
+appear when using `custom_weights` or custom plugin engines that allow shorts.
+
 Example snippet:
 
 ```yaml
