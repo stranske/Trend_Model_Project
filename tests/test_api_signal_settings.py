@@ -83,6 +83,8 @@ def test_run_simulation_trend_window_changes_output() -> None:
     long_spec = long_result.details["signal_spec"]
 
     assert _signal_frames_differ(short_signals, long_signals)
+    assert short_signals.attrs["spec"]["window"] == 20
+    assert long_signals.attrs["spec"]["window"] == 60
     assert short_spec.window == 20
     assert long_spec.window == 60
 
@@ -117,5 +119,10 @@ def test_run_simulation_trend_zscore_changes_output() -> None:
     zscore_spec = zscore_result.details["signal_spec"]
 
     assert _signal_frames_differ(base_signals, zscore_signals)
+    assert np.allclose(
+        zscore_signals.fillna(0.0).to_numpy(),
+        (base_signals.fillna(0.0) * 2.0).to_numpy(),
+        atol=1e-8,
+    )
     assert base_spec.zscore == 1.0
     assert zscore_spec.zscore == 2.0
