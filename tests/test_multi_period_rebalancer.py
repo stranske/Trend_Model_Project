@@ -115,9 +115,7 @@ def test_rebalancer_reads_hard_thresholds_from_portfolio_root() -> None:
     }
     reb = Rebalancer(cfg)
     prev = _series({"A": 0.5, "B": 0.5})
-    frame = pd.DataFrame(
-        {"zscore": {"A": -0.4, "B": -0.6, "C": 1.6, "D": 1.0}}
-    )
+    frame = pd.DataFrame({"zscore": {"A": -0.4, "B": -0.6, "C": 1.6, "D": 1.0}})
 
     result = reb.apply_triggers(prev, frame)
     assert set(result.index) == {"A", "C"}
