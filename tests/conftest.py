@@ -19,6 +19,7 @@ from __future__ import annotations
 import pathlib
 import sys
 from pathlib import Path
+import importlib.util
 from typing import Iterator
 
 import pytest
@@ -82,6 +83,30 @@ def pytest_collection_modifyitems(config, items):
         if "test_markers" in existing_keys:
             continue
         it.user_properties.append(("test_markers", ",".join(markers)))
+
+
+def _module_available(module_name: str) -> bool:
+    return importlib.util.find_spec(module_name) is not None
+
+
+def pytest_ignore_collect(collection_path: Path, config):  # noqa: ARG001
+    repo_root = ROOT
+    try:
+        rel_path = collection_path.resolve().relative_to(repo_root)
+    except Exception:
+        return False
+
+    if not _module_available("streamlit"):
+        if rel_path.parts[:2] == ("tests", "app"):
+            return True
+        if rel_path.name.startswith(("test_streamlit_", "test_upload_")):
+            return True
+
+    if not _module_available("fastapi"):
+        if rel_path.name.startswith("test_api_server"):
+            return True
+
+    return False
 
 
 def pytest_sessionfinish(
