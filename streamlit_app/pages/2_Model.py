@@ -338,7 +338,7 @@ HELP_TEXT = {
     "min_weight_strikes": "Underweight exit: consecutive periods a fund's natural weight stays below the minimum weight before it is replaced. 0 = disable.",
     "sticky_add_periods": "Periods a fund must rank highly before being added to portfolio.",
     "sticky_drop_periods": "Periods a fund must rank poorly before being removed from portfolio.",
-    "ci_level": "Confidence interval level for entry gate (0 = disabled, 0.9 = 90% CI).",
+    "ci_level": "Confidence interval level for reporting only (0 = disabled, 0.9 = 90% CI).",
     # Phase 8: Multi-period & Selection settings
     "multi_period_enabled": "Enable rolling multi-period walk-forward analysis.",
     "multi_period_frequency": "Period frequency: Monthly (M), Quarterly (Q), or Annual (A).",
@@ -2127,8 +2127,8 @@ def render_model_page() -> None:
                     else "Hard exit disabled."
                 )
 
-            # Confidence Interval Gate
-            st.markdown("**Confidence Interval Gate (Optional)**")
+            # Confidence Interval Reporting
+            st.markdown("**Confidence Interval (Reporting Only)**")
             ci_level = st.slider(
                 "Confidence Interval Level",
                 min_value=0.0,
@@ -2141,10 +2141,10 @@ def render_model_page() -> None:
             )
             if ci_level > 0:
                 st.caption(
-                    f"Entry requires {ci_level * 100:.0f}% confidence score exceeds threshold."
+                    f"Reporting uses {ci_level * 100:.0f}% confidence; portfolio construction is unchanged."
                 )
             else:
-                st.caption("Confidence interval gate is disabled.")
+                st.caption("Confidence interval reporting is disabled.")
 
         # =====================================================================
         # Section 11: Advanced Selection Settings
