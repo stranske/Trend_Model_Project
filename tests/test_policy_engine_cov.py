@@ -45,7 +45,7 @@ def test_policy_engine_allow_add_ci_level_and_diversification_break():
     # Only first candidate hired due to top_k limit -> break executed
     assert decisions["hire"] == [("b", "top_k")]
 
-    # Negative score with ci_level>0 should be rejected
+    # CI level is reporting-only: negative scores are not gated.
     score_frame_neg = pd.DataFrame({"m": [-1.0, 1.0]}, index=["c", "d"])
     policy_neg = PolicyConfig(
         top_k=2,
@@ -62,7 +62,7 @@ def test_policy_engine_allow_add_ci_level_and_diversification_break():
         cooldowns=CooldownBook(),
         eligible_since={"c": 24, "d": 24},
     )
-    assert ("c", "top_k") not in decisions_neg["hire"]
+    assert ("c", "top_k") in decisions_neg["hire"]
 
 
 def test_decide_hires_fires_diversification_and_turnover(monkeypatch):
