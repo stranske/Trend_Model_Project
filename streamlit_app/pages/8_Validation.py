@@ -270,6 +270,16 @@ TESTABLE_SETTINGS: list[SettingDef] = [
         expected_effect="Random selection outcomes",
         economic_intuition="Different seeds → different random samples",
     ),
+    # === Buy and Hold ===
+    SettingDef(
+        key="buy_hold_initial",
+        label="Buy & Hold Initial Selection",
+        category="Selection",
+        baseline="top_n",
+        test_values=["threshold", "random"],
+        expected_effect="Initial fund selection for buy-and-hold",
+        economic_intuition="Different initial methods → different starting portfolios",
+    ),
 ]
 
 

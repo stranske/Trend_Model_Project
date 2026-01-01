@@ -329,6 +329,17 @@ SETTINGS_TO_TEST: list[SettingTest] = [
         expected_direction="change",
         description="Higher risk-free rate should change Sharpe ratios",
     ),
+    # === Buy and Hold Initial Selection ===
+    SettingTest(
+        name="buy_hold_initial",
+        baseline_value="top_n",
+        test_value="threshold",
+        category="Selection",
+        expected_metric="selected_funds_set",
+        expected_direction="change",
+        description="Different initial selection method should select different funds",
+        requires_multi_period=True,
+    ),
 ]
 
 
@@ -991,6 +1002,21 @@ def extract_metric(
                 return float(result.metrics["sharpe"].mean())
         return 0.0
 
+    if metric_name == "selected_funds_set":
+        # Return a frozenset of selected fund names for comparison
+        if result.weights is not None:
+            return frozenset(result.weights[result.weights > 0].index.tolist())
+        if result.period_results:
+            # Aggregate all selected funds across periods
+            all_funds = set()
+            for p in result.period_results:
+                if "selected_funds" in p:
+                    all_funds.update(p["selected_funds"])
+                elif "weights" in p:
+                    all_funds.update(k for k, v in p["weights"].items() if v > 0)
+            return frozenset(all_funds)
+        return frozenset()
+
     if metric_name == "num_periods":
         if result.period_results:
             return len(result.period_results)
@@ -1125,6 +1151,11 @@ def run_single_test(
     if setting.name == "rank_pct":
         baseline_state["inclusion_approach"] = "top_pct"
         test_state["inclusion_approach"] = "top_pct"
+
+    # buy_hold_initial test needs buy_and_hold selection mode
+    if setting.name == "buy_hold_initial":
+        baseline_state["inclusion_approach"] = "buy_and_hold"
+        test_state["inclusion_approach"] = "buy_and_hold"
 
     # shrinkage tests need robust_mv weighting where shrinkage is applied
     if setting.name in ["shrinkage_enabled", "shrinkage_method"]:
