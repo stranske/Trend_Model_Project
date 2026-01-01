@@ -2390,6 +2390,13 @@ def run(
                 sf_set = {str(h) for h in sf.index}
                 forced_drop = {h for h in before_set if h not in sf_set}
 
+                for mgr in list(add_streaks.keys()):
+                    if mgr not in sf_set:
+                        add_streaks.pop(mgr, None)
+                for mgr in list(drop_streaks.keys()):
+                    if mgr not in before_set:
+                        drop_streaks.pop(mgr, None)
+
                 for h in sf_set:
                     if h in before_set:
                         add_streaks[h] = 0

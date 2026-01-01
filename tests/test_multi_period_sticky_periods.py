@@ -175,3 +175,20 @@ def test_sticky_drop_requires_consecutive_periods(
     assert "A" not in baseline[1]["selected_funds"]
     assert "A" in delayed[1]["selected_funds"]
     assert _turnover_after_seed(delayed) < _turnover_after_seed(baseline)
+
+
+def test_sticky_add_and_drop_reduce_turnover(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sequence = [["A", "B", "C"], ["B"]]
+
+    baseline = _run_with_sticky(
+        monkeypatch, sticky_add=1, sticky_drop=1, sequence=sequence
+    )
+    delayed = _run_with_sticky(
+        monkeypatch, sticky_add=2, sticky_drop=2, sequence=sequence
+    )
+
+    assert "A" not in baseline[2]["selected_funds"]
+    assert "A" in delayed[2]["selected_funds"]
+    assert _turnover_after_seed(delayed) < _turnover_after_seed(baseline)
