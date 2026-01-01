@@ -16,6 +16,17 @@ logger = logging.getLogger(__name__)
 NDArrayFloat = npt.NDArray[np.float64]
 
 
+def _safe_condition_number(cov: NDArrayFloat) -> float:
+    """Return a finite condition number or inf on failure."""
+    try:
+        condition_num = float(np.linalg.cond(cov))
+        if not np.isfinite(condition_num):
+            return np.inf
+        return condition_num
+    except np.linalg.LinAlgError:
+        return np.inf
+
+
 def ledoit_wolf_shrinkage(
     cov: NDArrayFloat, n_samples: int | None = None
 ) -> tuple[NDArrayFloat, float]:
@@ -161,13 +172,7 @@ class RobustMeanVariance(WeightEngine):
 
     def _check_condition_number(self, cov: NDArrayFloat) -> float:
         """Compute condition number of covariance matrix."""
-        try:
-            condition_num = float(np.linalg.cond(cov))
-            if not np.isfinite(condition_num):
-                return np.inf
-            return condition_num
-        except np.linalg.LinAlgError:
-            return np.inf
+        return _safe_condition_number(cov)
 
     def _apply_shrinkage(
         self, cov: NDArrayFloat
@@ -361,7 +366,7 @@ class RobustRiskParity(WeightEngine):
             diag_vals = np.diag(cov_array)
 
         # Check condition number
-        condition_num = np.linalg.cond(cov_array)
+        condition_num = _safe_condition_number(cov_array)
 
         if condition_num > self.condition_threshold:
             logger.warning(

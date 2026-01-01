@@ -266,3 +266,21 @@ class TestRobustRiskParity:
         weights = engine.weight(cov)
         assert weights.sum() == pytest.approx(1.0, rel=1e-9)
         assert (weights >= 0).all()
+
+    def test_nan_condition_number_triggers_loading(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        cov = _make_covariance(
+            np.array([[0.05, 0.01], [0.01, 0.04]]), labels=["A", "B"]
+        )
+        engine = RobustRiskParity(condition_threshold=10.0)
+
+        monkeypatch.setattr(
+            "trend_analysis.weights.robust_weighting.np.linalg.cond",
+            lambda _: np.nan,
+        )
+
+        weights = engine.weight(cov)
+        assert weights.sum() == pytest.approx(1.0, rel=1e-9)
+        assert engine.diagnostics["used_diagonal_loading"] is True
+        assert engine.diagnostics["condition_number"] == np.inf
