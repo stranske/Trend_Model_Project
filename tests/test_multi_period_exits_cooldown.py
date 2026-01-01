@@ -289,3 +289,45 @@ def test_threshold_hold_hard_exit_protects_holdings(
 
     selected = set(results[1]["selected_funds"])
     assert "B" in selected
+
+
+def test_threshold_hold_hard_exit_blocks_low_weight_removal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = THCfg()
+    cfg.portfolio["threshold_hold"]["target_n"] = 2
+    cfg.portfolio["threshold_hold"]["z_exit_hard"] = 1.0
+    cfg.portfolio["constraints"]["min_weight"] = 0.6
+    cfg.portfolio["constraints"]["min_weight_strikes"] = 1
+    cfg.portfolio["constraints"]["max_funds"] = 2
+
+    periods = [
+        SimpleNamespace(
+            in_start="2020-01", in_end="2020-02", out_start="2020-03", out_end="2020-03"
+        ),
+        SimpleNamespace(
+            in_start="2020-02", in_end="2020-03", out_start="2020-04", out_end="2020-04"
+        ),
+    ]
+    monkeypatch.setattr(engine, "generate_periods", lambda _cfg: periods)
+
+    _patch_metric_series(
+        monkeypatch,
+        by_in_end={
+            "2020-02": {"A": 2.0, "B": 1.0, "C": 0.0, "D": 0.0, "E": 0.0},
+            "2020-03": {"A": 2.0, "B": 1.0, "C": 0.0, "D": 0.0, "E": 0.0},
+        },
+    )
+    _patch_pipeline(monkeypatch)
+
+    results = engine.run(cfg, df=_df_5_funds())
+    assert len(results) == 2
+
+    period2 = results[1]
+    selected = set(period2["selected_funds"])
+    assert "A" in selected
+
+    changes = period2.get("manager_changes") or []
+    assert not any(
+        ev.get("action") == "dropped" and ev.get("manager") == "A" for ev in changes
+    )

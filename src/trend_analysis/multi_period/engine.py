@@ -2821,9 +2821,13 @@ def run(
         # natural (pre-bounds) weight falls below min_weight, but only enforce
         # replacements starting from the second period (i.e., once a realised
         # prior allocation exists).
+        exit_protected_low_weight = _exit_protected(prev_weights.index, sf)
         to_remove: list[str] = []
         for f, wv in nat_w.items():
             f_str = str(f)
+            if f_str in exit_protected_low_weight:
+                low_weight_strikes[f_str] = 0
+                continue
             if float(wv) < min_w_bound:
                 low_weight_strikes[f_str] = int(low_weight_strikes.get(f_str, 0)) + 1
             else:
