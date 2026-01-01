@@ -1549,8 +1549,20 @@ def _empty_run_full_result() -> dict[str, object]:
 def _build_trend_spec(
     cfg: Mapping[str, Any] | Any,
     vol_adjust_cfg: Mapping[str, Any] | Any,
-) -> TrendSpec:
+) -> TrendSpec | None:
+    """Build a TrendSpec from config, or None if no signals config is present.
+
+    Returns None when no ``signals`` section is configured, so that callers
+    fall back to the existing default behaviour (signal window derived from
+    the in-sample risk window).
+    """
     signals_cfg = _cfg_section(cfg, "signals")
+
+    # Return None when no signals config is present - this preserves the old
+    # default behaviour where signal_spec=None causes the pipeline to derive
+    # the window from the risk window length rather than hardcoding 63.
+    if not signals_cfg:
+        return None
 
     def _signal_setting(key: str, alias: str | None, default: Any = None) -> Any:
         value = _section_get(signals_cfg, key, None)
