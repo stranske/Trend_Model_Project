@@ -79,8 +79,12 @@ def test_run_simulation_trend_window_changes_output() -> None:
 
     short_signals = short_result.details["signal_frame"]
     long_signals = long_result.details["signal_frame"]
+    short_spec = short_result.details["signal_spec"]
+    long_spec = long_result.details["signal_spec"]
 
     assert _signal_frames_differ(short_signals, long_signals)
+    assert short_spec.window == 20
+    assert long_spec.window == 60
 
 
 def test_run_simulation_trend_zscore_changes_output() -> None:
@@ -109,5 +113,9 @@ def test_run_simulation_trend_zscore_changes_output() -> None:
 
     base_signals = base_result.details["signal_frame"]
     zscore_signals = zscore_result.details["signal_frame"]
+    base_spec = base_result.details["signal_spec"]
+    zscore_spec = zscore_result.details["signal_spec"]
 
     assert _signal_frames_differ(base_signals, zscore_signals)
+    assert base_spec.zscore == 1.0
+    assert zscore_spec.zscore == 2.0
