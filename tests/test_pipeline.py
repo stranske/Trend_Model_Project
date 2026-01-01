@@ -324,6 +324,28 @@ def test_run_full_robustness_settings_affect_weights(tmp_path):
     assert not np.allclose(rp_values, diag_values, rtol=1e-3, atol=1e-4)
 
 
+def test_run_full_robustness_condition_threshold_alias_triggers_fallback(tmp_path):
+    cfg = make_cfg(tmp_path, _make_three_fund_df())
+    cfg.portfolio["weighting_scheme"] = "robust_mv"
+    cfg.portfolio["robustness"] = {
+        "shrinkage": {"enabled": False},
+        "condition_check": {
+            "enabled": True,
+            "condition_threshold": 1.0,
+            "safe_mode": "risk_parity",
+            "diagonal_loading_factor": 1.0e-6,
+        },
+    }
+
+    res = pipeline.run_full(cfg)
+    diag = res["weight_engine_diagnostics"]
+    assert diag["used_safe_mode"] is True
+    assert diag["condition_threshold"] == pytest.approx(1.0)
+    fallback = res["weight_engine_fallback"]
+    assert fallback["reason"] == "condition_threshold_exceeded"
+    assert fallback["safe_mode"] == "risk_parity"
+
+
 def test_run_full_robustness_condition_threshold_uses_cov_condition(tmp_path):
     df = _make_ill_conditioned_df()
     cfg = make_cfg(tmp_path, df)

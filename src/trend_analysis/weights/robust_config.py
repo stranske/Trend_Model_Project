@@ -39,7 +39,10 @@ def weight_engine_params_from_robustness(
         shrinkage_method = "none"
 
     condition_enabled = bool(condition_cfg.get("enabled", True))
-    condition_threshold = _coerce_float(condition_cfg.get("threshold"), 1.0e12)
+    raw_threshold = condition_cfg.get("threshold")
+    if raw_threshold is None:
+        raw_threshold = condition_cfg.get("condition_threshold")
+    condition_threshold = _coerce_float(raw_threshold, 1.0e12)
     if not condition_enabled:
         condition_threshold = float("inf")
     safe_mode = str(condition_cfg.get("safe_mode", "hrp") or "hrp")
