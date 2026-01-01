@@ -264,7 +264,9 @@ class RobustMeanVariance(WeightEngine):
         # Check condition number on the matrix actually used for optimization.
         raw_condition_num = self._check_condition_number(cov_array)
         condition_num = self._check_condition_number(shrunk_cov_array)
-        condition_source = "shrunk_cov" if self.shrinkage_method != "none" else "raw_cov"
+        condition_source = (
+            "shrunk_cov" if self.shrinkage_method != "none" else "raw_cov"
+        )
 
         if self.log_condition_numbers:
             logger.debug(
