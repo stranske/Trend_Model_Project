@@ -98,6 +98,33 @@ def test_rebalancer_entry_hard_blocks_soft_entries() -> None:
     assert "B" not in result
 
 
+def test_rebalancer_reads_hard_thresholds_from_portfolio_root() -> None:
+    """Root-level threshold settings should reach the rebalancer."""
+
+    cfg = {
+        "portfolio": {
+            "z_entry_hard": 1.5,
+            "z_exit_hard": -0.5,
+            "z_entry_soft": 0.5,
+            "z_exit_soft": -0.2,
+            "soft_strikes": 1,
+            "entry_soft_strikes": 1,
+            "entry_eligible_strikes": 1,
+            "constraints": {"max_funds": 3},
+        }
+    }
+    reb = Rebalancer(cfg)
+    prev = _series({"A": 0.5, "B": 0.5})
+    frame = pd.DataFrame(
+        {"zscore": {"A": -0.4, "B": -0.6, "C": 1.6, "D": 1.0}}
+    )
+
+    result = reb.apply_triggers(prev, frame)
+    assert set(result.index) == {"A", "C"}
+    assert "B" not in result
+    assert "D" not in result
+
+
 def test_rebalancer_adds_eligible_after_multiple_periods() -> None:
     """Eligible candidates join once they accumulate sufficient strikes."""
 
