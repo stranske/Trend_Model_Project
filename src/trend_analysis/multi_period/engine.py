@@ -57,6 +57,7 @@ from ..weighting import (
     EqualWeight,
     ScorePropBayesian,
 )
+from ..weights.robust_config import weight_engine_params_from_robustness
 from .loaders import load_benchmarks, load_membership, load_prices
 from .replacer import Rebalancer
 from .scheduler import generate_periods
@@ -1495,13 +1496,31 @@ def run(
     weighting_scheme = str(
         cfg.portfolio.get("weighting_scheme", "equal") or "equal"
     ).lower()
-    use_risk_weighting = weighting_scheme in {"risk_parity", "hrp", "erc", "robust"}
+    if weighting_scheme == "robust":
+        weighting_scheme = "robust_mv"
+    use_risk_weighting = weighting_scheme in {
+        "risk_parity",
+        "hrp",
+        "erc",
+        "robust_mv",
+        "robust_mean_variance",
+        "robust_risk_parity",
+    }
     risk_weight_engine: Any = None
     if use_risk_weighting:
         try:
             from ..plugins import create_weight_engine
 
-            risk_weight_engine = create_weight_engine(weighting_scheme)
+            robustness_cfg = cfg.portfolio.get("robustness")
+            if not isinstance(robustness_cfg, Mapping):
+                robustness_cfg = getattr(cfg, "robustness", None)
+            weight_engine_params = weight_engine_params_from_robustness(
+                weighting_scheme,
+                robustness_cfg if isinstance(robustness_cfg, Mapping) else None,
+            )
+            risk_weight_engine = create_weight_engine(
+                weighting_scheme, **weight_engine_params
+            )
         except Exception:  # pragma: no cover - best-effort only
             use_risk_weighting = False
             risk_weight_engine = None

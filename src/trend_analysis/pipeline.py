@@ -49,6 +49,7 @@ from .time_utils import align_calendar
 from .timefreq import MONTHLY_DATE_FREQ
 from .util.frequency import FrequencySummary, detect_frequency
 from .util.missing import MissingPolicyResult, apply_missing_policy
+from .weights.robust_config import weight_engine_params_from_robustness
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +172,7 @@ class _ComputationStage:
     weights_series: pd.Series
     risk_diagnostics: RiskDiagnostics
     weight_engine_fallback: dict[str, str] | None
+    weight_engine_diagnostics: dict[str, Any] | None
     turnover_cap: float | None
     in_scaled: pd.DataFrame
     out_scaled: pd.DataFrame
@@ -753,6 +755,7 @@ def _compute_weights_and_stats(
     warmup: int,
     min_floor: float,
     stats_cfg: RiskStatsConfig,
+    weight_engine_params: Mapping[str, Any] | None,
 ) -> _ComputationStage:
     fund_cols = selection.fund_cols
 
@@ -839,6 +842,7 @@ def _compute_weights_and_stats(
     custom_weights_input = custom_weights is not None
     weight_engine_used = False
     weight_engine_fallback: dict[str, str] | None = None
+    weight_engine_diagnostics: dict[str, Any] | None = None
     if (
         custom_weights is None
         and weighting_scheme
@@ -848,10 +852,53 @@ def _compute_weights_and_stats(
             from .plugins import create_weight_engine
 
             cov = window.in_df[fund_cols].cov()
-            engine = create_weight_engine(weighting_scheme.lower())
+            engine = create_weight_engine(
+                weighting_scheme.lower(), **(weight_engine_params or {})
+            )
             w_series = engine.weight(cov).reindex(fund_cols).fillna(0.0)
             custom_weights = {c: float(w_series.get(c, 0.0) * 100.0) for c in fund_cols}
             weight_engine_used = True
+            weight_engine_diagnostics = getattr(engine, "diagnostics", None)
+            if (
+                weight_engine_diagnostics
+                and isinstance(weight_engine_diagnostics, Mapping)
+                and weight_engine_diagnostics.get("used_safe_mode")
+            ):
+                safe_mode = weight_engine_diagnostics.get("safe_mode")
+                condition_number = weight_engine_diagnostics.get("condition_number")
+                condition_threshold = weight_engine_diagnostics.get(
+                    "condition_threshold"
+                )
+                condition_source = weight_engine_diagnostics.get("condition_source")
+                fallback_reason = weight_engine_diagnostics.get(
+                    "fallback_reason", "safe_mode"
+                )
+                weight_engine_fallback = {
+                    "engine": str(weighting_scheme),
+                    "reason": str(fallback_reason),
+                    "safe_mode": safe_mode,
+                    "condition_number": condition_number,
+                    "condition_threshold": condition_threshold,
+                    "condition_source": condition_source,
+                }
+                if isinstance(condition_number, (int, float)) and isinstance(
+                    condition_threshold, (int, float)
+                ):
+                    logger.warning(
+                        "Weight engine '%s' switched to safe mode '%s' "
+                        "(%s condition number %.2e > threshold %.2e).",
+                        weighting_scheme,
+                        safe_mode,
+                        condition_source or "covariance",
+                        condition_number,
+                        condition_threshold,
+                    )
+                else:
+                    logger.warning(
+                        "Weight engine '%s' switched to safe mode '%s'.",
+                        weighting_scheme,
+                        safe_mode,
+                    )
             logger.debug(
                 "Successfully created %s weight engine",
                 weighting_scheme,
@@ -1150,6 +1197,7 @@ def _compute_weights_and_stats(
         weights_series=weights_series,
         risk_diagnostics=risk_diagnostics,
         weight_engine_fallback=weight_engine_fallback,
+        weight_engine_diagnostics=weight_engine_diagnostics,
         turnover_cap=turnover_cap,
         in_scaled=in_scaled,
         out_scaled=out_scaled,
@@ -1309,6 +1357,7 @@ def _assemble_analysis_output(
             "benchmark_ir": benchmark_ir,
             "score_frame": computation.score_frame,
             "weight_engine_fallback": computation.weight_engine_fallback,
+            "weight_engine_diagnostics": computation.weight_engine_diagnostics,
             "preprocessing": preprocess.preprocess_info,
             "preprocessing_summary": preprocess.preprocess_info.get("summary"),
             "risk_diagnostics": {
@@ -2238,6 +2287,7 @@ def _run_analysis_with_diagnostics(
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
     allow_risk_free_fallback: bool | None = None,
+    weight_engine_params: Mapping[str, Any] | None = None,
 ) -> PipelineResult:
     preprocess_stage = _prepare_preprocess_stage(
         df,
@@ -2321,6 +2371,7 @@ def _run_analysis_with_diagnostics(
         warmup=preprocess_stage.warmup,
         min_floor=preprocess_stage.min_floor,
         stats_cfg=stats_cfg_obj,
+        weight_engine_params=weight_engine_params,
     )
 
     return _assemble_analysis_output(
@@ -2370,6 +2421,7 @@ def _run_analysis(
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
     allow_risk_free_fallback: bool | None = None,
+    weight_engine_params: Mapping[str, Any] | None = None,
 ) -> AnalysisResult | None:
     """Backward-compatible wrapper returning raw payloads for tests."""
 
@@ -2406,6 +2458,7 @@ def _run_analysis(
         weight_policy=weight_policy,
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
+        weight_engine_params=weight_engine_params,
     )
     return result.unwrap()
 
@@ -2466,6 +2519,7 @@ def run_analysis(
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
     allow_risk_free_fallback: bool | None = None,
+    weight_engine_params: Mapping[str, Any] | None = None,
 ) -> PipelineResult:
     """Diagnostics-aware wrapper mirroring ``_run_analysis``."""
     if any(
@@ -2514,6 +2568,7 @@ def run_analysis(
         weight_policy=weight_policy,
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
+        weight_engine_params=weight_engine_params,
     )
 
 
@@ -2579,6 +2634,13 @@ def run(cfg: Config) -> pd.DataFrame:
     vol_adjust = _cfg_section(cfg, "vol_adjust")
     run_settings = _cfg_section(cfg, "run")
     portfolio_cfg = _cfg_section(cfg, "portfolio")
+    weighting_scheme = _section_get(portfolio_cfg, "weighting_scheme", "equal")
+    robustness_cfg = _section_get(portfolio_cfg, "robustness")
+    if not isinstance(robustness_cfg, Mapping):
+        robustness_cfg = _cfg_section(cfg, "robustness")
+    weight_engine_params = weight_engine_params_from_robustness(
+        weighting_scheme, robustness_cfg
+    )
     trend_spec = _build_trend_spec(cfg, vol_adjust)
     lambda_tc_val = _section_get(portfolio_cfg, "lambda_tc", 0.0)
     risk_free_column = _section_get(data_settings, "risk_free_column")
@@ -2602,6 +2664,7 @@ def run(cfg: Config) -> pd.DataFrame:
         indices_list=_section_get(portfolio_cfg, "indices_list"),
         benchmarks=_cfg_value(cfg, "benchmarks"),
         seed=_cfg_value(cfg, "seed", 42),
+        weighting_scheme=weighting_scheme,
         constraints=_section_get(portfolio_cfg, "constraints"),
         stats_cfg=stats_cfg,
         missing_policy=policy_spec,
@@ -2615,6 +2678,7 @@ def run(cfg: Config) -> pd.DataFrame:
         weight_policy=_section_get(portfolio_cfg, "weight_policy"),
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
+        weight_engine_params=weight_engine_params,
     )
     diag = diag_res.diagnostic
     if diag_res.value is None:
@@ -2697,6 +2761,13 @@ def run_full(cfg: Config) -> PipelineResult:
     vol_adjust = _cfg_section(cfg, "vol_adjust")
     run_settings = _cfg_section(cfg, "run")
     portfolio_cfg = _cfg_section(cfg, "portfolio")
+    weighting_scheme = _section_get(portfolio_cfg, "weighting_scheme", "equal")
+    robustness_cfg = _section_get(portfolio_cfg, "robustness")
+    if not isinstance(robustness_cfg, Mapping):
+        robustness_cfg = _cfg_section(cfg, "robustness")
+    weight_engine_params = weight_engine_params_from_robustness(
+        weighting_scheme, robustness_cfg
+    )
     risk_free_column = _section_get(data_settings, "risk_free_column")
     trend_spec = _build_trend_spec(cfg, vol_adjust)
     lambda_tc_val = _section_get(portfolio_cfg, "lambda_tc", 0.0)
@@ -2721,7 +2792,7 @@ def run_full(cfg: Config) -> PipelineResult:
         indices_list=_section_get(portfolio_cfg, "indices_list"),
         benchmarks=_cfg_value(cfg, "benchmarks"),
         seed=_cfg_value(cfg, "seed", 42),
-        weighting_scheme=_section_get(portfolio_cfg, "weighting_scheme", "equal"),
+        weighting_scheme=weighting_scheme,
         constraints=_section_get(portfolio_cfg, "constraints"),
         stats_cfg=stats_cfg,
         missing_policy=policy_spec,
@@ -2735,6 +2806,7 @@ def run_full(cfg: Config) -> PipelineResult:
         weight_policy=_section_get(portfolio_cfg, "weight_policy"),
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
+        weight_engine_params=weight_engine_params,
     )
     diag = diag_res.diagnostic
     if diag_res.value is None:
