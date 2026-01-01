@@ -21,7 +21,7 @@ import logging
 import os
 from collections.abc import Mapping as _MappingABC
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Mapping, Protocol, cast
+from typing import Any, Dict, Iterable, List, Mapping, Protocol, cast
 
 import numpy as np
 import pandas as pd
@@ -491,8 +491,18 @@ def run_schedule(
 
     for date in sorted(score_frames):
         sf = score_frames[date]
+        sf_for_selection = sf
+        if (
+            rebalancer is not None
+            and getattr(rebalancer, "high_z_hard", None) is not None
+        ):
+            if "zscore" in sf.columns:
+                z_entry_hard = float(getattr(rebalancer, "high_z_hard"))
+                z = pd.to_numeric(sf["zscore"], errors="coerce")
+                mask = z >= z_entry_hard - NUMERICAL_TOLERANCE_HIGH
+                sf_for_selection = sf.loc[mask]
         date_ts = pd.to_datetime(date)
-        selected, _ = selector.select(sf)
+        selected, _ = selector.select(sf_for_selection)
         target_weights = weighting.weight(selected, date_ts)
         signal_slice = sf[col] if col and col in sf.columns else None
         target_series = apply_weight_policy(
@@ -1360,6 +1370,17 @@ def run(
         if key not in th_cfg and key in portfolio_cfg:
             th_cfg[key] = portfolio_cfg[key]
 
+    def _parse_optional_float(value: Any) -> float | None:
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    z_entry_hard = _parse_optional_float(th_cfg.get("z_entry_hard"))
+    z_exit_hard = _parse_optional_float(th_cfg.get("z_exit_hard"))
+
     target_n = int(
         th_cfg.get(
             "target_n", portfolio_cfg.get("target_n", cfg.portfolio.get("random_n", 8))
@@ -1411,6 +1432,24 @@ def run(
     except (TypeError, ValueError):
         cooldown_periods = 0
     cooldown_periods = max(0, cooldown_periods)
+    sticky_add_raw = portfolio_cfg.get("sticky_add_x")
+    if sticky_add_raw is None:
+        sticky_add_raw = portfolio_cfg.get("sticky_add_periods")
+    if sticky_add_raw is None:
+        sticky_add_raw = th_cfg.get("sticky_add_x")
+    sticky_drop_raw = portfolio_cfg.get("sticky_drop_y")
+    if sticky_drop_raw is None:
+        sticky_drop_raw = portfolio_cfg.get("sticky_drop_periods")
+    if sticky_drop_raw is None:
+        sticky_drop_raw = th_cfg.get("sticky_drop_y")
+    try:
+        sticky_add_periods = max(1, int(sticky_add_raw or 1))
+    except (TypeError, ValueError):
+        sticky_add_periods = 1
+    try:
+        sticky_drop_periods = max(1, int(sticky_drop_raw or 1))
+    except (TypeError, ValueError):
+        sticky_drop_periods = 1
     min_w_bound = float(constraints.get("min_weight", 0.05))  # decimal
     max_w_bound = float(constraints.get("max_weight", 0.18))  # decimal
     # consecutive below-min to replace
@@ -1504,9 +1543,16 @@ def run(
     lambda_tc = float(cfg.portfolio.get("lambda_tc", 0.0) or 0.0)
     low_weight_strikes: dict[str, int] = {}
     cooldown_book: dict[str, int] = {}
+    add_streaks: dict[str, int] = {}
+    drop_streaks: dict[str, int] = {}
 
     def _firm(name: str) -> str:
         return str(name).split()[0] if isinstance(name, str) and name else str(name)
+
+    def _eligible_sticky_add(manager: str) -> bool:
+        if sticky_add_periods <= 1:
+            return True
+        return int(add_streaks.get(manager, 0)) >= sticky_add_periods
 
     def _dedupe_one_per_firm(
         sf: pd.DataFrame, holdings: list[str], metric: str
@@ -1539,9 +1585,35 @@ def run(
         holdings: list[str],
         metric: str,
         events: list[dict[str, object]],
+        protected: set[str] | None = None,
     ) -> list[str]:
         before = [str(h) for h in holdings]
-        after = _dedupe_one_per_firm(sf, before, metric)
+        if protected:
+            protected_set = {str(h) for h in protected}
+            protected_firms = {_firm(h) for h in protected_set}
+            col = metric if metric in sf.columns else "Sharpe"
+            ascending = col in ASCENDING_METRICS
+            tmp = sf.loc[
+                [h for h in before if h in sf.index],
+                [col, "zscore" if "zscore" in sf.columns else col],
+            ].copy()
+            if "zscore" not in tmp.columns:
+                tmp["zscore"] = 0.0
+            tmp["_firm"] = [_firm(ix) for ix in tmp.index]
+            tmp.sort_values([col, "zscore"], ascending=[ascending, False], inplace=True)
+            seen: set[str] = set()
+            after: list[str] = []
+            for fund in tmp.index:
+                firm = _firm(fund)
+                if fund in protected_set:
+                    after.append(fund)
+                    continue
+                if firm in seen or firm in protected_firms:
+                    continue
+                seen.add(firm)
+                after.append(fund)
+        else:
+            after = _dedupe_one_per_firm(sf, before, metric)
         removed = sorted(set(before) - set(after))
         for mgr in removed:
             events.append(
@@ -1554,6 +1626,38 @@ def run(
                 }
             )
         return after
+
+    def _filter_entry_frame(score_frame: pd.DataFrame) -> pd.DataFrame:
+        if z_entry_hard is None or "zscore" not in score_frame.columns:
+            return score_frame
+        z = pd.to_numeric(score_frame["zscore"], errors="coerce")
+        mask = z >= z_entry_hard - NUMERICAL_TOLERANCE_HIGH
+        return score_frame.loc[mask]
+
+    def _filter_entry_candidates(
+        candidates: list[str], score_frame: pd.DataFrame
+    ) -> list[str]:
+        if z_entry_hard is None or "zscore" not in score_frame.columns:
+            return candidates
+        if not candidates:
+            return candidates
+        z = pd.to_numeric(score_frame.loc[candidates, "zscore"], errors="coerce")
+        eligible = z[z >= z_entry_hard - NUMERICAL_TOLERANCE_HIGH].index
+        return [str(ix) for ix in eligible]
+
+    def _exit_protected(holdings: Iterable[str], score_frame: pd.DataFrame) -> set[str]:
+        if z_exit_hard is None or "zscore" not in score_frame.columns:
+            return set()
+        z = pd.to_numeric(score_frame["zscore"], errors="coerce")
+        protected: set[str] = set()
+        for mgr in holdings:
+            mgr_str = str(mgr)
+            if mgr_str not in z.index:
+                continue
+            val = z.get(mgr_str)
+            if pd.notna(val) and float(val) >= z_exit_hard - NUMERICAL_TOLERANCE_HIGH:
+                protected.add(mgr_str)
+        return protected
 
     def _apply_policy_to_weights(
         weights_obj: pd.DataFrame | pd.Series | Mapping[str, float],
@@ -1591,13 +1695,18 @@ def run(
             if str(c) not in holdings
             and str(c) not in excluded
             and str(c) not in in_cooldown
+            and _eligible_sticky_add(str(c))
         ]
+        candidates = _filter_entry_candidates(candidates, sf)
         if not candidates:
             candidates = [
                 str(c)
                 for c in sf.index
-                if str(c) not in holdings and str(c) not in in_cooldown
+                if str(c) not in holdings
+                and str(c) not in in_cooldown
+                and _eligible_sticky_add(str(c))
             ]
+            candidates = _filter_entry_candidates(candidates, sf)
         if not candidates:
             return holdings
         # In random mode, shuffle candidates randomly instead of ranking by zscore.
@@ -1800,7 +1909,8 @@ def run(
             # For random mode, do fresh random selection from available universe
             # rather than using the z-score based selector
             if is_random_mode:
-                available = list(sf.index)
+                eligible_sf = _filter_entry_frame(sf)
+                available = list(eligible_sf.index)
                 if not available:
                     # No funds available - skip to placeholder logic below
                     holdings = []
@@ -1834,7 +1944,8 @@ def run(
             elif is_buy_and_hold:
                 # Buy-and-hold mode: select initial holdings using configured method
                 # Holdings will be held until data disappears (fund ceases to exist)
-                available = list(sf.index)
+                eligible_sf = _filter_entry_frame(sf)
+                available = list(eligible_sf.index)
                 if not available:
                     holdings = []
                 elif buy_hold_initial == "random":
@@ -1866,6 +1977,7 @@ def run(
                 else:
                     # Rank-based initial selection (top_n, top_pct, threshold)
                     # Compute scores for ranking
+                    eligible_sf = _filter_entry_frame(sf)
                     if rank_score_by == "blended" and rank_blended_weights:
                         total_w = sum(rank_blended_weights.values())
                         if total_w > 0:
@@ -1874,10 +1986,10 @@ def run(
                             }
                         else:
                             norm_w = {"Sharpe": 1.0}
-                        combo = pd.Series(0.0, index=sf.index, dtype=float)
+                        combo = pd.Series(0.0, index=eligible_sf.index, dtype=float)
                         for m, w in norm_w.items():
-                            if m in sf.columns:
-                                col_series = sf[m].astype(float)
+                            if m in eligible_sf.columns:
+                                col_series = eligible_sf[m].astype(float)
                                 mu = float(col_series.mean())
                                 sigma = float(col_series.std(ddof=0))
                                 z = (
@@ -1891,9 +2003,11 @@ def run(
                         scores = combo
                     else:
                         score_col = (
-                            rank_score_by if rank_score_by in sf.columns else "Sharpe"
+                            rank_score_by
+                            if rank_score_by in eligible_sf.columns
+                            else "Sharpe"
                         )
-                        scores = sf[score_col].astype(float)
+                        scores = eligible_sf[score_col].astype(float)
 
                     # Apply zscore transform if threshold mode
                     if buy_hold_initial == "threshold":
@@ -1946,8 +2060,9 @@ def run(
                 # For top_n mode, use the selector to maintain backward compatibility
                 # For top_pct and threshold modes, compute directly from score frame
                 if inclusion_approach == "top_n":
+                    sf_for_selection = _filter_entry_frame(sf)
                     # Use selector for backward compatibility with tests
-                    selected, _ = selector.select(sf)
+                    selected, _ = selector.select(sf_for_selection)
                     # Historical behavior: weight() is invoked during seeding even though
                     # holdings may be refined by constraints afterwards. Some weighting
                     # engines (and unit tests) model state across calls.
@@ -2067,8 +2182,9 @@ def run(
 
                         return holdings
 
+                    sf_for_selection = _filter_entry_frame(sf)
                     holdings = _score_and_select_holdings(
-                        sf,
+                        sf_for_selection,
                         rank_score_by=rank_score_by,
                         rank_blended_weights=rank_blended_weights,
                         rank_transform=rank_transform,
@@ -2106,6 +2222,9 @@ def run(
                 # that percentage of the universe.
                 if len(holdings) < desired_seed and inclusion_approach != "top_pct":
                     candidates = [c for c in sf.index if c not in holdings]
+                    candidates = _filter_entry_candidates(
+                        [str(c) for c in candidates], sf
+                    )
                     add_from = (
                         sf.loc[candidates].sort_values("zscore", ascending=False).index
                     )
@@ -2128,6 +2247,9 @@ def run(
                     and resolved_rf_col in holdings
                 ):
                     candidates = [c for c in sf.index if c not in holdings]
+                    candidates = _filter_entry_candidates(
+                        [str(c) for c in candidates], sf
+                    )
                     add_from = (
                         sf.loc[candidates].sort_values("zscore", ascending=False).index
                         if candidates
@@ -2170,6 +2292,7 @@ def run(
             # IMPORTANT: cap holdings to the configured portfolio size so the
             # trigger logic cannot accumulate an unbounded number of positions.
             before_reb = set(prev_weights.index)
+            exit_protected = _exit_protected(before_reb, sf)
 
             # Buy-and-hold mode: keep existing holdings, only replace disappeared funds
             if is_buy_and_hold:
@@ -2206,6 +2329,7 @@ def run(
                     available = [
                         str(c) for c in sf.index if str(c) not in current_holdings
                     ]
+                    available = _filter_entry_candidates(available, sf)
                     seen_firms = {_firm(h) for h in current_holdings}
 
                     if buy_hold_initial == "random":
@@ -2333,6 +2457,16 @@ def run(
                 proposed_holdings = [
                     str(h) for h in list(rebased.index) if h in sf.index
                 ]
+                if z_entry_hard is not None:
+                    additions = [m for m in proposed_holdings if m not in before_reb]
+                    eligible_adds = set(_filter_entry_candidates(additions, sf))
+                    proposed_holdings = [
+                        m
+                        for m in proposed_holdings
+                        if m in before_reb or m in eligible_adds
+                    ]
+
+            raw_proposed_holdings = [str(h) for h in proposed_holdings]
 
             # Enforce cooldown: funds recently removed cannot be re-added.
             # Existing holdings are not blocked (cooldown only applies to re-entry).
@@ -2355,6 +2489,90 @@ def run(
                         continue
                     filtered.append(mgr)
                 proposed_holdings = filtered
+
+            if sticky_add_periods > 1 or sticky_drop_periods > 1:
+                before_list = [str(h) for h in before_reb]
+                before_set = set(before_list)
+                proposed_list = [str(h) for h in proposed_holdings]
+                raw_proposed_set = set(raw_proposed_holdings)
+                proposed_set = set(proposed_list)
+                sf_set = {str(h) for h in sf.index}
+                forced_drop = {h for h in before_set if h not in sf_set}
+
+                for mgr in list(add_streaks.keys()):
+                    if mgr not in sf_set:
+                        add_streaks.pop(mgr, None)
+                for mgr in list(drop_streaks.keys()):
+                    if mgr not in before_set:
+                        drop_streaks.pop(mgr, None)
+
+                for h in sf_set:
+                    if h in before_set:
+                        add_streaks[h] = 0
+                    elif h in raw_proposed_set:
+                        add_streaks[h] = int(add_streaks.get(h, 0)) + 1
+                    else:
+                        add_streaks[h] = 0
+
+                for h in before_set:
+                    if h in forced_drop:
+                        drop_streaks.pop(h, None)
+                        continue
+                    if h not in raw_proposed_set:
+                        drop_streaks[h] = int(drop_streaks.get(h, 0)) + 1
+                    else:
+                        drop_streaks[h] = 0
+
+                if sticky_add_periods > 1:
+                    blocked_adds: list[str] = []
+                    for h in sorted(proposed_set - before_set):
+                        if add_streaks.get(h, 0) < sticky_add_periods:
+                            proposed_set.discard(h)
+                            blocked_adds.append(h)
+                    for mgr in blocked_adds:
+                        events.append(
+                            {
+                                "action": "skipped",
+                                "manager": mgr,
+                                "firm": _firm(mgr),
+                                "reason": "sticky_add",
+                                "detail": (
+                                    f"streak={add_streaks.get(mgr, 0)}/"
+                                    f"{sticky_add_periods}"
+                                ),
+                            }
+                        )
+
+                if sticky_drop_periods > 1:
+                    blocked_drops: list[str] = []
+                    for h in sorted(before_set - proposed_set):
+                        if h in forced_drop:
+                            continue
+                        if drop_streaks.get(h, 0) < sticky_drop_periods:
+                            proposed_set.add(h)
+                            blocked_drops.append(h)
+                    for mgr in blocked_drops:
+                        events.append(
+                            {
+                                "action": "skipped",
+                                "manager": mgr,
+                                "firm": _firm(mgr),
+                                "reason": "sticky_drop",
+                                "detail": (
+                                    f"streak={drop_streaks.get(mgr, 0)}/"
+                                    f"{sticky_drop_periods}"
+                                ),
+                            }
+                        )
+
+                final_holdings: list[str] = []
+                for h in proposed_list:
+                    if h in proposed_set and h in sf_set and h not in final_holdings:
+                        final_holdings.append(h)
+                for h in before_list:
+                    if h in proposed_set and h in sf_set and h not in final_holdings:
+                        final_holdings.append(h)
+                proposed_holdings = final_holdings
 
             # Log attempted adds prior to firm/cap constraints. This preserves
             # the user's intent signal (e.g., a z_entry candidate) even if the
@@ -2390,7 +2608,7 @@ def run(
 
             # Enforce one-per-firm.
             proposed_holdings = _dedupe_one_per_firm_with_events(
-                sf, proposed_holdings, metric, events
+                sf, proposed_holdings, metric, events, protected=exit_protected
             )
 
             # If one-per-firm removed holdings, try to refill back to the
@@ -2409,7 +2627,9 @@ def run(
                     if str(c) not in proposed_holdings
                     and str(c) not in before_reb
                     and str(c) not in cooldown_book
+                    and _eligible_sticky_add(str(c))
                 ]
+                candidates = _filter_entry_candidates(candidates, sf)
                 if candidates:
                     if is_random_mode:
                         period_seed = abs(
@@ -2470,11 +2690,28 @@ def run(
                 # not happen), prune incumbents by weakest zscore.
                 # In random mode, prune randomly instead.
                 if len(kept_existing) > desired_size:
+                    protected_existing = [
+                        mgr for mgr in kept_existing if mgr in exit_protected
+                    ]
+                    unprotected_existing = [
+                        mgr for mgr in kept_existing if mgr not in exit_protected
+                    ]
                     if is_random_mode:
-                        kept_sorted = sorted(kept_existing, key=_random_key)
+                        unprotected_sorted = sorted(
+                            unprotected_existing, key=_random_key
+                        )
                     else:
-                        kept_sorted = sorted(kept_existing, key=_zscore, reverse=True)
-                    keep = kept_sorted[:desired_size]
+                        unprotected_sorted = sorted(
+                            unprotected_existing, key=_zscore, reverse=True
+                        )
+                    if protected_existing:
+                        slots = max(0, desired_size - len(protected_existing))
+                        if slots > 0:
+                            keep = protected_existing + unprotected_sorted[:slots]
+                        else:
+                            keep = protected_existing
+                    else:
+                        keep = unprotected_sorted[:desired_size]
                     pruned_existing = set(kept_existing) - set(keep)
                     kept_existing = keep
                     for mgr in sorted(pruned_existing):
@@ -2519,7 +2756,7 @@ def run(
                 proposed_holdings = kept_existing + admitted
 
             if len(proposed_holdings) == 0:  # guard: reseed if empty
-                selected, _ = selector.select(sf)
+                selected, _ = selector.select(_filter_entry_frame(sf))
                 proposed_holdings = list(selected.index)
                 proposed_holdings = _dedupe_one_per_firm_with_events(
                     sf, proposed_holdings, metric, events
@@ -2626,15 +2863,6 @@ def run(
 
             # Log drops/adds due to rebalancer z-triggers (post-cap holdings).
             z_exit_soft = float(th_cfg.get("z_exit_soft", -1.0))
-            z_exit_hard_raw = th_cfg.get("z_exit_hard")
-            z_exit_hard: float | None
-            if z_exit_hard_raw is None:
-                z_exit_hard = None
-            else:
-                try:
-                    z_exit_hard = float(z_exit_hard_raw)
-                except (TypeError, ValueError):
-                    z_exit_hard = None
             z_entry_soft = float(th_cfg.get("z_entry_soft", 1.0))
             dropped_reb = before_reb - after_reb
             for f in sorted(dropped_reb):
@@ -2649,13 +2877,8 @@ def run(
                     z = float(val) if pd.notna(val) else float("nan")
                 except Exception:
                     z = float("nan")
-                if pd.notna(z) and z_exit_hard is not None and z < z_exit_hard:
-                    reason = "z_exit_hard"
-                else:
-                    reason = (
-                        "z_exit" if (pd.notna(z) and z < z_exit_soft) else "rebalance"
-                    )
-                if reason in {"z_exit", "z_exit_hard"}:
+                reason = "z_exit" if (pd.notna(z) and z < z_exit_soft) else "rebalance"
+                if reason == "z_exit":
                     forced_exits.add(str(f))
                 events.append(
                     {
@@ -2716,9 +2939,13 @@ def run(
         # natural (pre-bounds) weight falls below min_weight, but only enforce
         # replacements starting from the second period (i.e., once a realised
         # prior allocation exists).
+        exit_protected_low_weight = _exit_protected(prev_weights.index, sf)
         to_remove: list[str] = []
         for f, wv in nat_w.items():
             f_str = str(f)
+            if f_str in exit_protected_low_weight:
+                low_weight_strikes[f_str] = 0
+                continue
             if float(wv) < min_w_bound:
                 low_weight_strikes[f_str] = int(low_weight_strikes.get(f_str, 0)) + 1
             else:
@@ -2754,7 +2981,11 @@ def run(
                 desired_after_low_weight = min(desired_after_low_weight, max_funds)
             need = max(0, desired_after_low_weight - len(holdings))
             if need > 0:
-                candidates = [c for c in sf.index if c not in holdings]
+                candidates = [
+                    c
+                    for c in sf.index
+                    if c not in holdings and _eligible_sticky_add(str(c))
+                ]
                 if cooldown_periods > 0 and cooldown_book:
                     candidates = [c for c in candidates if str(c) not in cooldown_book]
                 add_from = (
