@@ -45,6 +45,8 @@ def test_build_config_populates_threshold_hold_metric_and_capacity(monkeypatch):
         "mp_max_funds": 25,
         "mp_min_funds": 10,
         "cooldown_periods": 2,
+        "regime_enabled": True,
+        "regime_proxy": "ACWI",
     }
 
     payload = AnalysisPayload(returns=returns, model_state=model_state, benchmark=None)
@@ -69,3 +71,6 @@ def test_build_config_populates_threshold_hold_metric_and_capacity(monkeypatch):
     assert constraints.get("min_weight") == 0.03
 
     assert portfolio.get("cooldown_periods") == 2
+
+    assert cfg.regime.get("enabled") is True
+    assert cfg.regime.get("proxy") == "ACWI"

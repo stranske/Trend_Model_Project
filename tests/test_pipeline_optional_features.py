@@ -202,15 +202,7 @@ def test_regime_enabled_changes_selection_count() -> None:
         monthly_cost=0.0,
         selection_mode="rank",
         rank_kwargs=rank_kwargs,
-        regime_cfg={
-            "enabled": True,
-            "proxy": "SPX",
-            "lookback": 2,
-            "smoothing": 1,
-            "threshold": 0.0,
-            "neutral_band": 0.0,
-            "min_observations": 1,
-        },
+        regime_cfg={"enabled": True, "proxy": "SPX"},
         **RUN_KWARGS,
     )
     assert enabled is not None
@@ -236,15 +228,7 @@ def test_regime_proxy_changes_selection_count() -> None:
         monthly_cost=0.0,
         selection_mode="rank",
         rank_kwargs=rank_kwargs,
-        regime_cfg={
-            "enabled": True,
-            "proxy": "SPX",
-            "lookback": 2,
-            "smoothing": 1,
-            "threshold": 0.0,
-            "neutral_band": 0.0,
-            "min_observations": 1,
-        },
+        regime_cfg={"enabled": True, "proxy": "SPX"},
         **RUN_KWARGS,
     )
     acwi = pipeline._run_analysis(
@@ -257,15 +241,7 @@ def test_regime_proxy_changes_selection_count() -> None:
         monthly_cost=0.0,
         selection_mode="rank",
         rank_kwargs=rank_kwargs,
-        regime_cfg={
-            "enabled": True,
-            "proxy": "ACWI",
-            "lookback": 2,
-            "smoothing": 1,
-            "threshold": 0.0,
-            "neutral_band": 0.0,
-            "min_observations": 1,
-        },
+        regime_cfg={"enabled": True, "proxy": "ACWI"},
         **RUN_KWARGS,
     )
     assert spx is not None

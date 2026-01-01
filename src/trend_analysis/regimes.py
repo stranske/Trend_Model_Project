@@ -184,7 +184,11 @@ def _compute_regime_series(
         return pd.Series(dtype="string")
 
     window = max(int(settings.lookback), 1)
+    window = min(window, len(clean))
     smoothing = max(int(settings.smoothing), 1)
+    max_smoothing = max(len(clean) - window + 1, 1)
+    if smoothing > max_smoothing:
+        smoothing = max_smoothing
 
     periods = None
     if periods_per_year is not None and periods_per_year > 0:
