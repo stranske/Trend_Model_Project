@@ -18,22 +18,32 @@ from trend_analysis.util.joblib_shim import dump, load
 from .timing import log_timing
 
 
+def _safe_resolve(path: Path) -> Path:
+    try:
+        return path.expanduser().resolve()
+    except OSError:
+        return path.expanduser()
+
+
+def _get_home_dir() -> Path:
+    try:
+        return _safe_resolve(Path.home())
+    except Exception:
+        return _safe_resolve(Path(tempfile.gettempdir()))
+
+
 def _get_default_cache_dir() -> Path:
     env_path = os.getenv("TREND_ROLLING_CACHE")
+    home = _get_home_dir()
     if env_path:
-        # Expand user and resolve to absolute path
-        cache_path = Path(env_path).expanduser().resolve()
-        # Optionally, ensure cache_path is within the user's home directory
+        cache_path = _safe_resolve(Path(env_path))
         try:
-            home = Path.home().resolve()
-            if not str(cache_path).startswith(str(home)):
-                # Fallback to safe default if outside home
+            if not cache_path.is_relative_to(home):
                 cache_path = home / ".cache/trend_model/rolling"
-        except Exception:
-            cache_path = Path.home() / ".cache/trend_model/rolling"
+        except ValueError:
+            cache_path = home / ".cache/trend_model/rolling"
         return cache_path
-    else:
-        return Path.home() / ".cache/trend_model/rolling"
+    return home / ".cache/trend_model/rolling"
 
 
 _DEFAULT_CACHE_DIR = _get_default_cache_dir()
