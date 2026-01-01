@@ -149,7 +149,21 @@ def results_page(monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType, DummyStre
 
     module.session_state = stub.session_state
 
+    altair_stub = ModuleType("altair")
+
+    def _altair_noop(*_args, **_kwargs):
+        return altair_stub
+
+    altair_stub.Chart = _altair_noop
+    altair_stub.X = _altair_noop
+    altair_stub.Y = _altair_noop
+    altair_stub.Axis = _altair_noop
+    altair_stub.Tooltip = _altair_noop
+    altair_stub.Color = _altair_noop
+    altair_stub.Scale = _altair_noop
+
     monkeypatch.setitem(sys.modules, "streamlit", module)
+    monkeypatch.setitem(sys.modules, "altair", altair_stub)
 
     from streamlit_app import state as app_state
 
@@ -237,6 +251,79 @@ def test_results_page_recomputes_when_benchmark_changes(
     page.render_results_page()
 
     assert run_calls == ["BenchA", "BenchB"]
+
+
+def test_results_page_includes_regime_proxy_in_analysis_input(
+    monkeypatch: pytest.MonkeyPatch, results_page
+) -> None:
+    page, stub = results_page
+    returns = pd.DataFrame(
+        {
+            "FundA": [0.01, 0.02, 0.0],
+            "FundB": [0.03, -0.01, 0.01],
+            "SPX": [-0.02, -0.01, 0.015],
+            "RF": [0.001, 0.001, 0.001],
+        },
+        index=pd.date_range("2023-01-31", periods=3, freq="ME"),
+    )
+
+    stub.session_state.update(
+        {
+            "model_state": {
+                "trend_spec": {"window": 63, "lag": 1},
+                "metric_weights": {"sharpe": 1.0},
+                "regime_enabled": True,
+                "regime_proxy": "SPX",
+            },
+            "selected_benchmark": None,
+            "selected_risk_free": "RF",
+            "data_fingerprint": "abc123",
+            "returns_df": returns,
+            "schema_meta": {},
+            "upload_status": "success",
+            "analysis_fund_columns": ["FundA", "FundB"],
+            "fund_columns": list(returns.columns),
+        }
+    )
+
+    seen_columns: list[str] = []
+
+    def fake_run(
+        df: pd.DataFrame,
+        model_state: dict,
+        benchmark: str | None,
+        **_kwargs,
+    ):
+        seen_columns.extend(list(df.columns))
+        return SimpleNamespace(
+            metrics=pd.DataFrame({"Sharpe": [1.23]}),
+            details={
+                "portfolio_equal_weight_combined": df["FundA"],
+                "risk_diagnostics": {
+                    "turnover": pd.Series([0.1, 0.2], index=returns.index[:2]),
+                    "final_weights": pd.Series({"FundA": 0.6, "FundB": 0.4}),
+                },
+            },
+            fallback_info=None,
+        )
+
+    for chart in [
+        "equity_chart",
+        "drawdown_chart",
+        "rolling_sharpe_chart",
+        "turnover_chart",
+        "exposure_chart",
+    ]:
+        monkeypatch.setattr(
+            getattr(page, "charts"), chart, lambda *_args, chart_name=chart: chart_name
+        )
+
+    monkeypatch.setattr(page.analysis_runner, "run_analysis", fake_run)
+
+    page.render_results_page()
+
+    assert "SPX" in seen_columns
+    assert "RF" in seen_columns
 
 
 def test_results_page_reports_plain_language_error(

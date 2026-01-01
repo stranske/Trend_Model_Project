@@ -1372,14 +1372,38 @@ def _resolve_regime_label(
     preprocess: _PreprocessStage,
     window: _WindowStage,
     regime_cfg: Mapping[str, Any] | None,
+    benchmarks: Mapping[str, str] | None = None,
 ) -> tuple[str | None, Any]:
+    def _resolve_proxy_column(proxy_value: str) -> str | None:
+        columns = window.in_df.columns
+        if proxy_value in columns:
+            return proxy_value
+
+        proxy_lower = proxy_value.lower()
+        if benchmarks:
+            for key, value in benchmarks.items():
+                if proxy_lower == str(key).lower() and value in columns:
+                    return str(value)
+                if proxy_lower == str(value).lower() and value in columns:
+                    return str(value)
+
+        for col in columns:
+            if proxy_lower == str(col).lower():
+                return str(col)
+        return None
+
     settings = normalise_settings(regime_cfg)
     if not settings.enabled:
         return None, settings
     proxy = settings.proxy
-    if not proxy or proxy not in window.in_df.columns:
+    if not proxy:
         return None, settings
-    proxy_series = window.in_df[proxy].astype(float).dropna()
+
+    proxy_column = _resolve_proxy_column(proxy)
+    if not proxy_column:
+        return None, settings
+
+    proxy_series = window.in_df[proxy_column].astype(float).dropna()
     if proxy_series.empty:
         return None, settings
     labels = compute_regimes(
@@ -1425,6 +1449,7 @@ def _apply_regime_overrides(
         updated_random_n = max(1, int(round(random_n * multiplier)))
 
     updated_rank = dict(rank_kwargs or {})
+    inclusion_approach = str(updated_rank.get("inclusion_approach", "") or "").lower()
     if "n" in updated_rank and updated_rank.get("n") is not None:
         try:
             current_n = int(updated_rank["n"])
@@ -1432,6 +1457,26 @@ def _apply_regime_overrides(
             current_n = None
         if current_n is not None and current_n > 1:
             updated_rank["n"] = max(1, int(round(current_n * multiplier)))
+
+    if inclusion_approach == "top_pct" and updated_rank.get("pct") is not None:
+        try:
+            current_pct = float(updated_rank["pct"])
+        except (TypeError, ValueError):
+            current_pct = None
+        if current_pct is not None and current_pct > 0:
+            adjusted_pct = min(1.0, max(0.0, current_pct * multiplier))
+            updated_rank["pct"] = adjusted_pct
+
+    if inclusion_approach == "threshold" and updated_rank.get("threshold") is not None:
+        try:
+            current_threshold = float(updated_rank["threshold"])
+        except (TypeError, ValueError):
+            current_threshold = None
+        if current_threshold is not None:
+            if current_threshold > 0:
+                updated_rank["threshold"] = current_threshold / multiplier
+            elif current_threshold < 0:
+                updated_rank["threshold"] = current_threshold * multiplier
 
     return updated_random_n, updated_rank if updated_rank else rank_kwargs
 
@@ -2166,7 +2211,10 @@ def _run_analysis_with_diagnostics(
         return window_stage
 
     regime_label, regime_settings = _resolve_regime_label(
-        preprocess_stage, window_stage, regime_cfg
+        preprocess_stage,
+        window_stage,
+        regime_cfg,
+        benchmarks=benchmarks,
     )
     random_n, rank_kwargs = _apply_regime_overrides(
         random_n=random_n,
