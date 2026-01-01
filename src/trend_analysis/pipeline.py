@@ -36,7 +36,7 @@ from .metrics import (
 )
 from .perf.rolling_cache import compute_dataset_hash, get_cache  # noqa: F401
 from .portfolio import apply_weight_policy
-from .regimes import build_regime_payload
+from .regimes import build_regime_payload, compute_regimes, normalise_settings
 from .risk import (
     RiskDiagnostics,
     RiskWindow,
@@ -1344,6 +1344,62 @@ def _section_get(section: Any, key: str, default: Any = None) -> Any:
     return attr_value
 
 
+def _resolve_regime_label(
+    preprocess: _PreprocessStage,
+    window: _WindowStage,
+    regime_cfg: Mapping[str, Any] | None,
+) -> tuple[str | None, Any]:
+    settings = normalise_settings(regime_cfg)
+    if not settings.enabled:
+        return None, settings
+    proxy = settings.proxy
+    if not proxy or proxy not in window.in_df.columns:
+        return None, settings
+    proxy_series = window.in_df[proxy].astype(float).dropna()
+    if proxy_series.empty:
+        return None, settings
+    labels = compute_regimes(
+        proxy_series,
+        settings,
+        freq=preprocess.freq_summary.target,
+        periods_per_year=window.periods_per_year,
+    )
+    if labels.empty:
+        return None, settings
+    aligned = labels.reindex(window.in_df.index).ffill().bfill()
+    if aligned.empty:
+        return None, settings
+    return str(aligned.iloc[-1]), settings
+
+
+def _apply_regime_overrides(
+    *,
+    random_n: int,
+    rank_kwargs: Mapping[str, Any] | None,
+    regime_label: str | None,
+    settings: Any,
+) -> tuple[int, Mapping[str, Any] | None]:
+    if not regime_label:
+        return random_n, rank_kwargs
+    if regime_label != getattr(settings, "risk_off_label", "Risk-Off"):
+        return random_n, rank_kwargs
+
+    updated_random_n = random_n
+    if isinstance(random_n, int) and random_n > 1:
+        updated_random_n = max(1, int(round(random_n * 0.5)))
+
+    updated_rank = dict(rank_kwargs or {})
+    if "n" in updated_rank and updated_rank.get("n") is not None:
+        try:
+            current_n = int(updated_rank["n"])
+        except (TypeError, ValueError):
+            current_n = None
+        if current_n is not None and current_n > 1:
+            updated_rank["n"] = max(1, int(round(current_n * 0.5)))
+
+    return updated_random_n, updated_rank if updated_rank else rank_kwargs
+
+
 def _unwrap_cfg(cfg: Mapping[str, Any] | Any) -> Any:
     current = cfg
     visited: set[int] = set()
@@ -2032,6 +2088,16 @@ def _run_analysis_with_diagnostics(
     )
     if isinstance(window_stage, PipelineResult):
         return window_stage
+
+    regime_label, regime_settings = _resolve_regime_label(
+        preprocess_stage, window_stage, regime_cfg
+    )
+    random_n, rank_kwargs = _apply_regime_overrides(
+        random_n=random_n,
+        rank_kwargs=rank_kwargs,
+        regime_label=regime_label,
+        settings=regime_settings,
+    )
 
     selection_stage = _select_universe(
         preprocess_stage,

@@ -38,6 +38,22 @@ def _clean_returns_frame() -> pd.DataFrame:
     return frame
 
 
+def _regime_returns_frame() -> pd.DataFrame:
+    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
+    return pd.DataFrame(
+        {
+            "Date": dates,
+            "FundA": [0.02, 0.021, 0.019, 0.02, 0.021, 0.02],
+            "FundB": [0.015, 0.014, 0.016, 0.015, 0.014, 0.015],
+            "FundC": [0.025, 0.026, 0.024, 0.025, 0.026, 0.025],
+            "FundD": [0.01, 0.011, 0.009, 0.01, 0.011, 0.01],
+            "SPX": [-0.02, -0.03, -0.01, 0.02, 0.03, 0.01],
+            "ACWI": [0.03, 0.02, 0.01, 0.0, 0.01, 0.02],
+            "RF": [0.001] * 6,
+        }
+    )
+
+
 RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
 
 
@@ -152,6 +168,109 @@ def test_run_analysis_na_tolerant_filtering_drops_excessive_gaps() -> None:
     )
 
     assert result is None or "FundA" not in result.get("selected_funds", [])
+
+
+def test_regime_enabled_changes_selection_count() -> None:
+    df = _regime_returns_frame()
+    rank_kwargs = {
+        "inclusion_approach": "top_n",
+        "n": 3,
+        "score_by": "Sharpe",
+        "transform": "raw",
+    }
+    base = pipeline._run_analysis(
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        target_vol=1.0,
+        monthly_cost=0.0,
+        selection_mode="rank",
+        rank_kwargs=rank_kwargs,
+        regime_cfg={"enabled": False, "proxy": "SPX"},
+        **RUN_KWARGS,
+    )
+    assert base is not None
+    enabled = pipeline._run_analysis(
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        target_vol=1.0,
+        monthly_cost=0.0,
+        selection_mode="rank",
+        rank_kwargs=rank_kwargs,
+        regime_cfg={
+            "enabled": True,
+            "proxy": "SPX",
+            "lookback": 2,
+            "smoothing": 1,
+            "threshold": 0.0,
+            "neutral_band": 0.0,
+            "min_observations": 1,
+        },
+        **RUN_KWARGS,
+    )
+    assert enabled is not None
+    assert len(base["selected_funds"]) == 3
+    assert len(enabled["selected_funds"]) == 2
+
+
+def test_regime_proxy_changes_selection_count() -> None:
+    df = _regime_returns_frame()
+    rank_kwargs = {
+        "inclusion_approach": "top_n",
+        "n": 3,
+        "score_by": "Sharpe",
+        "transform": "raw",
+    }
+    spx = pipeline._run_analysis(
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        target_vol=1.0,
+        monthly_cost=0.0,
+        selection_mode="rank",
+        rank_kwargs=rank_kwargs,
+        regime_cfg={
+            "enabled": True,
+            "proxy": "SPX",
+            "lookback": 2,
+            "smoothing": 1,
+            "threshold": 0.0,
+            "neutral_band": 0.0,
+            "min_observations": 1,
+        },
+        **RUN_KWARGS,
+    )
+    acwi = pipeline._run_analysis(
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        target_vol=1.0,
+        monthly_cost=0.0,
+        selection_mode="rank",
+        rank_kwargs=rank_kwargs,
+        regime_cfg={
+            "enabled": True,
+            "proxy": "ACWI",
+            "lookback": 2,
+            "smoothing": 1,
+            "threshold": 0.0,
+            "neutral_band": 0.0,
+            "min_observations": 1,
+        },
+        **RUN_KWARGS,
+    )
+    assert spx is not None
+    assert acwi is not None
+    assert len(spx["selected_funds"]) != len(acwi["selected_funds"])
 
 
 def test_run_analysis_avg_corr_metrics_populate_stats() -> None:
