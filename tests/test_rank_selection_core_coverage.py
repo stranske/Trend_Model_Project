@@ -3,9 +3,9 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 import pytest
+from numpy._core import _methods
 
 import trend_analysis.core.rank_selection as rs
-from numpy._core import _methods
 
 
 @pytest.fixture(autouse=True)
@@ -303,7 +303,10 @@ def test_rank_select_funds_reports_empty_scores(monkeypatch):
 
     assert selected == []
     assert diagnostics is not None
-    assert diagnostics.reason == "No candidate scores available after filtering and transform"
+    assert (
+        diagnostics.reason
+        == "No candidate scores available after filtering and transform"
+    )
 
 
 def test_rank_select_funds_rejects_bad_inputs():
@@ -375,12 +378,8 @@ def test_build_ui_loads_helpers(monkeypatch):
         def build_ui():
             return "ui-ready"
 
-    monkeypatch.setattr(
-        rs.importlib.util, "find_spec", lambda _name: object()
-    )
-    monkeypatch.setattr(
-        rs.importlib, "import_module", lambda _name: DummyModule()
-    )
+    monkeypatch.setattr(rs.importlib.util, "find_spec", lambda _name: object())
+    monkeypatch.setattr(rs.importlib, "import_module", lambda _name: DummyModule())
 
     assert rs.build_ui() == "ui-ready"
 
@@ -550,7 +549,9 @@ def test_rank_select_inclusion_errors():
             bundle=bundle,
         )
 
-    with pytest.raises(ValueError, match="threshold approach requires parameter threshold"):
+    with pytest.raises(
+        ValueError, match="threshold approach requires parameter threshold"
+    ):
         rs.rank_select_funds(
             frame,
             cfg,
@@ -639,9 +640,7 @@ def test_compute_metric_series_with_cache_non_cov_metric(monkeypatch):
     frame = _simple_frame(["Alpha Fund", "BETA Growth"])
     cfg = rs.RiskStatsConfig()
     expected = pd.Series([0.1, 0.2], index=frame.columns)
-    monkeypatch.setattr(
-        rs, "_call_metric_series", lambda *_args, **_kwargs: expected
-    )
+    monkeypatch.setattr(rs, "_call_metric_series", lambda *_args, **_kwargs: expected)
 
     result = rs.compute_metric_series_with_cache(frame, "AnnualReturn", cfg)
     assert result.equals(expected)
@@ -696,9 +695,7 @@ def test_metrics_frame_returns_copy_when_populated():
         stats_cfg_hash=rs._stats_cfg_hash(cfg),
         universe=tuple(frame.columns),
         in_sample_df=frame,
-        _metrics=pd.DataFrame(
-            {"AnnualReturn": pd.Series([0.1], index=frame.columns)}
-        ),
+        _metrics=pd.DataFrame({"AnnualReturn": pd.Series([0.1], index=frame.columns)}),
     )
     metrics = bundle.metrics_frame()
     metrics.iloc[0, 0] = 9.9
@@ -720,7 +717,9 @@ def test_window_metric_bundle_populates_cov_payload(monkeypatch):
     )
     payload = SimpleNamespace(cov=np.array([[1.0, 0.0], [0.0, 1.0]]))
 
-    monkeypatch.setattr(rs, "_compute_covariance_payload", lambda *_args, **_kwargs: payload)
+    monkeypatch.setattr(
+        rs, "_compute_covariance_payload", lambda *_args, **_kwargs: payload
+    )
     avg_corr = bundle.ensure_metric("AvgCorr", cfg)
     assert avg_corr.to_dict() == {"Alpha Fund": 0.0, "BETA Growth": 0.0}
     assert bundle.cov_payload is payload
@@ -802,7 +801,11 @@ def test_rank_select_blended_path_with_bundle(monkeypatch):
         in_sample_df=frame,
         _metrics=pd.DataFrame(index=frame.columns, dtype=float),
     )
-    monkeypatch.setattr(rs, "blended_score", lambda *_args, **_kwargs: pd.Series([1.0, 0.5], index=frame.columns))
+    monkeypatch.setattr(
+        rs,
+        "blended_score",
+        lambda *_args, **_kwargs: pd.Series([1.0, 0.5], index=frame.columns),
+    )
 
     selection = rs.rank_select_funds(
         frame,
