@@ -57,11 +57,21 @@ def test_run_simulation_trend_window_changes_output() -> None:
     returns = _make_returns()
     config_short = _make_config(
         returns,
-        {"window": 20, "lag": 1, "zscore": False, "vol_adjust": False},
+        {
+            "trend_window": 20,
+            "trend_lag": 1,
+            "trend_zscore": False,
+            "trend_vol_adjust": False,
+        },
     )
     config_long = _make_config(
         returns,
-        {"window": 60, "lag": 1, "zscore": False, "vol_adjust": False},
+        {
+            "trend_window": 60,
+            "trend_lag": 1,
+            "trend_zscore": False,
+            "trend_vol_adjust": False,
+        },
     )
 
     short_result = api.run_simulation(config_short, returns)
@@ -77,11 +87,21 @@ def test_run_simulation_trend_zscore_changes_output() -> None:
     returns = _make_returns()
     config_base = _make_config(
         returns,
-        {"window": 20, "lag": 1, "zscore": False, "vol_adjust": False},
+        {
+            "trend_window": 20,
+            "trend_lag": 1,
+            "trend_zscore": False,
+            "trend_vol_adjust": False,
+        },
     )
     config_zscore = _make_config(
         returns,
-        {"window": 20, "lag": 1, "zscore": True, "vol_adjust": False},
+        {
+            "trend_window": 20,
+            "trend_lag": 1,
+            "trend_zscore": True,
+            "trend_vol_adjust": False,
+        },
     )
 
     base_result = api.run_simulation(config_base, returns)
