@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
+from trend_analysis.config import load_config
 from trend_analysis.multi_period.replacer import Rebalancer
 
 
@@ -121,6 +124,55 @@ def test_rebalancer_reads_hard_thresholds_from_portfolio_root() -> None:
     assert set(result.index) == {"A", "C"}
     assert "B" not in result
     assert "D" not in result
+
+
+def test_rebalancer_reads_hard_thresholds_from_loaded_config(
+    tmp_path: Path,
+) -> None:
+    """Config loading should preserve hard thresholds for selection logic."""
+
+    csv_file = tmp_path / "returns.csv"
+    csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+
+    cfg = load_config(
+        {
+            "version": "1",
+            "data": {
+                "csv_path": str(csv_file),
+                "date_column": "Date",
+                "frequency": "M",
+            },
+            "preprocessing": {},
+            "sample_split": {},
+            "metrics": {},
+            "export": {},
+            "run": {},
+            "portfolio": {
+                "rebalance_calendar": "NYSE",
+                "max_turnover": 0.5,
+                "transaction_cost_bps": 10,
+                "threshold_hold": {
+                    "z_exit_soft": -0.2,
+                    "soft_strikes": 1,
+                    "z_exit_hard": -0.5,
+                    "z_entry_hard": 1.5,
+                    "z_entry_soft": 0.5,
+                    "entry_soft_strikes": 1,
+                    "entry_eligible_strikes": 1,
+                },
+                "constraints": {"max_funds": 3},
+            },
+            "vol_adjust": {"target_vol": 0.1},
+        }
+    )
+
+    reb = Rebalancer(cfg.model_dump())
+    prev = _series({"A": 0.5, "B": 0.5})
+    frame = pd.DataFrame({"zscore": {"A": -0.4, "B": 0.1, "C": 1.0, "D": 1.6}})
+
+    result = reb.apply_triggers(prev, frame)
+    assert set(result.index) == {"A", "B", "D"}
+    assert "C" not in result
 
 
 def test_rebalancer_adds_eligible_after_multiple_periods() -> None:

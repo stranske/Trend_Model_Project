@@ -63,7 +63,8 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
         constraints = (
             portfolio.get("constraints", {}) if isinstance(portfolio, dict) else {}
         )
-        mp_cfg = self.cfg.get("multi_period", {}) if isinstance(self.cfg, dict) else {}
+        mp_cfg = self.cfg.get("multi_period") if isinstance(self.cfg, dict) else None
+        mp_cfg = mp_cfg or {}
         self.max_funds = int(constraints.get("max_funds", mp_cfg.get("max_funds", 10)))
         # Weighting behaviour for survivors during run_schedule
         th_name = (
