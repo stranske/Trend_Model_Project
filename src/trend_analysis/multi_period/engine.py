@@ -39,7 +39,6 @@ from ..pipeline import (
     _resolve_risk_free_column,
     _resolve_target_vol,
 )
-from ..weights.robust_config import weight_engine_params_from_robustness
 from ..portfolio import apply_weight_policy
 from ..rebalancing import apply_rebalancing_strategies
 from ..schedules import get_rebalance_dates
@@ -58,6 +57,7 @@ from ..weighting import (
     EqualWeight,
     ScorePropBayesian,
 )
+from ..weights.robust_config import weight_engine_params_from_robustness
 from .loaders import load_benchmarks, load_membership, load_prices
 from .replacer import Rebalancer
 from .scheduler import generate_periods
