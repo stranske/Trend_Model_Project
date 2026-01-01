@@ -2933,7 +2933,7 @@ def run(
             pt.in_end[:7],
             pt.out_start[:7],
             pt.out_end[:7],
-            cfg.vol_adjust.get("target_vol", 1.0),
+            _resolve_target_vol(getattr(cfg, "vol_adjust", {})),
             getattr(cfg, "run", {}).get("monthly_cost", 0.0),
             floor_vol=cfg.vol_adjust.get("floor_vol"),
             warmup_periods=int(cfg.vol_adjust.get("warmup_periods", 0) or 0),
