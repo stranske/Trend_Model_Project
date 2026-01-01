@@ -1557,6 +1557,7 @@ def _build_trend_spec(
         if value is None and alias:
             value = _section_get(signals_cfg, alias, None)
         return default if value is None else value
+
     kind = str(_section_get(signals_cfg, "kind", "tsmom") or "tsmom").lower()
     if kind != "tsmom":  # pragma: no cover - future extension guard
         raise ValueError(f"Unsupported trend signal kind: {kind}")
