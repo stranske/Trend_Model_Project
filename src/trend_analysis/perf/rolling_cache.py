@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import tempfile
 from pathlib import Path
 from time import perf_counter
 from typing import Callable, Sequence
@@ -74,8 +75,23 @@ class RollingCache:
 
     def __init__(self, cache_dir: Path | None = None) -> None:
         self.cache_dir = (cache_dir or _DEFAULT_CACHE_DIR).expanduser()
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
         self._enabled = True
+        self.cache_dir = self._ensure_cache_dir(self.cache_dir)
+
+    def _ensure_cache_dir(self, cache_dir: Path) -> Path:
+        try:
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            return cache_dir
+        except (OSError, PermissionError):
+            fallback = (
+                Path(tempfile.gettempdir()) / "trend_model" / "rolling"
+            ).resolve()
+            try:
+                fallback.mkdir(parents=True, exist_ok=True)
+                return fallback
+            except (OSError, PermissionError):
+                self._enabled = False
+                return cache_dir
 
     def set_enabled(self, enabled: bool) -> None:
         self._enabled = bool(enabled)
