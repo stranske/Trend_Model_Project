@@ -249,6 +249,56 @@ def test_regime_proxy_changes_selection_count() -> None:
     assert len(spx["selected_funds"]) != len(acwi["selected_funds"])
 
 
+def test_regime_proxy_resolves_benchmark_alias() -> None:
+    df = _regime_returns_frame()
+    rank_kwargs = {
+        "inclusion_approach": "top_n",
+        "n": 3,
+        "score_by": "Sharpe",
+        "transform": "raw",
+    }
+    baseline = pipeline._run_analysis(
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        target_vol=1.0,
+        monthly_cost=0.0,
+        selection_mode="rank",
+        rank_kwargs=rank_kwargs,
+        benchmarks={"spx": "SPX"},
+        regime_cfg={"enabled": False, "proxy": "spx"},
+        **RUN_KWARGS,
+    )
+    enabled = pipeline._run_analysis(
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        target_vol=1.0,
+        monthly_cost=0.0,
+        selection_mode="rank",
+        rank_kwargs=rank_kwargs,
+        benchmarks={"spx": "SPX"},
+        regime_cfg={
+            "enabled": True,
+            "proxy": "spx",
+            "lookback": 1,
+            "smoothing": 1,
+            "threshold": 0.0,
+            "neutral_band": 0.0,
+            "min_observations": 1,
+        },
+        **RUN_KWARGS,
+    )
+    assert baseline is not None
+    assert enabled is not None
+    assert len(baseline["selected_funds"]) == 3
+    assert len(enabled["selected_funds"]) == 2
+
+
 def test_regime_enabled_scales_top_pct_selection_count() -> None:
     df = _regime_returns_frame()
     rank_kwargs = {

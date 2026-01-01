@@ -1372,14 +1372,38 @@ def _resolve_regime_label(
     preprocess: _PreprocessStage,
     window: _WindowStage,
     regime_cfg: Mapping[str, Any] | None,
+    benchmarks: Mapping[str, str] | None = None,
 ) -> tuple[str | None, Any]:
+    def _resolve_proxy_column(proxy_value: str) -> str | None:
+        columns = window.in_df.columns
+        if proxy_value in columns:
+            return proxy_value
+
+        proxy_lower = proxy_value.lower()
+        if benchmarks:
+            for key, value in benchmarks.items():
+                if proxy_lower == str(key).lower() and value in columns:
+                    return str(value)
+                if proxy_lower == str(value).lower() and value in columns:
+                    return str(value)
+
+        for col in columns:
+            if proxy_lower == str(col).lower():
+                return str(col)
+        return None
+
     settings = normalise_settings(regime_cfg)
     if not settings.enabled:
         return None, settings
     proxy = settings.proxy
-    if not proxy or proxy not in window.in_df.columns:
+    if not proxy:
         return None, settings
-    proxy_series = window.in_df[proxy].astype(float).dropna()
+
+    proxy_column = _resolve_proxy_column(proxy)
+    if not proxy_column:
+        return None, settings
+
+    proxy_series = window.in_df[proxy_column].astype(float).dropna()
     if proxy_series.empty:
         return None, settings
     labels = compute_regimes(
@@ -2187,7 +2211,10 @@ def _run_analysis_with_diagnostics(
         return window_stage
 
     regime_label, regime_settings = _resolve_regime_label(
-        preprocess_stage, window_stage, regime_cfg
+        preprocess_stage,
+        window_stage,
+        regime_cfg,
+        benchmarks=benchmarks,
     )
     random_n, rank_kwargs = _apply_regime_overrides(
         random_n=random_n,
