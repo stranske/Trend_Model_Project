@@ -35,6 +35,7 @@ from ..data import load_csv
 from ..diagnostics import PipelineResult
 from ..pipeline import (
     _build_trend_spec,
+    _compute_stats,
     _invoke_analysis_with_diag,
     _resolve_risk_free_column,
     _resolve_target_vol,
@@ -3405,6 +3406,7 @@ def run(
             rebalance_freq = str(cfg.portfolio.get("rebalance_freq", "") or "").strip()
         except Exception:  # pragma: no cover - defensive
             rebalance_freq = ""
+        rebalance_frame: pd.DataFrame | None = None
         if rebalance_freq and isinstance(out_df, pd.DataFrame) and not out_df.empty:
             try:
                 schedule = get_rebalance_dates(out_df.index, rebalance_freq)
@@ -3496,6 +3498,46 @@ def run(
                     res_dict["rebalance_weights"] = rebalance_frame
             except Exception:  # pragma: no cover - best-effort only
                 pass
+
+        if rebalance_frame is not None and not rebalance_frame.empty:
+            out_scaled = res_dict.get("out_sample_scaled")
+            if isinstance(out_scaled, pd.DataFrame) and not out_scaled.empty:
+                weights_by_date = (
+                    rebalance_frame.reindex(out_scaled.index).ffill().fillna(0.0)
+                )
+                weights_by_date = weights_by_date.reindex(
+                    columns=out_scaled.columns, fill_value=0.0
+                )
+                rebalance_returns = (out_scaled * weights_by_date).sum(axis=1)
+                res_dict["portfolio_user_weight"] = rebalance_returns
+                res_dict["weights_user_weight"] = rebalance_frame
+
+                if rf_override_enabled:
+                    rf_out = pd.Series(
+                        float(rf_rate_periodic), index=out_scaled.index
+                    )
+                elif resolved_rf_col and resolved_rf_col in out_df.columns:
+                    rf_out = out_df[resolved_rf_col].reindex(out_scaled.index)
+                else:
+                    rf_out = pd.Series(0.0, index=out_scaled.index)
+
+                res_dict["out_user_stats"] = _compute_stats(
+                    pd.DataFrame({"user": rebalance_returns}), rf_out
+                )["user"]
+
+                out_raw = out_df.reindex(columns=out_scaled.columns)
+                if isinstance(out_raw, pd.DataFrame) and not out_raw.empty:
+                    weights_raw = (
+                        rebalance_frame.reindex(out_raw.index).ffill().fillna(0.0)
+                    )
+                    weights_raw = weights_raw.reindex(
+                        columns=out_raw.columns, fill_value=0.0
+                    )
+                    rebalance_raw = (out_raw * weights_raw).sum(axis=1)
+                    res_dict["portfolio_user_weight_raw"] = rebalance_raw
+                    res_dict["out_user_stats_raw"] = _compute_stats(
+                        pd.DataFrame({"user": rebalance_raw}), rf_out
+                    )["user"]
 
         res_dict["selected_funds"] = realised_holdings
         res_dict["period"] = (

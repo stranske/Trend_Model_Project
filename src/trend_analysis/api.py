@@ -297,6 +297,11 @@ def _build_multi_period_portfolio(
     out_series_list: list[pd.Series] = []
 
     for res in period_results:
+        user_series = res.get("portfolio_user_weight")
+        if isinstance(user_series, pd.Series) and not user_series.empty:
+            out_series_list.append(user_series.astype(float))
+            continue
+
         out_df = res.get("out_sample_scaled")
         # Use actual fund weights (user weights) instead of equal weights
         # fund_weights contains the weights actually applied during the simulation
