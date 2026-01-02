@@ -137,8 +137,7 @@ def _try_correct_date(value: str) -> tuple[str, str] | None:
             corrected = formatter(year, month, last_day)
             month_name = calendar.month_name[month]
             explanation = (
-                f"{month_name} {year} has {last_day} days; "
-                f"corrected {day} → {last_day}"
+                f"{month_name} {year} has {last_day} days; corrected {day} → {last_day}"
             )
             return corrected, explanation
 

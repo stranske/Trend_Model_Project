@@ -481,9 +481,7 @@ def extract_key_metrics(result: Any) -> dict[str, Any]:
         metrics["_result_hash"] = "error"
     except Exception as e:
         # Log any other unexpected error without breaking callers
-        print(
-            "Unexpected error computing _result_hash in extract_key_metrics: " f"{e!r}"
-        )
+        print(f"Unexpected error computing _result_hash in extract_key_metrics: {e!r}")
         metrics["_result_hash"] = "error"
 
     return metrics
@@ -834,7 +832,7 @@ def render_validation_page() -> None:
             total = len(TESTABLE_SETTINGS)
 
             for i, setting in enumerate(TESTABLE_SETTINGS):
-                status_text.text(f"[{i+1}/{total}] Testing: {setting.label}...")
+                status_text.text(f"[{i + 1}/{total}] Testing: {setting.label}...")
 
                 # Run baseline
                 baseline_state = get_baseline_state()

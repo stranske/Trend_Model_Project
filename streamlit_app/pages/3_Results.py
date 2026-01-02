@@ -1056,7 +1056,7 @@ def _render_single_period(period_data: dict[str, Any]) -> None:
             eps = 1e-12
             w_df = pd.DataFrame(
                 [
-                    {"Fund": k, "Weight": f"{v*100:.1f}%"}
+                    {"Fund": k, "Weight": f"{v * 100:.1f}%"}
                     for k, v in sorted(weights.items(), key=lambda x: -x[1])
                     if float(v or 0.0) > eps
                 ]

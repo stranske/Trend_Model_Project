@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pandas as pd
+import pytest
+
 from scripts import evaluate_settings_effectiveness as effectiveness
 
 
@@ -44,3 +47,17 @@ def test_extract_settings_from_model_page_includes_ui_settings() -> None:
         "transaction_cost_bps",
     }
     assert expected_keys <= keys
+
+
+def test_weight_stats_and_total_return() -> None:
+    weights_a = pd.Series({"A": 0.5, "B": 0.5})
+    weights_b = pd.Series({"A": 0.4, "C": 0.6})
+
+    stats = effectiveness._weight_stats(weights_a, weights_b)
+
+    assert stats["l1"] == pytest.approx(1.2)
+    assert stats["max_abs"] == pytest.approx(0.6)
+    assert stats["active_change_count"] == 3.0
+
+    returns = pd.Series([0.1, -0.05])
+    assert effectiveness._total_return(returns) == pytest.approx(0.045)
