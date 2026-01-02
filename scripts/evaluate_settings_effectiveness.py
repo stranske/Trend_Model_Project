@@ -52,25 +52,79 @@ def _pick_date(returns: pd.DataFrame, ratio: float) -> str:
     return pd.Timestamp(index[pos]).strftime("%Y-%m-%d")
 
 
-MODE_CONTEXT_OVERRIDES: dict[str, dict[str, Any]] = {
-    "buy_hold_initial": {"inclusion_approach": "buy_and_hold"},
-    "rank_pct": {"inclusion_approach": "top_pct"},
-    "rf_rate_annual": {"rf_override_enabled": True},
-    "info_ratio_benchmark": {"metric_weights": {"info_ratio": 1.0}},
-    "min_weight": {"weighting_scheme": "risk_parity"},
-    "shrinkage_enabled": {"weighting_scheme": "robust_mv"},
-    "shrinkage_method": {"weighting_scheme": "robust_mv"},
-    "sticky_add_periods": {"multi_period_enabled": True},
-    "sticky_drop_periods": {"multi_period_enabled": True},
-    "z_entry_soft": {"multi_period_enabled": True},
-    "z_exit_soft": {"multi_period_enabled": True},
-    "soft_strikes": {"multi_period_enabled": True},
-    "entry_soft_strikes": {"multi_period_enabled": True},
-    "min_weight_strikes": {"multi_period_enabled": True},
-    "z_entry_hard": {"multi_period_enabled": True},
-    "z_exit_hard": {"multi_period_enabled": True},
-    "mp_min_funds": {"multi_period_enabled": True},
-    "mp_max_funds": {"multi_period_enabled": True},
+MODE_CONTEXT_RULES: dict[str, dict[str, Any]] = {
+    "buy_hold_initial": {
+        "overrides": {"inclusion_approach": "buy_and_hold"},
+        "reason": "Only active when inclusion_approach=buy_and_hold.",
+    },
+    "rank_pct": {
+        "overrides": {"inclusion_approach": "top_pct"},
+        "reason": "Only active when inclusion_approach=top_pct.",
+    },
+    "rf_rate_annual": {
+        "overrides": {"rf_override_enabled": True},
+        "reason": "Only active when rf_override_enabled=true.",
+    },
+    "info_ratio_benchmark": {
+        "overrides": {"metric_weights": {"info_ratio": 1.0}},
+        "reason": "Only active when info_ratio is weighted.",
+    },
+    "min_weight": {
+        "overrides": {"weighting_scheme": "risk_parity"},
+        "reason": "Only active with non-equal risk-based weighting.",
+    },
+    "shrinkage_enabled": {
+        "overrides": {"weighting_scheme": "robust_mv"},
+        "reason": "Only active with robust mean-variance weighting.",
+    },
+    "shrinkage_method": {
+        "overrides": {"weighting_scheme": "robust_mv"},
+        "reason": "Only active with robust mean-variance weighting.",
+    },
+    "sticky_add_periods": {
+        "overrides": {"multi_period_enabled": True},
+        "reason": "Only active when multi_period_enabled=true.",
+    },
+    "sticky_drop_periods": {
+        "overrides": {"multi_period_enabled": True},
+        "reason": "Only active when multi_period_enabled=true.",
+    },
+    "z_entry_soft": {
+        "overrides": {"multi_period_enabled": True},
+        "reason": "Only active when multi_period_enabled=true.",
+    },
+    "z_exit_soft": {
+        "overrides": {"multi_period_enabled": True},
+        "reason": "Only active when multi_period_enabled=true.",
+    },
+    "soft_strikes": {
+        "overrides": {"multi_period_enabled": True},
+        "reason": "Only active when multi_period_enabled=true.",
+    },
+    "entry_soft_strikes": {
+        "overrides": {"multi_period_enabled": True},
+        "reason": "Only active when multi_period_enabled=true.",
+    },
+    "min_weight_strikes": {
+        "overrides": {"multi_period_enabled": True},
+        "reason": "Only active when multi_period_enabled=true.",
+    },
+    "z_entry_hard": {
+        "overrides": {"multi_period_enabled": True},
+        "reason": "Only active when multi_period_enabled=true.",
+    },
+    "z_exit_hard": {
+        "overrides": {"multi_period_enabled": True},
+        "reason": "Only active when multi_period_enabled=true.",
+    },
+    "mp_min_funds": {
+        "overrides": {"multi_period_enabled": True},
+        "reason": "Only active when multi_period_enabled=true.",
+    },
+    "mp_max_funds": {
+        "overrides": {"multi_period_enabled": True},
+        "reason": "Only active when multi_period_enabled=true.",
+    },
 }
 
 DEFAULT_OVERRIDES: dict[str, Any] = {
@@ -407,15 +461,27 @@ def _generate_variant(setting: str, baseline: Any, returns: pd.DataFrame) -> Any
 
 def _apply_context_overrides(
     setting: str, base_state: dict[str, Any], test_state: dict[str, Any]
-) -> None:
-    overrides = MODE_CONTEXT_OVERRIDES.get(setting, {})
+) -> dict[str, Any]:
+    rule = MODE_CONTEXT_RULES.get(setting)
+    if not rule:
+        return {}
+    overrides = rule["overrides"]
+    applied: dict[str, Any] = {}
     for key, value in overrides.items():
         if key == "metric_weights" and isinstance(value, dict):
-            base_state.setdefault("metric_weights", {}).update(value)
-            test_state.setdefault("metric_weights", {}).update(value)
+            base_state.setdefault("metric_weights", {})
+            test_state.setdefault("metric_weights", {})
+            for metric, metric_value in value.items():
+                if base_state["metric_weights"].get(metric) != metric_value:
+                    applied.setdefault("metric_weights", {})[metric] = metric_value
+                base_state["metric_weights"][metric] = metric_value
+                test_state["metric_weights"][metric] = metric_value
         else:
+            if base_state.get(key) != value:
+                applied[key] = value
             base_state[key] = value
             test_state[key] = value
+    return applied
 
 
 def _apply_date_mode_overrides(
@@ -444,7 +510,8 @@ def evaluate_setting(
     base_state = copy.deepcopy(baseline_state)
     test_state = copy.deepcopy(baseline_state)
 
-    _apply_context_overrides(name, base_state, test_state)
+    context_overrides = _apply_context_overrides(name, base_state, test_state)
+    context_rule = MODE_CONTEXT_RULES.get(name, {})
     _apply_date_mode_overrides(name, base_state, test_state, returns)
 
     baseline_value = base_state.get(name)
@@ -547,7 +614,10 @@ def evaluate_setting(
         if p_value is not None and p_value < 0.05:
             effect_detected = True
 
-        status = "EFFECTIVE" if effect_detected else "NO_EFFECT"
+        if effect_detected:
+            status = "MODE_SPECIFIC" if context_overrides else "EFFECTIVE"
+        else:
+            status = "NO_EFFECT"
 
         return SettingEvaluation(
             name=name,
@@ -564,6 +634,8 @@ def evaluate_setting(
             details={
                 "baseline_turnover": baseline_turnover,
                 "test_turnover": test_turnover,
+                "context_overrides": context_overrides,
+                "context_reason": context_rule.get("reason", ""),
             },
         )
 
@@ -616,6 +688,10 @@ def save_results(
             "test_value": json.dumps(result.test_value),
             "status": result.status,
             "error": result.error or "",
+            "context_overrides": json.dumps(
+                result.details.get("context_overrides", {})
+            ),
+            "context_reason": result.details.get("context_reason", ""),
         }
         row.update({f"diff_{k}": v for k, v in result.diff_metrics.items()})
         row.update(
