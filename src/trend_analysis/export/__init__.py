@@ -1449,7 +1449,11 @@ def combined_summary_result(
         ew_in_series.append(calc_portfolio_returns(np.array(ew_w), in_df))
         ew_out_series.append(calc_portfolio_returns(np.array(ew_w), out_df))
         user_in_series.append(calc_portfolio_returns(np.array(user_w), in_df))
-        user_out_series.append(calc_portfolio_returns(np.array(user_w), out_df))
+        user_out = res.get("portfolio_user_weight")
+        if isinstance(user_out, pd.Series) and not user_out.empty:
+            user_out_series.append(user_out.astype(float))
+        else:
+            user_out_series.append(calc_portfolio_returns(np.array(user_w), out_df))
         for c in in_df.columns:
             fund_in[c].append(in_df[c])
             weight_sum[c] += fund_map.get(c, 0.0)

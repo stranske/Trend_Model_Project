@@ -13,6 +13,7 @@ def _write_cfg(
     *,
     csv_path: Path,
     extra: dict[str, object] | None = None,
+    portfolio_extra: dict[str, object] | None = None,
 ) -> None:
     try:
         csv_value = str(csv_path.relative_to(path.parent))
@@ -42,6 +43,8 @@ def _write_cfg(
 
     if extra:
         payload.update(extra)
+    if portfolio_extra:
+        payload["portfolio"].update(portfolio_extra)
 
     path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
 
@@ -63,6 +66,19 @@ def test_load_custom(tmp_path: Path) -> None:
     _write_cfg(cfg_path, "99", csv_path=csv_path)
     cfg = config.load(str(cfg_path))
     assert cfg.version == "99"
+
+
+def test_load_preserves_rebalance_freq(tmp_path: Path) -> None:
+    cfg_path = tmp_path / "rebalance.yml"
+    csv_path = _make_csv(tmp_path / "data.csv")
+    _write_cfg(
+        cfg_path,
+        "1",
+        csv_path=csv_path,
+        portfolio_extra={"rebalance_freq": "Q"},
+    )
+    cfg = config.load(str(cfg_path))
+    assert cfg.portfolio["rebalance_freq"] == "Q"
 
 
 def test_env_var_override(tmp_path: Path, monkeypatch) -> None:

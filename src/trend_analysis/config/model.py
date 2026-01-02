@@ -346,6 +346,7 @@ class PortfolioSettings(BaseModel):
     """Portfolio controls validated before running analyses."""
 
     rebalance_calendar: str
+    rebalance_freq: str | None = Field(default=None)
     max_turnover: float
     transaction_cost_bps: float
     lambda_tc: float = Field(default=0.0)
@@ -367,6 +368,16 @@ class PortfolioSettings(BaseModel):
                 "portfolio.rebalance_calendar must name a valid trading calendar (e.g. 'NYSE')."
             )
         return value
+
+    @field_validator("rebalance_freq", mode="before")
+    @classmethod
+    def _validate_rebalance_freq(cls, value: Any) -> str | None:
+        if value in (None, "", "null", "none"):
+            return None
+        if not isinstance(value, str):
+            raise ValueError("portfolio.rebalance_freq must be a string")
+        cleaned = value.strip()
+        return cleaned if cleaned else None
 
     @field_validator("max_turnover", mode="before")
     @classmethod
