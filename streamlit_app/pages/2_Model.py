@@ -361,8 +361,10 @@ HELP_TEXT = {
     "safe_mode": "Fallback weighting method when matrix is ill-conditioned.",
     # Phase 15: Constraints
     "long_only": (
-        "Enforce long-only positions (no short selling). Most built-in schemes are "
-        "already non-negative; this matters when custom/manual weights include shorts."
+        "Enforce long-only positions (no short selling). Built-in schemes (equal, "
+        "score-prop, risk parity, HRP, ERC, robust_* defaults) are already non-negative; "
+        "this matters when custom/manual weights or plugin engines allow shorts "
+        "(e.g., robust MV with negative min_weight)."
     ),
 }
 

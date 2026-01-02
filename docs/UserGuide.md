@@ -357,7 +357,8 @@ Supported keys (YAML under `portfolio.constraints`):
 
 Built-in weighting schemes (`equal`, `risk_parity`/`vol_inverse`, `hrp`, `erc`, and the
 `robust_*` engines) emit non-negative weights by design; negative allocations only
-appear when using `custom_weights` or custom plugin engines that allow shorts.
+appear when using `custom_weights` or plugin engines configured for shorts (for
+example, a mean-variance engine with `min_weight < 0`).
 
 Example snippet:
 
