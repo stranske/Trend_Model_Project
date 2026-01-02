@@ -1,0 +1,138 @@
+name: Settings Effectiveness Evaluation
+
+on:
+  schedule:
+    # Run weekly on Sundays at 2:00 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      threshold:
+        description: 'Effectiveness threshold (0-100)'
+        required: false
+        default: '80'
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Generate demo data if needed
+        run: |
+          if [ ! -f demo/demo_returns.csv ]; then
+            python scripts/generate_demo.py
+          fi
+
+      - name: Run settings effectiveness evaluation
+        id: evaluate
+        run: |
+          python scripts/test_settings_wiring.py \
+            --output reports/settings_validation.csv \
+            --coverage-report reports/coverage.json
+          
+          # Extract effectiveness rate from JSON
+          RATE=$(python -c "
+          import json
+          from pathlib import Path
+          for f in Path('reports').glob('*.effectiveness.json'):
+              data = json.loads(f.read_text())
+              print(f'{data[\"effectiveness_rate\"]*100:.1f}')
+              break
+          ")
+          echo "effectiveness_rate=$RATE" >> $GITHUB_OUTPUT
+
+      - name: Generate markdown report
+        run: |
+          python - << 'EOF'
+          import json
+          from pathlib import Path
+          from datetime import datetime
+
+          # Find the effectiveness JSON
+          eff_files = list(Path('reports').glob('*.effectiveness.json'))
+          if not eff_files:
+              print("No effectiveness report found")
+              exit(1)
+          
+          data = json.loads(eff_files[0].read_text())
+          
+          report = f"""# Settings Effectiveness Report
+
+          **Generated:** {datetime.utcnow().isoformat()}Z
+
+          ## Summary
+
+          | Metric | Value |
+          |--------|-------|
+          | Total Settings | {data['total_settings']} |
+          | Effective Settings | {data['effective_count']} |
+          | **Effectiveness Rate** | **{data['effectiveness_rate']*100:.1f}%** |
+          | Target Rate | {data['target_rate']*100:.0f}% |
+          | Meets Target | {'✅ Yes' if data['meets_target'] else '❌ No'} |
+
+          ## By Category
+
+          | Category | Effective | Total | Rate |
+          |----------|-----------|-------|------|
+          """
+          
+          for cat, stats in data.get('by_category', {}).items():
+              icon = '✅' if stats['rate'] >= 0.80 else '⚠️' if stats['rate'] >= 0.60 else '❌'
+              report += f"| {icon} {cat} | {stats['effective']} | {stats['total']} | {stats['rate']*100:.0f}% |\n"
+          
+          report += "\n## Status Breakdown\n\n"
+          for status, count in data.get('by_status', {}).items():
+              report += f"- **{status}**: {count}\n"
+          
+          non_effective = data.get('non_effective_settings', [])
+          if non_effective:
+              report += "\n## Non-Effective Settings\n\n"
+              for item in non_effective:
+                  report += f"### {item['setting']}\n"
+                  report += f"- **Category:** {item['category']}\n"
+                  report += f"- **Status:** {item['status']}\n"
+                  report += f"- **Reason:** {item['reason']}\n"
+                  report += f"- **Recommendation:** {item['recommendation']}\n\n"
+          
+          Path('reports/settings_effectiveness_report.md').write_text(report)
+          print("Report generated: reports/settings_effectiveness_report.md")
+          EOF
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: settings-effectiveness-reports
+          path: |
+            reports/settings_validation.csv
+            reports/*.effectiveness.json
+            reports/settings_effectiveness_report.md
+            reports/coverage.json
+
+      - name: Check effectiveness threshold
+        env:
+          THRESHOLD: ${{ inputs.threshold || '80' }}
+        run: |
+          RATE="${{ steps.evaluate.outputs.effectiveness_rate }}"
+          echo "Effectiveness rate: ${RATE}%"
+          echo "Threshold: ${THRESHOLD}%"
+          
+          if (( $(echo "$RATE < $THRESHOLD" | bc -l) )); then
+            echo "::error::Effectiveness rate ${RATE}% is below threshold ${THRESHOLD}%"
+            exit 1
+          else
+            echo "✅ Effectiveness rate ${RATE}% meets threshold ${THRESHOLD}%"
+          fi
