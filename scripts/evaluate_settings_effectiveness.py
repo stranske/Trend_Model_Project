@@ -26,6 +26,7 @@ from trend_analysis.api import RunResult, run_simulation  # noqa: E402
 
 MODEL_FILE = PROJECT_ROOT / "streamlit_app" / "pages" / "2_Model.py"
 MODEL_PAGE = MODEL_FILE  # Backward-compatible alias
+TEST_WIRING_FILE = PROJECT_ROOT / "scripts" / "test_settings_wiring.py"
 
 REPORTING_ONLY_PREFIXES = ("report_",)
 REPORTING_ONLY_KEYS = {"ci_level"}
@@ -135,6 +136,71 @@ def _extract_literal_dict(node: ast.AST) -> dict[str, Any] | None:
     except Exception:
         return None
     return value if isinstance(value, dict) else None
+
+
+def _extract_literal_str(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.Str):
+        return node.s
+    return None
+
+
+def _load_setting_categories(file_path: Path) -> dict[str, str]:
+    if not file_path.exists():
+        return {}
+
+    try:
+        tree = ast.parse(file_path.read_text(encoding="utf-8"))
+    except SyntaxError:
+        return {}
+
+    category_map: dict[str, str] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            targets = [t.id for t in node.targets if isinstance(t, ast.Name)]
+            if "SETTINGS_TO_TEST" not in targets:
+                continue
+            if not isinstance(node.value, (ast.List, ast.Tuple)):
+                break
+            for elt in node.value.elts:
+                if not isinstance(elt, ast.Call):
+                    continue
+                name_val = None
+                category_val = None
+                for kw in elt.keywords:
+                    if kw.arg == "name":
+                        name_val = _extract_literal_str(kw.value)
+                    elif kw.arg == "category":
+                        category_val = _extract_literal_str(kw.value)
+                if name_val is None and elt.args:
+                    name_val = _extract_literal_str(elt.args[0])
+                if category_val is None and len(elt.args) > 3:
+                    category_val = _extract_literal_str(elt.args[3])
+                if name_val and category_val and name_val not in category_map:
+                    category_map[name_val] = category_val
+            break
+    return category_map
+
+
+def _recommendation_for_result(result: SettingResult) -> str:
+    if result.setting.startswith(REPORTING_ONLY_PREFIXES) or (
+        result.setting in REPORTING_ONLY_KEYS
+    ):
+        return "Reporting-only setting; no simulation impact expected."
+    if result.required_context:
+        context = ", ".join(
+            f"{key}={value}" for key, value in sorted(result.required_context.items())
+        )
+        return f"Mode-specific setting. Ensure required context is set ({context})."
+    setting = result.setting.lower()
+    if "mode" in setting or "approach" in setting:
+        return "Verify prerequisite settings align with the selected mode."
+    if "weight" in setting:
+        return "Check weighting logic in metrics.py or portfolio construction."
+    if "window" in setting or "period" in setting:
+        return "Ensure this setting flows into rolling window calculations."
+    return "Confirm the setting is wired from UI state into pipeline inputs."
 
 
 def _keys_from_dict(node: ast.Dict) -> set[str]:
@@ -634,20 +700,54 @@ def _write_outputs(
     output_csv: Path,
     settings: list[str],
 ) -> None:
+    category_map = _load_setting_categories(TEST_WIRING_FILE)
     status_counts: dict[str, int] = {}
+    category_stats: dict[str, dict[str, int]] = {}
     for res in results:
         status_counts[res.status] = status_counts.get(res.status, 0) + 1
+        category = category_map.get(res.setting, "Uncategorized")
+        if category not in category_stats:
+            category_stats[category] = {"total": 0, "effective": 0}
+        category_stats[category]["total"] += 1
+        if res.status in ("EFFECTIVE", "MODE_SPECIFIC"):
+            category_stats[category]["effective"] += 1
     total = len(results)
     effective = status_counts.get("EFFECTIVE", 0) + status_counts.get(
         "MODE_SPECIFIC", 0
     )
     effectiveness_rate = effective / total if total else 0.0
 
+    by_category = {
+        category: {
+            "total": stats["total"],
+            "effective": stats["effective"],
+            "rate": stats["effective"] / stats["total"] if stats["total"] else 0.0,
+        }
+        for category, stats in sorted(category_stats.items())
+    }
+
+    non_effective = []
+    for res in results:
+        if res.status != "NO_EFFECT":
+            continue
+        non_effective.append(
+            {
+                "setting": res.setting,
+                "category": category_map.get(res.setting, "Uncategorized"),
+                "status": res.status,
+                "reason": res.reason,
+                "recommendation": _recommendation_for_result(res),
+                "required_context": res.required_context,
+            }
+        )
+
     payload = {
         "generated_at": datetime.utcnow().isoformat() + "Z",
         "total_settings": total,
         "status_counts": status_counts,
         "effectiveness_rate": effectiveness_rate,
+        "by_category": by_category,
+        "non_effective_settings": non_effective,
         "settings": [
             {
                 "setting": res.setting,
@@ -668,13 +768,16 @@ def _write_outputs(
 
     rows = []
     for res in results:
+        category = category_map.get(res.setting, "Uncategorized")
         row = {
             "setting": res.setting,
+            "category": category,
             "status": res.status,
             "mode_specific": res.mode_specific,
             "baseline_value": json.dumps(res.baseline_value, default=str),
             "test_value": json.dumps(res.test_value, default=str),
             "reason": res.reason,
+            "recommendation": _recommendation_for_result(res),
             "required_context": json.dumps(res.required_context, default=str),
         }
         row.update(res.metrics)
