@@ -411,6 +411,15 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         missing_section if isinstance(missing_section, Mapping) else None
     )
 
+    weighting_scheme = config.portfolio.get("weighting_scheme", "equal")
+    robustness_cfg = config.portfolio.get("robustness")
+    if not isinstance(robustness_cfg, Mapping):
+        robustness_cfg = getattr(config, "robustness", None)
+    weight_engine_params = weight_engine_params_from_robustness(
+        weighting_scheme,
+        robustness_cfg if isinstance(robustness_cfg, Mapping) else None,
+    )
+
     if lag_limit is not None:
         as_of_candidate = (
             data_settings.get("as_of")
@@ -445,7 +454,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         indices_list=config.portfolio.get("indices_list"),
         benchmarks=config.benchmarks,
         seed=seed,
-        weighting_scheme=config.portfolio.get("weighting_scheme", "equal"),
+        weighting_scheme=weighting_scheme,
         constraints=config.portfolio.get("constraints"),
         stats_cfg=stats_cfg,
         missing_policy=policy_spec,
@@ -459,10 +468,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         regime_cfg=regime_cfg,
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
-        weight_engine_params=weight_engine_params_from_robustness(
-            config.portfolio.get("weighting_scheme", "equal"),
-            config.portfolio.get("robustness", getattr(config, "robustness", None)),
-        ),
+        weight_engine_params=weight_engine_params,
     )
     diag_hint = cast(
         DiagnosticPayload | None, getattr(pipeline_output, "diagnostic", None)

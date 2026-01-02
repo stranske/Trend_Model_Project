@@ -378,6 +378,9 @@ def test_run_full_robustness_condition_threshold_uses_cov_condition(tmp_path):
     fallback = res["weight_engine_fallback"]
     assert fallback["reason"] == "condition_threshold_exceeded"
     assert fallback["safe_mode"] == "risk_parity"
+    assert fallback["raw_condition_number"] == pytest.approx(raw_condition)
+    assert fallback["shrunk_condition_number"] == pytest.approx(raw_condition)
+    assert fallback["shrinkage"]["method"] == "none"
 
 
 def _make_two_fund_df() -> pd.DataFrame:
