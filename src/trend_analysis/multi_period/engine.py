@@ -1467,7 +1467,11 @@ def run(
 
     cooldown_periods_raw = portfolio_cfg.get("cooldown_periods")
     if cooldown_periods_raw is None:
+        cooldown_periods_raw = portfolio_cfg.get("cooldown_months")
+    if cooldown_periods_raw is None:
         cooldown_periods_raw = mp_cfg.get("cooldown_periods")
+    if cooldown_periods_raw is None:
+        cooldown_periods_raw = mp_cfg.get("cooldown_months")
     try:
         cooldown_periods = (
             int(cooldown_periods_raw) if cooldown_periods_raw is not None else 0
@@ -1647,6 +1651,18 @@ def run(
             if int(holdings_tenure.get(mgr_str, 0)) < min_tenure_n:
                 protected.add(mgr_str)
         return protected
+
+    def _start_cooldown(exited: Iterable[str]) -> None:
+        if cooldown_periods <= 0:
+            return
+        for mgr in exited:
+            mgr_str = str(mgr)
+            if not mgr_str:
+                continue
+            cooldown_book[mgr_str] = max(
+                int(cooldown_book.get(mgr_str, 0)),
+                int(cooldown_periods) + 1,
+            )
 
     def _dedupe_one_per_firm(
         sf: pd.DataFrame, holdings: list[str], metric: str
@@ -2481,6 +2497,7 @@ def run(
                         }
                     )
                     forced_exits.add(mgr)
+                _start_cooldown(exited_funds)
 
                 # Replace exited funds using the same initial selection method
                 n_needed = buy_hold_n - len(current_holdings)
@@ -2488,6 +2505,8 @@ def run(
                     available = [
                         str(c) for c in sf.index if str(c) not in current_holdings
                     ]
+                    if cooldown_periods > 0 and cooldown_book:
+                        available = [c for c in available if c not in cooldown_book]
                     available = _filter_entry_candidates(available, sf)
                     seen_firms = {_firm(h) for h in current_holdings}
 
@@ -2939,7 +2958,24 @@ def run(
 
             if len(proposed_holdings) == 0:  # guard: reseed if empty
                 selected, _ = selector.select(_filter_entry_frame(sf))
-                proposed_holdings = list(selected.index)
+                proposed_holdings = [str(x) for x in selected.index.tolist()]
+                if cooldown_periods > 0 and cooldown_book:
+                    filtered = [
+                        mgr for mgr in proposed_holdings if mgr not in cooldown_book
+                    ]
+                    if filtered:
+                        for mgr in proposed_holdings:
+                            if mgr in cooldown_book:
+                                events.append(
+                                    {
+                                        "action": "skipped",
+                                        "manager": mgr,
+                                        "firm": _firm(mgr),
+                                        "reason": "cooldown",
+                                        "detail": "reseed blocked by cooldown",
+                                    }
+                                )
+                        proposed_holdings = filtered
                 proposed_holdings = _dedupe_one_per_firm_with_events(
                     sf, proposed_holdings, metric, events
                 )
@@ -3047,6 +3083,7 @@ def run(
             z_exit_soft = float(th_cfg.get("z_exit_soft", -1.0))
             z_entry_soft = float(th_cfg.get("z_entry_soft", 1.0))
             dropped_reb = before_reb - after_reb
+            _start_cooldown(dropped_reb)
             for f in sorted(dropped_reb):
                 if str(f) in pruned_existing:
                     continue
@@ -3144,6 +3181,7 @@ def run(
                 to_remove.append(f_str)
         if to_remove:
             size_before_low_weight = len(holdings)
+            _start_cooldown(to_remove)
             # drop and try to refill from high zscore sidelined funds
             holdings = [h for h in holdings if h not in to_remove]
             for f in to_remove:
@@ -3234,18 +3272,6 @@ def run(
                 weights_df = weight_series.to_frame("weight")
                 prev_weights = weight_series.astype(float)
                 nat_w = raw_weight_series.reindex(prev_weights.index).fillna(0.0)
-
-        # Record cooldowns for any managers that were held entering the period
-        # but are not held after all updates/replacements.
-        if cooldown_periods > 0 and prev_final_weights is not None:
-            entered = {str(x) for x in prev_final_weights.index}
-            exited = entered - {str(x) for x in holdings}
-            for mgr in exited:
-                cooldown_book[mgr] = int(cooldown_periods) + 1
-            # Defensive: if something re-appears in holdings, clear cooldown.
-            for mgr in list(cooldown_book.keys()):
-                if mgr in holdings:
-                    cooldown_book.pop(mgr, None)
 
         # Apply weight bounds and renormalise
         bounded_w = _apply_weight_bounds(prev_weights, min_w_bound, max_w_bound)
@@ -3562,6 +3588,18 @@ def run(
         res_dict["fund_weights"] = {
             str(k): float(v) for k, v in effective_nonzero.items()
         }
+
+        # Record cooldowns for any managers that exited based on realised holdings.
+        if cooldown_periods > 0 and prev_final_weights is not None:
+            entered = {str(x) for x in prev_final_weights.index}
+            current = set(realised_holdings)
+            exited = entered - current
+            for mgr in exited:
+                cooldown_book[mgr] = int(cooldown_periods) + 1
+            # Defensive: if something re-appears in holdings, clear cooldown.
+            for mgr in list(cooldown_book.keys()):
+                if mgr in current:
+                    cooldown_book.pop(mgr, None)
 
         # Expose intra-period rebalance weight snapshots for UI diagnostics.
         #

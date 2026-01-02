@@ -357,6 +357,8 @@ class PortfolioSettings(BaseModel):
     cost_model: CostModelSettings | None = None
     turnover_cap: float | None = None
     weight_policy: dict[str, Any] | None = None
+    cooldown_periods: int | None = None
+    cooldown_months: int | None = None
 
     model_config = ConfigDict(extra="ignore")
 
@@ -424,6 +426,21 @@ class PortfolioSettings(BaseModel):
         if lam < 0 or lam > 1:
             raise ValueError("portfolio.lambda_tc must be between 0 and 1 inclusive.")
         return lam
+
+    @field_validator("cooldown_periods", "cooldown_months", mode="before")
+    @classmethod
+    def _validate_cooldown(cls, value: Any, info: ValidationInfo[Any]) -> int | None:
+        if value in (None, "", "null"):
+            return None
+        try:
+            cooldown = int(value)
+        except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
+            raise ValueError(
+                f"portfolio.{info.field_name} must be an integer."
+            ) from exc
+        if cooldown < 0:
+            raise ValueError(f"portfolio.{info.field_name} cannot be negative.")
+        return cooldown
 
     @field_validator("ci_level", mode="before")
     @classmethod
