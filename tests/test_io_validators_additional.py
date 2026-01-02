@@ -30,7 +30,7 @@ def test_price_mode_detection() -> None:
     assert meta["mode"] == "price"
     assert (
         df.attrs["market_data"]["metadata"]["mode"]
-        == MarketDataMode.PRI.valueC.valueE.value
+        == MarketDataMode.PRICE.value
     )
 
 

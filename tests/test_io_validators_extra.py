@@ -308,7 +308,7 @@ def test_load_and_validate_upload_returns_metadata(
 
     loaded_frame, meta = load_and_validate_upload("dummy")
     assert isinstance(meta["validation"], ValidationResult)
-    assert meta["metadata"] == metadata.model_dump(mode="json")
+    assert meta["metadata"] == metadata
     assert meta["mode"] == metadata.mode.value
     assert list(meta["original_columns"]) == metadata.columns
     assert loaded_frame.index.name == "Date"
