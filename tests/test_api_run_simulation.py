@@ -1,7 +1,10 @@
 import hashlib
 import json
+import logging
 
+import numpy as np
 import pandas as pd
+import pytest
 
 from trend_analysis import api, pipeline
 from trend_analysis.config import Config
@@ -11,6 +14,56 @@ from trend_analysis.diagnostics import PipelineReasonCode
 def make_df():
     dates = pd.date_range("2020-01-31", periods=6, freq="ME")
     return pd.DataFrame({"Date": dates, "RF": 0.0, "A": 0.01})
+
+
+def make_ill_conditioned_df() -> pd.DataFrame:
+    dates = pd.date_range("2020-01-31", periods=8, freq="ME")
+    base = np.array([0.01, 0.011, 0.009, 0.012, 0.0105, 0.0115, 0.0095, 0.0108])
+    jitter = np.array([1e-4, -1e-4, 5e-5, -5e-5, 8e-5, -8e-5, 6e-5, -6e-5])
+    return pd.DataFrame(
+        {
+            "Date": dates,
+            "RF": 0.0,
+            "A": base,
+            "B": base + jitter,
+            "C": base * 0.2 + 0.001,
+        }
+    )
+
+
+def make_robust_cfg() -> Config:
+    return Config(
+        version="1",
+        data={
+            "risk_free_column": "RF",
+            "allow_risk_free_fallback": False,
+            "date_column": "Date",
+            "frequency": "M",
+        },
+        preprocessing={},
+        vol_adjust={"target_vol": 1.0},
+        sample_split={
+            "in_start": "2020-01",
+            "in_end": "2020-06",
+            "out_start": "2020-07",
+            "out_end": "2020-08",
+        },
+        portfolio={
+            "weighting_scheme": "robust_mv",
+            "robustness": {
+                "shrinkage": {"enabled": False},
+                "condition_check": {
+                    "enabled": True,
+                    "threshold": 1.0,
+                    "safe_mode": "risk_parity",
+                    "diagonal_loading_factor": 1.0e-6,
+                },
+            },
+        },
+        metrics={},
+        export={},
+        run={},
+    )
 
 
 def make_cfg(path: str | None = None) -> Config:
@@ -61,6 +114,62 @@ def test_run_simulation_matches_pipeline(tmp_path):
     pd.testing.assert_frame_equal(result.metrics, expected_metrics)
     assert result.seed == cfg.seed
     assert "python" in result.environment
+
+
+def test_run_simulation_robustness_condition_threshold_uses_cov_condition():
+    df = make_ill_conditioned_df()
+    cfg = make_robust_cfg()
+    in_sample = (
+        df.set_index("Date").loc["2020-01-31":"2020-06-30", ["A", "B", "C"]].copy()
+    )
+    raw_condition = float(np.linalg.cond(in_sample.cov().values))
+    cfg.portfolio["robustness"]["condition_check"]["threshold"] = raw_condition / 2.0
+
+    result = api.run_simulation(cfg, df)
+    diag = result.details["weight_engine_diagnostics"]
+    assert diag["condition_source"] == "raw_cov"
+    assert diag["condition_number"] == pytest.approx(raw_condition)
+    assert diag["used_safe_mode"] is True
+    assert diag["fallback_reason"] == "condition_threshold_exceeded"
+    fallback = result.details["weight_engine_fallback"]
+    assert fallback["reason"] == "condition_threshold_exceeded"
+    assert fallback["safe_mode"] == "risk_parity"
+
+
+def test_run_simulation_safe_mode_changes_weights():
+    df = make_ill_conditioned_df()
+    cfg = make_robust_cfg()
+    cfg.portfolio["robustness"]["condition_check"]["threshold"] = 1.0
+    cfg.portfolio["robustness"]["condition_check"]["safe_mode"] = "risk_parity"
+    rp_result = api.run_simulation(cfg, df)
+    rp_diag = rp_result.details["weight_engine_diagnostics"]
+    assert rp_diag["used_safe_mode"] is True
+    assert rp_diag["safe_mode"] == "risk_parity"
+
+    cfg.portfolio["robustness"]["condition_check"]["safe_mode"] = "diagonal_mv"
+    diag_result = api.run_simulation(cfg, df)
+    diag_diag = diag_result.details["weight_engine_diagnostics"]
+    assert diag_diag["used_safe_mode"] is True
+    assert diag_diag["safe_mode"] == "diagonal_mv"
+
+    rp_weights = rp_result.details["fund_weights"]
+    diag_weights = diag_result.details["fund_weights"]
+    rp_values = np.array([rp_weights["A"], rp_weights["B"], rp_weights["C"]])
+    diag_values = np.array([diag_weights["A"], diag_weights["B"], diag_weights["C"]])
+    assert not np.allclose(rp_values, diag_values, rtol=1e-3, atol=1e-4)
+
+
+def test_run_simulation_logs_weight_engine_fallback(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    df = make_ill_conditioned_df()
+    cfg = make_robust_cfg()
+    cfg.portfolio["robustness"]["condition_check"]["threshold"] = 1.0
+
+    caplog.set_level(logging.WARNING)
+    api.run_simulation(cfg, df)
+
+    assert "Weight engine fallback used" in caplog.text
 
 
 def _hash_result(res: api.RunResult) -> str:

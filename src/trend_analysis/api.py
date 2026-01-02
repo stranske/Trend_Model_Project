@@ -537,6 +537,15 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     fallback_info: dict[str, Any] | None = (
         fallback_raw if isinstance(fallback_raw, dict) else None
     )
+    if fallback_info:
+        logger.warning(
+            "Weight engine fallback used (engine=%s, safe_mode=%s, "
+            "condition_number=%s, threshold=%s).",
+            fallback_info.get("engine"),
+            fallback_info.get("safe_mode"),
+            fallback_info.get("condition_number"),
+            fallback_info.get("condition_threshold"),
+        )
     # Granular logging (best-effort; keys may vary by configuration)
     try:  # pragma: no cover - observational logging
         if res_dict.get("selected_funds") is not None:

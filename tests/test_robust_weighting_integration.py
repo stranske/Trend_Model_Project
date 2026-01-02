@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -122,6 +124,7 @@ def test_condition_threshold_triggers_safe_mode() -> None:
 
     diagnostics = result.details.get("weight_engine_diagnostics", {})
     assert diagnostics.get("used_safe_mode") is True
+    assert diagnostics.get("fallback_used") is True
 
 
 def test_safe_mode_changes_fallback_weights() -> None:
@@ -136,6 +139,16 @@ def test_safe_mode_changes_fallback_weights() -> None:
     assert hrp_result.fallback_info is not None
     assert rp_result.fallback_info is not None
     assert not np.allclose(hrp_weights.values, rp_weights.values, rtol=1e-3, atol=1e-4)
+
+
+def test_fallback_emits_warning(caplog: pytest.LogCaptureFixture) -> None:
+    returns = _make_collinear_returns()
+    cfg = _make_config(safe_mode="risk_parity")
+
+    caplog.set_level(logging.WARNING)
+    api.run_simulation(cfg, returns)
+
+    assert "Ill-conditioned covariance matrix" in caplog.text
 
 
 def test_condition_threshold_alias_triggers_safe_mode() -> None:
