@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 
 import numpy as np
 import pandas as pd
@@ -156,6 +157,19 @@ def test_run_simulation_safe_mode_changes_weights():
     rp_values = np.array([rp_weights["A"], rp_weights["B"], rp_weights["C"]])
     diag_values = np.array([diag_weights["A"], diag_weights["B"], diag_weights["C"]])
     assert not np.allclose(rp_values, diag_values, rtol=1e-3, atol=1e-4)
+
+
+def test_run_simulation_logs_weight_engine_fallback(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    df = make_ill_conditioned_df()
+    cfg = make_robust_cfg()
+    cfg.portfolio["robustness"]["condition_check"]["threshold"] = 1.0
+
+    caplog.set_level(logging.WARNING)
+    api.run_simulation(cfg, df)
+
+    assert "Weight engine fallback used" in caplog.text
 
 
 def _hash_result(res: api.RunResult) -> str:
