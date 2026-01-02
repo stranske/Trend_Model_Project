@@ -1462,7 +1462,11 @@ def run(
 
     cooldown_periods_raw = portfolio_cfg.get("cooldown_periods")
     if cooldown_periods_raw is None:
+        cooldown_periods_raw = portfolio_cfg.get("cooldown_months")
+    if cooldown_periods_raw is None:
         cooldown_periods_raw = mp_cfg.get("cooldown_periods")
+    if cooldown_periods_raw is None:
+        cooldown_periods_raw = mp_cfg.get("cooldown_months")
     try:
         cooldown_periods = (
             int(cooldown_periods_raw) if cooldown_periods_raw is not None else 0
@@ -2396,6 +2400,8 @@ def run(
                     available = [
                         str(c) for c in sf.index if str(c) not in current_holdings
                     ]
+                    if cooldown_periods > 0 and cooldown_book:
+                        available = [c for c in available if c not in cooldown_book]
                     available = _filter_entry_candidates(available, sf)
                     seen_firms = {_firm(h) for h in current_holdings}
 

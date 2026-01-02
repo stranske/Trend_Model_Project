@@ -93,6 +93,18 @@ def _patch_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(engine, "_run_analysis", lambda *args, **kwargs: {})
 
 
+def _count_reentries(results: list[dict[str, Any]], manager: str) -> int:
+    reentries = 0
+    prev_in = False
+    for idx, res in enumerate(results):
+        selected = set(res.get("selected_funds") or [])
+        current_in = manager in selected
+        if idx > 0 and current_in and not prev_in:
+            reentries += 1
+        prev_in = current_in
+    return reentries
+
+
 def test_threshold_hold_exit_drop_not_blocked_by_turnover_budget(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -182,6 +194,48 @@ def test_threshold_hold_cooldown_blocks_reentry(
     assert any(
         ev.get("reason") == "cooldown" and ev.get("manager") == "B" for ev in changes
     )
+
+
+def test_cooldown_reduces_reentry_frequency(monkeypatch: pytest.MonkeyPatch) -> None:
+    periods = [
+        SimpleNamespace(
+            in_start="2020-01", in_end="2020-02", out_start="2020-03", out_end="2020-03"
+        ),
+        SimpleNamespace(
+            in_start="2020-02", in_end="2020-03", out_start="2020-04", out_end="2020-04"
+        ),
+        SimpleNamespace(
+            in_start="2020-03", in_end="2020-04", out_start="2020-05", out_end="2020-05"
+        ),
+        SimpleNamespace(
+            in_start="2020-04", in_end="2020-05", out_start="2020-06", out_end="2020-06"
+        ),
+    ]
+    monkeypatch.setattr(engine, "generate_periods", lambda _cfg: periods)
+
+    _patch_metric_series(
+        monkeypatch,
+        by_in_end={
+            "2020-02": {"A": 3.0, "B": 2.0, "C": 1.0, "D": 0.0, "E": -1.0},
+            "2020-03": {"A": 0.0, "B": -10.0, "C": 0.5, "D": 10.0, "E": 0.4},
+            "2020-04": {"A": 0.0, "B": 10.0, "C": -10.0, "D": 0.4, "E": 9.0},
+            "2020-05": {"A": 0.0, "B": 10.0, "C": 0.4, "D": -10.0, "E": 9.0},
+        },
+    )
+    _patch_pipeline(monkeypatch)
+
+    def _run(cooldown_periods: int) -> list[dict[str, Any]]:
+        cfg = THCfg()
+        cfg.portfolio["turnover_budget_max_changes"] = 10
+        cfg.portfolio["cooldown_periods"] = cooldown_periods
+        return engine.run(cfg, df=_df_5_funds())
+
+    no_cooldown = _run(0)
+    cooldown = _run(2)
+
+    assert _count_reentries(cooldown, "B") < _count_reentries(no_cooldown, "B")
+    assert "B" in set(no_cooldown[2]["selected_funds"])
+    assert "B" not in set(cooldown[2]["selected_funds"])
 
 
 def test_min_funds_can_exceed_turnover_budget(monkeypatch: pytest.MonkeyPatch) -> None:
