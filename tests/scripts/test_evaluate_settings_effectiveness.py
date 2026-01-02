@@ -61,3 +61,35 @@ def test_weight_stats_and_total_return() -> None:
 
     returns = pd.Series([0.1, -0.05])
     assert effectiveness._total_return(returns) == pytest.approx(0.045)
+
+
+def test_render_markdown_report_includes_breakdown_and_recommendations() -> None:
+    payload = {
+        "generated_at": "2025-01-01T00:00:00Z",
+        "total_settings": 3,
+        "status_counts": {"EFFECTIVE": 2, "NO_EFFECT": 1},
+        "effectiveness_rate": 2 / 3,
+        "by_category": {
+            "Costs": {"total": 1, "effective": 0, "rate": 0.0},
+            "Risk": {"total": 2, "effective": 2, "rate": 1.0},
+        },
+        "non_effective_settings": [
+            {
+                "setting": "transaction_cost_bps",
+                "category": "Costs",
+                "status": "NO_EFFECT",
+                "reason": "No meaningful changes detected.",
+                "recommendation": "Ensure transaction costs are applied to turnover.",
+                "required_context": {},
+            }
+        ],
+    }
+
+    markdown = effectiveness._render_markdown_report(payload)
+
+    assert "Per-Category Breakdown" in markdown
+    assert "Non-Effective Settings" in markdown
+    assert "transaction_cost_bps" in markdown
+    assert "Costs" in markdown
+    assert "No meaningful changes detected." in markdown
+    assert "Ensure transaction costs" in markdown

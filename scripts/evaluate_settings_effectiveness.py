@@ -698,6 +698,7 @@ def _write_outputs(
     results: list[SettingResult],
     output_json: Path,
     output_csv: Path,
+    output_md: Path | None,
     settings: list[str],
 ) -> None:
     category_map = _load_setting_categories(TEST_WIRING_FILE)
@@ -784,6 +785,79 @@ def _write_outputs(
         rows.append(row)
     pd.DataFrame(rows).to_csv(output_csv, index=False)
 
+    if output_md is not None:
+        output_md.parent.mkdir(parents=True, exist_ok=True)
+        output_md.write_text(
+            _render_markdown_report(payload),
+            encoding="utf-8",
+        )
+
+
+def _render_markdown_report(payload: dict[str, Any]) -> str:
+    generated_at = payload.get("generated_at", "unknown")
+    total = int(payload.get("total_settings", 0))
+    effectiveness_rate = float(payload.get("effectiveness_rate", 0.0))
+    status_counts = payload.get("status_counts", {})
+    by_category = payload.get("by_category", {})
+    non_effective = payload.get("non_effective_settings", [])
+
+    lines = [
+        "# Settings Effectiveness Report",
+        "",
+        f"Generated: {generated_at}",
+        "",
+        "## Overview",
+        "",
+        f"- Total settings: {total}",
+        f"- Effectiveness rate: {effectiveness_rate * 100:.1f}%",
+        "",
+        "| Status | Count |",
+        "|--------|-------|",
+    ]
+    for status, count in sorted(status_counts.items()):
+        lines.append(f"| {status} | {count} |")
+    lines.append("")
+
+    if by_category:
+        lines.extend(
+            [
+                "## Per-Category Breakdown",
+                "",
+                "| Category | Total | Effective | Rate |",
+                "|----------|-------|-----------|------|",
+            ]
+        )
+        for category, stats in sorted(by_category.items()):
+            rate = float(stats.get("rate", 0.0)) * 100
+            lines.append(
+                f"| {category} | {stats.get('total', 0)} | "
+                f"{stats.get('effective', 0)} | {rate:.1f}% |"
+            )
+        lines.append("")
+
+    if non_effective:
+        lines.extend(
+            [
+                "## Non-Effective Settings",
+                "",
+                "| Setting | Category | Reason | Recommendation |",
+                "|---------|----------|--------|----------------|",
+            ]
+        )
+        for item in non_effective:
+            setting = item.get("setting", "")
+            category = item.get("category", "Uncategorized")
+            reason = item.get("reason", "No meaningful changes detected.")
+            recommendation = item.get("recommendation", "Review wiring.")
+            lines.append(
+                f"| `{setting}` | {category} | {reason} | {recommendation} |"
+            )
+        lines.append("")
+    else:
+        lines.extend(["## Non-Effective Settings", "", "None.", ""])
+
+    return "\n".join(lines)
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -794,6 +868,10 @@ def main() -> int:
     parser.add_argument(
         "--output-csv",
         default=str(PROJECT_ROOT / "reports" / "settings_effectiveness.csv"),
+    )
+    parser.add_argument(
+        "--output-md",
+        default=str(PROJECT_ROOT / "reports" / "settings_effectiveness.md"),
     )
     parser.add_argument("--benchmark", default=None)
     args = parser.parse_args()
@@ -814,6 +892,7 @@ def main() -> int:
         results,
         Path(args.output_json),
         Path(args.output_csv),
+        Path(args.output_md) if args.output_md else None,
         settings,
     )
 
