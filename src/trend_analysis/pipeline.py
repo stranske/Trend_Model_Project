@@ -933,6 +933,15 @@ def _compute_weights_and_stats(
         max_weight_val = float(raw_max_weight) if raw_max_weight is not None else None
     except (TypeError, ValueError):
         max_weight_val = None
+    raw_max_active = constraints_cfg.get("max_active_positions")
+    if raw_max_active is None:
+        raw_max_active = constraints_cfg.get("max_active")
+    try:
+        max_active_val = int(raw_max_active) if raw_max_active is not None else None
+    except (TypeError, ValueError):
+        max_active_val = None
+    if max_active_val is not None and max_active_val <= 0:
+        max_active_val = None
     raw_group_caps = constraints_cfg.get("group_caps")
     group_caps_map = (
         {str(k): float(v) for k, v in raw_group_caps.items()}
@@ -1024,6 +1033,7 @@ def _compute_weights_and_stats(
             floor_vol=min_floor if min_floor > 0 else None,
             long_only=long_only,
             max_weight=max_weight_val,
+            max_active_positions=max_active_val,
             previous_weights=previous_weights,
             lambda_tc=lambda_tc,
             max_turnover=turnover_cap,

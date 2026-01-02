@@ -270,6 +270,9 @@ def _build_portfolio_config(
     max_changes_per_period = _coerce_positive_int(
         config.get("max_changes_per_period"), default=0, minimum=0
     )
+    max_active_positions = _coerce_positive_int(
+        config.get("max_active_positions"), default=0, minimum=0
+    )
 
     # Phase 8: Selection approach settings (accept both naming conventions)
     selection_approach = str(
@@ -352,6 +355,9 @@ def _build_portfolio_config(
         portfolio_cfg["min_tenure_n"] = min_tenure_periods
     if max_changes_per_period > 0:
         portfolio_cfg["turnover_budget_max_changes"] = max_changes_per_period
+    if max_active_positions > 0:
+        portfolio_cfg.setdefault("constraints", {})
+        portfolio_cfg["constraints"]["max_active_positions"] = max_active_positions
 
     return portfolio_cfg
 
