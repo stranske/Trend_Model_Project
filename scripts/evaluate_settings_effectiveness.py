@@ -167,6 +167,24 @@ def _extract_dict_keys(node: ast.AST) -> set[str]:
     return keys
 
 
+def _extract_mapping_keys(node: ast.AST) -> set[str]:
+    if isinstance(node, ast.Dict):
+        return _extract_dict_keys(node)
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "dict"
+    ):
+        keys: set[str] = set()
+        for keyword in node.keywords:
+            if keyword.arg:
+                keys.add(keyword.arg)
+        for arg in node.args:
+            keys |= _extract_dict_keys(arg)
+        return keys
+    return set()
+
+
 def _extract_subscript_key(node: ast.Subscript) -> str | None:
     key_node = node.slice
     if isinstance(key_node, ast.Constant) and isinstance(key_node.value, str):
@@ -197,6 +215,10 @@ def _extract_model_state_key(node: ast.AST) -> str | None:
     return None
 
 
+def _is_candidate_state_ref(node: ast.AST) -> bool:
+    return isinstance(node, ast.Name) and node.id == "candidate_state"
+
+
 def extract_settings_from_model_page(
     path: Path,
 ) -> tuple[dict[str, Any], set[str]]:
@@ -216,14 +238,19 @@ def extract_settings_from_model_page(
                     except Exception:
                         preset_configs = {}
                 if isinstance(target, ast.Name) and target.id == "candidate_state":
-                    candidate_keys |= _extract_dict_keys(node.value)
+                    candidate_keys |= _extract_mapping_keys(node.value)
                 if isinstance(target, ast.Name) and target.id == "model_state":
-                    model_state_keys |= _extract_dict_keys(node.value)
+                    model_state_keys |= _extract_mapping_keys(node.value)
                 if isinstance(target, ast.Subscript) and _is_model_state_ref(target):
-                    model_state_keys |= _extract_dict_keys(node.value)
+                    model_state_keys |= _extract_mapping_keys(node.value)
                 key = _extract_model_state_key(target)
                 if key:
                     model_state_keys.add(key)
+        if isinstance(node, ast.AugAssign):
+            if _is_model_state_ref(node.target):
+                model_state_keys |= _extract_mapping_keys(node.value)
+            if _is_candidate_state_ref(node.target):
+                candidate_keys |= _extract_mapping_keys(node.value)
         if isinstance(node, ast.Call):
             if (
                 isinstance(node.func, ast.Attribute)
@@ -234,6 +261,22 @@ def extract_settings_from_model_page(
                 arg = node.args[0]
                 if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
                     model_state_keys.add(arg.value)
+            if (
+                isinstance(node.func, ast.Attribute)
+                and node.func.attr == "update"
+                and node.args
+            ):
+                target = node.func.value
+                if _is_model_state_ref(target):
+                    model_state_keys |= _extract_mapping_keys(node.args[0])
+                elif _is_candidate_state_ref(target):
+                    candidate_keys |= _extract_mapping_keys(node.args[0])
+                if node.keywords:
+                    extra_keys = {kw.arg for kw in node.keywords if kw.arg}
+                    if _is_model_state_ref(target):
+                        model_state_keys |= extra_keys
+                    elif _is_candidate_state_ref(target):
+                        candidate_keys |= extra_keys
         if isinstance(node, ast.FunctionDef) and node.name == "_initial_model_state":
             for inner in ast.walk(node):
                 if isinstance(inner, ast.Return):
