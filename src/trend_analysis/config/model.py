@@ -350,6 +350,10 @@ class PortfolioSettings(BaseModel):
     max_turnover: float
     transaction_cost_bps: float
     lambda_tc: float = Field(default=0.0)
+    min_tenure_n: int = Field(
+        default=0,
+        description="Minimum number of periods to hold a fund before exiting.",
+    )
     ci_level: float = Field(
         default=0.0,
         description="Reporting-only confidence interval level (0 disables CI annotations).",
@@ -361,6 +365,16 @@ class PortfolioSettings(BaseModel):
     cooldown_months: int | None = None
 
     model_config = ConfigDict(extra="ignore")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalise_min_tenure(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        if "min_tenure_n" not in data and "min_tenure_periods" in data:
+            data = dict(data)
+            data["min_tenure_n"] = data.get("min_tenure_periods")
+        return data
 
     @field_validator("rebalance_calendar")
     @classmethod
@@ -441,6 +455,19 @@ class PortfolioSettings(BaseModel):
         if cooldown < 0:
             raise ValueError(f"portfolio.{info.field_name} cannot be negative.")
         return cooldown
+
+    @field_validator("min_tenure_n", mode="before")
+    @classmethod
+    def _validate_min_tenure(cls, value: Any) -> int:
+        if value in (None, "", "null"):
+            return 0
+        try:
+            tenure = int(value)
+        except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
+            raise ValueError("portfolio.min_tenure_n must be an integer.") from exc
+        if tenure < 0:
+            raise ValueError("portfolio.min_tenure_n cannot be negative.")
+        return tenure
 
     @field_validator("ci_level", mode="before")
     @classmethod

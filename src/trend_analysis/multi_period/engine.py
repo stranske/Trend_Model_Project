@@ -318,6 +318,8 @@ def _apply_weight_bounds(
 def _enforce_max_active_positions(
     weights: pd.Series,
     max_active_positions: int | None,
+    *,
+    protected: Iterable[str] | None = None,
 ) -> pd.Series:
     """Zero out all but the top ``max_active_positions`` weights."""
 
@@ -334,12 +336,26 @@ def _enforce_max_active_positions(
     if len(active) <= max_active:
         return weights
 
-    keep = (
-        active.abs()
-        .sort_values(ascending=False, kind="mergesort")
-        .head(max_active)
-        .index
-    )
+    protected_set = {str(m) for m in (protected or []) if m is not None}
+    if protected_set:
+        protected_active = [ix for ix in active.index if str(ix) in protected_set]
+        unprotected_active = active.drop(protected_active, errors="ignore")
+        slots = max(0, max_active - len(protected_active))
+        keep = list(protected_active)
+        if slots > 0 and not unprotected_active.empty:
+            keep += list(
+                unprotected_active.abs()
+                .sort_values(ascending=False, kind="mergesort")
+                .head(slots)
+                .index
+            )
+    else:
+        keep = (
+            active.abs()
+            .sort_values(ascending=False, kind="mergesort")
+            .head(max_active)
+            .index
+        )
     trimmed = weights.copy()
     trimmed.loc[~trimmed.index.isin(keep)] = 0.0
 
@@ -1621,6 +1637,20 @@ def run(
     cooldown_book: dict[str, int] = {}
     add_streaks: dict[str, int] = {}
     drop_streaks: dict[str, int] = {}
+    min_tenure_raw = cfg.portfolio.get("min_tenure_n")
+    if min_tenure_raw is None:
+        min_tenure_raw = cfg.portfolio.get("min_tenure_periods")
+    if min_tenure_raw is None:
+        min_tenure_raw = th_cfg.get("min_tenure_n")
+    if min_tenure_raw is None:
+        min_tenure_raw = th_cfg.get("min_tenure_periods")
+    try:
+        min_tenure_n = int(min_tenure_raw) if min_tenure_raw is not None else 0
+    except (TypeError, ValueError):
+        min_tenure_n = 0
+    if min_tenure_n < 0:
+        min_tenure_n = 0
+    holdings_tenure: dict[str, int] = {}
 
     def _firm(name: str) -> str:
         return str(name).split()[0] if isinstance(name, str) and name else str(name)
@@ -1629,6 +1659,65 @@ def run(
         if sticky_add_periods <= 1:
             return True
         return int(add_streaks.get(manager, 0)) >= sticky_add_periods
+
+    def _min_tenure_protected(
+        holdings: Iterable[str], score_frame: pd.DataFrame
+    ) -> set[str]:
+        if min_tenure_n <= 0:
+            return set()
+        protected: set[str] = set()
+        for mgr in holdings:
+            mgr_str = str(mgr)
+            if int(holdings_tenure.get(mgr_str, 0)) < min_tenure_n:
+                protected.add(mgr_str)
+        return protected
+
+    def _min_tenure_guard(holdings: Iterable[str]) -> set[str]:
+        if min_tenure_n <= 0:
+            return set()
+        protected: set[str] = set()
+        for mgr in holdings:
+            mgr_str = str(mgr)
+            if int(holdings_tenure.get(mgr_str, 0)) < min_tenure_n:
+                protected.add(mgr_str)
+        return protected
+
+    def _reapply_min_tenure_guard(
+        holdings: list[str],
+        *,
+        before_reb: set[str],
+        score_frame: pd.DataFrame,
+        blocked: set[str],
+        events: list[dict[str, object]],
+        logged: set[str],
+        stage: str,
+    ) -> list[str]:
+        if min_tenure_n <= 0 or not blocked:
+            return holdings
+        existing = {str(h) for h in holdings}
+        for mgr in sorted(blocked):
+            if mgr in existing or mgr not in before_reb:
+                continue
+            if mgr not in score_frame.index:
+                continue
+            holdings.append(mgr)
+            existing.add(mgr)
+            if mgr in logged:
+                continue
+            events.append(
+                {
+                    "action": "skipped",
+                    "manager": mgr,
+                    "firm": _firm(mgr),
+                    "reason": "min_tenure",
+                    "detail": (
+                        f"tenure={int(holdings_tenure.get(mgr, 0))}/"
+                        f"{min_tenure_n}; stage={stage}"
+                    ),
+                }
+            )
+            logged.add(mgr)
+        return holdings
 
     def _start_cooldown(exited: Iterable[str]) -> None:
         if cooldown_periods <= 0:
@@ -2054,6 +2143,8 @@ def run(
         # Track manager changes with reasons for this period
         events: list[dict[str, object]] = []
         forced_exits: set[str] = set()
+        min_tenure_blocked: set[str] = set()
+        min_tenure_logged: set[str] = set()
 
         if prev_weights is None:
             # For random mode, do fresh random selection from available universe
@@ -2443,6 +2534,9 @@ def run(
             # trigger logic cannot accumulate an unbounded number of positions.
             before_reb = set(prev_weights.index)
             exit_protected = _exit_protected(before_reb, sf)
+            min_tenure_protected = _min_tenure_protected(before_reb, sf)
+            if min_tenure_protected:
+                exit_protected |= min_tenure_protected
 
             # Buy-and-hold mode: keep existing holdings, only replace disappeared funds
             if is_buy_and_hold:
@@ -2726,6 +2820,31 @@ def run(
                     if h in proposed_set and h in sf_set and h not in final_holdings:
                         final_holdings.append(h)
                 proposed_holdings = final_holdings
+
+            if min_tenure_protected:
+                min_tenure_blocked = set(min_tenure_protected)
+                blocked_drops = [
+                    mgr
+                    for mgr in [str(h) for h in before_reb]
+                    if mgr not in proposed_holdings and mgr in min_tenure_protected
+                ]
+                for mgr in blocked_drops:
+                    if mgr in proposed_holdings:
+                        continue
+                    proposed_holdings.append(mgr)
+                    events.append(
+                        {
+                            "action": "skipped",
+                            "manager": mgr,
+                            "firm": _firm(mgr),
+                            "reason": "min_tenure",
+                            "detail": (
+                                f"tenure={int(holdings_tenure.get(mgr, 0))}/"
+                                f"{min_tenure_n}"
+                            ),
+                        }
+                    )
+                    min_tenure_logged.add(mgr)
 
             # Log attempted adds prior to firm/cap constraints. This preserves
             # the user's intent signal (e.g., a z_entry candidate) even if the
@@ -3031,6 +3150,18 @@ def run(
                 )
                 after_reb = set(holdings)
 
+            if min_tenure_blocked:
+                holdings = _reapply_min_tenure_guard(
+                    holdings,
+                    before_reb=before_reb,
+                    score_frame=sf,
+                    blocked=min_tenure_blocked,
+                    events=events,
+                    logged=min_tenure_logged,
+                    stage="post_budget",
+                )
+                after_reb = set(holdings)
+
             # Log drops/adds due to rebalancer z-triggers (post-cap holdings).
             z_exit_soft = float(th_cfg.get("z_exit_soft", -1.0))
             z_entry_soft = float(th_cfg.get("z_entry_soft", 1.0))
@@ -3111,6 +3242,9 @@ def run(
         # replacements starting from the second period (i.e., once a realised
         # prior allocation exists).
         exit_protected_low_weight = _exit_protected(prev_weights.index, sf)
+        min_tenure_blocked_low_weight = (
+            _min_tenure_protected(prev_weights.index, sf) if min_tenure_n > 0 else set()
+        )
         to_remove: list[str] = []
         for f, wv in nat_w.items():
             f_str = str(f)
@@ -3125,6 +3259,8 @@ def run(
                 prev_final_weights is not None
                 and int(low_weight_strikes.get(f_str, 0)) >= low_min_strikes_req
             ):
+                if f_str in min_tenure_blocked_low_weight:
+                    continue
                 to_remove.append(f_str)
         if to_remove:
             size_before_low_weight = len(holdings)
@@ -3222,6 +3358,7 @@ def run(
 
         # Apply weight bounds and renormalise
         bounded_w = _apply_weight_bounds(prev_weights, min_w_bound, max_w_bound)
+        min_tenure_guard = _min_tenure_guard(bounded_w.index)
 
         # Preserve the selected holdings set for the pipeline manual selection.
         # Subsequent turnover alignment (union with previous holdings) may
@@ -3294,7 +3431,9 @@ def run(
                 final_w = last_aligned + mandatory + optional * scale
         # Ensure bounds and normalisation remain satisfied
         final_w = _apply_weight_bounds(final_w, min_w_bound, max_w_bound)
-        final_w = _enforce_max_active_positions(final_w, max_active_positions)
+        final_w = _enforce_max_active_positions(
+            final_w, max_active_positions, protected=min_tenure_guard
+        )
 
         # Prepare custom weights mapping in percent for _run_analysis.
         # We keep the internal turnover-cap/bounds logic here, but reconcile the
@@ -3631,7 +3770,9 @@ def run(
                                     max_w_bound,
                                 )
                                 bounded = _enforce_max_active_positions(
-                                    bounded, max_active_positions
+                                    bounded,
+                                    max_active_positions,
+                                    protected=min_tenure_guard,
                                 )
                                 bounded = bounded[bounded.abs() > eps]
                                 total = float(bounded.sum())
@@ -3705,6 +3846,12 @@ def run(
         res_dict["manager_changes"] = events
         res_dict["turnover"] = period_turnover
         res_dict["transaction_cost"] = float(period_cost)
+        updated_tenure: dict[str, int] = {}
+        for mgr in realised_holdings:
+            mgr_str = str(mgr)
+            updated_tenure[mgr_str] = int(holdings_tenure.get(mgr_str, 0)) + 1
+        holdings_tenure = updated_tenure
+        res_dict["holding_tenure"] = dict(holdings_tenure)
 
         # Persist realised weights for next-period turnover logic.
         # Store only non-zero holdings so indices do not accumulate across the

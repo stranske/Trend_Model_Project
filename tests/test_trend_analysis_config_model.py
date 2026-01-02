@@ -351,6 +351,31 @@ def test_portfolio_settings_ci_level_reporting_only() -> None:
         )
 
 
+def test_portfolio_settings_accepts_min_tenure_alias() -> None:
+    result = config_model.PortfolioSettings.model_validate(
+        {
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 0.5,
+            "transaction_cost_bps": 15,
+            "min_tenure_periods": 3,
+        }
+    )
+
+    assert result.min_tenure_n == 3
+
+
+def test_portfolio_settings_rejects_negative_min_tenure() -> None:
+    with pytest.raises(ValueError, match="min_tenure_n cannot be negative"):
+        config_model.PortfolioSettings.model_validate(
+            {
+                "rebalance_calendar": "NYSE",
+                "max_turnover": 0.5,
+                "transaction_cost_bps": 15,
+                "min_tenure_n": -2,
+            }
+        )
+
+
 def test_portfolio_settings_rejects_out_of_range_values() -> None:
     with pytest.raises(ValueError, match="turnover cannot be negative"):
         config_model.PortfolioSettings.model_validate(
