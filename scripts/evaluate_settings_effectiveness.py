@@ -340,18 +340,28 @@ def _select_metric_row(metrics: pd.DataFrame) -> pd.Series | None:
     return metrics.iloc[0]
 
 
+def _metric_value(metrics_row: pd.Series | None, keys: Iterable[str]) -> float:
+    if metrics_row is None:
+        return math.nan
+    for key in keys:
+        if key in metrics_row:
+            value = metrics_row.get(key)
+            if value is not None and not pd.isna(value):
+                try:
+                    return float(value)
+                except (TypeError, ValueError):
+                    continue
+    return math.nan
+
+
 def _summarize_run(run_result: RunResult) -> dict[str, Any]:
+    from trend_analysis.metrics import annual_return, max_drawdown, sharpe_ratio, volatility
+
     metrics_row = _select_metric_row(run_result.metrics)
-    sharpe = (
-        float(metrics_row.get("sharpe"))
-        if metrics_row is not None and "sharpe" in metrics_row
-        else math.nan
-    )
-    cagr = (
-        float(metrics_row.get("cagr"))
-        if metrics_row is not None and "cagr" in metrics_row
-        else math.nan
-    )
+    sharpe = _metric_value(metrics_row, ("sharpe", "sharpe_ratio"))
+    cagr = _metric_value(metrics_row, ("cagr", "CAGR", "annual_return"))
+    vol = _metric_value(metrics_row, ("vol", "volatility"))
+    max_dd = _metric_value(metrics_row, ("max_drawdown", "MaxDrawdown"))
 
     analysis = run_result.analysis
     if analysis is None:
@@ -365,9 +375,21 @@ def _summarize_run(run_result: RunResult) -> dict[str, Any]:
     turnover = analysis.turnover if analysis is not None else pd.Series(dtype=float)
     costs = analysis.costs if analysis is not None else {}
 
+    if not returns.empty:
+        if math.isnan(cagr):
+            cagr = float(annual_return(returns))
+        if math.isnan(vol):
+            vol = float(volatility(returns))
+        if math.isnan(sharpe):
+            sharpe = float(sharpe_ratio(returns))
+        if math.isnan(max_dd):
+            max_dd = float(max_drawdown(returns))
+
     return {
         "sharpe": sharpe,
         "cagr": cagr,
+        "volatility": vol,
+        "max_drawdown": max_dd,
         "returns": returns,
         "weights": weights,
         "turnover": turnover,
@@ -474,7 +496,15 @@ def _evaluate_setting(
         if not base_summary["returns"].empty and not test_summary["returns"].empty
         else math.nan
     )
+    return_vol_diff = float(
+        test_summary["returns"].std() - base_summary["returns"].std()
+        if not base_summary["returns"].empty and not test_summary["returns"].empty
+        else math.nan
+    )
     sharpe_diff = float(test_summary["sharpe"] - base_summary["sharpe"])
+    cagr_diff = float(test_summary["cagr"] - base_summary["cagr"])
+    vol_diff = float(test_summary["volatility"] - base_summary["volatility"])
+    max_dd_diff = float(test_summary["max_drawdown"] - base_summary["max_drawdown"])
     turnover_diff = float(
         _mean_turnover(test_summary["turnover"])
         - _mean_turnover(base_summary["turnover"])
@@ -485,13 +515,22 @@ def _evaluate_setting(
     )
 
     returns_diff = test_summary["returns"] - base_summary["returns"]
+    return_corr = float(
+        test_summary["returns"].corr(base_summary["returns"])
+        if not base_summary["returns"].empty and not test_summary["returns"].empty
+        else math.nan
+    )
     p_value = _sign_flip_test(returns_diff.dropna())
 
     metric_changed = any(
         (
             not math.isnan(weight_diff) and abs(weight_diff) > 1.0e-4,
             not math.isnan(return_mean_diff) and abs(return_mean_diff) > 1.0e-4,
+            not math.isnan(return_vol_diff) and abs(return_vol_diff) > 1.0e-4,
             not math.isnan(sharpe_diff) and abs(sharpe_diff) > 1.0e-3,
+            not math.isnan(cagr_diff) and abs(cagr_diff) > 1.0e-4,
+            not math.isnan(vol_diff) and abs(vol_diff) > 1.0e-4,
+            not math.isnan(max_dd_diff) and abs(max_dd_diff) > 1.0e-4,
             not math.isnan(turnover_diff) and abs(turnover_diff) > 1.0e-4,
         )
     )
@@ -526,7 +565,12 @@ def _evaluate_setting(
         metrics={
             "weight_l1_diff": weight_diff,
             "mean_return_diff": return_mean_diff,
+            "return_vol_diff": return_vol_diff,
+            "return_corr": return_corr,
             "sharpe_diff": sharpe_diff,
+            "cagr_diff": cagr_diff,
+            "volatility_diff": vol_diff,
+            "max_drawdown_diff": max_dd_diff,
             "turnover_diff": turnover_diff,
             "cost_diff": cost_diff,
             "p_value": p_value,
