@@ -233,6 +233,21 @@ def test_portfolio_settings_validator_errors() -> None:
         )
 
 
+def test_portfolio_settings_accepts_cooldown_values() -> None:
+    settings = PortfolioSettings.model_validate(
+        {
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 1.0,
+            "transaction_cost_bps": 0.0,
+            "cooldown_periods": "2",
+            "cooldown_months": 3,
+        }
+    )
+
+    assert settings.cooldown_periods == 2
+    assert settings.cooldown_months == 3
+
+
 def test_risk_settings_validator_errors() -> None:
     with pytest.raises(ValueError, match="greater than zero"):
         RiskSettings.model_validate(
