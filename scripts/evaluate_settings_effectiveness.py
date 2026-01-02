@@ -25,6 +25,7 @@ from analysis.results import Results  # noqa: E402
 from trend_analysis.api import RunResult, run_simulation  # noqa: E402
 
 MODEL_FILE = PROJECT_ROOT / "streamlit_app" / "pages" / "2_Model.py"
+MODEL_PAGE = MODEL_FILE  # Backward-compatible alias
 
 REPORTING_ONLY_PREFIXES = ("report_",)
 REPORTING_ONLY_KEYS = {"ci_level"}
