@@ -240,6 +240,19 @@ class TestRobustMeanVariance:
         assert (weights >= 0.1 - 1e-6).all()  # Allow small numerical tolerance
         assert (weights <= 0.6 + 1e-6).all()
 
+    def test_negative_weights_with_short_min_weight(self):
+        """Robust MV can emit short weights when min_weight allows it."""
+        cov = pd.DataFrame(
+            [[4.0, 1.5], [1.5, 1.0]], index=["a", "b"], columns=["a", "b"]
+        )
+        engine = create_weight_engine(
+            "robust_mv", shrinkage_method="none", min_weight=-1.0, max_weight=1.0
+        )
+        weights = engine.weight(cov)
+
+        assert np.isclose(weights.sum(), 1.0)
+        assert (weights < 0).any()
+
     def test_logging_behavior(self, caplog):
         """Test that appropriate logging occurs."""
         cov = create_ill_conditioned_cov()

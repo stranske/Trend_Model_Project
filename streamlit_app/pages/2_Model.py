@@ -362,8 +362,9 @@ HELP_TEXT = {
     # Phase 15: Constraints
     "long_only": (
         "Enforce long-only positions (no short selling). Built-in schemes (equal, "
-        "score-prop, risk parity, HRP, ERC, robust_* defaults) are already non-negative; "
-        "this matters when custom/manual weights or plugin engines allow shorts."
+        "score-prop, risk parity, HRP, ERC, robust_* defaults) are already non-negative "
+        "unless you explicitly allow shorts (e.g., robust_mv with min_weight < 0). "
+        "This matters when custom/manual weights or plugin engines allow shorts."
     ),
 }
 
@@ -1930,8 +1931,9 @@ def render_model_page() -> None:
                 help=HELP_TEXT["long_only"],
             )
             st.caption(
-                "Built-in weighting schemes are already long-only. This setting only "
-                "affects custom weights or plugin engines configured outside the UI."
+                "Built-in weighting schemes are long-only unless configured to allow "
+                "shorts (e.g., robust_mv min_weight < 0). This setting also affects "
+                "custom weights or plugin engines configured outside the UI."
             )
             if not long_only:
                 st.warning(
