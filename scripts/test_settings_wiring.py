@@ -33,6 +33,11 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT / "streamlit_app"))
 
 from trend_analysis.config.legacy import Config  # noqa: E402
+from scripts.evaluate_settings_effectiveness import (  # noqa: E402
+    MODEL_PAGE,
+    MODE_CONTEXT,
+    extract_settings_from_model_page,
+)
 
 # =============================================================================
 # Setting Definitions with Expected Behaviors
@@ -1210,6 +1215,11 @@ def run_single_test(
     # Also update baseline with the baseline value (in case default differs)
     baseline_state[setting.name] = setting.baseline_value
 
+    mode_context = MODE_CONTEXT.get(setting.name)
+    if mode_context:
+        baseline_state = _apply_mode_context(baseline_state, mode_context)
+        test_state = _apply_mode_context(test_state, mode_context)
+
     # Handle special cases for inclusion_approach tests
     if setting.name == "inclusion_approach":
         if setting.test_value == "top_pct":
@@ -1346,6 +1356,45 @@ def run_all_tests(
     return results
 
 
+def _apply_mode_context(
+    state: dict[str, Any], context: dict[str, Any]
+) -> dict[str, Any]:
+    """Apply mode context, merging nested dicts where needed."""
+    merged = dict(state)
+    for key, value in context.items():
+        if key == "metric_weights" and isinstance(value, dict):
+            merged.setdefault("metric_weights", {})
+            merged["metric_weights"] = {**merged["metric_weights"], **value}
+        else:
+            merged[key] = value
+    return merged
+
+
+def _compute_coverage_summary() -> dict[str, Any]:
+    """Compare wiring tests against the model settings list."""
+    try:
+        _, model_settings = extract_settings_from_model_page(MODEL_PAGE)
+    except Exception as exc:
+        return {
+            "error": f"Failed to extract settings from model page: {exc}",
+            "model_settings": [],
+            "tested_settings": sorted({s.name for s in SETTINGS_TO_TEST}),
+            "missing_from_model": [],
+            "untested_in_model": [],
+        }
+
+    tested = {setting.name for setting in SETTINGS_TO_TEST}
+    missing_from_model = sorted(tested - model_settings)
+    untested_in_model = sorted(model_settings - tested - REPORTING_ONLY_SETTINGS)
+
+    return {
+        "model_settings": sorted(model_settings),
+        "tested_settings": sorted(tested),
+        "missing_from_model": missing_from_model,
+        "untested_in_model": untested_in_model,
+    }
+
+
 def generate_report(
     results: list[TestResult],
     output_path: Path | None = None,
@@ -1461,11 +1510,38 @@ def main() -> int:
         action="store_true",
         help="Enable verbose output",
     )
+    parser.add_argument(
+        "--coverage-report",
+        type=Path,
+        default=None,
+        help="Optional JSON coverage report path for model settings alignment",
+    )
     args = parser.parse_args()
 
     print("Loading demo data...")
     returns = load_demo_data()
     print(f"Loaded {len(returns)} rows, {len(returns.columns)} columns")
+
+    coverage = _compute_coverage_summary()
+    if "error" in coverage:
+        print(f"WARNING: {coverage['error']}")
+    else:
+        if coverage["missing_from_model"]:
+            print(
+                "WARNING: Settings in wiring tests not found in model state: "
+                f"{coverage['missing_from_model']}"
+            )
+        if coverage["untested_in_model"]:
+            print(
+                "WARNING: Model settings missing wiring tests: "
+                f"{coverage['untested_in_model']}"
+            )
+    if args.coverage_report:
+        args.coverage_report.parent.mkdir(parents=True, exist_ok=True)
+        args.coverage_report.write_text(
+            json.dumps(coverage, indent=2, default=str), encoding="utf-8"
+        )
+        print(f"Coverage report saved to: {args.coverage_report}")
 
     print(f"\nRunning {len(SETTINGS_TO_TEST)} setting tests...")
     results = run_all_tests(returns, verbose=args.verbose)
