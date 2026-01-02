@@ -33,8 +33,8 @@ from .pipeline import (
     _resolve_target_vol,
     _run_analysis_with_diagnostics,
 )
-from .weights.robust_config import weight_engine_params_from_robustness
 from .util.risk_free import resolve_risk_free_settings
+from .weights.robust_config import weight_engine_params_from_robustness
 
 
 def _run_analysis(
