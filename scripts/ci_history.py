@@ -6,7 +6,6 @@ It records a single NDJSON line containing aggregate test statistics and, when
 available, the richer metrics payload.  When classification is enabled it also
 emits a companion ``classification.json`` summarising failing / erroring tests.
 """
-
 from __future__ import annotations
 
 import datetime as _dt
@@ -55,12 +54,7 @@ def _build_history_record(
     metrics_path: Path,
     metrics_from_file: bool,
 ) -> dict[str, Any]:
-    timestamp = (
-        _dt.datetime.now(_dt.UTC)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
+    timestamp = _dt.datetime.now(_dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     summary = metrics.get("summary", {})
     failures = metrics.get("failures", [])
 
@@ -86,12 +80,7 @@ def _build_history_record(
 
 
 def _build_classification_payload(metrics: dict[str, Any]) -> dict[str, Any]:
-    timestamp = (
-        _dt.datetime.now(_dt.UTC)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
+    timestamp = _dt.datetime.now(_dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     failures = metrics.get("failures", []) or []
     counts = Counter(entry.get("status", "unknown") for entry in failures)
     payload: dict[str, Any] = {
@@ -120,9 +109,7 @@ def main() -> int:
     if classification_env is None:
         classification_env = os.environ.get("ENABLE_CLASSIFICATION_FLAG")
     classification_flag = _truthy(classification_env)
-    classification_out = Path(
-        os.environ.get("CLASSIFICATION_OUT", _DEFAULT_CLASSIFICATION)
-    )
+    classification_out = Path(os.environ.get("CLASSIFICATION_OUT", _DEFAULT_CLASSIFICATION))
 
     if not junit_path.is_file():
         print(f"JUnit report not found: {junit_path}", file=sys.stderr)
