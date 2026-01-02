@@ -238,3 +238,36 @@ def test_run_simulation_attaches_ci_level_metadata(monkeypatch) -> None:
 
     assert result.analysis is not None
     assert result.analysis.metadata["reporting"]["ci_level"] == 0.9
+
+
+def test_run_simulation_ci_level_is_reporting_only(monkeypatch) -> None:
+    returns = _make_returns()
+    portfolio = pd.Series(
+        [0.01, 0.02], index=pd.date_range("2023-01-31", periods=2, freq="ME")
+    )
+
+    def make_payload() -> dict[str, object]:
+        return {
+            "out_sample_stats": {
+                "FundA": SimpleNamespace(alpha=1.0, beta=0.5),
+            },
+            "benchmark_ir": {},
+            "portfolio_equal_weight_combined": portfolio.copy(),
+            "fund_weights": {"FundA": 1.0},
+            "metadata": {"fingerprint": "abc123"},
+        }
+
+    monkeypatch.setattr(api, "_run_analysis", lambda *_, **__: make_payload())
+
+    baseline = api.run_simulation(_make_config(portfolio={"ci_level": 0.0}), returns)
+    with_ci = api.run_simulation(_make_config(portfolio={"ci_level": 0.9}), returns)
+
+    pd.testing.assert_frame_equal(baseline.metrics, with_ci.metrics)
+    pd.testing.assert_series_equal(baseline.portfolio, with_ci.portfolio)
+    pd.testing.assert_series_equal(baseline.weights, with_ci.weights)
+    assert baseline.analysis is not None
+    assert with_ci.analysis is not None
+    assert baseline.analysis.metadata["fingerprint"] == "abc123"
+    assert with_ci.analysis.metadata["fingerprint"] == "abc123"
+    assert "reporting" not in baseline.analysis.metadata
+    assert with_ci.analysis.metadata["reporting"]["ci_level"] == 0.9
