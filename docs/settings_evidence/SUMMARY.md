@@ -12,6 +12,19 @@
 | 🚫 ERROR | 0 |
 | **Total** | **15** |
 
+## Per-Category Breakdown
+
+| Category | Total | Effective |
+|----------|-------|-----------|
+| Constraints | 3 | 1 |
+| Costs | 1 | 0 |
+| Entry/Exit | 2 | 2 |
+| Multi-Period | 2 | 2 |
+| Risk | 2 | 2 |
+| Selection | 3 | 1 |
+| Signals | 1 | 0 |
+| Weighting | 1 | 0 |
+
 ## ✅ Passing Settings
 
 | Setting | Baseline | Test | Direction |
@@ -25,15 +38,14 @@
 | `lookback_periods` | 36 | 60 | increase |
 | `vol_floor` | N/A | N/A | n/a |
 
-## ❌ Failing Settings (Investigation Required)
+## ❌ Non-Effective Settings (with recommendations)
 
-| Setting | Reason |
-|---------|--------|
-| `leverage_cap` | Setting had no effect on output |
-| `max_weight` | Setting had no effect on output |
-| `weighting_scheme` | Setting had no effect on output |
-| `transaction_cost_bps` | Setting had no effect on output |
-| `trend_window` | Setting had no effect on output |
-| `rank_pct` | Setting had no effect on output |
-| `selection_count` | Setting had no effect on output |
-
+| Setting | Category | Reason | Recommendation |
+|---------|----------|--------|----------------|
+| `leverage_cap` | Constraints | Setting had no effect on output | Ensure leverage constraints are applied to gross exposure and portfolio construction. |
+| `max_weight` | Constraints | Setting had no effect on output | Check weighting logic so max position caps flow into portfolio construction. |
+| `weighting_scheme` | Weighting | Setting had no effect on output | Verify weighting_scheme switches the weighting engine used for positions. |
+| `transaction_cost_bps` | Costs | Setting had no effect on output | Ensure transaction costs are applied to turnover cost and net returns. |
+| `trend_window` | Signals | Setting had no effect on output | Pass trend_window through signal calculation and rolling windows. |
+| `rank_pct` | Selection | Setting had no effect on output | Verify rank_pct is used when top_pct selection is active. |
+| `selection_count` | Selection | Setting had no effect on output | Ensure selection_count is applied in selection logic and pipeline. |
