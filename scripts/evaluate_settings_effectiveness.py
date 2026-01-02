@@ -217,6 +217,10 @@ def extract_settings_from_model_page(
                         preset_configs = {}
                 if isinstance(target, ast.Name) and target.id == "candidate_state":
                     candidate_keys |= _extract_dict_keys(node.value)
+                if isinstance(target, ast.Name) and target.id == "model_state":
+                    model_state_keys |= _extract_dict_keys(node.value)
+                if isinstance(target, ast.Subscript) and _is_model_state_ref(target):
+                    model_state_keys |= _extract_dict_keys(node.value)
                 key = _extract_model_state_key(target)
                 if key:
                     model_state_keys.add(key)
