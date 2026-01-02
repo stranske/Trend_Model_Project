@@ -402,11 +402,16 @@ def _summarize_run(run_result: RunResult) -> dict[str, Any]:
     }
 
 
-def _l1_distance(a: pd.Series, b: pd.Series) -> float:
+def _weight_stats(a: pd.Series, b: pd.Series) -> dict[str, float]:
     if a.empty and b.empty:
-        return 0.0
+        return {"l1": 0.0, "max_abs": 0.0, "active_change_count": 0.0}
     merged = pd.concat([a, b], axis=1).fillna(0.0)
-    return float((merged.iloc[:, 0] - merged.iloc[:, 1]).abs().sum())
+    diff = (merged.iloc[:, 0] - merged.iloc[:, 1]).abs()
+    return {
+        "l1": float(diff.sum()),
+        "max_abs": float(diff.max()),
+        "active_change_count": float((diff > 1.0e-6).sum()),
+    }
 
 
 def _mean_turnover(turnover: pd.Series) -> float:
@@ -427,6 +432,12 @@ def _sign_flip_test(
     means = (signs * values).mean(axis=1)
     p_value = float((np.abs(means) >= abs(observed)).mean())
     return p_value
+
+
+def _total_return(returns: pd.Series) -> float:
+    if returns is None or returns.empty:
+        return math.nan
+    return float((1.0 + returns).prod() - 1.0)
 
 
 def _evaluate_setting(
@@ -495,11 +506,23 @@ def _evaluate_setting(
     base_summary = _summarize_run(base_result)
     test_summary = _summarize_run(test_result)
 
-    weight_diff = _l1_distance(base_summary["weights"], test_summary["weights"])
+    weight_stats = _weight_stats(base_summary["weights"], test_summary["weights"])
+    weight_diff = weight_stats["l1"]
+    weight_max_abs_diff = weight_stats["max_abs"]
+    weight_change_count = weight_stats["active_change_count"]
     return_mean_diff = float(
         test_summary["returns"].mean() - base_summary["returns"].mean()
         if not base_summary["returns"].empty and not test_summary["returns"].empty
         else math.nan
+    )
+    mean_abs_return_diff = float(
+        (test_summary["returns"] - base_summary["returns"]).abs().mean()
+        if not base_summary["returns"].empty and not test_summary["returns"].empty
+        else math.nan
+    )
+    total_return_diff = float(
+        _total_return(test_summary["returns"])
+        - _total_return(base_summary["returns"])
     )
     return_vol_diff = float(
         test_summary["returns"].std() - base_summary["returns"].std()
@@ -520,6 +543,7 @@ def _evaluate_setting(
     )
 
     returns_diff = test_summary["returns"] - base_summary["returns"]
+    tracking_error = float(returns_diff.std()) if not returns_diff.empty else math.nan
     return_corr = float(
         test_summary["returns"].corr(base_summary["returns"])
         if not base_summary["returns"].empty and not test_summary["returns"].empty
@@ -530,7 +554,12 @@ def _evaluate_setting(
     metric_changed = any(
         (
             not math.isnan(weight_diff) and abs(weight_diff) > 1.0e-4,
+            not math.isnan(weight_max_abs_diff) and abs(weight_max_abs_diff) > 1.0e-4,
+            not math.isnan(weight_change_count) and weight_change_count > 0,
             not math.isnan(return_mean_diff) and abs(return_mean_diff) > 1.0e-4,
+            not math.isnan(mean_abs_return_diff)
+            and abs(mean_abs_return_diff) > 1.0e-4,
+            not math.isnan(total_return_diff) and abs(total_return_diff) > 1.0e-4,
             not math.isnan(return_vol_diff) and abs(return_vol_diff) > 1.0e-4,
             not math.isnan(sharpe_diff) and abs(sharpe_diff) > 1.0e-3,
             not math.isnan(cagr_diff) and abs(cagr_diff) > 1.0e-4,
@@ -569,8 +598,13 @@ def _evaluate_setting(
         mode_specific=bool(required_context),
         metrics={
             "weight_l1_diff": weight_diff,
+            "weight_max_abs_diff": weight_max_abs_diff,
+            "weight_change_count": weight_change_count,
             "mean_return_diff": return_mean_diff,
+            "mean_abs_return_diff": mean_abs_return_diff,
+            "total_return_diff": total_return_diff,
             "return_vol_diff": return_vol_diff,
+            "tracking_error": tracking_error,
             "return_corr": return_corr,
             "sharpe_diff": sharpe_diff,
             "cagr_diff": cagr_diff,
