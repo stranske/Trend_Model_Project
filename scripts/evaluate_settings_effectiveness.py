@@ -39,6 +39,15 @@ DEFAULT_REPORTING_STATE = {
     "report_rolling_metrics": True,
 }
 
+BASELINE_OVERRIDES = {
+    "preset": "Baseline",
+    "info_ratio_benchmark": "",
+    "rf_override_enabled": False,
+    "min_weight_strikes": 2,
+    "buy_hold_initial": "top_n",
+    "multi_period_enabled": True,
+}
+
 OPTIONS_BY_KEY = {
     "weighting_scheme": [
         "equal",
@@ -59,6 +68,9 @@ OPTIONS_BY_KEY = {
 }
 
 VARIATION_OVERRIDES: dict[str, Any] = {
+    "lookback_periods": 6,
+    "min_history_periods": 6,
+    "evaluation_periods": 2,
     "selection_count": 5,
     "rank_pct": 0.30,
     "risk_target": 0.15,
@@ -76,8 +88,20 @@ VARIATION_OVERRIDES: dict[str, Any] = {
     "condition_threshold": 1.0e10,
     "preset": "Conservative",
     "regime_proxy": "RF",
+    "min_tenure_periods": 6,
+    "max_changes_per_period": 2,
+    "max_active_positions": 8,
+    "trend_window": 126,
+    "trend_lag": 2,
+    "z_entry_soft": 1.5,
+    "z_exit_soft": -0.5,
+    "soft_strikes": 3,
+    "entry_soft_strikes": 2,
     "z_entry_hard": 1.5,
     "z_exit_hard": -1.5,
+    "bottom_k": 2,
+    "mp_min_funds": 8,
+    "mp_max_funds": 18,
 }
 
 MODE_CONTEXT: dict[str, dict[str, Any]] = {
@@ -205,11 +229,7 @@ def extract_settings_from_model_page(
 def _build_baseline_state(settings: Iterable[str]) -> dict[str, Any]:
     baseline = _extract_baseline_preset(MODEL_FILE)
     state = dict(baseline)
-    state.setdefault("preset", "Baseline")
-    state.setdefault("info_ratio_benchmark", "")
-    state.setdefault("rf_override_enabled", baseline.get("rf_override_enabled", False))
-    state.setdefault("min_weight_strikes", baseline.get("min_weight_strikes", 2))
-    state.setdefault("buy_hold_initial", "top_n")
+    state.update(BASELINE_OVERRIDES)
     state.update(DEFAULT_REPORTING_STATE)
 
     for key in settings:
