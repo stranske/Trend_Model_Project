@@ -110,3 +110,4 @@ def test_run_analysis_rank_mode_excludes_bottom_k():
     assert res is not None
     selected = res["selected_funds"]
     assert selected == ["A", "B"]
+    assert not set(selected) & {"C", "D", "E", "F", "G"}
