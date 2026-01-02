@@ -355,7 +355,12 @@ def _metric_value(metrics_row: pd.Series | None, keys: Iterable[str]) -> float:
 
 
 def _summarize_run(run_result: RunResult) -> dict[str, Any]:
-    from trend_analysis.metrics import annual_return, max_drawdown, sharpe_ratio, volatility
+    from trend_analysis.metrics import (
+        annual_return,
+        max_drawdown,
+        sharpe_ratio,
+        volatility,
+    )
 
     metrics_row = _select_metric_row(run_result.metrics)
     sharpe = _metric_value(metrics_row, ("sharpe", "sharpe_ratio"))
