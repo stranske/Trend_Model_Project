@@ -1617,6 +1617,14 @@ def run(
     cooldown_book: dict[str, int] = {}
     add_streaks: dict[str, int] = {}
     drop_streaks: dict[str, int] = {}
+    min_tenure_raw = cfg.portfolio.get("min_tenure_n")
+    try:
+        min_tenure_n = int(min_tenure_raw) if min_tenure_raw is not None else 0
+    except (TypeError, ValueError):
+        min_tenure_n = 0
+    if min_tenure_n < 0:
+        min_tenure_n = 0
+    holdings_tenure: dict[str, int] = {}
 
     def _firm(name: str) -> str:
         return str(name).split()[0] if isinstance(name, str) and name else str(name)
@@ -1625,6 +1633,20 @@ def run(
         if sticky_add_periods <= 1:
             return True
         return int(add_streaks.get(manager, 0)) >= sticky_add_periods
+
+    def _min_tenure_protected(
+        holdings: Iterable[str], score_frame: pd.DataFrame
+    ) -> set[str]:
+        if min_tenure_n <= 0:
+            return set()
+        protected: set[str] = set()
+        for mgr in holdings:
+            mgr_str = str(mgr)
+            if mgr_str not in score_frame.index:
+                continue
+            if int(holdings_tenure.get(mgr_str, 0)) < min_tenure_n:
+                protected.add(mgr_str)
+        return protected
 
     def _dedupe_one_per_firm(
         sf: pd.DataFrame, holdings: list[str], metric: str
@@ -2427,6 +2449,9 @@ def run(
             # trigger logic cannot accumulate an unbounded number of positions.
             before_reb = set(prev_weights.index)
             exit_protected = _exit_protected(before_reb, sf)
+            min_tenure_protected = _min_tenure_protected(before_reb, sf)
+            if min_tenure_protected:
+                exit_protected |= min_tenure_protected
 
             # Buy-and-hold mode: keep existing holdings, only replace disappeared funds
             if is_buy_and_hold:
@@ -2707,6 +2732,29 @@ def run(
                     if h in proposed_set and h in sf_set and h not in final_holdings:
                         final_holdings.append(h)
                 proposed_holdings = final_holdings
+
+            if min_tenure_protected:
+                blocked_drops = [
+                    mgr
+                    for mgr in [str(h) for h in before_reb]
+                    if mgr not in proposed_holdings and mgr in min_tenure_protected
+                ]
+                for mgr in blocked_drops:
+                    if mgr in proposed_holdings:
+                        continue
+                    proposed_holdings.append(mgr)
+                    events.append(
+                        {
+                            "action": "skipped",
+                            "manager": mgr,
+                            "firm": _firm(mgr),
+                            "reason": "min_tenure",
+                            "detail": (
+                                f"tenure={int(holdings_tenure.get(mgr, 0))}/"
+                                f"{min_tenure_n}"
+                            ),
+                        }
+                    )
 
             # Log attempted adds prior to firm/cap constraints. This preserves
             # the user's intent signal (e.g., a z_entry candidate) even if the
@@ -3074,6 +3122,9 @@ def run(
         # replacements starting from the second period (i.e., once a realised
         # prior allocation exists).
         exit_protected_low_weight = _exit_protected(prev_weights.index, sf)
+        min_tenure_blocked_low_weight = (
+            _min_tenure_protected(prev_weights.index, sf) if min_tenure_n > 0 else set()
+        )
         to_remove: list[str] = []
         for f, wv in nat_w.items():
             f_str = str(f)
@@ -3088,6 +3139,8 @@ def run(
                 prev_final_weights is not None
                 and int(low_weight_strikes.get(f_str, 0)) >= low_min_strikes_req
             ):
+                if f_str in min_tenure_blocked_low_weight:
+                    continue
                 to_remove.append(f_str)
         if to_remove:
             size_before_low_weight = len(holdings)
@@ -3667,6 +3720,12 @@ def run(
         res_dict["manager_changes"] = events
         res_dict["turnover"] = period_turnover
         res_dict["transaction_cost"] = float(period_cost)
+        if min_tenure_n > 0:
+            updated_tenure: dict[str, int] = {}
+            for mgr in realised_holdings:
+                mgr_str = str(mgr)
+                updated_tenure[mgr_str] = int(holdings_tenure.get(mgr_str, 0)) + 1
+            holdings_tenure = updated_tenure
 
         # Persist realised weights for next-period turnover logic.
         # Store only non-zero holdings so indices do not accumulate across the

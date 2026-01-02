@@ -184,6 +184,48 @@ def test_threshold_hold_cooldown_blocks_reentry(
     )
 
 
+def test_min_tenure_blocks_early_exits(monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg_no_tenure = THCfg()
+    cfg_no_tenure.portfolio["min_tenure_n"] = 0
+    cfg_min_tenure = THCfg()
+    cfg_min_tenure.portfolio["min_tenure_n"] = 2
+
+    periods = [
+        SimpleNamespace(
+            in_start="2020-01", in_end="2020-02", out_start="2020-03", out_end="2020-03"
+        ),
+        SimpleNamespace(
+            in_start="2020-02", in_end="2020-03", out_start="2020-04", out_end="2020-04"
+        ),
+        SimpleNamespace(
+            in_start="2020-03", in_end="2020-04", out_start="2020-05", out_end="2020-05"
+        ),
+    ]
+    monkeypatch.setattr(engine, "generate_periods", lambda _cfg: periods)
+
+    _patch_metric_series(
+        monkeypatch,
+        by_in_end={
+            "2020-02": {"A": 3.0, "B": 2.0, "C": 1.0, "D": 0.0, "E": -1.0},
+            "2020-03": {"A": 0.0, "B": -10.0, "C": 0.5, "D": 10.0, "E": 0.4},
+            "2020-04": {"A": 0.0, "B": -10.0, "C": 0.5, "D": 10.0, "E": 0.4},
+        },
+    )
+    _patch_pipeline(monkeypatch)
+
+    results_no_tenure = engine.run(cfg_no_tenure, df=_df_5_funds())
+    results_min_tenure = engine.run(cfg_min_tenure, df=_df_5_funds())
+
+    period2_no = set(results_no_tenure[1]["selected_funds"])
+    period2_min = set(results_min_tenure[1]["selected_funds"])
+
+    assert "B" not in period2_no
+    assert "B" in period2_min
+
+    period3_min = set(results_min_tenure[2]["selected_funds"])
+    assert "B" not in period3_min
+
+
 def test_min_funds_can_exceed_turnover_budget(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = THCfg()
     cfg.portfolio["turnover_budget_max_changes"] = 1
