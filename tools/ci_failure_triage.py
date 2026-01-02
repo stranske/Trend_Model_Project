@@ -12,7 +12,7 @@ Can work with or without LLM (LLM provides better suggestions).
 Usage:
     # From a log file
     python tools/ci_failure_triage.py --log-file ci_output.log --job-name "python ci (3.11)"
-    
+
     # From stdin (piped from gh)
     gh run view 12345 --log-failed | python tools/ci_failure_triage.py --job-name "tests"
 """
