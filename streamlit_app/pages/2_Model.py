@@ -1816,7 +1816,9 @@ def render_model_page() -> None:
                     c
                     for c in benchmark_options
                     if c.upper() not in ["SPX", "TSX", "MSCI", "ACWI"]
-                ][:10]  # Limit to 14 options
+                ][
+                    :10
+                ]  # Limit to 14 options
                 current_regime_proxy = model_state.get("regime_proxy", "SPX")
                 regime_proxy = st.selectbox(
                     "Regime Proxy Index",

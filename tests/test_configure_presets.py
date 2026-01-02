@@ -34,27 +34,27 @@ class TestPresetLoading:
                 assert field in data, f"Preset {preset_file.name} missing field {field}"
 
             # Test specific field types and ranges
-            assert isinstance(data["lookback_periods"], int), (
-                "lookback_periods should be int"
-            )
-            assert 12 <= data["lookback_periods"] <= 240, (
-                "lookback_periods should be reasonable"
-            )
+            assert isinstance(
+                data["lookback_periods"], int
+            ), "lookback_periods should be int"
+            assert (
+                12 <= data["lookback_periods"] <= 240
+            ), "lookback_periods should be reasonable"
 
-            assert isinstance(data["risk_target"], (int, float)), (
-                "risk_target should be numeric"
-            )
-            assert 0.01 <= data["risk_target"] <= 0.50, (
-                "risk_target should be reasonable"
-            )
+            assert isinstance(
+                data["risk_target"], (int, float)
+            ), "risk_target should be numeric"
+            assert (
+                0.01 <= data["risk_target"] <= 0.50
+            ), "risk_target should be reasonable"
 
             signals = data.get("signals")
-            assert isinstance(signals, dict), (
-                f"Preset {preset_file.name} missing signals"
-            )
-            assert "window" in signals, (
-                f"Preset {preset_file.name} missing signal window"
-            )
+            assert isinstance(
+                signals, dict
+            ), f"Preset {preset_file.name} missing signals"
+            assert (
+                "window" in signals
+            ), f"Preset {preset_file.name} missing signal window"
             assert "lag" in signals, f"Preset {preset_file.name} missing signal lag"
             assert int(signals["window"]) > 0, "Signal window must be positive"
 

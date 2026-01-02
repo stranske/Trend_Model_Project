@@ -39,9 +39,9 @@ def test_health_wrapper_has_specific_exceptions():
         content = f.read()
 
     # Should use specific exception types instead of broad Exception
-    assert "(ImportError, ModuleNotFoundError)" in content, (
-        "Should catch specific import exceptions"
-    )
+    assert (
+        "(ImportError, ModuleNotFoundError)" in content
+    ), "Should catch specific import exceptions"
 
     # Check for specific app creation exceptions (may be formatted across multiple lines)
     assert (

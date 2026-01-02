@@ -206,9 +206,9 @@ def test_make_summary_formatter_writes_manager_contrib(
     fmt(ws, wb)
 
     headers = [entry[2] for entry in ws.rows]
-    assert any(row == ["Manager Participation & Contribution"] for row in headers), (
-        "Expected contribution section header"
-    )
+    assert any(
+        row == ["Manager Participation & Contribution"] for row in headers
+    ), "Expected contribution section header"
     contrib_headers = [
         row
         for row in headers

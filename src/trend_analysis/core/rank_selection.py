@@ -839,12 +839,7 @@ register_metric("sharpe")(
 )
 
 register_metric("Sortino")(
-    lambda s,
-    *,
-    periods_per_year=12,
-    risk_free=0.0,
-    target=0.0,
-    **k: _metrics.sortino_ratio(
+    lambda s, *, periods_per_year=12, risk_free=0.0, target=0.0, **k: _metrics.sortino_ratio(
         s,
         periods_per_year=periods_per_year,
         # Align with pipeline usage: treat the provided risk-free override as
@@ -856,12 +851,7 @@ register_metric("Sortino")(
 register_metric("MaxDrawdown")(lambda s, **k: _metrics.max_drawdown(s))
 
 register_metric("InformationRatio")(
-    lambda s,
-    *,
-    periods_per_year=12,
-    risk_free=0.0,
-    benchmark=None,
-    **k: _metrics.information_ratio(
+    lambda s, *, periods_per_year=12, risk_free=0.0, benchmark=None, **k: _metrics.information_ratio(
         s,
         # Align with pipeline usage: treat the provided risk-free override as
         # the benchmark for IR when no explicit benchmark series is provided.
