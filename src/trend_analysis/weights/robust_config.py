@@ -30,7 +30,27 @@ def weight_engine_params_from_robustness(
 
     robustness_cfg = _mapping(robustness_cfg)
     shrinkage_cfg = _mapping(robustness_cfg.get("shrinkage"))
-    condition_cfg = _mapping(robustness_cfg.get("condition_check"))
+    condition_cfg = dict(_mapping(robustness_cfg.get("condition_check")))
+    if not condition_cfg:
+        condition_check_flag = robustness_cfg.get("condition_check")
+        if isinstance(condition_check_flag, bool):
+            condition_cfg["enabled"] = condition_check_flag
+    if "threshold" not in condition_cfg and "condition_threshold" in robustness_cfg:
+        condition_cfg["threshold"] = robustness_cfg.get("condition_threshold")
+    if "safe_mode" not in condition_cfg and "safe_mode" in robustness_cfg:
+        condition_cfg["safe_mode"] = robustness_cfg.get("safe_mode")
+    if (
+        "diagonal_loading_factor" not in condition_cfg
+        and "diagonal_loading_factor" in robustness_cfg
+    ):
+        condition_cfg["diagonal_loading_factor"] = robustness_cfg.get(
+            "diagonal_loading_factor"
+        )
+    if (
+        "enabled" not in condition_cfg
+        and "condition_check_enabled" in robustness_cfg
+    ):
+        condition_cfg["enabled"] = robustness_cfg.get("condition_check_enabled")
     logging_cfg = _mapping(robustness_cfg.get("logging"))
 
     shrinkage_enabled = bool(shrinkage_cfg.get("enabled", True))
