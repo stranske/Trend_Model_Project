@@ -3513,9 +3513,7 @@ def run(
                 res_dict["weights_user_weight"] = rebalance_frame
 
                 if rf_override_enabled:
-                    rf_out = pd.Series(
-                        float(rf_rate_periodic), index=out_scaled.index
-                    )
+                    rf_out = pd.Series(float(rf_rate_periodic), index=out_scaled.index)
                 elif resolved_rf_col and resolved_rf_col in out_df.columns:
                     rf_out = out_df[resolved_rf_col].reindex(out_scaled.index)
                 else:
