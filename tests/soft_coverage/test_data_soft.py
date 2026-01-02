@@ -114,7 +114,7 @@ def test_finalise_validated_frame_includes_metadata(
     assert list(result.columns) == ["Date", "FundA"]
     assert "market_data" in result.attrs
     attrs = result.attrs["market_data"]
-    assert attrs["metadata"] is sample_metadata
+    assert attrs["metadata"] == sample_metadata.model_dump(mode="json")
     assert result.attrs["market_data_mode"] == sample_metadata.mode.value
     assert (
         result.attrs["market_data_frequency_label"] == sample_metadata.frequency_label

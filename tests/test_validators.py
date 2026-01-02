@@ -125,7 +125,7 @@ class TestLoadAndValidateUpload:
         csv_path = self._make_csv(tmp_path)
         df, meta = load_and_validate_upload(str(csv_path))
         assert (
-            df.attrs["market_data"]["metadata"]["mode"] == MarketDataMode.RETURNS.value
+            df.attrs["market_data"]["metadata"]["mode"] == MarketDataMode.RETUR.valueN.valueS.value
         )
         metadata = meta["metadata"]
         assert metadata.frequency_label == "monthly"
