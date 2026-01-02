@@ -138,6 +138,26 @@ def test_safe_mode_changes_fallback_weights() -> None:
     assert not np.allclose(hrp_weights.values, rp_weights.values, rtol=1e-3, atol=1e-4)
 
 
+def test_condition_threshold_alias_triggers_safe_mode() -> None:
+    returns = _make_collinear_returns()
+    cfg = _make_config(safe_mode="risk_parity")
+    cfg.portfolio["robustness"]["condition_check"] = {
+        "enabled": True,
+        "condition_threshold": 1.0,
+        "safe_mode": "risk_parity",
+    }
+
+    result = api.run_simulation(cfg, returns)
+
+    fallback = result.fallback_info
+    assert fallback is not None
+    assert fallback["reason"] == "condition_threshold_exceeded"
+    assert fallback["safe_mode"] == "risk_parity"
+    assert fallback["condition_threshold"] == 1.0
+    diagnostics = result.details.get("weight_engine_diagnostics", {})
+    assert diagnostics.get("used_safe_mode") is True
+
+
 def test_top_level_robustness_keys_trigger_fallback() -> None:
     returns = _make_collinear_returns()
     cfg = _make_top_level_config(safe_mode="risk_parity")

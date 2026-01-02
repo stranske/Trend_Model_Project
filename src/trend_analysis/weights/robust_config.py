@@ -35,6 +35,8 @@ def weight_engine_params_from_robustness(
         condition_check_flag = robustness_cfg.get("condition_check")
         if isinstance(condition_check_flag, bool):
             condition_cfg["enabled"] = condition_check_flag
+    if "threshold" not in condition_cfg and "condition_threshold" in condition_cfg:
+        condition_cfg["threshold"] = condition_cfg.get("condition_threshold")
     if "threshold" not in condition_cfg and "condition_threshold" in robustness_cfg:
         condition_cfg["threshold"] = robustness_cfg.get("condition_threshold")
     if "safe_mode" not in condition_cfg and "safe_mode" in robustness_cfg:
