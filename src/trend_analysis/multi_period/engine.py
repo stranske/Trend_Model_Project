@@ -1638,6 +1638,8 @@ def run(
     add_streaks: dict[str, int] = {}
     drop_streaks: dict[str, int] = {}
     min_tenure_raw = cfg.portfolio.get("min_tenure_n")
+    if min_tenure_raw is None:
+        min_tenure_raw = cfg.portfolio.get("min_tenure_periods")
     try:
         min_tenure_n = int(min_tenure_raw) if min_tenure_raw is not None else 0
     except (TypeError, ValueError):
