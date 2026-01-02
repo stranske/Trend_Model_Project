@@ -252,9 +252,7 @@ def _compute_turnover(result: Any) -> float | None:
     period_results = getattr(result, "period_results", None)
     if isinstance(period_results, list):
         turnovers = [
-            float(p.get("turnover", 0.0))
-            for p in period_results
-            if isinstance(p, dict)
+            float(p.get("turnover", 0.0)) for p in period_results if isinstance(p, dict)
         ]
         if turnovers:
             return float(np.mean(turnovers))
@@ -550,9 +548,7 @@ def main() -> int:
 
     effective = sum(1 for r in results if r.status == "EFFECTIVE")
     errors = sum(1 for r in results if r.status == "ERROR")
-    print(
-        f"Completed {len(results)} settings: {effective} effective, {errors} errors."
-    )
+    print(f"Completed {len(results)} settings: {effective} effective, {errors} errors.")
     print(f"Saved JSON report to {json_path}")
     print(f"Saved CSV report to {csv_path}")
 
