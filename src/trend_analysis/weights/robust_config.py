@@ -46,10 +46,7 @@ def weight_engine_params_from_robustness(
         condition_cfg["diagonal_loading_factor"] = robustness_cfg.get(
             "diagonal_loading_factor"
         )
-    if (
-        "enabled" not in condition_cfg
-        and "condition_check_enabled" in robustness_cfg
-    ):
+    if "enabled" not in condition_cfg and "condition_check_enabled" in robustness_cfg:
         condition_cfg["enabled"] = robustness_cfg.get("condition_check_enabled")
     logging_cfg = _mapping(robustness_cfg.get("logging"))
 
