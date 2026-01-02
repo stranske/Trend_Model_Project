@@ -473,7 +473,7 @@ def _apply_membership_mask(
     missing_price_cols = sorted(set(membership_symbols) - set(data_symbols))
     if missing_price_cols:
         preview = _format_list_preview(missing_price_cols)
-        message = "Universe membership requires price columns for: " f"{preview}"
+        message = f"Universe membership requires price columns for: {preview}"
         if policy == "raise":
             raise ValueError(message)
         logger.warning("%s. Skipping those entries.", message)
@@ -485,8 +485,7 @@ def _apply_membership_mask(
     if extra_price_cols:
         preview = _format_list_preview(extra_price_cols)
         message = (
-            "Price data includes columns missing from universe membership: "
-            f"{preview}"
+            f"Price data includes columns missing from universe membership: {preview}"
         )
         if policy == "raise":
             raise ValueError(message)
@@ -503,7 +502,7 @@ def _apply_membership_mask(
     missing_data = mask & ~availability
     if bool(missing_data.values.any()):
         preview = _format_conflict_preview(missing_data)
-        message = "Universe membership entries are missing price history: " f"{preview}"
+        message = f"Universe membership entries are missing price history: {preview}"
         if policy == "raise":
             raise ValueError(message)
         logger.warning("%s. Ignoring those dates.", message)

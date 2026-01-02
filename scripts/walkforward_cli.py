@@ -5,6 +5,7 @@ Usage:
   python scripts/walkforward_cli.py --csv demo/demo_returns.csv \
       --train 12 --test 3 --step 3 --column Portfolio
 """
+
 from __future__ import annotations
 
 import argparse

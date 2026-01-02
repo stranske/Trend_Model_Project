@@ -359,7 +359,7 @@ def export_bundle(run: Any, path: Path) -> Path:
 This bundle contains the complete results of a trend analysis run, including data,
 charts, and metadata necessary for reproducibility and sharing.
 
-Generated: {_dt.datetime.now(_dt.timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC
+Generated: {_dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")} UTC
 
 Contents:
 ---------

@@ -200,9 +200,7 @@ class TestDependencies:
         try:
             import coverage  # noqa: F401
         except ImportError:
-            pytest.fail(
-                "coverage.py not installed. " "Install with: pip install coverage"
-            )
+            pytest.fail("coverage.py not installed. Install with: pip install coverage")
 
         # Verify coverage CLI is available
         result = subprocess.run(

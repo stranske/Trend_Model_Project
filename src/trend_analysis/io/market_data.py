@@ -661,8 +661,7 @@ def _resolve_datetime_index(
             if len(sample_values) > 5:
                 preview += " …"
             issues = [
-                "Found dates that could not be parsed. "
-                f"Examples: {preview or 'n/a'}."
+                f"Found dates that could not be parsed. Examples: {preview or 'n/a'}."
             ]
             raise MarketDataValidationError(_format_issues(issues), issues) from exc
         if parsed.isna().any():
@@ -670,7 +669,7 @@ def _resolve_datetime_index(
             preview = ", ".join(bad_values[:5])
             if len(bad_values) > 5:
                 preview += " …"
-            issues = ["Found dates that could not be parsed. " f"Examples: {preview}."]
+            issues = [f"Found dates that could not be parsed. Examples: {preview}."]
             raise MarketDataValidationError(_format_issues(issues), issues)
         idx = pd.DatetimeIndex(parsed, name="Date")
         working = working.drop(columns=[date_col])

@@ -6,6 +6,7 @@ Reads TRUSTED_CONFIG_PATHS from environment (newline separated) and ensures:
 - No extra files beyond the allowlist are present.
 Exits non‑zero on violation, emits ::error:: annotations for GitHub Actions.
 """
+
 from __future__ import annotations
 
 import os

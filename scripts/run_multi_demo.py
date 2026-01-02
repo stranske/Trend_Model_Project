@@ -1438,7 +1438,7 @@ if direct_res.value is None or direct_res.value.get("score_frame") is None:
     diag = direct_res.diagnostic
     if diag is not None:
         raise SystemExit(
-            "_run_analysis direct call failed " f"({diag.reason_code}): {diag.message}"
+            f"_run_analysis direct call failed ({diag.reason_code}): {diag.message}"
         )
     raise SystemExit("_run_analysis direct call failed")
 
@@ -1711,8 +1711,7 @@ if fw is None:
     diag = cw_res.diagnostic
     if diag is not None:
         raise SystemExit(
-            "_run_analysis custom_weights failed "
-            f"({diag.reason_code}): {diag.message}"
+            f"_run_analysis custom_weights failed ({diag.reason_code}): {diag.message}"
         )
     raise SystemExit("_run_analysis custom_weights missing fund_weights")
 expected = {"Mgr_01": 0.6, "Mgr_02": 0.4}

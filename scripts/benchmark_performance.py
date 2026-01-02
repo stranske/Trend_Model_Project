@@ -12,6 +12,7 @@ Outputs JSON summary with timing statistics covering:
 Usage:
   python scripts/benchmark_performance.py --rows 2000 --cols 50 --runs 5
 """
+
 from __future__ import annotations
 
 import argparse

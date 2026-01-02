@@ -14,6 +14,7 @@ Rules:
   * Only remove a code if it appears in allowlist AND its count is zero for the last N snapshots (or absent from by_code entirely) AND it is not present in ANY of the last N snapshots.
   * Keeps ordering stable.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -100,7 +101,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     new_codes = [c for c in allow_codes if c not in removal]
     save_allowlist(new_codes)
-    print(f'Pruned {len(removal)} codes from allowlist: {", ".join(removal)}')
+    print(f"Pruned {len(removal)} codes from allowlist: {', '.join(removal)}")
     return 0
 
 

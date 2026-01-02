@@ -99,7 +99,7 @@ def load_membership(cfg: Any) -> pd.DataFrame:
     if missing:
         joined = ", ".join(missing)
         raise ValueError(
-            "Universe membership file is missing required columns: " f"{joined}"
+            f"Universe membership file is missing required columns: {joined}"
         )
     assert fund_col is not None
     assert eff_col is not None

@@ -59,8 +59,7 @@ class _ValidationSummary:
             or bool(self.metadata.missing_policy_dropped)
         ):
             warnings.append(
-                "Missing-data policy applied: "
-                f"{self.metadata.missing_policy_summary}."
+                f"Missing-data policy applied: {self.metadata.missing_policy_summary}."
             )
         return warnings
 
@@ -108,7 +107,7 @@ class ValidationResult:
                 )
             ):
                 lines.append(
-                    "🧹 Missing data policy: " f"{self.metadata.missing_policy_summary}"
+                    f"🧹 Missing data policy: {self.metadata.missing_policy_summary}"
                 )
         else:
             lines.append("❌ Schema validation failed!")

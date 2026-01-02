@@ -7,6 +7,7 @@ where ``input_json`` is the newline-delimited JSON produced by ``mypy
 success message.  The script never raises on malformed entries – entries that
 cannot be decoded are ignored so automation continues gracefully.
 """
+
 from __future__ import annotations
 
 import json
