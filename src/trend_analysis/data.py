@@ -168,7 +168,7 @@ def _finalise_validated_frame(
 
     attrs = dict(base_frame.attrs)
     attrs.setdefault("market_data", {})
-    attrs["market_data"]["metadata"] = validated.metadata
+    attrs["market_data"]["metadata"] = validated.metadata.model_dump(mode="json")
     attrs["market_data_mode"] = validated.metadata.mode.value
     attrs["market_data_frequency"] = validated.metadata.frequency
     attrs["market_data_frequency_code"] = validated.metadata.frequency_detected
