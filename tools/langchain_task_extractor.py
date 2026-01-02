@@ -14,7 +14,7 @@ Usage:
     # As a library
     from tools.langchain_task_extractor import extract_structured_scope
     result = extract_structured_scope(pr_body)
-    
+
     # CLI for testing
     python tools/langchain_task_extractor.py --body body.md --verbose
 """

@@ -39,6 +39,15 @@ DEFAULT_REPORTING_STATE = {
     "report_rolling_metrics": True,
 }
 
+BASELINE_OVERRIDES = {
+    "preset": "Baseline",
+    "info_ratio_benchmark": "",
+    "rf_override_enabled": False,
+    "min_weight_strikes": 2,
+    "buy_hold_initial": "top_n",
+    "multi_period_enabled": True,
+}
+
 OPTIONS_BY_KEY = {
     "weighting_scheme": [
         "equal",
@@ -59,6 +68,9 @@ OPTIONS_BY_KEY = {
 }
 
 VARIATION_OVERRIDES: dict[str, Any] = {
+    "lookback_periods": 6,
+    "min_history_periods": 6,
+    "evaluation_periods": 2,
     "selection_count": 5,
     "rank_pct": 0.30,
     "risk_target": 0.15,
@@ -74,6 +86,22 @@ VARIATION_OVERRIDES: dict[str, Any] = {
     "warmup_periods": 6,
     "random_seed": 123,
     "condition_threshold": 1.0e10,
+    "preset": "Conservative",
+    "regime_proxy": "RF",
+    "min_tenure_periods": 6,
+    "max_changes_per_period": 2,
+    "max_active_positions": 8,
+    "trend_window": 126,
+    "trend_lag": 2,
+    "z_entry_soft": 1.5,
+    "z_exit_soft": -0.5,
+    "soft_strikes": 3,
+    "entry_soft_strikes": 2,
+    "z_entry_hard": 1.5,
+    "z_exit_hard": -1.5,
+    "bottom_k": 2,
+    "mp_min_funds": 8,
+    "mp_max_funds": 18,
 }
 
 MODE_CONTEXT: dict[str, dict[str, Any]] = {
@@ -85,6 +113,7 @@ MODE_CONTEXT: dict[str, dict[str, Any]] = {
     "sticky_drop_periods": {"multi_period_enabled": True},
     "rf_rate_annual": {"rf_override_enabled": True},
     "info_ratio_benchmark": {"metric_weights": {"info_ratio": 1.0}},
+    "regime_proxy": {"regime_enabled": True},
 }
 
 
@@ -200,11 +229,7 @@ def extract_settings_from_model_page(
 def _build_baseline_state(settings: Iterable[str]) -> dict[str, Any]:
     baseline = _extract_baseline_preset(MODEL_FILE)
     state = dict(baseline)
-    state.setdefault("preset", "Baseline")
-    state.setdefault("info_ratio_benchmark", "")
-    state.setdefault("rf_override_enabled", baseline.get("rf_override_enabled", False))
-    state.setdefault("min_weight_strikes", baseline.get("min_weight_strikes", 2))
-    state.setdefault("buy_hold_initial", "top_n")
+    state.update(BASELINE_OVERRIDES)
     state.update(DEFAULT_REPORTING_STATE)
 
     for key in settings:
@@ -315,18 +340,33 @@ def _select_metric_row(metrics: pd.DataFrame) -> pd.Series | None:
     return metrics.iloc[0]
 
 
+def _metric_value(metrics_row: pd.Series | None, keys: Iterable[str]) -> float:
+    if metrics_row is None:
+        return math.nan
+    for key in keys:
+        if key in metrics_row:
+            value = metrics_row.get(key)
+            if value is not None and not pd.isna(value):
+                try:
+                    return float(value)
+                except (TypeError, ValueError):
+                    continue
+    return math.nan
+
+
 def _summarize_run(run_result: RunResult) -> dict[str, Any]:
+    from trend_analysis.metrics import (
+        annual_return,
+        max_drawdown,
+        sharpe_ratio,
+        volatility,
+    )
+
     metrics_row = _select_metric_row(run_result.metrics)
-    sharpe = (
-        float(metrics_row.get("sharpe"))
-        if metrics_row is not None and "sharpe" in metrics_row
-        else math.nan
-    )
-    cagr = (
-        float(metrics_row.get("cagr"))
-        if metrics_row is not None and "cagr" in metrics_row
-        else math.nan
-    )
+    sharpe = _metric_value(metrics_row, ("sharpe", "sharpe_ratio"))
+    cagr = _metric_value(metrics_row, ("cagr", "CAGR", "annual_return"))
+    vol = _metric_value(metrics_row, ("vol", "volatility"))
+    max_dd = _metric_value(metrics_row, ("max_drawdown", "MaxDrawdown"))
 
     analysis = run_result.analysis
     if analysis is None:
@@ -340,9 +380,21 @@ def _summarize_run(run_result: RunResult) -> dict[str, Any]:
     turnover = analysis.turnover if analysis is not None else pd.Series(dtype=float)
     costs = analysis.costs if analysis is not None else {}
 
+    if not returns.empty:
+        if math.isnan(cagr):
+            cagr = float(annual_return(returns))
+        if math.isnan(vol):
+            vol = float(volatility(returns))
+        if math.isnan(sharpe):
+            sharpe = float(sharpe_ratio(returns))
+        if math.isnan(max_dd):
+            max_dd = float(max_drawdown(returns))
+
     return {
         "sharpe": sharpe,
         "cagr": cagr,
+        "volatility": vol,
+        "max_drawdown": max_dd,
         "returns": returns,
         "weights": weights,
         "turnover": turnover,
@@ -350,11 +402,16 @@ def _summarize_run(run_result: RunResult) -> dict[str, Any]:
     }
 
 
-def _l1_distance(a: pd.Series, b: pd.Series) -> float:
+def _weight_stats(a: pd.Series, b: pd.Series) -> dict[str, float]:
     if a.empty and b.empty:
-        return 0.0
+        return {"l1": 0.0, "max_abs": 0.0, "active_change_count": 0.0}
     merged = pd.concat([a, b], axis=1).fillna(0.0)
-    return float((merged.iloc[:, 0] - merged.iloc[:, 1]).abs().sum())
+    diff = (merged.iloc[:, 0] - merged.iloc[:, 1]).abs()
+    return {
+        "l1": float(diff.sum()),
+        "max_abs": float(diff.max()),
+        "active_change_count": float((diff > 1.0e-6).sum()),
+    }
 
 
 def _mean_turnover(turnover: pd.Series) -> float:
@@ -375,6 +432,12 @@ def _sign_flip_test(
     means = (signs * values).mean(axis=1)
     p_value = float((np.abs(means) >= abs(observed)).mean())
     return p_value
+
+
+def _total_return(returns: pd.Series) -> float:
+    if returns is None or returns.empty:
+        return math.nan
+    return float((1.0 + returns).prod() - 1.0)
 
 
 def _evaluate_setting(
@@ -443,13 +506,33 @@ def _evaluate_setting(
     base_summary = _summarize_run(base_result)
     test_summary = _summarize_run(test_result)
 
-    weight_diff = _l1_distance(base_summary["weights"], test_summary["weights"])
+    weight_stats = _weight_stats(base_summary["weights"], test_summary["weights"])
+    weight_diff = weight_stats["l1"]
+    weight_max_abs_diff = weight_stats["max_abs"]
+    weight_change_count = weight_stats["active_change_count"]
     return_mean_diff = float(
         test_summary["returns"].mean() - base_summary["returns"].mean()
         if not base_summary["returns"].empty and not test_summary["returns"].empty
         else math.nan
     )
+    mean_abs_return_diff = float(
+        (test_summary["returns"] - base_summary["returns"]).abs().mean()
+        if not base_summary["returns"].empty and not test_summary["returns"].empty
+        else math.nan
+    )
+    total_return_diff = float(
+        _total_return(test_summary["returns"])
+        - _total_return(base_summary["returns"])
+    )
+    return_vol_diff = float(
+        test_summary["returns"].std() - base_summary["returns"].std()
+        if not base_summary["returns"].empty and not test_summary["returns"].empty
+        else math.nan
+    )
     sharpe_diff = float(test_summary["sharpe"] - base_summary["sharpe"])
+    cagr_diff = float(test_summary["cagr"] - base_summary["cagr"])
+    vol_diff = float(test_summary["volatility"] - base_summary["volatility"])
+    max_dd_diff = float(test_summary["max_drawdown"] - base_summary["max_drawdown"])
     turnover_diff = float(
         _mean_turnover(test_summary["turnover"])
         - _mean_turnover(base_summary["turnover"])
@@ -460,13 +543,28 @@ def _evaluate_setting(
     )
 
     returns_diff = test_summary["returns"] - base_summary["returns"]
+    tracking_error = float(returns_diff.std()) if not returns_diff.empty else math.nan
+    return_corr = float(
+        test_summary["returns"].corr(base_summary["returns"])
+        if not base_summary["returns"].empty and not test_summary["returns"].empty
+        else math.nan
+    )
     p_value = _sign_flip_test(returns_diff.dropna())
 
     metric_changed = any(
         (
             not math.isnan(weight_diff) and abs(weight_diff) > 1.0e-4,
+            not math.isnan(weight_max_abs_diff) and abs(weight_max_abs_diff) > 1.0e-4,
+            not math.isnan(weight_change_count) and weight_change_count > 0,
             not math.isnan(return_mean_diff) and abs(return_mean_diff) > 1.0e-4,
+            not math.isnan(mean_abs_return_diff)
+            and abs(mean_abs_return_diff) > 1.0e-4,
+            not math.isnan(total_return_diff) and abs(total_return_diff) > 1.0e-4,
+            not math.isnan(return_vol_diff) and abs(return_vol_diff) > 1.0e-4,
             not math.isnan(sharpe_diff) and abs(sharpe_diff) > 1.0e-3,
+            not math.isnan(cagr_diff) and abs(cagr_diff) > 1.0e-4,
+            not math.isnan(vol_diff) and abs(vol_diff) > 1.0e-4,
+            not math.isnan(max_dd_diff) and abs(max_dd_diff) > 1.0e-4,
             not math.isnan(turnover_diff) and abs(turnover_diff) > 1.0e-4,
         )
     )
@@ -500,8 +598,18 @@ def _evaluate_setting(
         mode_specific=bool(required_context),
         metrics={
             "weight_l1_diff": weight_diff,
+            "weight_max_abs_diff": weight_max_abs_diff,
+            "weight_change_count": weight_change_count,
             "mean_return_diff": return_mean_diff,
+            "mean_abs_return_diff": mean_abs_return_diff,
+            "total_return_diff": total_return_diff,
+            "return_vol_diff": return_vol_diff,
+            "tracking_error": tracking_error,
+            "return_corr": return_corr,
             "sharpe_diff": sharpe_diff,
+            "cagr_diff": cagr_diff,
+            "volatility_diff": vol_diff,
+            "max_drawdown_diff": max_dd_diff,
             "turnover_diff": turnover_diff,
             "cost_diff": cost_diff,
             "p_value": p_value,
