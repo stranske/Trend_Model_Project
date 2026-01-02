@@ -211,7 +211,7 @@ pluggy==1.6.0
     # via
     #   pytest
     #   pytest-cov
-pre-commit==4.4.0
+pre-commit==4.5.1
     # via trend-model (pyproject.toml)
 prompt-toolkit==3.0.52
     # via ipython
