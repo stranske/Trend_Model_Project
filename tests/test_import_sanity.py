@@ -75,9 +75,13 @@ def test_src_only_import_rejects_legacy_modules(tmp_path: Path) -> None:
         """
     )
 
-    subprocess.run(
+    result = subprocess.run(
         [sys.executable, "-c", script],
         cwd=tmp_path,
         env=env,
-        check=True,
+        capture_output=True,
     )
+    if result.returncode != 0:
+        stdout = result.stdout.decode() if result.stdout else ""
+        stderr = result.stderr.decode() if result.stderr else ""
+        pytest.fail(f"Import test failed with exit code {result.returncode}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}")
