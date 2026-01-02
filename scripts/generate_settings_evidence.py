@@ -71,6 +71,8 @@ def run_single_setting_test(
     """Run a single setting test and return detailed evidence."""
     evidence: dict[str, Any] = {
         "setting_name": setting_name,
+        "category": setting_config.get("category", "Uncategorized"),
+        "description": setting_config.get("description", ""),
         "timestamp": datetime.now().isoformat(),
         "status": "UNKNOWN",
         "baseline_value": None,
@@ -170,6 +172,7 @@ def run_single_setting_test(
             f"got {evidence.get('actual_direction', 'unknown')}"
         )
 
+    evidence["recommendation"] = _recommendation_for_evidence(evidence)
     return evidence
 
 
@@ -309,6 +312,51 @@ def get_economic_interpretation(evidence: dict[str, Any]) -> str:
     return "The setting change requires further investigation."
 
 
+def _recommendation_for_evidence(evidence: dict[str, Any]) -> str:
+    """Generate a recommendation based on evidence outcomes."""
+    setting = evidence.get("setting_name", "")
+    status = evidence.get("status", "")
+    reason = evidence.get("reason") or evidence.get("error") or ""
+
+    if status == "PASS":
+        return "Setting is working correctly."
+    if status == "ERROR":
+        return (
+            f"Fix error: {reason}. Check if the setting is properly initialized."
+            if reason
+            else "Fix error and ensure the setting is properly initialized."
+        )
+    if status == "WARN":
+        return (
+            "Setting changes metric but in unexpected direction. "
+            "Review logic or update expected direction."
+        )
+    if "mode" in setting.lower() or "approach" in setting.lower():
+        return (
+            "May be mode-specific. Verify prerequisite settings are enabled "
+            "for this mode."
+        )
+    if "weight" in setting.lower():
+        return (
+            "Check weighting logic. Ensure the setting affects weight "
+            "calculation and portfolio construction."
+        )
+    if "window" in setting.lower() or "period" in setting.lower():
+        return (
+            "Time-based setting. Ensure it is passed through the pipeline "
+            "and affects rolling calculations."
+        )
+    if "cost" in setting.lower() or "fee" in setting.lower():
+        return (
+            "Cost setting. Ensure it is used in turnover/cost calculations "
+            "and applied to performance metrics."
+        )
+    return (
+        "Setting not producing expected changes. Check if it is wired from "
+        "UI to analysis."
+    )
+
+
 def generate_summary_report(all_evidence: list[dict[str, Any]]) -> str:
     """Generate a summary markdown report."""
     passed = [e for e in all_evidence if e["status"] == "PASS"]
@@ -316,6 +364,15 @@ def generate_summary_report(all_evidence: list[dict[str, Any]]) -> str:
     warned = [e for e in all_evidence if e["status"] == "WARN"]
     errored = [e for e in all_evidence if e["status"] == "ERROR"]
     skipped = [e for e in all_evidence if e["status"] == "SKIP"]
+
+    category_stats: dict[str, dict[str, int]] = {}
+    for evidence in all_evidence:
+        category = evidence.get("category", "Uncategorized")
+        if category not in category_stats:
+            category_stats[category] = {"total": 0, "effective": 0}
+        category_stats[category]["total"] += 1
+        if evidence.get("status") in ("PASS", "WARN"):
+            category_stats[category]["effective"] += 1
 
     lines = [
         "# Settings Wiring Evidence Summary",
@@ -336,6 +393,21 @@ def generate_summary_report(all_evidence: list[dict[str, Any]]) -> str:
         "",
     ]
 
+    if category_stats:
+        lines.extend(
+            [
+                "## Per-Category Breakdown",
+                "",
+                "| Category | Total | Effective |",
+                "|----------|-------|-----------|",
+            ]
+        )
+        for category, stats in sorted(category_stats.items()):
+            lines.append(
+                f"| {category} | {stats['total']} | {stats['effective']} |"
+            )
+        lines.append("")
+
     if passed:
         lines.extend(
             [
@@ -349,21 +421,25 @@ def generate_summary_report(all_evidence: list[dict[str, Any]]) -> str:
             lines.append(
                 f"| `{e['setting_name']}` | {e.get('baseline_formatted', 'N/A')} | "
                 f"{e.get('test_formatted', 'N/A')} | {e.get('actual_direction', '-')} |"
-            )
+        )
         lines.append("")
 
-    if failed:
+    non_effective = failed + errored
+    if non_effective:
         lines.extend(
             [
-                "## ❌ Failing Settings",
+                "## ❌ Non-Effective Settings (with recommendations)",
                 "",
-                "| Setting | Reason |",
-                "|---------|--------|",
+                "| Setting | Category | Status | Reason | Recommendation |",
+                "|---------|----------|--------|--------|----------------|",
             ]
         )
-        for e in failed:
+        for e in non_effective:
+            reason = e.get("reason") or e.get("error") or "No change detected"
             lines.append(
-                f"| `{e['setting_name']}` | {e.get('reason', 'No change detected')} |"
+                f"| `{e['setting_name']}` | {e.get('category', 'Uncategorized')} | "
+                f"{e.get('status', 'FAIL')} | {reason} | "
+                f"{e.get('recommendation', 'Review wiring')} |"
             )
         lines.append("")
 
@@ -468,6 +544,8 @@ def main() -> int:
             "test_value": setting.test_value,
             "expected_metric": setting.expected_metric,
             "expected_direction": setting.expected_direction,
+            "category": setting.category,
+            "description": setting.description,
         }
 
         evidence = run_single_setting_test(
