@@ -74,6 +74,10 @@ VARIATION_OVERRIDES: dict[str, Any] = {
     "warmup_periods": 6,
     "random_seed": 123,
     "condition_threshold": 1.0e10,
+    "preset": "Conservative",
+    "regime_proxy": "RF",
+    "z_entry_hard": 1.5,
+    "z_exit_hard": -1.5,
 }
 
 MODE_CONTEXT: dict[str, dict[str, Any]] = {
@@ -85,6 +89,7 @@ MODE_CONTEXT: dict[str, dict[str, Any]] = {
     "sticky_drop_periods": {"multi_period_enabled": True},
     "rf_rate_annual": {"rf_override_enabled": True},
     "info_ratio_benchmark": {"metric_weights": {"info_ratio": 1.0}},
+    "regime_proxy": {"regime_enabled": True},
 }
 
 
