@@ -5,6 +5,7 @@ The script reads the HEALTH_RESPONSE environment variable and exits 0 when the
 payload represents a healthy state.  This mirrors the logic used by the CI
 smoke workflow and the local docker_smoke.sh helper.
 """
+
 from __future__ import annotations
 
 import json

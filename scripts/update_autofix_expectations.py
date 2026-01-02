@@ -6,6 +6,7 @@ assertions without human intervention. Each target specifies a module, the
 callable that computes the authoritative value, and the constant assignment to
 update in-place.
 """
+
 from __future__ import annotations
 
 import importlib

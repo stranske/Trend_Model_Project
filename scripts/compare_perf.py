@@ -20,6 +20,7 @@ Exit codes:
   0 - success within budget
   1 - regression exceeded threshold or structural mismatch
 """
+
 from __future__ import annotations
 
 import argparse

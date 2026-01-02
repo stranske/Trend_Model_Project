@@ -7,6 +7,7 @@ with ``assert fancy_array.tolist() == [...]`` so NumPy no longer raises the
 ``truth value of an array is ambiguous`` error. Narrow scope keeps the script
 predictable while still demonstrating the automation pathway.
 """
+
 from __future__ import annotations
 
 import re

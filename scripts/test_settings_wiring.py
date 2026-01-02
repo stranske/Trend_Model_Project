@@ -1403,10 +1403,10 @@ def print_summary(results: list[TestResult]) -> None:
         print("=" * 60)
         print("\nResults by Category:")
         return
-    print(f"✅ Passed:    {passed} ({100*passed/total:.1f}%)")
-    print(f"❌ Failed:    {failed} ({100*failed/total:.1f}%)")
-    print(f"⚠️  Warnings:  {warnings} ({100*warnings/total:.1f}%)")
-    print(f"💥 Errors:    {errors} ({100*errors/total:.1f}%)")
+    print(f"✅ Passed:    {passed} ({100 * passed / total:.1f}%)")
+    print(f"❌ Failed:    {failed} ({100 * failed / total:.1f}%)")
+    print(f"⚠️  Warnings:  {warnings} ({100 * warnings / total:.1f}%)")
+    print(f"💥 Errors:    {errors} ({100 * errors / total:.1f}%)")
     print("=" * 60)
 
     # Group by category

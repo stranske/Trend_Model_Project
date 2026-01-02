@@ -15,6 +15,7 @@ Safety guarantees
 
 The command can be run standalone and is idempotent.
 """
+
 from __future__ import annotations
 
 import ast

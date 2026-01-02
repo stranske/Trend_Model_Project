@@ -20,6 +20,7 @@ repository root.  Custom paths can be provided via ``--paths`` and a different
 mypy config via ``--config-file``.  Enable ``--dry-run`` to preview changes
 without touching the filesystem.
 """
+
 from __future__ import annotations
 
 import argparse

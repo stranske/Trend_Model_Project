@@ -96,7 +96,7 @@ def test_cli_generates_outputs(tmp_path: Path):
                 "  lookback: 5",
                 "  cost_per_turnover: 0.0",
                 "output:",
-                f"  dir: {tmp_path/'out'}",
+                f"  dir: {tmp_path / 'out'}",
             ]
         )
     )

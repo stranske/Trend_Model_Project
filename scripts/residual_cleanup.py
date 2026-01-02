@@ -10,6 +10,7 @@ Future responsibilities:
 Current implementation: reads existing classification, prints a concise summary, exits 0.
 This keeps the cleanup workflow non-destructive until transformation logic is implemented.
 """
+
 from __future__ import annotations
 
 import json

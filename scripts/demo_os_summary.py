@@ -9,6 +9,7 @@ Outputs are written under demo/exports/:
 - combined_os_stats.csv         (single-row EW OS stats across all periods)
 - portfolio_churn.csv           (entries/exits lists per period)
 """
+
 from __future__ import annotations
 
 from pathlib import Path

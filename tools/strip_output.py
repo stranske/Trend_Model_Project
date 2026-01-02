@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Strip output from Jupyter notebooks in-place."""
+
 import sys
 
 import nbformat

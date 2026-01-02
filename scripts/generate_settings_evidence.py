@@ -516,7 +516,7 @@ def main() -> int:
     # Print final summary
     passed = sum(1 for e in all_evidence if e["status"] == "PASS")
     failed = sum(1 for e in all_evidence if e["status"] == "FAIL")
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(f"Results: {passed} passed, {failed} failed out of {len(all_evidence)} tests")
 
     return 0 if failed == 0 else 1

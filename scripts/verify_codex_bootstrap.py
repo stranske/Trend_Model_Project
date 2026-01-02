@@ -36,6 +36,7 @@ Guiding Principles
 - Fail fast with clear `error` messages when prerequisites (issue/pr) are missing.
 - Always write deterministic logic; avoid depending on ordering of concurrent runs.
 """
+
 from __future__ import annotations
 
 import json

@@ -112,7 +112,6 @@ def test_as_datetime_index_recovers_from_initial_failure(monkeypatch):
 
 
 def test_detect_frequency_handles_infer_freq_error(monkeypatch):
-
     def raise_error(idx):
         raise ValueError("boom")
 

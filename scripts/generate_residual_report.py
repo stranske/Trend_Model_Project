@@ -2,6 +2,7 @@
 """Generate residual Ruff markdown report from classification JSON.
 Writes: ci/autofix/residual_report.md
 """
+
 from __future__ import annotations
 
 import datetime

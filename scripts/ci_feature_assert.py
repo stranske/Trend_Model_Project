@@ -11,6 +11,7 @@ Exit codes:
   0 on success
   1 if any expectation violated
 """
+
 from __future__ import annotations
 
 import os

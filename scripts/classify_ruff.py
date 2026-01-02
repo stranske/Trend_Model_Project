@@ -25,6 +25,7 @@ Output schema (written to output.json):
 
 Non-fatal: any parsing error yields an empty classification with zero counts.
 """
+
 from __future__ import annotations
 
 import json

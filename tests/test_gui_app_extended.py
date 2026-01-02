@@ -36,9 +36,7 @@ class DummyGrid:
 
 
 class DummyUpload:
-    def __init__(
-        self, accept: str = "", multiple: bool = False
-    ) -> None:  # noqa: ARG002
+    def __init__(self, accept: str = "", multiple: bool = False) -> None:  # noqa: ARG002
         self.accept = accept
         self.multiple = multiple
         self.value: dict[str, dict[str, bytes]] = {}
@@ -57,9 +55,7 @@ class DummyUpload:
 
 
 class DummyDropdown:
-    def __init__(
-        self, options, value=None, description: str = ""
-    ) -> None:  # noqa: ANN001, ARG002
+    def __init__(self, options, value=None, description: str = "") -> None:  # noqa: ANN001, ARG002
         self.options = list(options)
         self.description = description
         default_value = self.options[0] if self.options else None
@@ -93,9 +89,7 @@ class DummyCheckbox:
 
 
 class DummyToggleButtons(DummyCheckbox):
-    def __init__(
-        self, options, value=None, description: str = ""
-    ) -> None:  # noqa: ANN001, ARG002
+    def __init__(self, options, value=None, description: str = "") -> None:  # noqa: ANN001, ARG002
         super().__init__(
             value=value if value is not None else (options[0] if options else None),
             description=description,

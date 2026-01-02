@@ -6,6 +6,7 @@ with a ``" | "`` separator instead of commas. It is intended to run inside the
 cosmetic follow-up workflow so that cosmetic-only regressions are repaired
 without manual intervention.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

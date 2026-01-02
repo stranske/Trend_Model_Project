@@ -156,9 +156,9 @@ def _render_html(
     <h1>Trend run receipt</h1>
     <p><strong>Run ID:</strong> {html.escape(run_id)}<br>
        <strong>Created:</strong> {html.escape(created.isoformat())}<br>
-       <strong>Git hash:</strong> {html.escape(str(manifest.get('git_hash', 'unknown')))}</p>
-    <p><strong>Data window:</strong> {html.escape(date_range or 'unknown')} ·
-       <strong>Instruments:</strong> {html.escape(str(data_window.get('instrument_count', 'n/a')))}</p>
+       <strong>Git hash:</strong> {html.escape(str(manifest.get("git_hash", "unknown")))}</p>
+    <p><strong>Data window:</strong> {html.escape(date_range or "unknown")} ·
+       <strong>Instruments:</strong> {html.escape(str(data_window.get("instrument_count", "n/a")))}</p>
   </header>
   <section>
     <h2>Key metrics</h2>
@@ -176,7 +176,7 @@ def _render_html(
   </section>
   <section>
     <h2>Summary</h2>
-    <pre>{html.escape(summary_text or 'No summary text provided.')}</pre>
+    <pre>{html.escape(summary_text or "No summary text provided.")}</pre>
   </section>
 </body>
 </html>"""

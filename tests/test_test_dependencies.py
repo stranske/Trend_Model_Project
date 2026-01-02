@@ -61,7 +61,9 @@ class TestDependencies:
         assert sys.version_info >= (
             3,
             11,
-        ), f"Python 3.11+ required, found {sys.version_info.major}.{sys.version_info.minor}"
+        ), (
+            f"Python 3.11+ required, found {sys.version_info.major}.{sys.version_info.minor}"
+        )
 
     def test_required_packages_importable(self) -> None:
         """Ensure all required Python packages can be imported."""
@@ -200,9 +202,7 @@ class TestDependencies:
         try:
             import coverage  # noqa: F401
         except ImportError:
-            pytest.fail(
-                "coverage.py not installed. " "Install with: pip install coverage"
-            )
+            pytest.fail("coverage.py not installed. Install with: pip install coverage")
 
         # Verify coverage CLI is available
         result = subprocess.run(

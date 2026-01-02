@@ -1336,7 +1336,13 @@ def test_run_analysis_uses_empty_signal_frame(monkeypatch: pytest.MonkeyPatch) -
             result._force_empty_next = True
             return result
 
-        def set_index(self, keys, drop: bool = True, inplace: bool = False, verify_integrity: bool = False):  # type: ignore[override]
+        def set_index(
+            self,
+            keys,
+            drop: bool = True,
+            inplace: bool = False,
+            verify_integrity: bool = False,
+        ):  # type: ignore[override]
             result = super().set_index(
                 keys, drop=drop, inplace=inplace, verify_integrity=verify_integrity
             )

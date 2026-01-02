@@ -154,7 +154,7 @@ def coerce_pipeline_result(
 
     if not isinstance(payload, Mapping):
         raise TypeError(
-            "Pipeline outputs must be mapping-like; received " f"{type(payload)!r}"
+            f"Pipeline outputs must be mapping-like; received {type(payload)!r}"
         )
 
     if isinstance(payload, dict):

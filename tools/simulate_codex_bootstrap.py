@@ -6,6 +6,7 @@ This helper mirrors the logic in the "Find Ready Issues" step inside
 workflow emits valid JSON that `fromJson(...)` can safely parse when
 selecting the first issue for Codex bootstrapping.
 """
+
 from __future__ import annotations
 
 import argparse
