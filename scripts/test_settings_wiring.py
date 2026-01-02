@@ -32,12 +32,12 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT / "streamlit_app"))
 
-from trend_analysis.config.legacy import Config  # noqa: E402
 from scripts.evaluate_settings_effectiveness import (  # noqa: E402
-    MODEL_PAGE,
     MODE_CONTEXT,
+    MODEL_PAGE,
     extract_settings_from_model_page,
 )
+from trend_analysis.config.legacy import Config  # noqa: E402
 
 # =============================================================================
 # Setting Definitions with Expected Behaviors
