@@ -289,9 +289,9 @@ def test_run_simulation_deterministic_with_random_selection(tmp_path):
         print(f"Selected funds - Run 2: {funds2}")
         print(f"Seeds - Run 1: {r1.seed}, Run 2: {r2.seed}")
 
-    assert hash1 == hash2, (
-        f"Results are not deterministic with random selection: {hash1} != {hash2}"
-    )
+    assert (
+        hash1 == hash2
+    ), f"Results are not deterministic with random selection: {hash1} != {hash2}"
 
 
 def test_run_simulation_returns_diagnostic_for_empty_universe():

@@ -61,9 +61,7 @@ class TestDependencies:
         assert sys.version_info >= (
             3,
             11,
-        ), (
-            f"Python 3.11+ required, found {sys.version_info.major}.{sys.version_info.minor}"
-        )
+        ), f"Python 3.11+ required, found {sys.version_info.major}.{sys.version_info.minor}"
 
     def test_required_packages_importable(self) -> None:
         """Ensure all required Python packages can be imported."""

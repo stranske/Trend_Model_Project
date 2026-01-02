@@ -75,9 +75,9 @@ def test_comprehensive_api_integration():
             "max_drawdown",
         }
         actual_columns = set(result.metrics.columns)
-        assert expected_columns.issubset(actual_columns), (
-            f"Missing columns: {expected_columns - actual_columns}"
-        )
+        assert expected_columns.issubset(
+            actual_columns
+        ), f"Missing columns: {expected_columns - actual_columns}"
 
         # Validate details dictionary
         assert isinstance(result.details, dict), "details should be dict"
