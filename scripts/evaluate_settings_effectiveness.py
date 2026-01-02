@@ -22,10 +22,6 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from analysis.results import Results  # noqa: E402
-from streamlit_app.components.analysis_runner import (
-    AnalysisPayload,  # noqa: E402
-    _build_config,  # noqa: E402
-)
 from trend_analysis.api import run_simulation  # noqa: E402
 
 MODEL_FILE = PROJECT_ROOT / "streamlit_app" / "pages" / "2_Model.py"
@@ -166,6 +162,7 @@ def _extract_settings_from_model(file_path: Path) -> set[str]:
     for pattern in (
         r"model_state\.get\(\s*[\"']([^\"']+)[\"']",
         r"model_state\[\s*[\"']([^\"']+)[\"']\s*\]",
+        r"session_state\[\s*[\"']model_state[\"']\s*\]\s*\[\s*[\"']([^\"']+)[\"']\s*\]",
     ):
         settings.update(re.findall(pattern, text))
 
@@ -183,6 +180,17 @@ def _extract_baseline_preset(file_path: Path) -> dict[str, Any]:
                 if preset_dict and isinstance(preset_dict.get("Baseline"), dict):
                     return dict(preset_dict["Baseline"])
     return {}
+
+
+def extract_settings_from_model_page(
+    file_path: Path | str,
+) -> tuple[dict[str, Any], set[str]]:
+    """Return baseline settings and all discovered keys from a model page."""
+
+    path = Path(file_path)
+    baseline = _extract_baseline_preset(path)
+    keys = _extract_settings_from_model(path)
+    return baseline, keys
 
 
 def _build_baseline_state(settings: Iterable[str]) -> dict[str, Any]:
@@ -282,6 +290,8 @@ def _prepare_returns(df: pd.DataFrame) -> pd.DataFrame:
 def _run_simulation(
     returns: pd.DataFrame, model_state: dict[str, Any], benchmark: str | None
 ):
+    from streamlit_app.components.analysis_runner import AnalysisPayload, _build_config
+
     payload = AnalysisPayload(
         returns=returns,
         model_state=model_state,
