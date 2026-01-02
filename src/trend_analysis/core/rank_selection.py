@@ -481,6 +481,7 @@ def rank_select_funds(
     n: int | None = None,
     pct: float | None = None,
     threshold: float | None = None,
+    bottom_k: int | None = None,
     score_by: str = DEFAULT_METRIC,
     blended_weights: dict[str, float] | None = None,
     transform: str = "raw",
@@ -633,6 +634,21 @@ def rank_select_funds(
             return [], diagnostics
         return []
     scores = scores.sort_values(ascending=ascending)
+    try:
+        bottom_k = int(bottom_k or 0)
+    except (TypeError, ValueError):
+        bottom_k = 0
+    bottom_k = max(0, bottom_k)
+    if bottom_k > 0:
+        if bottom_k >= len(scores):
+            _record_diagnostics(
+                "All candidate scores filtered out by bottom_k",
+                non_null_override=0,
+            )
+            if return_diagnostics:
+                return [], diagnostics
+            return []
+        scores = scores.iloc[:-bottom_k]
 
     def _firm_key(name: str) -> str:
         # Normalize and derive a grouping key intended to capture the firm.
