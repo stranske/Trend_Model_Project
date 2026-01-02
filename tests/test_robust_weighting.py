@@ -111,7 +111,7 @@ class TestRobustMeanVariance:
             shrunk_condition
         )
 
-    def test_condition_threshold_uses_raw_condition_number(
+    def test_condition_threshold_uses_shrunk_condition_number_when_worse(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         cov = create_well_conditioned_cov()
@@ -127,9 +127,9 @@ class TestRobustMeanVariance:
         weights = engine.weight(cov)
 
         assert np.isclose(weights.sum(), 1.0)
-        assert engine.diagnostics["condition_number"] == 10.0
-        assert engine.diagnostics["condition_source"] == "raw_cov"
-        assert engine.diagnostics["used_safe_mode"] is False
+        assert engine.diagnostics["condition_number"] == 100.0
+        assert engine.diagnostics["condition_source"] == "shrunk_cov"
+        assert engine.diagnostics["used_safe_mode"] is True
 
     def test_ill_conditioned_safe_mode_hrp(self):
         """Test safe mode fallback to HRP for ill-conditioned matrices."""

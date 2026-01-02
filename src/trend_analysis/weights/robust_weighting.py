@@ -271,6 +271,9 @@ class RobustMeanVariance(WeightEngine):
         shrunk_condition_num = self._check_condition_number(shrunk_cov_array)
         condition_num = raw_condition_num
         condition_source = "raw_cov"
+        if shrunk_condition_num > raw_condition_num:
+            condition_num = shrunk_condition_num
+            condition_source = "shrunk_cov"
 
         if self.log_condition_numbers:
             logger.debug(
