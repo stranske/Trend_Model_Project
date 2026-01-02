@@ -40,7 +40,6 @@ TOOL_MAPPING: dict[str, tuple[str, ...]] = {
     "PYTEST_XDIST_VERSION": ("pytest-xdist",),
     "COVERAGE_VERSION": ("coverage",),
     "DOCFORMATTER_VERSION": ("docformatter",),
-    "HYPOTHESIS_VERSION": ("hypothesis",),
 }
 
 # Core dev tools to include when creating a new dev section
