@@ -521,8 +521,7 @@ def _evaluate_setting(
         else math.nan
     )
     total_return_diff = float(
-        _total_return(test_summary["returns"])
-        - _total_return(base_summary["returns"])
+        _total_return(test_summary["returns"]) - _total_return(base_summary["returns"])
     )
     return_vol_diff = float(
         test_summary["returns"].std() - base_summary["returns"].std()
@@ -557,8 +556,7 @@ def _evaluate_setting(
             not math.isnan(weight_max_abs_diff) and abs(weight_max_abs_diff) > 1.0e-4,
             not math.isnan(weight_change_count) and weight_change_count > 0,
             not math.isnan(return_mean_diff) and abs(return_mean_diff) > 1.0e-4,
-            not math.isnan(mean_abs_return_diff)
-            and abs(mean_abs_return_diff) > 1.0e-4,
+            not math.isnan(mean_abs_return_diff) and abs(mean_abs_return_diff) > 1.0e-4,
             not math.isnan(total_return_diff) and abs(total_return_diff) > 1.0e-4,
             not math.isnan(return_vol_diff) and abs(return_vol_diff) > 1.0e-4,
             not math.isnan(sharpe_diff) and abs(sharpe_diff) > 1.0e-3,
