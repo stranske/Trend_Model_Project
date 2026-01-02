@@ -7,7 +7,7 @@ import pytest
 from trend_analysis.weights.equal_risk_contribution import EqualRiskContribution
 from trend_analysis.weights.hierarchical_risk_parity import HierarchicalRiskParity
 from trend_analysis.weights.risk_parity import RiskParity
-from trend_analysis.weights.robust_weighting import RobustRiskParity
+from trend_analysis.weights.robust_weighting import RobustMeanVariance, RobustRiskParity
 
 
 @pytest.fixture
@@ -215,3 +215,25 @@ class TestRobustRiskParity:
         weights = engine.weight(cov)
         assert np.isclose(weights.sum(), 1.0)
         assert (weights >= 0).all()
+
+
+class TestRobustMeanVariance:
+    def test_allows_negative_weights_when_min_weight_is_negative(self) -> None:
+        cov = pd.DataFrame(
+            [
+                [0.28425489, 0.43206566, 0.17881677],
+                [0.43206566, 1.0, 0.31626132],
+                [0.17881677, 0.31626132, 0.13309851],
+            ],
+            index=["a", "b", "c"],
+            columns=["a", "b", "c"],
+        )
+        engine = RobustMeanVariance(
+            shrinkage_method="none",
+            condition_threshold=1.0e9,
+            min_weight=-1.0,
+            max_weight=1.0,
+        )
+        weights = engine.weight(cov)
+        assert np.isclose(weights.sum(), 1.0)
+        assert (weights < 0).any()

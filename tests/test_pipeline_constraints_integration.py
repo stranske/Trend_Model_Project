@@ -3,11 +3,27 @@ import pandas as pd
 
 from trend_analysis.core.rank_selection import RiskStatsConfig
 from trend_analysis.pipeline import _run_analysis
+from trend_analysis.plugins import WeightEngine, weight_engine_registry
 
 RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
 
 
-RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+@weight_engine_registry.register("negative_test_engine")
+class NegativeTestEngine(WeightEngine):
+    """Test-only engine that emits a deliberate short weight."""
+
+    def weight(self, cov: pd.DataFrame) -> pd.Series:
+        if cov.empty:
+            return pd.Series(dtype=float)
+        weights = pd.Series(0.0, index=cov.index, dtype=float)
+        if len(weights) == 1:
+            weights.iloc[0] = 1.0
+        else:
+            weights.iloc[0] = 0.6
+            weights.iloc[1] = -0.2
+            if len(weights) > 2:
+                weights.iloc[2] = 0.6
+        return weights
 
 
 def make_dummy_returns(n_months: int = 24) -> pd.DataFrame:
@@ -85,6 +101,45 @@ def test_pipeline_long_only_blocks_negative_custom_weights():
         monthly_cost=0.0,
         selection_mode="all",
         custom_weights=custom_weights,
+        stats_cfg=RiskStatsConfig(),
+        constraints={"long_only": False},
+        **RUN_KWARGS,
+    )
+    assert res_short_ok is not None
+    weights_short = res_short_ok["fund_weights"]
+    assert any(weight < 0 for weight in weights_short.values())
+
+
+def test_pipeline_long_only_clips_negative_weight_engine_weights():
+    df = make_dummy_returns()
+    res_long_only = _run_analysis(
+        df,
+        in_start="2022-01",
+        in_end="2022-12",
+        out_start="2023-01",
+        out_end="2023-12",
+        target_vol=None,
+        monthly_cost=0.0,
+        selection_mode="all",
+        weighting_scheme="negative_test_engine",
+        stats_cfg=RiskStatsConfig(),
+        constraints={"long_only": True},
+        **RUN_KWARGS,
+    )
+    assert res_long_only is not None
+    weights_long = res_long_only["fund_weights"]
+    assert all(weight >= 0 for weight in weights_long.values())
+
+    res_short_ok = _run_analysis(
+        df,
+        in_start="2022-01",
+        in_end="2022-12",
+        out_start="2023-01",
+        out_end="2023-12",
+        target_vol=None,
+        monthly_cost=0.0,
+        selection_mode="all",
+        weighting_scheme="negative_test_engine",
         stats_cfg=RiskStatsConfig(),
         constraints={"long_only": False},
         **RUN_KWARGS,

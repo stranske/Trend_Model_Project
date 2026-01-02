@@ -147,7 +147,7 @@ Volatility targeting and basic constraints live under the `vol_adjust` and
 | `vol_adjust.floor_vol` | float | Minimum annualised volatility per asset to avoid excessive leverage. |
 | `vol_adjust.warmup_periods` | integer | Number of initial rows with zero exposure after re-scaling. |
 | `portfolio.max_turnover` | float | Turnover cap (fraction of the book) enforced at each rebalance. |
-| `portfolio.constraints.long_only` | bool | Clip negative weights before normalisation; relevant for `custom_weights` (or plugin weight engines) that intentionally include shorts. |
+| `portfolio.constraints.long_only` | bool | Clip negative weights before normalisation; relevant for `custom_weights` or weight engines configured to allow shorts (e.g., `robust_mv` with `min_weight < 0`). |
 | `portfolio.constraints.max_weight` | float | Maximum weight per asset before normalisation. |
 
 The CLI summary and Streamlit app now display a “Risk diagnostics” panel that
@@ -357,7 +357,8 @@ Supported keys (YAML under `portfolio.constraints`):
 
 Built-in weighting schemes (`equal`, `risk_parity`/`vol_inverse`, `hrp`, `erc`, and the
 `robust_*` engines) emit non-negative weights by design; negative allocations only
-appear when using `custom_weights` or custom plugin engines that allow shorts.
+appear when using `custom_weights` or plugin engines configured for shorts (for
+example, a mean-variance engine with `min_weight < 0`).
 
 Example snippet:
 
