@@ -1,141 +1,37 @@
 #!/usr/bin/env python3
-"""Evaluate whether Streamlit model settings affect simulation outputs."""
+"""Evaluate Streamlit settings effectiveness by comparing paired simulations."""
 
 from __future__ import annotations
 
 import argparse
 import ast
-import copy
 import json
 import math
+import re
 import sys
-import traceback
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Iterable
+from typing import Any, Iterable
 
 import numpy as np
 import pandas as pd
-from scipy import stats
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-MODEL_PAGE = PROJECT_ROOT / "streamlit_app" / "pages" / "2_Model.py"
-
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(PROJECT_ROOT))
 
-import test_settings_wiring as wiring  # noqa: E402
+from analysis.results import Results  # noqa: E402
+from streamlit_app.components.analysis_runner import AnalysisPayload  # noqa: E402
+from streamlit_app.components.analysis_runner import _build_config  # noqa: E402
+from trend_analysis.api import run_simulation  # noqa: E402
 
+MODEL_FILE = PROJECT_ROOT / "streamlit_app" / "pages" / "2_Model.py"
 
-def _shift_numeric(value: Any, delta: float) -> float:
-    try:
-        return float(value) + delta
-    except (TypeError, ValueError):
-        return delta
+REPORTING_ONLY_PREFIXES = ("report_",)
+REPORTING_ONLY_KEYS = {"ci_level"}
 
-
-def _cycle_choice(value: Any, choices: Iterable[str]) -> str:
-    choices_list = list(choices)
-    value_str = str(value)
-    if value_str in choices_list:
-        idx = (choices_list.index(value_str) + 1) % len(choices_list)
-        return choices_list[idx]
-    return choices_list[0]
-
-
-def _pick_date(returns: pd.DataFrame, ratio: float) -> str:
-    index = returns.index
-    if index.empty:
-        return ""
-    pos = int(max(min(len(index) - 1, int(len(index) * ratio)), 0))
-    return pd.Timestamp(index[pos]).strftime("%Y-%m-%d")
-
-
-MODE_CONTEXT_RULES: dict[str, dict[str, Any]] = {
-    "buy_hold_initial": {
-        "overrides": {"inclusion_approach": "buy_and_hold"},
-        "reason": "Only active when inclusion_approach=buy_and_hold.",
-    },
-    "rank_pct": {
-        "overrides": {"inclusion_approach": "top_pct"},
-        "reason": "Only active when inclusion_approach=top_pct.",
-    },
-    "rf_rate_annual": {
-        "overrides": {"rf_override_enabled": True},
-        "reason": "Only active when rf_override_enabled=true.",
-    },
-    "info_ratio_benchmark": {
-        "overrides": {"metric_weights": {"info_ratio": 1.0}},
-        "reason": "Only active when info_ratio is weighted.",
-    },
-    "min_weight": {
-        "overrides": {"weighting_scheme": "risk_parity"},
-        "reason": "Only active with non-equal risk-based weighting.",
-    },
-    "shrinkage_enabled": {
-        "overrides": {"weighting_scheme": "robust_mv"},
-        "reason": "Only active with robust mean-variance weighting.",
-    },
-    "shrinkage_method": {
-        "overrides": {"weighting_scheme": "robust_mv"},
-        "reason": "Only active with robust mean-variance weighting.",
-    },
-    "sticky_add_periods": {
-        "overrides": {"multi_period_enabled": True},
-        "reason": "Only active when multi_period_enabled=true.",
-    },
-    "sticky_drop_periods": {
-        "overrides": {"multi_period_enabled": True},
-        "reason": "Only active when multi_period_enabled=true.",
-    },
-    "z_entry_soft": {
-        "overrides": {"multi_period_enabled": True},
-        "reason": "Only active when multi_period_enabled=true.",
-    },
-    "z_exit_soft": {
-        "overrides": {"multi_period_enabled": True},
-        "reason": "Only active when multi_period_enabled=true.",
-    },
-    "soft_strikes": {
-        "overrides": {"multi_period_enabled": True},
-        "reason": "Only active when multi_period_enabled=true.",
-    },
-    "entry_soft_strikes": {
-        "overrides": {"multi_period_enabled": True},
-        "reason": "Only active when multi_period_enabled=true.",
-    },
-    "min_weight_strikes": {
-        "overrides": {"multi_period_enabled": True},
-        "reason": "Only active when multi_period_enabled=true.",
-    },
-    "z_entry_hard": {
-        "overrides": {"multi_period_enabled": True},
-        "reason": "Only active when multi_period_enabled=true.",
-    },
-    "z_exit_hard": {
-        "overrides": {"multi_period_enabled": True},
-        "reason": "Only active when multi_period_enabled=true.",
-    },
-    "mp_min_funds": {
-        "overrides": {"multi_period_enabled": True},
-        "reason": "Only active when multi_period_enabled=true.",
-    },
-    "mp_max_funds": {
-        "overrides": {"multi_period_enabled": True},
-        "reason": "Only active when multi_period_enabled=true.",
-    },
-}
-
-DEFAULT_OVERRIDES: dict[str, Any] = {
-    "preset": "Baseline",
-    "info_ratio_benchmark": "",
-    "rf_override_enabled": False,
-    "vol_adjust_enabled": True,
-    "vol_window_length": 63,
-    "vol_window_decay": "ewma",
-    "vol_ewma_lambda": 0.94,
-    "buy_hold_initial": "top_n",
+DEFAULT_REPORTING_STATE = {
     "report_regime_analysis": False,
     "report_concentration": True,
     "report_benchmark_comparison": True,
@@ -144,76 +40,76 @@ DEFAULT_OVERRIDES: dict[str, Any] = {
     "report_rolling_metrics": True,
 }
 
-VARIATION_OVERRIDES: dict[str, Callable[[Any, pd.DataFrame], Any]] = {
-    "inclusion_approach": lambda _v, _r: "top_n",
-    "buy_hold_initial": lambda _v, _r: "threshold",
-    "date_mode": lambda _v, _r: "explicit",
-    "start_date": lambda _v, r: _pick_date(r, 0.1),
-    "end_date": lambda _v, r: _pick_date(r, 0.9),
-    "rank_pct": lambda _v, _r: 0.2,
-    "weighting_scheme": lambda _v, _r: "risk_parity",
-    "risk_target": lambda v, _r: _shift_numeric(v, 0.05),
-    "vol_floor": lambda v, _r: _shift_numeric(v, 0.01),
-    "vol_window_length": lambda _v, _r: 21,
-    "vol_window_decay": lambda _v, _r: "simple",
-    "vol_ewma_lambda": lambda v, _r: 0.85 if v and float(v) > 0.9 else 0.94,
-    "max_weight": lambda v, _r: max(float(v) - 0.05, 0.05),
-    "min_weight": lambda v, _r: min(float(v) + 0.02, 0.25),
-    "rebalance_freq": lambda v, _r: _cycle_choice(v, ["M", "Q", "A"]),
-    "transaction_cost_bps": lambda _v, _r: 10,
-    "trend_window": lambda _v, _r: 126,
-    "trend_lag": lambda v, _r: max(int(v or 1) + 1, 1),
-    "trend_zscore": lambda v, _r: not bool(v),
-    "trend_vol_adjust": lambda v, _r: not bool(v),
-    "trend_vol_target": lambda v, _r: 0.1 if v in (None, "") else None,
-    "regime_enabled": lambda v, _r: not bool(v),
-    "regime_proxy": lambda v, _r: "AGG" if str(v).upper() != "AGG" else "SPX",
-    "shrinkage_enabled": lambda v, _r: not bool(v),
-    "shrinkage_method": lambda v, _r: _cycle_choice(v, ["ledoit_wolf", "oas", "none"]),
-    "random_seed": lambda v, _r: int(v or 42) + 7,
-    "condition_threshold": lambda v, _r: float(v) * 0.1,
-    "safe_mode": lambda v, _r: "risk_parity" if v != "risk_parity" else "hrp",
-    "long_only": lambda v, _r: not bool(v),
-    "z_entry_soft": lambda v, _r: float(v) + 0.5,
-    "z_exit_soft": lambda v, _r: float(v) - 0.5,
-    "soft_strikes": lambda v, _r: int(v) + 1,
-    "entry_soft_strikes": lambda v, _r: int(v) + 1,
-    "min_weight_strikes": lambda v, _r: int(v) + 1,
-    "sticky_add_periods": lambda v, _r: int(v) + 1,
-    "sticky_drop_periods": lambda v, _r: int(v) + 1,
-    "ci_level": lambda v, _r: 0.95 if float(v or 0.0) < 0.5 else 0.0,
-    "multi_period_enabled": lambda v, _r: not bool(v),
-    "multi_period_frequency": lambda v, _r: _cycle_choice(v, ["M", "Q", "A"]),
-    "slippage_bps": lambda _v, _r: 5,
-    "bottom_k": lambda v, _r: int(v) + 1,
-    "mp_min_funds": lambda v, _r: max(int(v) - 2, 1),
-    "mp_max_funds": lambda v, _r: int(v) + 2,
-    "z_entry_hard": lambda v, _r: 2.0 if v in (None, "") else None,
-    "z_exit_hard": lambda v, _r: -2.0 if v in (None, "") else None,
-    "report_regime_analysis": lambda v, _r: not bool(v),
-    "report_concentration": lambda v, _r: not bool(v),
-    "report_benchmark_comparison": lambda v, _r: not bool(v),
-    "report_factor_exposures": lambda v, _r: not bool(v),
-    "report_attribution": lambda v, _r: not bool(v),
-    "report_rolling_metrics": lambda v, _r: not bool(v),
+OPTIONS_BY_KEY = {
+    "weighting_scheme": [
+        "equal",
+        "risk_parity",
+        "hrp",
+        "erc",
+        "robust_mv",
+        "robust_risk_parity",
+    ],
+    "inclusion_approach": ["threshold", "top_n", "top_pct", "random", "buy_and_hold"],
+    "buy_hold_initial": ["top_n", "threshold", "top_pct", "random"],
+    "multi_period_frequency": ["A", "Q", "M"],
+    "rebalance_freq": ["M", "Q", "A"],
+    "vol_window_decay": ["ewma", "simple"],
+    "safe_mode": ["hrp", "risk_parity", "equal"],
+    "shrinkage_method": ["ledoit_wolf", "oas", "none"],
+    "date_mode": ["relative", "explicit"],
+}
+
+VARIATION_OVERRIDES: dict[str, Any] = {
+    "selection_count": 5,
+    "rank_pct": 0.30,
+    "risk_target": 0.15,
+    "vol_floor": 0.03,
+    "vol_window_length": 21,
+    "vol_ewma_lambda": 0.8,
+    "max_weight": 0.10,
+    "min_weight": 0.08,
+    "cooldown_periods": 2,
+    "max_turnover": 0.3,
+    "transaction_cost_bps": 25,
+    "slippage_bps": 10,
+    "warmup_periods": 6,
+    "random_seed": 123,
+    "condition_threshold": 1.0e10,
+}
+
+MODE_CONTEXT: dict[str, dict[str, Any]] = {
+    "buy_hold_initial": {"inclusion_approach": "buy_and_hold"},
+    "rank_pct": {"inclusion_approach": "top_pct"},
+    "shrinkage_enabled": {"weighting_scheme": "robust_mv"},
+    "shrinkage_method": {"weighting_scheme": "robust_mv"},
+    "sticky_add_periods": {"multi_period_enabled": True},
+    "sticky_drop_periods": {"multi_period_enabled": True},
+    "rf_rate_annual": {"rf_override_enabled": True},
+    "info_ratio_benchmark": {"metric_weights": {"info_ratio": 1.0}},
 }
 
 
 @dataclass
-class SettingEvaluation:
-    name: str
+class SettingResult:
+    setting: str
     baseline_value: Any
     test_value: Any
     status: str
-    diff_metrics: dict[str, Any] = field(default_factory=dict)
-    stats: dict[str, Any] = field(default_factory=dict)
-    error: str | None = None
-    details: dict[str, Any] = field(default_factory=dict)
+    mode_specific: bool
+    metrics: dict[str, Any] = field(default_factory=dict)
+    reason: str = ""
+    required_context: dict[str, Any] = field(default_factory=dict)
 
 
-def _extract_dict_keys(node: ast.AST) -> set[str]:
-    if not isinstance(node, ast.Dict):
-        return set()
+def _extract_literal_dict(node: ast.AST) -> dict[str, Any] | None:
+    try:
+        value = ast.literal_eval(node)
+    except Exception:
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def _keys_from_dict(node: ast.Dict) -> set[str]:
     keys: set[str] = set()
     for key in node.keys:
         if isinstance(key, ast.Constant) and isinstance(key.value, str):
@@ -221,520 +117,484 @@ def _extract_dict_keys(node: ast.AST) -> set[str]:
     return keys
 
 
-def _extract_mapping_keys(node: ast.AST) -> set[str]:
-    if isinstance(node, ast.Dict):
-        return _extract_dict_keys(node)
-    if (
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id == "dict"
-    ):
-        keys: set[str] = set()
-        for keyword in node.keywords:
-            if keyword.arg:
-                keys.add(keyword.arg)
-        for arg in node.args:
-            keys |= _extract_dict_keys(arg)
-        return keys
-    return set()
+def _extract_settings_from_model(file_path: Path) -> set[str]:
+    text = file_path.read_text(encoding="utf-8")
+    tree = ast.parse(text)
 
+    settings: set[str] = set()
 
-def _extract_subscript_key(node: ast.Subscript) -> str | None:
-    key_node = node.slice
-    if isinstance(key_node, ast.Constant) and isinstance(key_node.value, str):
-        return key_node.value
-    return None
+    # Extract baseline preset keys for defaults.
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            targets = [t.id for t in node.targets if isinstance(t, ast.Name)]
+            if "PRESET_CONFIGS" in targets:
+                preset_dict = _extract_literal_dict(node.value)
+                if preset_dict and isinstance(preset_dict.get("Baseline"), dict):
+                    settings.update(preset_dict["Baseline"].keys())
+                elif isinstance(node.value, ast.Dict):
+                    baseline_dict = None
+                    for key_node, value_node in zip(
+                        node.value.keys, node.value.values
+                    ):
+                        if (
+                            isinstance(key_node, ast.Constant)
+                            and key_node.value == "Baseline"
+                            and isinstance(value_node, ast.Dict)
+                        ):
+                            baseline_dict = value_node
+                            break
+                    if baseline_dict is not None:
+                        settings.update(_keys_from_dict(baseline_dict))
+                break
 
+    # Extract keys from _initial_model_state return dict.
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == "_initial_model_state":
+            for child in ast.walk(node):
+                if isinstance(child, ast.Return) and isinstance(
+                    child.value, ast.Dict
+                ):
+                    settings.update(_keys_from_dict(child.value))
+                    break
 
-def _is_model_state_ref(node: ast.AST) -> bool:
-    if isinstance(node, ast.Name) and node.id == "model_state":
-        return True
-    if isinstance(node, ast.Subscript):
-        key = _extract_subscript_key(node)
-        if key != "model_state":
-            return False
-        if isinstance(node.value, ast.Attribute):
-            return (
-                isinstance(node.value.value, ast.Name)
-                and node.value.value.id == "st"
-                and node.value.attr == "session_state"
-            )
-    return False
-
-
-def _extract_model_state_key(node: ast.AST) -> str | None:
-    if isinstance(node, ast.Subscript):
-        if _is_model_state_ref(node.value):
-            return _extract_subscript_key(node)
-    return None
-
-
-def _is_candidate_state_ref(node: ast.AST) -> bool:
-    return isinstance(node, ast.Name) and node.id == "candidate_state"
-
-
-def extract_settings_from_model_page(
-    path: Path,
-) -> tuple[dict[str, Any], set[str]]:
-    source = path.read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    preset_configs: dict[str, Any] = {}
-    candidate_keys: set[str] = set()
-    initial_state_keys: set[str] = set()
-    model_state_keys: set[str] = set()
-
+    # Extract keys from candidate_state assignment.
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign):
-            for target in node.targets:
-                if isinstance(target, ast.Name) and target.id == "PRESET_CONFIGS":
-                    try:
-                        preset_configs = ast.literal_eval(node.value)
-                    except Exception:
-                        preset_configs = {}
-                if isinstance(target, ast.Name) and target.id == "candidate_state":
-                    candidate_keys |= _extract_mapping_keys(node.value)
-                if isinstance(target, ast.Name) and target.id == "model_state":
-                    model_state_keys |= _extract_mapping_keys(node.value)
-                if isinstance(target, ast.Subscript) and _is_model_state_ref(target):
-                    model_state_keys |= _extract_mapping_keys(node.value)
-                key = _extract_model_state_key(target)
-                if key:
-                    model_state_keys.add(key)
-        if isinstance(node, ast.AugAssign):
-            if _is_model_state_ref(node.target):
-                model_state_keys |= _extract_mapping_keys(node.value)
-            if _is_candidate_state_ref(node.target):
-                candidate_keys |= _extract_mapping_keys(node.value)
-        if isinstance(node, ast.Call):
-            if (
-                isinstance(node.func, ast.Attribute)
-                and node.func.attr == "get"
-                and node.args
-                and _is_model_state_ref(node.func.value)
-            ):
-                arg = node.args[0]
-                if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-                    model_state_keys.add(arg.value)
-            if (
-                isinstance(node.func, ast.Attribute)
-                and node.func.attr == "update"
-                and node.args
-            ):
-                target = node.func.value
-                if _is_model_state_ref(target):
-                    model_state_keys |= _extract_mapping_keys(node.args[0])
-                elif _is_candidate_state_ref(target):
-                    candidate_keys |= _extract_mapping_keys(node.args[0])
-                if node.keywords:
-                    extra_keys = {kw.arg for kw in node.keywords if kw.arg}
-                    if _is_model_state_ref(target):
-                        model_state_keys |= extra_keys
-                    elif _is_candidate_state_ref(target):
-                        candidate_keys |= extra_keys
-        if isinstance(node, ast.FunctionDef) and node.name == "_initial_model_state":
-            for inner in ast.walk(node):
-                if isinstance(inner, ast.Return):
-                    initial_state_keys |= _extract_dict_keys(inner.value)
+            targets = [t.id for t in node.targets if isinstance(t, ast.Name)]
+            if "candidate_state" in targets and isinstance(node.value, ast.Dict):
+                settings.update(_keys_from_dict(node.value))
 
-    baseline_preset = preset_configs.get("Baseline", {})
-    all_keys = set(baseline_preset.keys())
-    all_keys |= candidate_keys
-    all_keys |= initial_state_keys
-    all_keys |= model_state_keys
-    return baseline_preset, all_keys
+    # Regex scan for model_state accessors.
+    for pattern in (
+        r"model_state\.get\(\s*[\"']([^\"']+)[\"']",
+        r"model_state\[\s*[\"']([^\"']+)[\"']\s*\]",
+    ):
+        settings.update(re.findall(pattern, text))
+
+    return settings
 
 
-def build_baseline_state(
-    baseline_preset: dict[str, Any], settings: Iterable[str]
-) -> dict[str, Any]:
-    state = copy.deepcopy(baseline_preset)
-    state.setdefault("metric_weights", {}).update(
-        baseline_preset.get("metric_weights", {})
-    )
+def _extract_baseline_preset(file_path: Path) -> dict[str, Any]:
+    text = file_path.read_text(encoding="utf-8")
+    tree = ast.parse(text)
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            targets = [t.id for t in node.targets if isinstance(t, ast.Name)]
+            if "PRESET_CONFIGS" in targets:
+                preset_dict = _extract_literal_dict(node.value)
+                if preset_dict and isinstance(preset_dict.get("Baseline"), dict):
+                    return dict(preset_dict["Baseline"])
+    return {}
+
+
+def _build_baseline_state(settings: Iterable[str]) -> dict[str, Any]:
+    baseline = _extract_baseline_preset(MODEL_FILE)
+    state = dict(baseline)
     state.setdefault("preset", "Baseline")
-    for key, value in DEFAULT_OVERRIDES.items():
-        state.setdefault(key, value)
-    for setting in settings:
-        state.setdefault(setting, DEFAULT_OVERRIDES.get(setting))
+    state.setdefault("info_ratio_benchmark", "")
+    state.setdefault("rf_override_enabled", baseline.get("rf_override_enabled", False))
+    state.setdefault("min_weight_strikes", baseline.get("min_weight_strikes", 2))
+    state.setdefault("buy_hold_initial", "top_n")
+    state.update(DEFAULT_REPORTING_STATE)
+
+    for key in settings:
+        state.setdefault(key, None)
     return state
 
 
-def infer_periods_per_year(index: pd.DatetimeIndex) -> int:
-    if len(index) < 2:
-        return 12
-    diffs = np.diff(index.values).astype("timedelta64[D]").astype(int)
-    median_days = float(np.median(diffs)) if len(diffs) else 30.0
-    if median_days <= 2:
-        return 252
-    if median_days <= 8:
-        return 52
-    return 12
-
-
-def _average_period_weights(period_results: list[dict[str, Any]]) -> pd.Series | None:
-    weight_maps = []
-    for period in period_results:
-        weights = period.get("weights")
-        if isinstance(weights, dict) and weights:
-            weight_maps.append(weights)
-    if not weight_maps:
+def _next_option(key: str, current: str | None) -> str | None:
+    options = OPTIONS_BY_KEY.get(key)
+    if not options:
         return None
-    funds = sorted({key for weights in weight_maps for key in weights})
-    data = {fund: [] for fund in funds}
-    for weights in weight_maps:
-        for fund in funds:
-            data[fund].append(float(weights.get(fund, 0.0)))
-    return pd.Series({fund: float(np.mean(vals)) for fund, vals in data.items()})
+    if current in options:
+        idx = options.index(current)
+        return options[(idx + 1) % len(options)]
+    return options[0]
 
 
-def _compute_series_stats(series: pd.Series, periods_per_year: int) -> dict[str, Any]:
-    returns = series.dropna()
-    if returns.empty:
-        return {}
-    mean = float(returns.mean())
-    vol = float(returns.std(ddof=1)) if len(returns) > 1 else 0.0
-    sharpe = (mean / vol * math.sqrt(periods_per_year)) if vol else 0.0
-    cumulative = float((1 + returns).prod() - 1)
+def _default_variation(key: str, value: Any) -> Any:
+    if key in VARIATION_OVERRIDES:
+        return VARIATION_OVERRIDES[key]
+    if isinstance(value, bool):
+        return not value
+    if isinstance(value, int):
+        if value == 0:
+            return 1
+        delta = max(1, int(round(value * 0.3)))
+        return max(1, value - delta)
+    if isinstance(value, float):
+        if value == 0.0:
+            return 0.05
+        return value * 1.5 if value < 1 else value + 0.5
+    if isinstance(value, str):
+        return _next_option(key, value)
+    if isinstance(value, dict):
+        if key == "metric_weights":
+            return {"sharpe": 0.0, "return_ann": 2.0, "drawdown": 0.0}
+    return None
+
+
+def _resolve_variation(
+    key: str, base_value: Any, returns: pd.DataFrame
+) -> tuple[Any, dict[str, Any]]:
+    required_context = dict(MODE_CONTEXT.get(key, {}))
+    test_value = _default_variation(key, base_value)
+
+    if key == "metric_weights":
+        test_value = {"sharpe": 0.0, "return_ann": 2.0, "drawdown": 0.0}
+    if key == "info_ratio_benchmark":
+        test_value = "SPX"
+    if key == "date_mode":
+        test_value = "explicit"
+    if key == "start_date":
+        test_value = (returns.index.min() + pd.DateOffset(months=6)).strftime(
+            "%Y-%m-%d"
+        )
+        required_context["date_mode"] = "explicit"
+    if key == "end_date":
+        test_value = (returns.index.max() - pd.DateOffset(months=6)).strftime(
+            "%Y-%m-%d"
+        )
+        required_context["date_mode"] = "explicit"
+    if key == "trend_min_periods":
+        test_value = 10 if base_value in (None, "", 0) else None
+    if key == "trend_vol_target":
+        test_value = 0.12 if base_value in (None, "", 0) else None
+
+    return test_value, required_context
+
+
+def _apply_context(state: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(state)
+    for key, value in context.items():
+        if key == "metric_weights":
+            merged.setdefault("metric_weights", {})
+            merged["metric_weights"] = {**merged["metric_weights"], **value}
+        else:
+            merged[key] = value
+    return merged
+
+
+def _prepare_returns(df: pd.DataFrame) -> pd.DataFrame:
+    reset = df.reset_index()
+    index_name = df.index.name or "Date"
+    return reset.rename(columns={index_name: "Date"})
+
+
+def _run_simulation(
+    returns: pd.DataFrame, model_state: dict[str, Any], benchmark: str | None
+):
+    payload = AnalysisPayload(
+        returns=returns,
+        model_state=model_state,
+        benchmark=benchmark,
+    )
+    config = _build_config(payload)
+    return run_simulation(config, _prepare_returns(returns))
+
+
+def _select_metric_row(metrics: pd.DataFrame) -> pd.Series | None:
+    if metrics.empty:
+        return None
+    for label in ("user_weight", "equal_weight"):
+        if label in metrics.index:
+            return metrics.loc[label]
+    return metrics.iloc[0]
+
+
+def _summarize_run(run_result) -> dict[str, Any]:
+    metrics_row = _select_metric_row(run_result.metrics)
+    sharpe = (
+        float(metrics_row.get("sharpe"))
+        if metrics_row is not None and "sharpe" in metrics_row
+        else math.nan
+    )
+    cagr = (
+        float(metrics_row.get("cagr"))
+        if metrics_row is not None and "cagr" in metrics_row
+        else math.nan
+    )
+
+    analysis = run_result.analysis
+    if analysis is None:
+        try:
+            analysis = Results.from_payload(run_result.details)
+        except Exception:
+            analysis = None
+
+    returns = analysis.returns if analysis is not None else pd.Series(dtype=float)
+    weights = analysis.weights if analysis is not None else pd.Series(dtype=float)
+    turnover = analysis.turnover if analysis is not None else pd.Series(dtype=float)
+    costs = analysis.costs if analysis is not None else {}
+
     return {
-        "mean_return": mean,
-        "volatility": vol,
         "sharpe": sharpe,
-        "cumulative_return": cumulative,
+        "cagr": cagr,
+        "returns": returns,
+        "weights": weights,
+        "turnover": turnover,
+        "costs": costs,
     }
 
 
-def _compute_turnover(result: Any) -> float | None:
-    if getattr(result, "turnover", None) is not None:
-        series = result.turnover
-        if isinstance(series, pd.Series) and not series.empty:
-            return float(series.mean())
-    period_results = getattr(result, "period_results", None)
-    if isinstance(period_results, list):
-        turnovers = [
-            float(p.get("turnover", 0.0)) for p in period_results if isinstance(p, dict)
-        ]
-        if turnovers:
-            return float(np.mean(turnovers))
-    return None
+def _l1_distance(a: pd.Series, b: pd.Series) -> float:
+    if a.empty and b.empty:
+        return 0.0
+    merged = pd.concat([a, b], axis=1).fillna(0.0)
+    return float((merged.iloc[:, 0] - merged.iloc[:, 1]).abs().sum())
 
 
-def _compute_weight_stats(result: Any) -> pd.Series | None:
-    weights = getattr(result, "weights", None)
-    if isinstance(weights, pd.Series) and not weights.empty:
-        return weights.astype(float)
-    period_results = getattr(result, "period_results", None)
-    if isinstance(period_results, list):
-        return _average_period_weights(period_results)
-    return None
+def _mean_turnover(turnover: pd.Series) -> float:
+    if turnover is None or turnover.empty:
+        return 0.0
+    return float(turnover.abs().mean())
 
 
-def _choose_explicit_dates(returns: pd.DataFrame) -> tuple[str, str]:
-    index = returns.index
-    if len(index) < 3:
-        start = index.min()
-        end = index.max()
-    else:
-        start = index[int(len(index) * 0.2)]
-        end = index[int(len(index) * 0.8)]
-    return pd.Timestamp(start).strftime("%Y-%m-%d"), pd.Timestamp(end).strftime(
-        "%Y-%m-%d"
-    )
+def _sign_flip_test(diff: pd.Series, *, seed: int = 42, iterations: int = 1000) -> float:
+    if diff.empty or len(diff) < 3:
+        return math.nan
+    rng = np.random.default_rng(seed)
+    values = diff.values
+    observed = float(values.mean())
+    signs = rng.choice([-1, 1], size=(iterations, len(values)))
+    means = (signs * values).mean(axis=1)
+    p_value = float((np.abs(means) >= abs(observed)).mean())
+    return p_value
 
 
-def _generate_variant(setting: str, baseline: Any, returns: pd.DataFrame) -> Any:
-    override = VARIATION_OVERRIDES.get(setting)
-    if override:
-        return override(baseline, returns)
-    if isinstance(baseline, bool):
-        return not baseline
-    if isinstance(baseline, int):
-        return baseline + 1 if baseline >= 0 else 1
-    if isinstance(baseline, float):
-        return baseline * 1.2 if baseline else 0.1
-    if isinstance(baseline, str):
-        return f"{baseline}_alt"
-    if baseline is None and setting in {"start_date", "end_date"}:
-        start, end = _choose_explicit_dates(returns)
-        return start if setting == "start_date" else end
-    return baseline
-
-
-def _apply_context_overrides(
-    setting: str, base_state: dict[str, Any], test_state: dict[str, Any]
-) -> dict[str, Any]:
-    rule = MODE_CONTEXT_RULES.get(setting)
-    if not rule:
-        return {}
-    overrides = rule["overrides"]
-    applied: dict[str, Any] = {}
-    for key, value in overrides.items():
-        if key == "metric_weights" and isinstance(value, dict):
-            base_state.setdefault("metric_weights", {})
-            test_state.setdefault("metric_weights", {})
-            for metric, metric_value in value.items():
-                if base_state["metric_weights"].get(metric) != metric_value:
-                    applied.setdefault("metric_weights", {})[metric] = metric_value
-                base_state["metric_weights"][metric] = metric_value
-                test_state["metric_weights"][metric] = metric_value
-        else:
-            if base_state.get(key) != value:
-                applied[key] = value
-            base_state[key] = value
-            test_state[key] = value
-    return applied
-
-
-def _apply_date_mode_overrides(
+def _evaluate_setting(
     setting: str,
-    base_state: dict[str, Any],
-    test_state: dict[str, Any],
+    baseline_state: dict[str, Any],
     returns: pd.DataFrame,
-) -> None:
-    if setting in {"start_date", "end_date"}:
-        base_state["date_mode"] = "explicit"
-        test_state["date_mode"] = "explicit"
-        start, end = _choose_explicit_dates(returns)
-        base_state["start_date"] = start
-        base_state["end_date"] = end
-        test_state["start_date"] = start
-        test_state["end_date"] = end
-    if setting == "date_mode":
-        start, end = _choose_explicit_dates(returns)
-        test_state["start_date"] = start
-        test_state["end_date"] = end
-
-
-def evaluate_setting(
-    name: str, baseline_state: dict[str, Any], returns: pd.DataFrame
-) -> SettingEvaluation:
-    base_state = copy.deepcopy(baseline_state)
-    test_state = copy.deepcopy(baseline_state)
-
-    context_overrides = _apply_context_overrides(name, base_state, test_state)
-    context_rule = MODE_CONTEXT_RULES.get(name, {})
-    _apply_date_mode_overrides(name, base_state, test_state, returns)
-
-    baseline_value = base_state.get(name)
-    if baseline_value is None and name in DEFAULT_OVERRIDES:
-        baseline_value = DEFAULT_OVERRIDES[name]
-        base_state[name] = baseline_value
-
-    test_value = _generate_variant(name, baseline_value, returns)
-    test_state[name] = test_value
-
-    if name == "metric_weights":
-        base_weights = base_state.get("metric_weights", {})
-        test_weights = copy.deepcopy(base_weights)
-        test_weights["sharpe"] = float(test_weights.get("sharpe", 1.0)) + 0.5
-        test_state["metric_weights"] = test_weights
-        test_value = test_weights
-
-    try:
-        baseline_result = wiring.run_analysis_with_state(returns, base_state)
-        test_result = wiring.run_analysis_with_state(returns, test_state)
-
-        periods_per_year = infer_periods_per_year(returns.index)
-        baseline_returns = getattr(baseline_result, "portfolio", None)
-        test_returns = getattr(test_result, "portfolio", None)
-
-        baseline_stats = (
-            _compute_series_stats(baseline_returns, periods_per_year)
-            if isinstance(baseline_returns, pd.Series)
-            else {}
-        )
-        test_stats = (
-            _compute_series_stats(test_returns, periods_per_year)
-            if isinstance(test_returns, pd.Series)
-            else {}
-        )
-
-        baseline_turnover = _compute_turnover(baseline_result)
-        test_turnover = _compute_turnover(test_result)
-
-        base_weights = _compute_weight_stats(baseline_result)
-        test_weights = _compute_weight_stats(test_result)
-
-        weight_l1 = None
-        weight_l2 = None
-        weight_max = None
-        if base_weights is not None and test_weights is not None:
-            aligned = pd.concat([base_weights, test_weights], axis=1).fillna(0.0)
-            diff = aligned.iloc[:, 0] - aligned.iloc[:, 1]
-            weight_l1 = float(diff.abs().sum())
-            weight_l2 = float(np.sqrt((diff**2).sum()))
-            weight_max = float(diff.abs().max())
-
-        t_stat = None
-        p_value = None
-        if isinstance(baseline_returns, pd.Series) and isinstance(
-            test_returns, pd.Series
-        ):
-            aligned_returns = pd.concat(
-                [baseline_returns, test_returns], axis=1
-            ).dropna()
-            if len(aligned_returns) >= 3:
-                t_stat, p_value = stats.ttest_rel(
-                    aligned_returns.iloc[:, 0], aligned_returns.iloc[:, 1]
-                )
-                if p_value is not None and np.isnan(p_value):
-                    p_value = None
-
-        diff_metrics = {
-            "weight_l1": weight_l1,
-            "weight_l2": weight_l2,
-            "weight_max_abs": weight_max,
-            "mean_return_diff": _diff(
-                baseline_stats.get("mean_return"), test_stats.get("mean_return")
-            ),
-            "volatility_diff": _diff(
-                baseline_stats.get("volatility"), test_stats.get("volatility")
-            ),
-            "sharpe_diff": _diff(
-                baseline_stats.get("sharpe"), test_stats.get("sharpe")
-            ),
-            "cumulative_return_diff": _diff(
-                baseline_stats.get("cumulative_return"),
-                test_stats.get("cumulative_return"),
-            ),
-            "turnover_diff": _diff(baseline_turnover, test_turnover),
-        }
-
-        effect_thresholds = {
-            "weight_l1": 0.02,
-            "mean_return_diff": 1e-3,
-            "sharpe_diff": 0.05,
-            "turnover_diff": 1e-3,
-            "cumulative_return_diff": 1e-3,
-        }
-        effect_detected = any(
-            diff_metrics.get(key) is not None
-            and abs(float(diff_metrics[key])) >= effect_thresholds[key]
-            for key in effect_thresholds
-        )
-        if p_value is not None and p_value < 0.05:
-            effect_detected = True
-
-        if effect_detected:
-            status = "MODE_SPECIFIC" if context_overrides else "EFFECTIVE"
-        else:
-            status = "NO_EFFECT"
-
-        return SettingEvaluation(
-            name=name,
-            baseline_value=baseline_value,
-            test_value=test_value,
-            status=status,
-            diff_metrics=diff_metrics,
-            stats={
-                "baseline": baseline_stats,
-                "test": test_stats,
-                "t_stat": None if t_stat is None else float(t_stat),
-                "p_value": None if p_value is None else float(p_value),
-            },
-            details={
-                "baseline_turnover": baseline_turnover,
-                "test_turnover": test_turnover,
-                "context_overrides": context_overrides,
-                "context_reason": context_rule.get("reason", ""),
-            },
-        )
-
-    except Exception as exc:
-        return SettingEvaluation(
-            name=name,
+    cache: dict[str, Any],
+    benchmark: str | None,
+) -> SettingResult:
+    baseline_value = baseline_state.get(setting)
+    test_value, required_context = _resolve_variation(setting, baseline_value, returns)
+    if test_value is None:
+        return SettingResult(
+            setting=setting,
             baseline_value=baseline_value,
             test_value=test_value,
             status="ERROR",
-            error=str(exc),
-            details={"traceback": traceback.format_exc()},
+            mode_specific=bool(required_context),
+            reason="No variation could be generated.",
+            required_context=required_context,
         )
 
+    baseline_with_context = _apply_context(baseline_state, required_context)
+    test_state = dict(baseline_with_context)
+    test_state[setting] = test_value
 
-def _diff(a: Any, b: Any) -> float | None:
+    if setting == "min_weight":
+        max_weight = test_state.get("max_weight")
+        if max_weight is not None and test_value >= max_weight:
+            test_state[setting] = max(0.0, float(max_weight) * 0.5)
+    if setting == "max_weight":
+        min_weight = test_state.get("min_weight")
+        if min_weight is not None and test_value <= min_weight:
+            test_state[setting] = float(min_weight) * 1.5
+
+    if setting in {"start_date", "end_date", "date_mode"}:
+        test_state["date_mode"] = "explicit"
+        test_state.setdefault(
+            "start_date", returns.index.min().strftime("%Y-%m-%d")
+        )
+        test_state.setdefault("end_date", returns.index.max().strftime("%Y-%m-%d"))
+
     try:
-        if a is None or b is None:
-            return None
-        return float(b) - float(a)
-    except (TypeError, ValueError):
-        return None
+        base_key = json.dumps(baseline_with_context, sort_keys=True, default=str)
+        if base_key in cache:
+            base_result = cache[base_key]
+        else:
+            base_result = _run_simulation(returns, baseline_with_context, benchmark)
+            cache[base_key] = base_result
+
+        test_key = json.dumps(test_state, sort_keys=True, default=str)
+        if test_key in cache:
+            test_result = cache[test_key]
+        else:
+            test_result = _run_simulation(returns, test_state, benchmark)
+            cache[test_key] = test_result
+    except Exception as exc:
+        return SettingResult(
+            setting=setting,
+            baseline_value=baseline_value,
+            test_value=test_value,
+            status="ERROR",
+            mode_specific=bool(required_context),
+            reason=f"Simulation failed: {exc}",
+            required_context=required_context,
+        )
+
+    base_summary = _summarize_run(base_result)
+    test_summary = _summarize_run(test_result)
+
+    weight_diff = _l1_distance(base_summary["weights"], test_summary["weights"])
+    return_mean_diff = float(
+        test_summary["returns"].mean() - base_summary["returns"].mean()
+        if not base_summary["returns"].empty and not test_summary["returns"].empty
+        else math.nan
+    )
+    sharpe_diff = float(test_summary["sharpe"] - base_summary["sharpe"])
+    turnover_diff = float(
+        _mean_turnover(test_summary["turnover"])
+        - _mean_turnover(base_summary["turnover"])
+    )
+    cost_diff = float(
+        test_summary.get("costs", {}).get("turnover_applied", 0.0)
+        - base_summary.get("costs", {}).get("turnover_applied", 0.0)
+    )
+
+    returns_diff = test_summary["returns"] - base_summary["returns"]
+    p_value = _sign_flip_test(returns_diff.dropna())
+
+    metric_changed = any(
+        (
+            not math.isnan(weight_diff) and abs(weight_diff) > 1.0e-4,
+            not math.isnan(return_mean_diff) and abs(return_mean_diff) > 1.0e-4,
+            not math.isnan(sharpe_diff) and abs(sharpe_diff) > 1.0e-3,
+            not math.isnan(turnover_diff) and abs(turnover_diff) > 1.0e-4,
+        )
+    )
+
+    significant = (
+        not math.isnan(p_value)
+        and p_value < 0.05
+        and not math.isnan(return_mean_diff)
+        and abs(return_mean_diff) > 1.0e-4
+    )
+
+    reporting_only = setting.startswith(REPORTING_ONLY_PREFIXES) or (
+        setting in REPORTING_ONLY_KEYS
+    )
+
+    if reporting_only:
+        status = "NO_EFFECT"
+        reason = "Reporting-only setting."
+    elif metric_changed and (significant or math.isnan(p_value)):
+        status = "MODE_SPECIFIC" if required_context else "EFFECTIVE"
+        reason = "Detected meaningful changes."
+    else:
+        status = "NO_EFFECT"
+        reason = "No meaningful changes detected."
+
+    return SettingResult(
+        setting=setting,
+        baseline_value=baseline_value,
+        test_value=test_value,
+        status=status,
+        mode_specific=bool(required_context),
+        metrics={
+            "weight_l1_diff": weight_diff,
+            "mean_return_diff": return_mean_diff,
+            "sharpe_diff": sharpe_diff,
+            "turnover_diff": turnover_diff,
+            "cost_diff": cost_diff,
+            "p_value": p_value,
+            "significant": significant,
+        },
+        reason=reason,
+        required_context=required_context,
+    )
 
 
-def run_evaluation(
-    returns: pd.DataFrame, settings: list[str], baseline_state: dict[str, Any]
-) -> list[SettingEvaluation]:
-    results: list[SettingEvaluation] = []
-    for idx, setting in enumerate(settings, 1):
-        print(f"[{idx}/{len(settings)}] Evaluating {setting}...")
-        results.append(evaluate_setting(setting, baseline_state, returns))
-    return results
+def _load_demo_data() -> pd.DataFrame:
+    demo_path = PROJECT_ROOT / "demo" / "demo_returns.csv"
+    if not demo_path.exists():
+        from scripts.generate_demo import main as generate_demo
+
+        generate_demo()
+    df = pd.read_csv(demo_path, parse_dates=["Date"])
+    return df.set_index("Date")
 
 
-def save_results(
-    results: list[SettingEvaluation], output_dir: Path
-) -> tuple[Path, Path]:
-    output_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    json_path = output_dir / f"settings_effectiveness_{timestamp}.json"
-    csv_path = output_dir / f"settings_effectiveness_{timestamp}.csv"
+def _write_outputs(
+    results: list[SettingResult],
+    output_json: Path,
+    output_csv: Path,
+    settings: list[str],
+) -> None:
+    status_counts: dict[str, int] = {}
+    for res in results:
+        status_counts[res.status] = status_counts.get(res.status, 0) + 1
+    total = len(results)
+    effective = status_counts.get("EFFECTIVE", 0) + status_counts.get(
+        "MODE_SPECIFIC", 0
+    )
+    effectiveness_rate = effective / total if total else 0.0
 
-    payload = [result.__dict__ for result in results]
-    json_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    payload = {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "total_settings": total,
+        "status_counts": status_counts,
+        "effectiveness_rate": effectiveness_rate,
+        "settings": [
+            {
+                "setting": res.setting,
+                "baseline_value": res.baseline_value,
+                "test_value": res.test_value,
+                "status": res.status,
+                "mode_specific": res.mode_specific,
+                "metrics": res.metrics,
+                "reason": res.reason,
+                "required_context": res.required_context,
+            }
+            for res in results
+        ],
+    }
+
+    output_json.parent.mkdir(parents=True, exist_ok=True)
+    output_json.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
 
     rows = []
-    for result in results:
+    for res in results:
         row = {
-            "setting": result.name,
-            "baseline_value": json.dumps(result.baseline_value),
-            "test_value": json.dumps(result.test_value),
-            "status": result.status,
-            "error": result.error or "",
-            "context_overrides": json.dumps(
-                result.details.get("context_overrides", {})
-            ),
-            "context_reason": result.details.get("context_reason", ""),
+            "setting": res.setting,
+            "status": res.status,
+            "mode_specific": res.mode_specific,
+            "baseline_value": json.dumps(res.baseline_value, default=str),
+            "test_value": json.dumps(res.test_value, default=str),
+            "reason": res.reason,
+            "required_context": json.dumps(res.required_context, default=str),
         }
-        row.update({f"diff_{k}": v for k, v in result.diff_metrics.items()})
-        row.update(
-            {
-                "p_value": result.stats.get("p_value"),
-                "t_stat": result.stats.get("t_stat"),
-            }
-        )
+        row.update(res.metrics)
         rows.append(row)
-    pd.DataFrame(rows).to_csv(csv_path, index=False)
-
-    return json_path, csv_path
+    pd.DataFrame(rows).to_csv(output_csv, index=False)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--output-dir",
-        type=Path,
-        default=PROJECT_ROOT / "reports",
-        help="Directory for output JSON/CSV results",
+        "--output-json",
+        default=str(PROJECT_ROOT / "reports" / "settings_effectiveness.json"),
     )
+    parser.add_argument(
+        "--output-csv",
+        default=str(PROJECT_ROOT / "reports" / "settings_effectiveness.csv"),
+    )
+    parser.add_argument("--benchmark", default=None)
     args = parser.parse_args()
 
-    print("Loading demo data...")
-    returns = wiring.load_demo_data()
-    print(f"Loaded {len(returns)} rows, {len(returns.columns)} columns")
+    settings = sorted(_extract_settings_from_model(MODEL_FILE))
+    baseline_state = _build_baseline_state(settings)
+    returns = _load_demo_data()
 
-    baseline_preset, settings_from_ui = extract_settings_from_model_page(MODEL_PAGE)
-    settings = sorted(settings_from_ui | set(baseline_preset.keys()))
-    baseline_state = build_baseline_state(baseline_preset, settings)
+    results: list[SettingResult] = []
+    cache: dict[str, Any] = {}
+    for setting in settings:
+        result = _evaluate_setting(setting, baseline_state, returns, cache, args.benchmark)
+        results.append(result)
 
-    results = run_evaluation(returns, settings, baseline_state)
-    json_path, csv_path = save_results(results, args.output_dir)
+    _write_outputs(
+        results,
+        Path(args.output_json),
+        Path(args.output_csv),
+        settings,
+    )
 
-    effective = sum(1 for r in results if r.status == "EFFECTIVE")
-    errors = sum(1 for r in results if r.status == "ERROR")
-    print(f"Completed {len(results)} settings: {effective} effective, {errors} errors.")
-    print(f"Saved JSON report to {json_path}")
-    print(f"Saved CSV report to {csv_path}")
-
-    return 1 if errors else 0
+    return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
