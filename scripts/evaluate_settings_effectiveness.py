@@ -22,8 +22,10 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from analysis.results import Results  # noqa: E402
-from streamlit_app.components.analysis_runner import AnalysisPayload  # noqa: E402
-from streamlit_app.components.analysis_runner import _build_config  # noqa: E402
+from streamlit_app.components.analysis_runner import (
+    AnalysisPayload,  # noqa: E402
+    _build_config,  # noqa: E402
+)
 from trend_analysis.api import run_simulation  # noqa: E402
 
 MODEL_FILE = PROJECT_ROOT / "streamlit_app" / "pages" / "2_Model.py"
@@ -133,9 +135,7 @@ def _extract_settings_from_model(file_path: Path) -> set[str]:
                     settings.update(preset_dict["Baseline"].keys())
                 elif isinstance(node.value, ast.Dict):
                     baseline_dict = None
-                    for key_node, value_node in zip(
-                        node.value.keys, node.value.values
-                    ):
+                    for key_node, value_node in zip(node.value.keys, node.value.values):
                         if (
                             isinstance(key_node, ast.Constant)
                             and key_node.value == "Baseline"
@@ -151,9 +151,7 @@ def _extract_settings_from_model(file_path: Path) -> set[str]:
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef) and node.name == "_initial_model_state":
             for child in ast.walk(node):
-                if isinstance(child, ast.Return) and isinstance(
-                    child.value, ast.Dict
-                ):
+                if isinstance(child, ast.Return) and isinstance(child.value, ast.Dict):
                     settings.update(_keys_from_dict(child.value))
                     break
 
@@ -350,7 +348,9 @@ def _mean_turnover(turnover: pd.Series) -> float:
     return float(turnover.abs().mean())
 
 
-def _sign_flip_test(diff: pd.Series, *, seed: int = 42, iterations: int = 1000) -> float:
+def _sign_flip_test(
+    diff: pd.Series, *, seed: int = 42, iterations: int = 1000
+) -> float:
     if diff.empty or len(diff) < 3:
         return math.nan
     rng = np.random.default_rng(seed)
@@ -397,9 +397,7 @@ def _evaluate_setting(
 
     if setting in {"start_date", "end_date", "date_mode"}:
         test_state["date_mode"] = "explicit"
-        test_state.setdefault(
-            "start_date", returns.index.min().strftime("%Y-%m-%d")
-        )
+        test_state.setdefault("start_date", returns.index.min().strftime("%Y-%m-%d"))
         test_state.setdefault("end_date", returns.index.max().strftime("%Y-%m-%d"))
 
     try:
@@ -583,7 +581,9 @@ def main() -> int:
     results: list[SettingResult] = []
     cache: dict[str, Any] = {}
     for setting in settings:
-        result = _evaluate_setting(setting, baseline_state, returns, cache, args.benchmark)
+        result = _evaluate_setting(
+            setting, baseline_state, returns, cache, args.benchmark
+        )
         results.append(result)
 
     _write_outputs(
