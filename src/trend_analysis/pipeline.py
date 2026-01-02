@@ -870,6 +870,13 @@ def _compute_weights_and_stats(
                     "condition_threshold"
                 )
                 condition_source = weight_engine_diagnostics.get("condition_source")
+                raw_condition_number = weight_engine_diagnostics.get(
+                    "raw_condition_number"
+                )
+                shrunk_condition_number = weight_engine_diagnostics.get(
+                    "shrunk_condition_number"
+                )
+                shrinkage_info = weight_engine_diagnostics.get("shrinkage")
                 fallback_reason = weight_engine_diagnostics.get(
                     "fallback_reason", "safe_mode"
                 )
@@ -881,6 +888,14 @@ def _compute_weights_and_stats(
                     "condition_threshold": condition_threshold,
                     "condition_source": condition_source,
                 }
+                if raw_condition_number is not None:
+                    weight_engine_fallback["raw_condition_number"] = raw_condition_number
+                if shrunk_condition_number is not None:
+                    weight_engine_fallback["shrunk_condition_number"] = (
+                        shrunk_condition_number
+                    )
+                if isinstance(shrinkage_info, Mapping):
+                    weight_engine_fallback["shrinkage"] = dict(shrinkage_info)
                 if isinstance(condition_number, (int, float)) and isinstance(
                     condition_threshold, (int, float)
                 ):
