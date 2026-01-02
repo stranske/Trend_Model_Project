@@ -157,6 +157,46 @@ class SettingEvaluation:
     details: dict[str, Any] = field(default_factory=dict)
 
 
+def _extract_dict_keys(node: ast.AST) -> set[str]:
+    if not isinstance(node, ast.Dict):
+        return set()
+    keys: set[str] = set()
+    for key in node.keys:
+        if isinstance(key, ast.Constant) and isinstance(key.value, str):
+            keys.add(key.value)
+    return keys
+
+
+def _extract_subscript_key(node: ast.Subscript) -> str | None:
+    key_node = node.slice
+    if isinstance(key_node, ast.Constant) and isinstance(key_node.value, str):
+        return key_node.value
+    return None
+
+
+def _is_model_state_ref(node: ast.AST) -> bool:
+    if isinstance(node, ast.Name) and node.id == "model_state":
+        return True
+    if isinstance(node, ast.Subscript):
+        key = _extract_subscript_key(node)
+        if key != "model_state":
+            return False
+        if isinstance(node.value, ast.Attribute):
+            return (
+                isinstance(node.value.value, ast.Name)
+                and node.value.value.id == "st"
+                and node.value.attr == "session_state"
+            )
+    return False
+
+
+def _extract_model_state_key(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Subscript):
+        if _is_model_state_ref(node.value):
+            return _extract_subscript_key(node)
+    return None
+
+
 def extract_settings_from_model_page(
     path: Path,
 ) -> tuple[dict[str, Any], set[str]]:
@@ -164,6 +204,8 @@ def extract_settings_from_model_page(
     tree = ast.parse(source)
     preset_configs: dict[str, Any] = {}
     candidate_keys: set[str] = set()
+    initial_state_keys: set[str] = set()
+    model_state_keys: set[str] = set()
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign):
@@ -174,15 +216,31 @@ def extract_settings_from_model_page(
                     except Exception:
                         preset_configs = {}
                 if isinstance(target, ast.Name) and target.id == "candidate_state":
-                    if isinstance(node.value, ast.Dict):
-                        for key in node.value.keys:
-                            if isinstance(key, ast.Constant) and isinstance(
-                                key.value, str
-                            ):
-                                candidate_keys.add(key.value)
+                    candidate_keys |= _extract_dict_keys(node.value)
+                key = _extract_model_state_key(target)
+                if key:
+                    model_state_keys.add(key)
+        if isinstance(node, ast.Call):
+            if (
+                isinstance(node.func, ast.Attribute)
+                and node.func.attr == "get"
+                and node.args
+                and _is_model_state_ref(node.func.value)
+            ):
+                arg = node.args[0]
+                if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                    model_state_keys.add(arg.value)
+        if isinstance(node, ast.FunctionDef) and node.name == "_initial_model_state":
+            for inner in ast.walk(node):
+                if isinstance(inner, ast.Return):
+                    initial_state_keys |= _extract_dict_keys(inner.value)
 
     baseline_preset = preset_configs.get("Baseline", {})
-    return baseline_preset, candidate_keys
+    all_keys = set(baseline_preset.keys())
+    all_keys |= candidate_keys
+    all_keys |= initial_state_keys
+    all_keys |= model_state_keys
+    return baseline_preset, all_keys
 
 
 def build_baseline_state(
@@ -539,8 +597,8 @@ def main() -> int:
     returns = wiring.load_demo_data()
     print(f"Loaded {len(returns)} rows, {len(returns.columns)} columns")
 
-    baseline_preset, candidate_keys = extract_settings_from_model_page(MODEL_PAGE)
-    settings = sorted(candidate_keys | set(baseline_preset.keys()))
+    baseline_preset, settings_from_ui = extract_settings_from_model_page(MODEL_PAGE)
+    settings = sorted(settings_from_ui | set(baseline_preset.keys()))
     baseline_state = build_baseline_state(baseline_preset, settings)
 
     results = run_evaluation(returns, settings, baseline_state)
