@@ -397,9 +397,13 @@ class TestRobustWeightingBranchCoverage:
 
     def test_robust_mv_singular_fallback_to_equal_weights(self):
         cov = create_singular_cov()
+        # Use nan threshold to disable condition check so the solver
+        # fallback path is exercised instead.  (any_value >= nan) is False,
+        # so the engine proceeds to _mean_variance_weights and falls back
+        # to equal weights when the inversion fails.
         engine = rw.RobustMeanVariance(
             shrinkage_method="none",
-            condition_threshold=float("inf"),
+            condition_threshold=float("nan"),
             min_weight=0.0,
         )
         weights = engine.weight(cov)
