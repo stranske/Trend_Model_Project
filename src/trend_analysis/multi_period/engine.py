@@ -1640,6 +1640,10 @@ def run(
     min_tenure_raw = cfg.portfolio.get("min_tenure_n")
     if min_tenure_raw is None:
         min_tenure_raw = cfg.portfolio.get("min_tenure_periods")
+    if min_tenure_raw is None:
+        min_tenure_raw = th_cfg.get("min_tenure_n")
+    if min_tenure_raw is None:
+        min_tenure_raw = th_cfg.get("min_tenure_periods")
     try:
         min_tenure_n = int(min_tenure_raw) if min_tenure_raw is not None else 0
     except (TypeError, ValueError):
@@ -1664,8 +1668,6 @@ def run(
         protected: set[str] = set()
         for mgr in holdings:
             mgr_str = str(mgr)
-            if mgr_str not in score_frame.index:
-                continue
             if int(holdings_tenure.get(mgr_str, 0)) < min_tenure_n:
                 protected.add(mgr_str)
         return protected
@@ -3791,13 +3793,12 @@ def run(
         res_dict["manager_changes"] = events
         res_dict["turnover"] = period_turnover
         res_dict["transaction_cost"] = float(period_cost)
-        if min_tenure_n > 0:
-            updated_tenure: dict[str, int] = {}
-            for mgr in realised_holdings:
-                mgr_str = str(mgr)
-                updated_tenure[mgr_str] = int(holdings_tenure.get(mgr_str, 0)) + 1
-            holdings_tenure = updated_tenure
-            res_dict["holding_tenure"] = dict(holdings_tenure)
+        updated_tenure: dict[str, int] = {}
+        for mgr in realised_holdings:
+            mgr_str = str(mgr)
+            updated_tenure[mgr_str] = int(holdings_tenure.get(mgr_str, 0)) + 1
+        holdings_tenure = updated_tenure
+        res_dict["holding_tenure"] = dict(holdings_tenure)
 
         # Persist realised weights for next-period turnover logic.
         # Store only non-zero holdings so indices do not accumulate across the

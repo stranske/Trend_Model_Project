@@ -76,6 +76,30 @@ def test_build_config_populates_threshold_hold_metric_and_capacity(monkeypatch):
     assert cfg.regime.get("proxy") == "ACWI"
 
 
+def test_build_config_maps_min_tenure_periods(monkeypatch):
+    stub = SimpleNamespace()
+    stub.session_state = {}
+    stub.cache_data = lambda *args, **kwargs: (
+        args[0] if args and callable(args[0]) else (lambda fn: fn)
+    )
+    stub.cache_resource = stub.cache_data
+
+    monkeypatch.setitem(sys.modules, "streamlit", stub)
+
+    from streamlit_app.components.analysis_runner import AnalysisPayload, _build_config
+
+    returns = pd.DataFrame(
+        {"FundA": [0.01, 0.02]},
+        index=pd.to_datetime(["2020-01-31", "2020-02-29"]),
+    )
+    model_state = {"min_tenure_periods": 4}
+
+    payload = AnalysisPayload(returns=returns, model_state=model_state, benchmark=None)
+    cfg = _build_config(payload)
+
+    assert cfg.portfolio.get("min_tenure_n") == 4
+
+
 def test_build_config_maps_constant_decay_to_simple(monkeypatch):
     stub = SimpleNamespace()
     stub.session_state = {}
