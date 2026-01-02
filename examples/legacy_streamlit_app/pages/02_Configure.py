@@ -131,7 +131,6 @@ def main():
 
     # Advanced Settings
     with st.expander("🔧 Advanced Settings", expanded=False):
-
         st.markdown("#### Transaction Costs")
         monthly_cost = st.number_input(
             "Monthly Transaction Cost (%)",

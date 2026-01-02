@@ -150,7 +150,7 @@ def _build_validation_report(
         or bool(metadata.missing_policy_dropped)
     ):
         warnings.append(
-            "Missing-data policy applied: " f"{metadata.missing_policy_summary}."
+            f"Missing-data policy applied: {metadata.missing_policy_summary}."
         )
     if sanitized_columns:
         formatted = ", ".join(

@@ -207,9 +207,9 @@ def decide_hires_fires(
         len(hires) + len(to_fire) > policy.turnover_budget_max_changes
     ):
         s = sf["_score"].astype(float)
-        moves: List[Tuple[float, str, str, str]] = (
-            []
-        )  # (priority, kind, manager, reason)
+        moves: List[
+            Tuple[float, str, str, str]
+        ] = []  # (priority, kind, manager, reason)
         for m, reason in hires:
             # Higher-scored hires have higher priority
             prio = float(s.get(m, np.nan))

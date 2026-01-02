@@ -170,20 +170,20 @@ def test_app_starts_headlessly():
                 )
 
         # Verify the process is still running after successful readiness check
-        assert (
-            proc.poll() is None
-        ), "Streamlit app terminated unexpectedly after startup"
+        assert proc.poll() is None, (
+            "Streamlit app terminated unexpectedly after startup"
+        )
 
         # Additional health check to ensure the app is serving requests
         response = requests.get(
             f"http://localhost:{port}/health", timeout=DEFAULT_READY_TIMEOUT
         )
-        assert (
-            response.status_code == 200
-        ), f"Health check failed with status {response.status_code}"
-        assert (
-            response.text.strip() == "OK"
-        ), f"Health check returned unexpected content: {response.text}"
+        assert response.status_code == 200, (
+            f"Health check failed with status {response.status_code}"
+        )
+        assert response.text.strip() == "OK", (
+            f"Health check returned unexpected content: {response.text}"
+        )
 
     finally:
         # Clean shutdown of the Streamlit process
