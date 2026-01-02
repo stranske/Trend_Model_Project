@@ -93,6 +93,7 @@ portfolio:
   lookback: 12                # Months for trend calculation
   rebalance_frequency: M      # M=monthly, Q=quarterly
   weighting: equal            # equal, score_prop, vol_adjusted
+  ci_level: 0.0               # Reporting-only confidence interval level (0 disables)
   
   # Selection options
   selection:

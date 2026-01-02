@@ -74,6 +74,7 @@ portfolio:
     bps_per_trade: 0            # overrides transaction_cost_bps when provided
     slippage_bps: 0             # additional penalty applied on turnover
   max_turnover: 1.0             # optional turnover cap (1.0 = no cap)
+  ci_level: 0.0                 # reporting-only confidence interval (0 disables)
   rank:
     inclusion_approach: top_n     # top_n | top_pct | threshold
     n: 10                         # for top_n
