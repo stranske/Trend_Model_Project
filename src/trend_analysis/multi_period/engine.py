@@ -318,6 +318,8 @@ def _apply_weight_bounds(
 def _enforce_max_active_positions(
     weights: pd.Series,
     max_active_positions: int | None,
+    *,
+    protected: Iterable[str] | None = None,
 ) -> pd.Series:
     """Zero out all but the top ``max_active_positions`` weights."""
 
@@ -334,12 +336,28 @@ def _enforce_max_active_positions(
     if len(active) <= max_active:
         return weights
 
-    keep = (
-        active.abs()
-        .sort_values(ascending=False, kind="mergesort")
-        .head(max_active)
-        .index
-    )
+    protected_set = {str(m) for m in (protected or []) if m is not None}
+    if protected_set:
+        protected_active = [
+            ix for ix in active.index if str(ix) in protected_set
+        ]
+        unprotected_active = active.drop(protected_active, errors="ignore")
+        slots = max(0, max_active - len(protected_active))
+        keep = list(protected_active)
+        if slots > 0 and not unprotected_active.empty:
+            keep += list(
+                unprotected_active.abs()
+                .sort_values(ascending=False, kind="mergesort")
+                .head(slots)
+                .index
+            )
+    else:
+        keep = (
+            active.abs()
+            .sort_values(ascending=False, kind="mergesort")
+            .head(max_active)
+            .index
+        )
     trimmed = weights.copy()
     trimmed.loc[~trimmed.index.isin(keep)] = 0.0
 
@@ -1648,6 +1666,16 @@ def run(
             mgr_str = str(mgr)
             if mgr_str not in score_frame.index:
                 continue
+            if int(holdings_tenure.get(mgr_str, 0)) < min_tenure_n:
+                protected.add(mgr_str)
+        return protected
+
+    def _min_tenure_guard(holdings: Iterable[str]) -> set[str]:
+        if min_tenure_n <= 0:
+            return set()
+        protected: set[str] = set()
+        for mgr in holdings:
+            mgr_str = str(mgr)
             if int(holdings_tenure.get(mgr_str, 0)) < min_tenure_n:
                 protected.add(mgr_str)
         return protected
@@ -3275,6 +3303,7 @@ def run(
 
         # Apply weight bounds and renormalise
         bounded_w = _apply_weight_bounds(prev_weights, min_w_bound, max_w_bound)
+        min_tenure_guard = _min_tenure_guard(bounded_w.index)
 
         # Preserve the selected holdings set for the pipeline manual selection.
         # Subsequent turnover alignment (union with previous holdings) may
@@ -3347,7 +3376,9 @@ def run(
                 final_w = last_aligned + mandatory + optional * scale
         # Ensure bounds and normalisation remain satisfied
         final_w = _apply_weight_bounds(final_w, min_w_bound, max_w_bound)
-        final_w = _enforce_max_active_positions(final_w, max_active_positions)
+        final_w = _enforce_max_active_positions(
+            final_w, max_active_positions, protected=min_tenure_guard
+        )
 
         # Prepare custom weights mapping in percent for _run_analysis.
         # We keep the internal turnover-cap/bounds logic here, but reconcile the
@@ -3684,7 +3715,9 @@ def run(
                                     max_w_bound,
                                 )
                                 bounded = _enforce_max_active_positions(
-                                    bounded, max_active_positions
+                                    bounded,
+                                    max_active_positions,
+                                    protected=min_tenure_guard,
                                 )
                                 bounded = bounded[bounded.abs() > eps]
                                 total = float(bounded.sum())
@@ -3764,6 +3797,7 @@ def run(
                 mgr_str = str(mgr)
                 updated_tenure[mgr_str] = int(holdings_tenure.get(mgr_str, 0)) + 1
             holdings_tenure = updated_tenure
+            res_dict["holding_tenure"] = dict(holdings_tenure)
 
         # Persist realised weights for next-period turnover logic.
         # Store only non-zero holdings so indices do not accumulate across the

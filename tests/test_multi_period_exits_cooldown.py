@@ -335,6 +335,10 @@ def test_min_tenure_blocks_early_exits(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert "B" not in period2_no
     assert "B" in period2_min
+    tenure_period1 = results_min_tenure[0].get("holding_tenure") or {}
+    tenure_period2 = results_min_tenure[1].get("holding_tenure") or {}
+    assert tenure_period1.get("B") == 1
+    assert tenure_period2.get("B") == 2
 
     period3_min = set(results_min_tenure[2]["selected_funds"])
     assert "B" not in period3_min
