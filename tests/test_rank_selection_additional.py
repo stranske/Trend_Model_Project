@@ -92,6 +92,32 @@ def test_rank_select_funds_blended_requires_weights():
         )
 
 
+def test_rank_select_funds_excludes_bottom_k():
+    dates = pd.date_range("2022-01-31", periods=6, freq="ME")
+    df = pd.DataFrame(
+        {
+            "FundA": [0.04, 0.03, 0.05, 0.04, 0.03, 0.04],
+            "FundB": [0.02, 0.02, 0.02, 0.02, 0.02, 0.02],
+            "FundC": [0.01, 0.01, 0.01, 0.01, 0.01, 0.01],
+            "FundD": [-0.01, -0.01, -0.01, -0.01, -0.01, -0.01],
+        },
+        index=dates,
+    )
+    cfg = rs.RiskStatsConfig(risk_free=0.0)
+
+    selected = rs.rank_select_funds(
+        df,
+        cfg,
+        inclusion_approach="top_n",
+        n=4,
+        score_by="annual_return",
+        bottom_k=1,
+    )
+
+    assert "FundD" not in selected
+    assert len(selected) == 3
+
+
 def test_canonical_metric_list_alias_and_default():
     names = rs.canonical_metric_list(["annual_return", "Sharpe", "Custom"])
     assert names[:2] == ["AnnualReturn", "Sharpe"]

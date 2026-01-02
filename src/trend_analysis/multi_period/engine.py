@@ -1441,6 +1441,11 @@ def run(
     rank_blended_weights = rank_cfg.get("blended_weights")
     # Transform: zscore for threshold mode, raw for ranking modes
     rank_transform = str(rank_cfg.get("transform", "raw"))
+    try:
+        bottom_k = int(rank_cfg.get("bottom_k") or 0)
+    except (TypeError, ValueError):
+        bottom_k = 0
+    bottom_k = max(0, bottom_k)
 
     # Portfolio constraints
     constraints = cast(dict[str, Any], cfg.portfolio.get("constraints", {}))
@@ -1694,23 +1699,85 @@ def run(
             )
         return after
 
+    def _rank_scores_for_bottom_k(
+        score_frame: pd.DataFrame,
+    ) -> tuple[pd.Series, bool]:
+        if score_frame.empty:
+            return pd.Series(dtype=float), False
+        use_seed_metric = inclusion_approach == "top_n" and not is_buy_and_hold
+        score_by = seed_metric if use_seed_metric else rank_score_by
+        blended_weights = None if use_seed_metric else rank_blended_weights
+        transform = "raw" if use_seed_metric else rank_transform
+
+        if score_by == "blended" and blended_weights:
+            total_w = sum(blended_weights.values())
+            if total_w > 0:
+                norm_w = {k: v / total_w for k, v in blended_weights.items()}
+            else:
+                norm_w = {"Sharpe": 1.0}
+            combo = pd.Series(0.0, index=score_frame.index, dtype=float)
+            for m, w in norm_w.items():
+                if m in score_frame.columns:
+                    col_series = score_frame[m].astype(float)
+                    mu = float(col_series.mean())
+                    sigma = float(col_series.std(ddof=0))
+                    z = (
+                        (col_series - mu) / sigma
+                        if sigma > 0
+                        else pd.Series(0.0, index=col_series.index)
+                    )
+                    if m in ASCENDING_METRICS:
+                        z = -z
+                    combo += w * z
+            scores = combo
+        else:
+            score_col = score_by if score_by in score_frame.columns else "Sharpe"
+            if score_col not in score_frame.columns:
+                if score_frame.columns.empty:
+                    return pd.Series(dtype=float), False
+                score_col = str(score_frame.columns[0])
+            scores = score_frame[score_col].astype(float)
+
+        if transform == "zscore":
+            mu, sigma = scores.mean(), scores.std(ddof=0)
+            if sigma > 0:
+                scores = (scores - mu) / sigma
+            else:
+                scores = pd.Series(0.0, index=scores.index)
+
+        ascending = False
+        if score_by in ASCENDING_METRICS and transform != "zscore":
+            ascending = True
+
+        return scores, ascending
+
     def _filter_entry_frame(score_frame: pd.DataFrame) -> pd.DataFrame:
-        if z_entry_hard is None or "zscore" not in score_frame.columns:
-            return score_frame
-        z = pd.to_numeric(score_frame["zscore"], errors="coerce")
-        mask = z >= z_entry_hard - NUMERICAL_TOLERANCE_HIGH
-        return score_frame.loc[mask]
+        filtered = score_frame
+        if z_entry_hard is not None and "zscore" in score_frame.columns:
+            z = pd.to_numeric(score_frame["zscore"], errors="coerce")
+            mask = z >= z_entry_hard - NUMERICAL_TOLERANCE_HIGH
+            filtered = score_frame.loc[mask]
+        if bottom_k <= 0 or filtered.empty:
+            return filtered
+        scores, ascending = _rank_scores_for_bottom_k(filtered)
+        if scores.empty:
+            return filtered
+        ordered = scores.sort_values(ascending=ascending).index
+        if bottom_k >= len(ordered):
+            return filtered.iloc[0:0]
+        keep = ordered[:-bottom_k]
+        return filtered.loc[keep]
 
     def _filter_entry_candidates(
         candidates: list[str], score_frame: pd.DataFrame
     ) -> list[str]:
-        if z_entry_hard is None or "zscore" not in score_frame.columns:
-            return candidates
         if not candidates:
             return candidates
-        z = pd.to_numeric(score_frame.loc[candidates, "zscore"], errors="coerce")
-        eligible = z[z >= z_entry_hard - NUMERICAL_TOLERANCE_HIGH].index
-        return [str(ix) for ix in eligible]
+        eligible_frame = _filter_entry_frame(score_frame)
+        if eligible_frame.empty:
+            return []
+        eligible = {str(ix) for ix in eligible_frame.index}
+        return [str(ix) for ix in candidates if str(ix) in eligible]
 
     def _exit_protected(holdings: Iterable[str], score_frame: pd.DataFrame) -> set[str]:
         if z_exit_hard is None or "zscore" not in score_frame.columns:

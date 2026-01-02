@@ -80,6 +80,7 @@ portfolio:
     n: 10                         # for top_n
     pct: 0.10                     # for top_pct (decimal, not %)
     threshold: 1.5                # ignored unless approach == threshold
+    bottom_k: 0                   # exclude worst-performing K funds
     score_by: sharpe_ratio        # Sharpe | AnnualReturn | … | blended
     transform: zscore
     blended_weights:
