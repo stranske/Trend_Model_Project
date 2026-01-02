@@ -134,7 +134,7 @@ def test_finalise_validated_frame_copies_metadata(sample_frame: pd.DataFrame) ->
     payload = make_validated(sample_frame, rows=3)
     result = data_mod._finalise_validated_frame(payload, include_date_column=False)
     assert result.equals(sample_frame)
-    assert result.attrs["market_data"]["metadata"] == vars(payload.metadata)
+    assert result.attrs["market_data"]["metadata"] is payload.metadata
     assert result.attrs["market_data_rows"] == 3
 
 

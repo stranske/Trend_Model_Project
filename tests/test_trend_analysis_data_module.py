@@ -160,7 +160,7 @@ def test_validate_payload_success(monkeypatch):
 
     assert_frame_equal(result, validated_frame)
     market_attrs = result.attrs["market_data"]
-    assert market_attrs["metadata"] == metadata.model_dump(mode="json")
+    assert market_attrs["metadata"] == metadata
     assert result.attrs["market_data_mode"] == metadata.mode.value
     assert result.attrs["market_data_missing_policy"] == metadata.missing_policy
     assert result.attrs["market_data_columns"] == metadata.columns

@@ -28,10 +28,7 @@ def test_price_mode_detection() -> None:
     )
     df, meta = load_and_validate_upload(io.StringIO(frame.to_csv(index=False)))
     assert meta["mode"] == "price"
-    assert (
-        df.attrs["market_data"]["metadata"]["mode"]
-        == MarketDataMode.PRICE.value
-    )
+    assert df.attrs["market_data"]["metadata"].mode == MarketDataMode.PRICE
 
 
 def test_ambiguous_mode_raises() -> None:
