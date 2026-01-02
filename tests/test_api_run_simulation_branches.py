@@ -240,6 +240,26 @@ def test_run_simulation_attaches_ci_level_metadata(monkeypatch) -> None:
     assert result.analysis.metadata["reporting"]["ci_level"] == 0.9
 
 
+def test_run_simulation_ci_level_string_is_cast(monkeypatch) -> None:
+    config = _make_config(portfolio={"ci_level": "0.85"})
+    returns = _make_returns()
+
+    payload = {
+        "out_sample_stats": {
+            "FundA": SimpleNamespace(alpha=1.0, beta=0.5),
+        },
+        "benchmark_ir": {},
+        "metadata": {},
+    }
+
+    monkeypatch.setattr(api, "_run_analysis", lambda *_, **__: payload)
+
+    result = api.run_simulation(config, returns)
+
+    assert result.analysis is not None
+    assert result.analysis.metadata["reporting"]["ci_level"] == 0.85
+
+
 def test_run_simulation_ci_level_is_reporting_only(monkeypatch) -> None:
     returns = _make_returns()
     portfolio = pd.Series(
