@@ -171,7 +171,7 @@ class _SelectionStage:
 class _ComputationStage:
     weights_series: pd.Series
     risk_diagnostics: RiskDiagnostics
-    weight_engine_fallback: dict[str, str] | None
+    weight_engine_fallback: dict[str, Any] | None
     weight_engine_diagnostics: dict[str, Any] | None
     turnover_cap: float | None
     in_scaled: pd.DataFrame
@@ -841,7 +841,7 @@ def _compute_weights_and_stats(
 
     custom_weights_input = custom_weights is not None
     weight_engine_used = False
-    weight_engine_fallback: dict[str, str] | None = None
+    weight_engine_fallback: dict[str, Any] | None = None
     weight_engine_diagnostics: dict[str, Any] | None = None
     if (
         custom_weights is None
