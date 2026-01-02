@@ -1682,6 +1682,43 @@ def run(
                 protected.add(mgr_str)
         return protected
 
+    def _reapply_min_tenure_guard(
+        holdings: list[str],
+        *,
+        before_reb: set[str],
+        score_frame: pd.DataFrame,
+        blocked: set[str],
+        events: list[dict[str, object]],
+        logged: set[str],
+        stage: str,
+    ) -> list[str]:
+        if min_tenure_n <= 0 or not blocked:
+            return holdings
+        existing = {str(h) for h in holdings}
+        for mgr in sorted(blocked):
+            if mgr in existing or mgr not in before_reb:
+                continue
+            if mgr not in score_frame.index:
+                continue
+            holdings.append(mgr)
+            existing.add(mgr)
+            if mgr in logged:
+                continue
+            events.append(
+                {
+                    "action": "skipped",
+                    "manager": mgr,
+                    "firm": _firm(mgr),
+                    "reason": "min_tenure",
+                    "detail": (
+                        f"tenure={int(holdings_tenure.get(mgr, 0))}/"
+                        f"{min_tenure_n}; stage={stage}"
+                    ),
+                }
+            )
+            logged.add(mgr)
+        return holdings
+
     def _start_cooldown(exited: Iterable[str]) -> None:
         if cooldown_periods <= 0:
             return
@@ -2106,6 +2143,8 @@ def run(
         # Track manager changes with reasons for this period
         events: list[dict[str, object]] = []
         forced_exits: set[str] = set()
+        min_tenure_blocked: set[str] = set()
+        min_tenure_logged: set[str] = set()
 
         if prev_weights is None:
             # For random mode, do fresh random selection from available universe
@@ -2783,6 +2822,7 @@ def run(
                 proposed_holdings = final_holdings
 
             if min_tenure_protected:
+                min_tenure_blocked = set(min_tenure_protected)
                 blocked_drops = [
                     mgr
                     for mgr in [str(h) for h in before_reb]
@@ -2804,6 +2844,7 @@ def run(
                             ),
                         }
                     )
+                    min_tenure_logged.add(mgr)
 
             # Log attempted adds prior to firm/cap constraints. This preserves
             # the user's intent signal (e.g., a z_entry candidate) even if the
@@ -3106,6 +3147,18 @@ def run(
                     cooldowns=cooldown_book,
                     desired_min=min_funds,
                     events=events,
+                )
+                after_reb = set(holdings)
+
+            if min_tenure_blocked:
+                holdings = _reapply_min_tenure_guard(
+                    holdings,
+                    before_reb=before_reb,
+                    score_frame=sf,
+                    blocked=min_tenure_blocked,
+                    events=events,
+                    logged=min_tenure_logged,
+                    stage="post_budget",
                 )
                 after_reb = set(holdings)
 

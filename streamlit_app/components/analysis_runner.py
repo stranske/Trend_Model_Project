@@ -515,6 +515,11 @@ def _build_config(payload: AnalysisPayload) -> Config:
         threshold_hold_cfg["z_entry_hard"] = z_entry_hard
     if z_exit_hard is not None:
         threshold_hold_cfg["z_exit_hard"] = z_exit_hard
+    min_tenure_periods = _coerce_positive_int(
+        state.get("min_tenure_periods"), default=0, minimum=0
+    )
+    if min_tenure_periods > 0:
+        threshold_hold_cfg["min_tenure_n"] = min_tenure_periods
 
     # Add threshold_hold and policy settings to portfolio config
     portfolio_cfg["policy"] = "threshold_hold"
