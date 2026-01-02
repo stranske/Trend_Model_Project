@@ -12,7 +12,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, cast
 
 import numpy as np
 import pandas as pd
@@ -22,7 +22,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from analysis.results import Results  # noqa: E402
-from trend_analysis.api import run_simulation  # noqa: E402
+from trend_analysis.api import RunResult, run_simulation  # noqa: E402
 
 MODEL_FILE = PROJECT_ROOT / "streamlit_app" / "pages" / "2_Model.py"
 
@@ -144,19 +144,24 @@ def _extract_settings_from_model(file_path: Path) -> set[str]:
                 break
 
     # Extract keys from _initial_model_state return dict.
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == "_initial_model_state":
-            for child in ast.walk(node):
+    for walk_node in ast.walk(tree):
+        if (
+            isinstance(walk_node, ast.FunctionDef)
+            and walk_node.name == "_initial_model_state"
+        ):
+            for child in ast.walk(walk_node):
                 if isinstance(child, ast.Return) and isinstance(child.value, ast.Dict):
                     settings.update(_keys_from_dict(child.value))
                     break
 
     # Extract keys from candidate_state assignment.
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign):
-            targets = [t.id for t in node.targets if isinstance(t, ast.Name)]
-            if "candidate_state" in targets and isinstance(node.value, ast.Dict):
-                settings.update(_keys_from_dict(node.value))
+    for assign_node in ast.walk(tree):
+        if isinstance(assign_node, ast.Assign):
+            targets = [t.id for t in assign_node.targets if isinstance(t, ast.Name)]
+            if "candidate_state" in targets and isinstance(
+                assign_node.value, ast.Dict
+            ):
+                settings.update(_keys_from_dict(assign_node.value))
 
     # Regex scan for model_state accessors.
     for pattern in (
@@ -289,8 +294,9 @@ def _prepare_returns(df: pd.DataFrame) -> pd.DataFrame:
 
 def _run_simulation(
     returns: pd.DataFrame, model_state: dict[str, Any], benchmark: str | None
-):
+) -> RunResult:
     from streamlit_app.components.analysis_runner import AnalysisPayload, _build_config
+    from trend_analysis.config import ConfigType
 
     payload = AnalysisPayload(
         returns=returns,
@@ -298,7 +304,7 @@ def _run_simulation(
         benchmark=benchmark,
     )
     config = _build_config(payload)
-    return run_simulation(config, _prepare_returns(returns))
+    return run_simulation(cast(ConfigType, config), _prepare_returns(returns))
 
 
 def _select_metric_row(metrics: pd.DataFrame) -> pd.Series | None:
@@ -310,7 +316,7 @@ def _select_metric_row(metrics: pd.DataFrame) -> pd.Series | None:
     return metrics.iloc[0]
 
 
-def _summarize_run(run_result) -> dict[str, Any]:
+def _summarize_run(run_result: RunResult) -> dict[str, Any]:
     metrics_row = _select_metric_row(run_result.metrics)
     sharpe = (
         float(metrics_row.get("sharpe"))
