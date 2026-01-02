@@ -145,7 +145,9 @@ def test_finalise_validated_frame_includes_metadata(validated_payload):
     assert list(result.columns) == ["Date", "AAA", "BBB"]
     assert result.attrs["custom"] == "kept"
     market_attrs = result.attrs["market_data"]
-    assert market_attrs["metadata"] == validated_payload.metadata.model_dump(mode="json")
+    assert market_attrs["metadata"] == validated_payload.metadata.model_dump(
+        mode="json"
+    )
     assert result.attrs["market_data_mode"] == validated_payload.metadata.mode.value
     assert result.attrs["market_data_missing_policy_summary"] == "drop:AAA"
 
