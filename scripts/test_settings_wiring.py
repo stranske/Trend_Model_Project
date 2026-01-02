@@ -1395,6 +1395,97 @@ def _compute_coverage_summary() -> dict[str, Any]:
     }
 
 
+def _get_recommendation(result: TestResult) -> str:
+    """Generate recommendation for a non-effective setting."""
+    if result.status == "PASS":
+        return "Setting is working correctly."
+    if result.status == "ERROR":
+        return f"Fix error: {result.error_message}. Check if setting is properly initialized."
+    if result.status == "WARN":
+        return (
+            f"Setting changes metric but in unexpected direction. "
+            f"Review logic for {result.setting_name} or update expected direction."
+        )
+    # FAIL status
+    if (
+        "mode" in result.setting_name.lower()
+        or "approach" in result.setting_name.lower()
+    ):
+        return (
+            f"May be mode-specific. Verify {result.setting_name} is tested with correct "
+            f"prerequisite settings enabled (e.g., matching inclusion_approach)."
+        )
+    if "weight" in result.setting_name.lower():
+        return (
+            f"Check weighting logic. Ensure {result.setting_name} affects weight calculation "
+            f"in metrics.py or portfolio construction."
+        )
+    if (
+        "window" in result.setting_name.lower()
+        or "period" in result.setting_name.lower()
+    ):
+        return (
+            f"Time-based setting. Ensure {result.setting_name} is passed through pipeline "
+            f"and affects rolling calculations."
+        )
+    return (
+        f"Setting {result.setting_name} not producing expected changes. "
+        f"Check if it's wired through the pipeline from UI to analysis."
+    )
+
+
+def compute_effectiveness_summary(results: list[TestResult]) -> dict[str, Any]:
+    """Compute effectiveness rate and breakdown by category."""
+    total = len(results)
+    if total == 0:
+        return {
+            "total_settings": 0,
+            "effective_count": 0,
+            "effectiveness_rate": 0.0,
+            "target_rate": 0.80,
+            "meets_target": False,
+            "by_category": {},
+            "by_status": {},
+        }
+
+    # Count by status
+    status_counts: dict[str, int] = {}
+    for r in results:
+        status_counts[r.status] = status_counts.get(r.status, 0) + 1
+
+    # Effective = PASS + WARN (WARN means it changed, just wrong direction)
+    effective_count = status_counts.get("PASS", 0) + status_counts.get("WARN", 0)
+    effectiveness_rate = effective_count / total
+
+    # Breakdown by category
+    category_stats: dict[str, dict[str, int]] = {}
+    for r in results:
+        if r.category not in category_stats:
+            category_stats[r.category] = {"total": 0, "effective": 0}
+        category_stats[r.category]["total"] += 1
+        if r.status in ("PASS", "WARN"):
+            category_stats[r.category]["effective"] += 1
+
+    by_category = {
+        cat: {
+            "total": stats["total"],
+            "effective": stats["effective"],
+            "rate": stats["effective"] / stats["total"] if stats["total"] > 0 else 0.0,
+        }
+        for cat, stats in sorted(category_stats.items())
+    }
+
+    return {
+        "total_settings": total,
+        "effective_count": effective_count,
+        "effectiveness_rate": effectiveness_rate,
+        "target_rate": 0.80,
+        "meets_target": effectiveness_rate >= 0.80,
+        "by_category": by_category,
+        "by_status": status_counts,
+    }
+
+
 def generate_report(
     results: list[TestResult],
     output_path: Path | None = None,
@@ -1418,6 +1509,7 @@ def generate_report(
                 "Status": r.status,
                 "Error": r.error_message,
                 "Description": r.description,
+                "Recommendation": _get_recommendation(r),
             }
         )
 
@@ -1456,41 +1548,41 @@ def print_summary(results: list[TestResult]) -> None:
     print(f"❌ Failed:    {failed} ({100 * failed / total:.1f}%)")
     print(f"⚠️  Warnings:  {warnings} ({100 * warnings / total:.1f}%)")
     print(f"💥 Errors:    {errors} ({100 * errors / total:.1f}%)")
+
+    # Compute and display effectiveness rate
+    eff = compute_effectiveness_summary(results)
+    eff_pct = eff["effectiveness_rate"] * 100
+    target_pct = eff["target_rate"] * 100
+    status_icon = "✅" if eff["meets_target"] else "❌"
+    print(
+        f"\n📊 EFFECTIVENESS RATE: {eff_pct:.1f}% (target: ≥{target_pct:.0f}%) {status_icon}"
+    )
     print("=" * 60)
 
-    # Group by category
-    print("\nResults by Category:")
-    categories = {}
-    for r in results:
-        if r.category not in categories:
-            categories[r.category] = {"pass": 0, "fail": 0, "warn": 0, "error": 0}
-        if r.status == "PASS":
-            categories[r.category]["pass"] += 1
-        elif r.status == "FAIL":
-            categories[r.category]["fail"] += 1
-        elif r.status == "WARN":
-            categories[r.category]["warn"] += 1
-        else:
-            categories[r.category]["error"] += 1
+    # Group by category with effectiveness
+    print("\nResults by Category (effectiveness rate):")
+    for cat, stats in eff["by_category"].items():
+        rate_pct = stats["rate"] * 100
+        icon = "✅" if stats["rate"] >= 0.80 else "⚠️" if stats["rate"] >= 0.60 else "❌"
+        print(
+            f"  {icon} {cat}: {stats['effective']}/{stats['total']} effective ({rate_pct:.0f}%)"
+        )
 
-    for cat, counts in sorted(categories.items()):
-        total_cat = sum(counts.values())
-        pass_pct = 100 * counts["pass"] / total_cat if total_cat > 0 else 0
-        print(f"  {cat}: {counts['pass']}/{total_cat} passed ({pass_pct:.0f}%)")
-
-    # List failures
+    # List failures with recommendations
     failures = [r for r in results if r.status == "FAIL"]
     if failures:
-        print("\n❌ FAILED TESTS (settings not wired):")
+        print("\n❌ NON-EFFECTIVE SETTINGS (with recommendations):")
         for r in failures:
             print(f"  - {r.setting_name}: {r.error_message}")
+            print(f"    💡 {_get_recommendation(r)}")
 
-    # List warnings
+    # List warnings with recommendations
     warns = [r for r in results if r.status == "WARN"]
     if warns:
         print("\n⚠️  WARNINGS (unexpected direction):")
         for r in warns:
             print(f"  - {r.setting_name}: {r.error_message}")
+            print(f"    💡 {_get_recommendation(r)}")
 
 
 def main() -> int:
@@ -1555,8 +1647,34 @@ def main() -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     generate_report(results, output_path)
 
+    # Generate effectiveness summary JSON
+    eff_summary = compute_effectiveness_summary(results)
+    eff_summary["non_effective_settings"] = [
+        {
+            "setting": r.setting_name,
+            "category": r.category,
+            "status": r.status,
+            "reason": r.error_message,
+            "recommendation": _get_recommendation(r),
+        }
+        for r in results
+        if r.status in ("FAIL", "ERROR")
+    ]
+    eff_json_path = output_path.with_suffix(".effectiveness.json")
+    eff_json_path.write_text(
+        json.dumps(eff_summary, indent=2, default=str), encoding="utf-8"
+    )
+    print(f"Effectiveness summary saved to: {eff_json_path}")
+
     # Print summary
     print_summary(results)
+
+    # Check effectiveness threshold
+    if not eff_summary["meets_target"]:
+        print(
+            f"\n⚠️  WARNING: Effectiveness rate {eff_summary['effectiveness_rate']*100:.1f}% "
+            f"is below target {eff_summary['target_rate']*100:.0f}%"
+        )
 
     # Exit with error code if there are failures
     failures = sum(1 for r in results if r.status in ("FAIL", "ERROR"))
