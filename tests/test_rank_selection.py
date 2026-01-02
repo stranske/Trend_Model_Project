@@ -71,3 +71,42 @@ def test_run_analysis_rank_mode():
     )
     assert res is not None
     assert res["selected_funds"] == ["A"]
+
+
+def test_run_analysis_rank_mode_excludes_bottom_k():
+    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "RF": 0.0,
+            "A": [0.05] * 6,
+            "B": [0.04] * 6,
+            "C": [0.03] * 6,
+            "D": [0.02] * 6,
+            "E": [0.01] * 6,
+            "F": [0.00] * 6,
+            "G": [-0.01] * 6,
+        }
+    )
+
+    res = run_analysis(
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        0.1,
+        0.0,
+        selection_mode="rank",
+        rank_kwargs={
+            "inclusion_approach": "top_n",
+            "n": 3,
+            "score_by": "AnnualReturn",
+            "bottom_k": 5,
+        },
+        risk_free_column="RF",
+    )
+
+    assert res is not None
+    selected = res["selected_funds"]
+    assert selected == ["A", "B"]
