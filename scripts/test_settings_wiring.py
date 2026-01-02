@@ -377,6 +377,17 @@ SETTINGS_TO_TEST: list[SettingTest] = [
     ),
 ]
 
+# Reporting-only settings should never be part of wiring effect tests.
+REPORTING_ONLY_SETTINGS = {"ci_level"}
+
+_test_setting_names = {setting.name for setting in SETTINGS_TO_TEST}
+_reporting_overlap = REPORTING_ONLY_SETTINGS.intersection(_test_setting_names)
+if _reporting_overlap:
+    raise ValueError(
+        "Reporting-only settings must be excluded from wiring tests: "
+        f"{sorted(_reporting_overlap)}"
+    )
+
 
 # =============================================================================
 # Test Runner

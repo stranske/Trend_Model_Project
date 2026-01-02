@@ -62,7 +62,7 @@ def test_competing_rules_sticky_add_and_drop():
     assert decisions2["fire"] == [("C", "bottom_k")]
 
 
-def test_confidence_interval_add_gate():
+def test_confidence_interval_add_rule_reporting_only():
     sf = pd.DataFrame({"sharpe": [1.0, -0.1]}, index=["A", "B"]).sort_index()
     directions = {"sharpe": +1}
     policy = PolicyConfig(
@@ -72,7 +72,7 @@ def test_confidence_interval_add_gate():
         min_track_months=0,
         max_active=10,
         add_rules=["confidence_interval", "threshold_hold"],
-        ci_level=0.90,  # placeholder gate on non-negative score
+        ci_level=0.90,  # reporting-only; should not gate hires
         metrics=[MetricSpec("sharpe", 1.0)],
     )
     cd = CooldownBook()

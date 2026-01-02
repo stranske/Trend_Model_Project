@@ -26,12 +26,12 @@ from dataclasses import fields
 from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence, TypedDict, cast
 
-ROOT = Path(__file__).resolve().parent.parent
-# Standard library done; third-party imports
 import numpy as np
 import openpyxl
 import pandas as pd
 import yaml
+
+ROOT = Path(__file__).resolve().parent.parent
 
 try:
     import trend_analysis as ta
