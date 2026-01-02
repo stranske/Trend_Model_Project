@@ -338,9 +338,7 @@ def _enforce_max_active_positions(
 
     protected_set = {str(m) for m in (protected or []) if m is not None}
     if protected_set:
-        protected_active = [
-            ix for ix in active.index if str(ix) in protected_set
-        ]
+        protected_active = [ix for ix in active.index if str(ix) in protected_set]
         unprotected_active = active.drop(protected_active, errors="ignore")
         slots = max(0, max_active - len(protected_active))
         keep = list(protected_active)
