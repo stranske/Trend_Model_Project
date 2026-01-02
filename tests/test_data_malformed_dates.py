@@ -26,9 +26,9 @@ class TestDataLoadingMalformedDates:
         try:
             # Should return None due to malformed dates
             result = load_csv(temp_path)
-            assert result is None, (
-                "load_csv should return None for files with malformed dates"
-            )
+            assert (
+                result is None
+            ), "load_csv should return None for files with malformed dates"
         finally:
             # Clean up temporary file
             os.unlink(temp_path)

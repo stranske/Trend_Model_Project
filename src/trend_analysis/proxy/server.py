@@ -39,14 +39,7 @@ def _lazy_import_deps() -> bool:
     the module to be imported before the virtual environment is
     activated.
     """
-    global \
-        httpx, \
-        uvicorn, \
-        websockets, \
-        FastAPI, \
-        StreamingResponse, \
-        BackgroundTask, \
-        _DEPS_AVAILABLE
+    global httpx, uvicorn, websockets, FastAPI, StreamingResponse, BackgroundTask, _DEPS_AVAILABLE
     try:  # pragma: no cover - side-effect imports
         import importlib
 
@@ -249,7 +242,9 @@ class StreamlitProxy:
             logger.error("HTTP proxy error: %s", e)
             return {"error": str(e), "status_code": 502}
 
-    async def start(self, host: str = "0.0.0.0", port: int = 8500) -> None:  # noqa: D401
+    async def start(
+        self, host: str = "0.0.0.0", port: int = 8500
+    ) -> None:  # noqa: D401
         _assert_deps()
         if uvicorn is None:
             raise RuntimeError(

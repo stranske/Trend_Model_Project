@@ -32,9 +32,9 @@ def _is_under(path: Path, root: Path) -> bool:
 
 def _assert_external(path: Path) -> None:
     resolved = path.resolve()
-    assert any(part in resolved.parts for part in SITE_INDICATOR), (
-        f"joblib resolved to unexpected location: {resolved!s}"
-    )
+    assert any(
+        part in resolved.parts for part in SITE_INDICATOR
+    ), f"joblib resolved to unexpected location: {resolved!s}"
     if REPO_ROOT in resolved.parents:
         if any(_is_under(resolved, prefix) for prefix in ALLOWED_INTERNAL_PREFIXES):
             return

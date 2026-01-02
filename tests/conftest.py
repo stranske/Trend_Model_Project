@@ -109,7 +109,9 @@ def pytest_ignore_collect(collection_path: Path, config):  # noqa: ARG001
     return False
 
 
-def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:  # noqa: ARG001
+def pytest_sessionfinish(
+    session: pytest.Session, exitstatus: int
+) -> None:  # noqa: ARG001
     recorder = get_recorder()
     if not recorder.has_entries():
         return
