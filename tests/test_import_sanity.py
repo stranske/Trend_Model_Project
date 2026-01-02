@@ -49,11 +49,9 @@ def test_src_only_import_rejects_legacy_modules(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[1]
     src_dir = repo_root / "src"
 
+    # Use isolated environment to avoid site-packages pollution from editable installs
     env = os.environ.copy()
-    pythonpath = env.get("PYTHONPATH")
-    env["PYTHONPATH"] = (
-        str(src_dir) if not pythonpath else os.pathsep.join((str(src_dir), pythonpath))
-    )
+    env["PYTHONPATH"] = str(src_dir)
 
     script = textwrap.dedent(
         f"""
@@ -75,13 +73,10 @@ def test_src_only_import_rejects_legacy_modules(tmp_path: Path) -> None:
         """
     )
 
-    result = subprocess.run(
-        [sys.executable, "-c", script],
+    # Use -S (no site-packages) to prevent editable installs from leaking repo root
+    subprocess.run(
+        [sys.executable, "-S", "-c", script],
         cwd=tmp_path,
         env=env,
-        capture_output=True,
+        check=True,
     )
-    if result.returncode != 0:
-        stdout = result.stdout.decode() if result.stdout else ""
-        stderr = result.stderr.decode() if result.stderr else ""
-        pytest.fail(f"Import test failed with exit code {result.returncode}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}")

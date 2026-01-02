@@ -29,7 +29,7 @@ def test_zscore_zero_variance():
     assert (out == 0).all()
 
 
-def test_confidence_interval_gate():
+def test_confidence_interval_reporting_only():
     sf = pd.DataFrame({"m1": [-1.0, 2.0]}, index=["a", "b"])
     policy = PolicyConfig(
         top_k=2,
@@ -46,7 +46,8 @@ def test_confidence_interval_gate():
         CooldownBook(),
         {"a": 100, "b": 100},
     )
-    assert ("a", "top_k") not in decisions["hire"]
+    hired = {name for name, _ in decisions["hire"]}
+    assert hired == {"a", "b"}
 
 
 def test_diversification_break():

@@ -3,6 +3,7 @@
 To avoid PR conflicts between concurrent keepalive runs, place each run's checklist in its own file under `docs/keepalive/status/`.
 
 Active/most recent entries:
+- PR #4082 (ci_level reporting-only clarification): [docs/keepalive/status/PR4082_Status.md](docs/keepalive/status/PR4082_Status.md)
 - PR #4065 (trend signal settings wiring): [docs/keepalive/status/PR4065_Status.md](docs/keepalive/status/PR4065_Status.md)
 - PR #4063 (hard threshold barriers): [docs/keepalive/status/PR4063_Status.md](docs/keepalive/status/PR4063_Status.md)
 - PR #4055 (regime detection wiring): [docs/keepalive/status/PR4055_Status.md](docs/keepalive/status/PR4055_Status.md)

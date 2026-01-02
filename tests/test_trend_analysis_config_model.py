@@ -328,6 +328,29 @@ def test_portfolio_settings_validation(tmp_path: Path) -> None:
     assert result.transaction_cost_bps == pytest.approx(15.0)
 
 
+def test_portfolio_settings_ci_level_reporting_only() -> None:
+    payload = {
+        "rebalance_calendar": "NYSE",
+        "max_turnover": 0.5,
+        "transaction_cost_bps": 15,
+        "ci_level": "0.9",
+    }
+
+    result = config_model.PortfolioSettings.model_validate(payload)
+
+    assert result.ci_level == pytest.approx(0.9)
+
+    with pytest.raises(ValueError, match="ci_level must be between 0 and 1"):
+        config_model.PortfolioSettings.model_validate(
+            {
+                "rebalance_calendar": "NYSE",
+                "max_turnover": 0.5,
+                "transaction_cost_bps": 15,
+                "ci_level": 1.5,
+            }
+        )
+
+
 def test_portfolio_settings_rejects_out_of_range_values() -> None:
     with pytest.raises(ValueError, match="turnover cannot be negative"):
         config_model.PortfolioSettings.model_validate(

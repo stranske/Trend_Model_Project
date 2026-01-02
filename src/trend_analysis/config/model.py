@@ -349,6 +349,10 @@ class PortfolioSettings(BaseModel):
     max_turnover: float
     transaction_cost_bps: float
     lambda_tc: float = Field(default=0.0)
+    ci_level: float = Field(
+        default=0.0,
+        description="Reporting-only confidence interval level (0 disables CI annotations).",
+    )
     cost_model: CostModelSettings | None = None
     turnover_cap: float | None = None
     weight_policy: dict[str, Any] | None = None
@@ -409,6 +413,21 @@ class PortfolioSettings(BaseModel):
         if lam < 0 or lam > 1:
             raise ValueError("portfolio.lambda_tc must be between 0 and 1 inclusive.")
         return lam
+
+    @field_validator("ci_level", mode="before")
+    @classmethod
+    def _validate_ci_level(cls, value: Any) -> float:
+        if value in (None, "", "null"):
+            return 0.0
+        try:
+            level = float(value)
+        except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
+            raise ValueError("portfolio.ci_level must be numeric.") from exc
+        if level < 0:
+            raise ValueError("portfolio.ci_level cannot be negative.")
+        if level > 1:
+            raise ValueError("portfolio.ci_level must be between 0 and 1 inclusive.")
+        return level
 
 
 class RiskSettings(BaseModel):

@@ -136,7 +136,7 @@ This document catalogs all configurable parameters in the Trend Analysis codebas
 | `entry_soft_strikes` | UI model_state | ✅ **NEW** | Consecutive entry periods |
 | `sticky_add_periods` | UI model_state | ✅ **NEW** | Periods required for add |
 | `sticky_drop_periods` | UI model_state | ✅ **NEW** | Periods required for drop |
-| `ci_level` | UI model_state | ✅ **NEW** | Confidence interval level |
+| `ci_level` | UI model_state | ✅ **NEW** | Confidence interval level (reporting-only) |
 
 ### CATEGORY 10: Robustness / Covariance Settings
 
@@ -304,7 +304,7 @@ The following parameters are excluded from the UI as they are internal system se
 - Z-score thresholds control manager hiring/firing based on relative performance
 - Soft strikes require consecutive periods below threshold before removal
 - Sticky periods require consistent ranking before hiring/firing
-- CI level adds confidence interval gate for entry decisions
+- CI level captured for reporting only (no effect on selection logic)
 - Integrated with threshold_hold policy in portfolio config
 - Values passed to PolicyConfig for simulator
 
@@ -602,7 +602,7 @@ The following parameters are excluded from the UI as they are internal system se
   - Added `z_entry_soft` and `z_exit_soft` number inputs for z-score thresholds
   - Added `soft_strikes` and `entry_soft_strikes` for consecutive period requirements
   - Added `sticky_add_periods` and `sticky_drop_periods` for ranking persistence
-  - Added `ci_level` slider for confidence interval gate
+  - Added `ci_level` slider for reporting-only CI level
   - New collapsible "Entry/Exit Rules" section
   - Integrated with threshold_hold policy in portfolio config
   - Updated analysis_runner to pass thresholds to Config

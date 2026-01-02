@@ -31,16 +31,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterable, Sequence
 
+from scripts.classify_test_failures import FailureRecord, classify_reports
+
 ROOT = Path(__file__).resolve().parent.parent
 GUARD_PREFIX = "# cosmetic-repair:"
 BRANCH_PREFIX = "autofix/cosmetic-repair"
 DEFAULT_REPORT = Path(".pytest-cosmetic-report.xml")
 SUMMARY_FILE = Path(".cosmetic-repair-summary.json")
-
-from scripts.classify_test_failures import (
-    FailureRecord,  # noqa: E402
-    classify_reports,  # noqa: E402
-)
 
 _LOG_PATH = ROOT / "docs" / "COSMETIC_REPAIR_LOG.md"
 _GUARD_START = "<!-- cosmetic-repair:start -->"
