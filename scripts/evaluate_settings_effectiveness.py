@@ -158,9 +158,7 @@ def _extract_settings_from_model(file_path: Path) -> set[str]:
     for assign_node in ast.walk(tree):
         if isinstance(assign_node, ast.Assign):
             targets = [t.id for t in assign_node.targets if isinstance(t, ast.Name)]
-            if "candidate_state" in targets and isinstance(
-                assign_node.value, ast.Dict
-            ):
+            if "candidate_state" in targets and isinstance(assign_node.value, ast.Dict):
                 settings.update(_keys_from_dict(assign_node.value))
 
     # Regex scan for model_state accessors.
