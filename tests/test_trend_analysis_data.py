@@ -126,7 +126,9 @@ def test_finalise_validated_frame_populates_metadata_attrs() -> None:
 
     result = _finalise_validated_frame(validated, include_date_column=True)
     assert list(result.columns) == ["Date", "A"]
-    assert result.attrs["market_data"]["metadata"] == metadata.model_dump(mode="json").model_dump(mode="json")
+    assert result.attrs["market_data"]["metadata"] == metadata.model_dump(
+        mode="json"
+    ).model_dump(mode="json")
     assert result.attrs["market_data_mode"] == metadata.mode.value
     assert result.attrs["market_data_frequency_label"] == metadata.frequency_label
     assert (
