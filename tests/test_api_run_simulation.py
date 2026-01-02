@@ -119,9 +119,7 @@ def test_run_simulation_robustness_condition_threshold_uses_cov_condition():
     df = make_ill_conditioned_df()
     cfg = make_robust_cfg()
     in_sample = (
-        df.set_index("Date")
-        .loc["2020-01-31":"2020-06-30", ["A", "B", "C"]]
-        .copy()
+        df.set_index("Date").loc["2020-01-31":"2020-06-30", ["A", "B", "C"]].copy()
     )
     raw_condition = float(np.linalg.cond(in_sample.cov().values))
     cfg.portfolio["robustness"]["condition_check"]["threshold"] = raw_condition / 2.0
