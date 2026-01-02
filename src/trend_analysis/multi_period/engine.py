@@ -2843,7 +2843,26 @@ def run(
 
             if len(proposed_holdings) == 0:  # guard: reseed if empty
                 selected, _ = selector.select(_filter_entry_frame(sf))
-                proposed_holdings = list(selected.index)
+                proposed_holdings = [str(x) for x in selected.index.tolist()]
+                if cooldown_periods > 0 and cooldown_book:
+                    filtered = [
+                        mgr
+                        for mgr in proposed_holdings
+                        if mgr not in cooldown_book
+                    ]
+                    if filtered:
+                        for mgr in proposed_holdings:
+                            if mgr in cooldown_book:
+                                events.append(
+                                    {
+                                        "action": "skipped",
+                                        "manager": mgr,
+                                        "firm": _firm(mgr),
+                                        "reason": "cooldown",
+                                        "detail": "reseed blocked by cooldown",
+                                    }
+                                )
+                        proposed_holdings = filtered
                 proposed_holdings = _dedupe_one_per_firm_with_events(
                     sf, proposed_holdings, metric, events
                 )
