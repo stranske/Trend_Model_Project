@@ -320,9 +320,7 @@ if _HAS_PYDANTIC:
             return v
 
         @_fv_typed("portfolio", mode="after")
-        def _validate_portfolio_controls(
-            cls, v: dict[str, Any]
-        ) -> dict[str, Any]:  # noqa: N805 - pydantic validator
+        def _validate_portfolio_controls(cls, v: dict[str, Any]) -> dict[str, Any]:  # noqa: N805 - pydantic validator
             """Validate and normalise turnover / transaction cost controls.
 
             Backwards compatible: silently coerces numeric strings and ignores

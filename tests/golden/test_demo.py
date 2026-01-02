@@ -199,9 +199,9 @@ class TestDemoGoldenMaster:
         # Validate demo data structure
         df = pd.read_csv(demo_csv, index_col=0, parse_dates=True)
         assert len(df) == 120, f"Expected 120 months of data, got {len(df)}"
-        assert (
-            len(df.columns) == 22
-        ), f"Expected 22 columns (20 managers + SPX + RF), got {len(df.columns)}"
+        assert len(df.columns) == 22, (
+            f"Expected 22 columns (20 managers + SPX + RF), got {len(df.columns)}"
+        )
         assert "SPX" in df.columns, "SPX benchmark column missing"
         assert "RF" in df.columns, "RF risk-free rate column missing"
 
@@ -237,9 +237,9 @@ class TestDemoGoldenMaster:
         assert demo_exports.exists(), "Demo exports directory not created"
 
         csv_files = list(demo_exports.glob("*.csv"))
-        assert (
-            len(csv_files) >= 1
-        ), f"Expected at least 1 CSV output, found {len(csv_files)}"
+        assert len(csv_files) >= 1, (
+            f"Expected at least 1 CSV output, found {len(csv_files)}"
+        )
 
         # Step 5: Validate key output structure and content
         key_files = self.get_key_output_files(demo_exports)
@@ -248,9 +248,9 @@ class TestDemoGoldenMaster:
         file_hashes = {}
         for file_path in key_files:
             # Verify file is not empty
-            assert (
-                file_path.stat().st_size > 0
-            ), f"Output file {file_path.name} is empty"
+            assert file_path.stat().st_size > 0, (
+                f"Output file {file_path.name} is empty"
+            )
 
             # Verify it can be read as CSV
             try:
@@ -291,9 +291,9 @@ class TestDemoGoldenMaster:
                         values = pd.to_numeric(df[col], errors="coerce").dropna()
                         if len(values) > 0:
                             # Check values are reasonable (not all zeros or all same)
-                            assert (
-                                values.std() > 0.001
-                            ), f"Metric {col} has no variation"
+                            assert values.std() > 0.001, (
+                                f"Metric {col} has no variation"
+                            )
 
         assert found_metrics, "No metrics files found with expected columns"
 
@@ -365,9 +365,9 @@ class TestDemoGoldenMaster:
         assert len(hashes_run2) > 0, "No output files generated in run 2"
 
         # Check that same files were generated
-        assert set(hashes_run1.keys()) == set(
-            hashes_run2.keys()
-        ), f"Different files generated: {set(hashes_run1.keys())} vs {set(hashes_run2.keys())}"
+        assert set(hashes_run1.keys()) == set(hashes_run2.keys()), (
+            f"Different files generated: {set(hashes_run1.keys())} vs {set(hashes_run2.keys())}"
+        )
 
         # Check that content hashes match
         mismatched_files = []
@@ -375,9 +375,9 @@ class TestDemoGoldenMaster:
             if hashes_run1[filename] != hashes_run2[filename]:
                 mismatched_files.append(filename)
 
-        assert (
-            len(mismatched_files) == 0
-        ), f"Non-deterministic outputs detected in files: {mismatched_files}"
+        assert len(mismatched_files) == 0, (
+            f"Non-deterministic outputs detected in files: {mismatched_files}"
+        )
 
         print(f"\nDemo deterministic test passed. {len(hashes_run1)} files validated.")
 

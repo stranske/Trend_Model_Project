@@ -41,20 +41,20 @@ def test_no_magic_number_timeouts():
         content = smoke_test_file.read_text()
 
         # Ensure environment variable configuration is present
-        assert (
-            "STREAMLIT_STARTUP_TIMEOUT" in content
-        ), "Missing configurable STREAMLIT_STARTUP_TIMEOUT environment variable"
-        assert (
-            "STREAMLIT_POLL_INTERVAL" in content
-        ), "Missing configurable STREAMLIT_POLL_INTERVAL environment variable"
-        assert (
-            "STREAMLIT_READY_TIMEOUT" in content
-        ), "Missing configurable STREAMLIT_READY_TIMEOUT environment variable"
+        assert "STREAMLIT_STARTUP_TIMEOUT" in content, (
+            "Missing configurable STREAMLIT_STARTUP_TIMEOUT environment variable"
+        )
+        assert "STREAMLIT_POLL_INTERVAL" in content, (
+            "Missing configurable STREAMLIT_POLL_INTERVAL environment variable"
+        )
+        assert "STREAMLIT_READY_TIMEOUT" in content, (
+            "Missing configurable STREAMLIT_READY_TIMEOUT environment variable"
+        )
 
         # Ensure sophisticated readiness check function exists
-        assert (
-            "wait_for_streamlit_ready" in content
-        ), "Missing wait_for_streamlit_ready function for sophisticated polling"
+        assert "wait_for_streamlit_ready" in content, (
+            "Missing wait_for_streamlit_ready function for sophisticated polling"
+        )
 
 
 def test_sophisticated_readiness_check_features():
@@ -78,9 +78,9 @@ def test_sophisticated_readiness_check_features():
             feature for feature in features_required if feature not in content
         ]
 
-        assert (
-            not missing_features
-        ), f"Missing sophisticated readiness check features: {missing_features}"
+        assert not missing_features, (
+            f"Missing sophisticated readiness check features: {missing_features}"
+        )
 
 
 if __name__ == "__main__":

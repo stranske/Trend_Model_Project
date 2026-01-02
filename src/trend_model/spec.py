@@ -210,7 +210,9 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
     effective_bps = float(
         per_trade_bps
         if per_trade_bps is not None
-        else override_bps if override_bps is not None else transaction_cost_bps
+        else override_bps
+        if override_bps is not None
+        else transaction_cost_bps
     )
     cost_model = CostModel(
         bps_per_trade=effective_bps,

@@ -220,9 +220,9 @@ class TestBuyAndHoldFundDisappearance:
             funds = res.get("selected_funds", [])
             if funds:  # Skip empty periods
                 # Should have approximately 5 funds (may vary slightly due to constraints)
-                assert (
-                    len(funds) >= 3
-                ), f"Expected at least 3 funds in period {res['period']}, got {len(funds)}"
+                assert len(funds) >= 3, (
+                    f"Expected at least 3 funds in period {res['period']}, got {len(funds)}"
+                )
 
     def test_buy_and_hold_with_random_initial_selection(self) -> None:
         """Test buy_and_hold with random initial selection."""
@@ -335,9 +335,9 @@ class TestBuyAndHoldManagerChanges:
             changes = exit_period.get("manager_changes", [])
             drop_events = [c for c in changes if c.get("action") == "dropped"]
             fund_0_drops = [c for c in drop_events if c.get("manager") == "Fund_0"]
-            assert (
-                len(fund_0_drops) > 0 or exit_period.get("selected_funds") == []
-            ), f"Expected Fund_0 drop event or empty portfolio in period {exit_period['period']}"
+            assert len(fund_0_drops) > 0 or exit_period.get("selected_funds") == [], (
+                f"Expected Fund_0 drop event or empty portfolio in period {exit_period['period']}"
+            )
 
 
 class TestBuyAndHoldIntegration:
