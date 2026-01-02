@@ -849,9 +849,7 @@ def _render_markdown_report(payload: dict[str, Any]) -> str:
             category = item.get("category", "Uncategorized")
             reason = item.get("reason", "No meaningful changes detected.")
             recommendation = item.get("recommendation", "Review wiring.")
-            lines.append(
-                f"| `{setting}` | {category} | {reason} | {recommendation} |"
-            )
+            lines.append(f"| `{setting}` | {category} | {reason} | {recommendation} |")
         lines.append("")
     else:
         lines.extend(["## Non-Effective Settings", "", "None.", ""])
