@@ -49,11 +49,9 @@ def test_src_only_import_rejects_legacy_modules(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[1]
     src_dir = repo_root / "src"
 
+    # Use isolated environment to avoid site-packages pollution from editable installs
     env = os.environ.copy()
-    pythonpath = env.get("PYTHONPATH")
-    env["PYTHONPATH"] = (
-        str(src_dir) if not pythonpath else os.pathsep.join((str(src_dir), pythonpath))
-    )
+    env["PYTHONPATH"] = str(src_dir)
 
     script = textwrap.dedent(
         f"""
@@ -75,8 +73,9 @@ def test_src_only_import_rejects_legacy_modules(tmp_path: Path) -> None:
         """
     )
 
+    # Use -S (no site-packages) to prevent editable installs from leaking repo root
     subprocess.run(
-        [sys.executable, "-c", script],
+        [sys.executable, "-S", "-c", script],
         cwd=tmp_path,
         env=env,
         check=True,
