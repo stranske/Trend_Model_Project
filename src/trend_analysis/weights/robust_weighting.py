@@ -290,7 +290,7 @@ class RobustMeanVariance(WeightEngine):
                     f"{shrunk_condition_num:.2e}"
                 )
 
-        used_safe_mode = condition_num > self.condition_threshold
+        used_safe_mode = condition_num >= self.condition_threshold
         self.diagnostics = {
             "condition_number": condition_num,
             "raw_condition_number": raw_condition_num,
@@ -299,6 +299,7 @@ class RobustMeanVariance(WeightEngine):
             "condition_threshold": self.condition_threshold,
             "safe_mode": self.safe_mode,
             "used_safe_mode": used_safe_mode,
+            "fallback_used": used_safe_mode,
             "shrinkage": shrinkage_info,
         }
 
@@ -368,7 +369,7 @@ class RobustRiskParity(WeightEngine):
         # Check condition number
         condition_num = _safe_condition_number(cov_array)
 
-        if condition_num > self.condition_threshold:
+        if condition_num >= self.condition_threshold:
             logger.warning(
                 f"Ill-conditioned covariance matrix (condition number: {condition_num:.2e}). "
                 f"Applying diagonal loading."
@@ -408,7 +409,7 @@ class RobustRiskParity(WeightEngine):
         self.diagnostics = {
             "condition_number": condition_num,
             "condition_threshold": self.condition_threshold,
-            "used_diagonal_loading": condition_num > self.condition_threshold,
+            "used_diagonal_loading": condition_num >= self.condition_threshold,
             "diagonal_loading_factor": self.diagonal_loading_factor,
         }
 
