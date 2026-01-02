@@ -34,6 +34,7 @@ from .pipeline import (
     _run_analysis_with_diagnostics,
 )
 from .util.risk_free import resolve_risk_free_settings
+from .weights.robust_config import weight_engine_params_from_robustness
 
 
 def _run_analysis(
@@ -458,6 +459,10 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         regime_cfg=regime_cfg,
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
+        weight_engine_params=weight_engine_params_from_robustness(
+            config.portfolio.get("weighting_scheme", "equal"),
+            config.portfolio.get("robustness", getattr(config, "robustness", None)),
+        ),
     )
     diag_hint = cast(
         DiagnosticPayload | None, getattr(pipeline_output, "diagnostic", None)
