@@ -889,7 +889,9 @@ def _compute_weights_and_stats(
                     "condition_source": condition_source,
                 }
                 if raw_condition_number is not None:
-                    weight_engine_fallback["raw_condition_number"] = raw_condition_number
+                    weight_engine_fallback["raw_condition_number"] = (
+                        raw_condition_number
+                    )
                 if shrunk_condition_number is not None:
                     weight_engine_fallback["shrunk_condition_number"] = (
                         shrunk_condition_number
