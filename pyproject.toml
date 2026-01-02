@@ -1,6 +1,6 @@
 [build-system]
 # Pin build dependencies to ensure reproducible installs during Docker builds
-requires = ["setuptools==80.9.0", "wheel==0.43.0"]
+requires = ["setuptools==80.9.0", "wheel==0.45.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -29,15 +29,15 @@ classifiers = [
 dependencies = [
     "PyYAML==6.0.3",
     "fpdf2==2.8.5",
-    "hypothesis==6.145.1",
+    "hypothesis==6.148.9",
     "ipywidgets==8.1.8",
-    "joblib==1.5.2",
-    "matplotlib==3.10.7",
+    "joblib==1.5.3",
+    "matplotlib==3.10.8",
     "numpy==2.3.4",
     "openpyxl==3.1.5",
     "pandas==2.3.3",
-    "pandera==0.20.4",
-    "pydantic==2.12.3",
+    "pandera==0.27.1",
+    "pydantic==2.12.5",
     "requests==2.32.5",
     "scipy==1.16.3",
     "xlsxwriter==3.2.9",
@@ -79,15 +79,15 @@ exclude = ["Old*", "retired*", "**/Old*", "**/retired*"]
 app = [
     "streamlit==1.51.0",
     "streamlit-sortables==0.3.1",
-    "fastapi==0.121.2",
-    "uvicorn[standard]==0.38.0",
+    "fastapi==0.128.0",
+    "uvicorn[standard]==0.40.0",
 ]
 notebooks = [
     "ipyfilechooser==0.6.0",
     "nbformat==5.10.4",
 ]
 dev = [
-    "pre-commit==4.4.0",
+    "pre-commit==4.5.1",
     "black==25.12.0",
     "ruff==0.14.10",
     "isort==7.0.0",
