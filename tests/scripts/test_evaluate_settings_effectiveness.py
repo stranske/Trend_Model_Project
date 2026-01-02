@@ -27,3 +27,20 @@ def build():
     assert baseline == {"alpha": 1}
     for key in {"alpha", "beta", "gamma", "delta", "epsilon", "zeta"}:
         assert key in keys
+
+
+def test_extract_settings_from_model_page_includes_ui_settings() -> None:
+    model_page = effectiveness.MODEL_PAGE
+
+    baseline, keys = effectiveness.extract_settings_from_model_page(model_page)
+
+    assert baseline, "Baseline preset should be parsed from the model page."
+    expected_keys = {
+        "lookback_periods",
+        "rank_pct",
+        "buy_hold_initial",
+        "shrinkage_method",
+        "report_rolling_metrics",
+        "transaction_cost_bps",
+    }
+    assert expected_keys <= keys
