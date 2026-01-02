@@ -31,6 +31,7 @@ import pandas as pd
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT / "streamlit_app"))
+sys.path.insert(0, str(PROJECT_ROOT))  # Allow scripts.* imports
 
 from scripts.evaluate_settings_effectiveness import (  # noqa: E402
     MODE_CONTEXT,
