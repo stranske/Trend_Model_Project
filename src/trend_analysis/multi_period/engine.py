@@ -1625,6 +1625,18 @@ def run(
             return True
         return int(add_streaks.get(manager, 0)) >= sticky_add_periods
 
+    def _start_cooldown(exited: Iterable[str]) -> None:
+        if cooldown_periods <= 0:
+            return
+        for mgr in exited:
+            mgr_str = str(mgr)
+            if not mgr_str:
+                continue
+            cooldown_book[mgr_str] = max(
+                int(cooldown_book.get(mgr_str, 0)),
+                int(cooldown_periods) + 1,
+            )
+
     def _dedupe_one_per_firm(
         sf: pd.DataFrame, holdings: list[str], metric: str
     ) -> list[str]:
@@ -2393,6 +2405,7 @@ def run(
                         }
                     )
                     forced_exits.add(mgr)
+                _start_cooldown(exited_funds)
 
                 # Replace exited funds using the same initial selection method
                 n_needed = buy_hold_n - len(current_holdings)
@@ -2938,6 +2951,7 @@ def run(
             z_exit_soft = float(th_cfg.get("z_exit_soft", -1.0))
             z_entry_soft = float(th_cfg.get("z_entry_soft", 1.0))
             dropped_reb = before_reb - after_reb
+            _start_cooldown(dropped_reb)
             for f in sorted(dropped_reb):
                 if str(f) in pruned_existing:
                     continue
@@ -3030,6 +3044,7 @@ def run(
                 to_remove.append(f_str)
         if to_remove:
             size_before_low_weight = len(holdings)
+            _start_cooldown(to_remove)
             # drop and try to refill from high zscore sidelined funds
             holdings = [h for h in holdings if h not in to_remove]
             for f in to_remove:
