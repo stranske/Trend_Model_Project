@@ -403,9 +403,7 @@ def generate_summary_report(all_evidence: list[dict[str, Any]]) -> str:
             ]
         )
         for category, stats in sorted(category_stats.items()):
-            lines.append(
-                f"| {category} | {stats['total']} | {stats['effective']} |"
-            )
+            lines.append(f"| {category} | {stats['total']} | {stats['effective']} |")
         lines.append("")
 
     if passed:
@@ -421,7 +419,7 @@ def generate_summary_report(all_evidence: list[dict[str, Any]]) -> str:
             lines.append(
                 f"| `{e['setting_name']}` | {e.get('baseline_formatted', 'N/A')} | "
                 f"{e.get('test_formatted', 'N/A')} | {e.get('actual_direction', '-')} |"
-        )
+            )
         lines.append("")
 
     non_effective = failed + errored
