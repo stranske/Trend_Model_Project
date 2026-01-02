@@ -230,7 +230,7 @@ pydantic==2.12.5
     #   trend-model (pyproject.toml)
     #   fastapi
     #   pandera
-pydantic-core==2.41.4
+pydantic-core==2.41.5
     # via pydantic
 pydeck==0.9.1
     # via streamlit
