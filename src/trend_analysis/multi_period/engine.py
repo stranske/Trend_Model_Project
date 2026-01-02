@@ -3121,18 +3121,6 @@ def run(
                 prev_weights = weight_series.astype(float)
                 nat_w = raw_weight_series.reindex(prev_weights.index).fillna(0.0)
 
-        # Record cooldowns for any managers that were held entering the period
-        # but are not held after all updates/replacements.
-        if cooldown_periods > 0 and prev_final_weights is not None:
-            entered = {str(x) for x in prev_final_weights.index}
-            exited = entered - {str(x) for x in holdings}
-            for mgr in exited:
-                cooldown_book[mgr] = int(cooldown_periods) + 1
-            # Defensive: if something re-appears in holdings, clear cooldown.
-            for mgr in list(cooldown_book.keys()):
-                if mgr in holdings:
-                    cooldown_book.pop(mgr, None)
-
         # Apply weight bounds and renormalise
         bounded_w = _apply_weight_bounds(prev_weights, min_w_bound, max_w_bound)
 
@@ -3448,6 +3436,18 @@ def run(
         res_dict["fund_weights"] = {
             str(k): float(v) for k, v in effective_nonzero.items()
         }
+
+        # Record cooldowns for any managers that exited based on realised holdings.
+        if cooldown_periods > 0 and prev_final_weights is not None:
+            entered = {str(x) for x in prev_final_weights.index}
+            current = set(realised_holdings)
+            exited = entered - current
+            for mgr in exited:
+                cooldown_book[mgr] = int(cooldown_periods) + 1
+            # Defensive: if something re-appears in holdings, clear cooldown.
+            for mgr in list(cooldown_book.keys()):
+                if mgr in current:
+                    cooldown_book.pop(mgr, None)
 
         # Expose intra-period rebalance weight snapshots for UI diagnostics.
         #
