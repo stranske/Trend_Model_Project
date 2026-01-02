@@ -2846,9 +2846,7 @@ def run(
                 proposed_holdings = [str(x) for x in selected.index.tolist()]
                 if cooldown_periods > 0 and cooldown_book:
                     filtered = [
-                        mgr
-                        for mgr in proposed_holdings
-                        if mgr not in cooldown_book
+                        mgr for mgr in proposed_holdings if mgr not in cooldown_book
                     ]
                     if filtered:
                         for mgr in proposed_holdings:
