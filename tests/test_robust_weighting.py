@@ -88,7 +88,7 @@ class TestRobustMeanVariance:
         assert not np.allclose(weights_lw.values, weights_oas.values, rtol=1e-3)
 
     def test_condition_threshold_uses_worst_condition_number(self):
-        """Condition checks should use the worst condition number observed."""
+        """Condition checks should use the raw condition number."""
         cov = create_ill_conditioned_cov()
         raw_condition = np.linalg.cond(cov.values)
         shrunk_cov, _ = rw.ledoit_wolf_shrinkage(cov.values)
@@ -110,6 +110,26 @@ class TestRobustMeanVariance:
         assert engine.diagnostics["shrunk_condition_number"] == pytest.approx(
             shrunk_condition
         )
+
+    def test_condition_threshold_uses_raw_condition_number(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        cov = create_well_conditioned_cov()
+        engine = create_weight_engine(
+            "robust_mv",
+            shrinkage_method="ledoit_wolf",
+            condition_threshold=50.0,
+            safe_mode="hrp",
+        )
+        values = iter([10.0, 100.0])
+        monkeypatch.setattr(rw, "_safe_condition_number", lambda _: next(values))
+
+        weights = engine.weight(cov)
+
+        assert np.isclose(weights.sum(), 1.0)
+        assert engine.diagnostics["condition_number"] == 10.0
+        assert engine.diagnostics["condition_source"] == "raw_cov"
+        assert engine.diagnostics["used_safe_mode"] is False
 
     def test_ill_conditioned_safe_mode_hrp(self):
         """Test safe mode fallback to HRP for ill-conditioned matrices."""
