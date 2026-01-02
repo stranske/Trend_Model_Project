@@ -246,7 +246,7 @@ def test_finalise_validated_frame_transfers_metadata() -> None:
     result = data_mod._finalise_validated_frame(validated, include_date_column=True)
     assert list(result.columns) == ["Date", "fund"]
     attrs = result.attrs["market_data"]
-    assert attrs["metadata"].missing_policy == "ffill"
+    assert attrs["metadata"]["missing_policy"] == "ffill"
     assert result.attrs["market_data_frequency_label"] == "monthly"
     assert result.attrs["market_data_missing_policy_limit"] == 2
 

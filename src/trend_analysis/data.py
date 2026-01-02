@@ -168,7 +168,16 @@ def _finalise_validated_frame(
 
     attrs = dict(base_frame.attrs)
     attrs.setdefault("market_data", {})
-    attrs["market_data"]["metadata"] = validated.metadata.model_dump(mode="json")
+    # Serialize metadata to dict for pyarrow/streamlit JSON compatibility
+    if hasattr(validated.metadata, "model_dump"):
+        attrs["market_data"]["metadata"] = validated.metadata.model_dump(mode="json")
+    else:
+        # Support SimpleNamespace or other mock objects in tests
+        attrs["market_data"]["metadata"] = (
+            vars(validated.metadata)
+            if hasattr(validated.metadata, "__dict__")
+            else validated.metadata
+        )
     attrs["market_data_mode"] = validated.metadata.mode.value
     attrs["market_data_frequency"] = validated.metadata.frequency
     attrs["market_data_frequency_code"] = validated.metadata.frequency_detected
