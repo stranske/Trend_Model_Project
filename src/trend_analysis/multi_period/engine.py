@@ -314,6 +314,42 @@ def _apply_weight_bounds(
     return floored
 
 
+def _enforce_max_active_positions(
+    weights: pd.Series,
+    max_active_positions: int | None,
+) -> pd.Series:
+    """Zero out all but the top ``max_active_positions`` weights."""
+
+    if max_active_positions is None:
+        return weights
+    try:
+        max_active = int(max_active_positions)
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        return weights
+    if max_active <= 0 or weights.empty:
+        return weights
+
+    active = weights[weights.abs() > NUMERICAL_TOLERANCE_HIGH]
+    if len(active) <= max_active:
+        return weights
+
+    keep = (
+        active.abs()
+        .sort_values(ascending=False, kind="mergesort")
+        .head(max_active)
+        .index
+    )
+    trimmed = weights.copy()
+    trimmed.loc[~trimmed.index.isin(keep)] = 0.0
+
+    target_total = float(weights.sum())
+    trimmed_total = float(trimmed.sum())
+    if target_total > 0 and trimmed_total > 0:
+        trimmed = trimmed * (target_total / trimmed_total)
+
+    return trimmed
+
+
 def _apply_turnover_penalty(
     target_w: pd.Series,
     last_aligned: pd.Series,
@@ -1453,6 +1489,17 @@ def run(
         sticky_drop_periods = 1
     min_w_bound = float(constraints.get("min_weight", 0.05))  # decimal
     max_w_bound = float(constraints.get("max_weight", 0.18))  # decimal
+    raw_max_active = constraints.get("max_active_positions")
+    if raw_max_active is None:
+        raw_max_active = constraints.get("max_active")
+    try:
+        max_active_positions = (
+            int(raw_max_active) if raw_max_active is not None else None
+        )
+    except (TypeError, ValueError):
+        max_active_positions = None
+    if max_active_positions is not None and max_active_positions <= 0:
+        max_active_positions = None
     # consecutive below-min to replace
     # Prefer constraints for this rule (it’s a weight constraint),
     # but keep backward‑compat by falling back to threshold_hold if present.
@@ -3153,6 +3200,7 @@ def run(
                 final_w = last_aligned + mandatory + optional * scale
         # Ensure bounds and normalisation remain satisfied
         final_w = _apply_weight_bounds(final_w, min_w_bound, max_w_bound)
+        final_w = _enforce_max_active_positions(final_w, max_active_positions)
 
         # Prepare custom weights mapping in percent for _run_analysis.
         # We keep the internal turnover-cap/bounds logic here, but reconcile the
@@ -3474,6 +3522,9 @@ def run(
                                     w_series.reindex(realised_holdings).fillna(0.0),
                                     min_w_bound,
                                     max_w_bound,
+                                )
+                                bounded = _enforce_max_active_positions(
+                                    bounded, max_active_positions
                                 )
                                 bounded = bounded[bounded.abs() > eps]
                                 total = float(bounded.sum())

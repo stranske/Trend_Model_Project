@@ -97,6 +97,7 @@ portfolio:
   constraints:
     long_only: true
     max_weight: 0.25
+    max_active_positions: 0
     group_caps: {}
   # Robustness settings for covariance matrix handling
   robustness:

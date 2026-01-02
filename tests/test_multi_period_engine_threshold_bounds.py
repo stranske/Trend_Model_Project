@@ -250,3 +250,125 @@ def test_threshold_hold_weight_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
     assert pytest.approx(sum(second_weights.values()), rel=1e-9) == 100.0
     assert set(records[0]["funds"]) == {"Alpha One", "Beta One", "Gamma One"}
     assert set(records[1]["funds"]) == {"Alpha One", "Beta One", "Gamma One"}
+
+
+def test_threshold_hold_max_active_positions(monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = MinimalConfig()
+    cfg.portfolio["constraints"]["max_active_positions"] = 2
+
+    dates = pd.to_datetime(
+        [
+            "2020-01-31",
+            "2020-02-29",
+            "2020-03-31",
+            "2020-04-30",
+            "2020-05-31",
+        ]
+    )
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "Alpha One": [0.05, 0.04, 0.03, 0.02, 0.01],
+            "Alpha Two": [0.06, 0.05, 0.04, 0.03, 0.02],
+            "Beta One": [0.02, 0.03, 0.02, 0.01, 0.02],
+            "Gamma One": [0.04, 0.05, 0.06, 0.07, 0.08],
+        }
+    )
+
+    periods = [
+        DummyPeriod("2020-01-31", "2020-03-31", "2020-04-30", "2020-04-30"),
+        DummyPeriod("2020-02-29", "2020-04-30", "2020-05-31", "2020-05-31"),
+    ]
+
+    monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
+    monkeypatch.setattr(mp_engine, "AdaptiveBayesWeighting", ScriptedWeighting)
+    monkeypatch.setattr(mp_engine, "Rebalancer", StaticRebalancer)
+
+    import trend_analysis.selector as selector_mod
+
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *a, **k: ScriptedSelector()
+    )
+
+    import trend_analysis.core.rank_selection as rank_sel
+
+    metric_maps = {
+        "AnnualReturn": {
+            "Alpha One": 0.15,
+            "Alpha Two": 0.12,
+            "Beta One": 0.07,
+            "Gamma One": 0.18,
+        },
+        "Volatility": {
+            "Alpha One": 0.25,
+            "Alpha Two": 0.2,
+            "Beta One": 0.15,
+            "Gamma One": 0.3,
+        },
+        "Sharpe": {
+            "Alpha One": 0.9,
+            "Alpha Two": 0.8,
+            "Beta One": 0.4,
+            "Gamma One": 1.1,
+        },
+        "Sortino": {
+            "Alpha One": 1.1,
+            "Alpha Two": 0.9,
+            "Beta One": 0.45,
+            "Gamma One": 1.3,
+        },
+        "InformationRatio": {
+            "Alpha One": 0.6,
+            "Alpha Two": 0.5,
+            "Beta One": 0.3,
+            "Gamma One": 0.9,
+        },
+        "MaxDrawdown": {
+            "Alpha One": -0.12,
+            "Alpha Two": -0.11,
+            "Beta One": -0.05,
+            "Gamma One": -0.09,
+        },
+    }
+
+    def fake_metric_series(
+        _frame: pd.DataFrame, metric: str, _stats_cfg: Any
+    ) -> pd.Series:
+        values = metric_maps[metric]
+        return pd.Series(values, dtype=float)
+
+    monkeypatch.setattr(rank_sel, "_compute_metric_series", fake_metric_series)
+
+    records: List[Dict[str, Any]] = []
+
+    def fake_run_analysis(
+        _df: pd.DataFrame,
+        in_start: str,
+        in_end: str,
+        out_start: str,
+        out_end: str,
+        _target_vol: float,
+        _monthly_cost: float,
+        *,
+        custom_weights: Dict[str, float],
+        manual_funds: List[str],
+        **_kwargs: Any,
+    ) -> Dict[str, Any]:
+        records.append(
+            {
+                "weights": dict(custom_weights),
+                "funds": list(manual_funds),
+                "period": (in_start, out_end),
+            }
+        )
+        return {"metrics": pd.DataFrame(), "details": {}, "seed": cfg.seed}
+
+    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+
+    results = mp_engine.run(cfg, df=df)
+
+    assert len(results) == 2
+    assert records
+    for record in records:
+        assert len(record["weights"]) <= 2
+        assert len(record["funds"]) <= 2

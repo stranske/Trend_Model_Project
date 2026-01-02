@@ -249,6 +249,39 @@ def test_regime_proxy_changes_selection_count() -> None:
     assert len(spx["selected_funds"]) != len(acwi["selected_funds"])
 
 
+def test_max_active_positions_caps_weights() -> None:
+    df = _regime_returns_frame()
+    rank_kwargs = {
+        "inclusion_approach": "top_n",
+        "n": 4,
+        "score_by": "Sharpe",
+        "transform": "raw",
+    }
+    constraints = {
+        "long_only": True,
+        "max_weight": 1.0,
+        "max_active_positions": 2,
+    }
+    result = pipeline._run_analysis(
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        target_vol=1.0,
+        monthly_cost=0.0,
+        selection_mode="rank",
+        rank_kwargs=rank_kwargs,
+        constraints=constraints,
+        **RUN_KWARGS,
+    )
+    assert result is not None
+    assert len(result["selected_funds"]) == 4
+    weights = result["risk_diagnostics"]["final_weights"]
+    active = weights[weights > 0]
+    assert len(active) <= 2
+
+
 def test_regime_proxy_resolves_benchmark_alias() -> None:
     df = _regime_returns_frame()
     rank_kwargs = {

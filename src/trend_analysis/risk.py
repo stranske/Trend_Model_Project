@@ -189,6 +189,52 @@ def _enforce_turnover_cap(
     return adjusted, float((adjusted - prev_aligned).abs().sum())
 
 
+def _enforce_max_active(
+    weights: pd.Series,
+    max_active: int | None,
+) -> pd.Series:
+    if max_active is None:
+        return weights
+    try:
+        max_active_val = int(max_active)
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        return weights
+    if max_active_val <= 0:
+        return weights
+    if weights.empty:
+        return weights
+
+    cash_label = "CASH"
+    has_cash = cash_label in weights.index
+    working = weights.drop(labels=[cash_label]) if has_cash else weights
+    active = working[working.abs() > 0]
+    if len(active) <= max_active_val:
+        return weights
+
+    keep = (
+        active.abs()
+        .sort_values(ascending=False, kind="mergesort")
+        .head(max_active_val)
+        .index
+    )
+    trimmed = working.copy()
+    trimmed.loc[~trimmed.index.isin(keep)] = 0.0
+
+    if has_cash:
+        cash_weight = float(weights.loc[cash_label])
+        remaining = 1.0 - cash_weight
+        if remaining < 0:
+            remaining = 0.0
+        trimmed_sum = float(trimmed.sum())
+        if trimmed_sum != 0 and remaining > 0:
+            trimmed = trimmed * (remaining / trimmed_sum)
+        result = trimmed.copy()
+        result.loc[cash_label] = cash_weight
+        return result.reindex(weights.index)
+
+    return trimmed.reindex(weights.index)
+
+
 def compute_constrained_weights(
     base_weights: Mapping[str, float] | pd.Series,
     returns: pd.DataFrame,
@@ -199,6 +245,7 @@ def compute_constrained_weights(
     floor_vol: float | None,
     long_only: bool,
     max_weight: float | None,
+    max_active_positions: int | None = None,
     previous_weights: Mapping[str, float] | pd.Series | None = None,
     lambda_tc: float | None = None,
     max_turnover: float | None = None,
@@ -241,6 +288,7 @@ def compute_constrained_weights(
         constrained, prev_series, max_turnover
     )
     constrained = constrained.reindex(base.index, fill_value=0.0)
+    constrained = _enforce_max_active(constrained, max_active_positions)
     constrained = _normalise(constrained)
 
     aligned_returns = returns.reindex(columns=constrained.index, fill_value=0.0)
