@@ -296,6 +296,7 @@ def compute_constrained_weights(
     scale_factors = _scale_factors(latest, target_vol, floor_vol=floor_vol)
     scaled = _normalise(constrained_base.mul(scale_factors))
     constrained = optimizer_mod.apply_constraints(scaled, constraint_payload)
+    constrained = _normalise(constrained)
 
     prev_series = (
         _ensure_series(previous_weights) if previous_weights is not None else None
