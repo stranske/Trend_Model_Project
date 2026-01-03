@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 
 from trend_analysis.core.rank_selection import RiskStatsConfig
+from trend_analysis import pipeline
 from trend_analysis.pipeline import _run_analysis
 from trend_analysis.plugins import WeightEngine, weight_engine_registry
 
@@ -107,6 +108,44 @@ def test_pipeline_max_weight_with_vol_adjust_enabled():
     weights = res["fund_weights"]
     assert isinstance(weights, dict)
     scale_factors = res["risk_diagnostics"]["scale_factors"]
+    assert scale_factors.loc["FundA"] > 1.0
+    assert all(weight <= 0.35 + 1e-9 for weight in weights.values())
+
+
+def test_run_full_max_weight_with_vol_adjust_enabled(tmp_path):
+    df = make_low_vol_returns()
+    csv_path = tmp_path / "returns.csv"
+    df.to_csv(csv_path, index=False)
+    cfg = {
+        "data": {
+            "csv_path": str(csv_path),
+            "risk_free_column": "RF",
+            "allow_risk_free_fallback": False,
+        },
+        "sample_split": {
+            "in_start": "2022-01",
+            "in_end": "2022-12",
+            "out_start": "2023-01",
+            "out_end": "2023-12",
+        },
+        "preprocessing": {},
+        "run": {"monthly_cost": 0.0},
+        "portfolio": {
+            "selection_mode": "all",
+            "constraints": {"long_only": True, "max_weight": 0.35},
+        },
+        "vol_adjust": {
+            "enabled": True,
+            "target_vol": 0.6,
+            "window": {"length": 6, "decay": "simple"},
+        },
+    }
+
+    result = pipeline.run_full(cfg).unwrap()
+
+    assert result is not None
+    weights = result["fund_weights"]
+    scale_factors = result["risk_diagnostics"]["scale_factors"]
     assert scale_factors.loc["FundA"] > 1.0
     assert all(weight <= 0.35 + 1e-9 for weight in weights.values())
 
