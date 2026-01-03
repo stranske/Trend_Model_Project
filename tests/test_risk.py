@@ -162,6 +162,35 @@ def test_compute_constrained_weights_respects_max_weight_with_vol_adjust() -> No
     assert diagnostics.scale_factors.loc["A"] > 1.0
 
 
+def test_compute_constrained_weights_caps_after_large_vol_scaling() -> None:
+    returns = pd.DataFrame(
+        {
+            "A": [0.0005, 0.0007, 0.0006, 0.0008, 0.0007],
+            "B": [0.06, -0.05, 0.07, -0.06, 0.05],
+            "C": [0.04, -0.03, 0.035, -0.04, 0.03],
+        },
+        index=pd.date_range("2023-06-30", periods=5, freq="ME"),
+    )
+    base = {"A": 0.4, "B": 0.3, "C": 0.3}
+
+    weights, diagnostics = compute_constrained_weights(
+        base,
+        returns,
+        window=RiskWindow(length=3, decay="simple"),
+        target_vol=0.6,
+        periods_per_year=12,
+        floor_vol=0.01,
+        long_only=True,
+        max_weight=0.35,
+        previous_weights=None,
+        max_turnover=None,
+    )
+
+    assert abs(weights.sum() - 1.0) < 1e-9
+    assert weights.max() <= 0.35 + 1e-9
+    assert diagnostics.scale_factors.loc["A"] > 1.0
+
+
 def test_periods_per_year_from_code_defaults() -> None:
     assert risk.periods_per_year_from_code(None) == 12.0
     assert risk.periods_per_year_from_code("W") == 52.0
