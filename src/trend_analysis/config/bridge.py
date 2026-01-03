@@ -41,6 +41,7 @@ def build_config_payload(
         data["managers_glob"] = managers_glob
 
     payload: Dict[str, Any] = {
+        "version": "1",
         "data": data,
         "portfolio": {
             "rebalance_calendar": rebalance_calendar,
