@@ -16,6 +16,7 @@ from .plugins import rebalancer_registry
 # can re-export them without triggering circular imports or relying
 # on a non-existent top-level ``strategies`` module.
 from .rebalancing.strategies import (
+    CashPolicy,
     TURNOVER_EPSILON,
     DrawdownGuardStrategy,
     DriftBandStrategy,
@@ -43,6 +44,7 @@ REBALANCING_STRATEGIES = get_rebalancing_strategies()
 
 
 __all__ = [
+    "CashPolicy",
     "RebalancingStrategy",
     "TurnoverCapStrategy",
     "PeriodicRebalanceStrategy",

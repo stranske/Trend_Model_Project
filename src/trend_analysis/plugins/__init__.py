@@ -15,6 +15,8 @@ from typing import Any, Callable, Dict, Generic, List, Type, TypeVar
 
 import pandas as pd
 
+from ..cash_policy import CashPolicy
+
 T = TypeVar("T", bound="Plugin")
 
 
@@ -72,6 +74,7 @@ class Rebalancer(Plugin):
         self,
         current_weights: pd.Series,
         target_weights: pd.Series,
+        cash_policy: CashPolicy | None = None,
         **kwargs: Any,
     ) -> tuple[pd.Series, float]:
         """Return new weights and total cost for the rebalance."""

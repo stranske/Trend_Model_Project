@@ -1,24 +1,34 @@
 <!-- pr-preamble:start -->
-> **Source:** Issue #4135
+> **Source:** Issue #4142
 
 <!-- pr-preamble:end -->
 
 <!-- auto-status-summary:start -->
 ## Automated Status Summary
 #### Scope
-The `max_weight` constraint in `compute_constrained_weights()` is applied AFTER volatility scaling, but the constraint logic assumes weights sum to 1.0. When vol targeting scales up low-volatility assets, individual weights can exceed 1.0 (e.g., 2.0 per asset), causing the constraint to fail with `ConstraintViolation: max_weight too small for number of assets`. The pipeline then falls back to base weights, completely ignoring the max_weight constraint.
+Rebalancing strategies can produce weights that don't sum to 1.0, leaving "missing mass" as implicit cash without explicit modeling. This silently makes the assumption that cash earns 0% return and has 0 financing cost—a modeling choice that can significantly bias results in any period where the risk-free rate isn't near zero.
+
+The issue spans multiple strategy implementations:
+- **TurnoverCapStrategy**: After partial trade execution, clips negatives but doesn't normalize or add explicit cash
+- **DriftBandStrategy** (partial mode): Overwrites some names with target weights, changing total weight
+- **VolTargetRebalanceStrategy**: Scales weights by leverage without financing/carry modeling
+- **DrawdownGuardStrategy**: Scales weights down leaving implicit cash without defining what cash earns
 
 #### Tasks
-- [x] Identify correct ordering of constraint application vs vol scaling in `src/trend_analysis/risk.py`
-- [x] Apply max_weight constraint to normalized weights (sum=1.0) before vol scaling
-- [x] Ensure constraint still enforces intended behavior after scaling
-- [x] Add test case that verifies max_weight works with vol_adjust enabled
-- [x] Update settings wiring test for max_weight to use vol_adjust (currently disabled as workaround)
+- [ ] Define a `CashPolicy` dataclass with fields: `explicit_cash: bool`, `cash_return_source: str` (config key or literal), `normalize_weights: bool`
+- [ ] Add optional `cash_policy` parameter to `Rebalancer.apply()` signature with backward-compatible default
+- [ ] Update `TurnoverCapStrategy._apply_turnover_cap()` to optionally add explicit CASH line for unexecuted weight mass
+- [ ] Update `DriftBandStrategy.apply()` to track weight sum delta and either normalize or add CASH
+- [ ] Update `VolTargetRebalanceStrategy.apply()` to return `(weights * lev, cost)` with optional financing spread
+- [ ] Update `DrawdownGuardStrategy.apply()` to add CASH line when scaling down instead of leaving mass implicit
+- [ ] Add integration test verifying all strategies return weights summing to 1.0 (or 1.0 + CASH)
+- [ ] Document cash modeling behavior in strategy docstrings
 
 #### Acceptance criteria
-- [x] `max_weight=0.35` with `vol_adjust_enabled=True` produces weights capped at 35%
-- [x] No `ConstraintViolation` exceptions when both settings are enabled
-- [x] Settings effectiveness test for max_weight passes without disabling vol_adjust
-- [x] Unit tests verify constraint + scaling interaction
+- [ ] All rebalancing strategies return weights summing to exactly 1.0 when `normalize_weights=True`
+- [ ] When `explicit_cash=True`, unallocated mass appears as a CASH line in returned weights
+- [ ] Existing tests pass without modification (backward compatibility maintained)
+- [ ] New unit tests cover all cash policy combinations for each strategy
+- [ ] Strategy docstrings document cash behavior and assumptions
 
 <!-- auto-status-summary:end -->
