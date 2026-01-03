@@ -555,7 +555,9 @@ def compute_signal(
         return signal.astype(float)
 
     if get_cache_func is None:
-        from .perf.rolling_cache import get_cache as get_cache_func  # type: ignore[assignment]
+        from .perf.rolling_cache import (
+            get_cache as get_cache_func,  # type: ignore[assignment]
+        )
     if compute_dataset_hash_func is None:
         from .perf.rolling_cache import (
             compute_dataset_hash as compute_dataset_hash_func,  # type: ignore[assignment]

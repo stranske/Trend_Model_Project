@@ -7,6 +7,7 @@ import pandas as pd
 
 from trend.diagnostics import DiagnosticResult
 
+from . import pipeline_helpers
 from .core.rank_selection import (
     RiskStatsConfig,
     get_window_metric_bundle,
@@ -14,7 +15,7 @@ from .core.rank_selection import (
     rank_select_funds,
 )
 from .data import identify_risk_free_fund, load_csv
-from .diagnostics import AnalysisResult, PipelineReasonCode, PipelineResult
+from .diagnostics import PipelineResult
 from .metrics import (
     annual_return,
     information_ratio,
@@ -24,63 +25,70 @@ from .metrics import (
     volatility,
 )
 from .perf.rolling_cache import compute_dataset_hash, get_cache
-from .portfolio import apply_weight_policy
-from .regimes import build_regime_payload
-from .risk import compute_constrained_weights, realised_volatility
-from .signals import TrendSpec, compute_trend_signals
-from .time_utils import align_calendar
-from .util.frequency import FrequencySummary, detect_frequency
-from .util.missing import MissingPolicyResult, apply_missing_policy
-from .weights.robust_config import weight_engine_params_from_robustness
-
 from .pipeline_entrypoints import ConfigBindings, run_from_config, run_full_from_config
-from . import pipeline_helpers
 from .pipeline_helpers import (
     _attach_calendar_settings,
     _build_trend_spec,
     _cfg_section,
     _cfg_value,
     _derive_split_from_periods,
-    _empty_run_full_result,
-    _format_period,
     _policy_from_config,
-    _resolve_sample_split as _resolve_sample_split_impl,
     _resolve_target_vol,
     _section_get,
     _unwrap_cfg,
+)
+from .pipeline_helpers import (
+    _resolve_sample_split as _resolve_sample_split_impl,
+)
+from .pipeline_helpers import (
     compute_signal as _compute_signal_impl,
+)
+from .pipeline_helpers import (
     position_from_signal as _position_from_signal_impl,
 )
 from .pipeline_runner import (
     _run_analysis as _run_analysis_impl,
+)
+from .pipeline_runner import (
     _run_analysis_with_diagnostics as _run_analysis_with_diagnostics_impl,
 )
+from .portfolio import apply_weight_policy
+from .regimes import build_regime_payload
+from .risk import compute_constrained_weights, realised_volatility
+from .signals import TrendSpec, compute_trend_signals
 from .stages import portfolio as portfolio_stage
 from .stages import preprocessing as preprocessing_stage
 from .stages import selection as selection_stage
 from .stages.portfolio import (
-    _ComputationStage,
-    _Stats,
     _assemble_analysis_output as _assemble_analysis_output_impl,
-    _compute_stats,
-    _compute_weights_and_stats as _compute_weights_and_stats_impl,
+)
+from .stages.portfolio import (
+    _Stats,
     calc_portfolio_returns,
 )
+from .stages.portfolio import (
+    _compute_weights_and_stats as _compute_weights_and_stats_impl,
+)
 from .stages.preprocessing import (
-    _PreprocessStage,
-    _WindowStage,
     _build_sample_windows as _build_sample_windows_impl,
-    _frequency_label,
+)
+from .stages.preprocessing import (
     _prepare_input_data as _prepare_input_data_impl,
+)
+from .stages.preprocessing import (
     _prepare_preprocess_stage as _prepare_preprocess_stage_impl,
-    _preprocessing_summary,
 )
 from .stages.selection import (
-    _SelectionStage,
     _resolve_risk_free_column,
-    _select_universe as _select_universe_impl,
     single_period_run,
 )
+from .stages.selection import (
+    _select_universe as _select_universe_impl,
+)
+from .time_utils import align_calendar
+from .util.frequency import detect_frequency
+from .util.missing import apply_missing_policy
+from .weights.robust_config import weight_engine_params_from_robustness
 
 logger = logging.getLogger(__name__)
 
