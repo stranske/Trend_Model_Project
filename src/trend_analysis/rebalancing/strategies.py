@@ -67,8 +67,8 @@ class TurnoverCapStrategy(Rebalancer):
         self,
         current_weights: pd.Series,
         target_weights: pd.Series,
-        scores: Optional[pd.Series] = None,
         cash_policy: CashPolicy | None = None,
+        scores: Optional[pd.Series] = None,
         **kwargs: Any,
     ) -> Tuple[pd.Series, float]:
         """Apply turnover cap with trade prioritization and cost modeling.
