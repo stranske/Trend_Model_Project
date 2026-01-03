@@ -834,9 +834,7 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
   // Track task completion trend
   const previousTasks = state.tasks || {};
   const prevUnchecked = toNumber(previousTasks.unchecked, checkboxCounts.unchecked);
-  // Use Math.max to prevent negative values when tasks are added between iterations
-  const rawTasksCompletedDelta = prevUnchecked - checkboxCounts.unchecked;
-  const tasksCompletedSinceLastRound = Math.max(0, rawTasksCompletedDelta);
+  const tasksCompletedSinceLastRound = prevUnchecked - checkboxCounts.unchecked;
   
   // Calculate productivity score (0-100)
   // This is evidence-based: higher score = more confidence work is happening
