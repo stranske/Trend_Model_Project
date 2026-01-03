@@ -6,11 +6,16 @@ and turnover bookkeeping for the multi-period engine helpers.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
+import yaml
 
+from trend_analysis.config import Config
 from trend_analysis.multi_period import engine as mp_engine
+from trend_analysis.multi_period import run as run_mp
 from trend_analysis.weighting import BaseWeighting
 
 
@@ -145,3 +150,65 @@ def test_fast_turnover_matches_recomputed_history(
 
     for date_key, expected in recomputed.items():
         assert portfolio.turnover[date_key] == pytest.approx(expected)
+
+
+def _turnover_series(results: list[dict[str, object]]) -> list[float]:
+    values: list[float] = []
+    for res in results:
+        risk_diag = res.get("risk_diagnostics", {})
+        if isinstance(risk_diag, dict):
+            turnover = risk_diag.get("turnover")
+        else:
+            turnover = None
+        if isinstance(turnover, pd.Series) and not turnover.empty:
+            values.append(float(turnover.iloc[-1]))
+        elif isinstance(turnover, (int, float)):
+            values.append(float(turnover))
+    return values
+
+
+def _turnover_config(max_turnover: float) -> Config:
+    cfg_data = yaml.safe_load(Path("config/defaults.yml").read_text())
+    cfg_data["multi_period"] = {
+        "frequency": "M",
+        "in_sample_len": 2,
+        "out_sample_len": 1,
+        "start": "2020-01",
+        "end": "2020-04",
+    }
+    data_cfg = cfg_data.setdefault("data", {})
+    data_cfg.setdefault("date_column", "Date")
+    data_cfg.setdefault("frequency", "M")
+    data_cfg["allow_risk_free_fallback"] = True
+    portfolio_cfg = cfg_data.setdefault("portfolio", {})
+    portfolio_cfg["policy"] = ""
+    portfolio_cfg["selection_mode"] = "rank"
+    portfolio_cfg["rank"] = {"inclusion_approach": "top_n", "n": 1}
+    portfolio_cfg["weighting_scheme"] = "equal"
+    portfolio_cfg["constraints"] = {"max_weight": 1.0, "long_only": True}
+    portfolio_cfg["max_turnover"] = max_turnover
+    return Config(**cfg_data)
+
+
+def test_multi_period_turnover_cap_reduces_rebalance_size() -> None:
+    dates = pd.date_range("2020-01-31", periods=4, freq="ME")
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "A": [0.05, 0.05, -0.02, 0.01],
+            "B": [0.01, -0.02, 0.06, -0.01],
+        }
+    )
+
+    high_cap_cfg = _turnover_config(1.0)
+    low_cap_cfg = _turnover_config(0.3)
+
+    high_results = run_mp(high_cap_cfg, df)
+    low_results = run_mp(low_cap_cfg, df)
+
+    high_turnover = _turnover_series(high_results)
+    low_turnover = _turnover_series(low_results)
+
+    assert len(high_turnover) == len(low_turnover) >= 2
+    assert low_turnover[1] <= 0.3 + 1e-12
+    assert low_turnover[1] < high_turnover[1]

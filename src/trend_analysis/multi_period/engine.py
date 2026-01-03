@@ -119,6 +119,26 @@ def _coerce_analysis_result(
     return None, cast(DiagnosticPayload | None, diag)
 
 
+def _coerce_previous_weights(
+    weights: Mapping[str, float] | pd.Series | None,
+) -> dict[str, float] | None:
+    if weights is None:
+        return None
+    if isinstance(weights, pd.Series):
+        series = weights.astype(float).copy()
+    elif isinstance(weights, _MappingABC):
+        series = pd.Series({str(k): float(v) for k, v in weights.items()}, dtype=float)
+    else:  # pragma: no cover - defensive
+        return None
+    if series.empty:
+        return None
+    series = series.fillna(0.0)
+    total = float(series.sum())
+    if total and abs(total - 100.0) <= 1e-6:
+        series = series / 100.0
+    return {str(k): float(v) for k, v in series.items()}
+
+
 def _get_missing_policy_settings(
     data_settings: Mapping[str, Any] | None,
 ) -> tuple[Any, Any]:
@@ -992,6 +1012,9 @@ def run(
             except Exception:  # pragma: no cover - defensive
                 cov_cache_obj = None
         prev_in_df = None
+        prev_weights_for_pipeline = _coerce_previous_weights(
+            cfg.portfolio.get("previous_weights")
+        )
 
         for pt in periods:
             analysis_res = _call_pipeline_with_diag(
@@ -1015,7 +1038,7 @@ def run(
                 missing_policy=policy_spec,
                 missing_limit=missing_limit_cfg,
                 risk_window=cfg.vol_adjust.get("window"),
-                previous_weights=cfg.portfolio.get("previous_weights"),
+                previous_weights=prev_weights_for_pipeline,
                 max_turnover=cfg.portfolio.get("max_turnover"),
                 constraints=cfg.portfolio.get("constraints"),
                 regime_cfg=regime_cfg,
@@ -1044,6 +1067,15 @@ def run(
                 pt.out_end,
             )
             res_dict["missing_policy_diagnostic"] = dict(missing_policy_diagnostic)
+            risk_diag_payload = res_dict.get("risk_diagnostics")
+            if isinstance(risk_diag_payload, dict):
+                prev_weights_for_pipeline = _coerce_previous_weights(
+                    risk_diag_payload.get("final_weights")
+                )
+            if prev_weights_for_pipeline is None:
+                fund_weights = res_dict.get("fund_weights")
+                if isinstance(fund_weights, Mapping):
+                    prev_weights_for_pipeline = _coerce_previous_weights(fund_weights)
 
             # (Experimental) attach covariance diag using cache/incremental path for diagnostics.
             # Keeps existing outputs stable; adds optional "cov_diag" key.
@@ -3457,11 +3489,7 @@ def run(
         }
 
         # Construct previous weights dict for pipeline (turnover tracking)
-        prev_weights_for_pipeline: dict[str, float] | None = None
-        if prev_final_weights is not None:
-            prev_weights_for_pipeline = {
-                str(k): float(v) * 100.0 for k, v in prev_final_weights.items()
-            }
+        prev_weights_for_pipeline = _coerce_previous_weights(prev_final_weights)
 
         res = _call_pipeline_with_diag(
             df,
