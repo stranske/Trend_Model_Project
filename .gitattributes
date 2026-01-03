@@ -5,3 +5,6 @@ ci/autofix/history.json merge=ours linguist-generated
 # (Git's built-in 'ours' strategy works when invoked via -s ours for a whole merge, but for a path-specific
 #  merge driver we map to a no-op driver. If not configured, this entry will be ignored; alternatively,
 #  we can simply rely on the file being removed so future merges skip it.)
+# Prevent merge conflicts on PR-specific files
+pr_body.md merge=ours
+
