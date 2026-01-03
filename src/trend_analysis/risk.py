@@ -262,6 +262,16 @@ def compute_constrained_weights(
         raise ValueError("base_weights cannot be empty")
 
     base = _normalise(base)
+
+    constraint_payload = {
+        "long_only": bool(long_only),
+        "max_weight": max_weight,
+        "group_caps": group_caps,
+        "groups": groups,
+    }
+    constrained_base = optimizer_mod.apply_constraints(base, constraint_payload)
+    constrained_base = constrained_base.reindex(base.index, fill_value=0.0)
+
     realised = realised_volatility(returns, window, periods_per_year=periods_per_year)
     latest = realised.iloc[-1].reindex(base.index).ffill().bfill()
     latest = latest.reindex(base.index).fillna(realised.mean(axis=0))
@@ -270,15 +280,11 @@ def compute_constrained_weights(
     latest = latest.fillna(fallback)
 
     scale_factors = _scale_factors(latest, target_vol, floor_vol=floor_vol)
-    scaled = base.mul(scale_factors)
-
-    constraint_payload = {
-        "long_only": bool(long_only),
-        "max_weight": max_weight,
-        "group_caps": group_caps,
-        "groups": groups,
-    }
-    constrained = optimizer_mod.apply_constraints(scaled, constraint_payload)
+    scaled = constrained_base.mul(scale_factors)
+    if np.allclose(scale_factors.values, 1.0):
+        constrained = constrained_base.copy()
+    else:
+        constrained = optimizer_mod.apply_constraints(scaled, constraint_payload)
 
     prev_series = (
         _ensure_series(previous_weights) if previous_weights is not None else None

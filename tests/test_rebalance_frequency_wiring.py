@@ -42,7 +42,7 @@ class RebalanceConfig:
         }
     )
     vol_adjust: dict[str, object] = field(
-        default_factory=lambda: {"enabled": False, "target_vol": 0.1}
+        default_factory=lambda: {"enabled": True, "target_vol": 0.1}
     )
     benchmarks: dict[str, object] = field(default_factory=dict)
     run: dict[str, object] = field(default_factory=lambda: {"monthly_cost": 0.0})

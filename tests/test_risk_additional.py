@@ -54,11 +54,13 @@ def test_compute_constrained_weights_applies_controls(monkeypatch):
     )
     base_weights = {"A": 0.6, "B": 0.4}
     payload_capture: dict[str, object] = {}
+    captured_calls: list[dict[str, object]] = []
 
     def fake_apply_constraints(weights: pd.Series, payload: dict[str, object]):
+        captured_calls.append({"weights": weights.copy(), "payload": payload.copy()})
         payload_capture["weights"] = weights.copy()
         payload_capture["payload"] = payload.copy()
-        return pd.Series({"A": 0.8, "B": 0.2})
+        return weights
 
     monkeypatch.setattr(risk.optimizer_mod, "apply_constraints", fake_apply_constraints)
 
@@ -86,6 +88,8 @@ def test_compute_constrained_weights_applies_controls(monkeypatch):
     assert payload_capture["payload"]["max_weight"] == 0.7
     assert payload_capture["payload"]["group_caps"] == {"grp": 1.0}
     assert payload_capture["payload"]["groups"] == {"A": "grp", "B": "grp"}
+    assert len(captured_calls) == 2
+    assert pytest.approx(captured_calls[0]["weights"].sum()) == 1.0
 
 
 def test_compute_constrained_weights_handles_non_datetime_index(monkeypatch):

@@ -133,6 +133,35 @@ def test_compute_constrained_weights_lambda_penalty_reduces_turnover() -> None:
     assert diag_high.turnover_value < diag_zero.turnover_value
 
 
+def test_compute_constrained_weights_respects_max_weight_with_vol_adjust() -> None:
+    returns = pd.DataFrame(
+        {
+            "A": [0.001, 0.002, 0.0015, 0.001, 0.0018],
+            "B": [0.05, -0.04, 0.06, -0.05, 0.04],
+            "C": [0.03, -0.02, 0.025, -0.03, 0.02],
+        },
+        index=pd.date_range("2023-01-31", periods=5, freq="ME"),
+    )
+    base = {"A": 1 / 3, "B": 1 / 3, "C": 1 / 3}
+
+    weights, diagnostics = compute_constrained_weights(
+        base,
+        returns,
+        window=RiskWindow(length=3, decay="simple"),
+        target_vol=0.2,
+        periods_per_year=12,
+        floor_vol=0.01,
+        long_only=True,
+        max_weight=0.35,
+        previous_weights=None,
+        max_turnover=None,
+    )
+
+    assert abs(weights.sum() - 1.0) < 1e-9
+    assert weights.max() <= 0.35 + 1e-9
+    assert diagnostics.scale_factors.loc["A"] > 1.0
+
+
 def test_periods_per_year_from_code_defaults() -> None:
     assert risk.periods_per_year_from_code(None) == 12.0
     assert risk.periods_per_year_from_code("W") == 52.0
