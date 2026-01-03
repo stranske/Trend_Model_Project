@@ -9,8 +9,8 @@ import trend_analysis.engine.optimizer as optimizer_mod
 from trend_analysis.engine.optimizer import (
     ConstraintSet,
     ConstraintViolation,
-    _apply_cash_weight,
     _apply_cap,
+    _apply_cash_weight,
     _apply_group_caps,
     _safe_sum,
     apply_constraints,

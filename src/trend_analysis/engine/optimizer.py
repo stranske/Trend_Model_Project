@@ -170,10 +170,7 @@ def _apply_cash_weight(
     values[index == "CASH"] = cash_weight
     w = pd.Series(values, index=index)
 
-    if (
-        max_weight is not None
-        and w.loc["CASH"] > max_weight + NUMERICAL_TOLERANCE_HIGH
-    ):
+    if max_weight is not None and w.loc["CASH"] > max_weight + NUMERICAL_TOLERANCE_HIGH:
         raise ConstraintViolation("cash_weight exceeds max_weight constraint")
 
     return w
