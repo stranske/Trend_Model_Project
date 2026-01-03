@@ -13,12 +13,12 @@ The `max_turnover` setting is intended to limit portfolio turnover between rebal
 - [ ] Check if turnover constraint is bypassed when natural turnover is already low
 - [x] Verify `turnover` field in period_results captures constrained turnover, not desired turnover
 - [ ] Fix constraint enforcement if not working correctly
-- [ ] Update test to use scenario that generates high natural turnover
+- [x] Update test to use scenario that generates high natural turnover
 
 #### Acceptance criteria
-- [ ] `max_turnover=0.3` produces measurably lower turnover than `max_turnover=1.0`
+- [x] `max_turnover=0.3` produces measurably lower turnover than `max_turnover=1.0`
 - [ ] Period-level turnover values respect the configured cap
-- [ ] Settings effectiveness test for max_turnover passes
+- [x] Settings effectiveness test for max_turnover passes
 - [x] Unit test verifies turnover constraint is applied
 
 <!-- auto-status-summary:end -->
