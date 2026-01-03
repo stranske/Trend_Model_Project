@@ -6,7 +6,6 @@ Usage environment variables (set by workflow):
   HISTORY_PATH: path to ndjson file (default coverage-trend-history.ndjson)
   RECORD_PATH: path to JSON record (default coverage-trend.json)
 """
-
 from __future__ import annotations
 
 import json

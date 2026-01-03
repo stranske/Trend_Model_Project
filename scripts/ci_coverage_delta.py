@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 """Compute coverage delta against a baseline for CI reporting."""
-
 from __future__ import annotations
 
 import datetime as _dt
