@@ -15,7 +15,7 @@ from .core.rank_selection import (
     rank_select_funds,
 )
 from .data import identify_risk_free_fund, load_csv
-from .diagnostics import PipelineResult
+from .diagnostics import PipelineReasonCode, PipelineResult
 from .metrics import (
     annual_return,
     information_ratio,
@@ -32,6 +32,7 @@ from .pipeline_helpers import (
     _cfg_section,
     _cfg_value,
     _derive_split_from_periods,
+    _empty_run_full_result,
     _policy_from_config,
     _resolve_target_vol,
     _section_get,
@@ -72,12 +73,11 @@ from .stages.portfolio import (
 )
 from .stages.preprocessing import (
     _build_sample_windows as _build_sample_windows_impl,
-)
-from .stages.preprocessing import (
+    _frequency_label,
     _prepare_input_data as _prepare_input_data_impl,
-)
-from .stages.preprocessing import (
     _prepare_preprocess_stage as _prepare_preprocess_stage_impl,
+    _preprocessing_summary,
+    _WindowStage,
 )
 from .stages.selection import (
     _resolve_risk_free_column,
@@ -87,8 +87,8 @@ from .stages.selection import (
     _select_universe as _select_universe_impl,
 )
 from .time_utils import align_calendar
-from .util.frequency import detect_frequency
-from .util.missing import apply_missing_policy
+from .util.frequency import detect_frequency, FrequencySummary
+from .util.missing import MissingPolicyResult, apply_missing_policy
 from .weights.robust_config import weight_engine_params_from_robustness
 
 logger = logging.getLogger(__name__)
@@ -370,17 +370,35 @@ def position_from_signal(
 Stats = _Stats
 
 __all__ = [
+    "FrequencySummary",
+    "MissingPolicyResult",
+    "PipelineReasonCode",
     "Stats",  # noqa: F822
     "_Stats",  # Direct export for type checking
+    "_WindowStage",
+    "_assemble_analysis_output",
+    "_build_sample_windows",
     "_build_trend_spec",
+    "_cfg_section",
+    "_cfg_value",
     "_compute_stats",
+    "_compute_weights_and_stats",
+    "_derive_split_from_periods",
+    "_empty_run_full_result",
+    "_frequency_label",
     "_invoke_analysis_with_diag",
     "_policy_from_config",
+    "_prepare_input_data",
+    "_prepare_preprocess_stage",
+    "_preprocessing_summary",
     "_resolve_risk_free_column",
     "_resolve_sample_split",
     "_resolve_target_vol",
     "_run_analysis",
     "_run_analysis_with_diagnostics",
+    "_section_get",
+    "_select_universe",
+    "_unwrap_cfg",
     "calc_portfolio_returns",
     "compute_signal",
     "position_from_signal",
