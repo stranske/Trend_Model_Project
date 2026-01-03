@@ -192,8 +192,6 @@ def test_strategies_sum_to_one_with_explicit_cash() -> None:
     ]
 
     for strategy, current, target, kwargs in strategies:
-        result, _ = strategy.apply(
-            current, target, cash_policy=cash_policy, **kwargs
-        )
+        result, _ = strategy.apply(current, target, cash_policy=cash_policy, **kwargs)
         assert "CASH" in result.index
         assert np.isclose(float(result.sum()), 1.0)

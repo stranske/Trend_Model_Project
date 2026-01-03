@@ -24,9 +24,7 @@ RebalancingStrategy = Rebalancer
 TURNOVER_EPSILON = 1e-10
 
 
-def _apply_cash_policy(
-    weights: pd.Series, cash_policy: CashPolicy | None
-) -> pd.Series:
+def _apply_cash_policy(weights: pd.Series, cash_policy: CashPolicy | None) -> pd.Series:
     if cash_policy is None:
         return weights
 
