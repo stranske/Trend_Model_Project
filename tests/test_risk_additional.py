@@ -52,7 +52,7 @@ def test_compute_constrained_weights_applies_controls(monkeypatch):
         },
         index=pd.date_range("2024-01-31", periods=5, freq="ME"),
     )
-    base_weights = {"A": 0.6, "B": 0.4}
+    base_weights = {"A": 1.2, "B": 0.8}
     payload_capture: dict[str, object] = {}
     captured_calls: list[dict[str, object]] = []
 
