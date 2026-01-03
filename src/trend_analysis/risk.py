@@ -16,6 +16,7 @@ from typing import Iterable, Mapping, MutableMapping
 import numpy as np
 import pandas as pd
 
+from .constants import NUMERICAL_TOLERANCE_HIGH
 from .engine import optimizer as optimizer_mod
 
 PERIODS_PER_YEAR: Mapping[str, float] = {
@@ -263,9 +264,21 @@ def compute_constrained_weights(
 
     base = _normalise(base)
 
+    effective_max_weight = max_weight
+    if max_weight is not None:
+        try:
+            max_weight_val = float(max_weight)
+        except (TypeError, ValueError):
+            max_weight_val = None
+        if max_weight_val is not None and max_weight_val > 0 and len(base) > 0:
+            min_cap = 1.0 / len(base)
+            if max_weight_val * len(base) < 1.0 - NUMERICAL_TOLERANCE_HIGH:
+                max_weight_val = min_cap
+        effective_max_weight = max_weight_val
+
     constraint_payload = {
         "long_only": bool(long_only),
-        "max_weight": max_weight,
+        "max_weight": effective_max_weight,
         "group_caps": group_caps,
         "groups": groups,
     }

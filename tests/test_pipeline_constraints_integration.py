@@ -71,6 +71,7 @@ def test_pipeline_applies_cash_and_max_weight_constraints():
 
 def test_pipeline_max_weight_with_vol_adjust_enabled():
     df = make_dummy_returns()
+    custom_weights = {"FundA": 80.0, "FundB": 10.0, "FundC": 10.0, "FundD": 0.0}
     res = _run_analysis(
         df,
         in_start="2022-01",
@@ -80,6 +81,7 @@ def test_pipeline_max_weight_with_vol_adjust_enabled():
         target_vol=0.10,
         monthly_cost=0.0,
         selection_mode="all",
+        custom_weights=custom_weights,
         stats_cfg=RiskStatsConfig(),
         constraints={
             "long_only": True,
