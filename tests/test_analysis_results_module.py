@@ -131,7 +131,9 @@ def test_results_from_payload_coerces_series() -> None:
 
 
 def test_results_from_payload_uses_turnover_fallback() -> None:
-    turnover = pd.Series([0.2, 0.1], index=pd.date_range("2020-01-31", periods=2, freq="ME"))
+    turnover = pd.Series(
+        [0.2, 0.1], index=pd.date_range("2020-01-31", periods=2, freq="ME")
+    )
     payload = {
         "portfolio_equal_weight_combined": pd.Series(
             [0.01, 0.02], index=turnover.index
