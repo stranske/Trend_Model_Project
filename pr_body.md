@@ -16,33 +16,33 @@
 The module handles: preprocessing (calendar + missing policy + inception mask), selection/scoring, and portfolio construction (weights + constraints + risk)—three distinct conceptual domains that should be separate modules.
 
 #### Tasks
-- [ ] Create `src/trend_analysis/stages/__init__.py` package
-- [ ] Extract preprocessing logic into `src/trend_analysis/stages/preprocessing.py`:
-- [ ] - Calendar alignment (`align_calendar`)
-- [ ] - Missing data policy (`apply_missing_policy`, `MissingPolicyResult`)
-- [ ] - Inception masking logic
-- [ ] - Frequency detection and normalization
-- [ ] Extract selection/scoring logic into `src/trend_analysis/stages/selection.py`:
-- [ ] - Fund ranking (`rank_select_funds`)
-- [ ] - Score computation
-- [ ] - Metric bundle computation
-- [ ] - Risk stats configuration
-- [ ] Extract portfolio construction into `src/trend_analysis/stages/portfolio.py`:
-- [ ] - Weight computation and constraints
-- [ ] - Risk adjustments
-- [ ] - Vol targeting
-- [ ] - Final weight application
-- [ ] Refactor `pipeline.py` to import from stages and orchestrate
-- [ ] Keep `run()`, `run_full()`, `run_analysis()` in pipeline.py as thin conductors
-- [ ] Maintain backward-compatible imports via `__all__` in pipeline.py
-- [ ] Add integration test verifying stage isolation doesn't change outputs
+- [x] Create `src/trend_analysis/stages/__init__.py` package
+- [x] Extract preprocessing logic into `src/trend_analysis/stages/preprocessing.py`:
+- [x] - Calendar alignment (`align_calendar`)
+- [x] - Missing data policy (`apply_missing_policy`, `MissingPolicyResult`)
+- [x] - Inception masking logic
+- [x] - Frequency detection and normalization
+- [x] Extract selection/scoring logic into `src/trend_analysis/stages/selection.py`:
+- [x] - Fund ranking (`rank_select_funds`)
+- [x] - Score computation
+- [x] - Metric bundle computation
+- [x] - Risk stats configuration
+- [x] Extract portfolio construction into `src/trend_analysis/stages/portfolio.py`:
+- [x] - Weight computation and constraints
+- [x] - Risk adjustments
+- [x] - Vol targeting
+- [x] - Final weight application
+- [x] Refactor `pipeline.py` to import from stages and orchestrate
+- [x] Keep `run()`, `run_full()`, `run_analysis()` in pipeline.py as thin conductors
+- [x] Maintain backward-compatible imports via `__all__` in pipeline.py
+- [x] Add integration test verifying stage isolation doesn't change outputs
 
 #### Acceptance criteria
-- [ ] `pipeline.py` reduced to <500 lines (orchestration + public API)
-- [ ] Each stage module is independently testable
-- [ ] `from trend_analysis.pipeline import run` continues to work
-- [ ] All existing pipeline tests pass without modification
-- [ ] No circular imports between stages
-- [ ] New stage modules have >80% test coverage
+- [x] `pipeline.py` reduced to <500 lines (orchestration + public API) — **Currently 400 lines**
+- [x] Each stage module is independently testable
+- [x] `from trend_analysis.pipeline import run` continues to work
+- [x] All existing pipeline tests pass without modification
+- [x] No circular imports between stages
+- [ ] New stage modules have >80% test coverage — **Coverage verification pending CI**
 
 <!-- auto-status-summary:end -->
