@@ -554,18 +554,18 @@ def compute_signal(
         )
         return signal.astype(float)
 
-    if get_cache_func is None:
-        from .perf.rolling_cache import (
-            get_cache as get_cache_func,  # type: ignore[assignment]
-        )
-    if compute_dataset_hash_func is None:
-        from .perf.rolling_cache import (
-            compute_dataset_hash as compute_dataset_hash_func,  # type: ignore[assignment]
-        )
+    _get_cache = get_cache_func
+    _compute_hash = compute_dataset_hash_func
+    if _get_cache is None:
+        from .perf.rolling_cache import get_cache as _get_cache
+    if _compute_hash is None:
+        from .perf.rolling_cache import compute_dataset_hash as _compute_hash
+    assert _get_cache is not None  # type narrowing for mypy
+    assert _compute_hash is not None  # type narrowing for mypy
     logger_to_use = log or logger
 
     try:
-        cache = get_cache_func()
+        cache = _get_cache()
     except Exception:  # pragma: no cover - defensive
         return _compute()
 
@@ -598,7 +598,7 @@ def compute_signal(
             exc,
         )
 
-    dataset_hash = compute_dataset_hash_func([base])
+    dataset_hash = _compute_hash([base])
     method = f"compute_signal:{column}:min{effective_min_periods}"
     return cache.get_or_compute(dataset_hash, window, freq, method, _compute)
 

@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Mapping, cast
+from typing import TYPE_CHECKING, Any, Mapping, cast
 
 import pandas as pd
+
+if TYPE_CHECKING:
+    from .diagnostics import PipelineResult
 
 logger = logging.getLogger("trend_analysis.pipeline")
 
@@ -153,7 +156,7 @@ def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
     return df
 
 
-def run_full_from_config(cfg: Any, *, bindings: ConfigBindings) -> Any:
+def run_full_from_config(cfg: Any, *, bindings: ConfigBindings) -> PipelineResult:
     """Return the full analysis results (with diagnostics) based on ``cfg``."""
     cfg = bindings.unwrap_cfg(cfg)
     preprocessing_section = bindings.cfg_section(cfg, "preprocessing")
@@ -261,4 +264,4 @@ def run_full_from_config(cfg: Any, *, bindings: ConfigBindings) -> Any:
             )
         else:
             logger.warning("pipeline.run_full aborted with no diagnostic context")
-    return diag_res
+    return diag_res  # type: ignore[no-any-return]

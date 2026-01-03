@@ -63,6 +63,7 @@ from .stages.portfolio import (
     _assemble_analysis_output as _assemble_analysis_output_impl,
 )
 from .stages.portfolio import (
+    _compute_stats,
     _compute_weights_and_stats as _compute_weights_and_stats_impl,
 )
 from .stages.portfolio import (
@@ -98,32 +99,33 @@ def _sync_stage_dependencies() -> None:
 
     This ensures monkeypatching pipeline functions affects stage execution.
     """
+    # These assignments are for runtime patching; mypy may or may not see the
+    # attributes depending on module resolution. Suppress with type: ignore[attr-defined].
+    setattr(preprocessing_stage, "detect_frequency", detect_frequency)
+    setattr(preprocessing_stage, "apply_missing_policy", apply_missing_policy)
+    setattr(preprocessing_stage, "align_calendar", align_calendar)
+    setattr(preprocessing_stage, "_prepare_input_data", _prepare_input_data)
 
-    preprocessing_stage.detect_frequency = detect_frequency
-    preprocessing_stage.apply_missing_policy = apply_missing_policy
-    preprocessing_stage.align_calendar = align_calendar
-    preprocessing_stage._prepare_input_data = _prepare_input_data
+    setattr(selection_stage, "rank_select_funds", rank_select_funds)
+    setattr(selection_stage, "get_window_metric_bundle", get_window_metric_bundle)
+    setattr(selection_stage, "make_window_key", make_window_key)
+    setattr(selection_stage, "single_period_run", single_period_run)
+    setattr(selection_stage, "_resolve_risk_free_column", _resolve_risk_free_column)
+    setattr(selection_stage, "identify_risk_free_fund", identify_risk_free_fund)
 
-    selection_stage.rank_select_funds = rank_select_funds
-    selection_stage.get_window_metric_bundle = get_window_metric_bundle
-    selection_stage.make_window_key = make_window_key
-    selection_stage.single_period_run = single_period_run
-    selection_stage._resolve_risk_free_column = _resolve_risk_free_column
-    selection_stage.identify_risk_free_fund = identify_risk_free_fund
-
-    portfolio_stage.compute_trend_signals = compute_trend_signals
-    portfolio_stage.compute_constrained_weights = compute_constrained_weights
-    portfolio_stage.realised_volatility = realised_volatility
-    portfolio_stage.apply_weight_policy = apply_weight_policy
-    portfolio_stage.information_ratio = information_ratio
-    portfolio_stage.annual_return = annual_return
-    portfolio_stage.volatility = volatility
-    portfolio_stage.sharpe_ratio = sharpe_ratio
-    portfolio_stage.sortino_ratio = sortino_ratio
-    portfolio_stage.max_drawdown = max_drawdown
-    portfolio_stage.build_regime_payload = build_regime_payload
-    portfolio_stage.avg_corr_handler = _avg_corr_handler
-    portfolio_stage.calc_portfolio_returns = calc_portfolio_returns
+    setattr(portfolio_stage, "compute_trend_signals", compute_trend_signals)
+    setattr(portfolio_stage, "compute_constrained_weights", compute_constrained_weights)
+    setattr(portfolio_stage, "realised_volatility", realised_volatility)
+    setattr(portfolio_stage, "apply_weight_policy", apply_weight_policy)
+    setattr(portfolio_stage, "information_ratio", information_ratio)
+    setattr(portfolio_stage, "annual_return", annual_return)
+    setattr(portfolio_stage, "volatility", volatility)
+    setattr(portfolio_stage, "sharpe_ratio", sharpe_ratio)
+    setattr(portfolio_stage, "sortino_ratio", sortino_ratio)
+    setattr(portfolio_stage, "max_drawdown", max_drawdown)
+    setattr(portfolio_stage, "build_regime_payload", build_regime_payload)
+    setattr(portfolio_stage, "avg_corr_handler", _avg_corr_handler)
+    setattr(portfolio_stage, "calc_portfolio_returns", calc_portfolio_returns)
 
 
 def _call_with_sync(func: Any, *args: Any, **kwargs: Any) -> Any:
@@ -176,8 +178,9 @@ def _assemble_analysis_output(*args: Any, **kwargs: Any) -> Any:
     return _call_with_sync(_assemble_analysis_output_impl, *args, **kwargs)
 
 
-def _run_analysis_with_diagnostics(*args: Any, **kwargs: Any) -> Any:
-    return _call_with_sync(_run_analysis_with_diagnostics_impl, *args, **kwargs)
+def _run_analysis_with_diagnostics(*args: Any, **kwargs: Any) -> PipelineResult:
+    result = _call_with_sync(_run_analysis_with_diagnostics_impl, *args, **kwargs)
+    return result  # type: ignore[no-any-return]
 
 
 def _run_analysis(*args: Any, **kwargs: Any) -> Any:
@@ -368,13 +371,23 @@ Stats = _Stats
 
 __all__ = [
     "Stats",  # noqa: F822
+    "_Stats",  # Direct export for type checking
+    "_build_trend_spec",
+    "_compute_stats",
+    "_invoke_analysis_with_diag",
+    "_policy_from_config",
+    "_resolve_risk_free_column",
+    "_resolve_sample_split",
+    "_resolve_target_vol",
+    "_run_analysis",
+    "_run_analysis_with_diagnostics",
     "calc_portfolio_returns",
-    "single_period_run",
-    "run_analysis",
-    "run",
-    "run_full",
     "compute_signal",
     "position_from_signal",
+    "run",
+    "run_analysis",
+    "run_full",
+    "single_period_run",
 ]
 
 
