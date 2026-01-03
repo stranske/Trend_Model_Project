@@ -15,6 +15,7 @@ This document outlines a phased approach to integrating LangChain capabilities i
 | Phase | Feature | Feasibility | Priority | Effort |
 |-------|---------|-------------|----------|--------|
 | 1 | QC Documentation Generation | 🟢 High | High | 1-2 days |
+| 1.5 | Statistical Validation Layer | 🟢 High | High | 2-3 days |
 | 2 | Simulation-Specific Q&A | 🟢 High | High | 3-5 days |
 | 3 | NL Configuration | 🟠 Low-Medium | Low | 1-2 weeks |
 
@@ -55,6 +56,111 @@ class OllamaProvider(LLMProvider):
 ```
 
 Environment variable `TREND_LLM_PROVIDER` controls which provider is used, defaulting to OpenAI when `OPENAI_API_KEY` is present.
+
+---
+
+## Complementary Analytical Tools
+
+LLMs excel at interpretation and communication but are not the right tool for statistical validation. A robust analysis pipeline should use specialized tools **before** or **alongside** LLM evaluation.
+
+### Pre-LLM Statistical Validation
+
+Run these deterministic checks first—they catch issues an LLM might miss or hallucinate about:
+
+| Tool Category | Purpose | Libraries | Example Use |
+|---------------|---------|-----------|-------------|
+| **Distribution Testing** | Verify returns match expected statistical properties | `scipy.stats` | Jarque-Bera normality test, Kolmogorov-Smirnov against target distribution |
+| **Anomaly Detection** | Flag outlier periods/funds before interpretation | `scipy.stats`, `sklearn.ensemble.IsolationForest` | Z-score > 3 on period returns, isolation forest on multi-period patterns |
+| **Stationarity Testing** | Check for structural breaks in time series | `statsmodels.tsa.stattools` | ADF test, KPSS test on rolling windows |
+| **Correlation Analysis** | Validate diversification claims | `scipy.stats.spearmanr`, `numpy.corrcoef` | Correlation stability across regimes, correlation breakdown detection |
+
+### Portfolio-Specific Analytics
+
+These tools provide domain-specific validation:
+
+| Tool | Purpose | Implementation |
+|------|---------|----------------|
+| **Risk Decomposition** | Validate risk attribution sums correctly | Already in codebase (`risk.py`) |
+| **Factor Exposure** | Check unintended factor tilts | `statsmodels.regression.linear_model.OLS` for factor regression |
+| **Drawdown Analysis** | Structured drawdown decomposition | Custom (extend existing `metrics.py`) |
+| **Turnover Validation** | Verify turnover calculations match constraints | Already tested in wiring tests |
+
+### Proposed Tool Pipeline
+
+```
+Simulation Output
+       │
+       ▼
+┌──────────────────┐
+│ Statistical      │  ← scipy.stats, statsmodels
+│ Validation       │  ← Deterministic pass/fail checks
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ Anomaly          │  ← Flag unusual patterns
+│ Detection        │  ← Structured anomaly report
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ Economic         │  ← Rule-based sanity checks
+│ Sanity Checks    │  ← "Sharpe > 3 is suspicious"
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ LLM              │  ← Receives pre-validated data
+│ Interpretation   │  ← PLUS validation flags/warnings
+└──────────────────┘
+```
+
+### Economic Sanity Check Rules (Pre-LLM)
+
+Hard-coded rules that flag implausible results before LLM sees them:
+
+```python
+# Proposed: src/trend_analysis/validation/sanity_checks.py
+SANITY_RULES = {
+    "sharpe_too_high": lambda s: s.sharpe > 3.0,  # Likely data issue
+    "sharpe_negative_with_positive_return": lambda s: s.sharpe < 0 and s.return_ann > 0,
+    "volatility_implausibly_low": lambda s: s.volatility < 0.01,  # < 1% annual vol
+    "volatility_implausibly_high": lambda s: s.volatility > 1.0,  # > 100% annual vol
+    "max_drawdown_exceeds_100pct": lambda s: s.max_drawdown < -1.0,
+    "turnover_exceeds_constraint": lambda s, cfg: s.turnover > cfg.max_turnover * 1.01,
+    "weights_dont_sum_to_one": lambda w: abs(sum(w.values()) - 1.0) > 0.01,
+    "negative_weights_with_long_only": lambda w, cfg: cfg.long_only and any(v < -0.001 for v in w.values()),
+}
+```
+
+### Benefits of Tool Pipeline Approach
+
+| Benefit | Without Pre-Processing | With Pre-Processing |
+|---------|----------------------|---------------------|
+| **Accuracy** | LLM might miss statistical issues | Statistical tests catch them deterministically |
+| **Cost** | Full context sent to LLM every time | Only anomalies/summaries sent |
+| **Auditability** | "The LLM said it was fine" | Deterministic test logs + LLM interpretation |
+| **Speed** | LLM latency on every check | Fast local checks, LLM only for interpretation |
+| **Reproducibility** | LLM outputs vary | Statistical checks are deterministic |
+
+### Additional Tools to Consider
+
+| Tool | Use Case | When to Add |
+|------|----------|-------------|
+| **QuantLib** | Option pricing validation if derivatives added | Future scope |
+| **PyPortfolioOpt** | Cross-validate optimization results | If optimization complexity increases |
+| **empyrical** | Alternative risk metrics implementation | Cross-validation of existing metrics |
+| **arch** | GARCH modeling for volatility validation | If regime switching becomes complex |
+
+### Recommendation
+
+**Phase 1.5**: Before implementing LLM Q&A (Phase 2), add a structured validation layer:
+1. Statistical validation module (`src/trend_analysis/validation/`)
+2. Sanity check rules (economic intuition encoded as code)
+3. Anomaly detection for multi-period results
+4. Validation report structure that feeds into LLM context
+
+This ensures LLM receives pre-validated data with flags, rather than raw results it might misinterpret.
 
 ---
 
@@ -270,6 +376,17 @@ llm = [
     "langchain-anthropic>=0.2.0",  # Optional
     "tiktoken>=0.8.0",
 ]
+
+# Statistical validation tools (most already available via scipy/numpy)
+# These are already in core dependencies:
+# - scipy (distribution tests, correlation analysis)
+# - numpy (numerical operations)
+# - pandas (data manipulation)
+# Optional additions for advanced validation:
+validation = [
+    "statsmodels>=0.14.0",  # Time series tests, regression
+    "arch>=7.0.0",          # GARCH models (optional, for regime validation)
+]
 ```
 
 ---
@@ -280,6 +397,12 @@ llm = [
 - Unit tests for workbook generation
 - Snapshot tests for JSON structure
 - CI job to regenerate QC docs on release
+
+### Phase 1.5 Testing
+- Unit tests for each sanity check rule
+- Property-based tests for statistical validation (hypothesis)
+- Known-anomaly detection tests (inject known issues, verify detection)
+- Performance benchmarks (validation should be fast)
 
 ### Phase 2 Testing
 - Mock LLM responses for deterministic tests
