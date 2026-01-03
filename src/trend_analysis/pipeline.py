@@ -73,11 +73,17 @@ from .stages.portfolio import (
 )
 from .stages.preprocessing import (
     _build_sample_windows as _build_sample_windows_impl,
+)
+from .stages.preprocessing import (
     _frequency_label,
-    _prepare_input_data as _prepare_input_data_impl,
-    _prepare_preprocess_stage as _prepare_preprocess_stage_impl,
     _preprocessing_summary,
     _WindowStage,
+)
+from .stages.preprocessing import (
+    _prepare_input_data as _prepare_input_data_impl,
+)
+from .stages.preprocessing import (
+    _prepare_preprocess_stage as _prepare_preprocess_stage_impl,
 )
 from .stages.selection import (
     _resolve_risk_free_column,
@@ -87,7 +93,7 @@ from .stages.selection import (
     _select_universe as _select_universe_impl,
 )
 from .time_utils import align_calendar
-from .util.frequency import detect_frequency, FrequencySummary
+from .util.frequency import FrequencySummary, detect_frequency
 from .util.missing import MissingPolicyResult, apply_missing_policy
 from .weights.robust_config import weight_engine_params_from_robustness
 
