@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+import numpy as np
 import pandas as pd
 
 from trend_analysis.constants import NUMERICAL_TOLERANCE_HIGH
@@ -23,23 +24,45 @@ class ConstraintSet:
     cash_weight: float | None = None  # Fixed allocation to CASH (exact slice)
 
 
+def _safe_sum(values: pd.Series | pd.Index | np.ndarray) -> float:
+    """Sum values without relying on pandas/numpy default sentinels."""
+
+    data = values.to_numpy() if hasattr(values, "to_numpy") else np.asarray(values)
+    return float(np.sum(data, dtype=float, initial=0.0))
+
+
+def _clip_series(
+    w: pd.Series, *, lower: float | None = None, upper: float | None = None
+) -> pd.Series:
+    """Clip series values using NumPy to avoid pandas mask reductions."""
+
+    values = w.to_numpy(dtype=float)
+    if lower is not None:
+        values = np.maximum(values, lower)
+    if upper is not None:
+        values = np.minimum(values, upper)
+    return pd.Series(values, index=w.index)
+
+
 def _redistribute(w: pd.Series, mask: pd.Series, amount: float) -> pd.Series:
     """Redistribute ``amount`` to weights where ``mask`` is True
     proportionally."""
 
     if amount <= 0:
         return w
-    eligible = w[mask]
-    if eligible.empty:
+    mask_arr = mask.to_numpy() if hasattr(mask, "to_numpy") else np.asarray(mask)
+    values = w.to_numpy(dtype=float)
+    eligible_values = values[mask_arr]
+    if eligible_values.size == 0:
         raise ConstraintViolation("No capacity to redistribute excess weight")
-    total = float(eligible.sum())
+    total = _safe_sum(eligible_values)
     if total <= NUMERICAL_TOLERANCE_HIGH:
         # If eligible bucket currently has (near) zero mass, distribute uniformly
-        share = amount / len(eligible)
-        w.loc[eligible.index] += share
+        share = amount / len(eligible_values)
+        values[mask_arr] += share
     else:
-        w.loc[eligible.index] += amount * (eligible / total)
-    return w
+        values[mask_arr] += amount * (eligible_values / total)
+    return pd.Series(values, index=w.index)
 
 
 def _apply_cap(w: pd.Series, cap: float, total: float | None = None) -> pd.Series:
@@ -49,7 +72,7 @@ def _apply_cap(w: pd.Series, cap: float, total: float | None = None) -> pd.Serie
         return w
     if cap <= 0:
         raise ConstraintViolation("max_weight must be positive")
-    total_allocation = float(total if total is not None else w.sum())
+    total_allocation = float(total if total is not None else _safe_sum(w))
     if total_allocation <= NUMERICAL_TOLERANCE_HIGH:
         # Early return: If total allocation is (near) zero, there's nothing to cap or redistribute.
         return w
@@ -59,10 +82,12 @@ def _apply_cap(w: pd.Series, cap: float, total: float | None = None) -> pd.Serie
 
     w = w.copy()
     while True:
-        excess = (w - cap).clip(lower=0)
-        if excess.sum() <= NUMERICAL_TOLERANCE_HIGH:
+        values = w.to_numpy(dtype=float)
+        excess_values = np.maximum(values - cap, 0.0)
+        excess_amount = _safe_sum(excess_values)
+        if excess_amount <= NUMERICAL_TOLERANCE_HIGH:
             break
-        w = w.clip(upper=cap)
+        w = pd.Series(np.minimum(values, cap), index=w.index)
         room_mask = w < cap - NUMERICAL_TOLERANCE_HIGH
         # Ensure boolean mask is a Series aligned to w for type safety
         room_mask = (
@@ -70,7 +95,7 @@ def _apply_cap(w: pd.Series, cap: float, total: float | None = None) -> pd.Serie
             if not isinstance(room_mask, pd.Series)
             else room_mask
         )
-        w = _redistribute(w, room_mask, excess.sum())
+        w = _redistribute(w, room_mask, excess_amount)
     return w
 
 
@@ -83,31 +108,74 @@ def _apply_group_caps(
     """Enforce group caps, redistributing excess weight."""
 
     w = w.copy()
-    group_series = pd.Series(groups)
-    if not set(w.index).issubset(group_series.index):
-        missing = set(w.index) - set(group_series.index)
+    if not set(w.index).issubset(groups.keys()):
+        missing = set(w.index) - set(groups.keys())
         raise KeyError(f"Missing group mapping for: {sorted(missing)}")
 
-    all_groups = set(group_series.loc[w.index].values)
-    total_allocation = float(total if total is not None else w.sum())
+    group_list = [groups[asset] for asset in w.index]
+    all_groups = set(group_list)
+    total_allocation = float(total if total is not None else _safe_sum(w))
     if all_groups.issubset(group_caps.keys()):
         total_cap = sum(group_caps[g] for g in all_groups)
         if total_cap < total_allocation - NUMERICAL_TOLERANCE_HIGH:
             raise ConstraintViolation("Group caps sum to less than required allocation")
 
+    values = w.to_numpy(dtype=float)
     for group, cap in group_caps.items():
-        members = group_series[group_series == group].index
-        if members.empty:
+        members_mask = np.array([grp == group for grp in group_list], dtype=bool)
+        if not members_mask.any():
             continue
-        grp_weight = w.loc[members].sum()
+        grp_weight = _safe_sum(values[members_mask])
         if grp_weight <= cap + NUMERICAL_TOLERANCE_HIGH:
             continue
         excess = grp_weight - cap
         scale = cap / grp_weight
-        w.loc[members] *= scale
-        others_mask_arr = ~w.index.isin(members)
-        others_mask = pd.Series(others_mask_arr, index=w.index)
+        values[members_mask] *= scale
+        w = pd.Series(values, index=w.index)
+        others_mask = pd.Series(~members_mask, index=w.index)
         w = _redistribute(w, others_mask, excess)
+        values = w.to_numpy(dtype=float)
+    return w
+
+
+def _apply_cash_weight(
+    w: pd.Series, cash_weight: float, max_weight: float | None
+) -> pd.Series:
+    """Scale non-cash weights to accommodate a fixed CASH slice."""
+
+    if not (0 < cash_weight < 1):
+        raise ConstraintViolation("cash_weight must be in (0,1) exclusive")
+
+    w = w.copy()
+    if "CASH" not in w.index:
+        # Create a CASH row with zero pre-allocation so scaling logic is uniform
+        w.loc["CASH"] = 0.0
+
+    index = w.index
+    non_cash_mask = index != "CASH"
+    values = w.to_numpy(dtype=float)
+    non_cash_values = values[non_cash_mask]
+    if non_cash_values.size == 0:
+        raise ConstraintViolation("No assets available for non-CASH allocation")
+
+    if max_weight is not None:
+        eq_after = (1 - cash_weight) / len(non_cash_values)
+        if eq_after - NUMERICAL_TOLERANCE_HIGH > max_weight:
+            raise ConstraintViolation(
+                "cash_weight infeasible: remaining allocation forces per-asset weight above max_weight"
+            )
+
+    scale = (1 - cash_weight) / _safe_sum(non_cash_values)
+    values[non_cash_mask] = non_cash_values * scale
+    values[index == "CASH"] = cash_weight
+    w = pd.Series(values, index=index)
+
+    if (
+        max_weight is not None
+        and w.loc["CASH"] > max_weight + NUMERICAL_TOLERANCE_HIGH
+    ):
+        raise ConstraintViolation("cash_weight exceeds max_weight constraint")
+
     return w
 
 
@@ -115,7 +183,9 @@ def apply_constraints(
     weights: pd.Series, constraints: ConstraintSet | Mapping[str, Any]
 ) -> pd.Series:
     """Project ``weights`` onto the feasible region defined by
-    ``constraints``."""
+    ``constraints``. When ``cash_weight`` is provided, a CASH carve-out is
+    applied before caps/group redistribution and revalidated afterward to
+    guard against constraint objects that mutate between passes."""
 
     if isinstance(constraints, Mapping) and not isinstance(constraints, ConstraintSet):
         constraints = ConstraintSet(**constraints)
@@ -125,38 +195,29 @@ def apply_constraints(
         return w
 
     if constraints.long_only:
-        w = w.clip(lower=0)
-        if w.sum() == 0:
+        w = _clip_series(w, lower=0)
+        total_weight = _safe_sum(w)
+        if total_weight == 0:
             raise ConstraintViolation(
                 "All weights non-positive under long-only constraint"
             )
-    w /= w.sum()
+    else:
+        total_weight = _safe_sum(w)
 
-    total_allocation = float(w.sum())
+    w /= total_weight
+
+    total_allocation = _safe_sum(w)
     working = w
     cash_weight = None
+    original_order = list(w.index)
 
     # cash_weight processing (fixed slice). We treat a dedicated 'CASH' label.
     if constraints.cash_weight is not None:
         cash_weight = float(constraints.cash_weight)
-        if not (0 < cash_weight < 1):
-            raise ConstraintViolation("cash_weight must be in (0,1) exclusive")
-        if "CASH" not in w.index:
-            # Create a CASH row with zero pre-allocation so scaling logic is uniform
-            w.loc["CASH"] = 0.0
-        non_cash_index = w.index[w.index != "CASH"]
-        working = w.loc[non_cash_index].copy()
-        if working.empty:
-            raise ConstraintViolation("No assets available for non-CASH allocation")
+        w = _apply_cash_weight(w, cash_weight, constraints.max_weight)
         total_allocation = 1.0 - cash_weight
-        working /= working.sum()
-        working *= total_allocation
-        if constraints.max_weight is not None and len(working) > 0:
-            eq_after = total_allocation / len(working)
-            if eq_after - NUMERICAL_TOLERANCE_HIGH > constraints.max_weight:
-                raise ConstraintViolation(
-                    "cash_weight infeasible: remaining allocation forces per-asset weight above max_weight"
-                )
+        working = w.loc[w.index != "CASH"].copy()
+        original_order = list(w.index)
     else:
         working = w.copy()
 
@@ -186,97 +247,17 @@ def apply_constraints(
     if cash_weight is not None:
         result = working.copy()
         result.loc["CASH"] = cash_weight
-        original_order = list(w.index)
         w = result.reindex(original_order)
-        if (
-            constraints.max_weight is not None
-            and w.loc["CASH"] > constraints.max_weight + NUMERICAL_TOLERANCE_HIGH
-        ):
-            raise ConstraintViolation("cash_weight exceeds max_weight constraint")
     else:
         w = working
 
     # cash_weight processing (fixed slice). We treat a dedicated 'CASH' label.
     if constraints.cash_weight is not None:
-        cw = float(constraints.cash_weight)
-        if not (0 < cw < 1):
-            raise ConstraintViolation("cash_weight must be in (0,1) exclusive")
-        has_cash = "CASH" in w.index
-        if not has_cash:  # pragma: no branch - CASH was injected above when missing
-            # Create a CASH row with zero pre-allocation so scaling logic is uniform
-            w.loc["CASH"] = 0.0
-        # Exclude CASH from scaling
-        non_cash_mask = w.index != "CASH"
-        non_cash = w[non_cash_mask]
-        if non_cash.empty:
-            raise ConstraintViolation("No assets available for non-CASH allocation")
-        # Feasibility with max_weight: if max_weight is set ensure each non-cash asset
-        # could in principle satisfy cap after scaling
-        if constraints.max_weight is not None:
-            cap = constraints.max_weight
-            # Minimal achievable equal weight after carving cash
-            eq_after = (1 - cw) / len(non_cash)
-            if eq_after - NUMERICAL_TOLERANCE_HIGH > cap:
-                raise ConstraintViolation(
-                    "cash_weight infeasible: remaining allocation forces per-asset weight above max_weight"
-                )
-        # Scale non-cash block to (1 - cw)
-        scale = (1 - cw) / non_cash.sum()
-        non_cash = non_cash * scale
-        w.update(non_cash)
-        w.loc["CASH"] = cw
-
-        # If max_weight applies to CASH as well enforce; else skip. We enforce for consistency.
-        if (
-            constraints.max_weight is not None
-            and w.loc["CASH"] > constraints.max_weight + NUMERICAL_TOLERANCE_HIGH
-        ):
-            raise ConstraintViolation("cash_weight exceeds max_weight constraint")
-
-    # cash_weight processing (fixed slice). We treat a dedicated 'CASH' label.
-    # NOTE: The block below duplicates the earlier cash handling logic for legacy
-    # payloads that mutated the constraint object between validation passes.  The
-    # modern ``ConstraintSet`` implementation keeps values stable, so the duplicate
-    # code path is effectively unreachable during normal execution.  We retain it
-    # to mirror the historic behaviour but exclude it from coverage accounting.
-    if constraints.cash_weight is not None:  # pragma: no cover - defensive duplicate
-        cw = float(constraints.cash_weight)
-        if not (0 < cw < 1):
-            raise ConstraintViolation("cash_weight must be in (0,1) exclusive")
-        has_cash = "CASH" in w.index
-        if not has_cash:
-            # Create a CASH row with zero pre-allocation so scaling logic is uniform
-            w.loc["CASH"] = 0.0
-        # Exclude CASH from scaling
-        non_cash_mask = w.index != "CASH"
-        non_cash = w[non_cash_mask]
-        if non_cash.empty:
-            raise ConstraintViolation("No assets available for non-CASH allocation")
-        # Feasibility with max_weight: if max_weight is set ensure each non-cash asset
-        # could in principle satisfy cap after scaling
-        if constraints.max_weight is not None:
-            cap = constraints.max_weight
-            # Minimal achievable equal weight after carving cash
-            eq_after = (1 - cw) / len(non_cash)
-            if cap is not None and eq_after - NUMERICAL_TOLERANCE_HIGH > cap:
-                raise ConstraintViolation(
-                    "cash_weight infeasible: remaining allocation forces per-asset weight above max_weight"
-                )
-        # Scale non-cash block to (1 - cw)
-        scale = (1 - cw) / non_cash.sum()
-        non_cash = non_cash * scale
-        w.update(non_cash)
-        w.loc["CASH"] = cw
-
-        # If max_weight applies to CASH as well enforce; else skip. We enforce for consistency.
-        if (
-            constraints.max_weight is not None
-            and w.loc["CASH"] > constraints.max_weight + NUMERICAL_TOLERANCE_HIGH
-        ):
-            raise ConstraintViolation("cash_weight exceeds max_weight constraint")
+        cash_weight = float(constraints.cash_weight)
+        w = _apply_cash_weight(w, cash_weight, constraints.max_weight)
 
     # Final normalisation guard
-    w /= w.sum()
+    w /= _safe_sum(w)
     return w
 
 

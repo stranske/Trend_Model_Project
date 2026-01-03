@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import textwrap
 from collections import deque
-from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -11,27 +9,12 @@ import trend_analysis.engine.optimizer as optimizer_mod
 from trend_analysis.engine.optimizer import (
     ConstraintSet,
     ConstraintViolation,
+    _apply_cash_weight,
     _apply_cap,
     _apply_group_caps,
+    _safe_sum,
     apply_constraints,
 )
-
-
-def _exec_guard_snippet(
-    code: str, *, lineno: int, context: dict[str, object]
-) -> None:  # pragma: no cover - test helper
-    """Execute a defensive guard snippet at ``lineno`` within optimizer module.
-
-    The helper compiles the provided ``code`` so that coverage attributes the
-    executed statements to the real ``optimizer.py`` source file.  ``lineno``
-    corresponds to the first source line to associate with the snippet.
-    """
-
-    optimizer_path = Path(optimizer_mod.__file__).resolve()
-    prefix = "\n" * max(lineno - 1, 0)
-    cleaned = textwrap.dedent(code).lstrip()
-    compiled = compile(prefix + cleaned, str(optimizer_path), "exec")
-    exec(compiled, context, context)
 
 
 def test_apply_cap_returns_early_when_total_is_zero() -> None:
@@ -79,7 +62,7 @@ def test_apply_constraints_rescales_weights_with_cash_and_cap() -> None:
     result = apply_constraints(weights, constraints)
 
     # All weights should sum to 1 and the CASH slice should equal the requested carve-out.
-    assert pytest.approx(result.sum(), rel=1e-9) == 1.0
+    assert pytest.approx(_safe_sum(result), rel=1e-9) == 1.0
     assert pytest.approx(result.loc["CASH"], rel=1e-9) == 0.25
 
     # The residual capital should respect the max_weight constraint and maintain order.
@@ -115,7 +98,7 @@ def test_apply_constraints_reapplies_cap_after_group_redistribution() -> None:
 
     result = apply_constraints(weights, constraints)
 
-    assert pytest.approx(float(result.sum()), rel=1e-9) == 1.0
+    assert pytest.approx(_safe_sum(result), rel=1e-9) == 1.0
     assert (result <= 0.35 + 1e-9).all()
 
 
@@ -146,7 +129,7 @@ def test_apply_constraints_group_caps_and_cash_respect_max_weight() -> None:
     result = apply_constraints(weights, constraints)
 
     assert pytest.approx(result.loc["CASH"], rel=1e-9) == 0.2
-    assert pytest.approx(result.sum(), rel=1e-9) == 1.0
+    assert pytest.approx(_safe_sum(result), rel=1e-9) == 1.0
     assert (result.drop("CASH") <= 0.35 + 1e-9).all()
 
 
@@ -211,8 +194,111 @@ def test_apply_constraints_enforces_cap_after_group_caps_with_cash(
 
     assert cap_calls["count"] >= 2
     assert pytest.approx(result.loc["CASH"], rel=1e-9) == 0.2
-    assert pytest.approx(result.sum(), rel=1e-9) == 1.0
+    assert pytest.approx(_safe_sum(result), rel=1e-9) == 1.0
     assert (result.drop("CASH") <= 0.4 + 1e-9).all()
+
+
+def test_apply_cash_weight_scales_non_cash_and_adds_cash() -> None:
+    """Helper should scale the non-cash slice to ``1 - cash_weight``."""
+
+    weights = pd.Series({"Asset1": 2.0, "Asset2": 1.0})
+    expected_asset1 = 0.8 * 2 / 3
+    expected_asset2 = 0.8 * 1 / 3
+
+    adjusted = _apply_cash_weight(weights, cash_weight=0.2, max_weight=0.9)
+
+    assert pytest.approx(adjusted.loc["CASH"], rel=1e-9) == 0.2
+    assert pytest.approx(_safe_sum(adjusted), rel=1e-9) == 1.0
+    assert pytest.approx(adjusted.loc["Asset1"], rel=1e-9) == expected_asset1
+    assert pytest.approx(adjusted.loc["Asset2"], rel=1e-9) == expected_asset2
+
+
+def test_apply_cash_weight_requires_non_cash_assets() -> None:
+    """Helper should reject cash-only allocations."""
+
+    weights = pd.Series({"CASH": 1.0})
+
+    with pytest.raises(
+        ConstraintViolation, match="No assets available for non-CASH allocation"
+    ):
+        _apply_cash_weight(weights, cash_weight=0.2, max_weight=None)
+
+
+def test_apply_cash_weight_rejects_invalid_cash_weight() -> None:
+    """Helper should guard against invalid cash ranges."""
+
+    weights = pd.Series({"A": 1.0})
+
+    with pytest.raises(
+        ConstraintViolation, match=r"cash_weight must be in \(0,1\) exclusive"
+    ):
+        _apply_cash_weight(weights, cash_weight=1.0, max_weight=None)
+
+
+def test_apply_cash_weight_infeasible_due_to_max_weight() -> None:
+    """Helper should reject infeasible max-weight/cash combinations."""
+
+    weights = pd.Series({"A": 1.0, "B": 1.0})
+
+    with pytest.raises(
+        ConstraintViolation,
+        match="cash_weight infeasible: remaining allocation forces per-asset weight above max_weight",
+    ):
+        _apply_cash_weight(weights, cash_weight=0.5, max_weight=0.2)
+
+
+def test_apply_cash_weight_rejects_cash_above_cap() -> None:
+    """Helper should reject cash that breaches the max-weight cap."""
+
+    weights = pd.Series({"A": 1.0, "B": 1.0})
+
+    with pytest.raises(
+        ConstraintViolation, match="cash_weight exceeds max_weight constraint"
+    ):
+        _apply_cash_weight(weights, cash_weight=0.6, max_weight=0.5)
+
+
+def test_apply_cash_weight_allows_none_max_weight() -> None:
+    """Helper should allow valid cash weights when no cap is provided."""
+
+    weights = pd.Series({"A": 1.0, "B": 1.0})
+
+    adjusted = _apply_cash_weight(weights, cash_weight=0.2, max_weight=None)
+
+    assert pytest.approx(_safe_sum(adjusted), rel=1e-9) == 1.0
+    assert pytest.approx(adjusted.loc["CASH"], rel=1e-9) == 0.2
+
+
+def test_apply_constraints_cash_weight_two_passes_match(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Both cash passes should be idempotent for stable constraints."""
+
+    weights = pd.Series({"A": 0.7, "B": 0.3})
+    constraints = ConstraintSet(cash_weight=0.2, max_weight=0.6)
+
+    helper_calls: list[pd.Series] = []
+    original_helper = optimizer_mod._apply_cash_weight
+
+    def tracking_helper(
+        series: pd.Series, cash_weight: float, max_weight: float | None
+    ) -> pd.Series:
+        result = original_helper(series, cash_weight, max_weight)
+        helper_calls.append(result.copy())
+        return result
+
+    monkeypatch.setattr(optimizer_mod, "_apply_cash_weight", tracking_helper)
+
+    try:
+        out = apply_constraints(weights, constraints)
+    finally:
+        monkeypatch.setattr(
+            optimizer_mod, "_apply_cash_weight", original_helper, raising=False
+        )
+
+    assert len(helper_calls) == 2
+    pd.testing.assert_series_equal(helper_calls[0], helper_calls[1])
+    pd.testing.assert_series_equal(out, helper_calls[-1])
 
 
 class _DynamicConstraintSet:
@@ -275,100 +361,3 @@ def test_cash_weight_revalidation_checks_cash_cap() -> None:
         apply_constraints(weights, constraints)  # type: ignore[arg-type]
 
     assert constraints.history == [0.2, 0.6]
-
-
-def test_apply_constraints_defensive_guards_execute() -> None:
-    """Exercise defensive guard branches that are difficult to trigger
-    naturally."""
-
-    guard_snippets: list[tuple[int, str, dict[str, object], bool]] = [
-        (
-            202,
-            'if not (0 < cw < 1):\n    raise ConstraintViolation("cash_weight must be in (0,1) exclusive")',
-            {"cw": 1.5, "ConstraintViolation": ConstraintViolation},
-            True,
-        ),
-        (
-            204,
-            'pass\nif not has_cash:\n    pass\n    w.loc["CASH"] = 0.0',
-            {"has_cash": False, "w": pd.Series(dtype=float)},
-            False,
-        ),
-        (
-            211,
-            'if non_cash.empty:\n    raise ConstraintViolation("No assets available for non-CASH allocation")',
-            {
-                "non_cash": pd.Series(dtype=float),
-                "ConstraintViolation": ConstraintViolation,
-            },
-            True,
-        ),
-        (
-            219,
-            'if eq_after - NUMERICAL_TOLERANCE_HIGH > cap:\n    raise ConstraintViolation("cash_weight infeasible: remaining allocation forces per-asset weight above max_weight")',
-            {
-                "eq_after": 0.5,
-                "cap": 0.3,
-                "NUMERICAL_TOLERANCE_HIGH": optimizer_mod.NUMERICAL_TOLERANCE_HIGH,
-                "ConstraintViolation": ConstraintViolation,
-            },
-            True,
-        ),
-        (
-            234,
-            'raise ConstraintViolation("cash_weight exceeds max_weight constraint")',
-            {"ConstraintViolation": ConstraintViolation},
-            True,
-        ),
-    ]
-
-    duplicate_guard_specs: list[tuple[int, str, dict[str, object], bool]] = [
-        (
-            239,
-            'if not (0 < cw < 1):\n    raise ConstraintViolation("cash_weight must be in (0,1) exclusive")',
-            {"cw": 1.5, "ConstraintViolation": ConstraintViolation},
-            True,
-        ),
-        (
-            242,
-            'if not has_cash:\n    pass\n    w.loc["CASH"] = 0.0',
-            {"has_cash": False, "w": pd.Series(dtype=float)},
-            False,
-        ),
-        (
-            248,
-            'if non_cash.empty:\n    raise ConstraintViolation("No assets available for non-CASH allocation")',
-            {
-                "non_cash": pd.Series(dtype=float),
-                "ConstraintViolation": ConstraintViolation,
-            },
-            True,
-        ),
-        (
-            255,
-            'if eq_after - NUMERICAL_TOLERANCE_HIGH > cap:\n    raise ConstraintViolation("cash_weight infeasible: remaining allocation forces per-asset weight above max_weight")',
-            {
-                "eq_after": 0.6,
-                "cap": 0.2,
-                "NUMERICAL_TOLERANCE_HIGH": optimizer_mod.NUMERICAL_TOLERANCE_HIGH,
-                "ConstraintViolation": ConstraintViolation,
-            },
-            True,
-        ),
-        (
-            271,
-            'raise ConstraintViolation("cash_weight exceeds max_weight constraint")',
-            {"ConstraintViolation": ConstraintViolation},
-            True,
-        ),
-    ]
-
-    for lineno, snippet, context, expect_exception in [
-        *guard_snippets,
-        *duplicate_guard_specs,
-    ]:
-        if expect_exception:
-            with pytest.raises(ConstraintViolation):
-                _exec_guard_snippet(snippet, lineno=lineno, context=context)
-        else:
-            _exec_guard_snippet(snippet, lineno=lineno, context=context)
