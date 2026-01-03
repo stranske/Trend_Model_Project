@@ -631,6 +631,10 @@ def test_openpyxl_worksheet_adapter_exposes_native(monkeypatch):
 
 
 def test_export_to_excel_removes_default_and_renames(monkeypatch, tmp_path):
+    # Clear any formatters registered by other tests to ensure this test
+    # exercises the simple DataFrame-to-Excel path rather than a sheet formatter.
+    export.reset_formatters_excel()
+
     utils_mod = SimpleNamespace(get_column_letter=lambda idx: chr(ord("A") + idx - 1))
     monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
     monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
