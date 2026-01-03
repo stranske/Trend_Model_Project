@@ -204,6 +204,8 @@ class Results:
         else:
             exposures = pd.Series(dtype=float)
             turnover = pd.Series(dtype=float)
+        if turnover.empty:
+            turnover = _coerce_series(payload.get("turnover"))
 
         costs = metadata.get("costs")
         if not isinstance(costs, Mapping):

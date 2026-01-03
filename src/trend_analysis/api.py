@@ -217,6 +217,8 @@ def _run_multi_period_simulation(
     details["period_count"] = len(period_results)
     if portfolio_series is not None:
         details["portfolio_equal_weight_combined"] = portfolio_series
+    if turnover_series is not None:
+        details["turnover"] = turnover_series
 
     # Build structured Results object if possible
     structured: Results | None = None
