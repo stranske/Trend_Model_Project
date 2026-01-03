@@ -3638,16 +3638,30 @@ def run(
         # Convention: report one-sided turnover (sum of buys or sells). For
         # fully-invested portfolios this is 0.5 * sum(|Δw|). The first rebalance
         # (from cash) is purely buys, so no halving is applied.
+        risk_turnover = None
+        risk_diag_payload = res_dict.get("risk_diagnostics")
+        if isinstance(risk_diag_payload, dict):
+            turnover_payload = risk_diag_payload.get("turnover")
+            if isinstance(turnover_payload, pd.Series) and not turnover_payload.empty:
+                risk_turnover = float(turnover_payload.iloc[-1])
+            elif isinstance(turnover_payload, (int, float)):
+                risk_turnover = float(turnover_payload)
         if prev_final_weights is None:
             last_effective = pd.Series(0.0, index=effective_w.index)
-            abs_diff = float((effective_w - last_effective).abs().sum())
-            period_turnover = abs_diff
+            if risk_turnover is not None and np.isfinite(risk_turnover):
+                period_turnover = risk_turnover
+            else:
+                abs_diff = float((effective_w - last_effective).abs().sum())
+                period_turnover = abs_diff
         else:
             union_ix = prev_final_weights.index.union(effective_w.index)
             last_effective = prev_final_weights.reindex(union_ix, fill_value=0.0)
             effective_w = effective_w.reindex(union_ix, fill_value=0.0)
-            abs_diff = float((effective_w - last_effective).abs().sum())
-            period_turnover = 0.5 * abs_diff
+            if risk_turnover is not None and np.isfinite(risk_turnover):
+                period_turnover = 0.5 * risk_turnover
+            else:
+                abs_diff = float((effective_w - last_effective).abs().sum())
+                period_turnover = 0.5 * abs_diff
 
         period_cost = period_turnover * ((tc_bps + slippage_bps) / 10000.0)
 
