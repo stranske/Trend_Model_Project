@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trend_analysis import config, pipeline
+from trend_analysis import config, pipeline, risk
 from trend_analysis.config import Config
 from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
 from trend_analysis.diagnostics import PipelineReasonCode
@@ -153,6 +153,24 @@ def test_run_returns_empty_when_no_funds(tmp_path, monkeypatch):
     diagnostic = result.attrs.get("diagnostic")
     assert diagnostic is not None
     assert diagnostic.reason_code == PipelineReasonCode.SAMPLE_WINDOW_EMPTY.value
+
+
+def test_run_propagates_max_turnover_to_risk(tmp_path, monkeypatch):
+    df = make_df()
+    cfg = make_cfg(tmp_path, df)
+    cfg.portfolio["max_turnover"] = 0.33
+    captured = {}
+
+    def _stub_enforce(target, prev, max_turnover):
+        captured["max_turnover"] = max_turnover
+        turnover = float(target.abs().sum())
+        return target, turnover
+
+    monkeypatch.setattr(risk, "_enforce_turnover_cap", _stub_enforce)
+
+    result = pipeline.run(cfg)
+    assert not result.empty
+    assert captured["max_turnover"] == pytest.approx(0.33)
 
 
 def test_run_file_missing(tmp_path, monkeypatch):
