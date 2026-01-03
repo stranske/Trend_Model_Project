@@ -18,7 +18,7 @@ The `max_weight` constraint in `compute_constrained_weights()` is applied AFTER 
 #### Acceptance criteria
 - [ ] `max_weight=0.35` with `vol_adjust_enabled=True` produces weights capped at 35%
 - [ ] No `ConstraintViolation` exceptions when both settings are enabled
-- [ ] Settings effectiveness test for max_weight passes without disabling vol_adjust
+- [x] Settings effectiveness test for max_weight passes without disabling vol_adjust
 - [x] Unit tests verify constraint + scaling interaction
 
 <!-- auto-status-summary:end -->
