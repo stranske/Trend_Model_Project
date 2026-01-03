@@ -1,34 +1,36 @@
 <!-- pr-preamble:start -->
-> **Source:** Issue #4142
+> **Source:** Issue #4143
 
 <!-- pr-preamble:end -->
 
 <!-- auto-status-summary:start -->
 ## Automated Status Summary
 #### Scope
-Rebalancing strategies can produce weights that don't sum to 1.0, leaving "missing mass" as implicit cash without explicit modeling. This silently makes the assumption that cash earns 0% return and has 0 financing cost—a modeling choice that can significantly bias results in any period where the risk-free rate isn't near zero.
+There are two nearly identical config bridge implementations:
+- `streamlit_app/config_bridge.py` - Streamlit-specific bridge
+- `src/trend_analysis/config/bridge.py` - Core library bridge
 
-The issue spans multiple strategy implementations:
-- **TurnoverCapStrategy**: After partial trade execution, clips negatives but doesn't normalize or add explicit cash
-- **DriftBandStrategy** (partial mode): Overwrites some names with target weights, changing total weight
-- **VolTargetRebalanceStrategy**: Scales weights by leverage without financing/carry modeling
-- **DrawdownGuardStrategy**: Scales weights down leaving implicit cash without defining what cash earns
+Both provide `build_config_payload()` and `validate_payload()` functions with similar but subtly different implementations. This duplication creates the classic "UI says it ran X; CLI ran Y" problem when the bridges drift apart.
+
+Key differences that can cause divergent behavior:
+1. `streamlit_app/config_bridge.py` includes `"version": "1"` in payload; core bridge doesn't
+2. Core bridge builds `data` dict conditionally (only includes non-None fields); Streamlit always includes all fields
+3. Core bridge includes additional `cost_model` fields (`per_trade_bps`, `half_spread_bps`)
 
 #### Tasks
-- [ ] Define a `CashPolicy` dataclass with fields: `explicit_cash: bool`, `cash_return_source: str` (config key or literal), `normalize_weights: bool`
-- [ ] Add optional `cash_policy` parameter to `Rebalancer.apply()` signature with backward-compatible default
-- [ ] Update `TurnoverCapStrategy._apply_turnover_cap()` to optionally add explicit CASH line for unexecuted weight mass
-- [ ] Update `DriftBandStrategy.apply()` to track weight sum delta and either normalize or add CASH
-- [ ] Update `VolTargetRebalanceStrategy.apply()` to return `(weights * lev, cost)` with optional financing spread
-- [ ] Update `DrawdownGuardStrategy.apply()` to add CASH line when scaling down instead of leaving mass implicit
-- [ ] Add integration test verifying all strategies return weights summing to 1.0 (or 1.0 + CASH)
-- [ ] Document cash modeling behavior in strategy docstrings
+- [ ] Audit differences between the two `build_config_payload()` implementations and create unified version
+- [ ] Audit differences between the two `validate_payload()` implementations and create unified version
+- [ ] Update `src/trend_analysis/config/bridge.py` to be the canonical implementation
+- [ ] Update `streamlit_app/config_bridge.py` to import from `trend_analysis.config.bridge`
+- [ ] Add deprecation warning in `streamlit_app/config_bridge.py` for direct usage
+- [ ] Add unit test that imports from both locations and asserts they return identical types
+- [ ] Remove duplicated code from `streamlit_app/config_bridge.py` (keep only re-exports)
 
 #### Acceptance criteria
-- [ ] All rebalancing strategies return weights summing to exactly 1.0 when `normalize_weights=True`
-- [ ] When `explicit_cash=True`, unallocated mass appears as a CASH line in returned weights
-- [ ] Existing tests pass without modification (backward compatibility maintained)
-- [ ] New unit tests cover all cash policy combinations for each strategy
-- [ ] Strategy docstrings document cash behavior and assumptions
+- [ ] Only one implementation of `build_config_payload()` and `validate_payload()` exists
+- [ ] `streamlit_app.config_bridge` re-exports from `trend_analysis.config.bridge`
+- [ ] All Streamlit tests pass with the consolidated bridge
+- [ ] CLI and Streamlit produce identical config payloads for the same inputs
+- [ ] Type signatures are consistent across both import paths
 
 <!-- auto-status-summary:end -->
