@@ -69,6 +69,30 @@ def test_pipeline_applies_cash_and_max_weight_constraints():
     assert "CASH" not in weights
 
 
+def test_pipeline_max_weight_with_vol_adjust_enabled():
+    df = make_dummy_returns()
+    res = _run_analysis(
+        df,
+        in_start="2022-01",
+        in_end="2022-12",
+        out_start="2023-01",
+        out_end="2023-12",
+        target_vol=0.10,
+        monthly_cost=0.0,
+        selection_mode="all",
+        stats_cfg=RiskStatsConfig(),
+        constraints={
+            "long_only": True,
+            "max_weight": 0.35,
+        },
+        **RUN_KWARGS,
+    )
+    assert res is not None
+    weights = res["fund_weights"]
+    assert isinstance(weights, dict)
+    assert all(weight <= 0.35 + 1e-9 for weight in weights.values())
+
+
 def test_pipeline_long_only_blocks_negative_custom_weights():
     df = make_dummy_returns()
     custom_weights = {"FundA": 70.0, "FundB": -20.0, "FundC": 50.0, "FundD": 0.0}

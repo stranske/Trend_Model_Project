@@ -1233,6 +1233,10 @@ def run_single_test(
         baseline_state["weighting_scheme"] = "risk_parity"
         test_state["weighting_scheme"] = "risk_parity"
 
+    if setting.name == "max_weight":
+        baseline_state["vol_adjust_enabled"] = True
+        test_state["vol_adjust_enabled"] = True
+
     # random_seed test needs random selection mode to demonstrate effect
     if setting.name == "random_seed":
         baseline_state["inclusion_approach"] = "random"

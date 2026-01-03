@@ -284,6 +284,7 @@ def compute_constrained_weights(
     if np.allclose(scale_factors.values, 1.0):
         constrained = constrained_base.copy()
     else:
+        scaled = _normalise(scaled)
         constrained = optimizer_mod.apply_constraints(scaled, constraint_payload)
 
     prev_series = (
