@@ -1233,6 +1233,23 @@ def run_single_test(
         baseline_state["weighting_scheme"] = "risk_parity"
         test_state["weighting_scheme"] = "risk_parity"
 
+    if setting.name == "max_weight":
+        baseline_state["vol_adjust_enabled"] = True
+        test_state["vol_adjust_enabled"] = True
+        baseline_state["weighting_scheme"] = "risk_parity"
+        test_state["weighting_scheme"] = "risk_parity"
+        baseline_state["inclusion_approach"] = "top_n"
+        test_state["inclusion_approach"] = "top_n"
+        try:
+            required_count = int(np.ceil(1.0 / float(test_state["max_weight"])))
+        except (TypeError, ValueError):
+            required_count = None
+        if required_count:
+            if baseline_state.get("selection_count", 0) < required_count:
+                baseline_state["selection_count"] = required_count
+            if test_state.get("selection_count", 0) < required_count:
+                test_state["selection_count"] = required_count
+
     # random_seed test needs random selection mode to demonstrate effect
     if setting.name == "random_seed":
         baseline_state["inclusion_approach"] = "random"

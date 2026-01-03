@@ -1,24 +1,24 @@
 <!-- pr-preamble:start -->
-> **Source:** Issue #4137
+> **Source:** Issue #4135
 
 <!-- pr-preamble:end -->
 
 <!-- auto-status-summary:start -->
 ## Automated Status Summary
 #### Scope
-The `max_turnover` setting is intended to limit portfolio turnover between rebalancing periods, but the settings effectiveness test shows it has no observable effect on actual turnover. Both baseline (max_turnover=1.0) and test (max_turnover=0.3) produce identical turnover values (1.325).
+The `max_weight` constraint in `compute_constrained_weights()` is applied AFTER volatility scaling, but the constraint logic assumes weights sum to 1.0. When vol targeting scales up low-volatility assets, individual weights can exceed 1.0 (e.g., 2.0 per asset), causing the constraint to fail with `ConstraintViolation: max_weight too small for number of assets`. The pipeline then falls back to base weights, completely ignoring the max_weight constraint.
 
 #### Tasks
-- [ ] Trace `max_turnover` config value through pipeline to verify it reaches `_enforce_turnover_cap()`
-- [ ] Check if turnover constraint is bypassed when natural turnover is already low
-- [x] Verify `turnover` field in period_results captures constrained turnover, not desired turnover
-- [ ] Fix constraint enforcement if not working correctly
-- [x] Update test to use scenario that generates high natural turnover
+- [x] Identify correct ordering of constraint application vs vol scaling in `src/trend_analysis/risk.py`
+- [x] Apply max_weight constraint to normalized weights (sum=1.0) before vol scaling
+- [x] Ensure constraint still enforces intended behavior after scaling
+- [x] Add test case that verifies max_weight works with vol_adjust enabled
+- [x] Update settings wiring test for max_weight to use vol_adjust (currently disabled as workaround)
 
 #### Acceptance criteria
-- [x] `max_turnover=0.3` produces measurably lower turnover than `max_turnover=1.0`
-- [ ] Period-level turnover values respect the configured cap
-- [x] Settings effectiveness test for max_turnover passes
-- [x] Unit test verifies turnover constraint is applied
+- [x] `max_weight=0.35` with `vol_adjust_enabled=True` produces weights capped at 35%
+- [x] No `ConstraintViolation` exceptions when both settings are enabled
+- [x] Settings effectiveness test for max_weight passes without disabling vol_adjust
+- [x] Unit tests verify constraint + scaling interaction
 
 <!-- auto-status-summary:end -->

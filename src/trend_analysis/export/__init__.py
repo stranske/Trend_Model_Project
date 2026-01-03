@@ -1459,7 +1459,7 @@ def combined_summary_result(
             weight_sum[c] += fund_map.get(c, 0.0)
         for c in out_df.columns:
             fund_out[c].append(out_df[c])
-    periods += 1
+        periods += 1
 
     rf_in = pd.Series(0.0, index=pd.concat(ew_in_series).index)
     rf_out = pd.Series(0.0, index=pd.concat(ew_out_series).index)

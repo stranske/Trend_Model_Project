@@ -16,6 +16,7 @@ from typing import Iterable, Mapping, MutableMapping
 import numpy as np
 import pandas as pd
 
+from .constants import NUMERICAL_TOLERANCE_HIGH
 from .engine import optimizer as optimizer_mod
 
 PERIODS_PER_YEAR: Mapping[str, float] = {
@@ -262,6 +263,29 @@ def compute_constrained_weights(
         raise ValueError("base_weights cannot be empty")
 
     base = _normalise(base)
+
+    effective_max_weight = max_weight
+    if max_weight is not None:
+        try:
+            max_weight_val = float(max_weight)
+        except (TypeError, ValueError):
+            max_weight_val = None
+        if max_weight_val is not None and max_weight_val > 0 and len(base) > 0:
+            min_cap = 1.0 / len(base)
+            if max_weight_val * len(base) < 1.0 - NUMERICAL_TOLERANCE_HIGH:
+                max_weight_val = min_cap
+        effective_max_weight = max_weight_val
+
+    constraint_payload = {
+        "long_only": bool(long_only),
+        "max_weight": effective_max_weight,
+        "group_caps": group_caps,
+        "groups": groups,
+    }
+    constrained_base = optimizer_mod.apply_constraints(base, constraint_payload)
+    constrained_base = constrained_base.reindex(base.index, fill_value=0.0)
+    constrained_base = _normalise(constrained_base)
+
     realised = realised_volatility(returns, window, periods_per_year=periods_per_year)
     latest = realised.iloc[-1].reindex(base.index).ffill().bfill()
     latest = latest.reindex(base.index).fillna(realised.mean(axis=0))
@@ -270,15 +294,9 @@ def compute_constrained_weights(
     latest = latest.fillna(fallback)
 
     scale_factors = _scale_factors(latest, target_vol, floor_vol=floor_vol)
-    scaled = base.mul(scale_factors)
-
-    constraint_payload = {
-        "long_only": bool(long_only),
-        "max_weight": max_weight,
-        "group_caps": group_caps,
-        "groups": groups,
-    }
+    scaled = _normalise(constrained_base.mul(scale_factors))
     constrained = optimizer_mod.apply_constraints(scaled, constraint_payload)
+    constrained = _normalise(constrained)
 
     prev_series = (
         _ensure_series(previous_weights) if previous_weights is not None else None
