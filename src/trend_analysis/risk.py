@@ -11,7 +11,7 @@ alongside diagnostics that power reporting layers.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, Mapping, MutableMapping
+from typing import Any, Iterable, Mapping, MutableMapping
 
 import numpy as np
 import pandas as pd
@@ -99,7 +99,7 @@ def realised_volatility(
                 f"computed alpha = 1 - ewma_lambda = {alpha:.4f} must be between 0 and 1"
             )
 
-        def _ewma_std(values: np.ndarray) -> float:
+        def _ewma_std(values: np.ndarray[Any, Any]) -> float:
             series = pd.Series(values, dtype=float)
             return float(series.ewm(alpha=alpha, adjust=False).std(bias=False).iloc[-1])
 

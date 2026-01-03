@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from ..cash_policy import CashPolicy
 from ..plugins import Rebalancer, create_rebalancer, rebalancer_registry
 
 # Backwards compatibility name
@@ -23,6 +24,27 @@ RebalancingStrategy = Rebalancer
 TURNOVER_EPSILON = 1e-10
 
 
+def _apply_cash_policy(weights: pd.Series, cash_policy: CashPolicy | None) -> pd.Series:
+    if cash_policy is None:
+        return weights
+
+    updated = weights.copy()
+    total = float(updated.sum()) if not updated.empty else 0.0
+
+    if cash_policy.explicit_cash:
+        if "CASH" in updated.index:
+            non_cash = updated.drop(labels=["CASH"])
+            updated.loc["CASH"] = 1.0 - float(non_cash.sum())
+        else:
+            updated.loc["CASH"] = 1.0 - total
+        total = float(updated.sum())
+
+    if cash_policy.normalize_weights and not np.isclose(total, 0.0):
+        updated = updated / total
+
+    return updated
+
+
 @rebalancer_registry.register("turnover_cap")
 class TurnoverCapStrategy(Rebalancer):
     """Turnover cap rebalancing strategy.
@@ -30,6 +52,9 @@ class TurnoverCapStrategy(Rebalancer):
     Limits the total turnover (sum of absolute trades) per rebalancing
     period and applies optional transaction costs. Prioritizes trades by
     either largest gap or best score delta.
+    Cash handling is controlled by ``cash_policy``: set ``normalize_weights``
+    to force weights to sum to one, or ``explicit_cash`` to add a CASH line
+    for any unallocated mass (negative values indicate financing).
     """
 
     def __init__(self, params: Dict[str, Any] | None = None):
@@ -42,6 +67,7 @@ class TurnoverCapStrategy(Rebalancer):
         self,
         current_weights: pd.Series,
         target_weights: pd.Series,
+        cash_policy: CashPolicy | None = None,
         scores: Optional[pd.Series] = None,
         **kwargs: Any,
     ) -> Tuple[pd.Series, float]:
@@ -75,11 +101,11 @@ class TurnoverCapStrategy(Rebalancer):
         # If within turnover limit, execute all trades
         if total_desired_turnover <= self.max_turnover:
             actual_turnover = total_desired_turnover
-            new_weights = target.copy()
+            new_weights = _apply_cash_policy(target.copy(), cash_policy)
         else:
             # Need to scale trades to respect turnover cap
             new_weights, actual_turnover = self._apply_turnover_cap(
-                current, target, trades, scores
+                current, target, trades, scores, cash_policy=cash_policy
             )
 
         # Apply transaction costs
@@ -93,6 +119,7 @@ class TurnoverCapStrategy(Rebalancer):
         target: pd.Series,
         trades: pd.Series,
         scores: Optional[pd.Series] = None,
+        cash_policy: CashPolicy | None = None,
     ) -> Tuple[pd.Series, float]:
         """Apply turnover cap with prioritized trade allocation."""
 
@@ -131,6 +158,7 @@ class TurnoverCapStrategy(Rebalancer):
 
         # Ensure weights are non-negative
         new_weights = new_weights.clip(lower=0.0)
+        new_weights = _apply_cash_policy(new_weights, cash_policy)
 
         actual_turnover = executed_trades.abs().sum()
 
@@ -176,7 +204,12 @@ class TurnoverCapStrategy(Rebalancer):
 
 @rebalancer_registry.register("periodic_rebalance")
 class PeriodicRebalanceStrategy(Rebalancer):
-    """Periodic rebalance strategy - rebalance every N periods."""
+    """Periodic rebalance strategy - rebalance every N periods.
+
+    Cash handling is controlled by ``cash_policy``: set ``normalize_weights``
+    to force weights to sum to one, or ``explicit_cash`` to add a CASH line
+    for any unallocated mass (negative values indicate financing).
+    """
 
     def __init__(self, params: Dict[str, Any] | None = None):
         super().__init__(params)
@@ -184,7 +217,11 @@ class PeriodicRebalanceStrategy(Rebalancer):
         self._period_count = 0
 
     def apply(
-        self, current_weights: pd.Series, target_weights: pd.Series, **kwargs: Any
+        self,
+        current_weights: pd.Series,
+        target_weights: pd.Series,
+        cash_policy: CashPolicy | None = None,
+        **kwargs: Any,
     ) -> Tuple[pd.Series, float]:
         """Apply periodic rebalancing."""
         self._period_count += 1
@@ -194,11 +231,12 @@ class PeriodicRebalanceStrategy(Rebalancer):
             self._period_count = 0
             all_assets = current_weights.index.union(target_weights.index)
             new_weights = target_weights.reindex(all_assets, fill_value=0.0)
+            new_weights = _apply_cash_policy(new_weights, cash_policy)
             # No transaction costs in basic implementation
             cost = 0.0
         else:
             # Keep current weights
-            new_weights = current_weights.copy()
+            new_weights = _apply_cash_policy(current_weights.copy(), cash_policy)
             cost = 0.0
 
         return new_weights, cost
@@ -206,7 +244,12 @@ class PeriodicRebalanceStrategy(Rebalancer):
 
 @rebalancer_registry.register("drift_band")
 class DriftBandStrategy(Rebalancer):
-    """Drift band rebalancing strategy - rebalance when weights drift beyond bands."""
+    """Drift band rebalancing strategy - rebalance when weights drift beyond bands.
+
+    Cash handling is controlled by ``cash_policy``: set ``normalize_weights``
+    to force weights to sum to one, or ``explicit_cash`` to add a CASH line
+    for any unallocated mass (negative values indicate financing).
+    """
 
     def __init__(self, params: Dict[str, Any] | None = None):
         super().__init__(params)
@@ -215,7 +258,11 @@ class DriftBandStrategy(Rebalancer):
         self.mode = str(self.params.get("mode", "partial"))
 
     def apply(
-        self, current_weights: pd.Series, target_weights: pd.Series, **kwargs: Any
+        self,
+        current_weights: pd.Series,
+        target_weights: pd.Series,
+        cash_policy: CashPolicy | None = None,
+        **kwargs: Any,
     ) -> Tuple[pd.Series, float]:
         """Apply drift band rebalancing."""
         # Align indices
@@ -242,6 +289,8 @@ class DriftBandStrategy(Rebalancer):
         else:
             new_weights = current.copy()
 
+        new_weights = _apply_cash_policy(new_weights, cash_policy)
+
         # No transaction costs in basic implementation
         cost = 0.0
         return new_weights, cost
@@ -250,7 +299,12 @@ class DriftBandStrategy(Rebalancer):
 @rebalancer_registry.register("vol_target_rebalance")
 class VolTargetRebalanceStrategy(Rebalancer):
     """Scale weights to hit a target volatility based on recent equity
-    curve."""
+    curve.
+
+    Cash handling is controlled by ``cash_policy``: set ``normalize_weights``
+    to force weights to sum to one, or ``explicit_cash`` to add a CASH line
+    for any unallocated mass (negative values indicate financing).
+    """
 
     def __init__(self, params: Dict[str, Any] | None = None) -> None:
         super().__init__(params)
@@ -258,9 +312,14 @@ class VolTargetRebalanceStrategy(Rebalancer):
         self.window = int(self.params.get("window", 6))
         self.lev_min = float(self.params.get("lev_min", 0.5))
         self.lev_max = float(self.params.get("lev_max", 1.5))
+        self.financing_spread_bps = float(self.params.get("financing_spread_bps", 0.0))
 
     def apply(
-        self, current_weights: pd.Series, target_weights: pd.Series, **kwargs: Any
+        self,
+        current_weights: pd.Series,
+        target_weights: pd.Series,
+        cash_policy: CashPolicy | None = None,
+        **kwargs: Any,
     ) -> Tuple[pd.Series, float]:
         ec: List[float] = list(kwargs.get("equity_curve", []))
         lev = 1.0
@@ -272,12 +331,22 @@ class VolTargetRebalanceStrategy(Rebalancer):
             if vol > 0:
                 lev = float(np.clip(self.target / vol, self.lev_min, self.lev_max))
         # Scale target weights by leverage; pass through target when no equity curve
-        return target_weights * lev, 0.0
+        scaled = target_weights * lev
+        scaled = _apply_cash_policy(scaled, cash_policy)
+        financing_cost = 0.0
+        if lev > 1.0 and self.financing_spread_bps > 0.0:
+            financing_cost = (lev - 1.0) * (self.financing_spread_bps / 10000.0)
+        return scaled, financing_cost
 
 
 @rebalancer_registry.register("drawdown_guard")
 class DrawdownGuardStrategy(Rebalancer):
-    """Reduce exposure when portfolio experiences a drawdown."""
+    """Reduce exposure when portfolio experiences a drawdown.
+
+    Cash handling is controlled by ``cash_policy``: set ``normalize_weights``
+    to force weights to sum to one, or ``explicit_cash`` to add a CASH line
+    for any unallocated mass (negative values indicate financing).
+    """
 
     def __init__(self, params: Dict[str, Any] | None = None) -> None:
         super().__init__(params)
@@ -287,7 +356,11 @@ class DrawdownGuardStrategy(Rebalancer):
         self.recover_threshold = float(self.params.get("recover_threshold", 0.05))
 
     def apply(
-        self, current_weights: pd.Series, target_weights: pd.Series, **kwargs: Any
+        self,
+        current_weights: pd.Series,
+        target_weights: pd.Series,
+        cash_policy: CashPolicy | None = None,
+        **kwargs: Any,
     ) -> Tuple[pd.Series, float]:
         # Prefer explicit rb_state dict if provided, else fallback to generic state, else a local dict
         rb_state_obj = kwargs.get("rb_state", kwargs.get("state"))
@@ -315,6 +388,7 @@ class DrawdownGuardStrategy(Rebalancer):
         rb_state["guard_on"] = guard_on
         # Apply guard by scaling target weights; otherwise pass through target weights
         scaled = target_weights * self.guard_multiplier if guard_on else target_weights
+        scaled = _apply_cash_policy(scaled, cash_policy)
         return scaled, 0.0
 
 
@@ -331,6 +405,7 @@ def apply_rebalancing_strategies(
     strategy_params: Dict[str, Dict[str, Any]],
     current_weights: pd.Series,
     target_weights: pd.Series,
+    cash_policy: CashPolicy | None = None,
     **kwargs: Any,
 ) -> Tuple[pd.Series, float]:
     """Apply multiple rebalancing strategies in sequence.
@@ -345,6 +420,8 @@ def apply_rebalancing_strategies(
         Current portfolio weights
     target_weights : pd.Series
         Target portfolio weights
+    cash_policy : CashPolicy, optional
+        Policy for handling implicit cash and normalization
     **kwargs
         Additional context for strategies
 
@@ -359,13 +436,16 @@ def apply_rebalancing_strategies(
     for strategy_name in strategies:
         params = strategy_params.get(strategy_name, {})
         strategy = create_rebalancing_strategy(strategy_name, params)
-        weights, cost = strategy.apply(weights, target_weights, **kwargs)
+        weights, cost = strategy.apply(
+            weights, target_weights, cash_policy=cash_policy, **kwargs
+        )
         total_cost += cost
 
     return weights, total_cost
 
 
 __all__ = [
+    "CashPolicy",
     "RebalancingStrategy",
     "TurnoverCapStrategy",
     "PeriodicRebalanceStrategy",

@@ -17,6 +17,7 @@ from .plugins import rebalancer_registry
 # on a non-existent top-level ``strategies`` module.
 from .rebalancing.strategies import (
     TURNOVER_EPSILON,
+    CashPolicy,
     DrawdownGuardStrategy,
     DriftBandStrategy,
     PeriodicRebalanceStrategy,
@@ -43,6 +44,7 @@ REBALANCING_STRATEGIES = get_rebalancing_strategies()
 
 
 __all__ = [
+    "CashPolicy",
     "RebalancingStrategy",
     "TurnoverCapStrategy",
     "PeriodicRebalanceStrategy",

@@ -1,4 +1,5 @@
 from .strategies import (
+    CashPolicy,
     DrawdownGuardStrategy,
     DriftBandStrategy,
     PeriodicRebalanceStrategy,
@@ -11,6 +12,7 @@ from .strategies import (
 )
 
 __all__ = (
+    "CashPolicy",
     "RebalancingStrategy",
     "TurnoverCapStrategy",
     "PeriodicRebalanceStrategy",
