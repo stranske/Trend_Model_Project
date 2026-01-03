@@ -1,36 +1,48 @@
 <!-- pr-preamble:start -->
-> **Source:** Issue #4144
+> **Source:** Issue #4145
 
 <!-- pr-preamble:end -->
 
 <!-- auto-status-summary:start -->
 ## Automated Status Summary
 #### Scope
-The `apply_constraints()` function in `src/trend_analysis/engine/optimizer.py` contains a duplicated cash-weight processing block (lines 200-235 and 237-278). The code includes a comment explicitly acknowledging this:
+`pipeline.py` is 3003 lines and serves as orchestrator, validator, selector, weight-engine integrator, risk controller, diagnostics builder, and more. While decomposition has started (stage dataclasses, helper functions), the module still violates single-responsibility and makes it difficult to:
 
-```python
-# NOTE: The block below duplicates the earlier cash handling logic for legacy
-# payloads that mutated the constraint object between validation passes.  The
-# modern ``ConstraintSet`` implementation keeps values stable, so the duplicate
-# code path is effectively unreachable during normal execution.
-```
+1. Test individual stages in isolation
+2. Understand the data flow without reading thousands of lines
+3. Modify one concern without risking regressions in others
+4. Onboard new contributors
 
-While the defensive duplicate may have historical justification, it's a maintenance hazard—any fix applied to one block must be manually applied to the other, and the logic is complex enough (feasibility checks, scaling, max_weight enforcement) that divergence is likely.
+The module handles: preprocessing (calendar + missing policy + inception mask), selection/scoring, and portfolio construction (weights + constraints + risk)—three distinct conceptual domains that should be separate modules.
 
 #### Tasks
-- [ ] Create `_apply_cash_weight()` helper function that encapsulates lines 137-175 logic
-- [ ] Define helper signature: `_apply_cash_weight(w: pd.Series, cash_weight: float, max_weight: float | None) -> pd.Series`
-- [ ] Replace first cash-weight block (lines 137-175) with call to helper
-- [ ] Replace second cash-weight block (lines 200-235) with call to helper
-- [ ] Remove the third duplicated block (lines 237-278) since it's unreachable with modern ConstraintSet
-- [ ] Add unit test that validates both passes produce identical results
-- [ ] Update docstring to explain the two-pass pattern
+- [ ] Create `src/trend_analysis/stages/__init__.py` package
+- [ ] Extract preprocessing logic into `src/trend_analysis/stages/preprocessing.py`:
+- [ ] - Calendar alignment (`align_calendar`)
+- [ ] - Missing data policy (`apply_missing_policy`, `MissingPolicyResult`)
+- [ ] - Inception masking logic
+- [ ] - Frequency detection and normalization
+- [ ] Extract selection/scoring logic into `src/trend_analysis/stages/selection.py`:
+- [ ] - Fund ranking (`rank_select_funds`)
+- [ ] - Score computation
+- [ ] - Metric bundle computation
+- [ ] - Risk stats configuration
+- [ ] Extract portfolio construction into `src/trend_analysis/stages/portfolio.py`:
+- [ ] - Weight computation and constraints
+- [ ] - Risk adjustments
+- [ ] - Vol targeting
+- [ ] - Final weight application
+- [ ] Refactor `pipeline.py` to import from stages and orchestrate
+- [ ] Keep `run()`, `run_full()`, `run_analysis()` in pipeline.py as thin conductors
+- [ ] Maintain backward-compatible imports via `__all__` in pipeline.py
+- [ ] Add integration test verifying stage isolation doesn't change outputs
 
 #### Acceptance criteria
-- [ ] Only one implementation of cash-weight logic exists (in the helper)
-- [ ] Both passes call the same helper function
-- [ ] All existing optimizer tests pass unchanged
-- [ ] New test verifies helper produces correct output for edge cases (0 < cash_weight < 1, max_weight conflicts)
-- [ ] Coverage on the helper is 100%
+- [ ] `pipeline.py` reduced to <500 lines (orchestration + public API)
+- [ ] Each stage module is independently testable
+- [ ] `from trend_analysis.pipeline import run` continues to work
+- [ ] All existing pipeline tests pass without modification
+- [ ] No circular imports between stages
+- [ ] New stage modules have >80% test coverage
 
 <!-- auto-status-summary:end -->
