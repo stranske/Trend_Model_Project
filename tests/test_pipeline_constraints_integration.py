@@ -40,6 +40,20 @@ def make_dummy_returns(n_months: int = 24) -> pd.DataFrame:
     return pd.DataFrame(data)
 
 
+def make_low_vol_returns(n_months: int = 24) -> pd.DataFrame:
+    dates = pd.date_range("2022-01-31", periods=n_months, freq="ME")
+    idx = np.arange(n_months, dtype=float)
+    data = {
+        "Date": dates,
+        "FundA": 0.001 + 0.0002 * np.sin(idx / 3.0),
+        "FundB": 0.01 + 0.05 * np.sin(idx / 2.0 + 0.4),
+        "FundC": 0.012 + 0.045 * np.cos(idx / 2.5 + 0.1),
+        "FundD": 0.009 + 0.04 * np.sin(idx / 2.8 + 0.9),
+        "RF": np.zeros(n_months),
+    }
+    return pd.DataFrame(data)
+
+
 def test_pipeline_applies_cash_and_max_weight_constraints():
     df = make_dummy_returns()
     res = _run_analysis(
@@ -70,7 +84,7 @@ def test_pipeline_applies_cash_and_max_weight_constraints():
 
 
 def test_pipeline_max_weight_with_vol_adjust_enabled():
-    df = make_dummy_returns()
+    df = make_low_vol_returns()
     custom_weights = {"FundA": 80.0, "FundB": 10.0, "FundC": 10.0, "FundD": 0.0}
     res = _run_analysis(
         df,
@@ -78,7 +92,7 @@ def test_pipeline_max_weight_with_vol_adjust_enabled():
         in_end="2022-12",
         out_start="2023-01",
         out_end="2023-12",
-        target_vol=0.10,
+        target_vol=0.60,
         monthly_cost=0.0,
         selection_mode="all",
         custom_weights=custom_weights,
@@ -92,6 +106,8 @@ def test_pipeline_max_weight_with_vol_adjust_enabled():
     assert res is not None
     weights = res["fund_weights"]
     assert isinstance(weights, dict)
+    scale_factors = res["risk_diagnostics"]["scale_factors"]
+    assert scale_factors.loc["FundA"] > 1.0
     assert all(weight <= 0.35 + 1e-9 for weight in weights.values())
 
 
