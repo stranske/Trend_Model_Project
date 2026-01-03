@@ -64,11 +64,11 @@ from .stages.portfolio import (
 )
 from .stages.portfolio import (
     _compute_stats,
-    _compute_weights_and_stats as _compute_weights_and_stats_impl,
-)
-from .stages.portfolio import (
     _Stats,
     calc_portfolio_returns,
+)
+from .stages.portfolio import (
+    _compute_weights_and_stats as _compute_weights_and_stats_impl,
 )
 from .stages.preprocessing import (
     _build_sample_windows as _build_sample_windows_impl,
