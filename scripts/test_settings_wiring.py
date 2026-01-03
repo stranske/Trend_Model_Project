@@ -1270,6 +1270,22 @@ def run_single_test(
         baseline_state["weighting_scheme"] = "robust_mv"
         test_state["weighting_scheme"] = "robust_mv"
 
+    # max_turnover needs a churny setup so the cap becomes binding.
+    if setting.name == "max_turnover":
+        for state in (baseline_state, test_state):
+            state["min_tenure_periods"] = 0
+            state["cooldown_periods"] = 0
+            state["z_entry_soft"] = 0.0
+            state["z_exit_soft"] = 0.0
+            state["soft_strikes"] = 1
+            state["entry_soft_strikes"] = 1
+            state["lookback_periods"] = 1
+            state["evaluation_periods"] = 1
+            state["multi_period_frequency"] = "Q"
+            state["selection_count"] = 5
+            state["max_weight"] = 1.0
+            state["min_weight"] = 0.0
+
     # vol_window_length should be tested with simple decay to ensure window length is used
     if setting.name == "vol_window_length":
         baseline_state["vol_window_decay"] = "simple"
