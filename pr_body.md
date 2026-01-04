@@ -27,7 +27,7 @@ This "duck-typing to figure out what we got back" pattern is fragile and error-p
 - [x] Define canonical `RunPayload` protocol/dataclass with `value`, `diagnostic`, `metadata` fields
 - [x] Update `PipelineResult` to implement `RunPayload` protocol
 - [x] Update `pipeline.run_full()` to always return `RunPayload`-compliant object
-- [ ] Update `pipeline.run()` to extract `value` from `RunPayload` (backward compat)
+- [x] Update `pipeline.run()` to extract `value` from `RunPayload` (backward compat)
 - [ ] Update multi-period engine to expect `RunPayload` instead of duck-typing
 - [ ] Remove `_coerce_analysis_result()` once all callers use typed interface
 - [ ] Update Streamlit result handling to use `RunPayload` interface
@@ -35,11 +35,11 @@ This "duck-typing to figure out what we got back" pattern is fragile and error-p
 - [ ] Deprecate direct `AnalysisResult` usage with warning
 
 #### Acceptance criteria
-- [ ] Single `RunPayload` type is returned by all pipeline entry points
+- [x] Single `RunPayload` type is returned by all pipeline entry points
 - [ ] Multi-period engine no longer needs `_coerce_analysis_result()`
-- [ ] Type checker (mypy) validates payload handling without `Any` casts
+- [x] Type checker (mypy) validates payload handling without `Any` casts
 - [ ] CLI diagnostic output unchanged
 - [ ] Streamlit diagnostic display unchanged
-- [ ] All existing tests pass
+- [x] All existing tests pass
 
 <!-- auto-status-summary:end -->
