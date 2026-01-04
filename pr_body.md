@@ -17,20 +17,22 @@ This architecture is intentional (fast-fail without loading full Pydantic depend
 
 #### Tasks
 - [x] Create `src/trend_analysis/config/coverage.py` with `ConfigCoverageTracker` class
-- [ ] Add `track_read(key: str)` method called when config values are accessed
-- [ ] Add `track_validated(key: str)` method called when values pass schema validation
-- [ ] Add `generate_report() -> ConfigCoverageReport` returning read/validated/ignored sets
-- [ ] Instrument `validate_core_config()` to track validated keys
+- [x] Add `track_read(key: str)` method called when config values are accessed
+- [x] Add `track_validated(key: str)` method called when values pass schema validation
+- [x] Add `generate_report() -> ConfigCoverageReport` returning read/validated/ignored sets
+- [x] Instrument `validate_core_config()` to track validated keys
 - [x] Add optional `--config-coverage` flag to CLI that dumps report after run
 - [x] Add `coverage_report` field to `DiagnosticResult` when running in debug mode
 - [x] Extend `tests/test_config_alignment.py` to verify coverage report catches known gaps
 - [ ] Add CI job that runs config coverage on demo config and fails if ignored keys > threshold
 
+<!-- needs-human: add a CI workflow job to run scripts/check_config_coverage.py on config/demo.yml and fail when ignored keys exceed the threshold (workflow edits required). -->
+
 #### Acceptance criteria
-- [ ] `ConfigCoverageTracker` correctly tracks read vs validated keys
+- [x] `ConfigCoverageTracker` correctly tracks read vs validated keys
 - [x] CLI `--config-coverage` flag produces human-readable report
 - [x] Report identifies keys in schema but never read (potential dead config)
-- [ ] Report identifies keys read but not in schema (potential validation gap)
+- [x] Report identifies keys read but not in schema (potential validation gap)
 - [x] Integration test validates report catches intentionally misaligned key
 - [x] Demo config coverage shows 0 ignored keys
 
