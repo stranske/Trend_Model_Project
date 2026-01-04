@@ -30,6 +30,15 @@ source .venv/bin/activate
 pip install -e .[app]
 ```
 
+#### LLM/Natural Language Features
+
+LLM extras require Python 3.10+ and Pydantic v2. This project targets Python
+3.11+, so the LLM extras are aligned with the base runtime requirement.
+
+```bash
+pip install -e ".[llm]"
+```
+
 ### 2. Verify Installation
 
 ```bash

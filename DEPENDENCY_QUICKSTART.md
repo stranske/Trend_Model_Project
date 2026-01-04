@@ -73,6 +73,21 @@ All installs consume `pyproject.toml` plus the generated lock file:
 `pip install -e .` on a fresh virtualenv should not resolve any new versions
 when the lock has already been synced.
 
+## 🤖 LLM Extras (Natural Language Features)
+
+LLM/NL features require Python 3.10+ and Pydantic v2. This project already
+targets Python 3.11+, so the LLM extras assume that baseline.
+
+```bash
+pip install -e ".[llm]"
+```
+
+To validate the environment in CI or locally:
+
+```bash
+python scripts/validate_llm_deps.py
+```
+
 ## 📚 Documentation
 
 * **Detailed Workflow:** `docs/DEPENDENCY_WORKFLOW.md`
