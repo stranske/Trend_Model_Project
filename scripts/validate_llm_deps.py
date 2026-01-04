@@ -52,8 +52,7 @@ def main() -> int:
 
     if pydantic_major < 2:
         print(
-            "Pydantic v2 is required for LLM extras. "
-            f"Detected {pydantic_version}.",
+            "Pydantic v2 is required for LLM extras. " f"Detected {pydantic_version}.",
             file=sys.stderr,
         )
         return 1
