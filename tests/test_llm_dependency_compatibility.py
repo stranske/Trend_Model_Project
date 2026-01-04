@@ -41,8 +41,8 @@ def test_langchain_import_has_no_pydantic_warnings() -> None:
     "distribution",
     ["langchain", "langchain-core", "langchain-community"],
 )
-def test_langchain_versions_pinned_to_0_3(distribution: str) -> None:
+def test_langchain_versions_pinned_to_1_0(distribution: str) -> None:
     pytest.importorskip("langchain")
     version = importlib.metadata.version(distribution)
     major, minor = _parse_major_minor(version)
-    assert (major, minor) == (0, 3)
+    assert (major, minor) == (1, 0)

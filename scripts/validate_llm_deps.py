@@ -84,7 +84,7 @@ def main() -> int:
             print(str(exc), file=sys.stderr)
             return 1
 
-        if (major, minor) != (0, 3):
+        if (major, minor) != (1, 0):
             incompatible_langchain.append(f"{distribution}=={version}")
 
     if missing_langchain:
@@ -97,7 +97,7 @@ def main() -> int:
 
     if incompatible_langchain:
         print(
-            "LangChain packages must be pinned to 0.3.x. "
+            "LangChain packages must be pinned to 1.0.x. "
             f"Detected {', '.join(incompatible_langchain)}.",
             file=sys.stderr,
         )
