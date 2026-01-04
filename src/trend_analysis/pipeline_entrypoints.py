@@ -34,7 +34,17 @@ class ConfigBindings:
 
 
 def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
-    """Execute the analysis pipeline based on ``cfg``."""
+    """Run the analysis pipeline using a config-like object.
+
+    Args:
+        cfg: Config instance or mapping compatible with `Config`.
+        bindings: Helper bindings that load data, resolve config sections, and
+            invoke the analysis core.
+
+    Returns:
+        A DataFrame of out-of-sample metrics. When the run aborts, returns an
+        empty DataFrame and attaches any diagnostics on `DataFrame.attrs`.
+    """
     cfg = bindings.unwrap_cfg(cfg)
     preprocessing_section = bindings.cfg_section(cfg, "preprocessing")
     data_settings = bindings.cfg_section(cfg, "data")
@@ -161,7 +171,17 @@ def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
 
 
 def run_full_from_config(cfg: Any, *, bindings: ConfigBindings) -> PipelineResult:
-    """Return the full analysis results (with diagnostics) based on ``cfg``."""
+    """Run the analysis pipeline and return diagnostics plus payload.
+
+    Args:
+        cfg: Config instance or mapping compatible with `Config`.
+        bindings: Helper bindings that load data, resolve config sections, and
+            invoke the analysis core.
+
+    Returns:
+        PipelineResult containing the payload, diagnostic info, and optional
+        metadata (if the underlying analysis provides it).
+    """
     cfg = bindings.unwrap_cfg(cfg)
     preprocessing_section = bindings.cfg_section(cfg, "preprocessing")
     data_settings = bindings.cfg_section(cfg, "data")
