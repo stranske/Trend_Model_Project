@@ -79,9 +79,7 @@ def _run_analysis(*args: Any, **kwargs: Any) -> PipelineResult:
     return _invoke_analysis_with_diag(*args, **kwargs)
 
 
-def _call_pipeline_with_diag(
-    *args: Any, **kwargs: Any
-) -> RunPayload[AnalysisResult]:
+def _call_pipeline_with_diag(*args: Any, **kwargs: Any) -> RunPayload[AnalysisResult]:
     """Execute ``_run_analysis`` and return the pipeline diagnostics payload."""
 
     result = _run_analysis(*args, **kwargs)
