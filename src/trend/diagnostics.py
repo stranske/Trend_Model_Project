@@ -13,6 +13,7 @@ except Exception:  # pragma: no cover - defensive fallback
     def get_config_coverage_tracker() -> None:
         return None
 
+
 T = TypeVar("T")
 
 

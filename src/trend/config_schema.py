@@ -27,6 +27,7 @@ except Exception:  # pragma: no cover - defensive fallback
     def get_config_coverage_tracker() -> None:
         return None
 
+
 __all__ = [
     "CoreConfig",
     "CoreConfigError",
