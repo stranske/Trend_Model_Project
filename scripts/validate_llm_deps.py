@@ -23,8 +23,20 @@ def _parse_major(version: str) -> int:
     return int(match.group(1))
 
 
+def _parse_major_minor(version: str) -> tuple[int, int]:
+    match = re.match(r"(\d+)\.(\d+)", version)
+    if not match:
+        raise ValueError(f"Unable to parse major/minor version from '{version}'.")
+    return int(match.group(1)), int(match.group(2))
+
+
 def main() -> int:
     llm_packages = ("langchain", "langchain_core", "langchain_community")
+    langchain_distributions = {
+        "langchain": "langchain",
+        "langchain_core": "langchain-core",
+        "langchain_community": "langchain-community",
+    }
     present = _find_first_installed(llm_packages)
     if present is None:
         print("LLM extras not installed; skipping compatibility checks.")
@@ -53,6 +65,40 @@ def main() -> int:
     if pydantic_major < 2:
         print(
             "Pydantic v2 is required for LLM extras. " f"Detected {pydantic_version}.",
+            file=sys.stderr,
+        )
+        return 1
+
+    missing_langchain = []
+    incompatible_langchain = []
+    for distribution in langchain_distributions.values():
+        try:
+            version = importlib.metadata.version(distribution)
+        except importlib.metadata.PackageNotFoundError:
+            missing_langchain.append(distribution)
+            continue
+
+        try:
+            major, minor = _parse_major_minor(version)
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+
+        if (major, minor) != (0, 3):
+            incompatible_langchain.append(f"{distribution}=={version}")
+
+    if missing_langchain:
+        print(
+            "LLM extras require langchain, langchain-core, and langchain-community. "
+            f"Missing: {', '.join(missing_langchain)}.",
+            file=sys.stderr,
+        )
+        return 1
+
+    if incompatible_langchain:
+        print(
+            "LangChain packages must be pinned to 0.3.x. "
+            f"Detected {', '.join(incompatible_langchain)}.",
             file=sys.stderr,
         )
         return 1

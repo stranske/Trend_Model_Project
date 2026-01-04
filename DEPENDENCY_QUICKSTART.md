@@ -76,7 +76,8 @@ when the lock has already been synced.
 ## 🤖 LLM Extras (Natural Language Features)
 
 LLM/NL features require Python 3.10+ and Pydantic v2. This project already
-targets Python 3.11+, so the LLM extras assume that baseline.
+targets Python 3.11+, so the LLM extras assume that baseline. LangChain
+packages are pinned to 0.3.x to match the current stable releases.
 
 ```bash
 pip install -e ".[llm]"
