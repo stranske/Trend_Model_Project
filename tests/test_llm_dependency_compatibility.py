@@ -43,7 +43,7 @@ def test_langchain_import_has_no_pydantic_warnings() -> None:
 )
 def test_langchain_versions_match_pyproject(distribution: str) -> None:
     """Validate installed langchain versions match pyproject.toml constraints.
-    
+
     This test ensures the installed versions are within the ranges specified
     in pyproject.toml [project.optional-dependencies] llm group, preventing
     drift between declared and actual dependencies.
@@ -51,17 +51,17 @@ def test_langchain_versions_match_pyproject(distribution: str) -> None:
     pytest.importorskip("langchain")
     version = importlib.metadata.version(distribution)
     major, minor = _parse_major_minor(version)
-    
+
     # Expected ranges from pyproject.toml (updated via Workflows sync process)
     # langchain: >=1.2,<1.3 -> major=1, minor=2
-    # langchain-core: >=1.2,<1.3 -> major=1, minor=2  
+    # langchain-core: >=1.2,<1.3 -> major=1, minor=2
     # langchain-community: >=0.4,<0.5 -> major=0, minor=4
     expected_ranges = {
         "langchain": (1, 2),
         "langchain-core": (1, 2),
         "langchain-community": (0, 4),
     }
-    
+
     expected = expected_ranges[distribution]
     assert (major, minor) == expected, (
         f"{distribution} version {version} doesn't match expected "
