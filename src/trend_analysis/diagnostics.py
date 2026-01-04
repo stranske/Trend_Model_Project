@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import ItemsView, Iterator, KeysView, Mapping, ValuesView
 from dataclasses import dataclass
 from enum import Enum
-from typing import Generic, Mapping, Protocol, Tuple, TypeVar, cast, runtime_checkable
+from typing import Generic, Protocol, Tuple, TypeVar, cast, runtime_checkable
 
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 
