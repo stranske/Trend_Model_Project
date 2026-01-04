@@ -132,7 +132,10 @@ class _TrackedMapping(MutableMapping[str, Any]):
         raise TypeError("Tracked mapping does not support item deletion")
 
     def __iter__(self) -> Iterator[str]:
-        return iter(self._data)
+        for key in self._data:
+            if isinstance(key, str):
+                self._tracker.track_read(self._full_key(key))
+            yield key
 
     def __len__(self) -> int:
         return len(self._data)
