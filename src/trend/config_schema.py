@@ -241,7 +241,7 @@ def validate_core_config(
         field="data.managers_glob",
         base_path=base_path,
     )
-    if tracker is not None and managers_glob is not None:
+    if tracker is not None:
         tracker.track_validated("data.managers_glob")
     if csv_path is None and managers_glob is None:
         raise CoreConfigError(
