@@ -6,6 +6,10 @@ from typing import TYPE_CHECKING, Any, Mapping, cast
 
 import pandas as pd
 
+from trend.diagnostics import DiagnosticResult
+
+from .diagnostics import PipelineResult, coerce_pipeline_result
+
 if TYPE_CHECKING:
     from .diagnostics import PipelineResult
 
@@ -254,8 +258,26 @@ def run_full_from_config(cfg: Any, *, bindings: ConfigBindings) -> PipelineResul
         allow_risk_free_fallback=allow_risk_free_fallback,
         weight_engine_params=weight_engine_params,
     )
-    diag = diag_res.diagnostic
-    if diag_res.value is None:
+    if isinstance(diag_res, PipelineResult):
+        normalized = diag_res
+    elif isinstance(diag_res, DiagnosticResult):
+        normalized = PipelineResult(
+            value=diag_res.value,
+            diagnostic=diag_res.diagnostic,
+        )
+    else:
+        payload, diagnostic = coerce_pipeline_result(diag_res)
+        metadata = getattr(diag_res, "metadata", None)
+        if metadata is not None and not isinstance(metadata, Mapping):
+            metadata = None
+        normalized = PipelineResult(
+            value=payload,
+            diagnostic=diagnostic,
+            metadata=metadata,
+        )
+
+    diag = normalized.diagnostic
+    if normalized.value is None:
         if diag:
             logger.warning(
                 "pipeline.run_full aborted (%s): %s",
@@ -264,4 +286,4 @@ def run_full_from_config(cfg: Any, *, bindings: ConfigBindings) -> PipelineResul
             )
         else:
             logger.warning("pipeline.run_full aborted with no diagnostic context")
-    return diag_res  # type: ignore[no-any-return]
+    return normalized

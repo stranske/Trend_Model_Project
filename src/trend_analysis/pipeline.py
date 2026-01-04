@@ -15,7 +15,7 @@ from .core.rank_selection import (
     rank_select_funds,
 )
 from .data import identify_risk_free_fund, load_csv
-from .diagnostics import PipelineReasonCode, PipelineResult
+from .diagnostics import PipelineReasonCode, PipelineResult, RunPayload
 from .metrics import (
     annual_return,
     information_ratio,
@@ -328,7 +328,23 @@ def _bindings() -> ConfigBindings:
 
 def run(cfg: Any) -> pd.DataFrame:
     """Execute the analysis pipeline based on ``cfg``."""
-    return run_from_config(cfg, bindings=_bindings())
+    result = run_from_config(cfg, bindings=_bindings())
+    if isinstance(result, RunPayload):
+        payload = result.value
+        if payload is None:
+            empty = pd.DataFrame()
+            if result.diagnostic is not None:
+                empty.attrs["diagnostic"] = result.diagnostic
+            return empty
+        if not isinstance(payload, pd.DataFrame):
+            raise TypeError(
+                "pipeline.run expected a DataFrame payload; "
+                f"received {type(payload)!r}"
+            )
+        if result.diagnostic is not None:
+            payload.attrs["diagnostic"] = result.diagnostic
+        return payload
+    return result
 
 
 def run_full(cfg: Any) -> PipelineResult:
