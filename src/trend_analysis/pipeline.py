@@ -327,7 +327,15 @@ def _bindings() -> ConfigBindings:
 
 
 def run(cfg: Any) -> pd.DataFrame:
-    """Execute the analysis pipeline based on ``cfg``."""
+    """Run the analysis pipeline and return out-of-sample metrics.
+
+    Args:
+        cfg: Config instance or mapping compatible with `Config`.
+
+    Returns:
+        DataFrame of out-of-sample metrics. If diagnostics indicate an abort,
+        returns an empty DataFrame with the diagnostic attached to `attrs`.
+    """
     result = run_from_config(cfg, bindings=_bindings())
     if isinstance(result, RunPayload):
         payload = result.value
@@ -348,7 +356,15 @@ def run(cfg: Any) -> pd.DataFrame:
 
 
 def run_full(cfg: Any) -> PipelineResult:
-    """Return the full analysis results (with diagnostics) based on ``cfg``."""
+    """Run the analysis pipeline and return the full diagnostics payload.
+
+    Args:
+        cfg: Config instance or mapping compatible with `Config`.
+
+    Returns:
+        PipelineResult containing the payload, diagnostic info, and optional
+        metadata if provided by the underlying analysis call.
+    """
     return run_full_from_config(cfg, bindings=_bindings())
 
 

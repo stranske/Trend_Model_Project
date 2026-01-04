@@ -379,6 +379,39 @@ def test_load_configuration_reads_file(
     assert cfg == {"version": "1"}
 
 
+def test_load_configuration_runs_core_then_full_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg_file = tmp_path / "config.yml"
+    cfg_file.write_text("version: '1'\n", encoding="utf-8")
+
+    calls: list[tuple[str, Path]] = []
+
+    def fake_load_core_config(path: Path) -> None:
+        calls.append(("core", Path(path)))
+
+    def fake_load_config(path: Path) -> dict[str, str]:
+        calls.append(("full", Path(path)))
+        return {"version": "1"}
+
+    def fake_ensure_run_spec(cfg: object, base_path: Path) -> None:
+        calls.append(("run_spec", base_path))
+
+    monkeypatch.setattr(trend_cli, "load_core_config", fake_load_core_config)
+    monkeypatch.setattr(trend_cli, "load_config", fake_load_config)
+    monkeypatch.setattr(trend_cli, "ensure_run_spec", fake_ensure_run_spec)
+
+    path, cfg = trend_cli._load_configuration(str(cfg_file))
+
+    assert path == cfg_file.resolve()
+    assert cfg == {"version": "1"}
+    assert calls == [
+        ("core", path),
+        ("full", path),
+        ("run_spec", path.parent),
+    ]
+
+
 def test_load_configuration_missing_file(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         trend_cli._load_configuration(str(tmp_path / "absent.yml"))

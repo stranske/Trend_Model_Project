@@ -1,45 +1,36 @@
 <!-- pr-preamble:start -->
-> **Source:** Issue #4147
+> **Source:** Issue #4178
 
 <!-- pr-preamble:end -->
 
 <!-- auto-status-summary:start -->
 ## Automated Status Summary
 #### Scope
-There are multiple diagnostic/result wrappers in use:
-1. `DiagnosticResult` in `src/trend/diagnostics.py` - Generic wrapper with value + diagnostic payload
-2. `PipelineResult` in `src/trend_analysis/diagnostics.py` - Pipeline-specific success/failure
-3. `AnalysisResult` - Legacy wrapper for backward compatibility
-4. Multi-period engine's `_coerce_analysis_result()` in `src/trend_analysis/multi_period/engine.py` - Normalizes between formats
+Before building any natural language (NL) layer that modifies configuration, we must understand the exact config schema, validation mechanisms, and execution entrypoints. Without this foundation, the NL layer risks targeting unstable internal interfaces, producing invalid configs, or bypassing critical validation.
 
-The multi-period engine has to guess whether results are dicts, wrappers, or legacy objects:
-```python
-def _coerce_analysis_result(result: object) -> tuple[dict[str, Any] | None, DiagnosticPayload | None]:
-    """Normalise pipeline outputs regardless of legacy or diagnostic wrappers."""
-    diag = getattr(result, "diagnostic", None)
-    if hasattr(result, "unwrap"):
-        unwrap = getattr(result, "unwrap", None)
-```
-
-This "duck-typing to figure out what we got back" pattern is fragile and error-prone.
+This is a **blocker** for all subsequent NL integration work.
 
 #### Tasks
-- [x] Define canonical `RunPayload` protocol/dataclass with `value`, `diagnostic`, `metadata` fields
-- [x] Update `PipelineResult` to implement `RunPayload` protocol
-- [x] Update `pipeline.run_full()` to always return `RunPayload`-compliant object
-- [x] Update `pipeline.run()` to extract `value` from `RunPayload` (backward compat)
-- [ ] Update multi-period engine to expect `RunPayload` instead of duck-typing
-- [ ] Remove `_coerce_analysis_result()` once all callers use typed interface
-- [ ] Update Streamlit result handling to use `RunPayload` interface
-- [ ] Add type guards: `is_run_payload(obj) -> TypeGuard[RunPayload]`
-- [ ] Deprecate direct `AnalysisResult` usage with warning
+- [x] Trace YAML config loading path from CLI/Streamlit entry to internal use
+- [x] Document validation mechanism (Pydantic models, dataclasses, custom validators, or none)
+- [x] Enumerate all top-level config sections and their purposes
+- [x] Classify each config key as:
+- [ ] - **Safe**: Can be freely modified via NL (e.g., `top_n`, `target_vol`)
+- [ ] - **Constrained**: Requires validation bounds (e.g., `max_weight` 0-1)
+- [ ] - **Derived**: Computed internally, should not be set directly
+- [ ] - **Internal**: Implementation detail, never expose to NL
+- [x] Document `pipeline.run()` and `pipeline.run_full()` entrypoint signatures
+- [x] Document `run_from_config()` and `run_full_from_config()` in pipeline_entrypoints.py
+- [x] Identify any config preprocessing or normalization steps
+- [x] Create `docs/planning/nl-config-audit.md` with findings
 
 #### Acceptance criteria
-- [x] Single `RunPayload` type is returned by all pipeline entry points
-- [ ] Multi-period engine no longer needs `_coerce_analysis_result()`
-- [x] Type checker (mypy) validates payload handling without `Any` casts
-- [ ] CLI diagnostic output unchanged
-- [ ] Streamlit diagnostic display unchanged
-- [x] All existing tests pass
+- [x] `docs/planning/nl-config-audit.md` exists and documents:
+- [x] - Config load path (file → parse → validate → use)
+- [x] - Validation mechanism and where it runs
+- [x] - Canonical schema source (`config/defaults.yml` vs models)
+- [ ] - Run entrypoint signatures with parameter documentation
+- [x] - Classification of at least 20 config keys
+- [x] Document is reviewed and linked from main NL planning doc
 
 <!-- auto-status-summary:end -->

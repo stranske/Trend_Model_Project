@@ -283,6 +283,8 @@ Simulation results can be large. Strategy:
 
 This phase carries meaningful implementation risk and should only proceed after Phases 1-2 prove successful.
 
+Config audit findings: `docs/planning/nl-config-audit.md`.
+
 ### Why This Is Harder
 
 | Concern | Mitigation |

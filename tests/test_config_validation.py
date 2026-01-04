@@ -118,3 +118,17 @@ def test_config_constants_match_model_attributes():
         assert isinstance(
             default_value, dict
         ), f"Field '{field_name}' should default to dict"
+
+
+def test_load_merges_legacy_output_settings() -> None:
+    """Ensure `load` normalizes legacy output into export settings."""
+    cfg = _base_cfg()
+    cfg["export"] = {"formats": "csv"}
+    cfg["output"] = {"format": ["CSV", "xlsx"], "path": "reports/summary.xlsx"}
+
+    loaded = config.load(cfg)
+    export_cfg = loaded.export
+
+    assert export_cfg["formats"] == ["csv", "xlsx"]
+    assert export_cfg["directory"].endswith("reports")
+    assert export_cfg["filename"] == "summary.xlsx"
