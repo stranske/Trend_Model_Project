@@ -723,6 +723,16 @@ def list_available_presets() -> List[str]:
 
 
 DEFAULTS = Path(__file__).resolve().parents[3] / "config" / "defaults.yml"
+REQUIRED_SECTIONS = (
+    "data",
+    "preprocessing",
+    "vol_adjust",
+    "sample_split",
+    "portfolio",
+    "metrics",
+    "export",
+    "run",
+)
 
 
 def load_config(cfg: Mapping[str, Any] | str | Path) -> ConfigProtocol:
@@ -738,17 +748,7 @@ def load_config(cfg: Mapping[str, Any] | str | Path) -> ConfigProtocol:
         _validate_version_value(cfg_dict["version"])  # raises ValueError on failure
     # Defer generic required-section checks to Pydantic so tests see
     # field-specific messages unless the user explicitly set a section to None.
-    required_sections = [
-        "data",
-        "preprocessing",
-        "vol_adjust",
-        "sample_split",
-        "portfolio",
-        "metrics",
-        "export",
-        "run",
-    ]
-    for section in required_sections:
+    for section in REQUIRED_SECTIONS:
         if section in cfg_dict and cfg_dict[section] is None:
             # Preserve classic message for explicit null
             raise ValueError(f"{section} section is required")
@@ -829,17 +829,7 @@ def load(path: str | Path | None = None) -> ConfigProtocol:
     if "version" in data and not _HAS_PYDANTIC:
         _validate_version_value(data["version"])  # fallback mode only
 
-    required_sections = [
-        "data",
-        "preprocessing",
-        "vol_adjust",
-        "sample_split",
-        "portfolio",
-        "metrics",
-        "export",
-        "run",
-    ]
-    for section in required_sections:
+    for section in REQUIRED_SECTIONS:
         if section in data and data[section] is None:
             raise ValueError(f"{section} section is required")
         if section in data and not isinstance(data[section], dict):
