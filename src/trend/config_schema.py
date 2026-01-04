@@ -20,6 +20,13 @@ import yaml
 
 from utils.paths import proj_path
 
+try:  # pragma: no cover - optional instrumentation
+    from trend_analysis.config.coverage import get_config_coverage_tracker
+except Exception:  # pragma: no cover - defensive fallback
+
+    def get_config_coverage_tracker() -> None:
+        return None
+
 __all__ = [
     "CoreConfig",
     "CoreConfigError",
@@ -219,17 +226,22 @@ def validate_core_config(
         raise CoreConfigError("Configuration payload must be a mapping")
 
     data_section = _as_mapping(payload.get("data"), field="data")
+    tracker = get_config_coverage_tracker()
     csv_path = _normalise_path(
         data_section.get("csv_path"),
         field="data.csv_path",
         base_path=base_path,
         required=False,
     )
+    if tracker is not None:
+        tracker.track_validated("data.csv_path")
     managers_glob = _normalise_glob(
         data_section.get("managers_glob"),
         field="data.managers_glob",
         base_path=base_path,
     )
+    if tracker is not None and managers_glob is not None:
+        tracker.track_validated("data.managers_glob")
     if csv_path is None and managers_glob is None:
         raise CoreConfigError(
             "Provide data.csv_path or data.managers_glob to locate return series"
@@ -240,36 +252,52 @@ def validate_core_config(
         base_path=base_path,
         required=False,
     )
+    if tracker is not None:
+        tracker.track_validated("data.universe_membership_path")
     date_column = _normalise_string(
         data_section.get("date_column", _DEFAULT_DATE_COLUMN),
         field="data.date_column",
         default=_DEFAULT_DATE_COLUMN,
     )
+    if tracker is not None:
+        tracker.track_validated("data.date_column")
     frequency = _normalise_frequency(data_section.get("frequency", _DEFAULT_FREQUENCY))
+    if tracker is not None:
+        tracker.track_validated("data.frequency")
 
     portfolio_section = _as_mapping(payload.get("portfolio"), field="portfolio")
     transaction_cost = _coerce_float(
         portfolio_section.get("transaction_cost_bps", _DEFAULT_TRANSACTION_COST),
         field="portfolio.transaction_cost_bps",
     )
+    if tracker is not None:
+        tracker.track_validated("portfolio.transaction_cost_bps")
     cost_model_section = portfolio_section.get("cost_model") or {}
     cost_model = _as_mapping(cost_model_section, field="portfolio.cost_model")
     bps_per_trade = _coerce_float(
         cost_model.get("bps_per_trade", transaction_cost),
         field="portfolio.cost_model.bps_per_trade",
     )
+    if tracker is not None:
+        tracker.track_validated("portfolio.cost_model.bps_per_trade")
     slippage_bps = _coerce_float(
         cost_model.get("slippage_bps", _DEFAULT_SLIPPAGE),
         field="portfolio.cost_model.slippage_bps",
     )
+    if tracker is not None:
+        tracker.track_validated("portfolio.cost_model.slippage_bps")
     per_trade_bps = _coerce_float(
         cost_model.get("per_trade_bps", bps_per_trade),
         field="portfolio.cost_model.per_trade_bps",
     )
+    if tracker is not None:
+        tracker.track_validated("portfolio.cost_model.per_trade_bps")
     half_spread_bps = _coerce_float(
         cost_model.get("half_spread_bps", slippage_bps),
         field="portfolio.cost_model.half_spread_bps",
     )
+    if tracker is not None:
+        tracker.track_validated("portfolio.cost_model.half_spread_bps")
 
     data_settings = DataSettings(
         csv_path=csv_path,

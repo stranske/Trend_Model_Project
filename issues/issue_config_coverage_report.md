@@ -66,3 +66,5 @@ Keys ignored: 3
 ```
 
 The existing manual debugging approach in `docs/validation/ui_run_2025-12-15.md` shows this is already a real pain point during debugging sessions.
+
+<!-- needs-human: add a CI workflow job to run config coverage against demo config and fail when ignored keys exceed the threshold (workflow edits required). -->

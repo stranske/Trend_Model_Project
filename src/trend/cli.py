@@ -22,6 +22,12 @@ from trend.reporting.quick_summary import main as quick_summary_main
 from trend_analysis import export
 from trend_analysis import logging as run_logging
 from trend_analysis.api import RunResult, run_simulation
+from trend_analysis.config.coverage import (
+    ConfigCoverageTracker,
+    activate_config_coverage,
+    deactivate_config_coverage,
+    wrap_config_for_coverage,
+)
 from trend_analysis.config import load as load_config
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from trend_analysis.data import load_csv
@@ -230,6 +236,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Disable JSONL structured logging",
     )
+    run_p.add_argument(
+        "--config-coverage",
+        action="store_true",
+        help="Report which config keys were validated vs read",
+    )
 
     report_p = sub.add_parser(
         "report", help="Generate summary artefacts for a configuration"
@@ -255,6 +266,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Also generate a PDF report alongside the HTML output",
     )
+    report_p.add_argument(
+        "--config-coverage",
+        action="store_true",
+        help="Report which config keys were validated vs read",
+    )
 
     stress_p = sub.add_parser(
         "stress", help="Run the pipeline against a canned stress scenario"
@@ -269,6 +285,11 @@ def build_parser() -> argparse.ArgumentParser:
     stress_p.add_argument(
         "--out",
         help="Optional export directory for stress results",
+    )
+    stress_p.add_argument(
+        "--config-coverage",
+        action="store_true",
+        help="Report which config keys were validated vs read",
     )
 
     sub.add_parser("app", help="Launch the Streamlit application")
@@ -827,12 +848,25 @@ def main(argv: list[str] | None = None) -> int:
         args = parser.parse_args(argv)
 
         command = args.subcommand
+        coverage_tracker: ConfigCoverageTracker | None = None
+        if getattr(args, "config_coverage", False):
+            coverage_tracker = ConfigCoverageTracker()
+            activate_config_coverage(coverage_tracker)
+        def _finalize_config_coverage() -> None:
+            if coverage_tracker is None:
+                return
+            print(coverage_tracker.format_report())
+            deactivate_config_coverage()
 
         if command == "app":
+            if coverage_tracker is not None:
+                deactivate_config_coverage()
             proc = subprocess.run(["streamlit", "run", str(APP_PATH)])
             return proc.returncode
 
         if command == "quick-report":
+            if coverage_tracker is not None:
+                deactivate_config_coverage()
             quick_args: list[str] = []
             if args.run_id:
                 quick_args.extend(["--run-id", args.run_id])
@@ -856,6 +890,8 @@ def main(argv: list[str] | None = None) -> int:
 
         load_config_fn = _legacy_callable("_load_configuration", _load_configuration)
         cfg_path, cfg = load_config_fn(args.config)
+        if coverage_tracker is not None:
+            wrap_config_for_coverage(cfg, coverage_tracker)
         ensure_run_spec(cfg, base_path=cfg_path.parent)
         resolve_returns = _legacy_callable(
             "_resolve_returns_path", _resolve_returns_path
@@ -879,6 +915,7 @@ def main(argv: list[str] | None = None) -> int:
             print_summary(cfg, result)
             if log_path:
                 print(f"Structured log: {log_path}")
+            _finalize_config_coverage()
             return 0
 
         if command == "report":
@@ -929,6 +966,7 @@ def main(argv: list[str] | None = None) -> int:
                 pdf_path = report_path.with_suffix(".pdf")
                 pdf_path.write_bytes(artifacts.pdf_bytes)
                 print(f"PDF report written: {pdf_path}")
+            _finalize_config_coverage()
             return 0
 
         if command == "stress":
@@ -956,13 +994,18 @@ def main(argv: list[str] | None = None) -> int:
                     "_write_report_files", _write_report_files
                 )
                 write_report(export_dir, cfg, result, run_id=run_id)
+            _finalize_config_coverage()
             return 0
 
         raise TrendCLIError(f"Unknown command: {command}")
     except TrendCLIError as exc:
+        if "coverage_tracker" in locals() and coverage_tracker is not None:
+            deactivate_config_coverage()
         print(f"Error: {exc}", file=sys.stderr)
         return 2
     except FileNotFoundError as exc:
+        if "coverage_tracker" in locals() and coverage_tracker is not None:
+            deactivate_config_coverage()
         print(f"Error: {exc}", file=sys.stderr)
         return 2
 
