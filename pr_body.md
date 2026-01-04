@@ -1,45 +1,51 @@
 <!-- pr-preamble:start -->
-> **Source:** Issue #4147
+> **Source:** Issue #4178
 
 <!-- pr-preamble:end -->
 
 <!-- auto-status-summary:start -->
 ## Automated Status Summary
 #### Scope
-There are multiple diagnostic/result wrappers in use:
-1. `DiagnosticResult` in `src/trend/diagnostics.py` - Generic wrapper with value + diagnostic payload
-2. `PipelineResult` in `src/trend_analysis/diagnostics.py` - Pipeline-specific success/failure
-3. `AnalysisResult` - Legacy wrapper for backward compatibility
-4. Multi-period engine's `_coerce_analysis_result()` in `src/trend_analysis/multi_period/engine.py` - Normalizes between formats
+Before building any natural language (NL) layer that modifies configuration, we must understand the exact config schema, validation mechanisms, and execution entrypoints. Without this foundation, the NL layer risks targeting unstable internal interfaces, producing invalid configs, or bypassing critical validation.
 
-The multi-period engine has to guess whether results are dicts, wrappers, or legacy objects:
-```python
-def _coerce_analysis_result(result: object) -> tuple[dict[str, Any] | None, DiagnosticPayload | None]:
-    """Normalise pipeline outputs regardless of legacy or diagnostic wrappers."""
-    diag = getattr(result, "diagnostic", None)
-    if hasattr(result, "unwrap"):
-        unwrap = getattr(result, "unwrap", None)
-```
-
-This "duck-typing to figure out what we got back" pattern is fragile and error-prone.
+This is a **blocker** for all subsequent NL integration work.
 
 #### Tasks
-- [x] Define canonical `RunPayload` protocol/dataclass with `value`, `diagnostic`, `metadata` fields
-- [x] Update `PipelineResult` to implement `RunPayload` protocol
-- [x] Update `pipeline.run_full()` to always return `RunPayload`-compliant object
-- [x] Update `pipeline.run()` to extract `value` from `RunPayload` (backward compat)
-- [ ] Update multi-period engine to expect `RunPayload` instead of duck-typing
-- [ ] Remove `_coerce_analysis_result()` once all callers use typed interface
-- [ ] Update Streamlit result handling to use `RunPayload` interface
-- [ ] Add type guards: `is_run_payload(obj) -> TypeGuard[RunPayload]`
-- [ ] Deprecate direct `AnalysisResult` usage with warning
+- [ ] Trace YAML config loading path from CLI/Streamlit entry to internal use
+- [ ] Document validation mechanism (Pydantic models, dataclasses, custom validators, or none)
+- [ ] Enumerate all top-level config sections and their purposes
+- [ ] Classify each config key as:
+- [ ] - **Safe**: Can be freely modified via NL (e.g., `top_n`, `target_vol`)
+- [ ] - **Constrained**: Requires validation bounds (e.g., `max_weight` 0-1)
+- [ ] - **Derived**: Computed internally, should not be set directly
+- [ ] - **Internal**: Implementation detail, never expose to NL
+- [ ] Document `pipeline.run()` and `pipeline.run_full()` entrypoint signatures
+- [ ] Document `run_from_config()` and `run_full_from_config()` in pipeline_entrypoints.py
+- [ ] Identify any config preprocessing or normalization steps
+- [ ] Create `docs/planning/nl-config-audit.md` with findings
 
 #### Acceptance criteria
-- [x] Single `RunPayload` type is returned by all pipeline entry points
-- [ ] Multi-period engine no longer needs `_coerce_analysis_result()`
-- [x] Type checker (mypy) validates payload handling without `Any` casts
-- [ ] CLI diagnostic output unchanged
-- [ ] Streamlit diagnostic display unchanged
-- [x] All existing tests pass
+- [ ] `docs/planning/nl-config-audit.md` exists and documents:
+- [ ] - Config load path (file → parse → validate → use)
+- [ ] - Validation mechanism and where it runs
+- [ ] - Canonical schema source (`config/defaults.yml` vs models)
+- [ ] - Run entrypoint signatures with parameter documentation
+- [ ] - Classification of at least 20 config keys
+- [ ] Document is reviewed and linked from main NL planning doc
 
+**Head SHA:** 21866bf8bc36a7c8472758296ec2075989531008
+**Latest Runs:** ⏹️ cancelled — Gate
+**Required:** gate: ⏹️ cancelled
+
+| Workflow / Job | Result | Logs |
+|----------------|--------|------|
+| Agents Bot Comment Handler | ⏹️ cancelled | [View run](https://github.com/stranske/Trend_Model_Project/actions/runs/20692983844) |
+| Agents Keepalive Loop | ❔ in progress | [View run](https://github.com/stranske/Trend_Model_Project/actions/runs/20692983831) |
+| Agents PR Meta | ❔ in progress | [View run](https://github.com/stranske/Trend_Model_Project/actions/runs/20692983963) |
+| Autofix | ❔ in progress | [View run](https://github.com/stranske/Trend_Model_Project/actions/runs/20692983861) |
+| Copilot code review | ⏳ queued | [View run](https://github.com/stranske/Trend_Model_Project/actions/runs/20692984352) |
+| Gate | ⏹️ cancelled | [View run](https://github.com/stranske/Trend_Model_Project/actions/runs/20692983847) |
+| Health 45 Agents Guard | ❔ in progress | [View run](https://github.com/stranske/Trend_Model_Project/actions/runs/20692983833) |
+| PR 11 - Minimal invariant CI | ❔ in progress | [View run](https://github.com/stranske/Trend_Model_Project/actions/runs/20692983887) |
+| PR 12 - Fund selector Playwright smoke | ❔ in progress | [View run](https://github.com/stranske/Trend_Model_Project/actions/runs/20692983894) |
 <!-- auto-status-summary:end -->
