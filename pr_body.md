@@ -9,7 +9,7 @@
 LangChain and Pydantic have complex version interdependencies that can cause subtle runtime failures if not carefully managed. LangChain v1 requires Python 3.10+ and Pydantic v2 for best compatibility. Deciding these versions upfront prevents dependency hell during development and protects against accidental drift.
 
 #### Tasks
-- [ ] Review current Python version requirements in `pyproject.toml`
+- [x] Review current Python version requirements in `pyproject.toml`
 - [ ] Decide LangChain version strategy:
 - [ ] - **Recommended**: LangChain v1.x (stable, well-documented)
 - [ ] - Pin to minor version range (e.g., `langchain>=1.0,<1.1`)
@@ -17,14 +17,14 @@ LangChain and Pydantic have complex version interdependencies that can cause sub
 - [ ] - **Recommended**: Pydantic v2-only (v1 compatibility mode has edge cases)
 - [ ] - Verify existing codebase is v2-compatible
 - [ ] Add `langchain`, `langchain-core`, `langchain-community` to optional dependencies
-- [ ] Create `[llm]` extras group in pyproject.toml
+- [x] Create `[llm]` extras group in pyproject.toml
 - [ ] Add CI check that fails if:
 - [ ] - Python < 3.10 is used with LLM extras
 - [ ] - Pydantic v1 is resolved when LLM extras are installed
-- [ ] Document version requirements in README or DEPENDENCY_QUICKSTART.md
+- [x] Document version requirements in README or DEPENDENCY_QUICKSTART.md
 
 #### Acceptance criteria
-- [ ] `pyproject.toml` updated with pinned LangChain versions in `[project.optional-dependencies]`
+- [x] `pyproject.toml` updated with pinned LangChain versions in `[project.optional-dependencies]`
 - [ ] `pip install -e ".[llm]"` installs compatible LangChain + Pydantic
 - [ ] CI job exists that validates dependency compatibility
 - [ ] README documents Python 3.10+ requirement for NL features

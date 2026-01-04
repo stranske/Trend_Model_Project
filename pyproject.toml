@@ -83,9 +83,9 @@ app = [
     "uvicorn[standard]==0.40.0",
 ]
 llm = [
-    "langchain>=0.3.0,<0.4",
-    "langchain-core>=0.3.0,<0.4",
-    "langchain-community>=0.3.0,<0.4",
+    "langchain>=1.0,<1.1",
+    "langchain-core>=1.0,<1.1",
+    "langchain-community>=1.0,<1.1",
 ]
 notebooks = [
     "ipyfilechooser==0.6.0",
