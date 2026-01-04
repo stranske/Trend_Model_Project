@@ -1,36 +1,33 @@
 <!-- pr-preamble:start -->
-> **Source:** Issue #4178
+> **Source:** Issue #4179
 
 <!-- pr-preamble:end -->
 
 <!-- auto-status-summary:start -->
 ## Automated Status Summary
 #### Scope
-Before building any natural language (NL) layer that modifies configuration, we must understand the exact config schema, validation mechanisms, and execution entrypoints. Without this foundation, the NL layer risks targeting unstable internal interfaces, producing invalid configs, or bypassing critical validation.
-
-This is a **blocker** for all subsequent NL integration work.
+LangChain and Pydantic have complex version interdependencies that can cause subtle runtime failures if not carefully managed. LangChain v1 requires Python 3.10+ and Pydantic v2 for best compatibility. Deciding these versions upfront prevents dependency hell during development and protects against accidental drift.
 
 #### Tasks
-- [x] Trace YAML config loading path from CLI/Streamlit entry to internal use
-- [x] Document validation mechanism (Pydantic models, dataclasses, custom validators, or none)
-- [x] Enumerate all top-level config sections and their purposes
-- [x] Classify each config key as:
-- [ ] - **Safe**: Can be freely modified via NL (e.g., `top_n`, `target_vol`)
-- [ ] - **Constrained**: Requires validation bounds (e.g., `max_weight` 0-1)
-- [ ] - **Derived**: Computed internally, should not be set directly
-- [ ] - **Internal**: Implementation detail, never expose to NL
-- [x] Document `pipeline.run()` and `pipeline.run_full()` entrypoint signatures
-- [x] Document `run_from_config()` and `run_full_from_config()` in pipeline_entrypoints.py
-- [x] Identify any config preprocessing or normalization steps
-- [x] Create `docs/planning/nl-config-audit.md` with findings
+- [ ] Review current Python version requirements in `pyproject.toml`
+- [ ] Decide LangChain version strategy:
+- [ ] - **Recommended**: LangChain v1.x (stable, well-documented)
+- [ ] - Pin to minor version range (e.g., `langchain>=1.0,<1.1`)
+- [ ] Decide Pydantic version strategy:
+- [ ] - **Recommended**: Pydantic v2-only (v1 compatibility mode has edge cases)
+- [ ] - Verify existing codebase is v2-compatible
+- [ ] Add `langchain`, `langchain-core`, `langchain-community` to optional dependencies
+- [ ] Create `[llm]` extras group in pyproject.toml
+- [ ] Add CI check that fails if:
+- [ ] - Python < 3.10 is used with LLM extras
+- [ ] - Pydantic v1 is resolved when LLM extras are installed
+- [ ] Document version requirements in README or DEPENDENCY_QUICKSTART.md
 
 #### Acceptance criteria
-- [x] `docs/planning/nl-config-audit.md` exists and documents:
-- [x] - Config load path (file → parse → validate → use)
-- [x] - Validation mechanism and where it runs
-- [x] - Canonical schema source (`config/defaults.yml` vs models)
-- [ ] - Run entrypoint signatures with parameter documentation
-- [x] - Classification of at least 20 config keys
-- [x] Document is reviewed and linked from main NL planning doc
+- [ ] `pyproject.toml` updated with pinned LangChain versions in `[project.optional-dependencies]`
+- [ ] `pip install -e ".[llm]"` installs compatible LangChain + Pydantic
+- [ ] CI job exists that validates dependency compatibility
+- [ ] README documents Python 3.10+ requirement for NL features
+- [ ] No Pydantic v1/v2 compatibility warnings when importing langchain
 
 <!-- auto-status-summary:end -->
