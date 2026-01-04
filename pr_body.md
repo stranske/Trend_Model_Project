@@ -11,7 +11,7 @@ Before building any natural language (NL) layer that modifies configuration, we 
 This is a **blocker** for all subsequent NL integration work.
 
 #### Tasks
-- [ ] Trace YAML config loading path from CLI/Streamlit entry to internal use
+- [x] Trace YAML config loading path from CLI/Streamlit entry to internal use
 - [x] Document validation mechanism (Pydantic models, dataclasses, custom validators, or none)
 - [x] Enumerate all top-level config sections and their purposes
 - [x] Classify each config key as:
@@ -26,8 +26,8 @@ This is a **blocker** for all subsequent NL integration work.
 
 #### Acceptance criteria
 - [x] `docs/planning/nl-config-audit.md` exists and documents:
-- [ ] - Config load path (file → parse → validate → use)
-- [ ] - Validation mechanism and where it runs
+- [x] - Config load path (file → parse → validate → use)
+- [x] - Validation mechanism and where it runs
 - [x] - Canonical schema source (`config/defaults.yml` vs models)
 - [ ] - Run entrypoint signatures with parameter documentation
 - [x] - Classification of at least 20 config keys
