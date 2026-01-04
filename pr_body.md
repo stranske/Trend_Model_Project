@@ -1,37 +1,45 @@
 <!-- pr-preamble:start -->
-> **Source:** Issue #4146
+> **Source:** Issue #4147
 
 <!-- pr-preamble:end -->
 
 <!-- auto-status-summary:start -->
 ## Automated Status Summary
 #### Scope
-The project maintains two config truths:
-1. **Lightweight schema** (`src/trend/config_schema.py`) - For fast CLI/Streamlit startup validation
-2. **Full Pydantic model** (`src/trend_analysis/config/models.py`) - For complete configuration with defaults
+There are multiple diagnostic/result wrappers in use:
+1. `DiagnosticResult` in `src/trend/diagnostics.py` - Generic wrapper with value + diagnostic payload
+2. `PipelineResult` in `src/trend_analysis/diagnostics.py` - Pipeline-specific success/failure
+3. `AnalysisResult` - Legacy wrapper for backward compatibility
+4. Multi-period engine's `_coerce_analysis_result()` in `src/trend_analysis/multi_period/engine.py` - Normalizes between formats
 
-This architecture is intentional (fast-fail without loading full Pydantic dependency chain), but creates risk of desync. The existing `tests/test_config_alignment.py` partially mitigates this, but doesn't catch:
-- Config keys that are read but never validated
-- Config keys that are validated but never used
-- Runtime divergence when fallback behavior activates
+The multi-period engine has to guess whether results are dicts, wrappers, or legacy objects:
+```python
+def _coerce_analysis_result(result: object) -> tuple[dict[str, Any] | None, DiagnosticPayload | None]:
+    """Normalise pipeline outputs regardless of legacy or diagnostic wrappers."""
+    diag = getattr(result, "diagnostic", None)
+    if hasattr(result, "unwrap"):
+        unwrap = getattr(result, "unwrap", None)
+```
+
+This "duck-typing to figure out what we got back" pattern is fragile and error-prone.
 
 #### Tasks
-- [x] Create `src/trend_analysis/config/coverage.py` with `ConfigCoverageTracker` class
-- [ ] Add `track_read(key: str)` method called when config values are accessed
-- [ ] Add `track_validated(key: str)` method called when values pass schema validation
-- [ ] Add `generate_report() -> ConfigCoverageReport` returning read/validated/ignored sets
-- [ ] Instrument `validate_core_config()` to track validated keys
-- [x] Add optional `--config-coverage` flag to CLI that dumps report after run
-- [x] Add `coverage_report` field to `DiagnosticResult` when running in debug mode
-- [x] Extend `tests/test_config_alignment.py` to verify coverage report catches known gaps
-- [ ] Add CI job that runs config coverage on demo config and fails if ignored keys > threshold
+- [ ] Define canonical `RunPayload` protocol/dataclass with `value`, `diagnostic`, `metadata` fields
+- [ ] Update `PipelineResult` to implement `RunPayload` protocol
+- [ ] Update `pipeline.run_full()` to always return `RunPayload`-compliant object
+- [ ] Update `pipeline.run()` to extract `value` from `RunPayload` (backward compat)
+- [ ] Update multi-period engine to expect `RunPayload` instead of duck-typing
+- [ ] Remove `_coerce_analysis_result()` once all callers use typed interface
+- [ ] Update Streamlit result handling to use `RunPayload` interface
+- [ ] Add type guards: `is_run_payload(obj) -> TypeGuard[RunPayload]`
+- [ ] Deprecate direct `AnalysisResult` usage with warning
 
 #### Acceptance criteria
-- [ ] `ConfigCoverageTracker` correctly tracks read vs validated keys
-- [x] CLI `--config-coverage` flag produces human-readable report
-- [x] Report identifies keys in schema but never read (potential dead config)
-- [ ] Report identifies keys read but not in schema (potential validation gap)
-- [x] Integration test validates report catches intentionally misaligned key
-- [x] Demo config coverage shows 0 ignored keys
+- [ ] Single `RunPayload` type is returned by all pipeline entry points
+- [ ] Multi-period engine no longer needs `_coerce_analysis_result()`
+- [ ] Type checker (mypy) validates payload handling without `Any` casts
+- [ ] CLI diagnostic output unchanged
+- [ ] Streamlit diagnostic display unchanged
+- [ ] All existing tests pass
 
 <!-- auto-status-summary:end -->

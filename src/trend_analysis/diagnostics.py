@@ -5,11 +5,26 @@ from __future__ import annotations
 from collections.abc import ItemsView, Iterator, KeysView, Mapping, ValuesView
 from dataclasses import dataclass
 from enum import Enum
-from typing import Tuple, cast
+from typing import Generic, Mapping, Protocol, Tuple, TypeVar, cast, runtime_checkable
 
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 
 AnalysisResult = dict[str, object]
+T = TypeVar("T")
+
+
+@runtime_checkable
+class RunPayload(Protocol[T]):
+    value: T | None
+    diagnostic: DiagnosticPayload | None
+    metadata: Mapping[str, object] | None
+
+
+@dataclass(slots=True)
+class RunPayloadResult(Generic[T]):
+    value: T | None
+    diagnostic: DiagnosticPayload | None = None
+    metadata: Mapping[str, object] | None = None
 
 
 @dataclass(slots=True)
@@ -164,6 +179,8 @@ def coerce_pipeline_result(
 
 __all__ = [
     "AnalysisResult",
+    "RunPayload",
+    "RunPayloadResult",
     "PipelineResult",
     "PipelineReasonCode",
     "pipeline_failure",
