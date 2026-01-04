@@ -7,11 +7,16 @@ from dataclasses import dataclass
 from typing import Generic, Mapping, TypeVar
 
 try:  # pragma: no cover - optional instrumentation
-    from trend_analysis.config.coverage import get_config_coverage_tracker
+    from trend_analysis.config.coverage import (
+        ConfigCoverageTracker,
+        get_config_coverage_tracker,
+    )
 except Exception:  # pragma: no cover - defensive fallback
 
-    def get_config_coverage_tracker() -> None:
+    def get_config_coverage_tracker() -> ConfigCoverageTracker | None:
         return None
+
+    ConfigCoverageTracker = None  # type: ignore[assignment,misc]
 
 
 T = TypeVar("T")
