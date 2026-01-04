@@ -21,18 +21,16 @@ import logging
 import os
 from collections.abc import Mapping as _MappingABC
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Mapping, Protocol, cast
+from typing import Any, Dict, Iterable, List, Mapping, Protocol
 
 import numpy as np
 import pandas as pd
-
-from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 
 from .._typing import FloatArray
 from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv
-from ..diagnostics import PipelineResult
+from ..diagnostics import AnalysisResult, PipelineResult, RunPayload
 from ..pipeline import (
     _build_trend_spec,
     _compute_stats,
@@ -83,40 +81,16 @@ def _run_analysis(*args: Any, **kwargs: Any) -> PipelineResult:
 
 def _call_pipeline_with_diag(
     *args: Any, **kwargs: Any
-) -> DiagnosticResult[dict[str, Any] | None]:
-    """Execute ``_run_analysis`` and normalise into a DiagnosticResult."""
+) -> RunPayload[AnalysisResult]:
+    """Execute ``_run_analysis`` and return the pipeline diagnostics payload."""
 
-    payload, diag = _coerce_analysis_result(_run_analysis(*args, **kwargs))
-    return DiagnosticResult(value=payload, diagnostic=diag)
-
-
-def _coerce_analysis_result(
-    result: object,
-) -> tuple[dict[str, Any] | None, DiagnosticPayload | None]:
-    """Normalise pipeline outputs regardless of legacy or diagnostic wrappers."""
-
-    diag = getattr(result, "diagnostic", None)
-    if hasattr(result, "unwrap"):
-        unwrap = getattr(result, "unwrap", None)
-        if callable(unwrap):
-            try:
-                payload = unwrap()
-            except Exception:  # pragma: no cover - defensive guard
-                payload = None
-        else:  # pragma: no cover - defensive guard
-            payload = None
-    else:
-        payload = result
-
-    if payload is None:
-        return None, cast(DiagnosticPayload | None, diag)
-    if isinstance(payload, _MappingABC):
-        return dict(payload), cast(DiagnosticPayload | None, diag)
-
-    logger.warning(
-        "Unexpected analysis payload type: %%s", type(payload)
-    )  # pragma: no cover - defensive
-    return None, cast(DiagnosticPayload | None, diag)
+    result = _run_analysis(*args, **kwargs)
+    if not isinstance(result, RunPayload):
+        raise TypeError(
+            "Multi-period engine expected a RunPayload-compatible result; "
+            f"received {type(result)!r}"
+        )
+    return result
 
 
 def _coerce_previous_weights(
