@@ -12,7 +12,7 @@ This is a **blocker** for all subsequent NL integration work.
 
 #### Tasks
 - [ ] Trace YAML config loading path from CLI/Streamlit entry to internal use
-- [ ] Document validation mechanism (Pydantic models, dataclasses, custom validators, or none)
+- [x] Document validation mechanism (Pydantic models, dataclasses, custom validators, or none)
 - [x] Enumerate all top-level config sections and their purposes
 - [x] Classify each config key as:
 - [ ] - **Safe**: Can be freely modified via NL (e.g., `top_n`, `target_vol`)
@@ -21,7 +21,7 @@ This is a **blocker** for all subsequent NL integration work.
 - [ ] - **Internal**: Implementation detail, never expose to NL
 - [x] Document `pipeline.run()` and `pipeline.run_full()` entrypoint signatures
 - [x] Document `run_from_config()` and `run_full_from_config()` in pipeline_entrypoints.py
-- [ ] Identify any config preprocessing or normalization steps
+- [x] Identify any config preprocessing or normalization steps
 - [x] Create `docs/planning/nl-config-audit.md` with findings
 
 #### Acceptance criteria
