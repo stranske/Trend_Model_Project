@@ -33,6 +33,7 @@ class PipelineResult(Mapping[str, object]):
 
     value: AnalysisResult | None
     diagnostic: DiagnosticPayload | None = None
+    metadata: Mapping[str, object] | None = None
 
     def _require_value(self) -> AnalysisResult:
         if self.value is None:
