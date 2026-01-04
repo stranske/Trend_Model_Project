@@ -26,11 +26,13 @@ from typing import Any, Dict, Iterable, List, Mapping, Protocol, cast
 import numpy as np
 import pandas as pd
 
+from trend.diagnostics import DiagnosticResult
+
 from .._typing import FloatArray
 from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv
-from ..diagnostics import AnalysisResult, PipelineResult, RunPayload
+from ..diagnostics import PipelineResult, coerce_pipeline_result
 from ..pipeline import (
     _build_trend_spec,
     _compute_stats,
@@ -79,16 +81,25 @@ def _run_analysis(*args: Any, **kwargs: Any) -> PipelineResult:
     return _invoke_analysis_with_diag(*args, **kwargs)
 
 
-def _call_pipeline_with_diag(*args: Any, **kwargs: Any) -> RunPayload[AnalysisResult]:
-    """Execute ``_run_analysis`` and return the pipeline diagnostics payload."""
+def _call_pipeline_with_diag(
+    *args: Any, **kwargs: Any
+) -> DiagnosticResult[dict[str, Any] | None]:
+    """Execute ``_run_analysis`` and normalise into a ``DiagnosticResult``.
 
-    result = _run_analysis(*args, **kwargs)
-    if not isinstance(result, RunPayload):
-        raise TypeError(
-            "Multi-period engine expected a RunPayload-compatible result; "
-            f"received {type(result)!r}"
+    Tests and legacy callers monkeypatch ``_run_analysis`` to return raw dict
+    payloads; keep accepting those for backwards compatibility.
+    """
+
+    payload, diag = coerce_pipeline_result(_run_analysis(*args, **kwargs))
+    if payload is None:
+        return DiagnosticResult(
+            value=None,
+            diagnostic=diag,
         )
-    return result
+    return DiagnosticResult(
+        value=dict(payload),
+        diagnostic=diag,
+    )
 
 
 def _coerce_previous_weights(
