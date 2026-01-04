@@ -107,6 +107,7 @@ httptools==0.7.1
 httpx==0.28.1
     # via
     #   trend-model (pyproject.toml)
+    #   langgraph-sdk
     #   langsmith
 httpx-sse==0.4.3
     # via langchain-community
@@ -159,23 +160,37 @@ jupyterlab-widgets==3.0.16
     # via ipywidgets
 kiwisolver==1.4.9
     # via matplotlib
-langchain==0.3.27
-    # via
-    #   trend-model (pyproject.toml)
-    #   langchain-community
-langchain-community==0.3.31
+langchain==1.2.0
     # via trend-model (pyproject.toml)
-langchain-core==0.3.81
+langchain-classic==1.0.1
+    # via langchain-community
+langchain-community==0.4.1
+    # via trend-model (pyproject.toml)
+langchain-core==1.2.6
     # via
     #   trend-model (pyproject.toml)
     #   langchain
+    #   langchain-classic
     #   langchain-community
     #   langchain-text-splitters
-langchain-text-splitters==0.3.11
+    #   langgraph
+    #   langgraph-checkpoint
+    #   langgraph-prebuilt
+langchain-text-splitters==1.1.0
+    # via langchain-classic
+langgraph==1.0.5
     # via langchain
+langgraph-checkpoint==3.0.1
+    # via
+    #   langgraph
+    #   langgraph-prebuilt
+langgraph-prebuilt==1.0.5
+    # via langgraph
+langgraph-sdk==0.3.1
+    # via langgraph
 langsmith==0.6.0
     # via
-    #   langchain
+    #   langchain-classic
     #   langchain-community
     #   langchain-core
 librt==0.7.4
@@ -220,7 +235,11 @@ numpy==2.3.4
 openpyxl==3.1.5
     # via trend-model (pyproject.toml)
 orjson==3.11.5
-    # via langsmith
+    # via
+    #   langgraph-sdk
+    #   langsmith
+ormsgpack==1.12.1
+    # via langgraph-checkpoint
 packaging==25.0
     # via
     #   trend-model (pyproject.toml)
@@ -285,7 +304,9 @@ pydantic==2.12.5
     #   trend-model (pyproject.toml)
     #   fastapi
     #   langchain
+    #   langchain-classic
     #   langchain-core
+    #   langgraph
     #   langsmith
     #   pandera
     #   pydantic-settings
@@ -331,7 +352,7 @@ pytz==2025.2
 pyyaml==6.0.3
     # via
     #   trend-model (pyproject.toml)
-    #   langchain
+    #   langchain-classic
     #   langchain-community
     #   langchain-core
     #   pre-commit
@@ -343,7 +364,7 @@ referencing==0.37.0
 requests==2.32.5
     # via
     #   trend-model (pyproject.toml)
-    #   langchain
+    #   langchain-classic
     #   langchain-community
     #   langsmith
     #   requests-toolbelt
@@ -366,7 +387,7 @@ sortedcontainers==2.4.0
     # via hypothesis
 sqlalchemy==2.0.45
     # via
-    #   langchain
+    #   langchain-classic
     #   langchain-community
 stack-data==0.6.3
     # via ipython
@@ -438,7 +459,9 @@ urllib3==2.6.2
     #   requests
     #   types-requests
 uuid-utils==0.12.0
-    # via langsmith
+    # via
+    #   langchain-core
+    #   langsmith
 uvicorn==0.40.0
     # via trend-model (pyproject.toml)
 uvloop==0.22.1
@@ -457,6 +480,8 @@ widgetsnbextension==4.0.15
     # via ipywidgets
 xlsxwriter==3.2.9
     # via trend-model (pyproject.toml)
+xxhash==3.6.0
+    # via langgraph
 yarl==1.22.0
     # via aiohttp
 zstandard==0.25.0
