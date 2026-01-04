@@ -24,9 +24,9 @@ def _coerce_analysis_result(result: object) -> tuple[dict[str, Any] | None, Diag
 This "duck-typing to figure out what we got back" pattern is fragile and error-prone.
 
 #### Tasks
-- [ ] Define canonical `RunPayload` protocol/dataclass with `value`, `diagnostic`, `metadata` fields
+- [x] Define canonical `RunPayload` protocol/dataclass with `value`, `diagnostic`, `metadata` fields
 - [x] Update `PipelineResult` to implement `RunPayload` protocol
-- [ ] Update `pipeline.run_full()` to always return `RunPayload`-compliant object
+- [x] Update `pipeline.run_full()` to always return `RunPayload`-compliant object
 - [ ] Update `pipeline.run()` to extract `value` from `RunPayload` (backward compat)
 - [ ] Update multi-period engine to expect `RunPayload` instead of duck-typing
 - [ ] Remove `_coerce_analysis_result()` once all callers use typed interface
