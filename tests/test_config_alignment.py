@@ -9,6 +9,12 @@ import pytest
 import yaml
 
 from trend.config_schema import CoreConfig, validate_core_config
+from trend_analysis.config.coverage import (
+    ConfigCoverageTracker,
+    activate_config_coverage,
+    deactivate_config_coverage,
+    wrap_config_for_coverage,
+)
 from trend_analysis.config.model import validate_trend_config
 from utils.paths import proj_path
 
@@ -123,3 +129,47 @@ def test_core_and_trend_resolve_paths_consistently(tmp_path: Path) -> None:
     assert trend_cfg.portfolio.cost_model.per_trade_bps == pytest.approx(
         core_cfg.costs.per_trade_bps
     )
+
+
+def test_config_coverage_report_flags_read_and_validation_gaps(
+    tmp_path: Path,
+) -> None:
+    csv_file = tmp_path / "returns.csv"
+    csv_file.write_text("Date,Mgr_01\n2024-01-31,1.0\n", encoding="utf-8")
+
+    raw_cfg = {
+        "data": {
+            "csv_path": str(csv_file),
+            "date_column": "Date",
+            "frequency": "M",
+        },
+        "portfolio": {"transaction_cost_bps": 0.0},
+    }
+
+    tracker = ConfigCoverageTracker()
+    activate_config_coverage(tracker)
+    try:
+        validate_core_config(raw_cfg, base_path=tmp_path)
+        cfg = type(
+            "ConfigStub",
+            (),
+            {
+                "data": {
+                    "csv_path": str(csv_file),
+                    "date_column": "Date",
+                    "frequency": "M",
+                    "unexpected_key": "unused",
+                },
+                "portfolio": {"transaction_cost_bps": 0.0},
+            },
+        )()
+        wrap_config_for_coverage(cfg, tracker)
+        _ = cfg.data.get("csv_path")
+        _ = cfg.portfolio.get("transaction_cost_bps")
+        _ = cfg.data.get("unexpected_key")
+    finally:
+        deactivate_config_coverage()
+
+    report = tracker.generate_report()
+    assert "data.date_column" in report.unread_validated
+    assert "data.unexpected_key" in report.unvalidated_reads

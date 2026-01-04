@@ -51,9 +51,36 @@ jobs:
       enable-soft-gate: true
     secrets: inherit
 
+  config-coverage:
+    name: Config Coverage Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Run config coverage check
+        run: |
+          # Note: Threshold set to 72 due to incomplete instrumentation
+          # Only lightweight schema (data.*, portfolio.cost_model.*) is currently tracked
+          # TODO: Reduce threshold as more config sections are instrumented
+          python scripts/check_config_coverage.py \
+            --config config/demo.yml \
+            --ignored-threshold 72
+
   summary:
     name: gate-summary
-    needs: [python-ci]
+    needs: [python-ci, config-coverage]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     permissions:
@@ -75,17 +102,18 @@ jobs:
         id: summarize
         env:
           PYTHON_RESULT: ${{ needs.python-ci.result || 'skipped' }}
+          CONFIG_COV_RESULT: ${{ needs.config-coverage.result || 'skipped' }}
         run: |
           set -euo pipefail
 
           python_result="${PYTHON_RESULT:-skipped}"
+          config_cov_result="${CONFIG_COV_RESULT:-skipped}"
           state="success"
           description="All checks passed"
 
+          # Check Python CI
           case "$python_result" in
             success)
-              state="success"
-              description="Python CI passed"
               ;;
             failure)
               state="failure"
@@ -96,14 +124,35 @@ jobs:
               description="Python CI was cancelled"
               ;;
             skipped)
-              state="success"
-              description="Python CI skipped (no relevant changes)"
               ;;
             *)
               state="pending"
               description="Python CI status unknown"
               ;;
           esac
+
+          # Check Config Coverage
+          if [ "$state" = "success" ]; then
+            case "$config_cov_result" in
+              success)
+                description="Python CI passed"
+                ;;
+              failure)
+                state="failure"
+                description="Config coverage check failed"
+                ;;
+              cancelled)
+                state="error"
+                description="Config coverage was cancelled"
+                ;;
+              skipped)
+                ;;
+              *)
+                state="pending"
+                description="Config coverage status unknown"
+                ;;
+            esac
+          fi
 
           echo "state=${state}" >> "$GITHUB_OUTPUT"
           echo "description=${description}" >> "$GITHUB_OUTPUT"

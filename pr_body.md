@@ -1,48 +1,37 @@
 <!-- pr-preamble:start -->
-> **Source:** Issue #4145
+> **Source:** Issue #4146
 
 <!-- pr-preamble:end -->
 
 <!-- auto-status-summary:start -->
 ## Automated Status Summary
 #### Scope
-`pipeline.py` is 3003 lines and serves as orchestrator, validator, selector, weight-engine integrator, risk controller, diagnostics builder, and more. While decomposition has started (stage dataclasses, helper functions), the module still violates single-responsibility and makes it difficult to:
+The project maintains two config truths:
+1. **Lightweight schema** (`src/trend/config_schema.py`) - For fast CLI/Streamlit startup validation
+2. **Full Pydantic model** (`src/trend_analysis/config/models.py`) - For complete configuration with defaults
 
-1. Test individual stages in isolation
-2. Understand the data flow without reading thousands of lines
-3. Modify one concern without risking regressions in others
-4. Onboard new contributors
-
-The module handles: preprocessing (calendar + missing policy + inception mask), selection/scoring, and portfolio construction (weights + constraints + risk)—three distinct conceptual domains that should be separate modules.
+This architecture is intentional (fast-fail without loading full Pydantic dependency chain), but creates risk of desync. The existing `tests/test_config_alignment.py` partially mitigates this, but doesn't catch:
+- Config keys that are read but never validated
+- Config keys that are validated but never used
+- Runtime divergence when fallback behavior activates
 
 #### Tasks
-- [x] Create `src/trend_analysis/stages/__init__.py` package
-- [x] Extract preprocessing logic into `src/trend_analysis/stages/preprocessing.py`:
-- [x] - Calendar alignment (`align_calendar`)
-- [x] - Missing data policy (`apply_missing_policy`, `MissingPolicyResult`)
-- [x] - Inception masking logic
-- [x] - Frequency detection and normalization
-- [x] Extract selection/scoring logic into `src/trend_analysis/stages/selection.py`:
-- [x] - Fund ranking (`rank_select_funds`)
-- [x] - Score computation
-- [x] - Metric bundle computation
-- [x] - Risk stats configuration
-- [x] Extract portfolio construction into `src/trend_analysis/stages/portfolio.py`:
-- [x] - Weight computation and constraints
-- [x] - Risk adjustments
-- [x] - Vol targeting
-- [x] - Final weight application
-- [x] Refactor `pipeline.py` to import from stages and orchestrate
-- [x] Keep `run()`, `run_full()`, `run_analysis()` in pipeline.py as thin conductors
-- [x] Maintain backward-compatible imports via `__all__` in pipeline.py
-- [x] Add integration test verifying stage isolation doesn't change outputs
+- [x] Create `src/trend_analysis/config/coverage.py` with `ConfigCoverageTracker` class
+- [ ] Add `track_read(key: str)` method called when config values are accessed
+- [ ] Add `track_validated(key: str)` method called when values pass schema validation
+- [ ] Add `generate_report() -> ConfigCoverageReport` returning read/validated/ignored sets
+- [ ] Instrument `validate_core_config()` to track validated keys
+- [x] Add optional `--config-coverage` flag to CLI that dumps report after run
+- [x] Add `coverage_report` field to `DiagnosticResult` when running in debug mode
+- [x] Extend `tests/test_config_alignment.py` to verify coverage report catches known gaps
+- [ ] Add CI job that runs config coverage on demo config and fails if ignored keys > threshold
 
 #### Acceptance criteria
-- [x] `pipeline.py` reduced to <500 lines (orchestration + public API) — **Currently 400 lines**
-- [x] Each stage module is independently testable
-- [x] `from trend_analysis.pipeline import run` continues to work
-- [x] All existing pipeline tests pass without modification
-- [x] No circular imports between stages
-- [ ] New stage modules have >80% test coverage — **Coverage verification pending CI**
+- [ ] `ConfigCoverageTracker` correctly tracks read vs validated keys
+- [x] CLI `--config-coverage` flag produces human-readable report
+- [x] Report identifies keys in schema but never read (potential dead config)
+- [ ] Report identifies keys read but not in schema (potential validation gap)
+- [x] Integration test validates report catches intentionally misaligned key
+- [x] Demo config coverage shows 0 ignored keys
 
 <!-- auto-status-summary:end -->
