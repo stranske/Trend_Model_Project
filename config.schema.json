@@ -254,20 +254,20 @@
         "spx": "SPX",
         "tsx": "TSX"
       },
-      "description": "Config option for benchmarks.",
+      "description": "Mapping of benchmark labels to column names.",
       "nl_editable": true,
       "properties": {
         "spx": {
           "constraints": {},
           "default": "SPX",
-          "description": "Config option for benchmarks.spx.",
+          "description": "Example benchmark mapping for the S&P 500.",
           "nl_editable": true,
           "type": "string"
         },
         "tsx": {
           "constraints": {},
           "default": "TSX",
-          "description": "Config option for benchmarks.tsx.",
+          "description": "Example benchmark mapping for the TSX.",
           "nl_editable": true,
           "type": "string"
         }
@@ -314,7 +314,7 @@
         "currency": {
           "constraints": {},
           "default": "USD",
-          "description": "Config option for data.currency.",
+          "description": "Reporting currency for inputs and outputs.",
           "nl_editable": true,
           "type": "string"
         },
@@ -365,7 +365,7 @@
         "managers_glob": {
           "constraints": {},
           "default": "data/raw/managers/*.csv",
-          "description": "Config option for data.managers_glob.",
+          "description": "Glob for manager return CSV inputs.",
           "nl_editable": false,
           "type": [
             "string",
@@ -449,13 +449,13 @@
         "include_raw_returns": true,
         "include_vol_adj": true
       },
-      "description": "Config option for export.",
+      "description": "Export settings for output artifacts.",
       "nl_editable": true,
       "properties": {
         "directory": {
           "constraints": {},
           "default": "results/",
-          "description": "Config option for export.directory.",
+          "description": "Directory to write export outputs.",
           "nl_editable": false,
           "type": "string"
         },
@@ -470,13 +470,13 @@
             },
             "number_format": "0.00%"
           },
-          "description": "Config option for export.excel.",
+          "description": "Excel-specific export settings.",
           "nl_editable": true,
           "properties": {
             "autofit_columns": {
               "constraints": {},
               "default": true,
-              "description": "Config option for export.excel.autofit_columns.",
+              "description": "Auto size Excel columns to fit content.",
               "nl_editable": true,
               "type": "boolean"
             },
@@ -487,20 +487,20 @@
                 "enabled": true,
                 "palette": "RdYlGn"
               },
-              "description": "Config option for export.excel.conditional_bands.",
+              "description": "Conditional formatting bands for Excel exports.",
               "nl_editable": true,
               "properties": {
                 "enabled": {
                   "constraints": {},
                   "default": true,
-                  "description": "Config option for export.excel.conditional_bands.enabled.",
+                  "description": "Enable conditional formatting bands in Excel.",
                   "nl_editable": true,
                   "type": "boolean"
                 },
                 "palette": {
                   "constraints": {},
                   "default": "RdYlGn",
-                  "description": "Config option for export.excel.conditional_bands.palette.",
+                  "description": "Color palette name for Excel conditional bands.",
                   "nl_editable": true,
                   "type": "string"
                 }
@@ -510,7 +510,7 @@
             "number_format": {
               "constraints": {},
               "default": "0.00%",
-              "description": "Config option for export.excel.number_format.",
+              "description": "Default numeric format for Excel output.",
               "nl_editable": true,
               "type": "string"
             }
@@ -524,7 +524,7 @@
             "csv",
             "json"
           ],
-          "description": "Config option for export.formats.",
+          "description": "List of export formats to write.",
           "items": {
             "type": "string"
           },
@@ -541,14 +541,14 @@
         "include_raw_returns": {
           "constraints": {},
           "default": true,
-          "description": "Config option for export.include_raw_returns.",
+          "description": "Include raw return series in exports.",
           "nl_editable": true,
           "type": "boolean"
         },
         "include_vol_adj": {
           "constraints": {},
           "default": true,
-          "description": "Config option for export.include_vol_adj.",
+          "description": "Include volatility-adjusted series in exports.",
           "nl_editable": true,
           "type": "boolean"
         }
@@ -596,7 +596,7 @@
         "rf_rate_annual": 0.02,
         "use_continuous": false
       },
-      "description": "Config option for metrics.",
+      "description": "Performance metrics configuration.",
       "nl_editable": true,
       "properties": {
         "alpha_reference": {
@@ -614,7 +614,7 @@
             "enabled": true,
             "n_iter": 2000
           },
-          "description": "Config option for metrics.bootstrap_ci.",
+          "description": "Bootstrap confidence interval settings.",
           "nl_editable": true,
           "properties": {
             "ci_level": {
@@ -623,7 +623,7 @@
                 "minimum": 0
               },
               "default": 0.95,
-              "description": "Config option for metrics.bootstrap_ci.ci_level.",
+              "description": "Bootstrap confidence level.",
               "maximum": 1,
               "minimum": 0,
               "nl_editable": true,
@@ -632,14 +632,14 @@
             "enabled": {
               "constraints": {},
               "default": true,
-              "description": "Config option for metrics.bootstrap_ci.enabled.",
+              "description": "Enable bootstrap confidence intervals.",
               "nl_editable": true,
               "type": "boolean"
             },
             "n_iter": {
               "constraints": {},
               "default": 2000,
-              "description": "Config option for metrics.bootstrap_ci.n_iter.",
+              "description": "Number of bootstrap iterations.",
               "nl_editable": true,
               "type": "integer"
             }
@@ -658,7 +658,7 @@
             "Hit_Rate",
             "Skew"
           ],
-          "description": "Config option for metrics.compute.",
+          "description": "Legacy metrics list for reporting exports.",
           "items": {
             "type": "string"
           },
@@ -675,7 +675,7 @@
             "information_ratio",
             "max_drawdown"
           ],
-          "description": "Config option for metrics.registry.",
+          "description": "Metric registry identifiers for score frame.",
           "items": {
             "type": "string"
           },
@@ -740,7 +740,7 @@
           ]
         }
       },
-      "description": "Config option for multi_period.",
+      "description": "Multi-period run configuration.",
       "nl_editable": true,
       "properties": {
         "end": {
@@ -767,14 +767,14 @@
         "max_funds": {
           "constraints": {},
           "default": 25,
-          "description": "Config option for multi_period.max_funds.",
+          "description": "Maximum funds selected in multi-period runs.",
           "nl_editable": true,
           "type": "integer"
         },
         "min_funds": {
           "constraints": {},
           "default": 10,
-          "description": "Config option for multi_period.min_funds.",
+          "description": "Minimum funds required in multi-period runs.",
           "nl_editable": true,
           "type": "integer"
         },
@@ -805,7 +805,7 @@
               "sigma": 2
             }
           },
-          "description": "Config option for multi_period.triggers.",
+          "description": "Trigger definitions for multi-period rebalances.",
           "nl_editable": true,
           "properties": {
             "sigma1": {
@@ -815,20 +815,20 @@
                 "periods": 2,
                 "sigma": 1
               },
-              "description": "Config option for multi_period.triggers.sigma1.",
+              "description": "Trigger configuration for 1-sigma events.",
               "nl_editable": true,
               "properties": {
                 "periods": {
                   "constraints": {},
                   "default": 2,
-                  "description": "Config option for multi_period.triggers.sigma1.periods.",
+                  "description": "Consecutive periods required for sigma1 trigger.",
                   "nl_editable": true,
                   "type": "integer"
                 },
                 "sigma": {
                   "constraints": {},
                   "default": 1,
-                  "description": "Config option for multi_period.triggers.sigma1.sigma.",
+                  "description": "Sigma threshold for sigma1 trigger.",
                   "nl_editable": true,
                   "type": "integer"
                 }
@@ -842,20 +842,20 @@
                 "periods": 1,
                 "sigma": 2
               },
-              "description": "Config option for multi_period.triggers.sigma2.",
+              "description": "Trigger configuration for 2-sigma events.",
               "nl_editable": true,
               "properties": {
                 "periods": {
                   "constraints": {},
                   "default": 1,
-                  "description": "Config option for multi_period.triggers.sigma2.periods.",
+                  "description": "Consecutive periods required for sigma2 trigger.",
                   "nl_editable": true,
                   "type": "integer"
                 },
                 "sigma": {
                   "constraints": {},
                   "default": 2,
-                  "description": "Config option for multi_period.triggers.sigma2.sigma.",
+                  "description": "Sigma threshold for sigma2 trigger.",
                   "nl_editable": true,
                   "type": "integer"
                 }
@@ -884,7 +884,7 @@
               ]
             ]
           },
-          "description": "Config option for multi_period.weight_curve.",
+          "description": "Weight curve adjustments by rank.",
           "nl_editable": true,
           "properties": {
             "anchors": {
@@ -926,7 +926,7 @@
         "enable_cache": true,
         "incremental_cov": false
       },
-      "description": "Config option for performance.",
+      "description": "Performance cache and timing settings.",
       "nl_editable": true,
       "properties": {
         "cache": {
@@ -935,7 +935,7 @@
           "default": {
             "metrics": false
           },
-          "description": "Config option for performance.cache.",
+          "description": "Performance cache controls.",
           "nl_editable": true,
           "properties": {
             "metrics": {
@@ -951,14 +951,14 @@
         "enable_cache": {
           "constraints": {},
           "default": true,
-          "description": "Config option for performance.enable_cache.",
+          "description": "Enable performance cache.",
           "nl_editable": true,
           "type": "boolean"
         },
         "incremental_cov": {
           "constraints": {},
           "default": false,
-          "description": "Config option for performance.incremental_cov.",
+          "description": "Enable incremental covariance updates.",
           "nl_editable": true,
           "type": "boolean"
         }
@@ -1052,7 +1052,7 @@
             "max_active_positions": 0,
             "max_weight": 0.25
           },
-          "description": "Config option for portfolio.constraints.",
+          "description": "Portfolio constraint settings.",
           "nl_editable": true,
           "properties": {
             "group_caps": {
@@ -1061,7 +1061,7 @@
               },
               "constraints": {},
               "default": {},
-              "description": "Config option for portfolio.constraints.group_caps.",
+              "description": "Group-level exposure caps by tag.",
               "nl_editable": true,
               "properties": {},
               "type": "object"
@@ -1069,14 +1069,14 @@
             "long_only": {
               "constraints": {},
               "default": true,
-              "description": "Config option for portfolio.constraints.long_only.",
+              "description": "Enforce long-only allocations.",
               "nl_editable": true,
               "type": "boolean"
             },
             "max_active_positions": {
               "constraints": {},
               "default": 0,
-              "description": "Config option for portfolio.constraints.max_active_positions.",
+              "description": "Maximum number of active positions.",
               "nl_editable": true,
               "type": "integer"
             },
@@ -1086,7 +1086,7 @@
                 "minimum": 0
               },
               "default": 0.25,
-              "description": "Config option for portfolio.constraints.max_weight.",
+              "description": "Maximum weight per position.",
               "maximum": 1,
               "minimum": 0,
               "nl_editable": true,
@@ -1102,7 +1102,7 @@
             "bps_per_trade": 0,
             "slippage_bps": 0
           },
-          "description": "Config option for portfolio.cost_model.",
+          "description": "Transaction cost model settings.",
           "nl_editable": true,
           "properties": {
             "bps_per_trade": {
@@ -1181,7 +1181,7 @@
             "threshold": 1.5,
             "transform": "zscore"
           },
-          "description": "Config option for portfolio.rank.",
+          "description": "Ranking-based selection settings.",
           "nl_editable": true,
           "properties": {
             "blended_weights": {
@@ -1194,27 +1194,27 @@
                 "MaxDrawdown": 0.2,
                 "Sharpe": 0.5
               },
-              "description": "Config option for portfolio.rank.blended_weights.",
+              "description": "Weights for blended rank scoring.",
               "nl_editable": true,
               "properties": {
                 "AnnualReturn": {
                   "constraints": {},
                   "default": 0.3,
-                  "description": "Config option for portfolio.rank.blended_weights.AnnualReturn.",
+                  "description": "Weight for annual return in blended score.",
                   "nl_editable": true,
                   "type": "number"
                 },
                 "MaxDrawdown": {
                   "constraints": {},
                   "default": 0.2,
-                  "description": "Config option for portfolio.rank.blended_weights.MaxDrawdown.",
+                  "description": "Weight for max drawdown in blended score.",
                   "nl_editable": true,
                   "type": "number"
                 },
                 "Sharpe": {
                   "constraints": {},
                   "default": 0.5,
-                  "description": "Config option for portfolio.rank.blended_weights.Sharpe.",
+                  "description": "Weight for Sharpe ratio in blended score.",
                   "nl_editable": true,
                   "type": "number"
                 }
@@ -1283,7 +1283,7 @@
             "transform": {
               "constraints": {},
               "default": "zscore",
-              "description": "Config option for portfolio.rank.transform.",
+              "description": "Transform applied to ranking scores.",
               "nl_editable": true,
               "type": "string"
             }
@@ -1293,7 +1293,7 @@
         "rebalance_calendar": {
           "constraints": {},
           "default": "NYSE",
-          "description": "Config option for portfolio.rebalance_calendar.",
+          "description": "Trading calendar for rebalance dates.",
           "nl_editable": true,
           "type": "string"
         },
@@ -1340,7 +1340,7 @@
               "method": "ledoit_wolf"
             }
           },
-          "description": "Config option for portfolio.robustness.",
+          "description": "Robust covariance settings.",
           "nl_editable": true,
           "properties": {
             "condition_check": {
@@ -1352,7 +1352,7 @@
                 "safe_mode": "hrp",
                 "threshold": "1.0e12"
               },
-              "description": "Config option for portfolio.robustness.condition_check.",
+              "description": "Condition-number monitoring settings.",
               "nl_editable": true,
               "properties": {
                 "diagonal_loading_factor": {
@@ -1365,7 +1365,7 @@
                 "enabled": {
                   "constraints": {},
                   "default": true,
-                  "description": "Config option for portfolio.robustness.condition_check.enabled.",
+                  "description": "Enable condition number checks.",
                   "nl_editable": true,
                   "type": "boolean"
                 },
@@ -1394,7 +1394,7 @@
                 "log_method_switches": true,
                 "log_shrinkage_intensity": true
               },
-              "description": "Config option for portfolio.robustness.logging.",
+              "description": "Logging settings for robustness decisions.",
               "nl_editable": true,
               "properties": {
                 "log_condition_numbers": {
@@ -1428,13 +1428,13 @@
                 "enabled": true,
                 "method": "ledoit_wolf"
               },
-              "description": "Config option for portfolio.robustness.shrinkage.",
+              "description": "Covariance shrinkage settings.",
               "nl_editable": true,
               "properties": {
                 "enabled": {
                   "constraints": {},
                   "default": true,
-                  "description": "Config option for portfolio.robustness.shrinkage.enabled.",
+                  "description": "Enable covariance shrinkage.",
                   "nl_editable": true,
                   "type": "boolean"
                 },
@@ -1480,7 +1480,7 @@
               "threshold": 1.0
             }
           },
-          "description": "Config option for portfolio.selector.",
+          "description": "Selector plugin settings.",
           "nl_editable": true,
           "properties": {
             "name": {
@@ -1505,7 +1505,7 @@
               "default": {
                 "threshold": 1.0
               },
-              "description": "Config option for portfolio.selector.params.",
+              "description": "Parameters for selector plugin.",
               "nl_editable": true,
               "properties": {
                 "threshold": {
@@ -1540,13 +1540,13 @@
               "shrink_tau": 0.25
             }
           },
-          "description": "Config option for portfolio.weighting.",
+          "description": "Weighting plugin settings.",
           "nl_editable": true,
           "properties": {
             "name": {
               "constraints": {},
               "default": "score_prop_bayes",
-              "description": "Config option for portfolio.weighting.name.",
+              "description": "Weighting plugin name.",
               "nl_editable": true,
               "type": "string"
             },
@@ -1565,13 +1565,13 @@
               "default": {
                 "shrink_tau": 0.25
               },
-              "description": "Config option for portfolio.weighting.params.",
+              "description": "Parameters for weighting plugin.",
               "nl_editable": true,
               "properties": {
                 "shrink_tau": {
                   "constraints": {},
                   "default": 0.25,
-                  "description": "Config option for portfolio.weighting.params.shrink_tau.",
+                  "description": "Shrinkage tau for Bayesian weighting.",
                   "nl_editable": true,
                   "type": "number"
                 }
@@ -1636,13 +1636,13 @@
           ]
         }
       },
-      "description": "Config option for preprocessing.",
+      "description": "Preprocessing settings.",
       "nl_editable": true,
       "properties": {
         "de_duplicate": {
           "constraints": {},
           "default": true,
-          "description": "Config option for preprocessing.de_duplicate.",
+          "description": "Drop duplicate timestamps or rows.",
           "nl_editable": true,
           "type": "boolean"
         },
@@ -1669,7 +1669,7 @@
             "per_asset_limit": {},
             "policy": "drop"
           },
-          "description": "Config option for preprocessing.missing_data.",
+          "description": "Missing data handling settings.",
           "nl_editable": true,
           "properties": {
             "limit": {
@@ -1736,13 +1736,13 @@
             "method": "last",
             "target": "D"
           },
-          "description": "Config option for preprocessing.resample.",
+          "description": "Resampling settings.",
           "nl_editable": true,
           "properties": {
             "business_only": {
               "constraints": {},
               "default": true,
-              "description": "Config option for preprocessing.resample.business_only.",
+              "description": "Resample on business days only.",
               "nl_editable": true,
               "type": "boolean"
             },
@@ -1789,13 +1789,13 @@
               0.99
             ]
           },
-          "description": "Config option for preprocessing.winsorise.",
+          "description": "Winsorisation settings.",
           "nl_editable": true,
           "properties": {
             "enabled": {
               "constraints": {},
               "default": true,
-              "description": "Config option for preprocessing.winsorise.enabled.",
+              "description": "Enable winsorisation.",
               "nl_editable": true,
               "type": "boolean"
             },
@@ -1842,7 +1842,7 @@
         "smoothing": 3,
         "threshold": 0.0
       },
-      "description": "Config option for regime.",
+      "description": "Market regime detection settings.",
       "nl_editable": true,
       "properties": {
         "annualise_volatility": {
@@ -1855,91 +1855,91 @@
         "cache": {
           "constraints": {},
           "default": true,
-          "description": "Config option for regime.cache.",
+          "description": "Cache regime signals.",
           "nl_editable": true,
           "type": "boolean"
         },
         "enabled": {
           "constraints": {},
           "default": true,
-          "description": "Config option for regime.enabled.",
+          "description": "Enable regime detection.",
           "nl_editable": true,
           "type": "boolean"
         },
         "lookback": {
           "constraints": {},
           "default": 126,
-          "description": "Config option for regime.lookback.",
+          "description": "Lookback window for regime detection.",
           "nl_editable": true,
           "type": "integer"
         },
         "method": {
           "constraints": {},
           "default": "rolling_return",
-          "description": "Config option for regime.method.",
+          "description": "Regime detection method.",
           "nl_editable": true,
           "type": "string"
         },
         "min_observations": {
           "constraints": {},
           "default": 4,
-          "description": "Config option for regime.min_observations.",
+          "description": "Minimum observations for regime signals.",
           "nl_editable": true,
           "type": "integer"
         },
         "neutral_band": {
           "constraints": {},
           "default": 0.001,
-          "description": "Config option for regime.neutral_band.",
+          "description": "Neutral band threshold around zero.",
           "nl_editable": true,
           "type": "number"
         },
         "proxy": {
           "constraints": {},
           "default": "SPX",
-          "description": "Config option for regime.proxy.",
+          "description": "Benchmark proxy used for regime detection.",
           "nl_editable": true,
           "type": "string"
         },
         "risk_off_fund_count_multiplier": {
           "constraints": {},
           "default": 0.5,
-          "description": "Config option for regime.risk_off_fund_count_multiplier.",
+          "description": "Scale fund count in risk-off regime.",
           "nl_editable": true,
           "type": "number"
         },
         "risk_off_label": {
           "constraints": {},
           "default": "Risk-Off",
-          "description": "Config option for regime.risk_off_label.",
+          "description": "Label for risk-off regime.",
           "nl_editable": true,
           "type": "string"
         },
         "risk_off_target_vol_multiplier": {
           "constraints": {},
           "default": 0.5,
-          "description": "Config option for regime.risk_off_target_vol_multiplier.",
+          "description": "Scale target volatility in risk-off regime.",
           "nl_editable": true,
           "type": "number"
         },
         "risk_on_label": {
           "constraints": {},
           "default": "Risk-On",
-          "description": "Config option for regime.risk_on_label.",
+          "description": "Label for risk-on regime.",
           "nl_editable": true,
           "type": "string"
         },
         "smoothing": {
           "constraints": {},
           "default": 3,
-          "description": "Config option for regime.smoothing.",
+          "description": "Smoothing window for regime signal.",
           "nl_editable": true,
           "type": "integer"
         },
         "threshold": {
           "constraints": {},
           "default": 0.0,
-          "description": "Config option for regime.threshold.",
+          "description": "Threshold for regime classification.",
           "nl_editable": true,
           "type": "number"
         }
@@ -1956,13 +1956,13 @@
         "log_level": "INFO",
         "n_jobs": -1
       },
-      "description": "Config option for run.",
+      "description": "Runtime execution settings.",
       "nl_editable": true,
       "properties": {
         "cache_dir": {
           "constraints": {},
           "default": ".cache/",
-          "description": "Config option for run.cache_dir.",
+          "description": "Directory for runtime cache.",
           "nl_editable": true,
           "type": "string"
         },
@@ -1976,7 +1976,7 @@
         "log_file": {
           "constraints": {},
           "default": "logs/phase1.log",
-          "description": "Config option for run.log_file.",
+          "description": "Log file path for runtime logs.",
           "nl_editable": false,
           "type": "string"
         },
@@ -2007,7 +2007,7 @@
         "ratio": 0.7,
         "rolling_walk": false
       },
-      "description": "Config option for sample_split.",
+      "description": "In-sample/out-of-sample split settings.",
       "nl_editable": true,
       "properties": {
         "date": {
@@ -2065,7 +2065,7 @@
     "seed": {
       "constraints": {},
       "default": 42,
-      "description": "Config option for seed.",
+      "description": "Global random seed for runs.",
       "nl_editable": true,
       "type": "integer"
     },
@@ -2096,7 +2096,7 @@
         "enabled": {
           "constraints": {},
           "default": true,
-          "description": "Config option for vol_adjust.enabled.",
+          "description": "Enable volatility targeting.",
           "nl_editable": true,
           "type": "boolean"
         },
@@ -2132,7 +2132,7 @@
             "lambda": 0.94,
             "length": 63
           },
-          "description": "Config option for vol_adjust.window.",
+          "description": "Volatility window settings.",
           "nl_editable": true,
           "properties": {
             "decay": {
