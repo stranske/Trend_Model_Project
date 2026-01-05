@@ -227,9 +227,7 @@ def test_resolve_path_checks_parent_and_cwd(
     assert resolved_cwd == cwd_file.resolve()
 
 
-def test_expand_pattern_deduplicates_roots(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_expand_pattern_deduplicates_roots(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     base_dir = tmp_path / "dup"
     base_dir.mkdir()
     monkeypatch.chdir(base_dir)

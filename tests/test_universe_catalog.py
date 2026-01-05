@@ -172,9 +172,7 @@ def test_load_universe_resolves_date_and_symbol_column(tmp_path: Path) -> None:
     prices = tmp_path / "prices.csv"
     membership = tmp_path / "membership.csv"
     prices.write_text("DATE,X\n2020-01-31,10\n", encoding="utf-8")
-    membership.write_text(
-        "symbol,effective_date,end_date\nX,2020-01-31,\n", encoding="utf-8"
-    )
+    membership.write_text("symbol,effective_date,end_date\nX,2020-01-31,\n", encoding="utf-8")
     cfg.write_text(
         """
 version: 1
@@ -268,9 +266,7 @@ def test_load_universe_requires_fund_column(tmp_path: Path) -> None:
         "Date,A\n2020-01-31,1\n",
         encoding="utf-8",
     )
-    membership.write_text(
-        "symbol_alias,effective_date\nA,2020-01-31\n", encoding="utf-8"
-    )
+    membership.write_text("symbol_alias,effective_date\nA,2020-01-31\n", encoding="utf-8")
     cfg.write_text(
         """
 version: 1

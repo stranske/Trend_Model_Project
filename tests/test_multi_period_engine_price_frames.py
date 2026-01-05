@@ -121,9 +121,7 @@ def test_run_combines_price_frames_and_invokes_analysis(
     captured_dates: list[pd.Timestamp] = []
     captured_columns: list[List[str]] = []
 
-    def fake_run_analysis(
-        df: pd.DataFrame, *args: Any, **kwargs: Any
-    ) -> Dict[str, Any]:
+    def fake_run_analysis(df: pd.DataFrame, *args: Any, **kwargs: Any) -> Dict[str, Any]:
         # ``run`` should provide a DataFrame that is date-ordered and deduplicated.
         assert df["Date"].is_monotonic_increasing
         assert not df["Date"].duplicated().any()

@@ -63,9 +63,7 @@ def _returns_with_preinception_zeros() -> pd.DataFrame:
     dates = pd.date_range("2020-01-31", periods=10, freq="ME")
     # Add variation so the near-constant series guardrail does not exclude
     # otherwise-eligible funds from the universe.
-    fund_a = np.array(
-        [0.010, -0.005, 0.012, -0.004, 0.009, 0.011, -0.006, 0.010, 0.008, 0.007]
-    )
+    fund_a = np.array([0.010, -0.005, 0.012, -0.004, 0.009, 0.011, -0.006, 0.010, 0.008, 0.007])
     # FundB: pre-inception encoded as zeros through May; starts in June.
     # Post-inception values also vary so FundB isn't excluded as near-constant.
     fund_b = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.020, 0.010, 0.030, 0.015, 0.025])
@@ -85,9 +83,7 @@ def _patch_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
         del args, kwargs
         return SimpleNamespace(value={"fund_weights": {}}, diagnostic=None)
 
-    monkeypatch.setattr(
-        engine, "_call_pipeline_with_diag", fake_call_pipeline_with_diag
-    )
+    monkeypatch.setattr(engine, "_call_pipeline_with_diag", fake_call_pipeline_with_diag)
 
 
 def test_preinception_fund_excluded_until_min_history(

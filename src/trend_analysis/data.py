@@ -128,18 +128,14 @@ def compute_inception_dates(
         values = frame.drop(columns=[date_col])
     else:
         if not isinstance(frame.index, pd.DatetimeIndex):
-            raise TypeError(
-                "compute_inception_dates requires a Date column or DatetimeIndex"
-            )
+            raise TypeError("compute_inception_dates requires a Date column or DatetimeIndex")
         dates = pd.to_datetime(frame.index, errors="coerce")
         values = frame
 
     out: dict[str, pd.Timestamp | None] = {}
     if columns is None:
         columns = [
-            str(c)
-            for c in values.select_dtypes("number").columns
-            if str(c) != str(date_col)
+            str(c) for c in values.select_dtypes("number").columns if str(c) != str(date_col)
         ]
 
     for col in columns:
@@ -176,12 +172,8 @@ def _finalise_validated_frame(
     attrs["market_data_frequency_median_spacing_days"] = (
         validated.metadata.frequency_median_spacing_days
     )
-    attrs["market_data_frequency_missing_periods"] = (
-        validated.metadata.frequency_missing_periods
-    )
-    attrs["market_data_frequency_max_gap_periods"] = (
-        validated.metadata.frequency_max_gap_periods
-    )
+    attrs["market_data_frequency_missing_periods"] = validated.metadata.frequency_missing_periods
+    attrs["market_data_frequency_max_gap_periods"] = validated.metadata.frequency_max_gap_periods
     attrs["market_data_frequency_tolerance_periods"] = (
         validated.metadata.frequency_tolerance_periods
     )
@@ -190,9 +182,7 @@ def _finalise_validated_frame(
     attrs["market_data_date_range"] = validated.metadata.date_range
     attrs["market_data_missing_policy"] = validated.metadata.missing_policy
     attrs["market_data_missing_policy_limit"] = validated.metadata.missing_policy_limit
-    attrs["market_data_missing_policy_summary"] = (
-        validated.metadata.missing_policy_summary
-    )
+    attrs["market_data_missing_policy_summary"] = validated.metadata.missing_policy_summary
 
     # Infer inception dates (first non-zero observation) once at ingestion time.
     # This is used by the multi-period engine to exclude pre-inception series
@@ -204,8 +194,7 @@ def _finalise_validated_frame(
         )
         # Store as ISO strings for JSON friendliness.
         attrs["inception_dates"] = {
-            k: (v.strftime("%Y-%m-%d") if v is not None else None)
-            for k, v in inception.items()
+            k: (v.strftime("%Y-%m-%d") if v is not None else None) for k, v in inception.items()
         }
     except Exception:  # pragma: no cover - best effort metadata
         attrs.setdefault("inception_dates", {})
@@ -241,9 +230,7 @@ def _contract_frequency(attrs: Mapping[str, Any]) -> str | None:
     return None
 
 
-def _apply_price_contract(
-    frame: pd.DataFrame, *, include_date_column: bool
-) -> pd.DataFrame:
+def _apply_price_contract(frame: pd.DataFrame, *, include_date_column: bool) -> pd.DataFrame:
     if frame.empty:
         return frame
 
@@ -319,9 +306,7 @@ def _validate_payload(
         logger.error("Validation failed (%s): %s", origin, message)
         return None
 
-    if "Date" in payload.columns and isinstance(
-        payload["Date"].dtype, pd.DatetimeTZDtype
-    ):
+    if "Date" in payload.columns and isinstance(payload["Date"].dtype, pd.DatetimeTZDtype):
         payload = payload.copy()
         payload["Date"] = payload["Date"].dt.tz_localize(None)
 
@@ -344,9 +329,7 @@ def _validate_payload(
 
     limit_param: int | dict[str, Optional[int]] | None
     if isinstance(missing_limit, Mapping):
-        limit_param = {
-            str(key): _coerce_limit_entry(value) for key, value in missing_limit.items()
-        }
+        limit_param = {str(key): _coerce_limit_entry(value) for key, value in missing_limit.items()}
     else:
         limit_param = _coerce_limit_entry(missing_limit)
 
@@ -367,14 +350,10 @@ def _validate_payload(
         logger.error("Validation failed (%s): %s", origin, message)
         return None
 
-    finalised = _finalise_validated_frame(
-        validated, include_date_column=include_date_column
-    )
+    finalised = _finalise_validated_frame(validated, include_date_column=include_date_column)
 
     try:
-        priced = _apply_price_contract(
-            finalised, include_date_column=include_date_column
-        )
+        priced = _apply_price_contract(finalised, include_date_column=include_date_column)
     except ValueError as exc:
         if errors == "raise":
             raise MarketDataValidationError(str(exc)) from exc

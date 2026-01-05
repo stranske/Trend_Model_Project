@@ -37,9 +37,7 @@ def _normalize_lockfile_content(content: str) -> str:
             if re.match(r"^#\s*uv pip compile.*", stripped):
                 lines.append("#    uv pip compile pyproject.toml -o requirements.lock")
                 continue
-            if re.search(r"\d{4}-\d{2}-\d{2}", stripped) or re.search(
-                r"\d{2}:\d{2}", stripped
-            ):
+            if re.search(r"\d{4}-\d{2}-\d{2}", stripped) or re.search(r"\d{2}:\d{2}", stripped):
                 continue
 
             # Skip '# via' lines in all forms:

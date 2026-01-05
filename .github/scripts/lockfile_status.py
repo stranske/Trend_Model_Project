@@ -44,12 +44,8 @@ def determine_status(compiled_path: Path, lockfile_path: Path) -> str:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Compare compiled requirements to lockfile"
-    )
-    parser.add_argument(
-        "--compiled", type=Path, default=Path("/tmp/requirements.compiled")
-    )
+    parser = argparse.ArgumentParser(description="Compare compiled requirements to lockfile")
+    parser.add_argument("--compiled", type=Path, default=Path("/tmp/requirements.compiled"))
     parser.add_argument("--lockfile", type=Path, default=Path("requirements.lock"))
     return parser.parse_args()
 

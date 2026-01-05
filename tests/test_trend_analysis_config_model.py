@@ -93,9 +93,7 @@ def test_ensure_glob_matches_raises_when_no_files(tmp_path: Path) -> None:
     nonexistent_dir = tmp_path / "unique_nonexistent_dir_xyz123"
     nonexistent_dir.mkdir()
     with pytest.raises(ValueError, match="did not match any CSV files"):
-        config_model._ensure_glob_matches(
-            "unique_nonexistent_dir_xyz123/*.csv", base_dir=tmp_path
-        )
+        config_model._ensure_glob_matches("unique_nonexistent_dir_xyz123/*.csv", base_dir=tmp_path)
 
 
 def _basic_data_settings_dict(tmp_path: Path) -> dict[str, object]:
@@ -176,9 +174,7 @@ def test_data_settings_rejects_empty_date_column(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("invalid", [None, [], 42])
-def test_data_settings_requires_string_date_column(
-    invalid: object, tmp_path: Path
-) -> None:
+def test_data_settings_requires_string_date_column(invalid: object, tmp_path: Path) -> None:
     payload = _basic_data_settings_dict(tmp_path)
     payload["date_column"] = invalid
 
@@ -196,9 +192,7 @@ def test_data_settings_requires_string_date_column(
         ("ME", "ME"),
     ],
 )
-def test_data_settings_normalises_frequency(
-    value: str, expected: str, tmp_path: Path
-) -> None:
+def test_data_settings_normalises_frequency(value: str, expected: str, tmp_path: Path) -> None:
     payload = _basic_data_settings_dict(tmp_path)
     payload["frequency"] = value
 
@@ -455,9 +449,7 @@ def test_resolve_config_path_uses_env_override(
     assert resolved == config_file.resolve()
 
 
-def test_resolve_config_path_adds_suffix(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_resolve_config_path_adds_suffix(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     config_file = tmp_path / "analysis.yml"
     config_file.write_text("demo: true\n")
     monkeypatch.chdir(tmp_path)
@@ -540,9 +532,7 @@ def test_validate_trend_config_formats_nested_error(tmp_path: Path) -> None:
         config_model.validate_trend_config(payload, base_path=tmp_path)
 
 
-def test_load_trend_config_parses_file(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_load_trend_config_parses_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     payload = _valid_config_payload(tmp_path)
     config_file = tmp_path / "config.yml"
     config_file.write_text(yaml.safe_dump(payload))

@@ -59,9 +59,7 @@ def rolling_information_ratio(
                 freq = None
         freq_tag = freq or "unknown"
         method_tag = "rolling_information_ratio_ddof1"
-        return cache.get_or_compute(
-            dataset_hash, int(window), freq_tag, method_tag, _compute
-        )
+        return cache.get_or_compute(dataset_hash, int(window), freq_tag, method_tag, _compute)
 
     return _compute()
 

@@ -86,9 +86,7 @@ def _churn_from_rebalance_weights(out_dir: Path) -> pd.DataFrame:
 
     reb["rebalance_date"] = pd.to_datetime(reb["rebalance_date"], errors="coerce")
     by_date = (
-        reb.groupby("rebalance_date")["fund"]
-        .apply(lambda s: set(s.dropna().astype(str)))
-        .to_dict()
+        reb.groupby("rebalance_date")["fund"].apply(lambda s: set(s.dropna().astype(str))).to_dict()
     )
 
     ordered_dates = sorted(d for d in by_date.keys() if pd.notna(d))
@@ -128,9 +126,7 @@ def _churn_from_rebalance_weights(out_dir: Path) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def _zscore_tail_sanity(
-    selection_scores: pd.DataFrame, fund_weights: pd.DataFrame
-) -> pd.DataFrame:
+def _zscore_tail_sanity(selection_scores: pd.DataFrame, fund_weights: pd.DataFrame) -> pd.DataFrame:
     """Compare observed z-score tail counts vs normal-tail expectations.
 
     This does NOT assert z-scores are normal; it is a heuristic to catch
@@ -164,9 +160,7 @@ def _zscore_tail_sanity(
 
         held = held_by_period.get(str(period), set())
         held_mask = (
-            dfp["manager"].astype(str).isin(held)
-            if held
-            else pd.Series(False, index=dfp.index)
+            dfp["manager"].astype(str).isin(held) if held else pd.Series(False, index=dfp.index)
         )
         z_held = pd.to_numeric(dfp.loc[held_mask, "zscore"], errors="coerce")
         held_n = int(z_held.notna().sum())
@@ -190,16 +184,10 @@ def _zscore_tail_sanity(
                 "obs_universe_z_lt_hard": obs_hard,
                 "exp_universe_z_lt_soft": exp_soft,
                 "exp_universe_z_lt_hard": exp_hard,
-                "obs_over_exp_soft": (
-                    (obs_soft / exp_soft) if exp_soft > 0 else float("nan")
-                ),
-                "obs_over_exp_hard": (
-                    (obs_hard / exp_hard) if exp_hard > 0 else float("nan")
-                ),
+                "obs_over_exp_soft": ((obs_soft / exp_soft) if exp_soft > 0 else float("nan")),
+                "obs_over_exp_hard": ((obs_hard / exp_hard) if exp_hard > 0 else float("nan")),
                 "held_min_z": _safe_float(z_held.min()) if held_n else float("nan"),
-                "held_p10_z": (
-                    _safe_float(z_held.quantile(0.10)) if held_n else float("nan")
-                ),
+                "held_p10_z": (_safe_float(z_held.quantile(0.10)) if held_n else float("nan")),
             }
         )
 
@@ -260,9 +248,7 @@ def _load_returns(path: Path) -> pd.DataFrame:
         # Re-validate with corrected data (mirrors the Streamlit flow).
         validate_uploaded_csv(corrected_bytes, required_columns=("Date",), max_rows=0)
 
-        validated_df, _meta = load_dataset_from_bytes(
-            corrected_bytes, correction.original_name
-        )
+        validated_df, _meta = load_dataset_from_bytes(corrected_bytes, correction.original_name)
         return validated_df
 
     validated_df, _meta = load_dataset_from_path(str(path))
@@ -315,9 +301,7 @@ def main() -> int:
         returns, fund_columns=fund_columns, benchmark=benchmark, risk_free=risk_free
     )
 
-    payload = AnalysisPayload(
-        returns=returns, model_state=model_state, benchmark=benchmark
-    )
+    payload = AnalysisPayload(returns=returns, model_state=model_state, benchmark=benchmark)
     cfg = _build_config(payload)
 
     # Optional: override the threshold-hold selection metric for repro runs.
@@ -475,10 +459,7 @@ def main() -> int:
                     )
 
             rebalance_weights = item.get("rebalance_weights")
-            if (
-                isinstance(rebalance_weights, pd.DataFrame)
-                and not rebalance_weights.empty
-            ):
+            if isinstance(rebalance_weights, pd.DataFrame) and not rebalance_weights.empty:
                 for reb_date, row in rebalance_weights.iterrows():
                     stamp = pd.to_datetime(reb_date).date().isoformat()
                     for fund, weight in row.items():
@@ -504,10 +485,7 @@ def main() -> int:
                         manager_change_rows.append({"period": period_label, **change})
 
             selection_scores = item.get("selection_score_frame")
-            if (
-                isinstance(selection_scores, pd.DataFrame)
-                and not selection_scores.empty
-            ):
+            if isinstance(selection_scores, pd.DataFrame) and not selection_scores.empty:
                 selection_metric = item.get("selection_metric")
                 for manager, row in selection_scores.iterrows():
                     row_payload: dict[str, Any] = {
@@ -533,17 +511,11 @@ def main() -> int:
                     "transaction_cost": item.get("transaction_cost"),
                 }
             )
-        pd.DataFrame(summary_rows).to_csv(
-            out_dir / "period_results_summary.csv", index=False
-        )
+        pd.DataFrame(summary_rows).to_csv(out_dir / "period_results_summary.csv", index=False)
         if fund_weight_rows:
-            pd.DataFrame(fund_weight_rows).to_csv(
-                out_dir / "period_fund_weights.csv", index=False
-            )
+            pd.DataFrame(fund_weight_rows).to_csv(out_dir / "period_fund_weights.csv", index=False)
         if ew_weight_rows:
-            pd.DataFrame(ew_weight_rows).to_csv(
-                out_dir / "period_ew_weights.csv", index=False
-            )
+            pd.DataFrame(ew_weight_rows).to_csv(out_dir / "period_ew_weights.csv", index=False)
         if rebalance_weight_rows:
             pd.DataFrame(rebalance_weight_rows).to_csv(
                 out_dir / "period_rebalance_weights.csv", index=False
@@ -573,12 +545,8 @@ def main() -> int:
         churn.to_csv(out_dir / "sanity_rebalance_churn.csv", index=False)
 
         steps = int(churn["total_changes_n"].dropna().shape[0])
-        adds_total = int(
-            pd.to_numeric(churn["adds_n"], errors="coerce").fillna(0).sum()
-        )
-        drops_total = int(
-            pd.to_numeric(churn["drops_n"], errors="coerce").fillna(0).sum()
-        )
+        adds_total = int(pd.to_numeric(churn["adds_n"], errors="coerce").fillna(0).sum())
+        drops_total = int(pd.to_numeric(churn["drops_n"], errors="coerce").fillna(0).sum())
         sanity.update(
             {
                 "rebalance_steps": steps,
@@ -593,14 +561,12 @@ def main() -> int:
 
         if max_changes > 0:
             viol = churn[
-                pd.to_numeric(churn["total_changes_n"], errors="coerce").fillna(0)
-                > max_changes
+                pd.to_numeric(churn["total_changes_n"], errors="coerce").fillna(0) > max_changes
             ]
             sanity["rebalances_total_changes_over_max"] = int(viol.shape[0])
             if not viol.empty:
                 viol.to_csv(
-                    out_dir
-                    / f"sanity_rebalance_churn_violations_over_{max_changes}.csv",
+                    out_dir / f"sanity_rebalance_churn_violations_over_{max_changes}.csv",
                     index=False,
                 )
 

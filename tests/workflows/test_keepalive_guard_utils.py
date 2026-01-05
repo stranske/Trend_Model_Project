@@ -6,9 +6,7 @@ from pathlib import Path
 
 import pytest
 
-GUARD_ANALYSIS = (
-    Path(__file__).resolve().parent / "fixtures" / "keepalive" / "guard_analysis.js"
-)
+GUARD_ANALYSIS = Path(__file__).resolve().parent / "fixtures" / "keepalive" / "guard_analysis.js"
 
 
 def _require_node() -> None:

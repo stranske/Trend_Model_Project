@@ -185,9 +185,7 @@ def validate_startup_payload(
     base_dir = csv_real.parent if csv_real is not None else proj_path()
     validated, validation_error = validate_payload(payload, base_path=base_dir)
     if validation_error:
-        error_lines = [
-            line.strip() for line in validation_error.splitlines() if line.strip()
-        ]
+        error_lines = [line.strip() for line in validation_error.splitlines() if line.strip()]
         if not error_lines:
             error_lines = [validation_error]
         return None, errors + error_lines

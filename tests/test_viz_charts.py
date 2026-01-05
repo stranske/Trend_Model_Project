@@ -19,9 +19,7 @@ def test_equity_curve_basic():
 
     # Test that the equity curve makes sense
     assert result["equity"].iloc[0] > 1.0  # First period should grow
-    assert (
-        result["equity"].iloc[1] < result["equity"].iloc[0]
-    )  # Second period should drop
+    assert result["equity"].iloc[1] < result["equity"].iloc[0]  # Second period should drop
 
 
 def test_drawdown_curve_basic():

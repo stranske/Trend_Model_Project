@@ -54,9 +54,7 @@ class DummyWeighting:
     def __init__(self) -> None:
         self.update_calls: list[tuple[pd.Series, int]] = []
 
-    def weight(
-        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
-    ) -> pd.DataFrame:
+    def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
         del date
         weights = selected[["weight"]].astype(float)
         weights["weight"] = weights["weight"].to_numpy() / weights["weight"].sum()

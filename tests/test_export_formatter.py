@@ -75,9 +75,7 @@ class DummyOpenpyxlSheet:
 
 class DummyOpenpyxlBook:
     def __init__(self, title: str = "Sheet", value: object | None = None) -> None:
-        self.worksheets: list[DummyOpenpyxlSheet] = [
-            DummyOpenpyxlSheet(title=title, value=value)
-        ]
+        self.worksheets: list[DummyOpenpyxlSheet] = [DummyOpenpyxlSheet(title=title, value=value)]
         self._removed: list[DummyOpenpyxlSheet] = []
 
     def remove(self, sheet: DummyOpenpyxlSheet) -> None:
@@ -177,9 +175,7 @@ def test_make_summary_formatter_uses_expected_number_formats(formatters_excel_re
 
 
 @pytest.mark.parametrize("as_dataframe", [False, True])
-def test_make_summary_formatter_writes_manager_contrib(
-    formatters_excel_registry, as_dataframe
-):
+def test_make_summary_formatter_writes_manager_contrib(formatters_excel_registry, as_dataframe):
     """Manager contribution payloads should render a dedicated section."""
 
     stats = (0.01, 0.02, 0.5, 0.4, 0.3, -0.1)
@@ -210,9 +206,7 @@ def test_make_summary_formatter_writes_manager_contrib(
         row == ["Manager Participation & Contribution"] for row in headers
     ), "Expected contribution section header"
     contrib_headers = [
-        row
-        for row in headers
-        if row == ["Manager", "Years", "OOS CAGR", "Contribution Share"]
+        row for row in headers if row == ["Manager", "Years", "OOS CAGR", "Contribution Share"]
     ]
     assert contrib_headers, "Expected contribution column headers"
 
@@ -314,9 +308,7 @@ def test_export_to_excel_backward_compat_sheet_formatter(tmp_path):
     assert out.exists()
 
 
-def test_export_to_excel_without_xlsxwriter(
-    formatters_excel_registry, monkeypatch, tmp_path
-):
+def test_export_to_excel_without_xlsxwriter(formatters_excel_registry, monkeypatch, tmp_path):
     df = pd.DataFrame({"A": [1]})
     called: list[str] = []
 
@@ -488,9 +480,7 @@ def test_make_summary_formatter_optional_sections(formatters_excel_registry):
 
 def test_make_summary_formatter_manager_contrib_list(formatters_excel_registry):
     res = _build_base_result()
-    res["benchmark_ir"] = {
-        "bench": {"Fund A": 0.1, "equal_weight": 0.2, "user_weight": 0.3}
-    }
+    res["benchmark_ir"] = {"bench": {"Fund A": 0.1, "equal_weight": 0.2, "user_weight": 0.3}}
     res["manager_contrib"] = [
         {"Manager": "Fund B", "Years": 3, "OOS CAGR": 0.02, "Contribution Share": 0.1}
     ]
@@ -509,9 +499,7 @@ def test_make_summary_formatter_manager_contrib_list(formatters_excel_registry):
 def test_format_summary_text_formats_ints_and_nones():
     res = _build_base_result()
     res["fund_weights"] = {"Fund A": 1}
-    res["benchmark_ir"] = {
-        "bench": {"Fund A": pd.NA, "equal_weight": None, "user_weight": 0.1}
-    }
+    res["benchmark_ir"] = {"bench": {"Fund A": pd.NA, "equal_weight": None, "user_weight": 0.1}}
 
     text = format_summary_text(res, "2020-01", "2020-06", "2020-07", "2020-12")
     # Weight of 1 -> 100% formatted with two decimals

@@ -113,9 +113,7 @@ def test_main_normalizes_missing_policy_aliases(
     monkeypatch.setattr(run_analysis, "load", lambda _: cfg)
     monkeypatch.setattr(run_analysis, "load_csv", fake_load_csv)
     monkeypatch.setattr(run_analysis.api, "run_simulation", lambda *_: default_result)
-    monkeypatch.setattr(
-        run_analysis.export, "format_summary_text", lambda *_, **__: "summary"
-    )
+    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *_, **__: "summary")
 
     exit_code = run_analysis.main(["-c", "config.yml"])
 
@@ -180,9 +178,7 @@ def test_main_supports_nan_policy_aliases(
     monkeypatch.setattr(run_analysis, "load", lambda _: cfg)
     monkeypatch.setattr(run_analysis, "load_csv", loader_with_nan)
     monkeypatch.setattr(run_analysis.api, "run_simulation", lambda *_: default_result)
-    monkeypatch.setattr(
-        run_analysis.export, "format_summary_text", lambda *_, **__: "summary"
-    )
+    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *_, **__: "summary")
     monkeypatch.setattr(run_analysis.export, "export_data", lambda *_, **__: None)
 
     exit_code = run_analysis.main(["-c", "config.yml", "--detailed"])

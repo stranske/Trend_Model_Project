@@ -21,9 +21,7 @@ class TestStreamlitProxy:
             from trend_analysis.proxy import StreamlitProxy
 
             # But creating an instance should raise ImportError
-            with pytest.raises(
-                ImportError, match="Required dependencies not available"
-            ):
+            with pytest.raises(ImportError, match="Required dependencies not available"):
                 StreamlitProxy(streamlit_host="localhost", streamlit_port=8501)
 
     def test_proxy_initialization_with_deps(self):
@@ -65,9 +63,7 @@ class TestStreamlitProxy:
                 mock_httpx.AsyncClient.return_value = Mock()
                 mock_fastapi.return_value = Mock()
 
-                proxy = StreamlitProxy(
-                    streamlit_host="example.com", streamlit_port=9000
-                )
+                proxy = StreamlitProxy(streamlit_host="example.com", streamlit_port=9000)
 
                 assert proxy.streamlit_host == "example.com"
                 assert proxy.streamlit_port == 9000

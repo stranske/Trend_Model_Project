@@ -103,9 +103,7 @@ def load_settings(path: Path | str) -> WalkForwardSettings:
         else:
             raise ValueError("strategy.grid values must be sequences")
         if not seq:
-            raise ValueError(
-                f"strategy.grid entry '{key}' must contain at least one value"
-            )
+            raise ValueError(f"strategy.grid entry '{key}' must contain at least one value")
         prepared_grid[key] = seq
 
     run_name = str(run_section.get("name", "wf"))
@@ -268,9 +266,7 @@ def evaluate_parameter_grid(
                 fold_returns = subset.mul(weights, axis=1).sum(axis=1)
 
             cagr = annual_return(fold_returns, periods_per_year=periods_per_year)
-            sharpe = sharpe_ratio(
-                fold_returns, risk_free=0.0, periods_per_year=periods_per_year
-            )
+            sharpe = sharpe_ratio(fold_returns, risk_free=0.0, periods_per_year=periods_per_year)
             drawdown = max_drawdown(fold_returns)
             hit_rate = float(fold_returns.gt(0).mean()) if len(fold_returns) else np.nan
 
@@ -388,9 +384,7 @@ def persist_artifacts(
     _maybe_render_heatmap(summary, heatmap_path)
 
     target_cfg = run_dir / "config_used.yml"
-    target_cfg.write_text(
-        Path(config_path).read_text(encoding="utf-8"), encoding="utf-8"
-    )
+    target_cfg.write_text(Path(config_path).read_text(encoding="utf-8"), encoding="utf-8")
     return run_dir
 
 
@@ -398,14 +392,8 @@ def run_from_config(path: Path | str) -> Path:
     cfg_path = Path(path)
     settings = load_settings(cfg_path)
     returns = load_returns(settings.data)
-    rng = (
-        np.random.default_rng(settings.run.seed)
-        if settings.run.seed is not None
-        else None
-    )
-    folds, summary = evaluate_parameter_grid(
-        returns, settings.windows, settings.strategy, rng=rng
-    )
+    rng = np.random.default_rng(settings.run.seed) if settings.run.seed is not None else None
+    folds, summary = evaluate_parameter_grid(returns, settings.windows, settings.strategy, rng=rng)
     return persist_artifacts(settings, folds, summary, config_path=cfg_path)
 
 

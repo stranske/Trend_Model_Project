@@ -23,9 +23,7 @@ def _collect_package_modules(package_name: str) -> list[str]:
     package = importlib.import_module(package_name)
     return [
         module.name
-        for module in pkgutil.walk_packages(
-            package.__path__, prefix=f"{package.__name__}."
-        )
+        for module in pkgutil.walk_packages(package.__path__, prefix=f"{package.__name__}.")
     ]
 
 

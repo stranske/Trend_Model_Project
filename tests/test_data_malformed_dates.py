@@ -26,9 +26,7 @@ class TestDataLoadingMalformedDates:
         try:
             # Should return None due to malformed dates
             result = load_csv(temp_path)
-            assert (
-                result is None
-            ), "load_csv should return None for files with malformed dates"
+            assert result is None, "load_csv should return None for files with malformed dates"
         finally:
             # Clean up temporary file
             os.unlink(temp_path)
@@ -86,9 +84,7 @@ class TestDataLoadingMalformedDates:
             monkeypatch.setattr(
                 pd,
                 "read_csv",
-                lambda *_, **__: pd.DataFrame(
-                    {"Date": ["", ""], "Fund1": [0.01, 0.02]}
-                ),
+                lambda *_, **__: pd.DataFrame({"Date": ["", ""], "Fund1": [0.01, 0.02]}),
             )
 
             call_count = {"n": 0}

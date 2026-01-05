@@ -34,8 +34,7 @@ def _flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
     if isinstance(df.columns, pd.MultiIndex):
         out = df.copy()
         out.columns = [
-            " / ".join(str(part) for part in col if part not in (None, ""))
-            for col in out.columns
+            " / ".join(str(part) for part in col if part not in (None, "")) for col in out.columns
         ]
         return out
     return df
@@ -69,9 +68,7 @@ def _load_regimes(path: str, column: str | None) -> pd.Series:
 def main(argv: list[str] | None = None) -> int:
     setup_script_logging(app_name="walkforward", module_file=__file__)
     p = argparse.ArgumentParser(description="Walk-forward aggregation")
-    p.add_argument(
-        "--csv", required=True, help="Input CSV with Date column and metrics"
-    )
+    p.add_argument("--csv", required=True, help="Input CSV with Date column and metrics")
     p.add_argument(
         "--column",
         default=None,

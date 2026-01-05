@@ -138,9 +138,7 @@ class _ComputationStage:
     effective_signal_spec: TrendSpec
 
 
-def calc_portfolio_returns(
-    weights: NDArray[Any], returns_df: pd.DataFrame
-) -> pd.Series:
+def calc_portfolio_returns(weights: NDArray[Any], returns_df: pd.DataFrame) -> pd.Series:
     """Calculate weighted portfolio returns."""
     return returns_df.mul(weights, axis=1).sum(axis=1)
 
@@ -244,9 +242,7 @@ def _compute_weights_and_stats(
                 )
                 raise ValueError(msg)
 
-            scoped = frame.loc[
-                (frame.index >= allowed_start) & (frame.index <= allowed_end)
-            ]
+            scoped = frame.loc[(frame.index >= allowed_start) & (frame.index <= allowed_end)]
             scoped = scoped.loc[:, ~scoped.columns.duplicated()]
             scoped = scoped.reindex(columns=fund_cols)
             return scoped.astype(float)
@@ -266,9 +262,7 @@ def _compute_weights_and_stats(
 
         if signal_source is None:
             signal_source = (
-                pd.concat([window.in_df, window.out_df])
-                .sort_index()
-                .reindex(columns=fund_cols)
+                pd.concat([window.in_df, window.out_df]).sort_index().reindex(columns=fund_cols)
             )
 
         return _filter_window(signal_source, strict=strict_enforcement)
@@ -277,18 +271,12 @@ def _compute_weights_and_stats(
     weight_engine_used = False
     weight_engine_fallback: dict[str, Any] | None = None
     weight_engine_diagnostics: dict[str, Any] | None = None
-    if (
-        custom_weights is None
-        and weighting_scheme
-        and weighting_scheme.lower() != "equal"
-    ):
+    if custom_weights is None and weighting_scheme and weighting_scheme.lower() != "equal":
         try:
             from ..plugins import create_weight_engine
 
             cov = window.in_df[fund_cols].cov()
-            engine = create_weight_engine(
-                weighting_scheme.lower(), **(weight_engine_params or {})
-            )
+            engine = create_weight_engine(weighting_scheme.lower(), **(weight_engine_params or {}))
             w_series = engine.weight(cov).reindex(fund_cols).fillna(0.0)
             custom_weights = {c: float(w_series.get(c, 0.0) * 100.0) for c in fund_cols}
             weight_engine_used = True
@@ -300,20 +288,12 @@ def _compute_weights_and_stats(
             ):
                 safe_mode = weight_engine_diagnostics.get("safe_mode")
                 condition_number = weight_engine_diagnostics.get("condition_number")
-                condition_threshold = weight_engine_diagnostics.get(
-                    "condition_threshold"
-                )
+                condition_threshold = weight_engine_diagnostics.get("condition_threshold")
                 condition_source = weight_engine_diagnostics.get("condition_source")
-                raw_condition_number = weight_engine_diagnostics.get(
-                    "raw_condition_number"
-                )
-                shrunk_condition_number = weight_engine_diagnostics.get(
-                    "shrunk_condition_number"
-                )
+                raw_condition_number = weight_engine_diagnostics.get("raw_condition_number")
+                shrunk_condition_number = weight_engine_diagnostics.get("shrunk_condition_number")
                 shrinkage_info = weight_engine_diagnostics.get("shrinkage")
-                fallback_reason = weight_engine_diagnostics.get(
-                    "fallback_reason", "safe_mode"
-                )
+                fallback_reason = weight_engine_diagnostics.get("fallback_reason", "safe_mode")
                 weight_engine_fallback = {
                     "engine": str(weighting_scheme),
                     "reason": str(fallback_reason),
@@ -323,13 +303,9 @@ def _compute_weights_and_stats(
                     "condition_source": condition_source,
                 }
                 if raw_condition_number is not None:
-                    weight_engine_fallback["raw_condition_number"] = (
-                        raw_condition_number
-                    )
+                    weight_engine_fallback["raw_condition_number"] = raw_condition_number
                 if shrunk_condition_number is not None:
-                    weight_engine_fallback["shrunk_condition_number"] = (
-                        shrunk_condition_number
-                    )
+                    weight_engine_fallback["shrunk_condition_number"] = shrunk_condition_number
                 if isinstance(shrinkage_info, Mapping):
                     weight_engine_fallback["shrinkage"] = dict(shrinkage_info)
                 if isinstance(condition_number, (int, float)) and isinstance(
@@ -356,14 +332,13 @@ def _compute_weights_and_stats(
                 extra={"weight_engine": weighting_scheme},
             )
         except Exception as e:  # pragma: no cover - exercised via tests
-            msg = (
-                "Weight engine '%s' failed (%s: %s); falling back to equal weights"
-                % (weighting_scheme, type(e).__name__, e)
+            msg = "Weight engine '%s' failed (%s: %s); falling back to equal weights" % (
+                weighting_scheme,
+                type(e).__name__,
+                e,
             )
             logger.warning(msg)
-            logger.debug(
-                "Weight engine creation failed, falling back to equal weights: %s", e
-            )
+            logger.debug("Weight engine creation failed, falling back to equal weights: %s", e)
             weight_engine_fallback = {
                 "engine": str(weighting_scheme),
                 "error_type": type(e).__name__,
@@ -401,9 +376,7 @@ def _compute_weights_and_stats(
     )
     raw_groups = constraints_cfg.get("groups")
     groups_map = (
-        {str(k): str(v) for k, v in raw_groups.items()}
-        if isinstance(raw_groups, Mapping)
-        else None
+        {str(k): str(v) for k, v in raw_groups.items()} if isinstance(raw_groups, Mapping) else None
     )
 
     base_series = pd.Series(
@@ -447,9 +420,7 @@ def _compute_weights_and_stats(
         ewma_lambda = float(lambda_value)
     except (TypeError, ValueError):
         ewma_lambda = 0.94
-    window_spec = RiskWindow(
-        length=window_length, decay=decay_mode, ewma_lambda=ewma_lambda
-    )
+    window_spec = RiskWindow(length=window_length, decay=decay_mode, ewma_lambda=ewma_lambda)
 
     turnover_cap = None
     if max_turnover is not None:
@@ -492,9 +463,7 @@ def _compute_weights_and_stats(
             groups=groups_map,
         )
     except Exception as exc:  # pragma: no cover - defensive fallback
-        logger.warning(
-            "Risk controls failed; falling back to base weights: %s", exc, exc_info=True
-        )
+        logger.warning("Risk controls failed; falling back to base weights: %s", exc, exc_info=True)
         weights_series = base_series.copy()
         asset_vol = realised_volatility(
             window.in_df[fund_cols],
@@ -540,9 +509,7 @@ def _compute_weights_and_stats(
     if not signal_frame.empty:
         try:
             target_index = (
-                window.out_df.index[0]
-                if len(window.out_df.index)
-                else signal_frame.index[-1]
+                window.out_df.index[0] if len(window.out_df.index) else signal_frame.index[-1]
             )
             aligned = signal_frame.reindex(columns=fund_cols)
             if target_index in aligned.index:
@@ -595,9 +562,7 @@ def _compute_weights_and_stats(
     os_avg_corr: dict[str, float] | None = None
     if want_avg_corr and len(fund_cols) > 1:
         try:
-            is_avg_corr, os_avg_corr = avg_corr_handler(
-                in_scaled, out_scaled, fund_cols
-            )
+            is_avg_corr, os_avg_corr = avg_corr_handler(in_scaled, out_scaled, fund_cols)
         except Exception:  # pragma: no cover - defensive
             is_avg_corr = None
             os_avg_corr = None
@@ -640,9 +605,7 @@ def _compute_weights_and_stats(
 
     in_user_stats = _compute_stats(pd.DataFrame({"user": in_user}), rf_in)["user"]
     out_user_stats = _compute_stats(pd.DataFrame({"user": out_user}), rf_out)["user"]
-    out_user_stats_raw = _compute_stats(pd.DataFrame({"user": out_user_raw}), rf_out)[
-        "user"
-    ]
+    out_user_stats_raw = _compute_stats(pd.DataFrame({"user": out_user_raw}), rf_out)["user"]
 
     return _ComputationStage(
         weights_series=weights_series,
@@ -717,12 +680,12 @@ def _assemble_analysis_output(
         if col not in in_df.columns or col not in out_df.columns:
             continue
         benchmark_stats[label] = {
-            "in_sample": _compute_stats(
-                pd.DataFrame({label: in_df[col]}), computation.rf_in
-            )[label],
-            "out_sample": _compute_stats(
-                pd.DataFrame({label: out_df[col]}), computation.rf_out
-            )[label],
+            "in_sample": _compute_stats(pd.DataFrame({label: in_df[col]}), computation.rf_in)[
+                label
+            ],
+            "out_sample": _compute_stats(pd.DataFrame({label: out_df[col]}), computation.rf_out)[
+                label
+            ],
         }
         ir_series = information_ratio(computation.out_scaled[fund_cols], out_df[col])
         ir_dict = (
@@ -734,14 +697,10 @@ def _assemble_analysis_output(
             ir_eq = information_ratio(out_ew_raw, out_df[col])
             ir_usr = information_ratio(out_user_raw, out_df[col])
             ir_dict["equal_weight"] = (
-                float(ir_eq)
-                if isinstance(ir_eq, (float, int, np.floating))
-                else float("nan")
+                float(ir_eq) if isinstance(ir_eq, (float, int, np.floating)) else float("nan")
             )
             ir_dict["user_weight"] = (
-                float(ir_usr)
-                if isinstance(ir_usr, (float, int, np.floating))
-                else float("nan")
+                float(ir_usr) if isinstance(ir_usr, (float, int, np.floating)) else float("nan")
             )
         except Exception:
             pass
@@ -823,9 +782,7 @@ def _assemble_analysis_output(
             "signal_spec": computation.effective_signal_spec,
             "performance_by_regime": regime_payload.get("table", pd.DataFrame()),
             "regime_labels": regime_payload.get("labels", pd.Series(dtype="string")),
-            "regime_labels_out": regime_payload.get(
-                "out_labels", pd.Series(dtype="string")
-            ),
+            "regime_labels_out": regime_payload.get("out_labels", pd.Series(dtype="string")),
             "regime_notes": regime_payload.get("notes", []),
             "regime_settings": regime_payload.get("settings", {}),
             "regime_summary": regime_payload.get("summary"),

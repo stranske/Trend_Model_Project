@@ -61,9 +61,7 @@ def _validate_timestamp(value: Any, *, field: str, path: str) -> List[str]:
         errors.append(f"{path}.{field} must be a string or null")
         return errors
     if not ISO8601_RE.match(value):
-        errors.append(
-            f"{path}.{field} must be an ISO-8601 UTC timestamp (YYYY-MM-DDTHH:MM:SSZ)"
-        )
+        errors.append(f"{path}.{field} must be an ISO-8601 UTC timestamp (YYYY-MM-DDTHH:MM:SSZ)")
         return errors
     try:
         _dt.datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")
@@ -205,12 +203,8 @@ def _validate_task(
     if not isinstance(notes, list) or not all(isinstance(item, str) for item in notes):
         errors.append(f"{context}.notes must be a list of strings")
 
-    errors.extend(
-        _validate_timestamp(task.get("started_at"), field="started_at", path=context)
-    )
-    errors.extend(
-        _validate_timestamp(task.get("finished_at"), field="finished_at", path=context)
-    )
+    errors.extend(_validate_timestamp(task.get("started_at"), field="started_at", path=context))
+    errors.extend(_validate_timestamp(task.get("finished_at"), field="finished_at", path=context))
 
     commit = task.get("commit", "")
     if commit is None:
@@ -223,9 +217,7 @@ def _validate_task(
             if not commit:
                 errors.append(f"{context}.commit is required when status is done")
             elif not HEX_RE.match(commit.lower()):
-                errors.append(
-                    f"{context}.commit must be a Git SHA (7-40 hex characters)"
-                )
+                errors.append(f"{context}.commit must be a Git SHA (7-40 hex characters)")
             else:
                 try:
                     files = _commit_files(commit)
@@ -240,9 +232,7 @@ def _validate_task(
                         )
                     else:
                         try:
-                            ledger_relative = ledger_path.relative_to(
-                                REPO_ROOT
-                            ).as_posix()
+                            ledger_relative = ledger_path.relative_to(REPO_ROOT).as_posix()
                         except ValueError:
                             ledger_relative = ledger_path.as_posix()
 
@@ -252,9 +242,7 @@ def _validate_task(
                                 ".agents/.ledger-summary.md",
                                 ".agents/.ledger-start.json",
                             }
-                            extra_files = [
-                                name for name in files if name not in allowed_sidecars
-                            ]
+                            extra_files = [name for name in files if name not in allowed_sidecars]
 
                             try:
                                 subject = _commit_subject(commit)
@@ -317,16 +305,12 @@ def validate_ledger(path: Path) -> List[str]:
         if not isinstance(task, dict):
             problems.append(f"{path}: tasks[{index}] must be a mapping")
             continue
-        problems.extend(
-            _validate_task(task, index=index, seen_ids=seen_ids, ledger_path=path)
-        )
+        problems.extend(_validate_task(task, index=index, seen_ids=seen_ids, ledger_path=path))
         if task.get("status") == "doing":
             doing_count += 1
 
     if doing_count > 1:
-        problems.append(
-            f"{path}: at most one task may have status=doing (found {doing_count})"
-        )
+        problems.append(f"{path}: at most one task may have status=doing (found {doing_count})")
 
     return problems
 

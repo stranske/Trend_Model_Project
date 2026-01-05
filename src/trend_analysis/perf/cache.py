@@ -98,9 +98,7 @@ class CovCache:
             # Evict oldest
             self._store.popitem(last=False)
 
-    def get_or_compute(
-        self, key: Key, compute_fn: Callable[[], CovPayload]
-    ) -> CovPayload:
+    def get_or_compute(self, key: Key, compute_fn: Callable[[], CovPayload]) -> CovPayload:
         start = perf_counter()
         cached = self.get(key)
         if cached is not None:
@@ -149,9 +147,7 @@ class CovCache:
         }
 
 
-def compute_cov_payload(
-    df: pd.DataFrame, *, materialise_aggregates: bool = False
-) -> CovPayload:
+def compute_cov_payload(df: pd.DataFrame, *, materialise_aggregates: bool = False) -> CovPayload:
     """Compute covariance + aggregates for the provided returns frame.
 
     Parameters

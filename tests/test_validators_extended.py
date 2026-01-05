@@ -65,9 +65,7 @@ def test_detect_frequency_handles_irregular_error(
         mp.setattr(
             "trend_analysis.io.validators.classify_frequency",
             lambda idx: (_ for _ in ()).throw(
-                MarketDataValidationError(
-                    "Irregular spacing", issues=["irregular cadence"]
-                )
+                MarketDataValidationError("Irregular spacing", issues=["irregular cadence"])
             ),
         )
         label = detect_frequency(pd.DataFrame(index=index))

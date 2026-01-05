@@ -45,9 +45,7 @@ def _prepare_index(df: pd.DataFrame) -> pd.DataFrame:
     return df.sort_index()
 
 
-def _generate_splits(
-    index: pd.DatetimeIndex, train: int, test: int, step: int
-) -> List[Split]:
+def _generate_splits(index: pd.DatetimeIndex, train: int, test: int, step: int) -> List[Split]:
     splits: List[Split] = []
     start = 0
     n = len(index)
@@ -90,9 +88,7 @@ def _flatten_agg_result(
     if df.empty:
         return pd.Series(dtype=float)
     flattened = df.T.stack(future_stack=True)
-    flattened.index = pd.MultiIndex.from_tuples(
-        flattened.index, names=["metric", "statistic"]
-    )
+    flattened.index = pd.MultiIndex.from_tuples(flattened.index, names=["metric", "statistic"])
     return flattened
 
 
@@ -221,9 +217,7 @@ def walk_forward(
             row[(key[0], key[1])] = value
 
         if not test_df.empty:
-            ir_vals = information_ratio(
-                test_df, benchmark=0.0, periods_per_year=periods_per_year
-            )
+            ir_vals = information_ratio(test_df, benchmark=0.0, periods_per_year=periods_per_year)
             if isinstance(ir_vals, pd.Series):
                 for metric_name, ir_val in ir_vals.items():
                     row[(metric_name, "information_ratio")] = float(ir_val)
@@ -261,16 +255,12 @@ def walk_forward(
             agg_res = subset.agg(cast(Any, agg))
             agg_df = _to_dataframe(agg_res, default_name=agg_label)
             ir_df = _information_ratio_frame(
-                information_ratio(
-                    subset, benchmark=0.0, periods_per_year=periods_per_year
-                ),
+                information_ratio(subset, benchmark=0.0, periods_per_year=periods_per_year),
                 subset.columns,
             )
             table = pd.concat([agg_df, ir_df], axis=0, sort=False)
             row_series = (
-                table.T.stack(future_stack=True)
-                if not table.empty
-                else pd.Series(dtype=float)
+                table.T.stack(future_stack=True) if not table.empty else pd.Series(dtype=float)
             )
             if not row_series.empty:
                 row_series.index = pd.MultiIndex.from_tuples(

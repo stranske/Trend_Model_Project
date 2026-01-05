@@ -67,9 +67,7 @@ def _load_demo_returns() -> Tuple[pd.DataFrame, SchemaMeta]:
             with path.open("rb") as handle:
                 df, meta = load_and_validate_file(handle)
             return df, meta
-    raise FileNotFoundError(
-        "Demo returns not found. Expected demo/demo_returns.(csv|xlsx)."
-    )
+    raise FileNotFoundError("Demo returns not found. Expected demo/demo_returns.(csv|xlsx).")
 
 
 def _load_preset(name: str) -> Dict[str, Any]:
@@ -103,9 +101,7 @@ def _derive_window(
 ) -> Tuple[pd.Timestamp, pd.Timestamp]:
     end = _month_end(pd.Timestamp(df.index.max()))
     start = _month_end(end - pd.DateOffset(months=max(oos_periods - 1, 0)))
-    earliest = _month_end(
-        pd.Timestamp(df.index.min()) + pd.DateOffset(months=lookback_periods)
-    )
+    earliest = _month_end(pd.Timestamp(df.index.min()) + pd.DateOffset(months=lookback_periods))
     if start < earliest:
         start = earliest
     if start > end:
@@ -113,12 +109,9 @@ def _derive_window(
     return start, end
 
 
-def _build_policy(
-    metric_weights: Mapping[str, float], preset: Mapping[str, Any]
-) -> PolicyConfig:
+def _build_policy(metric_weights: Mapping[str, float], preset: Mapping[str, Any]) -> PolicyConfig:
     metrics = [
-        MetricSpec(name=metric, weight=float(weight))
-        for metric, weight in metric_weights.items()
+        MetricSpec(name=metric, weight=float(weight)) for metric, weight in metric_weights.items()
     ]
     return PolicyConfig(
         top_k=int(preset.get("selection_count", 10)),
@@ -299,14 +292,10 @@ def _update_session_state(
         trend_payload = dict(trend_payload)
         trend_payload["preset"] = setup.config_state.get("preset_name")
     # Build model_settings for legacy compatibility
-    lookback = int(
-        overrides.get("lookback_periods", setup.sim_config.get("lookback_periods", 36))
-    )
+    lookback = int(overrides.get("lookback_periods", setup.sim_config.get("lookback_periods", 36)))
     selection_count = int(overrides.get("selection_count", 10))
     risk_target = float(overrides.get("risk_target", 0.10))
-    weighting_scheme = str(
-        setup.sim_config.get("portfolio", {}).get("weighting_scheme", "equal")
-    )
+    weighting_scheme = str(setup.sim_config.get("portfolio", {}).get("weighting_scheme", "equal"))
     metric_weights_dict = {
         k: float(v) for k, v in (overrides.get("metric_weights", {}) or {}).items()
     }
@@ -497,9 +486,7 @@ def run_demo_with_overrides(
         policy = PolicyConfig(
             top_k=policy.top_k,
             bottom_k=policy.bottom_k,
-            cooldown_months=int(
-                portfolio_overrides.get("cooldown_months", policy.cooldown_months)
-            ),
+            cooldown_months=int(portfolio_overrides.get("cooldown_months", policy.cooldown_months)),
             min_track_months=policy.min_track_months,
             max_active=policy.max_active,
             max_weight=float(portfolio_overrides.get("max_weight", policy.max_weight)),

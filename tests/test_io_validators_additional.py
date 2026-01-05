@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from trend_analysis.io.market_data import MarketDataMode, MarketDataValidationError
+from trend_analysis.io.market_data import MarketDataValidationError
 from trend_analysis.io.validators import ValidationResult, load_and_validate_upload
 
 
@@ -28,7 +28,7 @@ def test_price_mode_detection() -> None:
     )
     df, meta = load_and_validate_upload(io.StringIO(frame.to_csv(index=False)))
     assert meta["mode"] == "price"
-    assert df.attrs["market_data"]["metadata"].mode == MarketDataMode.PRICE
+    assert df.attrs["market_data"]["metadata"]["mode"] == "price"
 
 
 def test_ambiguous_mode_raises() -> None:

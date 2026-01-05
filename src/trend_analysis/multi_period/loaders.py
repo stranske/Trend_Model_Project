@@ -98,9 +98,7 @@ def load_membership(cfg: Any) -> pd.DataFrame:
     missing = [name for name, col in required_sources if col is None]
     if missing:
         joined = ", ".join(missing)
-        raise ValueError(
-            f"Universe membership file is missing required columns: {joined}"
-        )
+        raise ValueError(f"Universe membership file is missing required columns: {joined}")
     assert fund_col is not None
     assert eff_col is not None
     rename: dict[str, str] = {
@@ -116,9 +114,7 @@ def load_membership(cfg: Any) -> pd.DataFrame:
     normalised["effective_date"] = pd.to_datetime(normalised["effective_date"])
     normalised["end_date"] = pd.to_datetime(normalised["end_date"])
     if normalised["effective_date"].isna().any():
-        raise ValueError(
-            "Universe membership entries must include valid effective dates"
-        )
+        raise ValueError("Universe membership entries must include valid effective dates")
     normalised.sort_values(["fund", "effective_date"], inplace=True)
     return normalised.reset_index(drop=True)[columns]
 

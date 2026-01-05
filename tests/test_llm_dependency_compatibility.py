@@ -6,10 +6,14 @@ import importlib
 import importlib.metadata
 import re
 import sys
+import tomllib
 import warnings
+from pathlib import Path
 
 import pydantic
 import pytest
+from packaging.specifiers import SpecifierSet
+from packaging.version import Version
 
 
 def _parse_major_minor(version: str) -> tuple[int, int]:
@@ -17,6 +21,28 @@ def _parse_major_minor(version: str) -> tuple[int, int]:
     if not match:
         pytest.fail(f"Unable to parse major/minor version from '{version}'.")
     return int(match.group(1)), int(match.group(2))
+
+
+def _get_declared_version_range(package: str) -> SpecifierSet:
+    """Extract declared version range from pyproject.toml."""
+    pyproject_path = Path(__file__).parents[1] / "pyproject.toml"
+
+    with open(pyproject_path, "rb") as f:
+        data = tomllib.load(f)
+
+    # Search in optional-dependencies llm group
+    llm_deps = data.get("project", {}).get("optional-dependencies", {}).get("llm", [])
+
+    for dep in llm_deps:
+        # Extract package name
+        pkg_name = dep.split("[")[0].split("=")[0].split(">")[0].split("<")[0].strip()
+        if pkg_name == package:
+            # Extract specifier (e.g., ">=1.2,<1.3")
+            spec_str = dep.replace(pkg_name, "", 1).strip()
+            if spec_str:
+                return SpecifierSet(spec_str)
+
+    return SpecifierSet()
 
 
 def test_llm_extras_require_python_310_plus() -> None:
@@ -47,23 +73,21 @@ def test_langchain_versions_match_pyproject(distribution: str) -> None:
     This test ensures the installed versions are within the ranges specified
     in pyproject.toml [project.optional-dependencies] llm group, preventing
     drift between declared and actual dependencies.
+
+    ✅ This test dynamically reads version ranges from pyproject.toml,
+       so it won't break when dependencies are updated.
     """
     pytest.importorskip("langchain")
-    version = importlib.metadata.version(distribution)
-    major, minor = _parse_major_minor(version)
 
-    # Expected ranges from pyproject.toml (updated via Workflows sync process)
-    # langchain: >=1.2,<1.3 -> major=1, minor=2
-    # langchain-core: >=1.2,<1.3 -> major=1, minor=2
-    # langchain-community: >=0.4,<0.5 -> major=0, minor=4
-    expected_ranges = {
-        "langchain": (1, 2),
-        "langchain-core": (1, 2),
-        "langchain-community": (0, 4),
-    }
+    installed_version = Version(importlib.metadata.version(distribution))
+    declared_range = _get_declared_version_range(distribution)
 
-    expected = expected_ranges[distribution]
-    assert (major, minor) == expected, (
-        f"{distribution} version {version} doesn't match expected "
-        f"{expected[0]}.{expected[1]}.x range from pyproject.toml"
+    if not declared_range:
+        pytest.fail(
+            f"{distribution} not found in pyproject.toml [project.optional-dependencies] llm group"
+        )
+
+    assert installed_version in declared_range, (
+        f"{distribution} version {installed_version} not in declared range {declared_range}. "
+        f"Check pyproject.toml and requirements.lock for consistency."
     )

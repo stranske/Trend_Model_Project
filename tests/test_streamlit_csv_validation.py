@@ -95,9 +95,7 @@ def test_validate_uploaded_csv_offers_date_correction() -> None:
 
 def test_validate_uploaded_csv_date_correction_with_unfixable() -> None:
     """When some dates can be fixed and some cannot, both are reported."""
-    content = _csv(
-        ["11/30/2017,0.01,0.02", "11/31/2017,0.03,0.04", "garbage,0.05,0.06"]
-    )
+    content = _csv(["11/30/2017,0.01,0.02", "11/31/2017,0.03,0.04", "garbage,0.05,0.06"])
     with pytest.raises(CSVValidationError) as excinfo:
         validate_uploaded_csv(content, ("Date",), max_rows=10)
 

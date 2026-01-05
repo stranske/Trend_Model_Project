@@ -178,9 +178,7 @@ def wrap_config_for_coverage(cfg: Any, tracker: ConfigCoverageTracker) -> Any:
         field_names = list(getattr(cfg, "__dict__", {}).keys())
         if not field_names:
             field_names = [
-                name
-                for name, value in vars(cfg.__class__).items()
-                if not name.startswith("_")
+                name for name, value in vars(cfg.__class__).items() if not name.startswith("_")
             ]
 
     for name in field_names:

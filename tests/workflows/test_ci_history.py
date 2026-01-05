@@ -158,9 +158,7 @@ def test_build_history_record_enriches_metadata(
         monkeypatch.delenv(key, raising=False)
 
 
-def test_ci_history_missing_junit(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_ci_history_missing_junit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     junit_path = tmp_path / "missing.xml"
     history_path = tmp_path / "metrics-history.ndjson"
 
@@ -177,9 +175,7 @@ def test_ci_history_missing_junit(
     assert not history_path.exists()
 
 
-def test_main_handles_load_metrics_error(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_main_handles_load_metrics_error(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     junit_path = _write_sample_junit(tmp_path)
     history_path = tmp_path / "metrics-history.ndjson"
 

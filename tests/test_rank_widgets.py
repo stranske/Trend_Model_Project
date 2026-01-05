@@ -135,9 +135,7 @@ def test_rank_widgets_manual_flow(monkeypatch, tmp_path) -> None:
 
     monkeypatch.setattr(rank_widgets.pipeline, "run_analysis", fake_run_analysis)
     monkeypatch.setattr(rank_widgets.export, "make_summary_formatter", lambda *_: "fmt")
-    monkeypatch.setattr(
-        rank_widgets.export, "format_summary_text", lambda *_: "summary"
-    )
+    monkeypatch.setattr(rank_widgets.export, "format_summary_text", lambda *_: "summary")
     monkeypatch.setattr(rank_widgets.export, "export_data", fake_export_data)
 
     csv_path.value = _build_sample_csv(tmp_path)

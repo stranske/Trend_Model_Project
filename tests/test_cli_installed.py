@@ -30,9 +30,7 @@ def test_installed_trend_model_run_help():
     if trend_model_path is None:
         pytest.skip("trend-model command not found in PATH - package not installed")
 
-    result = subprocess.run(
-        ["trend-model", "run", "--help"], capture_output=True, text=True
-    )
+    result = subprocess.run(["trend-model", "run", "--help"], capture_output=True, text=True)
 
     assert result.returncode == 0
     assert "config" in result.stdout.lower()
@@ -46,9 +44,7 @@ def test_installed_trend_model_gui_help():
     if trend_model_path is None:
         pytest.skip("trend-model command not found in PATH - package not installed")
 
-    result = subprocess.run(
-        ["trend-model", "gui", "--help"], capture_output=True, text=True
-    )
+    result = subprocess.run(["trend-model", "gui", "--help"], capture_output=True, text=True)
 
     assert result.returncode == 0
 
@@ -77,9 +73,7 @@ def test_console_scripts_entry_points():
         pytest.skip("No trend-* commands found in PATH - package not installed")
 
     # Test at least one command works
-    result = subprocess.run(
-        [available_commands[0], "--help"], capture_output=True, text=True
-    )
+    result = subprocess.run([available_commands[0], "--help"], capture_output=True, text=True)
 
     assert result.returncode == 0
     print(f"Available commands: {available_commands}")
@@ -95,9 +89,7 @@ def test_trend_model_error_handling():
         pytest.skip("trend-model command not found in PATH - package not installed")
 
     # Test with invalid command
-    result = subprocess.run(
-        ["trend-model", "invalid-command"], capture_output=True, text=True
-    )
+    result = subprocess.run(["trend-model", "invalid-command"], capture_output=True, text=True)
 
     # Should fail with argument error
     assert result.returncode != 0

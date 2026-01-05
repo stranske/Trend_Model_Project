@@ -77,9 +77,7 @@ class WeightingStub:
     def __init__(self) -> None:
         self.updates: list[tuple[pd.Series, int]] = []
 
-    def weight(
-        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
-    ) -> pd.DataFrame:
+    def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
         del date
         base = [0.7, 0.6, 0.5]
         values = pd.Series(base[: len(selected)], index=selected.index, dtype=float)
@@ -93,9 +91,7 @@ class IdentityRebalancer:
     def __init__(self, *_: Any) -> None:
         pass
 
-    def apply_triggers(
-        self, prev_weights: pd.Series, _: pd.DataFrame, **kwargs
-    ) -> pd.Series:
+    def apply_triggers(self, prev_weights: pd.Series, _: pd.DataFrame, **kwargs) -> pd.Series:
         return prev_weights
 
 
@@ -241,9 +237,7 @@ def test_run_schedule_calls_weight_update() -> None:
     selector = SelectorStub(["FundA"])
     weighting = UpdateWeighting()
 
-    mp_engine.run_schedule(
-        {"2020-01-31": frame}, selector, weighting, rank_column="Sharpe"
-    )
+    mp_engine.run_schedule({"2020-01-31": frame}, selector, weighting, rank_column="Sharpe")
 
     assert weighting.updates and weighting.updates[0][1] == 0
 

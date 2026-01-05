@@ -62,10 +62,7 @@ def main() -> int:
     ignored_count = len(report.ignored)
     print(f"Ignored keys: {ignored_count}")
     if ignored_count > args.ignored_threshold:
-        print(
-            f"FAIL: ignored keys {ignored_count} exceeds threshold "
-            f"{args.ignored_threshold}."
-        )
+        print(f"FAIL: ignored keys {ignored_count} exceeds threshold " f"{args.ignored_threshold}.")
         return 1
     print("OK: ignored keys within threshold.")
     return 0

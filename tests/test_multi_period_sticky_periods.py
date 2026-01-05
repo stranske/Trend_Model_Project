@@ -123,9 +123,7 @@ def _run_with_sticky(
         def __init__(self, *_args: Any, **_kwargs: Any) -> None:
             self.calls = 0
 
-        def apply_triggers(
-            self, _prev: pd.Series, _sf: pd.DataFrame, **_kwargs: Any
-        ) -> pd.Series:
+        def apply_triggers(self, _prev: pd.Series, _sf: pd.DataFrame, **_kwargs: Any) -> pd.Series:
             idx = min(self.calls, len(seq) - 1)
             holdings = list(seq[idx]) if seq else []
             self.calls += 1
@@ -148,12 +146,8 @@ def test_sticky_add_requires_consecutive_periods(
 ) -> None:
     sequence = [["A", "B", "C"], ["A", "B"]]
 
-    baseline = _run_with_sticky(
-        monkeypatch, sticky_add=1, sticky_drop=1, sequence=sequence
-    )
-    delayed = _run_with_sticky(
-        monkeypatch, sticky_add=2, sticky_drop=1, sequence=sequence
-    )
+    baseline = _run_with_sticky(monkeypatch, sticky_add=1, sticky_drop=1, sequence=sequence)
+    delayed = _run_with_sticky(monkeypatch, sticky_add=2, sticky_drop=1, sequence=sequence)
 
     assert "C" in baseline[1]["selected_funds"]
     assert "C" not in delayed[1]["selected_funds"]
@@ -165,12 +159,8 @@ def test_sticky_drop_requires_consecutive_periods(
 ) -> None:
     sequence = [["B"], ["A", "B"]]
 
-    baseline = _run_with_sticky(
-        monkeypatch, sticky_add=1, sticky_drop=1, sequence=sequence
-    )
-    delayed = _run_with_sticky(
-        monkeypatch, sticky_add=1, sticky_drop=2, sequence=sequence
-    )
+    baseline = _run_with_sticky(monkeypatch, sticky_add=1, sticky_drop=1, sequence=sequence)
+    delayed = _run_with_sticky(monkeypatch, sticky_add=1, sticky_drop=2, sequence=sequence)
 
     assert "A" not in baseline[1]["selected_funds"]
     assert "A" in delayed[1]["selected_funds"]
@@ -182,12 +172,8 @@ def test_sticky_add_and_drop_reduce_turnover(
 ) -> None:
     sequence = [["A", "B", "C"], ["B"]]
 
-    baseline = _run_with_sticky(
-        monkeypatch, sticky_add=1, sticky_drop=1, sequence=sequence
-    )
-    delayed = _run_with_sticky(
-        monkeypatch, sticky_add=2, sticky_drop=2, sequence=sequence
-    )
+    baseline = _run_with_sticky(monkeypatch, sticky_add=1, sticky_drop=1, sequence=sequence)
+    delayed = _run_with_sticky(monkeypatch, sticky_add=2, sticky_drop=2, sequence=sequence)
 
     assert "A" not in baseline[2]["selected_funds"]
     assert "A" in delayed[2]["selected_funds"]

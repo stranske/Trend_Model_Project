@@ -31,9 +31,7 @@ def _reset_guard() -> None:
         delattr(dataclasses, "_trend_model_patched")
 
 
-def test_dataclasses_guard_reimports_missing_module(
-    monkeypatch, restore_dataclasses_is_type
-):
+def test_dataclasses_guard_reimports_missing_module(monkeypatch, restore_dataclasses_is_type):
     module_name = "tests.fake_missing_module"
     created = ModuleType(module_name)
 
@@ -65,9 +63,7 @@ def test_dataclasses_guard_reimports_missing_module(
     assert call_count["calls"] == 2
 
 
-def test_dataclasses_guard_fallback_creates_placeholder(
-    monkeypatch, restore_dataclasses_is_type
-):
+def test_dataclasses_guard_fallback_creates_placeholder(monkeypatch, restore_dataclasses_is_type):
     module_name = "tests.nonexistent_placeholder"
 
     call_count = {"calls": 0}

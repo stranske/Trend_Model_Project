@@ -145,9 +145,7 @@ def _check_frequency(idx: pd.DatetimeIndex, freq: str | None) -> None:
         raise ValueError(f"Unknown frequency alias '{freq}'.") from exc
 
     # Check if frequencies are equivalent (e.g., ME and BME for monthly data)
-    if _frequencies_are_equivalent(
-        expected_offset.rule_code, inferred_offset.rule_code
-    ):
+    if _frequencies_are_equivalent(expected_offset.rule_code, inferred_offset.rule_code):
         return
 
     if expected_offset != inferred_offset:
