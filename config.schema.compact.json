@@ -290,7 +290,7 @@
         "risk_free_column": null,
         "timezone": "UTC"
       },
-      "description": "Config option for data.",
+      "description": "Data input configuration validated at startup.",
       "nl_editable": true,
       "properties": {
         "allow_risk_free_fallback": {
@@ -919,7 +919,7 @@
         },
         "weighting_scheme": "equal"
       },
-      "description": "Config option for portfolio.",
+      "description": "Portfolio controls validated before running analyses.",
       "nl_editable": true,
       "properties": {
         "ci_level": {
@@ -1712,7 +1712,7 @@
           "length": 63
         }
       },
-      "description": "Config option for vol_adjust.",
+      "description": "Risk target configuration for volatility control.",
       "nl_editable": true,
       "properties": {
         "enabled": {

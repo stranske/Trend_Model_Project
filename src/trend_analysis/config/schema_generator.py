@@ -124,6 +124,59 @@ _MANUAL_DESCRIPTIONS: dict[str, str] = {
     "strategy.grid": "Grid search parameter ranges for walk-forward runs.",
 }
 
+_MODEL_SCHEMA_KEYS = {"type", "description", "default", "enum", "minimum", "maximum", "minItems", "maxItems"}
+
+
+def _load_model_overrides() -> dict[str, dict[str, Any]]:
+    """Load Pydantic model metadata for config fields when available."""
+
+    try:
+        from trend_analysis.config.model import TrendConfig
+    except Exception:
+        return {}
+
+    schema: dict[str, Any]
+    try:
+        schema = TrendConfig.model_json_schema()
+    except Exception:
+        try:
+            schema = TrendConfig.schema()  # type: ignore[attr-defined]
+        except Exception:
+            return {}
+
+    defs = schema.get("$defs", {})
+    overrides: dict[str, dict[str, Any]] = {}
+
+    def _resolve_ref(node: dict[str, Any]) -> dict[str, Any]:
+        while True:
+            if "$ref" in node:
+                ref = node.get("$ref")
+                if isinstance(ref, str) and ref.startswith("#/$defs/"):
+                    node = defs.get(ref.split("/")[-1], {})
+                    continue
+            if "allOf" in node and isinstance(node["allOf"], list) and len(node["allOf"]) == 1:
+                candidate = node["allOf"][0]
+                if isinstance(candidate, dict) and "$ref" in candidate:
+                    node = candidate
+                    continue
+            break
+        return node
+
+    def _walk(node: dict[str, Any], path: list[str]) -> None:
+        resolved = _resolve_ref(node)
+        if path:
+            info = {key: resolved[key] for key in _MODEL_SCHEMA_KEYS if key in resolved}
+            if info:
+                overrides[".".join(path)] = info
+        properties = resolved.get("properties")
+        if isinstance(properties, dict):
+            for key, child in properties.items():
+                if isinstance(child, dict):
+                    _walk(child, path + [key])
+
+    _walk(schema, [])
+    return overrides
+
 
 def collect_config_sources(config_dir: Path) -> list[Path]:
     """Return a stable list of config YAML files to scan for keys."""
@@ -287,16 +340,31 @@ def _infer_schema_type(path_key: str, default_value: Any, sample: Any | None) ->
     return _infer_type(default_value)
 
 
-def _description_for(path_key: str, comment_map: dict[str, str]) -> str:
+def _description_for(
+    path_key: str,
+    comment_map: dict[str, str],
+    model_overrides: dict[str, dict[str, Any]],
+) -> str:
     if path_key in comment_map:
         return comment_map[path_key]
     if path_key in _MANUAL_DESCRIPTIONS:
         return _MANUAL_DESCRIPTIONS[path_key]
+    model_desc = model_overrides.get(path_key, {}).get("description")
+    if model_desc:
+        return _sanitize_description(str(model_desc))
     return f"Config option for {path_key}."
 
 
-def _constraints_for(path_key: str) -> dict[str, Any]:
-    return _CONSTRAINTS.get(path_key, {})
+def _constraints_for(
+    path_key: str,
+    model_overrides: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    constraints = dict(_CONSTRAINTS.get(path_key, {}))
+    overrides = model_overrides.get(path_key, {})
+    for key in ("enum", "minimum", "maximum", "minItems", "maxItems"):
+        if key in overrides and key not in constraints:
+            constraints[key] = overrides[key]
+    return constraints
 
 
 def _nl_editable(path_key: str) -> bool:
@@ -312,11 +380,12 @@ def build_schema(
     path: list[str],
     comment_map: dict[str, str],
     samples: dict[str, Any],
+    model_overrides: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     path_key = ".".join(path)
     schema: dict[str, Any] = {
-        "description": _description_for(path_key, comment_map),
-        "constraints": _constraints_for(path_key),
+        "description": _description_for(path_key, comment_map, model_overrides),
+        "constraints": _constraints_for(path_key, model_overrides),
         "nl_editable": _nl_editable(path_key),
     }
 
@@ -330,6 +399,7 @@ def build_schema(
                 path=path + [key],
                 comment_map=comment_map,
                 samples=samples,
+                model_overrides=model_overrides,
             )
         if path_key in _FREEFORM_MAPS:
             schema["additionalProperties"] = _FREEFORM_MAPS[path_key]
@@ -341,7 +411,7 @@ def build_schema(
         sample_item = samples.get(f"{path_key}.[]") if path_key else None
         schema["items"] = _infer_array_items(value, sample_item)
         schema["default"] = value
-        return _apply_constraints(schema, path_key)
+        return _apply_constraints(schema, path_key, model_overrides)
 
     if value is None and isinstance(samples.get(path_key), dict):
         sample_dict = samples[path_key]
@@ -354,6 +424,7 @@ def build_schema(
                 path=path + [key],
                 comment_map=comment_map,
                 samples=samples,
+                model_overrides=model_overrides,
             )
         if path_key in _FREEFORM_MAPS:
             schema["additionalProperties"] = _FREEFORM_MAPS[path_key]
@@ -362,11 +433,15 @@ def build_schema(
 
     schema["type"] = _infer_schema_type(path_key, value, samples.get(path_key))
     schema["default"] = value
-    return _apply_constraints(schema, path_key)
+    return _apply_constraints(schema, path_key, model_overrides)
 
 
-def _apply_constraints(schema: dict[str, Any], path_key: str) -> dict[str, Any]:
-    constraints = _constraints_for(path_key)
+def _apply_constraints(
+    schema: dict[str, Any],
+    path_key: str,
+    model_overrides: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    constraints = _constraints_for(path_key, model_overrides)
     if "enum" in constraints:
         schema["enum"] = constraints["enum"]
     if "minimum" in constraints:
@@ -390,6 +465,7 @@ def generate_schema(
 
     defaults = load_yaml(defaults_path)
     comment_map = extract_inline_comments(defaults_path)
+    model_overrides = _load_model_overrides()
 
     configs = [load_yaml(path) for path in collect_config_sources(config_dir)]
     samples = gather_samples(configs)
@@ -410,6 +486,7 @@ def generate_schema(
             path=[key],
             comment_map=comment_map,
             samples=samples,
+            model_overrides=model_overrides,
         )
     return schema
 
