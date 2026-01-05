@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from trend_analysis.config.schema_validation import validate_config_file
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Validate a config YAML against config.schema.json")
+    parser = argparse.ArgumentParser(
+        description="Validate a config YAML against config.schema.json"
+    )
     parser.add_argument("config", type=Path, help="Path to the config YAML file")
     parser.add_argument(
         "--schema",

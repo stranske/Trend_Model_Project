@@ -45,9 +45,7 @@ def validate_config_data(data: dict[str, Any], schema: dict[str, Any]) -> list[s
     return [_format_error(error) for error in errors]
 
 
-def validate_config_file(
-    config_path: Path, schema_path: Path = _DEFAULT_SCHEMA_PATH
-) -> list[str]:
+def validate_config_file(config_path: Path, schema_path: Path = _DEFAULT_SCHEMA_PATH) -> list[str]:
     """Validate a config file and return a list of errors."""
 
     schema = load_schema(schema_path)

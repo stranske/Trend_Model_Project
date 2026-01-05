@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import re
-from collections import defaultdict
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -83,8 +82,12 @@ _FREEFORM_MAPS: dict[str, dict[str, Any]] = {
     "portfolio.constraints.group_caps": {"type": "number"},
     "portfolio.rank.blended_weights": {"type": "number"},
     "portfolio.custom_weights": {"type": "number"},
-    "portfolio.selector.params": {"type": ["number", "string", "boolean", "array", "object", "null"]},
-    "portfolio.weighting.params": {"type": ["number", "string", "boolean", "array", "object", "null"]},
+    "portfolio.selector.params": {
+        "type": ["number", "string", "boolean", "array", "object", "null"]
+    },
+    "portfolio.weighting.params": {
+        "type": ["number", "string", "boolean", "array", "object", "null"]
+    },
     "strategy.grid": {"type": ["array", "number", "string", "boolean", "object", "null"]},
 }
 
@@ -145,7 +148,9 @@ def merge_defaults(base: Any, extra: Any) -> Any:
     """Merge ``extra`` into ``base`` without overriding existing defaults."""
 
     if isinstance(base, dict) and isinstance(extra, dict):
-        merged: dict[str, Any] = {key: merge_defaults(value, extra.get(key)) for key, value in base.items()}
+        merged: dict[str, Any] = {
+            key: merge_defaults(value, extra.get(key)) for key, value in base.items()
+        }
         for key, value in extra.items():
             if key not in merged:
                 merged[key] = value
@@ -264,7 +269,10 @@ def _infer_array_items(values: list[Any], sample_item: Any | None) -> dict[str, 
     if not values:
         return {"type": "string"}
     item_types = sorted(
-        {"integer" if isinstance(v, int) and not isinstance(v, bool) else _infer_type(v) for v in values}
+        {
+            "integer" if isinstance(v, int) and not isinstance(v, bool) else _infer_type(v)
+            for v in values
+        }
     )
     if len(item_types) == 1:
         return {"type": item_types[0]}
@@ -415,7 +423,9 @@ def _compact_schema(schema: dict[str, Any]) -> dict[str, Any]:
     allowed_keys = {"type", "description", "default", "nl_editable", "properties", "items"}
     compact: dict[str, Any] = {k: v for k, v in schema.items() if k in allowed_keys}
     if "properties" in schema:
-        compact["properties"] = {key: _compact_schema(val) for key, val in schema["properties"].items()}
+        compact["properties"] = {
+            key: _compact_schema(val) for key, val in schema["properties"].items()
+        }
     if "items" in schema:
         compact["items"] = schema["items"]
     return compact
