@@ -14,7 +14,13 @@ from .models import (
     load_config,
     load_preset,
 )
-from .patch import ConfigPatch, PatchOperation, RiskFlag, apply_config_patch, apply_patch
+from .patch import (
+    ConfigPatch,
+    PatchOperation,
+    RiskFlag,
+    apply_config_patch,
+    apply_patch,
+)
 
 # Removed import from .legacy as all symbols are available from .models
 
