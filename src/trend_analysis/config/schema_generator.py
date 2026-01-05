@@ -392,10 +392,6 @@ def generate_schema(
     comment_map = extract_inline_comments(defaults_path)
 
     configs = [load_yaml(path) for path in collect_config_sources(config_dir)]
-    merged = defaults
-    for cfg in configs:
-        merged = merge_defaults(merged, cfg)
-
     samples = gather_samples(configs)
 
     schema: dict[str, Any] = {
@@ -405,10 +401,10 @@ def generate_schema(
         "description": _schema_root_description(config_map_path),
         "additionalProperties": False,
         "properties": {},
-        "default": merged,
+        "default": defaults,
     }
     properties_dict: dict[str, Any] = schema["properties"]
-    for key, value in merged.items():
+    for key, value in defaults.items():
         properties_dict[key] = build_schema(
             value,
             path=[key],

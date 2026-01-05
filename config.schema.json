@@ -9,37 +9,18 @@
     "checkpoint_dir": "outputs/checkpoints/",
     "data": {
       "allow_risk_free_fallback": false,
-      "columns": [
-        "Mgr_01",
-        "Mgr_02",
-        "Mgr_03",
-        "Mgr_04",
-        "Mgr_05",
-        "Mgr_06",
-        "Mgr_07",
-        "Mgr_08"
-      ],
-      "csv_path": "../demo/demo_returns.csv",
       "currency": "USD",
       "date_column": "Date",
       "frequency": "D",
       "indices_glob": "data/raw/indices/*.csv",
       "lookback_required": 756,
       "managers_glob": "data/raw/managers/*.csv",
-      "missing_fill_limit": null,
       "missing_limit": null,
       "missing_policy": "ffill",
-      "na_as_zero": {
-        "enabled": true,
-        "max_consecutive_gap": 1,
-        "max_missing_per_window": 1
-      },
       "price_column": "Adj_Close",
       "risk_free_column": null,
-      "timezone": "UTC",
-      "universe_membership_path": "Trend Universe Membership.csv"
+      "timezone": "UTC"
     },
-    "description": "High risk-return profile for performance-oriented users",
     "export": {
       "directory": "results/",
       "excel": {
@@ -50,7 +31,6 @@
         },
         "number_format": "0.00%"
       },
-      "filename": "long_backtest_2005_2025",
       "formats": [
         "xlsx",
         "csv",
@@ -61,7 +41,6 @@
       "include_vol_adj": true
     },
     "jobs": -1,
-    "lookback_periods": 24,
     "metrics": {
       "alpha_reference": "SP500TR",
       "bootstrap_ci": {
@@ -79,8 +58,6 @@
         "Hit_Rate",
         "Skew"
       ],
-      "drawdown": 0.3,
-      "max_drawdown": 0.15,
       "registry": [
         "annual_return",
         "volatility",
@@ -89,14 +66,9 @@
         "information_ratio",
         "max_drawdown"
       ],
-      "return_ann": 0.4,
       "rf_rate_annual": 0.02,
-      "sharpe": 0.4,
-      "sharpe_ratio": 0.3,
-      "use_continuous": false,
-      "volatility": 0.15
+      "use_continuous": false
     },
-    "min_track_months": 18,
     "multi_period": {
       "end": "2024-12",
       "frequency": "A",
@@ -132,11 +104,6 @@
         ]
       }
     },
-    "name": "Aggressive",
-    "output": {
-      "format": "csv",
-      "path": "demo/exports/alias_demo.csv"
-    },
     "performance": {
       "cache": {
         "metrics": false
@@ -147,43 +114,18 @@
     "portfolio": {
       "ci_level": 0.0,
       "constraints": {
-        "cash_weight": 0.1,
-        "group_caps": {
-          "Macro": 0.6,
-          "Trend": 0.55
-        },
-        "groups": {
-          "FundA": "Trend",
-          "FundB": "Trend",
-          "FundC": "Macro",
-          "FundD": "Macro"
-        },
+        "group_caps": {},
         "long_only": true,
         "max_active_positions": 0,
         "max_weight": 0.25
       },
-      "cooldown_months": 1,
       "cost_model": {
         "bps_per_trade": 0,
         "slippage_bps": 0
       },
-      "custom_weights": {
-        "Mgr_01": 60,
-        "Mgr_02": 40
-      },
-      "entry_eligible_strikes": 2,
-      "entry_soft_strikes": 3,
-      "indices_list": [
-        "Efficient Capital Best Trend 15v",
-        "Abrdn MOSERS Trend",
-        "HFRXSDV Base",
-        "SG Trend Index"
-      ],
       "leverage_cap": 2.0,
       "manual_list": [],
       "max_turnover": 1.0,
-      "max_weight": 0.1,
-      "policy": "threshold_hold",
       "random_n": 10,
       "rank": {
         "blended_weights": {
@@ -193,7 +135,6 @@
         },
         "bottom_k": 0,
         "inclusion_approach": "top_n",
-        "limit_one_per_firm": true,
         "n": 10,
         "pct": 0.1,
         "score_by": "sharpe_ratio",
@@ -223,31 +164,14 @@
       "selector": {
         "name": "zscore",
         "params": {
-          "rank_column": "Sharpe",
-          "threshold": 1.0,
-          "top_n": 5
+          "threshold": 1.0
         }
-      },
-      "target_n": 8,
-      "threshold_hold": {
-        "metric": "Sharpe",
-        "soft_strikes": 2,
-        "target_n": 8,
-        "weighting": "score_prop_bayes",
-        "z_entry_hard": 1.5,
-        "z_entry_soft": 1.0,
-        "z_exit_hard": -1.5,
-        "z_exit_soft": -1.0
       },
       "transaction_cost_bps": 0,
       "weighting": {
         "name": "score_prop_bayes",
         "params": {
-          "condition_threshold": "1.0e10",
-          "diagonal_loading_factor": 1e-05,
-          "safe_mode": "hrp",
-          "shrink_tau": 0.25,
-          "shrinkage_method": "ledoit_wolf"
+          "shrink_tau": 0.25
         }
       },
       "weighting_scheme": "equal"
@@ -267,7 +191,6 @@
         "method": "last",
         "target": "D"
       },
-      "steps": [],
       "winsorise": {
         "enabled": true,
         "limits": [
@@ -276,7 +199,6 @@
         ]
       }
     },
-    "rebalance_frequency": "monthly",
     "regime": {
       "annualise_volatility": true,
       "cache": true,
@@ -293,57 +215,21 @@
       "smoothing": 3,
       "threshold": 0.0
     },
-    "risk_target": 0.15,
     "run": {
       "cache_dir": ".cache/",
-      "checkpoint_dir": "demo/checkpoints",
       "deterministic": true,
-      "jobs": 1,
       "log_file": "logs/phase1.log",
       "log_level": "INFO",
-      "n_jobs": -1,
-      "name": "demo-grid",
-      "output_dir": "perf/wf",
-      "seed": 42
+      "n_jobs": -1
     },
     "sample_split": {
       "date": "2017-12-31",
       "folds": 5,
-      "in_end": "2022-12",
-      "in_start": "2015-01",
       "method": "date",
-      "out_end": "2024-12",
-      "out_start": "2023-01",
       "ratio": 0.7,
       "rolling_walk": false
     },
     "seed": 42,
-    "selection_count": 15,
-    "signals": {
-      "lag": 1,
-      "min_periods": 30,
-      "vol_adjust": true,
-      "vol_target": 0.15,
-      "window": 42,
-      "zscore": false
-    },
-    "strategy": {
-      "defaults": {
-        "band": 0.0
-      },
-      "grid": {
-        "band": [
-          0.0,
-          0.0015
-        ],
-        "lookback": [
-          6,
-          9,
-          12
-        ]
-      },
-      "top_n": 4
-    },
     "version": "0.1.0",
     "vol_adjust": {
       "enabled": true,
@@ -355,11 +241,6 @@
         "lambda": 0.94,
         "length": 63
       }
-    },
-    "walk_forward": {
-      "step": 6,
-      "test": 12,
-      "train": 36
     }
   },
   "description": "Baseline schema that loaders fall back to when no config path is provided.",
@@ -408,35 +289,17 @@
       "constraints": {},
       "default": {
         "allow_risk_free_fallback": false,
-        "columns": [
-          "Mgr_01",
-          "Mgr_02",
-          "Mgr_03",
-          "Mgr_04",
-          "Mgr_05",
-          "Mgr_06",
-          "Mgr_07",
-          "Mgr_08"
-        ],
-        "csv_path": "../demo/demo_returns.csv",
         "currency": "USD",
         "date_column": "Date",
         "frequency": "D",
         "indices_glob": "data/raw/indices/*.csv",
         "lookback_required": 756,
         "managers_glob": "data/raw/managers/*.csv",
-        "missing_fill_limit": null,
         "missing_limit": null,
         "missing_policy": "ffill",
-        "na_as_zero": {
-          "enabled": true,
-          "max_consecutive_gap": 1,
-          "max_missing_per_window": 1
-        },
         "price_column": "Adj_Close",
         "risk_free_column": null,
-        "timezone": "UTC",
-        "universe_membership_path": "Trend Universe Membership.csv"
+        "timezone": "UTC"
       },
       "description": "Config option for data.",
       "nl_editable": true,
@@ -447,35 +310,6 @@
           "description": "Opt-in heuristic to use lowest-vol column",
           "nl_editable": true,
           "type": "boolean"
-        },
-        "columns": {
-          "constraints": {},
-          "default": [
-            "Mgr_01",
-            "Mgr_02",
-            "Mgr_03",
-            "Mgr_04",
-            "Mgr_05",
-            "Mgr_06",
-            "Mgr_07",
-            "Mgr_08"
-          ],
-          "description": "Subset of columns to load from the returns CSV.",
-          "items": {
-            "type": "string"
-          },
-          "nl_editable": true,
-          "type": "array"
-        },
-        "csv_path": {
-          "constraints": {},
-          "default": "../demo/demo_returns.csv",
-          "description": "Path to a single returns CSV file.",
-          "nl_editable": false,
-          "type": [
-            "string",
-            "null"
-          ]
         },
         "currency": {
           "constraints": {},
@@ -538,16 +372,6 @@
             "null"
           ]
         },
-        "missing_fill_limit": {
-          "constraints": {},
-          "default": null,
-          "description": "Maximum consecutive periods to forward-fill missing data.",
-          "nl_editable": true,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
         "missing_limit": {
           "constraints": {},
           "default": null,
@@ -576,41 +400,6 @@
           "nl_editable": true,
           "type": "string"
         },
-        "na_as_zero": {
-          "additionalProperties": false,
-          "constraints": {},
-          "default": {
-            "enabled": true,
-            "max_consecutive_gap": 1,
-            "max_missing_per_window": 1
-          },
-          "description": "Config option for data.na_as_zero.",
-          "nl_editable": true,
-          "properties": {
-            "enabled": {
-              "constraints": {},
-              "default": true,
-              "description": "Config option for data.na_as_zero.enabled.",
-              "nl_editable": true,
-              "type": "boolean"
-            },
-            "max_consecutive_gap": {
-              "constraints": {},
-              "default": 1,
-              "description": "Config option for data.na_as_zero.max_consecutive_gap.",
-              "nl_editable": true,
-              "type": "integer"
-            },
-            "max_missing_per_window": {
-              "constraints": {},
-              "default": 1,
-              "description": "Config option for data.na_as_zero.max_missing_per_window.",
-              "nl_editable": true,
-              "type": "integer"
-            }
-          },
-          "type": "object"
-        },
         "price_column": {
           "constraints": {},
           "default": "Adj_Close",
@@ -634,26 +423,9 @@
           "description": "for parsing",
           "nl_editable": true,
           "type": "string"
-        },
-        "universe_membership_path": {
-          "constraints": {},
-          "default": "Trend Universe Membership.csv",
-          "description": "Optional CSV with universe membership overrides.",
-          "nl_editable": false,
-          "type": [
-            "string",
-            "null"
-          ]
         }
       },
       "type": "object"
-    },
-    "description": {
-      "constraints": {},
-      "default": "High risk-return profile for performance-oriented users",
-      "description": "Config option for description.",
-      "nl_editable": true,
-      "type": "string"
     },
     "export": {
       "additionalProperties": false,
@@ -668,7 +440,6 @@
           },
           "number_format": "0.00%"
         },
-        "filename": "long_backtest_2005_2025",
         "formats": [
           "xlsx",
           "csv",
@@ -746,13 +517,6 @@
           },
           "type": "object"
         },
-        "filename": {
-          "constraints": {},
-          "default": "long_backtest_2005_2025",
-          "description": "Config option for export.filename.",
-          "nl_editable": false,
-          "type": "string"
-        },
         "formats": {
           "constraints": {},
           "default": [
@@ -801,13 +565,6 @@
         "null"
       ]
     },
-    "lookback_periods": {
-      "constraints": {},
-      "default": 24,
-      "description": "Config option for lookback_periods.",
-      "nl_editable": true,
-      "type": "integer"
-    },
     "metrics": {
       "additionalProperties": false,
       "constraints": {},
@@ -828,8 +585,6 @@
           "Hit_Rate",
           "Skew"
         ],
-        "drawdown": 0.3,
-        "max_drawdown": 0.15,
         "registry": [
           "annual_return",
           "volatility",
@@ -838,12 +593,8 @@
           "information_ratio",
           "max_drawdown"
         ],
-        "return_ann": 0.4,
         "rf_rate_annual": 0.02,
-        "sharpe": 0.4,
-        "sharpe_ratio": 0.3,
-        "use_continuous": false,
-        "volatility": 0.15
+        "use_continuous": false
       },
       "description": "Config option for metrics.",
       "nl_editable": true,
@@ -914,20 +665,6 @@
           "nl_editable": true,
           "type": "array"
         },
-        "drawdown": {
-          "constraints": {},
-          "default": 0.3,
-          "description": "Config option for metrics.drawdown.",
-          "nl_editable": true,
-          "type": "number"
-        },
-        "max_drawdown": {
-          "constraints": {},
-          "default": 0.15,
-          "description": "Config option for metrics.max_drawdown.",
-          "nl_editable": true,
-          "type": "number"
-        },
         "registry": {
           "constraints": {},
           "default": [
@@ -945,13 +682,6 @@
           "nl_editable": true,
           "type": "array"
         },
-        "return_ann": {
-          "constraints": {},
-          "default": 0.4,
-          "description": "Config option for metrics.return_ann.",
-          "nl_editable": true,
-          "type": "number"
-        },
         "rf_rate_annual": {
           "constraints": {
             "minimum": 0
@@ -962,43 +692,15 @@
           "nl_editable": true,
           "type": "number"
         },
-        "sharpe": {
-          "constraints": {},
-          "default": 0.4,
-          "description": "Config option for metrics.sharpe.",
-          "nl_editable": true,
-          "type": "number"
-        },
-        "sharpe_ratio": {
-          "constraints": {},
-          "default": 0.3,
-          "description": "Config option for metrics.sharpe_ratio.",
-          "nl_editable": true,
-          "type": "number"
-        },
         "use_continuous": {
           "constraints": {},
           "default": false,
           "description": "geometric (default) vs. log",
           "nl_editable": true,
           "type": "boolean"
-        },
-        "volatility": {
-          "constraints": {},
-          "default": 0.15,
-          "description": "Config option for metrics.volatility.",
-          "nl_editable": true,
-          "type": "number"
         }
       },
       "type": "object"
-    },
-    "min_track_months": {
-      "constraints": {},
-      "default": 18,
-      "description": "Config option for min_track_months.",
-      "nl_editable": true,
-      "type": "integer"
     },
     "multi_period": {
       "additionalProperties": false,
@@ -1214,40 +916,6 @@
       },
       "type": "object"
     },
-    "name": {
-      "constraints": {},
-      "default": "Aggressive",
-      "description": "Config option for name.",
-      "nl_editable": true,
-      "type": "string"
-    },
-    "output": {
-      "additionalProperties": false,
-      "constraints": {},
-      "default": {
-        "format": "csv",
-        "path": "demo/exports/alias_demo.csv"
-      },
-      "description": "Config option for output.",
-      "nl_editable": true,
-      "properties": {
-        "format": {
-          "constraints": {},
-          "default": "csv",
-          "description": "Output file format for legacy single-file runners.",
-          "nl_editable": true,
-          "type": "string"
-        },
-        "path": {
-          "constraints": {},
-          "default": "demo/exports/alias_demo.csv",
-          "description": "Output path or prefix for legacy single-file runners.",
-          "nl_editable": false,
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
     "performance": {
       "additionalProperties": false,
       "constraints": {},
@@ -1303,43 +971,18 @@
       "default": {
         "ci_level": 0.0,
         "constraints": {
-          "cash_weight": 0.1,
-          "group_caps": {
-            "Macro": 0.6,
-            "Trend": 0.55
-          },
-          "groups": {
-            "FundA": "Trend",
-            "FundB": "Trend",
-            "FundC": "Macro",
-            "FundD": "Macro"
-          },
+          "group_caps": {},
           "long_only": true,
           "max_active_positions": 0,
           "max_weight": 0.25
         },
-        "cooldown_months": 1,
         "cost_model": {
           "bps_per_trade": 0,
           "slippage_bps": 0
         },
-        "custom_weights": {
-          "Mgr_01": 60,
-          "Mgr_02": 40
-        },
-        "entry_eligible_strikes": 2,
-        "entry_soft_strikes": 3,
-        "indices_list": [
-          "Efficient Capital Best Trend 15v",
-          "Abrdn MOSERS Trend",
-          "HFRXSDV Base",
-          "SG Trend Index"
-        ],
         "leverage_cap": 2.0,
         "manual_list": [],
         "max_turnover": 1.0,
-        "max_weight": 0.1,
-        "policy": "threshold_hold",
         "random_n": 10,
         "rank": {
           "blended_weights": {
@@ -1349,7 +992,6 @@
           },
           "bottom_k": 0,
           "inclusion_approach": "top_n",
-          "limit_one_per_firm": true,
           "n": 10,
           "pct": 0.1,
           "score_by": "sharpe_ratio",
@@ -1379,31 +1021,14 @@
         "selector": {
           "name": "zscore",
           "params": {
-            "rank_column": "Sharpe",
-            "threshold": 1.0,
-            "top_n": 5
+            "threshold": 1.0
           }
-        },
-        "target_n": 8,
-        "threshold_hold": {
-          "metric": "Sharpe",
-          "soft_strikes": 2,
-          "target_n": 8,
-          "weighting": "score_prop_bayes",
-          "z_entry_hard": 1.5,
-          "z_entry_soft": 1.0,
-          "z_exit_hard": -1.5,
-          "z_exit_soft": -1.0
         },
         "transaction_cost_bps": 0,
         "weighting": {
           "name": "score_prop_bayes",
           "params": {
-            "condition_threshold": "1.0e10",
-            "diagonal_loading_factor": 1e-05,
-            "safe_mode": "hrp",
-            "shrink_tau": 0.25,
-            "shrinkage_method": "ledoit_wolf"
+            "shrink_tau": 0.25
           }
         },
         "weighting_scheme": "equal"
@@ -1422,17 +1047,7 @@
           "additionalProperties": false,
           "constraints": {},
           "default": {
-            "cash_weight": 0.1,
-            "group_caps": {
-              "Macro": 0.6,
-              "Trend": 0.55
-            },
-            "groups": {
-              "FundA": "Trend",
-              "FundB": "Trend",
-              "FundC": "Macro",
-              "FundD": "Macro"
-            },
+            "group_caps": {},
             "long_only": true,
             "max_active_positions": 0,
             "max_weight": 0.25
@@ -1440,83 +1055,15 @@
           "description": "Config option for portfolio.constraints.",
           "nl_editable": true,
           "properties": {
-            "cash_weight": {
-              "constraints": {},
-              "default": 0.1,
-              "description": "Config option for portfolio.constraints.cash_weight.",
-              "nl_editable": true,
-              "type": "number"
-            },
             "group_caps": {
               "additionalProperties": {
                 "type": "number"
               },
               "constraints": {},
-              "default": {
-                "Macro": 0.6,
-                "Trend": 0.55
-              },
+              "default": {},
               "description": "Config option for portfolio.constraints.group_caps.",
               "nl_editable": true,
-              "properties": {
-                "Macro": {
-                  "constraints": {},
-                  "default": 0.6,
-                  "description": "Config option for portfolio.constraints.group_caps.Macro.",
-                  "nl_editable": true,
-                  "type": "number"
-                },
-                "Trend": {
-                  "constraints": {},
-                  "default": 0.55,
-                  "description": "Config option for portfolio.constraints.group_caps.Trend.",
-                  "nl_editable": true,
-                  "type": "number"
-                }
-              },
-              "type": "object"
-            },
-            "groups": {
-              "additionalProperties": false,
-              "constraints": {},
-              "default": {
-                "FundA": "Trend",
-                "FundB": "Trend",
-                "FundC": "Macro",
-                "FundD": "Macro"
-              },
-              "description": "Config option for portfolio.constraints.groups.",
-              "nl_editable": true,
-              "properties": {
-                "FundA": {
-                  "constraints": {},
-                  "default": "Trend",
-                  "description": "Config option for portfolio.constraints.groups.FundA.",
-                  "nl_editable": true,
-                  "type": "string"
-                },
-                "FundB": {
-                  "constraints": {},
-                  "default": "Trend",
-                  "description": "Config option for portfolio.constraints.groups.FundB.",
-                  "nl_editable": true,
-                  "type": "string"
-                },
-                "FundC": {
-                  "constraints": {},
-                  "default": "Macro",
-                  "description": "Config option for portfolio.constraints.groups.FundC.",
-                  "nl_editable": true,
-                  "type": "string"
-                },
-                "FundD": {
-                  "constraints": {},
-                  "default": "Macro",
-                  "description": "Config option for portfolio.constraints.groups.FundD.",
-                  "nl_editable": true,
-                  "type": "string"
-                }
-              },
+              "properties": {},
               "type": "object"
             },
             "long_only": {
@@ -1548,13 +1095,6 @@
           },
           "type": "object"
         },
-        "cooldown_months": {
-          "constraints": {},
-          "default": 1,
-          "description": "Config option for portfolio.cooldown_months.",
-          "nl_editable": true,
-          "type": "integer"
-        },
         "cost_model": {
           "additionalProperties": false,
           "constraints": {},
@@ -1581,64 +1121,6 @@
             }
           },
           "type": "object"
-        },
-        "custom_weights": {
-          "additionalProperties": {
-            "type": "number"
-          },
-          "constraints": {},
-          "default": {
-            "Mgr_01": 60,
-            "Mgr_02": 40
-          },
-          "description": "Explicit weight overrides keyed by manager name.",
-          "nl_editable": true,
-          "properties": {
-            "Mgr_01": {
-              "constraints": {},
-              "default": 60,
-              "description": "Config option for portfolio.custom_weights.Mgr_01.",
-              "nl_editable": true,
-              "type": "integer"
-            },
-            "Mgr_02": {
-              "constraints": {},
-              "default": 40,
-              "description": "Config option for portfolio.custom_weights.Mgr_02.",
-              "nl_editable": true,
-              "type": "integer"
-            }
-          },
-          "type": "object"
-        },
-        "entry_eligible_strikes": {
-          "constraints": {},
-          "default": 2,
-          "description": "Config option for portfolio.entry_eligible_strikes.",
-          "nl_editable": true,
-          "type": "integer"
-        },
-        "entry_soft_strikes": {
-          "constraints": {},
-          "default": 3,
-          "description": "Config option for portfolio.entry_soft_strikes.",
-          "nl_editable": true,
-          "type": "integer"
-        },
-        "indices_list": {
-          "constraints": {},
-          "default": [
-            "Efficient Capital Best Trend 15v",
-            "Abrdn MOSERS Trend",
-            "HFRXSDV Base",
-            "SG Trend Index"
-          ],
-          "description": "Config option for portfolio.indices_list.",
-          "items": {
-            "type": "string"
-          },
-          "nl_editable": true,
-          "type": "array"
         },
         "leverage_cap": {
           "constraints": {
@@ -1675,20 +1157,6 @@
             "null"
           ]
         },
-        "max_weight": {
-          "constraints": {},
-          "default": 0.1,
-          "description": "Config option for portfolio.max_weight.",
-          "nl_editable": true,
-          "type": "number"
-        },
-        "policy": {
-          "constraints": {},
-          "default": "threshold_hold",
-          "description": "Config option for portfolio.policy.",
-          "nl_editable": true,
-          "type": "string"
-        },
         "random_n": {
           "constraints": {},
           "default": 10,
@@ -1707,7 +1175,6 @@
             },
             "bottom_k": 0,
             "inclusion_approach": "top_n",
-            "limit_one_per_firm": true,
             "n": 10,
             "pct": 0.1,
             "score_by": "sharpe_ratio",
@@ -1778,13 +1245,6 @@
               ],
               "nl_editable": true,
               "type": "string"
-            },
-            "limit_one_per_firm": {
-              "constraints": {},
-              "default": true,
-              "description": "Config option for portfolio.rank.limit_one_per_firm.",
-              "nl_editable": true,
-              "type": "boolean"
             },
             "n": {
               "constraints": {},
@@ -2017,9 +1477,7 @@
           "default": {
             "name": "zscore",
             "params": {
-              "rank_column": "Sharpe",
-              "threshold": 1.0,
-              "top_n": 5
+              "threshold": 1.0
             }
           },
           "description": "Config option for portfolio.selector.",
@@ -2045,118 +1503,20 @@
               },
               "constraints": {},
               "default": {
-                "rank_column": "Sharpe",
-                "threshold": 1.0,
-                "top_n": 5
+                "threshold": 1.0
               },
               "description": "Config option for portfolio.selector.params.",
               "nl_editable": true,
               "properties": {
-                "rank_column": {
-                  "constraints": {},
-                  "default": "Sharpe",
-                  "description": "Config option for portfolio.selector.params.rank_column.",
-                  "nl_editable": true,
-                  "type": "string"
-                },
                 "threshold": {
                   "constraints": {},
                   "default": 1.0,
                   "description": "",
                   "nl_editable": true,
                   "type": "number"
-                },
-                "top_n": {
-                  "constraints": {},
-                  "default": 5,
-                  "description": "Config option for portfolio.selector.params.top_n.",
-                  "nl_editable": true,
-                  "type": "integer"
                 }
               },
               "type": "object"
-            }
-          },
-          "type": "object"
-        },
-        "target_n": {
-          "constraints": {},
-          "default": 8,
-          "description": "Config option for portfolio.target_n.",
-          "nl_editable": true,
-          "type": "integer"
-        },
-        "threshold_hold": {
-          "additionalProperties": false,
-          "constraints": {},
-          "default": {
-            "metric": "Sharpe",
-            "soft_strikes": 2,
-            "target_n": 8,
-            "weighting": "score_prop_bayes",
-            "z_entry_hard": 1.5,
-            "z_entry_soft": 1.0,
-            "z_exit_hard": -1.5,
-            "z_exit_soft": -1.0
-          },
-          "description": "Config option for portfolio.threshold_hold.",
-          "nl_editable": true,
-          "properties": {
-            "metric": {
-              "constraints": {},
-              "default": "Sharpe",
-              "description": "Config option for portfolio.threshold_hold.metric.",
-              "nl_editable": true,
-              "type": "string"
-            },
-            "soft_strikes": {
-              "constraints": {},
-              "default": 2,
-              "description": "Config option for portfolio.threshold_hold.soft_strikes.",
-              "nl_editable": true,
-              "type": "integer"
-            },
-            "target_n": {
-              "constraints": {},
-              "default": 8,
-              "description": "Config option for portfolio.threshold_hold.target_n.",
-              "nl_editable": true,
-              "type": "integer"
-            },
-            "weighting": {
-              "constraints": {},
-              "default": "score_prop_bayes",
-              "description": "Config option for portfolio.threshold_hold.weighting.",
-              "nl_editable": true,
-              "type": "string"
-            },
-            "z_entry_hard": {
-              "constraints": {},
-              "default": 1.5,
-              "description": "Config option for portfolio.threshold_hold.z_entry_hard.",
-              "nl_editable": true,
-              "type": "number"
-            },
-            "z_entry_soft": {
-              "constraints": {},
-              "default": 1.0,
-              "description": "Config option for portfolio.threshold_hold.z_entry_soft.",
-              "nl_editable": true,
-              "type": "number"
-            },
-            "z_exit_hard": {
-              "constraints": {},
-              "default": -1.5,
-              "description": "Config option for portfolio.threshold_hold.z_exit_hard.",
-              "nl_editable": true,
-              "type": "number"
-            },
-            "z_exit_soft": {
-              "constraints": {},
-              "default": -1.0,
-              "description": "Config option for portfolio.threshold_hold.z_exit_soft.",
-              "nl_editable": true,
-              "type": "number"
             }
           },
           "type": "object"
@@ -2177,11 +1537,7 @@
           "default": {
             "name": "score_prop_bayes",
             "params": {
-              "condition_threshold": "1.0e10",
-              "diagonal_loading_factor": 1e-05,
-              "safe_mode": "hrp",
-              "shrink_tau": 0.25,
-              "shrinkage_method": "ledoit_wolf"
+              "shrink_tau": 0.25
             }
           },
           "description": "Config option for portfolio.weighting.",
@@ -2207,49 +1563,17 @@
               },
               "constraints": {},
               "default": {
-                "condition_threshold": "1.0e10",
-                "diagonal_loading_factor": 1e-05,
-                "safe_mode": "hrp",
-                "shrink_tau": 0.25,
-                "shrinkage_method": "ledoit_wolf"
+                "shrink_tau": 0.25
               },
               "description": "Config option for portfolio.weighting.params.",
               "nl_editable": true,
               "properties": {
-                "condition_threshold": {
-                  "constraints": {},
-                  "default": "1.0e10",
-                  "description": "Config option for portfolio.weighting.params.condition_threshold.",
-                  "nl_editable": true,
-                  "type": "string"
-                },
-                "diagonal_loading_factor": {
-                  "constraints": {},
-                  "default": 1e-05,
-                  "description": "Config option for portfolio.weighting.params.diagonal_loading_factor.",
-                  "nl_editable": true,
-                  "type": "number"
-                },
-                "safe_mode": {
-                  "constraints": {},
-                  "default": "hrp",
-                  "description": "Config option for portfolio.weighting.params.safe_mode.",
-                  "nl_editable": true,
-                  "type": "string"
-                },
                 "shrink_tau": {
                   "constraints": {},
                   "default": 0.25,
                   "description": "Config option for portfolio.weighting.params.shrink_tau.",
                   "nl_editable": true,
                   "type": "number"
-                },
-                "shrinkage_method": {
-                  "constraints": {},
-                  "default": "ledoit_wolf",
-                  "description": "Config option for portfolio.weighting.params.shrinkage_method.",
-                  "nl_editable": true,
-                  "type": "string"
                 }
               },
               "type": "object"
@@ -2304,7 +1628,6 @@
           "method": "last",
           "target": "D"
         },
-        "steps": [],
         "winsorise": {
           "enabled": true,
           "limits": [
@@ -2456,16 +1779,6 @@
           },
           "type": "object"
         },
-        "steps": {
-          "constraints": {},
-          "default": [],
-          "description": "Optional list of preprocessing steps to run in order.",
-          "items": {
-            "type": "string"
-          },
-          "nl_editable": true,
-          "type": "array"
-        },
         "winsorise": {
           "additionalProperties": false,
           "constraints": {},
@@ -2509,13 +1822,6 @@
         }
       },
       "type": "object"
-    },
-    "rebalance_frequency": {
-      "constraints": {},
-      "default": "monthly",
-      "description": "Config option for rebalance_frequency.",
-      "nl_editable": true,
-      "type": "string"
     },
     "regime": {
       "additionalProperties": false,
@@ -2640,27 +1946,15 @@
       },
       "type": "object"
     },
-    "risk_target": {
-      "constraints": {},
-      "default": 0.15,
-      "description": "Config option for risk_target.",
-      "nl_editable": true,
-      "type": "number"
-    },
     "run": {
       "additionalProperties": false,
       "constraints": {},
       "default": {
         "cache_dir": ".cache/",
-        "checkpoint_dir": "demo/checkpoints",
         "deterministic": true,
-        "jobs": 1,
         "log_file": "logs/phase1.log",
         "log_level": "INFO",
-        "n_jobs": -1,
-        "name": "demo-grid",
-        "output_dir": "perf/wf",
-        "seed": 42
+        "n_jobs": -1
       },
       "description": "Config option for run.",
       "nl_editable": true,
@@ -2672,26 +1966,12 @@
           "nl_editable": true,
           "type": "string"
         },
-        "checkpoint_dir": {
-          "constraints": {},
-          "default": "demo/checkpoints",
-          "description": "Directory for saving checkpoints.",
-          "nl_editable": true,
-          "type": "string"
-        },
         "deterministic": {
           "constraints": {},
           "default": true,
           "description": "sets NumPy & pandas options",
           "nl_editable": true,
           "type": "boolean"
-        },
-        "jobs": {
-          "constraints": {},
-          "default": 1,
-          "description": "Parallel worker count for a run.",
-          "nl_editable": true,
-          "type": "integer"
         },
         "log_file": {
           "constraints": {},
@@ -2713,27 +1993,6 @@
           "description": "1  all CPUs",
           "nl_editable": true,
           "type": "integer"
-        },
-        "name": {
-          "constraints": {},
-          "default": "demo-grid",
-          "description": "Config option for run.name.",
-          "nl_editable": true,
-          "type": "string"
-        },
-        "output_dir": {
-          "constraints": {},
-          "default": "perf/wf",
-          "description": "Config option for run.output_dir.",
-          "nl_editable": true,
-          "type": "string"
-        },
-        "seed": {
-          "constraints": {},
-          "default": 42,
-          "description": "Random seed used for deterministic runs.",
-          "nl_editable": true,
-          "type": "integer"
         }
       },
       "type": "object"
@@ -2744,11 +2003,7 @@
       "default": {
         "date": "2017-12-31",
         "folds": 5,
-        "in_end": "2022-12",
-        "in_start": "2015-01",
         "method": "date",
-        "out_end": "2024-12",
-        "out_start": "2023-01",
         "ratio": 0.7,
         "rolling_walk": false
       },
@@ -2769,20 +2024,6 @@
           "nl_editable": true,
           "type": "integer"
         },
-        "in_end": {
-          "constraints": {},
-          "default": "2022-12",
-          "description": "End period for in-sample window.",
-          "nl_editable": true,
-          "type": "string"
-        },
-        "in_start": {
-          "constraints": {},
-          "default": "2015-01",
-          "description": "Start period for in-sample window.",
-          "nl_editable": true,
-          "type": "string"
-        },
         "method": {
           "constraints": {
             "enum": [
@@ -2796,20 +2037,6 @@
             "date",
             "ratio"
           ],
-          "nl_editable": true,
-          "type": "string"
-        },
-        "out_end": {
-          "constraints": {},
-          "default": "2024-12",
-          "description": "End period for out-of-sample window.",
-          "nl_editable": true,
-          "type": "string"
-        },
-        "out_start": {
-          "constraints": {},
-          "default": "2023-01",
-          "description": "Start period for out-of-sample window.",
           "nl_editable": true,
           "type": "string"
         },
@@ -2841,180 +2068,6 @@
       "description": "Config option for seed.",
       "nl_editable": true,
       "type": "integer"
-    },
-    "selection_count": {
-      "constraints": {},
-      "default": 15,
-      "description": "Config option for selection_count.",
-      "nl_editable": true,
-      "type": "integer"
-    },
-    "signals": {
-      "additionalProperties": false,
-      "constraints": {},
-      "default": {
-        "lag": 1,
-        "min_periods": 30,
-        "vol_adjust": true,
-        "vol_target": 0.15,
-        "window": 42,
-        "zscore": false
-      },
-      "description": "Config option for signals.",
-      "nl_editable": true,
-      "properties": {
-        "lag": {
-          "constraints": {},
-          "default": 1,
-          "description": "Config option for signals.lag.",
-          "nl_editable": true,
-          "type": "integer"
-        },
-        "min_periods": {
-          "constraints": {},
-          "default": 30,
-          "description": "Config option for signals.min_periods.",
-          "nl_editable": true,
-          "type": "integer"
-        },
-        "vol_adjust": {
-          "constraints": {},
-          "default": true,
-          "description": "Config option for signals.vol_adjust.",
-          "nl_editable": true,
-          "type": "boolean"
-        },
-        "vol_target": {
-          "constraints": {},
-          "default": 0.15,
-          "description": "Config option for signals.vol_target.",
-          "nl_editable": true,
-          "type": "number"
-        },
-        "window": {
-          "constraints": {},
-          "default": 42,
-          "description": "Config option for signals.window.",
-          "nl_editable": true,
-          "type": "integer"
-        },
-        "zscore": {
-          "constraints": {},
-          "default": false,
-          "description": "Config option for signals.zscore.",
-          "nl_editable": true,
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
-    "strategy": {
-      "additionalProperties": false,
-      "constraints": {},
-      "default": {
-        "defaults": {
-          "band": 0.0
-        },
-        "grid": {
-          "band": [
-            0.0,
-            0.0015
-          ],
-          "lookback": [
-            6,
-            9,
-            12
-          ]
-        },
-        "top_n": 4
-      },
-      "description": "Config option for strategy.",
-      "nl_editable": true,
-      "properties": {
-        "defaults": {
-          "additionalProperties": false,
-          "constraints": {},
-          "default": {
-            "band": 0.0
-          },
-          "description": "Default strategy parameters for walk-forward runs.",
-          "nl_editable": true,
-          "properties": {
-            "band": {
-              "constraints": {},
-              "default": 0.0,
-              "description": "Config option for strategy.defaults.band.",
-              "nl_editable": true,
-              "type": "number"
-            }
-          },
-          "type": "object"
-        },
-        "grid": {
-          "additionalProperties": {
-            "type": [
-              "array",
-              "number",
-              "string",
-              "boolean",
-              "object",
-              "null"
-            ]
-          },
-          "constraints": {},
-          "default": {
-            "band": [
-              0.0,
-              0.0015
-            ],
-            "lookback": [
-              6,
-              9,
-              12
-            ]
-          },
-          "description": "Grid search parameter ranges for walk-forward runs.",
-          "nl_editable": true,
-          "properties": {
-            "band": {
-              "constraints": {},
-              "default": [
-                0.0,
-                0.0015
-              ],
-              "description": "Config option for strategy.grid.band.",
-              "items": {
-                "type": "number"
-              },
-              "nl_editable": true,
-              "type": "array"
-            },
-            "lookback": {
-              "constraints": {},
-              "default": [
-                6,
-                9,
-                12
-              ],
-              "description": "Config option for strategy.grid.lookback.",
-              "items": {
-                "type": "integer"
-              },
-              "nl_editable": true,
-              "type": "array"
-            }
-          },
-          "type": "object"
-        },
-        "top_n": {
-          "constraints": {},
-          "default": 4,
-          "description": "Top-N selection used by walk-forward strategies.",
-          "nl_editable": true,
-          "type": "integer"
-        }
-      },
-      "type": "object"
     },
     "version": {
       "constraints": {},
@@ -3119,41 +2172,6 @@
             }
           },
           "type": "object"
-        }
-      },
-      "type": "object"
-    },
-    "walk_forward": {
-      "additionalProperties": false,
-      "constraints": {},
-      "default": {
-        "step": 6,
-        "test": 12,
-        "train": 36
-      },
-      "description": "Config option for walk_forward.",
-      "nl_editable": true,
-      "properties": {
-        "step": {
-          "constraints": {},
-          "default": 6,
-          "description": "Walk-forward step length.",
-          "nl_editable": true,
-          "type": "integer"
-        },
-        "test": {
-          "constraints": {},
-          "default": 12,
-          "description": "Walk-forward out-of-sample window length.",
-          "nl_editable": true,
-          "type": "integer"
-        },
-        "train": {
-          "constraints": {},
-          "default": 36,
-          "description": "Walk-forward in-sample window length.",
-          "nl_editable": true,
-          "type": "integer"
         }
       },
       "type": "object"
