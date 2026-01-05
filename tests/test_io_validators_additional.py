@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from trend_analysis.io.market_data import MarketDataMode, MarketDataValidationError
+from trend_analysis.io.market_data import MarketDataValidationError
 from trend_analysis.io.validators import ValidationResult, load_and_validate_upload
 
 
