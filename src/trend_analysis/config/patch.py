@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 import re
+from copy import deepcopy
 from enum import Enum
 from typing import Any, Literal
 
@@ -176,11 +176,7 @@ def _ensure_parent(
 
 def _deep_merge(target: dict[str, Any], patch: dict[str, Any]) -> None:
     for key, value in patch.items():
-        if (
-            key in target
-            and isinstance(target[key], dict)
-            and isinstance(value, dict)
-        ):
+        if key in target and isinstance(target[key], dict) and isinstance(value, dict):
             _deep_merge(target[key], value)
         else:
             target[key] = deepcopy(value)

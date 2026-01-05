@@ -10,9 +10,7 @@ from trend_analysis.config.patch import ConfigPatch, PatchOperation, apply_confi
 def test_apply_config_patch_set_creates_missing_path() -> None:
     patch = ConfigPatch(
         operations=[
-            PatchOperation(
-                op="set", path="portfolio.max_turnover", value=0.25
-            )
+            PatchOperation(op="set", path="portfolio.max_turnover", value=0.25)
         ],
         summary="Set turnover",
     )
@@ -71,9 +69,7 @@ def test_apply_config_patch_merge_deep() -> None:
 
 def test_apply_config_patch_remove_missing_path_errors() -> None:
     patch = ConfigPatch(
-        operations=[
-            PatchOperation(op="remove", path="portfolio.max_turnover")
-        ],
+        operations=[PatchOperation(op="remove", path="portfolio.max_turnover")],
         summary="Remove turnover",
     )
     with pytest.raises(KeyError):
