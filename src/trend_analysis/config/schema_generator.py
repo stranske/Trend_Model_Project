@@ -149,7 +149,7 @@ def _load_model_overrides() -> dict[str, dict[str, Any]]:
         schema = TrendConfig.model_json_schema()
     except Exception:
         try:
-            schema = TrendConfig.schema()  # type: ignore[attr-defined]
+            schema = TrendConfig.schema()
         except Exception:
             return {}
 
