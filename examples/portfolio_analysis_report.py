@@ -338,9 +338,7 @@ axes[1, 0].set_xticklabels(
 )
 
 # 5. Performance Distribution
-axes[1, 1].hist(
-    df["Out_Sample_CAGR"], bins=8, alpha=0.7, color="darkgreen", edgecolor="black"
-)
+axes[1, 1].hist(df["Out_Sample_CAGR"], bins=8, alpha=0.7, color="darkgreen", edgecolor="black")
 axes[1, 1].axvline(
     x=df["Out_Sample_CAGR"].mean(),
     color="red",
@@ -408,9 +406,7 @@ pct_pos_sharpe = 100 * pos_sharpe / 15
 print(f"• Positive Sharpe Periods: {pos_sharpe}/15 ({pct_pos_sharpe:.0f}%)")
 
 print("\nPERIOD ANALYSIS:")
-print(
-    "• Crisis Periods (2008-2012): Portfolio showed resilience during financial crisis"
-)
+print("• Crisis Periods (2008-2012): Portfolio showed resilience during financial crisis")
 print("• Growth Periods (2013-2017): Strong performance with positive Sharpe ratios")
 print("• Volatile Periods (2018-2025): Mixed results reflecting market uncertainty")
 

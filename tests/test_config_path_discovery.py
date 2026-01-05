@@ -104,7 +104,5 @@ def test_config_discovery_failure():
                 _find_config_directory as mock_find_config,
             )
 
-            with pytest.raises(
-                FileNotFoundError, match="Could not find 'config' directory"
-            ):
+            with pytest.raises(FileNotFoundError, match="Could not find 'config' directory"):
                 mock_find_config()

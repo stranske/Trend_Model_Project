@@ -194,9 +194,7 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
     indices = _section_get(portfolio, "indices_list")
     export_dir = _maybe_path(_section_get(export_cfg, "directory"), base_path=base_path)
     output_path = _maybe_path(_section_get(output_cfg, "path"), base_path=base_path)
-    checkpoint = _maybe_path(
-        _section_get(run_cfg, "checkpoint_dir"), base_path=base_path
-    )
+    checkpoint = _maybe_path(_section_get(run_cfg, "checkpoint_dir"), base_path=base_path)
     transaction_cost_bps = float(
         _coerce_float(_section_get(portfolio, "transaction_cost_bps", 0.0), 0.0) or 0.0
     )
@@ -243,18 +241,12 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
         missing=missing,
         target_vol=_coerce_float(_section_get(vol_adjust, "target_vol")),
         floor_vol=_coerce_float(_section_get(vol_adjust, "floor_vol")),
-        warmup_periods=_coerce_int(
-            _section_get(vol_adjust, "warmup_periods", 0), default=0
-        ),
-        monthly_cost=float(
-            _coerce_float(_section_get(run_cfg, "monthly_cost", 0.0), 0.0) or 0.0
-        ),
+        warmup_periods=_coerce_int(_section_get(vol_adjust, "warmup_periods", 0), default=0),
+        monthly_cost=float(_coerce_float(_section_get(run_cfg, "monthly_cost", 0.0), 0.0) or 0.0),
         previous_weights=_section_get(portfolio, "previous_weights"),
         regime=_cfg_section(cfg, "regime"),
         metrics=_as_tuple(_section_get(metrics, "registry", ())),
-        seed=_coerce_int(
-            _cfg_value(cfg, "seed", _section_get(run_cfg, "seed", 42)), default=42
-        ),
+        seed=_coerce_int(_cfg_value(cfg, "seed", _section_get(run_cfg, "seed", 42)), default=42),
         jobs=_coerce_int(_section_get(run_cfg, "jobs", None), default=0) or None,
         checkpoint_dir=checkpoint,
         export_directory=export_dir,

@@ -27,9 +27,5 @@ def test_incremental_cov_equivalence():
         payload = incremental_cov_update(payload, old_row, new_row)
         assert payload.n == full_payload.n
         assert payload.assets == full_payload.assets
-        np.testing.assert_allclose(
-            payload.mean, full_payload.mean, rtol=1e-10, atol=1e-10
-        )
-        np.testing.assert_allclose(
-            payload.cov, full_payload.cov, rtol=1e-10, atol=1e-10
-        )
+        np.testing.assert_allclose(payload.mean, full_payload.mean, rtol=1e-10, atol=1e-10)
+        np.testing.assert_allclose(payload.cov, full_payload.cov, rtol=1e-10, atol=1e-10)

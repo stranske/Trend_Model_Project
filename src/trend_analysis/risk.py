@@ -212,12 +212,7 @@ def _enforce_max_active(
     if len(active) <= max_active_val:
         return weights
 
-    keep = (
-        active.abs()
-        .sort_values(ascending=False, kind="mergesort")
-        .head(max_active_val)
-        .index
-    )
+    keep = active.abs().sort_values(ascending=False, kind="mergesort").head(max_active_val).index
     trimmed = working.copy()
     trimmed.loc[~trimmed.index.isin(keep)] = 0.0
 
@@ -298,13 +293,9 @@ def compute_constrained_weights(
     constrained = optimizer_mod.apply_constraints(scaled, constraint_payload)
     constrained = _normalise(constrained)
 
-    prev_series = (
-        _ensure_series(previous_weights) if previous_weights is not None else None
-    )
+    prev_series = _ensure_series(previous_weights) if previous_weights is not None else None
     constrained = _apply_turnover_penalty(constrained, prev_series, lambda_tc)
-    constrained, turnover_value = _enforce_turnover_cap(
-        constrained, prev_series, max_turnover
-    )
+    constrained, turnover_value = _enforce_turnover_cap(constrained, prev_series, max_turnover)
     constrained = constrained.reindex(base.index, fill_value=0.0)
     constrained = _enforce_max_active(constrained, max_active_positions)
     constrained = _normalise(constrained)

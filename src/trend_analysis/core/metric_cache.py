@@ -79,9 +79,7 @@ def make_metric_key(
 
     universe order matters.
     """
-    return _hash_parts(
-        (start, end, ",".join(universe_cols), metric_name, cfg_hash or "_")
-    )
+    return _hash_parts((start, end, ",".join(universe_cols), metric_name, cfg_hash or "_"))
 
 
 def get_or_compute_metric_series(

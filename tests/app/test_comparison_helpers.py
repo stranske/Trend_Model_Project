@@ -84,9 +84,7 @@ def test_manager_change_delta_counts_reasons() -> None:
 
 
 def test_comparison_bundle_includes_configs_and_diff_text(tmp_path) -> None:
-    metrics = pd.DataFrame(
-        [{"Metric": "Sharpe", "A": 1.0, "B": 1.2, "Delta (B - A)": 0.2}]
-    )
+    metrics = pd.DataFrame([{"Metric": "Sharpe", "A": 1.0, "B": 1.2, "Delta (B - A)": 0.2}])
     periods = pd.DataFrame(
         [
             {
@@ -140,9 +138,7 @@ def test_results_page_comparison_uses_cache(monkeypatch) -> None:
         },
         raising=False,
     )
-    monkeypatch.setattr(
-        results_page.analysis_runner, "run_analysis", _fake_run_analysis
-    )
+    monkeypatch.setattr(results_page.analysis_runner, "run_analysis", _fake_run_analysis)
 
     df_for_analysis = pd.DataFrame({"FundA": [0.01, 0.02], "FundB": [0.0, -0.01]})
     model_state = {"lookback_periods": 3}

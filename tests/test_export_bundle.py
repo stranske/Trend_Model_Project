@@ -40,9 +40,7 @@ class DummyRun:
 def test_export_bundle(tmp_path):
     input_path = _write_input(tmp_path)
     run = DummyRun(
-        portfolio=pd.Series(
-            [0.01, -0.02], index=pd.date_range("2020-01", periods=2, freq="ME")
-        ),
+        portfolio=pd.Series([0.01, -0.02], index=pd.date_range("2020-01", periods=2, freq="ME")),
         config={"foo": 1},
         seed=42,
         input_path=input_path,
@@ -63,9 +61,7 @@ def test_export_bundle(tmp_path):
         with z.open("run_meta.json") as f:
             meta = json.load(f)
         receipt = z.read("receipt.txt").decode("utf-8")
-        bootstrap_df = pd.read_csv(
-            z.open("results/equity_bootstrap.csv"), comment="#", index_col=0
-        )
+        bootstrap_df = pd.read_csv(z.open("results/equity_bootstrap.csv"), comment="#", index_col=0)
 
     assert list(bootstrap_df.columns) == ["p05", "median", "p95"]
     assert not bootstrap_df.empty
@@ -106,9 +102,7 @@ def test_export_bundle(tmp_path):
 def test_receipt_deterministic(tmp_path):
     input_path = _write_input(tmp_path)
     run = DummyRun(
-        portfolio=pd.Series(
-            [0.01, -0.02], index=pd.date_range("2020-01", periods=2, freq="ME")
-        ),
+        portfolio=pd.Series([0.01, -0.02], index=pd.date_range("2020-01", periods=2, freq="ME")),
         config={"foo": 1},
         seed=42,
         input_path=input_path,
@@ -144,12 +138,8 @@ def test_export_bundle_empty_portfolio(tmp_path):
 def test_export_bundle_optional_outputs(tmp_path):
     """Optional run attributes should produce additional bundle artifacts."""
 
-    portfolio = pd.Series(
-        [0.1, 0.2], index=pd.date_range("2024-01-31", periods=2, freq="ME")
-    )
-    benchmark = pd.Series(
-        [0.05, 0.07], index=pd.date_range("2024-01-31", periods=2, freq="ME")
-    )
+    portfolio = pd.Series([0.1, 0.2], index=pd.date_range("2024-01-31", periods=2, freq="ME"))
+    benchmark = pd.Series([0.05, 0.07], index=pd.date_range("2024-01-31", periods=2, freq="ME"))
     weights = pd.DataFrame({"fund_a": [0.6, 0.4], "fund_b": [0.4, 0.6]})
 
     run = DummyRun(
@@ -304,9 +294,7 @@ def test_export_bundle_env_version_fallback(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "importlib.metadata", fake_meta)
 
     run = DummyRun(
-        portfolio=pd.Series(
-            [0.02, 0.01], index=pd.date_range("2021-01", periods=2, freq="ME")
-        ),
+        portfolio=pd.Series([0.02, 0.01], index=pd.date_range("2021-01", periods=2, freq="ME")),
         config={"demo": True},
         seed=5,
         input_path=_write_input(tmp_path),
@@ -432,9 +420,7 @@ def test_export_bundle_fallback_bootstrap_handles_bad_dates(
 def test_export_bundle_records_log_file(tmp_path):
     input_path = _write_input(tmp_path)
     run = DummyRun(
-        portfolio=pd.Series(
-            [0.01], index=pd.date_range("2020-01-31", periods=1, freq="ME")
-        ),
+        portfolio=pd.Series([0.01], index=pd.date_range("2020-01-31", periods=1, freq="ME")),
         config={},
         seed=1,
         input_path=input_path,

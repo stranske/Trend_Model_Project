@@ -13,9 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / ".github/scripts/decode_raw_input.py"
 
 
-def run_decode(
-    tmp_path: Path, *args: str, raw_payload: str | None = None
-) -> SimpleNamespace:
+def run_decode(tmp_path: Path, *args: str, raw_payload: str | None = None) -> SimpleNamespace:
     """Execute the decode script within the current Python process."""
 
     workdir = Path(tmp_path)

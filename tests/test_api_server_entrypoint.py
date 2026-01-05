@@ -20,9 +20,7 @@ def test_api_server_entrypoint_invokes_run(monkeypatch):
     # ``__main__`` module so the smoke test stays robust even if the module was
     # imported earlier in the test session.
     monkeypatch.setattr("trend_analysis.api_server.run", fake_run)
-    monkeypatch.setattr(
-        "trend_analysis.api_server.__main__.run", fake_run, raising=False
-    )
+    monkeypatch.setattr("trend_analysis.api_server.__main__.run", fake_run, raising=False)
 
     # Ensure ``run_module`` loads a fresh module instance so coverage captures
     # the ``__main__`` guard without runtime warnings about cached modules.

@@ -26,9 +26,7 @@ def test_regex_performance_through_rank_select():
     ]
 
     # Create a test DataFrame
-    df = pd.DataFrame(
-        {name: [0.01 + i * 0.001 for i in range(6)] for name in fund_names}
-    )
+    df = pd.DataFrame({name: [0.01 + i * 0.001 for i in range(6)] for name in fund_names})
 
     cfg = rs.RiskStatsConfig(risk_free=0.0)
 

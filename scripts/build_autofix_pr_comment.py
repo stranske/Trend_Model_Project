@@ -157,9 +157,7 @@ def build_comment(
     history_points = 0
     if isinstance(history_obj, Mapping):
         history_points = len(history_obj)
-    elif isinstance(history_obj, Sequence) and not isinstance(
-        history_obj, (str, bytes)
-    ):
+    elif isinstance(history_obj, Sequence) and not isinstance(history_obj, (str, bytes)):
         history_points = len(history_obj)
 
     remaining_latest = coerce_int(trend.get("remaining_latest"), remaining)
@@ -266,9 +264,7 @@ def build_comment(
         meta_segments.append(f"reason={trigger_reason}")
     if trigger_head:
         meta_segments.append(f"head={trigger_head}")
-    meta_line = (
-        f"<!-- autofix-meta: {' '.join(meta_segments)} -->" if meta_segments else None
-    )
+    meta_line = f"<!-- autofix-meta: {' '.join(meta_segments)} -->" if meta_segments else None
 
     lines = [
         MARKER,

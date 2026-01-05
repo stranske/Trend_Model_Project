@@ -26,9 +26,7 @@ def load_helper_namespace() -> Dict[str, Any]:
         if hasattr(loader, "exec_module") and callable(getattr(loader, "exec_module")):
             loader.exec_module(module)
         else:
-            raise TypeError(
-                f"Loader {type(loader)} does not have an exec_module method"
-            )
+            raise TypeError(f"Loader {type(loader)} does not have an exec_module method")
         return module.__dict__
 
 

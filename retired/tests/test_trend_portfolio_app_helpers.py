@@ -117,24 +117,18 @@ class _DummyStreamlit(ModuleType):
     def slider(self, *_, value=None, **__):
         return value
 
-    def selectbox(
-        self, _label: str, options: Sequence | Iterable, *_, index: int = 0, **__
-    ):
+    def selectbox(self, _label: str, options: Sequence | Iterable, *_, index: int = 0, **__):
         options_list = list(options)
         if not options_list:
             return None
         return options_list[min(index, len(options_list) - 1)]
 
-    def multiselect(
-        self, _label: str, options: Sequence | Iterable, *_, default=None, **__
-    ):
+    def multiselect(self, _label: str, options: Sequence | Iterable, *_, default=None, **__):
         if default is None:
             return []
         return list(default)
 
-    def radio(
-        self, _label: str, options: Sequence | Iterable, *_, index: int = 0, **__
-    ):
+    def radio(self, _label: str, options: Sequence | Iterable, *_, index: int = 0, **__):
         options_list = list(options)
         if not options_list:
             return None
@@ -336,8 +330,7 @@ def test_read_defaults_prefers_demo_csv_when_available(
     monkeypatch.setattr(
         app_mod.Path,
         "exists",
-        lambda self: str(self).endswith("demo/demo_returns.csv")
-        or original_exists(self),
+        lambda self: str(self).endswith("demo/demo_returns.csv") or original_exists(self),
     )
 
     defaults = app_mod._read_defaults()
@@ -503,9 +496,7 @@ def test_summarise_multi_none_branch_coverage(monkeypatch: pytest.MonkeyPatch) -
     # Directly call the function that should handle container=None
     # Replace with a call to the relevant function, e.g. _summarise_multi, and assert expected behavior
     result = app_mod._summarise_multi([])
-    assert (
-        result is not None
-    )  # or other appropriate assertion based on expected behavior
+    assert result is not None  # or other appropriate assertion based on expected behavior
 
 
 def test_summarise_multi_handles_missing_columns(
@@ -745,9 +736,7 @@ def test_render_sidebar_resets_and_serialises(monkeypatch: pytest.MonkeyPatch) -
     app_mod = _load_app(monkeypatch)
 
     defaults = {"data": {"csv_path": "reset.csv"}, "portfolio": {"policy": "reset"}}
-    monkeypatch.setattr(
-        app_mod, "_read_defaults", lambda: json.loads(json.dumps(defaults))
-    )
+    monkeypatch.setattr(app_mod, "_read_defaults", lambda: json.loads(json.dumps(defaults)))
 
     button_calls: list[str] = []
 
@@ -887,9 +876,7 @@ def test_render_run_section_with_no_actions(monkeypatch: pytest.MonkeyPatch) -> 
     app_mod.st.button = lambda *_, **__: False  # type: ignore[assignment]
 
     calls: list[dict[str, Any]] = []
-    monkeypatch.setattr(
-        app_mod, "_apply_session_state", lambda cfg: calls.append(dict(cfg))
-    )
+    monkeypatch.setattr(app_mod, "_apply_session_state", lambda cfg: calls.append(dict(cfg)))
 
     cfg: dict[str, Any] = {"data": {}}
     app_mod._render_run_section(cfg)
@@ -977,10 +964,7 @@ def test_render_run_section_executes_multi_period(
     app_mod._render_run_section(cfg)
 
     assert cfg["data"]["csv_path"] == "from-state.csv"
-    assert (
-        built_cfg_objects
-        and built_cfg_objects[0]["data"]["csv_path"] == "from-state.csv"
-    )
+    assert built_cfg_objects and built_cfg_objects[0]["data"]["csv_path"] == "from-state.csv"
     assert successes == ["Completed. Periods: 2"]
     assert tables == [summary]
     assert len(downloads) == 2

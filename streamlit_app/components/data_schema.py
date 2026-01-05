@@ -73,9 +73,7 @@ def extract_headers_from_bytes(raw: bytes, *, is_excel: bool) -> list[str] | Non
     return [_normalise_header_value(value) for value in header]
 
 
-def apply_original_headers(
-    df: pd.DataFrame, headers: Sequence[str] | None
-) -> Sequence[str] | None:
+def apply_original_headers(df: pd.DataFrame, headers: Sequence[str] | None) -> Sequence[str] | None:
     """Assign ``headers`` to ``df`` when lengths match, preserving duplicates."""
 
     if not headers:
@@ -123,15 +121,11 @@ def _build_validation_report(
     warnings: list[str] = []
     rows = metadata.rows
     if rows < 12:
-        warnings.append(
-            f"Dataset is quite small ({rows} periods) – consider a longer history."
-        )
+        warnings.append(f"Dataset is quite small ({rows} periods) – consider a longer history.")
     for column in frame.columns:
         valid = frame[column].notna().sum()
         if rows and valid / rows <= 0.5:
-            warnings.append(
-                f"Column '{column}' has >50% missing values ({valid}/{rows} valid)."
-            )
+            warnings.append(f"Column '{column}' has >50% missing values ({valid}/{rows} valid).")
     if metadata.frequency_missing_periods > 0:
         warnings.append(
             "Date index contains "
@@ -141,21 +135,17 @@ def _build_validation_report(
     if metadata.missing_policy_dropped:
         dropped = ", ".join(sorted(metadata.missing_policy_dropped))
         warnings.append(
-            "Missing-data policy dropped columns: "
-            f"{dropped} (policy={metadata.missing_policy})."
+            "Missing-data policy dropped columns: " f"{dropped} (policy={metadata.missing_policy})."
         )
     if metadata.missing_policy_summary and (
         metadata.frequency_missing_periods > 0
         or bool(metadata.missing_policy_filled)
         or bool(metadata.missing_policy_dropped)
     ):
-        warnings.append(
-            f"Missing-data policy applied: {metadata.missing_policy_summary}."
-        )
+        warnings.append(f"Missing-data policy applied: {metadata.missing_policy_summary}.")
     if sanitized_columns:
         formatted = ", ".join(
-            f"{entry['original']!r} → {entry['sanitized']!r}"
-            for entry in sanitized_columns
+            f"{entry['original']!r} → {entry['sanitized']!r}" for entry in sanitized_columns
         )
         warnings.append(
             "Sanitized column headers (cleaned) to prevent Excel from running formulas: "
@@ -172,9 +162,7 @@ def _build_meta(
     metadata = validated.metadata
     meta = SchemaMeta()
     meta["metadata"] = metadata
-    meta["validation"] = _build_validation_report(
-        validated, sanitized_columns=sanitized_columns
-    )
+    meta["validation"] = _build_validation_report(validated, sanitized_columns=sanitized_columns)
     meta["original_columns"] = list(metadata.columns or metadata.symbols)
     meta["symbols"] = list(metadata.symbols)
     meta["n_rows"] = metadata.rows
@@ -268,8 +256,7 @@ def _validate_df(df: pd.DataFrame) -> Tuple[pd.DataFrame, SchemaMeta]:
 
         inception = compute_inception_dates(validated.frame)
         meta["inception_dates"] = {
-            k: (v.strftime("%Y-%m-%d") if v is not None else None)
-            for k, v in inception.items()
+            k: (v.strftime("%Y-%m-%d") if v is not None else None) for k, v in inception.items()
         }
     except Exception:
         meta["inception_dates"] = {}

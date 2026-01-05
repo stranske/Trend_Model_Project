@@ -9,9 +9,7 @@ from trend_analysis.config.patch import ConfigPatch, PatchOperation, apply_confi
 
 def test_apply_config_patch_set_creates_missing_path() -> None:
     patch = ConfigPatch(
-        operations=[
-            PatchOperation(op="set", path="portfolio.max_turnover", value=0.25)
-        ],
+        operations=[PatchOperation(op="set", path="portfolio.max_turnover", value=0.25)],
         summary="Set turnover",
     )
     updated = apply_config_patch({}, patch)
@@ -44,9 +42,7 @@ def test_apply_config_patch_append_to_existing_list() -> None:
         ],
         summary="Add asset",
     )
-    updated = apply_config_patch(
-        {"portfolio": {"constraints": {"allowed_assets": ["ABC"]}}}, patch
-    )
+    updated = apply_config_patch({"portfolio": {"constraints": {"allowed_assets": ["ABC"]}}}, patch)
     assert updated["portfolio"]["constraints"]["allowed_assets"] == ["ABC", "XYZ"]
 
 
@@ -62,9 +58,7 @@ def test_apply_config_patch_merge_deep() -> None:
         summary="Merge constraints",
     )
     updated = apply_config_patch({"portfolio": {"rebalance": "M"}}, patch)
-    assert updated == {
-        "portfolio": {"rebalance": "M", "constraints": {"max_weight": 0.05}}
-    }
+    assert updated == {"portfolio": {"rebalance": "M", "constraints": {"max_weight": 0.05}}}
 
 
 def test_apply_config_patch_remove_missing_path_errors() -> None:

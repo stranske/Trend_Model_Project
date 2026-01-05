@@ -40,13 +40,9 @@ def test_init_rng_reuses_generators_and_validate_inputs_types() -> None:
         pd.Series([0.01, 0.02], index=pd.date_range("2020-01-31", periods=2, freq="ME"))
     )
     with pytest.raises(TypeError, match="returns must be a pandas Series"):
-        _validate_inputs(
-            replace(base, returns=pd.DataFrame(base.returns)), n=1, block=1
-        )
+        _validate_inputs(replace(base, returns=pd.DataFrame(base.returns)), n=1, block=1)
     with pytest.raises(TypeError, match="equity_curve must be a pandas Series"):
-        _validate_inputs(
-            replace(base, equity_curve=base.equity_curve.to_frame()), n=1, block=1
-        )
+        _validate_inputs(replace(base, equity_curve=base.equity_curve.to_frame()), n=1, block=1)
 
 
 def test_bootstrap_equity_sanitises_non_finite_alignment() -> None:
@@ -57,9 +53,7 @@ def test_bootstrap_equity_sanitises_non_finite_alignment() -> None:
     faulty_equity.iloc[0] = np.inf
     result = replace(result, equity_curve=faulty_equity)
 
-    band = bootstrap_equity(
-        result, n=10, block=2, random_state=np.random.default_rng(7)
-    )
+    band = bootstrap_equity(result, n=10, block=2, random_state=np.random.default_rng(7))
     assert np.isfinite(band.to_numpy(dtype=float)).all()
 
 
@@ -99,9 +93,7 @@ def test_bootstrap_equity_constant_returns_aligns_with_realised():
     realised_curve = result.equity_curve
     active_mask = returns.notna()
     for col in ["p05", "median", "p95"]:
-        np.testing.assert_allclose(
-            band.loc[active_mask, col], realised_curve.loc[active_mask]
-        )
+        np.testing.assert_allclose(band.loc[active_mask, col], realised_curve.loc[active_mask])
 
 
 def test_bootstrap_equity_invalid_inputs():

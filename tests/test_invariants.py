@@ -86,9 +86,7 @@ def test_backtest_calendar_respects_business_days() -> None:
     )
 
     holidays = set(
-        USFederalHolidayCalendar().holidays(
-            start=returns.index.min(), end=returns.index.max()
-        )
+        USFederalHolidayCalendar().holidays(start=returns.index.min(), end=returns.index.max())
     )
 
     for ts in result.calendar:
@@ -235,9 +233,7 @@ def test_transaction_costs_reduce_returns_by_expected_amount() -> None:
 
     expected = baseline.returns.copy()
     tx_per_unit = 100.0 / 10000.0
-    for ts, turnover in costly.per_period_turnover[
-        costly.per_period_turnover > 0
-    ].items():
+    for ts, turnover in costly.per_period_turnover[costly.per_period_turnover > 0].items():
         expected.loc[ts] -= turnover * tx_per_unit
 
     observed = costly.returns.dropna()
@@ -259,9 +255,7 @@ def test_backtest_calendar_matches_calendar_helper() -> None:
     )
 
     raw_calendar = _rebalance_calendar(returns.index, freq)
-    filtered_calendar = [
-        date for date in raw_calendar if len(returns.loc[:date]) >= window_size
-    ]
+    filtered_calendar = [date for date in raw_calendar if len(returns.loc[:date]) >= window_size]
     expected_calendar = _enforce_execution_lag_calendar(
         filtered_calendar,
         returns.index,

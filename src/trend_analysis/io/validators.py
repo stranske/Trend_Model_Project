@@ -32,9 +32,7 @@ class _ValidationSummary:
         warnings: list[str] = []
         rows = self.metadata.rows
         if rows < 12:
-            warnings.append(
-                f"Dataset is quite small ({rows} periods) – consider a longer history."
-            )
+            warnings.append(f"Dataset is quite small ({rows} periods) – consider a longer history.")
         for column in self.frame.columns:
             valid = self.frame[column].notna().sum()
             if rows and valid / rows <= 0.5:
@@ -58,9 +56,7 @@ class _ValidationSummary:
             or bool(self.metadata.missing_policy_filled)
             or bool(self.metadata.missing_policy_dropped)
         ):
-            warnings.append(
-                f"Missing-data policy applied: {self.metadata.missing_policy_summary}."
-            )
+            warnings.append(f"Missing-data policy applied: {self.metadata.missing_policy_summary}.")
         return warnings
 
 
@@ -92,9 +88,7 @@ class ValidationResult:
             if self.frequency:
                 lines.append(f"📊 Detected frequency: {self.frequency}")
             if self.date_range:
-                lines.append(
-                    f"📅 Date range: {self.date_range[0]} to {self.date_range[1]}"
-                )
+                lines.append(f"📅 Date range: {self.date_range[0]} to {self.date_range[1]}")
             if self.mode:
                 lines.append(f"📈 Detected mode: {self.mode.value}")
             if (
@@ -106,9 +100,7 @@ class ValidationResult:
                     or bool(self.metadata.missing_policy_dropped)
                 )
             ):
-                lines.append(
-                    f"🧹 Missing data policy: {self.metadata.missing_policy_summary}"
-                )
+                lines.append(f"🧹 Missing data policy: {self.metadata.missing_policy_summary}")
         else:
             lines.append("❌ Schema validation failed!")
 
@@ -219,13 +211,9 @@ def _read_uploaded_file(file_like: Any) -> Tuple[pd.DataFrame, str]:
     except FileNotFoundError:
         raise ValueError(f"File not found: '{lower_name or file_like}'")
     except PermissionError:
-        raise ValueError(
-            f"Permission denied accessing file: '{lower_name or file_like}'"
-        )
+        raise ValueError(f"Permission denied accessing file: '{lower_name or file_like}'")
     except IsADirectoryError:
-        raise ValueError(
-            f"Path is a directory, not a file: '{lower_name or file_like}'"
-        )
+        raise ValueError(f"Path is a directory, not a file: '{lower_name or file_like}'")
     except pd.errors.EmptyDataError:
         raise ValueError(f"File contains no data: '{lower_name or file_like}'")
     except pd.errors.ParserError:
@@ -242,13 +230,9 @@ def _read_uploaded_file(file_like: Any) -> Tuple[pd.DataFrame, str]:
         except FileNotFoundError:
             raise ValueError(f"File not found: '{lower_name or file_like}'")
         except PermissionError:
-            raise ValueError(
-                f"Permission denied accessing file: '{lower_name or file_like}'"
-            )
+            raise ValueError(f"Permission denied accessing file: '{lower_name or file_like}'")
         except IsADirectoryError:
-            raise ValueError(
-                f"Path is a directory, not a file: '{lower_name or file_like}'"
-            )
+            raise ValueError(f"Path is a directory, not a file: '{lower_name or file_like}'")
         except pd.errors.EmptyDataError:
             raise ValueError(f"File contains no data: '{lower_name or file_like}'")
         except pd.errors.ParserError:
@@ -256,9 +240,7 @@ def _read_uploaded_file(file_like: Any) -> Tuple[pd.DataFrame, str]:
                 f"Failed to parse file (corrupted or invalid format): '{lower_name or file_like}'"
             )
         except Exception as exc:
-            raise ValueError(
-                f"Failed to read file: '{lower_name or file_like}'"
-            ) from exc
+            raise ValueError(f"Failed to read file: '{lower_name or file_like}'") from exc
 
     raise ValueError("Unsupported upload source")
 

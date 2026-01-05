@@ -33,9 +33,7 @@ def test_compute_score_frame_local_skips_date_column(monkeypatch):
         }
     )
 
-    monkeypatch.setitem(
-        sim_runner.AVAILABLE_METRICS, "dummy", {"fn": lambda r, idx: 1.0}
-    )
+    monkeypatch.setitem(sim_runner.AVAILABLE_METRICS, "dummy", {"fn": lambda r, idx: 1.0})
 
     df = sim_runner.compute_score_frame_local(panel)
     assert "Date" not in df.index
@@ -45,9 +43,7 @@ def test_compute_score_frame_local_skips_date_column(monkeypatch):
 def test_compute_score_frame_validations_and_fallback(monkeypatch):
     df = pd.DataFrame({"A": [0.1, 0.2]})
     with pytest.raises(ValueError):
-        sim_runner.compute_score_frame(
-            df, pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")
-        )
+        sim_runner.compute_score_frame(df, pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29"))
 
     panel = pd.DataFrame(
         {
@@ -145,9 +141,7 @@ def test_simresult_methods():
 def test_gen_review_dates_quarterly():
     df = pd.DataFrame({"A": [0.1]}, index=[pd.Timestamp("2020-01-31")])
     sim = sim_runner.Simulator(df)
-    dates = sim._gen_review_dates(
-        pd.Timestamp("2020-01-31"), pd.Timestamp("2020-06-30"), "q"
-    )
+    dates = sim._gen_review_dates(pd.Timestamp("2020-01-31"), pd.Timestamp("2020-06-30"), "q")
     assert dates[0].month == 3 and dates[1].month == 6
 
 
@@ -172,9 +166,7 @@ def test_simulator_run_progress_and_fire(monkeypatch):
 
     call = {"n": 0}
 
-    def fake_decide(
-        asof, sf, current, policy, directions, cooldowns, eligible_since, tenure
-    ):
+    def fake_decide(asof, sf, current, policy, directions, cooldowns, eligible_since, tenure):
         call["n"] += 1
         if call["n"] == 1:
             return {"hire": [("A", "top_k")], "fire": []}
@@ -210,9 +202,7 @@ def test_simulator_run_max_weight_clip(monkeypatch):
 
     call_count = {"n": 0}
 
-    def fake_decide(
-        asof, sf, current, policy, directions, cooldowns, eligible_since, tenure
-    ):
+    def fake_decide(asof, sf, current, policy, directions, cooldowns, eligible_since, tenure):
         call_count["n"] += 1
         if call_count["n"] == 1:
             return {"hire": [("A", "top_k"), ("B", "top_k")], "fire": []}
@@ -262,9 +252,7 @@ def test_simulator_handles_equity_curve_update_failure(monkeypatch, caplog):
     def fake_compute(panel, start, end, rf_annual=0.0):
         return pd.DataFrame({"m": [1.0]}, index=["A"])
 
-    def fake_decide(
-        asof, sf, current, policy, directions, cooldowns, eligible_since, tenure
-    ):
+    def fake_decide(asof, sf, current, policy, directions, cooldowns, eligible_since, tenure):
         return {"hire": [], "fire": []}
 
     def fake_apply(prev_weights, target_weights, date, rb_cfg, rb_state, policy):
@@ -412,12 +400,8 @@ def test_apply_rebalance_pipeline_vol_and_drawdown(monkeypatch):
 
 
 def test_simulator_equity_curve_warning(monkeypatch, caplog):
-    monkeypatch.setattr(
-        sim_runner, "compute_score_frame", lambda *a, **k: pd.DataFrame()
-    )
-    monkeypatch.setattr(
-        sim_runner, "decide_hires_fires", lambda *a, **k: {"hire": [], "fire": []}
-    )
+    monkeypatch.setattr(sim_runner, "compute_score_frame", lambda *a, **k: pd.DataFrame())
+    monkeypatch.setattr(sim_runner, "decide_hires_fires", lambda *a, **k: {"hire": [], "fire": []})
 
     def bad_rebalance(prev_weights, target_weights, date, rb_cfg, rb_state, policy):
         rb_state["equity_curve"] = [1.0, "bad"]
@@ -471,6 +455,4 @@ def test_simulator_run_handles_missing_forward_month(monkeypatch):
     )
 
     assert result.portfolio.empty
-    assert list(result.weights.keys()) == [
-        pd.Timestamp("2020-01-31 23:59:59.999999999")
-    ]
+    assert list(result.weights.keys()) == [pd.Timestamp("2020-01-31 23:59:59.999999999")]

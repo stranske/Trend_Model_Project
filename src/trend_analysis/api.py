@@ -369,9 +369,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     validation_frame = validate_prices_frame(build_validation_frame(returns))
 
     data_settings = getattr(config, "data", {}) or {}
-    risk_free_column, allow_risk_free_fallback = resolve_risk_free_settings(
-        data_settings
-    )
+    risk_free_column, allow_risk_free_fallback = resolve_risk_free_settings(data_settings)
     max_lag_days = data_settings.get("max_lag_days")
     lag_limit: int | None = None
     if max_lag_days not in (None, ""):
@@ -472,9 +470,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         allow_risk_free_fallback=allow_risk_free_fallback,
         weight_engine_params=weight_engine_params,
     )
-    diag_hint = cast(
-        DiagnosticPayload | None, getattr(pipeline_output, "diagnostic", None)
-    )
+    diag_hint = cast(DiagnosticPayload | None, getattr(pipeline_output, "diagnostic", None))
     try:
         payload, diag = coerce_pipeline_result(pipeline_output)
     except TypeError as exc:
@@ -528,17 +524,11 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     for label, ir_map in bench_ir_items:
         col = f"ir_{label}"
         metrics_df[col] = pd.Series(
-            {
-                k: v
-                for k, v in ir_map.items()
-                if k not in {"equal_weight", "user_weight"}
-            }
+            {k: v for k, v in ir_map.items() if k not in {"equal_weight", "user_weight"}}
         )
 
     fallback_raw = res_dict.get("weight_engine_fallback")
-    fallback_info: dict[str, Any] | None = (
-        fallback_raw if isinstance(fallback_raw, dict) else None
-    )
+    fallback_info: dict[str, Any] | None = fallback_raw if isinstance(fallback_raw, dict) else None
     if fallback_info:
         logger.warning(
             "Weight engine fallback used (engine=%s, safe_mode=%s, "
@@ -590,9 +580,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     except Exception:
         pass
     logger.info("run_simulation end")
-    _log_step(
-        run_id, "api_end", "run_simulation complete", fallback=bool(fallback_info)
-    )
+    _log_step(run_id, "api_end", "run_simulation complete", fallback=bool(fallback_info))
     # Construct portfolio series for bundle export (equal-weight baseline)
     try:
         in_scaled = res_dict.get("in_sample_scaled")

@@ -34,8 +34,6 @@ def test_regression_compute_signal_no_current_row_dependency():
         df_alt = df.copy()
         orig_scalar = df_alt.loc[df_alt.index[i], "returns"]
         orig_val = float(orig_scalar)
-        df_alt.loc[df_alt.index[i], "returns"] = (
-            orig_val + 10.0
-        )  # large shock at current row
+        df_alt.loc[df_alt.index[i], "returns"] = orig_val + 10.0  # large shock at current row
         sig_alt = compute_signal(df_alt, window=3)
         pd.testing.assert_series_equal(sig.iloc[:i], sig_alt.iloc[:i])

@@ -74,9 +74,7 @@ def test_rolling_information_ratio_uses_cache_when_enabled(
         def is_enabled(self) -> bool:
             return True
 
-        def get_or_compute(
-            self, dataset_hash, window, freq_tag, method_tag, compute_fn
-        ):
+        def get_or_compute(self, dataset_hash, window, freq_tag, method_tag, compute_fn):
             recorded["dataset_hash"] = dataset_hash
             recorded["window"] = window
             recorded["freq_tag"] = freq_tag
@@ -117,9 +115,7 @@ def test_rolling_information_ratio_cache_handles_unknown_frequency(
         def is_enabled(self) -> bool:
             return True
 
-        def get_or_compute(
-            self, dataset_hash, window, freq_tag, method_tag, compute_fn
-        ):
+        def get_or_compute(self, dataset_hash, window, freq_tag, method_tag, compute_fn):
             recorded["freq_tag"] = freq_tag
             recorded["result"] = compute_fn()
             return recorded["result"]

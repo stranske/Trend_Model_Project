@@ -31,9 +31,7 @@ class PatchOperation(BaseModel):
         default=None,
         description="Value for set/append/merge operations.",
     )
-    rationale: str | None = Field(
-        default=None, description="Optional explanation for the change."
-    )
+    rationale: str | None = Field(default=None, description="Optional explanation for the change.")
 
     model_config = ConfigDict(extra="forbid")
 
@@ -142,8 +140,7 @@ def apply_config_patch(config: dict[str, Any], patch: ConfigPatch) -> dict[str, 
 def _to_dotpath(path: str) -> str:
     if path.startswith("/"):
         segments = [
-            segment.replace("~1", "/").replace("~0", "~")
-            for segment in path.split("/")[1:]
+            segment.replace("~1", "/").replace("~0", "~") for segment in path.split("/")[1:]
         ]
         return ".".join(segments)
     return path
@@ -151,16 +148,11 @@ def _to_dotpath(path: str) -> str:
 
 def _parse_path_segments(path: str) -> list[str]:
     if path.startswith("/"):
-        return [
-            segment.replace("~1", "/").replace("~0", "~")
-            for segment in path.split("/")[1:]
-        ]
+        return [segment.replace("~1", "/").replace("~0", "~") for segment in path.split("/")[1:]]
     return path.split(".") if path else []
 
 
-def _ensure_parent(
-    root: dict[str, Any], segments: list[str], op: str
-) -> dict[str, Any]:
+def _ensure_parent(root: dict[str, Any], segments: list[str], op: str) -> dict[str, Any]:
     current: Any = root
     for segment in segments:
         if not isinstance(current, dict):
@@ -226,8 +218,7 @@ def _removes_constraint(op: PatchOperation, dotpath: str) -> bool:
     )
     removes_value = op.op == "remove" or (op.op == "set" and op.value is None)
     return removes_value and any(
-        dotpath == prefix or dotpath.startswith(f"{prefix}.")
-        for prefix in constraint_prefixes
+        dotpath == prefix or dotpath.startswith(f"{prefix}.") for prefix in constraint_prefixes
     )
 
 
@@ -249,15 +240,10 @@ def _increases_leverage(op: PatchOperation, dotpath: str) -> bool:
     if op.op not in {"set", "merge"}:
         return False
     if dotpath == "vol_adjust.target_vol":
-        return (
-            isinstance(op.value, (int, float)) and op.value > _VOL_TARGET_RISK_THRESHOLD
-        )
+        return isinstance(op.value, (int, float)) and op.value > _VOL_TARGET_RISK_THRESHOLD
     if dotpath == "vol_adjust" and isinstance(op.value, dict):
         target_vol = op.value.get("target_vol")
-        return (
-            isinstance(target_vol, (int, float))
-            and target_vol > _VOL_TARGET_RISK_THRESHOLD
-        )
+        return isinstance(target_vol, (int, float)) and target_vol > _VOL_TARGET_RISK_THRESHOLD
     return False
 
 

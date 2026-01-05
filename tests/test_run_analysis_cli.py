@@ -169,9 +169,7 @@ def test_main_handles_empty_details(monkeypatch, config_factory, capsys):
     assert captured.out == "No results\n"
 
 
-def test_main_formats_summary_and_exports_without_excel(
-    monkeypatch, config_factory, capsys
-):
+def test_main_formats_summary_and_exports_without_excel(monkeypatch, config_factory, capsys):
     cfg = config_factory()
     cfg.export["directory"] = "out"
     cfg.export["formats"] = ["json"]
@@ -193,9 +191,7 @@ def test_main_formats_summary_and_exports_without_excel(
     )
 
     formatted_summary = "summary text"
-    monkeypatch.setattr(
-        run_analysis.export, "format_summary_text", lambda *a: formatted_summary
-    )
+    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *a: formatted_summary)
 
     export_calls = []
     monkeypatch.setattr(
@@ -236,9 +232,7 @@ def test_main_skips_export_when_directory_missing(monkeypatch, config_factory, c
         lambda *_: DummyResult(metrics=metrics, details=details),
     )
 
-    monkeypatch.setattr(
-        run_analysis.export, "format_summary_text", lambda *a: "summary text"
-    )
+    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *a: "summary text")
 
     export_calls = []
     monkeypatch.setattr(
@@ -254,9 +248,7 @@ def test_main_skips_export_when_directory_missing(monkeypatch, config_factory, c
 
 def test_main_exports_excel_and_other_formats(monkeypatch, config_factory, capsys):
     cfg = config_factory()
-    cfg.export.update(
-        {"directory": "out", "formats": ["xlsx", "json"], "filename": "analysis"}
-    )
+    cfg.export.update({"directory": "out", "formats": ["xlsx", "json"], "filename": "analysis"})
 
     monkeypatch.setattr(run_analysis, "load", lambda path: cfg)
 
@@ -279,9 +271,7 @@ def test_main_exports_excel_and_other_formats(monkeypatch, config_factory, capsy
         lambda *_: DummyResult(metrics=metrics, details=details),
     )
 
-    monkeypatch.setattr(
-        run_analysis.export, "format_summary_text", lambda *a: "summary"
-    )
+    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *a: "summary")
 
     summary_frame = pd.DataFrame({"summary": [1]})
     monkeypatch.setattr(
@@ -294,9 +284,7 @@ def test_main_exports_excel_and_other_formats(monkeypatch, config_factory, capsy
         formatter_called["called"] = True
         return "formatter"
 
-    monkeypatch.setattr(
-        run_analysis.export, "make_summary_formatter", fake_make_formatter
-    )
+    monkeypatch.setattr(run_analysis.export, "make_summary_formatter", fake_make_formatter)
 
     excel_calls = []
     monkeypatch.setattr(
@@ -317,9 +305,7 @@ def test_main_exports_excel_and_other_formats(monkeypatch, config_factory, capsy
     excel_args, excel_kwargs = excel_calls[0]
     assert excel_args[1] == "out/analysis.xlsx"
     assert excel_kwargs == {"default_sheet_formatter": "formatter"}
-    assert (
-        "summary" in excel_args[0]["summary"].columns[0] or "summary" in excel_args[0]
-    )
+    assert "summary" in excel_args[0]["summary"].columns[0] or "summary" in excel_args[0]
 
     assert data_calls
     data_args, data_kwargs = data_calls[0]
@@ -390,9 +376,7 @@ def test_main_applies_default_export_targets(monkeypatch, config_factory, capsys
         lambda path, *, errors="raise": pd.DataFrame({"ret": [0.9]}),
     )
 
-    details = {
-        "performance_by_regime": pd.DataFrame({"regime": ["bull"], "value": [1]})
-    }
+    details = {"performance_by_regime": pd.DataFrame({"regime": ["bull"], "value": [1]})}
     metrics = pd.DataFrame({"metric": [3.0]})
 
     monkeypatch.setattr(
@@ -401,9 +385,7 @@ def test_main_applies_default_export_targets(monkeypatch, config_factory, capsys
         lambda *_: DummyResult(metrics=metrics, details=details),
     )
 
-    monkeypatch.setattr(
-        run_analysis.export, "format_summary_text", lambda *a: "summary"
-    )
+    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *a: "summary")
     monkeypatch.setattr(
         run_analysis.export,
         "summary_frame_from_result",
@@ -437,8 +419,6 @@ def test_main_applies_default_export_targets(monkeypatch, config_factory, capsys
     assert formatter_called.get("called")
     assert excel_calls
     excel_args, excel_kwargs = excel_calls[0]
-    assert excel_args[1] == str(
-        Path(run_analysis.DEFAULT_OUTPUT_DIRECTORY) / "analysis.xlsx"
-    )
+    assert excel_args[1] == str(Path(run_analysis.DEFAULT_OUTPUT_DIRECTORY) / "analysis.xlsx")
     assert excel_kwargs == {"default_sheet_formatter": "formatter"}
     assert data_calls == []

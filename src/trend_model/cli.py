@@ -78,9 +78,7 @@ def _load_configuration(path: str) -> tuple[Path, Any]:
             cfg = load_config(payload)
             ensure_run_spec(cfg, base_path=cfg_path.parent)
         return cfg_path, cfg
-    resolved_path, cfg_obj = cast(
-        tuple[Path, Any], _load_yaml_configuration(str(cfg_path))
-    )
+    resolved_path, cfg_obj = cast(tuple[Path, Any], _load_yaml_configuration(str(cfg_path)))
     ensure_run_spec(cfg_obj, base_path=cfg_path.parent)
     return resolved_path, cfg_obj
 
@@ -148,15 +146,11 @@ def run(argv: Sequence[str] | None = None) -> int:
         returns_df = _ensure_dataframe(returns_path)
         _determine_seed(cfg, args.seed)
 
-        export_dir = (
-            Path(args.artefacts).expanduser().resolve() if args.artefacts else None
-        )
+        export_dir = Path(args.artefacts).expanduser().resolve() if args.artefacts else None
         if export_dir is not None:
             export_dir.mkdir(parents=True, exist_ok=True)
         formats = tuple(args.formats) if args.formats else None
-        _prepare_export_config(
-            cfg, export_dir, formats if export_dir is not None else None
-        )
+        _prepare_export_config(cfg, export_dir, formats if export_dir is not None else None)
 
         result, run_id, _ = _run_pipeline(
             cfg,

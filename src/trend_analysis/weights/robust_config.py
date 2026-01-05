@@ -45,9 +45,7 @@ def weight_engine_params_from_robustness(
         "diagonal_loading_factor" not in condition_cfg
         and "diagonal_loading_factor" in robustness_cfg
     ):
-        condition_cfg["diagonal_loading_factor"] = robustness_cfg.get(
-            "diagonal_loading_factor"
-        )
+        condition_cfg["diagonal_loading_factor"] = robustness_cfg.get("diagonal_loading_factor")
     if "enabled" not in condition_cfg and "condition_check_enabled" in robustness_cfg:
         condition_cfg["enabled"] = robustness_cfg.get("condition_check_enabled")
     logging_cfg = _mapping(robustness_cfg.get("logging"))
@@ -62,9 +60,7 @@ def weight_engine_params_from_robustness(
     if not condition_enabled:
         condition_threshold = float("inf")
     safe_mode = str(condition_cfg.get("safe_mode", "hrp") or "hrp")
-    diagonal_loading_factor = _coerce_float(
-        condition_cfg.get("diagonal_loading_factor"), 1.0e-6
-    )
+    diagonal_loading_factor = _coerce_float(condition_cfg.get("diagonal_loading_factor"), 1.0e-6)
 
     params: dict[str, Any] = {
         "condition_threshold": condition_threshold,
@@ -76,15 +72,9 @@ def weight_engine_params_from_robustness(
             {
                 "shrinkage_method": shrinkage_method,
                 "safe_mode": safe_mode,
-                "log_condition_numbers": bool(
-                    logging_cfg.get("log_condition_numbers", True)
-                ),
-                "log_method_switches": bool(
-                    logging_cfg.get("log_method_switches", True)
-                ),
-                "log_shrinkage_intensity": bool(
-                    logging_cfg.get("log_shrinkage_intensity", True)
-                ),
+                "log_condition_numbers": bool(logging_cfg.get("log_condition_numbers", True)),
+                "log_method_switches": bool(logging_cfg.get("log_method_switches", True)),
+                "log_shrinkage_intensity": bool(logging_cfg.get("log_shrinkage_intensity", True)),
             }
         )
 

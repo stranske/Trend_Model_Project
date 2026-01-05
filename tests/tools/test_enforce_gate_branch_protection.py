@@ -23,9 +23,9 @@ from tools.enforce_gate_branch_protection import (
     update_status_checks,
 )
 
-REQUIRED_CONTEXTS = load_required_contexts(
-    Path(".github/config/required-contexts.json")
-) or list(DEFAULT_CONTEXTS)
+REQUIRED_CONTEXTS = load_required_contexts(Path(".github/config/required-contexts.json")) or list(
+    DEFAULT_CONTEXTS
+)
 
 
 class DummyResponse(requests.Response):
@@ -323,9 +323,7 @@ def test_ruleset_fetch_respects_default_branch_pattern(
             "rules": [
                 {
                     "type": "required_status_checks",
-                    "parameters": {
-                        "required_status_checks": [{"context": "gate/context"}]
-                    },
+                    "parameters": {"required_status_checks": [{"context": "gate/context"}]},
                 }
             ]
         },
@@ -464,9 +462,7 @@ def test_ruleset_fetch_falls_back_to_branch_when_default_unknown(
 
     session = DummySession([rulesets_response, detail_response])
     monkeypatch.delenv("DEFAULT_BRANCH", raising=False)
-    monkeypatch.setattr(
-        guard, "_resolve_default_branch", lambda *_args, **_kwargs: None
-    )
+    monkeypatch.setattr(guard, "_resolve_default_branch", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(guard, "_sleep", lambda _delay: None)
 
     state = guard._fetch_ruleset_status_checks(session, "owner/repo", "develop")
@@ -585,9 +581,7 @@ def test_update_status_checks_submits_payload_and_returns_state() -> None:
 def test_update_status_checks_raises_on_failure() -> None:
     session = DummySession(DummyResponse(500, text="error"))
     with pytest.raises(BranchProtectionError):
-        update_status_checks(
-            session, "owner/repo", "main", contexts=["Gate / gate"], strict=True
-        )
+        update_status_checks(session, "owner/repo", "main", contexts=["Gate / gate"], strict=True)
 
 
 def test_main_reports_no_changes_in_dry_run(
@@ -1035,9 +1029,7 @@ def test_main_writes_snapshot_when_drift_detected(
     assert "after" not in data
 
 
-def test_main_snapshot_updates_after_apply(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_main_snapshot_updates_after_apply(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("GITHUB_TOKEN", "token")
     monkeypatch.setattr(
         "tools.enforce_gate_branch_protection._build_session",
@@ -1180,10 +1172,7 @@ def test_require_token_raises_when_missing(monkeypatch: pytest.MonkeyPatch) -> N
 
 def test_resolve_api_root_prefers_explicit(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GITHUB_API_URL", "https://enterprise/api/v3")
-    assert (
-        resolve_api_root("https://custom.example/api/v3/")
-        == "https://custom.example/api/v3"
-    )
+    assert resolve_api_root("https://custom.example/api/v3/") == "https://custom.example/api/v3"
 
 
 def test_resolve_api_root_env_default(monkeypatch: pytest.MonkeyPatch) -> None:

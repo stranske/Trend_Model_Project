@@ -11,13 +11,9 @@ import scripts.render_mypy_summary as render_mypy_summary
 
 def test_extract_missing_typing_symbol() -> None:
     assert (
-        mypy_autofix.extract_missing_typing_symbol('Name "Optional" is not defined')
-        == "Optional"
+        mypy_autofix.extract_missing_typing_symbol('Name "Optional" is not defined') == "Optional"
     )
-    assert (
-        mypy_autofix.extract_missing_typing_symbol('Name "pathlib" is not defined')
-        is None
-    )
+    assert mypy_autofix.extract_missing_typing_symbol('Name "pathlib" is not defined') is None
 
 
 def test_current_typing_imports_handles_multiline() -> None:
@@ -127,7 +123,4 @@ def test_render_mypy_summary_success_when_empty(tmp_path: Path) -> None:
     report_path = tmp_path / "report.txt"
     rc = render_mypy_summary.main([str(diag_path), str(report_path)])
     assert rc == 0
-    assert (
-        report_path.read_text(encoding="utf-8").strip()
-        == "Success: no mypy issues detected."
-    )
+    assert report_path.read_text(encoding="utf-8").strip() == "Success: no mypy issues detected."

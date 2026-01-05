@@ -81,9 +81,7 @@ def test_multi_period_selection():
     print("SELECTION ANALYSIS SUMMARY")
     print("=" * 70)
 
-    print(
-        f"Total unique managers selected across all periods: {len(all_selected_managers)}"
-    )
+    print(f"Total unique managers selected across all periods: {len(all_selected_managers)}")
     print(f"All selected managers: {sorted(all_selected_managers)}")
 
     # Check if selection changes between periods
@@ -144,9 +142,7 @@ def test_multi_period_selection():
                 status = "SELECTED" if mgr in selected else "not selected"
                 print(f"    {rank:2d}. {mgr}: {sharpe:6.2f} - {status}")
 
-        print(
-            f"\nPeriod {i+1} - Out-of-Sample Performance ({period[2]} to {period[3]}):"
-        )
+        print(f"\nPeriod {i+1} - Out-of-Sample Performance ({period[2]} to {period[3]}):")
         if out_stats:
             selected = period_selections.get(i, [])
             print("  Selected managers out-of-sample performance:")
@@ -179,9 +175,7 @@ def test_multi_period_selection():
     # Check 3: Selection changes
     if len(results) > 1:
         unique_selections = len(
-            set(
-                tuple(sorted(period_selections.get(i, []))) for i in range(len(results))
-            )
+            set(tuple(sorted(period_selections.get(i, []))) for i in range(len(results)))
         )
         if unique_selections > 1:
             checks.append(
@@ -195,9 +189,7 @@ def test_multi_period_selection():
     if score_frame_count == len(results):
         checks.append("✅ All periods have score frames")
     else:
-        checks.append(
-            f"❌ Missing score frames: {len(results) - score_frame_count}/{len(results)}"
-        )
+        checks.append(f"❌ Missing score frames: {len(results) - score_frame_count}/{len(results)}")
 
     for check in checks:
         print(f"  {check}")
@@ -217,8 +209,7 @@ def test_multi_period_selection():
     assert any(r.get("score_frame") is not None for r in results)
     # Each result should include a period with four entries (IS start/end, OOS start/end)
     assert all(
-        isinstance(r.get("period"), (list, tuple)) and len(r["period"]) == 4
-        for r in results
+        isinstance(r.get("period"), (list, tuple)) and len(r["period"]) == 4 for r in results
     )
 
 

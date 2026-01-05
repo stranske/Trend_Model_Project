@@ -76,9 +76,7 @@ class StreamlitProxyIntegration:
 
     async def start_proxy(self, proxy_port: int = 8500, streamlit_port: int = 8501):
         """Start the WebSocket proxy."""
-        print(
-            f"Starting proxy on port {proxy_port} -> Streamlit on {streamlit_port}..."
-        )
+        print(f"Starting proxy on port {proxy_port} -> Streamlit on {streamlit_port}...")
 
         try:
             # Check if dependencies are available
@@ -237,8 +235,6 @@ if __name__ == "__main__":
     if "--demo-only" in sys.argv:
         demonstrate_proxy_solution()
     else:
-        print(
-            "Note: Use --demo-only flag to see solution overview without starting servers"
-        )
+        print("Note: Use --demo-only flag to see solution overview without starting servers")
         print("      Full integration test requires streamlit and proxy dependencies\n")
         asyncio.run(main())

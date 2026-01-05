@@ -90,9 +90,7 @@ def test_detect_frequency_handles_irregular(monkeypatch: pytest.MonkeyPatch) -> 
         raise MarketDataValidationError("Irregular cadence", issues=[])
 
     monkeypatch.setattr(validators, "classify_frequency", raise_irregular)
-    series = pd.Series(
-        [1.0, 2.0], index=pd.date_range("2024-01-31", periods=2, freq="ME")
-    )
+    series = pd.Series([1.0, 2.0], index=pd.date_range("2024-01-31", periods=2, freq="ME"))
     label = validators.detect_frequency(series.to_frame())
     assert "irregular" in label.lower()
 
@@ -104,9 +102,7 @@ def test_detect_frequency_unknown_when_exception_generic(
         raise MarketDataValidationError("bad", issues=[])
 
     monkeypatch.setattr(validators, "classify_frequency", raise_generic)
-    series = pd.Series(
-        [1.0, 2.0], index=pd.date_range("2024-01-31", periods=2, freq="ME")
-    )
+    series = pd.Series([1.0, 2.0], index=pd.date_range("2024-01-31", periods=2, freq="ME"))
     assert validators.detect_frequency(series.to_frame()) == "unknown"
 
 
@@ -117,9 +113,7 @@ def test_detect_frequency_uses_code_when_label_unknown(
         return {"label": "unknown", "code": "W"}
 
     monkeypatch.setattr(validators, "classify_frequency", return_info)
-    series = pd.Series(
-        [1.0, 2.0], index=pd.date_range("2024-01-31", periods=2, freq="ME")
-    )
+    series = pd.Series([1.0, 2.0], index=pd.date_range("2024-01-31", periods=2, freq="ME"))
     assert validators.detect_frequency(series.to_frame()) == "W"
 
 

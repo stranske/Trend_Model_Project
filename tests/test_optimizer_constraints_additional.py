@@ -76,9 +76,7 @@ def test_apply_constraints_rejects_invalid_cash_weight(cash_weight: float) -> No
 
     weights = pd.Series({"A": 1.0, "B": 2.0})
 
-    with pytest.raises(
-        ConstraintViolation, match=r"cash_weight must be in \(0,1\) exclusive"
-    ):
+    with pytest.raises(ConstraintViolation, match=r"cash_weight must be in \(0,1\) exclusive"):
         apply_constraints(weights, ConstraintSet(cash_weight=cash_weight))
 
 
@@ -108,9 +106,7 @@ def test_apply_constraints_mapping_input_hits_cash_guards() -> None:
 
     weights = pd.Series({"CASH": 1.0})
 
-    with pytest.raises(
-        ConstraintViolation, match="No assets available for non-CASH allocation"
-    ):
+    with pytest.raises(ConstraintViolation, match="No assets available for non-CASH allocation"):
         apply_constraints(weights, {"cash_weight": 0.2})
 
 
@@ -177,9 +173,7 @@ def test_apply_constraints_enforces_cap_after_group_caps_with_cash(
     cap_calls = {"count": 0}
     original_apply_cap = optimizer_mod._apply_cap
 
-    def tracking_cap(
-        series: pd.Series, cap: float, total: float | None = None
-    ) -> pd.Series:
+    def tracking_cap(series: pd.Series, cap: float, total: float | None = None) -> pd.Series:
         cap_calls["count"] += 1
         return original_apply_cap(series, cap, total=total)
 
@@ -188,9 +182,7 @@ def test_apply_constraints_enforces_cap_after_group_caps_with_cash(
     try:
         result = apply_constraints(weights, constraints)
     finally:
-        monkeypatch.setattr(
-            optimizer_mod, "_apply_cap", original_apply_cap, raising=False
-        )
+        monkeypatch.setattr(optimizer_mod, "_apply_cap", original_apply_cap, raising=False)
 
     assert cap_calls["count"] >= 2
     assert pytest.approx(result.loc["CASH"], rel=1e-9) == 0.2
@@ -230,9 +222,7 @@ def test_apply_cash_weight_requires_non_cash_assets() -> None:
 
     weights = pd.Series({"CASH": 1.0})
 
-    with pytest.raises(
-        ConstraintViolation, match="No assets available for non-CASH allocation"
-    ):
+    with pytest.raises(ConstraintViolation, match="No assets available for non-CASH allocation"):
         _apply_cash_weight(weights, cash_weight=0.2, max_weight=None)
 
 
@@ -241,9 +231,7 @@ def test_apply_cash_weight_rejects_invalid_cash_weight() -> None:
 
     weights = pd.Series({"A": 1.0})
 
-    with pytest.raises(
-        ConstraintViolation, match=r"cash_weight must be in \(0,1\) exclusive"
-    ):
+    with pytest.raises(ConstraintViolation, match=r"cash_weight must be in \(0,1\) exclusive"):
         _apply_cash_weight(weights, cash_weight=1.0, max_weight=None)
 
 
@@ -264,9 +252,7 @@ def test_apply_cash_weight_rejects_cash_above_cap() -> None:
 
     weights = pd.Series({"A": 1.0, "B": 1.0})
 
-    with pytest.raises(
-        ConstraintViolation, match="cash_weight exceeds max_weight constraint"
-    ):
+    with pytest.raises(ConstraintViolation, match="cash_weight exceeds max_weight constraint"):
         _apply_cash_weight(weights, cash_weight=0.6, max_weight=0.5)
 
 
@@ -304,9 +290,7 @@ def test_apply_constraints_cash_weight_two_passes_match(
     try:
         out = apply_constraints(weights, constraints)
     finally:
-        monkeypatch.setattr(
-            optimizer_mod, "_apply_cash_weight", original_helper, raising=False
-        )
+        monkeypatch.setattr(optimizer_mod, "_apply_cash_weight", original_helper, raising=False)
 
     assert len(helper_calls) == 2
     pd.testing.assert_series_equal(helper_calls[0], helper_calls[1])
@@ -340,9 +324,7 @@ def test_cash_weight_revalidation_rejects_out_of_range_values() -> None:
     weights = pd.Series({"A": 0.6, "B": 0.4})
     constraints = _DynamicConstraintSet([0.25, 1.2])
 
-    with pytest.raises(
-        ConstraintViolation, match=r"cash_weight must be in \(0,1\) exclusive"
-    ):
+    with pytest.raises(ConstraintViolation, match=r"cash_weight must be in \(0,1\) exclusive"):
         apply_constraints(weights, constraints)  # type: ignore[arg-type]
 
     assert constraints.history == [0.25, 1.2]

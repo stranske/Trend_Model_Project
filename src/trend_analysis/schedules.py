@@ -39,9 +39,7 @@ def get_rebalance_dates(
     elif isinstance(freq, Iterable):
         custom = pd.DatetimeIndex(pd.to_datetime(list(freq)))
     else:
-        raise TypeError(
-            "freq must be a string frequency alias or iterable of datelike values"
-        )
+        raise TypeError("freq must be a string frequency alias or iterable of datelike values")
 
     custom = _match_timezone(pd.DatetimeIndex(custom), index)
     custom = pd.DatetimeIndex(sorted(set(custom)), name="rebalance_date")
@@ -73,9 +71,7 @@ def normalize_positions(
         )
 
     if positions.columns.duplicated().any():
-        raise ValueError(
-            "positions columns must be unique per the normalize_positions contract"
-        )
+        raise ValueError("positions columns must be unique per the normalize_positions contract")
 
     if len(positions.index):
         if not isinstance(positions.index, pd.DatetimeIndex):
@@ -89,9 +85,7 @@ def normalize_positions(
             dt_index = positions.index
 
         if not dt_index.is_unique:
-            raise ValueError(
-                "positions index must be unique per the normalize_positions contract"
-            )
+            raise ValueError("positions index must be unique per the normalize_positions contract")
 
         normalised = positions.copy()
         normalised.index = pd.DatetimeIndex(dt_index)
@@ -143,9 +137,7 @@ def apply_rebalance_schedule(
 
     is_series = isinstance(positions, pd.Series)
     base_frame = (
-        positions.to_frame(name=positions.name or "position")
-        if is_series
-        else positions.copy()
+        positions.to_frame(name=positions.name or "position") if is_series else positions.copy()
     )
     frame = normalize_positions(base_frame, eligible=eligible)
 
@@ -197,9 +189,7 @@ def _coerce_datetime_index(index: pd.Index, *, name: str) -> pd.DatetimeIndex:
     return pd.DatetimeIndex(dt_index.sort_values().unique())
 
 
-def _match_timezone(
-    idx: pd.DatetimeIndex, template: pd.DatetimeIndex
-) -> pd.DatetimeIndex:
+def _match_timezone(idx: pd.DatetimeIndex, template: pd.DatetimeIndex) -> pd.DatetimeIndex:
     if template.tz is None:
         if idx.tz is None:
             return idx

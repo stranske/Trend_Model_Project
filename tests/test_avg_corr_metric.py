@@ -18,9 +18,7 @@ def test_avg_corr_metric_cache_equivalence():
     df = _rand_df()
     stats_cfg = RiskStatsConfig()
     # Without cache
-    s_no = compute_metric_series_with_cache(
-        df, "AvgCorr", stats_cfg, enable_cache=False
-    )
+    s_no = compute_metric_series_with_cache(df, "AvgCorr", stats_cfg, enable_cache=False)
     # With cache
     cache = CovCache()
     s_cache = compute_metric_series_with_cache(

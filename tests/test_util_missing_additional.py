@@ -121,9 +121,7 @@ def test_apply_missing_policy_ffill_retains_when_not_enforcing(
 def test_apply_missing_policy_guard_for_unhandled_policy(
     sample_frame: pd.DataFrame, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def fake_resolve_mapping(
-        policy: object, default: str
-    ) -> tuple[str, dict[str, str]]:
+    def fake_resolve_mapping(policy: object, default: str) -> tuple[str, dict[str, str]]:
         return "drop", {"A": "mystery"}
 
     monkeypatch.setattr(missing, "_resolve_mapping", fake_resolve_mapping)

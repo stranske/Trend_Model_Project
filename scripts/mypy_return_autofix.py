@@ -134,9 +134,7 @@ def _collect_mypy_issues() -> list[MypyIssue]:
     return issues
 
 
-def _gather_replacements(
-    text: str, issues: Iterable[MypyIssue], path: Path
-) -> list[Replacement]:
+def _gather_replacements(text: str, issues: Iterable[MypyIssue], path: Path) -> list[Replacement]:
     try:
         tree = ast.parse(text, filename=str(path))
     except SyntaxError:

@@ -40,9 +40,7 @@ class TrackingWeighting(BaseWeighting):
     def __init__(self) -> None:
         self.updates: list[tuple[pd.Series, int]] = []
 
-    def weight(
-        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
-    ) -> pd.DataFrame:
+    def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
         del date
         if selected.empty:
             return pd.DataFrame(columns=["weight"])
@@ -68,9 +66,7 @@ def test_run_schedule_fast_turnover_tracks_union(
     class DummySelector:
         column = "Sharpe"
 
-        def select(
-            self, score_frame: pd.DataFrame
-        ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
             return score_frame, score_frame
 
     returned_series: list[pd.Series] = []
@@ -117,9 +113,7 @@ def test_run_schedule_fast_turnover_tracks_union(
     new = returned_series[1]
     union = prev.index.union(new.index)
     expected = float(
-        np.abs(
-            new.reindex(union, fill_value=0.0) - prev.reindex(union, fill_value=0.0)
-        ).sum()
+        np.abs(new.reindex(union, fill_value=0.0) - prev.reindex(union, fill_value=0.0)).sum()
     )
     assert portfolio.turnover["2020-02-29"] == pytest.approx(expected)
 

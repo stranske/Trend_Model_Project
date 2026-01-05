@@ -112,9 +112,7 @@ def build_ui() -> widgets.VBox:  # pragma: no cover - UI wiring exercised manual
     _source_toggle()
 
     # -------------------- Step 2: selection & ranking ----------------------
-    mode_dd = widgets.Dropdown(
-        options=["all", "random", "manual", "rank"], description="Mode:"
-    )
+    mode_dd = widgets.Dropdown(options=["all", "random", "manual", "rank"], description="Mode:")
     random_n_int = widgets.BoundedIntText(value=8, min=1, description="Random N:")
     random_n_int.layout.display = "none"
     vol_ck = widgets.Checkbox(value=True, description="Vol‑adjust?")
@@ -130,9 +128,7 @@ def build_ui() -> widgets.VBox:  # pragma: no cover - UI wiring exercised manual
         options=list(METRIC_REGISTRY) + ["blended"], value="Sharpe", description="Score"
     )
     topn_int = widgets.BoundedIntText(value=10, min=1, description="N:")
-    pct_flt = widgets.BoundedFloatText(
-        value=0.1, min=0.01, max=1.0, step=0.01, description="Pct:"
-    )
+    pct_flt = widgets.BoundedFloatText(value=0.1, min=0.01, max=1.0, step=0.01, description="Pct:")
     thresh_f = widgets.FloatText(value=1.0, description="Threshold:")
     m1_dd = widgets.Dropdown(options=list(METRIC_REGISTRY), description="M1")
     w1_sl = widgets.FloatSlider(value=0.33, min=0, max=1.0, step=0.01)
@@ -244,9 +240,7 @@ def build_ui() -> widgets.VBox:  # pragma: no cover - UI wiring exercised manual
     def _on_mode(change: dict[str, Any]) -> None:
         _update_random_vis()
         _update_rank_vis()
-        manual_scores_html.layout.display = (
-            "flex" if change["new"] == "manual" else "none"
-        )
+        manual_scores_html.layout.display = "flex" if change["new"] == "manual" else "none"
         manual_box.layout.display = "flex" if change["new"] == "manual" else "none"
 
     mode_dd.observe(_on_mode, names="value")

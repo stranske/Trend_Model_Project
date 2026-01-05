@@ -26,15 +26,11 @@ class DummyWorksheet:
     def __init__(self, title: str = "Sheet") -> None:
         self.title = title
         self._cells: dict[tuple[int, int], SimpleNamespace] = {}
-        self.column_dimensions: defaultdict[str, DummyColumnDim] = defaultdict(
-            DummyColumnDim
-        )
+        self.column_dimensions: defaultdict[str, DummyColumnDim] = defaultdict(DummyColumnDim)
         self.freeze_panes = None
         self.auto_filter = SimpleNamespace(ref="")
 
-    def cell(
-        self, row: int, column: int, value: object | None = None
-    ) -> SimpleNamespace:
+    def cell(self, row: int, column: int, value: object | None = None) -> SimpleNamespace:
         key = (row, column)
         cell = self._cells.setdefault(
             key,
@@ -113,9 +109,7 @@ def test_export_to_excel_uses_adapter_when_xlsxwriter_missing(monkeypatch, tmp_p
 
     monkeypatch.setattr(pd, "ExcelWriter", fake_excel_writer)
 
-    def fake_to_excel(
-        self, writer, sheet_name, index=False, **_: object
-    ) -> None:  # noqa: ARG002
+    def fake_to_excel(self, writer, sheet_name, index=False, **_: object) -> None:  # noqa: ARG002
         writer.sheets[sheet_name] = object()
         writer.book.worksheets.append(DummyWorksheet("Sheet"))
 
@@ -237,9 +231,7 @@ def test_export_to_excel_cleans_up_openpyxl_defaults(monkeypatch, tmp_path):
         writer.sheets["Sheet1"] = ws
 
     monkeypatch.setattr(pd, "ExcelWriter", fake_excel_writer)
-    monkeypatch.setattr(
-        export, "_maybe_remove_openpyxl_default_sheet", fake_remove_default
-    )
+    monkeypatch.setattr(export, "_maybe_remove_openpyxl_default_sheet", fake_remove_default)
     monkeypatch.setattr(pd.DataFrame, "to_excel", fake_to_excel, raising=False)
 
     export.reset_formatters_excel()
@@ -270,9 +262,7 @@ def test_export_to_excel_handles_missing_sheet_lookup(monkeypatch, tmp_path):
             export._maybe_remove_openpyxl_default_sheet(book)
 
         def rename_last_sheet(self, name: str) -> None:
-            last_title = (
-                self.book.worksheets[-1].title if self.book.worksheets else None
-            )
+            last_title = self.book.worksheets[-1].title if self.book.worksheets else None
             rename_calls.append((name, last_title))
             if self.book.worksheets:
                 self.book.worksheets[-1].title = name
@@ -413,9 +403,7 @@ def test_export_to_excel_strips_temp_sheet_key(monkeypatch, tmp_path):
 
     monkeypatch.setattr(pd, "ExcelWriter", fake_excel_writer)
 
-    def fake_to_excel(
-        self, writer, sheet_name, index=False, **_: object
-    ) -> None:  # noqa: ARG002
+    def fake_to_excel(self, writer, sheet_name, index=False, **_: object) -> None:  # noqa: ARG002
         ws = DummyWorksheet("Temp")
         writer.book.worksheets.append(ws)
         writer.sheets[sheet_name] = ws
@@ -571,9 +559,7 @@ def test_openpyxl_proxy_handles_formatting_helpers(monkeypatch):
     assert first_cell.number_format == "0.00"
     assert first_cell.font.color == "FFFF0000"
 
-    monkeypatch.setattr(
-        export, "get_column_letter", lambda idx: chr(ord("A") + idx - 1)
-    )
+    monkeypatch.setattr(export, "get_column_letter", lambda idx: chr(ord("A") + idx - 1))
     proxy.set_column(0, 1, 18)
     assert ws.column_dimensions["A"].width == 18
     assert ws.column_dimensions["B"].width == 18

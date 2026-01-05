@@ -419,9 +419,7 @@ def extract_key_metrics(result: Any) -> dict[str, Any]:
         metrics["num_funds"] = len(pos_weights)
         metrics["selected_funds"] = sorted(pos_weights.index.tolist())[:5]
         metrics["max_weight"] = float(result.weights.max())
-        metrics["min_weight"] = (
-            float(pos_weights.min()) if len(pos_weights) > 0 else 0.0
-        )
+        metrics["min_weight"] = float(pos_weights.min()) if len(pos_weights) > 0 else 0.0
         metrics["weight_std"] = float(result.weights.std())
 
     # Multi-period results
@@ -475,8 +473,7 @@ def extract_key_metrics(result: Any) -> dict[str, Any]:
     except (TypeError, ValueError) as e:
         # Log serialization issues while preserving existing fallback behavior
         print(
-            "Error computing _result_hash in extract_key_metrics "
-            f"(serialization issue): {e!r}"
+            "Error computing _result_hash in extract_key_metrics " f"(serialization issue): {e!r}"
         )
         metrics["_result_hash"] = "error"
     except Exception as e:
@@ -759,10 +756,7 @@ def render_validation_page() -> None:
                     _apply_inclusion_approach_special_handling(test_state)
                 test_result = run_test_analysis(returns, test_state)
 
-                if (
-                    baseline_result["status"] == "success"
-                    and test_result["status"] == "success"
-                ):
+                if baseline_result["status"] == "success" and test_result["status"] == "success":
                     baseline_metrics = extract_key_metrics(baseline_result["result"])
                     test_metrics = extract_key_metrics(test_result["result"])
 
@@ -794,11 +788,7 @@ def render_validation_page() -> None:
             st.dataframe(results_df, use_container_width=True)
 
             # Summary
-            wired = sum(
-                1
-                for r in results
-                if "WIRED" in r["Status"] and "NOT" not in r["Status"]
-            )
+            wired = sum(1 for r in results if "WIRED" in r["Status"] and "NOT" not in r["Status"])
             not_wired = sum(1 for r in results if "NOT WIRED" in r["Status"])
             errors = sum(1 for r in results if "ERROR" in r["Status"])
 
@@ -852,10 +842,7 @@ def render_validation_page() -> None:
 
                 test_result = run_test_analysis(returns, test_state)
 
-                if (
-                    baseline_result["status"] == "success"
-                    and test_result["status"] == "success"
-                ):
+                if baseline_result["status"] == "success" and test_result["status"] == "success":
                     baseline_metrics = extract_key_metrics(baseline_result["result"])
                     test_metrics = extract_key_metrics(test_result["result"])
 

@@ -93,9 +93,7 @@ class RollingCache:
             cache_dir.mkdir(parents=True, exist_ok=True)
             return cache_dir
         except (OSError, PermissionError):
-            fallback = (
-                Path(tempfile.gettempdir()) / "trend_model" / "rolling"
-            ).resolve()
+            fallback = (Path(tempfile.gettempdir()) / "trend_model" / "rolling").resolve()
             try:
                 fallback.mkdir(parents=True, exist_ok=True)
                 return fallback
@@ -109,9 +107,7 @@ class RollingCache:
     def is_enabled(self) -> bool:
         return self._enabled
 
-    def _build_path(
-        self, dataset_hash: str, window: int, freq: str, method: str
-    ) -> Path:
+    def _build_path(self, dataset_hash: str, window: int, freq: str, method: str) -> Path:
         safe_method = _normalise_component(method)
         safe_freq = _normalise_component(freq)
         file_name = f"{dataset_hash}_{safe_method}_{safe_freq}_{window}.joblib"

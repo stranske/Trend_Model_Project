@@ -12,9 +12,7 @@ import pytest
 
 def _clear_trend_analysis_modules() -> None:
     for name in [
-        key
-        for key in sys.modules
-        if key == "trend_analysis" or key.startswith("trend_analysis.")
+        key for key in sys.modules if key == "trend_analysis" or key.startswith("trend_analysis.")
     ]:
         sys.modules.pop(name, None)
 

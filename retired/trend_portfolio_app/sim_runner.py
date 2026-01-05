@@ -24,9 +24,7 @@ except Exception:
     ta_pipeline = None
 
 
-def compute_score_frame_local(
-    panel: pd.DataFrame, rf_annual: float = 0.0
-) -> pd.DataFrame:
+def compute_score_frame_local(panel: pd.DataFrame, rf_annual: float = 0.0) -> pd.DataFrame:
     idx = panel.index
     out = {}
     for col in panel.columns:
@@ -42,9 +40,7 @@ def compute_score_frame_local(
                     val = spec["fn"](r, idx)
                 col_metrics[name] = val
             except Exception as e:
-                logger.warning(
-                    "Failed to compute metric '%s' for column '%s': %s", name, col, e
-                )
+                logger.warning("Failed to compute metric '%s' for column '%s': %s", name, col, e)
                 col_metrics[name] = np.nan
         out[col] = col_metrics
     df = pd.DataFrame(out).T
@@ -193,9 +189,7 @@ class Simulator:
         self.benchmark_col = benchmark_col
         self.cash_rate_annual = cash_rate_annual
         self.benchmark = (
-            self.df[benchmark_col]
-            if benchmark_col and benchmark_col in self.df.columns
-            else None
+            self.df[benchmark_col] if benchmark_col and benchmark_col in self.df.columns else None
         )
 
     def _gen_review_dates(
@@ -221,13 +215,9 @@ class Simulator:
         event_log = EventLog()
         active: List[str] = []
         cooldowns = CooldownBook()
-        eligible_since: Dict[str, int] = {
-            m: 0 for m in self.df.columns if m != self.benchmark_col
-        }
+        eligible_since: Dict[str, int] = {m: 0 for m in self.df.columns if m != self.benchmark_col}
         # Track how many consecutive periods each active manager has been held
-        tenure: Dict[str, int] = {
-            m: 0 for m in self.df.columns if m != self.benchmark_col
-        }
+        tenure: Dict[str, int] = {m: 0 for m in self.df.columns if m != self.benchmark_col}
 
         portfolio_returns: List[Tuple[Any, float]] = []
         # Rebalance state: track timing and risk stats
@@ -278,16 +268,12 @@ class Simulator:
                 if m in active:
                     active.remove(m)
                     cooldowns.set(m, policy.cooldown_months)
-                    event_log.append(
-                        Event(date=d, action="fire", manager=m, reason=reason)
-                    )
+                    event_log.append(Event(date=d, action="fire", manager=m, reason=reason))
             for m, reason in decisions["hire"]:
                 if m not in active:
                     active.append(m)
                     tenure[m] = 0  # reset tenure on (re)hire
-                    event_log.append(
-                        Event(date=d, action="hire", manager=m, reason=reason)
-                    )
+                    event_log.append(Event(date=d, action="hire", manager=m, reason=reason))
 
             # Target weights (from selection/weighting stage). For now, equal-weight.
             if active:

@@ -160,9 +160,7 @@ def main():
         print("\n  Universe z-score stats:")
         print(f"    Mean Sharpe: {sf['Sharpe'].mean():.3f}")
         print(f"    Std Sharpe:  {sf['Sharpe'].std():.3f}")
-        print(
-            f"    Z-score range: [{sf['zscore'].min():.2f}, {sf['zscore'].max():.2f}]"
-        )
+        print(f"    Z-score range: [{sf['zscore'].min():.2f}, {sf['zscore'].max():.2f}]")
 
         # Seed portfolio if empty
         if not portfolio:
@@ -181,9 +179,7 @@ def main():
         )
         print("-" * 75)
 
-        for fund in sorted(
-            portfolio_in_universe, key=lambda f: sf.loc[f, "zscore"], reverse=True
-        ):
+        for fund in sorted(portfolio_in_universe, key=lambda f: sf.loc[f, "zscore"], reverse=True):
             row = sf.loc[fund]
             cagr = row["CAGR"] * 100
             vol = row["Volatility"] * 100
@@ -234,14 +230,10 @@ def main():
 
         # Check for entries (z > 1.0 and we have capacity)
         potential_entries = [
-            f
-            for f in candidates
-            if f in sf.index and sf.loc[f, "zscore"] >= z_entry_soft
+            f for f in candidates if f in sf.index and sf.loc[f, "zscore"] >= z_entry_soft
         ]
         if potential_entries and len(portfolio) < max_funds:
-            print(
-                f"\n  ✅ POTENTIAL ENTRIES (z >= {z_entry_soft}): {potential_entries[:3]}"
-            )
+            print(f"\n  ✅ POTENTIAL ENTRIES (z >= {z_entry_soft}): {potential_entries[:3]}")
 
     print("\n" + "=" * 80)
     print("END OF REPORT")

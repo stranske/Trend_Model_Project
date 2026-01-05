@@ -29,9 +29,7 @@ def test_load_metrics_prefers_existing_file(
     metrics_data = {"summary": {"passed": 10}, "slow_tests": ["a"]}
     metrics_path.write_text(json.dumps(metrics_data), encoding="utf-8")
 
-    monkeypatch.setattr(
-        ci_history.ci_metrics, "build_metrics", lambda _: {"summary": {}}
-    )
+    monkeypatch.setattr(ci_history.ci_metrics, "build_metrics", lambda _: {"summary": {}})
 
     data, from_file = ci_history._load_metrics(junit_path, metrics_path)
 
@@ -56,9 +54,7 @@ def test_load_metrics_regenerates_when_invalid(
     assert from_file is False
 
 
-def test_load_metrics_when_file_missing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_load_metrics_when_file_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     junit_path = tmp_path / "report.xml"
     junit_path.write_text("<testsuite/>", encoding="utf-8")
     metrics_path = tmp_path / "missing.json"

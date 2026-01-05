@@ -79,9 +79,7 @@ def test_main_populates_missing_policy_kwargs(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(run_analysis, "load", fake_load)
     monkeypatch.setattr(run_analysis, "load_csv", fake_load_csv)
     monkeypatch.setattr(run_analysis.api, "run_simulation", fake_run_simulation)
-    monkeypatch.setattr(
-        run_analysis.export, "format_summary_text", lambda *_, **__: "summary"
-    )
+    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *_, **__: "summary")
 
     exit_code = run_analysis.main(["-c", "config.yml"])
 
@@ -137,9 +135,7 @@ def test_main_translates_nan_aliases(monkeypatch: pytest.MonkeyPatch) -> None:
             metrics=pd.DataFrame({"metric": [2.0]}), details={"summary": "ok"}
         ),
     )
-    monkeypatch.setattr(
-        run_analysis.export, "format_summary_text", lambda *_, **__: "summary"
-    )
+    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *_, **__: "summary")
 
     exit_code = run_analysis.main(["-c", "config.yml"])
 
@@ -183,9 +179,7 @@ def test_main_skips_unsupported_missing_policy(monkeypatch: pytest.MonkeyPatch) 
             metrics=pd.DataFrame({"metric": [3.0]}), details={"summary": "ok"}
         ),
     )
-    monkeypatch.setattr(
-        run_analysis.export, "format_summary_text", lambda *_, **__: "summary"
-    )
+    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *_, **__: "summary")
 
     exit_code = run_analysis.main(["-c", "config.yml"])
 

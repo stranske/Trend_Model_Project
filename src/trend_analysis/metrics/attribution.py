@@ -84,9 +84,7 @@ def export_contributions(contrib: pd.DataFrame, path: str) -> None:
     contrib.to_csv(path, index=True)
 
 
-if (
-    TYPE_CHECKING
-):  # for static typing of matplotlib axes without runtime dependency chain
+if TYPE_CHECKING:  # for static typing of matplotlib axes without runtime dependency chain
     from matplotlib.axes import Axes as _Axes
 
 

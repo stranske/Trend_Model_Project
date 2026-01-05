@@ -60,9 +60,7 @@ def _iter_artifacts(response: dict) -> Iterator[Artifact]:
     return iter(converted)
 
 
-def _collect_artifacts(
-    session: requests.Session, repo: str, token: str
-) -> list[Artifact]:
+def _collect_artifacts(session: requests.Session, repo: str, token: str) -> list[Artifact]:
     headers = {
         "Accept": "application/vnd.github+json",
         "Authorization": f"Bearer {token}",
@@ -139,9 +137,7 @@ def _copy_json(source_dir: Path, destination_dir: Path) -> None:
             target.write_bytes(path.read_bytes())
             copied = True
     if not copied:
-        raise RestoreError(
-            f"Artifact directory {source_dir} did not contain JSON snapshots"
-        )
+        raise RestoreError(f"Artifact directory {source_dir} did not contain JSON snapshots")
 
 
 def restore_previous_snapshots(
