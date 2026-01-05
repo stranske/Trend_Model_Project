@@ -18,8 +18,10 @@ from .patch import (
     ConfigPatch,
     PatchOperation,
     RiskFlag,
+    apply_and_diff,
     apply_config_patch,
     apply_patch,
+    diff_configs,
 )
 
 # Removed import from .legacy as all symbols are available from .models
@@ -41,6 +43,8 @@ __all__ = [
     "ConfigPatch",
     "PatchOperation",
     "RiskFlag",
+    "apply_and_diff",
     "apply_patch",
     "apply_config_patch",
+    "diff_configs",
 ]
