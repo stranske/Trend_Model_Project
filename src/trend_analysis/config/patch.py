@@ -53,6 +53,8 @@ class PatchOperation(BaseModel):
         if self.op in {"set", "append", "merge"}:
             if "value" not in self.model_fields_set:
                 raise ValueError(f"value is required for op '{self.op}'")
+            if self.op == "append" and self.value is None:
+                raise ValueError("value must be non-null for op 'append'")
             if self.op == "merge" and not isinstance(self.value, dict):
                 raise ValueError("value must be an object for op 'merge'")
         elif self.op == "remove" and self.value is not None:

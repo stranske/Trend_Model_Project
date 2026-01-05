@@ -77,6 +77,14 @@ def test_patch_operation_accepts_append_with_value() -> None:
     assert op.value == "ABC"
 
 
+def test_patch_operation_rejects_append_with_none_value() -> None:
+    with pytest.raises(ValidationError) as excinfo:
+        PatchOperation(
+            op="append", path="portfolio.constraints.allowed_assets", value=None
+        )
+    assert "value must be non-null for op 'append'" in str(excinfo.value)
+
+
 def test_patch_operation_accepts_merge_with_value() -> None:
     op = PatchOperation(op="merge", path="portfolio", value={"foo": "bar"})
     assert op.op == "merge"
