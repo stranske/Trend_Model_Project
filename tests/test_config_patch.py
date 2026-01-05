@@ -20,6 +20,11 @@ def test_patch_operation_accepts_json_pointer() -> None:
     assert op.path == "/portfolio/constraints/max_weight"
 
 
+def test_patch_operation_accepts_json_pointer_escapes() -> None:
+    op = PatchOperation(op="set", path="/portfolio/~0tilde/~1slash", value=True)
+    assert op.path == "/portfolio/~0tilde/~1slash"
+
+
 @pytest.mark.parametrize(
     ("op", "path", "value"),
     [
@@ -27,6 +32,8 @@ def test_patch_operation_accepts_json_pointer() -> None:
         ("set", "portfolio..constraints", 1),
         ("set", "/portfolio//constraints", 1),
         ("set", "/portfolio/constraints/", 1),
+        ("set", "/portfolio/~2/constraints", 1),
+        ("set", "/portfolio/invalid~", 1),
     ],
 )
 def test_patch_operation_rejects_invalid_paths(op: str, path: str, value: int) -> None:

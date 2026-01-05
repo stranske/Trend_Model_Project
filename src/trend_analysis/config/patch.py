@@ -38,6 +38,8 @@ class PatchOperation(BaseModel):
                 raise ValueError("path must include at least one segment")
             if not _JSON_POINTER_RE.match(self.path):
                 raise ValueError("path must be a valid JSONPointer")
+            if _has_invalid_json_pointer_escape(self.path):
+                raise ValueError("path must use valid JSONPointer escape sequences")
         else:
             if not _DOTPATH_RE.match(self.path):
                 raise ValueError("path must be a dotpath or JSONPointer")
@@ -84,6 +86,19 @@ def _to_dotpath(path: str) -> str:
         ]
         return ".".join(segments)
     return path
+
+
+def _has_invalid_json_pointer_escape(path: str) -> bool:
+    for segment in path.split("/")[1:]:
+        index = 0
+        while index < len(segment):
+            if segment[index] != "~":
+                index += 1
+                continue
+            if index + 1 >= len(segment) or segment[index + 1] not in {"0", "1"}:
+                return True
+            index += 2
+    return False
 
 
 def _path_depth(path: str) -> int:
