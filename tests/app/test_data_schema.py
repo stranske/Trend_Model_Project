@@ -15,7 +15,6 @@ def _mock_metadata(**kwargs):
     return ns
 
 
-
 def test_extract_headers_from_csv_bytes_with_bom() -> None:
     raw = "\ufeffDate,A,B\n2020-01-01,1,2\n".encode("utf-8")
 
