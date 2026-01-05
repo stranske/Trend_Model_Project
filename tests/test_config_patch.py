@@ -119,6 +119,8 @@ def test_config_patch_schema_export() -> None:
     schema = ConfigPatch.json_schema()
     assert "properties" in schema
     assert "operations" in schema["properties"]
+    assert schema["properties"]["operations"]["description"]
+    assert schema["properties"]["summary"]["description"]
 
 
 def test_config_patch_accepts_append_without_broad_scope_flag() -> None:

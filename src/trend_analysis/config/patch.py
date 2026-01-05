@@ -22,10 +22,17 @@ class RiskFlag(str, Enum):
 
 
 class PatchOperation(BaseModel):
-    op: Literal["set", "remove", "append", "merge"]
-    path: str
-    value: Any | None = None
-    rationale: str | None = None
+    op: Literal["set", "remove", "append", "merge"] = Field(
+        description="Operation type to apply at the path."
+    )
+    path: str = Field(description="JSONPointer or dotpath targeting the config.")
+    value: Any | None = Field(
+        default=None,
+        description="Value for set/append/merge operations.",
+    )
+    rationale: str | None = Field(
+        default=None, description="Optional explanation for the change."
+    )
 
     model_config = ConfigDict(extra="forbid")
 
@@ -54,9 +61,14 @@ class PatchOperation(BaseModel):
 
 
 class ConfigPatch(BaseModel):
-    operations: list[PatchOperation]
-    risk_flags: list[RiskFlag] = Field(default_factory=list)
-    summary: str
+    operations: list[PatchOperation] = Field(
+        description="Ordered list of operations for the patch."
+    )
+    risk_flags: list[RiskFlag] = Field(
+        default_factory=list,
+        description="Detected or caller-provided risk flags.",
+    )
+    summary: str = Field(description="Human-readable summary of changes.")
 
     model_config = ConfigDict(extra="forbid")
 

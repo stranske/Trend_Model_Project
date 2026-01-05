@@ -34,10 +34,10 @@ The NL layer must output a structured, validated format—not freeform text that
 - [x] summary: str  # Human-readable summary of changes
 - [x] ```
 - [x] Define `RiskFlag` enum/model for dangerous changes:
-- [ ] - `REMOVES_CONSTRAINT` - Removing position/turnover limits
-- [ ] - `INCREASES_LEVERAGE` - Vol target above threshold
-- [ ] - `REMOVES_VALIDATION` - Disabling safety checks
-- [ ] - `BROAD_SCOPE` - Changes affect many keys
+- [x] - `REMOVES_CONSTRAINT` - Removing position/turnover limits
+- [x] - `INCREASES_LEVERAGE` - Vol target above threshold
+- [x] - `REMOVES_VALIDATION` - Disabling safety checks
+- [x] - `BROAD_SCOPE` - Changes affect many keys
 - [x] Add JSON Schema export method for the patch format
 - [x] Write comprehensive unit tests
 
