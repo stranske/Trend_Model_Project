@@ -98,7 +98,7 @@ class ConfigPatch(BaseModel):
         return cls.model_json_schema()
 
 
-def apply_config_patch(config: dict[str, Any], patch: ConfigPatch) -> dict[str, Any]:
+def apply_patch(config: dict[str, Any], patch: ConfigPatch) -> dict[str, Any]:
     """Apply a validated patch to a config mapping."""
 
     updated = deepcopy(config)
@@ -106,16 +106,20 @@ def apply_config_patch(config: dict[str, Any], patch: ConfigPatch) -> dict[str, 
         segments = _parse_path_segments(operation.path)
         if not segments:
             raise ValueError("path must include at least one segment")
-        parent = _ensure_parent(updated, segments[:-1], operation.op)
         leaf = segments[-1]
+        if operation.op == "remove":
+            parent = _ensure_parent(updated, segments[:-1], operation.op, allow_missing=True)
+            if parent is None:
+                continue
+            if not isinstance(parent, dict):
+                raise TypeError("path must resolve to an object container")
+            parent.pop(leaf, None)
+            continue
+        parent = _ensure_parent(updated, segments[:-1], operation.op)
         if not isinstance(parent, dict):
             raise TypeError("path must resolve to an object container")
         if operation.op == "set":
             parent[leaf] = operation.value
-        elif operation.op == "remove":
-            if leaf not in parent:
-                raise KeyError(f"path '{operation.path}' does not exist")
-            parent.pop(leaf, None)
         elif operation.op == "append":
             existing = parent.get(leaf)
             if existing is None:
@@ -137,6 +141,12 @@ def apply_config_patch(config: dict[str, Any], patch: ConfigPatch) -> dict[str, 
     return updated
 
 
+def apply_config_patch(config: dict[str, Any], patch: ConfigPatch) -> dict[str, Any]:
+    """Apply a validated patch to a config mapping."""
+
+    return apply_patch(config, patch)
+
+
 def _to_dotpath(path: str) -> str:
     if path.startswith("/"):
         segments = [
@@ -152,12 +162,20 @@ def _parse_path_segments(path: str) -> list[str]:
     return path.split(".") if path else []
 
 
-def _ensure_parent(root: dict[str, Any], segments: list[str], op: str) -> dict[str, Any]:
+def _ensure_parent(
+    root: dict[str, Any],
+    segments: list[str],
+    op: str,
+    *,
+    allow_missing: bool = False,
+) -> dict[str, Any] | None:
     current: Any = root
     for segment in segments:
         if not isinstance(current, dict):
             raise TypeError("path must resolve to an object container")
         if segment not in current or current[segment] is None:
+            if allow_missing:
+                return None
             if op in {"set", "append", "merge"}:
                 current[segment] = {}
             else:
@@ -254,6 +272,7 @@ def _is_broad_scope(op: PatchOperation) -> bool:
 
 
 __all__ = [
+    "apply_patch",
     "apply_config_patch",
     "ConfigPatch",
     "PatchOperation",

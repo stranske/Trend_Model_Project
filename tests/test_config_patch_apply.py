@@ -61,10 +61,10 @@ def test_apply_config_patch_merge_deep() -> None:
     assert updated == {"portfolio": {"rebalance": "M", "constraints": {"max_weight": 0.05}}}
 
 
-def test_apply_config_patch_remove_missing_path_errors() -> None:
+def test_apply_config_patch_remove_missing_path_noop() -> None:
     patch = ConfigPatch(
         operations=[PatchOperation(op="remove", path="portfolio.max_turnover")],
         summary="Remove turnover",
     )
-    with pytest.raises(KeyError):
-        apply_config_patch({}, patch)
+    updated = apply_config_patch({}, patch)
+    assert updated == {}
