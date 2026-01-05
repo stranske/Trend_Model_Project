@@ -35,7 +35,7 @@ jobs:
       - name: Check if lock file is out of sync
         id: check_sync
         run: |
-          uv pip compile pyproject.toml --universal --output-file requirements.check 2>&1 | tee compile.log || {
+          uv pip compile pyproject.toml --extra app --extra llm --extra notebooks --extra dev --universal --output-file requirements.check 2>&1 | tee compile.log || {
             echo "❌ Lock file compilation failed"
             cat compile.log
             exit 1
@@ -53,7 +53,7 @@ jobs:
         if: steps.check_sync.outputs.sync == 'false'
         run: |
           echo "Regenerating lock files..."
-          uv pip compile pyproject.toml --universal --output-file requirements.lock
+          uv pip compile pyproject.toml --extra app --extra llm --extra notebooks --extra dev --universal --output-file requirements.lock
           echo "✅ Lock files regenerated"
 
       - name: Commit lock files
