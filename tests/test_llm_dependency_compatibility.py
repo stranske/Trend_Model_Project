@@ -26,13 +26,13 @@ def _parse_major_minor(version: str) -> tuple[int, int]:
 def _get_declared_version_range(package: str) -> SpecifierSet:
     """Extract declared version range from pyproject.toml."""
     pyproject_path = Path(__file__).parents[1] / "pyproject.toml"
-    
+
     with open(pyproject_path, "rb") as f:
         data = tomllib.load(f)
-    
+
     # Search in optional-dependencies llm group
     llm_deps = data.get("project", {}).get("optional-dependencies", {}).get("llm", [])
-    
+
     for dep in llm_deps:
         # Extract package name
         pkg_name = dep.split("[")[0].split("=")[0].split(">")[0].split("<")[0].strip()
@@ -41,7 +41,7 @@ def _get_declared_version_range(package: str) -> SpecifierSet:
             spec_str = dep.replace(pkg_name, "", 1).strip()
             if spec_str:
                 return SpecifierSet(spec_str)
-    
+
     return SpecifierSet()
 
 
@@ -73,20 +73,20 @@ def test_langchain_versions_match_pyproject(distribution: str) -> None:
     This test ensures the installed versions are within the ranges specified
     in pyproject.toml [project.optional-dependencies] llm group, preventing
     drift between declared and actual dependencies.
-    
+
     ✅ This test dynamically reads version ranges from pyproject.toml,
        so it won't break when dependencies are updated.
     """
     pytest.importorskip("langchain")
-    
+
     installed_version = Version(importlib.metadata.version(distribution))
     declared_range = _get_declared_version_range(distribution)
-    
+
     if not declared_range:
         pytest.fail(
             f"{distribution} not found in pyproject.toml [project.optional-dependencies] llm group"
         )
-    
+
     assert installed_version in declared_range, (
         f"{distribution} version {installed_version} not in declared range {declared_range}. "
         f"Check pyproject.toml and requirements.lock for consistency."
