@@ -26,9 +26,7 @@ def test_apply_config_patch_set_creates_nested_path() -> None:
         summary="Set nested limit",
     )
     updated = apply_config_patch({}, patch)
-    assert updated == {
-        "portfolio": {"constraints": {"position_limits": {"max_weight": 0.1}}}
-    }
+    assert updated == {"portfolio": {"constraints": {"position_limits": {"max_weight": 0.1}}}}
 
 
 def test_apply_config_patch_append_creates_list() -> None:
