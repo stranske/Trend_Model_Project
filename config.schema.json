@@ -1,0 +1,3164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "default": {
+    "benchmarks": {
+      "spx": "SPX",
+      "tsx": "TSX"
+    },
+    "checkpoint_dir": "outputs/checkpoints/",
+    "data": {
+      "allow_risk_free_fallback": false,
+      "columns": [
+        "Mgr_01",
+        "Mgr_02",
+        "Mgr_03",
+        "Mgr_04",
+        "Mgr_05",
+        "Mgr_06",
+        "Mgr_07",
+        "Mgr_08"
+      ],
+      "csv_path": "../demo/demo_returns.csv",
+      "currency": "USD",
+      "date_column": "Date",
+      "frequency": "D",
+      "indices_glob": "data/raw/indices/*.csv",
+      "lookback_required": 756,
+      "managers_glob": "data/raw/managers/*.csv",
+      "missing_fill_limit": null,
+      "missing_limit": null,
+      "missing_policy": "ffill",
+      "na_as_zero": {
+        "enabled": true,
+        "max_consecutive_gap": 1,
+        "max_missing_per_window": 1
+      },
+      "price_column": "Adj_Close",
+      "risk_free_column": null,
+      "timezone": "UTC",
+      "universe_membership_path": "Trend Universe Membership.csv"
+    },
+    "description": "High risk-return profile for performance-oriented users",
+    "export": {
+      "directory": "results/",
+      "excel": {
+        "autofit_columns": true,
+        "conditional_bands": {
+          "enabled": true,
+          "palette": "RdYlGn"
+        },
+        "number_format": "0.00%"
+      },
+      "filename": "long_backtest_2005_2025",
+      "formats": [
+        "xlsx",
+        "csv",
+        "json"
+      ],
+      "include_figures": false,
+      "include_raw_returns": true,
+      "include_vol_adj": true
+    },
+    "jobs": -1,
+    "lookback_periods": 24,
+    "metrics": {
+      "alpha_reference": "SP500TR",
+      "bootstrap_ci": {
+        "ci_level": 0.95,
+        "enabled": true,
+        "n_iter": 2000
+      },
+      "compute": [
+        "CAGR",
+        "Volatility",
+        "Sharpe",
+        "Sortino",
+        "Max_Drawdown",
+        "Calmar",
+        "Hit_Rate",
+        "Skew"
+      ],
+      "drawdown": 0.3,
+      "max_drawdown": 0.15,
+      "registry": [
+        "annual_return",
+        "volatility",
+        "sharpe_ratio",
+        "sortino_ratio",
+        "information_ratio",
+        "max_drawdown"
+      ],
+      "return_ann": 0.4,
+      "rf_rate_annual": 0.02,
+      "sharpe": 0.4,
+      "sharpe_ratio": 0.3,
+      "use_continuous": false,
+      "volatility": 0.15
+    },
+    "min_track_months": 18,
+    "multi_period": {
+      "end": "2024-12",
+      "frequency": "A",
+      "in_sample_len": 3,
+      "max_funds": 25,
+      "min_funds": 10,
+      "out_sample_len": 1,
+      "start": "1990-01",
+      "triggers": {
+        "sigma1": {
+          "periods": 2,
+          "sigma": 1
+        },
+        "sigma2": {
+          "periods": 1,
+          "sigma": 2
+        }
+      },
+      "weight_curve": {
+        "anchors": [
+          [
+            0,
+            1.2
+          ],
+          [
+            50,
+            1.0
+          ],
+          [
+            100,
+            0.8
+          ]
+        ]
+      }
+    },
+    "name": "Aggressive",
+    "output": {
+      "format": "csv",
+      "path": "demo/exports/alias_demo.csv"
+    },
+    "performance": {
+      "cache": {
+        "metrics": false
+      },
+      "enable_cache": true,
+      "incremental_cov": false
+    },
+    "portfolio": {
+      "ci_level": 0.0,
+      "constraints": {
+        "cash_weight": 0.1,
+        "group_caps": {
+          "Macro": 0.6,
+          "Trend": 0.55
+        },
+        "groups": {
+          "FundA": "Trend",
+          "FundB": "Trend",
+          "FundC": "Macro",
+          "FundD": "Macro"
+        },
+        "long_only": true,
+        "max_active_positions": 0,
+        "max_weight": 0.25
+      },
+      "cooldown_months": 1,
+      "cost_model": {
+        "bps_per_trade": 0,
+        "slippage_bps": 0
+      },
+      "custom_weights": {
+        "Mgr_01": 60,
+        "Mgr_02": 40
+      },
+      "entry_eligible_strikes": 2,
+      "entry_soft_strikes": 3,
+      "indices_list": [
+        "Efficient Capital Best Trend 15v",
+        "Abrdn MOSERS Trend",
+        "HFRXSDV Base",
+        "SG Trend Index"
+      ],
+      "leverage_cap": 2.0,
+      "manual_list": [],
+      "max_turnover": 1.0,
+      "max_weight": 0.1,
+      "policy": "threshold_hold",
+      "random_n": 10,
+      "rank": {
+        "blended_weights": {
+          "AnnualReturn": 0.3,
+          "MaxDrawdown": 0.2,
+          "Sharpe": 0.5
+        },
+        "bottom_k": 0,
+        "inclusion_approach": "top_n",
+        "limit_one_per_firm": true,
+        "n": 10,
+        "pct": 0.1,
+        "score_by": "sharpe_ratio",
+        "threshold": 1.5,
+        "transform": "zscore"
+      },
+      "rebalance_calendar": "NYSE",
+      "rebalance_freq": "M",
+      "robustness": {
+        "condition_check": {
+          "diagonal_loading_factor": 1e-06,
+          "enabled": true,
+          "safe_mode": "hrp",
+          "threshold": "1.0e12"
+        },
+        "logging": {
+          "log_condition_numbers": true,
+          "log_method_switches": true,
+          "log_shrinkage_intensity": true
+        },
+        "shrinkage": {
+          "enabled": true,
+          "method": "ledoit_wolf"
+        }
+      },
+      "selection_mode": "all",
+      "selector": {
+        "name": "zscore",
+        "params": {
+          "rank_column": "Sharpe",
+          "threshold": 1.0,
+          "top_n": 5
+        }
+      },
+      "target_n": 8,
+      "threshold_hold": {
+        "metric": "Sharpe",
+        "soft_strikes": 2,
+        "target_n": 8,
+        "weighting": "score_prop_bayes",
+        "z_entry_hard": 1.5,
+        "z_entry_soft": 1.0,
+        "z_exit_hard": -1.5,
+        "z_exit_soft": -1.0
+      },
+      "transaction_cost_bps": 0,
+      "weighting": {
+        "name": "score_prop_bayes",
+        "params": {
+          "condition_threshold": "1.0e10",
+          "diagonal_loading_factor": 1e-05,
+          "safe_mode": "hrp",
+          "shrink_tau": 0.25,
+          "shrinkage_method": "ledoit_wolf"
+        }
+      },
+      "weighting_scheme": "equal"
+    },
+    "preprocessing": {
+      "de_duplicate": true,
+      "holiday_calendar": "NYSE",
+      "log_prices": false,
+      "missing_data": {
+        "limit": null,
+        "per_asset": {},
+        "per_asset_limit": {},
+        "policy": "drop"
+      },
+      "resample": {
+        "business_only": true,
+        "method": "last",
+        "target": "D"
+      },
+      "steps": [],
+      "winsorise": {
+        "enabled": true,
+        "limits": [
+          0.01,
+          0.99
+        ]
+      }
+    },
+    "rebalance_frequency": "monthly",
+    "regime": {
+      "annualise_volatility": true,
+      "cache": true,
+      "enabled": true,
+      "lookback": 126,
+      "method": "rolling_return",
+      "min_observations": 4,
+      "neutral_band": 0.001,
+      "proxy": "SPX",
+      "risk_off_fund_count_multiplier": 0.5,
+      "risk_off_label": "Risk-Off",
+      "risk_off_target_vol_multiplier": 0.5,
+      "risk_on_label": "Risk-On",
+      "smoothing": 3,
+      "threshold": 0.0
+    },
+    "risk_target": 0.15,
+    "run": {
+      "cache_dir": ".cache/",
+      "checkpoint_dir": "demo/checkpoints",
+      "deterministic": true,
+      "jobs": 1,
+      "log_file": "logs/phase1.log",
+      "log_level": "INFO",
+      "n_jobs": -1,
+      "name": "demo-grid",
+      "output_dir": "perf/wf",
+      "seed": 42
+    },
+    "sample_split": {
+      "date": "2017-12-31",
+      "folds": 5,
+      "in_end": "2022-12",
+      "in_start": "2015-01",
+      "method": "date",
+      "out_end": "2024-12",
+      "out_start": "2023-01",
+      "ratio": 0.7,
+      "rolling_walk": false
+    },
+    "seed": 42,
+    "selection_count": 15,
+    "signals": {
+      "lag": 1,
+      "min_periods": 30,
+      "vol_adjust": true,
+      "vol_target": 0.15,
+      "window": 42,
+      "zscore": false
+    },
+    "strategy": {
+      "defaults": {
+        "band": 0.0
+      },
+      "grid": {
+        "band": [
+          0.0,
+          0.0015
+        ],
+        "lookback": [
+          6,
+          9,
+          12
+        ]
+      },
+      "top_n": 4
+    },
+    "version": "0.1.0",
+    "vol_adjust": {
+      "enabled": true,
+      "floor_vol": 0.04,
+      "target_vol": 0.1,
+      "warmup_periods": 0,
+      "window": {
+        "decay": "ewma",
+        "lambda": 0.94,
+        "length": 63
+      }
+    },
+    "walk_forward": {
+      "step": 6,
+      "test": 12,
+      "train": 36
+    }
+  },
+  "description": "Baseline schema that loaders fall back to when no config path is provided.",
+  "properties": {
+    "benchmarks": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "constraints": {},
+      "default": {
+        "spx": "SPX",
+        "tsx": "TSX"
+      },
+      "description": "Config option for benchmarks.",
+      "nl_editable": true,
+      "properties": {
+        "spx": {
+          "constraints": {},
+          "default": "SPX",
+          "description": "Config option for benchmarks.spx.",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "tsx": {
+          "constraints": {},
+          "default": "TSX",
+          "description": "Config option for benchmarks.tsx.",
+          "nl_editable": true,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "checkpoint_dir": {
+      "constraints": {},
+      "default": "outputs/checkpoints/",
+      "description": "Legacy top-level checkpoint directory override.",
+      "nl_editable": true,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "additionalProperties": false,
+      "constraints": {},
+      "default": {
+        "allow_risk_free_fallback": false,
+        "columns": [
+          "Mgr_01",
+          "Mgr_02",
+          "Mgr_03",
+          "Mgr_04",
+          "Mgr_05",
+          "Mgr_06",
+          "Mgr_07",
+          "Mgr_08"
+        ],
+        "csv_path": "../demo/demo_returns.csv",
+        "currency": "USD",
+        "date_column": "Date",
+        "frequency": "D",
+        "indices_glob": "data/raw/indices/*.csv",
+        "lookback_required": 756,
+        "managers_glob": "data/raw/managers/*.csv",
+        "missing_fill_limit": null,
+        "missing_limit": null,
+        "missing_policy": "ffill",
+        "na_as_zero": {
+          "enabled": true,
+          "max_consecutive_gap": 1,
+          "max_missing_per_window": 1
+        },
+        "price_column": "Adj_Close",
+        "risk_free_column": null,
+        "timezone": "UTC",
+        "universe_membership_path": "Trend Universe Membership.csv"
+      },
+      "description": "Config option for data.",
+      "nl_editable": true,
+      "properties": {
+        "allow_risk_free_fallback": {
+          "constraints": {},
+          "default": false,
+          "description": "Opt-in heuristic to use lowest-vol column",
+          "nl_editable": true,
+          "type": "boolean"
+        },
+        "columns": {
+          "constraints": {},
+          "default": [
+            "Mgr_01",
+            "Mgr_02",
+            "Mgr_03",
+            "Mgr_04",
+            "Mgr_05",
+            "Mgr_06",
+            "Mgr_07",
+            "Mgr_08"
+          ],
+          "description": "Subset of columns to load from the returns CSV.",
+          "items": {
+            "type": "string"
+          },
+          "nl_editable": true,
+          "type": "array"
+        },
+        "csv_path": {
+          "constraints": {},
+          "default": "../demo/demo_returns.csv",
+          "description": "Path to a single returns CSV file.",
+          "nl_editable": false,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "currency": {
+          "constraints": {},
+          "default": "USD",
+          "description": "Config option for data.currency.",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "date_column": {
+          "constraints": {},
+          "default": "Date",
+          "description": "ISO-8601 expected",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "frequency": {
+          "constraints": {
+            "enum": [
+              "D",
+              "W",
+              "M",
+              "ME"
+            ]
+          },
+          "default": "D",
+          "description": "D | W | M",
+          "enum": [
+            "D",
+            "W",
+            "M",
+            "ME"
+          ],
+          "nl_editable": true,
+          "type": "string"
+        },
+        "indices_glob": {
+          "constraints": {},
+          "default": "data/raw/indices/*.csv",
+          "description": "Glob for benchmark index CSV inputs.",
+          "nl_editable": false,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lookback_required": {
+          "constraints": {},
+          "default": 756,
+          "description": "minimum obs (~3 yrs daily)",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "managers_glob": {
+          "constraints": {},
+          "default": "data/raw/managers/*.csv",
+          "description": "Config option for data.managers_glob.",
+          "nl_editable": false,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "missing_fill_limit": {
+          "constraints": {},
+          "default": null,
+          "description": "Maximum consecutive periods to forward-fill missing data.",
+          "nl_editable": true,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "missing_limit": {
+          "constraints": {},
+          "default": null,
+          "description": "Optional int (per-column overrides supported)",
+          "nl_editable": true,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "missing_policy": {
+          "constraints": {
+            "enum": [
+              "drop",
+              "ffill",
+              "zero"
+            ]
+          },
+          "default": "ffill",
+          "description": "drop | ffill | zero",
+          "enum": [
+            "drop",
+            "ffill",
+            "zero"
+          ],
+          "nl_editable": true,
+          "type": "string"
+        },
+        "na_as_zero": {
+          "additionalProperties": false,
+          "constraints": {},
+          "default": {
+            "enabled": true,
+            "max_consecutive_gap": 1,
+            "max_missing_per_window": 1
+          },
+          "description": "Config option for data.na_as_zero.",
+          "nl_editable": true,
+          "properties": {
+            "enabled": {
+              "constraints": {},
+              "default": true,
+              "description": "Config option for data.na_as_zero.enabled.",
+              "nl_editable": true,
+              "type": "boolean"
+            },
+            "max_consecutive_gap": {
+              "constraints": {},
+              "default": 1,
+              "description": "Config option for data.na_as_zero.max_consecutive_gap.",
+              "nl_editable": true,
+              "type": "integer"
+            },
+            "max_missing_per_window": {
+              "constraints": {},
+              "default": 1,
+              "description": "Config option for data.na_as_zero.max_missing_per_window.",
+              "nl_editable": true,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "price_column": {
+          "constraints": {},
+          "default": "Adj_Close",
+          "description": "or \"NAV\", etc.",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "risk_free_column": {
+          "constraints": {},
+          "default": null,
+          "description": "Explicit risk-free series name when present",
+          "nl_editable": true,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "timezone": {
+          "constraints": {},
+          "default": "UTC",
+          "description": "for parsing",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "universe_membership_path": {
+          "constraints": {},
+          "default": "Trend Universe Membership.csv",
+          "description": "Optional CSV with universe membership overrides.",
+          "nl_editable": false,
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "description": {
+      "constraints": {},
+      "default": "High risk-return profile for performance-oriented users",
+      "description": "Config option for description.",
+      "nl_editable": true,
+      "type": "string"
+    },
+    "export": {
+      "additionalProperties": false,
+      "constraints": {},
+      "default": {
+        "directory": "results/",
+        "excel": {
+          "autofit_columns": true,
+          "conditional_bands": {
+            "enabled": true,
+            "palette": "RdYlGn"
+          },
+          "number_format": "0.00%"
+        },
+        "filename": "long_backtest_2005_2025",
+        "formats": [
+          "xlsx",
+          "csv",
+          "json"
+        ],
+        "include_figures": false,
+        "include_raw_returns": true,
+        "include_vol_adj": true
+      },
+      "description": "Config option for export.",
+      "nl_editable": true,
+      "properties": {
+        "directory": {
+          "constraints": {},
+          "default": "results/",
+          "description": "Config option for export.directory.",
+          "nl_editable": false,
+          "type": "string"
+        },
+        "excel": {
+          "additionalProperties": false,
+          "constraints": {},
+          "default": {
+            "autofit_columns": true,
+            "conditional_bands": {
+              "enabled": true,
+              "palette": "RdYlGn"
+            },
+            "number_format": "0.00%"
+          },
+          "description": "Config option for export.excel.",
+          "nl_editable": true,
+          "properties": {
+            "autofit_columns": {
+              "constraints": {},
+              "default": true,
+              "description": "Config option for export.excel.autofit_columns.",
+              "nl_editable": true,
+              "type": "boolean"
+            },
+            "conditional_bands": {
+              "additionalProperties": false,
+              "constraints": {},
+              "default": {
+                "enabled": true,
+                "palette": "RdYlGn"
+              },
+              "description": "Config option for export.excel.conditional_bands.",
+              "nl_editable": true,
+              "properties": {
+                "enabled": {
+                  "constraints": {},
+                  "default": true,
+                  "description": "Config option for export.excel.conditional_bands.enabled.",
+                  "nl_editable": true,
+                  "type": "boolean"
+                },
+                "palette": {
+                  "constraints": {},
+                  "default": "RdYlGn",
+                  "description": "Config option for export.excel.conditional_bands.palette.",
+                  "nl_editable": true,
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "number_format": {
+              "constraints": {},
+              "default": "0.00%",
+              "description": "Config option for export.excel.number_format.",
+              "nl_editable": true,
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "filename": {
+          "constraints": {},
+          "default": "long_backtest_2005_2025",
+          "description": "Config option for export.filename.",
+          "nl_editable": false,
+          "type": "string"
+        },
+        "formats": {
+          "constraints": {},
+          "default": [
+            "xlsx",
+            "csv",
+            "json"
+          ],
+          "description": "Config option for export.formats.",
+          "items": {
+            "type": "string"
+          },
+          "nl_editable": true,
+          "type": "array"
+        },
+        "include_figures": {
+          "constraints": {},
+          "default": false,
+          "description": "Phase-2",
+          "nl_editable": true,
+          "type": "boolean"
+        },
+        "include_raw_returns": {
+          "constraints": {},
+          "default": true,
+          "description": "Config option for export.include_raw_returns.",
+          "nl_editable": true,
+          "type": "boolean"
+        },
+        "include_vol_adj": {
+          "constraints": {},
+          "default": true,
+          "description": "Config option for export.include_vol_adj.",
+          "nl_editable": true,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "jobs": {
+      "constraints": {},
+      "default": -1,
+      "description": "-1 = use all logical cores",
+      "nl_editable": true,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "lookback_periods": {
+      "constraints": {},
+      "default": 24,
+      "description": "Config option for lookback_periods.",
+      "nl_editable": true,
+      "type": "integer"
+    },
+    "metrics": {
+      "additionalProperties": false,
+      "constraints": {},
+      "default": {
+        "alpha_reference": "SP500TR",
+        "bootstrap_ci": {
+          "ci_level": 0.95,
+          "enabled": true,
+          "n_iter": 2000
+        },
+        "compute": [
+          "CAGR",
+          "Volatility",
+          "Sharpe",
+          "Sortino",
+          "Max_Drawdown",
+          "Calmar",
+          "Hit_Rate",
+          "Skew"
+        ],
+        "drawdown": 0.3,
+        "max_drawdown": 0.15,
+        "registry": [
+          "annual_return",
+          "volatility",
+          "sharpe_ratio",
+          "sortino_ratio",
+          "information_ratio",
+          "max_drawdown"
+        ],
+        "return_ann": 0.4,
+        "rf_rate_annual": 0.02,
+        "sharpe": 0.4,
+        "sharpe_ratio": 0.3,
+        "use_continuous": false,
+        "volatility": 0.15
+      },
+      "description": "Config option for metrics.",
+      "nl_editable": true,
+      "properties": {
+        "alpha_reference": {
+          "constraints": {},
+          "default": "SP500TR",
+          "description": "ticker in indices_glob",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "bootstrap_ci": {
+          "additionalProperties": false,
+          "constraints": {},
+          "default": {
+            "ci_level": 0.95,
+            "enabled": true,
+            "n_iter": 2000
+          },
+          "description": "Config option for metrics.bootstrap_ci.",
+          "nl_editable": true,
+          "properties": {
+            "ci_level": {
+              "constraints": {
+                "maximum": 1,
+                "minimum": 0
+              },
+              "default": 0.95,
+              "description": "Config option for metrics.bootstrap_ci.ci_level.",
+              "maximum": 1,
+              "minimum": 0,
+              "nl_editable": true,
+              "type": "number"
+            },
+            "enabled": {
+              "constraints": {},
+              "default": true,
+              "description": "Config option for metrics.bootstrap_ci.enabled.",
+              "nl_editable": true,
+              "type": "boolean"
+            },
+            "n_iter": {
+              "constraints": {},
+              "default": 2000,
+              "description": "Config option for metrics.bootstrap_ci.n_iter.",
+              "nl_editable": true,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "compute": {
+          "constraints": {},
+          "default": [
+            "CAGR",
+            "Volatility",
+            "Sharpe",
+            "Sortino",
+            "Max_Drawdown",
+            "Calmar",
+            "Hit_Rate",
+            "Skew"
+          ],
+          "description": "Config option for metrics.compute.",
+          "items": {
+            "type": "string"
+          },
+          "nl_editable": true,
+          "type": "array"
+        },
+        "drawdown": {
+          "constraints": {},
+          "default": 0.3,
+          "description": "Config option for metrics.drawdown.",
+          "nl_editable": true,
+          "type": "number"
+        },
+        "max_drawdown": {
+          "constraints": {},
+          "default": 0.15,
+          "description": "Config option for metrics.max_drawdown.",
+          "nl_editable": true,
+          "type": "number"
+        },
+        "registry": {
+          "constraints": {},
+          "default": [
+            "annual_return",
+            "volatility",
+            "sharpe_ratio",
+            "sortino_ratio",
+            "information_ratio",
+            "max_drawdown"
+          ],
+          "description": "Config option for metrics.registry.",
+          "items": {
+            "type": "string"
+          },
+          "nl_editable": true,
+          "type": "array"
+        },
+        "return_ann": {
+          "constraints": {},
+          "default": 0.4,
+          "description": "Config option for metrics.return_ann.",
+          "nl_editable": true,
+          "type": "number"
+        },
+        "rf_rate_annual": {
+          "constraints": {
+            "minimum": 0
+          },
+          "default": 0.02,
+          "description": "flat rf or link to series",
+          "minimum": 0,
+          "nl_editable": true,
+          "type": "number"
+        },
+        "sharpe": {
+          "constraints": {},
+          "default": 0.4,
+          "description": "Config option for metrics.sharpe.",
+          "nl_editable": true,
+          "type": "number"
+        },
+        "sharpe_ratio": {
+          "constraints": {},
+          "default": 0.3,
+          "description": "Config option for metrics.sharpe_ratio.",
+          "nl_editable": true,
+          "type": "number"
+        },
+        "use_continuous": {
+          "constraints": {},
+          "default": false,
+          "description": "geometric (default) vs. log",
+          "nl_editable": true,
+          "type": "boolean"
+        },
+        "volatility": {
+          "constraints": {},
+          "default": 0.15,
+          "description": "Config option for metrics.volatility.",
+          "nl_editable": true,
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "min_track_months": {
+      "constraints": {},
+      "default": 18,
+      "description": "Config option for min_track_months.",
+      "nl_editable": true,
+      "type": "integer"
+    },
+    "multi_period": {
+      "additionalProperties": false,
+      "constraints": {},
+      "default": {
+        "end": "2024-12",
+        "frequency": "A",
+        "in_sample_len": 3,
+        "max_funds": 25,
+        "min_funds": 10,
+        "out_sample_len": 1,
+        "start": "1990-01",
+        "triggers": {
+          "sigma1": {
+            "periods": 2,
+            "sigma": 1
+          },
+          "sigma2": {
+            "periods": 1,
+            "sigma": 2
+          }
+        },
+        "weight_curve": {
+          "anchors": [
+            [
+              0,
+              1.2
+            ],
+            [
+              50,
+              1.0
+            ],
+            [
+              100,
+              0.8
+            ]
+          ]
+        }
+      },
+      "description": "Config option for multi_period.",
+      "nl_editable": true,
+      "properties": {
+        "end": {
+          "constraints": {},
+          "default": "2024-12",
+          "description": "End period for multi-period runs.",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "frequency": {
+          "constraints": {},
+          "default": "A",
+          "description": "M | Q | A (Monthly, Quarterly, Annual)",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "in_sample_len": {
+          "constraints": {},
+          "default": 3,
+          "description": "rolling windows",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "max_funds": {
+          "constraints": {},
+          "default": 25,
+          "description": "Config option for multi_period.max_funds.",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "min_funds": {
+          "constraints": {},
+          "default": 10,
+          "description": "Config option for multi_period.min_funds.",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "out_sample_len": {
+          "constraints": {},
+          "default": 1,
+          "description": "Length of the out-of-sample window.",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "start": {
+          "constraints": {},
+          "default": "1990-01",
+          "description": "Start period for multi-period runs.",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "triggers": {
+          "additionalProperties": false,
+          "constraints": {},
+          "default": {
+            "sigma1": {
+              "periods": 2,
+              "sigma": 1
+            },
+            "sigma2": {
+              "periods": 1,
+              "sigma": 2
+            }
+          },
+          "description": "Config option for multi_period.triggers.",
+          "nl_editable": true,
+          "properties": {
+            "sigma1": {
+              "additionalProperties": false,
+              "constraints": {},
+              "default": {
+                "periods": 2,
+                "sigma": 1
+              },
+              "description": "Config option for multi_period.triggers.sigma1.",
+              "nl_editable": true,
+              "properties": {
+                "periods": {
+                  "constraints": {},
+                  "default": 2,
+                  "description": "Config option for multi_period.triggers.sigma1.periods.",
+                  "nl_editable": true,
+                  "type": "integer"
+                },
+                "sigma": {
+                  "constraints": {},
+                  "default": 1,
+                  "description": "Config option for multi_period.triggers.sigma1.sigma.",
+                  "nl_editable": true,
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            },
+            "sigma2": {
+              "additionalProperties": false,
+              "constraints": {},
+              "default": {
+                "periods": 1,
+                "sigma": 2
+              },
+              "description": "Config option for multi_period.triggers.sigma2.",
+              "nl_editable": true,
+              "properties": {
+                "periods": {
+                  "constraints": {},
+                  "default": 1,
+                  "description": "Config option for multi_period.triggers.sigma2.periods.",
+                  "nl_editable": true,
+                  "type": "integer"
+                },
+                "sigma": {
+                  "constraints": {},
+                  "default": 2,
+                  "description": "Config option for multi_period.triggers.sigma2.sigma.",
+                  "nl_editable": true,
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
+        "weight_curve": {
+          "additionalProperties": false,
+          "constraints": {},
+          "default": {
+            "anchors": [
+              [
+                0,
+                1.2
+              ],
+              [
+                50,
+                1.0
+              ],
+              [
+                100,
+                0.8
+              ]
+            ]
+          },
+          "description": "Config option for multi_period.weight_curve.",
+          "nl_editable": true,
+          "properties": {
+            "anchors": {
+              "constraints": {},
+              "default": [
+                [
+                  0,
+                  1.2
+                ],
+                [
+                  50,
+                  1.0
+                ],
+                [
+                  100,
+                  0.8
+                ]
+              ],
+              "description": "[rankpercentile, multiplier]",
+              "items": {
+                "type": "array"
+              },
+              "nl_editable": true,
+              "type": "array"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "name": {
+      "constraints": {},
+      "default": "Aggressive",
+      "description": "Config option for name.",
+      "nl_editable": true,
+      "type": "string"
+    },
+    "output": {
+      "additionalProperties": false,
+      "constraints": {},
+      "default": {
+        "format": "csv",
+        "path": "demo/exports/alias_demo.csv"
+      },
+      "description": "Config option for output.",
+      "nl_editable": true,
+      "properties": {
+        "format": {
+          "constraints": {},
+          "default": "csv",
+          "description": "Output file format for legacy single-file runners.",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "path": {
+          "constraints": {},
+          "default": "demo/exports/alias_demo.csv",
+          "description": "Output path or prefix for legacy single-file runners.",
+          "nl_editable": false,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "performance": {
+      "additionalProperties": false,
+      "constraints": {},
+      "default": {
+        "cache": {
+          "metrics": false
+        },
+        "enable_cache": true,
+        "incremental_cov": false
+      },
+      "description": "Config option for performance.",
+      "nl_editable": true,
+      "properties": {
+        "cache": {
+          "additionalProperties": false,
+          "constraints": {},
+          "default": {
+            "metrics": false
+          },
+          "description": "Config option for performance.cache.",
+          "nl_editable": true,
+          "properties": {
+            "metrics": {
+              "constraints": {},
+              "default": false,
+              "description": "scalar metric series memoization (Issue #1156)",
+              "nl_editable": true,
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "enable_cache": {
+          "constraints": {},
+          "default": true,
+          "description": "Config option for performance.enable_cache.",
+          "nl_editable": true,
+          "type": "boolean"
+        },
+        "incremental_cov": {
+          "constraints": {},
+          "default": false,
+          "description": "Config option for performance.incremental_cov.",
+          "nl_editable": true,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "portfolio": {
+      "additionalProperties": false,
+      "constraints": {},
+      "default": {
+        "ci_level": 0.0,
+        "constraints": {
+          "cash_weight": 0.1,
+          "group_caps": {
+            "Macro": 0.6,
+            "Trend": 0.55
+          },
+          "groups": {
+            "FundA": "Trend",
+            "FundB": "Trend",
+            "FundC": "Macro",
+            "FundD": "Macro"
+          },
+          "long_only": true,
+          "max_active_positions": 0,
+          "max_weight": 0.25
+        },
+        "cooldown_months": 1,
+        "cost_model": {
+          "bps_per_trade": 0,
+          "slippage_bps": 0
+        },
+        "custom_weights": {
+          "Mgr_01": 60,
+          "Mgr_02": 40
+        },
+        "entry_eligible_strikes": 2,
+        "entry_soft_strikes": 3,
+        "indices_list": [
+          "Efficient Capital Best Trend 15v",
+          "Abrdn MOSERS Trend",
+          "HFRXSDV Base",
+          "SG Trend Index"
+        ],
+        "leverage_cap": 2.0,
+        "manual_list": [],
+        "max_turnover": 1.0,
+        "max_weight": 0.1,
+        "policy": "threshold_hold",
+        "random_n": 10,
+        "rank": {
+          "blended_weights": {
+            "AnnualReturn": 0.3,
+            "MaxDrawdown": 0.2,
+            "Sharpe": 0.5
+          },
+          "bottom_k": 0,
+          "inclusion_approach": "top_n",
+          "limit_one_per_firm": true,
+          "n": 10,
+          "pct": 0.1,
+          "score_by": "sharpe_ratio",
+          "threshold": 1.5,
+          "transform": "zscore"
+        },
+        "rebalance_calendar": "NYSE",
+        "rebalance_freq": "M",
+        "robustness": {
+          "condition_check": {
+            "diagonal_loading_factor": 1e-06,
+            "enabled": true,
+            "safe_mode": "hrp",
+            "threshold": "1.0e12"
+          },
+          "logging": {
+            "log_condition_numbers": true,
+            "log_method_switches": true,
+            "log_shrinkage_intensity": true
+          },
+          "shrinkage": {
+            "enabled": true,
+            "method": "ledoit_wolf"
+          }
+        },
+        "selection_mode": "all",
+        "selector": {
+          "name": "zscore",
+          "params": {
+            "rank_column": "Sharpe",
+            "threshold": 1.0,
+            "top_n": 5
+          }
+        },
+        "target_n": 8,
+        "threshold_hold": {
+          "metric": "Sharpe",
+          "soft_strikes": 2,
+          "target_n": 8,
+          "weighting": "score_prop_bayes",
+          "z_entry_hard": 1.5,
+          "z_entry_soft": 1.0,
+          "z_exit_hard": -1.5,
+          "z_exit_soft": -1.0
+        },
+        "transaction_cost_bps": 0,
+        "weighting": {
+          "name": "score_prop_bayes",
+          "params": {
+            "condition_threshold": "1.0e10",
+            "diagonal_loading_factor": 1e-05,
+            "safe_mode": "hrp",
+            "shrink_tau": 0.25,
+            "shrinkage_method": "ledoit_wolf"
+          }
+        },
+        "weighting_scheme": "equal"
+      },
+      "description": "Config option for portfolio.",
+      "nl_editable": true,
+      "properties": {
+        "ci_level": {
+          "constraints": {},
+          "default": 0.0,
+          "description": "reporting-only confidence interval (0 disables)",
+          "nl_editable": true,
+          "type": "number"
+        },
+        "constraints": {
+          "additionalProperties": false,
+          "constraints": {},
+          "default": {
+            "cash_weight": 0.1,
+            "group_caps": {
+              "Macro": 0.6,
+              "Trend": 0.55
+            },
+            "groups": {
+              "FundA": "Trend",
+              "FundB": "Trend",
+              "FundC": "Macro",
+              "FundD": "Macro"
+            },
+            "long_only": true,
+            "max_active_positions": 0,
+            "max_weight": 0.25
+          },
+          "description": "Config option for portfolio.constraints.",
+          "nl_editable": true,
+          "properties": {
+            "cash_weight": {
+              "constraints": {},
+              "default": 0.1,
+              "description": "Config option for portfolio.constraints.cash_weight.",
+              "nl_editable": true,
+              "type": "number"
+            },
+            "group_caps": {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "constraints": {},
+              "default": {
+                "Macro": 0.6,
+                "Trend": 0.55
+              },
+              "description": "Config option for portfolio.constraints.group_caps.",
+              "nl_editable": true,
+              "properties": {
+                "Macro": {
+                  "constraints": {},
+                  "default": 0.6,
+                  "description": "Config option for portfolio.constraints.group_caps.Macro.",
+                  "nl_editable": true,
+                  "type": "number"
+                },
+                "Trend": {
+                  "constraints": {},
+                  "default": 0.55,
+                  "description": "Config option for portfolio.constraints.group_caps.Trend.",
+                  "nl_editable": true,
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            },
+            "groups": {
+              "additionalProperties": false,
+              "constraints": {},
+              "default": {
+                "FundA": "Trend",
+                "FundB": "Trend",
+                "FundC": "Macro",
+                "FundD": "Macro"
+              },
+              "description": "Config option for portfolio.constraints.groups.",
+              "nl_editable": true,
+              "properties": {
+                "FundA": {
+                  "constraints": {},
+                  "default": "Trend",
+                  "description": "Config option for portfolio.constraints.groups.FundA.",
+                  "nl_editable": true,
+                  "type": "string"
+                },
+                "FundB": {
+                  "constraints": {},
+                  "default": "Trend",
+                  "description": "Config option for portfolio.constraints.groups.FundB.",
+                  "nl_editable": true,
+                  "type": "string"
+                },
+                "FundC": {
+                  "constraints": {},
+                  "default": "Macro",
+                  "description": "Config option for portfolio.constraints.groups.FundC.",
+                  "nl_editable": true,
+                  "type": "string"
+                },
+                "FundD": {
+                  "constraints": {},
+                  "default": "Macro",
+                  "description": "Config option for portfolio.constraints.groups.FundD.",
+                  "nl_editable": true,
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "long_only": {
+              "constraints": {},
+              "default": true,
+              "description": "Config option for portfolio.constraints.long_only.",
+              "nl_editable": true,
+              "type": "boolean"
+            },
+            "max_active_positions": {
+              "constraints": {},
+              "default": 0,
+              "description": "Config option for portfolio.constraints.max_active_positions.",
+              "nl_editable": true,
+              "type": "integer"
+            },
+            "max_weight": {
+              "constraints": {
+                "maximum": 1,
+                "minimum": 0
+              },
+              "default": 0.25,
+              "description": "Config option for portfolio.constraints.max_weight.",
+              "maximum": 1,
+              "minimum": 0,
+              "nl_editable": true,
+              "type": "number"
+            }
+          },
+          "type": "object"
+        },
+        "cooldown_months": {
+          "constraints": {},
+          "default": 1,
+          "description": "Config option for portfolio.cooldown_months.",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "cost_model": {
+          "additionalProperties": false,
+          "constraints": {},
+          "default": {
+            "bps_per_trade": 0,
+            "slippage_bps": 0
+          },
+          "description": "Config option for portfolio.cost_model.",
+          "nl_editable": true,
+          "properties": {
+            "bps_per_trade": {
+              "constraints": {},
+              "default": 0,
+              "description": "overrides transaction_cost_bps when provided",
+              "nl_editable": true,
+              "type": "integer"
+            },
+            "slippage_bps": {
+              "constraints": {},
+              "default": 0,
+              "description": "additional penalty applied on turnover",
+              "nl_editable": true,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "custom_weights": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "constraints": {},
+          "default": {
+            "Mgr_01": 60,
+            "Mgr_02": 40
+          },
+          "description": "Explicit weight overrides keyed by manager name.",
+          "nl_editable": true,
+          "properties": {
+            "Mgr_01": {
+              "constraints": {},
+              "default": 60,
+              "description": "Config option for portfolio.custom_weights.Mgr_01.",
+              "nl_editable": true,
+              "type": "integer"
+            },
+            "Mgr_02": {
+              "constraints": {},
+              "default": 40,
+              "description": "Config option for portfolio.custom_weights.Mgr_02.",
+              "nl_editable": true,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "entry_eligible_strikes": {
+          "constraints": {},
+          "default": 2,
+          "description": "Config option for portfolio.entry_eligible_strikes.",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "entry_soft_strikes": {
+          "constraints": {},
+          "default": 3,
+          "description": "Config option for portfolio.entry_soft_strikes.",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "indices_list": {
+          "constraints": {},
+          "default": [
+            "Efficient Capital Best Trend 15v",
+            "Abrdn MOSERS Trend",
+            "HFRXSDV Base",
+            "SG Trend Index"
+          ],
+          "description": "Config option for portfolio.indices_list.",
+          "items": {
+            "type": "string"
+          },
+          "nl_editable": true,
+          "type": "array"
+        },
+        "leverage_cap": {
+          "constraints": {
+            "minimum": 0
+          },
+          "default": 2.0,
+          "description": "max gross exposure",
+          "minimum": 0,
+          "nl_editable": true,
+          "type": "number"
+        },
+        "manual_list": {
+          "constraints": {},
+          "default": [],
+          "description": "filled when selection_mode=manual",
+          "items": {
+            "type": "string"
+          },
+          "nl_editable": true,
+          "type": "array"
+        },
+        "max_turnover": {
+          "constraints": {
+            "maximum": 2,
+            "minimum": 0
+          },
+          "default": 1.0,
+          "description": "optional turnover cap (1.0 = no cap)",
+          "maximum": 2,
+          "minimum": 0,
+          "nl_editable": true,
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "max_weight": {
+          "constraints": {},
+          "default": 0.1,
+          "description": "Config option for portfolio.max_weight.",
+          "nl_editable": true,
+          "type": "number"
+        },
+        "policy": {
+          "constraints": {},
+          "default": "threshold_hold",
+          "description": "Config option for portfolio.policy.",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "random_n": {
+          "constraints": {},
+          "default": 10,
+          "description": "num managers if random",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "rank": {
+          "additionalProperties": false,
+          "constraints": {},
+          "default": {
+            "blended_weights": {
+              "AnnualReturn": 0.3,
+              "MaxDrawdown": 0.2,
+              "Sharpe": 0.5
+            },
+            "bottom_k": 0,
+            "inclusion_approach": "top_n",
+            "limit_one_per_firm": true,
+            "n": 10,
+            "pct": 0.1,
+            "score_by": "sharpe_ratio",
+            "threshold": 1.5,
+            "transform": "zscore"
+          },
+          "description": "Config option for portfolio.rank.",
+          "nl_editable": true,
+          "properties": {
+            "blended_weights": {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "constraints": {},
+              "default": {
+                "AnnualReturn": 0.3,
+                "MaxDrawdown": 0.2,
+                "Sharpe": 0.5
+              },
+              "description": "Config option for portfolio.rank.blended_weights.",
+              "nl_editable": true,
+              "properties": {
+                "AnnualReturn": {
+                  "constraints": {},
+                  "default": 0.3,
+                  "description": "Config option for portfolio.rank.blended_weights.AnnualReturn.",
+                  "nl_editable": true,
+                  "type": "number"
+                },
+                "MaxDrawdown": {
+                  "constraints": {},
+                  "default": 0.2,
+                  "description": "Config option for portfolio.rank.blended_weights.MaxDrawdown.",
+                  "nl_editable": true,
+                  "type": "number"
+                },
+                "Sharpe": {
+                  "constraints": {},
+                  "default": 0.5,
+                  "description": "Config option for portfolio.rank.blended_weights.Sharpe.",
+                  "nl_editable": true,
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            },
+            "bottom_k": {
+              "constraints": {},
+              "default": 0,
+              "description": "exclude worst-performing K funds",
+              "nl_editable": true,
+              "type": "integer"
+            },
+            "inclusion_approach": {
+              "constraints": {
+                "enum": [
+                  "top_n",
+                  "top_pct",
+                  "threshold"
+                ]
+              },
+              "default": "top_n",
+              "description": "top_n | top_pct | threshold",
+              "enum": [
+                "top_n",
+                "top_pct",
+                "threshold"
+              ],
+              "nl_editable": true,
+              "type": "string"
+            },
+            "limit_one_per_firm": {
+              "constraints": {},
+              "default": true,
+              "description": "Config option for portfolio.rank.limit_one_per_firm.",
+              "nl_editable": true,
+              "type": "boolean"
+            },
+            "n": {
+              "constraints": {},
+              "default": 10,
+              "description": "for top_n",
+              "nl_editable": true,
+              "type": "integer"
+            },
+            "pct": {
+              "constraints": {},
+              "default": 0.1,
+              "description": "for top_pct (decimal, not %)",
+              "nl_editable": true,
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "score_by": {
+              "constraints": {},
+              "default": "sharpe_ratio",
+              "description": "Sharpe | AnnualReturn |  | blended",
+              "nl_editable": true,
+              "type": "string"
+            },
+            "threshold": {
+              "constraints": {},
+              "default": 1.5,
+              "description": "ignored unless approach == threshold",
+              "nl_editable": true,
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "transform": {
+              "constraints": {},
+              "default": "zscore",
+              "description": "Config option for portfolio.rank.transform.",
+              "nl_editable": true,
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "rebalance_calendar": {
+          "constraints": {},
+          "default": "NYSE",
+          "description": "Config option for portfolio.rebalance_calendar.",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "rebalance_freq": {
+          "constraints": {
+            "enum": [
+              "M",
+              "Q",
+              "A",
+              null
+            ]
+          },
+          "default": "M",
+          "description": "M | Q | A | None",
+          "enum": [
+            "M",
+            "Q",
+            "A",
+            null
+          ],
+          "nl_editable": true,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "robustness": {
+          "additionalProperties": false,
+          "constraints": {},
+          "default": {
+            "condition_check": {
+              "diagonal_loading_factor": 1e-06,
+              "enabled": true,
+              "safe_mode": "hrp",
+              "threshold": "1.0e12"
+            },
+            "logging": {
+              "log_condition_numbers": true,
+              "log_method_switches": true,
+              "log_shrinkage_intensity": true
+            },
+            "shrinkage": {
+              "enabled": true,
+              "method": "ledoit_wolf"
+            }
+          },
+          "description": "Config option for portfolio.robustness.",
+          "nl_editable": true,
+          "properties": {
+            "condition_check": {
+              "additionalProperties": false,
+              "constraints": {},
+              "default": {
+                "diagonal_loading_factor": 1e-06,
+                "enabled": true,
+                "safe_mode": "hrp",
+                "threshold": "1.0e12"
+              },
+              "description": "Config option for portfolio.robustness.condition_check.",
+              "nl_editable": true,
+              "properties": {
+                "diagonal_loading_factor": {
+                  "constraints": {},
+                  "default": 1e-06,
+                  "description": "for diagonal loading regularization",
+                  "nl_editable": true,
+                  "type": "number"
+                },
+                "enabled": {
+                  "constraints": {},
+                  "default": true,
+                  "description": "Config option for portfolio.robustness.condition_check.enabled.",
+                  "nl_editable": true,
+                  "type": "boolean"
+                },
+                "safe_mode": {
+                  "constraints": {},
+                  "default": "hrp",
+                  "description": "hrp | risk_parity | diagonal_mv",
+                  "nl_editable": true,
+                  "type": "string"
+                },
+                "threshold": {
+                  "constraints": {},
+                  "default": "1.0e12",
+                  "description": "maximum allowed condition number",
+                  "nl_editable": true,
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "logging": {
+              "additionalProperties": false,
+              "constraints": {},
+              "default": {
+                "log_condition_numbers": true,
+                "log_method_switches": true,
+                "log_shrinkage_intensity": true
+              },
+              "description": "Config option for portfolio.robustness.logging.",
+              "nl_editable": true,
+              "properties": {
+                "log_condition_numbers": {
+                  "constraints": {},
+                  "default": true,
+                  "description": "log matrix condition numbers",
+                  "nl_editable": true,
+                  "type": "boolean"
+                },
+                "log_method_switches": {
+                  "constraints": {},
+                  "default": true,
+                  "description": "log when switching to safe mode",
+                  "nl_editable": true,
+                  "type": "boolean"
+                },
+                "log_shrinkage_intensity": {
+                  "constraints": {},
+                  "default": true,
+                  "description": "log shrinkage parameters",
+                  "nl_editable": true,
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
+            "shrinkage": {
+              "additionalProperties": false,
+              "constraints": {},
+              "default": {
+                "enabled": true,
+                "method": "ledoit_wolf"
+              },
+              "description": "Config option for portfolio.robustness.shrinkage.",
+              "nl_editable": true,
+              "properties": {
+                "enabled": {
+                  "constraints": {},
+                  "default": true,
+                  "description": "Config option for portfolio.robustness.shrinkage.enabled.",
+                  "nl_editable": true,
+                  "type": "boolean"
+                },
+                "method": {
+                  "constraints": {},
+                  "default": "ledoit_wolf",
+                  "description": "none | ledoit_wolf | oas",
+                  "nl_editable": true,
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
+        "selection_mode": {
+          "constraints": {
+            "enum": [
+              "all",
+              "random",
+              "manual",
+              "rank"
+            ]
+          },
+          "default": "all",
+          "description": "all | random | manual",
+          "enum": [
+            "all",
+            "random",
+            "manual",
+            "rank"
+          ],
+          "nl_editable": true,
+          "type": "string"
+        },
+        "selector": {
+          "additionalProperties": false,
+          "constraints": {},
+          "default": {
+            "name": "zscore",
+            "params": {
+              "rank_column": "Sharpe",
+              "threshold": 1.0,
+              "top_n": 5
+            }
+          },
+          "description": "Config option for portfolio.selector.",
+          "nl_editable": true,
+          "properties": {
+            "name": {
+              "constraints": {},
+              "default": "zscore",
+              "description": "or 'rank'",
+              "nl_editable": true,
+              "type": "string"
+            },
+            "params": {
+              "additionalProperties": {
+                "type": [
+                  "number",
+                  "string",
+                  "boolean",
+                  "array",
+                  "object",
+                  "null"
+                ]
+              },
+              "constraints": {},
+              "default": {
+                "rank_column": "Sharpe",
+                "threshold": 1.0,
+                "top_n": 5
+              },
+              "description": "Config option for portfolio.selector.params.",
+              "nl_editable": true,
+              "properties": {
+                "rank_column": {
+                  "constraints": {},
+                  "default": "Sharpe",
+                  "description": "Config option for portfolio.selector.params.rank_column.",
+                  "nl_editable": true,
+                  "type": "string"
+                },
+                "threshold": {
+                  "constraints": {},
+                  "default": 1.0,
+                  "description": "",
+                  "nl_editable": true,
+                  "type": "number"
+                },
+                "top_n": {
+                  "constraints": {},
+                  "default": 5,
+                  "description": "Config option for portfolio.selector.params.top_n.",
+                  "nl_editable": true,
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
+        "target_n": {
+          "constraints": {},
+          "default": 8,
+          "description": "Config option for portfolio.target_n.",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "threshold_hold": {
+          "additionalProperties": false,
+          "constraints": {},
+          "default": {
+            "metric": "Sharpe",
+            "soft_strikes": 2,
+            "target_n": 8,
+            "weighting": "score_prop_bayes",
+            "z_entry_hard": 1.5,
+            "z_entry_soft": 1.0,
+            "z_exit_hard": -1.5,
+            "z_exit_soft": -1.0
+          },
+          "description": "Config option for portfolio.threshold_hold.",
+          "nl_editable": true,
+          "properties": {
+            "metric": {
+              "constraints": {},
+              "default": "Sharpe",
+              "description": "Config option for portfolio.threshold_hold.metric.",
+              "nl_editable": true,
+              "type": "string"
+            },
+            "soft_strikes": {
+              "constraints": {},
+              "default": 2,
+              "description": "Config option for portfolio.threshold_hold.soft_strikes.",
+              "nl_editable": true,
+              "type": "integer"
+            },
+            "target_n": {
+              "constraints": {},
+              "default": 8,
+              "description": "Config option for portfolio.threshold_hold.target_n.",
+              "nl_editable": true,
+              "type": "integer"
+            },
+            "weighting": {
+              "constraints": {},
+              "default": "score_prop_bayes",
+              "description": "Config option for portfolio.threshold_hold.weighting.",
+              "nl_editable": true,
+              "type": "string"
+            },
+            "z_entry_hard": {
+              "constraints": {},
+              "default": 1.5,
+              "description": "Config option for portfolio.threshold_hold.z_entry_hard.",
+              "nl_editable": true,
+              "type": "number"
+            },
+            "z_entry_soft": {
+              "constraints": {},
+              "default": 1.0,
+              "description": "Config option for portfolio.threshold_hold.z_entry_soft.",
+              "nl_editable": true,
+              "type": "number"
+            },
+            "z_exit_hard": {
+              "constraints": {},
+              "default": -1.5,
+              "description": "Config option for portfolio.threshold_hold.z_exit_hard.",
+              "nl_editable": true,
+              "type": "number"
+            },
+            "z_exit_soft": {
+              "constraints": {},
+              "default": -1.0,
+              "description": "Config option for portfolio.threshold_hold.z_exit_soft.",
+              "nl_editable": true,
+              "type": "number"
+            }
+          },
+          "type": "object"
+        },
+        "transaction_cost_bps": {
+          "constraints": {
+            "minimum": 0
+          },
+          "default": 0,
+          "description": "linear cost per unit turnover",
+          "minimum": 0,
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "weighting": {
+          "additionalProperties": false,
+          "constraints": {},
+          "default": {
+            "name": "score_prop_bayes",
+            "params": {
+              "condition_threshold": "1.0e10",
+              "diagonal_loading_factor": 1e-05,
+              "safe_mode": "hrp",
+              "shrink_tau": 0.25,
+              "shrinkage_method": "ledoit_wolf"
+            }
+          },
+          "description": "Config option for portfolio.weighting.",
+          "nl_editable": true,
+          "properties": {
+            "name": {
+              "constraints": {},
+              "default": "score_prop_bayes",
+              "description": "Config option for portfolio.weighting.name.",
+              "nl_editable": true,
+              "type": "string"
+            },
+            "params": {
+              "additionalProperties": {
+                "type": [
+                  "number",
+                  "string",
+                  "boolean",
+                  "array",
+                  "object",
+                  "null"
+                ]
+              },
+              "constraints": {},
+              "default": {
+                "condition_threshold": "1.0e10",
+                "diagonal_loading_factor": 1e-05,
+                "safe_mode": "hrp",
+                "shrink_tau": 0.25,
+                "shrinkage_method": "ledoit_wolf"
+              },
+              "description": "Config option for portfolio.weighting.params.",
+              "nl_editable": true,
+              "properties": {
+                "condition_threshold": {
+                  "constraints": {},
+                  "default": "1.0e10",
+                  "description": "Config option for portfolio.weighting.params.condition_threshold.",
+                  "nl_editable": true,
+                  "type": "string"
+                },
+                "diagonal_loading_factor": {
+                  "constraints": {},
+                  "default": 1e-05,
+                  "description": "Config option for portfolio.weighting.params.diagonal_loading_factor.",
+                  "nl_editable": true,
+                  "type": "number"
+                },
+                "safe_mode": {
+                  "constraints": {},
+                  "default": "hrp",
+                  "description": "Config option for portfolio.weighting.params.safe_mode.",
+                  "nl_editable": true,
+                  "type": "string"
+                },
+                "shrink_tau": {
+                  "constraints": {},
+                  "default": 0.25,
+                  "description": "Config option for portfolio.weighting.params.shrink_tau.",
+                  "nl_editable": true,
+                  "type": "number"
+                },
+                "shrinkage_method": {
+                  "constraints": {},
+                  "default": "ledoit_wolf",
+                  "description": "Config option for portfolio.weighting.params.shrinkage_method.",
+                  "nl_editable": true,
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
+        "weighting_scheme": {
+          "constraints": {
+            "enum": [
+              "equal",
+              "risk_parity",
+              "hrp",
+              "erc",
+              "robust_mv",
+              "robust_risk_parity",
+              "custom"
+            ]
+          },
+          "default": "equal",
+          "description": "equal | risk_parity | hrp | erc | robust_mv | robust_risk_parity | custom",
+          "enum": [
+            "equal",
+            "risk_parity",
+            "hrp",
+            "erc",
+            "robust_mv",
+            "robust_risk_parity",
+            "custom"
+          ],
+          "nl_editable": true,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "preprocessing": {
+      "additionalProperties": false,
+      "constraints": {},
+      "default": {
+        "de_duplicate": true,
+        "holiday_calendar": "NYSE",
+        "log_prices": false,
+        "missing_data": {
+          "limit": null,
+          "per_asset": {},
+          "per_asset_limit": {},
+          "policy": "drop"
+        },
+        "resample": {
+          "business_only": true,
+          "method": "last",
+          "target": "D"
+        },
+        "steps": [],
+        "winsorise": {
+          "enabled": true,
+          "limits": [
+            0.01,
+            0.99
+          ]
+        }
+      },
+      "description": "Config option for preprocessing.",
+      "nl_editable": true,
+      "properties": {
+        "de_duplicate": {
+          "constraints": {},
+          "default": true,
+          "description": "Config option for preprocessing.de_duplicate.",
+          "nl_editable": true,
+          "type": "boolean"
+        },
+        "holiday_calendar": {
+          "constraints": {},
+          "default": "NYSE",
+          "description": "forward fill non-trading days",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "log_prices": {
+          "constraints": {},
+          "default": false,
+          "description": "turn on if prices span decades",
+          "nl_editable": true,
+          "type": "boolean"
+        },
+        "missing_data": {
+          "additionalProperties": false,
+          "constraints": {},
+          "default": {
+            "limit": null,
+            "per_asset": {},
+            "per_asset_limit": {},
+            "policy": "drop"
+          },
+          "description": "Config option for preprocessing.missing_data.",
+          "nl_editable": true,
+          "properties": {
+            "limit": {
+              "constraints": {},
+              "default": null,
+              "description": "max consecutive periods to forward-fill (None = unlimited)",
+              "nl_editable": true,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "per_asset": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "constraints": {},
+              "default": {},
+              "description": "optional overrides, e.g. {RF: zero}",
+              "nl_editable": true,
+              "properties": {},
+              "type": "object"
+            },
+            "per_asset_limit": {
+              "additionalProperties": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "constraints": {},
+              "default": {},
+              "description": "optional forward-fill window overrides per asset",
+              "nl_editable": true,
+              "properties": {},
+              "type": "object"
+            },
+            "policy": {
+              "constraints": {
+                "enum": [
+                  "drop",
+                  "ffill",
+                  "zero"
+                ]
+              },
+              "default": "drop",
+              "description": "drop | ffill | zero",
+              "enum": [
+                "drop",
+                "ffill",
+                "zero"
+              ],
+              "nl_editable": true,
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "resample": {
+          "additionalProperties": false,
+          "constraints": {},
+          "default": {
+            "business_only": true,
+            "method": "last",
+            "target": "D"
+          },
+          "description": "Config option for preprocessing.resample.",
+          "nl_editable": true,
+          "properties": {
+            "business_only": {
+              "constraints": {},
+              "default": true,
+              "description": "Config option for preprocessing.resample.business_only.",
+              "nl_editable": true,
+              "type": "boolean"
+            },
+            "method": {
+              "constraints": {
+                "enum": [
+                  "last",
+                  "mean",
+                  "sum",
+                  "pad"
+                ]
+              },
+              "default": "last",
+              "description": "last | mean | sum | pad",
+              "enum": [
+                "last",
+                "mean",
+                "sum",
+                "pad"
+              ],
+              "nl_editable": true,
+              "type": "string"
+            },
+            "target": {
+              "constraints": {},
+              "default": "D",
+              "description": "keep None to skip",
+              "nl_editable": true,
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "type": "object"
+        },
+        "steps": {
+          "constraints": {},
+          "default": [],
+          "description": "Optional list of preprocessing steps to run in order.",
+          "items": {
+            "type": "string"
+          },
+          "nl_editable": true,
+          "type": "array"
+        },
+        "winsorise": {
+          "additionalProperties": false,
+          "constraints": {},
+          "default": {
+            "enabled": true,
+            "limits": [
+              0.01,
+              0.99
+            ]
+          },
+          "description": "Config option for preprocessing.winsorise.",
+          "nl_editable": true,
+          "properties": {
+            "enabled": {
+              "constraints": {},
+              "default": true,
+              "description": "Config option for preprocessing.winsorise.enabled.",
+              "nl_editable": true,
+              "type": "boolean"
+            },
+            "limits": {
+              "constraints": {
+                "maxItems": 2,
+                "minItems": 2
+              },
+              "default": [
+                0.01,
+                0.99
+              ],
+              "description": "two-sided",
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "nl_editable": true,
+              "type": "array"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "rebalance_frequency": {
+      "constraints": {},
+      "default": "monthly",
+      "description": "Config option for rebalance_frequency.",
+      "nl_editable": true,
+      "type": "string"
+    },
+    "regime": {
+      "additionalProperties": false,
+      "constraints": {},
+      "default": {
+        "annualise_volatility": true,
+        "cache": true,
+        "enabled": true,
+        "lookback": 126,
+        "method": "rolling_return",
+        "min_observations": 4,
+        "neutral_band": 0.001,
+        "proxy": "SPX",
+        "risk_off_fund_count_multiplier": 0.5,
+        "risk_off_label": "Risk-Off",
+        "risk_off_target_vol_multiplier": 0.5,
+        "risk_on_label": "Risk-On",
+        "smoothing": 3,
+        "threshold": 0.0
+      },
+      "description": "Config option for regime.",
+      "nl_editable": true,
+      "properties": {
+        "annualise_volatility": {
+          "constraints": {},
+          "default": true,
+          "description": "applies when method: volatility",
+          "nl_editable": true,
+          "type": "boolean"
+        },
+        "cache": {
+          "constraints": {},
+          "default": true,
+          "description": "Config option for regime.cache.",
+          "nl_editable": true,
+          "type": "boolean"
+        },
+        "enabled": {
+          "constraints": {},
+          "default": true,
+          "description": "Config option for regime.enabled.",
+          "nl_editable": true,
+          "type": "boolean"
+        },
+        "lookback": {
+          "constraints": {},
+          "default": 126,
+          "description": "Config option for regime.lookback.",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "method": {
+          "constraints": {},
+          "default": "rolling_return",
+          "description": "Config option for regime.method.",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "min_observations": {
+          "constraints": {},
+          "default": 4,
+          "description": "Config option for regime.min_observations.",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "neutral_band": {
+          "constraints": {},
+          "default": 0.001,
+          "description": "Config option for regime.neutral_band.",
+          "nl_editable": true,
+          "type": "number"
+        },
+        "proxy": {
+          "constraints": {},
+          "default": "SPX",
+          "description": "Config option for regime.proxy.",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "risk_off_fund_count_multiplier": {
+          "constraints": {},
+          "default": 0.5,
+          "description": "Config option for regime.risk_off_fund_count_multiplier.",
+          "nl_editable": true,
+          "type": "number"
+        },
+        "risk_off_label": {
+          "constraints": {},
+          "default": "Risk-Off",
+          "description": "Config option for regime.risk_off_label.",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "risk_off_target_vol_multiplier": {
+          "constraints": {},
+          "default": 0.5,
+          "description": "Config option for regime.risk_off_target_vol_multiplier.",
+          "nl_editable": true,
+          "type": "number"
+        },
+        "risk_on_label": {
+          "constraints": {},
+          "default": "Risk-On",
+          "description": "Config option for regime.risk_on_label.",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "smoothing": {
+          "constraints": {},
+          "default": 3,
+          "description": "Config option for regime.smoothing.",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "threshold": {
+          "constraints": {},
+          "default": 0.0,
+          "description": "Config option for regime.threshold.",
+          "nl_editable": true,
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "risk_target": {
+      "constraints": {},
+      "default": 0.15,
+      "description": "Config option for risk_target.",
+      "nl_editable": true,
+      "type": "number"
+    },
+    "run": {
+      "additionalProperties": false,
+      "constraints": {},
+      "default": {
+        "cache_dir": ".cache/",
+        "checkpoint_dir": "demo/checkpoints",
+        "deterministic": true,
+        "jobs": 1,
+        "log_file": "logs/phase1.log",
+        "log_level": "INFO",
+        "n_jobs": -1,
+        "name": "demo-grid",
+        "output_dir": "perf/wf",
+        "seed": 42
+      },
+      "description": "Config option for run.",
+      "nl_editable": true,
+      "properties": {
+        "cache_dir": {
+          "constraints": {},
+          "default": ".cache/",
+          "description": "Config option for run.cache_dir.",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "checkpoint_dir": {
+          "constraints": {},
+          "default": "demo/checkpoints",
+          "description": "Directory for saving checkpoints.",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "deterministic": {
+          "constraints": {},
+          "default": true,
+          "description": "sets NumPy & pandas options",
+          "nl_editable": true,
+          "type": "boolean"
+        },
+        "jobs": {
+          "constraints": {},
+          "default": 1,
+          "description": "Parallel worker count for a run.",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "log_file": {
+          "constraints": {},
+          "default": "logs/phase1.log",
+          "description": "Config option for run.log_file.",
+          "nl_editable": false,
+          "type": "string"
+        },
+        "log_level": {
+          "constraints": {},
+          "default": "INFO",
+          "description": "DEBUG | INFO | WARNING | ERROR",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "n_jobs": {
+          "constraints": {},
+          "default": -1,
+          "description": "1  all CPUs",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "name": {
+          "constraints": {},
+          "default": "demo-grid",
+          "description": "Config option for run.name.",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "output_dir": {
+          "constraints": {},
+          "default": "perf/wf",
+          "description": "Config option for run.output_dir.",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "seed": {
+          "constraints": {},
+          "default": 42,
+          "description": "Random seed used for deterministic runs.",
+          "nl_editable": true,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "sample_split": {
+      "additionalProperties": false,
+      "constraints": {},
+      "default": {
+        "date": "2017-12-31",
+        "folds": 5,
+        "in_end": "2022-12",
+        "in_start": "2015-01",
+        "method": "date",
+        "out_end": "2024-12",
+        "out_start": "2023-01",
+        "ratio": 0.7,
+        "rolling_walk": false
+      },
+      "description": "Config option for sample_split.",
+      "nl_editable": true,
+      "properties": {
+        "date": {
+          "constraints": {},
+          "default": "2017-12-31",
+          "description": "ignored if method=ratio",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "folds": {
+          "constraints": {},
+          "default": 5,
+          "description": "for CV, if rolling_walk=true",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "in_end": {
+          "constraints": {},
+          "default": "2022-12",
+          "description": "End period for in-sample window.",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "in_start": {
+          "constraints": {},
+          "default": "2015-01",
+          "description": "Start period for in-sample window.",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "method": {
+          "constraints": {
+            "enum": [
+              "date",
+              "ratio"
+            ]
+          },
+          "default": "date",
+          "description": "date | ratio",
+          "enum": [
+            "date",
+            "ratio"
+          ],
+          "nl_editable": true,
+          "type": "string"
+        },
+        "out_end": {
+          "constraints": {},
+          "default": "2024-12",
+          "description": "End period for out-of-sample window.",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "out_start": {
+          "constraints": {},
+          "default": "2023-01",
+          "description": "Start period for out-of-sample window.",
+          "nl_editable": true,
+          "type": "string"
+        },
+        "ratio": {
+          "constraints": {
+            "maximum": 1,
+            "minimum": 0
+          },
+          "default": 0.7,
+          "description": "ignored if method=date",
+          "maximum": 1,
+          "minimum": 0,
+          "nl_editable": true,
+          "type": "number"
+        },
+        "rolling_walk": {
+          "constraints": {},
+          "default": false,
+          "description": "future-phase feature flag",
+          "nl_editable": true,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "seed": {
+      "constraints": {},
+      "default": 42,
+      "description": "Config option for seed.",
+      "nl_editable": true,
+      "type": "integer"
+    },
+    "selection_count": {
+      "constraints": {},
+      "default": 15,
+      "description": "Config option for selection_count.",
+      "nl_editable": true,
+      "type": "integer"
+    },
+    "signals": {
+      "additionalProperties": false,
+      "constraints": {},
+      "default": {
+        "lag": 1,
+        "min_periods": 30,
+        "vol_adjust": true,
+        "vol_target": 0.15,
+        "window": 42,
+        "zscore": false
+      },
+      "description": "Config option for signals.",
+      "nl_editable": true,
+      "properties": {
+        "lag": {
+          "constraints": {},
+          "default": 1,
+          "description": "Config option for signals.lag.",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "min_periods": {
+          "constraints": {},
+          "default": 30,
+          "description": "Config option for signals.min_periods.",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "vol_adjust": {
+          "constraints": {},
+          "default": true,
+          "description": "Config option for signals.vol_adjust.",
+          "nl_editable": true,
+          "type": "boolean"
+        },
+        "vol_target": {
+          "constraints": {},
+          "default": 0.15,
+          "description": "Config option for signals.vol_target.",
+          "nl_editable": true,
+          "type": "number"
+        },
+        "window": {
+          "constraints": {},
+          "default": 42,
+          "description": "Config option for signals.window.",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "zscore": {
+          "constraints": {},
+          "default": false,
+          "description": "Config option for signals.zscore.",
+          "nl_editable": true,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "strategy": {
+      "additionalProperties": false,
+      "constraints": {},
+      "default": {
+        "defaults": {
+          "band": 0.0
+        },
+        "grid": {
+          "band": [
+            0.0,
+            0.0015
+          ],
+          "lookback": [
+            6,
+            9,
+            12
+          ]
+        },
+        "top_n": 4
+      },
+      "description": "Config option for strategy.",
+      "nl_editable": true,
+      "properties": {
+        "defaults": {
+          "additionalProperties": false,
+          "constraints": {},
+          "default": {
+            "band": 0.0
+          },
+          "description": "Default strategy parameters for walk-forward runs.",
+          "nl_editable": true,
+          "properties": {
+            "band": {
+              "constraints": {},
+              "default": 0.0,
+              "description": "Config option for strategy.defaults.band.",
+              "nl_editable": true,
+              "type": "number"
+            }
+          },
+          "type": "object"
+        },
+        "grid": {
+          "additionalProperties": {
+            "type": [
+              "array",
+              "number",
+              "string",
+              "boolean",
+              "object",
+              "null"
+            ]
+          },
+          "constraints": {},
+          "default": {
+            "band": [
+              0.0,
+              0.0015
+            ],
+            "lookback": [
+              6,
+              9,
+              12
+            ]
+          },
+          "description": "Grid search parameter ranges for walk-forward runs.",
+          "nl_editable": true,
+          "properties": {
+            "band": {
+              "constraints": {},
+              "default": [
+                0.0,
+                0.0015
+              ],
+              "description": "Config option for strategy.grid.band.",
+              "items": {
+                "type": "number"
+              },
+              "nl_editable": true,
+              "type": "array"
+            },
+            "lookback": {
+              "constraints": {},
+              "default": [
+                6,
+                9,
+                12
+              ],
+              "description": "Config option for strategy.grid.lookback.",
+              "items": {
+                "type": "integer"
+              },
+              "nl_editable": true,
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        "top_n": {
+          "constraints": {},
+          "default": 4,
+          "description": "Top-N selection used by walk-forward strategies.",
+          "nl_editable": true,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "version": {
+      "constraints": {},
+      "default": "0.1.0",
+      "description": "bump when the schema changes",
+      "nl_editable": true,
+      "type": "string"
+    },
+    "vol_adjust": {
+      "additionalProperties": false,
+      "constraints": {},
+      "default": {
+        "enabled": true,
+        "floor_vol": 0.04,
+        "target_vol": 0.1,
+        "warmup_periods": 0,
+        "window": {
+          "decay": "ewma",
+          "lambda": 0.94,
+          "length": 63
+        }
+      },
+      "description": "Config option for vol_adjust.",
+      "nl_editable": true,
+      "properties": {
+        "enabled": {
+          "constraints": {},
+          "default": true,
+          "description": "Config option for vol_adjust.enabled.",
+          "nl_editable": true,
+          "type": "boolean"
+        },
+        "floor_vol": {
+          "constraints": {},
+          "default": 0.04,
+          "description": "avoid 100 leverage",
+          "nl_editable": true,
+          "type": "number"
+        },
+        "target_vol": {
+          "constraints": {
+            "minimum": 0
+          },
+          "default": 0.1,
+          "description": "annualised (10%)",
+          "minimum": 0,
+          "nl_editable": true,
+          "type": "number"
+        },
+        "warmup_periods": {
+          "constraints": {},
+          "default": 0,
+          "description": "zero weights for first N periods",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "window": {
+          "additionalProperties": false,
+          "constraints": {},
+          "default": {
+            "decay": "ewma",
+            "lambda": 0.94,
+            "length": 63
+          },
+          "description": "Config option for vol_adjust.window.",
+          "nl_editable": true,
+          "properties": {
+            "decay": {
+              "constraints": {
+                "enum": [
+                  "ewma",
+                  "simple"
+                ]
+              },
+              "default": "ewma",
+              "description": "ewma | simple",
+              "enum": [
+                "ewma",
+                "simple"
+              ],
+              "nl_editable": true,
+              "type": "string"
+            },
+            "lambda": {
+              "constraints": {
+                "maximum": 1,
+                "minimum": 0
+              },
+              "default": 0.94,
+              "description": "EWMA decay",
+              "maximum": 1,
+              "minimum": 0,
+              "nl_editable": true,
+              "type": "number"
+            },
+            "length": {
+              "constraints": {},
+              "default": 63,
+              "description": "rolling window (~3 months)",
+              "nl_editable": true,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "walk_forward": {
+      "additionalProperties": false,
+      "constraints": {},
+      "default": {
+        "step": 6,
+        "test": 12,
+        "train": 36
+      },
+      "description": "Config option for walk_forward.",
+      "nl_editable": true,
+      "properties": {
+        "step": {
+          "constraints": {},
+          "default": 6,
+          "description": "Walk-forward step length.",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "test": {
+          "constraints": {},
+          "default": 12,
+          "description": "Walk-forward out-of-sample window length.",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "train": {
+          "constraints": {},
+          "default": 36,
+          "description": "Walk-forward in-sample window length.",
+          "nl_editable": true,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "title": "Trend Model configuration",
+  "type": "object"
+}
