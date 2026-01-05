@@ -407,7 +407,7 @@ def generate_schema(
         "properties": {},
         "default": merged,
     }
-    properties_dict: dict[str, Any] = schema["properties"]  # type: ignore[assignment]
+    properties_dict: dict[str, Any] = schema["properties"]
     for key, value in merged.items():
         properties_dict[key] = build_schema(
             value,
