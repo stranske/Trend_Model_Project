@@ -37,6 +37,11 @@ def main() -> int:
         "langchain_core": "langchain-core",
         "langchain_community": "langchain-community",
     }
+    expected_major_minor = {
+        "langchain": (1, 2),
+        "langchain-core": (1, 2),
+        "langchain-community": (0, 4),
+    }
     present = _find_first_installed(llm_packages)
     if present is None:
         print("LLM extras not installed; skipping compatibility checks.")
@@ -84,8 +89,17 @@ def main() -> int:
             print(str(exc), file=sys.stderr)
             return 1
 
-        if (major, minor) != (1, 0):
-            incompatible_langchain.append(f"{distribution}=={version}")
+        expected = expected_major_minor.get(distribution)
+        if expected is None:
+            incompatible_langchain.append(
+                f"{distribution}=={version} (no expected version range configured)"
+            )
+            continue
+
+        if (major, minor) != expected:
+            incompatible_langchain.append(
+                f"{distribution}=={version} (expected {expected[0]}.{expected[1]}.x)"
+            )
 
     if missing_langchain:
         print(
@@ -97,7 +111,8 @@ def main() -> int:
 
     if incompatible_langchain:
         print(
-            "LangChain packages must be pinned to 1.0.x. "
+            "LangChain packages must match pyproject.toml pins: "
+            "langchain/langchain-core 1.2.x; langchain-community 0.4.x. "
             f"Detected {', '.join(incompatible_langchain)}.",
             file=sys.stderr,
         )
