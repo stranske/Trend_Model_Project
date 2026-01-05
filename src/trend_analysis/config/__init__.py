@@ -14,6 +14,7 @@ from .models import (
     load_config,
     load_preset,
 )
+from .patch import ConfigPatch, PatchOperation, RiskFlag, apply_config_patch
 
 # Removed import from .legacy as all symbols are available from .models
 
@@ -31,4 +32,8 @@ __all__ = [
     "ConfigType",
     "DEFAULTS",
     "TrendConfig",
+    "ConfigPatch",
+    "PatchOperation",
+    "RiskFlag",
+    "apply_config_patch",
 ]

@@ -1,33 +1,57 @@
 <!-- pr-preamble:start -->
-> **Source:** Issue #4202
+> **Source:** Issue #4180
 
 <!-- pr-preamble:end -->
 
 <!-- auto-status-summary:start -->
 ## Automated Status Summary
 #### Scope
-LangChain and Pydantic have complex version interdependencies that can cause subtle runtime failures if not carefully managed. LangChain v1 requires Python 3.10+ and Pydantic v2 for best compatibility. Deciding these versions upfront prevents dependency hell during development and protects against accidental drift.
+The NL layer must output a structured, validated format—not freeform text that gets parsed with regex. A typed `ConfigPatch` schema gives us:
+- Predictable model outputs that can be validated
+- Clear operation semantics (set/remove/append/merge)
+- Risk flagging for dangerous changes
+- Audit trail for what was changed and why
 
 #### Tasks
-- [x] Review current Python version requirements in `pyproject.toml`
-- [ ] Decide LangChain version strategy:
-- [ ] - **Recommended**: LangChain v1.x (stable, well-documented)
-- [ ] - Pin to minor version range (e.g., `langchain>=1.0,<1.1`)
-- [ ] Decide Pydantic version strategy:
-- [ ] - **Recommended**: Pydantic v2-only (v1 compatibility mode has edge cases)
-- [ ] - Verify existing codebase is v2-compatible
-- [x] Add `langchain`, `langchain-core`, `langchain-community` to optional dependencies
-- [x] Create `[llm]` extras group in pyproject.toml
-- [ ] Add CI check that fails if:
-- [ ] - Python < 3.10 is used with LLM extras
-- [ ] - Pydantic v1 is resolved when LLM extras are installed
-- [x] Document version requirements in README or DEPENDENCY_QUICKSTART.md
+- [x] Design patch operation types:
+- [x] - `set` - Set a value at a path (create if missing)
+- [x] - `remove` - Delete a key at a path
+- [x] - `append` - Add item to a list
+- [x] - `merge` - Deep merge a dict at a path
+- [x] Define `PatchOperation` Pydantic model:
+- [x] ```python
+- [x] class PatchOperation(BaseModel):
+- [x] op: Literal["set", "remove", "append", "merge"]
+- [x] path: str  # JSONPointer or dotpath
+- [x] value: Any | None = None  # Required for set/append/merge
+- [x] rationale: str | None = None  # LLM's explanation
+- [x] ```
+- [x] Define `ConfigPatch` Pydantic model:
+- [x] ```python
+- [x] class ConfigPatch(BaseModel):
+- [x] operations: list[PatchOperation]
+- [x] risk_flags: list[RiskFlag] = []
+- [x] summary: str  # Human-readable summary of changes
+- [x] ```
+- [x] Define `RiskFlag` enum/model for dangerous changes:
+- [x] - `REMOVES_CONSTRAINT` - Removing position/turnover limits
+- [x] - `INCREASES_LEVERAGE` - Vol target above threshold
+- [x] - `REMOVES_VALIDATION` - Disabling safety checks
+- [x] - `BROAD_SCOPE` - Changes affect many keys
+- [x] Add JSON Schema export method for the patch format
+- [x] Write comprehensive unit tests
 
 #### Acceptance criteria
-- [x] `pyproject.toml` updated with pinned LangChain versions in `[project.optional-dependencies]`
-- [x] `pip install -e ".[llm]"` installs compatible LangChain + Pydantic
-- [x] CI job exists that validates dependency compatibility
-- [ ] README documents Python 3.10+ requirement for NL features
-- [x] No Pydantic v1/v2 compatibility warnings when importing langchain
+- [x] `ConfigPatch` model validates correct patches
+- [x] `ConfigPatch` model rejects malformed patches with clear errors
+- [x] JSON Schema can be exported for LLM prompting
+- [x] Risk flags are populated for dangerous operations
+- [x] Unit tests cover:
+- [x] - All operation types
+- [x] - Path validation (valid/invalid paths)
+- [x] - Risk flag detection
+- [x] - Edge cases (empty patch, nested paths, list operations)
+- [x] - `set` operations with null values
+- [x] - `remove` operations with explicit null values
 
 <!-- auto-status-summary:end -->
