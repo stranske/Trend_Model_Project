@@ -34,6 +34,11 @@ def test_patch_operation_rejects_invalid_paths(op: str, path: str, value: int) -
         PatchOperation(op=op, path=path, value=value)
 
 
+def test_patch_operation_rejects_unknown_op() -> None:
+    with pytest.raises(ValidationError):
+        PatchOperation(op="replace", path="portfolio.constraints", value=1)
+
+
 def test_patch_operation_requires_value_for_set() -> None:
     with pytest.raises(ValidationError):
         PatchOperation(op="set", path="portfolio.max_turnover")
@@ -123,3 +128,8 @@ def test_config_patch_rejects_invalid_risk_flag() -> None:
             summary="Invalid risk flag",
             risk_flags=["NOT_A_FLAG"],
         )
+
+
+def test_config_patch_requires_summary() -> None:
+    with pytest.raises(ValidationError):
+        ConfigPatch(operations=[])
