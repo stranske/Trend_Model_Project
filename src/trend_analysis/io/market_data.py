@@ -960,7 +960,7 @@ def attach_metadata(frame: pd.DataFrame, metadata: MarketDataMetadata) -> pd.Dat
     payload = frame.attrs.setdefault("market_data", {})
     payload.update(
         {
-            "metadata": metadata,
+            "metadata": metadata.model_dump(mode="json"),
             "mode": "returns" if metadata.mode == MarketDataMode.RETURNS else "prices",
             "mode_enum": metadata.mode,
             "frequency": metadata.frequency_label,
