@@ -106,6 +106,11 @@ def test_patch_operation_accepts_remove_without_value() -> None:
     assert op.value is None
 
 
+def test_patch_operation_accepts_remove_with_explicit_none() -> None:
+    op = PatchOperation(op="remove", path="portfolio.max_turnover", value=None)
+    assert op.value is None
+
+
 def test_config_patch_detects_risk_flags() -> None:
     operations = [
         PatchOperation(op="remove", path="portfolio.constraints.max_weight"),
