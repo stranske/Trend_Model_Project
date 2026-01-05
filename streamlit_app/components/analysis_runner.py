@@ -71,9 +71,7 @@ def _month_end(ts: pd.Timestamp) -> pd.Timestamp:
     return period.to_timestamp("M", how="end")
 
 
-def _build_sample_split(
-    index: pd.DatetimeIndex, config: Mapping[str, Any]
-) -> dict[str, str]:
+def _build_sample_split(index: pd.DatetimeIndex, config: Mapping[str, Any]) -> dict[str, str]:
     if index.empty:
         raise ValueError("Dataset is empty")
 
@@ -183,9 +181,7 @@ def _build_signals_config(config: Mapping[str, Any]) -> dict[str, Any]:
     lag = _coerce_positive_int(config.get("lag"), default=base.lag)
     min_periods_raw = config.get("min_periods")
     try:
-        min_periods = (
-            int(min_periods_raw) if min_periods_raw not in (None, "") else None
-        )
+        min_periods = int(min_periods_raw) if min_periods_raw not in (None, "") else None
     except (TypeError, ValueError):
         min_periods = None
     if min_periods is not None and min_periods <= 0:
@@ -246,13 +242,10 @@ def _normalise_metric_weights(raw: Mapping[str, Any]) -> dict[str, float]:
 def _build_portfolio_config(
     config: Mapping[str, Any], weights: Mapping[str, float]
 ) -> dict[str, Any]:
-    selection_count = _coerce_positive_int(
-        config.get("selection_count"), default=10, minimum=1
-    )
+    selection_count = _coerce_positive_int(config.get("selection_count"), default=10, minimum=1)
     weighting_scheme = str(config.get("weighting_scheme", "equal") or "equal")
     registry_weights = {
-        METRIC_REGISTRY.get(metric, metric): float(weight)
-        for metric, weight in weights.items()
+        METRIC_REGISTRY.get(metric, metric): float(weight) for metric, weight in weights.items()
     }
 
     # Advanced settings
@@ -285,9 +278,7 @@ def _build_portfolio_config(
     # For buy_and_hold, use the initial method's transform
     effective_approach = buy_hold_initial if is_buy_and_hold else selection_approach
     rank_transform = "zscore" if effective_approach == "threshold" else "raw"
-    slippage_bps = _coerce_positive_int(
-        config.get("slippage_bps"), default=0, minimum=0
-    )
+    slippage_bps = _coerce_positive_int(config.get("slippage_bps"), default=0, minimum=0)
     bottom_k = _coerce_positive_int(config.get("bottom_k"), default=0, minimum=0)
 
     # Phase 9: Selection approach parameters
@@ -371,12 +362,8 @@ def _build_config(payload: AnalysisPayload) -> Config:
     # Risk settings
     vol_adjust_enabled = bool(state.get("vol_adjust_enabled", True))
     vol_floor = _coerce_positive_float(state.get("vol_floor"), default=0.015)
-    warmup_periods = _coerce_positive_int(
-        state.get("warmup_periods"), default=0, minimum=0
-    )
-    vol_window_length = _coerce_positive_int(
-        state.get("vol_window_length"), default=63, minimum=1
-    )
+    warmup_periods = _coerce_positive_int(state.get("warmup_periods"), default=0, minimum=0)
+    vol_window_length = _coerce_positive_int(state.get("vol_window_length"), default=63, minimum=1)
     vol_window_decay = str(state.get("vol_window_decay", "ewma") or "ewma").lower()
     if vol_window_decay == "constant":
         vol_window_decay = "simple"
@@ -418,16 +405,12 @@ def _build_config(payload: AnalysisPayload) -> Config:
         portfolio_cfg.setdefault("constraints", {})
         portfolio_cfg["constraints"]["min_weight"] = min_weight
 
-    min_weight_strikes = _coerce_positive_int(
-        state.get("min_weight_strikes"), default=0, minimum=0
-    )
+    min_weight_strikes = _coerce_positive_int(state.get("min_weight_strikes"), default=0, minimum=0)
     if min_weight_strikes > 0:
         portfolio_cfg.setdefault("constraints", {})
         portfolio_cfg["constraints"]["min_weight_strikes"] = min_weight_strikes
 
-    cooldown_periods = _coerce_positive_int(
-        state.get("cooldown_periods"), default=0, minimum=0
-    )
+    cooldown_periods = _coerce_positive_int(state.get("cooldown_periods"), default=0, minimum=0)
     if cooldown_periods > 0:
         portfolio_cfg["cooldown_periods"] = cooldown_periods
 
@@ -458,9 +441,7 @@ def _build_config(payload: AnalysisPayload) -> Config:
 
     # Robustness settings (Phase 7)
     shrinkage_enabled = bool(state.get("shrinkage_enabled", True))
-    shrinkage_method = str(
-        state.get("shrinkage_method", "ledoit_wolf") or "ledoit_wolf"
-    )
+    shrinkage_method = str(state.get("shrinkage_method", "ledoit_wolf") or "ledoit_wolf")
 
     robustness_cfg = {
         "shrinkage": {
@@ -506,8 +487,7 @@ def _build_config(payload: AnalysisPayload) -> Config:
     selection_count = _coerce_positive_int(state.get("selection_count"), default=10)
     threshold_hold_cfg["metric"] = "blended"
     threshold_hold_cfg["blended_weights"] = {
-        METRIC_REGISTRY.get(metric, metric): float(weight)
-        for metric, weight in weights.items()
+        METRIC_REGISTRY.get(metric, metric): float(weight) for metric, weight in weights.items()
     }
     threshold_hold_cfg["target_n"] = selection_count
     # Add hard thresholds if enabled (Phase 13)
@@ -515,9 +495,7 @@ def _build_config(payload: AnalysisPayload) -> Config:
         threshold_hold_cfg["z_entry_hard"] = z_entry_hard
     if z_exit_hard is not None:
         threshold_hold_cfg["z_exit_hard"] = z_exit_hard
-    min_tenure_periods = _coerce_positive_int(
-        state.get("min_tenure_periods"), default=0, minimum=0
-    )
+    min_tenure_periods = _coerce_positive_int(state.get("min_tenure_periods"), default=0, minimum=0)
     if min_tenure_periods > 0:
         threshold_hold_cfg["min_tenure_n"] = min_tenure_periods
 
@@ -673,9 +651,7 @@ def _hashable_model_state(state: Mapping[str, Any]) -> str:
     return json.dumps(state, sort_keys=True, default=str)
 
 
-@st.cache_data(
-    show_spinner="Running analysis…", hash_funcs={pd.DataFrame: cache_key_for_frame}
-)
+@st.cache_data(show_spinner="Running analysis…", hash_funcs={pd.DataFrame: cache_key_for_frame})
 def run_cached_analysis(
     returns: pd.DataFrame,
     model_state_blob: str,

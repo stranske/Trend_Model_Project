@@ -29,9 +29,7 @@ def test_import_fallback(monkeypatch):
 
 
 def test_compute_score_frame_local_metric_error(monkeypatch):
-    panel = pd.DataFrame(
-        {"A": [0.1, 0.2]}, index=pd.date_range("2020-01-31", periods=2, freq="ME")
-    )
+    panel = pd.DataFrame({"A": [0.1, 0.2]}, index=pd.date_range("2020-01-31", periods=2, freq="ME"))
 
     def raise_bad(*args, **kwargs):
         raise ValueError("bad")
@@ -90,9 +88,7 @@ def test_compute_score_frame_type_error_fallback(monkeypatch, caplog):
     monkeypatch.setattr(sim_runner, "ta_pipeline", dummy)
 
     with caplog.at_level(logging.WARNING):
-        result = compute_score_frame(
-            df, pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")
-        )
+        result = compute_score_frame(df, pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29"))
 
     assert isinstance(result, pd.DataFrame)
     assert any("TypeError" in rec.message for rec in caplog.records)
@@ -100,9 +96,7 @@ def test_compute_score_frame_type_error_fallback(monkeypatch, caplog):
 
 def test_simresult_helpers():
     el = EventLog()
-    el.append(
-        Event(date=pd.Timestamp("2020-01-31"), action="hire", manager="A", reason="x")
-    )
+    el.append(Event(date=pd.Timestamp("2020-01-31"), action="hire", manager="A", reason="x"))
     sr = SimResult(
         dates=[pd.Timestamp("2020-01-31")],
         portfolio=pd.Series([0.1], index=[pd.Timestamp("2020-01-31")]),
@@ -173,9 +167,7 @@ def test_gen_review_dates_quarterly():
         }
     )
     sim = Simulator(df)
-    dates = sim._gen_review_dates(
-        pd.Timestamp("2020-01-31"), pd.Timestamp("2020-03-31"), "q"
-    )
+    dates = sim._gen_review_dates(pd.Timestamp("2020-01-31"), pd.Timestamp("2020-03-31"), "q")
     assert dates == [pd.Timestamp("2020-03-31 23:59:59.999999999")]
 
 
@@ -193,9 +185,7 @@ def test_run_progress_fire_and_equity(monkeypatch):
     def cb(i, total):
         calls.append((i, total))
 
-    policy = PolicyConfig(
-        top_k=1, bottom_k=1, min_track_months=0, metrics=[MetricSpec("m1")]
-    )
+    policy = PolicyConfig(top_k=1, bottom_k=1, min_track_months=0, metrics=[MetricSpec("m1")])
 
     def fake_score(panel, start, end, rf_annual=0.0):
         if end.month == 1:

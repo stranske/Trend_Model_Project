@@ -36,9 +36,7 @@ class RankSelector(Selector):
 class ZScoreSelector(Selector):
     """Filter by z-score threshold."""
 
-    def __init__(
-        self, threshold: float, *, direction: int = 1, column: str = "Sharpe"
-    ) -> None:
+    def __init__(self, threshold: float, *, direction: int = 1, column: str = "Sharpe") -> None:
         self.threshold = threshold
         self.direction = 1 if direction >= 0 else -1
         self.column = column

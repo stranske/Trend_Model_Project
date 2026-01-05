@@ -70,18 +70,14 @@ def test_patch_operation_requires_value_for_append_merge(op: str) -> None:
 
 
 def test_patch_operation_accepts_append_with_value() -> None:
-    op = PatchOperation(
-        op="append", path="portfolio.constraints.allowed_assets", value="ABC"
-    )
+    op = PatchOperation(op="append", path="portfolio.constraints.allowed_assets", value="ABC")
     assert op.op == "append"
     assert op.value == "ABC"
 
 
 def test_patch_operation_rejects_append_with_none_value() -> None:
     with pytest.raises(ValidationError) as excinfo:
-        PatchOperation(
-            op="append", path="portfolio.constraints.allowed_assets", value=None
-        )
+        PatchOperation(op="append", path="portfolio.constraints.allowed_assets", value=None)
     assert "value must be non-null for op 'append'" in str(excinfo.value)
 
 
@@ -115,9 +111,7 @@ def test_config_patch_detects_risk_flags() -> None:
     operations = [
         PatchOperation(op="remove", path="portfolio.constraints.max_weight"),
         PatchOperation(op="set", path="vol_adjust.target_vol", value=0.2),
-        PatchOperation(
-            op="set", path="robustness.condition_check.enabled", value=False
-        ),
+        PatchOperation(op="set", path="robustness.condition_check.enabled", value=False),
         PatchOperation(op="merge", path="portfolio", value={"foo": "bar"}),
     ]
     patch = ConfigPatch(operations=operations, summary="Adjust risk posture")

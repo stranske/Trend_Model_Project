@@ -117,6 +117,4 @@ def test_stage_isolation_matches_pipeline_output() -> None:
     assert expected["risk_free_column"] == actual["risk_free_column"]
     assert expected["fund_weights"] == actual["fund_weights"]
     assert expected["out_sample_stats"] == actual["out_sample_stats"]
-    pd.testing.assert_frame_equal(
-        expected["out_sample_scaled"], actual["out_sample_scaled"]
-    )
+    pd.testing.assert_frame_equal(expected["out_sample_scaled"], actual["out_sample_scaled"])

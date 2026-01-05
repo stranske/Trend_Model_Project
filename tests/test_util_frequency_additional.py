@@ -21,9 +21,7 @@ from trend_analysis.util.frequency import FREQUENCY_LABELS, detect_frequency
         ),
     ],
 )
-def test_detect_frequency_from_various_iterables(
-    values, expected_code, expected_resample
-):
+def test_detect_frequency_from_various_iterables(values, expected_code, expected_resample):
     summary = detect_frequency(values)
     assert summary.code == expected_code
     assert summary.label == FREQUENCY_LABELS[expected_code]

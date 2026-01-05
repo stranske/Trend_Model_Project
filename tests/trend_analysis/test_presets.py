@@ -58,9 +58,7 @@ def test_freeze_mapping_returns_immutable_copy(sample_config: dict[str, Any]):
         ),
     ],
 )
-def test_normalise_metric_weights_handles_aliases(
-    raw: dict[str, Any], expected: dict[str, float]
-):
+def test_normalise_metric_weights_handles_aliases(raw: dict[str, Any], expected: dict[str, float]):
     weights = presets._normalise_metric_weights(raw)
     assert weights.keys() == expected.keys()
     for key in expected:

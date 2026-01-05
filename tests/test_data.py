@@ -39,9 +39,7 @@ def test_load_csv_preserves_range_index(tmp_path: Path) -> None:
     assert list(df.index) == [0, 1]
 
 
-def test_load_csv_returns_none_by_default(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_load_csv_returns_none_by_default(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     csv = tmp_path / "duplicate.csv"
     csv.write_text("Date,A\n2024-01-31,0.01\n2024-01-31,0.02\n")
 
@@ -96,9 +94,7 @@ def test_validate_dataframe_helper() -> None:
     dates = pd.date_range("2024-01-31", periods=3, freq="ME")
     frame = pd.DataFrame({"Date": dates, "Fund": [0.01, 0.02, -0.01]})
 
-    validated = data_mod.validate_dataframe(
-        frame, include_date_column=False, errors="raise"
-    )
+    validated = data_mod.validate_dataframe(frame, include_date_column=False, errors="raise")
     assert isinstance(validated.index, pd.DatetimeIndex)
     assert "market_data_mode" in validated.attrs
 
@@ -238,9 +234,7 @@ def test_finalise_validated_frame_transfers_metadata() -> None:
     metadata = _build_metadata(["fund"])
     metadata.missing_policy_limit = 2
     metadata.missing_policy_summary = "filled"
-    metadata.missing_policy_filled = {
-        "fund": MissingPolicyFillDetails(method="ffill", count=1)
-    }
+    metadata.missing_policy_filled = {"fund": MissingPolicyFillDetails(method="ffill", count=1)}
     validated = ValidatedMarketData(frame=frame, metadata=metadata)
 
     result = data_mod._finalise_validated_frame(validated, include_date_column=True)
@@ -309,9 +303,7 @@ def test_validate_payload_policy_without_default(
 
     monkeypatch.setattr(data_mod, "validate_market_data", fake_validate)
 
-    payload = pd.DataFrame(
-        {"Date": pd.date_range("2024-01-31", periods=1, freq="ME"), "A": [0.1]}
-    )
+    payload = pd.DataFrame({"Date": pd.date_range("2024-01-31", periods=1, freq="ME"), "A": [0.1]})
 
     data_mod._validate_payload(
         payload,
@@ -332,9 +324,7 @@ def test_validate_payload_scalar_limit(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(data_mod, "validate_market_data", fake_validate)
 
-    payload = pd.DataFrame(
-        {"Date": pd.date_range("2024-01-31", periods=1, freq="ME"), "A": [0.1]}
-    )
+    payload = pd.DataFrame({"Date": pd.date_range("2024-01-31", periods=1, freq="ME"), "A": [0.1]})
 
     result = data_mod._validate_payload(
         payload,
@@ -432,9 +422,7 @@ def test_is_readable_checks_mode_bits() -> None:
     assert not data_mod._is_readable(non_readable_mode)
 
 
-def test_load_csv_coerces_legacy_kwargs(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_load_csv_coerces_legacy_kwargs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     csv = tmp_path / "legacy.csv"
     csv.write_text("Date,A\n2024-01-31,1.0\n")
 
@@ -458,9 +446,7 @@ def test_load_csv_coerces_legacy_kwargs(
     assert captured["missing_limit"] == 3
 
 
-def test_load_csv_legacy_nan_limit(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_load_csv_legacy_nan_limit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     csv = tmp_path / "legacy_nan.csv"
     csv.write_text("Date,A\n2024-01-31,1.0\n")
 
@@ -493,9 +479,7 @@ def test_load_csv_permission_denied_logs(
     assert "Permission denied" in caplog.text
 
 
-def test_load_csv_permission_denied_raises(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_load_csv_permission_denied_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     csv = tmp_path / "secure.csv"
     csv.write_text("Date,A\n2024-01-31,1.0\n")
 
@@ -510,9 +494,7 @@ def test_load_csv_missing_file_raises_when_requested() -> None:
         data_mod.load_csv("/nonexistent.csv", errors="raise")
 
 
-def test_load_csv_logs_missing_file(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_load_csv_logs_missing_file(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     missing = tmp_path / "missing.csv"
     with caplog.at_level("ERROR"):
         result = data_mod.load_csv(str(missing))
@@ -520,9 +502,7 @@ def test_load_csv_logs_missing_file(
     assert str(missing) in caplog.text
 
 
-def test_load_csv_directory_error(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_load_csv_directory_error(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     directory = tmp_path / "folder"
     directory.mkdir()
 
@@ -587,9 +567,7 @@ def test_load_csv_parser_error_logs(
     assert "bad parse" in caplog.text
 
 
-def test_load_parquet_invokes_validation(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_load_parquet_invokes_validation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     parquet_file = tmp_path / "data.parquet"
     parquet_file.write_bytes(b"")
 
@@ -612,9 +590,7 @@ def test_load_parquet_invokes_validation(
     assert captured["include_date_column"] is True
 
 
-def test_load_parquet_legacy_nan_limit(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_load_parquet_legacy_nan_limit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     parquet_file = tmp_path / "legacy.parquet"
     parquet_file.write_bytes(b"")
 
@@ -634,15 +610,11 @@ def test_load_parquet_legacy_nan_limit(
     assert captured["missing_limit"] == 4
 
 
-def test_load_parquet_legacy_nan_policy(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_load_parquet_legacy_nan_policy(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     parquet_file = tmp_path / "policy.parquet"
     parquet_file.write_bytes(b"")
 
-    payload = pd.DataFrame(
-        {"Date": pd.date_range("2024-01-31", periods=1, freq="ME"), "A": [0.1]}
-    )
+    payload = pd.DataFrame({"Date": pd.date_range("2024-01-31", periods=1, freq="ME"), "A": [0.1]})
     monkeypatch.setattr(pd, "read_parquet", lambda _: payload)
 
     captured: dict[str, Any] = {}
@@ -716,9 +688,7 @@ def test_load_parquet_validation_error_raises_when_requested(
         data_mod.load_parquet(str(parquet_file), errors="raise")
 
 
-def test_load_parquet_logs_missing_file(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_load_parquet_logs_missing_file(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     missing = tmp_path / "missing.parquet"
 
     with caplog.at_level("ERROR"):
@@ -740,9 +710,7 @@ def test_load_parquet_permission_error_raises(
         data_mod.load_parquet(str(parquet_file), errors="raise")
 
 
-def test_load_parquet_directory_error(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_load_parquet_directory_error(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     directory = tmp_path / "folder"
     directory.mkdir()
 
@@ -764,9 +732,7 @@ def test_validate_dataframe_passes_origin(monkeypatch: pytest.MonkeyPatch) -> No
 
     monkeypatch.setattr(data_mod, "_validate_payload", fake_validate)
 
-    result = data_mod.validate_dataframe(
-        payload, origin="in-memory", include_date_column=False
-    )
+    result = data_mod.validate_dataframe(payload, origin="in-memory", include_date_column=False)
 
     assert isinstance(result, pd.DataFrame)
     assert captured["origin"] == "in-memory"

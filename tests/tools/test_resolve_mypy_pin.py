@@ -100,9 +100,7 @@ def test_main_writes_to_github_output(
     assert "python-version=3.12" in content
 
 
-def test_main_uses_matrix_version_fallback(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_main_uses_matrix_version_fallback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test main falls back to MATRIX_PYTHON_VERSION when no mypy config."""
     monkeypatch.chdir(tmp_path)  # No pyproject.toml
 

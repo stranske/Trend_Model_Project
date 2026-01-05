@@ -116,9 +116,7 @@ def test_fast_turnover_matches_recomputed_history(
     )
 
     class DummySelector:
-        def select(
-            self, score_frame: pd.DataFrame
-        ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
             return score_frame, score_frame
 
     weighting = _FixedWeighting(returned)

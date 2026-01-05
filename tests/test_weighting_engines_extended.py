@@ -32,9 +32,7 @@ def test_equal_risk_contribution_regularises_ill_conditioned_matrix() -> None:
     assert pytest.approx(float(weights.sum()), rel=1e-6) == 1.0
 
     # A covariance matrix with mismatched labels should trigger the validation guard.
-    bad_cov = pd.DataFrame(
-        [[1.0, 0.1], [0.1, 1.2]], index=["A", "B"], columns=["X", "Y"]
-    )
+    bad_cov = pd.DataFrame([[1.0, 0.1], [0.1, 1.2]], index=["A", "B"], columns=["X", "Y"])
     with pytest.raises(ValueError):
         engine.weight(bad_cov)
 

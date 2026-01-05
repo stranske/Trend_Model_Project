@@ -122,17 +122,11 @@ def test_incremental_covariance_falls_back_to_full_recompute(
         compute_calls.append(frame.shape[0])
         return _payload_for(frame)
 
-    def fake_incremental_cov_update(
-        *args: Any, **kwargs: Any
-    ) -> None:  # pragma: no cover
-        raise AssertionError(
-            "incremental update path should not be used in fallback test"
-        )
+    def fake_incremental_cov_update(*args: Any, **kwargs: Any) -> None:  # pragma: no cover
+        raise AssertionError("incremental update path should not be used in fallback test")
 
     monkeypatch.setattr("trend_analysis.perf.cache.CovCache", _DummyCache)
-    monkeypatch.setattr(
-        "trend_analysis.perf.cache.compute_cov_payload", fake_compute_cov_payload
-    )
+    monkeypatch.setattr("trend_analysis.perf.cache.compute_cov_payload", fake_compute_cov_payload)
     monkeypatch.setattr(
         "trend_analysis.perf.cache.incremental_cov_update", fake_incremental_cov_update
     )

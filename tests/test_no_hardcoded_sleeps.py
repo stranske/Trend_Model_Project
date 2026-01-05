@@ -74,9 +74,7 @@ def test_sophisticated_readiness_check_features():
             "time.time()",  # Time tracking for timeout
         ]
 
-        missing_features = [
-            feature for feature in features_required if feature not in content
-        ]
+        missing_features = [feature for feature in features_required if feature not in content]
 
         assert (
             not missing_features

@@ -64,6 +64,4 @@ class DiagnosticResult(Generic[T]):
         message: str,
         context: Mapping[str, object] | None = None,
     ) -> "DiagnosticResult[T]":
-        return cls(
-            value=None, diagnostic=DiagnosticPayload(reason_code, message, context)
-        )
+        return cls(value=None, diagnostic=DiagnosticPayload(reason_code, message, context))

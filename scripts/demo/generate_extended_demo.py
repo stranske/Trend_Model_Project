@@ -56,9 +56,7 @@ def main() -> None:
     crisis_2008[36:48] = rng.normal(loc=-0.03, scale=0.08, size=12)  # 2008-2009 crisis
 
     crisis_2020 = np.zeros(periods)
-    crisis_2020[168:180] = rng.normal(
-        loc=-0.02, scale=0.06, size=12
-    )  # 2020 COVID crisis
+    crisis_2020[168:180] = rng.normal(loc=-0.02, scale=0.06, size=12)  # 2020 COVID crisis
 
     # Combine SPX components
     spx = spx_base + crisis_2008 + crisis_2020

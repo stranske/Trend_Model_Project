@@ -31,9 +31,7 @@ class JsonlHandler(logging.Handler):
     because logging volume here is modest (a few dozen lines per run).
     """
 
-    def __init__(
-        self, path: Path, max_size_kb: int | None = 1024
-    ):  # pragma: no cover - trivial
+    def __init__(self, path: Path, max_size_kb: int | None = 1024):  # pragma: no cover - trivial
         super().__init__()
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -83,9 +81,7 @@ class JsonlHandler(logging.Handler):
                 # Rotate if exceeding size (simple single backup strategy)
                 if self.max_size_kb and self.path.exists():
                     if self.path.stat().st_size > self.max_size_kb * 1024:
-                        backup = self.path.with_suffix(
-                            self.path.suffix + ".1"
-                        )  # e.g. run.jsonl.1
+                        backup = self.path.with_suffix(self.path.suffix + ".1")  # e.g. run.jsonl.1
                         try:
                             if backup.exists():
                                 backup.unlink()
@@ -122,9 +118,7 @@ def init_run_logger(run_id: str, log_path: Path) -> logging.Logger:
     return logger
 
 
-def log_step(
-    run_id: str, step: str, message: str, level: str = "INFO", **extra: Any
-) -> None:
+def log_step(run_id: str, step: str, message: str, level: str = "INFO", **extra: Any) -> None:
     """Emit a structured log line for a pipeline step.
 
     Parameters

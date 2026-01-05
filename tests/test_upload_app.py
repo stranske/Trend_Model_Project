@@ -10,9 +10,7 @@ base_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(base_dir, "..", "src"))
 sys.path.append(os.path.join(base_dir, "..", "app"))
 
-st.set_page_config(
-    page_title="Trend Analysis Upload Test", page_icon="📤", layout="wide"
-)
+st.set_page_config(page_title="Trend Analysis Upload Test", page_icon="📤", layout="wide")
 
 st.title("🔬 Upload Page Test")
 

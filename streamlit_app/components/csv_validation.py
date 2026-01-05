@@ -22,9 +22,7 @@ from streamlit_app.components.date_correction import (
 
 logger = logging.getLogger(__name__)
 
-_SAMPLE_PREVIEW = (
-    """Date,Firm_A,Firm_B\n2020-01-31,0.012,-0.004\n2020-02-29,-0.003,0.011\n"""
-)
+_SAMPLE_PREVIEW = """Date,Firm_A,Firm_B\n2020-01-31,0.012,-0.004\n2020-02-29,-0.003,0.011\n"""
 
 
 @dataclass
@@ -145,11 +143,7 @@ def validate_uploaded_csv(
             dup_display = ", ".join(sorted(duplicates))
             raise CSVValidationError(
                 "Column names must be unique.",
-                issues=(
-                    [f"Duplicate headers detected: {dup_display}"]
-                    if dup_display
-                    else None
-                ),
+                issues=([f"Duplicate headers detected: {dup_display}"] if dup_display else None),
                 sample_preview=_SAMPLE_PREVIEW,
             )
         df = df.copy()
@@ -224,9 +218,7 @@ def validate_uploaded_csv(
                     )
                 total_drops = correction_result.total_droppable_rows
                 if total_drops > 0:
-                    issues.append(
-                        f"{total_drops} row(s) with empty/NaN dates will be removed."
-                    )
+                    issues.append(f"{total_drops} row(s) with empty/NaN dates will be removed.")
 
                 raise CSVValidationError(
                     "Some dates have issues that can be automatically corrected.",
@@ -280,18 +272,14 @@ def validate_uploaded_csv(
         if duplicates.any():
             idx = int(duplicates[duplicates].index[0])
             stamp = parsed.iloc[idx]
-            formatted = (
-                stamp.strftime("%Y-%m-%d") if not pd.isna(stamp) else "(invalid)"
-            )
+            formatted = stamp.strftime("%Y-%m-%d") if not pd.isna(stamp) else "(invalid)"
             raise CSVValidationError(
                 "Dates must be unique.",
                 issues=[f"Row {idx + 1} repeats the date {formatted}."],
                 sample_preview=_SAMPLE_PREVIEW,
             )
 
-        logger.debug(
-            "CSV upload validated: %s rows × %s columns", len(df.index), len(df.columns)
-        )
+        logger.debug("CSV upload validated: %s rows × %s columns", len(df.index), len(df.columns))
     except CSVValidationError as err:
         logger.exception("CSV upload failed validation: %s", err)
         raise

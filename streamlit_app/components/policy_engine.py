@@ -120,11 +120,7 @@ def decide_hires_fires(
     tenure: Dict[str, int] | None = None,
     rule_state: Dict[str, Any] | None = None,
 ) -> Dict[str, List[Tuple[str, str]]]:
-    eligible = [
-        m
-        for m in score_frame.index
-        if eligible_since.get(m, 0) >= policy.min_track_months
-    ]
+    eligible = [m for m in score_frame.index if eligible_since.get(m, 0) >= policy.min_track_months]
     sf = score_frame.loc[eligible].copy()
     if sf.empty:
         return {"hire": [], "fire": []}
@@ -166,16 +162,11 @@ def decide_hires_fires(
                     if int(tenure.get(m, 0)) < int(policy.min_tenure_n):
                         continue
                 to_fire.append((m, "bottom_k"))
-    candidates = [
-        m for m in list(sf.index) if m not in current and not cooldowns.in_cooldown(m)
-    ]
+    candidates = [m for m in list(sf.index) if m not in current and not cooldowns.in_cooldown(m)]
     hires: List[Tuple[str, str]] = []
     next_active = list(set(current) - {x for x, _ in to_fire})
     # Diversification-aware hiring: enforce per-bucket caps if configured
-    if (
-        policy.diversification_max_per_bucket
-        and policy.diversification_max_per_bucket > 0
-    ):
+    if policy.diversification_max_per_bucket and policy.diversification_max_per_bucket > 0:
         bucket_map = policy.diversification_buckets or {}
 
         def bucket_of(x: str) -> str:
@@ -207,9 +198,7 @@ def decide_hires_fires(
         len(hires) + len(to_fire) > policy.turnover_budget_max_changes
     ):
         s = sf["_score"].astype(float)
-        moves: List[Tuple[float, str, str, str]] = (
-            []
-        )  # (priority, kind, manager, reason)
+        moves: List[Tuple[float, str, str, str]] = []  # (priority, kind, manager, reason)
         for m, reason in hires:
             # Higher-scored hires have higher priority
             prio = float(s.get(m, np.nan))

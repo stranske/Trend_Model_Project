@@ -34,9 +34,7 @@ def _create_line_chart_with_download(
     )
 
 
-def _create_csv_download_button(
-    data_df: "pd.DataFrame", button_label: str, filename: str
-) -> None:
+def _create_csv_download_button(data_df: "pd.DataFrame", button_label: str, filename: str) -> None:
     """Create a CSV download button for data.
 
     Args:

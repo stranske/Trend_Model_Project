@@ -241,10 +241,7 @@ def _extract_settings_from_model(file_path: Path) -> set[str]:
 
     # Extract keys from _initial_model_state return dict.
     for walk_node in ast.walk(tree):
-        if (
-            isinstance(walk_node, ast.FunctionDef)
-            and walk_node.name == "_initial_model_state"
-        ):
+        if isinstance(walk_node, ast.FunctionDef) and walk_node.name == "_initial_model_state":
             for child in ast.walk(walk_node):
                 if isinstance(child, ast.Return) and isinstance(child.value, ast.Dict):
                     settings.update(_keys_from_dict(child.value))
@@ -348,14 +345,10 @@ def _resolve_variation(
     if key == "date_mode":
         test_value = "explicit"
     if key == "start_date":
-        test_value = (returns.index.min() + pd.DateOffset(months=6)).strftime(
-            "%Y-%m-%d"
-        )
+        test_value = (returns.index.min() + pd.DateOffset(months=6)).strftime("%Y-%m-%d")
         required_context["date_mode"] = "explicit"
     if key == "end_date":
-        test_value = (returns.index.max() - pd.DateOffset(months=6)).strftime(
-            "%Y-%m-%d"
-        )
+        test_value = (returns.index.max() - pd.DateOffset(months=6)).strftime("%Y-%m-%d")
         required_context["date_mode"] = "explicit"
     if key == "trend_min_periods":
         test_value = 10 if base_value in (None, "", 0) else None
@@ -486,9 +479,7 @@ def _mean_turnover(turnover: pd.Series) -> float:
     return float(turnover.abs().mean())
 
 
-def _sign_flip_test(
-    diff: pd.Series, *, seed: int = 42, iterations: int = 1000
-) -> float:
+def _sign_flip_test(diff: pd.Series, *, seed: int = 42, iterations: int = 1000) -> float:
     if diff.empty or len(diff) < 3:
         return math.nan
     rng = np.random.default_rng(seed)
@@ -599,8 +590,7 @@ def _evaluate_setting(
     vol_diff = float(test_summary["volatility"] - base_summary["volatility"])
     max_dd_diff = float(test_summary["max_drawdown"] - base_summary["max_drawdown"])
     turnover_diff = float(
-        _mean_turnover(test_summary["turnover"])
-        - _mean_turnover(base_summary["turnover"])
+        _mean_turnover(test_summary["turnover"]) - _mean_turnover(base_summary["turnover"])
     )
     cost_diff = float(
         test_summary.get("costs", {}).get("turnover_applied", 0.0)
@@ -640,9 +630,7 @@ def _evaluate_setting(
         and abs(return_mean_diff) > 1.0e-4
     )
 
-    reporting_only = setting.startswith(REPORTING_ONLY_PREFIXES) or (
-        setting in REPORTING_ONLY_KEYS
-    )
+    reporting_only = setting.startswith(REPORTING_ONLY_PREFIXES) or (setting in REPORTING_ONLY_KEYS)
 
     if reporting_only:
         status = "NO_EFFECT"
@@ -713,9 +701,7 @@ def _write_outputs(
         if res.status in ("EFFECTIVE", "MODE_SPECIFIC"):
             category_stats[category]["effective"] += 1
     total = len(results)
-    effective = status_counts.get("EFFECTIVE", 0) + status_counts.get(
-        "MODE_SPECIFIC", 0
-    )
+    effective = status_counts.get("EFFECTIVE", 0) + status_counts.get("MODE_SPECIFIC", 0)
     effectiveness_rate = effective / total if total else 0.0
 
     by_category = {
@@ -881,9 +867,7 @@ def main() -> int:
     results: list[SettingResult] = []
     cache: dict[str, Any] = {}
     for setting in settings:
-        result = _evaluate_setting(
-            setting, baseline_state, returns, cache, args.benchmark
-        )
+        result = _evaluate_setting(setting, baseline_state, returns, cache, args.benchmark)
         results.append(result)
 
     _write_outputs(

@@ -102,9 +102,7 @@ def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
     trend_spec = bindings.build_trend_spec(cfg, vol_adjust)
     lambda_tc_val = bindings.section_get(portfolio_cfg, "lambda_tc", 0.0)
     risk_free_column = bindings.section_get(data_settings, "risk_free_column")
-    allow_risk_free_fallback = bindings.section_get(
-        data_settings, "allow_risk_free_fallback"
-    )
+    allow_risk_free_fallback = bindings.section_get(data_settings, "allow_risk_free_fallback")
 
     diag_res = bindings.invoke_analysis_with_diag(
         df,
@@ -159,11 +157,7 @@ def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
     for label, ir_map in res.get("benchmark_ir", {}).items():
         col = f"ir_{label}"
         df[col] = pd.Series(
-            {
-                k: v
-                for k, v in ir_map.items()
-                if k not in {"equal_weight", "user_weight"}
-            }
+            {k: v for k, v in ir_map.items() if k not in {"equal_weight", "user_weight"}}
         )
     if diag:
         df.attrs["diagnostic"] = diag
@@ -240,9 +234,7 @@ def run_full_from_config(cfg: Any, *, bindings: ConfigBindings) -> PipelineResul
     trend_spec = bindings.build_trend_spec(cfg, vol_adjust)
     lambda_tc_val = bindings.section_get(portfolio_cfg, "lambda_tc", 0.0)
     risk_free_column = bindings.section_get(data_settings, "risk_free_column")
-    allow_risk_free_fallback = bindings.section_get(
-        data_settings, "allow_risk_free_fallback"
-    )
+    allow_risk_free_fallback = bindings.section_get(data_settings, "allow_risk_free_fallback")
 
     diag_res = bindings.invoke_analysis_with_diag(
         df,

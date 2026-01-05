@@ -38,9 +38,7 @@ def test_main_uses_default_export_targets(monkeypatch):
 
     monkeypatch.setattr(run_multi_analysis, "load", lambda path: stub_cfg)
     monkeypatch.setattr(run_multi_analysis, "run_mp", lambda cfg: results)
-    monkeypatch.setattr(
-        run_multi_analysis.export, "export_phase1_multi_metrics", fake_export
-    )
+    monkeypatch.setattr(run_multi_analysis.export, "export_phase1_multi_metrics", fake_export)
 
     exit_code = run_multi_analysis.main(["-c", "demo.yml"])
 

@@ -46,9 +46,7 @@ def _metadata_with_warnings() -> MarketDataMetadata:
         missing_policy="drop",
         missing_policy_overrides={"FundA": "ffill"},
         missing_policy_limits={"FundA": 2},
-        missing_policy_filled={
-            "FundA": MissingPolicyFillDetails(method="ffill", count=3)
-        },
+        missing_policy_filled={"FundA": MissingPolicyFillDetails(method="ffill", count=3)},
         missing_policy_dropped=["FundC"],
         missing_policy_summary="ffill applied to FundA; FundC dropped",
     )
@@ -105,9 +103,7 @@ def test_build_result_propagates_metadata() -> None:
 
 def test_validation_summary_handles_clean_dataset() -> None:
     metadata = _metadata_without_warnings()
-    frame = pd.DataFrame(
-        {"FundA": [0.01] * metadata.rows, "FundB": [0.02] * metadata.rows}
-    )
+    frame = pd.DataFrame({"FundA": [0.01] * metadata.rows, "FundB": [0.02] * metadata.rows})
     summary = _ValidationSummary(metadata, frame)
     assert summary.warnings() == []
 
@@ -245,9 +241,7 @@ def test_read_uploaded_file_propagates_file_errors(
         _read_uploaded_file(stream)
 
 
-def test_read_uploaded_file_path_failures(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_read_uploaded_file_path_failures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     csv_path = tmp_path / "invalid.csv"
     csv_path.write_text("bad")
 
@@ -302,13 +296,11 @@ def test_load_and_validate_upload_returns_metadata(
         assert source == "uploaded.csv"
         return ValidatedMarketData(frame=data.set_index("Date"), metadata=metadata)
 
-    monkeypatch.setattr(
-        "trend_analysis.io.validators.validate_market_data", fake_validate
-    )
+    monkeypatch.setattr("trend_analysis.io.validators.validate_market_data", fake_validate)
 
     loaded_frame, meta = load_and_validate_upload("dummy")
     assert isinstance(meta["validation"], ValidationResult)
-    assert meta["metadata"] is metadata
+    assert meta["metadata"] == metadata.model_dump(mode="json")
     assert meta["mode"] == metadata.mode.value
     assert list(meta["original_columns"]) == metadata.columns
     assert loaded_frame.index.name == "Date"
@@ -333,9 +325,7 @@ def test_load_and_validate_upload_reraises_market_data_error(
     def raise_error(*args: Any, **kwargs: Any) -> Any:
         raise error
 
-    monkeypatch.setattr(
-        "trend_analysis.io.validators.validate_market_data", raise_error
-    )
+    monkeypatch.setattr("trend_analysis.io.validators.validate_market_data", raise_error)
 
     with pytest.raises(MarketDataValidationError) as excinfo:
         load_and_validate_upload(csv)
@@ -371,9 +361,7 @@ def test_validation_result_report_includes_metadata() -> None:
 def test_validation_result_report_omits_optional_metadata() -> None:
     """Ensure optional fields are skipped when absent."""
 
-    result = ValidationResult(
-        True, [], [], frequency=None, date_range=None, metadata=None
-    )
+    result = ValidationResult(True, [], [], frequency=None, date_range=None, metadata=None)
     report = result.get_report()
     assert "✅ Schema validation passed" in report
     assert "Detected frequency" not in report
@@ -441,9 +429,7 @@ def test_validate_returns_schema_handles_failure(
     def raise_error(_df: Any) -> Any:
         raise error
 
-    monkeypatch.setattr(
-        "trend_analysis.io.validators.validate_market_data", raise_error
-    )
+    monkeypatch.setattr("trend_analysis.io.validators.validate_market_data", raise_error)
 
     result = validate_returns_schema(df)
     assert not result.is_valid

@@ -34,9 +34,7 @@ class SequenceWeighting:
         # not need to adjust any internal state here.
         pass
 
-    def weight(
-        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
-    ) -> pd.DataFrame:
+    def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
         del date
         weights = self.sequences[self._idx]
         self._idx += 1
@@ -65,9 +63,7 @@ def test_run_schedule_turnover_debug_validation(
 
     monkeypatch.setenv("DEBUG_TURNOVER_VALIDATE", "1")
     try:
-        portfolio = run_schedule(
-            score_frames, selector, weighting, rank_column="Sharpe"
-        )
+        portfolio = run_schedule(score_frames, selector, weighting, rank_column="Sharpe")
 
         # Ensure the debug validator populated history and turnover for each period.
         assert isinstance(portfolio, Portfolio)

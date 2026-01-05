@@ -80,17 +80,13 @@ def test_main_exports_all_formats_and_respects_missing_policy(
 
     monkeypatch.setattr(run_analysis, "load_csv", fake_load_csv)
 
-    def fake_run_simulation(
-        config: SimpleNamespace, frame: pd.DataFrame
-    ) -> SimpleNamespace:
+    def fake_run_simulation(config: SimpleNamespace, frame: pd.DataFrame) -> SimpleNamespace:
         assert config is cfg
         assert list(frame.columns) == ["Value"]
         return SimpleNamespace(
             metrics=pd.DataFrame({"Sharpe": [1.23]}),
             details={
-                "performance_by_regime": pd.DataFrame(
-                    {"regime": ["bull"], "value": [1.0]}
-                ),
+                "performance_by_regime": pd.DataFrame({"regime": ["bull"], "value": [1.0]}),
                 "regime_notes": ("outperformed",),
             },
         )
@@ -117,9 +113,7 @@ def test_main_exports_all_formats_and_respects_missing_policy(
 
     export_calls: list[tuple[str, Path | tuple[str, ...]]] = []
 
-    def record_export_to_excel(
-        data: dict[str, Any], target: str, **kwargs: Any
-    ) -> None:
+    def record_export_to_excel(data: dict[str, Any], target: str, **kwargs: Any) -> None:
         export_calls.append(("excel", Path(target)))
         assert "summary" in data
         assert "performance_by_regime" in data
@@ -231,9 +225,7 @@ def test_main_detailed_flag_prints_metrics(
     assert "Return" in output and "0.5" in output
 
 
-def test_main_raises_when_csv_missing(
-    monkeypatch: pytest.MonkeyPatch, config_dir: Path
-) -> None:
+def test_main_raises_when_csv_missing(monkeypatch: pytest.MonkeyPatch, config_dir: Path) -> None:
     cfg = _make_config(config_dir, data_overrides={})
     cfg.data.pop("csv_path")
     monkeypatch.setattr(run_analysis, "load", lambda _: cfg)

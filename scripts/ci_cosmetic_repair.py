@@ -91,9 +91,7 @@ def _run(
     return result
 
 
-def run_pytest(
-    report_path: Path, pytest_args: Sequence[str]
-) -> subprocess.CompletedProcess[str]:
+def run_pytest(report_path: Path, pytest_args: Sequence[str]) -> subprocess.CompletedProcess[str]:
     cmd = [
         sys.executable,
         "-m",
@@ -122,9 +120,7 @@ def parse_failure_message(message: str, *, source: str) -> list[RepairInstructio
     return instructions
 
 
-def build_instruction(
-    kind: str, data: dict[str, object], *, source: str
-) -> RepairInstruction:
+def build_instruction(kind: str, data: dict[str, object], *, source: str) -> RepairInstruction:
     path_raw = data.get("path")
     if not isinstance(path_raw, str) or not path_raw:
         raise CosmeticRepairError(f"Missing target path in {source} ({kind})")
@@ -149,9 +145,7 @@ def build_instruction(
     if kind == "COSMETIC_SNAPSHOT":
         replacement = data.get("replacement")
         if not isinstance(replacement, str):
-            raise CosmeticRepairError(
-                f"Snapshot repair requires string replacement ({source})"
-            )
+            raise CosmeticRepairError(f"Snapshot repair requires string replacement ({source})")
         return RepairInstruction(
             kind="snapshot",
             path=Path(path_raw),
@@ -197,9 +191,7 @@ def load_failure_records(report_path: Path) -> list[FailureRecord]:
     runtime_entries = summary.get("runtime", [])
     unknown_entries = summary.get("unknown", [])
     if runtime_entries or unknown_entries:
-        raise CosmeticRepairError(
-            "Cosmetic repair only supports reports with cosmetic failures"
-        )
+        raise CosmeticRepairError("Cosmetic repair only supports reports with cosmetic failures")
     records: list[FailureRecord] = []
     for item in cosmetic_entries:
         records.append(
@@ -227,9 +219,7 @@ _FLOAT_GUARD_PATTERN = re.compile(
 )
 
 
-def apply_tolerance_update(
-    path: Path, *, guard: str, key: str | None, value: str
-) -> bool:
+def apply_tolerance_update(path: Path, *, guard: str, key: str | None, value: str) -> bool:
     guard_token = f"{GUARD_PREFIX} {guard}"
     if key:
         guard_token = f"{guard_token} {key}"
@@ -259,9 +249,7 @@ def apply_tolerance_update(
     return changed
 
 
-def apply_snapshot_update(
-    path: Path, *, guard: str, key: str | None, replacement: str
-) -> bool:
+def apply_snapshot_update(path: Path, *, guard: str, key: str | None, replacement: str) -> bool:
     guard_token = f"{GUARD_PREFIX} {guard}"
     if key:
         guard_token = f"{guard_token} {key}"
@@ -272,9 +260,7 @@ def apply_snapshot_update(
     return True
 
 
-def apply_instructions(
-    instructions: Sequence[RepairInstruction], *, root: Path
-) -> list[Path]:
+def apply_instructions(instructions: Sequence[RepairInstruction], *, root: Path) -> list[Path]:
     changed: list[Path] = []
     for instruction in instructions:
         target = instruction.absolute_path(root)
@@ -386,9 +372,7 @@ def write_summary(root: Path, payload: dict[str, object]) -> None:
         **payload,
         "timestamp": timestamp,
     }
-    summary_path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    summary_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def build_pr_body(
@@ -430,9 +414,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Existing JUnit report to analyse instead of running pytest",
     )
-    parser.add_argument(
-        "--root", type=Path, default=ROOT, help="Repository root (tests only)"
-    )
+    parser.add_argument("--root", type=Path, default=ROOT, help="Repository root (tests only)")
     parser.add_argument(
         "--base",
         type=str,
@@ -489,9 +471,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "pytest_returncode": pytest_result.returncode,
                 },
             )
-            raise CosmeticRepairError(
-                "pytest failed but no cosmetic instructions were detected"
-            )
+            raise CosmeticRepairError("pytest failed but no cosmetic instructions were detected")
         print("No cosmetic repairs detected.")
         write_summary(
             ns.root,
@@ -543,9 +523,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "mode": mode,
                 "report": str(report_path),
                 "instructions": _serialise_instructions(instructions),
-                "changed_files": [
-                    str(path.relative_to(ns.root)) for path in changed_paths
-                ],
+                "changed_files": [str(path.relative_to(ns.root)) for path in changed_paths],
             },
         )
         return 0

@@ -79,9 +79,7 @@ def test_autofix_pipeline_fixes_trivial_ruff_issue(
     assert "return a + b" in content
 
 
-def test_auto_type_hygiene_adds_ignore(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_auto_type_hygiene_adds_ignore(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     sample = tmp_path / "module.py"
     sample.write_text("import untyped_mod\n", encoding="utf-8")
 

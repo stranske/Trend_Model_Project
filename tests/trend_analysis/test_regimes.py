@@ -190,22 +190,16 @@ def test_compute_regime_series_handles_zero_periods() -> None:
         smoothing=1,
         cache=False,
     )
-    labels = regimes._compute_regime_series(
-        proxy, settings, freq="B", periods_per_year=0
-    )
+    labels = regimes._compute_regime_series(proxy, settings, freq="B", periods_per_year=0)
     assert isinstance(labels, pd.Series)
 
 
 def test_compute_regime_series_handles_edge_cases() -> None:
     empty = pd.Series(dtype=float)
     settings = regimes.RegimeSettings(enabled=True)
-    assert regimes._compute_regime_series(
-        empty, settings, freq="D", periods_per_year=None
-    ).empty
+    assert regimes._compute_regime_series(empty, settings, freq="D", periods_per_year=None).empty
 
-    nan_series = pd.Series(
-        [np.nan, np.nan], index=pd.date_range("2022-01-01", periods=2)
-    )
+    nan_series = pd.Series([np.nan, np.nan], index=pd.date_range("2022-01-01", periods=2))
     assert regimes._compute_regime_series(
         nan_series, settings, freq="D", periods_per_year=None
     ).empty
@@ -221,9 +215,7 @@ def test_compute_regime_series_respects_neutral_band_and_history() -> None:
         neutral_band=0.0,
         cache=False,
     )
-    labels = regimes._compute_regime_series(
-        proxy, settings, freq="D", periods_per_year=0
-    )
+    labels = regimes._compute_regime_series(proxy, settings, freq="D", periods_per_year=0)
     # Insufficient history returns the pre-filled labels.
     assert (labels == settings.default_label).all()
 
@@ -331,9 +323,7 @@ def test_aggregate_performance_by_regime_builds_metrics() -> None:
 
 def test_aggregate_performance_deduplicates_notes() -> None:
     dates = pd.date_range("2021-01-01", periods=3, freq="ME")
-    regimes_series = pd.Series(
-        ["Risk-On", "Risk-Off", "Risk-On"], index=dates, dtype="string"
-    )
+    regimes_series = pd.Series(["Risk-On", "Risk-Off", "Risk-On"], index=dates, dtype="string")
     returns_map = {
         "Alpha": pd.Series([0.01, 0.02], index=dates[:2]),
         "Beta": pd.Series([0.03, 0.04], index=dates[:2]),
@@ -476,12 +466,8 @@ def test_build_regime_payload_covers_branching(
 
 def test_build_regime_payload_summary_fallback() -> None:
     dates = pd.date_range("2020-01-01", periods=6, freq="ME")
-    data = pd.DataFrame(
-        {"Date": dates, "Proxy": [0.01, -0.02, 0.03, -0.01, 0.02, -0.03]}
-    )
-    returns_map = {
-        "Alpha": pd.Series([0.01, -0.01, 0.02, -0.02, 0.01, -0.01], index=dates)
-    }
+    data = pd.DataFrame({"Date": dates, "Proxy": [0.01, -0.02, 0.03, -0.01, 0.02, -0.03]})
+    returns_map = {"Alpha": pd.Series([0.01, -0.01, 0.02, -0.02, 0.01, -0.01], index=dates)}
     config = {
         "enabled": True,
         "proxy": "Proxy",
@@ -510,9 +496,7 @@ def test_build_regime_payload_handles_gap_notes(
 ) -> None:
     dates = pd.date_range("2020-01-01", periods=4, freq="ME")
     data = pd.DataFrame({"Date": dates, "Proxy": np.linspace(-0.01, 0.02, len(dates))})
-    returns_map = {
-        "Portfolio": pd.Series(np.linspace(0.0, 0.03, len(dates)), index=dates)
-    }
+    returns_map = {"Portfolio": pd.Series(np.linspace(0.0, 0.03, len(dates)), index=dates)}
     config = {
         "enabled": True,
         "proxy": "Proxy",
@@ -601,9 +585,7 @@ def test_build_regime_payload_generates_summary(
     monkeypatch.setattr(
         regimes,
         "compute_regimes",
-        lambda *args, **kwargs: pd.Series(
-            ["Risk-On"] * len(dates), index=dates, dtype="string"
-        ),
+        lambda *args, **kwargs: pd.Series(["Risk-On"] * len(dates), index=dates, dtype="string"),
     )
     monkeypatch.setattr(
         regimes,
@@ -641,9 +623,7 @@ def test_build_regime_payload_no_notes(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         regimes,
         "compute_regimes",
-        lambda *args, **kwargs: pd.Series(
-            ["Risk-On"] * len(dates), index=dates, dtype="string"
-        ),
+        lambda *args, **kwargs: pd.Series(["Risk-On"] * len(dates), index=dates, dtype="string"),
     )
     monkeypatch.setattr(
         regimes,

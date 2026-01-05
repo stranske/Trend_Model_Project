@@ -98,9 +98,7 @@ def detect_default_branch(explicit: Optional[str] = None) -> str:
         return current[len("refs/heads/") :]
     if current:
         return current
-    raise MigrationError(
-        "unable to determine default branch; pass --default explicitly"
-    )
+    raise MigrationError("unable to determine default branch; pass --default explicitly")
 
 
 def load_ledger(path: Path) -> tuple[dict, Optional[str]]:
@@ -149,9 +147,7 @@ def discover_ledgers(root: Path) -> List[Path]:
 
 
 def main(argv: Optional[Iterable[str]] = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Update ledger base branch to repository default"
-    )
+    parser = argparse.ArgumentParser(description="Update ledger base branch to repository default")
     parser.add_argument(
         "--check",
         action="store_true",

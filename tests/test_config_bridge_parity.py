@@ -38,9 +38,7 @@ def test_config_bridge_payload_types_match(tmp_path: Path) -> None:
     assert type(payload_streamlit) is type(payload_core)
     assert payload_streamlit == payload_core
 
-    validated_core, error_core = core_bridge.validate_payload(
-        payload_core, base_path=tmp_path
-    )
+    validated_core, error_core = core_bridge.validate_payload(payload_core, base_path=tmp_path)
     validated_streamlit, error_streamlit = streamlit_bridge.validate_payload(
         payload_streamlit, base_path=tmp_path
     )
