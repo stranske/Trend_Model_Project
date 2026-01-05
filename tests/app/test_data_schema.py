@@ -136,6 +136,9 @@ def test_load_and_validate_file_sanitizes_headers_and_builds_meta(
                     ),
                     "start": pd.Timestamp("2020-01-01"),
                     "end": pd.Timestamp("2020-01-31"),
+                    "model_dump": lambda self, mode=None: {
+                        k: getattr(self, k) for k in ["columns", "symbols", "rows", "mode", "frequency_label", "frequency", "frequency_detected", "frequency_missing_periods", "frequency_max_gap_periods", "frequency_tolerance_periods", "missing_policy", "missing_policy_limit", "missing_policy_summary", "missing_policy_filled", "missing_policy_dropped", "date_range", "start", "end"]
+                    },
                 },
             )()
 

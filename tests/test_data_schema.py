@@ -30,7 +30,7 @@ def test_validate_df_basic():
     assert list(df.index) == expected
     assert meta["original_columns"] == ["A", "B"]
     assert meta["n_rows"] == 2
-    assert meta["metadata"].mode == MarketDataMode.RETURNS
+    assert meta["metadata"]["mode"] == "returns"
     assert meta["frequency"] in {"monthly", "31D"}
     assert meta["frequency_code"] in {"M", "31D"}
     assert meta["symbols"] == ["A", "B"]
@@ -64,7 +64,7 @@ def test_load_and_validate_file_excel(tmp_path):
     df2, meta = load_and_validate_file(buf)
     assert DATE_COL not in df2.columns
     assert meta["n_rows"] == 2
-    assert meta["metadata"].mode == MarketDataMode.RETURNS
+    assert meta["metadata"]["mode"] == "returns"
     assert meta["validation"]["issues"] == []
 
 
