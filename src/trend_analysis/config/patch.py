@@ -12,9 +12,7 @@ from typing import Any, Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-_DOTPATH_RE = re.compile(
-    r"^[A-Za-z0-9_-]+(\[\d+\])*(\.[A-Za-z0-9_-]+(\[\d+\])*)*$"
-)
+_DOTPATH_RE = re.compile(r"^[A-Za-z0-9_-]+(\[\d+\])*(\.[A-Za-z0-9_-]+(\[\d+\])*)*$")
 _JSON_POINTER_RE = re.compile(r"^(/[^/\s]+)+$")
 
 _VOL_TARGET_RISK_THRESHOLD = 0.15

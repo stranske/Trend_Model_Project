@@ -95,9 +95,7 @@ def test_apply_config_patch_set_list_index_creates_list() -> None:
         summary="Set list item",
     )
     updated = apply_config_patch({}, patch)
-    assert updated == {
-        "portfolio": {"constraints": {"position_limits": [{"max_weight": 0.1}]}}
-    }
+    assert updated == {"portfolio": {"constraints": {"position_limits": [{"max_weight": 0.1}]}}}
 
 
 def test_apply_config_patch_remove_list_index_noop_when_out_of_range() -> None:
@@ -111,9 +109,7 @@ def test_apply_config_patch_remove_list_index_noop_when_out_of_range() -> None:
 
 def test_apply_config_patch_set_json_pointer_path() -> None:
     patch = ConfigPatch(
-        operations=[
-            PatchOperation(op="set", path="/portfolio/constraints/max_weight", value=0.05)
-        ],
+        operations=[PatchOperation(op="set", path="/portfolio/constraints/max_weight", value=0.05)],
         summary="Set using pointer",
     )
     updated = apply_config_patch({}, patch)
