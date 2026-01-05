@@ -17,7 +17,8 @@ _DEFAULT_SCHEMA_PATH = proj_path() / "config.schema.json"
 def load_schema(schema_path: Path = _DEFAULT_SCHEMA_PATH) -> dict[str, Any]:
     """Load the JSON schema from disk."""
 
-    return json.loads(schema_path.read_text(encoding="utf-8"))
+    result: dict[str, Any] = json.loads(schema_path.read_text(encoding="utf-8"))
+    return result
 
 
 def load_config(config_path: Path) -> dict[str, Any]:

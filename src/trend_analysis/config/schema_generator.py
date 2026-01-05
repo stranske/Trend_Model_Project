@@ -398,7 +398,7 @@ def generate_schema(
 
     samples = gather_samples(configs)
 
-    schema = {
+    schema: dict[str, Any] = {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "title": "Trend Model configuration",
         "type": "object",
@@ -407,8 +407,9 @@ def generate_schema(
         "properties": {},
         "default": merged,
     }
+    properties_dict: dict[str, Any] = schema["properties"]  # type: ignore[assignment]
     for key, value in merged.items():
-        schema["properties"][key] = build_schema(
+        properties_dict[key] = build_schema(
             value,
             path=[key],
             comment_map=comment_map,
