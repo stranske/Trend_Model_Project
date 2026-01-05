@@ -47,9 +47,7 @@ def test_apply_trend_preset_updates_config():
     assert cfg.run["trend_preset"] == "aggressive"
 
 
-def test_env_override_directory_precedence(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_env_override_directory_precedence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     override_dir = tmp_path / "override"
     override_dir.mkdir()
     yaml_content = dedent(

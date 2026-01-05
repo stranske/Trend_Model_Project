@@ -12,9 +12,7 @@ from trend_analysis import presets
 
 
 @pytest.fixture
-def preset_environment(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> tuple[Path, Path]:
+def preset_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
     base_dir = tmp_path / "primary"
     base_dir.mkdir()
     env_dir = tmp_path / "env"

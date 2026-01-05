@@ -30,7 +30,7 @@ def test_validate_df_basic():
     assert list(df.index) == expected
     assert meta["original_columns"] == ["A", "B"]
     assert meta["n_rows"] == 2
-    assert meta["metadata"].mode == MarketDataMode.RETURNS
+    assert meta["metadata"]["mode"] == "returns"
     assert meta["frequency"] in {"monthly", "31D"}
     assert meta["frequency_code"] in {"M", "31D"}
     assert meta["symbols"] == ["A", "B"]
@@ -64,7 +64,7 @@ def test_load_and_validate_file_excel(tmp_path):
     df2, meta = load_and_validate_file(buf)
     assert DATE_COL not in df2.columns
     assert meta["n_rows"] == 2
-    assert meta["metadata"].mode == MarketDataMode.RETURNS
+    assert meta["metadata"]["mode"] == "returns"
     assert meta["validation"]["issues"] == []
 
 
@@ -153,17 +153,13 @@ def test_build_meta_populates_warnings_and_metadata_fields():
         missing_policy_limit=1,
         missing_policy_summary="dropped missing",
         missing_policy_dropped=["Index"],
-        missing_policy_filled={
-            "=Bad": MissingPolicyFillDetails(method="ffill", count=1)
-        },
+        missing_policy_filled={"=Bad": MissingPolicyFillDetails(method="ffill", count=1)},
     )
     validated = ValidatedMarketData(
         pd.DataFrame({"=Bad": [1, None, None, None, None], "Index": [None] * 5}),
         metadata,
     )
-    meta = _build_meta(
-        validated, sanitized_columns=[{"original": "=Bad", "sanitized": "Bad"}]
-    )
+    meta = _build_meta(validated, sanitized_columns=[{"original": "=Bad", "sanitized": "Bad"}])
 
     warnings = meta["validation"]["warnings"]
     assert any("Dataset is quite small" in warning for warning in warnings)

@@ -5,9 +5,7 @@ from trend_portfolio_app.sim_runner import Simulator
 
 
 def test_simulator_smoke():
-    idx = pd.period_range(start="2019-01", end="2020-12", freq="M").to_timestamp(
-        how="end"
-    )
+    idx = pd.period_range(start="2019-01", end="2020-12", freq="M").to_timestamp(how="end")
     df = pd.DataFrame(
         {
             "A": np.random.normal(0.01, 0.05, len(idx)),
@@ -21,7 +19,5 @@ def test_simulator_smoke():
     policy = PolicyConfig(
         top_k=1, bottom_k=0, min_track_months=6, metrics=[MetricSpec("sharpe", 1.0)]
     )
-    res = sim.run(
-        start=idx[6], end=idx[-2], freq="ME", lookback_months=6, policy=policy
-    )
+    res = sim.run(start=idx[6], end=idx[-2], freq="ME", lookback_months=6, policy=policy)
     assert len(res.portfolio) > 0

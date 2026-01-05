@@ -147,9 +147,7 @@ def coerce_pipeline_result(
         return result.value, result.diagnostic
 
     diagnostic_attr = getattr(result, "diagnostic", None)
-    if diagnostic_attr is not None and not isinstance(
-        diagnostic_attr, DiagnosticPayload
-    ):
+    if diagnostic_attr is not None and not isinstance(diagnostic_attr, DiagnosticPayload):
         raise TypeError(
             "Pipeline diagnostics must be DiagnosticPayload instances; received "
             f"{type(diagnostic_attr)!r}"
@@ -169,9 +167,7 @@ def coerce_pipeline_result(
         return None, diagnostic
 
     if not isinstance(payload, Mapping):
-        raise TypeError(
-            f"Pipeline outputs must be mapping-like; received {type(payload)!r}"
-        )
+        raise TypeError(f"Pipeline outputs must be mapping-like; received {type(payload)!r}")
 
     if isinstance(payload, dict):
         return payload, diagnostic

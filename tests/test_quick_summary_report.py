@@ -12,9 +12,7 @@ def _write_run_artifacts(base_dir: Path, run_id: str) -> Path:
     run_dir = base_dir / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    metrics = pd.DataFrame(
-        {"Sharpe": [0.82, 0.74], "CAGR": [0.11, 0.09]}, index=["FundA", "FundB"]
-    )
+    metrics = pd.DataFrame({"Sharpe": [0.82, 0.74], "CAGR": [0.11, 0.09]}, index=["FundA", "FundB"])
     metrics.to_csv(run_dir / f"metrics_{run_id}.csv")
 
     summary_text = "Run complete\nOut-of-sample delivered 11% CAGR."
@@ -39,9 +37,7 @@ def _write_run_artifacts(base_dir: Path, run_id: str) -> Path:
             "values": [[0.12, 0.14], [0.15, 0.18]],
         },
     }
-    (run_dir / f"details_{run_id}.json").write_text(
-        json.dumps(details), encoding="utf-8"
-    )
+    (run_dir / f"details_{run_id}.json").write_text(json.dumps(details), encoding="utf-8")
     return run_dir
 
 
@@ -78,9 +74,7 @@ def test_cli_infers_run_id_and_handles_missing_sections(tmp_path: Path) -> None:
     metrics = pd.DataFrame({"Sharpe": [0.5]}, index=["FundA"])
     metrics.to_csv(run_dir / f"metrics_{run_id}.csv")
     details = {"portfolio_equal_weight_combined": {"2022-01-31": 0.01}}
-    (run_dir / f"details_{run_id}.json").write_text(
-        json.dumps(details), encoding="utf-8"
-    )
+    (run_dir / f"details_{run_id}.json").write_text(json.dumps(details), encoding="utf-8")
 
     exit_code = main(["--artifacts", str(run_dir), "--base-dir", str(base_dir)])
     assert exit_code == 0

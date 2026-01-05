@@ -16,9 +16,7 @@ from pathlib import Path
 
 def main() -> int:
     allowed = {
-        p.strip()
-        for p in os.environ.get("TRUSTED_CONFIG_PATHS", "").splitlines()
-        if p.strip()
+        p.strip() for p in os.environ.get("TRUSTED_CONFIG_PATHS", "").splitlines() if p.strip()
     }
     if not allowed:
         print("::error::No trusted config paths defined", file=sys.stderr)
@@ -47,8 +45,7 @@ def main() -> int:
         )
     if extra:
         print(
-            "::error::Unexpected file(s) in trusted config checkout: "
-            + ", ".join(extra),
+            "::error::Unexpected file(s) in trusted config checkout: " + ", ".join(extra),
             file=sys.stderr,
         )
     if missing or extra:

@@ -68,9 +68,7 @@ def test_derive_split_from_periods_handles_ratio_and_date() -> None:
         periods, method="date", boundary=pd.Period("2020-03", freq="M"), ratio=0.5
     )
     assert result["in_end"] == "2020-03"
-    fallback = _derive_split_from_periods(
-        periods, method="ratio", boundary=None, ratio=0.2
-    )
+    fallback = _derive_split_from_periods(periods, method="ratio", boundary=None, ratio=0.2)
     assert fallback["in_end"] == "2020-01"
 
 

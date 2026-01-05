@@ -27,9 +27,7 @@ def test_reporting_fallback_handles_missing_dependency():
         module = importlib.reload(reporting)
 
     try:
-        artifact = module.ReportArtifacts(
-            html="<h1>", pdf_bytes=None, context={"key": "value"}
-        )
+        artifact = module.ReportArtifacts(html="<h1>", pdf_bytes=None, context={"key": "value"})
         assert artifact.html == "<h1>"
         assert artifact.pdf_bytes is None
         assert artifact.context == {"key": "value"}

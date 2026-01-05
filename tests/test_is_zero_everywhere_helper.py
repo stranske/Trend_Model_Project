@@ -24,9 +24,7 @@ class TestIsZeroEverywhere:
 
         # Test edge cases with numerical tolerance
         assert _is_zero_everywhere(1e-16) is True  # Within tolerance, treated as zero
-        assert (
-            _is_zero_everywhere(1e-13) is False
-        )  # Outside default tolerance, not zero
+        assert _is_zero_everywhere(1e-13) is False  # Outside default tolerance, not zero
         # The tolerance can be overridden for scalar comparisons
         assert _is_zero_everywhere(1e-13, tol=1e-12) is True
 

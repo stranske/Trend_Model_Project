@@ -37,9 +37,7 @@ class RiskParity(WeightEngine):
 
         # Check for numerical issues
         if np.any(~np.isfinite(inv)):
-            logger.warning(
-                "Non-finite inverse volatilities detected, using equal weights"
-            )
+            logger.warning("Non-finite inverse volatilities detected, using equal weights")
             n = len(cov)
             return pd.Series(np.ones(n) / n, index=cov.index, dtype=float)
 

@@ -51,9 +51,7 @@ def _normalize_allow_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
     return {"code": str(code), "path": str(path) if path else None}
 
 
-def classify(
-    diagnostics: List[Dict[str, Any]], allow: List[Dict[str, Any]]
-) -> Dict[str, Any]:
+def classify(diagnostics: List[Dict[str, Any]], allow: List[Dict[str, Any]]) -> Dict[str, Any]:
     # Build lookup sets
     codes_global = {a["code"] for a in allow if a["path"] is None}
     code_path_pairs = {(a["code"], a["path"]) for a in allow if a["path"] is not None}

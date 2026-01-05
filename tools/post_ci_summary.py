@@ -59,10 +59,7 @@ REQUIRED_CONTEXTS_PATH = Path(".github/config/required-contexts.json")
 def _copy_required_groups(
     groups: Sequence[RequiredJobGroup],
 ) -> List[RequiredJobGroup]:
-    return [
-        {"label": group["label"], "patterns": list(group["patterns"])}
-        for group in groups
-    ]
+    return [{"label": group["label"], "patterns": list(group["patterns"])} for group in groups]
 
 
 def _badge(state: str | None) -> str:
@@ -237,10 +234,7 @@ def _collect_category_states(
         if not isinstance(run, Mapping) or not run.get("present"):
             continue
         display = str(
-            run.get("displayName")
-            or run.get("display_name")
-            or run.get("key")
-            or "workflow"
+            run.get("displayName") or run.get("display_name") or run.get("key") or "workflow"
         )
         jobs = run.get("jobs")
         if not isinstance(jobs, Sequence):
@@ -308,11 +302,7 @@ def _load_required_groups(
             continue
         label = str(item.get("label") or item.get("name") or "").strip()
         patterns = item.get("patterns")
-        if (
-            not label
-            or not isinstance(patterns, Sequence)
-            or isinstance(patterns, (str, bytes))
-        ):
+        if not label or not isinstance(patterns, Sequence) or isinstance(patterns, (str, bytes)):
             continue
         cleaned: List[str] = [p for p in patterns if isinstance(p, str) and p]
         if not cleaned:
@@ -329,9 +319,7 @@ def _load_required_groups(
 def _load_required_contexts(
     config_path: str | os.PathLike[str] | None = None,
 ) -> List[str]:
-    candidate = Path(
-        config_path or os.getenv("REQUIRED_CONTEXTS_FILE") or REQUIRED_CONTEXTS_PATH
-    )
+    candidate = Path(config_path or os.getenv("REQUIRED_CONTEXTS_FILE") or REQUIRED_CONTEXTS_PATH)
     try:
         payload = json.loads(candidate.read_text(encoding="utf-8"))
     except FileNotFoundError:
@@ -345,9 +333,7 @@ def _load_required_contexts(
         contexts_value = payload
 
     contexts: List[str] = []
-    if isinstance(contexts_value, Iterable) and not isinstance(
-        contexts_value, (str, bytes)
-    ):
+    if isinstance(contexts_value, Iterable) and not isinstance(contexts_value, (str, bytes)):
         for item in contexts_value:
             if isinstance(item, str):
                 value = item.strip()
@@ -395,13 +381,9 @@ def _dedupe_runs(runs: Sequence[Mapping[str, object]]) -> List[Mapping[str, obje
             existing_state_value = existing.get("conclusion") or existing.get("status")
             candidate_state_value = run.get("conclusion") or run.get("status")
 
-            existing_state = (
-                str(existing_state_value) if existing_state_value is not None else None
-            )
+            existing_state = str(existing_state_value) if existing_state_value is not None else None
             candidate_state = (
-                str(candidate_state_value)
-                if candidate_state_value is not None
-                else None
+                str(candidate_state_value) if candidate_state_value is not None else None
             )
 
             if (candidate_state and not existing_state) or (
@@ -421,10 +403,7 @@ def _build_job_rows(runs: Sequence[Mapping[str, object]]) -> List[JobRecord]:
         if not present:
             continue
         display = str(
-            run.get("displayName")
-            or run.get("display_name")
-            or run.get("key")
-            or "workflow"
+            run.get("displayName") or run.get("display_name") or run.get("key") or "workflow"
         )
         jobs = run.get("jobs")
         if not isinstance(jobs, Sequence):
@@ -439,8 +418,7 @@ def _build_job_rows(runs: Sequence[Mapping[str, object]]) -> List[JobRecord]:
             state_str = str(state) if state is not None else None
             highlight = bool(
                 state_str
-                and state_str.lower()
-                in {"failure", "cancelled", "timed_out", "action_required"}
+                and state_str.lower() in {"failure", "cancelled", "timed_out", "action_required"}
             )
             label = f"{display} / {name}"
             if highlight:
@@ -468,9 +446,7 @@ def _format_jobs_table(rows: Sequence[JobRecord]) -> List[str]:
     for record in rows:
         state_display = _display_state(record.state)
         link = f"[logs]({record.url})" if record.url else "—"
-        body.append(
-            f"| {record.name} | {_badge(record.state)} {state_display} | {link} |"
-        )
+        body.append(f"| {record.name} | {_badge(record.state)} {state_display} | {link} |")
     return header + body
 
 
@@ -539,9 +515,7 @@ def _collect_required_segments(
                 if any(regex.search(name) for regex in regexes):
                     matched_names.append(name)
                     state_value = job.get("conclusion") or job.get("status")
-                    matched_states.append(
-                        str(state_value) if state_value is not None else None
-                    )
+                    matched_states.append(str(state_value) if state_value is not None else None)
 
         if matched_states:
             state = _combine_states(matched_states)
@@ -570,10 +544,7 @@ def _format_latest_runs(runs: Sequence[Mapping[str, object]]) -> str:
             continue
         display = (
             str(
-                run.get("displayName")
-                or run.get("display_name")
-                or run.get("key")
-                or "workflow"
+                run.get("displayName") or run.get("display_name") or run.get("key") or "workflow"
             ).strip()
             or "workflow"
         )
@@ -589,9 +560,7 @@ def _format_latest_runs(runs: Sequence[Mapping[str, object]]) -> str:
 
         run_id = run.get("id")
         attempt = run.get("run_attempt")
-        attempt_suffix = (
-            f" (attempt {attempt})" if isinstance(attempt, int) and attempt > 1 else ""
-        )
+        attempt_suffix = f" (attempt {attempt})" if isinstance(attempt, int) and attempt > 1 else ""
         label = f"{display} (#{run_id}{attempt_suffix})" if run_id else display
         url = run.get("html_url")
         if url:
@@ -608,18 +577,14 @@ def _format_coverage_lines(stats: Mapping[str, object] | None) -> List[str]:
     lines: List[str] = []
     avg_latest = _format_percent(stats.get("avg_latest"))
     avg_delta = _format_delta_pp(stats.get("avg_delta"))
-    avg_parts = [
-        part for part in (avg_latest, f"Δ {avg_delta}" if avg_delta else None) if part
-    ]
+    avg_parts = [part for part in (avg_latest, f"Δ {avg_delta}" if avg_delta else None) if part]
     if avg_parts:
         lines.append(f"- Coverage (jobs): {' | '.join(avg_parts)}")
 
     worst_latest = _format_percent(stats.get("worst_latest"))
     worst_delta = _format_delta_pp(stats.get("worst_delta"))
     worst_parts = [
-        part
-        for part in (worst_latest, f"Δ {worst_delta}" if worst_delta else None)
-        if part
+        part for part in (worst_latest, f"Δ {worst_delta}" if worst_delta else None) if part
     ]
     if worst_parts:
         lines.append(f"- Coverage (worst job): {' | '.join(worst_parts)}")
@@ -706,9 +671,7 @@ def build_summary_comment(
             coverage_block.append("### Coverage Overview")
         coverage_block.append(coverage_section_clean)
     if docs_only_fast_pass:
-        note = (
-            "Docs-only fast-pass: coverage artifacts were not refreshed for this run."
-        )
+        note = "Docs-only fast-pass: coverage artifacts were not refreshed for this run."
         if coverage_block:
             coverage_block.append(note)
         else:
@@ -732,9 +695,7 @@ def build_summary_comment(
     body_parts.extend(part for part in coverage_block if part)
     if coverage_block:
         body_parts.append("")
-    body_parts.append(
-        "_Updated automatically; will refresh on subsequent CI/Docker completions._"
-    )
+    body_parts.append("_Updated automatically; will refresh on subsequent CI/Docker completions._")
 
     return "\n".join(part for part in body_parts if part is not None)
 

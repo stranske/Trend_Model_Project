@@ -75,9 +75,7 @@ def _flatten(d: Dict[str, Any], prefix: str = "") -> Dict[str, float]:
     return out
 
 
-def compare(
-    current: Dict[str, Any], baseline: Dict[str, Any], threshold_pct: float
-) -> int:
+def compare(current: Dict[str, Any], baseline: Dict[str, Any], threshold_pct: float) -> int:
     flat_cur = _flatten(current)
     flat_base = _flatten(baseline)
 
@@ -101,9 +99,7 @@ def compare(
         if pct > threshold_pct:  # strictly greater triggers fail
             status = "REGRESSION"
             regressions.append((metric, b, c, pct))
-        print(
-            f"{metric:70s} baseline={b:.6g} current={c:.6g} delta={pct:+.2f}% {status}"
-        )
+        print(f"{metric:70s} baseline={b:.6g} current={c:.6g} delta={pct:+.2f}% {status}")
 
     if missing:
         print("ERROR: missing metrics in current run:", ", ".join(missing))
@@ -111,9 +107,7 @@ def compare(
     if regressions:
         print("\nFAILED: Performance regressions exceeding threshold:")
         for m, b, c, pct in regressions:
-            print(
-                f"  {m}: baseline={b:.6g} current={c:.6g} delta={pct:+.2f}% > threshold"
-            )
+            print(f"  {m}: baseline={b:.6g} current={c:.6g} delta={pct:+.2f}% > threshold")
         return 1
     print("\nSUCCESS: All monitored metrics within regression budget.")
     return 0

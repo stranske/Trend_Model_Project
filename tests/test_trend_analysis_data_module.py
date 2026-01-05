@@ -114,9 +114,7 @@ def test_validate_payload_success(monkeypatch):
     )
 
     index = pd.to_datetime(["2024-01-01", "2024-01-02"], utc=True)
-    validated_frame = pd.DataFrame(
-        {"alpha": [1000.0, 2000.0], "beta": [0.25, -0.5]}, index=index
-    )
+    validated_frame = pd.DataFrame({"alpha": [1000.0, 2000.0], "beta": [0.25, -0.5]}, index=index)
     validated_frame.index.name = "Date"
     metadata = _build_metadata(index)
     validated = ValidatedMarketData(validated_frame, metadata)
@@ -175,9 +173,7 @@ def test_validate_payload_logs_and_suppresses_error(monkeypatch, caplog):
     monkeypatch.setattr(data_module, "validate_market_data", fake_validate)
 
     with caplog.at_level("ERROR"):
-        result = _validate_payload(
-            df, origin="bad.csv", errors="log", include_date_column=True
-        )
+        result = _validate_payload(df, origin="bad.csv", errors="log", include_date_column=True)
 
     assert result is None
     assert "Unable to parse Date values in bad.csv" in caplog.text
@@ -189,15 +185,11 @@ def test_validate_payload_reraises_when_requested(monkeypatch):
     monkeypatch.setattr(
         data_module,
         "validate_market_data",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
-            MarketDataValidationError("fail")
-        ),
+        lambda *args, **kwargs: (_ for _ in ()).throw(MarketDataValidationError("fail")),
     )
 
     with pytest.raises(MarketDataValidationError):
-        _validate_payload(
-            df, origin="bad.csv", errors="raise", include_date_column=True
-        )
+        _validate_payload(df, origin="bad.csv", errors="raise", include_date_column=True)
 
 
 def test_finalise_validated_frame_includes_date_column():
@@ -286,9 +278,7 @@ def test_load_parquet_success(tmp_path, monkeypatch):
         _build_metadata(index),
     )
     validated.frame.index.name = "Date"
-    monkeypatch.setattr(
-        data_module, "validate_market_data", lambda payload, **kwargs: validated
-    )
+    monkeypatch.setattr(data_module, "validate_market_data", lambda payload, **kwargs: validated)
 
     result = data_module.load_parquet(str(path))
 
@@ -347,9 +337,7 @@ def test_load_csv_legacy_missing_limit(tmp_path, monkeypatch):
     )
     validated.frame.index.name = "Date"
 
-    monkeypatch.setattr(
-        data_module, "validate_market_data", lambda payload, **kwargs: validated
-    )
+    monkeypatch.setattr(data_module, "validate_market_data", lambda payload, **kwargs: validated)
 
     data_module.load_csv(
         str(path),
@@ -419,9 +407,7 @@ def test_load_parquet_legacy_kwargs(tmp_path, monkeypatch):
         _build_metadata(index),
     )
     validated.frame.index.name = "Date"
-    monkeypatch.setattr(
-        data_module, "validate_market_data", lambda payload, **kwargs: validated
-    )
+    monkeypatch.setattr(data_module, "validate_market_data", lambda payload, **kwargs: validated)
 
     data_module.load_parquet(
         str(path),

@@ -11,9 +11,7 @@ from trend_analysis.engine import optimizer
 def test_apply_constraints_caps_and_normalises_weights() -> None:
     weights = pd.Series({"A": 0.7, "B": 0.3})
 
-    result = optimizer.apply_constraints(
-        weights, optimizer.ConstraintSet(max_weight=0.6)
-    )
+    result = optimizer.apply_constraints(weights, optimizer.ConstraintSet(max_weight=0.6))
 
     assert pytest.approx(1.0) == float(result.sum())
     assert (result <= 0.6 + optimizer.NUMERICAL_TOLERANCE_HIGH).all()

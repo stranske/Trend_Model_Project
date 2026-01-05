@@ -55,9 +55,7 @@ def test_turnover_cap_cash_policy(explicit_cash: bool, normalize_weights: bool) 
     [(False, False), (False, True), (True, False), (True, True)],
 )
 def test_drift_band_cash_policy(explicit_cash: bool, normalize_weights: bool) -> None:
-    strategy = DriftBandStrategy(
-        {"band_pct": 0.2, "min_trade": 0.15, "mode": "partial"}
-    )
+    strategy = DriftBandStrategy({"band_pct": 0.2, "min_trade": 0.15, "mode": "partial"})
     current = pd.Series([0.6, 0.35, 0.05], index=["A", "B", "C"])
     target = pd.Series([0.2, 0.35, 0.15], index=["A", "B", "C"])
     policy = _cash_policy(explicit_cash, normalize_weights)
@@ -71,9 +69,7 @@ def test_drift_band_cash_policy(explicit_cash: bool, normalize_weights: bool) ->
     ("explicit_cash", "normalize_weights"),
     [(False, False), (False, True), (True, False), (True, True)],
 )
-def test_periodic_rebalance_cash_policy(
-    explicit_cash: bool, normalize_weights: bool
-) -> None:
+def test_periodic_rebalance_cash_policy(explicit_cash: bool, normalize_weights: bool) -> None:
     strategy = PeriodicRebalanceStrategy({"interval": 1})
     current = pd.Series([0.5, 0.5], index=["A", "B"])
     target = pd.Series([0.3, 0.3], index=["A", "B"])
@@ -97,9 +93,7 @@ def test_vol_target_cash_policy(explicit_cash: bool, normalize_weights: bool) ->
     policy = _cash_policy(explicit_cash, normalize_weights)
     equity_curve = [1.0, 1.001, 1.002]
 
-    result, _ = strategy.apply(
-        current, target, cash_policy=policy, equity_curve=equity_curve
-    )
+    result, _ = strategy.apply(current, target, cash_policy=policy, equity_curve=equity_curve)
 
     _assert_cash_policy(result, policy)
 
@@ -108,12 +102,8 @@ def test_vol_target_cash_policy(explicit_cash: bool, normalize_weights: bool) ->
     ("explicit_cash", "normalize_weights"),
     [(False, False), (False, True), (True, False), (True, True)],
 )
-def test_drawdown_guard_cash_policy(
-    explicit_cash: bool, normalize_weights: bool
-) -> None:
-    strategy = DrawdownGuardStrategy(
-        {"dd_threshold": 0.1, "guard_multiplier": 0.5, "dd_window": 3}
-    )
+def test_drawdown_guard_cash_policy(explicit_cash: bool, normalize_weights: bool) -> None:
+    strategy = DrawdownGuardStrategy({"dd_threshold": 0.1, "guard_multiplier": 0.5, "dd_window": 3})
     current = pd.Series([0.6, 0.4], index=["A", "B"])
     target = pd.Series([0.6, 0.4], index=["A", "B"])
     policy = _cash_policy(explicit_cash, normalize_weights)
@@ -182,9 +172,7 @@ def test_strategies_sum_to_one_with_explicit_cash() -> None:
             {"equity_curve": [1.0, 1.001, 1.002]},
         ),
         (
-            DrawdownGuardStrategy(
-                {"dd_threshold": 0.1, "guard_multiplier": 0.5, "dd_window": 3}
-            ),
+            DrawdownGuardStrategy({"dd_threshold": 0.1, "guard_multiplier": 0.5, "dd_window": 3}),
             pd.Series([0.6, 0.4], index=["A", "B"]),
             pd.Series([0.6, 0.4], index=["A", "B"]),
             {"equity_curve": [1.0, 0.9, 0.85], "rb_state": {}},

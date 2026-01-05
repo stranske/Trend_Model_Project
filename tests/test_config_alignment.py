@@ -34,9 +34,7 @@ def _build_trend_payload(core_cfg: CoreConfig, raw_cfg: dict) -> dict:
 
     payload["data"] = core_payload["data"]
     portfolio = payload.setdefault("portfolio", {})
-    portfolio["transaction_cost_bps"] = core_payload["portfolio"][
-        "transaction_cost_bps"
-    ]
+    portfolio["transaction_cost_bps"] = core_payload["portfolio"]["transaction_cost_bps"]
     portfolio["cost_model"] = core_payload["portfolio"]["cost_model"]
     return payload
 
@@ -60,10 +58,7 @@ def test_core_config_round_trips_into_trend_config() -> None:
 
     assert trend_cfg.data.date_column == core_cfg.data.date_column
     assert trend_cfg.data.frequency == core_cfg.data.frequency
-    assert (
-        trend_cfg.data.universe_membership_path
-        == core_cfg.data.universe_membership_path
-    )
+    assert trend_cfg.data.universe_membership_path == core_cfg.data.universe_membership_path
 
     assert trend_cfg.portfolio.transaction_cost_bps == pytest.approx(
         core_cfg.costs.transaction_cost_bps
@@ -72,9 +67,7 @@ def test_core_config_round_trips_into_trend_config() -> None:
     assert trend_cfg.portfolio.cost_model.bps_per_trade == pytest.approx(
         core_cfg.costs.bps_per_trade
     )
-    assert trend_cfg.portfolio.cost_model.slippage_bps == pytest.approx(
-        core_cfg.costs.slippage_bps
-    )
+    assert trend_cfg.portfolio.cost_model.slippage_bps == pytest.approx(core_cfg.costs.slippage_bps)
     assert trend_cfg.portfolio.cost_model.per_trade_bps == pytest.approx(
         core_cfg.costs.per_trade_bps
     )
@@ -117,10 +110,7 @@ def test_core_and_trend_resolve_paths_consistently(tmp_path: Path) -> None:
 
     assert trend_cfg.data.csv_path == core_cfg.data.csv_path
     assert trend_cfg.data.managers_glob == core_cfg.data.managers_glob
-    assert (
-        trend_cfg.data.universe_membership_path
-        == core_cfg.data.universe_membership_path
-    )
+    assert trend_cfg.data.universe_membership_path == core_cfg.data.universe_membership_path
     assert trend_cfg.data.frequency == core_cfg.data.frequency
     assert trend_cfg.portfolio.transaction_cost_bps == pytest.approx(
         core_cfg.costs.transaction_cost_bps

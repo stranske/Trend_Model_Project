@@ -29,9 +29,7 @@ def test_setup_script_logging_calls_underlying_helper(monkeypatch, capsys):
     assert str(log_path) in out
 
 
-def test_setup_script_logging_honours_explicit_app_and_silences_announce(
-    monkeypatch, capsys
-):
+def test_setup_script_logging_honours_explicit_app_and_silences_announce(monkeypatch, capsys):
     captured = {}
 
     def fake_setup_logging(*, app_name: str) -> Path:

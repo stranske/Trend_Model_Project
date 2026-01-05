@@ -36,9 +36,7 @@ def _no_export_side_effects(monkeypatch: pytest.MonkeyPatch) -> None:
             lambda details: pd.DataFrame(),
         )
         mp.setattr(run_analysis_mod.export, "export_data", lambda *args, **kwargs: None)
-        mp.setattr(
-            run_analysis_mod.export, "export_to_excel", lambda *args, **kwargs: None
-        )
+        mp.setattr(run_analysis_mod.export, "export_to_excel", lambda *args, **kwargs: None)
         yield
 
 
@@ -93,9 +91,7 @@ def test_main_passes_missing_policy_kwargs(monkeypatch: pytest.MonkeyPatch) -> N
     with monkeypatch.context() as mp:
         mp.setattr(run_analysis_mod, "load", lambda path: cfg)
         mp.setattr(run_analysis_mod, "load_csv", fake_load_csv)
-        mp.setattr(
-            run_analysis_mod.api, "run_simulation", lambda cfg, df: _make_result()
-        )
+        mp.setattr(run_analysis_mod.api, "run_simulation", lambda cfg, df: _make_result())
 
         rc = run_analysis_mod.main(["-c", "config.yml"])
 
@@ -125,9 +121,7 @@ def test_main_falls_back_to_nan_kwargs(monkeypatch: pytest.MonkeyPatch) -> None:
     with monkeypatch.context() as mp:
         mp.setattr(run_analysis_mod, "load", lambda path: cfg)
         mp.setattr(run_analysis_mod, "load_csv", fake_load_csv)
-        mp.setattr(
-            run_analysis_mod.api, "run_simulation", lambda cfg, df: _make_result()
-        )
+        mp.setattr(run_analysis_mod.api, "run_simulation", lambda cfg, df: _make_result())
 
         rc = run_analysis_mod.main(["-c", "config.yml"])
 

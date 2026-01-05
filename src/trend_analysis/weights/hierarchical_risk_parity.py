@@ -49,9 +49,7 @@ class HierarchicalRiskParity(WeightEngine):
             if np.any(~np.isfinite(corr.values)):
                 logger.warning("Non-finite correlations detected in HRP calculation")
                 # Fall back to diagonal correlation matrix
-                corr = pd.DataFrame(
-                    np.eye(len(cov)), index=cov.index, columns=cov.columns
-                )
+                corr = pd.DataFrame(np.eye(len(cov)), index=cov.index, columns=cov.columns)
 
             # Compute distance matrix as numpy array for typing clarity
             dist_arr: FloatArray = np.sqrt(0.5 * (1.0 - corr.values))

@@ -27,9 +27,7 @@ def _frequency_label(code: str) -> str:
     return {"D": "Daily", "W": "Weekly", "M": "Monthly"}.get(code, code)
 
 
-def _preprocessing_summary(
-    freq_code: str, *, normalised: bool, missing_summary: str | None
-) -> str:
+def _preprocessing_summary(freq_code: str, *, normalised: bool, missing_summary: str | None) -> str:
     cadence = _frequency_label(freq_code)
     cadence_text = f"Cadence: {cadence}"
     if normalised and freq_code != "M":
@@ -114,10 +112,7 @@ def _prepare_preprocess_stage(
         )
     except ValueError as exc:
         message = str(exc)
-        if (
-            "contains no valid timestamps" in message
-            or "All rows were removed" in message
-        ):
+        if "contains no valid timestamps" in message or "All rows were removed" in message:
             return pipeline_failure(
                 PipelineReasonCode.CALENDAR_ALIGNMENT_WIPE,
                 context={"error": message},
@@ -198,9 +193,7 @@ def _prepare_preprocess_stage(
         "target_label": freq_summary.target_label,
         "resampled": freq_summary.resampled,
     }
-    periods_per_year = periods_per_year_override or periods_per_year_from_code(
-        freq_summary.target
-    )
+    periods_per_year = periods_per_year_override or periods_per_year_from_code(freq_summary.target)
     missing_payload = {
         "policy": missing_result.default_policy,
         "policy_map": missing_result.policy,
@@ -311,9 +304,7 @@ def _build_sample_windows(
             )
             overrides = {k: v for k, v in policy_map.items() if v != default_policy}
             policy_spec: dict[str, str] | str = (
-                {"default": default_policy, **overrides}
-                if overrides
-                else default_policy
+                {"default": default_policy, **overrides} if overrides else default_policy
             )
 
             limit_map = dict(getattr(preprocess.missing_result, "limit", {}) or {})

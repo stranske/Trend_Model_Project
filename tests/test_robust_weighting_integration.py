@@ -115,9 +115,7 @@ def test_condition_threshold_triggers_safe_mode() -> None:
     assert fallback["condition_source"] == "raw_cov"
 
     in_sample = (
-        returns.set_index("Date")
-        .loc["2020-01-31":"2020-12-31", ["FundA", "FundB", "FundC"]]
-        .cov()
+        returns.set_index("Date").loc["2020-01-31":"2020-12-31", ["FundA", "FundB", "FundC"]].cov()
     )
     expected_condition = float(np.linalg.cond(in_sample.values))
     assert fallback["condition_number"] == pytest.approx(expected_condition)

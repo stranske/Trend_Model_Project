@@ -86,9 +86,7 @@ def setup_logging(
         stream_handler = logging.StreamHandler(stream or sys.stderr)
         stream_handler.setFormatter(formatter)
         stream_level = (
-            _resolve_level(console_level)
-            if console_level is not None
-            else _resolve_level(level)
+            _resolve_level(console_level) if console_level is not None else _resolve_level(level)
         )
         stream_handler.setLevel(stream_level)
         setattr(stream_handler, _HANDLER_FLAG, True)

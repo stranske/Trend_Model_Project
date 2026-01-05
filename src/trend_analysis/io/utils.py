@@ -52,9 +52,7 @@ def export_bundle(results: Any, config_dict: dict[str, Any]) -> str:
             )
         except Exception:
             # Write empty CSV if export fails
-            with open(
-                os.path.join(temp_dir, "portfolio_returns.csv"), "w", encoding="utf-8"
-            ) as f:
+            with open(os.path.join(temp_dir, "portfolio_returns.csv"), "w", encoding="utf-8") as f:
                 f.write("return\n")
 
         # Write event_log.csv with exception handling
@@ -63,9 +61,7 @@ def export_bundle(results: Any, config_dict: dict[str, Any]) -> str:
             ev.to_csv(os.path.join(temp_dir, "event_log.csv"))
         except Exception:
             # Write empty CSV if export fails
-            with open(
-                os.path.join(temp_dir, "event_log.csv"), "w", encoding="utf-8"
-            ) as f:
+            with open(os.path.join(temp_dir, "event_log.csv"), "w", encoding="utf-8") as f:
                 f.write("")
         with open(os.path.join(temp_dir, "summary.json"), "w", encoding="utf-8") as f:
             json.dump(results.summary(), f, indent=2)

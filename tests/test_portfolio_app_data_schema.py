@@ -10,6 +10,13 @@ import pandas as pd
 import pytest
 
 
+def _mock_metadata(**kwargs):
+    """Create a SimpleNamespace with model_dump support for testing."""
+    ns = SimpleNamespace(**kwargs)
+    ns.model_dump = lambda mode=None: vars(ns)
+    return ns
+
+
 @pytest.fixture
 def schema_module() -> Any:
     import streamlit_app.components.data_schema as data_schema
@@ -18,11 +25,11 @@ def schema_module() -> Any:
 
 
 def _dummy_validated(frame: pd.DataFrame) -> SimpleNamespace:
-    metadata = SimpleNamespace(
+    metadata = _mock_metadata(
         rows=len(frame),
         columns=list(frame.columns),
         symbols=["A", "B"],
-        mode=SimpleNamespace(value="returns"),
+        mode=_mock_metadata(value="returns"),
         frequency_label="Monthly",
         frequency="M",
         frequency_detected="M",
@@ -38,7 +45,7 @@ def _dummy_validated(frame: pd.DataFrame) -> SimpleNamespace:
         start="2020-01-31",
         end="2020-12-31",
     )
-    return SimpleNamespace(metadata=metadata, frame=frame)
+    return _mock_metadata(metadata=metadata, frame=frame)
 
 
 def test_build_validation_report_flags_warnings(schema_module: Any) -> None:
@@ -51,9 +58,7 @@ def test_build_validation_report_flags_warnings(schema_module: Any) -> None:
     assert any("Missing-data policy" in warning for warning in report["warnings"])
 
 
-def test_build_meta_and_validate_df(
-    monkeypatch: pytest.MonkeyPatch, schema_module: Any
-) -> None:
+def test_build_meta_and_validate_df(monkeypatch: pytest.MonkeyPatch, schema_module: Any) -> None:
     raw = pd.DataFrame({"Date": ["2020-01-31"], "A": [1.0], "B": [2.0]})
     processed = raw.set_index("Date")
     validated = _dummy_validated(processed)
@@ -69,9 +74,7 @@ def test_build_meta_and_validate_df(
     assert meta["frequency"] == "Monthly"
 
 
-def test_load_and_validate_csv(
-    monkeypatch: pytest.MonkeyPatch, schema_module: Any
-) -> None:
+def test_load_and_validate_csv(monkeypatch: pytest.MonkeyPatch, schema_module: Any) -> None:
     csv_buffer = io.StringIO("Date,A,B\n2020-01-31,1.0,2.0\n")
     validated = _dummy_validated(pd.DataFrame({"A": [1.0], "B": [2.0]}))
     monkeypatch.setattr(
@@ -84,9 +87,7 @@ def test_load_and_validate_csv(
     assert not frame.empty and meta["symbols"] == ["A", "B"]
 
 
-def test_load_and_validate_excel(
-    monkeypatch: pytest.MonkeyPatch, schema_module: Any
-) -> None:
+def test_load_and_validate_excel(monkeypatch: pytest.MonkeyPatch, schema_module: Any) -> None:
     excel_buffer = io.BytesIO()
     excel_buffer.name = "data.xlsx"  # type: ignore[attr-defined]
 

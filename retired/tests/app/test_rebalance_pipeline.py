@@ -62,9 +62,7 @@ def test_drift_band_partial_adjusts():
     rb_cfg = {
         "bayesian_only": False,
         "strategies": ["drift_band"],
-        "params": {
-            "drift_band": {"band_pct": 0.03, "min_trade": 0.001, "mode": "partial"}
-        },
+        "params": {"drift_band": {"band_pct": 0.03, "min_trade": 0.001, "mode": "partial"}},
     }
     rb_state = {}
     out = _apply_rebalance_pipeline(

@@ -15,9 +15,7 @@ def _reload_cache_module() -> None:
     importlib.reload(rolling_cache)
 
 
-def test_default_cache_dir_rejects_paths_outside_home(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_default_cache_dir_rejects_paths_outside_home(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("TREND_ROLLING_CACHE", "/var/tmp/trend-cache")
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
 

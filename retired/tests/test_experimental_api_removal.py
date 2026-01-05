@@ -45,17 +45,13 @@ def test_health_wrapper_has_specific_exceptions():
 
     # Check for specific app creation exceptions (may be formatted across multiple lines)
     assert (
-        "ImportError," in content
-        and "AttributeError," in content
-        and "TypeError," in content
+        "ImportError," in content and "AttributeError," in content and "TypeError," in content
     ), "Should catch specific app creation exceptions"
 
     # Should not use bare Exception (except in comments)
     lines = content.split("\n")
     code_lines = [
-        line
-        for line in lines
-        if not line.strip().startswith("#") and "except Exception" in line
+        line for line in lines if not line.strip().startswith("#") and "except Exception" in line
     ]
     assert len(code_lines) == 0, f"Should not use bare Exception: {code_lines}"
 

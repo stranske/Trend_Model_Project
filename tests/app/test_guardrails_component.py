@@ -32,9 +32,7 @@ def test_prepare_dry_run_plan_builds_monotonic_windows():
 
 def test_validate_startup_payload_round_trip(tmp_path):
     csv_path = tmp_path / "data.csv"
-    frame = pd.DataFrame(
-        {"Date": pd.date_range("2022-01-31", periods=12, freq="ME"), "A": 0.01}
-    )
+    frame = pd.DataFrame({"Date": pd.date_range("2022-01-31", periods=12, freq="ME"), "A": 0.01})
     frame.to_csv(csv_path, index=False)
     validated, errors = validate_startup_payload(
         csv_path=str(csv_path),
@@ -59,9 +57,7 @@ def test_validate_startup_payload_requires_csv():
 
 def test_validate_startup_payload_delegates_to_validator(tmp_path, monkeypatch):
     csv_path = tmp_path / "data.csv"
-    frame = pd.DataFrame(
-        {"Date": pd.date_range("2022-01-31", periods=8, freq="ME"), "A": 0.02}
-    )
+    frame = pd.DataFrame({"Date": pd.date_range("2022-01-31", periods=8, freq="ME"), "A": 0.02})
     frame.to_csv(csv_path, index=False)
 
     captured: dict[str, object] = {}
@@ -71,9 +67,7 @@ def test_validate_startup_payload_delegates_to_validator(tmp_path, monkeypatch):
         captured["base_path"] = base_path
         return ({**payload, "validated": True}, None)
 
-    monkeypatch.setattr(
-        "streamlit_app.components.guardrails.validate_payload", fake_validate
-    )
+    monkeypatch.setattr("streamlit_app.components.guardrails.validate_payload", fake_validate)
 
     validated, errors = validate_startup_payload(
         csv_path=str(csv_path),
@@ -93,17 +87,13 @@ def test_validate_startup_payload_delegates_to_validator(tmp_path, monkeypatch):
 
 def test_validate_startup_payload_surfaces_validator_errors(tmp_path, monkeypatch):
     csv_path = tmp_path / "data.csv"
-    frame = pd.DataFrame(
-        {"Date": pd.date_range("2022-01-31", periods=8, freq="ME"), "A": 0.02}
-    )
+    frame = pd.DataFrame({"Date": pd.date_range("2022-01-31", periods=8, freq="ME"), "A": 0.02})
     frame.to_csv(csv_path, index=False)
 
     def fake_validate(payload, *, base_path):
         return None, "vol_adjust -> target_vol\n must be greater than zero"
 
-    monkeypatch.setattr(
-        "streamlit_app.components.guardrails.validate_payload", fake_validate
-    )
+    monkeypatch.setattr("streamlit_app.components.guardrails.validate_payload", fake_validate)
 
     validated, errors = validate_startup_payload(
         csv_path=str(csv_path),

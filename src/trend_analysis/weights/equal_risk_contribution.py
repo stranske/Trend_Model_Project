@@ -45,9 +45,7 @@ class EqualRiskContribution(WeightEngine):
         try:
             eigenvals = np.linalg.eigvals(cov_mat)
             if np.any(eigenvals <= 0):
-                logger.warning(
-                    "Non-positive definite covariance matrix detected in ERC"
-                )
+                logger.warning("Non-positive definite covariance matrix detected in ERC")
                 # Apply more aggressive regularization
                 min_eigenval = np.abs(np.min(eigenvals))
                 regularization = min_eigenval + np.trace(cov_mat) / n * 1e-4
@@ -67,9 +65,7 @@ class EqualRiskContribution(WeightEngine):
                 port_var = w @ mrc
 
                 if port_var <= 0:
-                    logger.warning(
-                        "Non-positive portfolio variance in ERC, using equal weights"
-                    )
+                    logger.warning("Non-positive portfolio variance in ERC, using equal weights")
                     return pd.Series(np.ones(n) / n, index=cov.index)
 
                 target = port_var / n

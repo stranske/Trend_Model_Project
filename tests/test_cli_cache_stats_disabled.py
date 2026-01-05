@@ -55,9 +55,7 @@ def test_cli_suppresses_cache_stats_when_absent(monkeypatch, capsys, tmp_path):
     monkeypatch.setattr(run_logging, "log_step", fake_log_step)
     monkeypatch.setattr(cli, "_log_step", fake_log_step)
     monkeypatch.setattr(run_logging, "init_run_logger", lambda run_id, path: None)
-    monkeypatch.setattr(
-        run_logging, "get_default_log_path", lambda run_id: tmp_path / "log.jsonl"
-    )
+    monkeypatch.setattr(run_logging, "get_default_log_path", lambda run_id: tmp_path / "log.jsonl")
 
     # Stub formatting and export side effects
     monkeypatch.setattr(cli.export, "format_summary_text", lambda *a, **k: "summary")

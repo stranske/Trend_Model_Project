@@ -102,9 +102,7 @@ def test_store_and_read_validated_data_updates_state(session_state: dict) -> Non
         }
     )
 
-    state.store_validated_data(
-        df, meta, data_hash="hash", saved_path=Path("/tmp/data.csv")
-    )
+    state.store_validated_data(df, meta, data_hash="hash", saved_path=Path("/tmp/data.csv"))
 
     stored_df, stored_meta = state.get_uploaded_data()
     assert stored_df is df
@@ -350,9 +348,7 @@ def test_format_model_state_diff_returns_copy_ready_text() -> None:
         ),
     ]
 
-    formatted = state.format_model_state_diff(
-        diffs, label_a="alpha", label_b="beta"
-    ).splitlines()
+    formatted = state.format_model_state_diff(diffs, label_a="alpha", label_b="beta").splitlines()
 
     assert formatted == [
         "~ lookback_periods: (alpha) 3 -> (beta) 6",

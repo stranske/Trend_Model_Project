@@ -66,9 +66,7 @@ class CostModel:
     def apply(self, turnover: float) -> float:
         if turnover <= 0:
             return 0.0
-        multiplier = (
-            self.effective_per_trade_bps + self.effective_half_spread_bps
-        ) / 10000.0
+        multiplier = (self.effective_per_trade_bps + self.effective_half_spread_bps) / 10000.0
         return float(turnover) * multiplier
 
     def as_dict(self) -> Dict[str, float]:
@@ -198,8 +196,7 @@ def run_backtest(
     total_rows = len(data.index)
     if window_size > total_rows:
         raise ValueError(
-            "window_size too large relative to available return history; "
-            + _LOOKAHEAD_ERROR
+            "window_size too large relative to available return history; " + _LOOKAHEAD_ERROR
         )
 
     calendar = _rebalance_calendar(data.index, rebalance_freq)
@@ -207,9 +204,7 @@ def run_backtest(
         raise ValueError("rebalance calendar produced no dates – check frequency")
 
     periods_per_year = _infer_periods_per_year(data.index)
-    roll_window = rolling_sharpe_window or min(
-        window_size, max(1, periods_per_year // 3)
-    )
+    roll_window = rolling_sharpe_window or min(window_size, max(1, periods_per_year // 3))
 
     asset_columns = list(data.columns)
     portfolio_returns = pd.Series(index=data.index, dtype=float)
@@ -289,9 +284,7 @@ def run_backtest(
         if membership_mask is not None:
             active_now = membership_mask.loc[date]
             if not bool(active_now.any()):
-                raise ValueError(
-                    f"No active assets remain in the universe on {date.date()}"
-                )
+                raise ValueError(f"No active assets remain in the universe on {date.date()}")
             proposed = proposed.where(active_now, 0.0)
 
         trades = proposed - prev_weights
@@ -436,9 +429,7 @@ def _prepare_returns(df: pd.DataFrame) -> pd.DataFrame:
     if "Date" in df.columns:
         df = df.set_index("Date")
     if not isinstance(df.index, pd.DatetimeIndex):
-        raise ValueError(
-            "returns index must be a DatetimeIndex or include a 'Date' column"
-        )
+        raise ValueError("returns index must be a DatetimeIndex or include a 'Date' column")
     df = df.sort_index()
     numeric_df = df.select_dtypes(include=["number"]).astype(float)
     if numeric_df.empty:
@@ -477,16 +468,12 @@ def _apply_membership_mask(
         if policy == "raise":
             raise ValueError(message)
         logger.warning("%s. Skipping those entries.", message)
-        mask = mask.drop(
-            columns=[col for col in missing_price_cols if col in mask.columns]
-        )
+        mask = mask.drop(columns=[col for col in missing_price_cols if col in mask.columns])
 
     extra_price_cols = sorted(set(data_symbols) - set(mask.columns))
     if extra_price_cols:
         preview = _format_list_preview(extra_price_cols)
-        message = (
-            f"Price data includes columns missing from universe membership: {preview}"
-        )
+        message = f"Price data includes columns missing from universe membership: {preview}"
         if policy == "raise":
             raise ValueError(message)
         logger.warning("%s. Dropping those columns from analysis.", message)
@@ -587,9 +574,7 @@ def _infer_periods_per_year(index: pd.DatetimeIndex) -> int:
     return max(1, approx)
 
 
-def _initial_weights(
-    columns: Sequence[str], initial: Mapping[str, float] | None
-) -> pd.Series:
+def _initial_weights(columns: Sequence[str], initial: Mapping[str, float] | None) -> pd.Series:
     base = pd.Series(0.0, index=columns, dtype=float)
     if initial is None:
         return base
@@ -615,9 +600,7 @@ def _compute_drawdown(equity_curve: pd.Series) -> pd.Series:
     return drawdown
 
 
-def _rolling_sharpe(
-    returns: pd.Series, periods_per_year: int, window: int
-) -> pd.Series:
+def _rolling_sharpe(returns: pd.Series, periods_per_year: int, window: int) -> pd.Series:
     if window <= 1:
         window = 2
     rolling_mean = returns.rolling(window=window).mean()
@@ -657,11 +640,7 @@ def _compute_metrics(
     )
     sortino = active_returns.mean() / downside_std if downside_std else float("nan")
     max_drawdown = float(drawdown.min()) if len(drawdown) else float("nan")
-    calmar = (
-        cagr / abs(max_drawdown)
-        if max_drawdown and not np.isnan(cagr)
-        else float("nan")
-    )
+    calmar = cagr / abs(max_drawdown) if max_drawdown and not np.isnan(cagr) else float("nan")
 
     return {
         "cagr": _to_float(cagr),

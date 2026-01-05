@@ -86,19 +86,13 @@ def load_baseline(path: Path) -> BaselineConfig:
     baseline = _to_float(data.get("line"))
     warn_drop = _to_float(data.get("warn_drop")) or 1.0
     recovery_days_raw = data.get("recovery_days")
-    recovery_days = (
-        _to_int(recovery_days_raw) if recovery_days_raw is not None else None
-    )
+    recovery_days = _to_int(recovery_days_raw) if recovery_days_raw is not None else None
     if recovery_days is None or recovery_days <= 0:
         recovery_days = 3
-    return BaselineConfig(
-        baseline=baseline, warn_drop=warn_drop, recovery_days=recovery_days
-    )
+    return BaselineConfig(baseline=baseline, warn_drop=warn_drop, recovery_days=recovery_days)
 
 
-def load_snapshot(
-    trend_path: Path, config: BaselineConfig
-) -> Optional[CoverageSnapshot]:
+def load_snapshot(trend_path: Path, config: BaselineConfig) -> Optional[CoverageSnapshot]:
     data = load_json(trend_path)
     if not isinstance(data, Mapping):
         print(f"Coverage trend data missing at {trend_path}", file=sys.stderr)
@@ -214,9 +208,7 @@ def list_issues(repo: str, token: str, label: str) -> list[dict[str, Any]]:
     return issues
 
 
-def find_issue(
-    repo: str, token: str, label: str, title: str
-) -> Optional[dict[str, Any]]:
+def find_issue(repo: str, token: str, label: str, title: str) -> Optional[dict[str, Any]]:
     candidates = [
         issue
         for issue in list_issues(repo, token, label)
@@ -228,9 +220,7 @@ def find_issue(
     return candidates[0]
 
 
-def create_issue(
-    repo: str, token: str, title: str, body: str, label: str
-) -> dict[str, Any]:
+def create_issue(repo: str, token: str, title: str, body: str, label: str) -> dict[str, Any]:
     payload = {"title": title, "body": body, "labels": [label]}
     issue, _ = github_request("POST", f"/repos/{repo}/issues", token, payload=payload)
     if not isinstance(issue, Mapping):  # pragma: no cover - defensive
@@ -257,9 +247,7 @@ def update_issue(
 
 
 def post_comment(repo: str, token: str, number: int, body: str) -> None:
-    github_request(
-        "POST", f"/repos/{repo}/issues/{number}/comments", token, payload={"body": body}
-    )
+    github_request("POST", f"/repos/{repo}/issues/{number}/comments", token, payload={"body": body})
 
 
 def read_metadata(body: str) -> dict[str, Any]:
@@ -311,9 +299,7 @@ def compose_issue_body(config: BaselineConfig, metadata: Mapping[str, Any]) -> s
     return "\n".join(lines) + "\n"
 
 
-def compute_top_files(
-    data: Optional[Mapping[str, Any]], limit: int
-) -> list[FileCoverage]:
+def compute_top_files(data: Optional[Mapping[str, Any]], limit: int) -> list[FileCoverage]:
     if not isinstance(data, Mapping):
         return []
     files = data.get("files")
@@ -430,9 +416,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--repo", required=True, help="Repository in owner/name format")
     parser.add_argument("--trend-path", type=Path, default=Path("coverage-trend.json"))
     parser.add_argument("--coverage-path", type=Path, default=Path("coverage.json"))
-    parser.add_argument(
-        "--baseline-path", type=Path, default=Path("config/coverage-baseline.json")
-    )
+    parser.add_argument("--baseline-path", type=Path, default=Path("config/coverage-baseline.json"))
     parser.add_argument("--issue-title", default=DEFAULT_ISSUE_TITLE)
     parser.add_argument("--label", default=DEFAULT_ISSUE_LABEL)
     parser.add_argument("--recovery-days", type=int, default=None)
@@ -462,9 +446,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         coverage_data = load_json(args.coverage_path)
         top_files = compute_top_files(coverage_data, args.top_limit)
 
-        issue, metadata = ensure_issue(
-            args.repo, token, config, args.issue_title, args.label
-        )
+        issue, metadata = ensure_issue(args.repo, token, config, args.issue_title, args.label)
         issue_number = int(issue["number"])
         is_open = issue.get("state") == "open"
 
@@ -509,11 +491,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             )
             return 0
 
-        recovery = (
-            recovery_count + 1
-            if last_status == "above" or last_status == "recovery"
-            else 1
-        )
+        recovery = recovery_count + 1 if last_status == "above" or last_status == "recovery" else 1
         metadata.update(
             {
                 "recovery": recovery,

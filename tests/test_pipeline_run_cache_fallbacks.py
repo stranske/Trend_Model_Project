@@ -55,9 +55,7 @@ def test_run_uses_nan_policy_fallbacks(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_run_analysis(*args, **kwargs):
         return {
             "out_sample_stats": _stats_payload(),
-            "benchmark_ir": {
-                "Bench": {"FundA": 0.5, "equal_weight": 1.0, "user_weight": 0.7}
-            },
+            "benchmark_ir": {"Bench": {"FundA": 0.5, "equal_weight": 1.0, "user_weight": 0.7}},
         }
 
     monkeypatch.setattr(pipeline, "load_csv", fake_load_csv)
@@ -253,9 +251,7 @@ def test_compute_signal_uses_cache(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_preprocessing_summary_monthly_branch() -> None:
-    summary = pipeline._preprocessing_summary(
-        "M", normalised=False, missing_summary="ok"
-    )
+    summary = pipeline._preprocessing_summary("M", normalised=False, missing_summary="ok")
     assert "month-end" in summary
     assert "Missing data" in summary
     daily = pipeline._preprocessing_summary("D", normalised=True, missing_summary=None)
@@ -286,17 +282,13 @@ def test_derive_split_edge_cases() -> None:
         )
 
     single = pd.period_range("2020-01", periods=1, freq="M")
-    result = pipeline._derive_split_from_periods(
-        single, method="date", boundary=None, ratio=0.5
-    )
+    result = pipeline._derive_split_from_periods(single, method="date", boundary=None, ratio=0.5)
     assert result["in_start"] == "2020-01"
     assert result["out_end"] == "2020-01"
 
 
 def test_position_from_signal_tracks_state() -> None:
-    data = pd.Series(
-        [0.0, 1.0, np.nan, -1.0, 0.0], index=pd.date_range("2020-01-01", periods=5)
-    )
+    data = pd.Series([0.0, 1.0, np.nan, -1.0, 0.0], index=pd.date_range("2020-01-01", periods=5))
     positions = pipeline.position_from_signal(
         data, long_position=2.0, short_position=-2.0, neutral_position=0.5
     )
@@ -468,9 +460,7 @@ def test_run_analysis_rank_branch_with_fallbacks(
         )
         return weights, diag
 
-    monkeypatch.setattr(
-        pipeline, "compute_constrained_weights", fake_compute_constrained_weights
-    )
+    monkeypatch.setattr(pipeline, "compute_constrained_weights", fake_compute_constrained_weights)
     monkeypatch.setattr(
         pipeline,
         "compute_trend_signals",
@@ -541,9 +531,7 @@ def test_run_analysis_risk_window_zero_length(monkeypatch: pytest.MonkeyPatch) -
         )
         return weights, diag
 
-    monkeypatch.setattr(
-        pipeline, "compute_constrained_weights", fake_compute_constrained_weights
-    )
+    monkeypatch.setattr(pipeline, "compute_constrained_weights", fake_compute_constrained_weights)
     monkeypatch.setattr(
         pipeline,
         "compute_trend_signals",
@@ -606,9 +594,7 @@ def test_run_analysis_returns_none_when_no_value_columns(
     )
 
     def fake_prepare(*_args, **_kwargs):
-        frame = pd.DataFrame(
-            {"Date": pd.date_range("2020-01-31", periods=2, freq="ME")}
-        )
+        frame = pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=2, freq="ME")})
         return frame, freq_summary, empty_missing, False
 
     monkeypatch.setattr(pipeline, "_prepare_input_data", fake_prepare)

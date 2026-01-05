@@ -245,9 +245,7 @@ def test_streamlit_proxy_requires_runtime_deps(monkeypatch: pytest.MonkeyPatch) 
         server.StreamlitProxy()
 
 
-def test_websocket_entry_delegates(
-    patched_server: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_websocket_entry_delegates(patched_server: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     proxy = patched_server.StreamlitProxy()
     calls: list[tuple[Any, str]] = []
 
@@ -266,16 +264,10 @@ def test_handle_websocket_requires_dependency(
     proxy = patched_server.StreamlitProxy()
     monkeypatch.setattr(patched_server, "websockets", None)
     with pytest.raises(RuntimeError):
-        asyncio.run(
-            proxy._handle_websocket(
-                SimpleNamespace(url=SimpleNamespace(query="")), "ws"
-            )
-        )
+        asyncio.run(proxy._handle_websocket(SimpleNamespace(url=SimpleNamespace(query="")), "ws"))
 
 
-def test_http_entry_delegates(
-    patched_server: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_http_entry_delegates(patched_server: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     proxy = patched_server.StreamlitProxy()
     recorded: list[tuple[Any, str]] = []
 
@@ -326,9 +318,7 @@ def test_handle_websocket_handles_connection_failure(
         assert url == "ws://example.com:1234/ws/path?token=1"
         return FailingConnection()
 
-    monkeypatch.setattr(
-        patched_server, "websockets", SimpleNamespace(connect=failing_connect)
-    )
+    monkeypatch.setattr(patched_server, "websockets", SimpleNamespace(connect=failing_connect))
 
     websocket = FakeWebsocket()
     asyncio.run(proxy._handle_websocket(websocket, "ws/path"))

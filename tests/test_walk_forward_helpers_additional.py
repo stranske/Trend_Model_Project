@@ -130,9 +130,7 @@ def test_evaluate_parameter_grid_handles_empty_weights(
     windows = wf.WindowConfig(train=2, test=1, step=1)
     strategy = wf.StrategyConfig(grid={"lookback": [1]})
 
-    monkeypatch.setattr(
-        wf, "_select_weights", lambda *_args, **_kwargs: pd.Series(dtype=float)
-    )
+    monkeypatch.setattr(wf, "_select_weights", lambda *_args, **_kwargs: pd.Series(dtype=float))
 
     folds, summary = wf.evaluate_parameter_grid(returns, windows, strategy)
 
@@ -265,9 +263,7 @@ def test_run_from_config_emits_expected_outputs(
     assert (run_dir / "summary.jsonl").is_file()
 
 
-def test_maybe_render_heatmap_emits_png(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_maybe_render_heatmap_emits_png(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     class DummyAxes:
         def imshow(self, *args, **kwargs):
             return object()

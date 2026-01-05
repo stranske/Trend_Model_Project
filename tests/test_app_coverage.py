@@ -340,9 +340,7 @@ class TestBuildStep0:
 
     @patch("trend_analysis.gui.app.widgets")
     @patch("trend_analysis.gui.app.list_builtin_cfgs")
-    def test_template_error_handling_permission_error(
-        self, mock_list_cfgs, mock_widgets
-    ):
+    def test_template_error_handling_permission_error(self, mock_list_cfgs, mock_widgets):
         """Test template loading with permission error."""
         mock_list_cfgs.return_value = ["permission_template"]
 
@@ -382,9 +380,7 @@ class TestBuildStep0:
 
     @patch("trend_analysis.gui.app.widgets")
     @patch("trend_analysis.gui.app.list_builtin_cfgs")
-    def test_template_error_handling_generic_exception(
-        self, mock_list_cfgs, mock_widgets
-    ):
+    def test_template_error_handling_generic_exception(self, mock_list_cfgs, mock_widgets):
         """Template handler should surface unexpected exceptions."""
 
         mock_list_cfgs.return_value = ["broken_template"]
@@ -760,9 +756,7 @@ class DummyDropdown(DummyValueWidget):
 class DummyCheckbox(DummyValueWidget):
     """Checkbox widget supporting observe callbacks."""
 
-    def __init__(
-        self, value: bool = False, description: str = "", indent: bool = True
-    ) -> None:
+    def __init__(self, value: bool = False, description: str = "", indent: bool = True) -> None:
         super().__init__(value)
         self.description = description
         self.indent = indent
@@ -826,9 +820,7 @@ class DummyButton:
 class DummyBox:
     """Container widget preserving child references."""
 
-    def __init__(
-        self, children: list[object] | tuple[object, ...] | None = None
-    ) -> None:
+    def __init__(self, children: list[object] | tuple[object, ...] | None = None) -> None:
         self.children = tuple(children or [])
         self.layout = DummyLayout()
 
@@ -1014,9 +1006,7 @@ def test_build_step0_datagrid_callbacks(monkeypatch, tmp_path):
 
     save_calls: list[dict[str, object]] = []
     display_calls: list[object] = []
-    monkeypatch.setattr(
-        app_module, "save_state", lambda store: save_calls.append(store.to_dict())
-    )
+    monkeypatch.setattr(app_module, "save_state", lambda store: save_calls.append(store.to_dict()))
     monkeypatch.setattr(
         app_module,
         "reset_weight_state",
@@ -1222,9 +1212,7 @@ def test_build_manual_override_datagrid_missing_on(monkeypatch):
     monkeypatch.setitem(sys.modules, "ipydatagrid", fake_module)
 
     store = ParamStore()
-    store.cfg = {
-        "portfolio": {"custom_weights": {"FundA": 0.4}, "manual_list": ["FundA"]}
-    }
+    store.cfg = {"portfolio": {"custom_weights": {"FundA": 0.4}, "manual_list": ["FundA"]}}
 
     box = app_module._build_manual_override(store)
 
@@ -1247,9 +1235,7 @@ def test_build_manual_override_import_error(monkeypatch):
     monkeypatch.setattr(app_module.widgets, "VBox", DummyBox)
 
     store = ParamStore()
-    store.cfg = {
-        "portfolio": {"custom_weights": {"FundA": 0.2}, "manual_list": ["FundA"]}
-    }
+    store.cfg = {"portfolio": {"custom_weights": {"FundA": 0.2}, "manual_list": ["FundA"]}}
 
     box = app_module._build_manual_override(store)
     warn, select, weights_box = box.children
@@ -1257,9 +1243,7 @@ def test_build_manual_override_import_error(monkeypatch):
     assert isinstance(warn, DummyLabel)
     assert isinstance(select, DummySelectMultiple)
     if hasattr(weights_box, "children"):
-        assert weights_box.children and isinstance(
-            weights_box.children[0], DummyFloatText
-        )
+        assert weights_box.children and isinstance(weights_box.children[0], DummyFloatText)
     else:
         assert isinstance(weights_box, DummyFloatText)
 
@@ -1330,9 +1314,7 @@ def test_launch_interactions(monkeypatch, tmp_path):
     monkeypatch.setattr(app_module, "_build_step0", lambda store: DummyBox())
     monkeypatch.setattr(app_module, "_build_rank_options", lambda store: rank_box)
     monkeypatch.setattr(app_module, "_build_manual_override", lambda store: manual_box)
-    monkeypatch.setattr(
-        app_module, "_build_weighting_options", lambda store: weight_box
-    )
+    monkeypatch.setattr(app_module, "_build_weighting_options", lambda store: weight_box)
     monkeypatch.setattr(app_module, "discover_plugins", lambda: None)
 
     store = ParamStore()
@@ -1365,8 +1347,7 @@ def test_launch_interactions(monkeypatch, tmp_path):
     monkeypatch.setattr(
         app_module.pipeline,
         "run",
-        lambda cfg: run_calls.append(pd.DataFrame({"a": [1]}))
-        or pd.DataFrame({"a": [1]}),
+        lambda cfg: run_calls.append(pd.DataFrame({"a": [1]})) or pd.DataFrame({"a": [1]}),
     )
     monkeypatch.setattr(
         app_module.pipeline,
@@ -1382,30 +1363,20 @@ def test_launch_interactions(monkeypatch, tmp_path):
     monkeypatch.setattr(
         app_module.export,
         "export_to_excel",
-        lambda data, path, default_sheet_formatter=None: export_calls.append(
-            (path, data)
-        ),
+        lambda data, path, default_sheet_formatter=None: export_calls.append((path, data)),
     )
 
     exporters = dict(app_module.export.EXPORTERS)
     exporters["json"] = lambda data, path, _: json_calls.append((path, data))
     monkeypatch.setattr(app_module.export, "EXPORTERS", exporters)
 
-    monkeypatch.setattr(
-        app_module, "save_state", lambda store: save_calls.append(store)
-    )
-    monkeypatch.setattr(
-        app_module, "reset_weight_state", lambda store: reset_calls.append(store)
-    )
+    monkeypatch.setattr(app_module, "save_state", lambda store: save_calls.append(store))
+    monkeypatch.setattr(app_module, "reset_weight_state", lambda store: reset_calls.append(store))
     monkeypatch.setattr(app_module, "Javascript", lambda script: script)
-    monkeypatch.setattr(
-        app_module, "display", lambda payload: theme_calls.append(payload)
-    )
+    monkeypatch.setattr(app_module, "display", lambda payload: theme_calls.append(payload))
 
     container = app_module.launch()
-    _, mode, vol_adj, use_rank, _, _, _, fmt_dd, theme, reset_btn, run_btn = (
-        container.children
-    )
+    _, mode, vol_adj, use_rank, _, _, _, fmt_dd, theme, reset_btn, run_btn = container.children
 
     mode.set_value("rank")
     assert store.cfg["mode"] == "rank" and rank_box.layout.display == "flex"
@@ -1496,9 +1467,7 @@ def test_launch_run_with_empty_metrics(monkeypatch, tmp_path):
         lambda cfg: pytest.fail("run_full should not execute"),
     )
     saved: list[ParamStore] = []
-    monkeypatch.setattr(
-        app_module, "save_state", lambda store_obj: saved.append(store_obj)
-    )
+    monkeypatch.setattr(app_module, "save_state", lambda store_obj: saved.append(store_obj))
 
     container = app_module.launch()
     _, _, _, _, _, _, _, _, _, _, run_btn = container.children
@@ -1517,9 +1486,7 @@ def test_launch_run_with_custom_exporter(monkeypatch, tmp_path):
     monkeypatch.setattr(app_module, "_build_step0", lambda store: DummyBox())
     monkeypatch.setattr(app_module, "_build_rank_options", lambda store: DummyBox())
     monkeypatch.setattr(app_module, "_build_manual_override", lambda store: DummyBox())
-    monkeypatch.setattr(
-        app_module, "_build_weighting_options", lambda store: DummyBox()
-    )
+    monkeypatch.setattr(app_module, "_build_weighting_options", lambda store: DummyBox())
     monkeypatch.setattr(app_module, "reset_weight_state", lambda store: None)
 
     monkeypatch.setattr(app_module.widgets, "Dropdown", DummyDropdown)
@@ -1543,9 +1510,7 @@ def test_launch_run_with_custom_exporter(monkeypatch, tmp_path):
     }
 
     def build_cfg(store_obj: ParamStore) -> SimpleNamespace:
-        return SimpleNamespace(
-            output=store_obj.cfg.get("output", {}), sample_split=sample_split
-        )
+        return SimpleNamespace(output=store_obj.cfg.get("output", {}), sample_split=sample_split)
 
     monkeypatch.setattr(app_module, "build_config_from_store", build_cfg)
 
@@ -1570,9 +1535,7 @@ def test_launch_run_with_custom_exporter(monkeypatch, tmp_path):
     )
 
     saved: list[ParamStore] = []
-    monkeypatch.setattr(
-        app_module, "save_state", lambda store_obj: saved.append(store_obj)
-    )
+    monkeypatch.setattr(app_module, "save_state", lambda store_obj: saved.append(store_obj))
 
     container = app_module.launch()
     run_btn = container.children[-1]

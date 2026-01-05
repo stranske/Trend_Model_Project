@@ -138,9 +138,7 @@ def test_apply_rebalance_schedule_preserves_dtype_and_overlapping_calendar() -> 
 
 def test_apply_rebalance_schedule_resorts_to_original_order() -> None:
     ascending = pd.bdate_range("2023-01-02", periods=4)
-    scrambled = pd.DatetimeIndex(
-        [ascending[2], ascending[0], ascending[3], ascending[1]]
-    )
+    scrambled = pd.DatetimeIndex([ascending[2], ascending[0], ascending[3], ascending[1]])
     positions = pd.Series([1.0, 2.0, 3.0, 4.0], index=scrambled, name="positions")
 
     calendar = get_rebalance_dates(scrambled, "weekly")
@@ -190,16 +188,12 @@ def test_normalize_positions_requires_datetime_index() -> None:
 
 
 def test_normalize_positions_validates_inputs() -> None:
-    with pytest.raises(
-        TypeError, match="positions must be provided as a pandas DataFrame"
-    ):
+    with pytest.raises(TypeError, match="positions must be provided as a pandas DataFrame"):
         normalize_positions([1, 2])  # type: ignore[arg-type]
 
 
 def test_normalize_positions_rejects_duplicate_columns_and_empty_eligible() -> None:
-    df = pd.DataFrame(
-        [[0.1, 0.2]], columns=["AAA", "AAA"], index=pd.to_datetime(["2024-01-01"])
-    )
+    df = pd.DataFrame([[0.1, 0.2]], columns=["AAA", "AAA"], index=pd.to_datetime(["2024-01-01"]))
 
     with pytest.raises(
         ValueError,
@@ -234,9 +228,7 @@ def test_match_timezone_aligns_naive_and_aware_indices() -> None:
     assert localized.tz_convert(None).equals(naive_index)
 
     aware_index = pd.DatetimeIndex(["2024-03-01", "2024-03-02"], tz="UTC")
-    dropped = _match_timezone(
-        aware_index, pd.DatetimeIndex(["2024-03-01", "2024-03-02"])
-    )
+    dropped = _match_timezone(aware_index, pd.DatetimeIndex(["2024-03-01", "2024-03-02"]))
     assert dropped.tz is None
     assert dropped.equals(pd.DatetimeIndex(["2024-03-01", "2024-03-02"]))
 
@@ -254,9 +246,7 @@ def test_normalize_positions_two_asset_reproducible_weights() -> None:
     normalized = normalize_positions(df)
 
     expected_last = pd.Series({"AAA": -1.0, "BBB": 0.5})
-    pd.testing.assert_series_equal(
-        normalized.iloc[-1], expected_last, check_names=False
-    )
+    pd.testing.assert_series_equal(normalized.iloc[-1], expected_last, check_names=False)
 
 
 def test_coerce_datetime_index_rejects_unusable_values() -> None:

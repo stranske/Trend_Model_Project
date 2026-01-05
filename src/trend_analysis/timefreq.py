@@ -54,9 +54,7 @@ def monthly_period_range(
 
     Uses legacy alias 'M' intentionally (see module docstring).
     """
-    return pd.period_range(
-        start=start, periods=periods, end=end, freq=MONTHLY_PERIOD_FREQ
-    )
+    return pd.period_range(start=start, periods=periods, end=end, freq=MONTHLY_PERIOD_FREQ)
 
 
 def _validate_no_invalid_period_alias(freq: str) -> None:

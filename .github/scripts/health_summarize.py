@@ -49,9 +49,7 @@ def _doc_url() -> str:
     if not repo:
         return "https://github.com/stranske/Trend_Model_Project/blob/phase-2-dev/docs/ci/WORKFLOWS.md#ci-signature-guard-fixtures"
 
-    return (
-        f"{server}/{repo}/blob/{ref}/docs/ci/WORKFLOWS.md#ci-signature-guard-fixtures"
-    )
+    return f"{server}/{repo}/blob/{ref}/docs/ci/WORKFLOWS.md#ci-signature-guard-fixtures"
 
 
 def _signature_row(jobs_path: Path, expected_path: Path) -> Mapping[str, str]:
@@ -60,9 +58,7 @@ def _signature_row(jobs_path: Path, expected_path: Path) -> Mapping[str, str]:
         return {
             "check": "Health 43 CI Signature Guard",
             "status": "❌ Fixture unreadable",
-            "details": _escape_table(
-                f"Unable to load signature jobs fixture at {jobs_path}"
-            ),
+            "details": _escape_table(f"Unable to load signature jobs fixture at {jobs_path}"),
             "conclusion": "failure",
         }
 
@@ -85,9 +81,7 @@ def _signature_row(jobs_path: Path, expected_path: Path) -> Mapping[str, str]:
     ]
 
     if not matches:
-        details_lines.append(
-            "Update `.github/signature-fixtures` when intentional changes occur."
-        )
+        details_lines.append("Update `.github/signature-fixtures` when intentional changes occur.")
 
     return {
         "check": "Health 43 CI Signature Guard",
@@ -105,9 +99,7 @@ def _extract_contexts(section: object) -> list[str]:
 
     if isinstance(raw_contexts, str):
         contexts = [raw_contexts]
-    elif isinstance(raw_contexts, Iterable) and not isinstance(
-        raw_contexts, (str, bytes)
-    ):
+    elif isinstance(raw_contexts, Iterable) and not isinstance(raw_contexts, (str, bytes)):
         contexts = [str(item).strip() for item in raw_contexts]
     else:
         contexts = []
@@ -173,12 +165,8 @@ def _format_delta(
     current_contexts = _extract_contexts(current_section)
     previous_contexts = _extract_contexts(previous_section)
 
-    added = [
-        context for context in current_contexts if context not in previous_contexts
-    ]
-    removed = [
-        context for context in previous_contexts if context not in current_contexts
-    ]
+    added = [context for context in current_contexts if context not in previous_contexts]
+    removed = [context for context in previous_contexts if context not in current_contexts]
 
     parts: list[str] = []
     if added:
@@ -186,13 +174,9 @@ def _format_delta(
     if removed:
         parts.append("−" + ", ".join(removed))
 
-    current_strict = (
-        current_section.get("strict") if isinstance(current_section, Mapping) else None
-    )
+    current_strict = current_section.get("strict") if isinstance(current_section, Mapping) else None
     previous_strict = (
-        previous_section.get("strict")
-        if isinstance(previous_section, Mapping)
-        else None
+        previous_section.get("strict") if isinstance(previous_section, Mapping) else None
     )
 
     if current_strict != previous_strict:
@@ -247,8 +231,7 @@ def _snapshot_detail(
     current_contexts = ", ".join(_extract_contexts(snapshot.get("current"))) or "–"
     target_contexts = (
         ", ".join(
-            _extract_contexts(snapshot.get("after"))
-            or _extract_contexts(snapshot.get("desired"))
+            _extract_contexts(snapshot.get("after")) or _extract_contexts(snapshot.get("desired"))
         )
         or "–"
     )
@@ -289,9 +272,7 @@ def _branch_row(
     snapshot_dir: Path,
     *,
     has_token: bool,
-    pairs: (
-        Iterable[tuple[str, Mapping[str, Any] | None, Mapping[str, Any] | None]] | None
-    ) = None,
+    pairs: Iterable[tuple[str, Mapping[str, Any] | None, Mapping[str, Any] | None]] | None = None,
 ) -> Mapping[str, str]:
     enforcement = _load_json(snapshot_dir / "enforcement.json")
     verification = _load_json(snapshot_dir / "verification.json")
@@ -312,9 +293,7 @@ def _branch_row(
         scenario_pairs = list(pairs)
 
     for label, snapshot, previous in scenario_pairs:
-        detail, severity = _snapshot_detail(
-            label, snapshot, previous, has_token=has_token
-        )
+        detail, severity = _snapshot_detail(label, snapshot, previous, has_token=has_token)
         details.append(detail)
         severities.append(severity)
 

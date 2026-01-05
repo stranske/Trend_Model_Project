@@ -87,9 +87,7 @@ class EmptyRebalancer:
         return prev_weights.iloc[0:0]
 
 
-def _patch_generate_periods(
-    monkeypatch: pytest.MonkeyPatch, periods: List[DummyPeriod]
-) -> None:
+def _patch_generate_periods(monkeypatch: pytest.MonkeyPatch, periods: List[DummyPeriod]) -> None:
     monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
 
 
@@ -102,18 +100,14 @@ def test_run_schedule_handles_missing_rank_column(
     }
 
     class Selector:
-        def select(
-            self, score_frame: pd.DataFrame
-        ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
             return score_frame, score_frame
 
     class Weighting(BaseWeighting):
         def __init__(self) -> None:
             self.update_calls: list[int] = []
 
-        def weight(
-            self, selected: pd.DataFrame, date: pd.Timestamp | None = None
-        ) -> pd.DataFrame:
+        def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
             del date
             return pd.DataFrame({"weight": [1.0]}, index=selected.index)
 
@@ -163,9 +157,7 @@ def test_run_uses_nan_policy_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
         [DummyPeriod("2020-01-31", "2020-01-31", "2020-02-29", "2020-02-29")],
     )
     monkeypatch.setattr(mp_engine, "apply_missing_policy", fake_missing_policy)
-    monkeypatch.setattr(
-        mp_engine, "_run_analysis", lambda *_args, **_kwargs: {"summary": "ok"}
-    )
+    monkeypatch.setattr(mp_engine, "_run_analysis", lambda *_args, **_kwargs: {"summary": "ok"})
 
     results = mp_engine.run(cfg, df=df)
 
@@ -200,18 +192,14 @@ def test_run_skips_missing_policy_when_price_frames_present(
 
     called = False
 
-    def fail_missing_policy(
-        *_args: Any, **_kwargs: Any
-    ) -> None:  # pragma: no cover - guard
+    def fail_missing_policy(*_args: Any, **_kwargs: Any) -> None:  # pragma: no cover - guard
         nonlocal called
         called = True
         raise AssertionError("apply_missing_policy should not be invoked")
 
     captures: list[pd.DataFrame] = []
 
-    def fake_run_analysis(
-        df: pd.DataFrame, *_args: Any, **_kwargs: Any
-    ) -> dict[str, Any]:
+    def fake_run_analysis(df: pd.DataFrame, *_args: Any, **_kwargs: Any) -> dict[str, Any]:
         captures.append(df.copy())
         return {"analysis": "ok"}
 
@@ -300,9 +288,7 @@ def test_threshold_hold_returns_placeholder_for_empty_universe(
         lambda *_a, **_k: StaticSelector(),
     )
     monkeypatch.setattr(mp_engine, "Rebalancer", EmptyRebalancer)
-    monkeypatch.setattr(
-        mp_engine, "_run_analysis", lambda *_a, **_k: {"payload": "unused"}
-    )
+    monkeypatch.setattr(mp_engine, "_run_analysis", lambda *_a, **_k: {"payload": "unused"})
 
     results = mp_engine.run(cfg, df=df)
 

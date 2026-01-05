@@ -243,12 +243,8 @@ def build_comparison_bundle(
 
     buffer = BytesIO()
     with ZipFile(buffer, "w", compression=ZIP_DEFLATED) as zf:
-        zf.writestr(
-            "config_A.json", json.dumps(config_a, indent=2, sort_keys=True, default=str)
-        )
-        zf.writestr(
-            "config_B.json", json.dumps(config_b, indent=2, sort_keys=True, default=str)
-        )
+        zf.writestr("config_A.json", json.dumps(config_a, indent=2, sort_keys=True, default=str))
+        zf.writestr("config_B.json", json.dumps(config_b, indent=2, sort_keys=True, default=str))
         zf.writestr("config_diff.txt", diff_text or "No differences found.")
 
         if metrics is not None and not metrics.empty:
@@ -256,9 +252,7 @@ def build_comparison_bundle(
         if periods is not None and not periods.empty:
             zf.writestr("periods_compare.csv", periods.to_csv(index=False))
         if manager_changes is not None and not manager_changes.empty:
-            zf.writestr(
-                "manager_change_compare.csv", manager_changes.to_csv(index=False)
-            )
+            zf.writestr("manager_change_compare.csv", manager_changes.to_csv(index=False))
 
     buffer.seek(0)
     return buffer.getvalue()

@@ -82,9 +82,7 @@ def main() -> int:
     changed_any = False
     for path in TEST_ROOT.rglob("test_*.py"):
         if process_file(path):
-            print(
-                f"[fix_numpy_asserts] Rewrote NumPy assert in {path.relative_to(ROOT)}"
-            )
+            print(f"[fix_numpy_asserts] Rewrote NumPy assert in {path.relative_to(ROOT)}")
             changed_any = True
     if not changed_any:
         print("[fix_numpy_asserts] No eligible asserts found.")

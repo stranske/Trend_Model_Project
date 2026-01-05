@@ -122,9 +122,7 @@ def test_run_simulation_sanitizes_details_and_combines_portfolio(
     regime_sanitized = result.details_sanitized["performance_by_regime"]
     assert all(isinstance(col, str) for col in regime_sanitized.keys())
     assert "User / Risk-On" in regime_sanitized
-    assert all(
-        isinstance(metric, str) for metric in regime_sanitized["User / Risk-On"].keys()
-    )
+    assert all(isinstance(metric, str) for metric in regime_sanitized["User / Risk-On"].keys())
 
 
 def test_run_simulation_handles_unexpected_result_type(

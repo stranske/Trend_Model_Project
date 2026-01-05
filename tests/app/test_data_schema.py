@@ -8,6 +8,13 @@ from streamlit_app.components import data_schema
 from streamlit_app.components.data_schema import load_and_validate_csv
 
 
+def _mock_metadata(**kwargs):
+    """Create a SimpleNamespace with model_dump support for testing."""
+    ns = SimpleNamespace(**kwargs)
+    ns.model_dump = lambda mode=None: vars(ns)
+    return ns
+
+
 def test_extract_headers_from_csv_bytes_with_bom() -> None:
     raw = "\ufeffDate,A,B\n2020-01-01,1,2\n".encode("utf-8")
 
@@ -96,9 +103,7 @@ def test_load_and_validate_csv(tmp_path):
     assert len(df) == 2
 
 
-def test_load_and_validate_file_sanitizes_headers_and_builds_meta(
-    monkeypatch, tmp_path
-):
+def test_load_and_validate_file_sanitizes_headers_and_builds_meta(monkeypatch, tmp_path):
     csv_path = tmp_path / "formulas.csv"
     csv_path.write_text("=evil,@bad\n1,2\n3,4\n")
 
@@ -136,6 +141,29 @@ def test_load_and_validate_file_sanitizes_headers_and_builds_meta(
                     ),
                     "start": pd.Timestamp("2020-01-01"),
                     "end": pd.Timestamp("2020-01-31"),
+                    "model_dump": lambda self, mode=None: {
+                        k: getattr(self, k)
+                        for k in [
+                            "columns",
+                            "symbols",
+                            "rows",
+                            "mode",
+                            "frequency_label",
+                            "frequency",
+                            "frequency_detected",
+                            "frequency_missing_periods",
+                            "frequency_max_gap_periods",
+                            "frequency_tolerance_periods",
+                            "missing_policy",
+                            "missing_policy_limit",
+                            "missing_policy_summary",
+                            "missing_policy_filled",
+                            "missing_policy_dropped",
+                            "date_range",
+                            "start",
+                            "end",
+                        ]
+                    },
                 },
             )()
 
@@ -205,11 +233,11 @@ def test_extract_headers_from_excel_failure_returns_none() -> None:
 
 def test_build_validation_report_populates_all_warnings():
     frame = pd.DataFrame({"A": [1, None, None, None, None], "B": [1, 2, 3, 4, 5]})
-    meta = SimpleNamespace(
+    meta = _mock_metadata(
         columns=["A", "B"],
         symbols=["A", "B"],
         rows=5,
-        mode=SimpleNamespace(value="returns"),
+        mode=_mock_metadata(value="returns"),
         frequency_label="Monthly",
         frequency="M",
         frequency_detected=True,
@@ -225,7 +253,7 @@ def test_build_validation_report_populates_all_warnings():
         start=pd.Timestamp("2020-01-01"),
         end=pd.Timestamp("2020-05-31"),
     )
-    validated = SimpleNamespace(frame=frame, metadata=meta)
+    validated = _mock_metadata(frame=frame, metadata=meta)
 
     report = data_schema._build_validation_report(
         validated, sanitized_columns=[{"original": "=A", "sanitized": "A"}]
@@ -261,11 +289,11 @@ def test_load_and_validate_file_uses_excel_branch(monkeypatch):
     class DummyValidated:
         def __init__(self, frame: pd.DataFrame):
             self.frame = frame
-            self.metadata = SimpleNamespace(
+            self.metadata = _mock_metadata(
                 columns=list(frame.columns),
                 symbols=list(frame.columns[1:]),
                 rows=len(frame),
-                mode=SimpleNamespace(value="returns"),
+                mode=_mock_metadata(value="returns"),
                 frequency_label="Monthly",
                 frequency="M",
                 frequency_detected=True,

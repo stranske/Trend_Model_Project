@@ -111,9 +111,7 @@ def test_threshold_hold_results_align_with_periods():
 
     results = mp_engine.run(cfg, df)
     periods = generate_periods(cfg.model_dump())
-    assert len(results) == len(
-        periods
-    ), "Each generated period must produce a result entry"
+    assert len(results) == len(periods), "Each generated period must produce a result entry"
     # Ensure each result has a period tuple of length 4
     for res in results:
         assert "period" in res and len(res["period"]) == 4

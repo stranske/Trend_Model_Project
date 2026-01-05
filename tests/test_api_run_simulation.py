@@ -108,9 +108,7 @@ def test_run_simulation_matches_pipeline(tmp_path):
 
     assert result.details["benchmark_ir"] == expected_details["benchmark_ir"]
     assert result.details["out_sample_stats"] == expected_details["out_sample_stats"]
-    pd.testing.assert_frame_equal(
-        result.details["score_frame"], expected_details["score_frame"]
-    )
+    pd.testing.assert_frame_equal(result.details["score_frame"], expected_details["score_frame"])
     pd.testing.assert_frame_equal(result.metrics, expected_metrics)
     assert result.seed == cfg.seed
     assert "python" in result.environment
@@ -119,9 +117,7 @@ def test_run_simulation_matches_pipeline(tmp_path):
 def test_run_simulation_robustness_condition_threshold_uses_cov_condition():
     df = make_ill_conditioned_df()
     cfg = make_robust_cfg()
-    in_sample = (
-        df.set_index("Date").loc["2020-01-31":"2020-06-30", ["A", "B", "C"]].copy()
-    )
+    in_sample = df.set_index("Date").loc["2020-01-31":"2020-06-30", ["A", "B", "C"]].copy()
     raw_condition = float(np.linalg.cond(in_sample.cov().values))
     cfg.portfolio["robustness"]["condition_check"]["threshold"] = raw_condition / 2.0
 
@@ -194,9 +190,7 @@ def _hash_result(res: api.RunResult) -> str:
             # Use to_dict with records orientation and sort for complete determinism
             df_copy = obj.copy()
             # Round floating point columns to avoid precision issues
-            float_cols = df_copy.select_dtypes(
-                include=[np.float64, np.float32, np.float16]
-            ).columns
+            float_cols = df_copy.select_dtypes(include=[np.float64, np.float32, np.float16]).columns
             for col in float_cols:
                 df_copy[col] = df_copy[col].round(12)
             # Sort by index and columns for determinism
@@ -221,9 +215,7 @@ def _hash_result(res: api.RunResult) -> str:
             try:
                 processed = [deterministic_default(item) for item in obj]
                 # Only sort if all items are of compatible types
-                if processed and all(
-                    type(item) is type(processed[0]) for item in processed
-                ):
+                if processed and all(type(item) is type(processed[0]) for item in processed):
                     processed = sorted(processed)
                 return processed
             except (TypeError, AttributeError):
@@ -317,14 +309,10 @@ def test_run_simulation_deterministic(tmp_path):
                 if isinstance(val1, dict) and isinstance(val2, dict):
                     if val1.keys() != val2.keys():
                         print(
-                            f"Different keys in details[{key}]: "
-                            f"{val1.keys()} vs {val2.keys()}"
+                            f"Different keys in details[{key}]: " f"{val1.keys()} vs {val2.keys()}"
                         )
                 elif val1 != val2:
-                    print(
-                        f"Different values in details[{key}]: "
-                        f"{type(val1)} vs {type(val2)}"
-                    )
+                    print(f"Different values in details[{key}]: " f"{type(val1)} vs {type(val2)}")
             else:
                 print(f"Key {key} missing in Run 2 details")
 
@@ -391,9 +379,7 @@ def test_run_simulation_deterministic_with_random_selection(tmp_path):
 
     # If hashes don't match, provide debugging info
     if hash1 != hash2:
-        print(
-            f"Hash mismatch in random selection test - Run 1: {hash1}, Run 2: {hash2}"
-        )
+        print(f"Hash mismatch in random selection test - Run 1: {hash1}, Run 2: {hash2}")
         print(f"Selected funds - Run 1: {funds1}")
         print(f"Selected funds - Run 2: {funds2}")
         print(f"Seeds - Run 1: {r1.seed}, Run 2: {r2.seed}")
