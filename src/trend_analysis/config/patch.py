@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 import re
 from enum import Enum
 from typing import Any, Literal
@@ -99,6 +100,43 @@ class ConfigPatch(BaseModel):
         return cls.model_json_schema()
 
 
+def apply_config_patch(config: dict[str, Any], patch: ConfigPatch) -> dict[str, Any]:
+    """Apply a validated patch to a config mapping."""
+
+    updated = deepcopy(config)
+    for operation in patch.operations:
+        segments = _parse_path_segments(operation.path)
+        if not segments:
+            raise ValueError("path must include at least one segment")
+        parent = _ensure_parent(updated, segments[:-1], operation.op)
+        leaf = segments[-1]
+        if not isinstance(parent, dict):
+            raise TypeError("path must resolve to an object container")
+        if operation.op == "set":
+            parent[leaf] = operation.value
+        elif operation.op == "remove":
+            if leaf not in parent:
+                raise KeyError(f"path '{operation.path}' does not exist")
+            parent.pop(leaf, None)
+        elif operation.op == "append":
+            existing = parent.get(leaf)
+            if existing is None:
+                parent[leaf] = [operation.value]
+            elif isinstance(existing, list):
+                existing.append(operation.value)
+            else:
+                raise TypeError("append requires a list at the target path")
+        elif operation.op == "merge":
+            existing = parent.get(leaf)
+            if existing is None:
+                parent[leaf] = deepcopy(operation.value)
+            elif isinstance(existing, dict):
+                _deep_merge(existing, operation.value)
+            else:
+                raise TypeError("merge requires an object at the target path")
+    return updated
+
+
 def _to_dotpath(path: str) -> str:
     if path.startswith("/"):
         segments = [
@@ -107,6 +145,45 @@ def _to_dotpath(path: str) -> str:
         ]
         return ".".join(segments)
     return path
+
+
+def _parse_path_segments(path: str) -> list[str]:
+    if path.startswith("/"):
+        return [
+            segment.replace("~1", "/").replace("~0", "~")
+            for segment in path.split("/")[1:]
+        ]
+    return path.split(".") if path else []
+
+
+def _ensure_parent(
+    root: dict[str, Any], segments: list[str], op: str
+) -> dict[str, Any]:
+    current: Any = root
+    for segment in segments:
+        if not isinstance(current, dict):
+            raise TypeError("path must resolve to an object container")
+        if segment not in current or current[segment] is None:
+            if op in {"set", "append", "merge"}:
+                current[segment] = {}
+            else:
+                raise KeyError(f"path segment '{segment}' does not exist")
+        current = current[segment]
+    if not isinstance(current, dict):
+        raise TypeError("path must resolve to an object container")
+    return current
+
+
+def _deep_merge(target: dict[str, Any], patch: dict[str, Any]) -> None:
+    for key, value in patch.items():
+        if (
+            key in target
+            and isinstance(target[key], dict)
+            and isinstance(value, dict)
+        ):
+            _deep_merge(target[key], value)
+        else:
+            target[key] = deepcopy(value)
 
 
 def _has_invalid_json_pointer_escape(path: str) -> bool:
@@ -193,6 +270,7 @@ def _is_broad_scope(op: PatchOperation) -> bool:
 
 
 __all__ = [
+    "apply_config_patch",
     "ConfigPatch",
     "PatchOperation",
     "RiskFlag",
