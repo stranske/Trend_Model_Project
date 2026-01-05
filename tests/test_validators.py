@@ -124,10 +124,10 @@ class TestLoadAndValidateUpload:
     def test_reads_csv_buffer(self, tmp_path: Path) -> None:
         csv_path = self._make_csv(tmp_path)
         df, meta = load_and_validate_upload(str(csv_path))
-        assert df.attrs["market_data"]["metadata"].mode == MarketDataMode.RETURNS
+        assert df.attrs["market_data"]["metadata"]["mode"] == "returns"
         metadata = meta["metadata"]
-        assert metadata.frequency_label == "monthly"
-        assert metadata.frequency_detected == "M"
+        assert metadata["frequency_label"] == "monthly"
+        assert metadata["frequency_detected"] == "M"
         assert meta["frequency"] == "monthly"
 
     def test_raises_validation_error(self, tmp_path: Path) -> None:

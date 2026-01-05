@@ -1,3 +1,11 @@
+
+
+def _mock_metadata(**kwargs):
+    """Create a SimpleNamespace with model_dump support for testing."""
+    ns = SimpleNamespace(**kwargs)
+    ns.model_dump = lambda mode=None: vars(ns)
+    return ns
+
 """Coverage-focused tests for ``streamlit_app.components.data_schema``."""
 
 from __future__ import annotations
@@ -18,11 +26,11 @@ def schema_module() -> Any:
 
 
 def _dummy_validated(frame: pd.DataFrame) -> SimpleNamespace:
-    metadata = SimpleNamespace(
+    metadata = _mock_metadata(
         rows=len(frame),
         columns=list(frame.columns),
         symbols=["A", "B"],
-        mode=SimpleNamespace(value="returns"),
+        mode=_mock_metadata(value="returns"),
         frequency_label="Monthly",
         frequency="M",
         frequency_detected="M",
@@ -38,7 +46,7 @@ def _dummy_validated(frame: pd.DataFrame) -> SimpleNamespace:
         start="2020-01-31",
         end="2020-12-31",
     )
-    return SimpleNamespace(metadata=metadata, frame=frame)
+    return _mock_metadata(metadata=metadata, frame=frame)
 
 
 def test_build_validation_report_flags_warnings(schema_module: Any) -> None:
