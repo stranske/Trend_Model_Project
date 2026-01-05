@@ -1,4 +1,3 @@
-
 """Coverage-focused tests for ``streamlit_app.components.data_schema``."""
 
 from __future__ import annotations
@@ -16,7 +15,6 @@ def _mock_metadata(**kwargs):
     ns = SimpleNamespace(**kwargs)
     ns.model_dump = lambda mode=None: vars(ns)
     return ns
-
 
 
 @pytest.fixture
