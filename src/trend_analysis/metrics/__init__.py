@@ -81,11 +81,7 @@ def _is_zero_everywhere(
         True if the value is zero everywhere, False otherwise
     """
     if isinstance(value, (Series, DataFrame)):
-        result = (
-            (value == 0).all().all()
-            if isinstance(value, DataFrame)
-            else (value == 0).all()
-        )
+        result = (value == 0).all().all() if isinstance(value, DataFrame) else (value == 0).all()
         return bool(result)
 
     # NumPy arrays: require all elements within tolerance
@@ -121,9 +117,7 @@ def _check_shapes(
     if np.isscalar(other):
         return
     assert isinstance(other, (Series, DataFrame))
-    if ret.shape != other.shape or isinstance(ret, DataFrame) != isinstance(
-        other, DataFrame
-    ):
+    if ret.shape != other.shape or isinstance(ret, DataFrame) != isinstance(other, DataFrame):
         raise ValueError(f"{fn}: inputs must have identical shape")
 
 

@@ -153,17 +153,13 @@ def test_build_meta_populates_warnings_and_metadata_fields():
         missing_policy_limit=1,
         missing_policy_summary="dropped missing",
         missing_policy_dropped=["Index"],
-        missing_policy_filled={
-            "=Bad": MissingPolicyFillDetails(method="ffill", count=1)
-        },
+        missing_policy_filled={"=Bad": MissingPolicyFillDetails(method="ffill", count=1)},
     )
     validated = ValidatedMarketData(
         pd.DataFrame({"=Bad": [1, None, None, None, None], "Index": [None] * 5}),
         metadata,
     )
-    meta = _build_meta(
-        validated, sanitized_columns=[{"original": "=Bad", "sanitized": "Bad"}]
-    )
+    meta = _build_meta(validated, sanitized_columns=[{"original": "=Bad", "sanitized": "Bad"}])
 
     warnings = meta["validation"]["warnings"]
     assert any("Dataset is quite small" in warning for warning in warnings)

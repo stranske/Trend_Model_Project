@@ -324,9 +324,7 @@ class VolTargetRebalanceStrategy(Rebalancer):
         ec: List[float] = list(kwargs.get("equity_curve", []))
         lev = 1.0
         if len(ec) >= self.window + 1:
-            rets = pd.Series(
-                np.diff(ec[-(self.window + 1) :]) / ec[-(self.window + 1) : -1]
-            )
+            rets = pd.Series(np.diff(ec[-(self.window + 1) :]) / ec[-(self.window + 1) : -1])
             vol = float(rets.std(ddof=0)) * np.sqrt(12)
             if vol > 0:
                 lev = float(np.clip(self.target / vol, self.lev_min, self.lev_max))
@@ -364,9 +362,7 @@ class DrawdownGuardStrategy(Rebalancer):
     ) -> Tuple[pd.Series, float]:
         # Prefer explicit rb_state dict if provided, else fallback to generic state, else a local dict
         rb_state_obj = kwargs.get("rb_state", kwargs.get("state"))
-        rb_state: Dict[str, Any] = (
-            rb_state_obj if isinstance(rb_state_obj, dict) else {}
-        )
+        rb_state: Dict[str, Any] = rb_state_obj if isinstance(rb_state_obj, dict) else {}
         # Equity curve can be passed either directly or via state
         ec_in: Any = kwargs.get("equity_curve", rb_state.get("equity_curve", []))
         ec: List[float] = list(ec_in)
@@ -393,9 +389,7 @@ class DrawdownGuardStrategy(Rebalancer):
 
 
 # Registry of available strategies
-def create_rebalancing_strategy(
-    name: str, params: Dict[str, Any] | None = None
-) -> Rebalancer:
+def create_rebalancing_strategy(name: str, params: Dict[str, Any] | None = None) -> Rebalancer:
     """Create a rebalancing strategy by name using the plugin registry."""
     return create_rebalancer(name, params)
 
@@ -436,9 +430,7 @@ def apply_rebalancing_strategies(
     for strategy_name in strategies:
         params = strategy_params.get(strategy_name, {})
         strategy = create_rebalancing_strategy(strategy_name, params)
-        weights, cost = strategy.apply(
-            weights, target_weights, cash_policy=cash_policy, **kwargs
-        )
+        weights, cost = strategy.apply(weights, target_weights, cash_policy=cash_policy, **kwargs)
         total_cost += cost
 
     return weights, total_cost

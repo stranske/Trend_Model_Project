@@ -83,9 +83,7 @@ def has_valid_upload() -> bool:
     """Check if there's valid uploaded data in session state."""
     df, meta = get_uploaded_data()
     return (
-        df is not None
-        and meta is not None
-        and st.session_state.get("upload_status") == "success"
+        df is not None and meta is not None and st.session_state.get("upload_status") == "success"
     )
 
 

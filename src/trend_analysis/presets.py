@@ -153,28 +153,15 @@ class TrendPreset:
             portfolio = {}
 
         defaults = {
-            "lookback_periods": _coerce_int(
-                preset.get("lookback_periods"), default=36, minimum=1
-            ),
+            "lookback_periods": _coerce_int(preset.get("lookback_periods"), default=36, minimum=1),
             "rebalance_frequency": str(preset.get("rebalance_frequency", "monthly")),
-            "min_track_months": _coerce_int(
-                preset.get("min_track_months"), default=24, minimum=1
-            ),
-            "selection_count": _coerce_int(
-                preset.get("selection_count"), default=10, minimum=1
-            ),
-            "risk_target": _coerce_optional_float(
-                preset.get("risk_target"), minimum=0.0
-            )
-            or 0.1,
+            "min_track_months": _coerce_int(preset.get("min_track_months"), default=24, minimum=1),
+            "selection_count": _coerce_int(preset.get("selection_count"), default=10, minimum=1),
+            "risk_target": _coerce_optional_float(preset.get("risk_target"), minimum=0.0) or 0.1,
             "weighting_scheme": str(portfolio.get("weighting_scheme", "equal")),
-            "cooldown_months": _coerce_int(
-                portfolio.get("cooldown_months"), default=3, minimum=0
-            ),
+            "cooldown_months": _coerce_int(portfolio.get("cooldown_months"), default=3, minimum=0),
             "metrics": _normalise_metric_weights(
-                preset.get("metrics", {})
-                if isinstance(preset.get("metrics"), Mapping)
-                else {}
+                preset.get("metrics", {}) if isinstance(preset.get("metrics"), Mapping) else {}
             ),
         }
         return defaults
@@ -202,11 +189,7 @@ class TrendPreset:
         preset = self._config.get("vol_adjust")
         if isinstance(preset, Mapping):
             base: dict[str, Any] = {
-                key: (
-                    dict(value)
-                    if key == "window" and isinstance(value, Mapping)
-                    else value
-                )
+                key: (dict(value) if key == "window" and isinstance(value, Mapping) else value)
                 for key, value in preset.items()
             }
         else:

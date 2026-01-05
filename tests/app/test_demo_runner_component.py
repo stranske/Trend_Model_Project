@@ -242,9 +242,7 @@ def test_load_demo_returns_reads_first_candidate(
     ).set_index("Date")
     meta = demo_runner.SchemaMeta(n_rows=2)
 
-    monkeypatch.setattr(
-        demo_runner, "load_and_validate_file", lambda handle: (df, meta)
-    )
+    monkeypatch.setattr(demo_runner, "load_and_validate_file", lambda handle: (df, meta))
 
     loaded_df, loaded_meta = demo_runner._load_demo_returns()
     assert loaded_df is df
@@ -256,9 +254,7 @@ def test_load_demo_returns_raises_when_missing(
 ) -> None:
     """Missing demo files should trigger a clear FileNotFoundError."""
 
-    monkeypatch.setattr(
-        demo_runner, "DEMO_DATA_CANDIDATES", (tmp_path / "missing.csv",)
-    )
+    monkeypatch.setattr(demo_runner, "DEMO_DATA_CANDIDATES", (tmp_path / "missing.csv",))
 
     with pytest.raises(FileNotFoundError):
         demo_runner._load_demo_returns()
@@ -341,9 +337,7 @@ def test_run_one_click_demo_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
 
     captured = {}
 
-    def fake_run_simulation(
-        config: demo_runner.Config, returns: pd.DataFrame
-    ) -> object:
+    def fake_run_simulation(config: demo_runner.Config, returns: pd.DataFrame) -> object:
         captured["config"] = config
         captured["returns"] = returns
         return sentinel_result

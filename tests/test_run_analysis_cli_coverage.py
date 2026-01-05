@@ -62,15 +62,11 @@ def _stub_run_simulation(cfg: SimpleNamespace, df: pd.DataFrame) -> _DummyResult
 def test_main_happy_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
     export_calls: dict[str, Any] = {}
 
-    cfg = _build_config(
-        csv_path=str(tmp_path / "data.csv"), export_dir=str(tmp_path / "out")
-    )
+    cfg = _build_config(csv_path=str(tmp_path / "data.csv"), export_dir=str(tmp_path / "out"))
 
     monkeypatch.setattr(run_analysis, "load", lambda _: cfg)
     monkeypatch.setattr(run_analysis, "load_csv", _stub_load_csv)
-    monkeypatch.setattr(
-        run_analysis, "api", SimpleNamespace(run_simulation=_stub_run_simulation)
-    )
+    monkeypatch.setattr(run_analysis, "api", SimpleNamespace(run_simulation=_stub_run_simulation))
 
     def _format_summary_text(*args: Any, **kwargs: Any) -> str:
         export_calls["summary_args"] = (args, kwargs)
@@ -81,9 +77,7 @@ def test_main_happy_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None
         export_calls["path"] = path
         export_calls["formats"] = formats
 
-    monkeypatch.setattr(
-        run_analysis.export, "format_summary_text", _format_summary_text
-    )
+    monkeypatch.setattr(run_analysis.export, "format_summary_text", _format_summary_text)
     monkeypatch.setattr(run_analysis.export, "export_data", _export_data)
     monkeypatch.setattr(
         run_analysis.export, "make_summary_formatter", lambda *_, **__: lambda df: df
@@ -121,9 +115,7 @@ def test_main_raises_when_load_csv_returns_none(
         run_analysis.main(["--config", "config.yml"])
 
 
-def test_main_uses_nan_policy_fallbacks(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
-) -> None:
+def test_main_uses_nan_policy_fallbacks(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
     cfg = SimpleNamespace(
         data={"csv_path": tmp_path / "data.csv", "nan_policy": "ffill", "nan_limit": 2},
         sample_split={"in_start": "a", "in_end": "b", "out_start": "c", "out_end": "d"},
@@ -149,12 +141,8 @@ def test_main_uses_nan_policy_fallbacks(
 
     monkeypatch.setattr(run_analysis, "load", lambda _: cfg)
     monkeypatch.setattr(run_analysis, "load_csv", _load_csv)
-    monkeypatch.setattr(
-        run_analysis, "api", SimpleNamespace(run_simulation=_stub_run_simulation)
-    )
-    monkeypatch.setattr(
-        run_analysis.export, "format_summary_text", lambda *_, **__: "summary"
-    )
+    monkeypatch.setattr(run_analysis, "api", SimpleNamespace(run_simulation=_stub_run_simulation))
+    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *_, **__: "summary")
     monkeypatch.setattr(run_analysis.export, "export_data", lambda *_, **__: None)
     monkeypatch.setattr(
         run_analysis.export, "make_summary_formatter", lambda *_, **__: lambda df: df
@@ -215,22 +203,14 @@ def test_main_applies_default_export_settings(
 
     export_calls: dict[str, Any] = {}
 
-    def _export_to_excel(
-        payload: dict[str, Any], path: str, *, default_sheet_formatter=None
-    ):
+    def _export_to_excel(payload: dict[str, Any], path: str, *, default_sheet_formatter=None):
         export_calls["path"] = path
         export_calls["keys"] = set(payload)
         export_calls["sheet"] = default_sheet_formatter
 
-    monkeypatch.setattr(
-        run_analysis, "api", SimpleNamespace(run_simulation=_stub_run_simulation)
-    )
-    monkeypatch.setattr(
-        run_analysis.export, "format_summary_text", lambda *_, **__: "summary"
-    )
-    monkeypatch.setattr(
-        run_analysis.export, "summary_frame_from_result", lambda _: pd.DataFrame()
-    )
+    monkeypatch.setattr(run_analysis, "api", SimpleNamespace(run_simulation=_stub_run_simulation))
+    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *_, **__: "summary")
+    monkeypatch.setattr(run_analysis.export, "summary_frame_from_result", lambda _: pd.DataFrame())
     monkeypatch.setattr(
         run_analysis.export, "make_summary_formatter", lambda *_, **__: lambda df: df
     )

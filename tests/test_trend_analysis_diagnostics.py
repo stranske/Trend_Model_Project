@@ -40,10 +40,7 @@ def test_pipeline_failure_populates_default_message_and_context_copy():
     assert result.value is None
     assert result.diagnostic is not None
     assert result.diagnostic.reason_code == PipelineReasonCode.NO_FUNDS_SELECTED.value
-    assert (
-        result.diagnostic.message
-        == "No investable funds satisfy the selection filters."
-    )
+    assert result.diagnostic.message == "No investable funds satisfy the selection filters."
     assert result.diagnostic.context == {"window": "2020"}
 
     context["window"] = "mutated"
@@ -62,18 +59,14 @@ def test_pipeline_failure_allows_custom_message_override():
     [
         (pipeline_success({"ok": True}), {"ok": True}, None),
         (
-            DiagnosticResult(
-                value={"path": "p"}, diagnostic=DiagnosticPayload("R", "M")
-            ),
+            DiagnosticResult(value={"path": "p"}, diagnostic=DiagnosticPayload("R", "M")),
             {"path": "p"},
             DiagnosticPayload("R", "M"),
         ),
         (_MappingWrapper({"wrapped": 1}), {"wrapped": 1}, None),
     ],
 )
-def test_coerce_pipeline_result_converts_mapping_inputs(
-    input_obj, expected_payload, expected_diag
-):
+def test_coerce_pipeline_result_converts_mapping_inputs(input_obj, expected_payload, expected_diag):
     payload, diagnostic = coerce_pipeline_result(input_obj)
 
     assert payload == expected_payload

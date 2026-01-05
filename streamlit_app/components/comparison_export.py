@@ -259,8 +259,7 @@ def build_period_comparison_df(
         # Get turnover and costs
         def _get_turnover(res):
             return _coerce_numeric(
-                res.get("turnover")
-                or (res.get("risk_diagnostics") or {}).get("turnover")
+                res.get("turnover") or (res.get("risk_diagnostics") or {}).get("turnover")
             )
 
         rows.append(
@@ -314,19 +313,13 @@ def build_raw_comparison_df(
                     "Period_Num": idx + 1,
                     "Fund": fund,
                     "Selected": "Yes" if fund in selected else "No",
-                    "Weight": (
-                        _coerce_numeric(weights.get(fund, 0))
-                        if fund in selected
-                        else None
-                    ),
+                    "Weight": (_coerce_numeric(weights.get(fund, 0)) if fund in selected else None),
                 }
 
                 # Add score metrics if available
                 if isinstance(score_frame, pd.DataFrame) and fund in score_frame.index:
                     for col in score_frame.columns:
-                        row[f"InSample_{col}"] = _coerce_numeric(
-                            score_frame.loc[fund, col]
-                        )
+                        row[f"InSample_{col}"] = _coerce_numeric(score_frame.loc[fund, col])
 
                 rows.append(row)
 

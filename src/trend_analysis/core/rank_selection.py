@@ -181,9 +181,7 @@ class WindowMetricBundle:
                     incremental_cov=incremental_cov,
                 )
                 self.cov_payload = payload
-            series = _cov_metric_from_payload(
-                canonical, payload, self.in_sample_df.columns
-            )
+            series = _cov_metric_from_payload(canonical, payload, self.in_sample_df.columns)
         else:
             # Attempt scalar metric cache (Issue #1156)
             from .metric_cache import get_or_compute_metric_series as _metric_cached
@@ -195,9 +193,7 @@ class WindowMetricBundle:
                 universe_cols=tuple(self.in_sample_df.columns.astype(str)),
                 metric_name=canonical,
                 cfg_hash=self.stats_cfg_hash,
-                compute=lambda: _compute_metric_series(
-                    self.in_sample_df, canonical, stats_cfg
-                ),
+                compute=lambda: _compute_metric_series(self.in_sample_df, canonical, stats_cfg),
                 enable=use_metric_cache,
                 cache=None,
             )
@@ -274,9 +270,7 @@ class WindowMetricCache:
         }
 
 
-_CACHE_SCOPE: ContextVar[str] = ContextVar(
-    "RANK_SELECTOR_CACHE_SCOPE", default="default"
-)
+_CACHE_SCOPE: ContextVar[str] = ContextVar("RANK_SELECTOR_CACHE_SCOPE", default="default")
 _WINDOW_METRIC_CACHE = WindowMetricCache()
 
 # Backwards compatibility counters exposed in tests.
@@ -313,9 +307,7 @@ def _cov_metric_from_payload(
         return pd.Series(0.0, index=columns, name="AvgCorr")
     with np.errstate(divide="ignore", invalid="ignore"):
         denom = np.outer(diag, diag)
-        corr = np.divide(
-            payload.cov, denom, out=np.zeros_like(payload.cov), where=denom != 0
-        )
+        corr = np.divide(payload.cov, denom, out=np.zeros_like(payload.cov), where=denom != 0)
     sums = corr.sum(axis=1) - 1.0
     avg = sums / (corr.shape[0] - 1)
     return pd.Series(avg, index=columns, name="AvgCorr")
@@ -331,9 +323,7 @@ def _compute_covariance_payload(
     from ..perf.cache import compute_cov_payload
 
     if not enable_cov_cache or cov_cache is None:
-        return compute_cov_payload(
-            bundle.in_sample_df, materialise_aggregates=incremental_cov
-        )
+        return compute_cov_payload(bundle.in_sample_df, materialise_aggregates=incremental_cov)
     key = cov_cache.make_key(
         bundle.start or "0000-00",
         bundle.end or "0000-00",
@@ -342,9 +332,7 @@ def _compute_covariance_payload(
     )
     return cov_cache.get_or_compute(
         key,
-        lambda: compute_cov_payload(
-            bundle.in_sample_df, materialise_aggregates=incremental_cov
-        ),
+        lambda: compute_cov_payload(bundle.in_sample_df, materialise_aggregates=incremental_cov),
     )
 
 
@@ -390,9 +378,7 @@ def get_window_metric_bundle(window_key: WindowKey) -> WindowMetricBundle | None
     return bundle
 
 
-def store_window_metric_bundle(
-    window_key: WindowKey | None, bundle: WindowMetricBundle
-) -> None:
+def store_window_metric_bundle(window_key: WindowKey | None, bundle: WindowMetricBundle) -> None:
     """Store *bundle* under *window_key* when provided."""
 
     _WINDOW_METRIC_CACHE.put(window_key, bundle)
@@ -517,9 +503,7 @@ def rank_select_funds(
             transform=transform,
             inclusion_approach=inclusion_approach,
             total_candidates=len(universe),
-            non_null_scores=(
-                len(scores) if non_null_override is None else non_null_override
-            ),
+            non_null_scores=(len(scores) if non_null_override is None else non_null_override),
             threshold=threshold_value,
         )
         warnings.warn(diagnostics.message(), RuntimeWarning)
@@ -603,9 +587,7 @@ def rank_select_funds(
                 incremental_cov=incremental_cov,
             ).copy()
         else:
-            scores = _call_metric_series(
-                df, metric_name, cfg, risk_free_override=risk_free
-            )
+            scores = _call_metric_series(df, metric_name, cfg, risk_free_override=risk_free)
 
     # Apply transform
     scores = _apply_transform(
@@ -816,9 +798,7 @@ register_metric("AnnualReturn")(
 )
 
 register_metric("Volatility")(
-    lambda s, *, periods_per_year=12, **k: _metrics.volatility(
-        s, periods_per_year=periods_per_year
-    )
+    lambda s, *, periods_per_year=12, **k: _metrics.volatility(s, periods_per_year=periods_per_year)
 )
 
 register_metric("Sharpe")(
@@ -917,9 +897,7 @@ def _compute_metric_series(
     token = _METRIC_CONTEXT.set(context)
     try:
         rf_value: float | pd.Series = (
-            risk_free_override
-            if risk_free_override is not None
-            else stats_cfg.risk_free
+            risk_free_override if risk_free_override is not None else stats_cfg.risk_free
         )
         return in_sample_df.apply(
             fn,
@@ -989,18 +967,14 @@ def _metric_from_cov_payload(
     """Compute covariance-derived metric series from ``payload``."""
 
     if metric_name == "__COV_VAR__":
-        return pd.Series(
-            payload.cov.diagonal(), index=in_sample_df.columns, name="CovVar"
-        )
+        return pd.Series(payload.cov.diagonal(), index=in_sample_df.columns, name="CovVar")
 
     diag = np.sqrt(np.clip(np.diag(payload.cov), 0, None))
     if diag.size <= 1:
         return pd.Series(0.0, index=in_sample_df.columns, name="AvgCorr")
     with np.errstate(divide="ignore", invalid="ignore"):
         denom = np.outer(diag, diag)
-        corr = np.divide(
-            payload.cov, denom, out=np.zeros_like(payload.cov), where=denom != 0
-        )
+        corr = np.divide(payload.cov, denom, out=np.zeros_like(payload.cov), where=denom != 0)
     sums = corr.sum(axis=1) - 1.0
     avg = sums / (corr.shape[0] - 1)
     return pd.Series(avg, index=in_sample_df.columns, name="AvgCorr")
@@ -1051,23 +1025,17 @@ def compute_metric_series_with_cache(
         # flag and rely on standard cache lookups. Hook point documented.
         payload = cov_cache.get_or_compute(
             key,
-            lambda: compute_cov_payload(
-                in_sample_df, materialise_aggregates=incremental_cov
-            ),
+            lambda: compute_cov_payload(in_sample_df, materialise_aggregates=incremental_cov),
         )
     if metric_name == "__COV_VAR__":
-        return pd.Series(
-            payload.cov.diagonal(), index=in_sample_df.columns, name="CovVar"
-        )
+        return pd.Series(payload.cov.diagonal(), index=in_sample_df.columns, name="CovVar")
     # AvgCorr computation
     diag = np.sqrt(np.clip(np.diag(payload.cov), 0, None))
     if diag.size <= 1:
         return pd.Series(0.0, index=in_sample_df.columns, name="AvgCorr")
     with np.errstate(divide="ignore", invalid="ignore"):
         denom = np.outer(diag, diag)
-        corr = np.divide(
-            payload.cov, denom, out=np.zeros_like(payload.cov), where=denom != 0
-        )
+        corr = np.divide(payload.cov, denom, out=np.zeros_like(payload.cov), where=denom != 0)
     sums = corr.sum(axis=1) - 1.0
     avg = sums / (corr.shape[0] - 1)
     return pd.Series(avg, index=in_sample_df.columns, name="AvgCorr")

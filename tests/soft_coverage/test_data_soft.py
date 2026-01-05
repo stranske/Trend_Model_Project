@@ -116,17 +116,13 @@ def test_finalise_validated_frame_includes_metadata(
     attrs = result.attrs["market_data"]
     assert attrs["metadata"] is sample_metadata
     assert result.attrs["market_data_mode"] == sample_metadata.mode.value
-    assert (
-        result.attrs["market_data_frequency_label"] == sample_metadata.frequency_label
-    )
+    assert result.attrs["market_data_frequency_label"] == sample_metadata.frequency_label
 
 
 def test_finalise_validated_frame_without_date_column(
     sample_metadata: MarketDataMetadata,
 ) -> None:
-    frame = pd.DataFrame(
-        {"FundA": [1.0, 2.0, 3.0]}, index=pd.Index([1, 2, 3], name="Date")
-    )
+    frame = pd.DataFrame({"FundA": [1.0, 2.0, 3.0]}, index=pd.Index([1, 2, 3], name="Date"))
     validated = ValidatedMarketData(frame=frame, metadata=sample_metadata)
 
     result = _finalise_validated_frame(validated, include_date_column=False)
@@ -284,9 +280,7 @@ def test_validate_payload_reraises_when_requested(
     monkeypatch.setattr("trend_analysis.data.validate_market_data", fake_validate)
 
     with pytest.raises(MarketDataValidationError):
-        _validate_payload(
-            payload, origin="sample.csv", errors="raise", include_date_column=True
-        )
+        _validate_payload(payload, origin="sample.csv", errors="raise", include_date_column=True)
 
 
 def test_is_readable_checks_permission_bits() -> None:
@@ -333,9 +327,7 @@ def test_load_csv_missing_file_logs_error(caplog: pytest.LogCaptureFixture) -> N
     assert missing_path in caplog.text
 
 
-def test_load_csv_directory_returns_none(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_load_csv_directory_returns_none(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     directory = tmp_path / "nested"
     directory.mkdir()
     with caplog.at_level(logging.ERROR):
@@ -483,9 +475,7 @@ def test_load_parquet_directory_logs_error(
     assert str(directory) in caplog.text
 
 
-def test_load_parquet_permission_denied(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_load_parquet_permission_denied(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     parquet_path = tmp_path / "data.parquet"
     parquet_path.write_bytes(b"")
 

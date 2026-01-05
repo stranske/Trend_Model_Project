@@ -59,9 +59,7 @@ def run_decode_script(
     )
 
 
-def run_parse_script(
-    workdir: Path, *, env: dict[str, str] | None = None
-) -> SimpleNamespace:
+def run_parse_script(workdir: Path, *, env: dict[str, str] | None = None) -> SimpleNamespace:
     stdout_buffer = io.StringIO()
     stderr_buffer = io.StringIO()
     original_cwd = os.getcwd()

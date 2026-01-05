@@ -158,9 +158,7 @@ def test_download_artifact_writes_chunks(tmp_path: Path) -> None:
         [DummyResponse(chunks=[b"chunk1", b"", b"chunk2"], json_data={}, text="")]
     )
 
-    rbs._download_artifact(
-        session, "repo", "token", artifact_id=99, destination=destination
-    )
+    rbs._download_artifact(session, "repo", "token", artifact_id=99, destination=destination)
 
     assert destination.read_bytes() == b"chunk1chunk2"
     url = session.calls[0][0]
@@ -169,9 +167,7 @@ def test_download_artifact_writes_chunks(tmp_path: Path) -> None:
 
 
 def test_download_artifact_raises_on_bad_status(tmp_path: Path) -> None:
-    session = DummySession(
-        [DummyResponse(status_code=404, text="missing", json_data={})]
-    )
+    session = DummySession([DummyResponse(status_code=404, text="missing", json_data={})])
 
     with pytest.raises(rbs.RestoreError):
         rbs._download_artifact(session, "repo", "token", 1, tmp_path / "out.zip")
@@ -229,9 +225,7 @@ def test_restore_previous_snapshots_happy_path(
         )
     ]
 
-    monkeypatch.setattr(
-        rbs, "_collect_artifacts", lambda session, repo, token: artifacts
-    )
+    monkeypatch.setattr(rbs, "_collect_artifacts", lambda session, repo, token: artifacts)
 
     def fake_download(session, repo, token, artifact_id, destination):
         destination.write_bytes(b"dummy")
@@ -293,9 +287,7 @@ def test_restore_previous_snapshots_missing_source(
         workflow_run_id=None,
     )
 
-    monkeypatch.setattr(
-        rbs, "_collect_artifacts", lambda session, repo, token: [artifact]
-    )
+    monkeypatch.setattr(rbs, "_collect_artifacts", lambda session, repo, token: [artifact])
     monkeypatch.setattr(rbs, "_download_artifact", lambda *args, **kwargs: None)
 
     def fake_extract(archive, target_dir):

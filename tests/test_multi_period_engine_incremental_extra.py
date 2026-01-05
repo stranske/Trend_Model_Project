@@ -94,18 +94,12 @@ def test_incremental_update_runs_with_invalid_shift_limit(
         compute_calls.append(frame.shape[0])
         return original_compute(frame, materialise_aggregates=materialise_aggregates)
 
-    def tracking_incremental(
-        prev: Any, old_row: np.ndarray, new_row: np.ndarray
-    ) -> Any:
+    def tracking_incremental(prev: Any, old_row: np.ndarray, new_row: np.ndarray) -> Any:
         incremental_calls.append(1)
         return original_incremental(prev, old_row, new_row)
 
-    monkeypatch.setattr(
-        "trend_analysis.perf.cache.compute_cov_payload", tracking_compute
-    )
-    monkeypatch.setattr(
-        "trend_analysis.perf.cache.incremental_cov_update", tracking_incremental
-    )
+    monkeypatch.setattr("trend_analysis.perf.cache.compute_cov_payload", tracking_compute)
+    monkeypatch.setattr("trend_analysis.perf.cache.incremental_cov_update", tracking_incremental)
 
     results = mp_engine.run(cfg, df=_make_df())
 
@@ -214,9 +208,7 @@ def test_incremental_update_length_change_triggers_recompute(
         compute_calls.append(frame.shape[0])
         return original_compute(frame, materialise_aggregates=materialise_aggregates)
 
-    monkeypatch.setattr(
-        "trend_analysis.perf.cache.compute_cov_payload", tracking_compute
-    )
+    monkeypatch.setattr("trend_analysis.perf.cache.compute_cov_payload", tracking_compute)
 
     results = mp_engine.run(cfg, df=_make_df())
 

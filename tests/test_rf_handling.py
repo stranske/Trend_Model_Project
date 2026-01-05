@@ -279,7 +279,5 @@ def test_pipeline_uses_configured_series_for_metrics():
     assert res.get("risk_free_column") == "Cash"
     assert res.get("risk_free_source") == "configured"
     out_slice = df.set_index("Date").loc["2020-04-30":"2020-06-30"]
-    expected_sharpe = sharpe_ratio(
-        res["out_sample_scaled"]["A"], risk_free=out_slice["Cash"]
-    )
+    expected_sharpe = sharpe_ratio(res["out_sample_scaled"]["A"], risk_free=out_slice["Cash"])
     assert res["out_sample_stats"]["A"].sharpe == pytest.approx(expected_sharpe)

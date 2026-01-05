@@ -33,9 +33,7 @@ class ValidationReport:
         return not self.expired and not self.invalid
 
 
-def _parse_date(
-    raw_value: Any, *, entry_id: str
-) -> Tuple[Optional[dt.date], Optional[str]]:
+def _parse_date(raw_value: Any, *, entry_id: str) -> Tuple[Optional[dt.date], Optional[str]]:
     if raw_value is None:
         return None, f"Entry `{entry_id or '<missing id>'}` has no expires field."
     if isinstance(raw_value, dt.date):
@@ -76,9 +74,7 @@ def load_records(path: Path) -> Tuple[List[QuarantineRecord], List[str]]:
         if not isinstance(expires, dt.date):
             invalid.append(f"Entry `{identifier}` missing valid expires date.")
             continue
-        records.append(
-            QuarantineRecord(identifier=identifier, expires=expires, raw=entry)
-        )
+        records.append(QuarantineRecord(identifier=identifier, expires=expires, raw=entry))
     return records, invalid
 
 
@@ -110,9 +106,7 @@ def build_summary(report: ValidationReport) -> str:
         if report.expired:
             lines.append("- ❌ Expired quarantines detected:")
             for record in report.expired:
-                lines.append(
-                    f"  - `{record.identifier}` expired on {record.expires.isoformat()}"
-                )
+                lines.append(f"  - `{record.identifier}` expired on {record.expires.isoformat()}")
         if report.invalid:
             lines.append("- ⚠️ Entries with invalid TTL data:")
             for identifier in report.invalid:

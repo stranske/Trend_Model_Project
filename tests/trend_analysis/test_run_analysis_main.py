@@ -88,9 +88,7 @@ def test_main_passes_missing_policy_and_exports_excel(
         ),
     )
 
-    monkeypatch.setattr(
-        run_analysis.export, "format_summary_text", lambda *a, **k: "summary"
-    )
+    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *a, **k: "summary")
 
     def fake_formatter(*args: Any, **kwargs: Any) -> str:
         return "formatter"
@@ -105,9 +103,7 @@ def test_main_passes_missing_policy_and_exports_excel(
     def fake_export_to_excel(data: dict[str, Any], path: str, **kwargs: Any) -> None:
         export_calls["excel"].append((data, path, kwargs))
 
-    def fake_export_data(
-        data: dict[str, Any], path: str, *, formats: list[str]
-    ) -> None:
+    def fake_export_data(data: dict[str, Any], path: str, *, formats: list[str]) -> None:
         export_calls["data"].append((data, path, formats))
 
     monkeypatch.setattr(run_analysis.export, "export_to_excel", fake_export_to_excel)
@@ -158,15 +154,9 @@ def test_main_uses_nan_aliases_and_defaults(monkeypatch: pytest.MonkeyPatch) -> 
 
     monkeypatch.setattr(run_analysis, "load", lambda path: cfg)
     monkeypatch.setattr(run_analysis, "load_csv", fake_load_csv)
-    monkeypatch.setattr(
-        run_analysis.api, "run_simulation", lambda cfg, df: _make_result()
-    )
-    monkeypatch.setattr(
-        run_analysis.export, "format_summary_text", lambda *a, **k: "summary"
-    )
-    monkeypatch.setattr(
-        run_analysis.export, "make_summary_formatter", lambda *a, **k: "formatter"
-    )
+    monkeypatch.setattr(run_analysis.api, "run_simulation", lambda cfg, df: _make_result())
+    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *a, **k: "summary")
+    monkeypatch.setattr(run_analysis.export, "make_summary_formatter", lambda *a, **k: "formatter")
     monkeypatch.setattr(
         run_analysis.export,
         "summary_frame_from_result",
@@ -195,24 +185,16 @@ def test_main_uses_nan_aliases_and_defaults(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_main_exports_without_excel_formats(monkeypatch: pytest.MonkeyPatch) -> None:
-    cfg = _build_config(
-        export={"directory": "custom", "formats": ["json"], "filename": "report"}
-    )
+    cfg = _build_config(export={"directory": "custom", "formats": ["json"], "filename": "report"})
 
     def fake_load_csv(path: str, *, errors: str = "raise") -> pd.DataFrame:
         return pd.DataFrame({"value": [1]})
 
     monkeypatch.setattr(run_analysis, "load", lambda path: cfg)
     monkeypatch.setattr(run_analysis, "load_csv", fake_load_csv)
-    monkeypatch.setattr(
-        run_analysis.api, "run_simulation", lambda cfg, df: _make_result()
-    )
-    monkeypatch.setattr(
-        run_analysis.export, "format_summary_text", lambda *a, **k: "summary"
-    )
-    monkeypatch.setattr(
-        run_analysis.export, "make_summary_formatter", lambda *a, **k: "formatter"
-    )
+    monkeypatch.setattr(run_analysis.api, "run_simulation", lambda cfg, df: _make_result())
+    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *a, **k: "summary")
+    monkeypatch.setattr(run_analysis.export, "make_summary_formatter", lambda *a, **k: "formatter")
     monkeypatch.setattr(
         run_analysis.export, "summary_frame_from_result", lambda *a, **k: pd.DataFrame()
     )
@@ -225,9 +207,7 @@ def test_main_exports_without_excel_formats(monkeypatch: pytest.MonkeyPatch) -> 
         lambda *a, **k: export_calls.__setitem__("excel", export_calls["excel"] + 1),
     )
 
-    def fake_export_data(
-        data: dict[str, Any], path: str, *, formats: list[str]
-    ) -> None:
+    def fake_export_data(data: dict[str, Any], path: str, *, formats: list[str]) -> None:
         export_calls["data"] += 1
         assert path.endswith("custom/report")
         assert formats == ["json"]
@@ -244,14 +224,10 @@ def test_main_detailed_handles_empty_metrics(monkeypatch: pytest.MonkeyPatch) ->
     cfg = _build_config()
 
     monkeypatch.setattr(run_analysis, "load", lambda path: cfg)
-    monkeypatch.setattr(
-        run_analysis, "load_csv", lambda *a, **k: pd.DataFrame({"value": [1]})
-    )
+    monkeypatch.setattr(run_analysis, "load_csv", lambda *a, **k: pd.DataFrame({"value": [1]}))
 
     empty_result = SimpleNamespace(metrics=pd.DataFrame(), details={})
-    monkeypatch.setattr(
-        run_analysis.api, "run_simulation", lambda cfg, df: empty_result
-    )
+    monkeypatch.setattr(run_analysis.api, "run_simulation", lambda cfg, df: empty_result)
 
     captured: list[str] = []
     monkeypatch.setattr("builtins.print", lambda message: captured.append(message))

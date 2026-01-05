@@ -14,16 +14,12 @@ PRICE_SCHEMA: Mapping[str, str] = {
 }
 
 
-def enforce_required_columns(
-    df: pd.DataFrame, schema: Mapping[str, str]
-) -> pd.DataFrame:
+def enforce_required_columns(df: pd.DataFrame, schema: Mapping[str, str]) -> pd.DataFrame:
     """Ensure ``df`` contains ``schema`` columns with the requested dtypes."""
 
     missing = [column for column in schema if column not in df.columns]
     if missing:
-        raise ValueError(
-            "Price frame missing required columns: " + ", ".join(sorted(missing))
-        )
+        raise ValueError("Price frame missing required columns: " + ", ".join(sorted(missing)))
 
     mismatched: list[str] = []
     for column, dtype in schema.items():
@@ -34,8 +30,7 @@ def enforce_required_columns(
 
     if mismatched:
         raise ValueError(
-            "Price frame column dtypes differ from expected schema: "
-            + "; ".join(mismatched)
+            "Price frame column dtypes differ from expected schema: " + "; ".join(mismatched)
         )
 
     return df
@@ -65,8 +60,7 @@ def validate_prices_frame(df: pd.DataFrame) -> pd.DataFrame:
         monotonic_violations = work.loc[backwards.fillna(False), "symbol"].astype(str)
         offenders = sorted(monotonic_violations.unique())
         raise ValueError(
-            "Price frame must be sorted by date within each symbol: "
-            + ", ".join(offenders)
+            "Price frame must be sorted by date within each symbol: " + ", ".join(offenders)
         )
 
     work = work.sort_values(["date", "symbol"]).reset_index(drop=True)
@@ -75,9 +69,7 @@ def validate_prices_frame(df: pd.DataFrame) -> pd.DataFrame:
     if duplicate_mask.any():
         dupes = work.loc[duplicate_mask, ["symbol", "date"]]
         examples = dupes.head().to_dict("records")
-        raise ValueError(
-            "Price frame contains duplicate symbol/date rows: " + str(examples)
-        )
+        raise ValueError("Price frame contains duplicate symbol/date rows: " + str(examples))
 
     indexed = work.set_index("date")
     indexed.index.name = "date"
@@ -120,9 +112,7 @@ def _extract_date_index(df: pd.DataFrame) -> pd.DatetimeIndex:
     return idx
 
 
-def assert_execution_lag(
-    df: pd.DataFrame, *, as_of: Any, max_lag_days: int | None
-) -> None:
+def assert_execution_lag(df: pd.DataFrame, *, as_of: Any, max_lag_days: int | None) -> None:
     """Raise if the freshest data trails ``as_of`` by more than ``max_lag_days``."""
 
     if max_lag_days is None or max_lag_days <= 0 or as_of in (None, ""):

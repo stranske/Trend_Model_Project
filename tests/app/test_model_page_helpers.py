@@ -84,9 +84,7 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
         app_state,
         "get_uploaded_data",
         lambda: (
-            pd.DataFrame(
-                {f"A{i}": [0.01 + i * 0.001, 0.02 + i * 0.001] for i in range(12)}
-            ),
+            pd.DataFrame({f"A{i}": [0.01 + i * 0.001, 0.02 + i * 0.001] for i in range(12)}),
             {},
         ),
     )

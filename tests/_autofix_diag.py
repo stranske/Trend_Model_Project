@@ -83,9 +83,7 @@ class DiagnosticsRecorder:
             "entry_count": len(self._entries),
             "tools": self._tool_summary(),
         }
-        target.write_text(
-            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
-        )
+        target.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
         return target
 
 

@@ -54,9 +54,7 @@ def test_normalise_helpers_and_build_trend_spec() -> None:
 
 
 def test_trend_preset_helpers_cover_defaults() -> None:
-    spec = TrendSpec(
-        window=20, min_periods=10, vol_adjust=True, vol_target=0.2, zscore=True
-    )
+    spec = TrendSpec(window=20, min_periods=10, vol_adjust=True, vol_target=0.2, zscore=True)
     preset_cfg = {
         "lookback_periods": "18",
         "rebalance_frequency": "quarterly",
@@ -245,9 +243,7 @@ metrics:
 
     assert set(registry.keys()) == {"alpha", "beta"}
     # Environment override appended last; duplicates should emit a warning
-    assert any(
-        "Duplicate trend preset slug 'alpha'" in message for message in caplog.messages
-    )
+    assert any("Duplicate trend preset slug 'alpha'" in message for message in caplog.messages)
     alpha = registry["alpha"]
     assert alpha.trend_spec.window == 10
     beta = registry["beta"]
@@ -258,9 +254,7 @@ metrics:
     assert again is registry
 
 
-def test_listing_and_lookup_helpers(
-    preset_paths, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_listing_and_lookup_helpers(preset_paths, monkeypatch: pytest.MonkeyPatch) -> None:
     base, override, env_dir = preset_paths
     _write_yaml(
         base / "gamma.yml",
@@ -377,9 +371,7 @@ def test_candidate_dirs_includes_env_and_defaults(
     assert candidates.count(default_dir) == 1
 
 
-def test_preset_registry_skips_empty_files(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_preset_registry_skips_empty_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     directory = tmp_path / "presets"
     directory.mkdir()
     _write_yaml(directory / "empty.yml", "[]")

@@ -96,9 +96,7 @@ def test_load_and_validate_csv(tmp_path):
     assert len(df) == 2
 
 
-def test_load_and_validate_file_sanitizes_headers_and_builds_meta(
-    monkeypatch, tmp_path
-):
+def test_load_and_validate_file_sanitizes_headers_and_builds_meta(monkeypatch, tmp_path):
     csv_path = tmp_path / "formulas.csv"
     csv_path.write_text("=evil,@bad\n1,2\n3,4\n")
 
@@ -137,7 +135,27 @@ def test_load_and_validate_file_sanitizes_headers_and_builds_meta(
                     "start": pd.Timestamp("2020-01-01"),
                     "end": pd.Timestamp("2020-01-31"),
                     "model_dump": lambda self, mode=None: {
-                        k: getattr(self, k) for k in ["columns", "symbols", "rows", "mode", "frequency_label", "frequency", "frequency_detected", "frequency_missing_periods", "frequency_max_gap_periods", "frequency_tolerance_periods", "missing_policy", "missing_policy_limit", "missing_policy_summary", "missing_policy_filled", "missing_policy_dropped", "date_range", "start", "end"]
+                        k: getattr(self, k)
+                        for k in [
+                            "columns",
+                            "symbols",
+                            "rows",
+                            "mode",
+                            "frequency_label",
+                            "frequency",
+                            "frequency_detected",
+                            "frequency_missing_periods",
+                            "frequency_max_gap_periods",
+                            "frequency_tolerance_periods",
+                            "missing_policy",
+                            "missing_policy_limit",
+                            "missing_policy_summary",
+                            "missing_policy_filled",
+                            "missing_policy_dropped",
+                            "date_range",
+                            "start",
+                            "end",
+                        ]
                     },
                 },
             )()

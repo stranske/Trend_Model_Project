@@ -188,9 +188,7 @@ def test_run_simulation_populates_structured_results(monkeypatch) -> None:
     config = _make_config()
     returns = _make_returns()
 
-    portfolio = pd.Series(
-        [0.01, 0.02], index=pd.date_range("2023-01-31", periods=2, freq="ME")
-    )
+    portfolio = pd.Series([0.01, 0.02], index=pd.date_range("2023-01-31", periods=2, freq="ME"))
     metadata = {"costs": {"monthly_cost": 0.001}, "fingerprint": "abc123def456"}
 
     payload = {
@@ -215,9 +213,7 @@ def test_run_simulation_populates_structured_results(monkeypatch) -> None:
     pd.testing.assert_series_equal(result.portfolio, portfolio.astype(float))
     assert result.analysis.metadata["fingerprint"] == "abc123def456"
     assert hasattr(result, "weights")
-    pd.testing.assert_series_equal(
-        result.weights.astype(float), pd.Series({"FundA": 0.6})
-    )
+    pd.testing.assert_series_equal(result.weights.astype(float), pd.Series({"FundA": 0.6}))
 
 
 def test_run_simulation_attaches_ci_level_metadata(monkeypatch) -> None:
@@ -262,9 +258,7 @@ def test_run_simulation_ci_level_string_is_cast(monkeypatch) -> None:
 
 def test_run_simulation_ci_level_is_reporting_only(monkeypatch) -> None:
     returns = _make_returns()
-    portfolio = pd.Series(
-        [0.01, 0.02], index=pd.date_range("2023-01-31", periods=2, freq="ME")
-    )
+    portfolio = pd.Series([0.01, 0.02], index=pd.date_range("2023-01-31", periods=2, freq="ME"))
 
     def make_payload() -> dict[str, object]:
         return {

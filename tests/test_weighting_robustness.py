@@ -19,9 +19,7 @@ from trend_analysis.weights.robust_weighting import (
 )
 
 
-def _make_covariance(
-    values: np.ndarray, labels: list[str] | None = None
-) -> pd.DataFrame:
+def _make_covariance(values: np.ndarray, labels: list[str] | None = None) -> pd.DataFrame:
     """Utility helper returning a symmetric covariance DataFrame."""
 
     labels = labels or [f"A{i}" for i in range(values.shape[0])]
@@ -36,9 +34,7 @@ class TestEqualRiskContribution:
 
     def test_weighting_requires_square_matrix(self) -> None:
         engine = EqualRiskContribution()
-        cov = pd.DataFrame(
-            [[0.1, 0.0], [0.0, 0.2]], index=["A", "B"], columns=["A", "C"]
-        )
+        cov = pd.DataFrame([[0.1, 0.0], [0.0, 0.2]], index=["A", "B"], columns=["A", "C"])
         with pytest.raises(ValueError):
             engine.weight(cov)
 
@@ -55,17 +51,13 @@ class TestEqualRiskContribution:
     ) -> None:
         """Numerical errors mid-iteration should fall back to equal weights."""
 
-        cov = _make_covariance(
-            np.array([[0.05, 0.01], [0.01, 0.04]]), labels=["A", "B"]
-        )
+        cov = _make_covariance(np.array([[0.05, 0.01], [0.01, 0.04]]), labels=["A", "B"])
         engine = EqualRiskContribution(max_iter=32, tol=1e-9)
 
         def exploding_max(*args: Any, **kwargs: Any) -> float:
             raise FloatingPointError("boom")
 
-        monkeypatch.setattr(
-            "trend_analysis.weights.equal_risk_contribution.np.max", exploding_max
-        )
+        monkeypatch.setattr("trend_analysis.weights.equal_risk_contribution.np.max", exploding_max)
 
         with caplog.at_level("WARNING"):
             weights = engine.weight(cov)
@@ -82,22 +74,16 @@ class TestHierarchicalRiskParity:
 
     def test_weighting_requires_matching_labels(self) -> None:
         engine = HierarchicalRiskParity()
-        cov = pd.DataFrame(
-            [[0.1, 0.0], [0.0, 0.2]], index=["A", "B"], columns=["A", "C"]
-        )
+        cov = pd.DataFrame([[0.1, 0.0], [0.0, 0.2]], index=["A", "B"], columns=["A", "C"])
         with pytest.raises(ValueError):
             engine.weight(cov)
 
-    def test_weighting_handles_nan_correlations(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_weighting_handles_nan_correlations(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
             "trend_analysis.weights.hierarchical_risk_parity.np.linalg.cond",
             lambda _: 1.0,
         )
-        cov = _make_covariance(
-            np.array([[0.1, np.nan], [np.nan, 0.2]]), labels=["A", "B"]
-        )
+        cov = _make_covariance(np.array([[0.1, np.nan], [np.nan, 0.2]]), labels=["A", "B"])
         engine = HierarchicalRiskParity()
         weights = engine.weight(cov)
         assert weights.sum() == pytest.approx(1.0, rel=1e-9)
@@ -192,17 +178,13 @@ class TestRobustMeanVariance:
         cov = np.zeros((2, 2), dtype=float)
         assert engine._check_condition_number(cov) == np.inf
 
-    def test_condition_number_handles_linalg_error(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_condition_number_handles_linalg_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         engine = RobustMeanVariance(shrinkage_method="none")
 
         def explode(_: Any) -> np.ndarray:
             raise np.linalg.LinAlgError("failure")
 
-        monkeypatch.setattr(
-            "trend_analysis.weights.robust_weighting.np.linalg.cond", explode
-        )
+        monkeypatch.setattr("trend_analysis.weights.robust_weighting.np.linalg.cond", explode)
 
         assert engine._check_condition_number(np.eye(2)) == np.inf
 
@@ -235,9 +217,7 @@ class TestRobustMeanVariance:
         def fake_inv(_: Any) -> np.ndarray:
             return np.array([[1.0, -1.0], [-1.0, 1.0]], dtype=float)
 
-        monkeypatch.setattr(
-            "trend_analysis.weights.robust_weighting.np.linalg.inv", fake_inv
-        )
+        monkeypatch.setattr("trend_analysis.weights.robust_weighting.np.linalg.inv", fake_inv)
 
         with caplog.at_level("WARNING"):
             weights = engine._mean_variance_weights(cov)
@@ -267,12 +247,8 @@ class TestRobustRiskParity:
         assert weights.sum() == pytest.approx(1.0, rel=1e-9)
         assert (weights >= 0).all()
 
-    def test_nan_condition_number_triggers_loading(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        cov = _make_covariance(
-            np.array([[0.05, 0.01], [0.01, 0.04]]), labels=["A", "B"]
-        )
+    def test_nan_condition_number_triggers_loading(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        cov = _make_covariance(np.array([[0.05, 0.01], [0.01, 0.04]]), labels=["A", "B"])
         engine = RobustRiskParity(condition_threshold=10.0)
 
         monkeypatch.setattr(

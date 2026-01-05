@@ -73,9 +73,7 @@ def test_single_period_run_injects_avg_corr_metric() -> None:
 
     stats_cfg = RiskStatsConfigWithExtraMetrics()
 
-    score_frame = pipeline.single_period_run(
-        df, "2020-01", "2020-03", stats_cfg=stats_cfg
-    )
+    score_frame = pipeline.single_period_run(df, "2020-01", "2020-03", stats_cfg=stats_cfg)
 
     assert "AvgCorr" in score_frame.columns
     # AvgCorr column should contain finite values for the analysed funds.
@@ -442,9 +440,7 @@ def test_regime_enabled_scales_target_vol_in_all_mode() -> None:
     assert enabled is not None
     assert base["selected_funds"] == enabled["selected_funds"]
     base_scale = base["risk_diagnostics"]["scale_factors"]
-    enabled_scale = enabled["risk_diagnostics"]["scale_factors"].reindex(
-        base_scale.index
-    )
+    enabled_scale = enabled["risk_diagnostics"]["scale_factors"].reindex(base_scale.index)
     mask = base_scale > 0
     ratio = enabled_scale[mask] / base_scale[mask]
     assert np.allclose(ratio, RISK_OFF_TARGET_VOL_MULTIPLIER, rtol=1e-3, atol=1e-3)

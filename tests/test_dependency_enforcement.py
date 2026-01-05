@@ -216,13 +216,7 @@ def test_all_test_imports_are_declared() -> None:
     declared = get_declared_dependencies()
 
     # Filter out modules that don't need to be declared
-    undeclared = (
-        all_imports
-        - STDLIB_MODULES
-        - TEST_FRAMEWORK_MODULES
-        - PROJECT_MODULES
-        - declared
-    )
+    undeclared = all_imports - STDLIB_MODULES - TEST_FRAMEWORK_MODULES - PROJECT_MODULES - declared
 
     # Some packages have different import names than package names
     # Handle known exceptions

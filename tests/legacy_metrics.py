@@ -109,9 +109,9 @@ def sharpe_ratio(
         returns = DataFrame({c: returns for c in rf.columns})
 
     if isinstance(returns, DataFrame) and isinstance(rf, DataFrame):
-        return DataFrame(
-            {col: _calc(returns[col], rf[col]) for col in returns.columns}
-        ).squeeze(axis=1)
+        return DataFrame({col: _calc(returns[col], rf[col]) for col in returns.columns}).squeeze(
+            axis=1
+        )
 
     raise TypeError("returns and rf must be Series or DataFrame of compatible shape")
 
@@ -132,9 +132,7 @@ def sortino_ratio(
             return np.nan
         excess = df["r"] - df["rf"]
         growth = (1 + excess).prod()
-        ann_ret = (
-            growth ** (periods_per_year / len(excess)) - 1 if growth > 0 else np.nan
-        )
+        ann_ret = growth ** (periods_per_year / len(excess)) - 1 if growth > 0 else np.nan
         downside = excess[excess < 0]
         if downside.empty:
             return np.nan
@@ -153,9 +151,9 @@ def sortino_ratio(
         returns = DataFrame({c: returns for c in rf.columns})
 
     if isinstance(returns, DataFrame) and isinstance(rf, DataFrame):
-        return DataFrame(
-            {col: _calc(returns[col], rf[col]) for col in returns.columns}
-        ).squeeze(axis=1)
+        return DataFrame({col: _calc(returns[col], rf[col]) for col in returns.columns}).squeeze(
+            axis=1
+        )
 
     raise TypeError("returns and rf must be Series or DataFrame of compatible shape")
 

@@ -92,9 +92,7 @@ class ScriptedWeighting:
             {"Alpha One": 0.9, "Beta One": 0.4, "Gamma One": 0.35},
         ]
 
-    def weight(
-        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
-    ) -> pd.DataFrame:
+    def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
         del date
         seq = self.sequences[min(self.calls, len(self.sequences) - 1)]
         self.calls += 1
@@ -105,9 +103,7 @@ class ScriptedWeighting:
         )
         return weights.to_frame("weight")
 
-    def update(
-        self, scores: pd.Series, days: int
-    ) -> None:  # pragma: no cover - inert hook
+    def update(self, scores: pd.Series, days: int) -> None:  # pragma: no cover - inert hook
         pass
 
 
@@ -117,9 +113,7 @@ class StaticRebalancer:
     def __init__(self, *_cfg: Any) -> None:
         self.calls = 0
 
-    def apply_triggers(
-        self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs
-    ) -> pd.Series:
+    def apply_triggers(self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs) -> pd.Series:
         self.calls += 1
         return prev_weights.astype(float)
 
@@ -157,9 +151,7 @@ def test_threshold_hold_weight_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
 
     import trend_analysis.selector as selector_mod
 
-    monkeypatch.setattr(
-        selector_mod, "create_selector_by_name", lambda *a, **k: ScriptedSelector()
-    )
+    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: ScriptedSelector())
 
     import trend_analysis.core.rank_selection as rank_sel
 
@@ -202,9 +194,7 @@ def test_threshold_hold_weight_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
         },
     }
 
-    def fake_metric_series(
-        _frame: pd.DataFrame, metric: str, _stats_cfg: Any
-    ) -> pd.Series:
+    def fake_metric_series(_frame: pd.DataFrame, metric: str, _stats_cfg: Any) -> pd.Series:
         values = metric_maps[metric]
         return pd.Series(values, dtype=float)
 
@@ -286,9 +276,7 @@ def test_threshold_hold_max_active_positions(monkeypatch: pytest.MonkeyPatch) ->
 
     import trend_analysis.selector as selector_mod
 
-    monkeypatch.setattr(
-        selector_mod, "create_selector_by_name", lambda *a, **k: ScriptedSelector()
-    )
+    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: ScriptedSelector())
 
     import trend_analysis.core.rank_selection as rank_sel
 
@@ -331,9 +319,7 @@ def test_threshold_hold_max_active_positions(monkeypatch: pytest.MonkeyPatch) ->
         },
     }
 
-    def fake_metric_series(
-        _frame: pd.DataFrame, metric: str, _stats_cfg: Any
-    ) -> pd.Series:
+    def fake_metric_series(_frame: pd.DataFrame, metric: str, _stats_cfg: Any) -> pd.Series:
         values = metric_maps[metric]
         return pd.Series(values, dtype=float)
 

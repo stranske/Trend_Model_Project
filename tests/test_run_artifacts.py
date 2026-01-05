@@ -136,9 +136,7 @@ def test_render_html_renders_metrics_and_artifacts() -> None:
     assert "hello" in html
 
 
-def test_write_run_artifacts_deduplicates_and_coerces(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_write_run_artifacts_deduplicates_and_coerces(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(run_artifacts, "_git_hash", lambda: "fixedhash")
 
     artifact = tmp_path / "artifact.txt"

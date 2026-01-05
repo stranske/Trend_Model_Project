@@ -70,9 +70,7 @@ class _WidgetModuleProxy:
         overrides: Dict[str, Any] = object.__getattribute__(self, "_overrides")
         overrides[name] = value
 
-    def clear_overrides(
-        self, predicate: Callable[[str, Any], bool] | None = None
-    ) -> None:
+    def clear_overrides(self, predicate: Callable[[str, Any], bool] | None = None) -> None:
         overrides: Dict[str, Any] = object.__getattribute__(self, "_overrides")
         if not overrides:
             return
@@ -196,8 +194,7 @@ def _load_notebook_deps() -> None:
 
     widgets_ready = not isinstance(widgets, _WidgetModuleProxy) or widgets.is_bound
     callables_ready = all(
-        not getattr(obj, "__trend_stub__", False)
-        for obj in (FileLink, Javascript, display)
+        not getattr(obj, "__trend_stub__", False) for obj in (FileLink, Javascript, display)
     )
     if widgets_ready and callables_ready:
         if isinstance(widgets, _WidgetModuleProxy) and widgets.is_bound:
@@ -446,9 +443,7 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
             except Exception:
                 grid_df.iloc[event["row"], 1] = old
                 grid.layout.border = "2px solid red"
-                asyncio.get_event_loop().call_later(
-                    1.0, lambda: setattr(grid.layout, "border", "")
-                )
+                asyncio.get_event_loop().call_later(1.0, lambda: setattr(grid.layout, "border", ""))
 
         try:
             grid.on("cell_edited", on_cell_change)
@@ -503,15 +498,11 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
         cast(Any, display)(cast(Any, FileLink)(path))
 
     upload.observe(lambda ch, store=store: on_upload(ch, store=store), names="value")
-    template.observe(
-        lambda ch, store=store: on_template(ch, store=store), names="value"
-    )
+    template.observe(lambda ch, store=store: on_template(ch, store=store), names="value")
     save_btn.on_click(lambda btn, store=store: on_save(btn, store=store))
     download_btn.on_click(lambda btn, store=store: on_download(btn, store=store))
 
-    return widgets.VBox(
-        [template, upload, grid, widgets.HBox([save_btn, download_btn])]
-    )
+    return widgets.VBox([template, upload, grid, widgets.HBox([save_btn, download_btn])])
 
 
 def _build_rank_options(store: ParamStore) -> widgets.Widget:
@@ -541,17 +532,13 @@ def _build_rank_options(store: ParamStore) -> widgets.Widget:
         step=0.01,
         description="Pct",
     )
-    thresh_f = widgets.FloatText(
-        value=rank_cfg.get("threshold", 1.0), description="Threshold"
-    )
+    thresh_f = widgets.FloatText(value=rank_cfg.get("threshold", 1.0), description="Threshold")
 
     try:
         weights = rank_cfg.get("blended_weights", {})
         items = list(METRIC_REGISTRY)
         m1_dd = widgets.Dropdown(options=items, value=items[0], description="M1")
-        w1_sl = widgets.FloatSlider(
-            value=weights.get(items[0], 0.33), min=0, max=1, step=0.01
-        )
+        w1_sl = widgets.FloatSlider(value=weights.get(items[0], 0.33), min=0, max=1, step=0.01)
         m2_dd = widgets.Dropdown(
             options=items,
             value=items[1] if len(items) > 1 else items[0],
@@ -592,14 +579,10 @@ def _build_rank_options(store: ParamStore) -> widgets.Widget:
         store.dirty = True
 
     incl_dd.observe(lambda ch, store=store: _store_rank(ch, store=store), names="value")
-    metric_dd.observe(
-        lambda ch, store=store: _store_rank(ch, store=store), names="value"
-    )
+    metric_dd.observe(lambda ch, store=store: _store_rank(ch, store=store), names="value")
     n_int.observe(lambda ch, store=store: _store_rank(ch, store=store), names="value")
     pct_flt.observe(lambda ch, store=store: _store_rank(ch, store=store), names="value")
-    thresh_f.observe(
-        lambda ch, store=store: _store_rank(ch, store=store), names="value"
-    )
+    thresh_f.observe(lambda ch, store=store: _store_rank(ch, store=store), names="value")
 
     @debounce(300)
     def _on_blend(_: Any, *, store: ParamStore) -> None:
@@ -676,8 +659,7 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
         warn = widgets.Label("ipydatagrid not installed")
         select = widgets.SelectMultiple(options=opts, value=tuple(manual))
         weight_boxes = [
-            widgets.FloatText(value=float(weights.get(f, 0)), description=f)
-            for f in opts
+            widgets.FloatText(value=float(weights.get(f, 0)), description=f) for f in opts
         ]
 
         def _on_select(change: dict[str, Any], *, store: ParamStore) -> None:
@@ -694,14 +676,10 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
             weights[fund] = val
             store.dirty = True
 
-        select.observe(
-            lambda ch, store=store: _on_select(ch, store=store), names="value"
-        )
+        select.observe(lambda ch, store=store: _on_select(ch, store=store), names="value")
         for wdg in weight_boxes:
             wdg.observe(
-                lambda ch, fund=wdg.description, store=store: _on_weight(
-                    ch, fund, store=store
-                ),
+                lambda ch, fund=wdg.description, store=store: _on_weight(ch, fund, store=store),
                 names="value",
             )
 
@@ -768,9 +746,7 @@ def _build_weighting_options(store: ParamStore) -> widgets.Widget:
         params["prior_tau"] = float(pt_sl.value)
         store.dirty = True
 
-    method_dd.observe(
-        lambda ch, store=store: _store_weight(ch, store=store), names="value"
-    )
+    method_dd.observe(lambda ch, store=store: _store_weight(ch, store=store), names="value")
 
     @debounce(300)
     def _on_param(_: Any, *, store: ParamStore) -> None:
@@ -828,8 +804,7 @@ def launch() -> widgets.Widget:
         store.dirty = True
         theme_val = change["new"]
         js = cast(Any, Javascript)(
-            f"document.documentElement.style.setProperty("
-            f"' --trend-theme','{theme_val}')"
+            f"document.documentElement.style.setProperty(" f"' --trend-theme','{theme_val}')"
         )
         cast(Any, display)(js)
 
@@ -868,9 +843,7 @@ def launch() -> widgets.Widget:
             res, diag = coerce_pipeline_result(full_result)
             if not res:
                 if diag:
-                    warnings.warn(
-                        f"Pipeline aborted ({diag.reason_code}): {diag.message}"
-                    )
+                    warnings.warn(f"Pipeline aborted ({diag.reason_code}): {diag.message}")
                 return
             split = cfg.sample_split
             sheet_fmt = export.make_summary_formatter(
@@ -903,15 +876,11 @@ def launch() -> widgets.Widget:
 
     def _toggle_boxes(change: dict[str, Any], *, store: ParamStore) -> None:
         mode_val = change["new"] if isinstance(change, dict) else mode.value
-        rank_box.layout.display = (
-            "flex" if mode_val == "rank" or use_ranking.value else "none"
-        )
+        rank_box.layout.display = "flex" if mode_val == "rank" or use_ranking.value else "none"
         manual_box.layout.display = "flex" if mode_val == "manual" else "none"
 
     mode.observe(lambda ch, store=store: _toggle_boxes(ch, store=store), names="value")
-    use_ranking.observe(
-        lambda ch, store=store: _toggle_boxes(ch, store=store), names="value"
-    )
+    use_ranking.observe(lambda ch, store=store: _toggle_boxes(ch, store=store), names="value")
     _toggle_boxes({"new": mode.value}, store=store)
 
     step0 = _build_step0(store)

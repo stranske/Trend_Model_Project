@@ -37,9 +37,7 @@ class DummyResult(SimpleNamespace):
     pass
 
 
-def _make_result(
-    metrics: pd.DataFrame | None = None, details: dict | None = None
-) -> DummyResult:
+def _make_result(metrics: pd.DataFrame | None = None, details: dict | None = None) -> DummyResult:
     if metrics is None:
         metrics = pd.DataFrame([[1.0]], columns=["value"])
     if details is None:
@@ -83,9 +81,7 @@ def test_main_summary_branch(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     details = {
-        "performance_by_regime": pd.DataFrame(
-            {"regime": ["expansion"], "return": [0.5]}
-        ),
+        "performance_by_regime": pd.DataFrame({"regime": ["expansion"], "return": [0.5]}),
         "regime_notes": ["note"],
     }
     result = _make_result(details=details)
@@ -104,9 +100,7 @@ def test_main_summary_branch(
     )
     monkeypatch.setattr(run_analysis.api, "run_simulation", lambda cfg, df: result)
     monkeypatch.setattr(run_analysis.export, "format_summary_text", fake_format)
-    monkeypatch.setattr(
-        run_analysis.export, "make_summary_formatter", lambda *a, **k: "formatter"
-    )
+    monkeypatch.setattr(run_analysis.export, "make_summary_formatter", lambda *a, **k: "formatter")
     monkeypatch.setattr(
         run_analysis.export,
         "summary_frame_from_result",
@@ -167,16 +161,10 @@ def test_main_respects_missing_policy_aliases(
 
     monkeypatch.setattr(run_analysis, "load", lambda path: sample_config)
     monkeypatch.setattr(run_analysis, "load_csv", fake_load)
-    monkeypatch.setattr(
-        run_analysis.api, "run_simulation", lambda cfg, df: _make_result()
-    )
-    monkeypatch.setattr(
-        run_analysis.export, "format_summary_text", lambda *a, **k: "summary"
-    )
+    monkeypatch.setattr(run_analysis.api, "run_simulation", lambda cfg, df: _make_result())
+    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *a, **k: "summary")
     monkeypatch.setattr(run_analysis.export, "export_data", lambda *a, **k: None)
-    monkeypatch.setattr(
-        run_analysis.export, "make_summary_formatter", lambda *a, **k: None
-    )
+    monkeypatch.setattr(run_analysis.export, "make_summary_formatter", lambda *a, **k: None)
     monkeypatch.setattr(
         run_analysis.export, "summary_frame_from_result", lambda *a, **k: pd.DataFrame()
     )

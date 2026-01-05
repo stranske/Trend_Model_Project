@@ -34,9 +34,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.detailed:
         for res in results:  # pragma: no cover - human output
-            period = cast(
-                tuple[str, str, str, str], res.get("period", ("", "", "", ""))
-            )
+            period = cast(tuple[str, str, str, str], res.get("period", ("", "", "", "")))
             text = export.format_summary_text(
                 res,
                 period[0],
@@ -48,12 +46,8 @@ def main(argv: list[str] | None = None) -> int:
             print()
 
         summary = export.combined_summary_result(results)
-        first_period = cast(
-            tuple[str, str, str, str], results[0].get("period", ("", "", "", ""))
-        )
-        last_period = cast(
-            tuple[str, str, str, str], results[-1].get("period", ("", "", "", ""))
-        )
+        first_period = cast(tuple[str, str, str, str], results[0].get("period", ("", "", "", "")))
+        last_period = cast(tuple[str, str, str, str], results[-1].get("period", ("", "", "", "")))
         sum_text = export.format_summary_text(
             summary,
             first_period[0],
