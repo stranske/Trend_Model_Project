@@ -1,9 +1,3 @@
-def _mock_metadata(**kwargs):
-    """Create a SimpleNamespace with model_dump support for testing."""
-    ns = SimpleNamespace(**kwargs)
-    ns.model_dump = lambda mode=None: vars(ns)
-    return ns
-
 
 """Coverage-focused tests for ``streamlit_app.components.data_schema``."""
 
@@ -15,6 +9,14 @@ from typing import Any
 
 import pandas as pd
 import pytest
+
+
+def _mock_metadata(**kwargs):
+    """Create a SimpleNamespace with model_dump support for testing."""
+    ns = SimpleNamespace(**kwargs)
+    ns.model_dump = lambda mode=None: vars(ns)
+    return ns
+
 
 
 @pytest.fixture
