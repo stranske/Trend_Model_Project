@@ -58,6 +58,11 @@ def test_patch_operation_requires_value_for_set() -> None:
     assert "value is required for op 'set'" in str(excinfo.value)
 
 
+def test_patch_operation_accepts_set_with_none_value() -> None:
+    op = PatchOperation(op="set", path="portfolio.max_turnover", value=None)
+    assert op.value is None
+
+
 @pytest.mark.parametrize("op", ["append", "merge"])
 def test_patch_operation_requires_value_for_append_merge(op: str) -> None:
     with pytest.raises(ValidationError):
@@ -107,6 +112,20 @@ def test_config_patch_detects_risk_flags() -> None:
     assert RiskFlag.INCREASES_LEVERAGE in patch.risk_flags
     assert RiskFlag.REMOVES_VALIDATION in patch.risk_flags
     assert RiskFlag.BROAD_SCOPE in patch.risk_flags
+
+
+def test_config_patch_set_none_triggers_constraint_risk() -> None:
+    patch = ConfigPatch(
+        operations=[
+            PatchOperation(
+                op="set",
+                path="portfolio.constraints.max_weight",
+                value=None,
+            )
+        ],
+        summary="Remove max weight constraint",
+    )
+    assert patch.risk_flags == [RiskFlag.REMOVES_CONSTRAINT]
 
 
 def test_config_patch_empty_operations_allowed() -> None:

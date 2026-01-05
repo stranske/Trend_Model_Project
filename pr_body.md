@@ -51,5 +51,6 @@ The NL layer must output a structured, validated format—not freeform text that
 - [x] - Path validation (valid/invalid paths)
 - [x] - Risk flag detection
 - [x] - Edge cases (empty patch, nested paths, list operations)
+- [x] - `set` operations with null values
 
 <!-- auto-status-summary:end -->
