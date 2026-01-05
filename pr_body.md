@@ -13,7 +13,7 @@ The NL layer must output a structured, validated format—not freeform text that
 - Audit trail for what was changed and why
 
 #### Tasks
-- [ ] Design patch operation types:
+- [x] Design patch operation types:
 - [ ] - `set` - Set a value at a path (create if missing)
 - [ ] - `remove` - Delete a key at a path
 - [ ] - `append` - Add item to a list
@@ -38,15 +38,15 @@ The NL layer must output a structured, validated format—not freeform text that
 - [ ] - `INCREASES_LEVERAGE` - Vol target above threshold
 - [ ] - `REMOVES_VALIDATION` - Disabling safety checks
 - [ ] - `BROAD_SCOPE` - Changes affect many keys
-- [ ] Add JSON Schema export method for the patch format
-- [ ] Write comprehensive unit tests
+- [x] Add JSON Schema export method for the patch format
+- [x] Write comprehensive unit tests
 
 #### Acceptance criteria
 - [ ] `ConfigPatch` model validates correct patches
 - [ ] `ConfigPatch` model rejects malformed patches with clear errors
 - [ ] JSON Schema can be exported for LLM prompting
-- [ ] Risk flags are populated for dangerous operations
-- [ ] Unit tests cover:
+- [x] Risk flags are populated for dangerous operations
+- [x] Unit tests cover:
 - [ ] - All operation types
 - [ ] - Path validation (valid/invalid paths)
 - [ ] - Risk flag detection
