@@ -171,7 +171,7 @@ def _build_meta(
 ) -> SchemaMeta:
     metadata = validated.metadata
     meta = SchemaMeta()
-    meta["metadata"] = metadata
+    meta["metadata"] = metadata.model_dump(mode="json")
     meta["validation"] = _build_validation_report(
         validated, sanitized_columns=sanitized_columns
     )
