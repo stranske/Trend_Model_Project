@@ -48,7 +48,9 @@ def test_config_patch_detects_risk_flags() -> None:
     operations = [
         PatchOperation(op="remove", path="portfolio.constraints.max_weight"),
         PatchOperation(op="set", path="vol_adjust.target_vol", value=0.2),
-        PatchOperation(op="set", path="robustness.condition_check.enabled", value=False),
+        PatchOperation(
+            op="set", path="robustness.condition_check.enabled", value=False
+        ),
         PatchOperation(op="merge", path="portfolio", value={"foo": "bar"}),
     ]
     patch = ConfigPatch(operations=operations, summary="Adjust risk posture")

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from enum import Enum
 import re
+from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 _DOTPATH_RE = re.compile(r"^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$")
 _JSON_POINTER_RE = re.compile(r"^(/[^/\s]+)+$")
@@ -76,7 +76,10 @@ class ConfigPatch(BaseModel):
 
 def _to_dotpath(path: str) -> str:
     if path.startswith("/"):
-        segments = [segment.replace("~1", "/").replace("~0", "~") for segment in path.split("/")[1:]]
+        segments = [
+            segment.replace("~1", "/").replace("~0", "~")
+            for segment in path.split("/")[1:]
+        ]
         return ".".join(segments)
     return path
 
@@ -110,7 +113,8 @@ def _removes_constraint(op: PatchOperation, dotpath: str) -> bool:
     )
     removes_value = op.op == "remove" or (op.op == "set" and op.value is None)
     return removes_value and any(
-        dotpath == prefix or dotpath.startswith(f"{prefix}.") for prefix in constraint_prefixes
+        dotpath == prefix or dotpath.startswith(f"{prefix}.")
+        for prefix in constraint_prefixes
     )
 
 
@@ -132,10 +136,15 @@ def _increases_leverage(op: PatchOperation, dotpath: str) -> bool:
     if op.op not in {"set", "merge"}:
         return False
     if dotpath == "vol_adjust.target_vol":
-        return isinstance(op.value, (int, float)) and op.value > _VOL_TARGET_RISK_THRESHOLD
+        return (
+            isinstance(op.value, (int, float)) and op.value > _VOL_TARGET_RISK_THRESHOLD
+        )
     if dotpath == "vol_adjust" and isinstance(op.value, dict):
         target_vol = op.value.get("target_vol")
-        return isinstance(target_vol, (int, float)) and target_vol > _VOL_TARGET_RISK_THRESHOLD
+        return (
+            isinstance(target_vol, (int, float))
+            and target_vol > _VOL_TARGET_RISK_THRESHOLD
+        )
     return False
 
 
