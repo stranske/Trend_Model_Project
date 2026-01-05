@@ -131,6 +131,8 @@ def apply_config_patch(config: dict[str, Any], patch: ConfigPatch) -> dict[str, 
             if existing is None:
                 parent[leaf] = deepcopy(operation.value)
             elif isinstance(existing, dict):
+                if not isinstance(operation.value, dict):
+                    raise TypeError("merge operation requires a dict value")
                 _deep_merge(existing, operation.value)
             else:
                 raise TypeError("merge requires an object at the target path")
