@@ -106,9 +106,7 @@ def test_cfg_helpers_handle_mixed_inputs() -> None:
 
 
 def test_preprocessing_summary_includes_missing_info() -> None:
-    summary = _preprocessing_summary(
-        "D", normalised=True, missing_summary="ffill applied"
-    )
+    summary = _preprocessing_summary("D", normalised=True, missing_summary="ffill applied")
     assert "Cadence: Daily" in summary
     assert "monthly" in summary.lower()
     assert "ffill applied" in summary
@@ -174,9 +172,7 @@ def test_policy_from_config_constructs_composites() -> None:
 
 
 def test_policy_from_config_handles_missing_components() -> None:
-    policy, limit = _policy_from_config(
-        {"per_asset": {"X": "drop"}, "per_asset_limit": {"X": 3}}
-    )
+    policy, limit = _policy_from_config({"per_asset": {"X": "drop"}, "per_asset_limit": {"X": 3}})
     assert policy == {"X": "drop"}
     assert limit == {"X": 3}
 
@@ -193,9 +189,7 @@ def test_derive_split_ratio_fallback_when_date_split_invalid() -> None:
     assert result["in_end"] == "2020-02"
     assert result["out_start"] == "2020-03"
 
-    ratio_edge = _derive_split_from_periods(
-        periods[:2], method="ratio", boundary=None, ratio=1.5
-    )
+    ratio_edge = _derive_split_from_periods(periods[:2], method="ratio", boundary=None, ratio=1.5)
     # Even with an extreme ratio the helper leaves at least one out-of-sample period.
     assert ratio_edge["out_start"] == "2020-02"
 
@@ -342,9 +336,7 @@ def test_build_trend_spec_invalid_values_fallbacks() -> None:
     assert spec_bad.vol_target is None
 
     cfg_missing_target = {"signals": {"vol_adjust": True}}
-    spec_missing = _build_trend_spec(
-        cfg_missing_target, {"enabled": True, "target_vol": 0.25}
-    )
+    spec_missing = _build_trend_spec(cfg_missing_target, {"enabled": True, "target_vol": 0.25})
     assert spec_missing.vol_target == pytest.approx(0.25)
 
 
@@ -401,20 +393,14 @@ def test_policy_from_config_handles_base_only() -> None:
 def test_derive_split_from_periods_edge_cases() -> None:
     periods = pd.period_range("2020-01", periods=5, freq="M")
 
-    fallback = _derive_split_from_periods(
-        periods, method="ratio", boundary=None, ratio="bad"
-    )
+    fallback = _derive_split_from_periods(periods, method="ratio", boundary=None, ratio="bad")
     assert fallback["in_end"] == "2020-04"
     assert fallback["out_start"] == "2020-05"
 
-    zero_ratio = _derive_split_from_periods(
-        periods, method="ratio", boundary=None, ratio=0
-    )
+    zero_ratio = _derive_split_from_periods(periods, method="ratio", boundary=None, ratio=0)
     assert zero_ratio["in_end"] == "2020-02"
 
-    tiny_ratio = _derive_split_from_periods(
-        periods, method="ratio", boundary=None, ratio=0.01
-    )
+    tiny_ratio = _derive_split_from_periods(periods, method="ratio", boundary=None, ratio=0.01)
     assert tiny_ratio["in_start"] == "2020-01"
 
     with pytest.raises(ValueError, match="without any observations"):
@@ -1273,14 +1259,10 @@ def test_run_analysis_weight_engine_success(monkeypatch: pytest.MonkeyPatch) -> 
         mp.setattr(
             pipeline,
             "single_period_run",
-            lambda *a, **k: pd.DataFrame(
-                {"Sharpe": [0.5, 0.4]}, index=["FundA", "FundB"]
-            ),
+            lambda *a, **k: pd.DataFrame({"Sharpe": [0.5, 0.4]}, index=["FundA", "FundB"]),
         )
         mp.setattr(pipeline, "compute_constrained_weights", fake_weights)
-        mp.setattr(
-            "trend_analysis.plugins.create_weight_engine", lambda scheme: DummyEngine()
-        )
+        mp.setattr("trend_analysis.plugins.create_weight_engine", lambda scheme: DummyEngine())
         mp.setattr(pipeline, "build_regime_payload", lambda **kwargs: {})
         mp.setattr(
             pipeline,
@@ -1325,9 +1307,7 @@ def test_run_analysis_uses_empty_signal_frame(monkeypatch: pytest.MonkeyPatch) -
         def _constructor(self):  # pragma: no cover - pandas protocol
             return SignalFrame
 
-        def __finalize__(
-            self, other, method=None
-        ):  # pragma: no cover - pandas protocol
+        def __finalize__(self, other, method=None):  # pragma: no cover - pandas protocol
             self._force_empty_next = False
             return self
 
@@ -1475,9 +1455,7 @@ def test_run_analysis_warmup_zeroes_initial_rows(
         mp.setattr(
             pipeline,
             "single_period_run",
-            lambda *a, **k: pd.DataFrame(
-                {"Sharpe": [0.3, 0.2]}, index=["FundA", "FundB"]
-            ),
+            lambda *a, **k: pd.DataFrame({"Sharpe": [0.3, 0.2]}, index=["FundA", "FundB"]),
         )
         mp.setattr(pipeline, "compute_constrained_weights", fake_weights)
         mp.setattr(pipeline, "build_regime_payload", lambda **kwargs: {})
@@ -1561,9 +1539,7 @@ def test_run_analysis_adds_valid_indices_and_skips_missing_benchmarks(
         mp.setattr(
             pipeline,
             "single_period_run",
-            lambda *a, **k: pd.DataFrame(
-                {"Sharpe": [0.3, 0.2]}, index=["FundA", "FundB"]
-            ),
+            lambda *a, **k: pd.DataFrame({"Sharpe": [0.3, 0.2]}, index=["FundA", "FundB"]),
         )
         mp.setattr(pipeline, "compute_constrained_weights", fake_weights)
         mp.setattr(pipeline, "build_regime_payload", lambda **kwargs: {})
@@ -1646,9 +1622,7 @@ def test_run_analysis_handles_benchmark_overrides(
         mp.setattr(
             pipeline,
             "single_period_run",
-            lambda *a, **k: pd.DataFrame(
-                {"Sharpe": [0.3, 0.2]}, index=["FundA", "FundB"]
-            ),
+            lambda *a, **k: pd.DataFrame({"Sharpe": [0.3, 0.2]}, index=["FundA", "FundB"]),
         )
         mp.setattr(pipeline, "compute_constrained_weights", fake_weights)
         mp.setattr(pipeline, "build_regime_payload", lambda **kwargs: {})

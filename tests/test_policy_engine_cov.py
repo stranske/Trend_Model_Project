@@ -87,9 +87,7 @@ def test_decide_hires_fires_diversification_and_turnover(monkeypatch):
     def fake_rank_scores(sf, metric_weights, metric_directions):
         return pd.Series({"a": 2.0, "b": 1.2, "c": -0.5, "d": 1.0}, index=sf.index)
 
-    monkeypatch.setattr(
-        "streamlit_app.components.policy_engine.rank_scores", fake_rank_scores
-    )
+    monkeypatch.setattr("streamlit_app.components.policy_engine.rank_scores", fake_rank_scores)
 
     decisions = decide_hires_fires(
         pd.Timestamp("2020-01-31"),
@@ -128,9 +126,7 @@ def test_decide_hires_fires_turnover_budget_prioritises(monkeypatch):
     def fake_rank_scores(sf, metric_weights, metric_directions):
         return pd.Series({"a": -1.0, "b": 2.0, "c": 1.5}, index=sf.index)
 
-    monkeypatch.setattr(
-        "streamlit_app.components.policy_engine.rank_scores", fake_rank_scores
-    )
+    monkeypatch.setattr("streamlit_app.components.policy_engine.rank_scores", fake_rank_scores)
 
     decisions = decide_hires_fires(
         pd.Timestamp("2020-01-31"),
@@ -153,9 +149,7 @@ def test_decide_hires_fires_turnover_budget_mixed_moves(monkeypatch):
     """Turnover gating should compare hires and fires and keep the best
     move."""
 
-    score_frame = pd.DataFrame(
-        {"m": [4.0, 3.0, -2.0]}, index=["hire1", "hire2", "drop"]
-    )
+    score_frame = pd.DataFrame({"m": [4.0, 3.0, -2.0]}, index=["hire1", "hire2", "drop"])
     policy = PolicyConfig(
         top_k=2,
         bottom_k=1,
@@ -167,9 +161,7 @@ def test_decide_hires_fires_turnover_budget_mixed_moves(monkeypatch):
     def fake_rank_scores(sf, metric_weights, metric_directions):  # noqa: ARG001
         return pd.Series({"hire1": 2.0, "hire2": 1.0, "drop": -1.5}, index=sf.index)
 
-    monkeypatch.setattr(
-        "streamlit_app.components.policy_engine.rank_scores", fake_rank_scores
-    )
+    monkeypatch.setattr("streamlit_app.components.policy_engine.rank_scores", fake_rank_scores)
 
     decisions = decide_hires_fires(
         pd.Timestamp("2020-01-31"),
@@ -205,9 +197,7 @@ def test_decide_hires_fires_turnover_budget_trims_mixed(monkeypatch):
     def fake_rank_scores(sf, metric_weights, metric_directions):  # noqa: ARG001
         return pd.Series({"a": 1.0, "b": 2.0, "c": -1.0}, index=sf.index)
 
-    monkeypatch.setattr(
-        "streamlit_app.components.policy_engine.rank_scores", fake_rank_scores
-    )
+    monkeypatch.setattr("streamlit_app.components.policy_engine.rank_scores", fake_rank_scores)
 
     decisions = decide_hires_fires(
         pd.Timestamp("2020-01-31"),
@@ -242,9 +232,7 @@ def test_decide_hires_fires_turnover_budget_mixes_hires_and_fires(monkeypatch):
     def fake_rank_scores(sf, metric_weights, metric_directions):  # noqa: ARG001
         return pd.Series({"a": -0.5, "b": 1.5, "c": 1.0}, index=sf.index)
 
-    monkeypatch.setattr(
-        "streamlit_app.components.policy_engine.rank_scores", fake_rank_scores
-    )
+    monkeypatch.setattr("streamlit_app.components.policy_engine.rank_scores", fake_rank_scores)
 
     decisions = decide_hires_fires(
         pd.Timestamp("2020-01-31"),
@@ -281,9 +269,7 @@ def test_decide_hires_fires_bucket_skip_and_nan_priorities(monkeypatch):
     def fake_rank_scores(sf, metric_weights, metric_directions):  # noqa: ARG001
         return pd.Series({"a": 5.0, "b": 4.0, "c": 3.0, "d": np.nan}, index=sf.index)
 
-    monkeypatch.setattr(
-        "streamlit_app.components.policy_engine.rank_scores", fake_rank_scores
-    )
+    monkeypatch.setattr("streamlit_app.components.policy_engine.rank_scores", fake_rank_scores)
 
     decisions = decide_hires_fires(
         pd.Timestamp("2020-01-31"),
@@ -320,9 +306,7 @@ def test_decide_hires_fires_unknown_bucket_defaults_to_name(monkeypatch):
     def fake_rank_scores(sf, metric_weights, metric_directions):  # noqa: ARG001
         return pd.Series({"known": 0.5, "mystery": 2.0}, index=sf.index)
 
-    monkeypatch.setattr(
-        "streamlit_app.components.policy_engine.rank_scores", fake_rank_scores
-    )
+    monkeypatch.setattr("streamlit_app.components.policy_engine.rank_scores", fake_rank_scores)
 
     decisions = decide_hires_fires(
         pd.Timestamp("2020-01-31"),

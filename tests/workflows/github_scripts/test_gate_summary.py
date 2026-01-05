@@ -209,17 +209,13 @@ def test_load_summary_records_handles_missing_and_invalid(
         return original_rglob(self, pattern)
 
     monkeypatch.setattr(Path, "rglob", fake_rglob)
-    assert gate_summary._load_summary_records(artifacts_root) == [
-        {"job_name": "unknown"}
-    ]
+    assert gate_summary._load_summary_records(artifacts_root) == [{"job_name": "unknown"}]
 
     # Non-dict payloads are skipped safely
     broken = downloads / "bad_type" / "summary.json"
     broken.parent.mkdir(parents=True, exist_ok=True)
     broken.write_text("[]", encoding="utf-8")
-    assert gate_summary._load_summary_records(artifacts_root) == [
-        {"job_name": "unknown"}
-    ]
+    assert gate_summary._load_summary_records(artifacts_root) == [{"job_name": "unknown"}]
 
 
 def test_detect_cosmetic_failure_handles_non_mappings() -> None:
@@ -319,9 +315,7 @@ def test_summarize_handles_docker_failures(tmp_path: Path) -> None:
     assert any("docker-smoke" in line for line in result.lines)
 
 
-def test_build_context_reads_environment(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_build_context_reads_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("DOC_ONLY", "TRUE")
     monkeypatch.setenv("RUN_CORE", "False")
     monkeypatch.setenv("REASON", "workflow_only")
@@ -352,9 +346,7 @@ def test_resolve_path_handles_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     assert gate_summary._resolve_path("NOT_SET") is None
 
 
-def test_main_writes_summary_and_output(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_main_writes_summary_and_output(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     summary_path = tmp_path / "summary" / "summary.md"
     output_path = tmp_path / "output" / "output.txt"
 

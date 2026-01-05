@@ -8,9 +8,7 @@ class RecordingWeighting(BaseWeighting):
     def __init__(self) -> None:
         self.update_calls: list[tuple[pd.Series, int]] = []
 
-    def weight(
-        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
-    ) -> pd.DataFrame:
+    def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
         del date
         if selected.empty:
             return pd.DataFrame(columns=["weight"])
@@ -47,9 +45,7 @@ def test_portfolio_rebalance_accepts_series_and_mapping() -> None:
 
 def test_portfolio_rebalance_prefers_weight_column_from_frame() -> None:
     portfolio = Portfolio()
-    weights = pd.DataFrame(
-        {"weight": [0.6, 0.4], "other": [10, 20]}, index=["Alpha", "Beta"]
-    )
+    weights = pd.DataFrame({"weight": [0.6, 0.4], "other": [10, 20]}, index=["Alpha", "Beta"])
 
     portfolio.rebalance("2020-03-31", weights, turnover=0.25, cost=2.0)
 
@@ -65,9 +61,7 @@ def test_portfolio_rebalance_prefers_weight_column_from_frame() -> None:
 
 def test_portfolio_rebalance_uses_first_frame_column_when_weight_absent() -> None:
     portfolio = Portfolio()
-    weights = pd.DataFrame(
-        {"first": [0.3, 0.7], "second": [1.0, 2.0]}, index=["Gamma", "Delta"]
-    )
+    weights = pd.DataFrame({"first": [0.3, 0.7], "second": [1.0, 2.0]}, index=["Gamma", "Delta"])
 
     portfolio.rebalance("2020-04-30", weights)
 

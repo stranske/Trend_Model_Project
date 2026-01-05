@@ -124,9 +124,7 @@ def ensure_pyproject(
             )
         current = match.group("version")
         if current != expected:
-            mismatches[cfg.package_name] = (
-                f"pyproject has {current}, pin file requires {expected}"
-            )
+            mismatches[cfg.package_name] = f"pyproject has {current}, pin file requires {expected}"
             if apply:
                 updated_content = cfg.pyproject_pattern.sub(
                     lambda m: _format_entry(cfg.pyproject_format, expected),

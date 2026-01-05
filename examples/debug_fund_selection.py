@@ -49,15 +49,11 @@ def debug_fund_selection():
     date_col = "Date"
     df[date_col] = pd.to_datetime(df[date_col])
 
-    in_df = df[(df[date_col] >= in_sdate) & (df[date_col] <= in_edate)].set_index(
-        date_col
-    )
+    in_df = df[(df[date_col] >= in_sdate) & (df[date_col] <= in_edate)].set_index(date_col)
     print(f"In-sample data shape: {in_df.shape}")
 
     # Identify return columns (this is the key part!)
-    ret_cols = [
-        c for c in df.select_dtypes(include=[np.number]).columns if c != date_col
-    ]
+    ret_cols = [c for c in df.select_dtypes(include=[np.number]).columns if c != date_col]
     print(f"Return columns found: {len(ret_cols)}")
     print(f"Return columns: {ret_cols}")
 
@@ -95,9 +91,7 @@ def debug_fund_selection():
     out_sdate = _parse_month(out_start)
     out_edate = _parse_month(out_end)
 
-    out_df = df[(df[date_col] >= out_sdate) & (df[date_col] <= out_edate)].set_index(
-        date_col
-    )
+    out_df = df[(df[date_col] >= out_sdate) & (df[date_col] <= out_edate)].set_index(date_col)
     print(f"\nOut-sample data shape: {out_df.shape}")
     out_ok = ~out_df[fund_cols].isna().any()
     print("Out-sample missing data check:")
@@ -169,9 +163,7 @@ def debug_fund_selection():
     if len(final_fund_cols) == 8:
         print("❌ PROBLEM IDENTIFIED: Only 8 funds have complete data!")
         print("   The other 12 managers have missing data in some periods.")
-        print(
-            "   This explains why selection doesn't change - there are no alternatives!"
-        )
+        print("   This explains why selection doesn't change - there are no alternatives!")
     elif len(final_fund_cols) > 8:
         print("✅ Data issue ruled out - multiple funds available")
         print("   The problem is likely in the ranking/selection logic")

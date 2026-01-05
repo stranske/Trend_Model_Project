@@ -53,26 +53,18 @@ def _ensure_fund_table_state(
     table_key = _fund_table_state_key(data_key)
     existing = st.session_state.get(table_key)
 
-    if isinstance(existing, pd.DataFrame) and {"Include", "Fund Name"}.issubset(
-        existing.columns
-    ):
+    if isinstance(existing, pd.DataFrame) and {"Include", "Fund Name"}.issubset(existing.columns):
         df_existing = existing[["Include", "Fund Name"]].copy()
         df_existing["Fund Name"] = df_existing["Fund Name"].astype(str)
-        df_existing["Include"] = (
-            df_existing["Include"].astype("boolean").fillna(False).astype(bool)
-        )
+        df_existing["Include"] = df_existing["Include"].astype("boolean").fillna(False).astype(bool)
         if df_existing["Fund Name"].tolist() == list(available_funds):
             st.session_state[table_key] = df_existing
             return table_key
 
-        include_map = dict(
-            zip(df_existing["Fund Name"].tolist(), df_existing["Include"].tolist())
-        )
+        include_map = dict(zip(df_existing["Fund Name"].tolist(), df_existing["Include"].tolist()))
         st.session_state[table_key] = pd.DataFrame(
             {
-                "Include": [
-                    bool(include_map.get(fund, False)) for fund in available_funds
-                ],
+                "Include": [bool(include_map.get(fund, False)) for fund in available_funds],
                 "Fund Name": [str(fund) for fund in available_funds],
             }
         )
@@ -243,9 +235,7 @@ def _render_date_correction_ui(message: str, correction: DateCorrectionNeeded) -
         )
 
     if correction.unfixable:
-        st.error(
-            f"⚠️ {len(correction.unfixable)} date(s) cannot be automatically corrected:"
-        )
+        st.error(f"⚠️ {len(correction.unfixable)} date(s) cannot be automatically corrected:")
         for idx, val in correction.unfixable[:5]:
             st.write(f"• Row {idx + 1}: `{val}`")
         if len(correction.unfixable) > 5:
@@ -485,9 +475,7 @@ def render_data_page() -> None:
     options.append("Upload your own")
 
     default_index = (
-        0
-        if st.session_state.get("data_source", "Sample dataset") == "Sample dataset"
-        else 1
+        0 if st.session_state.get("data_source", "Sample dataset") == "Sample dataset" else 1
     )
     source = st.radio("Data source", options, index=default_index)
     st.session_state["data_source"] = source
@@ -512,9 +500,7 @@ def render_data_page() -> None:
                 _render_validation(meta)
                 st.dataframe(df.head(20))
     else:
-        upload_widget_key = (
-            f"upload_returns::{st.session_state.get('upload_widget_version', 0)}"
-        )
+        upload_widget_key = f"upload_returns::{st.session_state.get('upload_widget_version', 0)}"
         uploaded = st.file_uploader(
             "Upload returns (CSV or Excel with a Date column)",
             type=["csv", "xlsx", "xls"],
@@ -524,9 +510,7 @@ def render_data_page() -> None:
         if uploaded is not None:
             _load_uploaded_dataset(uploaded)
         elif not app_state.has_valid_upload():
-            st.info(
-                "No dataset loaded yet. Switch to the sample tab for a quick start."
-            )
+            st.info("No dataset loaded yet. Switch to the sample tab for a quick start.")
 
     if app_state.has_valid_upload():
         df, meta = app_state.get_uploaded_data()
@@ -557,9 +541,7 @@ def render_data_page() -> None:
 
                 def on_rf_change():
                     val = st.session_state["_widget_rf"]
-                    st.session_state["selected_risk_free"] = (
-                        None if val == "(None)" else val
-                    )
+                    st.session_state["selected_risk_free"] = None if val == "(None)" else val
 
                 st.selectbox(
                     "Risk-Free Rate Column",
@@ -585,9 +567,7 @@ def render_data_page() -> None:
 
                 def on_bench_change():
                     val = st.session_state["_widget_bench"]
-                    st.session_state["selected_benchmark"] = (
-                        None if val == "(None)" else val
-                    )
+                    st.session_state["selected_benchmark"] = None if val == "(None)" else val
 
                 st.selectbox(
                     "Benchmark Column (optional)",
@@ -617,12 +597,10 @@ def render_data_page() -> None:
 
             # Default: select all non-index columns.
             # Index-like columns are inferred from benchmark/risk-free candidates.
-            index_candidates = set(
-                st.session_state.get("benchmark_candidates", [])
-            ) | set(st.session_state.get("risk_free_candidates", []))
-            default_selected_funds = [
-                c for c in available_funds if c not in index_candidates
-            ]
+            index_candidates = set(st.session_state.get("benchmark_candidates", [])) | set(
+                st.session_state.get("risk_free_candidates", [])
+            )
+            default_selected_funds = [c for c in available_funds if c not in index_candidates]
 
             _t_funds_derived = time.perf_counter()
 
@@ -639,9 +617,7 @@ def render_data_page() -> None:
 
             # Current valid selection (respect available funds)
             current_selection = [
-                f
-                for f in st.session_state.get("selected_fund_columns", [])
-                if f in available_funds
+                f for f in st.session_state.get("selected_fund_columns", []) if f in available_funds
             ]
 
             # Default: select all funds (everything except system/index columns).
@@ -688,9 +664,7 @@ def render_data_page() -> None:
 
             # Multi-select (range) — shift-click equivalent.
             with st.expander("Bulk add/remove (range select)", expanded=True):
-                st.caption(
-                    "Select a start and end fund, then include/exclude the whole range."
-                )
+                st.caption("Select a start and end fund, then include/exclude the whole range.")
 
                 range_cols = st.columns(4)
                 with range_cols[0]:
@@ -831,23 +805,15 @@ def render_data_page() -> None:
                     "range_funds_count": len(range_funds),
                     "defaults_seeded_count": len(defaults),
                     "perf_ms": {
-                        "derive_funds": round(
-                            (_t_funds_derived - _t_fund_start) * 1000, 2
-                        ),
-                        "seed_defaults": round(
-                            (_t_seed_done - _t_seed_start) * 1000, 2
-                        ),
-                        "render_checkboxes": round(
-                            (_t_render_done - _t_render_start) * 1000, 2
-                        ),
+                        "derive_funds": round((_t_funds_derived - _t_fund_start) * 1000, 2),
+                        "seed_defaults": round((_t_seed_done - _t_seed_start) * 1000, 2),
+                        "render_checkboxes": round((_t_render_done - _t_render_start) * 1000, 2),
                         "fund_total": round((_t_render_done - _t_fund_start) * 1000, 2),
                     },
                     "selected_fund_columns_count": len(
                         st.session_state.get("selected_fund_columns") or []
                     ),
-                    "fund_columns_count": len(
-                        st.session_state.get("fund_columns") or []
-                    ),
+                    "fund_columns_count": len(st.session_state.get("fund_columns") or []),
                 }
 
                 history = st.session_state.get("_debug_fund_history", [])
@@ -861,9 +827,7 @@ def render_data_page() -> None:
                         "latest": snapshot,
                         "history": st.session_state.get("_debug_fund_history", []),
                         "available_funds": available_funds,
-                        "selected_fund_columns": st.session_state.get(
-                            "selected_fund_columns"
-                        ),
+                        "selected_fund_columns": st.session_state.get("selected_fund_columns"),
                         "fund_columns": st.session_state.get("fund_columns"),
                         "checkbox_prefix": include_prefix,
                     }

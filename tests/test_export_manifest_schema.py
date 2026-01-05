@@ -65,9 +65,7 @@ def _build_meta(tmp_path: Path) -> dict:
     config = {"dates": dates.strftime("%Y-%m-%d").tolist()}
 
     run = DummyRun(
-        portfolio=pd.Series(
-            [0.01, -0.02], index=pd.date_range("2020-01", periods=2, freq="ME")
-        ),
+        portfolio=pd.Series([0.01, -0.02], index=pd.date_range("2020-01", periods=2, freq="ME")),
         config=config,
         seed=42,
         input_path=input_path,

@@ -404,9 +404,7 @@ def test_render_run_section_multi_period(
     assert "ew_sharpe" in fake_st.dataframes[-1]
 
 
-def test_app_helper_utilities(
-    monkeypatch: pytest.MonkeyPatch, load_app: ModuleType
-) -> None:
+def test_app_helper_utilities(monkeypatch: pytest.MonkeyPatch, load_app: ModuleType) -> None:
     """Exercise lower-level helper functions for additional coverage."""
 
     module = load_app

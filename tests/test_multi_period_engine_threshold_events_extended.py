@@ -149,9 +149,7 @@ class StaticRebalancer:
     def __init__(self, *_cfg: Any) -> None:
         self.calls = 0
 
-    def apply_triggers(
-        self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs
-    ) -> pd.Series:
+    def apply_triggers(self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs) -> pd.Series:
         self.calls += 1
         mapping = prev_weights.to_dict()
         if self.calls == 1:
@@ -171,9 +169,7 @@ class NoOpRebalancer:
     def __init__(self, *_cfg: Any) -> None:
         pass
 
-    def apply_triggers(
-        self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs
-    ) -> pd.Series:
+    def apply_triggers(self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs) -> pd.Series:
         return prev_weights.astype(float)
 
 
@@ -399,9 +395,7 @@ def test_threshold_hold_event_log_and_replacements(
     assert "Gamma One" not in manual_funds
 
     assert second_period["turnover"] == pytest.approx(0.25)
-    expected_cost = second_period["turnover"] * (
-        cfg.portfolio["transaction_cost_bps"] / 10000.0
-    )
+    expected_cost = second_period["turnover"] * (cfg.portfolio["transaction_cost_bps"] / 10000.0)
     assert second_period["transaction_cost"] == pytest.approx(expected_cost)
 
 

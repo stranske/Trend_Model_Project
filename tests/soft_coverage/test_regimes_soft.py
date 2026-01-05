@@ -99,9 +99,7 @@ def test_compute_regime_series_handles_empty_inputs() -> None:
     assert empty_result.empty
 
     nan_proxy = pd.Series([np.nan, np.nan], index=_sample_index(2))
-    nan_result = regimes._compute_regime_series(
-        nan_proxy, settings, freq="M", periods_per_year=12
-    )
+    nan_result = regimes._compute_regime_series(nan_proxy, settings, freq="M", periods_per_year=12)
     assert nan_result.empty
 
 
@@ -125,9 +123,7 @@ def test_compute_regime_series_volatility_and_cache(
     monkeypatch.setattr(regimes, "compute_dataset_hash", lambda seq: "hash")
     monkeypatch.setattr(regimes, "get_cache", lambda: cache)
 
-    labels = regimes._compute_regime_series(
-        proxy, settings, freq="M", periods_per_year=6.0
-    )
+    labels = regimes._compute_regime_series(proxy, settings, freq="M", periods_per_year=6.0)
 
     assert labels.dtype == "string"
     assert set(labels.dropna().unique()) >= {
@@ -156,9 +152,7 @@ def test_compute_regime_series_return_with_cache(
     monkeypatch.setattr(regimes, "compute_dataset_hash", lambda seq: "hash")
     monkeypatch.setattr(regimes, "get_cache", lambda: cache)
 
-    labels = regimes._compute_regime_series(
-        proxy, settings, freq="M", periods_per_year=None
-    )
+    labels = regimes._compute_regime_series(proxy, settings, freq="M", periods_per_year=None)
 
     assert not labels.empty
     assert cache.calls and cache.calls[0][3].startswith("regime_rolling_return")
@@ -177,9 +171,7 @@ def test_compute_regime_series_return_without_cache() -> None:
         cache=False,
     )
 
-    labels = regimes._compute_regime_series(
-        proxy, settings, freq="B", periods_per_year=None
-    )
+    labels = regimes._compute_regime_series(proxy, settings, freq="B", periods_per_year=None)
 
     assert labels.iloc[-1] in {settings.risk_on_label, settings.risk_off_label}
     assert settings.default_label in labels.values
@@ -230,9 +222,7 @@ def test_compute_regime_series_short_history_and_neutral_band() -> None:
         cache=False,
     )
 
-    labels = regimes._compute_regime_series(
-        proxy, settings, freq="M", periods_per_year=12
-    )
+    labels = regimes._compute_regime_series(proxy, settings, freq="M", periods_per_year=12)
     assert len(labels) == len(proxy)
     assert set(labels.unique()) <= {
         settings.default_label,
@@ -260,9 +250,7 @@ def test_compute_regime_series_volatility_defaults(
     monkeypatch.setattr(regimes, "compute_dataset_hash", lambda seq: "vol-hash")
     monkeypatch.setattr(regimes, "get_cache", lambda: cache)
 
-    labels = regimes._compute_regime_series(
-        proxy, settings, freq="W", periods_per_year=None
-    )
+    labels = regimes._compute_regime_series(proxy, settings, freq="W", periods_per_year=None)
     assert not labels.empty
     assert cache.calls[0][3].endswith("_annual0_ppy52.000000")
 
@@ -334,9 +322,7 @@ def test_aggregate_performance_and_build_payload(
     assert "observations" not in " ".join(notes).lower()
 
     extra_index = dates.append(pd.DatetimeIndex([dates[-1] + pd.offsets.MonthEnd()]))
-    data = pd.DataFrame(
-        {"Date": dates, "Proxy": returns.values, "Other": returns.values}
-    )
+    data = pd.DataFrame({"Date": dates, "Proxy": returns.values, "Other": returns.values})
 
     summary_table = table.copy()
     summary_table.loc["Observations", :] = 4.0
@@ -498,9 +484,7 @@ def test_build_regime_payload_gap_note(monkeypatch: pytest.MonkeyPatch) -> None:
 
     regimes_series = pd.Series([pd.NA, pd.NA, pd.NA], index=dates, dtype="string")
 
-    monkeypatch.setattr(
-        regimes, "compute_regimes", lambda *args, **kwargs: regimes_series
-    )
+    monkeypatch.setattr(regimes, "compute_regimes", lambda *args, **kwargs: regimes_series)
     monkeypatch.setattr(
         regimes,
         "aggregate_performance_by_regime",
@@ -539,9 +523,7 @@ def test_build_regime_payload_missing_out_index_note(
     base = pd.Series(["Risk-On", "Risk-Off", "Risk-On"], index=dates, dtype="string")
     short_series = ShortReindexSeries(base)
 
-    monkeypatch.setattr(
-        regimes, "compute_regimes", lambda *args, **kwargs: short_series
-    )
+    monkeypatch.setattr(regimes, "compute_regimes", lambda *args, **kwargs: short_series)
     monkeypatch.setattr(
         regimes,
         "aggregate_performance_by_regime",
@@ -565,13 +547,9 @@ def test_build_regime_payload_summary_fallback_and_note_dedup(
 ) -> None:
     dates = _sample_index(3)
     data = pd.DataFrame({"Date": dates, "Proxy": [0.0, 0.0, 0.0]})
-    regimes_series = pd.Series(
-        ["Risk-On", "Risk-Off", "Risk-On"], index=dates, dtype="string"
-    )
+    regimes_series = pd.Series(["Risk-On", "Risk-Off", "Risk-On"], index=dates, dtype="string")
 
-    monkeypatch.setattr(
-        regimes, "compute_regimes", lambda *args, **kwargs: regimes_series
-    )
+    monkeypatch.setattr(regimes, "compute_regimes", lambda *args, **kwargs: regimes_series)
     monkeypatch.setattr(
         regimes,
         "aggregate_performance_by_regime",

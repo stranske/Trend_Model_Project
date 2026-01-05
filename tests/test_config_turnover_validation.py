@@ -51,9 +51,7 @@ def test_max_turnover_invalid(cap):
 
 
 def test_string_coercion():
-    cfg_dict = make_cfg(
-        {"portfolio": {"transaction_cost_bps": "15", "max_turnover": "0.75"}}
-    )
+    cfg_dict = make_cfg({"portfolio": {"transaction_cost_bps": "15", "max_turnover": "0.75"}})
     cfg = Config(**cfg_dict)
     assert cfg.portfolio["transaction_cost_bps"] == 15.0
     assert cfg.portfolio["max_turnover"] == 0.75

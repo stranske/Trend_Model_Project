@@ -68,9 +68,7 @@ def export_bundle(run: Any, path: Path) -> Path:
             # Guard against non-pathlike types
             input_path = None
         input_sha256 = (
-            sha256_file(input_path)
-            if input_path is not None and input_path.exists()
-            else None
+            sha256_file(input_path) if input_path is not None and input_path.exists() else None
         )
         config_sha256 = sha256_config(config)
         run_id_src = "|".join(
@@ -95,9 +93,7 @@ def export_bundle(run: Any, path: Path) -> Path:
             # Attempt to preserve temporal structure if possible
             if isinstance(portfolio, dict):
                 # Use dict keys as index
-                portfolio = pd.Series(
-                    list(portfolio.values()), index=list(portfolio.keys())
-                )
+                portfolio = pd.Series(list(portfolio.values()), index=list(portfolio.keys()))
             elif isinstance(portfolio, (list, tuple)):
                 raise ValueError(
                     "Cannot convert portfolio of type list/tuple to pandas Series without an index. "
@@ -318,9 +314,7 @@ def export_bundle(run: Any, path: Path) -> Path:
             "environment": env,
             "git_hash": _git_hash(),
             "receipt": {
-                "created": _dt.datetime.now(_dt.timezone.utc)
-                .isoformat()
-                .replace("+00:00", "Z")
+                "created": _dt.datetime.now(_dt.timezone.utc).isoformat().replace("+00:00", "Z")
             },
             "input_sha256": input_sha256,
         }

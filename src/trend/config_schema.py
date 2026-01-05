@@ -249,9 +249,7 @@ def validate_core_config(
     if tracker is not None:
         tracker.track_validated("data.managers_glob")
     if csv_path is None and managers_glob is None:
-        raise CoreConfigError(
-            "Provide data.csv_path or data.managers_glob to locate return series"
-        )
+        raise CoreConfigError("Provide data.csv_path or data.managers_glob to locate return series")
     universe_path = _normalise_path(
         data_section.get("universe_membership_path"),
         field="data.universe_membership_path",
@@ -329,7 +327,5 @@ def load_core_config(path: str | Path) -> CoreConfig:
     text = cfg_path.read_text(encoding="utf-8")
     data = yaml.safe_load(text)
     if not isinstance(data, Mapping):
-        raise CoreConfigError(
-            "Configuration files must contain a mapping at the top level"
-        )
+        raise CoreConfigError("Configuration files must contain a mapping at the top level")
     return validate_core_config(data, base_path=cfg_path.parent)

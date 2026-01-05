@@ -31,9 +31,7 @@ class CyclingWeighting:
             {"FundB": 0.55, "FundC": 0.45},
         ]
 
-    def weight(
-        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
-    ) -> pd.DataFrame:
+    def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
         del date
         pattern = self._patterns[min(self._calls, len(self._patterns) - 1)]
         self._calls += 1
@@ -270,9 +268,7 @@ def test_run_defaults_to_risk_free_fallback_disabled_when_unset(
     cfg.portfolio["policy"] = "all"
     captured: dict[str, Any] = {}
 
-    def fake_call(
-        *args: Any, **kwargs: Any
-    ) -> DiagnosticResult[dict[str, object] | None]:
+    def fake_call(*args: Any, **kwargs: Any) -> DiagnosticResult[dict[str, object] | None]:
         captured.update(kwargs)
         return DiagnosticResult(value={"selected_funds": ["Alpha"]}, diagnostic=None)
 
@@ -292,9 +288,7 @@ def test_run_respects_explicit_risk_free_preferences(
     cfg.data["risk_free_column"] = "RF"
     captured: dict[str, Any] = {}
 
-    def fake_call(
-        *args: Any, **kwargs: Any
-    ) -> DiagnosticResult[dict[str, object] | None]:
+    def fake_call(*args: Any, **kwargs: Any) -> DiagnosticResult[dict[str, object] | None]:
         captured.update(kwargs)
         return DiagnosticResult(value={"selected_funds": ["Alpha"]}, diagnostic=None)
 
@@ -313,9 +307,7 @@ def test_run_disables_fallback_when_risk_free_column_present(
     cfg.data["risk_free_column"] = "RF"
     captured: dict[str, Any] = {}
 
-    def fake_call(
-        *args: Any, **kwargs: Any
-    ) -> DiagnosticResult[dict[str, object] | None]:
+    def fake_call(*args: Any, **kwargs: Any) -> DiagnosticResult[dict[str, object] | None]:
         captured.update(kwargs)
         return DiagnosticResult(value={"selected_funds": ["Alpha"]}, diagnostic=None)
 

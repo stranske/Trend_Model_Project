@@ -184,14 +184,10 @@ def test_main_uses_nan_fallback_and_default_exports(
     def fake_summary_frame(_details: dict[str, object]) -> pd.DataFrame:
         return pd.DataFrame({"value": [1]})
 
-    def fake_export_to_excel(
-        data: dict[str, pd.DataFrame], path: str, **_: object
-    ) -> None:
+    def fake_export_to_excel(data: dict[str, pd.DataFrame], path: str, **_: object) -> None:
         export_calls.append((data, path))
 
-    def fake_export_data(
-        data: dict[str, pd.DataFrame], path: str, *, formats: list[str]
-    ) -> None:
+    def fake_export_data(data: dict[str, pd.DataFrame], path: str, *, formats: list[str]) -> None:
         export_data_calls.append((data, path, formats))
 
     monkeypatch.setattr(run_analysis, "load", fake_load)
@@ -199,9 +195,7 @@ def test_main_uses_nan_fallback_and_default_exports(
     monkeypatch.setattr(run_analysis.api, "run_simulation", lambda *_: DetailedResult())
     monkeypatch.setattr(run_analysis.export, "format_summary_text", fake_format_summary)
     monkeypatch.setattr(run_analysis.export, "make_summary_formatter", fake_formatter)
-    monkeypatch.setattr(
-        run_analysis.export, "summary_frame_from_result", fake_summary_frame
-    )
+    monkeypatch.setattr(run_analysis.export, "summary_frame_from_result", fake_summary_frame)
     monkeypatch.setattr(run_analysis.export, "export_to_excel", fake_export_to_excel)
     monkeypatch.setattr(run_analysis.export, "export_data", fake_export_data)
 

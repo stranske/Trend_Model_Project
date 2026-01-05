@@ -111,11 +111,7 @@ class _PipelineProxy:
 
             if name == "run":
                 pkg_module = getattr(_trend_pkg, "pipeline", None)
-                pkg_attr = (
-                    getattr(pkg_module, name, missing)
-                    if pkg_module is not None
-                    else missing
-                )
+                pkg_attr = getattr(pkg_module, name, missing) if pkg_module is not None else missing
                 _PIPELINE_DEBUG.append(
                     (
                         name,
@@ -130,11 +126,7 @@ class _PipelineProxy:
                 return attr
 
             pkg_module = getattr(_trend_pkg, "pipeline", None)
-            pkg_attr = (
-                getattr(pkg_module, name, missing)
-                if pkg_module is not None
-                else missing
-            )
+            pkg_attr = getattr(pkg_module, name, missing) if pkg_module is not None else missing
             if pkg_attr is not missing:
                 return pkg_attr
 
@@ -160,11 +152,7 @@ class _PipelineProxy:
         # resolved so debugging info is available if needed.
         if name == "run":
             pkg_module = getattr(_trend_pkg, "pipeline", None)
-            pkg_attr = (
-                getattr(pkg_module, name, missing)
-                if pkg_module is not None
-                else missing
-            )
+            pkg_attr = getattr(pkg_module, name, missing) if pkg_module is not None else missing
             _PIPELINE_DEBUG.append(
                 (
                     name,
@@ -200,9 +188,7 @@ class _PipelineProxy:
 
         # Otherwise attempt to resolve via the package attribute as a fallback.
         pkg_module = getattr(_trend_pkg, "pipeline", None)
-        pkg_attr = (
-            getattr(pkg_module, name, missing) if pkg_module is not None else missing
-        )
+        pkg_attr = getattr(pkg_module, name, missing) if pkg_module is not None else missing
 
         if pkg_attr is not missing:
             return pkg_attr
@@ -333,9 +319,7 @@ def _analyze_csv_columns(csv_path: str) -> Dict[str, Any]:
 
         # First check for already-numeric columns
         numeric_cols = [
-            c
-            for c in df.select_dtypes(include=["number"]).columns
-            if c not in date_cols
+            c for c in df.select_dtypes(include=["number"]).columns if c not in date_cols
         ]
 
         # If no numeric columns found, try to detect percentage-formatted columns
@@ -350,9 +334,7 @@ def _analyze_csv_columns(csv_path: str) -> Dict[str, Any]:
                     continue
                 # Check if values contain % or look numeric
                 looks_numeric = (
-                    sample.str.replace(r"[%,\s]", "", regex=True)
-                    .str.match(r"^-?\d*\.?\d+$")
-                    .any()
+                    sample.str.replace(r"[%,\s]", "", regex=True).str.match(r"^-?\d*\.?\d+$").any()
                 )
                 if looks_numeric:
                     numeric_cols.append(col)
@@ -641,9 +623,7 @@ def _render_sidebar(cfg_dict: Dict[str, Any]) -> None:
             if num_cols > 0:
                 st.caption(f"📊 {num_cols} data columns detected")
             else:
-                st.caption(
-                    f"📊 {total_cols} columns detected (will be converted on load)"
-                )
+                st.caption(f"📊 {total_cols} columns detected (will be converted on load)")
 
             # Get columns for selection - use numeric if available, else all non-date
             selectable_cols = analysis["numeric_columns"]
@@ -686,17 +666,13 @@ def _render_sidebar(cfg_dict: Dict[str, Any]) -> None:
 
             # Benchmark/Index columns (informational)
             if analysis["benchmark_candidates"]:
-                st.caption(
-                    f"📈 Detected benchmarks: {', '.join(analysis['benchmark_candidates'])}"
-                )
+                st.caption(f"📈 Detected benchmarks: {', '.join(analysis['benchmark_candidates'])}")
             else:
                 st.caption("ℹ️ No benchmark columns detected (SPX, TSX, INDEX, etc.)")
 
     st.divider()
     yaml_bytes = _to_yaml(cfg_dict).encode("utf-8")
-    st.download_button(
-        "Download YAML", data=yaml_bytes, file_name="config.yml", mime="text/yaml"
-    )
+    st.download_button("Download YAML", data=yaml_bytes, file_name="config.yml", mime="text/yaml")
 
 
 def _render_run_section(cfg_dict: Dict[str, Any]) -> None:
@@ -734,9 +710,7 @@ def _render_run_section(cfg_dict: Dict[str, Any]) -> None:
                 run_full_error = exc
                 full_result = None
             if full_result is not None:
-                full_result_payload, full_result_diag = coerce_pipeline_result(
-                    full_result
-                )
+                full_result_payload, full_result_diag = coerce_pipeline_result(full_result)
 
         summary = _summarise_run_df(
             summary_frame if isinstance(summary_frame, pd.DataFrame) else None
@@ -748,8 +722,7 @@ def _render_run_section(cfg_dict: Dict[str, Any]) -> None:
             message = "Analysis failed for the configured period. Please check your data and configuration settings."
             if full_result_diag is not None:
                 message = (
-                    f"{message} ({full_result_diag.reason_code}: "
-                    f"{full_result_diag.message})"
+                    f"{message} ({full_result_diag.reason_code}: " f"{full_result_diag.message})"
                 )
             elif run_full_error is not None:
                 message = f"{message} ({run_full_error})"
@@ -795,10 +768,7 @@ def _render_run_section(cfg_dict: Dict[str, Any]) -> None:
                             st.dataframe(port_df)
 
                     turnover_series = risk_diag.get("turnover")
-                    if (
-                        isinstance(turnover_series, pd.Series)
-                        and not turnover_series.empty
-                    ):
+                    if isinstance(turnover_series, pd.Series) and not turnover_series.empty:
                         st.caption("Turnover per rebalance")
                         turnover_df = turnover_series.to_frame("turnover")
                         if callable(bar_chart):

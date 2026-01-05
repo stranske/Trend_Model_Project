@@ -94,9 +94,7 @@ def test_as_datetime_index_recovers_from_initial_failure(
         ("foo", None),
     ],
 )
-def test_map_inferred_normalises_pandas_codes(
-    freq: str | None, expected: str | None
-) -> None:
+def test_map_inferred_normalises_pandas_codes(freq: str | None, expected: str | None) -> None:
     """The inference mapper should collapse Pandas frequency aliases to our codes."""
 
     assert _map_inferred(freq) == expected

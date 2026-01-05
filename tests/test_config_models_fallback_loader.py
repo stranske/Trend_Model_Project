@@ -13,11 +13,7 @@ def test_fallback_loader_activates_when_imports_fail(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     module_path = (
-        Path(__file__).resolve().parents[1]
-        / "src"
-        / "trend_analysis"
-        / "config"
-        / "models.py"
+        Path(__file__).resolve().parents[1] / "src" / "trend_analysis" / "config" / "models.py"
     )
     spec = importlib.util.spec_from_file_location(
         "trend_analysis.config.models_fallback_loader_test", module_path
@@ -50,11 +46,7 @@ def test_fallback_loader_returns_minimal_payload(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     module_path = (
-        Path(__file__).resolve().parents[1]
-        / "src"
-        / "trend_analysis"
-        / "config"
-        / "models.py"
+        Path(__file__).resolve().parents[1] / "src" / "trend_analysis" / "config" / "models.py"
     )
     spec = importlib.util.spec_from_file_location(
         "trend_analysis.config.models_fallback_payload_test", module_path
@@ -95,11 +87,7 @@ def test_fallback_loader_swallows_validation_errors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     module_path = (
-        Path(__file__).resolve().parents[1]
-        / "src"
-        / "trend_analysis"
-        / "config"
-        / "models.py"
+        Path(__file__).resolve().parents[1] / "src" / "trend_analysis" / "config" / "models.py"
     )
     spec = importlib.util.spec_from_file_location(
         "trend_analysis.config.models_fallback_error_test", module_path
@@ -151,11 +139,7 @@ def test_fallback_load_config_handles_validator_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     module_path = (
-        Path(__file__).resolve().parents[1]
-        / "src"
-        / "trend_analysis"
-        / "config"
-        / "models.py"
+        Path(__file__).resolve().parents[1] / "src" / "trend_analysis" / "config" / "models.py"
     )
     spec = importlib.util.spec_from_file_location(
         "trend_analysis.config.models_fallback_load_config", module_path

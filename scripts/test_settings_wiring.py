@@ -589,8 +589,7 @@ def _build_config_from_state(
     weights = {name: weight / total for name, weight in weights.items()}
 
     registry_weights = {
-        METRIC_REGISTRY.get(metric, metric): float(weight)
-        for metric, weight in weights.items()
+        METRIC_REGISTRY.get(metric, metric): float(weight) for metric, weight in weights.items()
     }
 
     # Build sample_split
@@ -599,12 +598,8 @@ def _build_config_from_state(
     period_to_months = {"M": 1, "Q": 3, "A": 12}
     months_per_period = period_to_months.get(frequency, 12)
 
-    lookback_periods = _coerce_positive_int(
-        state.get("lookback_periods"), default=3, minimum=1
-    )
-    evaluation_periods = _coerce_positive_int(
-        state.get("evaluation_periods"), default=1, minimum=1
-    )
+    lookback_periods = _coerce_positive_int(state.get("lookback_periods"), default=3, minimum=1)
+    evaluation_periods = _coerce_positive_int(state.get("evaluation_periods"), default=1, minimum=1)
     lookback_months = lookback_periods * months_per_period
     evaluation_months = evaluation_periods * months_per_period
 
@@ -628,9 +623,7 @@ def _build_config_from_state(
     }
 
     # Build portfolio config
-    selection_count = _coerce_positive_int(
-        state.get("selection_count"), default=10, minimum=1
-    )
+    selection_count = _coerce_positive_int(state.get("selection_count"), default=10, minimum=1)
     weighting_scheme = str(state.get("weighting_scheme", "equal") or "equal")
     max_weight = _coerce_positive_float(state.get("max_weight"), default=0.20)
     max_turnover = _coerce_positive_float(state.get("max_turnover"), default=1.0)
@@ -638,9 +631,7 @@ def _build_config_from_state(
         state.get("transaction_cost_bps"), default=0, minimum=0
     )
     rebalance_freq = str(state.get("rebalance_freq", "M") or "M")
-    min_tenure_periods = _coerce_positive_int(
-        state.get("min_tenure_periods"), default=0, minimum=0
-    )
+    min_tenure_periods = _coerce_positive_int(state.get("min_tenure_periods"), default=0, minimum=0)
     max_changes_per_period = _coerce_positive_int(
         state.get("max_changes_per_period"), default=0, minimum=0
     )
@@ -732,16 +723,12 @@ def _build_config_from_state(
         portfolio_cfg.setdefault("constraints", {})
         portfolio_cfg["constraints"]["min_weight"] = min_weight_val
 
-    min_weight_strikes = _coerce_positive_int(
-        state.get("min_weight_strikes"), default=0, minimum=0
-    )
+    min_weight_strikes = _coerce_positive_int(state.get("min_weight_strikes"), default=0, minimum=0)
     if min_weight_strikes > 0:
         portfolio_cfg.setdefault("constraints", {})
         portfolio_cfg["constraints"]["min_weight_strikes"] = min_weight_strikes
 
-    cooldown_periods = _coerce_positive_int(
-        state.get("cooldown_periods"), default=0, minimum=0
-    )
+    cooldown_periods = _coerce_positive_int(state.get("cooldown_periods"), default=0, minimum=0)
     if cooldown_periods > 0:
         portfolio_cfg["cooldown_periods"] = cooldown_periods
 
@@ -868,12 +855,8 @@ def _build_config_from_state(
     vol_target_cfg = _coerce_positive_float(state.get("risk_target"), default=0.1)
     vol_adjust_enabled = bool(state.get("vol_adjust_enabled", True))
     vol_floor = _coerce_positive_float(state.get("vol_floor"), default=0.015)
-    warmup_periods_cfg = _coerce_positive_int(
-        state.get("warmup_periods"), default=0, minimum=0
-    )
-    vol_window_length = _coerce_positive_int(
-        state.get("vol_window_length"), default=63, minimum=1
-    )
+    warmup_periods_cfg = _coerce_positive_int(state.get("warmup_periods"), default=0, minimum=0)
+    vol_window_length = _coerce_positive_int(state.get("vol_window_length"), default=63, minimum=1)
     vol_window_decay = str(state.get("vol_window_decay", "ewma") or "ewma").lower()
     if vol_window_decay == "constant":
         vol_window_decay = "simple"
@@ -885,9 +868,7 @@ def _build_config_from_state(
 
     # Robustness
     shrinkage_enabled = bool(state.get("shrinkage_enabled", True))
-    shrinkage_method = str(
-        state.get("shrinkage_method", "ledoit_wolf") or "ledoit_wolf"
-    )
+    shrinkage_method = str(state.get("shrinkage_method", "ledoit_wolf") or "ledoit_wolf")
     condition_threshold = float(state.get("condition_threshold", 1.0e12) or 1.0e12)
     safe_mode = str(state.get("safe_mode", "hrp") or "hrp")
 
@@ -998,18 +979,14 @@ def extract_metric(
         if result.turnover is not None:
             return float(result.turnover.mean()) if len(result.turnover) > 0 else 0.0
         if result.period_results:
-            turnovers = [
-                p.get("turnover", 0.0) for p in result.period_results if "turnover" in p
-            ]
+            turnovers = [p.get("turnover", 0.0) for p in result.period_results if "turnover" in p]
             return np.mean(turnovers) if turnovers else 0.0
         return 0.0
 
     if metric_name == "actual_turnover":
         # Extract turnover from period results
         if result.period_results:
-            turnovers = [
-                p.get("turnover", 0.0) for p in result.period_results if "turnover" in p
-            ]
+            turnovers = [p.get("turnover", 0.0) for p in result.period_results if "turnover" in p]
             return float(sum(turnovers)) if turnovers else 0.0
         if result.turnover is not None:
             return float(result.turnover.sum()) if len(result.turnover) > 0 else 0.0
@@ -1113,9 +1090,7 @@ def extract_metric(
             return result.costs.get("total", 0.0)
         # Fallback: sum transaction costs from period_results
         if result.period_results:
-            total_cost = sum(
-                p.get("transaction_cost", 0.0) for p in result.period_results
-            )
+            total_cost = sum(p.get("transaction_cost", 0.0) for p in result.period_results)
             return float(total_cost)
         return 0.0
 
@@ -1156,9 +1131,7 @@ def extract_metric(
         hashable_data = {
             "weights": result.weights.to_dict() if result.weights is not None else {},
             "metrics_hash": (
-                str(result.metrics.values.tolist())[:100]
-                if result.metrics is not None
-                else ""
+                str(result.metrics.values.tolist())[:100] if result.metrics is not None else ""
             ),
         }
         hashable = json.dumps(hashable_data, sort_keys=True, default=str)
@@ -1300,9 +1273,7 @@ def run_single_test(
         test_result = run_analysis_with_state(returns, test_state)
 
         # Extract metrics
-        baseline_metric = extract_metric(
-            baseline_result, setting.expected_metric, baseline_state
-        )
+        baseline_metric = extract_metric(baseline_result, setting.expected_metric, baseline_state)
         test_metric = extract_metric(test_result, setting.expected_metric, test_state)
 
         # Check if metric changed
@@ -1390,9 +1361,7 @@ def run_all_tests(
     return results
 
 
-def _apply_mode_context(
-    state: dict[str, Any], context: dict[str, Any]
-) -> dict[str, Any]:
+def _apply_mode_context(state: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
     """Apply mode context, merging nested dicts where needed."""
     merged = dict(state)
     for key, value in context.items():
@@ -1441,10 +1410,7 @@ def _get_recommendation(result: TestResult) -> str:
             f"Review logic for {result.setting_name} or update expected direction."
         )
     # FAIL status
-    if (
-        "mode" in result.setting_name.lower()
-        or "approach" in result.setting_name.lower()
-    ):
+    if "mode" in result.setting_name.lower() or "approach" in result.setting_name.lower():
         return (
             f"May be mode-specific. Verify {result.setting_name} is tested with correct "
             f"prerequisite settings enabled (e.g., matching inclusion_approach)."
@@ -1454,10 +1420,7 @@ def _get_recommendation(result: TestResult) -> str:
             f"Check weighting logic. Ensure {result.setting_name} affects weight calculation "
             f"in metrics.py or portfolio construction."
         )
-    if (
-        "window" in result.setting_name.lower()
-        or "period" in result.setting_name.lower()
-    ):
+    if "window" in result.setting_name.lower() or "period" in result.setting_name.lower():
         return (
             f"Time-based setting. Ensure {result.setting_name} is passed through pipeline "
             f"and affects rolling calculations."
@@ -1588,9 +1551,7 @@ def print_summary(results: list[TestResult]) -> None:
     eff_pct = eff["effectiveness_rate"] * 100
     target_pct = eff["target_rate"] * 100
     status_icon = "✅" if eff["meets_target"] else "❌"
-    print(
-        f"\n📊 EFFECTIVENESS RATE: {eff_pct:.1f}% (target: ≥{target_pct:.0f}%) {status_icon}"
-    )
+    print(f"\n📊 EFFECTIVENESS RATE: {eff_pct:.1f}% (target: ≥{target_pct:.0f}%) {status_icon}")
     print("=" * 60)
 
     # Group by category with effectiveness
@@ -1598,9 +1559,7 @@ def print_summary(results: list[TestResult]) -> None:
     for cat, stats in eff["by_category"].items():
         rate_pct = stats["rate"] * 100
         icon = "✅" if stats["rate"] >= 0.80 else "⚠️" if stats["rate"] >= 0.60 else "❌"
-        print(
-            f"  {icon} {cat}: {stats['effective']}/{stats['total']} effective ({rate_pct:.0f}%)"
-        )
+        print(f"  {icon} {cat}: {stats['effective']}/{stats['total']} effective ({rate_pct:.0f}%)")
 
     # List failures with recommendations
     failures = [r for r in results if r.status == "FAIL"]
@@ -1659,8 +1618,7 @@ def main() -> int:
             )
         if coverage["untested_in_model"]:
             print(
-                "WARNING: Model settings missing wiring tests: "
-                f"{coverage['untested_in_model']}"
+                "WARNING: Model settings missing wiring tests: " f"{coverage['untested_in_model']}"
             )
     if args.coverage_report:
         args.coverage_report.parent.mkdir(parents=True, exist_ok=True)
@@ -1674,9 +1632,7 @@ def main() -> int:
 
     # Generate report
     output_path = args.output or (
-        PROJECT_ROOT
-        / "reports"
-        / f"settings_validation_{datetime.now():%Y%m%d_%H%M%S}.csv"
+        PROJECT_ROOT / "reports" / f"settings_validation_{datetime.now():%Y%m%d_%H%M%S}.csv"
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     generate_report(results, output_path)
@@ -1695,9 +1651,7 @@ def main() -> int:
         if r.status in ("FAIL", "ERROR")
     ]
     eff_json_path = output_path.with_suffix(".effectiveness.json")
-    eff_json_path.write_text(
-        json.dumps(eff_summary, indent=2, default=str), encoding="utf-8"
-    )
+    eff_json_path.write_text(json.dumps(eff_summary, indent=2, default=str), encoding="utf-8")
     print(f"Effectiveness summary saved to: {eff_json_path}")
 
     # Print summary

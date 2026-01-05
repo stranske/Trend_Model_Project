@@ -226,9 +226,7 @@ def test_load_applies_validator_outputs(monkeypatch: pytest.MonkeyPatch) -> None
         def model_dump(self) -> dict[str, Any]:
             return {"export": {"formats": ["csv"]}, "extra": {"enabled": True}}
 
-    monkeypatch.setattr(
-        models, "validate_trend_config", lambda *_args, **_kwargs: DummyModel()
-    )
+    monkeypatch.setattr(models, "validate_trend_config", lambda *_args, **_kwargs: DummyModel())
     cfg = models.load(dict(data))
     assert cfg.export["formats"] == ["csv"]
     dumped = cfg.model_dump()
@@ -243,9 +241,7 @@ def test_load_applies_validator_outputs(monkeypatch: pytest.MonkeyPatch) -> None
     assert cfg.metrics["alpha"] == 1
 
     config_instance = models.Config(**data)  # type: ignore[arg-type]
-    monkeypatch.setattr(
-        models, "validate_trend_config", lambda *_args, **_kwargs: config_instance
-    )
+    monkeypatch.setattr(models, "validate_trend_config", lambda *_args, **_kwargs: config_instance)
     cfg = models.load(dict(data))
     assert cfg is config_instance
 
@@ -262,9 +258,7 @@ def test_column_mapping_defaults_cover_branches() -> None:
 
 
 def test_fallback_config_validation(monkeypatch: pytest.MonkeyPatch) -> None:
-    fallback = _load_models_without_pydantic(
-        monkeypatch, "tests.config_models_fallback_cov1"
-    )
+    fallback = _load_models_without_pydantic(monkeypatch, "tests.config_models_fallback_cov1")
 
     with pytest.raises(ValueError, match="version field is required"):
         fallback.Config()
@@ -290,17 +284,13 @@ def test_fallback_config_validation(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_fallback_load_enforces_version(monkeypatch: pytest.MonkeyPatch) -> None:
-    fallback = _load_models_without_pydantic(
-        monkeypatch, "tests.config_models_fallback_cov2"
-    )
+    fallback = _load_models_without_pydantic(monkeypatch, "tests.config_models_fallback_cov2")
 
     with pytest.raises(ValueError, match="version must be a string"):
         fallback.load({"version": 123})
 
     data = _base_config_mapping()
-    fallback.validate_trend_config = lambda *_args, **_kwargs: {
-        "version": data["version"]
-    }
+    fallback.validate_trend_config = lambda *_args, **_kwargs: {"version": data["version"]}
     cfg = fallback.load(dict(data))
     assert isinstance(cfg, fallback.Config)
 
@@ -308,9 +298,7 @@ def test_fallback_load_enforces_version(monkeypatch: pytest.MonkeyPatch) -> None
 def test_fallback_load_respects_validator_outputs(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    fallback = _load_models_without_pydantic(
-        monkeypatch, "tests.config_models_fallback_cov3"
-    )
+    fallback = _load_models_without_pydantic(monkeypatch, "tests.config_models_fallback_cov3")
 
     data = _base_config_mapping()
 

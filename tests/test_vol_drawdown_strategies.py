@@ -111,18 +111,14 @@ class TestDrawdownGuardStrategy:
 
     def test_no_drawdown_passthrough(self):
         """Test behavior when no significant drawdown exists."""
-        strategy = DrawdownGuardStrategy(
-            {"dd_threshold": 0.10, "guard_multiplier": 0.5}
-        )
+        strategy = DrawdownGuardStrategy({"dd_threshold": 0.10, "guard_multiplier": 0.5})
         current = pd.Series([0.5, 0.5], index=["A", "B"])
         target = pd.Series([0.6, 0.4], index=["A", "B"])
 
         # Positive trending equity curve
         equity_curve = [1.0, 1.02, 1.05, 1.03, 1.08, 1.10]
         rb_state = {}
-        result, cost = strategy.apply(
-            current, target, equity_curve=equity_curve, rb_state=rb_state
-        )
+        result, cost = strategy.apply(current, target, equity_curve=equity_curve, rb_state=rb_state)
 
         # Should pass through target weights unchanged
         pd.testing.assert_series_equal(result, target)
@@ -140,9 +136,7 @@ class TestDrawdownGuardStrategy:
         # Equity curve with >10% drawdown
         equity_curve = [1.0, 1.02, 0.98, 0.95, 0.90, 0.88]
         rb_state = {}
-        result, cost = strategy.apply(
-            current, target, equity_curve=equity_curve, rb_state=rb_state
-        )
+        result, cost = strategy.apply(current, target, equity_curve=equity_curve, rb_state=rb_state)
 
         # Should apply guard multiplier
         expected = target * 0.5
@@ -161,9 +155,7 @@ class TestDrawdownGuardStrategy:
         # Equity curve that has recovered (only -3% drawdown)
         equity_curve = [1.0, 1.05, 1.10, 1.08, 1.07, 1.07]
         rb_state = {"guard_on": True}
-        result, cost = strategy.apply(
-            current, target, equity_curve=equity_curve, rb_state=rb_state
-        )
+        result, cost = strategy.apply(current, target, equity_curve=equity_curve, rb_state=rb_state)
 
         # Should turn off guard and pass through target
         pd.testing.assert_series_equal(result, target)
@@ -181,9 +173,7 @@ class TestDrawdownGuardStrategy:
         # Start with guard on and continued drawdown
         equity_curve = [1.0, 1.05, 0.95, 0.90, 0.85, 0.82]  # Worsening DD
         rb_state = {"guard_on": True}
-        result, cost = strategy.apply(
-            current, target, equity_curve=equity_curve, rb_state=rb_state
-        )
+        result, cost = strategy.apply(current, target, equity_curve=equity_curve, rb_state=rb_state)
 
         # Should keep guard on and apply multiplier
         expected = target * 0.3
@@ -215,9 +205,7 @@ class TestDrawdownGuardStrategy:
 
         equity_curve = []
         rb_state = {}
-        result, cost = strategy.apply(
-            current, target, equity_curve=equity_curve, rb_state=rb_state
-        )
+        result, cost = strategy.apply(current, target, equity_curve=equity_curve, rb_state=rb_state)
 
         # Should pass through target when no curve provided
         pd.testing.assert_series_equal(result, target)

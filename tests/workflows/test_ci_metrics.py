@@ -130,9 +130,7 @@ def test_build_metrics_slow_tests_filter(tmp_path: Path) -> None:
     ]
 
 
-def test_main_writes_output_file(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_main_writes_output_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     junit_path = _write_sample_junit(tmp_path)
     out_path = tmp_path / "ci-metrics.json"
 
@@ -155,9 +153,7 @@ def test_main_writes_output_file(
     assert data["slow_tests"]["limit"] == 3
 
 
-def test_main_missing_junit_returns_error(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_main_missing_junit_returns_error(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     junit_path = tmp_path / "missing.xml"
     out_path = tmp_path / "unused.json"
 

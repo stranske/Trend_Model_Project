@@ -76,9 +76,7 @@ def _python_turnover_state(
     return turnover, nidx, nvals
 
 
-def _generate_weight_series(
-    rng: np.random.Generator, rows: int, cols: int
-) -> list[pd.Series]:
+def _generate_weight_series(rng: np.random.Generator, rows: int, cols: int) -> list[pd.Series]:
     assets = np.array([f"F{i:03d}" for i in range(cols)], dtype=object)
     series: list[pd.Series] = []
     for _ in range(rows):
@@ -150,14 +148,10 @@ def _python_turnover_cap(
         actual_turnover = float(total_desired)
         new_weights = target_aligned.copy()
     else:
-        priorities = strategy._calculate_priorities(
-            current_aligned, target_aligned, trades, scores
-        )
+        priorities = strategy._calculate_priorities(current_aligned, target_aligned, trades, scores)
         trade_items = [
             (asset, trade, priority)
-            for asset, trade, priority in zip(
-                trades.index, trades.values, priorities.values
-            )
+            for asset, trade, priority in zip(trades.index, trades.values, priorities.values)
         ]
         trade_items.sort(key=lambda x: x[2], reverse=True)
 
@@ -247,9 +241,7 @@ def run_benchmark(rows: int, cols: int, runs: int) -> dict:
 
     for _ in range(runs):
         t0 = time.perf_counter()
-        compute_metric_series_with_cache(
-            df, "__COV_VAR__", stats_cfg, enable_cache=False
-        )
+        compute_metric_series_with_cache(df, "__COV_VAR__", stats_cfg, enable_cache=False)
         timings_no_cache.append(time.perf_counter() - t0)
 
     for _ in range(runs):

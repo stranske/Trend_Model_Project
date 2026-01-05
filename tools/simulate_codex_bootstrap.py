@@ -65,9 +65,7 @@ def parse_issue_numbers(raw_values: Iterable[str]) -> List[int]:
         try:
             numbers.append(int(text))
         except ValueError as exc:  # pragma: no cover - argparse guards input
-            raise argparse.ArgumentTypeError(
-                f"Invalid issue number '{raw}': {exc}"
-            ) from exc
+            raise argparse.ArgumentTypeError(f"Invalid issue number '{raw}': {exc}") from exc
     return numbers
 
 

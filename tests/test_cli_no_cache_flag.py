@@ -35,9 +35,7 @@ def test_cli_respects_no_cache_flag(monkeypatch, tmp_path):
     monkeypatch.setattr(cli, "load_csv", lambda path, **_: df.copy())
 
     toggles: list[bool] = []
-    monkeypatch.setattr(
-        cli, "set_cache_enabled", lambda enabled: toggles.append(enabled)
-    )
+    monkeypatch.setattr(cli, "set_cache_enabled", lambda enabled: toggles.append(enabled))
 
     run_result = RunResult(
         metrics=pd.DataFrame({"metric": [1.0]}),

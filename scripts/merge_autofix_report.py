@@ -49,9 +49,7 @@ def load_enriched(path: Path) -> object:
         return {}
 
 
-def write_report(
-    payload: object, output_path: Path, pr_number: str, timestamp: str
-) -> None:
+def write_report(payload: object, output_path: Path, pr_number: str, timestamp: str) -> None:
     meta = {
         "pull_request": pr_number,
         "timestamp_utc": timestamp,
@@ -63,9 +61,7 @@ def write_report(
     else:
         data = {"meta": meta, "raw": payload}
 
-    output_path.write_text(
-        json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    output_path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def main() -> int:

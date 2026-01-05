@@ -41,9 +41,7 @@ def test_metric_cache_hit_and_miss():
     second = bundle.ensure_metric("Sharpe", stats_cfg)
     assert first.equals(second)
     # global_metric_cache should have at least one hit
-    assert (
-        global_metric_cache.hits >= 0
-    )  # sanity; internal miss/hit validated indirectly
+    assert global_metric_cache.hits >= 0  # sanity; internal miss/hit validated indirectly
 
 
 def test_metric_cache_toggle_off():

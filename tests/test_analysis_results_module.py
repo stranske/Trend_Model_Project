@@ -41,9 +41,7 @@ def test_compute_universe_fingerprint_distinguishes_missing_and_empty(
             tmp_path / "missing-data.csv", tmp_path / "missing-membership.csv"
         )
 
-    assert empty_fingerprint == compute_universe_fingerprint(
-        empty_data, empty_membership
-    )
+    assert empty_fingerprint == compute_universe_fingerprint(empty_data, empty_membership)
     assert missing_fingerprint != empty_fingerprint
 
 
@@ -61,9 +59,7 @@ def test_compute_universe_fingerprint_warns_on_unreadable_files(
     monkeypatch.setattr(pd, "read_csv", _raise_os_error)
 
     with pytest.warns(UserWarning):
-        unreadable_fingerprint = compute_universe_fingerprint(
-            unreadable_data, membership_path
-        )
+        unreadable_fingerprint = compute_universe_fingerprint(unreadable_data, membership_path)
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -104,9 +100,7 @@ def test_build_metadata_includes_core_fields(monkeypatch) -> None:
 
 
 def test_results_from_payload_coerces_series() -> None:
-    portfolio = pd.Series(
-        [0.01, 0.02], index=pd.date_range("2020-01-31", periods=2, freq="ME")
-    )
+    portfolio = pd.Series([0.01, 0.02], index=pd.date_range("2020-01-31", periods=2, freq="ME"))
     payload = {
         "portfolio_equal_weight_combined": portfolio,
         "fund_weights": {"FundA": 0.6, "FundB": 0.4},
@@ -131,13 +125,9 @@ def test_results_from_payload_coerces_series() -> None:
 
 
 def test_results_from_payload_uses_turnover_fallback() -> None:
-    turnover = pd.Series(
-        [0.2, 0.1], index=pd.date_range("2020-01-31", periods=2, freq="ME")
-    )
+    turnover = pd.Series([0.2, 0.1], index=pd.date_range("2020-01-31", periods=2, freq="ME"))
     payload = {
-        "portfolio_equal_weight_combined": pd.Series(
-            [0.01, 0.02], index=turnover.index
-        ),
+        "portfolio_equal_weight_combined": pd.Series([0.01, 0.02], index=turnover.index),
         "fund_weights": {"FundA": 0.6, "FundB": 0.4},
         "turnover": turnover,
     }

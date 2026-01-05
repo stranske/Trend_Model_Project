@@ -35,10 +35,7 @@ def main():
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        if (
-            "returns_df" in st.session_state
-            and st.session_state["returns_df"] is not None
-        ):
+        if "returns_df" in st.session_state and st.session_state["returns_df"] is not None:
             st.success("✅ Data Uploaded")
         else:
             st.info("📤 Upload Data")

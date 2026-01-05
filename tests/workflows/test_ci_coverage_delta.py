@@ -103,9 +103,7 @@ def test_coverage_delta_fail(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     assert data["status"] == "fail"
 
 
-def test_coverage_delta_no_baseline(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_coverage_delta_no_baseline(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     xml_path = _write_coverage_xml(tmp_path, 0.65)
     out_path = tmp_path / "delta.json"
 
@@ -125,9 +123,7 @@ def test_coverage_delta_no_baseline(
     assert data["drop"] == 0
 
 
-def test_coverage_delta_missing_xml(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_coverage_delta_missing_xml(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     xml_path = tmp_path / "missing.xml"
     out_path = tmp_path / "delta.json"
 

@@ -120,9 +120,7 @@ def main(argv: list[str] | None = None) -> int:
                         str(Path(out_dir) / f"{filename}.xlsx"),
                         default_sheet_formatter=sheet_formatter,
                     )
-                    other = [
-                        f for f in out_formats if f.lower() not in {"excel", "xlsx"}
-                    ]
+                    other = [f for f in out_formats if f.lower() not in {"excel", "xlsx"}]
                     if other:
                         export.export_data(
                             data, str(Path(out_dir) / filename), formats=other

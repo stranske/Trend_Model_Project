@@ -9,9 +9,7 @@ from types import ModuleType
 
 import pytest
 
-MODULE_PATH = (
-    Path(__file__).resolve().parents[1] / "src" / "health_summarize" / "__init__.py"
-)
+MODULE_PATH = Path(__file__).resolve().parents[1] / "src" / "health_summarize" / "__init__.py"
 
 
 def _load_health_module() -> ModuleType:
@@ -42,9 +40,7 @@ def test_read_bool_variants(summarize: ModuleType) -> None:
     assert summarize._read_bool("surprise") is True
 
 
-def test_load_json_handles_missing_and_invalid(
-    summarize: ModuleType, tmp_path: Path
-) -> None:
+def test_load_json_handles_missing_and_invalid(summarize: ModuleType, tmp_path: Path) -> None:
     missing = tmp_path / "missing.json"
     assert summarize._load_json(missing) is None
 
@@ -107,9 +103,7 @@ def test_signature_row_reports_mismatch(summarize: ModuleType, tmp_path: Path) -
     assert "Hash drift" in row["status"]
 
 
-def test_signature_row_handles_invalid_jobs(
-    summarize: ModuleType, tmp_path: Path
-) -> None:
+def test_signature_row_handles_invalid_jobs(summarize: ModuleType, tmp_path: Path) -> None:
     jobs_path = tmp_path / "jobs.json"
     jobs_path.write_text(json.dumps({"invalid": True}), encoding="utf-8")
     expected_path = tmp_path / "expected.txt"
@@ -119,9 +113,7 @@ def test_signature_row_handles_invalid_jobs(
     assert "Fixture unreadable" in row["status"]
 
 
-def test_signature_row_without_expected_fixture(
-    summarize: ModuleType, tmp_path: Path
-) -> None:
+def test_signature_row_without_expected_fixture(summarize: ModuleType, tmp_path: Path) -> None:
     jobs = [{"name": "Lint", "step": "ruff", "stack": "ci"}]
     jobs_path, expected_path = _write_signature_fixture(summarize, tmp_path, jobs)
     expected_path.unlink()
@@ -183,9 +175,7 @@ def test_snapshot_detail_handles_missing(summarize: ModuleType) -> None:
     assert severity == "warning"
 
 
-def test_snapshot_detail_warns_on_changes(
-    summarize: ModuleType, tmp_path: Path
-) -> None:
+def test_snapshot_detail_warns_on_changes(summarize: ModuleType, tmp_path: Path) -> None:
     current = {
         "changes_required": True,
         "current": {"contexts": ["lint"], "strict": True},
@@ -194,9 +184,7 @@ def test_snapshot_detail_warns_on_changes(
     }
     previous = {"after": {"contexts": ["lint", "tests"], "strict": False}}
 
-    detail, severity = summarize._snapshot_detail(
-        "Enforcement", current, previous, has_token=True
-    )
+    detail, severity = summarize._snapshot_detail("Enforcement", current, previous, has_token=True)
     assert "Changes required" in detail
     assert "Δ" in detail
     assert severity == "warning"
@@ -216,16 +204,12 @@ def test_snapshot_detail_includes_require_strict(summarize: ModuleType) -> None:
         "current": {"contexts": ["lint"], "strict": True},
         "after": {"contexts": ["lint"], "strict": False},
     }
-    detail, severity = summarize._snapshot_detail(
-        "Verification", snapshot, None, has_token=True
-    )
+    detail, severity = summarize._snapshot_detail("Verification", snapshot, None, has_token=True)
     assert "Require up to date" in detail
     assert severity == "success"
 
 
-def test_branch_row_with_and_without_snapshots(
-    summarize: ModuleType, tmp_path: Path
-) -> None:
+def test_branch_row_with_and_without_snapshots(summarize: ModuleType, tmp_path: Path) -> None:
     snapshot_dir = tmp_path / "snapshots"
     snapshot_dir.mkdir()
     (snapshot_dir / "previous").mkdir()
@@ -268,9 +252,7 @@ def test_write_json_and_summary(summarize: ModuleType, tmp_path: Path) -> None:
     assert "| C |" in text
 
 
-def test_write_summary_ignores_empty_rows(
-    summarize: ModuleType, tmp_path: Path
-) -> None:
+def test_write_summary_ignores_empty_rows(summarize: ModuleType, tmp_path: Path) -> None:
     target = tmp_path / "summary.md"
     summarize._write_summary(target, [])
     assert not target.exists()

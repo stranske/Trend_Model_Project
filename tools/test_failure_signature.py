@@ -34,9 +34,7 @@ def build_signature_hash(jobs: list[dict]) -> str:
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument(
-        "--jobs", required=True, help="JSON array of job dicts: name, step, stack"
-    )
+    ap.add_argument("--jobs", required=True, help="JSON array of job dicts: name, step, stack")
     ap.add_argument("--expected", help="Assert the resulting hash equals this value")
     args = ap.parse_args(argv)
     try:

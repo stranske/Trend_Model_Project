@@ -38,9 +38,7 @@ class Example:  # extra internal spacing
         return x + y
 
 
-def long_line_function() -> (
-    str
-):  # docformatter should leave this comment but black may wrap return
+def long_line_function() -> str:  # docformatter should leave this comment but black may wrap return
     # black will re-wrap the following very long line (> 140 chars)
     return "This is a purposely extremely, extravagantly, unnecessarily, disproportionately, egregiously long string that black will wrap for demonstration purposes and diff generation."  # noqa: E501
 

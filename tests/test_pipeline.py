@@ -117,9 +117,7 @@ def test_risk_free_series_used_for_score_frame():
     )
 
     assert res is not None
-    expected_sharpe = pipeline.sharpe_ratio(
-        a.iloc[:2], risk_free=rf.iloc[:2], periods_per_year=12
-    )
+    expected_sharpe = pipeline.sharpe_ratio(a.iloc[:2], risk_free=rf.iloc[:2], periods_per_year=12)
     assert res["score_frame"].loc["A", "Sharpe"] == pytest.approx(expected_sharpe)
 
 
@@ -144,9 +142,7 @@ def test_risk_free_fallback_logs_choice(caplog):
 
 
 def test_run_returns_empty_when_no_funds(tmp_path, monkeypatch):
-    df = pd.DataFrame(
-        {"Date": pd.date_range("2020-01-31", periods=2, freq="ME"), "RF": 0.0}
-    )
+    df = pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=2, freq="ME"), "RF": 0.0})
     cfg = make_cfg(tmp_path, df)
     result = pipeline.run(cfg)
     assert result.empty
@@ -192,9 +188,7 @@ def test_env_override(tmp_path, monkeypatch):
 
 
 def test_run_analysis_none():
-    res = pipeline.run_analysis(
-        None, "2020-01", "2020-03", "2020-04", "2020-06", 1.0, 0.0
-    )
+    res = pipeline.run_analysis(None, "2020-01", "2020-03", "2020-04", "2020-06", 1.0, 0.0)
     assert res.unwrap() is None
 
 
@@ -221,9 +215,7 @@ def test_run_analysis_string_dates():
 
 
 def test_run_analysis_no_funds():
-    df = pd.DataFrame(
-        {"Date": pd.date_range("2020-01-31", periods=3, freq="ME"), "RF": 0.0}
-    )
+    df = pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=3, freq="ME"), "RF": 0.0})
     res = pipeline.run_analysis(
         df,
         "2020-01",
@@ -445,9 +437,7 @@ def test_run_analysis_applies_constraints(monkeypatch):
     df = _make_two_fund_df()
     captured: dict[str, object] = {}
 
-    def fake_apply_constraints(
-        weights: pd.Series, cons: dict[str, object]
-    ) -> pd.Series:
+    def fake_apply_constraints(weights: pd.Series, cons: dict[str, object]) -> pd.Series:
         captured["weights_before"] = weights.copy()
         captured["constraints"] = cons.copy()
         return pd.Series({"A": 0.6, "B": 0.4})

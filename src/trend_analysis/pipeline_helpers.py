@@ -227,13 +227,9 @@ def _apply_regime_weight_overrides(
 
     updated_target = target_vol
     if "risk_off_target_vol" in cfg:
-        updated_target = _coerce_positive_float(
-            cfg.get("risk_off_target_vol"), target_vol
-        )
+        updated_target = _coerce_positive_float(cfg.get("risk_off_target_vol"), target_vol)
     else:
-        multiplier = _coerce_positive_float(
-            cfg.get("risk_off_target_vol_multiplier", 0.5), 0.5
-        )
+        multiplier = _coerce_positive_float(cfg.get("risk_off_target_vol_multiplier", 0.5), 0.5)
         updated_target = float(target_vol) * multiplier
 
     return updated_target, constraints
@@ -310,9 +306,7 @@ def _build_trend_spec(
         lag = 1
 
     vol_adjust_default = bool(_section_get(vol_adjust_cfg, "enabled", False))
-    vol_adjust_flag = bool(
-        _signal_setting("vol_adjust", "trend_vol_adjust", vol_adjust_default)
-    )
+    vol_adjust_flag = bool(_signal_setting("vol_adjust", "trend_vol_adjust", vol_adjust_default))
     vol_target_raw = _signal_setting("vol_target", "trend_vol_target")
     if vol_target_raw is None and vol_adjust_flag:
         vol_target_raw = _section_get(vol_adjust_cfg, "target_vol")
@@ -367,9 +361,7 @@ def _policy_from_config(
     limit_base = cfg.get("limit")
     per_asset_limit = cfg.get("per_asset_limit")
     if isinstance(per_asset_limit, Mapping):
-        limit_map: dict[str, int | None] = {
-            str(k): v for k, v in per_asset_limit.items()
-        }
+        limit_map: dict[str, int | None] = {str(k): v for k, v in per_asset_limit.items()}
         if limit_base is not None:
             limit_map = {"default": limit_base, **limit_map}
         limit_spec: Mapping[str, int | None] | None = limit_map
@@ -458,9 +450,7 @@ def _resolve_sample_split(
         return resolved
 
     if "Date" not in df.columns:
-        raise ValueError(
-            "Input data must contain a 'Date' column to derive sample splits"
-        )
+        raise ValueError("Input data must contain a 'Date' column to derive sample splits")
 
     date_series = pd.to_datetime(df["Date"], errors="coerce")
     date_series = date_series.dropna()
@@ -494,9 +484,7 @@ def _resolve_sample_split(
 
     still_missing = [key for key in required_keys if key not in resolved]
     if still_missing:
-        raise ValueError(
-            f"Unable to derive sample split values for: {', '.join(still_missing)}"
-        )
+        raise ValueError(f"Unable to derive sample split values for: {', '.join(still_missing)}")
     return resolved
 
 

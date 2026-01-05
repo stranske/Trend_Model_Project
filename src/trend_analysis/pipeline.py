@@ -259,8 +259,7 @@ def run_analysis(
 ) -> PipelineResult:
     """Diagnostics-aware wrapper mirroring ``_run_analysis``."""
     if any(
-        value is not None
-        for value in (calendar_frequency, calendar_timezone, holiday_calendar)
+        value is not None for value in (calendar_frequency, calendar_timezone, holiday_calendar)
     ):
         df = df.copy()
         calendar_settings = dict(getattr(df, "attrs", {}).get("calendar_settings", {}))
@@ -346,8 +345,7 @@ def run(cfg: Any) -> pd.DataFrame:
             return empty
         if not isinstance(payload, pd.DataFrame):
             raise TypeError(
-                "pipeline.run expected a DataFrame payload; "
-                f"received {type(payload)!r}"
+                "pipeline.run expected a DataFrame payload; " f"received {type(payload)!r}"
             )
         if result.diagnostic is not None:
             payload.attrs["diagnostic"] = result.diagnostic

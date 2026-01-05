@@ -56,18 +56,13 @@ def main() -> int:
     missing = [entry for entry in allowlist if not (checkout_root / entry).exists()]
     if missing:
         print(
-            "[label-rules-assert] Missing allowlisted paths:\n  - "
-            + "\n  - ".join(missing),
+            "[label-rules-assert] Missing allowlisted paths:\n  - " + "\n  - ".join(missing),
             file=sys.stderr,
         )
         return 1
 
     allowlist_set = set(allowlist)
-    extras = [
-        rel
-        for rel, _ in _list_checkout_files(checkout_root)
-        if rel not in allowlist_set
-    ]
+    extras = [rel for rel, _ in _list_checkout_files(checkout_root) if rel not in allowlist_set]
     if extras:
         print(
             "[label-rules-assert] Unexpected files present after sparse checkout:\n  - "

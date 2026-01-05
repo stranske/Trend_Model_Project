@@ -212,12 +212,8 @@ def test_export_phase1_workbook_missing_period_metadata(monkeypatch, tmp_path):
     def fake_export_to_excel(data, path):
         frames_written.update(data)
 
-    monkeypatch.setattr(
-        "trend_analysis.export.make_period_formatter", fake_make_period_formatter
-    )
-    monkeypatch.setattr(
-        "trend_analysis.export.make_summary_formatter", fake_make_summary_formatter
-    )
+    monkeypatch.setattr("trend_analysis.export.make_period_formatter", fake_make_period_formatter)
+    monkeypatch.setattr("trend_analysis.export.make_summary_formatter", fake_make_summary_formatter)
     monkeypatch.setattr("trend_analysis.export.export_to_excel", fake_export_to_excel)
 
     export_phase1_workbook(results, str(tmp_path / "out.xlsx"))
@@ -247,12 +243,8 @@ def test_export_phase1_workbook_collects_manager_changes(monkeypatch, tmp_path):
         summary_call["payload"] = res
         return lambda ws, wb: None
 
-    monkeypatch.setattr(
-        "trend_analysis.export.make_summary_formatter", fake_make_summary_formatter
-    )
-    monkeypatch.setattr(
-        "trend_analysis.export.export_to_excel", lambda data, path: None
-    )
+    monkeypatch.setattr("trend_analysis.export.make_summary_formatter", fake_make_summary_formatter)
+    monkeypatch.setattr("trend_analysis.export.export_to_excel", lambda data, path: None)
 
     export_phase1_workbook(results, str(tmp_path / "out.xlsx"))
 
@@ -314,9 +306,7 @@ def test_export_phase1_multi_metrics_all_formats(monkeypatch, tmp_path):
         results, str(tmp_path / "report"), formats=["xlsx", "csv"], include_metrics=True
     )
 
-    assert workbook_calls == [
-        (str((tmp_path / "report").with_suffix(".xlsx")), True, len(results))
-    ]
+    assert workbook_calls == [(str((tmp_path / "report").with_suffix(".xlsx")), True, len(results))]
     assert data_calls, "Expected non-excel export to be invoked"
     _, formats, payload = data_calls[0]
     assert formats == ("csv",)
@@ -399,9 +389,7 @@ def test_summary_frame_from_result_handles_mixed_stats():
         "in_sample_stats": {"FundA": tuple_stats},
         "out_sample_stats": {"FundA": obj_stats},
         "fund_weights": {"FundA": 0.5},
-        "benchmark_ir": {
-            "Bench": {"FundA": 0.4, "equal_weight": 0.2, "user_weight": 0.25}
-        },
+        "benchmark_ir": {"Bench": {"FundA": 0.4, "equal_weight": 0.2, "user_weight": 0.25}},
     }
 
     frame = export_module.summary_frame_from_result(result)
@@ -422,16 +410,14 @@ def test_manager_contrib_table_computes_shares_and_handles_empty():
         },
         index=idx,
     )
-    results = [
-        {"out_sample_scaled": out_df, "fund_weights": {"FundA": 0.6, "FundB": 0.4}}
-    ]
+    results = [{"out_sample_scaled": out_df, "fund_weights": {"FundA": 0.6, "FundB": 0.4}}]
 
     table = export_module.manager_contrib_table(results)
 
     assert set(table["Manager"]) == {"FundA", "FundB"}
-    assert table.loc[table["Manager"] == "FundB", "Contribution Share"].iloc[
-        0
-    ] == pytest.approx(0.0)
+    assert table.loc[table["Manager"] == "FundB", "Contribution Share"].iloc[0] == pytest.approx(
+        0.0
+    )
     assert table.loc[table["Manager"] == "FundA", "Contribution Share"].iloc[0] > 0
 
     empty = export_module.manager_contrib_table(
@@ -457,9 +443,7 @@ def test_format_summary_text_formats_ints():
         "in_sample_stats": {"FundA": stat},
         "out_sample_stats": {"FundA": stat},
         "fund_weights": {"FundA": 1},
-        "benchmark_ir": {
-            "Bench": {"FundA": 0.5, "equal_weight": 0.2, "user_weight": 0.3}
-        },
+        "benchmark_ir": {"Bench": {"FundA": 0.5, "equal_weight": 0.2, "user_weight": 0.3}},
     }
 
     text = format_summary_text(res, "2020-01", "2020-06", "2020-07", "2020-12")
@@ -470,9 +454,7 @@ def test_format_summary_text_formats_ints():
 def test_manager_contrib_table_handles_sparse_series(monkeypatch):
     results = [
         {
-            "out_sample_scaled": pd.DataFrame(
-                {"FundA": [0.01, 0.0], "FundB": [np.nan, np.nan]}
-            ),
+            "out_sample_scaled": pd.DataFrame({"FundA": [0.01, 0.0], "FundB": [np.nan, np.nan]}),
             "fund_weights": {"FundA": 0.6, "FundB": 0.4},
         },
         {
@@ -706,9 +688,7 @@ def test_maybe_remove_openpyxl_default_sheet_handles_multiple(monkeypatch):
             self.worksheets = [DummySheet("Summary", None), DummySheet("Sheet", None)]
 
         def remove(self, _: object) -> None:  # pragma: no cover - should not run
-            raise AssertionError(
-                "remove should not be called when multiple sheets exist"
-            )
+            raise AssertionError("remove should not be called when multiple sheets exist")
 
     workbook = DummyWorkbook()
     remover = getattr(export_module, "_maybe_remove_openpyxl_default_sheet")
@@ -748,9 +728,7 @@ def test_openpyxl_proxy_column_and_autofilter(monkeypatch):
     ws = DummyWorksheet()
     proxy = _OpenpyxlWorksheetProxy(ws)
 
-    monkeypatch.setattr(
-        export_module, "get_column_letter", lambda idx: {2: "B", 3: "C"}[idx]
-    )
+    monkeypatch.setattr(export_module, "get_column_letter", lambda idx: {2: "B", 3: "C"}[idx])
 
     proxy.set_column(1, 2, 12.5)
     assert ws.column_dimensions["B"].width == pytest.approx(12.5)
@@ -834,9 +812,7 @@ def test_summary_frame_from_result_includes_diagnostics():
         "in_sample_stats": {"FundA": _stat(), "FundB": _stat()},
         "out_sample_stats": {"FundA": _stat(), "FundB": _stat()},
         "fund_weights": {"FundA": 0.6, "FundB": 0.4},
-        "benchmark_ir": {
-            "Bench": {"FundA": 0.2, "equal_weight": 0.1, "user_weight": 0.15}
-        },
+        "benchmark_ir": {"Bench": {"FundA": 0.2, "equal_weight": 0.1, "user_weight": 0.15}},
         "preprocessing_summary": "Preprocessing ok",
         "risk_diagnostics": {
             "asset_volatility": pd.DataFrame({"FundA": [0.12], "FundB": [0.05]}),
@@ -894,9 +870,7 @@ def test_export_phase1_workbook_without_summary(monkeypatch, tmp_path):
 def test_export_phase1_multi_metrics_skips_empty_metrics(monkeypatch, tmp_path):
     exported: list[tuple[tuple[str, ...], str, Mapping[str, pd.DataFrame]]] = []
 
-    def fake_export(
-        data: Mapping[str, pd.DataFrame], path: str, *, formats: Iterable[str]
-    ):
+    def fake_export(data: Mapping[str, pd.DataFrame], path: str, *, formats: Iterable[str]):
         exported.append((tuple(formats), path, dict(data)))
 
     monkeypatch.setattr(export_module, "export_data", fake_export)
@@ -916,9 +890,7 @@ def test_export_phase1_multi_metrics_skips_empty_metrics(monkeypatch, tmp_path):
 def test_export_multi_period_metrics_handles_other_only(monkeypatch, tmp_path):
     calls: list[tuple[tuple[str, ...], Mapping[str, pd.DataFrame]]] = []
 
-    def fake_export(
-        data: Mapping[str, pd.DataFrame], _: str, *, formats: Iterable[str]
-    ):
+    def fake_export(data: Mapping[str, pd.DataFrame], _: str, *, formats: Iterable[str]):
         calls.append((tuple(formats), dict(data)))
 
     monkeypatch.setattr(export_module, "export_data", fake_export)
