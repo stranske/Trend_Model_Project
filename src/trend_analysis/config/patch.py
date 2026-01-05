@@ -6,7 +6,7 @@ import re
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 _DOTPATH_RE = re.compile(r"^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$")
 _JSON_POINTER_RE = re.compile(r"^(/[^/\s]+)+$")
@@ -71,6 +71,13 @@ class ConfigPatch(BaseModel):
     summary: str = Field(description="Human-readable summary of changes.")
 
     model_config = ConfigDict(extra="forbid")
+
+    @field_validator("summary")
+    @classmethod
+    def _summary_non_empty(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("summary must be a non-empty string")
+        return value
 
     @model_validator(mode="after")
     def _populate_risk_flags(self) -> "ConfigPatch":

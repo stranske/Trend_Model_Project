@@ -149,3 +149,9 @@ def test_config_patch_rejects_invalid_risk_flag() -> None:
 def test_config_patch_requires_summary() -> None:
     with pytest.raises(ValidationError):
         ConfigPatch(operations=[])
+
+
+def test_config_patch_rejects_blank_summary() -> None:
+    with pytest.raises(ValidationError) as excinfo:
+        ConfigPatch(operations=[], summary="   ")
+    assert "summary must be a non-empty string" in str(excinfo.value)
