@@ -59,6 +59,11 @@ def test_patch_operation_accepts_merge_with_value() -> None:
     assert op.value == {"foo": "bar"}
 
 
+def test_patch_operation_rejects_merge_with_non_dict_value() -> None:
+    with pytest.raises(ValidationError):
+        PatchOperation(op="merge", path="portfolio", value=["foo"])
+
+
 def test_patch_operation_rejects_remove_with_value() -> None:
     with pytest.raises(ValidationError):
         PatchOperation(op="remove", path="portfolio.max_turnover", value=1.0)
