@@ -124,7 +124,16 @@ _MANUAL_DESCRIPTIONS: dict[str, str] = {
     "strategy.grid": "Grid search parameter ranges for walk-forward runs.",
 }
 
-_MODEL_SCHEMA_KEYS = {"type", "description", "default", "enum", "minimum", "maximum", "minItems", "maxItems"}
+_MODEL_SCHEMA_KEYS = {
+    "type",
+    "description",
+    "default",
+    "enum",
+    "minimum",
+    "maximum",
+    "minItems",
+    "maxItems",
+}
 
 
 def _load_model_overrides() -> dict[str, dict[str, Any]]:
