@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 from trend_analysis.config.patch import ConfigPatch, PatchOperation, apply_config_patch
 
 
