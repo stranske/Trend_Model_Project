@@ -14,6 +14,23 @@ def test_apply_config_patch_set_creates_missing_path() -> None:
     assert updated == {"portfolio": {"max_turnover": 0.25}}
 
 
+def test_apply_config_patch_set_creates_nested_path() -> None:
+    patch = ConfigPatch(
+        operations=[
+            PatchOperation(
+                op="set",
+                path="portfolio.constraints.position_limits",
+                value={"max_weight": 0.1},
+            )
+        ],
+        summary="Set nested limit",
+    )
+    updated = apply_config_patch({}, patch)
+    assert updated == {
+        "portfolio": {"constraints": {"position_limits": {"max_weight": 0.1}}}
+    }
+
+
 def test_apply_config_patch_append_creates_list() -> None:
     patch = ConfigPatch(
         operations=[
