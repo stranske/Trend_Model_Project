@@ -51,5 +51,11 @@ repos:
         language: system
         files: '\\.ipynb$'
         pass_filenames: true
+      - id: generate-config-schema
+        name: Regenerate config schema
+        entry: python3 scripts/generate_config_schema.py
+        language: system
+        files: '^config/.*\\.ya?ml$|^docs/ConfigMap\\.md$'
+        pass_filenames: false
 # (Optional) You may add a local 'actionlint' hook pointing to scripts/workflow_lint.sh
 # to lint workflow changes pre-commit. Omitted by default to keep fast path lean.
