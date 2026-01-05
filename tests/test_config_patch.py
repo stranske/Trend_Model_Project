@@ -41,14 +41,21 @@ def test_patch_operation_rejects_invalid_paths(op: str, path: str, value: int) -
         PatchOperation(op=op, path=path, value=value)
 
 
+def test_patch_operation_invalid_path_error_message() -> None:
+    with pytest.raises(ValidationError) as excinfo:
+        PatchOperation(op="set", path="portfolio..constraints", value=1)
+    assert "path must be a dotpath or JSONPointer" in str(excinfo.value)
+
+
 def test_patch_operation_rejects_unknown_op() -> None:
     with pytest.raises(ValidationError):
         PatchOperation(op="replace", path="portfolio.constraints", value=1)
 
 
 def test_patch_operation_requires_value_for_set() -> None:
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as excinfo:
         PatchOperation(op="set", path="portfolio.max_turnover")
+    assert "value is required for op 'set'" in str(excinfo.value)
 
 
 @pytest.mark.parametrize("op", ["append", "merge"])
