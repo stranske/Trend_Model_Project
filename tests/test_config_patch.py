@@ -39,9 +39,34 @@ def test_patch_operation_requires_value_for_set() -> None:
         PatchOperation(op="set", path="portfolio.max_turnover")
 
 
+@pytest.mark.parametrize("op", ["append", "merge"])
+def test_patch_operation_requires_value_for_append_merge(op: str) -> None:
+    with pytest.raises(ValidationError):
+        PatchOperation(op=op, path="portfolio.constraints")
+
+
+def test_patch_operation_accepts_append_with_value() -> None:
+    op = PatchOperation(
+        op="append", path="portfolio.constraints.allowed_assets", value="ABC"
+    )
+    assert op.op == "append"
+    assert op.value == "ABC"
+
+
+def test_patch_operation_accepts_merge_with_value() -> None:
+    op = PatchOperation(op="merge", path="portfolio", value={"foo": "bar"})
+    assert op.op == "merge"
+    assert op.value == {"foo": "bar"}
+
+
 def test_patch_operation_rejects_remove_with_value() -> None:
     with pytest.raises(ValidationError):
         PatchOperation(op="remove", path="portfolio.max_turnover", value=1.0)
+
+
+def test_patch_operation_accepts_remove_without_value() -> None:
+    op = PatchOperation(op="remove", path="portfolio.max_turnover")
+    assert op.value is None
 
 
 def test_config_patch_detects_risk_flags() -> None:
@@ -70,3 +95,26 @@ def test_config_patch_schema_export() -> None:
     schema = ConfigPatch.json_schema()
     assert "properties" in schema
     assert "operations" in schema["properties"]
+
+
+def test_config_patch_accepts_append_without_broad_scope_flag() -> None:
+    patch = ConfigPatch(
+        operations=[
+            PatchOperation(
+                op="append",
+                path="portfolio.constraints.allowed_assets",
+                value="ABC",
+            )
+        ],
+        summary="Add asset",
+    )
+    assert patch.risk_flags == []
+
+
+def test_config_patch_rejects_invalid_risk_flag() -> None:
+    with pytest.raises(ValidationError):
+        ConfigPatch(
+            operations=[],
+            summary="Invalid risk flag",
+            risk_flags=["NOT_A_FLAG"],
+        )
