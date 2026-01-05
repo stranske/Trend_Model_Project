@@ -257,7 +257,7 @@ def load_and_validate_upload(file_like: Any) -> Tuple[pd.DataFrame, Dict[str, An
     attach_metadata(validated.frame, validated.metadata)
     result = _build_result(validated)
     meta: Dict[str, Any] = {
-        "metadata": validated.metadata,
+        "metadata": validated.metadata.model_dump(mode="json"),
         "validation": result,
         "n_rows": validated.metadata.rows,
         "original_columns": list(validated.metadata.columns),
