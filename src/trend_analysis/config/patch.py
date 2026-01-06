@@ -264,9 +264,11 @@ def _apply_operation(parent: Any, leaf: str | int, operation: PatchOperation) ->
             return
         if not isinstance(parent, dict):
             raise TypeError("set requires an object container at the target path")
-        # Check if key exists; if not, provide a helpful error with suggestions
-        if leaf not in parent:
-            raise KeyError(f"path segment '{leaf}' does not exist")
+        # Check if key is a likely typo of an existing key
+        if leaf not in parent and parent:
+            close = difflib.get_close_matches(leaf, parent.keys(), n=1, cutoff=0.6)
+            if close:
+                raise KeyError(f"path segment '{leaf}' does not exist")
         parent[leaf] = operation.value
         return
 
