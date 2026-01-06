@@ -22,7 +22,11 @@ def fallback_models(
 
     module_name = "trend_analysis.config.models_fallback_test"
     module_path = (
-        Path(__file__).resolve().parents[1] / "src" / "trend_analysis" / "config" / "models.py"
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "trend_analysis"
+        / "config"
+        / "models.py"
     )
     spec = importlib.util.spec_from_file_location(module_name, module_path)
     assert spec and spec.loader is not None
@@ -101,7 +105,6 @@ def test_fallback_config_coerces_portfolio_controls(
     assert cfg.portfolio["transaction_cost_bps"] == pytest.approx(2.5)
     assert cfg.portfolio["max_turnover"] == pytest.approx(1.25)
     assert cfg.output is None
-    assert cfg.multi_period is None
 
 
 def test_fallback_config_rejects_invalid_portfolio_values(
@@ -148,7 +151,9 @@ def test_column_mapping_defaults_and_validation(fallback_models: ModuleType) -> 
     with pytest.raises(ValueError, match="Date column must be specified"):
         ColumnMapping()
 
-    with pytest.raises(ValueError, match="At least one return column must be specified"):
+    with pytest.raises(
+        ValueError, match="At least one return column must be specified"
+    ):
         ColumnMapping(date_column="Date", return_columns=[])
 
     mapping = ColumnMapping(
@@ -285,7 +290,9 @@ def test_load_accepts_direct_mapping(fallback_models: ModuleType) -> None:
     assert fallback_models._validate_calls[-1][1] == proj_path()  # type: ignore[attr-defined]
 
 
-def test_load_config_accepts_mapping_and_path(fallback_models: ModuleType, tmp_path: Path) -> None:
+def test_load_config_accepts_mapping_and_path(
+    fallback_models: ModuleType, tmp_path: Path
+) -> None:
     payload = _base_config_payload()
     cfg = fallback_models.load_config(payload)  # type: ignore[attr-defined]
     assert cfg.version == "1.0"

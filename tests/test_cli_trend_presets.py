@@ -12,13 +12,21 @@ from trend_analysis.signal_presets import get_trend_spec_preset
 
 @pytest.fixture()
 def base_config() -> object:
-    sample_csv = Path(__file__).parent.parent / "data" / "raw" / "managers" / "sample_manager.csv"
+    sample_csv = (
+        Path(__file__).parent.parent
+        / "data"
+        / "raw"
+        / "managers"
+        / "sample_manager.csv"
+    )
     cfg_dict = {
         "version": "0.1",
         "data": {
             "date_column": "Date",
             "frequency": "M",
             "csv_path": str(sample_csv),
+            "allow_risk_free_fallback": False,
+            "missing_policy": "drop",
         },
         "preprocessing": {},
         "vol_adjust": {"target_vol": 0.1},
@@ -27,6 +35,10 @@ def base_config() -> object:
             "rebalance_calendar": "NYSE",
             "max_turnover": 1.0,
             "transaction_cost_bps": 0,
+            "cost_model": {
+                "bps_per_trade": 0,
+                "slippage_bps": 0,
+            },
         },
         "metrics": {},
         "export": {},
@@ -61,7 +73,9 @@ class FrozenConfig:
     signals: dict[str, object]
     trend_spec_preset: str | None = None
 
-    def __init__(self, signals: dict[str, object], trend_spec_preset: str | None = None) -> None:
+    def __init__(
+        self, signals: dict[str, object], trend_spec_preset: str | None = None
+    ) -> None:
         object.__setattr__(self, "signals", signals)
         object.__setattr__(self, "trend_spec_preset", trend_spec_preset)
 

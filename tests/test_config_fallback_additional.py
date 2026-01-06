@@ -27,7 +27,11 @@ def _load_config_module_without_pydantic(
     """Load ``config.models`` with ``pydantic`` forcibly unavailable."""
 
     module_path = (
-        Path(__file__).resolve().parents[1] / "src" / "trend_analysis" / "config" / "models.py"
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "trend_analysis"
+        / "config"
+        / "models.py"
     )
     spec = importlib.util.spec_from_file_location(module_name, module_path)
     assert spec and spec.loader is not None
@@ -82,7 +86,6 @@ def test_fallback_config_provides_defaults(fallback_models: ModuleType) -> None:
         assert getattr(cfg, field) == {}
     # Optional/nullable defaults
     assert cfg.output is None
-    assert cfg.multi_period is None
 
 
 @pytest.mark.parametrize(

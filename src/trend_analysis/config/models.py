@@ -254,7 +254,9 @@ if _HAS_PYDANTIC:
                 # If no args, fall back to including
                 return True
 
-            optional_fields = cast(set[str], getattr(cls, "OPTIONAL_DICT_FIELDS", set()))
+            optional_fields = cast(
+                set[str], getattr(cls, "OPTIONAL_DICT_FIELDS", set())
+            )
             result: List[str] = []
             for name, field in items:
                 tp = getattr(field, "annotation", None)
@@ -430,7 +432,6 @@ else:  # Fallback mode for tests without pydantic
             "performance",
             "output",
             "run",
-            "multi_period",
             "jobs",
             "checkpoint_dir",
             "seed",
@@ -473,7 +474,6 @@ else:  # Fallback mode for tests without pydantic
                 "performance": {},
                 "output": None,
                 "run": {},
-                "multi_period": None,
                 "jobs": None,
                 "checkpoint_dir": None,
                 "seed": 42,
@@ -513,7 +513,9 @@ else:  # Fallback mode for tests without pydantic
                     try:
                         tc = float(port["transaction_cost_bps"])
                     except Exception as exc:  # pragma: no cover - defensive
-                        raise ValueError("transaction_cost_bps must be numeric") from exc
+                        raise ValueError(
+                            "transaction_cost_bps must be numeric"
+                        ) from exc
                     if tc < 0:
                         raise ValueError("transaction_cost_bps must be >= 0")
                     port["transaction_cost_bps"] = tc
@@ -545,7 +547,9 @@ else:  # Fallback mode for tests without pydantic
                         try:
                             parsed = float(cost_cfg[key])
                         except Exception as exc:  # pragma: no cover - defensive
-                            raise ValueError(f"cost_model.{key} must be numeric") from exc
+                            raise ValueError(
+                                f"cost_model.{key} must be numeric"
+                            ) from exc
                         if parsed < 0:
                             raise ValueError(f"cost_model.{key} must be >= 0")
                         cost_cfg[key] = parsed
@@ -759,7 +763,9 @@ def load_config(cfg: Mapping[str, Any] | str | Path) -> ConfigProtocol:
         validate_trend_config(cfg_dict, base_path=proj_path())
     else:
         validator_module = str(getattr(validate_trend_config, "__module__", ""))
-        if (not pydantic_present) or validator_module.startswith("trend_analysis.config"):
+        if (not pydantic_present) or validator_module.startswith(
+            "trend_analysis.config"
+        ):
             try:
                 validate_trend_config(cfg_dict, base_path=proj_path())
             except Exception:
@@ -835,7 +841,9 @@ def load(path: str | Path | None = None) -> ConfigProtocol:
         validated = validate_trend_config(data, base_path=base_dir)
     else:
         validator_module = str(getattr(validate_trend_config, "__module__", ""))
-        if (not pydantic_present) or validator_module.startswith("trend_analysis.config"):
+        if (not pydantic_present) or validator_module.startswith(
+            "trend_analysis.config"
+        ):
             try:
                 validated = validate_trend_config(data, base_path=base_dir)
             except Exception:
