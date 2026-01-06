@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import pytest
 
 from trend_analysis.config.validation import validate_config
 
@@ -90,8 +89,7 @@ def test_validate_config_date_range_violation(tmp_path: Path) -> None:
 
     assert not result.valid
     assert any(
-        issue.path in {"sample_split.in_start", "sample_split.out_start"}
-        for issue in result.errors
+        issue.path in {"sample_split.in_start", "sample_split.out_start"} for issue in result.errors
     )
 
 

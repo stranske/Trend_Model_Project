@@ -19,12 +19,17 @@ from .patch import (
     PatchOperation,
     RiskFlag,
     apply_and_diff,
-    apply_config_patch,
     apply_and_validate,
+    apply_config_patch,
     apply_patch,
     diff_configs,
 )
-from .validation import ValidationError, ValidationResult, format_validation_messages, validate_config
+from .validation import (
+    ValidationError,
+    ValidationResult,
+    format_validation_messages,
+    validate_config,
+)
 
 # Removed import from .legacy as all symbols are available from .models
 

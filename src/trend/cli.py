@@ -22,14 +22,15 @@ from trend.reporting.quick_summary import main as quick_summary_main
 from trend_analysis import export
 from trend_analysis import logging as run_logging
 from trend_analysis.api import RunResult, run_simulation
-from trend_analysis.config import format_validation_messages, load as load_config, validate_config
-from trend_analysis.config.schema_validation import load_config as load_schema_config
+from trend_analysis.config import format_validation_messages, validate_config
+from trend_analysis.config import load as load_config
 from trend_analysis.config.coverage import (
     ConfigCoverageTracker,
     activate_config_coverage,
     deactivate_config_coverage,
     wrap_config_for_coverage,
 )
+from trend_analysis.config.schema_validation import load_config as load_schema_config
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from trend_analysis.data import load_csv
 from trend_analysis.logging_setup import setup_logging
