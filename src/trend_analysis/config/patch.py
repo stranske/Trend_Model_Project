@@ -115,6 +115,8 @@ def apply_patch(config: dict[str, Any], patch: ConfigPatch) -> dict[str, Any]:
             )
             if parent is None:
                 continue
+            # Type narrowing: if parent is not None, leaf is also not None
+            assert leaf is not None
             _apply_operation(parent, leaf, operation)
         except (KeyError, IndexError, TypeError, ValueError) as exc:
             raise _path_error(operation.path, updated, exc) from exc
@@ -262,6 +264,9 @@ def _apply_operation(parent: Any, leaf: str | int, operation: PatchOperation) ->
             return
         if not isinstance(parent, dict):
             raise TypeError("set requires an object container at the target path")
+        # Check if key exists; if not, provide a helpful error with suggestions
+        if leaf not in parent:
+            raise KeyError(f"path segment '{leaf}' does not exist")
         parent[leaf] = operation.value
         return
 
