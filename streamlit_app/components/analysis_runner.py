@@ -10,6 +10,7 @@ import pandas as pd
 import streamlit as st
 
 from trend_analysis.config.legacy import Config
+from trend_analysis.config import format_validation_messages, validate_config
 from trend_analysis.signals import TrendSpec as TrendSpecModel
 
 from .data_cache import cache_key_for_frame
@@ -643,6 +644,13 @@ def _execute_analysis(payload: AnalysisPayload):
     from trend_analysis.api import run_simulation
 
     config = _build_config(payload)
+    config_payload = (
+        config.model_dump() if hasattr(config, "model_dump") else dict(config.__dict__)
+    )
+    validation = validate_config(config_payload)
+    if not validation.valid:
+        details = "\n".join(format_validation_messages(validation))
+        raise ValueError(f"Config validation failed:\n{details}")
     returns = _prepare_returns(payload.returns)
     return run_simulation(config, returns)
 

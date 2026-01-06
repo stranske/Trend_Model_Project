@@ -20,9 +20,11 @@ from .patch import (
     RiskFlag,
     apply_and_diff,
     apply_config_patch,
+    apply_and_validate,
     apply_patch,
     diff_configs,
 )
+from .validation import ValidationError, ValidationResult, format_validation_messages, validate_config
 
 # Removed import from .legacy as all symbols are available from .models
 
@@ -44,7 +46,12 @@ __all__ = [
     "PatchOperation",
     "RiskFlag",
     "apply_and_diff",
+    "apply_and_validate",
     "apply_patch",
     "apply_config_patch",
     "diff_configs",
+    "ValidationError",
+    "ValidationResult",
+    "validate_config",
+    "format_validation_messages",
 ]

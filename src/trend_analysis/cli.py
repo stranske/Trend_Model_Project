@@ -18,7 +18,7 @@ from trend.diagnostics import DiagnosticPayload
 from . import export, pipeline
 from . import logging as run_logging
 from .api import run_simulation
-from .config import load_config
+from .config import format_validation_messages, load_config, validate_config
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from .data import load_csv
 from .diagnostics import coerce_pipeline_result
@@ -55,6 +55,30 @@ def load_market_data_csv(
         include_date_column if include_date_column is not None else True,
     )
     return load_csv(path, **effective_kwargs)
+
+
+def _maybe_validate_config(cfg: Any, *, base_path: Path) -> bool:
+    """Return True when configuration validation passes or is skipped."""
+
+    payload: dict[str, Any] | None = None
+    if isinstance(cfg, Mapping):
+        payload = dict(cfg)
+    elif hasattr(cfg, "model_dump"):
+        payload = cfg.model_dump()  # type: ignore[assignment]
+    elif hasattr(cfg, "__dict__"):
+        payload = dict(cfg.__dict__)
+
+    if not payload or "version" not in payload:
+        return True
+
+    result = validate_config(payload, base_path=base_path)
+    if result.valid:
+        return True
+
+    print("Config validation failed:", file=sys.stderr)
+    for line in format_validation_messages(result):
+        print(f"- {line}", file=sys.stderr)
+    return False
 
 
 def _report_pipeline_diagnostic(
@@ -378,6 +402,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "run":
         cfg = load_config(args.config)
+        if not _maybe_validate_config(cfg, base_path=Path(args.config).resolve().parent):
+            return 1
         if args.preset:
             try:
                 spec_preset = get_trend_spec_preset(args.preset)

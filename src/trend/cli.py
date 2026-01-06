@@ -22,7 +22,8 @@ from trend.reporting.quick_summary import main as quick_summary_main
 from trend_analysis import export
 from trend_analysis import logging as run_logging
 from trend_analysis.api import RunResult, run_simulation
-from trend_analysis.config import load as load_config
+from trend_analysis.config import format_validation_messages, load as load_config, validate_config
+from trend_analysis.config.schema_validation import load_config as load_schema_config
 from trend_analysis.config.coverage import (
     ConfigCoverageTracker,
     activate_config_coverage,
@@ -805,9 +806,17 @@ def _load_configuration(path: str) -> Any:
     if not cfg_path.exists():
         raise FileNotFoundError(cfg_path)
     try:
+        payload = load_schema_config(cfg_path)
+    except Exception as exc:
+        raise TrendCLIError(str(exc)) from exc
+    try:
         load_core_config(cfg_path)
     except CoreConfigError as exc:
         raise TrendCLIError(str(exc)) from exc
+    validation = validate_config(payload, base_path=cfg_path.parent)
+    if not validation.valid:
+        details = "\n".join(format_validation_messages(validation))
+        raise TrendCLIError(f"Config validation failed:\n{details}")
     cfg = load_config(cfg_path)
     ensure_run_spec(cfg, base_path=cfg_path.parent)
     return cfg_path, cfg
