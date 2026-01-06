@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from trend_analysis.config.patch import ConfigPatch, PatchOperation, apply_config_patch
 
 
@@ -14,6 +12,21 @@ def test_apply_config_patch_set_creates_missing_path() -> None:
     )
     updated = apply_config_patch({}, patch)
     assert updated == {"portfolio": {"max_turnover": 0.25}}
+
+
+def test_apply_config_patch_set_creates_nested_path() -> None:
+    patch = ConfigPatch(
+        operations=[
+            PatchOperation(
+                op="set",
+                path="portfolio.constraints.position_limits",
+                value={"max_weight": 0.1},
+            )
+        ],
+        summary="Set nested limit",
+    )
+    updated = apply_config_patch({}, patch)
+    assert updated == {"portfolio": {"constraints": {"position_limits": {"max_weight": 0.1}}}}
 
 
 def test_apply_config_patch_append_creates_list() -> None:
@@ -61,10 +74,43 @@ def test_apply_config_patch_merge_deep() -> None:
     assert updated == {"portfolio": {"rebalance": "M", "constraints": {"max_weight": 0.05}}}
 
 
-def test_apply_config_patch_remove_missing_path_errors() -> None:
+def test_apply_config_patch_remove_missing_path_noop() -> None:
     patch = ConfigPatch(
         operations=[PatchOperation(op="remove", path="portfolio.max_turnover")],
         summary="Remove turnover",
     )
-    with pytest.raises(KeyError):
-        apply_config_patch({}, patch)
+    updated = apply_config_patch({}, patch)
+    assert updated == {}
+
+
+def test_apply_config_patch_set_list_index_creates_list() -> None:
+    patch = ConfigPatch(
+        operations=[
+            PatchOperation(
+                op="set",
+                path="portfolio.constraints.position_limits[0].max_weight",
+                value=0.1,
+            )
+        ],
+        summary="Set list item",
+    )
+    updated = apply_config_patch({}, patch)
+    assert updated == {"portfolio": {"constraints": {"position_limits": [{"max_weight": 0.1}]}}}
+
+
+def test_apply_config_patch_remove_list_index_noop_when_out_of_range() -> None:
+    patch = ConfigPatch(
+        operations=[PatchOperation(op="remove", path="portfolio.constraints.allowed_assets[1]")],
+        summary="Remove missing list index",
+    )
+    updated = apply_config_patch({"portfolio": {"constraints": {"allowed_assets": ["ABC"]}}}, patch)
+    assert updated["portfolio"]["constraints"]["allowed_assets"] == ["ABC"]
+
+
+def test_apply_config_patch_set_json_pointer_path() -> None:
+    patch = ConfigPatch(
+        operations=[PatchOperation(op="set", path="/portfolio/constraints/max_weight", value=0.05)],
+        summary="Set using pointer",
+    )
+    updated = apply_config_patch({}, patch)
+    assert updated == {"portfolio": {"constraints": {"max_weight": 0.05}}}

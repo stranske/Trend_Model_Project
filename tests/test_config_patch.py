@@ -25,6 +25,11 @@ def test_patch_operation_accepts_json_pointer_escapes() -> None:
     assert op.path == "/portfolio/~0tilde/~1slash"
 
 
+def test_patch_operation_accepts_dotpath_with_list_index() -> None:
+    op = PatchOperation(op="set", path="portfolio.constraints.limits[0].max_weight", value=0.1)
+    assert op.path == "portfolio.constraints.limits[0].max_weight"
+
+
 @pytest.mark.parametrize(
     ("op", "path", "value"),
     [

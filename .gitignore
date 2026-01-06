@@ -55,6 +55,8 @@ results/
 !archives/notebooks/**/*.csv
 !archives/notebooks/**/*.xlsx
 *.json
+!config.schema.json
+!config.schema.compact.json
 !package.json
 !package-lock.json
 !docs/evidence/gate-branch-protection/*.json
