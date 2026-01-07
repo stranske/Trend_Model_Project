@@ -45,6 +45,26 @@ def test_validate_config_missing_required_section(tmp_path: Path) -> None:
     assert _has_path(result, "data")
 
 
+def test_validate_config_missing_required_field(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["data"].pop("date_column")
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    assert _has_path(result, "data.date_column")
+
+
+def test_validate_config_missing_data_source(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["data"].pop("csv_path")
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    assert _has_path(result, "data.csv_path")
+
+
 def test_validate_config_wrong_type(tmp_path: Path) -> None:
     cfg = _base_config(tmp_path)
     cfg["data"]["frequency"] = 12

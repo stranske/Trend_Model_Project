@@ -58,6 +58,7 @@ def validate_config(
 
     _collect_schema_errors(config, errors)
     _check_required_sections(config, errors)
+    _check_required_fields(config, errors)
     _check_version_field(config, errors)
     # Skip TrendConfig Pydantic validation as it checks file existence
     # which is too strict for CLI validation before input override
@@ -220,6 +221,84 @@ def _check_required_sections(config: Mapping[str, Any], errors: list[ValidationE
             _append_issue(errors, issue)
 
 
+def _check_required_fields(config: Mapping[str, Any], errors: list[ValidationError]) -> None:
+    data = config.get("data")
+    if isinstance(data, Mapping):
+        _require_field(
+            errors,
+            data,
+            "data",
+            "date_column",
+            expected="non-empty string",
+            suggestion="Set data.date_column to the date column name (e.g., 'Date').",
+        )
+        _require_field(
+            errors,
+            data,
+            "data",
+            "frequency",
+            expected="non-empty string",
+            suggestion="Set data.frequency to one of the supported values (e.g., 'M').",
+        )
+        csv_path = data.get("csv_path")
+        managers_glob = data.get("managers_glob")
+        if not _is_present(csv_path) and not _is_present(managers_glob):
+            issue = ValidationError(
+                path="data.csv_path",
+                message="Data source is required.",
+                expected="csv_path or managers_glob",
+                actual="missing",
+                suggestion="Set data.csv_path to a CSV file or data.managers_glob to a CSV glob.",
+            )
+            _append_issue(errors, issue)
+
+    portfolio = config.get("portfolio")
+    if isinstance(portfolio, Mapping):
+        _require_field(
+            errors,
+            portfolio,
+            "portfolio",
+            "selection_mode",
+            expected="non-empty string",
+            suggestion="Set portfolio.selection_mode (e.g., 'all').",
+        )
+        _require_field(
+            errors,
+            portfolio,
+            "portfolio",
+            "rebalance_calendar",
+            expected="non-empty string",
+            suggestion="Set portfolio.rebalance_calendar (e.g., 'NYSE').",
+        )
+        _require_field(
+            errors,
+            portfolio,
+            "portfolio",
+            "max_turnover",
+            expected="number",
+            suggestion="Set portfolio.max_turnover to a numeric value (e.g., 1.0).",
+        )
+        _require_field(
+            errors,
+            portfolio,
+            "portfolio",
+            "transaction_cost_bps",
+            expected="number",
+            suggestion="Set portfolio.transaction_cost_bps to a numeric value (e.g., 0).",
+        )
+
+    vol_adjust = config.get("vol_adjust")
+    if isinstance(vol_adjust, Mapping):
+        _require_field(
+            errors,
+            vol_adjust,
+            "vol_adjust",
+            "target_vol",
+            expected="number",
+            suggestion="Set vol_adjust.target_vol to a numeric target (e.g., 0.1).",
+        )
+
+
 def _check_version_field(config: Mapping[str, Any], errors: list[ValidationError]) -> None:
     if "version" not in config:
         issue = ValidationError(
@@ -251,6 +330,45 @@ def _check_version_field(config: Mapping[str, Any], errors: list[ValidationError
             suggestion="Provide a non-empty version string.",
         )
         _append_issue(errors, issue)
+
+
+def _require_field(
+    errors: list[ValidationError],
+    section: Mapping[str, Any],
+    section_name: str,
+    field: str,
+    *,
+    expected: str,
+    suggestion: str,
+) -> None:
+    if field not in section:
+        issue = ValidationError(
+            path=f"{section_name}.{field}",
+            message="Required field is missing.",
+            expected=expected,
+            actual="missing",
+            suggestion=suggestion,
+        )
+        _append_issue(errors, issue)
+        return
+    value = section.get(field)
+    if not _is_present(value):
+        issue = ValidationError(
+            path=f"{section_name}.{field}",
+            message="Required field is missing.",
+            expected=expected,
+            actual=value,
+            suggestion=suggestion,
+        )
+        _append_issue(errors, issue)
+
+
+def _is_present(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    return True
 
 
 def _collect_trend_model_errors(
