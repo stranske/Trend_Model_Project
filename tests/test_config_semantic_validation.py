@@ -219,6 +219,29 @@ def test_validate_config_manual_selection_requires_list(tmp_path: Path) -> None:
     assert _has_path(result, "portfolio.manual_list")
 
 
+def test_validate_config_manual_selection_rejects_non_list(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["portfolio"]["selection_mode"] = "manual"
+    cfg["portfolio"]["manual_list"] = "FundA"
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    issue = next(
+        (
+            issue
+            for issue in result.errors
+            if issue.path == "portfolio.manual_list"
+            and issue.message == "Manual list must be a list."
+        ),
+        None,
+    )
+    assert issue is not None
+    assert issue.expected == "list of strings"
+    assert issue.actual == "str"
+    assert issue.suggestion is not None and "list of fund identifiers" in issue.suggestion
+
+
 def test_validate_config_manual_selection_rejects_empty_list(tmp_path: Path) -> None:
     cfg = _base_config(tmp_path)
     cfg["portfolio"]["selection_mode"] = "manual"

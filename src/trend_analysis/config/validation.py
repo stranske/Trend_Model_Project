@@ -611,7 +611,7 @@ def _check_manual_selection_requirements(
                 message="Manual list entries must be non-empty strings.",
                 expected="non-empty string",
                 actual=value,
-                suggestion="Replace empty entries with valid fund identifiers.",
+                suggestion="Replace invalid entries with non-empty fund identifiers.",
             )
             _append_issue(errors, issue)
 
