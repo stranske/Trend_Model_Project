@@ -211,6 +211,17 @@ def test_validate_config_invalid_enum(tmp_path: Path) -> None:
     assert _has_path(result, "sample_split.method")
 
 
+def test_validate_config_unexpected_field_warns(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["unexpected"] = {"extra": True}
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert result.valid
+    assert result.errors == []
+    assert any(issue.path == "unexpected" for issue in result.warnings)
+
+
 def test_validate_config_date_range_violation(tmp_path: Path) -> None:
     cfg = _base_config(tmp_path)
     cfg["sample_split"] = {

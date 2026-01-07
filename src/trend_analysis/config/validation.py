@@ -65,7 +65,7 @@ def validate_config(
 
     base = base_path or proj_path()
 
-    _collect_schema_errors(config, errors)
+    _collect_schema_errors(config, errors, warnings)
     _check_required_sections(config, errors)
     if not skip_required_fields:
         _check_required_fields(config, errors)
@@ -100,22 +100,25 @@ def format_validation_messages(
     return [_format_issue(issue) for issue in issues]
 
 
-def _collect_schema_errors(config: Mapping[str, Any], errors: list[ValidationError]) -> None:
+def _collect_schema_errors(
+    config: Mapping[str, Any],
+    errors: list[ValidationError],
+    warnings: list[ValidationError],
+) -> None:
     schema = load_schema()
     validator = Draft202012Validator(schema)
     for error in sorted(validator.iter_errors(config), key=lambda err: list(err.absolute_path)):
         issues = _schema_error_to_issues(error)
         for issue in issues:
-            _append_issue(errors, issue)
+            if error.validator == "additionalProperties":
+                _append_issue(warnings, issue)
+            else:
+                _append_issue(errors, issue)
 
 
 def _schema_error_to_issues(error: Any) -> list[ValidationError]:
     path = _format_path(error.absolute_path)
     validator = error.validator
-    # Skip additionalProperties errors as CLI configs may have fields
-    # that will be overridden (e.g., csv_path replaced by -i flag)
-    if validator == "additionalProperties":
-        return []
     message = str(error.message)
     expected = _expected_for_error(error)
     actual = error.instance
