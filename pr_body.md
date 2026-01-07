@@ -6,52 +6,45 @@
 <!-- auto-status-summary:start -->
 ## Automated Status Summary
 #### Scope
-The NL layer must output a structured, validated format—not freeform text that gets parsed with regex. A typed `ConfigPatch` schema gives us:
-- Predictable model outputs that can be validated
-- Clear operation semantics (set/remove/append/merge)
-- Risk flagging for dangerous changes
-- Audit trail for what was changed and why
+This is the core NL component: a LangChain chain that takes a user instruction and current config, then produces a valid `ConfigPatch` as structured output. Using a deterministic chain (not an agent) gives us predictable, auditable behavior.
 
 #### Tasks
-- [x] Design patch operation types:
-- [x] - `set` - Set a value at a path (create if missing)
-- [x] - `remove` - Delete a key at a path
-- [x] - `append` - Add item to a list
-- [x] - `merge` - Deep merge a dict at a path
-- [x] Define `PatchOperation` Pydantic model:
-- [x] ```python
-- [x] class PatchOperation(BaseModel):
-- [x] op: Literal["set", "remove", "append", "merge"]
-- [x] path: str  # JSONPointer or dotpath
-- [x] value: Any | None = None  # Required for set/append/merge
-- [x] rationale: str | None = None  # LLM's explanation
-- [x] ```
-- [x] Define `ConfigPatch` Pydantic model:
-- [x] ```python
-- [x] class ConfigPatch(BaseModel):
-- [x] operations: list[PatchOperation]
-- [x] risk_flags: list[RiskFlag] = []
-- [x] summary: str  # Human-readable summary of changes
-- [x] ```
-- [x] Define `RiskFlag` enum/model for dangerous changes:
-- [x] - `REMOVES_CONSTRAINT` - Removing position/turnover limits
-- [x] - `INCREASES_LEVERAGE` - Vol target above threshold
-- [x] - `REMOVES_VALIDATION` - Disabling safety checks
-- [x] - `BROAD_SCOPE` - Changes affect many keys
-- [x] Add JSON Schema export method for the patch format
-- [x] Write comprehensive unit tests
+- [x] Design prompt template with sections:
+- [x] - System prompt explaining the task
+- [x] - Current config (or relevant excerpt)
+- [x] - Allowed schema (from Issue 4)
+- [x] - Safety rules (don't invent keys, flag risks)
+- [x] - User instruction
+- [ ] Implement `ConfigPatchChain` using LangChain:
+- [x] Define the class structure. (verify: confirm completion in repo)
+- [ ] Define methods. (verify: confirm completion in repo)
+- [ ] Implement the run method. (verify: confirm completion in repo)
+- [ ] Integrate with LangChain. (verify: confirm completion in repo)
+- [ ] Configure model settings for reliability:
+- [ ] Set low temperature. (verify: confirm completion in repo)
+- [ ] Enforce structured output. (verify: confirm completion in repo)
+- [ ] Determine max tokens for patch size. (verify: confirm completion in repo)
+- [ ] Implement schema injection:
+- [ ] Include compact schema in prompt. (verify: confirm completion in repo)
+- [ ] Limit to relevant sections based on instruction. (verify: confirm completion in repo)
+- [ ] Add self-check step:
+- [ ] Validate patch references known keys. (verify: confirm completion in repo)
+- [ ] Flag unknown keys for human review. (verify: confirm completion in repo)
+- [ ] Implement rejection criteria based on unknown keys. (verify: confirm completion in repo)
+- [ ] Implement retry logic:
+- [ ] Implement retry on parsing failure. (verify: confirm completion in repo)
+- [ ] Include previous error in retry prompt. (verify: confirm completion in repo)
+- [ ] Add provider abstraction:
+- [ ] Support OpenAI. (verify: confirm completion in repo)
+- [ ] Support Anthropic Claude. (verify: confirm completion in repo)
+- [ ] Support local Ollama. (verify: confirm completion in repo)
 
 #### Acceptance criteria
-- [x] `ConfigPatch` model validates correct patches
-- [x] `ConfigPatch` model rejects malformed patches with clear errors
-- [x] JSON Schema can be exported for LLM prompting
-- [x] Risk flags are populated for dangerous operations
-- [x] Unit tests cover:
-- [x] - All operation types
-- [x] - Path validation (valid/invalid paths)
-- [x] - Risk flag detection
-- [x] - Edge cases (empty patch, nested paths, list operations)
-- [x] - `set` operations with null values
-- [x] - `remove` operations with explicit null values
+- [ ] Chain produces valid ConfigPatch for a defined set of common instructions.
+- [ ] Define specific test cases and metrics for structured output parsing reliability (≥95% success rate).
+- [ ] Unknown keys are flagged, not silently included.
+- [ ] Local eval harness exists for testing prompts.
+- [ ] Temperature and model settings are configurable.
+- [ ] Chain works with at least 2 LLM providers.
 
 <!-- auto-status-summary:end -->

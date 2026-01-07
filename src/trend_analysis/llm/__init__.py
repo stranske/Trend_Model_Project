@@ -1,5 +1,6 @@
 """LLM utilities for Trend Model."""
 
+from .chain import ConfigPatchChain
 from .prompts import (
     DEFAULT_SAFETY_RULES,
     DEFAULT_SYSTEM_PROMPT,
@@ -13,6 +14,7 @@ from .prompts import (
 )
 
 __all__ = [
+    "ConfigPatchChain",
     "DEFAULT_SAFETY_RULES",
     "DEFAULT_SYSTEM_PROMPT",
     "SECTION_CONFIG",
