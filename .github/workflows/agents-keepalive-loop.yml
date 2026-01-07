@@ -66,6 +66,7 @@ jobs:
       has_agent_label: ${{ steps.evaluate.outputs.has_agent_label }}
       agent_type: ${{ steps.evaluate.outputs.agent_type }}
       task_appendix: ${{ steps.evaluate.outputs.task_appendix }}
+      prompt_file: ${{ steps.evaluate.outputs.prompt_file }}
       trace: ${{ steps.evaluate.outputs.trace }}
       start_ts: ${{ steps.timestamps.outputs.start_ts }}
       security_blocked: ${{ steps.security_gate.outputs.blocked }}
@@ -238,6 +239,7 @@ jobs:
               autofix_enabled: String(result.config?.autofix_enabled || false),
               has_agent_label: String(result.hasAgentLabel || false),
               agent_type: String(result.agentType || ''),
+              prompt_file: String(result.promptFile || '.github/codex/prompts/keepalive_next_task.md'),
               trace: String(result.config?.trace || ''),
             };
             for (const [key, value] of Object.entries(output)) {
@@ -249,7 +251,7 @@ jobs:
   preflight:
     name: Verify secrets available
     needs: evaluate
-    if: needs.evaluate.outputs.action == 'run'
+    if: needs.evaluate.outputs.action == 'run' || needs.evaluate.outputs.action == 'fix'
     runs-on: ubuntu-latest
     environment: agent-standard
     outputs:
@@ -279,7 +281,7 @@ jobs:
     needs:
       - evaluate
       - preflight
-    if: needs.evaluate.outputs.action == 'run'
+    if: needs.evaluate.outputs.action == 'run' || needs.evaluate.outputs.action == 'fix'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Workflows scripts
@@ -324,8 +326,8 @@ jobs:
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
     with:
-      skip: ${{ needs.evaluate.outputs.action != 'run' }}
-      prompt_file: .github/codex/prompts/keepalive_next_task.md
+      skip: ${{ needs.evaluate.outputs.action != 'run' && needs.evaluate.outputs.action != 'fix' }}
+      prompt_file: ${{ needs.evaluate.outputs.prompt_file }}
       mode: keepalive
       pr_number: ${{ needs.evaluate.outputs.pr_number }}
       pr_ref: ${{ needs.evaluate.outputs.pr_ref }}
