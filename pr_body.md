@@ -6,52 +6,65 @@
 <!-- auto-status-summary:start -->
 ## Automated Status Summary
 #### Scope
-The NL layer must output a structured, validated format—not freeform text that gets parsed with regex. A typed `ConfigPatch` schema gives us:
-- Predictable model outputs that can be validated
-- Clear operation semantics (set/remove/append/merge)
-- Risk flagging for dangerous changes
-- Audit trail for what was changed and why
+An invalid config produced by NL should never reach the analysis pipeline. This safety gate:
+- Prevents cryptic runtime errors deep in the pipeline
+- Gives users actionable feedback on what's wrong
+- Maintains trust that NL changes are safe
 
 #### Tasks
-- [x] Design patch operation types:
-- [x] - `set` - Set a value at a path (create if missing)
-- [x] - `remove` - Delete a key at a path
-- [x] - `append` - Add item to a list
-- [x] - `merge` - Deep merge a dict at a path
-- [x] Define `PatchOperation` Pydantic model:
+- [x] Create `validate_config(config: dict) -> ValidationResult`:
+- [x] - Run existing config validation if any
+- [x] - Add additional semantic checks
+- [x] - Return structured result with all errors
+- [x] Define `ValidationResult` model:
 - [x] ```python
-- [x] class PatchOperation(BaseModel):
-- [x] op: Literal["set", "remove", "append", "merge"]
-- [x] path: str  # JSONPointer or dotpath
-- [x] value: Any | None = None  # Required for set/append/merge
-- [x] rationale: str | None = None  # LLM's explanation
+- [x] class ValidationError(BaseModel):
+- [x] path: str           # e.g., "analysis.top_n"
+- [x] message: str        # Human-readable error
+- [x] expected: str       # What was expected
+- [x] actual: Any         # What was provided
+- [x] suggestion: str | None  # How to fix
+- [x] class ValidationResult(BaseModel):
+- [x] valid: bool
+- [x] errors: list[ValidationError]
+- [x] warnings: list[ValidationError]
 - [x] ```
-- [x] Define `ConfigPatch` Pydantic model:
+- [x] Implement semantic validations:
+- [x] - Required fields present
+- [x] - Types match expected (int, float, str, list, dict)
+- [x] - Values within allowed ranges
+- [x] - Enum values are valid choices
+- [x] - Date ranges make sense (in_start < in_end < out_start < out_end)
+- [x] - Cross-field consistency (e.g., top_n <= number of available funds)
+- [x] Convert validation errors to user-readable messages:
+- [x] - Include the config path that failed
+- [x] - State what was expected
+- [x] - Show what was provided
+- [x] - Suggest a fix when possible
+- [x] Integrate with patch application flow:
 - [x] ```python
-- [x] class ConfigPatch(BaseModel):
-- [x] operations: list[PatchOperation]
-- [x] risk_flags: list[RiskFlag] = []
-- [x] summary: str  # Human-readable summary of changes
+- [x] def apply_and_validate(config: dict, patch: ConfigPatch) -> tuple[dict, ValidationResult]:
+- [x] new_config = apply_patch(config, patch)
+- [x] result = validate_config(new_config)
+- [x] return new_config, result
 - [x] ```
-- [x] Define `RiskFlag` enum/model for dangerous changes:
-- [x] - `REMOVES_CONSTRAINT` - Removing position/turnover limits
-- [x] - `INCREASES_LEVERAGE` - Vol target above threshold
-- [x] - `REMOVES_VALIDATION` - Disabling safety checks
-- [x] - `BROAD_SCOPE` - Changes affect many keys
-- [x] Add JSON Schema export method for the patch format
-- [x] Write comprehensive unit tests
+- [x] Add "strict mode" that treats warnings as errors
 
 #### Acceptance criteria
-- [x] `ConfigPatch` model validates correct patches
-- [x] `ConfigPatch` model rejects malformed patches with clear errors
-- [x] JSON Schema can be exported for LLM prompting
-- [x] Risk flags are populated for dangerous operations
-- [x] Unit tests cover:
-- [x] - All operation types
-- [x] - Path validation (valid/invalid paths)
-- [x] - Risk flag detection
-- [x] - Edge cases (empty patch, nested paths, list operations)
-- [x] - `set` operations with null values
-- [x] - `remove` operations with explicit null values
+- [ ] Invalid configs are rejected before reaching pipeline
+- [ ] Error messages include:
+- [x] - Which field failed
+- [x] - What was expected
+- [x] - What was provided
+- [x] - Suggested fix (when determinable)
+- [ ] CLI shows validation errors clearly
+- [ ] Streamlit shows validation errors in UI
+- [ ] Unit tests cover:
+- [x] - Missing required fields
+- [x] - Wrong types
+- [x] - Out-of-range values
+- [x] - Invalid enum values
+- [x] - Date range violations
+- [x] - Cross-field inconsistencies
 
 <!-- auto-status-summary:end -->

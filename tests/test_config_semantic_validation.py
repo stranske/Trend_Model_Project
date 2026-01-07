@@ -139,3 +139,32 @@ def test_validation_message_includes_expected_actual_suggestion(tmp_path: Path) 
         and "Suggestion:" in message
         for message in messages
     )
+
+
+def test_validation_error_includes_expected_actual_suggestion_fields(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg.pop("data")
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    issue = next((issue for issue in result.errors if issue.path == "data"), None)
+    assert issue is not None
+    assert issue.expected == "section present"
+    assert issue.actual == "missing"
+    assert issue.suggestion is not None and "Add" in issue.suggestion
+
+
+def test_validate_config_strict_mode_treats_warnings_as_errors(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["data"]["csv_path"] = str(tmp_path / "missing.csv")
+    cfg["portfolio"]["rank"] = {"inclusion_approach": "top_n", "n": 3}
+
+    result = validate_config(cfg, base_path=tmp_path, strict=False)
+    strict_result = validate_config(cfg, base_path=tmp_path, strict=True)
+
+    assert result.valid
+    assert result.errors == []
+    assert result.warnings
+    assert not strict_result.valid
+    assert strict_result.errors == []
+    assert strict_result.warnings
