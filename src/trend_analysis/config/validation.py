@@ -234,6 +234,16 @@ def _check_required_sections(config: Mapping[str, Any], errors: list[ValidationE
 def _check_required_fields(config: Mapping[str, Any], errors: list[ValidationError]) -> None:
     data = config.get("data")
     if isinstance(data, Mapping):
+        csv_path = data.get("csv_path")
+        if csv_path is not None and not isinstance(csv_path, str):
+            issue = ValidationError(
+                path="data.csv_path",
+                message="CSV path must be a string.",
+                expected="string",
+                actual=type(csv_path).__name__,
+                suggestion="Provide data.csv_path as a string path to a CSV file.",
+            )
+            _append_issue(errors, issue)
         _require_field(
             errors,
             data,
@@ -250,7 +260,6 @@ def _check_required_fields(config: Mapping[str, Any], errors: list[ValidationErr
             expected="non-empty string",
             suggestion="Set data.frequency to one of the supported values (e.g., 'M').",
         )
-        csv_path = data.get("csv_path")
         managers_glob = data.get("managers_glob")
         if not _is_present(csv_path) and not _is_present(managers_glob):
             issue = ValidationError(

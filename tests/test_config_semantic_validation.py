@@ -65,6 +65,19 @@ def test_validate_config_missing_data_source(tmp_path: Path) -> None:
     assert _has_path(result, "data.csv_path")
 
 
+def test_validate_config_csv_path_wrong_type(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["data"]["csv_path"] = 123
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    assert _has_path(result, "data.csv_path")
+    issue = next((issue for issue in result.errors if issue.path == "data.csv_path"), None)
+    assert issue is not None
+    assert issue.expected == "string"
+
+
 def test_validate_config_wrong_type(tmp_path: Path) -> None:
     cfg = _base_config(tmp_path)
     cfg["data"]["frequency"] = 12
