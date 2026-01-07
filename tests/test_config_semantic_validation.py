@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from trend_analysis.config.validation import validate_config
+from trend_analysis.config.validation import format_validation_messages, validate_config
 
 
 def _base_config(tmp_path: Path) -> dict[str, Any]:
@@ -123,3 +123,19 @@ def test_validate_config_top_n_exceeds_fund_count(tmp_path: Path) -> None:
 
     assert not result.valid
     assert _has_path(result, "portfolio.rank.n")
+
+
+def test_validation_message_includes_expected_actual_suggestion(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg.pop("data")
+
+    result = validate_config(cfg, base_path=tmp_path)
+    messages = format_validation_messages(result, include_warnings=False)
+
+    assert any(
+        "data:" in message
+        and "Expected section present" in message
+        and "got missing" in message
+        and "Suggestion:" in message
+        for message in messages
+    )
