@@ -257,6 +257,16 @@ def test_validation_warning_includes_expected_actual_suggestion(tmp_path: Path) 
     assert warning.suggestion is not None
 
 
+def test_validation_messages_include_warnings(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["unexpected"] = {"extra": True}
+
+    result = validate_config(cfg, base_path=tmp_path)
+    messages = format_validation_messages(result, include_warnings=True)
+
+    assert any("unexpected:" in message and "Expected" in message for message in messages)
+
+
 def test_validate_config_date_range_violation(tmp_path: Path) -> None:
     cfg = _base_config(tmp_path)
     cfg["sample_split"] = {
