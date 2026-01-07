@@ -88,6 +88,28 @@ def test_validate_config_csv_path_wrong_type(tmp_path: Path) -> None:
     assert issue.expected == "string"
 
 
+def test_validate_config_managers_glob_wrong_type(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["data"].pop("csv_path")
+    cfg["data"]["managers_glob"] = 456
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    assert _has_path(result, "data.managers_glob")
+    issue = next(
+        (
+            issue
+            for issue in result.errors
+            if issue.path == "data.managers_glob"
+            and issue.message == "Managers glob must be a string."
+        ),
+        None,
+    )
+    assert issue is not None
+    assert issue.expected == "string"
+
+
 def test_validate_config_wrong_type(tmp_path: Path) -> None:
     cfg = _base_config(tmp_path)
     cfg["data"]["frequency"] = 12

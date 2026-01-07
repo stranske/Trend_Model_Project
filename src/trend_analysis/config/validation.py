@@ -244,6 +244,16 @@ def _check_required_fields(config: Mapping[str, Any], errors: list[ValidationErr
                 suggestion="Provide data.csv_path as a string path to a CSV file.",
             )
             _append_issue(errors, issue)
+        managers_glob = data.get("managers_glob")
+        if managers_glob is not None and not isinstance(managers_glob, str):
+            issue = ValidationError(
+                path="data.managers_glob",
+                message="Managers glob must be a string.",
+                expected="string",
+                actual=type(managers_glob).__name__,
+                suggestion="Provide data.managers_glob as a glob string to CSV files.",
+            )
+            _append_issue(errors, issue)
         _require_field(
             errors,
             data,
@@ -260,7 +270,6 @@ def _check_required_fields(config: Mapping[str, Any], errors: list[ValidationErr
             expected="non-empty string",
             suggestion="Set data.frequency to one of the supported values (e.g., 'M').",
         )
-        managers_glob = data.get("managers_glob")
         if not _is_present(csv_path) and not _is_present(managers_glob):
             issue = ValidationError(
                 path="data.csv_path",

@@ -32,6 +32,7 @@ An invalid config produced by NL should never reach the analysis pipeline. This 
 - [x] Implement semantic validations:
 - [x] - Required fields present
 - [x] - Types match expected (int, float, str, list, dict)
+- [x] - Data source types validated (csv_path, managers_glob)
 - [x] - Values within allowed ranges
 - [x] - Enum values are valid choices
 - [x] - Date ranges make sense (in_start < in_end < out_start < out_end)
