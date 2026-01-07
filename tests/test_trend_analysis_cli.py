@@ -378,3 +378,6 @@ def test_main_run_invalid_config_reports_validation(monkeypatch, capsys):
     assert exit_code == 1
     assert "Config validation failed" in captured.err
     assert "data" in captured.err
+    assert "Expected section present" in captured.err
+    assert "got missing" in captured.err
+    assert "Suggestion:" in captured.err

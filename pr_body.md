@@ -58,6 +58,7 @@ An invalid config produced by NL should never reach the analysis pipeline. This 
 - [x] - What was expected
 - [x] - What was provided
 - [x] - Suggested fix (when determinable)
+- [x] - CLI output includes expected/actual/suggestion phrasing
 - [x] CLI shows validation errors clearly
 - [x] Streamlit shows validation errors in UI
 - [x] Unit tests cover:
