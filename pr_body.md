@@ -17,11 +17,11 @@ This is the core NL component: a LangChain chain that takes a user instruction a
 - [x] - User instruction
 - [ ] Implement `ConfigPatchChain` using LangChain:
 - [x] Define the class structure. (verify: confirm completion in repo)
-- [ ] Define methods. (verify: confirm completion in repo)
-- [ ] Implement the run method. (verify: confirm completion in repo)
-- [ ] Integrate with LangChain. (verify: confirm completion in repo)
+- [x] Define methods. (verify: confirm completion in repo)
+- [x] Implement the run method. (verify: confirm completion in repo)
+- [x] Integrate with LangChain. (verify: confirm completion in repo)
 - [ ] Configure model settings for reliability:
-- [ ] Set low temperature. (verify: confirm completion in repo)
+- [x] Set low temperature. (verify: confirm completion in repo)
 - [ ] Enforce structured output. (verify: confirm completion in repo)
 - [ ] Determine max tokens for patch size. (verify: confirm completion in repo)
 - [ ] Implement schema injection:
