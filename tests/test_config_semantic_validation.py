@@ -363,8 +363,7 @@ def test_validate_config_top_n_skips_fund_count_for_non_integer(tmp_path: Path) 
     assert not result.valid
     assert _has_path(result, "portfolio.rank.n")
     assert not any(
-        issue.message == "top_n exceeds the number of available funds."
-        for issue in result.errors
+        issue.message == "top_n exceeds the number of available funds." for issue in result.errors
     )
 
 
