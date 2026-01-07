@@ -29,18 +29,12 @@ def select_schema_sections(schema: dict[str, Any], instruction: str) -> dict[str
         return schema
 
     tokens = _extract_tokens(instruction)
-    matched = {
-        path[0]
-        for path in _iter_schema_paths(properties)
-        if _path_matches(path, tokens)
-    }
+    matched = {path[0] for path in _iter_schema_paths(properties) if _path_matches(path, tokens)}
     if not matched:
         return schema
 
     filtered: dict[str, Any] = {
-        key: value
-        for key, value in schema.items()
-        if key not in {"properties", "default"}
+        key: value for key, value in schema.items() if key not in {"properties", "default"}
     }
     filtered["properties"] = {key: properties[key] for key in matched if key in properties}
 
