@@ -74,6 +74,7 @@ def validate_config(
     # which is too strict for CLI validation before input override
     # _collect_trend_model_errors(config, errors, base)
     _check_portfolio_selection_requirements(config, errors)
+    _check_manual_selection_requirements(config, errors)
     _check_rank_inclusion_requirements(config, errors)
     _check_rank_value_ranges(config, errors)
     _check_date_ranges(config, errors)
@@ -556,6 +557,57 @@ def _check_portfolio_selection_requirements(
             suggestion="Provide portfolio.rank as a mapping of rank settings.",
         )
         _append_issue(errors, issue)
+
+
+def _check_manual_selection_requirements(
+    config: Mapping[str, Any], errors: list[ValidationError]
+) -> None:
+    portfolio = config.get("portfolio")
+    if not isinstance(portfolio, Mapping):
+        return
+    if portfolio.get("selection_mode") != "manual":
+        return
+    manual_list = portfolio.get("manual_list")
+    if manual_list is None:
+        issue = ValidationError(
+            path="portfolio.manual_list",
+            message="Manual selection requires a manual_list.",
+            expected="non-empty list of fund identifiers",
+            actual="missing",
+            suggestion="Set portfolio.manual_list to a list of fund identifiers.",
+        )
+        _append_issue(errors, issue)
+        return
+    if not isinstance(manual_list, list):
+        issue = ValidationError(
+            path="portfolio.manual_list",
+            message="Manual list must be a list.",
+            expected="list of strings",
+            actual=type(manual_list).__name__,
+            suggestion="Provide portfolio.manual_list as a list of fund identifiers.",
+        )
+        _append_issue(errors, issue)
+        return
+    if not manual_list:
+        issue = ValidationError(
+            path="portfolio.manual_list",
+            message="Manual list cannot be empty.",
+            expected="at least one fund identifier",
+            actual="empty list",
+            suggestion="Add at least one identifier to portfolio.manual_list.",
+        )
+        _append_issue(errors, issue)
+        return
+    for idx, value in enumerate(manual_list):
+        if not isinstance(value, str) or not value.strip():
+            issue = ValidationError(
+                path=f"portfolio.manual_list[{idx}]",
+                message="Manual list entries must be non-empty strings.",
+                expected="non-empty string",
+                actual=value,
+                suggestion="Replace empty entries with valid fund identifiers.",
+            )
+            _append_issue(errors, issue)
 
 
 def _check_rank_inclusion_requirements(
