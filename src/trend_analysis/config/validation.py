@@ -38,8 +38,17 @@ def validate_config(
     *,
     base_path: Path | None = None,
     strict: bool = False,
+    skip_required_fields: bool = False,
 ) -> ValidationResult:
-    """Validate a configuration payload and return structured results."""
+    """Validate a configuration payload and return structured results.
+
+    Args:
+        config: Configuration dictionary to validate
+        base_path: Base path for resolving relative paths
+        strict: If True, warnings are treated as errors
+        skip_required_fields: If True, skip validation of required fields.
+            Useful for CLI configs that will be overridden with -i or --preset.
+    """
 
     errors: list[ValidationError] = []
     warnings: list[ValidationError] = []
@@ -58,9 +67,8 @@ def validate_config(
 
     _collect_schema_errors(config, errors)
     _check_required_sections(config, errors)
-    # Skip _check_required_fields as it's too strict for CLI configs before
-    # the -i input override and preset overrides are applied
-    # _check_required_fields(config, errors)
+    if not skip_required_fields:
+        _check_required_fields(config, errors)
     _check_version_field(config, errors)
     # Skip TrendConfig Pydantic validation as it checks file existence
     # which is too strict for CLI validation before input override
