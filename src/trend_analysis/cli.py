@@ -132,9 +132,7 @@ def _apply_trend_spec_preset(cfg: Any, preset: TrendSpecPreset) -> None:
         object.__setattr__(cfg, "trend_spec_preset", preset.name)
 
 
-def _log_step(
-    run_id: str, event: str, message: str, level: str = "INFO", **fields: Any
-) -> None:
+def _log_step(run_id: str, event: str, message: str, level: str = "INFO", **fields: Any) -> None:
     """Internal indirection for structured logging.
 
     Tests monkeypatch this symbol directly (`_log_step`) rather than the public
@@ -188,9 +186,7 @@ def _extract_cache_stats(payload: object) -> dict[str, int] | None:
     return found[-1] if found else None
 
 
-def _apply_universe_mask(
-    df: pd.DataFrame, mask: pd.DataFrame, *, date_column: str
-) -> pd.DataFrame:
+def _apply_universe_mask(df: pd.DataFrame, mask: pd.DataFrame, *, date_column: str) -> pd.DataFrame:
     """Apply a time-varying membership mask to returns data."""
 
     if mask.empty:
@@ -200,9 +196,7 @@ def _apply_universe_mask(
     try:
         date_col = lookup[date_column.lower()]
     except KeyError as exc:  # pragma: no cover - defensive guard
-        raise KeyError(
-            f"Date column '{date_column}' is missing from the returns data"
-        ) from exc
+        raise KeyError(f"Date column '{date_column}' is missing from the returns data") from exc
 
     working[date_col] = pd.to_datetime(working[date_col])
     working = working.set_index(date_col)
@@ -217,16 +211,12 @@ def _apply_universe_mask(
         )
 
     masked = working.copy()
-    masked.loc[:, aligned_mask.columns] = masked.loc[:, aligned_mask.columns].where(
-        aligned_mask
-    )
+    masked.loc[:, aligned_mask.columns] = masked.loc[:, aligned_mask.columns].where(aligned_mask)
     masked.reset_index(inplace=True)
     return masked
 
 
-def _attach_universe_paths(
-    cfg: Any, spec: NamedUniverse, *, csv_path: str | None
-) -> None:
+def _attach_universe_paths(cfg: Any, spec: NamedUniverse, *, csv_path: str | None) -> None:
     """Persist the selected universe paths onto ``cfg.data`` when possible."""
 
     membership_value = str(spec.membership_path)
@@ -257,9 +247,7 @@ def _attach_universe_paths(
         setattr(data_section, "universe_membership_path", membership_value)
     except Exception:
         try:
-            object.__setattr__(
-                data_section, "universe_membership_path", membership_value
-            )
+            object.__setattr__(data_section, "universe_membership_path", membership_value)
         except Exception:
             data_section = None
 
@@ -338,9 +326,7 @@ def check_environment(lock_path: Path | None = None) -> int:
     return 0
 
 
-def maybe_log_step(
-    enabled: bool, run_id: str, event: str, message: str, **fields: Any
-) -> None:
+def maybe_log_step(enabled: bool, run_id: str, event: str, message: str, **fields: Any) -> None:
     """Log a structured step when ``enabled`` is True."""
     if enabled:
         _log_step(run_id, event, message, **fields)
@@ -350,9 +336,7 @@ def main(argv: list[str] | None = None) -> int:
     """Entry point for the ``trend-model`` command."""
 
     parser = argparse.ArgumentParser(prog="trend-model")
-    parser.add_argument(
-        "--check", action="store_true", help="Print environment info and exit"
-    )
+    parser.add_argument("--check", action="store_true", help="Print environment info and exit")
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("gui", help="Launch Streamlit interface")
@@ -360,9 +344,7 @@ def main(argv: list[str] | None = None) -> int:
     run_p = sub.add_parser("run", help="Run analysis pipeline")
     run_p.add_argument("-c", "--config", required=True, help="Path to YAML config")
     run_p.add_argument("-i", "--input", required=True, help="Path to returns CSV")
-    run_p.add_argument(
-        "--seed", type=int, help="Override random seed (takes precedence)"
-    )
+    run_p.add_argument("--seed", type=int, help="Override random seed (takes precedence)")
     run_p.add_argument(
         "--bundle",
         nargs="?",
@@ -420,9 +402,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "run":
         cfg = load_config(args.config)
-        if not _maybe_validate_config(
-            cfg, base_path=Path(args.config).resolve().parent
-        ):
+        if not _maybe_validate_config(cfg, base_path=Path(args.config).resolve().parent):
             return 1
         if args.preset:
             try:
@@ -481,9 +461,7 @@ def main(argv: list[str] | None = None) -> int:
             # Some config implementations may forbid new attrs; proceed without persisting
             pass
         log_path = (
-            Path(args.log_file)
-            if args.log_file
-            else run_logging.get_default_log_path(run_id)
+            Path(args.log_file) if args.log_file else run_logging.get_default_log_path(run_id)
         )
         do_structured = not args.no_structured_log
         if do_structured:
@@ -543,9 +521,7 @@ def main(argv: list[str] | None = None) -> int:
                     # Pick first benchmark for manifest (simple case)
                     first_bench = next(iter(bench_map.values()))
                     setattr(run_result, "benchmark", first_bench)
-                weights_user = (
-                    res.get("weights_user_weight") if isinstance(res, dict) else None
-                )
+                weights_user = res.get("weights_user_weight") if isinstance(res, dict) else None
                 if weights_user is not None:
                     setattr(run_result, "weights", weights_user)
         else:  # pragma: no cover - legacy fallback
@@ -638,9 +614,7 @@ def main(argv: list[str] | None = None) -> int:
                 formats=target_formats,
             )
             data_keys = list(data.keys())
-            artifact_paths = _resolve_artifact_paths(
-                out_dir_path, filename, data_keys, fmt_list
-            )
+            artifact_paths = _resolve_artifact_paths(out_dir_path, filename, data_keys, fmt_list)
             maybe_log_step(
                 do_structured,
                 run_id,
@@ -671,9 +645,7 @@ def main(argv: list[str] | None = None) -> int:
                     summary_text=text,
                 )
             except Exception as exc:  # pragma: no cover - defensive guard
-                logging.getLogger(__name__).warning(
-                    "Failed to write run artifacts: %s", exc
-                )
+                logging.getLogger(__name__).warning("Failed to write run artifacts: %s", exc)
             else:
                 maybe_log_step(
                     do_structured,
