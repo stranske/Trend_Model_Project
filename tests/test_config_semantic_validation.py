@@ -91,6 +91,8 @@ def test_validate_config_csv_path_wrong_type(tmp_path: Path) -> None:
     issue = next((issue for issue in result.errors if issue.path == "data.csv_path"), None)
     assert issue is not None
     assert issue.expected == "string"
+    assert issue.actual == "int"
+    assert issue.suggestion == "Provide data.csv_path as a string path to a CSV file."
 
 
 def test_validate_config_managers_glob_wrong_type(tmp_path: Path) -> None:
@@ -379,3 +381,11 @@ def test_validation_result_infers_valid_from_errors() -> None:
     result = ValidationResult(errors=[issue], warnings=[])
 
     assert not result.valid
+
+
+def test_validation_result_defaults_are_valid() -> None:
+    result = ValidationResult()
+
+    assert result.valid
+    assert result.errors == []
+    assert result.warnings == []
