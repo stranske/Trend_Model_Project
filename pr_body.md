@@ -59,7 +59,7 @@ An invalid config produced by NL should never reach the analysis pipeline. This 
 - [x] - Suggested fix (when determinable)
 - [x] CLI shows validation errors clearly
 - [x] Streamlit shows validation errors in UI
-- [ ] Unit tests cover:
+- [x] Unit tests cover:
 - [x] - Missing required fields
 - [x] - Wrong types
 - [x] - Out-of-range values

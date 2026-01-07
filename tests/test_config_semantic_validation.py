@@ -45,6 +45,16 @@ def test_validate_config_missing_required_section(tmp_path: Path) -> None:
     assert _has_path(result, "data")
 
 
+def test_validate_config_missing_portfolio_section(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg.pop("portfolio")
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    assert _has_path(result, "portfolio")
+
+
 def test_validate_config_missing_required_field(tmp_path: Path) -> None:
     cfg = _base_config(tmp_path)
     cfg["data"].pop("date_column")
