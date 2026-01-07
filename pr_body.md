@@ -51,14 +51,14 @@ An invalid config produced by NL should never reach the analysis pipeline. This 
 - [x] Add "strict mode" that treats warnings as errors
 
 #### Acceptance criteria
-- [ ] Invalid configs are rejected before reaching pipeline
-- [ ] Error messages include:
+- [x] Invalid configs are rejected before reaching pipeline
+- [x] Error messages include:
 - [x] - Which field failed
 - [x] - What was expected
 - [x] - What was provided
 - [x] - Suggested fix (when determinable)
-- [ ] CLI shows validation errors clearly
-- [ ] Streamlit shows validation errors in UI
+- [x] CLI shows validation errors clearly
+- [x] Streamlit shows validation errors in UI
 - [ ] Unit tests cover:
 - [x] - Missing required fields
 - [x] - Wrong types

@@ -354,3 +354,27 @@ def test_main_run_market_data_error(monkeypatch, capsys):
 
     assert exit_code == 1
     assert "invalid data" in captured.err
+
+
+def test_main_run_invalid_config_reports_validation(monkeypatch, capsys):
+    cfg = {"version": "1"}
+
+    monkeypatch.setattr(cli, "load_config", lambda path: cfg)
+    monkeypatch.setattr(cli, "set_cache_enabled", lambda enabled: None)
+    monkeypatch.setattr(
+        cli,
+        "load_market_data_csv",
+        lambda path: (_ for _ in ()).throw(AssertionError("load should not run")),
+    )
+    monkeypatch.setattr(
+        cli,
+        "run_simulation",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("run should not run")),
+    )
+
+    exit_code = cli.main(["run", "-c", "cfg.yml", "-i", "returns.csv"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "Config validation failed" in captured.err
+    assert "data" in captured.err
