@@ -8,6 +8,7 @@ from typing import Any, Callable, Iterable
 
 from trend_analysis.config.patch import ConfigPatch
 from trend_analysis.llm.prompts import format_config_for_prompt
+from trend_analysis.llm.schema import load_compact_schema, select_schema_sections
 
 PromptBuilder = Callable[..., str]
 
@@ -18,7 +19,7 @@ class ConfigPatchChain:
 
     llm: Any
     prompt_builder: PromptBuilder
-    schema: dict[str, Any]
+    schema: dict[str, Any] | None
     temperature: float = 0.0
     max_tokens: int | None = None
     retries: int = 1
@@ -28,7 +29,7 @@ class ConfigPatchChain:
         cls,
         *,
         llm: Any,
-        schema: dict[str, Any],
+        schema: dict[str, Any] | None = None,
         prompt_builder: PromptBuilder,
         temperature: float = 0.0,
         max_tokens: int | None = None,
@@ -61,7 +62,9 @@ class ConfigPatchChain:
             if isinstance(current_config, str)
             else format_config_for_prompt(current_config)
         )
-        schema_text = allowed_schema or self._serialize_schema()
+        schema_text = allowed_schema or self._serialize_schema(
+            self._select_schema(instruction=instruction)
+        )
         return self.prompt_builder(
             current_config=config_text,
             allowed_schema=schema_text,
@@ -110,11 +113,15 @@ class ConfigPatchChain:
         except TypeError:
             return self.llm
 
-    def _serialize_schema(self) -> str:
-        return json.dumps(self.schema, indent=2, ensure_ascii=True)
+    def _serialize_schema(self, schema: dict[str, Any]) -> str:
+        return json.dumps(schema, indent=2, ensure_ascii=True)
 
     def _parse_patch(self, response_text: str) -> ConfigPatch:
         return ConfigPatch.model_validate_json(_strip_code_fence(response_text))
+
+    def _select_schema(self, *, instruction: str) -> dict[str, Any]:
+        schema = self.schema or load_compact_schema()
+        return select_schema_sections(schema, instruction)
 
 
 def _strip_code_fence(text: str) -> str:
