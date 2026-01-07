@@ -73,6 +73,7 @@ def validate_config(
     # Skip TrendConfig Pydantic validation as it checks file existence
     # which is too strict for CLI validation before input override
     # _collect_trend_model_errors(config, errors, base)
+    _check_portfolio_selection_requirements(config, errors)
     _check_rank_value_ranges(config, errors)
     _check_date_ranges(config, errors)
     _check_rank_fund_count(config, errors, warnings, base)
@@ -514,6 +515,37 @@ def _check_rank_fund_count(
             expected=f"<= {available}",
             actual=top_n,
             suggestion=f"Reduce top_n to {available} or fewer.",
+        )
+        _append_issue(errors, issue)
+
+
+def _check_portfolio_selection_requirements(
+    config: Mapping[str, Any], errors: list[ValidationError]
+) -> None:
+    portfolio = config.get("portfolio")
+    if not isinstance(portfolio, Mapping):
+        return
+    selection_mode = portfolio.get("selection_mode")
+    if selection_mode != "rank":
+        return
+    rank_cfg = portfolio.get("rank")
+    if rank_cfg is None:
+        issue = ValidationError(
+            path="portfolio.rank",
+            message="Rank settings are required when selection_mode is rank.",
+            expected="object",
+            actual="missing",
+            suggestion="Add portfolio.rank settings or change selection_mode.",
+        )
+        _append_issue(errors, issue)
+        return
+    if not isinstance(rank_cfg, Mapping):
+        issue = ValidationError(
+            path="portfolio.rank",
+            message="Rank settings must be an object.",
+            expected="object",
+            actual=type(rank_cfg).__name__,
+            suggestion="Provide portfolio.rank as a mapping of rank settings.",
         )
         _append_issue(errors, issue)
 

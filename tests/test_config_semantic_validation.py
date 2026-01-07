@@ -150,6 +150,17 @@ def test_validate_config_top_pct_in_range(tmp_path: Path) -> None:
     assert _has_path(result, "portfolio.rank.pct")
 
 
+def test_validate_config_rank_requires_settings(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["portfolio"]["selection_mode"] = "rank"
+    cfg["portfolio"].pop("rank", None)
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    assert _has_path(result, "portfolio.rank")
+
+
 def test_validate_config_invalid_enum(tmp_path: Path) -> None:
     cfg = _base_config(tmp_path)
     cfg["sample_split"] = {"method": "unsupported"}
