@@ -41,9 +41,7 @@ LegacyExtractCacheStats = Callable[[object], dict[str, int] | None]
 
 
 class LegacyMaybeLogStep(Protocol):
-    def __call__(
-        self, enabled: bool, run_id: str, event: str, message: str, **fields: Any
-    ) -> None:
+    def __call__(self, enabled: bool, run_id: str, event: str, message: str, **fields: Any) -> None:
         # Protocol method intentionally empty; implementors provide behaviour.
         ...
 
@@ -244,9 +242,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Report which config keys were validated vs read",
     )
 
-    report_p = sub.add_parser(
-        "report", help="Generate summary artefacts for a configuration"
-    )
+    report_p = sub.add_parser("report", help="Generate summary artefacts for a configuration")
     report_p.add_argument("-c", "--config", help="Path to YAML config")
     report_p.add_argument("--returns", help="Override returns CSV path")
     report_p.add_argument(
@@ -274,9 +270,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Report which config keys were validated vs read",
     )
 
-    stress_p = sub.add_parser(
-        "stress", help="Run the pipeline against a canned stress scenario"
-    )
+    stress_p = sub.add_parser("stress", help="Run the pipeline against a canned stress scenario")
     stress_p.add_argument("-c", "--config", help="Path to YAML config")
     stress_p.add_argument(
         "--scenario",
@@ -296,12 +290,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("app", help="Launch the Streamlit application")
 
-    quick_p = sub.add_parser(
-        "quick-report", help="Build a compact HTML report from run artefacts"
-    )
-    quick_p.add_argument(
-        "--run-id", help="Run identifier (defaults to artefact inference)"
-    )
+    quick_p = sub.add_parser("quick-report", help="Build a compact HTML report from run artefacts")
+    quick_p.add_argument("--run-id", help="Run identifier (defaults to artefact inference)")
     quick_p.add_argument(
         "--artifacts",
         type=Path,
@@ -403,9 +393,7 @@ def _determine_seed(cfg: Any, override: int | None) -> int:
     return seed
 
 
-def _prepare_export_config(
-    cfg: Any, directory: Path | None, formats: Iterable[str] | None
-) -> None:
+def _prepare_export_config(cfg: Any, directory: Path | None, formats: Iterable[str] | None) -> None:
     if directory is None and formats is None:
         return
     export_cfg = dict(getattr(cfg, "export", {}) or {})
@@ -442,9 +430,7 @@ def _run_pipeline(
     if structured_log:
         log_path = log_file or run_logging.get_default_log_path(run_id)
         run_logging.init_run_logger(run_id, log_path)
-    _legacy_maybe_log_step(
-        structured_log, run_id, "start", "trend CLI execution started"
-    )
+    _legacy_maybe_log_step(structured_log, run_id, "start", "trend CLI execution started")
 
     result = run_simulation(cfg, returns_df)
     diagnostic = getattr(result, "diagnostic", None)
@@ -497,9 +483,7 @@ def _run_pipeline(
 _register_fallback("_run_pipeline", _run_pipeline)
 
 
-def _handle_exports(
-    cfg: Any, result: RunResult, structured_log: bool, run_id: str
-) -> None:
+def _handle_exports(cfg: Any, result: RunResult, structured_log: bool, run_id: str) -> None:
     export_cfg = getattr(cfg, "export", {}) or {}
     out_dir = export_cfg.get("directory")
     out_formats = export_cfg.get("formats")
@@ -592,9 +576,7 @@ def _print_summary(cfg: Any, result: RunResult) -> None:
 _register_fallback("_print_summary", _print_summary)
 
 
-def _write_report_files(
-    out_dir: Path, cfg: Any, result: RunResult, *, run_id: str
-) -> None:
+def _write_report_files(out_dir: Path, cfg: Any, result: RunResult, *, run_id: str) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     metrics_path = out_dir / f"metrics_{run_id}.csv"
     result.metrics.to_csv(metrics_path)
@@ -611,9 +593,7 @@ def _write_report_files(
     details_path = out_dir / f"details_{run_id}.json"
     with details_path.open("w", encoding="utf-8") as fh:
         json.dump(result.details, fh, default=_json_default, indent=2)
-    turnover_csv_result = _maybe_write_turnover_csv(
-        out_dir, getattr(result, "details", {})
-    )
+    turnover_csv_result = _maybe_write_turnover_csv(out_dir, getattr(result, "details", {}))
     if turnover_csv_result.diagnostic:
         logger.info(turnover_csv_result.diagnostic.message)
     print(f"Report artefacts written to {out_dir}")
@@ -622,9 +602,7 @@ def _write_report_files(
 _register_fallback("_write_report_files", _write_report_files)
 
 
-def _resolve_report_output_path(
-    output: str | None, export_dir: Path | None, run_id: str
-) -> Path:
+def _resolve_report_output_path(output: str | None, export_dir: Path | None, run_id: str) -> Path:
     if output:
         base = Path(output).expanduser()
         if base.exists() and base.is_dir():
@@ -731,13 +709,9 @@ def _require_transaction_cost_controls(cfg: Any) -> None:
             try:
                 slip_value = float(slippage)
             except (TypeError, ValueError) as exc:
-                raise TrendCLIError(
-                    "portfolio.cost_model.slippage_bps must be numeric"
-                ) from exc
+                raise TrendCLIError("portfolio.cost_model.slippage_bps must be numeric") from exc
             if slip_value < 0:
-                raise TrendCLIError(
-                    "portfolio.cost_model.slippage_bps cannot be negative"
-                )
+                raise TrendCLIError("portfolio.cost_model.slippage_bps cannot be negative")
     if cost_value is None:
         raise TrendCLIError(
             "Configuration must define portfolio.transaction_cost_bps for honest costs."
@@ -840,9 +814,7 @@ def _load_configuration(path: str) -> Any:
         load_core_config(cfg_path)
     except CoreConfigError as exc:
         raise TrendCLIError(str(exc)) from exc
-    validation = validate_config(
-        payload, base_path=cfg_path.parent, skip_required_fields=True
-    )
+    validation = validate_config(payload, base_path=cfg_path.parent, skip_required_fields=True)
     if not validation.valid:
         details = "\n".join(format_validation_messages(validation))
         raise TrendCLIError(f"Config validation failed:\n{details}")
@@ -897,18 +869,14 @@ def main(argv: list[str] | None = None) -> int:
             raise TrendCLIError(f"Unknown command: {command}")
 
         if not args.config:
-            raise TrendCLIError(
-                f"The --config option is required for the '{command}' command"
-            )
+            raise TrendCLIError(f"The --config option is required for the '{command}' command")
 
         load_config_fn = _legacy_callable("_load_configuration", _load_configuration)
         cfg_path, cfg = load_config_fn(args.config)
         if coverage_tracker is not None:
             wrap_config_for_coverage(cfg, coverage_tracker)
         ensure_run_spec(cfg, base_path=cfg_path.parent)
-        resolve_returns = _legacy_callable(
-            "_resolve_returns_path", _resolve_returns_path
-        )
+        resolve_returns = _legacy_callable("_resolve_returns_path", _resolve_returns_path)
         returns_path = resolve_returns(cfg_path, cfg, getattr(args, "returns", None))
         ensure_df = _legacy_callable("_ensure_dataframe", _ensure_dataframe)
         returns_df = ensure_df(returns_path)
@@ -938,9 +906,7 @@ def main(argv: list[str] | None = None) -> int:
                     "The 'report' command requires --out for artefacts or --output for the HTML report"
                 )
             formats = args.formats or DEFAULT_REPORT_FORMATS
-            _prepare_export_config(
-                cfg, export_dir, formats if export_dir is not None else None
-            )
+            _prepare_export_config(cfg, export_dir, formats if export_dir is not None else None)
             run_pipeline = _legacy_callable("_run_pipeline", _run_pipeline)
             result, run_id, _ = run_pipeline(
                 cfg,
@@ -953,9 +919,7 @@ def main(argv: list[str] | None = None) -> int:
             print_summary = _legacy_callable("_print_summary", _print_summary)
             print_summary(cfg, result)
             if export_dir is not None:
-                write_report = _legacy_callable(
-                    "_write_report_files", _write_report_files
-                )
+                write_report = _legacy_callable("_write_report_files", _write_report_files)
                 write_report(export_dir, cfg, result, run_id=run_id)
             report_path = _resolve_report_output_path(args.output, export_dir, run_id)
             report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -984,9 +948,7 @@ def main(argv: list[str] | None = None) -> int:
 
         if command == "stress":
             if not args.scenario:
-                raise TrendCLIError(
-                    "The --scenario option is required for the 'stress' command"
-                )
+                raise TrendCLIError("The --scenario option is required for the 'stress' command")
             _adjust_for_scenario(cfg, args.scenario)
             export_dir = Path(args.out) if args.out else None
             _prepare_export_config(cfg, export_dir, None)
@@ -1003,9 +965,7 @@ def main(argv: list[str] | None = None) -> int:
             print_summary = _legacy_callable("_print_summary", _print_summary)
             print_summary(cfg, result)
             if export_dir:
-                write_report = _legacy_callable(
-                    "_write_report_files", _write_report_files
-                )
+                write_report = _legacy_callable("_write_report_files", _write_report_files)
                 write_report(export_dir, cfg, result, run_id=run_id)
             _finalize_config_coverage()
             return 0
