@@ -562,6 +562,16 @@ def _check_rank_inclusion_requirements(
         return
 
     approach = rank_cfg.get("inclusion_approach")
+    if not _is_present(approach):
+        issue = ValidationError(
+            path="portfolio.rank.inclusion_approach",
+            message="Rank inclusion approach is required.",
+            expected="one of top_n, top_pct, threshold",
+            actual="missing" if approach is None else approach,
+            suggestion="Set portfolio.rank.inclusion_approach to 'top_n', 'top_pct', or 'threshold'.",
+        )
+        _append_issue(errors, issue)
+        return
     if approach == "top_n":
         if not _is_present(rank_cfg.get("n")):
             issue = ValidationError(
