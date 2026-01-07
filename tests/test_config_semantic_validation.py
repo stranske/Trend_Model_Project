@@ -3,7 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from trend_analysis.config.validation import format_validation_messages, validate_config
+from trend_analysis.config.validation import (
+    ValidationError,
+    ValidationResult,
+    format_validation_messages,
+    validate_config,
+)
 
 
 def _base_config(tmp_path: Path) -> dict[str, Any]:
@@ -360,3 +365,17 @@ def test_validate_config_strict_mode_treats_warnings_as_errors(tmp_path: Path) -
     assert not strict_result.valid
     assert strict_result.errors
     assert strict_result.warnings == []
+
+
+def test_validation_result_infers_valid_from_errors() -> None:
+    issue = ValidationError(
+        path="data.csv_path",
+        message="Data source is required.",
+        expected="csv_path or managers_glob",
+        actual="missing",
+        suggestion="Set data.csv_path to a CSV file or data.managers_glob to a CSV glob.",
+    )
+
+    result = ValidationResult(errors=[issue], warnings=[])
+
+    assert not result.valid

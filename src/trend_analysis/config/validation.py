@@ -9,7 +9,7 @@ from typing import Any, Iterable, Mapping
 
 import pandas as pd
 from jsonschema import Draft202012Validator
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from trend_analysis.config.model import validate_trend_config
 from trend_analysis.config.models import Config
@@ -31,6 +31,12 @@ class ValidationResult(BaseModel):
     valid: bool = True
     errors: list[ValidationError] = Field(default_factory=list)
     warnings: list[ValidationError] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _infer_valid(self) -> "ValidationResult":
+        if "valid" not in self.model_fields_set:
+            self.valid = not self.errors
+        return self
 
 
 def validate_config(
