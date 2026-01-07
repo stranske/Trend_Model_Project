@@ -140,6 +140,16 @@ def test_validate_config_top_n_requires_positive(tmp_path: Path) -> None:
     assert _has_path(result, "portfolio.rank.n")
 
 
+def test_validate_config_top_n_requires_value(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["portfolio"]["rank"] = {"inclusion_approach": "top_n"}
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    assert _has_path(result, "portfolio.rank.n")
+
+
 def test_validate_config_top_pct_in_range(tmp_path: Path) -> None:
     cfg = _base_config(tmp_path)
     cfg["portfolio"]["rank"] = {"inclusion_approach": "top_pct", "pct": 1.5}
@@ -148,6 +158,26 @@ def test_validate_config_top_pct_in_range(tmp_path: Path) -> None:
 
     assert not result.valid
     assert _has_path(result, "portfolio.rank.pct")
+
+
+def test_validate_config_top_pct_requires_value(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["portfolio"]["rank"] = {"inclusion_approach": "top_pct"}
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    assert _has_path(result, "portfolio.rank.pct")
+
+
+def test_validate_config_threshold_requires_value(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["portfolio"]["rank"] = {"inclusion_approach": "threshold"}
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    assert _has_path(result, "portfolio.rank.threshold")
 
 
 def test_validate_config_rank_requires_settings(tmp_path: Path) -> None:

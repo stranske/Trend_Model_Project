@@ -74,6 +74,7 @@ def validate_config(
     # which is too strict for CLI validation before input override
     # _collect_trend_model_errors(config, errors, base)
     _check_portfolio_selection_requirements(config, errors)
+    _check_rank_inclusion_requirements(config, errors)
     _check_rank_value_ranges(config, errors)
     _check_date_ranges(config, errors)
     _check_rank_fund_count(config, errors, warnings, base)
@@ -548,6 +549,53 @@ def _check_portfolio_selection_requirements(
             suggestion="Provide portfolio.rank as a mapping of rank settings.",
         )
         _append_issue(errors, issue)
+
+
+def _check_rank_inclusion_requirements(
+    config: Mapping[str, Any], errors: list[ValidationError]
+) -> None:
+    portfolio = config.get("portfolio")
+    if not isinstance(portfolio, Mapping):
+        return
+    rank_cfg = portfolio.get("rank")
+    if not isinstance(rank_cfg, Mapping):
+        return
+
+    approach = rank_cfg.get("inclusion_approach")
+    if approach == "top_n":
+        if not _is_present(rank_cfg.get("n")):
+            issue = ValidationError(
+                path="portfolio.rank.n",
+                message="top_n requires a rank count.",
+                expected="positive integer",
+                actual="missing",
+                suggestion="Set portfolio.rank.n to a positive integer.",
+            )
+            _append_issue(errors, issue)
+        return
+
+    if approach == "top_pct":
+        if not _is_present(rank_cfg.get("pct")):
+            issue = ValidationError(
+                path="portfolio.rank.pct",
+                message="top_pct requires a percentile threshold.",
+                expected="number between 0 and 1",
+                actual="missing",
+                suggestion="Set portfolio.rank.pct to a decimal between 0 and 1.",
+            )
+            _append_issue(errors, issue)
+        return
+
+    if approach == "threshold":
+        if not _is_present(rank_cfg.get("threshold")):
+            issue = ValidationError(
+                path="portfolio.rank.threshold",
+                message="threshold requires a cutoff value.",
+                expected="number",
+                actual="missing",
+                suggestion="Set portfolio.rank.threshold to a numeric cutoff.",
+            )
+            _append_issue(errors, issue)
 
 
 def _check_rank_value_ranges(config: Mapping[str, Any], errors: list[ValidationError]) -> None:
