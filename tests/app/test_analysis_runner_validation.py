@@ -19,8 +19,8 @@ def test_execute_analysis_raises_on_invalid_config(monkeypatch) -> None:
 
     monkeypatch.setitem(sys.modules, "streamlit", stub)
 
-    from streamlit_app.components import analysis_runner
     import trend_analysis.api as api
+    from streamlit_app.components import analysis_runner
 
     issue = ValidationError(
         path="data.csv_path",
