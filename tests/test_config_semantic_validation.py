@@ -130,6 +130,26 @@ def test_validate_config_out_of_range_value(tmp_path: Path) -> None:
     assert _has_path(result, "sample_split.ratio")
 
 
+def test_validate_config_top_n_requires_positive(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["portfolio"]["rank"] = {"inclusion_approach": "top_n", "n": 0}
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    assert _has_path(result, "portfolio.rank.n")
+
+
+def test_validate_config_top_pct_in_range(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["portfolio"]["rank"] = {"inclusion_approach": "top_pct", "pct": 1.5}
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    assert _has_path(result, "portfolio.rank.pct")
+
+
 def test_validate_config_invalid_enum(tmp_path: Path) -> None:
     cfg = _base_config(tmp_path)
     cfg["sample_split"] = {"method": "unsupported"}

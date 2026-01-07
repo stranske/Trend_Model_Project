@@ -73,6 +73,7 @@ def validate_config(
     # Skip TrendConfig Pydantic validation as it checks file existence
     # which is too strict for CLI validation before input override
     # _collect_trend_model_errors(config, errors, base)
+    _check_rank_value_ranges(config, errors)
     _check_date_ranges(config, errors)
     _check_rank_fund_count(config, errors, warnings, base)
 
@@ -515,6 +516,47 @@ def _check_rank_fund_count(
             suggestion=f"Reduce top_n to {available} or fewer.",
         )
         _append_issue(errors, issue)
+
+
+def _check_rank_value_ranges(config: Mapping[str, Any], errors: list[ValidationError]) -> None:
+    portfolio = config.get("portfolio")
+    if not isinstance(portfolio, Mapping):
+        return
+    rank_cfg = portfolio.get("rank")
+    if not isinstance(rank_cfg, Mapping):
+        return
+    approach = rank_cfg.get("inclusion_approach")
+
+    if approach == "top_n":
+        n_value = rank_cfg.get("n")
+        if isinstance(n_value, bool):
+            return
+        if isinstance(n_value, int):
+            if n_value <= 0:
+                issue = ValidationError(
+                    path="portfolio.rank.n",
+                    message="top_n must be a positive integer.",
+                    expected=">= 1",
+                    actual=n_value,
+                    suggestion="Set portfolio.rank.n to a positive integer.",
+                )
+                _append_issue(errors, issue)
+        return
+
+    if approach == "top_pct":
+        pct_value = rank_cfg.get("pct")
+        if isinstance(pct_value, bool):
+            return
+        if isinstance(pct_value, (int, float)):
+            if pct_value <= 0 or pct_value > 1:
+                issue = ValidationError(
+                    path="portfolio.rank.pct",
+                    message="top_pct must be between 0 and 1.",
+                    expected="> 0 and <= 1",
+                    actual=pct_value,
+                    suggestion="Set portfolio.rank.pct to a decimal between 0 and 1.",
+                )
+                _append_issue(errors, issue)
 
 
 def _count_available_funds(config: Mapping[str, Any], base: Path) -> int | None:
