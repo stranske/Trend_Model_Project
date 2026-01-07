@@ -94,8 +94,6 @@ def _collect_schema_errors(config: Mapping[str, Any], errors: list[ValidationErr
 def _schema_error_to_issues(error: Any) -> list[ValidationError]:
     path = _format_path(error.absolute_path)
     validator = error.validator
-    if validator == "additionalProperties":
-        return []
     message = str(error.message)
     expected = _expected_for_error(error)
     actual = error.instance
@@ -271,6 +269,7 @@ def _check_date_ranges(config: Mapping[str, Any], errors: list[ValidationError])
         return
 
     parsed: dict[str, pd.Timestamp] = {}
+    invalid_fields: set[str] = set()
     for key in required:
         raw = split.get(key)
         try:
@@ -284,7 +283,10 @@ def _check_date_ranges(config: Mapping[str, Any], errors: list[ValidationError])
                 suggestion="Use a YYYY-MM or YYYY-MM-DD formatted date.",
             )
             _append_issue(errors, issue)
-            return
+            invalid_fields.add(key)
+
+    if invalid_fields:
+        return
 
     in_start = parsed["in_start"]
     in_end = parsed["in_end"]

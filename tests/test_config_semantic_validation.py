@@ -92,6 +92,22 @@ def test_validate_config_date_range_violation(tmp_path: Path) -> None:
     )
 
 
+def test_validate_config_reports_multiple_invalid_dates(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["sample_split"] = {
+        "in_start": "bad-date",
+        "in_end": "2020-02",
+        "out_start": "2020-03",
+        "out_end": "also-bad",
+    }
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    assert _has_path(result, "sample_split.in_start")
+    assert _has_path(result, "sample_split.out_end")
+
+
 def test_validate_config_top_n_exceeds_fund_count(tmp_path: Path) -> None:
     managers_dir = tmp_path / "managers"
     managers_dir.mkdir()
