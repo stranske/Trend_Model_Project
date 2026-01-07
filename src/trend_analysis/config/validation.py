@@ -82,10 +82,14 @@ def format_validation_messages(
     return [_format_issue(issue) for issue in issues]
 
 
-def _collect_schema_errors(config: Mapping[str, Any], errors: list[ValidationError]) -> None:
+def _collect_schema_errors(
+    config: Mapping[str, Any], errors: list[ValidationError]
+) -> None:
     schema = load_schema()
     validator = Draft202012Validator(schema)
-    for error in sorted(validator.iter_errors(config), key=lambda err: list(err.absolute_path)):
+    for error in sorted(
+        validator.iter_errors(config), key=lambda err: list(err.absolute_path)
+    ):
         issues = _schema_error_to_issues(error)
         for issue in issues:
             _append_issue(errors, issue)
@@ -94,6 +98,10 @@ def _collect_schema_errors(config: Mapping[str, Any], errors: list[ValidationErr
 def _schema_error_to_issues(error: Any) -> list[ValidationError]:
     path = _format_path(error.absolute_path)
     validator = error.validator
+    # Skip additionalProperties errors as CLI configs may have fields
+    # that will be overridden (e.g., csv_path replaced by -i flag)
+    if validator == "additionalProperties":
+        return []
     message = str(error.message)
     expected = _expected_for_error(error)
     actual = error.instance
@@ -193,7 +201,9 @@ def _unexpected_property(message: str) -> str | None:
     return match.group(1) if match else None
 
 
-def _check_required_sections(config: Mapping[str, Any], errors: list[ValidationError]) -> None:
+def _check_required_sections(
+    config: Mapping[str, Any], errors: list[ValidationError]
+) -> None:
     for field in Config.REQUIRED_DICT_FIELDS:
         if field not in config:
             issue = ValidationError(
@@ -216,7 +226,9 @@ def _check_required_sections(config: Mapping[str, Any], errors: list[ValidationE
             _append_issue(errors, issue)
 
 
-def _check_version_field(config: Mapping[str, Any], errors: list[ValidationError]) -> None:
+def _check_version_field(
+    config: Mapping[str, Any], errors: list[ValidationError]
+) -> None:
     if "version" not in config:
         issue = ValidationError(
             path="version",
@@ -260,7 +272,9 @@ def _collect_trend_model_errors(
             _append_issue(errors, parsed)
 
 
-def _check_date_ranges(config: Mapping[str, Any], errors: list[ValidationError]) -> None:
+def _check_date_ranges(
+    config: Mapping[str, Any], errors: list[ValidationError]
+) -> None:
     split = config.get("sample_split")
     if not isinstance(split, Mapping):
         return
@@ -406,7 +420,9 @@ def _resolve_path(value: str, base: Path) -> Path:
     return (base / raw).resolve()
 
 
-def _error_from_exception(exc: Exception, config: Mapping[str, Any]) -> ValidationError | None:
+def _error_from_exception(
+    exc: Exception, config: Mapping[str, Any]
+) -> ValidationError | None:
     message = str(exc).strip()
     if not message:
         return None
