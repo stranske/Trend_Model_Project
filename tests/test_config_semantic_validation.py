@@ -347,6 +347,27 @@ def test_validate_config_top_n_exceeds_fund_count(tmp_path: Path) -> None:
     assert _has_path(result, "portfolio.rank.n")
 
 
+def test_validate_config_top_n_skips_fund_count_for_non_integer(tmp_path: Path) -> None:
+    managers_dir = tmp_path / "managers"
+    managers_dir.mkdir()
+    for name in ("alpha.csv", "beta.csv"):
+        (managers_dir / name).write_text("Date,Return\n2020-01-31,0.1\n", encoding="utf-8")
+
+    cfg = _base_config(tmp_path)
+    cfg["data"].pop("csv_path")
+    cfg["data"]["managers_glob"] = "managers/*.csv"
+    cfg["portfolio"]["rank"] = {"inclusion_approach": "top_n", "n": "3"}
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    assert _has_path(result, "portfolio.rank.n")
+    assert not any(
+        issue.message == "top_n exceeds the number of available funds."
+        for issue in result.errors
+    )
+
+
 def test_validation_message_includes_expected_actual_suggestion(tmp_path: Path) -> None:
     cfg = _base_config(tmp_path)
     cfg.pop("data")

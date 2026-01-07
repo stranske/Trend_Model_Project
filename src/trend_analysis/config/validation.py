@@ -506,10 +506,9 @@ def _check_rank_fund_count(
     n_value = rank_cfg.get("n")
     if n_value is None:
         return
-    try:
-        top_n = int(n_value)
-    except (TypeError, ValueError):
+    if not isinstance(n_value, int) or isinstance(n_value, bool):
         return
+    top_n = n_value
 
     available = _count_available_funds(config, base)
     if available is None:
