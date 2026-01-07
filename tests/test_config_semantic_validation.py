@@ -222,6 +222,19 @@ def test_validate_config_unexpected_field_warns(tmp_path: Path) -> None:
     assert any(issue.path == "unexpected" for issue in result.warnings)
 
 
+def test_validation_warning_includes_expected_actual_suggestion(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["unexpected"] = {"extra": True}
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    warning = next((issue for issue in result.warnings if issue.path == "unexpected"), None)
+    assert warning is not None
+    assert warning.expected
+    assert warning.actual is not None
+    assert warning.suggestion is not None
+
+
 def test_validate_config_date_range_violation(tmp_path: Path) -> None:
     cfg = _base_config(tmp_path)
     cfg["sample_split"] = {
