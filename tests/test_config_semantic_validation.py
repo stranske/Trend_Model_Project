@@ -302,5 +302,5 @@ def test_validate_config_strict_mode_treats_warnings_as_errors(tmp_path: Path) -
     assert result.errors == []
     assert result.warnings
     assert not strict_result.valid
-    assert strict_result.errors == []
-    assert strict_result.warnings
+    assert strict_result.errors
+    assert strict_result.warnings == []

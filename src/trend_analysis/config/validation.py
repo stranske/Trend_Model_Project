@@ -79,7 +79,11 @@ def validate_config(
     _check_date_ranges(config, errors)
     _check_rank_fund_count(config, errors, warnings, base)
 
-    valid = not errors and (not warnings or not strict)
+    if strict and warnings:
+        errors.extend(warnings)
+        warnings = []
+
+    valid = not errors
     return ValidationResult(valid=valid, errors=errors, warnings=warnings)
 
 
