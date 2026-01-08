@@ -297,6 +297,24 @@ def test_validation_messages_include_warnings(tmp_path: Path) -> None:
     assert any("unexpected:" in message and "Expected" in message for message in messages)
 
 
+def test_format_validation_messages_defaults_suggestion(tmp_path: Path) -> None:
+    result = ValidationResult(
+        errors=[
+            ValidationError(
+                path="sample_split.method",
+                message="Invalid selection.",
+                expected="date or ratio",
+                actual="bad",
+                suggestion=None,
+            )
+        ],
+        warnings=[],
+    )
+    messages = format_validation_messages(result, include_warnings=False)
+
+    assert any("Suggestion: Update the configuration to match the expected value." in msg for msg in messages)
+
+
 def test_validate_config_date_range_violation(tmp_path: Path) -> None:
     cfg = _base_config(tmp_path)
     cfg["sample_split"] = {
@@ -327,6 +345,27 @@ def test_validate_config_reports_multiple_invalid_dates(tmp_path: Path) -> None:
 
     assert not result.valid
     assert _has_path(result, "sample_split.in_start")
+    assert _has_path(result, "sample_split.out_end")
+
+
+def test_validate_config_ratio_requires_value(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["sample_split"] = {"method": "ratio"}
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    assert _has_path(result, "sample_split.ratio")
+
+
+def test_validate_config_date_method_requires_fields(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["sample_split"] = {"method": "date", "in_start": "2020-01", "in_end": "2020-02"}
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    assert _has_path(result, "sample_split.out_start")
     assert _has_path(result, "sample_split.out_end")
 
 

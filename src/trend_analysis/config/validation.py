@@ -102,6 +102,7 @@ def validate_config(
     # Skip TrendConfig Pydantic validation as it checks file existence
     # which is too strict for CLI validation before input override
     # _collect_trend_model_errors(config, errors, base)
+    _check_sample_split_requirements(config, errors)
     _check_portfolio_selection_requirements(config, errors)
     _check_manual_selection_requirements(config, errors)
     _check_rank_inclusion_requirements(config, errors)
@@ -511,6 +512,59 @@ def _check_date_ranges(config: Mapping[str, Any], errors: list[ValidationError])
         _append_issue(errors, issue)
 
 
+def _check_sample_split_requirements(
+    config: Mapping[str, Any], errors: list[ValidationError]
+) -> None:
+    split = config.get("sample_split")
+    if not isinstance(split, Mapping):
+        return
+    method = split.get("method")
+    if method == "ratio":
+        if not _is_present(split.get("ratio")):
+            issue = ValidationError(
+                path="sample_split.ratio",
+                message="Ratio is required when sample_split.method is ratio.",
+                expected="number between 0 and 1",
+                actual="missing",
+                suggestion="Set sample_split.ratio to a decimal between 0 and 1.",
+            )
+            _append_issue(errors, issue)
+        return
+    if method == "date":
+        _require_field(
+            errors,
+            split,
+            "sample_split",
+            "in_start",
+            expected="non-empty string",
+            suggestion="Set sample_split.in_start to a valid date string.",
+        )
+        _require_field(
+            errors,
+            split,
+            "sample_split",
+            "in_end",
+            expected="non-empty string",
+            suggestion="Set sample_split.in_end to a valid date string.",
+        )
+        _require_field(
+            errors,
+            split,
+            "sample_split",
+            "out_start",
+            expected="non-empty string",
+            suggestion="Set sample_split.out_start to a valid date string.",
+        )
+        _require_field(
+            errors,
+            split,
+            "sample_split",
+            "out_end",
+            expected="non-empty string",
+            suggestion="Set sample_split.out_end to a valid date string.",
+        )
+
+
 def _check_rank_fund_count(
     config: Mapping[str, Any],
     errors: list[ValidationError],
@@ -860,10 +914,9 @@ def _join_path(base: str, leaf: str) -> str:
 
 def _format_issue(issue: ValidationError) -> str:
     actual = _format_actual(issue.actual)
+    suggestion = issue.suggestion or "Update the configuration to match the expected value."
     text = f"{issue.path}: {issue.message} Expected {issue.expected}, got {actual}."
-    if issue.suggestion:
-        text = f"{text} Suggestion: {issue.suggestion}"
-    return text
+    return f"{text} Suggestion: {suggestion}"
 
 
 def _format_actual(actual: Any) -> str:
