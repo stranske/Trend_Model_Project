@@ -8,8 +8,8 @@ import pytest
 
 pytest.importorskip("langchain_core")
 
-from pydantic import ValidationError
 from langchain_core.runnables import RunnableLambda
+from pydantic import ValidationError
 
 from trend_analysis.llm.chain import ConfigPatchChain
 from trend_analysis.llm.prompts import build_config_patch_prompt

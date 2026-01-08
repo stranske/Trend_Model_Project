@@ -64,8 +64,10 @@ class ConfigPatchChain:
     ) -> "ConfigPatchChain":
         """Build a chain using environment overrides for model/temperature."""
 
-        env_temperature = temperature if temperature is not None else _read_env_float(
-            "TREND_LLM_TEMPERATURE", default=0.0
+        env_temperature = (
+            temperature
+            if temperature is not None
+            else _read_env_float("TREND_LLM_TEMPERATURE", default=0.0)
         )
         env_model = model if model is not None else os.environ.get("TREND_LLM_MODEL")
         return cls(
