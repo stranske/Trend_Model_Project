@@ -125,3 +125,29 @@ def test_config_patch_chain_unknown_keys_raise() -> None:
             current_config={"portfolio": {"max_weight": 0.2}},
             instruction="Do nothing.",
         )
+
+
+def test_config_patch_chain_omits_unknown_key_instruction() -> None:
+    def _respond(prompt_value, **_kwargs) -> str:
+        _ = prompt_value.to_messages()
+        payload = {
+            "operations": [],
+            "risk_flags": [],
+            "summary": "Unknown key portfolio.unknown_setting; no changes applied.",
+        }
+        return json.dumps(payload)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+    )
+
+    patch = chain.run(
+        current_config={"portfolio": {"max_weight": 0.2}},
+        instruction="Set portfolio.unknown_setting to 0.5.",
+    )
+
+    assert patch.operations == []
+    assert "unknown key" in patch.summary.lower()
