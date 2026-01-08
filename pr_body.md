@@ -6,67 +6,45 @@
 <!-- auto-status-summary:start -->
 ## Automated Status Summary
 #### Scope
-An invalid config produced by NL should never reach the analysis pipeline. This safety gate:
-- Prevents cryptic runtime errors deep in the pipeline
-- Gives users actionable feedback on what's wrong
-- Maintains trust that NL changes are safe
+This is the core NL component: a LangChain chain that takes a user instruction and current config, then produces a valid `ConfigPatch` as structured output. Using a deterministic chain (not an agent) gives us predictable, auditable behavior.
 
 #### Tasks
-- [x] Create `validate_config(config: dict) -> ValidationResult`:
-- [x] - Run existing config validation if any
-- [x] - Add additional semantic checks
-- [x] - Return structured result with all errors
-- [x] Define `ValidationResult` model:
-- [x] ```python
-- [x] class ValidationError(BaseModel):
-- [x] path: str           # e.g., "analysis.top_n"
-- [x] message: str        # Human-readable error
-- [x] expected: str       # What was expected
-- [x] actual: Any         # What was provided
-- [x] suggestion: str | None  # How to fix
-- [x] class ValidationResult(BaseModel):
-- [x] valid: bool
-- [x] errors: list[ValidationError]
-- [x] warnings: list[ValidationError]
-- [x] ```
-- [x] Implement semantic validations:
-- [x] - Required fields present
-- [x] - Types match expected (int, float, str, list, dict)
-- [x] - Data source types validated (csv_path, managers_glob)
-- [x] - Values within allowed ranges
-- [x] - Enum values are valid choices
-- [x] - Date ranges make sense (in_start < in_end < out_start < out_end)
-- [x] - Cross-field consistency (e.g., top_n <= number of available funds)
-- [x] Convert validation errors to user-readable messages:
-- [x] - Include the config path that failed
-- [x] - State what was expected
-- [x] - Show what was provided
-- [x] - Suggest a fix when possible
-- [x] Integrate with patch application flow:
-- [x] ```python
-- [x] def apply_and_validate(config: dict, patch: ConfigPatch) -> tuple[dict, ValidationResult]:
-- [x] new_config = apply_patch(config, patch)
-- [x] result = validate_config(new_config)
-- [x] return new_config, result
-- [x] ```
-- [x] Add "strict mode" that treats warnings as errors
+- [x] Design prompt template with sections:
+- [x] - System prompt explaining the task
+- [x] - Current config (or relevant excerpt)
+- [x] - Allowed schema (from Issue 4)
+- [x] - Safety rules (don't invent keys, flag risks)
+- [x] - User instruction
+- [ ] Implement `ConfigPatchChain` using LangChain:
+- [x] Define the class structure. (verify: confirm completion in repo)
+- [x] Define methods. (verify: confirm completion in repo)
+- [x] Implement the run method. (verify: confirm completion in repo)
+- [x] Integrate with LangChain. (verify: confirm completion in repo)
+- [ ] Configure model settings for reliability:
+- [x] Set low temperature. (verify: confirm completion in repo)
+- [ ] Enforce structured output. (verify: confirm completion in repo)
+- [ ] Determine max tokens for patch size. (verify: confirm completion in repo)
+- [ ] Implement schema injection:
+- [ ] Include compact schema in prompt. (verify: confirm completion in repo)
+- [ ] Limit to relevant sections based on instruction. (verify: confirm completion in repo)
+- [ ] Add self-check step:
+- [ ] Validate patch references known keys. (verify: confirm completion in repo)
+- [ ] Flag unknown keys for human review. (verify: confirm completion in repo)
+- [ ] Implement rejection criteria based on unknown keys. (verify: confirm completion in repo)
+- [ ] Implement retry logic:
+- [ ] Implement retry on parsing failure. (verify: confirm completion in repo)
+- [ ] Include previous error in retry prompt. (verify: confirm completion in repo)
+- [ ] Add provider abstraction:
+- [ ] Support OpenAI. (verify: confirm completion in repo)
+- [ ] Support Anthropic Claude. (verify: confirm completion in repo)
+- [ ] Support local Ollama. (verify: confirm completion in repo)
 
 #### Acceptance criteria
-- [x] Invalid configs are rejected before reaching pipeline
-- [x] Error messages include:
-- [x] - Which field failed
-- [x] - What was expected
-- [x] - What was provided
-- [x] - Suggested fix (when determinable)
-- [x] - CLI output includes expected/actual/suggestion phrasing
-- [x] CLI shows validation errors clearly
-- [x] Streamlit shows validation errors in UI
-- [x] Unit tests cover:
-- [x] - Missing required fields
-- [x] - Wrong types
-- [x] - Out-of-range values
-- [x] - Invalid enum values
-- [x] - Date range violations
-- [x] - Cross-field inconsistencies
+- [ ] Chain produces valid ConfigPatch for a defined set of common instructions.
+- [ ] Define specific test cases and metrics for structured output parsing reliability (≥95% success rate).
+- [ ] Unknown keys are flagged, not silently included.
+- [ ] Local eval harness exists for testing prompts.
+- [ ] Temperature and model settings are configurable.
+- [ ] Chain works with at least 2 LLM providers.
 
 <!-- auto-status-summary:end -->
