@@ -312,7 +312,10 @@ def test_format_validation_messages_defaults_suggestion(tmp_path: Path) -> None:
     )
     messages = format_validation_messages(result, include_warnings=False)
 
-    assert any("Suggestion: Update the configuration to match the expected value." in msg for msg in messages)
+    assert any(
+        "Suggestion: Update the configuration to match the expected value." in msg
+        for msg in messages
+    )
 
 
 def test_validate_config_date_range_violation(tmp_path: Path) -> None:
