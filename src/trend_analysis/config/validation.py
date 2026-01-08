@@ -307,97 +307,15 @@ def _check_required_sections(config: Mapping[str, Any], errors: list[ValidationE
 def _check_required_fields(config: Mapping[str, Any], errors: list[ValidationError]) -> None:
     data = config.get("data")
     if isinstance(data, Mapping):
-        csv_path = data.get("csv_path")
-        if csv_path is not None and not isinstance(csv_path, str):
-            issue = ValidationError(
-                path="data.csv_path",
-                message="CSV path must be a string.",
-                expected="string",
-                actual=type(csv_path).__name__,
-                suggestion="Provide data.csv_path as a string path to a CSV file.",
-            )
-            _append_issue(errors, issue)
-        managers_glob = data.get("managers_glob")
-        if managers_glob is not None and not isinstance(managers_glob, str):
-            issue = ValidationError(
-                path="data.managers_glob",
-                message="Managers glob must be a string.",
-                expected="string",
-                actual=type(managers_glob).__name__,
-                suggestion="Provide data.managers_glob as a glob string to CSV files.",
-            )
-            _append_issue(errors, issue)
-        _require_field(
-            errors,
-            data,
-            "data",
-            "date_column",
-            expected="non-empty string",
-            suggestion="Set data.date_column to the date column name (e.g., 'Date').",
-        )
-        _require_field(
-            errors,
-            data,
-            "data",
-            "frequency",
-            expected="non-empty string",
-            suggestion="Set data.frequency to one of the supported values (e.g., 'M').",
-        )
-        if not _is_present(csv_path) and not _is_present(managers_glob):
-            issue = ValidationError(
-                path="data.csv_path",
-                message="Data source is required.",
-                expected="csv_path or managers_glob",
-                actual="missing",
-                suggestion="Set data.csv_path to a CSV file or data.managers_glob to a CSV glob.",
-            )
-            _append_issue(errors, issue)
+        _check_data_required_fields(data, errors)
 
     portfolio = config.get("portfolio")
     if isinstance(portfolio, Mapping):
-        _require_field(
-            errors,
-            portfolio,
-            "portfolio",
-            "selection_mode",
-            expected="non-empty string",
-            suggestion="Set portfolio.selection_mode (e.g., 'all').",
-        )
-        _require_field(
-            errors,
-            portfolio,
-            "portfolio",
-            "rebalance_calendar",
-            expected="non-empty string",
-            suggestion="Set portfolio.rebalance_calendar (e.g., 'NYSE').",
-        )
-        _require_field(
-            errors,
-            portfolio,
-            "portfolio",
-            "max_turnover",
-            expected="number",
-            suggestion="Set portfolio.max_turnover to a numeric value (e.g., 1.0).",
-        )
-        _require_field(
-            errors,
-            portfolio,
-            "portfolio",
-            "transaction_cost_bps",
-            expected="number",
-            suggestion="Set portfolio.transaction_cost_bps to a numeric value (e.g., 0).",
-        )
+        _check_portfolio_required_fields(portfolio, errors)
 
     vol_adjust = config.get("vol_adjust")
     if isinstance(vol_adjust, Mapping):
-        _require_field(
-            errors,
-            vol_adjust,
-            "vol_adjust",
-            "target_vol",
-            expected="number",
-            suggestion="Set vol_adjust.target_vol to a numeric target (e.g., 0.1).",
-        )
+        _check_vol_adjust_required_fields(vol_adjust, errors)
 
 
 def _check_version_field(config: Mapping[str, Any], errors: list[ValidationError]) -> None:
@@ -470,6 +388,104 @@ def _is_present(value: Any) -> bool:
     if isinstance(value, str):
         return bool(value.strip())
     return True
+
+
+def _check_data_required_fields(data: Mapping[str, Any], errors: list[ValidationError]) -> None:
+    csv_path = data.get("csv_path")
+    if csv_path is not None and not isinstance(csv_path, str):
+        issue = ValidationError(
+            path="data.csv_path",
+            message="CSV path must be a string.",
+            expected="string",
+            actual=type(csv_path).__name__,
+            suggestion="Provide data.csv_path as a string path to a CSV file.",
+        )
+        _append_issue(errors, issue)
+    managers_glob = data.get("managers_glob")
+    if managers_glob is not None and not isinstance(managers_glob, str):
+        issue = ValidationError(
+            path="data.managers_glob",
+            message="Managers glob must be a string.",
+            expected="string",
+            actual=type(managers_glob).__name__,
+            suggestion="Provide data.managers_glob as a glob string to CSV files.",
+        )
+        _append_issue(errors, issue)
+    _require_field(
+        errors,
+        data,
+        "data",
+        "date_column",
+        expected="non-empty string",
+        suggestion="Set data.date_column to the date column name (e.g., 'Date').",
+    )
+    _require_field(
+        errors,
+        data,
+        "data",
+        "frequency",
+        expected="non-empty string",
+        suggestion="Set data.frequency to one of the supported values (e.g., 'M').",
+    )
+    if not _is_present(csv_path) and not _is_present(managers_glob):
+        issue = ValidationError(
+            path="data.csv_path",
+            message="Data source is required.",
+            expected="csv_path or managers_glob",
+            actual="missing",
+            suggestion="Set data.csv_path to a CSV file or data.managers_glob to a CSV glob.",
+        )
+        _append_issue(errors, issue)
+
+
+def _check_portfolio_required_fields(
+    portfolio: Mapping[str, Any], errors: list[ValidationError]
+) -> None:
+    _require_field(
+        errors,
+        portfolio,
+        "portfolio",
+        "selection_mode",
+        expected="non-empty string",
+        suggestion="Set portfolio.selection_mode (e.g., 'all').",
+    )
+    _require_field(
+        errors,
+        portfolio,
+        "portfolio",
+        "rebalance_calendar",
+        expected="non-empty string",
+        suggestion="Set portfolio.rebalance_calendar (e.g., 'NYSE').",
+    )
+    _require_field(
+        errors,
+        portfolio,
+        "portfolio",
+        "max_turnover",
+        expected="number",
+        suggestion="Set portfolio.max_turnover to a numeric value (e.g., 1.0).",
+    )
+    _require_field(
+        errors,
+        portfolio,
+        "portfolio",
+        "transaction_cost_bps",
+        expected="number",
+        suggestion="Set portfolio.transaction_cost_bps to a numeric value (e.g., 0).",
+    )
+
+
+def _check_vol_adjust_required_fields(
+    vol_adjust: Mapping[str, Any], errors: list[ValidationError]
+) -> None:
+    _require_field(
+        errors,
+        vol_adjust,
+        "vol_adjust",
+        "target_vol",
+        expected="number",
+        suggestion="Set vol_adjust.target_vol to a numeric target (e.g., 0.1).",
+    )
 
 
 def _collect_trend_model_errors(
