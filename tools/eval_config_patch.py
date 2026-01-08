@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-
 from langchain_core.runnables import RunnableLambda
 
 from trend_analysis.config.patch import ConfigPatch
