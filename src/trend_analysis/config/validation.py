@@ -94,21 +94,13 @@ def validate_config(
 
     base = base_path or proj_path()
 
-    _collect_schema_errors(config, errors, warnings)
-    _check_required_sections(config, errors)
-    if not skip_required_fields:
-        _check_required_fields(config, errors)
-    _check_version_field(config, errors)
+    _run_schema_validation(config, errors, warnings)
+    _run_required_validation(config, errors, skip_required_fields)
     # Skip TrendConfig Pydantic validation as it checks file existence
     # which is too strict for CLI validation before input override
     # _collect_trend_model_errors(config, errors, base)
-    _check_sample_split_requirements(config, errors)
-    _check_portfolio_selection_requirements(config, errors)
-    _check_manual_selection_requirements(config, errors)
-    _check_rank_inclusion_requirements(config, errors)
-    _check_rank_value_ranges(config, errors)
-    _check_date_ranges(config, errors)
-    _check_rank_fund_count(config, errors, warnings, base)
+    _run_sample_split_validation(config, errors)
+    _run_portfolio_validation(config, errors, warnings, base)
 
     if strict and warnings:
         errors.extend(warnings)
@@ -116,6 +108,46 @@ def validate_config(
 
     valid = not errors
     return ValidationResult(valid=valid, errors=errors, warnings=warnings)
+
+
+def _run_schema_validation(
+    config: Mapping[str, Any],
+    errors: list[ValidationError],
+    warnings: list[ValidationError],
+) -> None:
+    _collect_schema_errors(config, errors, warnings)
+
+
+def _run_required_validation(
+    config: Mapping[str, Any],
+    errors: list[ValidationError],
+    skip_required_fields: bool,
+) -> None:
+    _check_required_sections(config, errors)
+    if not skip_required_fields:
+        _check_required_fields(config, errors)
+    _check_version_field(config, errors)
+
+
+def _run_sample_split_validation(
+    config: Mapping[str, Any],
+    errors: list[ValidationError],
+) -> None:
+    _check_sample_split_requirements(config, errors)
+    _check_date_ranges(config, errors)
+
+
+def _run_portfolio_validation(
+    config: Mapping[str, Any],
+    errors: list[ValidationError],
+    warnings: list[ValidationError],
+    base: Path,
+) -> None:
+    _check_portfolio_selection_requirements(config, errors)
+    _check_manual_selection_requirements(config, errors)
+    _check_rank_inclusion_requirements(config, errors)
+    _check_rank_value_ranges(config, errors)
+    _check_rank_fund_count(config, errors, warnings, base)
 
 
 def format_validation_messages(
