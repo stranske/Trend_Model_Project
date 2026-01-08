@@ -721,102 +721,12 @@ async function resolvePrNumber({ github, context, core, payload: overridePayload
 }
 
 /**
- * Fetch logs for failed CI jobs
- * @param {object} params - Parameters
- * @param {object} params.github - GitHub API client
- * @param {object} params.context - GitHub context
- * @param {Array} params.failedJobObjects - Array of job objects with id and name
- * @param {object} [params.core] - Core for logging
- * @param {number} [params.maxLogLength=50000] - Max characters per job log
- * @returns {Promise<Array<{jobName: string, jobId: number, logs: string}>>}
- */
-async function fetchFailedJobLogs({ github, context, failedJobObjects, core, maxLogLength = 50000 }) {
-  if (!failedJobObjects?.length || !github?.rest?.actions?.downloadJobLogsForWorkflowRun) {
-    return [];
-  }
-
-  const results = [];
-  for (const job of failedJobObjects.slice(0, 3)) { // Limit to 3 jobs to avoid token bloat
-    const jobId = Number(job?.id) || 0;
-    if (!jobId) continue;
-
-    try {
-      const response = await github.rest.actions.downloadJobLogsForWorkflowRun({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        job_id: jobId,
-      });
-
-      let logText = extractRateLimitLogText(response?.data) || '';
-      
-      // Truncate if too long, keeping end (usually has errors)
-      if (logText.length > maxLogLength) {
-        const half = Math.floor(maxLogLength / 2);
-        logText = `${logText.slice(0, half)}\n\n[...truncated ${logText.length - maxLogLength} chars...]\n\n${logText.slice(-half)}`;
-      }
-
-      results.push({
-        jobName: job.name || `Job ${jobId}`,
-        jobId,
-        logs: logText,
-      });
-
-      if (core) core.info(`[keepalive] Fetched ${logText.length} chars of logs for job: ${job.name}`);
-    } catch (error) {
-      if (core) core.info(`[keepalive] Failed to fetch logs for job ${job.name}: ${error.message}`);
-    }
-  }
-
-  return results;
-}
-
-/**
- * Format CI failure logs for inclusion in task appendix
- * @param {Array<{jobName: string, logs: string}>} jobLogs - Array of job log objects
- * @param {string} failureType - Type of failure (test/mypy/lint/unknown)
- * @returns {string} Formatted markdown section
- */
-function formatCIFailureLogs(jobLogs, failureType) {
-  if (!jobLogs?.length) {
-    return '';
-  }
-
-  const lines = [
-    '',
-    '---',
-    '## CI Failure Logs',
-    '',
-    `**Failure Type:** ${failureType}`,
-    '',
-    'Review these logs to understand what failed and fix the root cause:',
-    '',
-  ];
-
-  for (const { jobName, logs } of jobLogs) {
-    lines.push(`### ${jobName}`);
-    lines.push('```');
-    lines.push(logs);
-    lines.push('```');
-    lines.push('');
-  }
-
-  lines.push('**Instructions:**');
-  lines.push('1. Identify the failing test(s) or error(s) in the logs above');
-  lines.push('2. Locate the relevant source files that need fixing');
-  lines.push('3. Make targeted fixes to resolve the failures');
-  lines.push('4. Do NOT disable tests or add broad type ignores unless absolutely necessary');
-  lines.push('');
-
-  return lines.join('\n');
-}
-
-/**
  * Classify gate failure type to determine appropriate fix mode
- * @returns {Object} { failureType, shouldFixMode, failedJobs, failedJobObjects, runId }
+ * @returns {Object} { failureType: 'test'|'mypy'|'lint'|'none'|'unknown', shouldFixMode: boolean, failedJobs: string[] }
  */
 async function classifyGateFailure({ github, context, pr, core }) {
   if (!pr) {
-    return { failureType: 'unknown', shouldFixMode: false, failedJobs: [], failedJobObjects: [], runId: 0 };
+    return { failureType: 'unknown', shouldFixMode: false, failedJobs: [] };
   }
 
   try {
@@ -832,7 +742,7 @@ async function classifyGateFailure({ github, context, pr, core }) {
 
     const run = data?.workflow_runs?.find((r) => r.head_sha === pr.head.sha);
     if (!run || run.conclusion === 'success') {
-      return { failureType: 'none', shouldFixMode: false, failedJobs: [], failedJobObjects: [], runId: 0 };
+      return { failureType: 'none', shouldFixMode: false, failedJobs: [] };
     }
 
     // Get jobs for this run to identify what failed
@@ -842,12 +752,12 @@ async function classifyGateFailure({ github, context, pr, core }) {
       run_id: run.id,
     });
 
-    const failedJobObjects = (jobsData?.jobs || [])
-      .filter((job) => job.conclusion === 'failure');
-    const failedJobs = failedJobObjects.map((job) => job.name.toLowerCase());
+    const failedJobs = (jobsData?.jobs || [])
+      .filter((job) => job.conclusion === 'failure')
+      .map((job) => job.name.toLowerCase());
 
     if (failedJobs.length === 0) {
-      return { failureType: 'unknown', shouldFixMode: false, failedJobs: [], failedJobObjects: [], runId: run.id };
+      return { failureType: 'unknown', shouldFixMode: false, failedJobs: [] };
     }
 
     // Classify failure type based on job names
@@ -879,10 +789,10 @@ async function classifyGateFailure({ github, context, pr, core }) {
       core.info(`[keepalive] Gate failure classification: type=${failureType}, shouldFixMode=${shouldFixMode}, failedJobs=[${failedJobs.join(', ')}]`);
     }
 
-    return { failureType, shouldFixMode, failedJobs, failedJobObjects, runId: run.id };
+    return { failureType, shouldFixMode, failedJobs };
   } catch (error) {
     if (core) core.info(`Failed to classify gate failure: ${error.message}`);
-    return { failureType: 'unknown', shouldFixMode: true, failedJobs: [], failedJobObjects: [], runId: 0 };
+    return { failureType: 'unknown', shouldFixMode: true, failedJobs: [] };
   }
 }
 
@@ -1134,12 +1044,6 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
   const maxIterations = toNumber(config.max_iterations ?? state.max_iterations, 5);
   const failureThreshold = toNumber(config.failure_threshold ?? state.failure_threshold, 3);
 
-  // Fix attempt tracking: separate counter for CI fix attempts
-  // This prevents fix loops from eating into feature work iteration budget
-  const fixAttempts = toNumber(state.fix_attempts, 0);
-  const maxFixAttempts = toNumber(config.max_fix_attempts ?? state.max_fix_attempts, 3);
-  const lastGateConclusion = normalise(state.gate_conclusion).toLowerCase();
-
   // Evidence-based productivity tracking
   // Uses multiple signals to determine if work is being done:
   // 1. File changes (primary signal)
@@ -1180,11 +1084,10 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
   const shouldStopEarly = diminishingReturns && iteration >= Math.ceil(maxIterations * 0.6);
 
   // Build task appendix for the agent prompt (after state load for reconciliation info)
-  let taskAppendix = buildTaskAppendix(normalisedSections, checkboxCounts, state, { prBody: pr.body });
+  const taskAppendix = buildTaskAppendix(normalisedSections, checkboxCounts, state, { prBody: pr.body });
 
   let action = 'wait';
   let reason = 'pending';
-  let gateFailure = null; // Track gate failure for CI log fetching
   const verificationStatus = normalise(state?.verification?.status)?.toLowerCase();
   const verificationDone = ['done', 'verified', 'complete'].includes(verificationStatus);
   const needsVerification = allComplete && !verificationDone;
@@ -1217,17 +1120,8 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
       }
     } else {
       // Gate failed - check if we should route to fix mode or wait
-      gateFailure = await classifyGateFailure({ github, context, pr, core });
-      
-      // Check if we've exhausted fix attempts
-      const fixAttemptsExhausted = fixAttempts >= maxFixAttempts;
-      
-      if (fixAttemptsExhausted && gateFailure.shouldFixMode && gateNormalized === 'failure') {
-        // Too many fix attempts - stop and require human intervention
-        action = 'stop';
-        reason = 'max-fix-attempts';
-        if (core) core.info(`[keepalive] Fix attempts exhausted (${fixAttempts}/${maxFixAttempts}), stopping`);
-      } else if (gateFailure.shouldFixMode && gateNormalized === 'failure') {
+      const gateFailure = await classifyGateFailure({ github, context, pr, core });
+      if (gateFailure.shouldFixMode && gateNormalized === 'failure') {
         action = 'fix';
         reason = `fix-${gateFailure.failureType}`;
       } else if (forceRetry && tasksRemaining) {
@@ -1260,26 +1154,6 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     reason = iteration >= maxIterations ? 'ready-extended' : 'ready';
   }
 
-  // When in fix mode, fetch CI failure logs and append to task context
-  if (action === 'fix' && gateFailure?.failedJobObjects?.length > 0) {
-    try {
-      const jobLogs = await fetchFailedJobLogs({
-        github,
-        context,
-        failedJobObjects: gateFailure.failedJobObjects,
-        core,
-        maxLogLength: 40000, // ~40KB per job, ~120KB max for 3 jobs
-      });
-      if (jobLogs.length > 0) {
-        const ciLogsSection = formatCIFailureLogs(jobLogs, gateFailure.failureType);
-        taskAppendix = taskAppendix + ciLogsSection;
-        if (core) core.info(`[keepalive] Appended ${jobLogs.length} CI failure log(s) to task appendix`);
-      }
-    } catch (error) {
-      if (core) core.info(`[keepalive] Failed to fetch CI logs for fix mode: ${error.message}`);
-    }
-  }
-
   const promptScenario = normalise(config.prompt_scenario);
   const promptModeOverride = normalise(config.prompt_mode);
   const promptFileOverride = normalise(config.prompt_file);
@@ -1305,8 +1179,6 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     iteration,
     maxIterations,
     failureThreshold,
-    fixAttempts,
-    maxFixAttempts,
     checkboxCounts,
     hasAgentLabel,
     agentType,
@@ -1435,34 +1307,7 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     agentFilesChanged > 0 && 
     tasksCompletedThisRound <= 0;
 
-  // Fix attempt tracking: separate counter for CI fix attempts
-  // This prevents fix loops from eating into feature work iteration budget
-  const previousFixAttempts = toNumber(previousState?.fix_attempts, 0);
-  const previousGateConclusion = normalise(previousState?.gate_conclusion).toLowerCase();
-  const maxFixAttempts = toNumber(previousState?.max_fix_attempts ?? inputs.max_fix_attempts, 3);
-  let nextFixAttempts = previousFixAttempts;
-
-  // Determine if gate recovered (went from failure to success)
-  const gateRecovered = previousGateConclusion === 'failure' && gateConclusion === 'success';
-
-  if (action === 'fix') {
-    // Fix mode was attempted - track it
-    if (runResult === 'success') {
-      // Fix attempt completed (doesn't mean gate passed yet, just that Codex ran)
-      nextFixAttempts = previousFixAttempts + 1;
-      // Don't clear regular failure state - fix success just means Codex ran
-    } else if (runResult && runResult !== 'success') {
-      // Fix attempt failed to run
-      if (runResult === 'skipped' || runResult === 'cancelled') {
-        summaryReason = `fix-${runResult}`;
-      } else if (isTransientFailure) {
-        summaryReason = 'fix-transient';
-      } else {
-        nextFixAttempts = previousFixAttempts + 1;
-        summaryReason = 'fix-failed';
-      }
-    }
-  } else if (action === 'run') {
+  if (action === 'run') {
     if (runResult === 'success') {
       nextIteration = currentIteration + 1;
       failure = {};
@@ -1526,13 +1371,6 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
       // Clear failure state for transient wait conditions
       failure = {};
     }
-  }
-
-  // Reset fix attempts when gate recovers (failure → success)
-  // This gives a fresh budget for any future CI issues
-  if (gateRecovered) {
-    if (core) core.info(`[keepalive] Gate recovered (${previousGateConclusion} → ${gateConclusion}), resetting fix attempts`);
-    nextFixAttempts = 0;
   }
 
   const failureDetails = classifyFailureDetails({
@@ -1792,51 +1630,20 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     );
   }
 
-  // Show fix attempt tracking if there have been fix attempts
-  if (nextFixAttempts > 0) {
-    const fixIcon = nextFixAttempts >= maxFixAttempts ? '🛑' : '🔧';
-    summaryLines.push(
-      '',
-      `### ${fixIcon} CI Fix Attempts`,
-      `| Fix attempts | ${nextFixAttempts}/${maxFixAttempts} |`,
-      `| Status | ${nextFixAttempts >= maxFixAttempts ? 'Exhausted - requires human intervention' : 'In progress'} |`,
-    );
-    if (gateRecovered) {
-      summaryLines.push(`| Gate recovered | ✅ Yes (fix attempts will reset) |`);
-    }
-  }
-
-  // Handle max-fix-attempts as a stop condition
-  const isFixExhaustedStop = reason === 'max-fix-attempts' || summaryReason === 'max-fix-attempts';
-  if (isFixExhaustedStop && !stop) {
-    stop = true;
-  }
-
   if (stop) {
-    const isFixStop = isFixExhaustedStop || nextFixAttempts >= maxFixAttempts;
-    const pauseTitle = isFixStop 
-      ? '### 🛑 Paused – CI Fix Attempts Exhausted'
-      : '### 🛑 Paused – Human Attention Required';
-    const pauseReason = isFixStop
-      ? `The keepalive loop has paused after ${nextFixAttempts} unsuccessful CI fix attempts.`
-      : 'The keepalive loop has paused due to repeated failures.';
-    const resetHint = isFixStop
-      ? '_Or manually edit this comment to reset `fix_attempts: 0` in the state below._'
-      : '_Or manually edit this comment to reset `failure: {}` in the state below._';
-    
     summaryLines.push(
       '',
-      pauseTitle,
+      '### 🛑 Paused – Human Attention Required',
       '',
-      pauseReason,
+      'The keepalive loop has paused due to repeated failures.',
       '',
       '**To resume:**',
       '1. Investigate the failure reason above',
-      '2. Fix any issues in the code or tests',
+      '2. Fix any issues in the code or prompt',
       '3. Remove the `needs-human` label from this PR',
       '4. The next Gate pass will restart the loop',
       '',
-      resetHint,
+      '_Or manually edit this comment to reset `failure: {}` in the state below._',
     );
   }
 
@@ -1874,9 +1681,6 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     tasks: { total: tasksTotal, unchecked: tasksUnchecked },
     gate_conclusion: gateConclusion,
     failure_threshold: failureThreshold,
-    // Fix attempt tracking: separate counter for CI fix attempts
-    fix_attempts: nextFixAttempts,
-    max_fix_attempts: maxFixAttempts,
     // Track task reconciliation for next iteration
     needs_task_reconciliation: madeChangesButNoTasksChecked,
     // Productivity tracking for evidence-based decisions
