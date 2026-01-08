@@ -24,7 +24,7 @@ class ConstraintSet:
     cash_weight: float | None = None  # Fixed allocation to CASH (exact slice)
 
 
-def _safe_sum(values: pd.Series | pd.Index | np.ndarray) -> float:
+def _safe_sum(values: pd.Series | pd.Index | np.ndarray[Any, Any]) -> float:
     """Sum values without relying on pandas/numpy default sentinels."""
 
     data = values.to_numpy() if hasattr(values, "to_numpy") else np.asarray(values)

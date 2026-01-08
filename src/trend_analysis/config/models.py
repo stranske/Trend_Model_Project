@@ -54,6 +54,9 @@ class ConfigProtocol(Protocol):
     """Type protocol for Config class that works in both Pydantic and fallback
     modes."""
 
+    REQUIRED_DICT_FIELDS: ClassVar[List[str]]
+    ALL_FIELDS: ClassVar[List[str]]
+
     version: str
     data: dict[str, Any]
     preprocessing: dict[str, Any]
@@ -427,7 +430,6 @@ else:  # Fallback mode for tests without pydantic
             "performance",
             "output",
             "run",
-            "multi_period",
             "jobs",
             "checkpoint_dir",
             "seed",
@@ -470,7 +472,6 @@ else:  # Fallback mode for tests without pydantic
                 "performance": {},
                 "output": None,
                 "run": {},
-                "multi_period": None,
                 "jobs": None,
                 "checkpoint_dir": None,
                 "seed": 42,

@@ -27,6 +27,7 @@ def test_cli_no_structured_log(tmp_path: Path):
             "frequency": "M",
             "risk_free_column": "RF",
             "allow_risk_free_fallback": False,
+            "missing_policy": "drop",
         },
         "preprocessing": {},
         "vol_adjust": {"target_vol": 1.0},
@@ -41,6 +42,10 @@ def test_cli_no_structured_log(tmp_path: Path):
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.25,
             "transaction_cost_bps": 10,
+            "cost_model": {
+                "bps_per_trade": 0,
+                "slippage_bps": 0,
+            },
         },
         "metrics": {},
         "export": {},

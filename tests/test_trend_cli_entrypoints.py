@@ -326,15 +326,25 @@ def test_load_configuration_reads_file(tmp_path: Path, monkeypatch: pytest.Monke
     cfg_file.write_text(
         textwrap.dedent(
             """
+            version: "1"
             data:
               csv_path: returns.csv
               date_column: Date
               frequency: M
+            preprocessing: {}
+            vol_adjust:
+              target_vol: 0.1
+            sample_split: {}
             portfolio:
+              rebalance_calendar: NYSE
+              max_turnover: 1.0
               transaction_cost_bps: 1
               cost_model:
                 bps_per_trade: 1
                 slippage_bps: 0
+            metrics: {}
+            export: {}
+            run: {}
             """
         ),
         encoding="utf-8",
@@ -351,7 +361,31 @@ def test_load_configuration_runs_core_then_full_validation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     cfg_file = tmp_path / "config.yml"
-    cfg_file.write_text("version: '1'\n", encoding="utf-8")
+    csv_path = tmp_path / "returns.csv"
+    csv_path.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+    cfg_file.write_text(
+        textwrap.dedent(
+            """
+            version: "1"
+            data:
+              csv_path: returns.csv
+              date_column: Date
+              frequency: M
+            preprocessing: {}
+            vol_adjust:
+              target_vol: 0.1
+            sample_split: {}
+            portfolio:
+              rebalance_calendar: NYSE
+              max_turnover: 1.0
+              transaction_cost_bps: 1
+            metrics: {}
+            export: {}
+            run: {}
+            """
+        ),
+        encoding="utf-8",
+    )
 
     calls: list[tuple[str, Path]] = []
 
