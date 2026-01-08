@@ -9,7 +9,7 @@ from typing import Any, Iterable, Mapping
 
 import pandas as pd
 from jsonschema import Draft202012Validator
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from trend_analysis.config.model import validate_trend_config
 from trend_analysis.config.models import Config
@@ -22,8 +22,8 @@ _PATH_PATTERN = re.compile(r"^([A-Za-z0-9_.\[\]-]+)(:|\s+)(.+)$")
 class ValidationError(BaseModel):
     path: str
     message: str
-    expected: str
-    actual: Any
+    expected: str = "valid value"
+    actual: Any = "unknown"
     suggestion: str | None = None
 
 
@@ -31,6 +31,29 @@ class ValidationResult(BaseModel):
     valid: bool = True
     errors: list[ValidationError] = Field(default_factory=list)
     warnings: list[ValidationError] = Field(default_factory=list)
+
+    @field_validator("errors", "warnings", mode="before")
+    @classmethod
+    def _coerce_issue_strings(cls, value: Any) -> Any:
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            return value
+        coerced: list[ValidationError | Any] = []
+        for item in value:
+            if isinstance(item, str):
+                coerced.append(
+                    ValidationError(
+                        path="<root>",
+                        message=item,
+                        expected="valid value",
+                        actual="unknown",
+                        suggestion="Update the configuration to match the expected value.",
+                    )
+                )
+            else:
+                coerced.append(item)
+        return coerced
 
     @model_validator(mode="after")
     def _infer_valid(self) -> "ValidationResult":

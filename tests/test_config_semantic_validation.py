@@ -432,3 +432,13 @@ def test_validation_result_defaults_are_valid() -> None:
     assert result.valid
     assert result.errors == []
     assert result.warnings == []
+
+
+def test_validation_result_coerces_string_issues() -> None:
+    result = ValidationResult(errors=["Missing data section."], warnings=["Heads up."])
+
+    assert result.errors[0].path == "<root>"
+    assert result.errors[0].expected == "valid value"
+    assert result.errors[0].actual == "unknown"
+    assert result.errors[0].suggestion == "Update the configuration to match the expected value."
+    assert result.warnings[0].path == "<root>"
