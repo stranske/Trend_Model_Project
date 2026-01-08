@@ -87,4 +87,6 @@ def test_remove_position_limits_risk_flag() -> None:
     assert len(patch.operations) == 1
     assert patch.operations[0].path == "constraints.max_weight"
     assert patch.operations[0].op == "remove"
+    assert patch.operations[0].value is None
     assert patch.risk_flags == expected["risk_flags"]
+    assert patch.summary == expected["summary"]
