@@ -15,7 +15,7 @@ This is the core NL component: a LangChain chain that takes a user instruction a
 - [x] - Allowed schema (from Issue 4)
 - [x] - Safety rules (don't invent keys, flag risks)
 - [x] - User instruction
-- [ ] Implement `ConfigPatchChain` using LangChain:
+- [x] Implement `ConfigPatchChain` using LangChain:
 - [x] Define the class structure. (verify: confirm completion in repo)
 - [x] Define methods. (verify: confirm completion in repo)
 - [x] Implement the run method. (verify: confirm completion in repo)
@@ -24,9 +24,9 @@ This is the core NL component: a LangChain chain that takes a user instruction a
 - [x] Set low temperature. (verify: confirm completion in repo)
 - [ ] Enforce structured output. (verify: confirm completion in repo)
 - [ ] Determine max tokens for patch size. (verify: confirm completion in repo)
-- [ ] Implement schema injection:
-- [ ] Include compact schema in prompt. (verify: confirm completion in repo)
-- [ ] Limit to relevant sections based on instruction. (verify: confirm completion in repo)
+- [x] Implement schema injection:
+- [x] Include compact schema in prompt. (verify: confirm completion in repo)
+- [x] Limit to relevant sections based on instruction. (verify: confirm completion in repo)
 - [ ] Add self-check step:
 - [ ] Validate patch references known keys. (verify: confirm completion in repo)
 - [ ] Flag unknown keys for human review. (verify: confirm completion in repo)
@@ -48,3 +48,24 @@ This is the core NL component: a LangChain chain that takes a user instruction a
 - [ ] Chain works with at least 2 LLM providers.
 
 <!-- auto-status-summary:end -->
+
+## Issue #4185 Tasks
+### Eval Harness & Testing
+- [x] Create eval harness script at `tools/eval_config_patch.py`
+- [x] Load test cases from JSON/YAML
+- [x] Run ConfigPatchChain for each test case
+- [x] Validate output structure and correctness
+- [x] Calculate success rate metrics
+- [x] Generate evaluation report
+- [x] Define test cases in `tools/eval_test_cases.yml`
+- [x] "Use risk parity weighting" → set analysis.weighting.scheme = "risk_parity"
+- [ ] "Select top 12 funds" → set analysis.top_n = 12
+- [ ] "Remove position limits" → remove constraints.max_weight + REMOVES_CONSTRAINT flag
+- [ ] "Target 15% volatility" → set analysis.target_vol = 0.15
+- [ ] "Use monthly frequency and risk parity" → Two operations in one patch
+- [x] Add 5 additional edge cases (unknown keys, conflicting instructions, ambiguous requests)
+- [ ] Add comprehensive integration tests in `tests/test_config_patch_chain_integration.py`
+- [x] Test each eval harness case programmatically
+- [ ] Verify risk flags are correctly detected
+- [ ] Test with mocked LLM responses
+- [ ] Achieve ≥95% success rate on test suite
