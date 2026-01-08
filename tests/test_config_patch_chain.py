@@ -9,8 +9,10 @@ import pytest
 pytest.importorskip("langchain_core")
 
 from langchain_core.runnables import RunnableLambda
+import jsonschema
 from pydantic import ValidationError
 
+from trend_analysis.config.patch import ConfigPatch
 from trend_analysis.llm.chain import ConfigPatchChain
 from trend_analysis.llm.prompts import build_config_patch_prompt
 
@@ -87,16 +89,20 @@ def test_config_patch_chain_batch_schema_conformance() -> None:
         schema={"type": "object"},
     )
 
+    schema = ConfigPatch.json_schema()
+    validator = jsonschema.Draft202012Validator(schema)
     valid_count = 0
     for idx in range(total_cases):
+        prompt = chain.build_prompt(
+            current_config={"portfolio": {"max_weight": 0.2}},
+            instruction=f"Set max_weight to {0.2 + idx * 0.001:.3f}.",
+        )
+        response_text = chain._invoke_llm(prompt)
         try:
-            chain.run(
-                current_config={"portfolio": {"max_weight": 0.2}},
-                instruction=f"Set max_weight to {0.2 + idx * 0.001:.3f}.",
-            )
-        except ValidationError:
+            payload = json.loads(response_text)
+        except json.JSONDecodeError:
             continue
-        else:
+        if validator.is_valid(payload):
             valid_count += 1
 
     assert valid_count / total_cases >= 0.95
