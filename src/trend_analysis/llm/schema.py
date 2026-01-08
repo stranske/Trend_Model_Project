@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, cast
 
 from utils.paths import proj_path
 
@@ -18,7 +18,7 @@ def load_compact_schema(path: Path | None = None) -> dict[str, Any]:
     """Load the compact config schema used for prompt injection."""
 
     target = path or _COMPACT_SCHEMA_PATH
-    return json.loads(target.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(target.read_text(encoding="utf-8")))
 
 
 def select_schema_sections(schema: dict[str, Any], instruction: str) -> dict[str, Any]:
@@ -29,14 +29,22 @@ def select_schema_sections(schema: dict[str, Any], instruction: str) -> dict[str
         return schema
 
     tokens = _extract_tokens(instruction)
-    matched = {path[0] for path in _iter_schema_paths(properties) if _path_matches(path, tokens)}
+    matched = {
+        path[0]
+        for path in _iter_schema_paths(properties)
+        if _path_matches(path, tokens)
+    }
     if not matched:
         return schema
 
     filtered: dict[str, Any] = {
-        key: value for key, value in schema.items() if key not in {"properties", "default"}
+        key: value
+        for key, value in schema.items()
+        if key not in {"properties", "default"}
     }
-    filtered["properties"] = {key: properties[key] for key in matched if key in properties}
+    filtered["properties"] = {
+        key: properties[key] for key in matched if key in properties
+    }
 
     defaults = schema.get("default")
     if isinstance(defaults, dict):

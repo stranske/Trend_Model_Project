@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 import numpy as np
+from numpy.typing import NDArray
 import pandas as pd
 
 from trend_analysis.constants import NUMERICAL_TOLERANCE_HIGH
@@ -24,7 +25,7 @@ class ConstraintSet:
     cash_weight: float | None = None  # Fixed allocation to CASH (exact slice)
 
 
-def _safe_sum(values: pd.Series | pd.Index | np.ndarray) -> float:
+def _safe_sum(values: pd.Series | pd.Index | NDArray[np.floating[Any]]) -> float:
     """Sum values without relying on pandas/numpy default sentinels."""
 
     data = values.to_numpy() if hasattr(values, "to_numpy") else np.asarray(values)
@@ -138,7 +139,9 @@ def _apply_group_caps(
     return w
 
 
-def _apply_cash_weight(w: pd.Series, cash_weight: float, max_weight: float | None) -> pd.Series:
+def _apply_cash_weight(
+    w: pd.Series, cash_weight: float, max_weight: float | None
+) -> pd.Series:
     """Scale non-cash weights to accommodate a fixed CASH slice."""
 
     if not (0 < cash_weight < 1):
@@ -193,7 +196,9 @@ def apply_constraints(
         w = _clip_series(w, lower=0)
         total_weight = _safe_sum(w)
         if total_weight == 0:
-            raise ConstraintViolation("All weights non-positive under long-only constraint")
+            raise ConstraintViolation(
+                "All weights non-positive under long-only constraint"
+            )
     else:
         total_weight = _safe_sum(w)
 
@@ -220,16 +225,22 @@ def apply_constraints(
     if constraints.group_caps:
         if not constraints.groups:
             raise ConstraintViolation("Group mapping required when group_caps set")
-        missing_assets = [asset for asset in working.index if asset not in constraints.groups]
+        missing_assets = [
+            asset for asset in working.index if asset not in constraints.groups
+        ]
         if missing_assets:
-            raise KeyError(f"Missing group mapping for assets: {', '.join(missing_assets)}")
+            raise KeyError(
+                f"Missing group mapping for assets: {', '.join(missing_assets)}"
+            )
         group_mapping = {asset: constraints.groups[asset] for asset in working.index}
         working = _apply_group_caps(
             working, constraints.group_caps, group_mapping, total=total_allocation
         )
         # max weight may have been violated again
         if constraints.max_weight is not None:
-            working = _apply_cap(working, constraints.max_weight, total=total_allocation)
+            working = _apply_cap(
+                working, constraints.max_weight, total=total_allocation
+            )
 
     if cash_weight is not None:
         result = working.copy()
