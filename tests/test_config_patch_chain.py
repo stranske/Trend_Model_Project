@@ -8,8 +8,8 @@ import pytest
 
 pytest.importorskip("langchain_core")
 
-from langchain_core.runnables import RunnableLambda
 import jsonschema
+from langchain_core.runnables import RunnableLambda
 from pydantic import ValidationError
 
 from trend_analysis.config.patch import ConfigPatch
