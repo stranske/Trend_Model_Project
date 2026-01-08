@@ -70,6 +70,10 @@ class ConfigPatch(BaseModel):
     operations: list[PatchOperation] = Field(
         description="Ordered list of operations for the patch."
     )
+    needs_review: bool = Field(
+        default=False,
+        description="True when the patch references unknown or ambiguous keys.",
+    )
     risk_flags: list[RiskFlag] = Field(
         default_factory=list,
         description="Detected or caller-provided risk flags.",

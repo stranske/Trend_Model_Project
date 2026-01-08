@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable
 
 from trend_analysis.config.patch import ConfigPatch
 from trend_analysis.llm.prompts import format_config_for_prompt
 from trend_analysis.llm.schema import load_compact_schema, select_schema_sections
+from trend_analysis.llm.validation import validate_patch_keys
 
 PromptBuilder = Callable[..., str]
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -92,7 +96,21 @@ class ConfigPatchChain:
             safety_rules=safety_rules,
         )
         response_text = self._invoke_llm(prompt_text)
-        return self._parse_patch(response_text)
+        patch = self._parse_patch(response_text)
+        schema = self._schema_for_validation(allowed_schema, instruction)
+        unknown_keys = validate_patch_keys(patch.operations, schema)
+        if unknown_keys:
+            patch.needs_review = True
+            for entry in unknown_keys:
+                if entry.suggestion:
+                    logger.warning(
+                        "Unknown config key '%s'. Did you mean '%s'?",
+                        entry.path,
+                        entry.suggestion,
+                    )
+                else:
+                    logger.warning("Unknown config key '%s'.", entry.path)
+        return patch
 
     def _invoke_llm(self, prompt_text: str) -> str:
         from langchain_core.prompts import ChatPromptTemplate
@@ -118,6 +136,18 @@ class ConfigPatchChain:
 
     def _parse_patch(self, response_text: str) -> ConfigPatch:
         return ConfigPatch.model_validate_json(_strip_code_fence(response_text))
+
+    def _schema_for_validation(
+        self,
+        allowed_schema: str | None,
+        instruction: str,
+    ) -> dict[str, Any] | None:
+        if allowed_schema:
+            try:
+                return json.loads(allowed_schema)
+            except json.JSONDecodeError:
+                return None
+        return self._select_schema(instruction=instruction)
 
     def _select_schema(self, *, instruction: str) -> dict[str, Any]:
         schema = self.schema or load_compact_schema()

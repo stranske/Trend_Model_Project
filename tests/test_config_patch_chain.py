@@ -49,3 +49,38 @@ def test_config_patch_chain_run_parses_patch() -> None:
     assert patch.operations[0].path == "portfolio.max_weight"
     assert patch.summary == "Update max_weight"
     assert "USER INSTRUCTION" in captured["prompt"]
+
+
+def test_config_patch_chain_flags_unknown_keys() -> None:
+    def _respond(_prompt_value, **_kwargs) -> str:
+        payload = {
+            "operations": [
+                {
+                    "op": "set",
+                    "path": "analysis.turbo_mode",
+                    "value": True,
+                }
+            ],
+            "risk_flags": [],
+            "summary": "Enable turbo mode.",
+        }
+        return json.dumps(payload)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={
+            "type": "object",
+            "properties": {
+                "analysis": {"type": "object", "properties": {"top_n": {"type": "integer"}}}
+            },
+        },
+    )
+
+    patch = chain.run(
+        current_config={"analysis": {"top_n": 8}},
+        instruction="Enable turbo mode.",
+    )
+
+    assert patch.needs_review is True
