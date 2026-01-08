@@ -12,6 +12,8 @@ from typing import Any, Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .validation import ValidationResult, validate_config
+
 _DOTPATH_RE = re.compile(r"^[A-Za-z0-9_-]+(\[\d+\])*(\.[A-Za-z0-9_-]+(\[\d+\])*)*$")
 _JSON_POINTER_RE = re.compile(r"^(/[^/\s]+)+$")
 
@@ -156,6 +158,16 @@ def apply_and_diff(config_path: Path, patch: ConfigPatch) -> tuple[dict[str, Any
     updated = apply_patch(config, patch)
     diff = diff_configs(config, updated)
     return updated, diff
+
+
+def apply_and_validate(
+    config: dict[str, Any], patch: ConfigPatch
+) -> tuple[dict[str, Any], ValidationResult]:
+    """Apply a patch and validate the updated configuration."""
+
+    updated = apply_patch(config, patch)
+    result = validate_config(updated)
+    return updated, result
 
 
 def _to_dotpath(path: str) -> str:
@@ -426,5 +438,6 @@ __all__ = [
     "PatchOperation",
     "RiskFlag",
     "apply_and_diff",
+    "apply_and_validate",
     "diff_configs",
 ]

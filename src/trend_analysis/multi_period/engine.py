@@ -803,6 +803,9 @@ def run(
         # the configured missing-data policy. Calling apply_missing_policy via
         # this module keeps tests able to monkeypatch for observability.
         work = df.copy()
+        # Reset index if it has a name that matches a column to avoid ambiguity
+        if work.index.name and work.index.name in work.columns:
+            work = work.reset_index(drop=True)
         work.sort_values("Date", inplace=True)
 
         freq_summary = detect_frequency(work["Date"])
@@ -812,7 +815,8 @@ def run(
             numeric = work[value_cols].apply(pd.to_numeric, errors="coerce")
         else:
             numeric = work[value_cols]
-        numeric.index = pd.DatetimeIndex(work["Date"])
+        # Create index without assigning a name to avoid ambiguity
+        numeric.index = pd.DatetimeIndex(work["Date"], name=None)
 
         if freq_summary.resampled:
             resampled = (1 + numeric).resample(MONTHLY_DATE_FREQ).prod(min_count=1) - 1

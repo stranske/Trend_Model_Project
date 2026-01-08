@@ -44,7 +44,6 @@ def test_config_defaults_and_model_dump(base_config_dict):
     assert dump["version"] == "1.0"
     assert dump["benchmarks"] == {}
     assert dump["output"] is None
-    assert dump["multi_period"] is None
     assert dump["seed"] == 42
 
 

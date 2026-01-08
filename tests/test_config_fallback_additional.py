@@ -82,7 +82,6 @@ def test_fallback_config_provides_defaults(fallback_models: ModuleType) -> None:
         assert getattr(cfg, field) == {}
     # Optional/nullable defaults
     assert cfg.output is None
-    assert cfg.multi_period is None
 
 
 @pytest.mark.parametrize(

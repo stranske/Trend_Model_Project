@@ -50,6 +50,8 @@ def _write_cfg(path: Path, version: str, *, csv_path: Path) -> None:
             "csv_path": csv_value,
             "date_column": "Date",
             "frequency": "M",
+            "allow_risk_free_fallback": False,
+            "missing_policy": "drop",
         },
         "preprocessing": {},
         "vol_adjust": {"target_vol": 0.15},
@@ -59,6 +61,10 @@ def _write_cfg(path: Path, version: str, *, csv_path: Path) -> None:
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.25,
             "transaction_cost_bps": 10,
+            "cost_model": {
+                "bps_per_trade": 0,
+                "slippage_bps": 0,
+            },
         },
         "metrics": {},
         "export": {},
@@ -183,9 +189,9 @@ def test_cli_outputs_pipeline_diagnostic(tmp_path, capsys, monkeypatch):
             "sample_split",
             {
                 "in_start": "2020-01",
-                "in_end": "2020-01",
-                "out_start": "2020-02",
-                "out_end": "2020-02",
+                "in_end": "2020-02",
+                "out_start": "2020-03",
+                "out_end": "2020-04",
             },
         )
         return cfg_obj
