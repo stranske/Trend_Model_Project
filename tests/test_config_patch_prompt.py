@@ -57,4 +57,5 @@ def test_prompt_includes_safety_rules_for_edge_cases() -> None:
 
     assert instruction in prompt
     assert "Do not invent new keys" in prompt
+    assert "return no operations and explain why in summary" in prompt
     assert "Never include secrets, credentials, or unsafe content" in prompt

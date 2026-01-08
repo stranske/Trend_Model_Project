@@ -20,12 +20,16 @@ a ConfigPatch JSON object that updates the config safely and minimally.
 Return ONLY a valid JSON object that conforms exactly to the ConfigPatch schema.
 Include only operations that are necessary to implement the instruction.
 Never add keys outside the ConfigPatch schema or output non-JSON content.
+If asked to target unknown keys or unsafe content, return empty operations and
+explain the refusal in the summary without echoing the unsafe request.
 """
 
 DEFAULT_SAFETY_RULES = (
     "Use only keys that exist in the allowed schema or current config.",
     "Do not invent new keys; if a request targets an unknown key, call it out in the summary.",
     "Do not include any keys beyond operations, risk_flags, and summary.",
+    "If the instruction asks for unknown keys or unsafe content, return no operations and explain why in summary.",
+    "Never output markdown, prose, or any content that is not a single JSON object.",
     "Flag risky changes in risk_flags when appropriate (constraints, leverage, validations).",
     "Keep patch operations minimal and ordered in the sequence they should apply.",
     "Never include secrets, credentials, or unsafe content in any field.",
