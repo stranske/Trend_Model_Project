@@ -48,12 +48,11 @@ def _build_chain(response_text: str, schema: dict[str, Any] | None) -> ConfigPat
     )
 
 
-def test_risk_parity_weighting_case() -> None:
-    case = _load_case("risk_parity_weighting")
+def _run_case(case_id: str) -> tuple[ConfigPatchChain, dict[str, Any], dict[str, Any]]:
+    case = _load_case(case_id)
     expected = case["expected_patch"]
     response_text = json.dumps(expected, ensure_ascii=True)
     chain = _build_chain(response_text, schema=case.get("schema"))
-
     patch = chain.run(
         current_config=case["current_config"],
         instruction=case["instruction"],
@@ -61,8 +60,31 @@ def test_risk_parity_weighting_case() -> None:
         system_prompt=case.get("system_prompt"),
         safety_rules=case.get("safety_rules"),
     )
+    return chain, patch, expected
+
+
+def test_risk_parity_weighting_case() -> None:
+    _, patch, expected = _run_case("risk_parity_weighting")
 
     assert len(patch.operations) == 1
     assert patch.operations[0].path == "analysis.weighting.scheme"
     assert patch.operations[0].value == "risk_parity"
     assert patch.summary == expected["summary"]
+
+
+def test_select_top_12_case() -> None:
+    _, patch, expected = _run_case("select_top_12")
+
+    assert len(patch.operations) == 1
+    assert patch.operations[0].path == "analysis.top_n"
+    assert patch.operations[0].value == 12
+    assert patch.summary == expected["summary"]
+
+
+def test_remove_position_limits_risk_flag() -> None:
+    _, patch, expected = _run_case("remove_position_limits")
+
+    assert len(patch.operations) == 1
+    assert patch.operations[0].path == "constraints.max_weight"
+    assert patch.operations[0].op == "remove"
+    assert patch.risk_flags == expected["risk_flags"]
