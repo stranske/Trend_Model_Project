@@ -108,6 +108,41 @@ def test_config_patch_chain_batch_schema_conformance() -> None:
     assert valid_count / total_cases >= 0.95
 
 
+def test_config_patch_chain_flags_unknown_keys() -> None:
+    def _respond(_prompt_value, **_kwargs) -> str:
+        payload = {
+            "operations": [
+                {
+                    "op": "set",
+                    "path": "analysis.turbo_mode",
+                    "value": True,
+                }
+            ],
+            "risk_flags": [],
+            "summary": "Enable turbo mode.",
+        }
+        return json.dumps(payload)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={
+            "type": "object",
+            "properties": {
+                "analysis": {"type": "object", "properties": {"top_n": {"type": "integer"}}}
+            },
+        },
+    )
+
+    patch = chain.run(
+        current_config={"analysis": {"top_n": 8}},
+        instruction="Enable turbo mode.",
+    )
+
+    assert patch.needs_review is True
+
+
 def test_config_patch_chain_unknown_keys_raise() -> None:
     def _respond(prompt_value, **_kwargs) -> str:
         _ = prompt_value.to_messages()
@@ -157,3 +192,71 @@ def test_config_patch_chain_omits_unknown_key_instruction() -> None:
 
     assert patch.operations == []
     assert "unknown key" in patch.summary.lower()
+
+
+def test_config_patch_chain_retries_on_parse_error() -> None:
+    prompts: list[str] = []
+    responses = iter(
+        [
+            "not-json",
+            json.dumps(
+                {
+                    "operations": [
+                        {
+                            "op": "set",
+                            "path": "portfolio.max_weight",
+                            "value": 0.25,
+                        }
+                    ],
+                    "risk_flags": [],
+                    "summary": "Update max_weight",
+                }
+            ),
+        ]
+    )
+
+    def _respond(prompt_value, **_kwargs) -> str:
+        messages = prompt_value.to_messages()
+        prompts.append(messages[0].content)
+        return next(responses)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+        retries=1,
+    )
+
+    patch = chain.run(
+        current_config={"portfolio": {"max_weight": 0.2}},
+        instruction="Set max_weight to 0.25.",
+    )
+
+    assert patch.summary == "Update max_weight"
+    assert len(prompts) == 2
+    assert "PREVIOUS ERROR" in prompts[1]
+    assert "ValidationError" in prompts[1]
+
+
+def test_config_patch_chain_retry_exhausted_raises_error() -> None:
+    def _respond(_prompt_value, **_kwargs) -> str:
+        return "not-json"
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+        retries=1,
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        chain.run(
+            current_config={"portfolio": {"max_weight": 0.2}},
+            instruction="Set max_weight to 0.25.",
+        )
+
+    message = str(excinfo.value)
+    assert "Failed to parse ConfigPatch after 2 attempts" in message
+    assert "ValidationError" in message

@@ -12,6 +12,7 @@ SECTION_CONFIG = "CURRENT CONFIG"
 SECTION_SCHEMA = "ALLOWED SCHEMA"
 SECTION_SAFETY = "SAFETY RULES"
 SECTION_USER = "USER INSTRUCTION"
+SECTION_RETRY_ERROR = "PREVIOUS ERROR"
 
 DEFAULT_SYSTEM_PROMPT = """You are a configuration assistant for Trend Model.
 Your task is to read the user instruction and current configuration, then emit
@@ -65,6 +66,35 @@ def build_config_patch_prompt(
     return "\n\n".join(sections).strip()
 
 
+def build_retry_prompt(
+    *,
+    current_config: str,
+    allowed_schema: str,
+    instruction: str,
+    error_message: str,
+    system_prompt: str | None = None,
+    safety_rules: Iterable[str] | None = None,
+) -> str:
+    """Build the retry prompt with previous parsing error context."""
+
+    base_prompt = build_config_patch_prompt(
+        current_config=current_config,
+        allowed_schema=allowed_schema,
+        instruction=instruction,
+        system_prompt=system_prompt,
+        safety_rules=safety_rules,
+    )
+    retry_note = (
+        f"{error_message}\n\n"
+        "Return ONLY a valid JSON object that matches the ConfigPatch schema."
+    )
+    sections = [
+        base_prompt,
+        _format_section(SECTION_RETRY_ERROR, retry_note),
+    ]
+    return "\n\n".join(sections).strip()
+
+
 def _format_section(title: str, body: str) -> str:
     return f"## {title}\n{body}".strip()
 
@@ -75,8 +105,10 @@ __all__ = [
     "SECTION_SCHEMA",
     "SECTION_SAFETY",
     "SECTION_USER",
+    "SECTION_RETRY_ERROR",
     "DEFAULT_SYSTEM_PROMPT",
     "DEFAULT_SAFETY_RULES",
     "format_config_for_prompt",
     "build_config_patch_prompt",
+    "build_retry_prompt",
 ]
