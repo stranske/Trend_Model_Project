@@ -166,9 +166,7 @@ class ConfigPatchChain:
                     ) from exc
             except ValidationError as exc:
                 # Check if this is a JSON parsing error or a schema validation error
-                is_json_error = any(
-                    err.get("type") == "json_invalid" for err in exc.errors()
-                )
+                is_json_error = any(err.get("type") == "json_invalid" for err in exc.errors())
                 if is_json_error:
                     # Wrap JSON parsing errors in ValueError for retry exhaustion
                     last_error = exc
