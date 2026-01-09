@@ -16,11 +16,43 @@ from trend_analysis.config.patch import ConfigPatch, diff_configs
 from trend_analysis.config.patch import apply_patch as apply_config_patch
 from trend_analysis.config.validation import ValidationResult, validate_config
 from trend_analysis.data import load_csv
+from utils.paths import proj_path
+
+_SANDBOX_DIRS = ("config", "data", "outputs")
+
+
+def _is_relative_to(candidate: Path, parent: Path) -> bool:
+    try:
+        candidate.relative_to(parent)
+    except ValueError:
+        return False
+    return True
 
 
 @dataclass(slots=True)
 class ToolLayer:
     """Provide a minimal interface for deterministic tool calls."""
+
+    def _allowed_roots(self) -> tuple[Path, ...]:
+        base = proj_path()
+        return tuple((base / name).resolve() for name in _SANDBOX_DIRS)
+
+    def _sandbox_path(self, path: str | Path) -> Path:
+        if not isinstance(path, (str, Path)):
+            raise TypeError("path must be a string or Path")
+
+        candidate = Path(path).expanduser()
+        if any(part == ".." for part in candidate.parts):
+            raise ValueError("path traversal is not allowed")
+
+        if not candidate.is_absolute():
+            candidate = proj_path() / candidate
+
+        resolved = candidate.resolve()
+        if not any(_is_relative_to(resolved, root) for root in self._allowed_roots()):
+            raise ValueError("path is outside the sandbox")
+
+        return resolved
 
     def _wrap_result(self, func: Callable[[], Any]) -> ToolResult:
         start = time.perf_counter()
@@ -78,7 +110,7 @@ class ToolLayer:
 
             return validate_config(
                 dict(config),
-                base_path=base_path,
+                base_path=self._sandbox_path(base_path) if base_path is not None else None,
                 strict=strict,
                 skip_required_fields=skip_required_fields,
             )
@@ -136,14 +168,15 @@ class ToolLayer:
                 if missing_limit_cfg is None:
                     missing_limit_cfg = data_settings.get("nan_limit")
 
+                resolved_csv = self._sandbox_path(csv_path)
                 data_frame = load_csv(
-                    str(csv_path),
+                    str(resolved_csv),
                     errors="raise",
                     missing_policy=missing_policy_cfg,
                     missing_limit=missing_limit_cfg,
                 )
                 if data_frame is None:
-                    raise FileNotFoundError(str(csv_path))
+                    raise FileNotFoundError(str(resolved_csv))
             elif not isinstance(data, pd.DataFrame):
                 raise TypeError("data must be a pandas DataFrame")
             else:

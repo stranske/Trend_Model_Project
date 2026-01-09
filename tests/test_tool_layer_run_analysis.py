@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -60,7 +61,11 @@ def test_run_analysis_loads_csv_when_data_missing(
 ) -> None:
     tool = ToolLayer()
     cfg = _sample_config()
-    csv_path = tmp_path / "returns.csv"
+    repo_root = tmp_path / "repo"
+    data_root = repo_root / "data"
+    data_root.mkdir(parents=True)
+    monkeypatch.setenv("TREND_REPO_ROOT", str(repo_root))
+    csv_path = data_root / "returns.csv"
     csv_path.write_text("Date,A\n2020-01-01,0.01\n", encoding="utf-8")
     cfg["data"] = {
         **cfg["data"],
@@ -105,3 +110,68 @@ def test_run_analysis_rejects_non_dataframe_data() -> None:
 
     assert result.success is False
     assert "pandas DataFrame" in (result.error or "")
+
+
+def test_run_analysis_rejects_paths_outside_sandbox(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    (repo_root / "data").mkdir(parents=True)
+    monkeypatch.setenv("TREND_REPO_ROOT", str(repo_root))
+    cfg = _sample_config()
+    outside = tmp_path / "external.csv"
+    outside.write_text("Date,A\n2020-01-01,0.01\n", encoding="utf-8")
+    cfg["data"] = {**cfg["data"], "csv_path": str(outside)}
+
+    tool = ToolLayer()
+    result = tool.run_analysis(cfg)
+
+    assert result.success is False
+    assert "sandbox" in (result.error or "")
+
+
+def test_run_analysis_rejects_path_traversal(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    (repo_root / "data").mkdir(parents=True)
+    monkeypatch.setenv("TREND_REPO_ROOT", str(repo_root))
+    cfg = _sample_config()
+    cfg["data"] = {**cfg["data"], "csv_path": "data/../secrets.csv"}
+
+    tool = ToolLayer()
+    result = tool.run_analysis(cfg)
+
+    assert result.success is False
+    assert "traversal" in (result.error or "")
+
+
+def test_run_analysis_rejects_symlink_escape(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    data_root = repo_root / "data"
+    data_root.mkdir(parents=True)
+    monkeypatch.setenv("TREND_REPO_ROOT", str(repo_root))
+    target_dir = tmp_path / "outside"
+    target_dir.mkdir()
+    target_file = target_dir / "returns.csv"
+    target_file.write_text("Date,A\n2020-01-01,0.01\n", encoding="utf-8")
+    link_path = data_root / "linked.csv"
+
+    try:
+        os.symlink(target_file, link_path)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks not supported in this environment")
+
+    cfg = _sample_config()
+    cfg["data"] = {**cfg["data"], "csv_path": str(link_path)}
+
+    tool = ToolLayer()
+    result = tool.run_analysis(cfg)
+
+    assert result.success is False
+    assert "sandbox" in (result.error or "")
