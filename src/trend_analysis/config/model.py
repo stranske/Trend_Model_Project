@@ -53,6 +53,9 @@ def _resolve_path(value: str | os.PathLike[str], *, base_dir: Path | None) -> Pa
         value = value.strip()
 
     raw = Path(value).expanduser()
+    # Reject path traversal attempts
+    if any(part == ".." for part in raw.parts):
+        raise ValueError("path traversal is not allowed")
     if raw.is_absolute():
         path = raw.resolve()
     else:
@@ -241,7 +244,9 @@ class DataSettings(BaseModel):
             return False
         if isinstance(value, bool):
             return value
-        raise ValueError("data.allow_risk_free_fallback must be a boolean when provided")
+        raise ValueError(
+            "data.allow_risk_free_fallback must be a boolean when provided"
+        )
 
     @field_validator("date_column")
     @classmethod
@@ -280,7 +285,9 @@ class DataSettings(BaseModel):
 
     @field_validator("missing_limit", mode="before")
     @classmethod
-    def _validate_missing_limit(cls, value: Any) -> int | Mapping[str, int | None] | None:
+    def _validate_missing_limit(
+        cls, value: Any
+    ) -> int | Mapping[str, int | None] | None:
         if value in (None, "", "null"):
             return None
         if isinstance(value, Mapping):
@@ -288,7 +295,9 @@ class DataSettings(BaseModel):
         try:
             return int(value)
         except (TypeError, ValueError) as exc:
-            raise ValueError("data.missing_limit must be an integer, mapping, or null.") from exc
+            raise ValueError(
+                "data.missing_limit must be an integer, mapping, or null."
+            ) from exc
 
     @model_validator(mode="after")
     def _ensure_source(self) -> "DataSettings":
@@ -317,14 +326,20 @@ class CostModelSettings(BaseModel):
         try:
             parsed = float(value)
         except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
-            raise ValueError(f"portfolio.cost_model.{info.field_name} must be numeric.") from exc
+            raise ValueError(
+                f"portfolio.cost_model.{info.field_name} must be numeric."
+            ) from exc
         if parsed < 0:
-            raise ValueError(f"portfolio.cost_model.{info.field_name} cannot be negative.")
+            raise ValueError(
+                f"portfolio.cost_model.{info.field_name} cannot be negative."
+            )
         return parsed
 
     @field_validator("per_trade_bps", "half_spread_bps", mode="before")
     @classmethod
-    def _validate_optional_cost(cls, value: Any, info: ValidationInfo[Any]) -> float | None:
+    def _validate_optional_cost(
+        cls, value: Any, info: ValidationInfo[Any]
+    ) -> float | None:
         if value in (None, "", "null"):
             return None
         return cls._validate_cost(value, info)
@@ -437,7 +452,9 @@ class PortfolioSettings(BaseModel):
         try:
             cooldown = int(value)
         except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
-            raise ValueError(f"portfolio.{info.field_name} must be an integer.") from exc
+            raise ValueError(
+                f"portfolio.{info.field_name} must be an integer."
+            ) from exc
         if cooldown < 0:
             raise ValueError(f"portfolio.{info.field_name} cannot be negative.")
         return cooldown
