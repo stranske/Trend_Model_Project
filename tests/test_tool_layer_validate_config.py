@@ -9,6 +9,7 @@ def test_validate_config_reports_missing_sections(tmp_path) -> None:
 
     result = tool.validate_config({}, base_path=tmp_path)
 
-    assert isinstance(result, ValidationResult)
-    assert result.valid is False
-    assert result.errors
+    assert result.success is True
+    assert isinstance(result.data, ValidationResult)
+    assert result.data.valid is False
+    assert result.data.errors

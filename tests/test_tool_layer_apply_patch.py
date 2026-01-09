@@ -17,7 +17,8 @@ def test_apply_patch_updates_config_mapping() -> None:
         "summary": "Update top_n selection",
     }
 
-    updated = tool.apply_patch(config, patch)
+    result = tool.apply_patch(config, patch)
 
-    assert updated["analysis"]["top_n"] == 12
+    assert result.success is True
+    assert result.data["analysis"]["top_n"] == 12
     assert config["analysis"]["top_n"] == 10

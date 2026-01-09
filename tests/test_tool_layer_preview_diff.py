@@ -17,10 +17,11 @@ def test_preview_diff_returns_unified_diff() -> None:
         "summary": "Update top_n selection",
     }
 
-    diff = tool.preview_diff(config, patch)
+    result = tool.preview_diff(config, patch)
 
-    assert "--- before" in diff
-    assert "+++ after" in diff
-    assert "top_n: 10" in diff
-    assert "top_n: 12" in diff
+    assert result.success is True
+    assert "--- before" in result.data
+    assert "+++ after" in result.data
+    assert "top_n: 10" in result.data
+    assert "top_n: 12" in result.data
     assert config["analysis"]["top_n"] == 10

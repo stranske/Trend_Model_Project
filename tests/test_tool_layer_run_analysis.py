@@ -49,7 +49,8 @@ def test_run_analysis_uses_passed_frame(monkeypatch: pytest.MonkeyPatch) -> None
 
     result = tool.run_analysis(cfg, data=df)
 
-    assert result == "ok"
+    assert result.success is True
+    assert result.data == "ok"
     assert captured["frame"] is df
 
 
@@ -80,7 +81,8 @@ def test_run_analysis_loads_csv_when_data_missing(
 
     result = tool.run_analysis(cfg)
 
-    assert result == "ok"
+    assert result.success is True
+    assert result.data == "ok"
     assert captured["path"] == str(csv_path)
     assert captured["kwargs"]["errors"] == "raise"
     assert captured["kwargs"]["missing_policy"] == "ffill"
@@ -90,5 +92,7 @@ def test_run_analysis_loads_csv_when_data_missing(
 def test_run_analysis_requires_csv_path() -> None:
     tool = ToolLayer()
 
-    with pytest.raises(KeyError, match="csv_path"):
-        tool.run_analysis(_sample_config())
+    result = tool.run_analysis(_sample_config())
+
+    assert result.success is False
+    assert "csv_path" in (result.error or "")
