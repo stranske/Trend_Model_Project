@@ -113,3 +113,6 @@ keepalive-metrics.ndjson
 coverage-trend-history.ndjson
 metrics-history.ndjson
 residual-trend-history.ndjson
+
+# PR-specific file - should not be tracked
+pr_body.md
