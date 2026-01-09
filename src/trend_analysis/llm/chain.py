@@ -158,7 +158,9 @@ class ConfigPatchChain:
             try:
                 patch = self._parse_patch(response_text)
                 break
-            except json.JSONDecodeError as exc:
+            except (json.JSONDecodeError, ValidationError) as exc:
+                if isinstance(exc, ValidationError) and not _is_json_parse_error(exc):
+                    raise
                 last_error = exc
                 logger.warning(
                     "ConfigPatch parse attempt %s/%s failed: %s",
@@ -171,26 +173,6 @@ class ConfigPatchChain:
                         "Failed to parse ConfigPatch after "
                         f"{self.retries + 1} attempts: {_format_retry_error(exc)}"
                     ) from exc
-            except ValidationError as exc:
-                # Check if this is a JSON parsing error or a schema validation error
-                is_json_error = any(err.get("type") == "json_invalid" for err in exc.errors())
-                if is_json_error:
-                    # Wrap JSON parsing errors in ValueError for retry exhaustion
-                    last_error = exc
-                    logger.warning(
-                        "ConfigPatch parse attempt %s/%s failed: %s",
-                        attempt + 1,
-                        total_attempts,
-                        _format_retry_error(exc),
-                    )
-                    if attempt >= self.retries:
-                        raise ValueError(
-                            "Failed to parse ConfigPatch after "
-                            f"{self.retries + 1} attempts: {_format_retry_error(exc)}"
-                        ) from exc
-                else:
-                    # Let schema validation errors (like extra_forbidden) propagate
-                    raise
         else:
             raise ValueError("Failed to parse ConfigPatch: unknown error")
 
@@ -266,6 +248,10 @@ def _format_retry_error(error: Exception | None) -> str:
     if error is None:
         return "Unknown parse error."
     return f"{error.__class__.__name__}: {error}"
+
+
+def _is_json_parse_error(error: ValidationError) -> bool:
+    return any((err.get("type") or "").startswith("json_") for err in error.errors())
 
 
 def _read_env_float(name: str, *, default: float) -> float:

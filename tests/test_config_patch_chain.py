@@ -308,3 +308,35 @@ def test_config_patch_chain_logs_parse_errors(caplog: pytest.LogCaptureFixture) 
     assert len(parse_logs) == 2
     assert "attempt 1/3" in parse_logs[0].message
     assert "ValidationError" in parse_logs[0].message
+
+
+def test_config_patch_chain_logs_parse_errors_on_exhaustion(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    responses = iter(["not-json", "still-not-json", "bad-json"])
+
+    def _respond(_prompt_value, **_kwargs) -> str:
+        return next(responses)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+        retries=2,
+    )
+
+    with caplog.at_level(logging.WARNING, logger="trend_analysis.llm.chain"):
+        with pytest.raises(ValueError) as excinfo:
+            chain.run(
+                current_config={"portfolio": {"max_weight": 0.2}},
+                instruction="Set max_weight to 0.25.",
+            )
+
+    parse_logs = [
+        record for record in caplog.records if "ConfigPatch parse attempt" in record.message
+    ]
+    assert len(parse_logs) == 3
+    assert "attempt 3/3" in parse_logs[-1].message
+    assert "Failed to parse ConfigPatch after 3 attempts" in str(excinfo.value)
+    assert "ValidationError" in str(excinfo.value)
