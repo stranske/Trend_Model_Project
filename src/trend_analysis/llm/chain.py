@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable
 
@@ -27,6 +28,7 @@ class ConfigPatchChain:
     prompt_builder: PromptBuilder
     schema: dict[str, Any] | None
     temperature: float = 0.0
+    model: str | None = None
     max_tokens: int | None = None
     retries: int = 1
 
@@ -38,6 +40,7 @@ class ConfigPatchChain:
         schema: dict[str, Any] | None = None,
         prompt_builder: PromptBuilder,
         temperature: float = 0.0,
+        model: str | None = None,
         max_tokens: int | None = None,
         retries: int = 1,
     ) -> "ConfigPatchChain":
@@ -48,6 +51,37 @@ class ConfigPatchChain:
             prompt_builder=prompt_builder,
             schema=schema,
             temperature=temperature,
+            model=model,
+            max_tokens=max_tokens,
+            retries=retries,
+        )
+
+    @classmethod
+    def from_env(
+        cls,
+        *,
+        llm: Any,
+        schema: dict[str, Any] | None = None,
+        prompt_builder: PromptBuilder,
+        temperature: float | None = None,
+        model: str | None = None,
+        max_tokens: int | None = None,
+        retries: int = 1,
+    ) -> "ConfigPatchChain":
+        """Build a chain using environment overrides for model/temperature."""
+
+        env_temperature = (
+            temperature
+            if temperature is not None
+            else _read_env_float("TREND_LLM_TEMPERATURE", default=0.0)
+        )
+        env_model = model if model is not None else os.environ.get("TREND_LLM_MODEL")
+        return cls(
+            llm=llm,
+            prompt_builder=prompt_builder,
+            schema=schema,
+            temperature=env_temperature,
+            model=env_model,
             max_tokens=max_tokens,
             retries=retries,
         )
@@ -160,6 +194,8 @@ class ConfigPatchChain:
         if not hasattr(self.llm, "bind"):
             return self.llm
         params: dict[str, Any] = {"temperature": self.temperature}
+        if self.model is not None:
+            params["model"] = self.model
         if self.max_tokens is not None:
             params["max_tokens"] = self.max_tokens
         try:
@@ -203,3 +239,13 @@ def _format_retry_error(error: Exception | None) -> str:
     if error is None:
         return "Unknown parse error."
     return f"{error.__class__.__name__}: {error}"
+
+
+def _read_env_float(name: str, *, default: float) -> float:
+    value = os.environ.get(name)
+    if value is None or value == "":
+        return default
+    try:
+        return float(value)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a float, got {value!r}.") from exc

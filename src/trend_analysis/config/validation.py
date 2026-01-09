@@ -9,7 +9,7 @@ from typing import Any, Iterable, Mapping
 
 import pandas as pd
 from jsonschema import Draft202012Validator
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from trend_analysis.config.model import validate_trend_config
 from trend_analysis.config.models import Config
@@ -22,8 +22,8 @@ _PATH_PATTERN = re.compile(r"^([A-Za-z0-9_.\[\]-]+)(:|\s+)(.+)$")
 class ValidationError(BaseModel):
     path: str
     message: str
-    expected: str
-    actual: Any
+    expected: str = "valid value"
+    actual: Any = "unknown"
     suggestion: str | None = None
 
 
@@ -31,6 +31,29 @@ class ValidationResult(BaseModel):
     valid: bool = True
     errors: list[ValidationError] = Field(default_factory=list)
     warnings: list[ValidationError] = Field(default_factory=list)
+
+    @field_validator("errors", "warnings", mode="before")
+    @classmethod
+    def _coerce_issue_strings(cls, value: Any) -> Any:
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            return value
+        coerced: list[ValidationError | Any] = []
+        for item in value:
+            if isinstance(item, str):
+                coerced.append(
+                    ValidationError(
+                        path="<root>",
+                        message=item,
+                        expected="valid value",
+                        actual="unknown",
+                        suggestion="Update the configuration to match the expected value.",
+                    )
+                )
+            else:
+                coerced.append(item)
+        return coerced
 
     @model_validator(mode="after")
     def _infer_valid(self) -> "ValidationResult":
@@ -71,20 +94,13 @@ def validate_config(
 
     base = base_path or proj_path()
 
-    _collect_schema_errors(config, errors, warnings)
-    _check_required_sections(config, errors)
-    if not skip_required_fields:
-        _check_required_fields(config, errors)
-    _check_version_field(config, errors)
+    _run_schema_validation(config, errors, warnings)
+    _run_required_validation(config, errors, skip_required_fields)
     # Skip TrendConfig Pydantic validation as it checks file existence
     # which is too strict for CLI validation before input override
     # _collect_trend_model_errors(config, errors, base)
-    _check_portfolio_selection_requirements(config, errors)
-    _check_manual_selection_requirements(config, errors)
-    _check_rank_inclusion_requirements(config, errors)
-    _check_rank_value_ranges(config, errors)
-    _check_date_ranges(config, errors)
-    _check_rank_fund_count(config, errors, warnings, base)
+    _run_sample_split_validation(config, errors)
+    _run_portfolio_validation(config, errors, warnings, base)
 
     if strict and warnings:
         errors.extend(warnings)
@@ -92,6 +108,46 @@ def validate_config(
 
     valid = not errors
     return ValidationResult(valid=valid, errors=errors, warnings=warnings)
+
+
+def _run_schema_validation(
+    config: Mapping[str, Any],
+    errors: list[ValidationError],
+    warnings: list[ValidationError],
+) -> None:
+    _collect_schema_errors(config, errors, warnings)
+
+
+def _run_required_validation(
+    config: Mapping[str, Any],
+    errors: list[ValidationError],
+    skip_required_fields: bool,
+) -> None:
+    _check_required_sections(config, errors)
+    if not skip_required_fields:
+        _check_required_fields(config, errors)
+    _check_version_field(config, errors)
+
+
+def _run_sample_split_validation(
+    config: Mapping[str, Any],
+    errors: list[ValidationError],
+) -> None:
+    _check_sample_split_requirements(config, errors)
+    _check_date_ranges(config, errors)
+
+
+def _run_portfolio_validation(
+    config: Mapping[str, Any],
+    errors: list[ValidationError],
+    warnings: list[ValidationError],
+    base: Path,
+) -> None:
+    _check_portfolio_selection_requirements(config, errors)
+    _check_manual_selection_requirements(config, errors)
+    _check_rank_inclusion_requirements(config, errors)
+    _check_rank_value_ranges(config, errors)
+    _check_rank_fund_count(config, errors, warnings, base)
 
 
 def format_validation_messages(
@@ -251,97 +307,15 @@ def _check_required_sections(config: Mapping[str, Any], errors: list[ValidationE
 def _check_required_fields(config: Mapping[str, Any], errors: list[ValidationError]) -> None:
     data = config.get("data")
     if isinstance(data, Mapping):
-        csv_path = data.get("csv_path")
-        if csv_path is not None and not isinstance(csv_path, str):
-            issue = ValidationError(
-                path="data.csv_path",
-                message="CSV path must be a string.",
-                expected="string",
-                actual=type(csv_path).__name__,
-                suggestion="Provide data.csv_path as a string path to a CSV file.",
-            )
-            _append_issue(errors, issue)
-        managers_glob = data.get("managers_glob")
-        if managers_glob is not None and not isinstance(managers_glob, str):
-            issue = ValidationError(
-                path="data.managers_glob",
-                message="Managers glob must be a string.",
-                expected="string",
-                actual=type(managers_glob).__name__,
-                suggestion="Provide data.managers_glob as a glob string to CSV files.",
-            )
-            _append_issue(errors, issue)
-        _require_field(
-            errors,
-            data,
-            "data",
-            "date_column",
-            expected="non-empty string",
-            suggestion="Set data.date_column to the date column name (e.g., 'Date').",
-        )
-        _require_field(
-            errors,
-            data,
-            "data",
-            "frequency",
-            expected="non-empty string",
-            suggestion="Set data.frequency to one of the supported values (e.g., 'M').",
-        )
-        if not _is_present(csv_path) and not _is_present(managers_glob):
-            issue = ValidationError(
-                path="data.csv_path",
-                message="Data source is required.",
-                expected="csv_path or managers_glob",
-                actual="missing",
-                suggestion="Set data.csv_path to a CSV file or data.managers_glob to a CSV glob.",
-            )
-            _append_issue(errors, issue)
+        _check_data_required_fields(data, errors)
 
     portfolio = config.get("portfolio")
     if isinstance(portfolio, Mapping):
-        _require_field(
-            errors,
-            portfolio,
-            "portfolio",
-            "selection_mode",
-            expected="non-empty string",
-            suggestion="Set portfolio.selection_mode (e.g., 'all').",
-        )
-        _require_field(
-            errors,
-            portfolio,
-            "portfolio",
-            "rebalance_calendar",
-            expected="non-empty string",
-            suggestion="Set portfolio.rebalance_calendar (e.g., 'NYSE').",
-        )
-        _require_field(
-            errors,
-            portfolio,
-            "portfolio",
-            "max_turnover",
-            expected="number",
-            suggestion="Set portfolio.max_turnover to a numeric value (e.g., 1.0).",
-        )
-        _require_field(
-            errors,
-            portfolio,
-            "portfolio",
-            "transaction_cost_bps",
-            expected="number",
-            suggestion="Set portfolio.transaction_cost_bps to a numeric value (e.g., 0).",
-        )
+        _check_portfolio_required_fields(portfolio, errors)
 
     vol_adjust = config.get("vol_adjust")
     if isinstance(vol_adjust, Mapping):
-        _require_field(
-            errors,
-            vol_adjust,
-            "vol_adjust",
-            "target_vol",
-            expected="number",
-            suggestion="Set vol_adjust.target_vol to a numeric target (e.g., 0.1).",
-        )
+        _check_vol_adjust_required_fields(vol_adjust, errors)
 
 
 def _check_version_field(config: Mapping[str, Any], errors: list[ValidationError]) -> None:
@@ -416,6 +390,104 @@ def _is_present(value: Any) -> bool:
     return True
 
 
+def _check_data_required_fields(data: Mapping[str, Any], errors: list[ValidationError]) -> None:
+    csv_path = data.get("csv_path")
+    if csv_path is not None and not isinstance(csv_path, str):
+        issue = ValidationError(
+            path="data.csv_path",
+            message="CSV path must be a string.",
+            expected="string",
+            actual=type(csv_path).__name__,
+            suggestion="Provide data.csv_path as a string path to a CSV file.",
+        )
+        _append_issue(errors, issue)
+    managers_glob = data.get("managers_glob")
+    if managers_glob is not None and not isinstance(managers_glob, str):
+        issue = ValidationError(
+            path="data.managers_glob",
+            message="Managers glob must be a string.",
+            expected="string",
+            actual=type(managers_glob).__name__,
+            suggestion="Provide data.managers_glob as a glob string to CSV files.",
+        )
+        _append_issue(errors, issue)
+    _require_field(
+        errors,
+        data,
+        "data",
+        "date_column",
+        expected="non-empty string",
+        suggestion="Set data.date_column to the date column name (e.g., 'Date').",
+    )
+    _require_field(
+        errors,
+        data,
+        "data",
+        "frequency",
+        expected="non-empty string",
+        suggestion="Set data.frequency to one of the supported values (e.g., 'M').",
+    )
+    if not _is_present(csv_path) and not _is_present(managers_glob):
+        issue = ValidationError(
+            path="data.csv_path",
+            message="Data source is required.",
+            expected="csv_path or managers_glob",
+            actual="missing",
+            suggestion="Set data.csv_path to a CSV file or data.managers_glob to a CSV glob.",
+        )
+        _append_issue(errors, issue)
+
+
+def _check_portfolio_required_fields(
+    portfolio: Mapping[str, Any], errors: list[ValidationError]
+) -> None:
+    _require_field(
+        errors,
+        portfolio,
+        "portfolio",
+        "selection_mode",
+        expected="non-empty string",
+        suggestion="Set portfolio.selection_mode (e.g., 'all').",
+    )
+    _require_field(
+        errors,
+        portfolio,
+        "portfolio",
+        "rebalance_calendar",
+        expected="non-empty string",
+        suggestion="Set portfolio.rebalance_calendar (e.g., 'NYSE').",
+    )
+    _require_field(
+        errors,
+        portfolio,
+        "portfolio",
+        "max_turnover",
+        expected="number",
+        suggestion="Set portfolio.max_turnover to a numeric value (e.g., 1.0).",
+    )
+    _require_field(
+        errors,
+        portfolio,
+        "portfolio",
+        "transaction_cost_bps",
+        expected="number",
+        suggestion="Set portfolio.transaction_cost_bps to a numeric value (e.g., 0).",
+    )
+
+
+def _check_vol_adjust_required_fields(
+    vol_adjust: Mapping[str, Any], errors: list[ValidationError]
+) -> None:
+    _require_field(
+        errors,
+        vol_adjust,
+        "vol_adjust",
+        "target_vol",
+        expected="number",
+        suggestion="Set vol_adjust.target_vol to a numeric target (e.g., 0.1).",
+    )
+
+
 def _collect_trend_model_errors(
     config: Mapping[str, Any], errors: list[ValidationError], base: Path
 ) -> None:
@@ -486,6 +558,59 @@ def _check_date_ranges(config: Mapping[str, Any], errors: list[ValidationError])
             suggestion="Move out_end after out_start.",
         )
         _append_issue(errors, issue)
+
+
+def _check_sample_split_requirements(
+    config: Mapping[str, Any], errors: list[ValidationError]
+) -> None:
+    split = config.get("sample_split")
+    if not isinstance(split, Mapping):
+        return
+    method = split.get("method")
+    if method == "ratio":
+        if not _is_present(split.get("ratio")):
+            issue = ValidationError(
+                path="sample_split.ratio",
+                message="Ratio is required when sample_split.method is ratio.",
+                expected="number between 0 and 1",
+                actual="missing",
+                suggestion="Set sample_split.ratio to a decimal between 0 and 1.",
+            )
+            _append_issue(errors, issue)
+        return
+    if method == "date":
+        _require_field(
+            errors,
+            split,
+            "sample_split",
+            "in_start",
+            expected="non-empty string",
+            suggestion="Set sample_split.in_start to a valid date string.",
+        )
+        _require_field(
+            errors,
+            split,
+            "sample_split",
+            "in_end",
+            expected="non-empty string",
+            suggestion="Set sample_split.in_end to a valid date string.",
+        )
+        _require_field(
+            errors,
+            split,
+            "sample_split",
+            "out_start",
+            expected="non-empty string",
+            suggestion="Set sample_split.out_start to a valid date string.",
+        )
+        _require_field(
+            errors,
+            split,
+            "sample_split",
+            "out_end",
+            expected="non-empty string",
+            suggestion="Set sample_split.out_end to a valid date string.",
+        )
 
 
 def _check_rank_fund_count(
@@ -837,10 +962,9 @@ def _join_path(base: str, leaf: str) -> str:
 
 def _format_issue(issue: ValidationError) -> str:
     actual = _format_actual(issue.actual)
+    suggestion = issue.suggestion or "Update the configuration to match the expected value."
     text = f"{issue.path}: {issue.message} Expected {issue.expected}, got {actual}."
-    if issue.suggestion:
-        text = f"{text} Suggestion: {issue.suggestion}"
-    return text
+    return f"{text} Suggestion: {suggestion}"
 
 
 def _format_actual(actual: Any) -> str:

@@ -39,6 +39,16 @@ LLM extras require Python 3.10+ and Pydantic v2. This project targets Python
 pip install -e ".[llm]"
 ```
 
+ConfigPatchChain settings can be customized via environment variables:
+
+```bash
+export TREND_LLM_MODEL="gpt-4o-mini"
+export TREND_LLM_TEMPERATURE="0.2"
+```
+
+These values are consumed by `ConfigPatchChain.from_env(...)` to set the model
+and temperature used for structured config patch generation.
+
 ### 2. Verify Installation
 
 ```bash
