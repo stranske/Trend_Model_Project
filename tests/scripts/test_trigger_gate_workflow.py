@@ -12,7 +12,9 @@ from scripts import trigger_gate_workflow as tgw
 def test_resolve_branch_queries_pr(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[list[str]] = []
 
-    def fake_run(args: list[str], check: bool, text: bool, capture_output: bool) -> subprocess.CompletedProcess:
+    def fake_run(
+        args: list[str], check: bool, text: bool, capture_output: bool
+    ) -> subprocess.CompletedProcess:
         calls.append(args)
         return subprocess.CompletedProcess(args, 0, stdout="feature-branch\n", stderr="")
 
@@ -62,7 +64,9 @@ def test_trigger_gate_dispatches(monkeypatch: pytest.MonkeyPatch) -> None:
             "feature-branch",
         ]
     ]
-    assert followup == "gh run list --repo org/repo --workflow pr-00-gate.yml --branch feature-branch"
+    assert (
+        followup == "gh run list --repo org/repo --workflow pr-00-gate.yml --branch feature-branch"
+    )
 
 
 def test_main_reports_missing_cli(
@@ -81,9 +85,7 @@ def test_main_success_path(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setattr(tgw.shutil, "which", lambda _: "/usr/bin/gh")
-    monkeypatch.setattr(
-        tgw, "trigger_gate", lambda pr, repo: ("feature-branch", "gh run list ...")
-    )
+    monkeypatch.setattr(tgw, "trigger_gate", lambda pr, repo: ("feature-branch", "gh run list ..."))
 
     exit_code = tgw.main(["123", "org/repo"])
 

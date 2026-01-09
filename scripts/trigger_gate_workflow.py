@@ -16,7 +16,18 @@ def run_command(args: list[str]) -> str:
 
 def resolve_branch(pr_number: str, repo: str) -> str:
     output = run_command(
-        ["gh", "pr", "view", pr_number, "--repo", repo, "--json", "headRefName", "-q", ".headRefName"]
+        [
+            "gh",
+            "pr",
+            "view",
+            pr_number,
+            "--repo",
+            repo,
+            "--json",
+            "headRefName",
+            "-q",
+            ".headRefName",
+        ]
     )
     if not output:
         raise RuntimeError(f"Unable to resolve branch for PR #{pr_number} in {repo}.")
@@ -38,7 +49,9 @@ def main(argv: list[str] | None = None) -> int:
         description="Trigger the Gate workflow for a PR via GitHub CLI."
     )
     parser.add_argument("pr_number", help="Pull request number.")
-    parser.add_argument("repo", nargs="?", default="stranske/Trend_Model_Project", help="owner/repo")
+    parser.add_argument(
+        "repo", nargs="?", default="stranske/Trend_Model_Project", help="owner/repo"
+    )
     args = parser.parse_args(argv)
 
     if shutil.which("gh") is None:
