@@ -4,11 +4,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
+import pandas as pd
+
+from trend_analysis import api
+from trend_analysis.config import ConfigType, load as load_config
 from trend_analysis.config.patch import ConfigPatch, diff_configs
 from trend_analysis.config.patch import apply_patch as apply_config_patch
 from trend_analysis.config.validation import ValidationResult, validate_config
+from trend_analysis.data import load_csv
 
 
 @dataclass(slots=True)
@@ -70,6 +75,47 @@ class ToolLayer:
         original = dict(config)
         updated = apply_config_patch(original, patch_obj)
         return diff_configs(original, updated)
+
+    def run_analysis(
+        self,
+        config: Mapping[str, Any] | ConfigType,
+        *,
+        data: pd.DataFrame | None = None,
+    ) -> Any:
+        """Run the analysis pipeline using config and optional returns data."""
+
+        if isinstance(config, Mapping):
+            cfg_obj = load_config(dict(config))
+        elif hasattr(config, "model_dump") and hasattr(config, "data"):
+            cfg_obj = cast(ConfigType, config)
+        else:
+            raise TypeError("config must be a mapping or Config object")
+
+        if data is None:
+            data_settings = getattr(cfg_obj, "data", {}) or {}
+            csv_path = data_settings.get("csv_path")
+            if csv_path is None:
+                raise KeyError("cfg.data['csv_path'] must be provided")
+
+            missing_policy_cfg = data_settings.get("missing_policy")
+            if missing_policy_cfg is None:
+                missing_policy_cfg = data_settings.get("nan_policy")
+            missing_limit_cfg = data_settings.get("missing_limit")
+            if missing_limit_cfg is None:
+                missing_limit_cfg = data_settings.get("nan_limit")
+
+            data = load_csv(
+                str(csv_path),
+                errors="raise",
+                missing_policy=missing_policy_cfg,
+                missing_limit=missing_limit_cfg,
+            )
+            if data is None:
+                raise FileNotFoundError(str(csv_path))
+        elif not isinstance(data, pd.DataFrame):
+            raise TypeError("data must be a pandas DataFrame")
+
+        return api.run_simulation(cfg_obj, data)
 
 
 __all__ = ["ToolLayer"]
