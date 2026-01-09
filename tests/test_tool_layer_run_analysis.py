@@ -76,9 +76,7 @@ def test_run_analysis_loads_csv_when_data_missing(
         return df
 
     monkeypatch.setattr(tool_layer, "load_csv", fake_load_csv)
-    monkeypatch.setattr(
-        tool_layer, "api", SimpleNamespace(run_simulation=lambda *_: "ok")
-    )
+    monkeypatch.setattr(tool_layer, "api", SimpleNamespace(run_simulation=lambda *_: "ok"))
 
     result = tool.run_analysis(cfg)
 
