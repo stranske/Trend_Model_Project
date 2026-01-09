@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, cast
+from typing import Any, Mapping
 
 import pandas as pd
 
@@ -87,7 +87,7 @@ class ToolLayer:
         if isinstance(config, Mapping):
             cfg_obj = load_config(dict(config))
         elif hasattr(config, "model_dump") and hasattr(config, "data"):
-            cfg_obj = cast(ConfigType, config)
+            cfg_obj = config
         else:
             raise TypeError("config must be a mapping or Config object")
 
