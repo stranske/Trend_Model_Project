@@ -140,7 +140,8 @@ class ConfigPatchChain:
             safety_rules=safety_rules,
         )
         last_error: Exception | None = None
-        for attempt in range(self.retries + 1):
+        total_attempts = self.retries + 1
+        for attempt in range(total_attempts):
             if attempt == 0:
                 response_text = self._invoke_llm(prompt_text)
             else:
@@ -159,6 +160,12 @@ class ConfigPatchChain:
                 break
             except json.JSONDecodeError as exc:
                 last_error = exc
+                logger.warning(
+                    "ConfigPatch parse attempt %s/%s failed: %s",
+                    attempt + 1,
+                    total_attempts,
+                    _format_retry_error(exc),
+                )
                 if attempt >= self.retries:
                     raise ValueError(
                         "Failed to parse ConfigPatch after "
@@ -170,6 +177,12 @@ class ConfigPatchChain:
                 if is_json_error:
                     # Wrap JSON parsing errors in ValueError for retry exhaustion
                     last_error = exc
+                    logger.warning(
+                        "ConfigPatch parse attempt %s/%s failed: %s",
+                        attempt + 1,
+                        total_attempts,
+                        _format_retry_error(exc),
+                    )
                     if attempt >= self.retries:
                         raise ValueError(
                             "Failed to parse ConfigPatch after "
@@ -177,9 +190,7 @@ class ConfigPatchChain:
                         ) from exc
                 else:
                     # Let schema validation errors (like extra_forbidden) propagate
-                    if attempt >= self.retries:
-                        raise
-                    last_error = exc
+                    raise
         else:
             raise ValueError("Failed to parse ConfigPatch: unknown error")
 

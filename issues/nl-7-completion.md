@@ -83,10 +83,10 @@ Complete the remaining acceptance criteria from #4185:
 
 ### Provider Abstraction
 - [ ] Create provider abstraction layer in `src/trend_analysis/llm/providers.py`:
-  - [ ] Define `LLMProviderConfig` dataclass
-  - [ ] Implement `create_llm()` factory function
-  - [ ] Support OpenAI provider (langchain-openai)
-  - [ ] Support Anthropic provider (langchain-anthropic)
+  - [x] Define `LLMProviderConfig` dataclass
+  - [x] Implement `create_llm()` factory function
+  - [x] Support OpenAI provider (langchain-openai)
+  - [x] Support Anthropic provider (langchain-anthropic)
   - [ ] Support Ollama provider (langchain-ollama)
   - [ ] Add environment variable detection for API keys
 
