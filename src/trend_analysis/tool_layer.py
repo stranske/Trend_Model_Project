@@ -6,9 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
-from trend_analysis.config.patch import ConfigPatch
+from trend_analysis.config.patch import ConfigPatch, diff_configs
 from trend_analysis.config.patch import apply_patch as apply_config_patch
-from trend_analysis.config.patch import diff_configs
 from trend_analysis.config.validation import ValidationResult, validate_config
 
 
