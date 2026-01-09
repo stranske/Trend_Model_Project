@@ -9,8 +9,7 @@ from typing import Any, Mapping, cast
 import pandas as pd
 
 from trend_analysis import api
-from trend_analysis.config import ConfigType
-from trend_analysis.config import load as load_config
+from trend_analysis.config import ConfigType, load_config
 from trend_analysis.config.patch import ConfigPatch, diff_configs
 from trend_analysis.config.patch import apply_patch as apply_config_patch
 from trend_analysis.config.validation import ValidationResult, validate_config
