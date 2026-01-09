@@ -43,12 +43,9 @@ def validate_patch_keys(
 def _parse_path_segments(path: str) -> list[str | int]:
     if path.startswith("/"):
         json_segments = [
-            segment.replace("~1", "/").replace("~0", "~")
-            for segment in path.split("/")[1:]
+            segment.replace("~1", "/").replace("~0", "~") for segment in path.split("/")[1:]
         ]
-        return [
-            int(segment) if segment.isdigit() else segment for segment in json_segments
-        ]
+        return [int(segment) if segment.isdigit() else segment for segment in json_segments]
     if not _DOTPATH_RE.match(path):
         return [path]
     segments: list[str | int] = []
