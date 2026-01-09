@@ -159,8 +159,6 @@ class ConfigPatchChain:
                 patch = self._parse_patch(response_text)
                 break
             except (json.JSONDecodeError, ValidationError) as exc:
-                if isinstance(exc, ValidationError) and not _is_json_parse_error(exc):
-                    raise
                 last_error = exc
                 logger.warning(
                     "ConfigPatch parse attempt %s/%s failed: %s",
@@ -248,10 +246,6 @@ def _format_retry_error(error: Exception | None) -> str:
     if error is None:
         return "Unknown parse error."
     return f"{error.__class__.__name__}: {error}"
-
-
-def _is_json_parse_error(error: ValidationError) -> bool:
-    return any((err.get("type") or "").startswith("json_") for err in error.errors())
 
 
 def _read_env_float(name: str, *, default: float) -> float:

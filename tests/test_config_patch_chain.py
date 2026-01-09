@@ -11,7 +11,6 @@ pytest.importorskip("langchain_core")
 
 import jsonschema
 from langchain_core.runnables import RunnableLambda
-from pydantic import ValidationError
 
 from trend_analysis.config.patch import ConfigPatch
 from trend_analysis.llm.chain import ConfigPatchChain
@@ -162,11 +161,14 @@ def test_config_patch_chain_unknown_keys_raise() -> None:
         schema={"type": "object"},
     )
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValueError) as excinfo:
         chain.run(
             current_config={"portfolio": {"max_weight": 0.2}},
             instruction="Do nothing.",
         )
+    message = str(excinfo.value)
+    assert "Failed to parse ConfigPatch after 2 attempts" in message
+    assert "ValidationError" in message
 
 
 def test_config_patch_chain_omits_unknown_key_instruction() -> None:
@@ -200,6 +202,51 @@ def test_config_patch_chain_retries_on_parse_error() -> None:
     responses = iter(
         [
             "not-json",
+            json.dumps(
+                {
+                    "operations": [
+                        {
+                            "op": "set",
+                            "path": "portfolio.max_weight",
+                            "value": 0.25,
+                        }
+                    ],
+                    "risk_flags": [],
+                    "summary": "Update max_weight",
+                }
+            ),
+        ]
+    )
+
+    def _respond(prompt_value, **_kwargs) -> str:
+        messages = prompt_value.to_messages()
+        prompts.append(messages[0].content)
+        return next(responses)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+        retries=1,
+    )
+
+    patch = chain.run(
+        current_config={"portfolio": {"max_weight": 0.2}},
+        instruction="Set max_weight to 0.25.",
+    )
+
+    assert patch.summary == "Update max_weight"
+    assert len(prompts) == 2
+    assert "PREVIOUS ERROR" in prompts[1]
+    assert "ValidationError" in prompts[1]
+
+
+def test_config_patch_chain_retries_on_validation_error() -> None:
+    prompts: list[str] = []
+    responses = iter(
+        [
+            json.dumps({"operations": [], "risk_flags": []}),
             json.dumps(
                 {
                     "operations": [
@@ -308,6 +355,55 @@ def test_config_patch_chain_logs_parse_errors(caplog: pytest.LogCaptureFixture) 
     assert len(parse_logs) == 2
     assert "attempt 1/3" in parse_logs[0].message
     assert "ValidationError" in parse_logs[0].message
+
+
+def test_config_patch_chain_logs_validation_errors(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    responses = iter(
+        [
+            json.dumps({"operations": [], "risk_flags": []}),
+            json.dumps({"operations": [], "risk_flags": []}),
+            json.dumps(
+                {
+                    "operations": [
+                        {
+                            "op": "set",
+                            "path": "portfolio.max_weight",
+                            "value": 0.25,
+                        }
+                    ],
+                    "risk_flags": [],
+                    "summary": "Update max_weight",
+                }
+            ),
+        ]
+    )
+
+    def _respond(_prompt_value, **_kwargs) -> str:
+        return next(responses)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+        retries=2,
+    )
+
+    with caplog.at_level(logging.WARNING, logger="trend_analysis.llm.chain"):
+        patch = chain.run(
+            current_config={"portfolio": {"max_weight": 0.2}},
+            instruction="Set max_weight to 0.25.",
+        )
+
+    assert patch.summary == "Update max_weight"
+    parse_logs = [
+        record for record in caplog.records if "ConfigPatch parse attempt" in record.message
+    ]
+    assert len(parse_logs) == 2
+    assert "attempt 2/3" in parse_logs[-1].message
+    assert "ValidationError" in parse_logs[-1].message
 
 
 def test_config_patch_chain_logs_parse_errors_on_exhaustion(
