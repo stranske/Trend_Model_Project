@@ -165,10 +165,23 @@ class ConfigPatchChain:
                         f"{self.retries + 1} attempts: {_format_retry_error(exc)}"
                     ) from exc
             except ValidationError as exc:
-                # Let ValidationError propagate on last attempt for testing/debugging
-                if attempt >= self.retries:
-                    raise
-                last_error = exc
+                # Check if this is a JSON parsing error or a schema validation error
+                is_json_error = any(
+                    err.get("type") == "json_invalid" for err in exc.errors()
+                )
+                if is_json_error:
+                    # Wrap JSON parsing errors in ValueError for retry exhaustion
+                    last_error = exc
+                    if attempt >= self.retries:
+                        raise ValueError(
+                            "Failed to parse ConfigPatch after "
+                            f"{self.retries + 1} attempts: {_format_retry_error(exc)}"
+                        ) from exc
+                else:
+                    # Let schema validation errors (like extra_forbidden) propagate
+                    if attempt >= self.retries:
+                        raise
+                    last_error = exc
         else:
             raise ValueError("Failed to parse ConfigPatch: unknown error")
 
