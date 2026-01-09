@@ -31,9 +31,9 @@ This is the core NL component: a LangChain chain that takes a user instruction a
 - [ ] Validate patch references known keys. (verify: confirm completion in repo)
 - [ ] Flag unknown keys for human review. (verify: confirm completion in repo)
 - [ ] Implement rejection criteria based on unknown keys. (verify: confirm completion in repo)
-- [ ] Implement retry logic:
-- [ ] Implement retry on parsing failure. (verify: confirm completion in repo)
-- [ ] Include previous error in retry prompt. (verify: confirm completion in repo)
+- [x] Implement retry logic:
+- [x] Implement retry on parsing failure. (verify: confirm completion in repo)
+- [x] Include previous error in retry prompt. (verify: confirm completion in repo)
 - [ ] Add provider abstraction:
 - [ ] Support OpenAI. (verify: confirm completion in repo)
 - [ ] Support Anthropic Claude. (verify: confirm completion in repo)

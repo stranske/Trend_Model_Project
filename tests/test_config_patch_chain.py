@@ -355,6 +355,8 @@ def test_config_patch_chain_logs_parse_errors(caplog: pytest.LogCaptureFixture) 
     assert len(parse_logs) == 2
     assert "attempt 1/3" in parse_logs[0].message
     assert "ValidationError" in parse_logs[0].message
+    assert "attempt 2/3" in parse_logs[1].message
+    assert "ValidationError" in parse_logs[1].message
 
 
 def test_config_patch_chain_logs_validation_errors(
