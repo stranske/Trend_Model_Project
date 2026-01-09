@@ -70,6 +70,26 @@ def test_validate_config_missing_required_field(tmp_path: Path) -> None:
     assert _has_path(result, "data.date_column")
 
 
+def test_validate_config_missing_version(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg.pop("version")
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    assert _has_path(result, "version")
+
+
+def test_validate_config_blank_version(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["version"] = "  "
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    assert _has_path(result, "version")
+
+
 def test_validate_config_missing_data_source(tmp_path: Path) -> None:
     cfg = _base_config(tmp_path)
     cfg["data"].pop("csv_path")
@@ -297,6 +317,27 @@ def test_validation_messages_include_warnings(tmp_path: Path) -> None:
     assert any("unexpected:" in message and "Expected" in message for message in messages)
 
 
+def test_format_validation_messages_defaults_suggestion(tmp_path: Path) -> None:
+    result = ValidationResult(
+        errors=[
+            ValidationError(
+                path="sample_split.method",
+                message="Invalid selection.",
+                expected="date or ratio",
+                actual="bad",
+                suggestion=None,
+            )
+        ],
+        warnings=[],
+    )
+    messages = format_validation_messages(result, include_warnings=False)
+
+    assert any(
+        "Suggestion: Update the configuration to match the expected value." in msg
+        for msg in messages
+    )
+
+
 def test_validate_config_date_range_violation(tmp_path: Path) -> None:
     cfg = _base_config(tmp_path)
     cfg["sample_split"] = {
@@ -314,6 +355,21 @@ def test_validate_config_date_range_violation(tmp_path: Path) -> None:
     )
 
 
+def test_validate_config_out_end_before_out_start(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["sample_split"] = {
+        "in_start": "2020-01",
+        "in_end": "2020-02",
+        "out_start": "2020-05",
+        "out_end": "2020-04",
+    }
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    assert _has_path(result, "sample_split.out_end")
+
+
 def test_validate_config_reports_multiple_invalid_dates(tmp_path: Path) -> None:
     cfg = _base_config(tmp_path)
     cfg["sample_split"] = {
@@ -327,6 +383,27 @@ def test_validate_config_reports_multiple_invalid_dates(tmp_path: Path) -> None:
 
     assert not result.valid
     assert _has_path(result, "sample_split.in_start")
+    assert _has_path(result, "sample_split.out_end")
+
+
+def test_validate_config_ratio_requires_value(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["sample_split"] = {"method": "ratio"}
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    assert _has_path(result, "sample_split.ratio")
+
+
+def test_validate_config_date_method_requires_fields(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["sample_split"] = {"method": "date", "in_start": "2020-01", "in_end": "2020-02"}
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    assert _has_path(result, "sample_split.out_start")
     assert _has_path(result, "sample_split.out_end")
 
 
@@ -432,3 +509,13 @@ def test_validation_result_defaults_are_valid() -> None:
     assert result.valid
     assert result.errors == []
     assert result.warnings == []
+
+
+def test_validation_result_coerces_string_issues() -> None:
+    result = ValidationResult(errors=["Missing data section."], warnings=["Heads up."])
+
+    assert result.errors[0].path == "<root>"
+    assert result.errors[0].expected == "valid value"
+    assert result.errors[0].actual == "unknown"
+    assert result.errors[0].suggestion == "Update the configuration to match the expected value."
+    assert result.warnings[0].path == "<root>"
