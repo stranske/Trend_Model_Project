@@ -12,6 +12,7 @@ from .prompts import (
     build_config_patch_prompt,
     format_config_for_prompt,
 )
+from .providers import LLMProviderConfig, create_llm
 
 __all__ = [
     "ConfigPatchChain",
@@ -24,4 +25,6 @@ __all__ = [
     "SECTION_USER",
     "build_config_patch_prompt",
     "format_config_for_prompt",
+    "LLMProviderConfig",
+    "create_llm",
 ]

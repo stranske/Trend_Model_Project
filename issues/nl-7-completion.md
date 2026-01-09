@@ -66,27 +66,27 @@ Complete the remaining acceptance criteria from #4185:
 
 ### Retry Logic
 - [ ] Implement retry logic in ConfigPatchChain.run():
-  - [ ] Catch parsing failures (JSONDecodeError, ValidationError)
-  - [ ] Retry up to `self.retries` times
-  - [ ] Include previous error in retry prompt
-  - [ ] Return error details if all retries exhausted
+  - [x] Catch parsing failures (JSONDecodeError, ValidationError)
+  - [x] Retry up to `self.retries` times
+  - [x] Include previous error in retry prompt
+  - [x] Return error details if all retries exhausted
 
 - [ ] Add retry prompt template in `src/trend_analysis/llm/prompts.py`:
-  - [ ] Include original instruction
-  - [ ] Include error message from failed attempt
-  - [ ] Request corrected output
+  - [x] Include original instruction
+  - [x] Include error message from failed attempt
+  - [x] Request corrected output
 
 - [ ] Add retry tests:
-  - [ ] Test successful retry after parse failure
-  - [ ] Test exhausted retries scenario
-  - [ ] Verify error details in response
+  - [x] Test successful retry after parse failure
+  - [x] Test exhausted retries scenario
+  - [x] Verify error details in response
 
 ### Provider Abstraction
 - [ ] Create provider abstraction layer in `src/trend_analysis/llm/providers.py`:
-  - [ ] Define `LLMProviderConfig` dataclass
-  - [ ] Implement `create_llm()` factory function
-  - [ ] Support OpenAI provider (langchain-openai)
-  - [ ] Support Anthropic provider (langchain-anthropic)
+  - [x] Define `LLMProviderConfig` dataclass
+  - [x] Implement `create_llm()` factory function
+  - [x] Support OpenAI provider (langchain-openai)
+  - [x] Support Anthropic provider (langchain-anthropic)
   - [ ] Support Ollama provider (langchain-ollama)
   - [ ] Add environment variable detection for API keys
 
