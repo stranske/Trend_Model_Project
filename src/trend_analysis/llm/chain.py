@@ -157,13 +157,18 @@ class ConfigPatchChain:
             try:
                 patch = self._parse_patch(response_text)
                 break
-            except (json.JSONDecodeError, ValidationError) as exc:
+            except json.JSONDecodeError as exc:
                 last_error = exc
                 if attempt >= self.retries:
                     raise ValueError(
                         "Failed to parse ConfigPatch after "
                         f"{self.retries + 1} attempts: {_format_retry_error(exc)}"
                     ) from exc
+            except ValidationError as exc:
+                # Let ValidationError propagate on last attempt for testing/debugging
+                if attempt >= self.retries:
+                    raise
+                last_error = exc
         else:
             raise ValueError("Failed to parse ConfigPatch: unknown error")
 
