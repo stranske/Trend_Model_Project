@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import importlib
+from dataclasses import dataclass, field
 from typing import Any, Literal
 
 
@@ -50,9 +50,7 @@ def _import_provider(module_name: str, class_name: str) -> Any:
     try:
         return getattr(module, class_name)
     except AttributeError as exc:
-        raise RuntimeError(
-            f"Provider class '{class_name}' not found in '{module_name}'."
-        ) from exc
+        raise RuntimeError(f"Provider class '{class_name}' not found in '{module_name}'.") from exc
 
 
 def _build_kwargs(config: LLMProviderConfig) -> dict[str, Any]:
