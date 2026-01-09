@@ -7,8 +7,10 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable
 
+from pydantic import ValidationError
+
 from trend_analysis.config.patch import ConfigPatch
-from trend_analysis.llm.prompts import format_config_for_prompt
+from trend_analysis.llm.prompts import build_retry_prompt, format_config_for_prompt
 from trend_analysis.llm.schema import load_compact_schema, select_schema_sections
 from trend_analysis.llm.validation import validate_patch_keys
 
@@ -88,15 +90,49 @@ class ConfigPatchChain:
     ) -> ConfigPatch:
         """Invoke the LLM and parse the ConfigPatch response."""
 
-        prompt_text = self.build_prompt(
-            current_config=current_config,
+        config_text = (
+            current_config
+            if isinstance(current_config, str)
+            else format_config_for_prompt(current_config)
+        )
+        schema_text = allowed_schema or self._serialize_schema(
+            self._select_schema(instruction=instruction)
+        )
+        prompt_text = self.prompt_builder(
+            current_config=config_text,
+            allowed_schema=schema_text,
             instruction=instruction,
-            allowed_schema=allowed_schema,
             system_prompt=system_prompt,
             safety_rules=safety_rules,
         )
-        response_text = self._invoke_llm(prompt_text)
-        patch = self._parse_patch(response_text)
+        last_error: Exception | None = None
+        for attempt in range(self.retries + 1):
+            if attempt == 0:
+                response_text = self._invoke_llm(prompt_text)
+            else:
+                response_text = self._invoke_llm(
+                    build_retry_prompt(
+                        current_config=config_text,
+                        allowed_schema=schema_text,
+                        instruction=instruction,
+                        error_message=_format_retry_error(last_error),
+                        system_prompt=system_prompt,
+                        safety_rules=safety_rules,
+                    )
+                )
+            try:
+                patch = self._parse_patch(response_text)
+                break
+            except (json.JSONDecodeError, ValidationError) as exc:
+                last_error = exc
+                if attempt >= self.retries:
+                    raise ValueError(
+                        "Failed to parse ConfigPatch after "
+                        f"{self.retries + 1} attempts: {_format_retry_error(exc)}"
+                    ) from exc
+        else:
+            raise ValueError("Failed to parse ConfigPatch: unknown error")
+
         schema = self._schema_for_validation(allowed_schema, instruction)
         unknown_keys = validate_patch_keys(patch.operations, schema)
         if unknown_keys:
@@ -161,3 +197,9 @@ def _strip_code_fence(text: str) -> str:
         if len(lines) >= 3:
             return "\n".join(lines[1:-1]).strip()
     return stripped
+
+
+def _format_retry_error(error: Exception | None) -> str:
+    if error is None:
+        return "Unknown parse error."
+    return f"{error.__class__.__name__}: {error}"

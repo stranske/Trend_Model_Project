@@ -84,3 +84,71 @@ def test_config_patch_chain_flags_unknown_keys() -> None:
     )
 
     assert patch.needs_review is True
+
+
+def test_config_patch_chain_retries_on_parse_error() -> None:
+    prompts: list[str] = []
+    responses = iter(
+        [
+            "not-json",
+            json.dumps(
+                {
+                    "operations": [
+                        {
+                            "op": "set",
+                            "path": "portfolio.max_weight",
+                            "value": 0.25,
+                        }
+                    ],
+                    "risk_flags": [],
+                    "summary": "Update max_weight",
+                }
+            ),
+        ]
+    )
+
+    def _respond(prompt_value, **_kwargs) -> str:
+        messages = prompt_value.to_messages()
+        prompts.append(messages[0].content)
+        return next(responses)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+        retries=1,
+    )
+
+    patch = chain.run(
+        current_config={"portfolio": {"max_weight": 0.2}},
+        instruction="Set max_weight to 0.25.",
+    )
+
+    assert patch.summary == "Update max_weight"
+    assert len(prompts) == 2
+    assert "PREVIOUS ERROR" in prompts[1]
+    assert "ValidationError" in prompts[1]
+
+
+def test_config_patch_chain_retry_exhausted_raises_error() -> None:
+    def _respond(_prompt_value, **_kwargs) -> str:
+        return "not-json"
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+        retries=1,
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        chain.run(
+            current_config={"portfolio": {"max_weight": 0.2}},
+            instruction="Set max_weight to 0.25.",
+        )
+
+    message = str(excinfo.value)
+    assert "Failed to parse ConfigPatch after 2 attempts" in message
+    assert "ValidationError" in message
