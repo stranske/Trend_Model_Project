@@ -96,3 +96,12 @@ def test_run_analysis_requires_csv_path() -> None:
 
     assert result.success is False
     assert "csv_path" in (result.error or "")
+
+
+def test_run_analysis_rejects_non_dataframe_data() -> None:
+    tool = ToolLayer()
+
+    result = tool.run_analysis(_sample_config(), data="not-a-dataframe")
+
+    assert result.success is False
+    assert "pandas DataFrame" in (result.error or "")
