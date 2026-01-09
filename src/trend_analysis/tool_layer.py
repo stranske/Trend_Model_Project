@@ -8,6 +8,7 @@ from typing import Any, Mapping
 
 from trend_analysis.config.patch import ConfigPatch
 from trend_analysis.config.patch import apply_patch as apply_config_patch
+from trend_analysis.config.patch import diff_configs
 from trend_analysis.config.validation import ValidationResult, validate_config
 
 
@@ -51,6 +52,25 @@ class ToolLayer:
             strict=strict,
             skip_required_fields=skip_required_fields,
         )
+
+    def preview_diff(
+        self,
+        config: Mapping[str, Any],
+        patch: Mapping[str, Any] | ConfigPatch,
+    ) -> str:
+        """Preview the unified diff for applying a patch to a config mapping."""
+
+        if not isinstance(config, Mapping):
+            raise TypeError("config must be a mapping")
+
+        if isinstance(patch, ConfigPatch):
+            patch_obj = patch
+        else:
+            patch_obj = ConfigPatch.model_validate(patch)
+
+        original = dict(config)
+        updated = apply_config_patch(original, patch_obj)
+        return diff_configs(original, updated)
 
 
 __all__ = ["ToolLayer"]
