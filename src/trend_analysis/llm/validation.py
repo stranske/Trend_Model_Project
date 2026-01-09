@@ -42,10 +42,13 @@ def validate_patch_keys(
 
 def _parse_path_segments(path: str) -> list[str | int]:
     if path.startswith("/"):
-        segments = [
-            segment.replace("~1", "/").replace("~0", "~") for segment in path.split("/")[1:]
+        json_segments = [
+            segment.replace("~1", "/").replace("~0", "~")
+            for segment in path.split("/")[1:]
         ]
-        return [int(segment) if segment.isdigit() else segment for segment in segments]
+        return [
+            int(segment) if segment.isdigit() else segment for segment in json_segments
+        ]
     if not _DOTPATH_RE.match(path):
         return [path]
     segments: list[str | int] = []
@@ -114,7 +117,7 @@ def _collect_schema_paths(schema: dict[str, Any], prefix: str = "") -> list[str]
 
 
 def _suggest_path(path: str, candidates: list[str]) -> str | None:
-    suggestions = difflib.get_close_matches(path, candidates, n=1, cutoff=0.6)
+    suggestions = difflib.get_close_matches(path, candidates, n=1, cutoff=0.8)
     return suggestions[0] if suggestions else None
 
 

@@ -144,7 +144,7 @@ class ConfigPatchChain:
     ) -> dict[str, Any] | None:
         if allowed_schema:
             try:
-                return json.loads(allowed_schema)
+                return json.loads(allowed_schema)  # type: ignore[no-any-return]
             except json.JSONDecodeError:
                 return None
         return self._select_schema(instruction=instruction)
