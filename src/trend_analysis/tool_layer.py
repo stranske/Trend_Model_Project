@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from trend_analysis.config.patch import ConfigPatch, apply_patch as apply_config_patch
+from trend_analysis.config.patch import ConfigPatch
+from trend_analysis.config.patch import apply_patch as apply_config_patch
 
 
 @dataclass(slots=True)
