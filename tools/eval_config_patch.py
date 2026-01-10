@@ -25,8 +25,233 @@ class EvalResult:
     patch: dict[str, Any] | None = None
 
 
-def _load_cases(path: Path) -> list[dict[str, Any]]:
+BASE_CONFIG: dict[str, Any] = {
+    "analysis": {
+        "weighting": {"scheme": "equal"},
+        "top_n": 8,
+        "target_vol": 0.10,
+        "frequency": "D",
+    },
+    "constraints": {"max_weight": 0.2},
+}
+
+BASE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "analysis": {
+            "type": "object",
+            "properties": {
+                "weighting": {
+                    "type": "object",
+                    "properties": {"scheme": {"type": "string"}},
+                },
+                "top_n": {"type": "integer"},
+                "target_vol": {"type": "number"},
+                "frequency": {"type": "string"},
+            },
+        },
+        "constraints": {
+            "type": "object",
+            "properties": {"max_weight": {"type": "number"}},
+        },
+    },
+}
+
+DEFAULT_CASES: list[dict[str, Any]] = [
+    {
+        "id": "risk_parity_weighting",
+        "instruction": "Use risk parity weighting.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "expected_patch": {
+            "operations": [
+                {"op": "set", "path": "analysis.weighting.scheme", "value": "risk_parity"}
+            ],
+            "risk_flags": [],
+            "summary": "Set weighting scheme to risk_parity.",
+        },
+    },
+    {
+        "id": "select_top_12",
+        "instruction": "Select top 12 funds.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "expected_patch": {
+            "operations": [{"op": "set", "path": "analysis.top_n", "value": 12}],
+            "risk_flags": [],
+            "summary": "Set top_n to 12.",
+        },
+    },
+    {
+        "id": "remove_position_limits",
+        "instruction": "Remove position limits.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "expected_patch": {
+            "operations": [{"op": "remove", "path": "constraints.max_weight", "value": None}],
+            "risk_flags": ["REMOVES_CONSTRAINT"],
+            "summary": "Remove max_weight constraint.",
+        },
+    },
+    {
+        "id": "target_vol_15",
+        "instruction": "Target 15% volatility.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "expected_patch": {
+            "operations": [{"op": "set", "path": "analysis.target_vol", "value": 0.15}],
+            "risk_flags": [],
+            "summary": "Set target_vol to 0.15.",
+        },
+    },
+    {
+        "id": "monthly_and_risk_parity",
+        "instruction": "Use monthly frequency and risk parity.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "expected_patch": {
+            "operations": [
+                {"op": "set", "path": "analysis.frequency", "value": "M"},
+                {"op": "set", "path": "analysis.weighting.scheme", "value": "risk_parity"},
+            ],
+            "risk_flags": [],
+            "summary": "Set frequency to monthly and weighting to risk_parity.",
+        },
+    },
+    {
+        "id": "unknown_key_request",
+        "instruction": "Enable turbo mode.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "expected_patch": {
+            "operations": [],
+            "risk_flags": [],
+            "summary": "Requested unknown key: turbo_mode.",
+        },
+    },
+    {
+        "id": "conflicting_top_n",
+        "instruction": "Set top_n to 5 and then set top_n to 12.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "expected_patch": {
+            "operations": [{"op": "set", "path": "analysis.top_n", "value": 12}],
+            "risk_flags": [],
+            "summary": "Resolve conflict by setting top_n to 12.",
+        },
+    },
+    {
+        "id": "ambiguous_request",
+        "instruction": "Make the portfolio more conservative.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "expected_patch": {
+            "operations": [],
+            "risk_flags": [],
+            "summary": "Need clarification on requested changes.",
+        },
+    },
+    {
+        "id": "conflicting_frequency",
+        "instruction": "Use monthly frequency and weekly frequency.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "expected_patch": {
+            "operations": [{"op": "set", "path": "analysis.frequency", "value": "M"}],
+            "risk_flags": [],
+            "summary": "Chose monthly frequency.",
+        },
+    },
+    {
+        "id": "typo_key",
+        "instruction": "Set analysis.weighting.sheme to risk_parity.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "expected_patch": {
+            "operations": [],
+            "risk_flags": [],
+            "summary": "Unknown key 'analysis.weighting.sheme'; did you mean 'analysis.weighting.scheme'?",
+        },
+    },
+    {
+        "id": "json_pointer_path",
+        "instruction": "Use cap weighted scheme.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "expected_patch": {
+            "operations": [
+                {"op": "set", "path": "/analysis/weighting/scheme", "value": "cap_weighted"}
+            ],
+            "risk_flags": [],
+            "summary": "Set weighting scheme to cap_weighted.",
+        },
+    },
+    {
+        "id": "code_fenced_response",
+        "instruction": "Set top_n to 10.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "llm_response": '```json\n{"operations":[{"op":"set","path":"analysis.top_n","value":10}],"risk_flags":[],"summary":"Set top_n to 10."}\n```',
+        "expected_patch": {
+            "operations": [{"op": "set", "path": "analysis.top_n", "value": 10}],
+            "risk_flags": [],
+            "summary": "Set top_n to 10.",
+        },
+    },
+    {
+        "id": "merge_constraints",
+        "instruction": "Set max weight to 10% and add min weight 2%.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "expected_patch": {
+            "operations": [
+                {
+                    "op": "merge",
+                    "path": "constraints",
+                    "value": {"max_weight": 0.1, "min_weight": 0.02},
+                }
+            ],
+            "risk_flags": ["BROAD_SCOPE"],
+            "summary": "Merge constraint updates for max_weight and min_weight.",
+        },
+    },
+    {
+        "id": "append_tag",
+        "instruction": "Tag this config as momentum.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "expected_patch": {
+            "operations": [{"op": "append", "path": "analysis.tags", "value": "momentum"}],
+            "risk_flags": [],
+            "summary": "Append tag 'momentum' to analysis.tags.",
+        },
+    },
+    {
+        "id": "invalid_value_request",
+        "instruction": "Set top_n to -5.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "expected_patch": {
+            "operations": [],
+            "risk_flags": [],
+            "summary": "Rejected invalid top_n value; requested value is out of range.",
+        },
+    },
+]
+
+
+def _load_cases(
+    path: Path | None,
+    *,
+    default_cases: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    if path is None:
+        if default_cases is None:
+            raise ValueError("No test cases provided.")
+        return default_cases
     if not path.exists():
+        if default_cases is not None:
+            return default_cases
         raise FileNotFoundError(f"Test case file not found: {path}")
     if path.suffix.lower() == ".json":
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -161,6 +386,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Path to JSON/YAML test case file.",
     )
     parser.add_argument(
+        "--use-default-cases",
+        action="store_true",
+        help="Use embedded test cases instead of reading from a file.",
+    )
+    parser.add_argument(
         "--report",
         type=Path,
         default=Path("tools/eval_report.json"),
@@ -169,7 +399,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        cases = _load_cases(args.cases)
+        case_path = None if args.use_default_cases else args.cases
+        cases = _load_cases(case_path, default_cases=DEFAULT_CASES)
     except Exception as exc:
         print(f"Failed to load cases: {exc}", file=sys.stderr)
         return 1

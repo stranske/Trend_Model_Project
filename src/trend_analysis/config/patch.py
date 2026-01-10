@@ -3,21 +3,34 @@
 from __future__ import annotations
 
 import difflib
+import json
+import logging
 import re
 from copy import deepcopy
 from enum import Enum
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from .validation import ValidationResult, validate_config
 
-_DOTPATH_RE = re.compile(r"^[A-Za-z0-9_-]+(\[\d+\])*(\.[A-Za-z0-9_-]+(\[\d+\])*)*$")
+_DOTPATH_RE = re.compile(
+    r"^(?:[A-Za-z0-9_-]+|\*)(?:\[\d+\])*" r"(?:\.(?:[A-Za-z0-9_-]+|\*)(?:\[\d+\])*)*$"
+)
 _JSON_POINTER_RE = re.compile(r"^(/[^/\s]+)+$")
 
 _VOL_TARGET_RISK_THRESHOLD = 0.15
+
+_logger = logging.getLogger(__name__)
 
 
 class RiskFlag(str, Enum):
@@ -174,6 +187,43 @@ def apply_and_validate(
     return updated, result
 
 
+def parse_config_patch(response_text: str) -> ConfigPatch:
+    """Parse a ConfigPatch from JSON text, stripping Markdown fences if present."""
+
+    return ConfigPatch.model_validate_json(_strip_code_fence(response_text))
+
+
+def parse_config_patch_with_retries(
+    response_provider: Callable[[int, Exception | None], str],
+    *,
+    retries: int,
+    logger: logging.Logger | None = None,
+) -> ConfigPatch:
+    """Parse a ConfigPatch with retry support on JSON/validation failures."""
+
+    last_error: Exception | None = None
+    total_attempts = retries + 1
+    active_logger = logger or _logger
+    for attempt in range(total_attempts):
+        response_text = response_provider(attempt, last_error)
+        try:
+            return parse_config_patch(response_text)
+        except (json.JSONDecodeError, ValidationError) as exc:
+            last_error = exc
+            active_logger.warning(
+                "ConfigPatch parse attempt %s/%s failed: %s",
+                attempt + 1,
+                total_attempts,
+                format_retry_error(exc),
+            )
+            if attempt >= retries:
+                raise ValueError(
+                    "Failed to parse ConfigPatch after "
+                    f"{retries + 1} attempts: {format_retry_error(exc)}"
+                ) from exc
+    raise ValueError("Failed to parse ConfigPatch: unknown error")
+
+
 def _to_dotpath(path: str) -> str:
     segments = _parse_path_segments(path)
     return _format_dotpath(segments)
@@ -188,10 +238,19 @@ def _parse_path_segments(path: str) -> list[str | int]:
     return _parse_dotpath(path) if path else []
 
 
+def _strip_code_fence(text: str) -> str:
+    stripped = text.strip()
+    if stripped.startswith("```") and stripped.endswith("```"):
+        lines = stripped.splitlines()
+        if len(lines) >= 3:
+            return "\n".join(lines[1:-1]).strip()
+    return stripped
+
+
 def _parse_dotpath(path: str) -> list[str | int]:
     segments: list[str | int] = []
     for part in path.split("."):
-        match = re.fullmatch(r"([A-Za-z0-9_-]+)((?:\[\d+\])*)", part)
+        match = re.fullmatch(r"([A-Za-z0-9_-]+|\*)((?:\[\d+\])*)", part)
         if not match:
             raise ValueError("path must be a dotpath or JSONPointer")
         key, indexes = match.groups()
@@ -435,6 +494,12 @@ def _path_error(path: str, config: dict[str, Any], exc: Exception) -> ValueError
     return ValueError(f"Invalid path '{path}': {exc}.{hint}")
 
 
+def format_retry_error(error: Exception | None) -> str:
+    if error is None:
+        return "Unknown parse error."
+    return f"{error.__class__.__name__}: {error}"
+
+
 __all__ = [
     "apply_patch",
     "apply_config_patch",
@@ -444,4 +509,7 @@ __all__ = [
     "apply_and_diff",
     "apply_and_validate",
     "diff_configs",
+    "format_retry_error",
+    "parse_config_patch",
+    "parse_config_patch_with_retries",
 ]

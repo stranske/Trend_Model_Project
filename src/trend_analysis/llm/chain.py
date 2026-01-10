@@ -8,12 +8,14 @@ import os
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable
 
-from pydantic import ValidationError
-
-from trend_analysis.config.patch import ConfigPatch
+from trend_analysis.config.patch import (
+    ConfigPatch,
+    format_retry_error,
+    parse_config_patch_with_retries,
+)
 from trend_analysis.llm.prompts import build_retry_prompt, format_config_for_prompt
 from trend_analysis.llm.schema import load_compact_schema, select_schema_sections
-from trend_analysis.llm.validation import validate_patch_keys
+from trend_analysis.llm.validation import flag_unknown_keys
 
 PromptBuilder = Callable[..., str]
 
@@ -139,54 +141,25 @@ class ConfigPatchChain:
             system_prompt=system_prompt,
             safety_rules=safety_rules,
         )
-        last_error: Exception | None = None
-        total_attempts = self.retries + 1
-        for attempt in range(total_attempts):
-            if attempt == 0:
-                response_text = self._invoke_llm(prompt_text)
-            else:
-                response_text = self._invoke_llm(
-                    build_retry_prompt(
-                        current_config=config_text,
-                        allowed_schema=schema_text,
-                        instruction=instruction,
-                        error_message=_format_retry_error(last_error),
-                        system_prompt=system_prompt,
-                        safety_rules=safety_rules,
-                    )
+        patch = parse_config_patch_with_retries(
+            lambda attempt, last_error: self._invoke_llm(
+                prompt_text
+                if attempt == 0
+                else build_retry_prompt(
+                    current_config=config_text,
+                    allowed_schema=schema_text,
+                    instruction=instruction,
+                    error_message=format_retry_error(last_error),
+                    system_prompt=system_prompt,
+                    safety_rules=safety_rules,
                 )
-            try:
-                patch = self._parse_patch(response_text)
-                break
-            except (json.JSONDecodeError, ValidationError) as exc:
-                last_error = exc
-                logger.warning(
-                    "ConfigPatch parse attempt %s/%s failed: %s",
-                    attempt + 1,
-                    total_attempts,
-                    _format_retry_error(exc),
-                )
-                if attempt >= self.retries:
-                    raise ValueError(
-                        "Failed to parse ConfigPatch after "
-                        f"{self.retries + 1} attempts: {_format_retry_error(exc)}"
-                    ) from exc
-        else:
-            raise ValueError("Failed to parse ConfigPatch: unknown error")
+            ),
+            retries=self.retries,
+            logger=logger,
+        )
 
         schema = self._schema_for_validation(allowed_schema, instruction)
-        unknown_keys = validate_patch_keys(patch.operations, schema)
-        if unknown_keys:
-            patch.needs_review = True
-            for entry in unknown_keys:
-                if entry.suggestion:
-                    logger.warning(
-                        "Unknown config key '%s'. Did you mean '%s'?",
-                        entry.path,
-                        entry.suggestion,
-                    )
-                else:
-                    logger.warning("Unknown config key '%s'.", entry.path)
+        flag_unknown_keys(patch, schema, logger=logger)
         return patch
 
     def _invoke_llm(self, prompt_text: str) -> str:
@@ -213,9 +186,6 @@ class ConfigPatchChain:
     def _serialize_schema(self, schema: dict[str, Any]) -> str:
         return json.dumps(schema, indent=2, ensure_ascii=True)
 
-    def _parse_patch(self, response_text: str) -> ConfigPatch:
-        return ConfigPatch.model_validate_json(_strip_code_fence(response_text))
-
     def _schema_for_validation(
         self,
         allowed_schema: str | None,
@@ -231,21 +201,6 @@ class ConfigPatchChain:
     def _select_schema(self, *, instruction: str) -> dict[str, Any]:
         schema = self.schema or load_compact_schema()
         return select_schema_sections(schema, instruction)
-
-
-def _strip_code_fence(text: str) -> str:
-    stripped = text.strip()
-    if stripped.startswith("```") and stripped.endswith("```"):
-        lines = stripped.splitlines()
-        if len(lines) >= 3:
-            return "\n".join(lines[1:-1]).strip()
-    return stripped
-
-
-def _format_retry_error(error: Exception | None) -> str:
-    if error is None:
-        return "Unknown parse error."
-    return f"{error.__class__.__name__}: {error}"
 
 
 def _read_env_float(name: str, *, default: float) -> float:
