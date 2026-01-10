@@ -82,7 +82,9 @@ def test_run_analysis_loads_csv_when_data_missing(
         return df
 
     monkeypatch.setattr(tool_layer, "load_csv", fake_load_csv)
-    monkeypatch.setattr(tool_layer, "api", SimpleNamespace(run_simulation=lambda *_: "ok"))
+    monkeypatch.setattr(
+        tool_layer, "api", SimpleNamespace(run_simulation=lambda *_: "ok")
+    )
 
     result = tool.run_analysis(cfg)
 
@@ -139,7 +141,8 @@ def test_run_analysis_rejects_path_traversal(
     (repo_root / "data").mkdir(parents=True)
     monkeypatch.setenv("TREND_REPO_ROOT", str(repo_root))
     cfg = _sample_config()
-    cfg["data"] = {**cfg["data"], "csv_path": "data/../secrets.csv"}
+    # Use ../../ to escape beyond repo root - data/../secrets.csv stays within repo
+    cfg["data"] = {**cfg["data"], "csv_path": "../../secrets.csv"}
 
     tool = ToolLayer()
     result = tool.run_analysis(cfg)
