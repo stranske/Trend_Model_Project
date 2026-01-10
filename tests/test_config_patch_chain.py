@@ -141,6 +141,51 @@ def test_config_patch_chain_flags_unknown_keys() -> None:
     )
 
     assert patch.needs_review is True
+    assert patch.operations == []
+    assert "analysis.turbo_mode" in patch.summary
+
+
+def test_config_patch_chain_filters_unknown_keys_from_mixed_ops() -> None:
+    def _respond(_prompt_value, **_kwargs) -> str:
+        payload = {
+            "operations": [
+                {
+                    "op": "set",
+                    "path": "analysis.top_n",
+                    "value": 12,
+                },
+                {
+                    "op": "set",
+                    "path": "analysis.turbo_mode",
+                    "value": True,
+                },
+            ],
+            "risk_flags": [],
+            "summary": "Update top_n and enable turbo mode.",
+        }
+        return json.dumps(payload)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={
+            "type": "object",
+            "properties": {
+                "analysis": {"type": "object", "properties": {"top_n": {"type": "integer"}}}
+            },
+        },
+    )
+
+    patch = chain.run(
+        current_config={"analysis": {"top_n": 8}},
+        instruction="Set top_n to 12 and enable turbo mode.",
+    )
+
+    assert patch.needs_review is True
+    assert len(patch.operations) == 1
+    assert patch.operations[0].path == "analysis.top_n"
+    assert "analysis.turbo_mode" in patch.summary
 
 
 def test_config_patch_chain_unknown_keys_raise() -> None:
