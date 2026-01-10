@@ -68,9 +68,7 @@ def demo_provider_usage(
             )
             continue
         try:
-            response = llm.invoke(
-                "Provide a one-sentence summary for a trend model config demo."
-            )
+            response = llm.invoke("Provide a one-sentence summary for a trend model config demo.")
         except Exception as exc:
             logger.error("LLM provider '%s' invocation failed: %s", config.provider, exc)
         else:
