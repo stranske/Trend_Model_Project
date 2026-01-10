@@ -64,7 +64,9 @@ def _build_cases() -> list[dict[str, Any]]:
         cases.append(
             {
                 "instruction": instruction,
-                "current_config": {"analysis": {"top_n": 10, "weighting": {"scheme": "equal_weight"}}},
+                "current_config": {
+                    "analysis": {"top_n": 10, "weighting": {"scheme": "equal_weight"}}
+                },
                 "expected_patch": expected_patch,
                 "llm_response": json.dumps(expected_patch, ensure_ascii=True),
             }
@@ -107,7 +109,8 @@ def test_parsing_accuracy_sampled_cases() -> None:
             failures.append(f"case-{index}")
 
     success_rate = passed / len(cases)
-    assert success_rate >= 0.95, (
-        f"Structured output parsing success rate {success_rate:.2%} below 95%."
-        + (f" Failed cases: {', '.join(failures[:5])}." if failures else "")
+    assert (
+        success_rate >= 0.95
+    ), f"Structured output parsing success rate {success_rate:.2%} below 95%." + (
+        f" Failed cases: {', '.join(failures[:5])}." if failures else ""
     )
