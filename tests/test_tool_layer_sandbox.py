@@ -70,3 +70,28 @@ def test_sandbox_rejects_symlink_escape(
     tool = ToolLayer()
     with pytest.raises(ValueError, match="sandbox"):
         tool._sandbox_path(link_path)
+
+
+def test_sandbox_rejects_symlinked_directory_escape(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo_root = tmp_path / "repo"
+    data_root = repo_root / "data"
+    data_root.mkdir(parents=True)
+    monkeypatch.setenv("TREND_REPO_ROOT", str(repo_root))
+    outside_root = tmp_path / "outside"
+    outside_root.mkdir()
+    target_dir = outside_root / "linked"
+    target_dir.mkdir()
+    (target_dir / "returns.csv").write_text("Date,A\n2020-01-01,0.01\n", encoding="utf-8")
+    link_dir = data_root / "linked"
+
+    try:
+        os.symlink(target_dir, link_dir, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks not supported in this environment")
+
+    tool = ToolLayer()
+    with pytest.raises(ValueError, match="sandbox"):
+        tool._sandbox_path(link_dir / "returns.csv")
