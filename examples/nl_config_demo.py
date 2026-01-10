@@ -20,10 +20,10 @@ from trend_analysis.llm.prompts import (
 from trend_analysis.llm.schema import load_compact_schema, select_schema_sections
 
 
-def demo_provider_setup(logger: logging.Logger) -> None:
-    """Create two provider configs and log success or failure."""
+def build_provider_configs() -> list[LLMProviderConfig]:
+    """Build provider configurations from environment defaults."""
 
-    configs: Iterable[LLMProviderConfig] = [
+    return [
         LLMProviderConfig(
             provider="openai",
             model=os.environ.get("TREND_OPENAI_MODEL", "gpt-4o-mini"),
@@ -36,15 +36,45 @@ def demo_provider_setup(logger: logging.Logger) -> None:
         ),
     ]
 
-    for config in configs:
+
+def demo_provider_setup(logger: logging.Logger) -> list[tuple[LLMProviderConfig, object]]:
+    """Create provider configs, instantiate clients, and log outcomes."""
+
+    llms: list[tuple[LLMProviderConfig, object]] = []
+    for config in build_provider_configs():
         try:
-            create_llm(config)
+            llm = create_llm(config)
         except RuntimeError as exc:
             logger.error("LLM provider '%s' failed to initialize: %s", config.provider, exc)
         else:
             logger.info(
                 "LLM provider '%s' initialized with model '%s'.", config.provider, config.model
             )
+            llms.append((config, llm))
+    return llms
+
+
+def demo_provider_usage(
+    logger: logging.Logger, llms: Iterable[tuple[LLMProviderConfig, object]]
+) -> None:
+    """Show how to invoke providers with an optional live call."""
+
+    run_live = os.environ.get("TREND_DEMO_RUN_LLM", "").lower() in {"1", "true", "yes"}
+    for config, llm in llms:
+        if not run_live:
+            logger.info(
+                "Skipping live call for provider '%s'. Set TREND_DEMO_RUN_LLM=1 to enable.",
+                config.provider,
+            )
+            continue
+        try:
+            response = llm.invoke(
+                "Provide a one-sentence summary for a trend model config demo."
+            )
+        except Exception as exc:
+            logger.error("LLM provider '%s' invocation failed: %s", config.provider, exc)
+        else:
+            logger.info("LLM provider '%s' sample response: %s", config.provider, response)
 
 
 def demo_patch_retry_workflow(logger: logging.Logger) -> None:
@@ -93,7 +123,8 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     logger = logging.getLogger("nl-config-demo")
     logger.info("Starting NL config demo.")
-    demo_provider_setup(logger)
+    llms = demo_provider_setup(logger)
+    demo_provider_usage(logger, llms)
     demo_patch_retry_workflow(logger)
 
 

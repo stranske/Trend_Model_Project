@@ -41,6 +41,26 @@ def _schema_with_array() -> dict[str, object]:
     }
 
 
+def _schema_with_array_wildcard() -> dict[str, object]:
+    return {
+        "type": "object",
+        "properties": {
+            "rules": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "limits": {
+                            "type": "object",
+                            "additionalProperties": {"type": "number"},
+                        }
+                    },
+                },
+            }
+        },
+    }
+
+
 def _schema_with_wildcard() -> dict[str, object]:
     return {
         "type": "object",
@@ -98,10 +118,26 @@ def test_validate_patch_keys_accepts_array_indices() -> None:
     assert unknown == []
 
 
+def test_validate_patch_keys_accepts_json_pointer_array_indices() -> None:
+    operations = [PatchOperation(op="set", path="/metrics/compute/7/window", value=12)]
+
+    unknown = validate_patch_keys(operations, _schema_with_array())
+
+    assert unknown == []
+
+
 def test_validate_patch_keys_accepts_wildcard_keys() -> None:
     operations = [PatchOperation(op="set", path="portfolio.constraints.group_caps.*", value=0.1)]
 
     unknown = validate_patch_keys(operations, _schema_with_wildcard())
+
+    assert unknown == []
+
+
+def test_validate_patch_keys_accepts_array_wildcard_keys() -> None:
+    operations = [PatchOperation(op="set", path="rules[1].limits.*", value=0.2)]
+
+    unknown = validate_patch_keys(operations, _schema_with_array_wildcard())
 
     assert unknown == []
 
@@ -113,6 +149,16 @@ def test_validate_patch_keys_flags_unknown_array_item_key() -> None:
 
     assert len(unknown) == 1
     assert unknown[0].path == "metrics.compute[2].missing_key"
+    assert unknown[0].suggestion is None
+
+
+def test_validate_patch_keys_flags_unknown_json_pointer_array_item_key() -> None:
+    operations = [PatchOperation(op="set", path="/metrics/compute/0/missing_key", value=12)]
+
+    unknown = validate_patch_keys(operations, _schema_with_array())
+
+    assert len(unknown) == 1
+    assert unknown[0].path == "metrics.compute[0].missing_key"
     assert unknown[0].suggestion is None
 
 
