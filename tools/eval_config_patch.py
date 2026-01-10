@@ -341,7 +341,10 @@ DEFAULT_CASES: list[dict[str, Any]] = [
         "llm_responses": ["{bad-json", "{still-bad-json"],
         "expected_error_contains": "Failed to parse ConfigPatch after 2 attempts",
         "expected_log_count": 2,
-        "expected_log_fragments": ["ConfigPatch parse attempt 2/2 failed"],
+        "expected_log_fragments": [
+            "ConfigPatch parse attempt 1/2 failed",
+            "ConfigPatch parse attempt 2/2 failed",
+        ],
     },
     {
         "id": "retry_exhausted_validation_error",
@@ -374,7 +377,11 @@ DEFAULT_CASES: list[dict[str, Any]] = [
         ],
         "expected_error_contains": "Failed to parse ConfigPatch after 3 attempts",
         "expected_log_count": 3,
-        "expected_log_fragments": ["ConfigPatch parse attempt 3/3 failed"],
+        "expected_log_fragments": [
+            "ConfigPatch parse attempt 1/3 failed",
+            "ConfigPatch parse attempt 2/3 failed",
+            "ConfigPatch parse attempt 3/3 failed",
+        ],
     },
     {
         "id": "success_merge_analysis_settings",
