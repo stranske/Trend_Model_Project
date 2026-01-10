@@ -99,9 +99,7 @@ def test_validate_patch_keys_accepts_array_indices() -> None:
 
 
 def test_validate_patch_keys_accepts_wildcard_keys() -> None:
-    operations = [
-        PatchOperation(op="set", path="portfolio.constraints.group_caps.*", value=0.1)
-    ]
+    operations = [PatchOperation(op="set", path="portfolio.constraints.group_caps.*", value=0.1)]
 
     unknown = validate_patch_keys(operations, _schema_with_wildcard())
 

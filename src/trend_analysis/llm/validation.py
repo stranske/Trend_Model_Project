@@ -3,17 +3,15 @@
 from __future__ import annotations
 
 import difflib
-import re
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any, Iterable
 
-from trend_analysis.config.patch import ConfigPatch
-from trend_analysis.config.patch import PatchOperation
+from trend_analysis.config.patch import ConfigPatch, PatchOperation
 
 _DOTPATH_RE = re.compile(
-    r"^(?:[A-Za-z0-9_-]+|\*)(?:\[\d+\])*"
-    r"(?:\.(?:[A-Za-z0-9_-]+|\*)(?:\[\d+\])*)*$"
+    r"^(?:[A-Za-z0-9_-]+|\*)(?:\[\d+\])*" r"(?:\.(?:[A-Za-z0-9_-]+|\*)(?:\[\d+\])*)*$"
 )
 
 

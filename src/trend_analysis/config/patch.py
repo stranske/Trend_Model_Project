@@ -24,8 +24,7 @@ from pydantic import (
 from .validation import ValidationResult, validate_config
 
 _DOTPATH_RE = re.compile(
-    r"^(?:[A-Za-z0-9_-]+|\*)(?:\[\d+\])*"
-    r"(?:\.(?:[A-Za-z0-9_-]+|\*)(?:\[\d+\])*)*$"
+    r"^(?:[A-Za-z0-9_-]+|\*)(?:\[\d+\])*" r"(?:\.(?:[A-Za-z0-9_-]+|\*)(?:\[\d+\])*)*$"
 )
 _JSON_POINTER_RE = re.compile(r"^(/[^/\s]+)+$")
 
