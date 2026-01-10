@@ -34,6 +34,20 @@ def test_sandbox_rejects_traversal_components(
         tool._sandbox_path("data/../secrets.csv")
 
 
+def test_sandbox_rejects_absolute_traversal_components(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo_root = tmp_path / "repo"
+    (repo_root / "data").mkdir(parents=True)
+    monkeypatch.setenv("TREND_REPO_ROOT", str(repo_root))
+    tool = ToolLayer()
+
+    absolute_path = repo_root / "data" / ".." / "secrets.csv"
+    with pytest.raises(ValueError, match="traversal"):
+        tool._sandbox_path(absolute_path)
+
+
 def test_sandbox_rejects_symlink_escape(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
