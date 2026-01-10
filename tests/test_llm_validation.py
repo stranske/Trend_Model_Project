@@ -106,6 +106,34 @@ def test_validate_patch_keys_accepts_wildcard_keys() -> None:
     assert unknown == []
 
 
+def test_validate_patch_keys_flags_unknown_array_item_key() -> None:
+    operations = [
+        PatchOperation(op="set", path="metrics.compute[2].missing_key", value=12)
+    ]
+
+    unknown = validate_patch_keys(operations, _schema_with_array())
+
+    assert len(unknown) == 1
+    assert unknown[0].path == "metrics.compute[2].missing_key"
+    assert unknown[0].suggestion is None
+
+
+def test_validate_patch_keys_flags_unknown_wildcard_child() -> None:
+    operations = [
+        PatchOperation(
+            op="set",
+            path="portfolio.constraints.group_caps.*.limit",
+            value=0.2,
+        )
+    ]
+
+    unknown = validate_patch_keys(operations, _schema_with_wildcard())
+
+    assert len(unknown) == 1
+    assert unknown[0].path == "portfolio.constraints.group_caps.*.limit"
+    assert unknown[0].suggestion == "portfolio.constraints.group_caps"
+
+
 def test_flag_unknown_keys_marks_review() -> None:
     patch = ConfigPatch(
         operations=[PatchOperation(op="set", path="analysis.unknown", value=1)],
@@ -128,3 +156,21 @@ def test_flag_unknown_keys_skips_known_paths() -> None:
 
     assert patch.needs_review is False
     assert unknown == []
+
+
+def test_flag_unknown_keys_marks_review_for_wildcard_child() -> None:
+    patch = ConfigPatch(
+        operations=[
+            PatchOperation(
+                op="set",
+                path="portfolio.constraints.group_caps.*.limit",
+                value=0.2,
+            )
+        ],
+        summary="Wildcard child update.",
+    )
+
+    unknown = flag_unknown_keys(patch, _schema_with_wildcard())
+
+    assert patch.needs_review is True
+    assert len(unknown) == 1
