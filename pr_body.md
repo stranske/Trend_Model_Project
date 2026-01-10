@@ -1,6 +1,15 @@
 <!-- pr-preamble:start -->
-> **Note:** This file uses `merge=ours` strategy (see .gitattributes)
+> **Source:** Issue #4186
 
 <!-- pr-preamble:end -->
 
-This file is managed per-branch and uses the `merge=ours` merge strategy.
+## Scope
+Add path traversal validation to config path resolution.
+
+## Changes
+- Updated path validation to check resolved paths stay within project boundaries
+- Added tests for path traversal detection
+
+## Testing
+- All existing tests pass
+- New tests verify path traversal is blocked
