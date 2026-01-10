@@ -3,9 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 
-from trend_analysis.tool_layer import ToolLayer, _REDACTED_VALUE
+from trend_analysis.tool_layer import _REDACTED_VALUE, ToolLayer
 
 
 def test_tool_layer_logs_json_with_redaction(tmp_path: Path) -> None:

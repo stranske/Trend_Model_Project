@@ -155,13 +155,17 @@ class ToolLayer:
             request_id=request_id,
             tool=tool,
             parameters=_sanitize_value(dict(parameters)),
-            output_summary=_summarize_value(result.data if result.status == "success" else result.message),
+            output_summary=_summarize_value(
+                result.data if result.status == "success" else result.message
+            ),
             status=result.status,
         )
         with log_path.open("a", encoding="utf-8") as handle:
             handle.write(payload.model_dump_json() + "\n")
 
-    def _wrap_result(self, tool_name: str, parameters: Mapping[str, Any], func: Callable[[], Any]) -> ToolResult:
+    def _wrap_result(
+        self, tool_name: str, parameters: Mapping[str, Any], func: Callable[[], Any]
+    ) -> ToolResult:
         start = time.perf_counter()
         request_id = uuid4().hex
         try:
