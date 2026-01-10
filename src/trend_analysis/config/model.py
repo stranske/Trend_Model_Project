@@ -53,9 +53,7 @@ def _resolve_path(value: str | os.PathLike[str], *, base_dir: Path | None) -> Pa
         value = value.strip()
 
     raw = Path(value).expanduser()
-    # Reject path traversal attempts
-    if any(part == ".." for part in raw.parts):
-        raise ValueError("path traversal is not allowed")
+
     if raw.is_absolute():
         path = raw.resolve()
     else:
@@ -77,6 +75,21 @@ def _resolve_path(value: str | os.PathLike[str], *, base_dir: Path | None) -> Pa
         else:
             path = (base_dir or proj_path()) / raw
             path = path.resolve()
+
+    # Check path traversal after resolution to ensure resolved path stays within allowed roots
+    # This allows legitimate relative paths like ../demo/file.csv while blocking actual escapes
+    if not raw.is_absolute():
+        allowed_roots = []
+        if base_dir is not None:
+            allowed_roots.extend([base_dir.resolve(), base_dir.parent.resolve()])
+        allowed_roots.append(proj_path().resolve())
+        allowed_roots.append(Path.cwd().resolve())
+
+        # Verify resolved path is under at least one allowed root
+        if not any(path.resolve().is_relative_to(root) for root in allowed_roots):
+            raise ValueError(
+                f"path traversal outside project directory is not allowed (resolved to {path})"
+            )
     if any(ch in str(raw) for ch in _GLOB_CHARS):
         # Globs are not supported because downstream readers expect a concrete
         # CSV file.  Raising here keeps the failure actionable.
