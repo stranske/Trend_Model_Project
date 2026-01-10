@@ -20,7 +20,7 @@ def test_validate_config_reports_missing_sections(
 
     result = tool.validate_config({}, base_path=config_root)
 
-    assert result.success is True
+    assert result.status == "success"
     assert isinstance(result.data, ValidationResult)
     assert result.data.valid is False
     assert result.data.errors
@@ -37,8 +37,8 @@ def test_validate_config_rejects_paths_outside_sandbox(
 
     result = tool.validate_config({}, base_path=tmp_path / "outside")
 
-    assert result.success is False
-    assert "sandbox" in (result.error or "")
+    assert result.status == "error"
+    assert "sandbox" in (result.message or "")
 
 
 def test_validate_config_rejects_path_traversal(
@@ -52,8 +52,8 @@ def test_validate_config_rejects_path_traversal(
 
     result = tool.validate_config({}, base_path=Path("config/../secrets"))
 
-    assert result.success is False
-    assert "traversal" in (result.error or "")
+    assert result.status == "error"
+    assert "traversal" in (result.message or "")
 
 
 def test_validate_config_rejects_symlink_escape(
@@ -76,5 +76,5 @@ def test_validate_config_rejects_symlink_escape(
     tool = ToolLayer()
     result = tool.validate_config({}, base_path=link_path)
 
-    assert result.success is False
-    assert "sandbox" in (result.error or "")
+    assert result.status == "error"
+    assert "sandbox" in (result.message or "")
