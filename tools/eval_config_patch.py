@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,6 +24,7 @@ class EvalResult:
     passed: bool
     errors: list[str]
     patch: dict[str, Any] | None = None
+    logs: list[str] | None = None
 
 
 BASE_CONFIG: dict[str, Any] = {
@@ -237,6 +239,204 @@ DEFAULT_CASES: list[dict[str, Any]] = [
             "summary": "Rejected invalid top_n value; requested value is out of range.",
         },
     },
+    {
+        "id": "retry_invalid_json_then_success",
+        "instruction": "Set top_n to 9.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "retries": 1,
+        "llm_responses": [
+            "not-json",
+            json.dumps(
+                {
+                    "operations": [{"op": "set", "path": "analysis.top_n", "value": 9}],
+                    "risk_flags": [],
+                    "summary": "Set top_n to 9.",
+                },
+                ensure_ascii=True,
+            ),
+        ],
+        "expected_log_count": 1,
+        "expected_log_fragments": ["ConfigPatch parse attempt 1/2 failed"],
+        "expected_patch": {
+            "operations": [{"op": "set", "path": "analysis.top_n", "value": 9}],
+            "risk_flags": [],
+            "summary": "Set top_n to 9.",
+        },
+    },
+    {
+        "id": "retry_validation_error_then_success",
+        "instruction": "Set target_vol to 0.12.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "retries": 1,
+        "llm_responses": [
+            json.dumps(
+                {
+                    "operations": [{"op": "set", "path": "analysis.target_vol", "value": 0.12}],
+                    "risk_flags": [],
+                },
+                ensure_ascii=True,
+            ),
+            json.dumps(
+                {
+                    "operations": [{"op": "set", "path": "analysis.target_vol", "value": 0.12}],
+                    "risk_flags": [],
+                    "summary": "Set target_vol to 0.12.",
+                },
+                ensure_ascii=True,
+            ),
+        ],
+        "expected_log_count": 1,
+        "expected_log_fragments": ["ConfigPatch parse attempt 1/2 failed"],
+        "expected_patch": {
+            "operations": [{"op": "set", "path": "analysis.target_vol", "value": 0.12}],
+            "risk_flags": [],
+            "summary": "Set target_vol to 0.12.",
+        },
+    },
+    {
+        "id": "retry_invalid_path_then_success",
+        "instruction": "Set top_n to 14.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "retries": 1,
+        "llm_responses": [
+            json.dumps(
+                {
+                    "operations": [{"op": "set", "path": "analysis..top_n", "value": 14}],
+                    "risk_flags": [],
+                    "summary": "Set top_n to 14.",
+                },
+                ensure_ascii=True,
+            ),
+            json.dumps(
+                {
+                    "operations": [{"op": "set", "path": "analysis.top_n", "value": 14}],
+                    "risk_flags": [],
+                    "summary": "Set top_n to 14.",
+                },
+                ensure_ascii=True,
+            ),
+        ],
+        "expected_log_count": 1,
+        "expected_log_fragments": ["ConfigPatch parse attempt 1/2 failed"],
+        "expected_patch": {
+            "operations": [{"op": "set", "path": "analysis.top_n", "value": 14}],
+            "risk_flags": [],
+            "summary": "Set top_n to 14.",
+        },
+    },
+    {
+        "id": "retry_exhausted_invalid_json",
+        "instruction": "Set frequency to weekly.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "retries": 1,
+        "llm_responses": ["{bad-json", "{still-bad-json"],
+        "expected_error_contains": "Failed to parse ConfigPatch after 2 attempts",
+        "expected_log_count": 2,
+        "expected_log_fragments": ["ConfigPatch parse attempt 2/2 failed"],
+    },
+    {
+        "id": "retry_exhausted_validation_error",
+        "instruction": "Use monthly frequency.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "retries": 2,
+        "llm_responses": [
+            json.dumps(
+                {
+                    "operations": [{"op": "set", "path": "analysis.frequency", "value": "M"}],
+                    "risk_flags": [],
+                },
+                ensure_ascii=True,
+            ),
+            json.dumps(
+                {
+                    "operations": [{"op": "set", "path": "analysis.frequency", "value": "M"}],
+                    "risk_flags": [],
+                },
+                ensure_ascii=True,
+            ),
+            json.dumps(
+                {
+                    "operations": [{"op": "set", "path": "analysis.frequency", "value": "M"}],
+                    "risk_flags": [],
+                },
+                ensure_ascii=True,
+            ),
+        ],
+        "expected_error_contains": "Failed to parse ConfigPatch after 3 attempts",
+        "expected_log_count": 3,
+        "expected_log_fragments": ["ConfigPatch parse attempt 3/3 failed"],
+    },
+    {
+        "id": "success_merge_analysis_settings",
+        "instruction": "Set frequency to weekly and top_n to 6.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "expected_patch": {
+            "operations": [
+                {"op": "merge", "path": "analysis", "value": {"frequency": "W", "top_n": 6}}
+            ],
+            "risk_flags": ["BROAD_SCOPE"],
+            "summary": "Merge frequency and top_n updates into analysis.",
+        },
+    },
+    {
+        "id": "success_remove_constraint_json_pointer",
+        "instruction": "Remove the max weight constraint.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "expected_patch": {
+            "operations": [{"op": "remove", "path": "/constraints/max_weight", "value": None}],
+            "risk_flags": [],
+            "summary": "Remove max_weight constraint.",
+        },
+    },
+    {
+        "id": "success_set_with_rationale",
+        "instruction": "Switch to cap weighted scheme.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "expected_patch": {
+            "operations": [
+                {
+                    "op": "set",
+                    "path": "analysis.weighting.scheme",
+                    "value": "cap_weighted",
+                }
+            ],
+            "risk_flags": [],
+            "summary": "Set weighting scheme to cap_weighted.",
+        },
+    },
+    {
+        "id": "success_append_two_tags",
+        "instruction": "Tag with momentum and quality.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "expected_patch": {
+            "operations": [
+                {"op": "append", "path": "analysis.tags", "value": "momentum"},
+                {"op": "append", "path": "analysis.tags", "value": "quality"},
+            ],
+            "risk_flags": [],
+            "summary": "Append momentum and quality tags to analysis.tags.",
+        },
+    },
+    {
+        "id": "success_set_frequency_json_pointer",
+        "instruction": "Use monthly frequency.",
+        "current_config": BASE_CONFIG,
+        "allowed_schema": BASE_SCHEMA,
+        "expected_patch": {
+            "operations": [{"op": "set", "path": "/analysis/frequency", "value": "M"}],
+            "risk_flags": [],
+            "summary": "Set frequency to monthly.",
+        },
+    },
 ]
 
 
@@ -272,11 +472,31 @@ def _serialize_schema(allowed_schema: Any | None) -> str | None:
     return json.dumps(allowed_schema, indent=2, ensure_ascii=True)
 
 
-def _build_llm(response_text: str) -> RunnableLambda:
+def _build_llm(responses: list[str]) -> RunnableLambda:
+    if not responses:
+        raise ValueError("LLM responses list cannot be empty.")
+    index = {"value": 0}
+
     def _respond(_prompt_value, **_kwargs) -> str:
-        return response_text
+        current = responses[min(index["value"], len(responses) - 1)]
+        index["value"] += 1
+        return current
 
     return RunnableLambda(_respond)
+
+
+def _validate_log_expectations(
+    messages: list[str],
+    expected_fragments: list[str],
+    expected_count: int | None,
+) -> list[str]:
+    errors: list[str] = []
+    if expected_count is not None and len(messages) != expected_count:
+        errors.append(f"Expected {expected_count} log warnings, got {len(messages)}.")
+    for fragment in expected_fragments:
+        if not any(fragment in message for message in messages):
+            errors.append(f"Missing log message containing: {fragment}")
+    return errors
 
 
 def _evaluate_case(case: dict[str, Any]) -> EvalResult:
@@ -285,24 +505,46 @@ def _evaluate_case(case: dict[str, Any]) -> EvalResult:
     current_config = case.get("current_config", {})
     expected = case.get("expected_patch")
     response_text = case.get("llm_response")
+    responses = case.get("llm_responses")
+    expected_error_contains = case.get("expected_error_contains")
+    expected_log_fragments = case.get("expected_log_fragments", [])
+    expected_log_count = case.get("expected_log_count")
+    retries = int(case.get("retries", 1))
 
     errors: list[str] = []
     if not isinstance(instruction, str) or not instruction.strip():
         errors.append("Missing instruction.")
-    if expected is None and response_text is None:
+    if responses is not None and not isinstance(responses, list):
+        errors.append("llm_responses must be a list.")
+    if expected is None and response_text is None and not responses:
         errors.append("Missing expected_patch or llm_response.")
     if errors:
         return EvalResult(case_id=case_id, passed=False, errors=errors)
 
-    if response_text is None:
-        response_text = json.dumps(expected, ensure_ascii=True)
+    if responses is None:
+        if response_text is None:
+            response_text = json.dumps(expected, ensure_ascii=True)
+        responses = [response_text]
 
-    llm = _build_llm(response_text)
+    llm = _build_llm(responses)
     chain = ConfigPatchChain(
         llm=llm,
         prompt_builder=build_config_patch_prompt,
         schema=case.get("schema"),
+        retries=retries,
     )
+
+    log_messages: list[str] = []
+
+    class _ListHandler(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            log_messages.append(record.getMessage())
+
+    handler = _ListHandler(level=logging.WARNING)
+    chain_logger = logging.getLogger("trend_analysis.llm.chain")
+    previous_level = chain_logger.level
+    chain_logger.addHandler(handler)
+    chain_logger.setLevel(logging.WARNING)
 
     try:
         patch = chain.run(
@@ -313,11 +555,45 @@ def _evaluate_case(case: dict[str, Any]) -> EvalResult:
             safety_rules=case.get("safety_rules"),
         )
     except Exception as exc:  # pragma: no cover - surfaced in report
-        return EvalResult(case_id=case_id, passed=False, errors=[str(exc)])
+        chain_logger.removeHandler(handler)
+        chain_logger.setLevel(previous_level)
+        error_text = str(exc)
+        if expected_error_contains:
+            if expected_error_contains not in error_text:
+                errors.append(
+                    f"Expected error containing '{expected_error_contains}', got '{error_text}'."
+                )
+            errors.extend(
+                _validate_log_expectations(
+                    log_messages, expected_log_fragments, expected_log_count
+                )
+            )
+            return EvalResult(
+                case_id=case_id,
+                passed=not errors,
+                errors=errors,
+                patch=None,
+                logs=log_messages,
+            )
+        return EvalResult(case_id=case_id, passed=False, errors=[error_text], logs=log_messages)
+    finally:
+        if handler in chain_logger.handlers:
+            chain_logger.removeHandler(handler)
+        chain_logger.setLevel(previous_level)
 
-    errors = _compare_patch(expected, patch) if expected is not None else []
+    errors.extend(
+        _validate_log_expectations(log_messages, expected_log_fragments, expected_log_count)
+    )
+    if expected is not None:
+        errors.extend(_compare_patch(expected, patch))
     patch_payload = patch.model_dump(mode="python")
-    return EvalResult(case_id=case_id, passed=not errors, errors=errors, patch=patch_payload)
+    return EvalResult(
+        case_id=case_id,
+        passed=not errors,
+        errors=errors,
+        patch=patch_payload,
+        logs=log_messages,
+    )
 
 
 def _compare_patch(expected: dict[str, Any], patch: ConfigPatch) -> list[str]:
@@ -371,6 +647,7 @@ def _build_report(results: list[EvalResult]) -> dict[str, Any]:
                 "passed": result.passed,
                 "errors": result.errors,
                 "patch": result.patch,
+                "logs": result.logs,
             }
             for result in results
         ],
