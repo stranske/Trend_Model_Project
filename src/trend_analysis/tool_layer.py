@@ -179,9 +179,7 @@ class ToolLayer:
             message = str(exc) or type(exc).__name__
 
         elapsed_ms = (time.perf_counter() - start) * 1000
-        result = ToolResult(
-            status=status, message=message, data=data, elapsed_ms=elapsed_ms
-        )
+        result = ToolResult(status=status, message=message, data=data, elapsed_ms=elapsed_ms)
         self._log_tool_call(
             tool=tool_name,
             request_id=request_id,
@@ -209,9 +207,7 @@ class ToolLayer:
 
             return apply_config_patch(dict(config), patch_obj)
 
-        return self._wrap_result(
-            "apply_patch", {"config": config, "patch": patch}, _execute
-        )
+        return self._wrap_result("apply_patch", {"config": config, "patch": patch}, _execute)
 
     def validate_config(
         self,
@@ -229,9 +225,7 @@ class ToolLayer:
 
             return validate_config(
                 dict(config),
-                base_path=(
-                    self._sandbox_path(base_path) if base_path is not None else None
-                ),
+                base_path=(self._sandbox_path(base_path) if base_path is not None else None),
                 strict=strict,
                 skip_required_fields=skip_required_fields,
             )
@@ -267,9 +261,7 @@ class ToolLayer:
             updated = apply_config_patch(original, patch_obj)
             return diff_configs(original, updated)
 
-        return self._wrap_result(
-            "preview_diff", {"config": config, "patch": patch}, _execute
-        )
+        return self._wrap_result("preview_diff", {"config": config, "patch": patch}, _execute)
 
     def run_analysis(
         self,
@@ -316,9 +308,7 @@ class ToolLayer:
 
             return api.run_simulation(cfg_obj, data_frame)
 
-        return self._wrap_result(
-            "run_analysis", {"config": config, "data": data}, _execute
-        )
+        return self._wrap_result("run_analysis", {"config": config, "data": data}, _execute)
 
 
 class ToolResult(BaseModel):
