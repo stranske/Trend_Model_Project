@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from trend_analysis.config.patch import ConfigPatch
 from trend_analysis.llm.prompts import build_retry_prompt, format_config_for_prompt
 from trend_analysis.llm.schema import load_compact_schema, select_schema_sections
-from trend_analysis.llm.validation import validate_patch_keys
+from trend_analysis.llm.validation import normalize_patch_path, validate_patch_keys
 
 PromptBuilder = Callable[..., str]
 
@@ -178,6 +178,15 @@ class ConfigPatchChain:
         unknown_keys = validate_patch_keys(patch.operations, schema)
         if unknown_keys:
             patch.needs_review = True
+            unknown_paths = {entry.path for entry in unknown_keys}
+            filtered_ops = [
+                operation
+                for operation in patch.operations
+                if normalize_patch_path(operation.path) not in unknown_paths
+            ]
+            if len(filtered_ops) != len(patch.operations):
+                patch.operations = filtered_ops
+            patch.summary = _append_unknown_keys_note(patch.summary, unknown_paths)
             for entry in unknown_keys:
                 if entry.suggestion:
                     logger.warning(
@@ -256,3 +265,11 @@ def _read_env_float(name: str, *, default: float) -> float:
         return float(value)
     except ValueError as exc:
         raise ValueError(f"{name} must be a float, got {value!r}.") from exc
+
+
+def _append_unknown_keys_note(summary: str, unknown_paths: Iterable[str]) -> str:
+    unknown_list = ", ".join(sorted(unknown_paths))
+    note = f"Unknown keys flagged: {unknown_list}."
+    if note in summary:
+        return summary
+    return f"{summary.rstrip()} {note}".strip()

@@ -26,7 +26,9 @@ def validate_patch_keys(
 ) -> list[UnknownKey]:
     """Return unknown keys referenced by patch operations."""
 
-    if not schema:
+    if not schema or not isinstance(schema, dict):
+        return []
+    if "properties" not in schema and "items" not in schema:
         return []
 
     candidates = _collect_schema_paths(schema)
@@ -38,6 +40,13 @@ def validate_patch_keys(
             suggestion = _suggest_path(dotpath, candidates)
             unknown.append(UnknownKey(path=dotpath, suggestion=suggestion))
     return unknown
+
+
+def normalize_patch_path(path: str) -> str:
+    """Return a dotpath representation for patch paths."""
+
+    segments = _parse_path_segments(path)
+    return _format_dotpath(segments)
 
 
 def _parse_path_segments(path: str) -> list[str | int]:
@@ -118,4 +127,4 @@ def _suggest_path(path: str, candidates: list[str]) -> str | None:
     return suggestions[0] if suggestions else None
 
 
-__all__ = ["UnknownKey", "validate_patch_keys"]
+__all__ = ["UnknownKey", "normalize_patch_path", "validate_patch_keys"]
