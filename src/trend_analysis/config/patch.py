@@ -23,7 +23,10 @@ from pydantic import (
 
 from .validation import ValidationResult, validate_config
 
-_DOTPATH_RE = re.compile(r"^[A-Za-z0-9_-]+(\[\d+\])*(\.[A-Za-z0-9_-]+(\[\d+\])*)*$")
+_DOTPATH_RE = re.compile(
+    r"^(?:[A-Za-z0-9_-]+|\*)(?:\[\d+\])*"
+    r"(?:\.(?:[A-Za-z0-9_-]+|\*)(?:\[\d+\])*)*$"
+)
 _JSON_POINTER_RE = re.compile(r"^(/[^/\s]+)+$")
 
 _VOL_TARGET_RISK_THRESHOLD = 0.15
@@ -248,7 +251,7 @@ def _strip_code_fence(text: str) -> str:
 def _parse_dotpath(path: str) -> list[str | int]:
     segments: list[str | int] = []
     for part in path.split("."):
-        match = re.fullmatch(r"([A-Za-z0-9_-]+)((?:\[\d+\])*)", part)
+        match = re.fullmatch(r"([A-Za-z0-9_-]+|\*)((?:\[\d+\])*)", part)
         if not match:
             raise ValueError("path must be a dotpath or JSONPointer")
         key, indexes = match.groups()

@@ -15,7 +15,7 @@ from trend_analysis.config.patch import (
 )
 from trend_analysis.llm.prompts import build_retry_prompt, format_config_for_prompt
 from trend_analysis.llm.schema import load_compact_schema, select_schema_sections
-from trend_analysis.llm.validation import validate_patch_keys
+from trend_analysis.llm.validation import flag_unknown_keys
 
 PromptBuilder = Callable[..., str]
 
@@ -159,18 +159,7 @@ class ConfigPatchChain:
         )
 
         schema = self._schema_for_validation(allowed_schema, instruction)
-        unknown_keys = validate_patch_keys(patch.operations, schema)
-        if unknown_keys:
-            patch.needs_review = True
-            for entry in unknown_keys:
-                if entry.suggestion:
-                    logger.warning(
-                        "Unknown config key '%s'. Did you mean '%s'?",
-                        entry.path,
-                        entry.suggestion,
-                    )
-                else:
-                    logger.warning("Unknown config key '%s'.", entry.path)
+        flag_unknown_keys(patch, schema, logger=logger)
         return patch
 
     def _invoke_llm(self, prompt_text: str) -> str:

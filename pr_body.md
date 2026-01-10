@@ -76,10 +76,10 @@ This is the core NL component: a LangChain chain that takes a user instruction a
 - [x] Implement the `LLMProviderConfig` dataclass to encapsulate provider configuration parameters.
 - [x] Develop the `create_llm()` factory function for dynamic provider instantiation and add unit and integration tests.
 - [x] Update the `pyproject.toml` file to include all necessary provider dependencies with explicit version constraints.
-- [ ] Create or update the documentation file to include setup instructions, configuration examples, and troubleshooting guidance.
+- [x] Create or update the documentation file to include setup instructions, configuration examples, and troubleshooting guidance.
 - [x] Develop an example usage script demonstrating configuration and error handling for LLM providers.
-- [ ] Expand evaluation test cases to include specific scenarios and integrate them into the eval harness.
-- [ ] Review and update the unknown key validation logic to use the latest authoritative schema and handle dynamic keys.
+- [x] Expand evaluation test cases to include specific scenarios and integrate them into the eval harness.
+- [x] Review and update the unknown key validation logic to use the latest authoritative schema and handle dynamic keys.
 
 ### Acceptance Criteria
 - [x] The retry logic in `config_patch.py` attempts to reprocess a configuration patch up to `self.retries` times upon a parse failure, logging each error encountered.

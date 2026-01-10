@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import difflib
 import re
+import logging
 from dataclasses import dataclass
 from typing import Any, Iterable
 
+from trend_analysis.config.patch import ConfigPatch
 from trend_analysis.config.patch import PatchOperation
 
-_DOTPATH_RE = re.compile(r"^[A-Za-z0-9_-]+(\[\d+\])*(\.[A-Za-z0-9_-]+(\[\d+\])*)*$")
+_DOTPATH_RE = re.compile(
+    r"^(?:[A-Za-z0-9_-]+|\*)(?:\[\d+\])*"
+    r"(?:\.(?:[A-Za-z0-9_-]+|\*)(?:\[\d+\])*)*$"
+)
 
 
 @dataclass(frozen=True)
@@ -40,6 +45,31 @@ def validate_patch_keys(
     return unknown
 
 
+def flag_unknown_keys(
+    patch: ConfigPatch,
+    schema: dict[str, Any] | None,
+    *,
+    logger: logging.Logger | None = None,
+) -> list[UnknownKey]:
+    """Mark patches with unknown keys as needing review and log details."""
+
+    unknown = validate_patch_keys(patch.operations, schema)
+    if not unknown:
+        return []
+    patch.needs_review = True
+    active_logger = logger or logging.getLogger(__name__)
+    for entry in unknown:
+        if entry.suggestion:
+            active_logger.warning(
+                "Unknown config key '%s'. Did you mean '%s'?",
+                entry.path,
+                entry.suggestion,
+            )
+        else:
+            active_logger.warning("Unknown config key '%s'.", entry.path)
+    return unknown
+
+
 def _parse_path_segments(path: str) -> list[str | int]:
     if path.startswith("/"):
         json_segments = [
@@ -50,7 +80,7 @@ def _parse_path_segments(path: str) -> list[str | int]:
         return [path]
     segments: list[str | int] = []
     for part in path.split("."):
-        match = re.fullmatch(r"([A-Za-z0-9_-]+)((?:\[\d+\])*)", part)
+        match = re.fullmatch(r"([A-Za-z0-9_-]+|\*)((?:\[\d+\])*)", part)
         if not match:
             segments.append(part)
             continue
@@ -76,23 +106,35 @@ def _format_dotpath(segments: list[str | int]) -> str:
 
 
 def _path_exists(schema: dict[str, Any], segments: list[str | int]) -> bool:
-    current: Any = schema
-    for segment in segments:
-        if isinstance(segment, int):
-            if not isinstance(current, dict):
-                return False
-            items = current.get("items")
-            if not isinstance(items, dict):
-                return False
-            current = items
-            continue
-        if not isinstance(current, dict):
-            return False
-        properties = current.get("properties")
-        if not isinstance(properties, dict) or segment not in properties:
-            return False
-        current = properties[segment]
-    return True
+    return _path_exists_at(schema, segments, 0)
+
+
+def _path_exists_at(schema: dict[str, Any], segments: list[str | int], index: int) -> bool:
+    if index >= len(segments):
+        return True
+    current_segment = segments[index]
+    if isinstance(current_segment, int):
+        return _path_exists_array(schema, segments, index)
+    if not isinstance(schema, dict):
+        return False
+    properties = schema.get("properties")
+    if isinstance(properties, dict) and current_segment in properties:
+        return _path_exists_at(properties[current_segment], segments, index + 1)
+    additional = schema.get("additionalProperties")
+    if additional is True:
+        return True
+    if isinstance(additional, dict):
+        return _path_exists_at(additional, segments, index + 1)
+    return False
+
+
+def _path_exists_array(schema: dict[str, Any], segments: list[str | int], index: int) -> bool:
+    if not isinstance(schema, dict):
+        return False
+    items = schema.get("items")
+    if not isinstance(items, dict):
+        return False
+    return _path_exists_at(items, segments, index + 1)
 
 
 def _collect_schema_paths(schema: dict[str, Any], prefix: str = "") -> list[str]:
@@ -118,4 +160,4 @@ def _suggest_path(path: str, candidates: list[str]) -> str | None:
     return suggestions[0] if suggestions else None
 
 
-__all__ = ["UnknownKey", "validate_patch_keys"]
+__all__ = ["UnknownKey", "flag_unknown_keys", "validate_patch_keys"]
