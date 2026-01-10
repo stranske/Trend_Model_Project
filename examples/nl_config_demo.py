@@ -13,7 +13,10 @@ from trend_analysis.config.patch import (
     parse_config_patch_with_retries,
 )
 from trend_analysis.llm import LLMProviderConfig, create_llm
-from trend_analysis.llm.prompts import build_config_patch_prompt, format_config_for_prompt
+from trend_analysis.llm.prompts import (
+    build_config_patch_prompt,
+    format_config_for_prompt,
+)
 from trend_analysis.llm.schema import load_compact_schema, select_schema_sections
 
 
@@ -39,7 +42,9 @@ def demo_provider_setup(logger: logging.Logger) -> None:
         except RuntimeError as exc:
             logger.error("LLM provider '%s' failed to initialize: %s", config.provider, exc)
         else:
-            logger.info("LLM provider '%s' initialized with model '%s'.", config.provider, config.model)
+            logger.info(
+                "LLM provider '%s' initialized with model '%s'.", config.provider, config.model
+            )
 
 
 def demo_patch_retry_workflow(logger: logging.Logger) -> None:

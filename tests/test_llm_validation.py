@@ -107,9 +107,7 @@ def test_validate_patch_keys_accepts_wildcard_keys() -> None:
 
 
 def test_validate_patch_keys_flags_unknown_array_item_key() -> None:
-    operations = [
-        PatchOperation(op="set", path="metrics.compute[2].missing_key", value=12)
-    ]
+    operations = [PatchOperation(op="set", path="metrics.compute[2].missing_key", value=12)]
 
     unknown = validate_patch_keys(operations, _schema_with_array())
 
