@@ -564,9 +564,7 @@ def _evaluate_case(case: dict[str, Any]) -> EvalResult:
                     f"Expected error containing '{expected_error_contains}', got '{error_text}'."
                 )
             errors.extend(
-                _validate_log_expectations(
-                    log_messages, expected_log_fragments, expected_log_count
-                )
+                _validate_log_expectations(log_messages, expected_log_fragments, expected_log_count)
             )
             return EvalResult(
                 case_id=case_id,
