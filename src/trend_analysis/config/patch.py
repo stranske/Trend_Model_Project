@@ -204,6 +204,7 @@ def parse_config_patch_with_retries(
     last_error: Exception | None = None
     total_attempts = retries + 1
     active_logger = logger or _logger
+    retry_id = f"configpatch-{id(response_provider):x}"
     for attempt in range(total_attempts):
         response_text = response_provider(attempt, last_error)
         try:
@@ -211,9 +212,10 @@ def parse_config_patch_with_retries(
         except (json.JSONDecodeError, ValidationError) as exc:
             last_error = exc
             active_logger.warning(
-                "ConfigPatch parse attempt %s/%s failed: %s",
+                "ConfigPatch parse attempt %s/%s failed (retry_id=%s): %s",
                 attempt + 1,
                 total_attempts,
+                retry_id,
                 format_retry_error(exc),
             )
             if attempt >= retries:
