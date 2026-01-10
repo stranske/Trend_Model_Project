@@ -103,6 +103,9 @@ codex-prompt-*.md
 codex-output-*.md
 verifier-context.md
 
+# PR description drafts (per-PR, never tracked)
+pr_body.md
+
 # --- Autofix Status Files (HIGH conflict risk) ---
 # Updated by autofix workflow on every PR
 autofix_report_enriched.json

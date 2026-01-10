@@ -19,7 +19,7 @@ def test_preview_diff_returns_unified_diff() -> None:
 
     result = tool.preview_diff(config, patch)
 
-    assert result.success is True
+    assert result.status == "success"
     assert "--- before" in result.data
     assert "+++ after" in result.data
     assert "top_n: 10" in result.data

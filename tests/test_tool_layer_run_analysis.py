@@ -50,7 +50,7 @@ def test_run_analysis_uses_passed_frame(monkeypatch: pytest.MonkeyPatch) -> None
 
     result = tool.run_analysis(cfg, data=df)
 
-    assert result.success is True
+    assert result.status == "success"
     assert result.data == "ok"
     assert captured["frame"] is df
 
@@ -86,7 +86,7 @@ def test_run_analysis_loads_csv_when_data_missing(
 
     result = tool.run_analysis(cfg)
 
-    assert result.success is True
+    assert result.status == "success"
     assert result.data == "ok"
     assert captured["path"] == str(csv_path)
     assert captured["kwargs"]["errors"] == "raise"
@@ -99,8 +99,8 @@ def test_run_analysis_requires_csv_path() -> None:
 
     result = tool.run_analysis(_sample_config())
 
-    assert result.success is False
-    assert "csv_path" in (result.error or "")
+    assert result.status == "error"
+    assert "csv_path" in (result.message or "")
 
 
 def test_run_analysis_rejects_non_dataframe_data() -> None:
@@ -108,8 +108,8 @@ def test_run_analysis_rejects_non_dataframe_data() -> None:
 
     result = tool.run_analysis(_sample_config(), data="not-a-dataframe")
 
-    assert result.success is False
-    assert "pandas DataFrame" in (result.error or "")
+    assert result.status == "error"
+    assert "pandas DataFrame" in (result.message or "")
 
 
 def test_run_analysis_rejects_paths_outside_sandbox(
@@ -127,8 +127,8 @@ def test_run_analysis_rejects_paths_outside_sandbox(
     tool = ToolLayer()
     result = tool.run_analysis(cfg)
 
-    assert result.success is False
-    assert "sandbox" in (result.error or "")
+    assert result.status == "error"
+    assert "sandbox" in (result.message or "")
 
 
 def test_run_analysis_rejects_path_traversal(
@@ -145,8 +145,8 @@ def test_run_analysis_rejects_path_traversal(
     tool = ToolLayer()
     result = tool.run_analysis(cfg)
 
-    assert result.success is False
-    assert "traversal" in (result.error or "")
+    assert result.status == "error"
+    assert "traversal" in (result.message or "")
 
 
 def test_run_analysis_rejects_symlink_escape(
@@ -174,5 +174,5 @@ def test_run_analysis_rejects_symlink_escape(
     tool = ToolLayer()
     result = tool.run_analysis(cfg)
 
-    assert result.success is False
-    assert "sandbox" in (result.error or "")
+    assert result.status == "error"
+    assert "sandbox" in (result.message or "")
