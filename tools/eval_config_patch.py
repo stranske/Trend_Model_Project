@@ -121,6 +121,7 @@ DEFAULT_CASES: list[dict[str, Any]] = [
     {
         "id": "unknown_key_request",
         "instruction": "Enable turbo mode.",
+        "case_tags": ["error"],
         "current_config": BASE_CONFIG,
         "allowed_schema": BASE_SCHEMA,
         "expected_patch": {
@@ -143,6 +144,7 @@ DEFAULT_CASES: list[dict[str, Any]] = [
     {
         "id": "ambiguous_request",
         "instruction": "Make the portfolio more conservative.",
+        "case_tags": ["edge"],
         "current_config": BASE_CONFIG,
         "allowed_schema": BASE_SCHEMA,
         "expected_patch": {
@@ -165,6 +167,7 @@ DEFAULT_CASES: list[dict[str, Any]] = [
     {
         "id": "typo_key",
         "instruction": "Set analysis.weighting.sheme to risk_parity.",
+        "case_tags": ["edge"],
         "current_config": BASE_CONFIG,
         "allowed_schema": BASE_SCHEMA,
         "expected_patch": {
@@ -189,6 +192,7 @@ DEFAULT_CASES: list[dict[str, Any]] = [
     {
         "id": "code_fenced_response",
         "instruction": "Set top_n to 10.",
+        "case_tags": ["edge"],
         "current_config": BASE_CONFIG,
         "allowed_schema": BASE_SCHEMA,
         "llm_response": '```json\n{"operations":[{"op":"set","path":"analysis.top_n","value":10}],"risk_flags":[],"summary":"Set top_n to 10."}\n```',
@@ -229,6 +233,7 @@ DEFAULT_CASES: list[dict[str, Any]] = [
     {
         "id": "invalid_value_request",
         "instruction": "Set top_n to -5.",
+        "case_tags": ["error"],
         "current_config": BASE_CONFIG,
         "allowed_schema": BASE_SCHEMA,
         "expected_patch": {
