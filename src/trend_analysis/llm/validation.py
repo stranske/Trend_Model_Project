@@ -36,10 +36,13 @@ def validate_patch_keys(
     unknown: list[UnknownKey] = []
     for operation in operations:
         segments = _parse_path_segments(operation.path)
+        dotpath = _format_dotpath(segments)
         if not _path_exists(schema, segments):
-            dotpath = _format_dotpath(segments)
             suggestion = _suggest_path(dotpath, candidates)
             unknown.append(UnknownKey(path=dotpath, suggestion=suggestion))
+            continue
+        if _has_dynamic_segments(segments):
+            unknown.append(UnknownKey(path=dotpath))
     return unknown
 
 
@@ -101,6 +104,10 @@ def _format_dotpath(segments: list[str | int]) -> str:
         else:
             parts.append(segment)
     return ".".join(parts)
+
+
+def _has_dynamic_segments(segments: list[str | int]) -> bool:
+    return any(isinstance(segment, int) or segment == "*" for segment in segments)
 
 
 def _path_exists(schema: dict[str, Any], segments: list[str | int]) -> bool:

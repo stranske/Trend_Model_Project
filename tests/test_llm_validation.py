@@ -110,36 +110,44 @@ def test_validate_patch_keys_suggests_close_match() -> None:
     assert unknown[0].suggestion == "analysis.top_n"
 
 
-def test_validate_patch_keys_accepts_array_indices() -> None:
+def test_validate_patch_keys_flags_array_indices_for_review() -> None:
     operations = [PatchOperation(op="set", path="metrics.compute[3].window", value=12)]
 
     unknown = validate_patch_keys(operations, _schema_with_array())
 
-    assert unknown == []
+    assert len(unknown) == 1
+    assert unknown[0].path == "metrics.compute[3].window"
+    assert unknown[0].suggestion is None
 
 
-def test_validate_patch_keys_accepts_json_pointer_array_indices() -> None:
+def test_validate_patch_keys_flags_json_pointer_array_indices_for_review() -> None:
     operations = [PatchOperation(op="set", path="/metrics/compute/7/window", value=12)]
 
     unknown = validate_patch_keys(operations, _schema_with_array())
 
-    assert unknown == []
+    assert len(unknown) == 1
+    assert unknown[0].path == "metrics.compute[7].window"
+    assert unknown[0].suggestion is None
 
 
-def test_validate_patch_keys_accepts_wildcard_keys() -> None:
+def test_validate_patch_keys_flags_wildcard_keys_for_review() -> None:
     operations = [PatchOperation(op="set", path="portfolio.constraints.group_caps.*", value=0.1)]
 
     unknown = validate_patch_keys(operations, _schema_with_wildcard())
 
-    assert unknown == []
+    assert len(unknown) == 1
+    assert unknown[0].path == "portfolio.constraints.group_caps.*"
+    assert unknown[0].suggestion is None
 
 
-def test_validate_patch_keys_accepts_array_wildcard_keys() -> None:
+def test_validate_patch_keys_flags_array_wildcard_keys_for_review() -> None:
     operations = [PatchOperation(op="set", path="rules[1].limits.*", value=0.2)]
 
     unknown = validate_patch_keys(operations, _schema_with_array_wildcard())
 
-    assert unknown == []
+    assert len(unknown) == 1
+    assert unknown[0].path == "rules[1].limits.*"
+    assert unknown[0].suggestion is None
 
 
 def test_validate_patch_keys_flags_unknown_array_item_key() -> None:
