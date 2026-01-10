@@ -64,7 +64,9 @@ DEFAULT_CASES: list[dict[str, Any]] = [
         "current_config": BASE_CONFIG,
         "allowed_schema": BASE_SCHEMA,
         "expected_patch": {
-            "operations": [{"op": "set", "path": "analysis.weighting.scheme", "value": "risk_parity"}],
+            "operations": [
+                {"op": "set", "path": "analysis.weighting.scheme", "value": "risk_parity"}
+            ],
             "risk_flags": [],
             "summary": "Set weighting scheme to risk_parity.",
         },
@@ -177,7 +179,9 @@ DEFAULT_CASES: list[dict[str, Any]] = [
         "current_config": BASE_CONFIG,
         "allowed_schema": BASE_SCHEMA,
         "expected_patch": {
-            "operations": [{"op": "set", "path": "/analysis/weighting/scheme", "value": "cap_weighted"}],
+            "operations": [
+                {"op": "set", "path": "/analysis/weighting/scheme", "value": "cap_weighted"}
+            ],
             "risk_flags": [],
             "summary": "Set weighting scheme to cap_weighted.",
         },
@@ -187,7 +191,7 @@ DEFAULT_CASES: list[dict[str, Any]] = [
         "instruction": "Set top_n to 10.",
         "current_config": BASE_CONFIG,
         "allowed_schema": BASE_SCHEMA,
-        "llm_response": "```json\n{\"operations\":[{\"op\":\"set\",\"path\":\"analysis.top_n\",\"value\":10}],\"risk_flags\":[],\"summary\":\"Set top_n to 10.\"}\n```",
+        "llm_response": '```json\n{"operations":[{"op":"set","path":"analysis.top_n","value":10}],"risk_flags":[],"summary":"Set top_n to 10."}\n```',
         "expected_patch": {
             "operations": [{"op": "set", "path": "analysis.top_n", "value": 10}],
             "risk_flags": [],
