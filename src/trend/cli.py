@@ -313,6 +313,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Explicit HTML output path (default: <base-dir>/reports/<run-id>.html)",
     )
 
+    nl_p = sub.add_parser("nl", help="Edit config using natural language")
+    nl_p.add_argument("instruction", help="Natural language instruction to apply")
+
     return parser
 
 
@@ -864,6 +867,9 @@ def main(argv: list[str] | None = None) -> int:
             if args.output:
                 quick_args.extend(["--output", os.fspath(args.output)])
             return quick_summary_main(quick_args)
+
+        if command == "nl":
+            raise TrendCLIError("Natural language config editing is not yet implemented.")
 
         if command not in {"run", "report", "stress"}:
             raise TrendCLIError(f"Unknown command: {command}")

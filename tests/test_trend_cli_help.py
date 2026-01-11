@@ -12,3 +12,12 @@ def test_trend_cli_help(capsys: pytest.CaptureFixture[str]) -> None:
     assert exc.value.code == 0
     assert "usage:" in captured.out
     assert "trend" in captured.out
+
+
+def test_trend_cli_nl_help(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["nl", "--help"])
+    captured = capsys.readouterr()
+    assert exc.value.code == 0
+    assert "usage:" in captured.out
+    assert "nl" in captured.out
