@@ -337,7 +337,7 @@ def build_parser() -> argparse.ArgumentParser:
         dest="input_path",
         type=Path,
         help=(
-            "Input configuration file (default: config/defaults.yml). "
+            "Input configuration file (default: config/defaults.yml) used as the base for edits. "
             "Example: --in config/base.yml"
         ),
     )
@@ -346,7 +346,7 @@ def build_parser() -> argparse.ArgumentParser:
         dest="output_path",
         type=Path,
         help=(
-            "Output configuration file (default: same as --in). "
+            "Output configuration file (default: same as --in) for writing the updated config. "
             "Example: --out config/updated.yml"
         ),
     )
@@ -354,7 +354,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--diff",
         action="store_true",
         help=(
-            "Print the unified diff without writing the updated config. "
+            "Print the unified diff between input and updated config without writing the file. "
             'Example: trend nl "Lower max weight" --diff'
         ),
     )
@@ -362,7 +362,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run",
         action="store_true",
         help=(
-            "Preview the updated config without writing the file. "
+            "Print the updated config to stdout without writing the file. "
             'Example: trend nl "Lower max weight" --dry-run'
         ),
     )
@@ -370,7 +370,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--run",
         action="store_true",
         help=(
-            "Validate the updated config against the schema and run the pipeline. "
+            "Validate the updated config against the schema and run the pipeline if valid. "
             'Example: trend nl "Add CSV path" --run'
         ),
     )
@@ -378,7 +378,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-confirm",
         action="store_true",
         help=(
-            "Skip the confirmation prompt for risky changes. "
+            "Apply risky changes without an interactive confirmation prompt. "
             'Example: trend nl "Remove constraints" --no-confirm'
         ),
     )
@@ -393,7 +393,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--explain",
         action="store_true",
         help=(
-            "Print an explanation of the generated changes. "
+            "Print an explanation of the generated changes alongside optional diff output. "
             'Example: trend nl "Lower max weight" --explain --diff'
         ),
     )
