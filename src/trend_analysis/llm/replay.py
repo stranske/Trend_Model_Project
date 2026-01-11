@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import difflib
 import hashlib
 import os
 from dataclasses import dataclass
@@ -21,6 +22,7 @@ class ReplayResult:
     output_hash: str
     recorded_output: str | None
     recorded_hash: str | None
+    diff: str | None
     matches: bool
 
 
@@ -66,6 +68,7 @@ def replay_nl_entry(
     output_hash = _hash_text(output_text)
     recorded_hash = _hash_text(recorded) if recorded is not None else None
     matches = recorded == output_text if recorded is not None else False
+    diff = _diff_outputs(recorded, output_text) if recorded is not None else None
     return ReplayResult(
         prompt=prompt_text,
         prompt_hash=_hash_text(prompt_text),
@@ -73,6 +76,7 @@ def replay_nl_entry(
         output_hash=output_hash,
         recorded_output=recorded,
         recorded_hash=recorded_hash,
+        diff=diff,
         matches=matches,
     )
 
@@ -117,6 +121,23 @@ def _invoke_llm(prompt_text: str, llm: Any, *, temperature: float, model: str | 
 def _hash_text(text: str | None) -> str:
     payload = text or ""
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _diff_outputs(recorded: str, output: str) -> str | None:
+    if recorded == output:
+        return None
+    diff_lines = list(
+        difflib.unified_diff(
+            recorded.splitlines(),
+            output.splitlines(),
+            fromfile="recorded",
+            tofile="replay",
+            lineterm="",
+        )
+    )
+    if not diff_lines:
+        return None
+    return "\n".join(diff_lines)
 
 
 def _normalize_provider(value: str | None) -> Literal["openai", "anthropic", "ollama"]:

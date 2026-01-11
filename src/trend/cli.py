@@ -1007,6 +1007,9 @@ def _run_nl_replay(argv: list[str]) -> int:
     else:
         print("Recorded output:")
         print(result.recorded_output)
+    if result.diff:
+        print("Diff:")
+        print(result.diff)
     print("Replay output:")
     print(result.output)
     return 0

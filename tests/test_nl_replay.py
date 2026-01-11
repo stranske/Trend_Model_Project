@@ -77,3 +77,15 @@ def test_replay_nl_entry_compares_outputs() -> None:
 
     assert result.matches is True
     assert result.output_hash == result.recorded_hash
+    assert result.diff is None
+
+
+def test_replay_nl_entry_reports_diff_on_mismatch() -> None:
+    entry = _make_entry("req-5", output="match")
+    fake_llm = FakeLLM("different")
+
+    result = replay_nl_entry(entry, llm=fake_llm)
+
+    assert result.matches is False
+    assert result.diff is not None
+    assert result.diff.startswith("--- recorded")

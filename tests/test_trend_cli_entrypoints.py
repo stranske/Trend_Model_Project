@@ -720,6 +720,7 @@ def test_main_nl_replay_command(
         output_hash="new-hash",
         recorded_output="old-output",
         recorded_hash="old-hash",
+        diff="diff",
         matches=False,
     )
 
