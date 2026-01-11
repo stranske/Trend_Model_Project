@@ -6,6 +6,7 @@
 - Round 1: Added structured NL operation log model and log persistence helpers with tests.
 - Round 2: Added optional LangSmith tracing helpers, wired NL invocations, and documented setup.
 - Round 3: Added LangSmith trace runs for NL calls/replay with tests.
+- Round 4: Propagated NL request IDs through apply/validate/run logging and added CLI log coverage.
 
 ## Scope
 Add NL operation observability to capture prompts, outputs, and replay diagnostics.
