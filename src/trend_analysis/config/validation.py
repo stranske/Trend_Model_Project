@@ -68,6 +68,7 @@ def validate_config(
     base_path: Path | None = None,
     strict: bool = False,
     skip_required_fields: bool = False,
+    include_model_validation: bool = False,
 ) -> ValidationResult:
     """Validate a configuration payload and return structured results.
 
@@ -77,6 +78,8 @@ def validate_config(
         strict: If True, warnings are treated as errors
         skip_required_fields: If True, skip validation of required fields.
             Useful for CLI configs that will be overridden with -i or --preset.
+        include_model_validation: If True, run the minimal TrendConfig model
+            validation (including file existence checks).
     """
 
     errors: list[ValidationError] = []
@@ -96,9 +99,8 @@ def validate_config(
 
     _run_schema_validation(config, errors, warnings)
     _run_required_validation(config, errors, skip_required_fields)
-    # Skip TrendConfig Pydantic validation as it checks file existence
-    # which is too strict for CLI validation before input override
-    # _collect_trend_model_errors(config, errors, base)
+    if include_model_validation:
+        _collect_trend_model_errors(config, errors, base)
     _run_sample_split_validation(config, errors)
     _run_portfolio_validation(config, errors, warnings, base)
 
