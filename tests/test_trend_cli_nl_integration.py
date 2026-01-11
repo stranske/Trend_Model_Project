@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from trend import cli as trend_cli
-from trend_analysis.config import ConfigPatch, PatchOperation, DEFAULTS
+from trend_analysis.config import DEFAULTS, ConfigPatch, PatchOperation
 
 
 class _DummyChain:
