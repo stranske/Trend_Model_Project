@@ -33,6 +33,7 @@ from trend_analysis.config.coverage import (
 from trend_analysis.config.schema_validation import load_config as load_schema_config
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from trend_analysis.data import load_csv
+from trend_analysis.llm.replay import load_nl_log_entry, replay_nl_entry
 from trend_analysis.logging_setup import setup_logging
 from trend_model.spec import ensure_run_spec
 from utils.paths import proj_path
@@ -313,7 +314,39 @@ def build_parser() -> argparse.ArgumentParser:
         help="Explicit HTML output path (default: <base-dir>/reports/<run-id>.html)",
     )
 
+    nl_p = sub.add_parser("nl", help="NL log analysis and replay tools")
+    nl_sub = nl_p.add_subparsers(dest="nl_command", required=True)
+    replay_p = nl_sub.add_parser("replay", help="Replay a logged NL prompt")
+    replay_p.add_argument("log_file", type=Path, help="Path to NL JSONL log file")
+    replay_p.add_argument(
+        "--entry",
+        type=int,
+        required=True,
+        help="1-based log entry index to replay",
+    )
+
     return parser
+
+
+def _handle_nl_replay(args: argparse.Namespace) -> int:
+    log_path = Path(args.log_file)
+    try:
+        entry = load_nl_log_entry(log_path, int(args.entry))
+    except (ValueError, IndexError) as exc:
+        raise TrendCLIError(str(exc)) from exc
+    result = replay_nl_entry(entry)
+    print(f"Replay entry {args.entry} from {log_path}")
+    print(f"Prompt hash: {result.prompt_hash}")
+    print(f"Recorded output hash: {result.recorded_hash or 'missing'}")
+    print(f"Replay output hash: {result.output_hash}")
+    if result.recorded_output is None:
+        print("Recorded output missing; replay cannot be compared.")
+        return 1
+    if result.matches:
+        print("Replay output matches recorded output.")
+        return 0
+    print("Replay output differs from recorded output.")
+    return 1
 
 
 def _resolve_returns_path(config_path: Path, cfg: Any, override: str | None) -> Path:
@@ -864,6 +897,13 @@ def main(argv: list[str] | None = None) -> int:
             if args.output:
                 quick_args.extend(["--output", os.fspath(args.output)])
             return quick_summary_main(quick_args)
+
+        if command == "nl":
+            if coverage_tracker is not None:
+                deactivate_config_coverage()
+            if args.nl_command == "replay":
+                return _handle_nl_replay(args)
+            raise TrendCLIError(f"Unknown nl command: {args.nl_command}")
 
         if command not in {"run", "report", "stress"}:
             raise TrendCLIError(f"Unknown command: {command}")
