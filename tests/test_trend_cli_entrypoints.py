@@ -700,6 +700,58 @@ def test_main_nl_run_requires_existing_csv_path(
     assert not output_path.exists()
 
 
+def test_main_nl_replay_command(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    log_path = tmp_path / "nl.jsonl"
+    log_path.write_text("{}", encoding="utf-8")
+    sentinel = object()
+    calls: dict[str, object] = {}
+
+    def _fake_load(path: Path, entry: int) -> object:
+        calls["path"] = path
+        calls["entry"] = entry
+        return sentinel
+
+    result = SimpleNamespace(
+        prompt="prompt",
+        prompt_hash="prompt-hash",
+        output="new-output",
+        output_hash="new-hash",
+        recorded_output="old-output",
+        recorded_hash="old-hash",
+        matches=False,
+    )
+
+    def _fake_replay(
+        entry: object,
+        *,
+        provider: str | None = None,
+        model: str | None = None,
+        temperature: float | None = None,
+    ) -> object:
+        calls["entry_obj"] = entry
+        calls["provider"] = provider
+        calls["model"] = model
+        calls["temperature"] = temperature
+        return result
+
+    monkeypatch.setattr(trend_cli, "_load_nl_log_entry", _fake_load)
+    monkeypatch.setattr(trend_cli, "_replay_nl_entry", _fake_replay)
+
+    exit_code = trend_cli.main(["nl", "replay", str(log_path), "--entry", "2"])
+
+    captured = capsys.readouterr().out
+    assert exit_code == 0
+    assert "Prompt hash: prompt-hash" in captured
+    assert "Matches: False" in captured
+    assert "Recorded output:" in captured
+    assert "Replay output:" in captured
+    assert calls["path"] == log_path
+    assert calls["entry"] == 2
+    assert calls["entry_obj"] is sentinel
+
+
 def test_main_stress_command(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

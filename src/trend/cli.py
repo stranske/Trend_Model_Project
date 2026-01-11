@@ -938,6 +938,80 @@ def _build_nl_chain(provider: str | None = None) -> ConfigPatchChain:
     )
 
 
+def _load_nl_log_entry(path: Path, entry: int) -> object:
+    from trend_analysis.llm.replay import load_nl_log_entry
+
+    return load_nl_log_entry(path, entry)
+
+
+def _replay_nl_entry(
+    entry: object,
+    *,
+    provider: str | None = None,
+    model: str | None = None,
+    temperature: float | None = None,
+) -> object:
+    from trend_analysis.llm.replay import replay_nl_entry
+
+    return replay_nl_entry(entry, provider=provider, model=model, temperature=temperature)
+
+
+def _build_nl_replay_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="trend nl replay",
+        description="Replay a logged NL operation entry.",
+    )
+    parser.add_argument("log_file", type=Path, help="Path to nl_ops_<date>.jsonl log file")
+    parser.add_argument("--entry", type=int, required=True, help="1-based entry index")
+    parser.add_argument("--provider", help="Override the logged LLM provider")
+    parser.add_argument("--model", help="Override the logged LLM model")
+    parser.add_argument("--temperature", type=float, help="Override the logged temperature")
+    parser.add_argument("--show-prompt", action="store_true", help="Print the prompt text")
+    return parser
+
+
+def _run_nl_replay(argv: list[str]) -> int:
+    parser = _build_nl_replay_parser()
+    args = parser.parse_args(argv)
+    log_path = Path(args.log_file)
+    if not log_path.exists():
+        raise TrendCLIError(f"Log file not found: {log_path}")
+    try:
+        entry = _load_nl_log_entry(log_path, args.entry)
+    except (ValueError, IndexError) as exc:
+        raise TrendCLIError(str(exc)) from exc
+    result = _replay_nl_entry(
+        entry,
+        provider=args.provider,
+        model=args.model,
+        temperature=args.temperature,
+    )
+    if args.show_prompt:
+        print("Prompt:")
+        print(result.prompt)
+    print(f"Prompt hash: {result.prompt_hash}")
+    print(f"Output hash: {result.output_hash}")
+    if result.recorded_hash is None:
+        print("Recorded hash: <none>")
+    else:
+        print(f"Recorded hash: {result.recorded_hash}")
+    print(f"Matches: {result.matches}")
+    if result.recorded_output is None:
+        print("Recorded output: <none>")
+    else:
+        print("Recorded output:")
+        print(result.recorded_output)
+    print("Replay output:")
+    print(result.output)
+    return 0
+
+
+def _maybe_handle_nl_replay(argv: list[str]) -> int | None:
+    if len(argv) >= 2 and argv[0] == "nl" and argv[1] == "replay":
+        return _run_nl_replay(argv[2:])
+    return None
+
+
 def _load_nl_config(path: Path) -> dict[str, Any]:
     try:
         payload = load_schema_config(path)
@@ -986,6 +1060,10 @@ def _format_nl_explanation(patch: ConfigPatch) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     try:
+        argv_list = argv if argv is not None else sys.argv[1:]
+        maybe_replay_exit = _maybe_handle_nl_replay(argv_list)
+        if maybe_replay_exit is not None:
+            return maybe_replay_exit
         args = parser.parse_args(argv)
 
         command = args.subcommand
