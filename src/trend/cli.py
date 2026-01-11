@@ -1010,9 +1010,7 @@ def main(argv: list[str] | None = None) -> int:
                     print("No changes.")
                 return 0
             if args.dry_run:
-                sys.stdout.write(
-                    yaml.safe_dump(updated, sort_keys=False, default_flow_style=False)
-                )
+                sys.stdout.write(yaml.safe_dump(updated, sort_keys=False, default_flow_style=False))
                 return 0
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(
