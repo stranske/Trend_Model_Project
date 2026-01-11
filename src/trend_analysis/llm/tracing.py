@@ -35,7 +35,9 @@ def _get_langsmith_project() -> str | None:
 def langsmith_tracing_context(
     *,
     name: str = "nl_operation",
-    run_type: Literal["retriever", "llm", "tool", "chain", "embedding", "prompt", "parser"] = "chain",
+    run_type: Literal[
+        "retriever", "llm", "tool", "chain", "embedding", "prompt", "parser"
+    ] = "chain",
     inputs: dict[str, Any] | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> Iterator[Any]:
