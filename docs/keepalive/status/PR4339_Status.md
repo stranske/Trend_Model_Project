@@ -42,18 +42,18 @@ Add NL operation observability to capture prompts, outputs, and replay diagnosti
 - [ ] Send traces to LangSmith.
 - [ ] Document LangSmith setup in the README.
 ### Add Request Correlation
-- [ ] Generate `request_id` at the entry point.
-- [ ] Pass `request_id` through all operations.
-- [ ] Include `request_id` in all logs and errors.
+- [x] Generate `request_id` at the entry point.
+- [x] Pass `request_id` through all operations.
+- [x] Include `request_id` in all logs and errors.
 ### Implement Log Analysis Tools
-- [ ] Implement `trend nl logs` to list recent operations.
-- [ ] Implement `trend nl logs --failures` to show only failures.
-- [ ] Implement `trend nl logs --stats` to display summary statistics.
+- [x] Implement `trend nl logs` to list recent operations.
+- [x] Implement `trend nl logs --failures` to show only failures.
+- [x] Implement `trend nl logs --stats` to display summary statistics.
 
 ## Acceptance criteria
-- [ ] All NL operations are logged with a structured format.
-- [ ] A failed run can be reproduced from logged artifacts.
-- [ ] Logs include specific fields such as `request_id`, `timestamp`, `operation`, and `error` to provide enough context for debugging.
-- [ ] Old logs are automatically rotated, keeping only the last 30 days.
+- [x] All NL operations are logged with a structured format.
+- [x] A failed run can be reproduced from logged artifacts.
+- [x] Logs include specific fields such as `request_id`, `timestamp`, `operation`, and `error` to provide enough context for debugging.
+- [x] Old logs are automatically rotated, keeping only the last 30 days.
 - [ ] LangSmith integration successfully transmits traces and verifies trace visibility in the LangSmith dashboard.
-- [ ] CLI tools (`trend nl logs`, `trend nl logs --failures`, `trend nl logs --stats`) function as expected.
+- [x] CLI tools (`trend nl logs`, `trend nl logs --failures`, `trend nl logs --stats`) function as expected.

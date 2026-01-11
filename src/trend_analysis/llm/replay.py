@@ -6,7 +6,7 @@ import hashlib
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast
 
 from trend_analysis.llm.nl_logging import NLOperationLog
 from trend_analysis.llm.providers import LLMProviderConfig, create_llm
@@ -83,7 +83,7 @@ def _create_llm_from_env(
     provider: str | None = None,
     model: str | None = None,
 ) -> Any:
-    provider_name = provider or os.environ.get("TREND_LLM_PROVIDER", "openai")
+    provider_name = _normalize_provider(provider or os.environ.get("TREND_LLM_PROVIDER"))
     model_name = model or entry.model_name or os.environ.get("TREND_LLM_MODEL", "gpt-4o-mini")
     config = LLMProviderConfig(provider=provider_name, model=model_name)
     return create_llm(config)
@@ -114,6 +114,15 @@ def _invoke_llm(prompt_text: str, llm: Any, *, temperature: float, model: str | 
 def _hash_text(text: str | None) -> str:
     payload = text or ""
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _normalize_provider(value: str | None) -> Literal["openai", "anthropic", "ollama"]:
+    if not value:
+        return "openai"
+    normalized = value.lower()
+    if normalized in ("openai", "anthropic", "ollama"):
+        return cast(Literal["openai", "anthropic", "ollama"], normalized)
+    raise ValueError(f"Unsupported provider: {value}")
 
 
 __all__ = ["ReplayResult", "load_nl_log_entry", "render_prompt", "replay_nl_entry"]
