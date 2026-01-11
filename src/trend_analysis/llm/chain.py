@@ -165,6 +165,7 @@ class ConfigPatchChain:
             }
         )
         try:
+
             def _response_provider(attempt: int, last_error: Exception | None) -> str:
                 nonlocal response_text
                 prompt = (
