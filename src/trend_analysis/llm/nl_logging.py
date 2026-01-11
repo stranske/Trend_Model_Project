@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -16,7 +16,7 @@ class NLOperationLog(BaseModel):
 
     request_id: str
     timestamp: datetime
-    operation: str
+    operation: Literal["nl_to_patch", "apply_patch", "validate", "run"]
     input_hash: str
     prompt_template: str
     prompt_variables: dict[str, Any]

@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+import pytest
+from pydantic import ValidationError
+
 from trend_analysis.config.patch import ConfigPatch, PatchOperation
 from trend_analysis.config.validation import ValidationResult
 from trend_analysis.llm.nl_logging import NLOperationLog
@@ -34,3 +37,23 @@ def test_nl_operation_log_accepts_structured_fields() -> None:
     assert payload["request_id"] == "req-123"
     assert payload["operation"] == "nl_to_patch"
     assert payload["parsed_patch"]["summary"] == "Update top_n selection"
+
+
+def test_nl_operation_log_rejects_unknown_operation() -> None:
+    with pytest.raises(ValidationError):
+        NLOperationLog(
+            request_id="req-456",
+            timestamp=datetime.now(tz=timezone.utc),
+            operation="unknown",
+            input_hash="hash-def",
+            prompt_template="template",
+            prompt_variables={"instruction": "noop"},
+            model_output=None,
+            parsed_patch=None,
+            validation_result=None,
+            error=None,
+            duration_ms=1.0,
+            model_name="unit-test-model",
+            temperature=0.0,
+            token_usage=None,
+        )
