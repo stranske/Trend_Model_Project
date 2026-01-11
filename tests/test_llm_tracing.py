@@ -3,7 +3,10 @@ from __future__ import annotations
 import os
 
 from trend_analysis.llm import tracing as tracing_module
-from trend_analysis.llm.tracing import langsmith_tracing_context, maybe_enable_langsmith_tracing
+from trend_analysis.llm.tracing import (
+    langsmith_tracing_context,
+    maybe_enable_langsmith_tracing,
+)
 
 
 def test_langsmith_tracing_disabled_without_key(monkeypatch) -> None:
