@@ -12,7 +12,7 @@ import pandas as pd
 import pytest
 
 from trend import cli as trend_cli
-from trend_analysis.config import ConfigPatch, PatchOperation
+from trend_analysis.config import ConfigPatch, PatchOperation, DEFAULTS
 from trend_analysis.logging_setup import RUNS_ROOT
 
 
@@ -533,6 +533,90 @@ def test_main_nl_diff_command(
     assert cfg_path.read_text(encoding="utf-8") == (
         "version: 1\nportfolio:\n  constraints:\n    max_weight: 0.2\n"
     )
+
+
+def test_main_nl_run_command_executes_pipeline(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    output_path = tmp_path / "updated.yml"
+    patch = ConfigPatch(
+        operations=[
+            PatchOperation(
+                op="set",
+                path="data.csv_path",
+                value="data/raw/indices/sample_index.csv",
+            )
+        ],
+        summary="Add CSV path for run",
+    )
+
+    class DummyChain:
+        def run(self, **kwargs: object) -> ConfigPatch:
+            return patch
+
+    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(trend_cli, "_ensure_dataframe", lambda *_args, **_kwargs: pd.DataFrame())
+    calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+    def _fake_run_pipeline(*args: object, **kwargs: object) -> tuple[DummyResult, str, None]:
+        calls.append((args, kwargs))
+        return DummyResult(), "run123", None
+
+    monkeypatch.setattr(trend_cli, "_run_pipeline", _fake_run_pipeline)
+    monkeypatch.setattr(trend_cli, "_print_summary", lambda *args, **kwargs: None)
+
+    exit_code = trend_cli.main(
+        [
+            "nl",
+            "Add CSV path",
+            "--in",
+            str(DEFAULTS),
+            "--out",
+            str(output_path),
+            "--run",
+        ]
+    )
+
+    assert exit_code == 0
+    assert output_path.exists()
+    assert "csv_path: data/raw/indices/sample_index.csv" in output_path.read_text(
+        encoding="utf-8"
+    )
+    assert calls
+
+
+def test_main_nl_run_requires_valid_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    output_path = tmp_path / "invalid.yml"
+    patch = ConfigPatch(
+        operations=[PatchOperation(op="set", path="version", value="")],
+        summary="Invalidate version",
+    )
+
+    class DummyChain:
+        def run(self, **kwargs: object) -> ConfigPatch:
+            return patch
+
+    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(
+        trend_cli,
+        "_run_pipeline",
+        lambda *_args, **_kwargs: pytest.fail("Pipeline should not run for invalid config"),
+    )
+
+    exit_code = trend_cli.main(
+        [
+            "nl",
+            "Invalidate version",
+            "--in",
+            str(DEFAULTS),
+            "--out",
+            str(output_path),
+            "--run",
+        ]
+    )
+
+    assert exit_code == 2
+    assert not output_path.exists()
 
 
 def test_main_stress_command(
