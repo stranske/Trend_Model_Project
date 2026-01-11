@@ -93,9 +93,7 @@ def test_replay_nl_entry_reports_diff_on_mismatch() -> None:
     assert result.diff.startswith("--- recorded")
 
 
-def test_replay_nl_entry_logs_langsmith_trace_url(
-    monkeypatch, caplog
-) -> None:
+def test_replay_nl_entry_logs_langsmith_trace_url(monkeypatch, caplog) -> None:
     entry = _make_entry("req-6", output="match")
     fake_llm = FakeLLM("match")
 
