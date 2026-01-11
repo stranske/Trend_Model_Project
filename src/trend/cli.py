@@ -359,6 +359,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Run the pipeline after applying the update (requires valid config)",
     )
+    nl_p.add_argument(
+        "--explain",
+        action="store_true",
+        help="Print an explanation of the generated changes",
+    )
 
     return parser
 
@@ -962,6 +967,22 @@ def _apply_nl_instruction(
     return patch, updated, diff
 
 
+def _format_nl_explanation(patch: ConfigPatch) -> str:
+    lines = [f"Summary: {patch.summary}"]
+    if patch.risk_flags:
+        flags = ", ".join(flag.value for flag in patch.risk_flags)
+        lines.append(f"Risk flags: {flags}")
+    rationales = [
+        (operation.path, operation.rationale)
+        for operation in patch.operations
+        if operation.rationale
+    ]
+    if rationales:
+        lines.append("Rationales:")
+        lines.extend(f"- {path}: {rationale}" for path, rationale in rationales)
+    return "\n".join(lines).strip() + "\n"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     try:
@@ -1007,9 +1028,11 @@ def main(argv: list[str] | None = None) -> int:
                 raise TrendCLIError(f"Input config not found: {input_path}")
             output_path = Path(args.output_path) if args.output_path else input_path
             config = _load_nl_config(input_path)
-            _, updated, diff = _apply_nl_instruction(config, args.instruction)
+            patch, updated, diff = _apply_nl_instruction(config, args.instruction)
             if args.run and (args.diff or args.dry_run):
                 raise TrendCLIError("--run cannot be combined with --diff or --dry-run")
+            if args.explain:
+                sys.stdout.write(_format_nl_explanation(patch))
             if args.diff:
                 if diff:
                     sys.stdout.write(diff)
