@@ -22,3 +22,6 @@ def test_trend_cli_nl_help(capsys: pytest.CaptureFixture[str]) -> None:
     assert "usage:" in captured.out
     assert "nl" in captured.out
     assert "--in" in captured.out
+    assert "--no-confirm" in captured.out
+    assert "--provider" in captured.out
+    assert "Example:" in captured.out

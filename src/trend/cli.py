@@ -336,33 +336,66 @@ def build_parser() -> argparse.ArgumentParser:
         "--in",
         dest="input_path",
         type=Path,
-        help="Input configuration file (defaults to config/defaults.yml)",
+        help=(
+            "Input configuration file (default: config/defaults.yml). "
+            "Example: --in config/base.yml"
+        ),
     )
     nl_p.add_argument(
         "--out",
         dest="output_path",
         type=Path,
-        help="Output configuration file (defaults to the input path)",
+        help=(
+            "Output configuration file (default: same as --in). "
+            "Example: --out config/updated.yml"
+        ),
     )
     nl_p.add_argument(
         "--diff",
         action="store_true",
-        help="Print the unified diff without writing the updated config",
+        help=(
+            "Print the unified diff without writing the updated config. "
+            "Example: trend nl \"Lower max weight\" --diff"
+        ),
     )
     nl_p.add_argument(
         "--dry-run",
         action="store_true",
-        help="Preview the updated config without writing the file",
+        help=(
+            "Preview the updated config without writing the file. "
+            "Example: trend nl \"Lower max weight\" --dry-run"
+        ),
     )
     nl_p.add_argument(
         "--run",
         action="store_true",
-        help="Run the pipeline after applying the update (requires valid config)",
+        help=(
+            "Validate the updated config against the schema and run the pipeline. "
+            "Example: trend nl \"Add CSV path\" --run"
+        ),
+    )
+    nl_p.add_argument(
+        "--no-confirm",
+        action="store_true",
+        help=(
+            "Skip the confirmation prompt for risky changes. "
+            "Example: trend nl \"Remove constraints\" --no-confirm"
+        ),
+    )
+    nl_p.add_argument(
+        "--provider",
+        help=(
+            "LLM provider for natural language edits (defaults to TREND_LLM_PROVIDER). "
+            "Example: --provider openai"
+        ),
     )
     nl_p.add_argument(
         "--explain",
         action="store_true",
-        help="Print an explanation of the generated changes",
+        help=(
+            "Print an explanation of the generated changes. "
+            "Example: trend nl \"Lower max weight\" --explain --diff"
+        ),
     )
 
     return parser
@@ -983,6 +1016,30 @@ def _format_nl_explanation(patch: ConfigPatch) -> str:
     return "\n".join(lines).strip() + "\n"
 
 
+def _validate_nl_run_config(updated: dict[str, Any], *, base_path: Path) -> None:
+    validation = validate_config(
+        updated,
+        base_path=base_path,
+        include_model_validation=True,
+    )
+    if not validation.valid:
+        details = "\n".join(format_validation_messages(validation))
+        raise TrendCLIError(f"Config validation failed:\n{details}")
+
+
+def _confirm_risky_patch(patch: ConfigPatch, *, no_confirm: bool) -> None:
+    if not patch.risk_flags or no_confirm:
+        return
+    flags = ", ".join(flag.value for flag in patch.risk_flags)
+    if not sys.stdin.isatty():
+        raise TrendCLIError(
+            f"Risky changes detected ({flags}). Re-run with --no-confirm to apply without prompting."
+        )
+    response = input(f"Risky changes detected ({flags}). Continue? [y/N]: ")
+    if response.strip().lower() not in {"y", "yes"}:
+        raise TrendCLIError("Update cancelled by user.")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     try:
@@ -1028,7 +1085,11 @@ def main(argv: list[str] | None = None) -> int:
                 raise TrendCLIError(f"Input config not found: {input_path}")
             output_path = Path(args.output_path) if args.output_path else input_path
             config = _load_nl_config(input_path)
-            patch, updated, diff = _apply_nl_instruction(config, args.instruction)
+            patch, updated, diff = _apply_nl_instruction(
+                config,
+                args.instruction,
+                provider=args.provider,
+            )
             if args.run and (args.diff or args.dry_run):
                 raise TrendCLIError("--run cannot be combined with --diff or --dry-run")
             if args.explain:
@@ -1043,14 +1104,8 @@ def main(argv: list[str] | None = None) -> int:
                 sys.stdout.write(yaml.safe_dump(updated, sort_keys=False, default_flow_style=False))
                 return 0
             if args.run:
-                validation = validate_config(
-                    updated,
-                    base_path=output_path.parent,
-                    include_model_validation=True,
-                )
-                if not validation.valid:
-                    details = "\n".join(format_validation_messages(validation))
-                    raise TrendCLIError(f"Config validation failed:\n{details}")
+                _validate_nl_run_config(updated, base_path=output_path.parent)
+            _confirm_risky_patch(patch, no_confirm=args.no_confirm)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(
                 yaml.safe_dump(updated, sort_keys=False, default_flow_style=False),
