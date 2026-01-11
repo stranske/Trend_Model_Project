@@ -14,6 +14,7 @@ from typing import Any, Callable, Iterable, Mapping, Protocol, cast
 
 import numpy as np
 import pandas as pd
+import yaml
 
 from trend.config_schema import CoreConfigError, load_core_config
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
@@ -22,7 +23,14 @@ from trend.reporting.quick_summary import main as quick_summary_main
 from trend_analysis import export
 from trend_analysis import logging as run_logging
 from trend_analysis.api import RunResult, run_simulation
-from trend_analysis.config import DEFAULTS, format_validation_messages, validate_config
+from trend_analysis.config import (
+    DEFAULTS,
+    ConfigPatch,
+    apply_patch as apply_config_patch,
+    diff_configs,
+    format_validation_messages,
+    validate_config,
+)
 from trend_analysis.config import load as load_config
 from trend_analysis.config.coverage import (
     ConfigCoverageTracker,
@@ -33,6 +41,8 @@ from trend_analysis.config.coverage import (
 from trend_analysis.config.schema_validation import load_config as load_schema_config
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from trend_analysis.data import load_csv
+from trend_analysis.llm import ConfigPatchChain, LLMProviderConfig, build_config_patch_prompt, create_llm
+from trend_analysis.llm.schema import load_compact_schema
 from trend_analysis.logging_setup import setup_logging
 from trend_model.spec import ensure_run_spec
 from utils.paths import proj_path
@@ -326,6 +336,11 @@ def build_parser() -> argparse.ArgumentParser:
         dest="output_path",
         type=Path,
         help="Output configuration file (defaults to the input path)",
+    )
+    nl_p.add_argument(
+        "--diff",
+        action="store_true",
+        help="Print the unified diff without writing the updated config",
     )
 
     return parser
@@ -841,6 +856,95 @@ def _load_configuration(path: str) -> Any:
 _register_fallback("_load_configuration", _load_configuration)
 
 
+def _resolve_llm_provider_config(provider: str | None = None) -> LLMProviderConfig:
+    provider_name = (provider or os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
+    supported = {"openai", "anthropic", "ollama"}
+    if provider_name not in supported:
+        raise TrendCLIError(
+            f"Unknown LLM provider '{provider_name}'. Expected one of: {', '.join(sorted(supported))}."
+        )
+    api_key = os.environ.get("TREND_LLM_API_KEY")
+    if not api_key:
+        if provider_name == "openai":
+            api_key = os.environ.get("OPENAI_API_KEY")
+        elif provider_name == "anthropic":
+            api_key = os.environ.get("ANTHROPIC_API_KEY")
+    model = os.environ.get("TREND_LLM_MODEL")
+    base_url = os.environ.get("TREND_LLM_BASE_URL")
+    organization = os.environ.get("TREND_LLM_ORG")
+    max_retries = os.environ.get("TREND_LLM_MAX_RETRIES")
+    timeout = os.environ.get("TREND_LLM_TIMEOUT")
+    max_retries_value: int | None = None
+    timeout_value: float | None = None
+    if max_retries:
+        try:
+            max_retries_value = int(max_retries)
+        except ValueError as exc:
+            raise TrendCLIError("TREND_LLM_MAX_RETRIES must be an integer") from exc
+    if timeout:
+        try:
+            timeout_value = float(timeout)
+        except ValueError as exc:
+            raise TrendCLIError("TREND_LLM_TIMEOUT must be a number") from exc
+    config_kwargs: dict[str, Any] = {"provider": provider_name}
+    if model:
+        config_kwargs["model"] = model
+    if api_key:
+        config_kwargs["api_key"] = api_key
+    if base_url:
+        config_kwargs["base_url"] = base_url
+    if organization:
+        config_kwargs["organization"] = organization
+    if max_retries_value is not None:
+        config_kwargs["max_retries"] = max_retries_value
+    if timeout_value is not None:
+        config_kwargs["timeout"] = timeout_value
+    return LLMProviderConfig(**config_kwargs)
+
+
+def _build_nl_chain(provider: str | None = None) -> ConfigPatchChain:
+    config = _resolve_llm_provider_config(provider)
+    try:
+        llm = create_llm(config)
+        schema = load_compact_schema()
+    except Exception as exc:
+        raise TrendCLIError(str(exc)) from exc
+    return ConfigPatchChain.from_env(
+        llm=llm,
+        schema=schema,
+        prompt_builder=build_config_patch_prompt,
+    )
+
+
+def _load_nl_config(path: Path) -> dict[str, Any]:
+    try:
+        payload = load_schema_config(path)
+    except Exception as exc:
+        raise TrendCLIError(str(exc)) from exc
+    if not isinstance(payload, dict):
+        raise TrendCLIError("Config file must contain a mapping at the root.")
+    return payload
+
+
+def _apply_nl_instruction(
+    config: dict[str, Any],
+    instruction: str,
+    *,
+    provider: str | None = None,
+) -> tuple[ConfigPatch, dict[str, Any], str]:
+    chain = _build_nl_chain(provider)
+    try:
+        patch = chain.run(current_config=config, instruction=instruction)
+    except Exception as exc:
+        raise TrendCLIError(str(exc)) from exc
+    try:
+        updated = apply_config_patch(config, patch)
+    except Exception as exc:
+        raise TrendCLIError(str(exc)) from exc
+    diff = diff_configs(config, updated)
+    return patch, updated, diff
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     try:
@@ -884,7 +988,22 @@ def main(argv: list[str] | None = None) -> int:
             input_path = Path(args.input_path) if args.input_path else DEFAULTS
             if not input_path.exists():
                 raise TrendCLIError(f"Input config not found: {input_path}")
-            raise TrendCLIError("Natural language config editing is not yet implemented.")
+            output_path = Path(args.output_path) if args.output_path else input_path
+            config = _load_nl_config(input_path)
+            _, updated, diff = _apply_nl_instruction(config, args.instruction)
+            if args.diff:
+                if diff:
+                    sys.stdout.write(diff)
+                else:
+                    print("No changes.")
+                return 0
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(
+                yaml.safe_dump(updated, sort_keys=False, default_flow_style=False),
+                encoding="utf-8",
+            )
+            print(f"Updated config written: {output_path}")
+            return 0
 
         if command not in {"run", "report", "stress"}:
             raise TrendCLIError(f"Unknown command: {command}")
