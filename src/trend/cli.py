@@ -26,10 +26,12 @@ from trend_analysis.api import RunResult, run_simulation
 from trend_analysis.config import (
     DEFAULTS,
     ConfigPatch,
-    apply_patch as apply_config_patch,
     diff_configs,
     format_validation_messages,
     validate_config,
+)
+from trend_analysis.config import (
+    apply_patch as apply_config_patch,
 )
 from trend_analysis.config import load as load_config
 from trend_analysis.config.coverage import (
@@ -41,7 +43,12 @@ from trend_analysis.config.coverage import (
 from trend_analysis.config.schema_validation import load_config as load_schema_config
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from trend_analysis.data import load_csv
-from trend_analysis.llm import ConfigPatchChain, LLMProviderConfig, build_config_patch_prompt, create_llm
+from trend_analysis.llm import (
+    ConfigPatchChain,
+    LLMProviderConfig,
+    build_config_patch_prompt,
+    create_llm,
+)
 from trend_analysis.llm.schema import load_compact_schema
 from trend_analysis.logging_setup import setup_logging
 from trend_model.spec import ensure_run_spec
