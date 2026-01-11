@@ -1011,12 +1011,21 @@ def _run_nl_replay(argv: list[str]) -> int:
     else:
         print("Recorded output:")
         print(result.recorded_output)
+    if result.recorded_output is None:
+        print("Comparison: skipped (no recorded output)")
+        exit_code = 0
+    elif result.matches:
+        print("Comparison: match")
+        exit_code = 0
+    else:
+        print("Comparison: mismatch")
+        exit_code = 1
     if result.diff:
         print("Diff:")
         print(result.diff)
     print("Replay output:")
     print(result.output)
-    return 0
+    return exit_code
 
 
 def _maybe_handle_nl_replay(argv: list[str]) -> int | None:

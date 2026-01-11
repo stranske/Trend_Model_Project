@@ -743,9 +743,10 @@ def test_main_nl_replay_command(
     exit_code = trend_cli.main(["nl", "replay", str(log_path), "--entry", "2"])
 
     captured = capsys.readouterr().out
-    assert exit_code == 0
+    assert exit_code == 1
     assert "Prompt hash: prompt-hash" in captured
     assert "Matches: False" in captured
+    assert "Comparison: mismatch" in captured
     assert "Recorded output:" in captured
     assert "Replay output:" in captured
     assert calls["path"] == log_path
