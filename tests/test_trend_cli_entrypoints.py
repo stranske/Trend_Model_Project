@@ -12,7 +12,7 @@ import pandas as pd
 import pytest
 
 from trend import cli as trend_cli
-from trend_analysis.config import ConfigPatch, PatchOperation, DEFAULTS
+from trend_analysis.config import DEFAULTS, ConfigPatch, PatchOperation
 from trend_analysis.logging_setup import RUNS_ROOT
 
 
@@ -579,9 +579,7 @@ def test_main_nl_run_command_executes_pipeline(
 
     assert exit_code == 0
     assert output_path.exists()
-    assert "csv_path: data/raw/indices/sample_index.csv" in output_path.read_text(
-        encoding="utf-8"
-    )
+    assert "csv_path: data/raw/indices/sample_index.csv" in output_path.read_text(encoding="utf-8")
     assert calls
 
 
