@@ -321,6 +321,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Input configuration file (defaults to config/defaults.yml)",
     )
+    nl_p.add_argument(
+        "--out",
+        dest="output_path",
+        type=Path,
+        help="Output configuration file (defaults to the input path)",
+    )
 
     return parser
 
