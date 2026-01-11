@@ -180,7 +180,11 @@ class ConfigPatchChain:
                         safety_rules=safety_rules,
                     )
                 )
-                response_text = self._invoke_llm(prompt)
+                response_text = self._invoke_llm(
+                    prompt,
+                    request_id=request_id,
+                    operation="nl_to_patch",
+                )
                 return response_text
 
             patch = parse_config_patch_with_retries(
@@ -215,16 +219,36 @@ class ConfigPatchChain:
                 )
                 write_nl_log(entry)
 
-    def _invoke_llm(self, prompt_text: str) -> str:
+    def _invoke_llm(
+        self,
+        prompt_text: str,
+        *,
+        request_id: str | None = None,
+        operation: str | None = None,
+    ) -> str:
         from langchain_core.prompts import ChatPromptTemplate
 
         from trend_analysis.llm.tracing import langsmith_tracing_context
 
         template = ChatPromptTemplate.from_messages([("system", "{prompt}")])
         chain = template | self._bind_llm()
-        with langsmith_tracing_context():
+        metadata = {
+            "request_id": request_id,
+            "operation": operation or "nl_operation",
+            "model": self.model,
+            "temperature": self.temperature,
+        }
+        with langsmith_tracing_context(
+            name=operation or "nl_operation",
+            run_type="chain",
+            inputs={"prompt": prompt_text},
+            metadata=metadata,
+        ) as run:
             response = chain.invoke({"prompt": prompt_text})
-        return getattr(response, "content", None) or str(response)
+            response_text = getattr(response, "content", None) or str(response)
+            if run is not None:
+                run.end(outputs={"output": response_text})
+        return response_text
 
     def _bind_llm(self) -> Any:
         if not hasattr(self.llm, "bind"):

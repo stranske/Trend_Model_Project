@@ -63,6 +63,7 @@ def replay_nl_entry(
         active_llm,
         temperature=active_temperature,
         model=active_model,
+        request_id=entry.request_id,
     )
     recorded = entry.model_output
     output_hash = _hash_text(output_text)
@@ -93,7 +94,14 @@ def _create_llm_from_env(
     return create_llm(config)
 
 
-def _invoke_llm(prompt_text: str, llm: Any, *, temperature: float, model: str | None) -> str:
+def _invoke_llm(
+    prompt_text: str,
+    llm: Any,
+    *,
+    temperature: float,
+    model: str | None,
+    request_id: str | None = None,
+) -> str:
     from langchain_core.prompts import ChatPromptTemplate
 
     from trend_analysis.llm.tracing import langsmith_tracing_context
@@ -107,7 +115,18 @@ def _invoke_llm(prompt_text: str, llm: Any, *, temperature: float, model: str | 
         except TypeError:
             pass
     template = ChatPromptTemplate.from_messages([("system", "{prompt}")])
-    with langsmith_tracing_context():
+    metadata = {
+        "request_id": request_id,
+        "operation": "replay",
+        "model": model,
+        "temperature": temperature,
+    }
+    with langsmith_tracing_context(
+        name="nl_replay",
+        run_type="chain",
+        inputs={"prompt": prompt_text},
+        metadata=metadata,
+    ) as run:
         try:
             response = (template | llm).invoke({"prompt": prompt_text})
         except TypeError:
@@ -115,7 +134,10 @@ def _invoke_llm(prompt_text: str, llm: Any, *, temperature: float, model: str | 
                 response = llm.invoke(prompt_text)
             else:
                 response = llm(prompt_text)
-    return getattr(response, "content", None) or str(response)
+        response_text = getattr(response, "content", None) or str(response)
+        if run is not None:
+            run.end(outputs={"output": response_text})
+    return response_text
 
 
 def _hash_text(text: str | None) -> str:

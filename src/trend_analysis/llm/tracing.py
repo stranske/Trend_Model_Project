@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from contextlib import contextmanager
-from typing import Iterator
+from typing import Any, Iterator
 
 _LANGSMITH_ENABLED: bool | None = None
 
@@ -27,28 +27,57 @@ def maybe_enable_langsmith_tracing() -> bool:
 
 
 @contextmanager
-def langsmith_tracing_context() -> Iterator[None]:
-    """Provide a tracing context when LangSmith is enabled."""
+def _get_langsmith_project() -> str | None:
+    return os.environ.get("LANGCHAIN_PROJECT") or os.environ.get("LANGSMITH_PROJECT")
+
+
+@contextmanager
+def langsmith_tracing_context(
+    *,
+    name: str = "nl_operation",
+    run_type: str = "chain",
+    inputs: dict[str, Any] | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> Iterator[Any]:
+    """Provide a LangSmith tracing context and optional run metadata."""
 
     if not maybe_enable_langsmith_tracing():
-        yield
+        yield None
+        return
+    try:
+        from langsmith import run_helpers
+    except Exception:
+        yield None
+        return
+    project = _get_langsmith_project()
+    try:
+        trace_cm = run_helpers.trace(
+            name,
+            run_type=run_type,
+            inputs=inputs,
+            metadata=metadata,
+            project_name=project,
+        )
+    except Exception:
+        yield None
         return
     try:
         from langchain_core.tracers.context import tracing_v2_enabled
     except Exception:
-        yield
+        with trace_cm as run:
+            yield run
         return
-    project = os.environ.get("LANGCHAIN_PROJECT") or os.environ.get("LANGSMITH_PROJECT")
-    if project:
-        try:
-            with tracing_v2_enabled(project_name=project):
-                yield
-        except TypeError:
+    with trace_cm as run:
+        if project:
+            try:
+                with tracing_v2_enabled(project_name=project):
+                    yield run
+            except TypeError:
+                with tracing_v2_enabled():
+                    yield run
+        else:
             with tracing_v2_enabled():
-                yield
-    else:
-        with tracing_v2_enabled():
-            yield
+                yield run
 
 
 __all__ = ["langsmith_tracing_context", "maybe_enable_langsmith_tracing"]
