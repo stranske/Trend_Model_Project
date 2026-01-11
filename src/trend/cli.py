@@ -355,7 +355,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "Print the unified diff without writing the updated config. "
-            "Example: trend nl \"Lower max weight\" --diff"
+            'Example: trend nl "Lower max weight" --diff'
         ),
     )
     nl_p.add_argument(
@@ -363,7 +363,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "Preview the updated config without writing the file. "
-            "Example: trend nl \"Lower max weight\" --dry-run"
+            'Example: trend nl "Lower max weight" --dry-run'
         ),
     )
     nl_p.add_argument(
@@ -371,7 +371,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "Validate the updated config against the schema and run the pipeline. "
-            "Example: trend nl \"Add CSV path\" --run"
+            'Example: trend nl "Add CSV path" --run'
         ),
     )
     nl_p.add_argument(
@@ -379,7 +379,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "Skip the confirmation prompt for risky changes. "
-            "Example: trend nl \"Remove constraints\" --no-confirm"
+            'Example: trend nl "Remove constraints" --no-confirm'
         ),
     )
     nl_p.add_argument(
@@ -394,7 +394,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "Print an explanation of the generated changes. "
-            "Example: trend nl \"Lower max weight\" --explain --diff"
+            'Example: trend nl "Lower max weight" --explain --diff'
         ),
     )
 
