@@ -1043,7 +1043,11 @@ def main(argv: list[str] | None = None) -> int:
                 sys.stdout.write(yaml.safe_dump(updated, sort_keys=False, default_flow_style=False))
                 return 0
             if args.run:
-                validation = validate_config(updated, base_path=output_path.parent)
+                validation = validate_config(
+                    updated,
+                    base_path=output_path.parent,
+                    include_model_validation=True,
+                )
                 if not validation.valid:
                     details = "\n".join(format_validation_messages(validation))
                     raise TrendCLIError(f"Config validation failed:\n{details}")

@@ -664,6 +664,42 @@ def test_main_nl_run_requires_valid_config(monkeypatch: pytest.MonkeyPatch, tmp_
     assert not output_path.exists()
 
 
+def test_main_nl_run_requires_existing_csv_path(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    output_path = tmp_path / "invalid.yml"
+    patch = ConfigPatch(
+        operations=[PatchOperation(op="set", path="data.csv_path", value="missing.csv")],
+        summary="Missing CSV path",
+    )
+
+    class DummyChain:
+        def run(self, **kwargs: object) -> ConfigPatch:
+            return patch
+
+    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(
+        trend_cli,
+        "_run_pipeline",
+        lambda *_args, **_kwargs: pytest.fail("Pipeline should not run for invalid CSV"),
+    )
+
+    exit_code = trend_cli.main(
+        [
+            "nl",
+            "Set missing csv path",
+            "--in",
+            str(DEFAULTS),
+            "--out",
+            str(output_path),
+            "--run",
+        ]
+    )
+
+    assert exit_code == 2
+    assert not output_path.exists()
+
+
 def test_main_stress_command(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
