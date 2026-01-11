@@ -92,6 +92,8 @@ def _create_llm_from_env(
 def _invoke_llm(prompt_text: str, llm: Any, *, temperature: float, model: str | None) -> str:
     from langchain_core.prompts import ChatPromptTemplate
 
+    from trend_analysis.llm.tracing import langsmith_tracing_context
+
     if hasattr(llm, "bind"):
         params: dict[str, Any] = {"temperature": temperature}
         if model is not None:
@@ -101,13 +103,14 @@ def _invoke_llm(prompt_text: str, llm: Any, *, temperature: float, model: str | 
         except TypeError:
             pass
     template = ChatPromptTemplate.from_messages([("system", "{prompt}")])
-    try:
-        response = (template | llm).invoke({"prompt": prompt_text})
-    except TypeError:
-        if hasattr(llm, "invoke"):
-            response = llm.invoke(prompt_text)
-        else:
-            response = llm(prompt_text)
+    with langsmith_tracing_context():
+        try:
+            response = (template | llm).invoke({"prompt": prompt_text})
+        except TypeError:
+            if hasattr(llm, "invoke"):
+                response = llm.invoke(prompt_text)
+            else:
+                response = llm(prompt_text)
     return getattr(response, "content", None) or str(response)
 
 

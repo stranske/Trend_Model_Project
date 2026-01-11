@@ -90,6 +90,7 @@ llm = [
     "langchain-openai>=0.3,<0.4",
     "langchain-anthropic>=0.3,<0.4",
     "langchain-ollama>=0.3,<0.4",
+    "langsmith==0.6.0",
 ]
 notebooks = [
     "ipyfilechooser==0.6.0",

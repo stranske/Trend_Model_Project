@@ -4,6 +4,7 @@
 
 ## Progress updates
 - Round 1: Added structured NL operation log model and log persistence helpers with tests.
+- Round 2: Added optional LangSmith tracing helpers, wired NL invocations, and documented setup.
 
 ## Scope
 Add NL operation observability to capture prompts, outputs, and replay diagnostics.
@@ -37,10 +38,10 @@ Add NL operation observability to capture prompts, outputs, and replay diagnosti
 - [x] - Re-run the exact prompt.
 - [x] - Compare outputs.
 ### Implement Optional LangSmith Tracing
-- [ ] Check for `LANGSMITH_API_KEY`.
-- [ ] Enable tracing if the key is present.
+- [x] Check for `LANGSMITH_API_KEY`.
+- [x] Enable tracing if the key is present.
 - [ ] Send traces to LangSmith.
-- [ ] Document LangSmith setup in the README.
+- [x] Document LangSmith setup in the README.
 ### Add Request Correlation
 - [x] Generate `request_id` at the entry point.
 - [x] Pass `request_id` through all operations.
