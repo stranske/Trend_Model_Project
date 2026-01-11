@@ -1,6 +1,7 @@
 """LLM utilities for Trend Model."""
 
 from .chain import ConfigPatchChain
+from .nl_logging import NLOperationLog
 from .prompts import (
     DEFAULT_SAFETY_RULES,
     DEFAULT_SYSTEM_PROMPT,
@@ -12,7 +13,6 @@ from .prompts import (
     build_config_patch_prompt,
     format_config_for_prompt,
 )
-from .nl_logging import NLOperationLog
 from .providers import LLMProviderConfig, create_llm
 
 __all__ = [
