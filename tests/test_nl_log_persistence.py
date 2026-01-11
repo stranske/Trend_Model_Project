@@ -57,3 +57,14 @@ def test_rotate_nl_logs_removes_older_files(tmp_path) -> None:
     assert (tmp_path / "nl_ops_2025-01-01.jsonl") in removed
     assert not (tmp_path / "nl_ops_2025-01-01.jsonl").exists()
     assert (tmp_path / "nl_ops_2025-01-02.jsonl").exists()
+
+
+def test_write_nl_log_rotates_by_default(tmp_path) -> None:
+    old_path = tmp_path / "nl_ops_2025-01-01.jsonl"
+    old_path.write_text("{}", encoding="utf-8")
+    timestamp = datetime(2025, 2, 1, 8, 0, tzinfo=timezone.utc)
+    entry = _sample_log(timestamp)
+
+    write_nl_log(entry, base_dir=tmp_path, now=timestamp)
+
+    assert not old_path.exists()

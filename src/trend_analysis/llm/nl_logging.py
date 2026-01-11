@@ -89,6 +89,7 @@ def write_nl_log(
     *,
     base_dir: Path | None = None,
     rotate: bool = True,
+    keep_days: int = 30,
     now: datetime | None = None,
 ) -> Path:
     target_dir = Path(base_dir) if base_dir is not None else _NL_LOG_DIR
@@ -96,6 +97,7 @@ def write_nl_log(
     if rotate:
         rotate_nl_logs(
             base_dir=target_dir,
+            keep_days=keep_days,
             today=(now or datetime.now(timezone.utc)).date(),
         )
     log_date = _log_date_from_timestamp(entry.timestamp)
