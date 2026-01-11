@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from trend import cli as trend_cli
-from trend_analysis.config import DEFAULTS, ConfigPatch, PatchOperation
+from trend_analysis.config import DEFAULTS, ConfigPatch, PatchOperation, diff_configs
 
 
 class _DummyChain:
@@ -44,7 +44,12 @@ def test_nl_diff_outputs_expected_patch(
     exit_code = trend_cli.main(["nl", "Lower max weight", "--in", str(cfg_path), "--diff"])
 
     output = capsys.readouterr().out
+    expected_diff = diff_configs(
+        {"version": 1, "portfolio": {"constraints": {"max_weight": 0.2}}},
+        {"version": 1, "portfolio": {"constraints": {"max_weight": 0.1}}},
+    )
     assert exit_code == 0
+    assert output == expected_diff
     assert "--- before" in output
     assert "-    max_weight: 0.2" in output
     assert "+    max_weight: 0.1" in output
