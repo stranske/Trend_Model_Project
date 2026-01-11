@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from contextlib import contextmanager
-from typing import Any, Iterator
+from typing import Any, Iterator, Literal
 
 _LANGSMITH_ENABLED: bool | None = None
 
@@ -26,8 +26,8 @@ def maybe_enable_langsmith_tracing() -> bool:
     return True
 
 
-@contextmanager
 def _get_langsmith_project() -> str | None:
+    """Return the configured LangSmith project name, if any."""
     return os.environ.get("LANGCHAIN_PROJECT") or os.environ.get("LANGSMITH_PROJECT")
 
 
@@ -35,7 +35,7 @@ def _get_langsmith_project() -> str | None:
 def langsmith_tracing_context(
     *,
     name: str = "nl_operation",
-    run_type: str = "chain",
+    run_type: Literal["retriever", "llm", "tool", "chain", "embedding", "prompt", "parser"] = "chain",
     inputs: dict[str, Any] | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> Iterator[Any]:
@@ -49,7 +49,7 @@ def langsmith_tracing_context(
     except Exception:
         yield None
         return
-    project = _get_langsmith_project()
+    project: str | None = _get_langsmith_project()
     try:
         trace_cm = run_helpers.trace(
             name,
