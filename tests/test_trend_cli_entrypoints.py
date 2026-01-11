@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import builtins
 import json
 import textwrap
 import types
@@ -698,6 +699,124 @@ def test_main_nl_run_requires_existing_csv_path(
 
     assert exit_code == 2
     assert not output_path.exists()
+
+
+def test_main_nl_run_schema_validation_blocks_invalid_config(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    csv_path = tmp_path / "returns.csv"
+    csv_path.write_text(
+        "Date,A,B,C,D,E,F,G,H,I,J\n2020-01-01,1,1,1,1,1,1,1,1,1,1\n",
+        encoding="utf-8",
+    )
+    output_path = tmp_path / "invalid.yml"
+    patch = ConfigPatch(
+        operations=[
+            PatchOperation(op="set", path="data.csv_path", value=str(csv_path)),
+            PatchOperation(op="set", path="data.managers_glob", value=None),
+            PatchOperation(op="set", path="portfolio", value="invalid"),
+        ],
+        summary="Break schema",
+    )
+
+    class DummyChain:
+        def run(self, **kwargs: object) -> ConfigPatch:
+            return patch
+
+    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(
+        trend_cli,
+        "_run_pipeline",
+        lambda *_args, **_kwargs: pytest.fail("Pipeline should not run for schema errors"),
+    )
+
+    exit_code = trend_cli.main(
+        [
+            "nl",
+            "Break config schema",
+            "--in",
+            str(DEFAULTS),
+            "--out",
+            str(output_path),
+            "--run",
+            "--no-confirm",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "Config validation failed" in captured.err
+    assert not output_path.exists()
+
+
+def test_main_nl_requires_confirmation_for_risky_patch(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output_path = tmp_path / "confirmed.yml"
+    patch = ConfigPatch(
+        operations=[PatchOperation(op="remove", path="portfolio.constraints")],
+        summary="Remove constraints",
+    )
+    called: dict[str, str] = {}
+
+    class DummyChain:
+        def run(self, **kwargs: object) -> ConfigPatch:
+            return patch
+
+    def _fake_input(prompt: str = "") -> str:
+        called["prompt"] = prompt
+        return "n"
+
+    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(trend_cli.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(builtins, "input", _fake_input)
+
+    exit_code = trend_cli.main(
+        ["nl", "Remove constraints", "--in", str(DEFAULTS), "--out", str(output_path)]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "Update cancelled by user." in captured.err
+    assert called
+    assert not output_path.exists()
+
+
+def test_main_nl_no_confirm_skips_prompt_for_risky_patch(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output_path = tmp_path / "confirmed.yml"
+    patch = ConfigPatch(
+        operations=[PatchOperation(op="remove", path="portfolio.constraints")],
+        summary="Remove constraints",
+    )
+
+    class DummyChain:
+        def run(self, **kwargs: object) -> ConfigPatch:
+            return patch
+
+    def _fail_input(prompt: str = "") -> str:
+        raise AssertionError("Prompt should be skipped when --no-confirm is set.")
+
+    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(builtins, "input", _fail_input)
+
+    exit_code = trend_cli.main(
+        [
+            "nl",
+            "Remove constraints",
+            "--in",
+            str(DEFAULTS),
+            "--out",
+            str(output_path),
+            "--no-confirm",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Updated config written" in captured.out
+    assert output_path.exists()
 
 
 def test_main_stress_command(
