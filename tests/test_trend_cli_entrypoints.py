@@ -782,6 +782,43 @@ def test_main_nl_requires_confirmation_for_risky_patch(
     assert not output_path.exists()
 
 
+def test_main_nl_no_confirm_skips_prompt_for_risky_patch(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output_path = tmp_path / "confirmed.yml"
+    patch = ConfigPatch(
+        operations=[PatchOperation(op="remove", path="portfolio.constraints")],
+        summary="Remove constraints",
+    )
+
+    class DummyChain:
+        def run(self, **kwargs: object) -> ConfigPatch:
+            return patch
+
+    def _fail_input(prompt: str = "") -> str:
+        raise AssertionError("Prompt should be skipped when --no-confirm is set.")
+
+    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(builtins, "input", _fail_input)
+
+    exit_code = trend_cli.main(
+        [
+            "nl",
+            "Remove constraints",
+            "--in",
+            str(DEFAULTS),
+            "--out",
+            str(output_path),
+            "--no-confirm",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Updated config written" in captured.out
+    assert output_path.exists()
+
+
 def test_main_stress_command(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
