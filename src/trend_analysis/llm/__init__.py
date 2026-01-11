@@ -12,6 +12,7 @@ from .prompts import (
     build_config_patch_prompt,
     format_config_for_prompt,
 )
+from .nl_logging import NLOperationLog
 from .providers import LLMProviderConfig, create_llm
 
 __all__ = [
@@ -25,6 +26,7 @@ __all__ = [
     "SECTION_USER",
     "build_config_patch_prompt",
     "format_config_for_prompt",
+    "NLOperationLog",
     "LLMProviderConfig",
     "create_llm",
 ]
