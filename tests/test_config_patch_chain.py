@@ -512,6 +512,7 @@ def test_config_patch_chain_logs_langsmith_trace_url(
     )
 
     with caplog.at_level(logging.INFO, logger="trend_analysis.llm.chain"):
-        chain._invoke_llm("Prompt")
+        _, trace_url = chain._invoke_llm("Prompt")
 
     assert "LangSmith trace: https://example.test/trace/123" in caplog.text
+    assert trace_url == "https://example.test/trace/123"

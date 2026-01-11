@@ -139,6 +139,7 @@ class ConfigPatchChain:
         prompt_text = ""
         input_hash = ""
         response_text: str | None = None
+        trace_url: str | None = None
         patch: ConfigPatch | None = None
         error: str | None = None
 
@@ -167,7 +168,7 @@ class ConfigPatchChain:
         try:
 
             def _response_provider(attempt: int, last_error: Exception | None) -> str:
-                nonlocal response_text
+                nonlocal response_text, trace_url
                 prompt = (
                     prompt_text
                     if attempt == 0
@@ -180,7 +181,7 @@ class ConfigPatchChain:
                         safety_rules=safety_rules,
                     )
                 )
-                response_text = self._invoke_llm(
+                response_text, trace_url = self._invoke_llm(
                     prompt,
                     request_id=request_id,
                     operation="nl_to_patch",
@@ -216,6 +217,7 @@ class ConfigPatchChain:
                     model_name=self.model or "unknown",
                     temperature=self.temperature,
                     token_usage=None,
+                    trace_url=trace_url,
                 )
                 write_nl_log(entry)
 
@@ -225,7 +227,7 @@ class ConfigPatchChain:
         *,
         request_id: str | None = None,
         operation: str | None = None,
-    ) -> str:
+    ) -> tuple[str, str | None]:
         from langchain_core.prompts import ChatPromptTemplate
 
         from trend_analysis.llm.tracing import langsmith_tracing_context
@@ -238,6 +240,7 @@ class ConfigPatchChain:
             "model": self.model,
             "temperature": self.temperature,
         }
+        trace_url: str | None = None
         with langsmith_tracing_context(
             name=operation or "nl_operation",
             run_type="chain",
@@ -251,7 +254,7 @@ class ConfigPatchChain:
                 trace_url = getattr(run, "url", None)
                 if trace_url:
                     logger.info("LangSmith trace: %s", trace_url)
-        return response_text
+        return response_text, trace_url
 
     def _bind_llm(self) -> Any:
         if not hasattr(self.llm, "bind"):

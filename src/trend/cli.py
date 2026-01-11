@@ -1001,6 +1001,8 @@ def _run_nl_replay(argv: list[str]) -> int:
         print(result.prompt)
     print(f"Prompt hash: {result.prompt_hash}")
     print(f"Output hash: {result.output_hash}")
+    if result.trace_url:
+        print(f"Trace URL: {result.trace_url}")
     if result.recorded_hash is None:
         print("Recorded hash: <none>")
     else:

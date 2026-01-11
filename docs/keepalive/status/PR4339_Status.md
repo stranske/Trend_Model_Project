@@ -8,6 +8,7 @@
 - Round 3: Added LangSmith trace runs for NL calls/replay with tests.
 - Round 4: Propagated NL request IDs through apply/validate/run logging and added CLI log coverage.
 - Round 5: Log LangSmith trace URLs for NL operations and replay to simplify verification.
+- Round 6: Capture LangSmith trace URLs in structured logs and replay output for easier dashboard validation.
 
 ## Scope
 Add NL operation observability to capture prompts, outputs, and replay diagnostics.

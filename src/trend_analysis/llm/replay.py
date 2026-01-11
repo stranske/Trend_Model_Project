@@ -27,6 +27,7 @@ class ReplayResult:
     recorded_hash: str | None
     diff: str | None
     matches: bool
+    trace_url: str | None
 
 
 def load_nl_log_entry(path: Path, entry: int) -> NLOperationLog:
@@ -61,7 +62,7 @@ def replay_nl_entry(
     active_llm = llm or _create_llm_from_env(entry, provider=provider, model=model)
     active_model = model or entry.model_name
     active_temperature = entry.temperature if temperature is None else float(temperature)
-    output_text = _invoke_llm(
+    output_text, trace_url = _invoke_llm(
         prompt_text,
         active_llm,
         temperature=active_temperature,
@@ -82,6 +83,7 @@ def replay_nl_entry(
         recorded_hash=recorded_hash,
         diff=diff,
         matches=matches,
+        trace_url=trace_url,
     )
 
 
@@ -104,7 +106,7 @@ def _invoke_llm(
     temperature: float,
     model: str | None,
     request_id: str | None = None,
-) -> str:
+) -> tuple[str, str | None]:
     from langchain_core.prompts import ChatPromptTemplate
 
     from trend_analysis.llm.tracing import langsmith_tracing_context
@@ -124,6 +126,7 @@ def _invoke_llm(
         "model": model,
         "temperature": temperature,
     }
+    trace_url: str | None = None
     with langsmith_tracing_context(
         name="nl_replay",
         run_type="chain",
@@ -143,7 +146,7 @@ def _invoke_llm(
             trace_url = getattr(run, "url", None)
             if trace_url:
                 logger.info("LangSmith trace: %s", trace_url)
-    return response_text
+    return response_text, trace_url
 
 
 def _hash_text(text: str | None) -> str:

@@ -113,6 +113,7 @@ def test_replay_nl_entry_logs_langsmith_trace_url(monkeypatch, caplog) -> None:
     )
 
     with caplog.at_level(logging.INFO, logger="trend_analysis.llm.replay"):
-        replay_nl_entry(entry, llm=fake_llm)
+        result = replay_nl_entry(entry, llm=fake_llm)
 
     assert "LangSmith trace: https://example.test/trace/abc" in caplog.text
+    assert result.trace_url == "https://example.test/trace/abc"

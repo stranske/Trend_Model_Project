@@ -36,6 +36,7 @@ class NLOperationLog(BaseModel):
     model_name: str
     temperature: float
     token_usage: dict[str, Any] | None
+    trace_url: str | None = None
 
 
 def _log_date_from_timestamp(timestamp: datetime) -> date:

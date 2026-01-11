@@ -722,6 +722,7 @@ def test_main_nl_replay_command(
         recorded_hash="old-hash",
         diff="diff",
         matches=False,
+        trace_url=None,
     )
 
     def _fake_replay(
