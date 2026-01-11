@@ -2,17 +2,22 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
+import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Callable, Iterable
+from uuid import uuid4
 
 from trend_analysis.config.patch import (
     ConfigPatch,
     format_retry_error,
     parse_config_patch_with_retries,
 )
+from trend_analysis.llm.nl_logging import NLOperationLog, write_nl_log
 from trend_analysis.llm.prompts import build_retry_prompt, format_config_for_prompt
 from trend_analysis.llm.schema import load_compact_schema, select_schema_sections
 from trend_analysis.llm.validation import flag_unknown_keys
@@ -123,8 +128,19 @@ class ConfigPatchChain:
         allowed_schema: str | None = None,
         system_prompt: str | None = None,
         safety_rules: Iterable[str] | None = None,
+        request_id: str | None = None,
+        log_operation: bool = True,
     ) -> ConfigPatch:
         """Invoke the LLM and parse the ConfigPatch response."""
+
+        started_at = time.perf_counter()
+        timestamp = datetime.now(timezone.utc)
+        request_id = request_id or uuid4().hex
+        prompt_text = ""
+        input_hash = ""
+        response_text: str | None = None
+        patch: ConfigPatch | None = None
+        error: str | None = None
 
         config_text = (
             current_config
@@ -141,26 +157,62 @@ class ConfigPatchChain:
             system_prompt=system_prompt,
             safety_rules=safety_rules,
         )
-        patch = parse_config_patch_with_retries(
-            lambda attempt, last_error: self._invoke_llm(
-                prompt_text
-                if attempt == 0
-                else build_retry_prompt(
-                    current_config=config_text,
-                    allowed_schema=schema_text,
-                    instruction=instruction,
-                    error_message=format_retry_error(last_error),
-                    system_prompt=system_prompt,
-                    safety_rules=safety_rules,
-                )
-            ),
-            retries=self.retries,
-            logger=logger,
+        input_hash = _hash_payload(
+            {
+                "prompt": prompt_text,
+                "model": self.model,
+                "temperature": self.temperature,
+            }
         )
+        try:
+            def _response_provider(attempt: int, last_error: Exception | None) -> str:
+                nonlocal response_text
+                prompt = (
+                    prompt_text
+                    if attempt == 0
+                    else build_retry_prompt(
+                        current_config=config_text,
+                        allowed_schema=schema_text,
+                        instruction=instruction,
+                        error_message=format_retry_error(last_error),
+                        system_prompt=system_prompt,
+                        safety_rules=safety_rules,
+                    )
+                )
+                response_text = self._invoke_llm(prompt)
+                return response_text
 
-        schema = self._schema_for_validation(allowed_schema, instruction)
-        flag_unknown_keys(patch, schema, logger=logger)
-        return patch
+            patch = parse_config_patch_with_retries(
+                _response_provider,
+                retries=self.retries,
+                logger=logger,
+            )
+            schema = self._schema_for_validation(allowed_schema, instruction)
+            flag_unknown_keys(patch, schema, logger=logger)
+            return patch
+        except Exception as exc:
+            error = str(exc) or type(exc).__name__
+            raise
+        finally:
+            if log_operation:
+                elapsed_ms = (time.perf_counter() - started_at) * 1000
+                entry = NLOperationLog(
+                    request_id=request_id,
+                    timestamp=timestamp,
+                    operation="nl_to_patch",
+                    input_hash=input_hash,
+                    prompt_template=prompt_text,
+                    prompt_variables={},
+                    model_output=response_text,
+                    parsed_patch=patch,
+                    validation_result=None,
+                    error=error,
+                    duration_ms=elapsed_ms,
+                    model_name=self.model or "unknown",
+                    temperature=self.temperature,
+                    token_usage=None,
+                )
+                write_nl_log(entry)
 
     def _invoke_llm(self, prompt_text: str) -> str:
         from langchain_core.prompts import ChatPromptTemplate
@@ -211,3 +263,8 @@ def _read_env_float(name: str, *, default: float) -> float:
         return float(value)
     except ValueError as exc:
         raise ValueError(f"{name} must be a float, got {value!r}.") from exc
+
+
+def _hash_payload(payload: dict[str, Any]) -> str:
+    text = json.dumps(payload, sort_keys=True, ensure_ascii=True, separators=(",", ":"))
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
