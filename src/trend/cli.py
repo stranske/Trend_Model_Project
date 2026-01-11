@@ -10,7 +10,7 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, Iterable, Mapping, Protocol, cast
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Protocol, cast
 
 import numpy as np
 import pandas as pd
@@ -55,6 +55,10 @@ from trend_model.spec import ensure_run_spec
 from utils.paths import proj_path
 
 LegacyExtractCacheStats = Callable[[object], dict[str, int] | None]
+
+if TYPE_CHECKING:
+    from trend_analysis.llm.nl_logging import NLOperationLog
+    from trend_analysis.llm.replay import ReplayResult
 
 
 class LegacyMaybeLogStep(Protocol):
@@ -938,19 +942,19 @@ def _build_nl_chain(provider: str | None = None) -> ConfigPatchChain:
     )
 
 
-def _load_nl_log_entry(path: Path, entry: int) -> object:
+def _load_nl_log_entry(path: Path, entry: int) -> NLOperationLog:
     from trend_analysis.llm.replay import load_nl_log_entry
 
     return load_nl_log_entry(path, entry)
 
 
 def _replay_nl_entry(
-    entry: object,
+    entry: NLOperationLog,
     *,
     provider: str | None = None,
     model: str | None = None,
     temperature: float | None = None,
-) -> object:
+) -> ReplayResult:
     from trend_analysis.llm.replay import replay_nl_entry
 
     return replay_nl_entry(entry, provider=provider, model=model, temperature=temperature)
