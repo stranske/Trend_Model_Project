@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from trend_analysis.config.patch import ConfigPatch, PatchOperation
 from trend_analysis.config.validation import ValidationResult
 from trend_analysis.llm.nl_logging import NLOperationLog
-from trend_analysis.llm.replay import load_nl_log_entry, replay_nl_entry, render_prompt
+from trend_analysis.llm.replay import load_nl_log_entry, render_prompt, replay_nl_entry
 
 
 class FakeLLM:
