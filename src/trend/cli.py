@@ -9,8 +9,8 @@ import subprocess
 import sys
 import time
 import uuid
-from datetime import datetime, timezone
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Protocol, cast
@@ -44,6 +44,7 @@ from trend_analysis.config.coverage import (
     wrap_config_for_coverage,
 )
 from trend_analysis.config.schema_validation import load_config as load_schema_config
+from trend_analysis.config.validation import ValidationResult
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from trend_analysis.data import load_csv
 from trend_analysis.llm import (
@@ -56,7 +57,6 @@ from trend_analysis.llm.nl_logging import NLOperationLog, write_nl_log
 from trend_analysis.llm.replay import ReplayResult
 from trend_analysis.llm.schema import load_compact_schema
 from trend_analysis.logging_setup import setup_logging
-from trend_analysis.config.validation import ValidationResult
 from trend_model.spec import ensure_run_spec
 from utils.paths import proj_path
 
@@ -1036,7 +1036,9 @@ def _load_nl_config(path: Path) -> dict[str, Any]:
 
 
 def _hash_nl_payload(payload: dict[str, Any]) -> str:
-    text = json.dumps(payload, sort_keys=True, ensure_ascii=True, separators=(",", ":"), default=str)
+    text = json.dumps(
+        payload, sort_keys=True, ensure_ascii=True, separators=(",", ":"), default=str
+    )
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
