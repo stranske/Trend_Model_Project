@@ -354,6 +354,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Preview the updated config without writing the file",
     )
+    nl_p.add_argument(
+        "--run",
+        action="store_true",
+        help="Run the pipeline after applying the update (requires valid config)",
+    )
 
     return parser
 
@@ -1003,6 +1008,8 @@ def main(argv: list[str] | None = None) -> int:
             output_path = Path(args.output_path) if args.output_path else input_path
             config = _load_nl_config(input_path)
             _, updated, diff = _apply_nl_instruction(config, args.instruction)
+            if args.run and (args.diff or args.dry_run):
+                raise TrendCLIError("--run cannot be combined with --diff or --dry-run")
             if args.diff:
                 if diff:
                     sys.stdout.write(diff)
@@ -1012,12 +1019,39 @@ def main(argv: list[str] | None = None) -> int:
             if args.dry_run:
                 sys.stdout.write(yaml.safe_dump(updated, sort_keys=False, default_flow_style=False))
                 return 0
+            if args.run:
+                validation = validate_config(updated, base_path=output_path.parent)
+                if not validation.valid:
+                    details = "\n".join(format_validation_messages(validation))
+                    raise TrendCLIError(f"Config validation failed:\n{details}")
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(
                 yaml.safe_dump(updated, sort_keys=False, default_flow_style=False),
                 encoding="utf-8",
             )
             print(f"Updated config written: {output_path}")
+            if args.run:
+                try:
+                    cfg = load_config(output_path)
+                except Exception as exc:
+                    raise TrendCLIError(str(exc)) from exc
+                ensure_run_spec(cfg, base_path=output_path.parent)
+                returns_path = _resolve_returns_path(output_path, cfg, None)
+                returns_df = _ensure_dataframe(returns_path)
+                _determine_seed(cfg, None)
+                run_pipeline = _legacy_callable("_run_pipeline", _run_pipeline)
+                result, run_id, log_path = run_pipeline(
+                    cfg,
+                    returns_df,
+                    source_path=returns_path,
+                    log_file=None,
+                    structured_log=True,
+                    bundle=None,
+                )
+                print_summary = _legacy_callable("_print_summary", _print_summary)
+                print_summary(cfg, result)
+                if log_path:
+                    print(f"Structured log: {log_path}")
             return 0
 
         if command not in {"run", "report", "stress"}:
