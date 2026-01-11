@@ -1092,6 +1092,8 @@ def main(argv: list[str] | None = None) -> int:
             )
             if args.run and (args.diff or args.dry_run):
                 raise TrendCLIError("--run cannot be combined with --diff or --dry-run")
+            if args.run:
+                _validate_nl_run_config(updated, base_path=output_path.parent)
             if args.explain:
                 sys.stdout.write(_format_nl_explanation(patch))
             if args.diff:
@@ -1103,8 +1105,6 @@ def main(argv: list[str] | None = None) -> int:
             if args.dry_run:
                 sys.stdout.write(yaml.safe_dump(updated, sort_keys=False, default_flow_style=False))
                 return 0
-            if args.run:
-                _validate_nl_run_config(updated, base_path=output_path.parent)
             _confirm_risky_patch(patch, no_confirm=args.no_confirm)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(
