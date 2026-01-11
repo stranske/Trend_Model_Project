@@ -22,7 +22,7 @@ from trend.reporting.quick_summary import main as quick_summary_main
 from trend_analysis import export
 from trend_analysis import logging as run_logging
 from trend_analysis.api import RunResult, run_simulation
-from trend_analysis.config import format_validation_messages, validate_config
+from trend_analysis.config import DEFAULTS, format_validation_messages, validate_config
 from trend_analysis.config import load as load_config
 from trend_analysis.config.coverage import (
     ConfigCoverageTracker,
@@ -315,6 +315,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     nl_p = sub.add_parser("nl", help="Edit config using natural language")
     nl_p.add_argument("instruction", help="Natural language instruction to apply")
+    nl_p.add_argument(
+        "--in",
+        dest="input_path",
+        type=Path,
+        help="Input configuration file (defaults to config/defaults.yml)",
+    )
 
     return parser
 
@@ -869,6 +875,9 @@ def main(argv: list[str] | None = None) -> int:
             return quick_summary_main(quick_args)
 
         if command == "nl":
+            input_path = Path(args.input_path) if args.input_path else DEFAULTS
+            if not input_path.exists():
+                raise TrendCLIError(f"Input config not found: {input_path}")
             raise TrendCLIError("Natural language config editing is not yet implemented.")
 
         if command not in {"run", "report", "stress"}:
