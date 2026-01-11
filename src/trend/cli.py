@@ -349,6 +349,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print the unified diff without writing the updated config",
     )
+    nl_p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview the updated config without writing the file",
+    )
 
     return parser
 
@@ -1003,6 +1008,11 @@ def main(argv: list[str] | None = None) -> int:
                     sys.stdout.write(diff)
                 else:
                     print("No changes.")
+                return 0
+            if args.dry_run:
+                sys.stdout.write(
+                    yaml.safe_dump(updated, sort_keys=False, default_flow_style=False)
+                )
                 return 0
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(
