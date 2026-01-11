@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import logging
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
@@ -89,3 +91,30 @@ def test_replay_nl_entry_reports_diff_on_mismatch() -> None:
     assert result.matches is False
     assert result.diff is not None
     assert result.diff.startswith("--- recorded")
+
+
+def test_replay_nl_entry_logs_langsmith_trace_url(
+    monkeypatch, caplog
+) -> None:
+    entry = _make_entry("req-6", output="match")
+    fake_llm = FakeLLM("match")
+
+    class FakeRun:
+        url = "https://example.test/trace/abc"
+
+        def end(self, outputs: dict[str, str]) -> None:
+            self.outputs = outputs
+
+    @contextmanager
+    def _fake_context(**_kwargs):
+        yield FakeRun()
+
+    monkeypatch.setattr(
+        "trend_analysis.llm.tracing.langsmith_tracing_context",
+        _fake_context,
+    )
+
+    with caplog.at_level(logging.INFO, logger="trend_analysis.llm.replay"):
+        replay_nl_entry(entry, llm=fake_llm)
+
+    assert "LangSmith trace: https://example.test/trace/abc" in caplog.text

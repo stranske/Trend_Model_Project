@@ -248,6 +248,9 @@ class ConfigPatchChain:
             response_text = getattr(response, "content", None) or str(response)
             if run is not None:
                 run.end(outputs={"output": response_text})
+                trace_url = getattr(run, "url", None)
+                if trace_url:
+                    logger.info("LangSmith trace: %s", trace_url)
         return response_text
 
     def _bind_llm(self) -> Any:

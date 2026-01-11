@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import difflib
 import hashlib
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,6 +13,8 @@ from typing import Any, Literal, cast
 from trend_analysis.llm.nl_logging import NLOperationLog
 from trend_analysis.llm.providers import LLMProviderConfig, create_llm
 from trend_analysis.logging import iter_jsonl
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -137,6 +140,9 @@ def _invoke_llm(
         response_text = getattr(response, "content", None) or str(response)
         if run is not None:
             run.end(outputs={"output": response_text})
+            trace_url = getattr(run, "url", None)
+            if trace_url:
+                logger.info("LangSmith trace: %s", trace_url)
     return response_text
 
 
