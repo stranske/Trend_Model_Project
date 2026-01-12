@@ -119,3 +119,4 @@ residual-trend-history.ndjson
 
 # PR-specific file - should not be tracked
 pr_body.md
+scripts/langchain/
