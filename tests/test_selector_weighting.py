@@ -104,15 +104,11 @@ def test_selector_weighting_autofix_diagnostics(
 
     selector_test_target = tests_dir / "test_selector_weighting.py"
     selector_test_target.write_text(
-        (real_root / "tests" / "test_selector_weighting.py").read_text(
-            encoding="utf-8"
-        ),
+        (real_root / "tests" / "test_selector_weighting.py").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
 
-    (tests_dir / "__init__.py").write_text(
-        '"""autofix diagnostics"""\n', encoding="utf-8"
-    )
+    (tests_dir / "__init__.py").write_text('"""autofix diagnostics"""\n', encoding="utf-8")
 
     fixtures_dir = tests_dir / "fixtures"
     fixtures_dir.mkdir()
@@ -206,9 +202,7 @@ def test_selector_weighting_autofix_diagnostics(
         importlib.reload(module)
 
     monkeypatch.setattr(auto_type_hygiene, "ROOT", repo_root, raising=False)
-    monkeypatch.setattr(
-        auto_type_hygiene, "SRC_DIRS", [src_dir, tests_dir], raising=False
-    )
+    monkeypatch.setattr(auto_type_hygiene, "SRC_DIRS", [src_dir, tests_dir], raising=False)
     monkeypatch.setattr(auto_type_hygiene, "DRY_RUN", False, raising=False)
     monkeypatch.setenv("AUTO_TYPE_ALLOWLIST", "")
     monkeypatch.setattr(auto_type_hygiene, "ALLOWLIST", [], raising=False)
@@ -217,14 +211,10 @@ def test_selector_weighting_autofix_diagnostics(
     monkeypatch.setattr(fix_numpy_asserts, "TEST_ROOT", tests_dir, raising=False)
 
     monkeypatch.setattr(mypy_autofix, "ROOT", repo_root, raising=False)
-    monkeypatch.setattr(
-        mypy_autofix, "DEFAULT_TARGETS", [src_dir, tests_dir], raising=False
-    )
+    monkeypatch.setattr(mypy_autofix, "DEFAULT_TARGETS", [src_dir, tests_dir], raising=False)
 
     monkeypatch.setattr(mypy_return_autofix, "ROOT", repo_root, raising=False)
-    monkeypatch.setattr(
-        mypy_return_autofix, "PROJECT_DIRS", [src_dir, tests_dir], raising=False
-    )
+    monkeypatch.setattr(mypy_return_autofix, "PROJECT_DIRS", [src_dir, tests_dir], raising=False)
     monkeypatch.setattr(
         mypy_return_autofix,
         "MYPY_CMD",
@@ -288,13 +278,9 @@ def test_selector_weighting_autofix_diagnostics(
     selector_repaired = selector_test_target.read_text(encoding="utf-8")
     assert "assert fancy_array.tolist() == [1.0, 2.0]" in selector_repaired
     assert "from typing import Optional" in selector_repaired
-    assert any(
-        line.startswith("import yaml") for line in selector_repaired.splitlines()
-    )
+    assert any(line.startswith("import yaml") for line in selector_repaired.splitlines())
 
-    _run_command(
-        [sys.executable, "-m", "ruff", "check", *relative_targets], cwd=repo_root
-    )
+    _run_command([sys.executable, "-m", "ruff", "check", *relative_targets], cwd=repo_root)
     _run_command(
         [sys.executable, "-m", "black", "--check", *relative_targets],
         cwd=repo_root,
