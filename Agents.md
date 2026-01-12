@@ -78,6 +78,61 @@ Legacy consumer wrappers were retired. See [docs/archive/ARCHIVE_WORKFLOWS.md](d
 
 ## Guard-Rails
 
+### Systematic Discovery Protocol
+
+**BEFORE answering "what's missing" or making documentation changes:**
+
+1. **Read ALL related documentation** - Don't assume you know what's there:
+   ```bash
+   # For workflow/keepalive questions:
+   find docs/keepalive -name "*.md" -exec echo "=== {} ===" \; -exec cat {} \;
+   
+   # For any domain:
+   grep -r "keyword1\|keyword2\|keyword3" docs/ --include="*.md"
+   ```
+
+2. **Check what EXISTS in practice** - Compare docs to reality:
+   ```bash
+   # Check consumer repo actual configuration:
+   gh api repos/stranske/Travel-Plan-Permission/contents/.github/workflows
+   
+   # Check template:
+   cat templates/consumer-repo/.gitignore
+   
+   # Check for validation scripts:
+   find scripts/ -name "*sync*" -o -name "*validate*"
+   ```
+
+3. **Search for patterns and automation** - Don't recreate what exists:
+   ```bash
+   # Look for canonical sources:
+   grep -rn "canonical\|template\|source of truth" .
+   
+   # Look for validation tools:
+   ls scripts/*.py | xargs grep -l "validate\|check\|sync"
+   ```
+
+4. **Reference, don't duplicate**:
+   - ❌ Copy patterns from template into docs → creates maintenance burden
+   - ✅ Reference template location + provide validation script
+   - ❌ Paraphrase existing docs → information drift
+   - ✅ Link to canonical docs + summarize key point
+
+5. **Check for GitHub Apps and authentication**:
+   ```bash
+   # Always search for app configuration:
+   grep -rn "GitHub App\|WORKFLOWS_APP\|authentication" docs/
+   grep -rn "APP_ID\|PRIVATE_KEY" .github/
+   ```
+
+**Trigger**: Use this protocol when:
+- User asks "what's missing from X"
+- Making documentation changes
+- Adding to setup guides
+- Comparing template vs docs
+
+**Rationale**: Prevents missing critical information (like GitHub App), prevents duplication (like gitignore patterns), ensures maintainability (reference canonical sources).
+
 ### Communication
 - When a request contains multiple tasks, explicitly recap which items are complete and which remain before handing control back.
 - Call out any suggestion that is only a partial fix, and list the follow-up steps required for it to succeed.

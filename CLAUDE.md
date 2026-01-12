@@ -99,7 +99,52 @@ gh workflow run maint-68-sync-consumer-repos.yml --repo stranske/Workflows
 ## �� POLICY: Cross-Repo Work
 
 > **CRITICAL**: Read this before ANY work that might affect the Workflows repo.
+### Systematic Discovery Before Changes
 
+**BEFORE making documentation changes or answering "what's missing":**
+
+1. **Read ALL related documentation first**:
+   ```bash
+   # For keepalive/workflow questions in Workflows repo:
+   find docs/keepalive -name "*.md" -exec cat {} \;
+   
+   # For setup questions:
+   cat docs/keepalive/SETUP_CHECKLIST.md docs/TMP_TRANSITION_PLAN.md
+   ```
+
+2. **Check what exists in practice** (don't just read docs):
+   ```bash
+   # Check reference consumer repo:
+   gh api repos/stranske/Travel-Plan-Permission/contents/.github
+   
+   # Check template vs docs:
+   diff <(cat templates/consumer-repo/.gitignore) <(grep gitignore docs/keepalive/SETUP_CHECKLIST.md)
+   
+   # Find validation scripts:
+   ls scripts/*.py | xargs grep -l "sync\|validate\|check"
+   ```
+
+3. **Search for existing automation**:
+   ```bash
+   # Don't recreate - find what exists:
+   grep -rn "canonical\|template\|source" docs/
+   find scripts/ -name "*sync*" -o -name "*validate*"
+   ```
+
+4. **Always check for authentication methods**:
+   ```bash
+   # GitHub App is often the missing piece:
+   grep -rn "GitHub App\|WORKFLOWS_APP\|APP_ID\|PRIVATE_KEY" docs/
+   grep -rn "authentication\|secrets\|PAT" docs/keepalive/SETUP_CHECKLIST.md
+   ```
+
+5. **Reference, don't duplicate**:
+   - ❌ Copy patterns from template into docs
+   - ✅ Reference template path + provide validation command
+   - ❌ Recreate what already exists in scripts
+   - ✅ Use existing scripts and document them
+
+**Why this matters**: Prevents missing critical info (GitHub App), prevents creating maintenance burden (duplicating gitignore patterns), ensures systematic discovery before synthesis.
 ### Policy Checkpoint Trigger
 
 When creating a todo list, ask:
