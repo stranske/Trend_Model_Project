@@ -221,7 +221,9 @@ def test_parse_config_patch_strips_code_fence() -> None:
     assert patch.summary == "Fence"
 
 
-def test_parse_config_patch_with_retries_succeeds_first_attempt(caplog: pytest.LogCaptureFixture) -> None:
+def test_parse_config_patch_with_retries_succeeds_first_attempt(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     caplog.set_level(logging.ERROR)
     calls: list[int] = []
 
