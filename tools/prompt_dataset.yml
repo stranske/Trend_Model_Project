@@ -3,8 +3,58 @@
   starting_config: config/defaults.yml
   expected_operations:
     - op: set
-      path: analysis.weighting.scheme
+      path: portfolio.weighting_scheme
       value: risk_parity
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: hrp_weighting
+  instruction: "Switch to HRP weighting"
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.weighting_scheme
+      value: hrp
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: erc_weighting
+  instruction: "Use equal risk contribution weighting"
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.weighting_scheme
+      value: erc
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: robust_mv_weighting
+  instruction: "Use robust mean-variance weighting"
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.weighting_scheme
+      value: robust_mv
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: robust_risk_parity_weighting
+  instruction: "Switch to robust risk parity weighting"
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.weighting_scheme
+      value: robust_risk_parity
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: custom_weighting
+  instruction: "Use custom weighting scheme"
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.weighting_scheme
+      value: custom
   constraints:
     - patch.operations | length == 1
     - not patch.risk_flags
