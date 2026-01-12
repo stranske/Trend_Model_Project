@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import importlib.util
 import pathlib
+import socket
 import sys
 from pathlib import Path
 from typing import Iterator
@@ -30,6 +31,21 @@ except ImportError:
     yaml = None
 
 from ._autofix_diag import DiagnosticsRecorder, get_recorder
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_configure(config) -> None:  # noqa: ARG001
+    """Disable pytest-rerunfailures xdist sockets in restricted environments."""
+    try:
+        probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        probe.close()
+    except OSError:
+        try:
+            import pytest_rerunfailures
+        except Exception:
+            return
+        pytest_rerunfailures.HAS_PYTEST_HANDLECRASHITEM = False
+
 
 # --- Ensure local ``src`` packages are importable ---------------------------------------
 ROOT = Path(__file__).resolve().parents[1]
