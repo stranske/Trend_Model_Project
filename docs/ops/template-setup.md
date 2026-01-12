@@ -28,9 +28,44 @@ Tip: you can manage these centrally using repo templates or org-level defaults.
 
 ## 2. Secrets
 
+### GitHub Apps (Rate Limit Pools)
+
+GitHub Apps have separate rate limit pools (5000 req/hr each). Configure multiple apps to increase effective capacity:
+
+- `WORKFLOWS_APP_ID` / `WORKFLOWS_APP_PRIVATE_KEY`: Primary app for autofix-loop
+- `GH_APP_ID` / `GH_APP_PRIVATE_KEY`: Secondary app for issue-intake, autofix, bot-comment-handler
+- `KEEPALIVE_APP_ID` / `KEEPALIVE_APP_PRIVATE_KEY`: Dedicated app for keepalive-loop (isolated pool)
+
+**Current distribution:**
+| App | Rate Pool | Workflows |
+|-----|-----------|-----------|
+| KEEPALIVE_APP | 5000/hr | keepalive-loop |
+| WORKFLOWS_APP | 5000/hr | autofix-loop |
+| GH_APP | 5000/hr | issue-intake, autofix, bot-comment-handler |
+
+To add additional apps:
+1. Create a new GitHub App at https://github.com/settings/apps/new
+2. Grant permissions: `contents: write`, `pull_requests: write`, `actions: write`
+3. Install on your repository
+4. Add `KEEPALIVE_APP_ID` and `KEEPALIVE_APP_PRIVATE_KEY` secrets
+5. Update `agents-keepalive-loop.yml` to use `KEEPALIVE_APP_*` instead of `WORKFLOWS_APP_*`
+
+### Personal Access Tokens
+
 - `OWNER_PR_PAT` (optional): Personal Access Token to author PRs as a human (Codex bootstrap create-mode).
-- `SERVICE_BOT_PAT` (optional): Service bot token for labeling/assignment when needed across forks.
+- `SERVICE_BOT_PAT` (optional): Service bot token for labeling/assignment when needed across forks. **This is the primary PAT fallback for rate limit resilience** - ensure it's from a separate account.
 - `GITHUB_TOKEN`: Provided by GitHub Actions – ensure it has Read/Write permissions in repo settings (Actions → General).
+
+### Rate Limit Architecture
+
+Each token type has an independent rate limit pool:
+- GitHub App installations: 5000/hr per app
+- PATs: 5000/hr per user account
+- GITHUB_TOKEN: 1000/hr per repository (shared across all workflow runs)
+
+**Combined capacity:** Up to 15,000 requests/hour across all three app pools when all tokens are configured. Actual effective capacity depends on request distribution across workflows.
+
+The keepalive workflow automatically falls back to `SERVICE_BOT_PAT` when the GitHub App token generation fails (e.g., rate limited, not installed, or misconfigured).
 
 Security posture: The `pull_request_target` workflows in this template do not checkout or execute fork code. They only mutate labels/approvals using base-repo context.
 
