@@ -30,6 +30,7 @@ WEIGHTING_SCHEMES = [
     ("Robust Risk Parity", "robust_risk_parity"),
 ]
 
+
 # Config chat panel helpers
 def render_config_chat_panel() -> None:
     """Render the Config Chat panel for natural-language config tweaks."""

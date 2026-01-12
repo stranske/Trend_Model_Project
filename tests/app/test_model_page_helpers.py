@@ -163,7 +163,4 @@ def test_render_config_chat_panel_stores_instruction(model_module: ModuleType) -
 
     model_module.render_config_chat_panel()
 
-    assert (
-        stub.session_state.get("config_chat_last_instruction")
-        == "Increase lookback to 24"
-    )
+    assert stub.session_state.get("config_chat_last_instruction") == "Increase lookback to 24"
