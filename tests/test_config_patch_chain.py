@@ -98,7 +98,7 @@ def test_config_patch_chain_batch_schema_conformance() -> None:
             current_config={"portfolio": {"max_weight": 0.2}},
             instruction=f"Set max_weight to {0.2 + idx * 0.001:.3f}.",
         )
-        response_text = chain._invoke_llm(prompt)
+        response_text, _trace_url = chain._invoke_llm(prompt)
         try:
             payload = json.loads(response_text)
         except json.JSONDecodeError:
