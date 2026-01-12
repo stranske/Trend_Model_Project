@@ -58,3 +58,55 @@
   constraints:
     - patch.operations | length == 1
     - not patch.risk_flags
+- id: selection_random_mode
+  instruction: "Select a random subset of managers."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.selection_mode
+      value: random
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_random_count
+  instruction: "Pick 15 managers at random."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.random_n
+      value: 15
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_manual_mode
+  instruction: "Switch to manual selection."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.selection_mode
+      value: manual
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_manual_list
+  instruction: "Manually include AlphaFund and BetaFund only."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.manual_list
+      value:
+        - AlphaFund
+        - BetaFund
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_top_pct
+  instruction: "Use top 20% for inclusion."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.rank.inclusion_approach
+      value: top_pct
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
