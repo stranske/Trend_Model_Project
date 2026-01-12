@@ -166,3 +166,17 @@ def test_render_config_chat_panel_stores_instruction(model_module: ModuleType) -
     model_module.render_config_chat_panel()
 
     assert stub.session_state.get("config_chat_last_instruction") == "Increase lookback to 24"
+
+
+def test_side_by_side_diff_renders_yaml(model_module: ModuleType) -> None:
+    stub = model_module.st
+    languages: list[str | None] = []
+
+    def capture_code(_value: str, *, language: str | None = None, **_kwargs):
+        languages.append(language)
+
+    stub.code = capture_code
+
+    model_module._render_side_by_side_diff({"lookback_periods": 12}, {"lookback_periods": 24})
+
+    assert "yaml" in languages

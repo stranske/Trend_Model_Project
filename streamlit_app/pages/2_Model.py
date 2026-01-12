@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import difflib
 import html
 import json
 from typing import Any, Mapping
@@ -128,6 +129,27 @@ def _render_diff_preview_styles() -> None:
 .config-diff .diff-header { background: #f8fafc; color: #0f172a; font-weight: 600; }
 .config-diff .diff-hunk { background: #eff6ff; color: #1d4ed8; }
 .config-diff .diff-context { color: #111827; }
+.config-diff-table table.diff {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+.config-diff-table table.diff th {
+  background: #f8fafc;
+  color: #0f172a;
+  text-align: left;
+  padding: 4px 6px;
+}
+.config-diff-table table.diff td {
+  padding: 2px 6px;
+  vertical-align: top;
+  white-space: pre;
+}
+.config-diff-table .diff_add { background: #e6ffed; color: #14532d; }
+.config-diff-table .diff_sub { background: #ffeef0; color: #7f1d1d; }
+.config-diff-table .diff_chg { background: #fff7ed; color: #9a3412; }
 </style>
 """,
         unsafe_allow_html=True,
@@ -161,6 +183,33 @@ def _render_unified_diff(diff_text: str) -> None:
     st.markdown(_diff_text_to_html(diff_text), unsafe_allow_html=True)
 
 
+def _render_side_by_side_diff(before: Mapping[str, Any], after: Mapping[str, Any]) -> None:
+    before_yaml = yaml.safe_dump(dict(before), sort_keys=False, default_flow_style=False)
+    after_yaml = yaml.safe_dump(dict(after), sort_keys=False, default_flow_style=False)
+    differ = difflib.HtmlDiff(tabsize=2, wrapcolumn=80)
+    diff_table = differ.make_table(
+        before_yaml.splitlines(),
+        after_yaml.splitlines(),
+        fromdesc="Before",
+        todesc="After",
+        context=True,
+        numlines=3,
+    )
+    _render_diff_preview_styles()
+    st.markdown(
+        f'<div class="config-diff config-diff-table">{diff_table}</div>',
+        unsafe_allow_html=True,
+    )
+    with st.expander("Raw YAML", expanded=False):
+        col_before, col_after = st.columns(2)
+        with col_before:
+            st.caption("Before")
+            st.code(before_yaml, language="yaml")
+        with col_after:
+            st.caption("After")
+            st.code(after_yaml, language="yaml")
+
+
 def _render_config_diff_preview(model_state: Mapping[str, Any] | None) -> None:
     st.markdown("---")
     st.markdown("**Diff preview**")
@@ -184,15 +233,7 @@ def _render_config_diff_preview(model_state: Mapping[str, Any] | None) -> None:
     with tabs[0]:
         _render_unified_diff(diff_text)
     with tabs[1]:
-        before_yaml = yaml.safe_dump(dict(before), sort_keys=False, default_flow_style=False)
-        after_yaml = yaml.safe_dump(dict(after), sort_keys=False, default_flow_style=False)
-        col_before, col_after = st.columns(2)
-        with col_before:
-            st.caption("Before")
-            st.code(before_yaml, language="yaml")
-        with col_after:
-            st.caption("After")
-            st.code(after_yaml, language="yaml")
+        _render_side_by_side_diff(before, after)
 
 
 def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
