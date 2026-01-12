@@ -252,9 +252,7 @@ def test_flag_unknown_keys_marks_review_for_array_index_wildcard() -> None:
 
 def test_flag_unknown_keys_marks_review_for_wildcard_key() -> None:
     patch = ConfigPatch(
-        operations=[
-            PatchOperation(op="set", path="portfolio.constraints.group_caps.*", value=0.1)
-        ],
+        operations=[PatchOperation(op="set", path="portfolio.constraints.group_caps.*", value=0.1)],
         summary="Wildcard key update.",
     )
 

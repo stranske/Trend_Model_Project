@@ -10,6 +10,7 @@ from typing import Any, Iterable
 
 from trend_analysis.config.patch import ConfigPatch, PatchOperation
 
+
 class _ArrayWildcardMarker:
     pass
 
@@ -18,8 +19,7 @@ _ARRAY_WILDCARD = _ArrayWildcardMarker()
 _Segment = str | int | _ArrayWildcardMarker
 
 _DOTPATH_RE = re.compile(
-    r"^(?:[A-Za-z0-9_-]+|\*)(?:\[(?:\d+|\*)\])*"
-    r"(?:\.(?:[A-Za-z0-9_-]+|\*)(?:\[(?:\d+|\*)\])*)*$"
+    r"^(?:[A-Za-z0-9_-]+|\*)(?:\[(?:\d+|\*)\])*" r"(?:\.(?:[A-Za-z0-9_-]+|\*)(?:\[(?:\d+|\*)\])*)*$"
 )
 
 
@@ -172,9 +172,7 @@ def _path_exists_wildcard(schema: dict[str, Any], segments: list[_Segment], inde
         return True
     properties = schema.get("properties")
     if isinstance(properties, dict):
-        return any(
-            _path_exists_at(value, segments, index + 1) for value in properties.values()
-        )
+        return any(_path_exists_at(value, segments, index + 1) for value in properties.values())
     return False
 
 
