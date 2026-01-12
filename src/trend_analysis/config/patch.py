@@ -24,7 +24,7 @@ from pydantic import (
 from .validation import ValidationResult, validate_config
 
 _DOTPATH_RE = re.compile(
-    r"^(?:[A-Za-z0-9_-]+|\*)(?:\[\d+\])*" r"(?:\.(?:[A-Za-z0-9_-]+|\*)(?:\[\d+\])*)*$"
+    r"^(?:[A-Za-z0-9_-]+|\*)(?:\[(?:\d+|\*)\])*" r"(?:\.(?:[A-Za-z0-9_-]+|\*)(?:\[(?:\d+|\*)\])*)*$"
 )
 _JSON_POINTER_RE = re.compile(r"^(/[^/\s]+)+$")
 
@@ -202,7 +202,7 @@ def parse_config_patch_with_retries(
     """Parse a ConfigPatch with retry support on JSON/validation failures."""
 
     last_error: Exception | None = None
-    total_attempts = retries + 1
+    total_attempts = max(1, retries)
     active_logger = logger or _logger
     retry_id = f"configpatch-{id(response_provider):x}"
     for attempt in range(total_attempts):
@@ -218,10 +218,10 @@ def parse_config_patch_with_retries(
                 retry_id,
                 format_retry_error(exc),
             )
-            if attempt >= retries:
+            if attempt + 1 >= total_attempts:
                 raise ValueError(
                     "Failed to parse ConfigPatch after "
-                    f"{retries + 1} attempts: {format_retry_error(exc)}"
+                    f"{total_attempts} attempts: {format_retry_error(exc)}"
                 ) from exc
     raise ValueError("Failed to parse ConfigPatch: unknown error")
 
@@ -252,14 +252,14 @@ def _strip_code_fence(text: str) -> str:
 def _parse_dotpath(path: str) -> list[str | int]:
     segments: list[str | int] = []
     for part in path.split("."):
-        match = re.fullmatch(r"([A-Za-z0-9_-]+|\*)((?:\[\d+\])*)", part)
+        match = re.fullmatch(r"([A-Za-z0-9_-]+|\*)((?:\[(?:\d+|\*)\])*)", part)
         if not match:
             raise ValueError("path must be a dotpath or JSONPointer")
         key, indexes = match.groups()
         segments.append(key)
         if indexes:
-            for idx in re.findall(r"\[(\d+)\]", indexes):
-                segments.append(int(idx))
+            for idx in re.findall(r"\[(\d+|\*)\]", indexes):
+                segments.append(int(idx) if idx.isdigit() else idx)
     return segments
 
 

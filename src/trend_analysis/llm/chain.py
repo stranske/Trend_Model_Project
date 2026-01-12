@@ -9,7 +9,7 @@ import os
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, Iterator
 from uuid import uuid4
 
 from trend_analysis.config.patch import (
@@ -25,6 +25,19 @@ from trend_analysis.llm.validation import flag_unknown_keys
 PromptBuilder = Callable[..., str]
 
 logger = logging.getLogger(__name__)
+
+
+class _LLMResponse(str):
+    trace_url: str | None
+
+    def __new__(cls, text: str, trace_url: str | None) -> "_LLMResponse":
+        obj = super().__new__(cls, text)
+        obj.trace_url = trace_url
+        return obj
+
+    def __iter__(self) -> Iterator[str]:
+        yield str(self)
+        yield self.trace_url or ""
 
 
 @dataclass(slots=True)
@@ -181,16 +194,18 @@ class ConfigPatchChain:
                         safety_rules=safety_rules,
                     )
                 )
-                response_text, trace_url = self._invoke_llm(
+                response = self._invoke_llm(
                     prompt,
                     request_id=request_id,
                     operation="nl_to_patch",
                 )
+                response_text = str(response)
+                trace_url = response.trace_url
                 return response_text
 
             patch = parse_config_patch_with_retries(
                 _response_provider,
-                retries=self.retries,
+                retries=max(1, self.retries + 1),
                 logger=logger,
             )
             schema = self._schema_for_validation(allowed_schema, instruction)
@@ -227,7 +242,7 @@ class ConfigPatchChain:
         *,
         request_id: str | None = None,
         operation: str | None = None,
-    ) -> tuple[str, str | None]:
+    ) -> _LLMResponse:
         from langchain_core.prompts import ChatPromptTemplate
 
         from trend_analysis.llm.tracing import langsmith_tracing_context
@@ -254,7 +269,7 @@ class ConfigPatchChain:
                 trace_url = getattr(run, "url", None)
                 if trace_url:
                     logger.info("LangSmith trace: %s", trace_url)
-        return response_text, trace_url
+        return _LLMResponse(response_text, trace_url)
 
     def _bind_llm(self) -> Any:
         if not hasattr(self.llm, "bind"):
