@@ -32,26 +32,35 @@ WEIGHTING_SCHEMES = [
 
 
 # Config chat panel helpers
-def render_config_chat_panel() -> None:
+def _render_config_chat_contents() -> None:
+    st.caption("Describe the configuration change you want to try.")
+    instruction = st.text_area(
+        "Instruction",
+        key="config_chat_instruction",
+        height=120,
+        placeholder="e.g. Increase lookback to 24 months and reduce max weight to 10%",
+    )
+    send_clicked = st.button("Send", key="config_chat_send", use_container_width=True)
+    if send_clicked:
+        trimmed = instruction.strip()
+        if not trimmed:
+            st.warning("Enter an instruction before sending.")
+        else:
+            st.session_state["config_chat_last_instruction"] = trimmed
+            st.success("Instruction captured. Preview coming next.")
+
+
+def render_config_chat_panel(*, location: str = "sidebar") -> None:
     """Render the Config Chat panel for natural-language config tweaks."""
 
-    with st.sidebar:
-        with st.expander("💬 Config Chat", expanded=False):
-            st.caption("Describe the configuration change you want to try.")
-            instruction = st.text_area(
-                "Instruction",
-                key="config_chat_instruction",
-                height=120,
-                placeholder="e.g. Increase lookback to 24 months and reduce max weight to 10%",
-            )
-            send_clicked = st.button("Send", key="config_chat_send", use_container_width=True)
-            if send_clicked:
-                trimmed = instruction.strip()
-                if not trimmed:
-                    st.warning("Enter an instruction before sending.")
-                else:
-                    st.session_state["config_chat_last_instruction"] = trimmed
-                    st.success("Instruction captured. Preview coming next.")
+    if location == "sidebar":
+        with st.sidebar:
+            with st.expander("💬 Config Chat", expanded=False):
+                _render_config_chat_contents()
+        return
+
+    with st.expander("💬 Config Chat", expanded=False):
+        _render_config_chat_contents()
 
 
 # Preset configurations with default parameter values
