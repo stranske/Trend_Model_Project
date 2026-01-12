@@ -95,6 +95,27 @@ python scripts/validate_llm_deps.py
 * **Lock File Contract:** `docs/DEPENDENCY_SYSTEM_COMPLETE.md`
 * **Troubleshooting:** `docs/DEPENDENCY_ENFORCEMENT.md`
 
+## 🔧 Troubleshooting
+
+### Dependency version conflicts in CI
+
+If CI fails with errors like "unsatisfiable requirements" or version conflicts:
+
+1. **Check for yanked packages**: Look for warnings in the lock file generation
+2. **Update conflicting dependencies**: Align versions in `pyproject.toml` with latest stable releases
+3. **Regenerate lock file AND rebuild package metadata**:
+   ```bash
+   make lock
+   rm -rf *.egg-info
+   pip install --no-deps -e .
+   ```
+4. **Commit both `pyproject.toml` and `requirements.lock`**
+
+**Why this happens**: When dependencies in `pyproject.toml` change, the package's
+metadata (`.egg-info`) can become stale. CI may install using cached metadata that
+references old versions, causing conflicts. Always regenerate both the lock file
+and package metadata when dependency versions change.
+
 ## ⚡ TL;DR
 
 1. Declare dependencies in `pyproject.toml` (sync script helps for tests).
