@@ -116,6 +116,10 @@ metadata (`.egg-info`) can become stale. CI may install using cached metadata th
 references old versions, causing conflicts. Always regenerate both the lock file
 and package metadata when dependency versions change.
 
+> ⚠️ **ALWAYS use `make lock`** — never run `uv pip compile` manually. The Makefile
+> includes all four extras (`app`, `dev`, `notebooks`, `llm`). Missing any extra
+> will cause CI failures with `ModuleNotFoundError` for packages in that group.
+
 ## ⚡ TL;DR
 
 1. Declare dependencies in `pyproject.toml` (sync script helps for tests).
