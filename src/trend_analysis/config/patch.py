@@ -202,7 +202,7 @@ def parse_config_patch_with_retries(
     """Parse a ConfigPatch with retry support on JSON/validation failures."""
 
     last_error: Exception | None = None
-    total_attempts = retries + 1
+    total_attempts = max(1, retries)
     active_logger = logger or _logger
     retry_id = f"configpatch-{id(response_provider):x}"
     for attempt in range(total_attempts):
@@ -218,10 +218,10 @@ def parse_config_patch_with_retries(
                 retry_id,
                 format_retry_error(exc),
             )
-            if attempt >= retries:
+            if attempt + 1 >= total_attempts:
                 raise ValueError(
                     "Failed to parse ConfigPatch after "
-                    f"{retries + 1} attempts: {format_retry_error(exc)}"
+                    f"{total_attempts} attempts: {format_retry_error(exc)}"
                 ) from exc
     raise ValueError("Failed to parse ConfigPatch: unknown error")
 
