@@ -129,7 +129,8 @@ function extractIssueNumberFromPull(pull) {
   }
 
   const branch = pull?.head?.ref || '';
-  const branchMatch = branch.match(/issue-+([0-9]+)/i);
+  // Match issue-XX, issue-#XX, or -issue-#XX patterns (handles Codex verbose branch names)
+  const branchMatch = branch.match(/issue-#?([0-9]+)/i) || branch.match(/-issue-#([0-9]+)(?:$|[^0-9])/i);
   if (branchMatch) {
     candidates.push(branchMatch[1]);
   }
@@ -249,7 +250,23 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   };
 
   const { comment, issue } = context.payload || {};
-  const { owner, repo } = context.repo || {};
+  // Resolve repository coordinates with robust fallbacks to avoid 404s in workflow_run
+  const repoEnv = String(env.GITHUB_REPOSITORY || '').split('/');
+  let owner = context?.repo?.owner || repoEnv[0] || '';
+  let repo = context?.repo?.repo || repoEnv[1] || '';
+  if ((!owner || !repo) && comment?.html_url) {
+    const match = comment.html_url.match(/github\.com\/([^/]+)\/([^/]+)\//);
+    if (match) {
+      owner = owner || match[1];
+      repo = repo || match[2];
+    }
+  }
+  if (!owner || !repo) {
+    outputs.reason = 'missing-repo';
+    core.info('Keepalive dispatch skipped: unable to resolve repository owner/name for PR lookup.');
+    // Early exit before finalise is defined - just return false
+    return false;
+  }
   const body = comment?.body || '';
   const authorRaw = comment?.user?.login || '';
   const author = normaliseLogin(authorRaw);
@@ -357,7 +374,9 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     return false;
   };
 
-  if (!hasKeepaliveMarker && isAutomationStatusComment()) {
+  const automationStatusComment = isAutomationStatusComment();
+
+  if (automationStatusComment && !hasKeepaliveMarker) {
     outputs.reason = 'automation-comment';
     core.info('Keepalive dispatch skipped: automation status comment without keepalive markers.');
     return finalise(false);
@@ -389,9 +408,9 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   // Do NOT treat comments that contain the keepalive instruction signature as initial
   // activation - those are manual re-posts of existing instructions and should be rejected.
   const normalisedBody = normaliseBody(body).toLowerCase();
-  const startsWithCodexMention = normalisedBody.startsWith('@codex') && 
+  const startsWithCodexMention = normalisedBody.startsWith('@codex') &&
     (normalisedBody.length === 6 || /^@codex[\s,;:!?]/.test(normalisedBody));
-  const isInitialActivation = !roundMatch && isAuthorAllowed && body && 
+  const isInitialActivation = !roundMatch && isAuthorAllowed && body &&
     startsWithCodexMention && !isLikelyInstruction(body);
 
   if (!roundMatch && !isInitialActivation) {
