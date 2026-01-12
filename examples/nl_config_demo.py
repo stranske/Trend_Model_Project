@@ -91,19 +91,21 @@ def demo_patch_retry_workflow(logger: logging.Logger) -> None:
     scenarios = [
         (
             LLMProviderConfig(provider="openai", model="gpt-4o-mini"),
-            [json.dumps(
-                {
-                    "operations": [
-                        {
-                            "op": "set",
-                            "path": "analysis.top_n",
-                            "value": 25,
-                            "rationale": "Increase the selection count.",
-                        }
-                    ],
-                    "summary": "Increase top_n to 25.",
-                }
-            )],
+            [
+                json.dumps(
+                    {
+                        "operations": [
+                            {
+                                "op": "set",
+                                "path": "analysis.top_n",
+                                "value": 25,
+                                "rationale": "Increase the selection count.",
+                            }
+                        ],
+                        "summary": "Increase top_n to 25.",
+                    }
+                )
+            ],
             1,
         ),
         (
@@ -152,7 +154,9 @@ def demo_patch_retry_workflow(logger: logging.Logger) -> None:
         patch = parse_config_patch_with_retries(response_provider, retries=retries, logger=logger)
         logger.info("Parsed patch summary for '%s': %s", config.provider, patch.summary)
         updated = apply_config_patch(current_config, patch)
-        logger.info("Config diff for '%s':\n%s", config.provider, diff_configs(current_config, updated))
+        logger.info(
+            "Config diff for '%s':\n%s", config.provider, diff_configs(current_config, updated)
+        )
 
 
 def main() -> None:
