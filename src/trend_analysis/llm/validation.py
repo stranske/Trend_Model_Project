@@ -87,7 +87,7 @@ def _parse_path_segments(path: str) -> list[_Segment]:
         return [int(segment) if segment.isdigit() else segment for segment in json_segments]
     if not _DOTPATH_RE.match(path):
         return [path]
-    segments: list[str | int] = []
+    segments: list[_Segment] = []
     for part in path.split("."):
         match = re.fullmatch(r"([A-Za-z0-9_-]+|\*)((?:\[(?:\d+|\*)\])*)", part)
         if not match:
