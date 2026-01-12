@@ -6,6 +6,7 @@ import argparse
 import json
 import logging
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -555,8 +556,20 @@ def _validate_log_expectations(
     return errors
 
 
-def _evaluate_case(case: dict[str, Any]) -> EvalResult:
+def evaluate_prompt(
+    case: dict[str, Any],
+    chain: ConfigPatchChain | None,
+    mode: str,
+) -> EvalResult:
     case_id = str(case.get("id") or case.get("name") or "case")
+    mode_value = (mode or "").strip().lower()
+    if mode_value not in {"mock", "live"}:
+        return EvalResult(
+            case_id=case_id,
+            passed=False,
+            errors=[f"Unsupported evaluation mode: {mode!r}."],
+        )
+
     instruction = case.get("instruction")
     if "current_config" in case:
         current_config = case.get("current_config", {})
@@ -589,30 +602,33 @@ def _evaluate_case(case: dict[str, Any]) -> EvalResult:
             expected["summary_contains"] = case["expected_summary_contains"]
     if expected is None and response_text is None and not responses:
         errors.append("Missing expected_patch or llm_response.")
+    if mode_value == "live" and chain is None:
+        errors.append("Live mode requires a ConfigPatchChain instance.")
     if errors:
         return EvalResult(case_id=case_id, passed=False, errors=errors)
 
-    if responses is None:
-        if response_text is None:
-            response_patch = case.get("response_patch") or expected or {}
-            if isinstance(response_patch, dict):
-                response_patch = dict(response_patch)
-                if "risk_flags" not in response_patch:
-                    response_patch["risk_flags"] = []
-                if "summary" not in response_patch:
-                    response_patch["summary"] = case.get("response_summary") or _default_summary(
-                        response_patch.get("operations")
-                    )
-            response_text = json.dumps(response_patch, ensure_ascii=True)
-        responses = [response_text]
+    if mode_value == "mock":
+        if responses is None:
+            if response_text is None:
+                response_patch = case.get("response_patch") or expected or {}
+                if isinstance(response_patch, dict):
+                    response_patch = dict(response_patch)
+                    if "risk_flags" not in response_patch:
+                        response_patch["risk_flags"] = []
+                    if "summary" not in response_patch:
+                        response_patch["summary"] = case.get("response_summary") or _default_summary(
+                            response_patch.get("operations")
+                        )
+                response_text = json.dumps(response_patch, ensure_ascii=True)
+            responses = [response_text]
 
-    llm = _build_llm(responses)
-    chain = ConfigPatchChain(
-        llm=llm,
-        prompt_builder=build_config_patch_prompt,
-        schema=case.get("schema"),
-        retries=retries,
-    )
+        llm = _build_llm(responses)
+        chain = ConfigPatchChain(
+            llm=llm,
+            prompt_builder=build_config_patch_prompt,
+            schema=case.get("schema"),
+            retries=retries,
+        )
 
     log_messages: list[str] = []
 
@@ -626,6 +642,9 @@ def _evaluate_case(case: dict[str, Any]) -> EvalResult:
     chain_logger.addHandler(handler)
     chain_logger.setLevel(logging.WARNING)
 
+    start_time = time.perf_counter() if mode_value == "mock" else None
+    patch_payload: dict[str, Any] | None = None
+
     try:
         patch = chain.run(
             current_config=current_config,
@@ -635,8 +654,6 @@ def _evaluate_case(case: dict[str, Any]) -> EvalResult:
             safety_rules=case.get("safety_rules"),
         )
     except Exception as exc:  # pragma: no cover - surfaced in report
-        chain_logger.removeHandler(handler)
-        chain_logger.setLevel(previous_level)
         error_text = str(exc)
         if expected_error_contains:
             if expected_error_contains not in error_text:
@@ -646,25 +663,25 @@ def _evaluate_case(case: dict[str, Any]) -> EvalResult:
             errors.extend(
                 _validate_log_expectations(log_messages, expected_log_fragments, expected_log_count)
             )
-            return EvalResult(
-                case_id=case_id,
-                passed=not errors,
-                errors=errors,
-                patch=None,
-                logs=log_messages,
-            )
-        return EvalResult(case_id=case_id, passed=False, errors=[error_text], logs=log_messages)
+        else:
+            errors.append(error_text)
+    else:
+        errors.extend(
+            _validate_log_expectations(log_messages, expected_log_fragments, expected_log_count)
+        )
+        if expected is not None:
+            errors.extend(_compare_patch(expected, patch))
+        patch_payload = patch.model_dump(mode="python")
     finally:
         if handler in chain_logger.handlers:
             chain_logger.removeHandler(handler)
         chain_logger.setLevel(previous_level)
 
-    errors.extend(
-        _validate_log_expectations(log_messages, expected_log_fragments, expected_log_count)
-    )
-    if expected is not None:
-        errors.extend(_compare_patch(expected, patch))
-    patch_payload = patch.model_dump(mode="python")
+    if start_time is not None:
+        elapsed = time.perf_counter() - start_time
+        if elapsed > 10.0:
+            errors.append(f"Mock mode execution exceeded 10 seconds ({elapsed:.3f}s).")
+
     return EvalResult(
         case_id=case_id,
         passed=not errors,
@@ -672,6 +689,10 @@ def _evaluate_case(case: dict[str, Any]) -> EvalResult:
         patch=patch_payload,
         logs=log_messages,
     )
+
+
+def _evaluate_case(case: dict[str, Any]) -> EvalResult:
+    return evaluate_prompt(case, chain=None, mode="mock")
 
 
 def _default_summary(operations: Any) -> str:

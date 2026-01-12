@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import time
+
+import pytest
+
+from tools import eval_config_patch
 from tools.eval_config_patch import DEFAULT_CASES, _evaluate_case
 
 
@@ -55,3 +60,27 @@ def test_evaluate_case_accepts_prompt_dataset_format() -> None:
         }
     )
     assert result.passed
+
+
+def test_evaluate_prompt_mock_mode_runs_under_ten_seconds() -> None:
+    case = _find_case("risk_parity_weighting")
+    start = time.perf_counter()
+    result = eval_config_patch.evaluate_prompt(case, chain=None, mode="mock")
+    elapsed = time.perf_counter() - start
+    assert result.passed
+    assert elapsed < 10.0
+
+
+def test_evaluate_prompt_mock_mode_timeout_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    case = _find_case("risk_parity_weighting")
+    ticks = [0.0, 11.0]
+
+    def _fake_perf_counter() -> float:
+        if ticks:
+            return ticks.pop(0)
+        return 11.0
+
+    monkeypatch.setattr(eval_config_patch.time, "perf_counter", _fake_perf_counter)
+    result = eval_config_patch.evaluate_prompt(case, chain=None, mode="mock")
+    assert not result.passed
+    assert any("Mock mode execution exceeded 10 seconds" in error for error in result.errors)
