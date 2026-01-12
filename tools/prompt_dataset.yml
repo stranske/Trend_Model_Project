@@ -3,7 +3,7 @@
   starting_config: config/defaults.yml
   expected_operations:
     - op: set
-      path: portfolio.weighting_scheme
+      path: analysis.weighting.scheme
       value: risk_parity
   constraints:
     - patch.operations | length == 1
@@ -13,7 +13,7 @@
   starting_config: config/defaults.yml
   expected_operations:
     - op: set
-      path: portfolio.weighting_scheme
+      path: analysis.weighting.scheme
       value: hrp
   constraints:
     - patch.operations | length == 1
@@ -23,7 +23,7 @@
   starting_config: config/defaults.yml
   expected_operations:
     - op: set
-      path: portfolio.weighting_scheme
+      path: analysis.weighting.scheme
       value: erc
   constraints:
     - patch.operations | length == 1
@@ -33,7 +33,7 @@
   starting_config: config/defaults.yml
   expected_operations:
     - op: set
-      path: portfolio.weighting_scheme
+      path: analysis.weighting.scheme
       value: robust_mv
   constraints:
     - patch.operations | length == 1
@@ -43,7 +43,7 @@
   starting_config: config/defaults.yml
   expected_operations:
     - op: set
-      path: portfolio.weighting_scheme
+      path: analysis.weighting.scheme
       value: robust_risk_parity
   constraints:
     - patch.operations | length == 1
@@ -53,7 +53,7 @@
   starting_config: config/defaults.yml
   expected_operations:
     - op: set
-      path: portfolio.weighting_scheme
+      path: analysis.weighting.scheme
       value: custom
   constraints:
     - patch.operations | length == 1
