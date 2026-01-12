@@ -87,8 +87,13 @@ async function dispatchOrchestrator({github, context, core, inputs}) {
   const { issue, prNumber, branch, base, round, trace, instructionBody } = inputs;
   const { owner, repo } = context.repo;
   const workflowId = 'agents-70-orchestrator.yml';
-  const ref = context.payload?.repository?.default_branch || 'phase-2-dev';
+  const ref = context.payload?.repository?.default_branch || 'main';
 
+  const isScopeError = (error) => {
+    if (!error) return false;
+    const message = String(error?.message || error || '').toLowerCase();
+    return message.includes('resource not accessible');
+  };
   const params = { enable_keepalive: true };
   if (Number.isFinite(issue) && issue > 0) {
     params.dispatcher_force_issue = String(issue);
@@ -126,38 +131,54 @@ async function dispatchOrchestrator({github, context, core, inputs}) {
     },
   };
 
-  // Retry with exponential backoff for transient errors
-  const maxRetries = 3;
-  let lastError;
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      await github.rest.actions.createWorkflowDispatch(dispatchPayload);
-      core.info(`Dispatched ${workflowId} for keepalive (pr=${prValue || 'n/a'}, trace=${trace || '-'}).`);
-      return { ok: true, reason: 'ok' };
-    } catch (error) {
-      lastError = error;
-      const message = error instanceof Error ? error.message : String(error);
-      if (isTransientError(error) && attempt < maxRetries) {
-        const delayMs = 1000 * Math.pow(2, attempt - 1); // Exponential backoff: 1s, 2s, 4s
-        core.warning(`Dispatch attempt ${attempt}/${maxRetries} failed (${message}), retrying in ${delayMs}ms...`);
-        await sleep(delayMs);
-        continue;
+  const dispatchWithClient = async (client, label) => {
+    const maxRetries = 3;
+    let lastError;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await client.rest.actions.createWorkflowDispatch(dispatchPayload);
+        core.info(`Dispatched ${workflowId} (${label}) for keepalive (pr=${prValue || 'n/a'}, trace=${trace || '-'}).`);
+        return { ok: true, reason: 'ok' };
+      } catch (error) {
+        lastError = error;
+        const message = error instanceof Error ? error.message : String(error);
+        if (isTransientError(error) && attempt < maxRetries) {
+          const delayMs = 1000 * Math.pow(2, attempt - 1); // Exponential backoff: 1s, 2s, 4s
+          core.warning(`Dispatch attempt ${attempt}/${maxRetries} (${label}) failed (${message}), retrying in ${delayMs}ms...`);
+          await sleep(delayMs);
+          continue;
+        }
+        core.error(`Failed to dispatch ${workflowId} after ${attempt} attempts (${label}): ${message}`);
+        return { ok: false, reason: 'dispatch-error', error };
       }
-      core.error(`Failed to dispatch ${workflowId} after ${attempt} attempts: ${message}`);
-      return { ok: false, reason: 'dispatch-error', error: message };
+    }
+    const message = lastError instanceof Error ? lastError.message : String(lastError || 'unknown error');
+    core.error(`Failed to dispatch ${workflowId} after ${maxRetries} attempts (${label}): ${message}`);
+    return { ok: false, reason: 'dispatch-error', error: lastError || message };
+  };
+
+  const primaryResult = await dispatchWithClient(github, 'primary-token');
+  if (!primaryResult.ok && isScopeError(primaryResult.error) && process.env.GITHUB_TOKEN) {
+    try {
+      const FallbackOctokit = github.constructor;
+      if (FallbackOctokit) {
+        const fallbackClient = new FallbackOctokit({ auth: process.env.GITHUB_TOKEN });
+        core.info('Retrying orchestrator dispatch with default GITHUB_TOKEN due to PAT scope limitations.');
+        return await dispatchWithClient(fallbackClient, 'github-token-fallback');
+      }
+    } catch (fallbackError) {
+      const message = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+      core.warning(`Fallback dispatch setup failed: ${message}`);
     }
   }
-  
-  // Should not reach here, but just in case
-  const message = lastError instanceof Error ? lastError.message : String(lastError || 'unknown error');
-  core.error(`Failed to dispatch ${workflowId} after ${maxRetries} attempts: ${message}`);
-  return { ok: false, reason: 'dispatch-error', error: message };
+
+  return primaryResult;
 }
 
 /**
  * Confirm orchestrator dispatch by polling for new run
  */
-async function confirmDispatch({github, context, core, baselineIds, prNumber, trace}) {
+async function confirmDispatch({github, context, core, baselineIds, baselineTimestamp, prNumber, trace}) {
   const parseIds = (value) => {
     if (!value) return new Set();
     try {
@@ -173,11 +194,33 @@ async function confirmDispatch({github, context, core, baselineIds, prNumber, tr
 
   const baseline = parseIds(baselineIds);
   const { owner, repo } = context.repo;
+  let baselineDate = null;
+  if (baselineTimestamp) {
+    const tmpDate = new Date(baselineTimestamp);
+    if (Number.isNaN(tmpDate.getTime())) {
+      core.warning(`Invalid baselineTimestamp "${baselineTimestamp}" provided; ignoring baseline filter.`);
+    } else {
+      baselineDate = tmpDate;
+    }
+  }
+
+  const createdAfterBaseline = (run) => {
+    if (!baselineDate) return true;
+    const createdRaw = run?.created_at || run?.createdAt;
+    if (!createdRaw) return true;
+    const created = new Date(createdRaw);
+    if (Number.isNaN(created.getTime())) {
+      core.warning(`Invalid run created_at timestamp "${createdRaw}" for run id ${run?.id ?? 'unknown'}; treating as not after baseline.`);
+      return false;
+    }
+    return created >= baselineDate;
+  };
 
   const matches = (run) => {
     if (!run) return false;
     const runId = Number(run.id);
     if (baseline.has(runId)) return false;
+    if (!createdAfterBaseline(run)) return false;
     
     if (prNumber > 0) {
       const concurrency = String(run.concurrency || '');
@@ -189,7 +232,8 @@ async function confirmDispatch({github, context, core, baselineIds, prNumber, tr
       const candidates = [run.name, run.display_title, run.head_branch, run.head_sha];
       if (candidates.some((value) => typeof value === 'string' && value.includes(trace))) return true;
     }
-    return false;
+    // Fallback: accept any new workflow_dispatch run created after the snapshot
+    return true;
   };
 
   const poll = async () => {
@@ -365,6 +409,7 @@ async function runKeepaliveOrchestrator({github, context, core, inputs, secrets}
   const confirmResult = await confirmDispatch({
     github, context, core,
     baselineIds: snapshot.ids,
+    baselineTimestamp: snapshot.timestamp,
     prNumber: Number(prNumber),
     trace,
   });
