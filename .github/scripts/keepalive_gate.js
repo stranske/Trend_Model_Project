@@ -1,12 +1,13 @@
 'use strict';
 
-const { paginateWithBackoff } = require('./api-helpers.js');
+const { paginateWithBackoff, withBackoff } = require('./api-helpers.js');
 
 const KEEPALIVE_LABEL = 'agents:keepalive';
 const AGENT_LABEL_PREFIX = 'agent:';
 const MAX_RUNS_PREFIX = 'agents:max-runs:';
 const SYNC_REQUIRED_LABEL = 'agents:sync-required';
 const ACTIVATED_LABEL = 'agents:activated';
+const PAUSE_LABEL = 'agents:paused';
 const DEFAULT_RUN_CAP = 1;
 const MIN_RUN_CAP = 1;
 const MAX_RUN_CAP = 5;
@@ -15,7 +16,7 @@ const ORCHESTRATOR_WORKFLOW_FILE = 'agents-70-orchestrator.yml';
 const WORKER_WORKFLOW_FILE = 'agents-72-codex-belt-worker.yml';
 const RECENT_COMPLETED_LOOKBACK_SECONDS = 300; // 5 minutes
 
-// Rate limit retry configuration
+// Rate limit retry configuration - now handled by api-helpers
 const RATE_LIMIT_MAX_RETRIES = 3;
 const RATE_LIMIT_BASE_DELAY_MS = 2000;
 
@@ -43,40 +44,6 @@ function isRateLimitError(error) {
     /rate\s*limit/i.test(message) ||
     /secondary\s*rate\s*limit/i.test(message)
   );
-}
-
-/**
- * Execute a GitHub API call with exponential backoff retry on rate limit errors.
- * @template T
- * @param {() => Promise<T>} fn - The API call to execute
- * @param {Object} [options]
- * @param {number} [options.maxRetries=3] - Maximum retry attempts
- * @param {number} [options.baseDelayMs=2000] - Base delay in milliseconds
- * @param {Object} [options.core] - GitHub Actions core for logging
- * @returns {Promise<T>}
- */
-async function withRateLimitRetry(fn, options = {}) {
-  const maxRetries = options.maxRetries ?? RATE_LIMIT_MAX_RETRIES;
-  const baseDelayMs = options.baseDelayMs ?? RATE_LIMIT_BASE_DELAY_MS;
-  const core = options.core;
-
-  let lastError;
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error;
-      if (!isRateLimitError(error) || attempt >= maxRetries) {
-        throw error;
-      }
-      const delay = baseDelayMs * Math.pow(2, attempt);
-      if (core?.info) {
-        core.info(`Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
-      }
-      await sleep(delay);
-    }
-  }
-  throw lastError;
 }
 
 function toInteger(value) {
@@ -158,7 +125,8 @@ function parseMaybeJson(value) {
     return null;
   }
 }
-const GATE_WORKFLOW_FILE = 'pr-00-gate.yml';
+// Support both canonical and common consumer gate workflow filenames
+const GATE_WORKFLOW_FILES = ['pr-00-gate.yml', 'gate.yml'];
 
 function normaliseLabelName(name) {
   return String(name || '')
@@ -487,56 +455,69 @@ async function fetchGateStatus({ github, owner, repo, headSha, core }) {
   if (!normalisedSha) {
     return { found: false, success: false, status: '', conclusion: '' };
   }
-  try {
-    const runs = await paginateWithBackoff(github, github.rest.actions.listWorkflowRuns, {
-      owner,
-      repo,
-      workflow_id: GATE_WORKFLOW_FILE,
-      head_sha: normalisedSha,
-      per_page: 100,
-    }, { core });
+  
+  // Try each gate workflow filename until we find runs
+  for (const workflowFile of GATE_WORKFLOW_FILES) {
+    try {
+      const runs = await paginateWithBackoff(github, github.rest.actions.listWorkflowRuns, {
+        owner,
+        repo,
+        workflow_id: workflowFile,
+        head_sha: normalisedSha,
+        per_page: 100,
+      }, { core });
 
-    const scoredRuns = [];
-    for (const run of runs) {
-      if (!run) {
+      const scoredRuns = [];
+      for (const run of runs) {
+        if (!run) {
+          continue;
+        }
+        const runSha = String(run.head_sha || '').trim();
+        if (runSha && runSha !== normalisedSha) {
+          continue;
+        }
+        const scored = scoreWorkflowRun(run);
+        if (scored) {
+          scoredRuns.push(scored);
+        }
+      }
+
+      if (scoredRuns.length === 0) {
+        // No runs found for this workflow file, try the next one
         continue;
       }
-      const runSha = String(run.head_sha || '').trim();
-      if (runSha && runSha !== normalisedSha) {
+
+      scoredRuns.sort(compareWorkflowRunScores);
+      const latest = scoredRuns[0]?.run;
+
+      if (!latest) {
         continue;
       }
-      const scored = scoreWorkflowRun(run);
-      if (scored) {
-        scoredRuns.push(scored);
+
+      const status = String(latest.status || '').toLowerCase();
+      const conclusion = String(latest.conclusion || '').toLowerCase();
+      const success = status === 'completed' && conclusion === 'success';
+
+      return {
+        found: true,
+        success,
+        status,
+        conclusion,
+        run: latest,
+        workflowFile,
+      };
+    } catch (error) {
+      // Log but continue to next workflow file
+      const message = error instanceof Error ? error.message : String(error);
+      if (core?.warning) {
+        core.warning(`Gate status check failed for ${workflowFile}: ${message}`);
       }
+      continue;
     }
-
-    if (scoredRuns.length === 0) {
-      return { found: false, success: false, status: '', conclusion: '' };
-    }
-
-    scoredRuns.sort(compareWorkflowRunScores);
-    const latest = scoredRuns[0]?.run;
-
-    if (!latest) {
-      return { found: false, success: false, status: '', conclusion: '' };
-    }
-
-    const status = String(latest.status || '').toLowerCase();
-    const conclusion = String(latest.conclusion || '').toLowerCase();
-    const success = status === 'completed' && conclusion === 'success';
-
-    return {
-      found: true,
-      success,
-      status,
-      conclusion,
-      run: latest,
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { found: false, success: false, status: '', conclusion: '', error: message };
   }
+  
+  // No gate workflow runs found in any of the expected files
+  return { found: false, success: false, status: '', conclusion: '' };
 }
 
 /**
@@ -799,9 +780,9 @@ async function evaluateRunCapForPr({
 
   let pull;
   try {
-    const response = await withRateLimitRetry(
+    const response = await withBackoff(
       () => github.rest.pulls.get({ owner, repo, pull_number: number }),
-      { core }
+      { core, maxRetries: RATE_LIMIT_MAX_RETRIES, baseDelay: RATE_LIMIT_BASE_DELAY_MS }
     );
     pull = response.data;
   } catch (error) {
@@ -901,6 +882,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
       headRef: '',
       hasSyncRequiredLabel: false,
       hasActivatedLabel: false,
+      hasPauseLabel: false,
       requireHumanActivation: false,
       activationComment: null,
       gateStatus: { found: false, success: false, status: '', conclusion: '' },
@@ -911,9 +893,9 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   let pr = pullRequest || null;
   if (!pr) {
     try {
-      const response = await withRateLimitRetry(
+      const response = await withBackoff(
         () => github.rest.pulls.get({ owner, repo, pull_number: prNumber }),
-        { core }
+        { core, maxRetries: RATE_LIMIT_MAX_RETRIES, baseDelay: RATE_LIMIT_BASE_DELAY_MS }
       );
       pr = response.data;
     } catch (error) {
@@ -934,6 +916,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
         headRef: '',
         hasSyncRequiredLabel: false,
         hasActivatedLabel: false,
+        hasPauseLabel: false,
         requireHumanActivation: false,
         activationComment: null,
         gateStatus: { found: false, success: false, status: '', conclusion: '' },
@@ -948,6 +931,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   const labels = Array.isArray(pr?.labels) ? pr.labels : [];
   const labelNames = extractLabelNames(labels);
   const hasKeepaliveLabel = labelNames.includes(KEEPALIVE_LABEL);
+  const hasPauseLabel = labelNames.includes(PAUSE_LABEL);
   const hasActivatedLabel = labelNames.includes(ACTIVATED_LABEL);
   const hasSyncRequiredLabel = labelNames.includes(SYNC_REQUIRED_LABEL);
   const agentAliases = extractAgentAliases(labels);
@@ -1018,7 +1002,10 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   let reason = 'ok';
   let pendingGate = false;
 
-  if (hasSyncRequiredLabel) {
+  if (hasPauseLabel) {
+    ok = false;
+    reason = 'keepalive-paused';
+  } else if (hasSyncRequiredLabel) {
     ok = false;
     reason = 'sync-required';
   } else if (!hasKeepaliveLabel) {
@@ -1085,6 +1072,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     primaryAgent,
     headSha,
     headRef,
+    hasPauseLabel,
     lastGreenSha: gateSucceeded ? headSha : '',
     hasSyncRequiredLabel,
     hasActivatedLabel,
