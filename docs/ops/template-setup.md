@@ -32,11 +32,18 @@ Tip: you can manage these centrally using repo templates or org-level defaults.
 
 GitHub Apps have separate rate limit pools (5000 req/hr each). Configure multiple apps to increase effective capacity:
 
-- `WORKFLOWS_APP_ID` / `WORKFLOWS_APP_PRIVATE_KEY`: Primary app for keepalive-loop, autofix-loop
+- `WORKFLOWS_APP_ID` / `WORKFLOWS_APP_PRIVATE_KEY`: Primary app for autofix-loop
 - `GH_APP_ID` / `GH_APP_PRIVATE_KEY`: Secondary app for issue-intake, autofix, bot-comment-handler
-- `KEEPALIVE_APP_ID` / `KEEPALIVE_APP_PRIVATE_KEY` (optional): Dedicated app for keepalive if rate limits persist
+- `KEEPALIVE_APP_ID` / `KEEPALIVE_APP_PRIVATE_KEY`: Dedicated app for keepalive-loop (isolated pool)
 
-To add a third app:
+**Current distribution:**
+| App | Rate Pool | Workflows |
+|-----|-----------|-----------|
+| KEEPALIVE_APP | 5000/hr | keepalive-loop |
+| WORKFLOWS_APP | 5000/hr | autofix-loop |
+| GH_APP | 5000/hr | issue-intake, autofix, bot-comment-handler |
+
+To add additional apps:
 1. Create a new GitHub App at https://github.com/settings/apps/new
 2. Grant permissions: `contents: write`, `pull_requests: write`, `actions: write`
 3. Install on your repository

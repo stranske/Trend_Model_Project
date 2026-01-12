@@ -80,16 +80,17 @@ jobs:
         id: api-token
         uses: actions/github-script@v8
         env:
-          WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
-          WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          # Use dedicated KEEPALIVE_APP for isolated rate limit pool
+          KEEPALIVE_APP_ID: ${{ secrets.KEEPALIVE_APP_ID }}
+          KEEPALIVE_APP_PRIVATE_KEY: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY }}
           FALLBACK_TOKEN: ${{ env.FALLBACK_TOKEN }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           result-encoding: string
           script: |
-            // Try GitHub App first, fall back to PAT if rate limited or unavailable
-            const appId = process.env.WORKFLOWS_APP_ID;
-            const privateKey = process.env.WORKFLOWS_APP_PRIVATE_KEY;
+            // Try dedicated KEEPALIVE_APP first, fall back to PAT if rate limited
+            const appId = process.env.KEEPALIVE_APP_ID;
+            const privateKey = process.env.KEEPALIVE_APP_PRIVATE_KEY;
             const fallback = process.env.FALLBACK_TOKEN;
             
             if (appId && privateKey) {
