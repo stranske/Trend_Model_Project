@@ -5,3 +5,6 @@
     - op: set
       path: analysis.weighting.scheme
       value: risk_parity
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
