@@ -9,6 +9,7 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+SYSTEM_PYTHON="$(command -v python || true)"
 
 if [ -f "${PROJECT_ROOT}/.venv/bin/activate" ]; then
     # shellcheck disable=SC1090
@@ -16,11 +17,13 @@ if [ -f "${PROJECT_ROOT}/.venv/bin/activate" ]; then
 fi
 
 PYTHON_EXEC="python"
-if [ -x "${PROJECT_ROOT}/.venv/bin/python" ]; then
-    PYTHON_EXEC="${PROJECT_ROOT}/.venv/bin/python"
+VENV_PYTHON="${PROJECT_ROOT}/.venv/bin/python"
+if [ -x "${VENV_PYTHON}" ]; then
+    PYTHON_EXEC="${VENV_PYTHON}"
 fi
 
-if ! "$PYTHON_EXEC" - <<'PY' >/dev/null 2>&1; then
+can_import_cli() {
+    PYTHONPATH="${PROJECT_ROOT}/src:${PYTHONPATH:-}" "$1" - <<'PY' >/dev/null 2>&1
 import importlib
 import sys
 
@@ -30,8 +33,15 @@ except ModuleNotFoundError:  # pragma: no cover - shell wrapper guard
     sys.exit(1)
 sys.exit(0)
 PY
-    echo "trend_analysis package not installed. Run 'pip install -e .' first." >&2
-    exit 1
+}
+
+if ! can_import_cli "$PYTHON_EXEC"; then
+    if [ -n "$SYSTEM_PYTHON" ] && [ "$SYSTEM_PYTHON" != "$PYTHON_EXEC" ] && can_import_cli "$SYSTEM_PYTHON"; then
+        PYTHON_EXEC="$SYSTEM_PYTHON"
+    else
+        echo "trend_analysis package not installed. Run 'pip install -e .' first." >&2
+        exit 1
+    fi
 fi
 
-exec "$PYTHON_EXEC" -m trend_analysis.cli "$@"
+PYTHONPATH="${PROJECT_ROOT}/src:${PYTHONPATH:-}" exec "$PYTHON_EXEC" -m trend_analysis.cli "$@"

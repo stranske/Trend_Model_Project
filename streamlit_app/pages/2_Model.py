@@ -7,7 +7,10 @@ import hashlib
 import html
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
+from datetime import datetime
+from time import monotonic, sleep
 from typing import Any, Mapping
 
 import streamlit as st
@@ -46,6 +49,38 @@ WEIGHTING_SCHEMES = [
 
 
 # Config chat panel helpers
+_CONFIG_HISTORY_KEY = "config_chat_history"
+_MAX_CONFIG_HISTORY = 20
+
+
+def _get_config_change_history() -> list[dict[str, Any]]:
+    history = st.session_state.get(_CONFIG_HISTORY_KEY)
+    if not isinstance(history, list):
+        history = []
+        st.session_state[_CONFIG_HISTORY_KEY] = history
+    return history
+
+
+def _record_config_change(preview: Mapping[str, Any]) -> None:
+    before = preview.get("before")
+    after = preview.get("after")
+    if not isinstance(before, Mapping) or not isinstance(after, Mapping):
+        return
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "instruction": preview.get("instruction"),
+        "summary": preview.get("summary"),
+        "risk_flags": list(preview.get("risk_flags") or []),
+        "before": deepcopy(dict(before)),
+        "after": deepcopy(dict(after)),
+        "diff": preview.get("diff"),
+    }
+    history = _get_config_change_history()
+    history.append(entry)
+    if len(history) > _MAX_CONFIG_HISTORY:
+        del history[:-_MAX_CONFIG_HISTORY]
+
+
 def _format_percent(value: Any) -> str:
     if value is None:
         return "—"
@@ -64,6 +99,37 @@ def _format_value(value: Any) -> str:
     if isinstance(value, float):
         return f"{value:.3f}"
     return str(value)
+
+
+def _render_validation_error_styles() -> None:
+    st.markdown(
+        """
+<style>
+.validation-errors {
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #991b1b;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+}
+.validation-errors ul {
+  margin: 0.25rem 0 0 1.25rem;
+}
+</style>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def _render_validation_errors(errors: list[str]) -> None:
+    if not errors:
+        return
+    _render_validation_error_styles()
+    items = "".join(f"<li>{html.escape(err)}</li>" for err in errors)
+    st.markdown(
+        f'<div class="validation-errors"><strong>Validation errors</strong><ul>{items}</ul></div>',
+        unsafe_allow_html=True,
+    )
 
 
 def _config_summary_sections(
@@ -178,6 +244,49 @@ def _generate_config_preview(
     }
 
 
+def _estimate_llm_seconds() -> float:
+    stored = st.session_state.get("config_chat_llm_seconds")
+    if isinstance(stored, (int, float)) and stored > 0:
+        return float(min(max(stored, 5.0), 90.0))
+    return 25.0
+
+
+def _record_llm_seconds(duration: float) -> None:
+    if duration <= 0:
+        return
+    stored = st.session_state.get("config_chat_llm_seconds")
+    if isinstance(stored, (int, float)) and stored > 0:
+        st.session_state["config_chat_llm_seconds"] = stored * 0.6 + duration * 0.4
+    else:
+        st.session_state["config_chat_llm_seconds"] = duration
+
+
+def _generate_preview_with_progress(
+    model_state: Mapping[str, Any],
+    instruction: str,
+) -> dict[str, Any]:
+    estimate = _estimate_llm_seconds()
+    progress_slot = st.empty()
+    progress_bar = progress_slot.progress(0.0, text="Preparing preview...")
+    start = monotonic()
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_generate_config_preview, model_state, instruction)
+        while not future.done():
+            elapsed = monotonic() - start
+            remaining = max(estimate - elapsed, 0.0)
+            ratio = min(elapsed / estimate, 0.95) if estimate > 0 else 0.0
+            progress_bar.progress(
+                ratio,
+                text=f"Generating preview... ~{int(round(remaining))}s remaining",
+            )
+            sleep(0.25)
+    duration = monotonic() - start
+    _record_llm_seconds(duration)
+    progress_bar.progress(1.0, text="Preview ready.")
+    progress_slot.empty()
+    return future.result()
+
+
 def _current_run_key(model_state: dict[str, Any], benchmark: str | None) -> str:
     fingerprint = st.session_state.get("data_fingerprint", "unknown")
     model_blob = json.dumps(model_state, sort_keys=True, default=str)
@@ -210,9 +319,7 @@ def _apply_preview_state(
         st.warning("Preview is missing updated configuration data.")
         return
 
-    st.session_state["config_chat_previous_state"] = deepcopy(
-        st.session_state.get("model_state", {})
-    )
+    _record_config_change(preview)
     st.session_state["model_state"] = deepcopy(dict(after))
     analysis_runner.clear_cached_analysis()
     app_state.clear_analysis_results()
@@ -259,12 +366,60 @@ def _apply_preview_state(
     st.success("Applied config changes and ran analysis.")
 
 
+def _requires_risky_confirmation(preview: Mapping[str, Any]) -> bool:
+    risk_flags = preview.get("risk_flags")
+    return bool(risk_flags)
+
+
+def _queue_risky_apply(preview: Mapping[str, Any], *, run_analysis: bool) -> None:
+    st.session_state["config_chat_pending_apply"] = {
+        "preview": preview,
+        "run_analysis": run_analysis,
+    }
+
+
+def _render_risky_change_dialog() -> None:
+    pending = st.session_state.get("config_chat_pending_apply")
+    if not isinstance(pending, Mapping):
+        return
+    preview = pending.get("preview")
+    if not isinstance(preview, Mapping):
+        st.session_state.pop("config_chat_pending_apply", None)
+        return
+    risk_flags = preview.get("risk_flags") or []
+    if not risk_flags:
+        st.session_state.pop("config_chat_pending_apply", None)
+        return
+
+    dialog = getattr(st, "dialog", None)
+    if dialog is None:
+        st.error("RISKY CHANGE: confirmation dialog unavailable.")
+        return
+
+    with dialog("Confirm risky change"):
+        st.warning("This change modifies sensitive configuration settings.")
+        st.caption(f"Flags: {', '.join(risk_flags)}")
+        confirm = st.button("Apply anyway", type="primary")
+        cancel = st.button("Cancel", type="secondary")
+        if confirm:
+            st.session_state.pop("config_chat_pending_apply", None)
+            _apply_preview_state(preview, run_analysis=bool(pending.get("run_analysis")))
+        elif cancel:
+            st.session_state.pop("config_chat_pending_apply", None)
+
+
 def _revert_last_config_change() -> None:
-    previous = st.session_state.get("config_chat_previous_state")
-    if not isinstance(previous, Mapping):
+    history = _get_config_change_history()
+    if not history:
         st.warning("No prior config change to revert.")
         return
+    entry = history.pop()
+    previous = entry.get("before") if isinstance(entry, Mapping) else None
+    if not isinstance(previous, Mapping):
+        st.error("Revert failed: missing previous configuration.")
+        return
     st.session_state["model_state"] = deepcopy(dict(previous))
+    st.session_state.pop("config_chat_preview", None)
     analysis_runner.clear_cached_analysis()
     app_state.clear_analysis_results()
     st.success("Reverted to the previous configuration.")
@@ -277,6 +432,7 @@ def _render_diff_preview_styles() -> None:
 .config-diff {
   border: 1px solid #e2e8f0;
   border-radius: 6px;
+  background: #ffffff;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   font-size: 0.85rem;
   line-height: 1.4;
@@ -303,11 +459,13 @@ def _render_diff_preview_styles() -> None:
   color: #0f172a;
   text-align: left;
   padding: 4px 6px;
+  border: 1px solid #e2e8f0;
 }
 .config-diff-table table.diff td {
   padding: 2px 6px;
   vertical-align: top;
   white-space: pre;
+  border: 1px solid #e2e8f0;
 }
 .config-diff-table .diff_add { background: #e6ffed; color: #14532d; }
 .config-diff-table .diff_sub { background: #ffeef0; color: #7f1d1d; }
@@ -398,6 +556,41 @@ def _render_config_diff_preview(model_state: Mapping[str, Any] | None) -> None:
         _render_side_by_side_diff(before, after)
 
 
+def _render_config_change_history() -> None:
+    history = _get_config_change_history()
+    st.markdown("**Change history**")
+    if not history:
+        st.info("No configuration changes applied yet.")
+        return
+
+    for entry in reversed(history):
+        if not isinstance(entry, Mapping):
+            continue
+        timestamp = entry.get("timestamp") or "Unknown time"
+        instruction = entry.get("instruction") or "Config change"
+        label = f"{timestamp} • {instruction}"
+        with st.expander(label, expanded=False):
+            summary = entry.get("summary")
+            if summary:
+                st.caption(summary)
+            risk_flags = entry.get("risk_flags")
+            if risk_flags:
+                st.caption(f"Risk flags: {', '.join(risk_flags)}")
+            before = entry.get("before")
+            after = entry.get("after")
+            if not isinstance(before, Mapping) or not isinstance(after, Mapping):
+                st.warning("History entry is missing configuration data.")
+                continue
+            diff_text = entry.get("diff")
+            if not isinstance(diff_text, str):
+                diff_text = diff_configs(dict(before), dict(after))
+            tabs = st.tabs(["Unified diff", "Side-by-side"])
+            with tabs[0]:
+                _render_unified_diff(diff_text)
+            with tabs[1]:
+                _render_side_by_side_diff(before, after)
+
+
 def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
     st.caption("Describe the configuration change you want to try.")
     instruction = st.text_area(
@@ -440,11 +633,12 @@ def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
             disabled=not has_preview,
         )
     with action_cols[3]:
+        history = _get_config_change_history()
         revert_clicked = st.button(
             "Revert",
             key="config_chat_revert_btn",
             use_container_width=True,
-            disabled="config_chat_previous_state" not in st.session_state,
+            disabled=len(history) == 0,
         )
 
     if preview_clicked:
@@ -454,28 +648,36 @@ def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
         elif model_state is None:
             st.error("No configuration is loaded to preview against.")
         else:
-            with st.spinner("Generating preview..."):
-                try:
-                    preview_payload = _generate_config_preview(model_state, trimmed)
-                except Exception as exc:
-                    st.error(f"Preview failed: {exc}")
-                else:
-                    st.session_state["config_chat_preview"] = preview_payload
-                    st.session_state["config_chat_last_instruction"] = trimmed
-                    st.success("Preview ready. Review the diff below.")
+            try:
+                preview_payload = _generate_preview_with_progress(model_state, trimmed)
+            except Exception as exc:
+                st.error(f"Preview failed: {exc}")
+            else:
+                st.session_state["config_chat_preview"] = preview_payload
+                st.session_state["config_chat_last_instruction"] = trimmed
+                st.success("Preview ready. Review the diff below.")
 
     if apply_clicked and has_preview:
-        _apply_preview_state(preview, run_analysis=False)
+        if _requires_risky_confirmation(preview):
+            _queue_risky_apply(preview, run_analysis=False)
+        else:
+            _apply_preview_state(preview, run_analysis=False)
 
     if apply_run_clicked and has_preview:
-        _apply_preview_state(preview, run_analysis=True)
+        if _requires_risky_confirmation(preview):
+            _queue_risky_apply(preview, run_analysis=True)
+        else:
+            _apply_preview_state(preview, run_analysis=True)
 
     if revert_clicked:
         _revert_last_config_change()
+    _render_risky_change_dialog()
     st.markdown("---")
     st.markdown("**Current configuration summary**")
     _render_config_summary(model_state)
     _render_config_diff_preview(model_state)
+    st.markdown("---")
+    _render_config_change_history()
 
 
 def render_config_chat_panel(
@@ -2736,7 +2938,7 @@ def render_model_page() -> None:
             }
             errors = _validate_model(candidate_state, len(fund_cols) if fund_cols else 0)
             if errors:
-                st.error("\n".join(f"• {err}" for err in errors))
+                _render_validation_errors(errors)
             else:
                 st.session_state["model_state"] = candidate_state
                 analysis_runner.clear_cached_analysis()
