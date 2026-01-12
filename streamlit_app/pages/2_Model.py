@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import difflib
+import hashlib
 import html
 import json
+import os
+from copy import deepcopy
 from typing import Any, Mapping
 
 import streamlit as st
@@ -12,7 +15,14 @@ import yaml
 
 from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner
-from trend_analysis.config.patch import diff_configs
+from trend_analysis.config.patch import apply_config_patch, diff_configs
+from trend_analysis.llm import (
+    ConfigPatchChain,
+    LLMProviderConfig,
+    build_config_patch_prompt,
+    create_llm,
+)
+from trend_analysis.llm.schema import load_compact_schema
 
 # Extended metric fields for ranking
 METRIC_FIELDS = [
@@ -106,6 +116,158 @@ def _render_config_summary(model_state: Mapping[str, Any] | None) -> None:
         st.markdown(f"**{title}**")
         for label, value in rows:
             st.markdown(f"- {label}: {value}")
+
+
+def _resolve_llm_provider_config() -> LLMProviderConfig:
+    provider_name = (os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
+    supported = {"openai", "anthropic", "ollama"}
+    if provider_name not in supported:
+        raise ValueError(
+            f"Unknown LLM provider '{provider_name}'. "
+            f"Expected one of: {', '.join(sorted(supported))}."
+        )
+    api_key = os.environ.get("TREND_LLM_API_KEY")
+    if not api_key:
+        if provider_name == "openai":
+            api_key = os.environ.get("OPENAI_API_KEY")
+        elif provider_name == "anthropic":
+            api_key = os.environ.get("ANTHROPIC_API_KEY")
+    model = os.environ.get("TREND_LLM_MODEL")
+    base_url = os.environ.get("TREND_LLM_BASE_URL")
+    organization = os.environ.get("TREND_LLM_ORG")
+    kwargs: dict[str, Any] = {"provider": provider_name}
+    if model:
+        kwargs["model"] = model
+    if api_key:
+        kwargs["api_key"] = api_key
+    if base_url:
+        kwargs["base_url"] = base_url
+    if organization:
+        kwargs["organization"] = organization
+    return LLMProviderConfig(**kwargs)
+
+
+def _build_nl_chain() -> ConfigPatchChain:
+    config = _resolve_llm_provider_config()
+    llm = create_llm(config)
+    schema = load_compact_schema()
+    return ConfigPatchChain.from_env(
+        llm=llm,
+        schema=schema,
+        prompt_builder=build_config_patch_prompt,
+    )
+
+
+def _generate_config_preview(
+    model_state: Mapping[str, Any],
+    instruction: str,
+) -> dict[str, Any]:
+    chain = _build_nl_chain()
+    patch = chain.run(current_config=dict(model_state), instruction=instruction)
+    before = deepcopy(dict(model_state))
+    after = apply_config_patch(before, patch)
+    diff_text = diff_configs(before, after)
+    return {
+        "instruction": instruction,
+        "before": before,
+        "after": after,
+        "diff": diff_text,
+        "summary": patch.summary,
+        "risk_flags": [flag.value for flag in patch.risk_flags],
+        "patch": patch.model_dump(),
+    }
+
+
+def _current_run_key(model_state: dict[str, Any], benchmark: str | None) -> str:
+    fingerprint = st.session_state.get("data_fingerprint", "unknown")
+    model_blob = json.dumps(model_state, sort_keys=True, default=str)
+    bench = benchmark or "__none__"
+    applied_funds = st.session_state.get("analysis_fund_columns")
+    if not isinstance(applied_funds, list):
+        applied_funds = st.session_state.get("fund_columns")
+    if not isinstance(applied_funds, list):
+        applied_funds = []
+
+    selected_rf = st.session_state.get("selected_risk_free")
+    info_ratio_benchmark = (
+        model_state.get("info_ratio_benchmark") if isinstance(model_state, dict) else None
+    )
+    prohibited = {selected_rf, benchmark, info_ratio_benchmark} - {None}
+    sanitized_funds = [c for c in applied_funds if c not in prohibited]
+
+    funds_blob = json.dumps(list(sanitized_funds), sort_keys=False, default=str)
+    funds_hash = hashlib.sha256(funds_blob.encode("utf-8")).hexdigest()[:12]
+    return f"{fingerprint}:{bench}:{funds_hash}:{model_blob}"
+
+
+def _apply_preview_state(
+    preview: Mapping[str, Any],
+    *,
+    run_analysis: bool = False,
+) -> None:
+    after = preview.get("after")
+    if not isinstance(after, Mapping):
+        st.warning("Preview is missing updated configuration data.")
+        return
+
+    st.session_state["config_chat_previous_state"] = deepcopy(
+        st.session_state.get("model_state", {})
+    )
+    st.session_state["model_state"] = deepcopy(dict(after))
+    analysis_runner.clear_cached_analysis()
+    app_state.clear_analysis_results()
+
+    if not run_analysis:
+        st.success("Applied config changes to this session.")
+        return
+
+    df, _ = app_state.get_uploaded_data()
+    if df is None:
+        st.error("Load data before running analysis.")
+        return
+
+    benchmark = st.session_state.get("selected_benchmark")
+    selected_rf = st.session_state.get("selected_risk_free")
+    effective_model_state = dict(st.session_state.get("model_state", {}))
+    if selected_rf:
+        effective_model_state["risk_free_column"] = selected_rf
+
+    with st.spinner("Running analysis..."):
+        try:
+            result = analysis_runner.run_analysis(
+                df,
+                effective_model_state,
+                benchmark,
+                data_hash=st.session_state.get("data_hash"),
+            )
+        except Exception as exc:
+            st.error(f"Analysis failed: {exc}")
+            st.session_state["analysis_result"] = None
+            st.session_state["analysis_result_key"] = None
+            st.session_state["analysis_error"] = {
+                "message": "Analysis failed.",
+                "detail": str(exc),
+            }
+            return
+
+    st.session_state["analysis_result"] = result
+    st.session_state["analysis_result_key"] = _current_run_key(
+        st.session_state.get("model_state", {}),
+        benchmark,
+    )
+    st.session_state.pop("analysis_error", None)
+    st.success("Applied config changes and ran analysis.")
+
+
+def _revert_last_config_change() -> None:
+    previous = st.session_state.get("config_chat_previous_state")
+    if not isinstance(previous, Mapping):
+        st.warning("No prior config change to revert.")
+        return
+    st.session_state["model_state"] = deepcopy(dict(previous))
+    analysis_runner.clear_cached_analysis()
+    app_state.clear_analysis_results()
+    st.success("Reverted to the previous configuration.")
 
 
 def _render_diff_preview_styles() -> None:
@@ -252,6 +414,64 @@ def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
         else:
             st.session_state["config_chat_last_instruction"] = trimmed
             st.success("Instruction captured. Preview coming next.")
+    preview = st.session_state.get("config_chat_preview")
+    has_preview = isinstance(preview, Mapping) and isinstance(preview.get("after"), Mapping)
+    action_cols = st.columns(4)
+    with action_cols[0]:
+        preview_clicked = st.button(
+            "Preview",
+            key="config_chat_preview_btn",
+            use_container_width=True,
+            disabled=not instruction.strip(),
+        )
+    with action_cols[1]:
+        apply_clicked = st.button(
+            "Apply",
+            key="config_chat_apply_btn",
+            use_container_width=True,
+            disabled=not has_preview,
+        )
+    with action_cols[2]:
+        apply_run_clicked = st.button(
+            "Apply + Run",
+            key="config_chat_apply_run_btn",
+            use_container_width=True,
+            type="primary",
+            disabled=not has_preview,
+        )
+    with action_cols[3]:
+        revert_clicked = st.button(
+            "Revert",
+            key="config_chat_revert_btn",
+            use_container_width=True,
+            disabled="config_chat_previous_state" not in st.session_state,
+        )
+
+    if preview_clicked:
+        trimmed = instruction.strip()
+        if not trimmed:
+            st.warning("Enter an instruction before previewing.")
+        elif model_state is None:
+            st.error("No configuration is loaded to preview against.")
+        else:
+            with st.spinner("Generating preview..."):
+                try:
+                    preview_payload = _generate_config_preview(model_state, trimmed)
+                except Exception as exc:
+                    st.error(f"Preview failed: {exc}")
+                else:
+                    st.session_state["config_chat_preview"] = preview_payload
+                    st.session_state["config_chat_last_instruction"] = trimmed
+                    st.success("Preview ready. Review the diff below.")
+
+    if apply_clicked and has_preview:
+        _apply_preview_state(preview, run_analysis=False)
+
+    if apply_run_clicked and has_preview:
+        _apply_preview_state(preview, run_analysis=True)
+
+    if revert_clicked:
+        _revert_last_config_change()
     st.markdown("---")
     st.markdown("**Current configuration summary**")
     _render_config_summary(model_state)
