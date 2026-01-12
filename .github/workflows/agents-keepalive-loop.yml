@@ -33,6 +33,13 @@ concurrency:
       github.run_id }}
   cancel-in-progress: false
 
+# Rate limit resilience: PAT fallback when GitHub App is exhausted
+# SERVICE_BOT_PAT has separate rate limit pool from WORKFLOWS_APP
+env:
+  FALLBACK_TOKEN: >-
+    ${{ secrets.SERVICE_BOT_PAT ||
+        secrets.GITHUB_TOKEN }}
+
 jobs:
   evaluate:
     name: Evaluate keepalive loop
@@ -68,11 +75,53 @@ jobs:
       - name: Capture timestamps
         id: timestamps
         run: echo "start_ts=$(date -u +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Generate API token (App with PAT fallback)
+        id: api-token
+        uses: actions/github-script@v8
+        env:
+          WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+          WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          FALLBACK_TOKEN: ${{ env.FALLBACK_TOKEN }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          result-encoding: string
+          script: |
+            // Try GitHub App first, fall back to PAT if rate limited or unavailable
+            const appId = process.env.WORKFLOWS_APP_ID;
+            const privateKey = process.env.WORKFLOWS_APP_PRIVATE_KEY;
+            const fallback = process.env.FALLBACK_TOKEN;
+            
+            if (appId && privateKey) {
+              try {
+                const { createAppAuth } = await import('@octokit/auth-app');
+                const auth = createAppAuth({ appId, privateKey });
+                const installationAuth = await auth({ type: 'installation' });
+                
+                // Test the token with a rate limit check
+                const { Octokit } = await import('@octokit/rest');
+                const octokit = new Octokit({ auth: installationAuth.token });
+                const { data } = await octokit.rateLimit.get();
+                
+                if (data.resources.core.remaining > 100) {
+                  core.info(`App token healthy: ${data.resources.core.remaining}/${data.resources.core.limit} remaining`);
+                  return installationAuth.token;
+                } else {
+                  core.warning(`App rate limit low (${data.resources.core.remaining}), using PAT fallback`);
+                }
+              } catch (err) {
+                core.warning(`App token failed: ${err.message}, using PAT fallback`);
+              }
+            }
+            
+            core.info('Using PAT fallback token');
+            return fallback || '';
+
       - name: Security gate - prompt injection guard
         id: security_gate
         uses: actions/github-script@v8
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ steps.api-token.outputs.result || env.FALLBACK_TOKEN }}
           script: |
             const { evaluatePromptInjectionGuard } = require(
               './.github/scripts/prompt_injection_guard.js'
@@ -128,7 +177,7 @@ jobs:
           INPUT_PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
           INPUT_FORCE_RETRY: ${{ github.event.inputs.force_retry || 'false' }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ steps.api-token.outputs.result || env.FALLBACK_TOKEN }}
           script: |
             const { evaluateKeepaliveLoop } = require('./.github/scripts/keepalive_loop.js');
             const options = { github, context, core };
