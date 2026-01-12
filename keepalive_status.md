@@ -3,6 +3,7 @@
 To avoid PR conflicts between concurrent keepalive runs, place each run's checklist in its own file under `docs/keepalive/status/`.
 
 Active/most recent entries:
+- PR #4353 (config patch follow-up): [docs/keepalive/status/PR4353_Status.md](docs/keepalive/status/PR4353_Status.md)
 - PR #4339 (NL operation observability): [docs/keepalive/status/PR4339_Status.md](docs/keepalive/status/PR4339_Status.md)
 - PR #4119 (settings effectiveness acceptance follow-up): [docs/keepalive/status/PR4119_Status.md](docs/keepalive/status/PR4119_Status.md)
 - PR #4113 (settings effectiveness evaluation): [docs/keepalive/status/PR4113_Status.md](docs/keepalive/status/PR4113_Status.md)

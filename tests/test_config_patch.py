@@ -2,10 +2,29 @@
 
 from __future__ import annotations
 
+import json
+import logging
+
 import pytest
 from pydantic import ValidationError
 
-from trend_analysis.config.patch import ConfigPatch, PatchOperation, RiskFlag
+from trend_analysis.config.patch import (
+    ConfigPatch,
+    PatchOperation,
+    RiskFlag,
+    format_retry_error,
+    parse_config_patch,
+    parse_config_patch_with_retries,
+)
+
+
+def _sample_patch_payload(summary: str = "Update config") -> dict[str, object]:
+    return {
+        "operations": [
+            {"op": "set", "path": "vol_adjust.target_vol", "value": 0.12},
+        ],
+        "summary": summary,
+    }
 
 
 def test_patch_operation_accepts_dotpath_set() -> None:
@@ -186,3 +205,129 @@ def test_config_patch_rejects_blank_summary() -> None:
     with pytest.raises(ValidationError) as excinfo:
         ConfigPatch(operations=[], summary="   ")
     assert "summary must be a non-empty string" in str(excinfo.value)
+
+
+def test_parse_config_patch_accepts_json() -> None:
+    payload = json.dumps(_sample_patch_payload())
+    patch = parse_config_patch(payload)
+    assert isinstance(patch, ConfigPatch)
+    assert patch.summary == "Update config"
+
+
+def test_parse_config_patch_strips_code_fence() -> None:
+    payload = json.dumps(_sample_patch_payload(summary="Fence"))
+    fenced = f"```json\n{payload}\n```"
+    patch = parse_config_patch(fenced)
+    assert patch.summary == "Fence"
+
+
+def test_parse_config_patch_with_retries_succeeds_first_attempt(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.ERROR)
+    calls: list[int] = []
+
+    def provider(attempt: int, last_error: Exception | None) -> str:
+        calls.append(attempt)
+        return json.dumps(_sample_patch_payload())
+
+    patch = parse_config_patch_with_retries(provider, retries=3)
+    assert patch.summary == "Update config"
+    assert calls == [0]
+    assert caplog.records == []
+
+
+def test_parse_config_patch_with_retries_recovers_from_json_error(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.ERROR)
+    responses = ["{", json.dumps(_sample_patch_payload())]
+
+    def provider(attempt: int, last_error: Exception | None) -> str:
+        return responses[attempt]
+
+    logger = logging.getLogger("configpatch-json-error")
+    patch = parse_config_patch_with_retries(provider, retries=2, logger=logger)
+    assert patch.summary == "Update config"
+    assert len(caplog.records) == 1
+    assert "ConfigPatch parse attempt 1/2 failed" in caplog.records[0].message
+
+
+def test_parse_config_patch_with_retries_recovers_from_validation_error(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.ERROR)
+    invalid = json.dumps(
+        {"operations": [{"op": "replace", "path": "vol_adjust.target_vol", "value": 0.2}]}
+    )
+    responses = [invalid, json.dumps(_sample_patch_payload(summary="Recovered"))]
+
+    def provider(attempt: int, last_error: Exception | None) -> str:
+        return responses[attempt]
+
+    logger = logging.getLogger("configpatch-validation-error")
+    patch = parse_config_patch_with_retries(provider, retries=2, logger=logger)
+    assert patch.summary == "Recovered"
+    assert len(caplog.records) == 1
+    assert "ConfigPatch parse attempt 1/2 failed" in caplog.records[0].message
+
+
+def test_parse_config_patch_with_retries_raises_after_exhausted(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.ERROR)
+
+    def provider(attempt: int, last_error: Exception | None) -> str:
+        return "{"
+
+    logger = logging.getLogger("configpatch-exhausted")
+    with pytest.raises(ValueError) as excinfo:
+        parse_config_patch_with_retries(provider, retries=2, logger=logger)
+    assert "Failed to parse ConfigPatch after 2 attempts" in str(excinfo.value)
+    assert len(caplog.records) == 2
+    assert "ConfigPatch parse attempt 2/2 failed" in caplog.records[-1].message
+
+
+def test_parse_config_patch_with_retries_passes_last_error_to_provider() -> None:
+    errors: list[Exception | None] = []
+    responses = ["{", json.dumps(_sample_patch_payload())]
+
+    def provider(attempt: int, last_error: Exception | None) -> str:
+        errors.append(last_error)
+        return responses[attempt]
+
+    patch = parse_config_patch_with_retries(provider, retries=2)
+    assert patch.summary == "Update config"
+    assert errors[0] is None
+    assert isinstance(errors[1], ValidationError)
+
+
+def test_parse_config_patch_with_retries_uses_minimum_attempts() -> None:
+    calls: list[int] = []
+
+    def provider(attempt: int, last_error: Exception | None) -> str:
+        calls.append(attempt)
+        return json.dumps(_sample_patch_payload(summary="Single attempt"))
+
+    patch = parse_config_patch_with_retries(provider, retries=0)
+    assert patch.summary == "Single attempt"
+    assert calls == [0]
+
+
+def test_parse_config_patch_with_retries_logs_each_failure(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.ERROR)
+    responses = ["{", "{", json.dumps(_sample_patch_payload(summary="Final"))]
+
+    def provider(attempt: int, last_error: Exception | None) -> str:
+        return responses[attempt]
+
+    logger = logging.getLogger("configpatch-multi-failure")
+    patch = parse_config_patch_with_retries(provider, retries=3, logger=logger)
+    assert patch.summary == "Final"
+    assert len(caplog.records) == 2
+    assert "ConfigPatch parse attempt 1/3 failed" in caplog.records[0].message
+    assert "ConfigPatch parse attempt 2/3 failed" in caplog.records[1].message
+
+
+def test_format_retry_error_handles_none() -> None:
+    assert format_retry_error(None) == "Unknown parse error."
