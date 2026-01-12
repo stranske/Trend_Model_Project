@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import html
 import json
 from typing import Any, Mapping
 
 import streamlit as st
+import yaml
 
 from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner
+from trend_analysis.config.patch import diff_configs
 
 # Extended metric fields for ranking
 METRIC_FIELDS = [
@@ -104,6 +107,94 @@ def _render_config_summary(model_state: Mapping[str, Any] | None) -> None:
             st.markdown(f"- {label}: {value}")
 
 
+def _render_diff_preview_styles() -> None:
+    st.markdown(
+        """
+<style>
+.config-diff {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  overflow-x: auto;
+}
+.config-diff .diff-line {
+  padding: 2px 8px;
+  white-space: pre;
+}
+.config-diff .diff-add { background: #e6ffed; color: #14532d; }
+.config-diff .diff-remove { background: #ffeef0; color: #7f1d1d; }
+.config-diff .diff-header { background: #f8fafc; color: #0f172a; font-weight: 600; }
+.config-diff .diff-hunk { background: #eff6ff; color: #1d4ed8; }
+.config-diff .diff-context { color: #111827; }
+</style>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def _diff_text_to_html(diff_text: str) -> str:
+    lines = diff_text.splitlines()
+    html_lines: list[str] = []
+    for line in lines:
+        if line.startswith(("+++ ", "--- ")):
+            css_class = "diff-header"
+        elif line.startswith("@@"):
+            css_class = "diff-hunk"
+        elif line.startswith("+"):
+            css_class = "diff-add"
+        elif line.startswith("-"):
+            css_class = "diff-remove"
+        else:
+            css_class = "diff-context"
+        safe_line = html.escape(line)
+        html_lines.append(f'<div class="diff-line {css_class}">{safe_line}</div>')
+    return '<div class="config-diff">' + "".join(html_lines) + "</div>"
+
+
+def _render_unified_diff(diff_text: str) -> None:
+    if not diff_text.strip():
+        st.info("No differences found.")
+        return
+    _render_diff_preview_styles()
+    st.markdown(_diff_text_to_html(diff_text), unsafe_allow_html=True)
+
+
+def _render_config_diff_preview(model_state: Mapping[str, Any] | None) -> None:
+    st.markdown("---")
+    st.markdown("**Diff preview**")
+    preview = st.session_state.get("config_chat_preview")
+    if not isinstance(preview, Mapping):
+        st.info("No preview available yet. Send an instruction to generate a diff.")
+        return
+
+    before = preview.get("before")
+    if not isinstance(before, Mapping):
+        before = model_state or {}
+    after = preview.get("after")
+    if not isinstance(after, Mapping):
+        st.warning("Preview data is incomplete. Try generating a new diff.")
+        return
+    diff_text = preview.get("diff")
+    if not isinstance(diff_text, str):
+        diff_text = diff_configs(dict(before), dict(after))
+
+    tabs = st.tabs(["Unified diff", "Side-by-side"])
+    with tabs[0]:
+        _render_unified_diff(diff_text)
+    with tabs[1]:
+        before_yaml = yaml.safe_dump(dict(before), sort_keys=False, default_flow_style=False)
+        after_yaml = yaml.safe_dump(dict(after), sort_keys=False, default_flow_style=False)
+        col_before, col_after = st.columns(2)
+        with col_before:
+            st.caption("Before")
+            st.code(before_yaml, language="yaml")
+        with col_after:
+            st.caption("After")
+            st.code(after_yaml, language="yaml")
+
+
 def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
     st.caption("Describe the configuration change you want to try.")
     instruction = st.text_area(
@@ -123,6 +214,7 @@ def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
     st.markdown("---")
     st.markdown("**Current configuration summary**")
     _render_config_summary(model_state)
+    _render_config_diff_preview(model_state)
 
 
 def render_config_chat_panel(
