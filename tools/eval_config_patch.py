@@ -473,6 +473,36 @@ def _load_cases(
         payload = payload["cases"]
     if not isinstance(payload, list):
         raise ValueError("Test cases must be a list or contain a top-level 'cases' list.")
+    return [_normalize_case(case, base_dir=path.parent) for case in payload]
+
+
+def _normalize_case(case: dict[str, Any], *, base_dir: Path) -> dict[str, Any]:
+    normalized = dict(case)
+    if "current_config" not in normalized and "starting_config" in normalized:
+        normalized["current_config"] = _load_config(normalized["starting_config"], base_dir)
+    expected_ops = normalized.get("expected_operations")
+    if "expected_patch" not in normalized and expected_ops is not None:
+        expected_patch: dict[str, Any] = {
+            "operations": expected_ops,
+            "risk_flags": normalized.get("expected_risk_flags", []),
+        }
+        if "expected_summary" in normalized:
+            expected_patch["summary"] = normalized["expected_summary"]
+        if "expected_summary_contains" in normalized:
+            expected_patch["summary_contains"] = normalized["expected_summary_contains"]
+        normalized["expected_patch"] = expected_patch
+    return normalized
+
+
+def _load_config(config_path: str | Path, base_dir: Path) -> dict[str, Any]:
+    path = Path(config_path)
+    if not path.is_absolute():
+        path = base_dir / path
+        if not path.exists():
+            path = Path.cwd() / config_path
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"Expected mapping config in {path}")
     return payload
 
 
@@ -480,6 +510,20 @@ def _serialize_schema(allowed_schema: Any | None) -> str | None:
     if allowed_schema is None:
         return None
     if isinstance(allowed_schema, str):
+        schema_path = Path(allowed_schema)
+        if schema_path.exists():
+            if schema_path.suffix.lower() == ".json":
+                return json.dumps(
+                    json.loads(schema_path.read_text(encoding="utf-8")),
+                    indent=2,
+                    ensure_ascii=True,
+                )
+            if schema_path.suffix.lower() in {".yml", ".yaml"}:
+                return json.dumps(
+                    yaml.safe_load(schema_path.read_text(encoding="utf-8")),
+                    indent=2,
+                    ensure_ascii=True,
+                )
         return allowed_schema
     return json.dumps(allowed_schema, indent=2, ensure_ascii=True)
 
@@ -514,8 +558,14 @@ def _validate_log_expectations(
 def _evaluate_case(case: dict[str, Any]) -> EvalResult:
     case_id = str(case.get("id") or case.get("name") or "case")
     instruction = case.get("instruction")
-    current_config = case.get("current_config", {})
+    if "current_config" in case:
+        current_config = case.get("current_config", {})
+    elif "starting_config" in case:
+        current_config = _load_config(case["starting_config"], Path.cwd())
+    else:
+        current_config = {}
     expected = case.get("expected_patch")
+    expected_ops = case.get("expected_operations")
     response_text = case.get("llm_response")
     responses = case.get("llm_responses")
     expected_error_contains = case.get("expected_error_contains")
@@ -528,6 +578,15 @@ def _evaluate_case(case: dict[str, Any]) -> EvalResult:
         errors.append("Missing instruction.")
     if responses is not None and not isinstance(responses, list):
         errors.append("llm_responses must be a list.")
+    if expected is None and expected_ops is not None:
+        expected = {
+            "operations": expected_ops,
+            "risk_flags": case.get("expected_risk_flags", []),
+        }
+        if "expected_summary" in case:
+            expected["summary"] = case["expected_summary"]
+        if "expected_summary_contains" in case:
+            expected["summary_contains"] = case["expected_summary_contains"]
     if expected is None and response_text is None and not responses:
         errors.append("Missing expected_patch or llm_response.")
     if errors:
@@ -535,7 +594,16 @@ def _evaluate_case(case: dict[str, Any]) -> EvalResult:
 
     if responses is None:
         if response_text is None:
-            response_text = json.dumps(expected, ensure_ascii=True)
+            response_patch = case.get("response_patch") or expected or {}
+            if isinstance(response_patch, dict):
+                response_patch = dict(response_patch)
+                if "risk_flags" not in response_patch:
+                    response_patch["risk_flags"] = []
+                if "summary" not in response_patch:
+                    response_patch["summary"] = case.get("response_summary") or _default_summary(
+                        response_patch.get("operations")
+                    )
+            response_text = json.dumps(response_patch, ensure_ascii=True)
         responses = [response_text]
 
     llm = _build_llm(responses)
@@ -604,6 +672,11 @@ def _evaluate_case(case: dict[str, Any]) -> EvalResult:
         patch=patch_payload,
         logs=log_messages,
     )
+
+
+def _default_summary(operations: Any) -> str:
+    count = len(operations) if isinstance(operations, list) else 0
+    return f"Apply {count} operation(s)."
 
 
 def _compare_patch(expected: dict[str, Any], patch: ConfigPatch) -> list[str]:

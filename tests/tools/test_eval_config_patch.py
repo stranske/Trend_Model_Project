@@ -37,3 +37,21 @@ def test_evaluate_case_missing_instruction_errors() -> None:
     )
     assert not result.passed
     assert "Missing instruction." in result.errors
+
+
+def test_evaluate_case_accepts_prompt_dataset_format() -> None:
+    result = _evaluate_case(
+        {
+            "id": "prompt_format_case",
+            "instruction": "Use risk parity weighting.",
+            "starting_config": "config/defaults.yml",
+            "expected_operations": [
+                {
+                    "op": "set",
+                    "path": "portfolio.weighting_scheme",
+                    "value": "risk_parity",
+                }
+            ],
+        }
+    )
+    assert result.passed

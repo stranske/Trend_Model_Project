@@ -1,0 +1,162 @@
+- id: risk_parity_basic
+  instruction: "Use risk parity weighting"
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: analysis.weighting.scheme
+      value: risk_parity
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: hrp_weighting
+  instruction: "Switch to HRP weighting"
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: analysis.weighting.scheme
+      value: hrp
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: erc_weighting
+  instruction: "Use equal risk contribution weighting"
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: analysis.weighting.scheme
+      value: erc
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: robust_mv_weighting
+  instruction: "Use robust mean-variance weighting"
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: analysis.weighting.scheme
+      value: robust_mv
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: robust_risk_parity_weighting
+  instruction: "Switch to robust risk parity weighting"
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: analysis.weighting.scheme
+      value: robust_risk_parity
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: custom_weighting
+  instruction: "Use custom weighting scheme"
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: analysis.weighting.scheme
+      value: custom
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_random_mode
+  instruction: "Select a random subset of managers."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.selection_mode
+      value: random
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_random_count
+  instruction: "Pick 15 managers at random."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.random_n
+      value: 15
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_manual_mode
+  instruction: "Switch to manual selection."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.selection_mode
+      value: manual
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_manual_list
+  instruction: "Manually include AlphaFund and BetaFund only."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.manual_list
+      value:
+        - AlphaFund
+        - BetaFund
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_top_pct
+  instruction: "Use top 20% for inclusion."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.rank.inclusion_approach
+      value: top_pct
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_top_n_6
+  instruction: "Include the top 6 ranked managers."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.rank.n
+      value: 6
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_top_pct_5
+  instruction: "Use the top 5% for ranking inclusion."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.rank.pct
+      value: 0.05
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_rank_threshold
+  instruction: "Only include managers above a 2.0 threshold."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.rank.threshold
+      value: 2.0
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_drop_bottom_3
+  instruction: "Drop the bottom 3 ranked managers."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.rank.bottom_k
+      value: 3
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_use_rank_selector
+  instruction: "Use the rank-based selector."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.selector.name
+      value: rank
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
