@@ -110,6 +110,7 @@ def _format_dotpath(segments: list[_Segment]) -> str:
             else:
                 parts[-1] += "[*]" if segment is _ARRAY_WILDCARD else f"[{segment}]"
         else:
+            assert isinstance(segment, str)
             parts.append(segment)
     return ".".join(parts)
 

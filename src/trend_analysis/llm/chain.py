@@ -9,7 +9,7 @@ import os
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, Iterator
 from uuid import uuid4
 
 from trend_analysis.config.patch import (
@@ -28,14 +28,16 @@ logger = logging.getLogger(__name__)
 
 
 class _LLMResponse(str):
+    trace_url: str | None
+
     def __new__(cls, text: str, trace_url: str | None) -> "_LLMResponse":
         obj = super().__new__(cls, text)
         obj.trace_url = trace_url
         return obj
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         yield str(self)
-        yield self.trace_url
+        yield self.trace_url or ""
 
 
 @dataclass(slots=True)

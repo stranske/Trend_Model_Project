@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Iterable
+from typing import Any, Iterable
 
 from trend_analysis.config.patch import (
     apply_config_patch,
@@ -37,10 +37,10 @@ def build_provider_configs() -> list[LLMProviderConfig]:
     ]
 
 
-def demo_provider_setup(logger: logging.Logger) -> list[tuple[LLMProviderConfig, object]]:
+def demo_provider_setup(logger: logging.Logger) -> list[tuple[LLMProviderConfig, Any]]:
     """Create provider configs, instantiate clients, and log outcomes."""
 
-    llms: list[tuple[LLMProviderConfig, object]] = []
+    llms: list[tuple[LLMProviderConfig, Any]] = []
     for config in build_provider_configs():
         try:
             llm = create_llm(config)
@@ -55,7 +55,7 @@ def demo_provider_setup(logger: logging.Logger) -> list[tuple[LLMProviderConfig,
 
 
 def demo_provider_usage(
-    logger: logging.Logger, llms: Iterable[tuple[LLMProviderConfig, object]]
+    logger: logging.Logger, llms: Iterable[tuple[LLMProviderConfig, Any]]
 ) -> None:
     """Show how to invoke providers with an optional live call."""
 
