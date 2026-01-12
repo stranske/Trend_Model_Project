@@ -76,7 +76,7 @@ def demo_provider_usage(
 
 
 def demo_patch_retry_workflow(logger: logging.Logger) -> None:
-    """Simulate a patch response that fails once, then succeeds on retry."""
+    """Simulate patch parsing for two providers, including a retry scenario."""
 
     current_config = {"analysis": {"top_n": 10, "target_vol": 0.12}}
     instruction = "Increase top_n to 25 to expand the selection universe."
@@ -88,10 +88,10 @@ def demo_patch_retry_workflow(logger: logging.Logger) -> None:
     )
     logger.info("Prompt preview:\n%s", prompt[:400])
 
-    responses = iter(
-        [
-            "not-json-response",
-            json.dumps(
+    scenarios = [
+        (
+            LLMProviderConfig(provider="openai", model="gpt-4o-mini"),
+            [json.dumps(
                 {
                     "operations": [
                         {
@@ -103,18 +103,56 @@ def demo_patch_retry_workflow(logger: logging.Logger) -> None:
                     ],
                     "summary": "Increase top_n to 25.",
                 }
-            ),
-        ]
-    )
+            )],
+            1,
+        ),
+        (
+            LLMProviderConfig(provider="anthropic", model="claude-3-5-sonnet-20241022"),
+            [
+                "not-json-response",
+                json.dumps(
+                    {
+                        "operations": [
+                            {
+                                "op": "set",
+                                "path": "analysis.top_n",
+                                "value": 25,
+                                "rationale": "Increase the selection count.",
+                            }
+                        ],
+                        "summary": "Increase top_n to 25 after retry.",
+                    }
+                ),
+            ],
+            2,
+        ),
+    ]
 
-    def response_provider(attempt: int, last_error: Exception | None) -> str:
-        _ = attempt, last_error
-        return next(responses)
+    for config, response_sequence, retries in scenarios:
+        logger.info(
+            "Parsing patch with provider '%s' (model '%s', retries=%s).",
+            config.provider,
+            config.model,
+            retries,
+        )
+        responses = iter(response_sequence)
 
-    patch = parse_config_patch_with_retries(response_provider, retries=1, logger=logger)
-    logger.info("Parsed patch summary: %s", patch.summary)
-    updated = apply_config_patch(current_config, patch)
-    logger.info("Config diff:\n%s", diff_configs(current_config, updated))
+        def response_provider(attempt: int, last_error: Exception | None) -> str:
+            if last_error:
+                logger.info(
+                    "Provider '%s' retry attempt %s after error: %s",
+                    config.provider,
+                    attempt + 1,
+                    last_error,
+                )
+            else:
+                logger.info("Provider '%s' attempt %s.", config.provider, attempt + 1)
+            return next(responses)
+
+        patch = parse_config_patch_with_retries(response_provider, retries=retries, logger=logger)
+        logger.info("Parsed patch summary for '%s': %s", config.provider, patch.summary)
+        updated = apply_config_patch(current_config, patch)
+        logger.info("Config diff for '%s':\n%s", config.provider, diff_configs(current_config, updated))
 
 
 def main() -> None:
