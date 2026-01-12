@@ -49,6 +49,16 @@ export TREND_LLM_TEMPERATURE="0.2"
 These values are consumed by `ConfigPatchChain.from_env(...)` to set the model
 and temperature used for structured config patch generation.
 
+LangSmith tracing is optional. To enable it, set `LANGSMITH_API_KEY` and
+optionally `LANGCHAIN_PROJECT` or `LANGSMITH_PROJECT` to label traces:
+
+```bash
+export LANGSMITH_API_KEY="..."
+export LANGCHAIN_PROJECT="trend-model"
+```
+
+When the key is present, NL operations send traces to LangSmith automatically.
+
 ### 2. Verify Installation
 
 ```bash

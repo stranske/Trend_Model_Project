@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from contextlib import contextmanager
 
 import pytest
 
@@ -469,3 +470,49 @@ def test_config_patch_chain_no_retry_when_retries_zero(
     assert len(parse_logs) == 1
     assert "attempt 1/1" in parse_logs[0].message
     assert "Failed to parse ConfigPatch after 1 attempts" in str(excinfo.value)
+
+
+def test_config_patch_chain_logs_langsmith_trace_url(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    def _respond(_prompt_value, **_kwargs) -> str:
+        payload = {
+            "operations": [
+                {
+                    "op": "set",
+                    "path": "portfolio.max_weight",
+                    "value": 0.3,
+                    "rationale": "Align with instruction",
+                }
+            ],
+            "risk_flags": [],
+            "summary": "Update max_weight",
+        }
+        return json.dumps(payload)
+
+    class FakeRun:
+        url = "https://example.test/trace/123"
+
+        def end(self, outputs: dict[str, str]) -> None:
+            self.outputs = outputs
+
+    @contextmanager
+    def _fake_context(**_kwargs):
+        yield FakeRun()
+
+    monkeypatch.setattr(
+        "trend_analysis.llm.tracing.langsmith_tracing_context",
+        _fake_context,
+    )
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+    )
+
+    with caplog.at_level(logging.INFO, logger="trend_analysis.llm.chain"):
+        _, trace_url = chain._invoke_llm("Prompt")
+
+    assert "LangSmith trace: https://example.test/trace/123" in caplog.text
+    assert trace_url == "https://example.test/trace/123"
