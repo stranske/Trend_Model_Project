@@ -54,6 +54,7 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     stub.cache_data = _passthrough_decorator
     stub.cache_resource = _passthrough_decorator
     stub.expander = lambda *_args, **_kwargs: Context()
+    stub.sidebar = Context()
     stub.form = lambda *_args, **_kwargs: Context()
     stub.form_submit_button = lambda *_args, **_kwargs: False
     stub.button = lambda *_args, **_kwargs: False
@@ -151,3 +152,18 @@ def test_render_model_page_clears_cached_results(
     assert stub.clear_calls == initial_clears + 1
     for key in ["analysis_result", "analysis_result_key", "analysis_error"]:
         assert key not in stub.session_state
+
+
+def test_render_config_chat_panel_stores_instruction(model_module: ModuleType) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    stub.text_area = lambda *_args, **_kwargs: "Increase lookback to 24"
+    stub.button = lambda *_args, **_kwargs: True
+
+    model_module.render_config_chat_panel()
+
+    assert (
+        stub.session_state.get("config_chat_last_instruction")
+        == "Increase lookback to 24"
+    )

@@ -30,6 +30,29 @@ WEIGHTING_SCHEMES = [
     ("Robust Risk Parity", "robust_risk_parity"),
 ]
 
+# Config chat panel helpers
+def render_config_chat_panel() -> None:
+    """Render the Config Chat panel for natural-language config tweaks."""
+
+    with st.sidebar:
+        with st.expander("💬 Config Chat", expanded=False):
+            st.caption("Describe the configuration change you want to try.")
+            instruction = st.text_area(
+                "Instruction",
+                key="config_chat_instruction",
+                height=120,
+                placeholder="e.g. Increase lookback to 24 months and reduce max weight to 10%",
+            )
+            send_clicked = st.button("Send", key="config_chat_send", use_container_width=True)
+            if send_clicked:
+                trimmed = instruction.strip()
+                if not trimmed:
+                    st.warning("Enter an instruction before sending.")
+                else:
+                    st.session_state["config_chat_last_instruction"] = trimmed
+                    st.success("Instruction captured. Preview coming next.")
+
+
 # Preset configurations with default parameter values
 PRESET_CONFIGS = {
     "Baseline": {
@@ -545,6 +568,7 @@ for the covariance matrix.
 
 def render_model_page() -> None:
     app_state.initialize_session_state()
+    render_config_chat_panel()
     st.title("Model Configuration")
 
     # Clarify this is for custom analysis
