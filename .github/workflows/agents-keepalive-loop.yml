@@ -76,53 +76,43 @@ jobs:
         id: timestamps
         run: echo "start_ts=$(date -u +%s)" >> "$GITHUB_OUTPUT"
 
-      - name: Generate API token (App with PAT fallback)
-        id: api-token
-        uses: actions/github-script@v8
-        env:
-          # Use dedicated KEEPALIVE_APP for isolated rate limit pool
-          KEEPALIVE_APP_ID: ${{ secrets.KEEPALIVE_APP_ID }}
-          KEEPALIVE_APP_PRIVATE_KEY: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY }}
-          FALLBACK_TOKEN: ${{ env.FALLBACK_TOKEN }}
+      # Generate GitHub App token using official action (handles installation ID automatically)
+      - name: Generate KEEPALIVE_APP token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        continue-on-error: true
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          result-encoding: string
-          script: |
-            // Try dedicated KEEPALIVE_APP first, fall back to PAT if rate limited
-            const appId = process.env.KEEPALIVE_APP_ID;
-            const privateKey = process.env.KEEPALIVE_APP_PRIVATE_KEY;
-            const fallback = process.env.FALLBACK_TOKEN;
-            
-            if (appId && privateKey) {
-              try {
-                const { createAppAuth } = await import('@octokit/auth-app');
-                const auth = createAppAuth({ appId, privateKey });
-                const installationAuth = await auth({ type: 'installation' });
-                
-                // Test the token with a rate limit check
-                const { Octokit } = await import('@octokit/rest');
-                const octokit = new Octokit({ auth: installationAuth.token });
-                const { data } = await octokit.rateLimit.get();
-                
-                if (data.resources.core.remaining > 100) {
-                  core.info(`App token healthy: ${data.resources.core.remaining}/${data.resources.core.limit} remaining`);
-                  return installationAuth.token;
-                } else {
-                  core.warning(`App rate limit low (${data.resources.core.remaining}), using PAT fallback`);
-                }
-              } catch (err) {
-                core.warning(`App token failed: ${err.message}, using PAT fallback`);
-              }
-            }
-            
-            core.info('Using PAT fallback token');
-            return fallback || '';
+          app-id: ${{ secrets.KEEPALIVE_APP_ID }}
+          private-key: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY }}
+
+      # Select token: prefer App token, fall back to SERVICE_BOT_PAT, then GITHUB_TOKEN
+      - name: Select API token (with fallback chain)
+        id: api-token
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
+          GITHUB_TOKEN_FALLBACK: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Fallback chain: KEEPALIVE_APP -> SERVICE_BOT_PAT -> GITHUB_TOKEN
+          if [ -n "$APP_TOKEN" ]; then
+            echo "Using KEEPALIVE_APP token"
+            echo "token=$APP_TOKEN" >> "$GITHUB_OUTPUT"
+            echo "source=KEEPALIVE_APP" >> "$GITHUB_OUTPUT"
+          elif [ -n "$SERVICE_BOT_PAT" ]; then
+            echo "::warning::KEEPALIVE_APP unavailable, using SERVICE_BOT_PAT fallback"
+            echo "token=$SERVICE_BOT_PAT" >> "$GITHUB_OUTPUT"
+            echo "source=SERVICE_BOT_PAT" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No PAT available, using GITHUB_TOKEN (limited rate)"
+            echo "token=$GITHUB_TOKEN_FALLBACK" >> "$GITHUB_OUTPUT"
+            echo "source=GITHUB_TOKEN" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Security gate - prompt injection guard
         id: security_gate
         uses: actions/github-script@v8
         with:
-          github-token: ${{ steps.api-token.outputs.result || env.FALLBACK_TOKEN }}
+          github-token: ${{ steps.api-token.outputs.token }}
           script: |
             const { evaluatePromptInjectionGuard } = require(
               './.github/scripts/prompt_injection_guard.js'
@@ -178,7 +168,7 @@ jobs:
           INPUT_PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
           INPUT_FORCE_RETRY: ${{ github.event.inputs.force_retry || 'false' }}
         with:
-          github-token: ${{ steps.api-token.outputs.result || env.FALLBACK_TOKEN }}
+          github-token: ${{ steps.api-token.outputs.token }}
           script: |
             const { evaluateKeepaliveLoop } = require('./.github/scripts/keepalive_loop.js');
             const options = { github, context, core };

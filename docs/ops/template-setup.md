@@ -61,9 +61,11 @@ To add additional apps:
 Each token type has an independent rate limit pool:
 - GitHub App installations: 5000/hr per app
 - PATs: 5000/hr per user account
-- GITHUB_TOKEN: 1000/hr per workflow run
+- GITHUB_TOKEN: 1000/hr per repository (shared across all workflow runs)
 
-The keepalive workflow automatically falls back to `SERVICE_BOT_PAT` when the GitHub App rate limit is low (<100 remaining).
+**Combined capacity:** Up to 15,000 requests/hour across all three app pools when all tokens are configured. Actual effective capacity depends on request distribution across workflows.
+
+The keepalive workflow automatically falls back to `SERVICE_BOT_PAT` when the GitHub App token generation fails (e.g., rate limited, not installed, or misconfigured).
 
 Security posture: The `pull_request_target` workflows in this template do not checkout or execute fork code. They only mutate labels/approvals using base-repo context.
 
