@@ -1,0 +1,7 @@
+- id: risk_parity_basic
+  instruction: "Use risk parity weighting"
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: analysis.weighting.scheme
+      value: risk_parity
