@@ -150,6 +150,16 @@ def test_validate_patch_keys_flags_array_wildcard_keys_for_review() -> None:
     assert unknown[0].suggestion is None
 
 
+def test_validate_patch_keys_flags_array_index_wildcard_for_review() -> None:
+    operations = [PatchOperation(op="set", path="rules[*].limits.*", value=0.2)]
+
+    unknown = validate_patch_keys(operations, _schema_with_array_wildcard())
+
+    assert len(unknown) == 1
+    assert unknown[0].path == "rules[*].limits.*"
+    assert unknown[0].suggestion is None
+
+
 def test_validate_patch_keys_flags_unknown_array_item_key() -> None:
     operations = [PatchOperation(op="set", path="metrics.compute[2].missing_key", value=12)]
 
@@ -220,6 +230,32 @@ def test_flag_unknown_keys_marks_review_for_wildcard_child() -> None:
             )
         ],
         summary="Wildcard child update.",
+    )
+
+    unknown = flag_unknown_keys(patch, _schema_with_wildcard())
+
+    assert patch.needs_review is True
+    assert len(unknown) == 1
+
+
+def test_flag_unknown_keys_marks_review_for_array_index_wildcard() -> None:
+    patch = ConfigPatch(
+        operations=[PatchOperation(op="set", path="rules[*].limits.*", value=0.2)],
+        summary="Array wildcard update.",
+    )
+
+    unknown = flag_unknown_keys(patch, _schema_with_array_wildcard())
+
+    assert patch.needs_review is True
+    assert len(unknown) == 1
+
+
+def test_flag_unknown_keys_marks_review_for_wildcard_key() -> None:
+    patch = ConfigPatch(
+        operations=[
+            PatchOperation(op="set", path="portfolio.constraints.group_caps.*", value=0.1)
+        ],
+        summary="Wildcard key update.",
     )
 
     unknown = flag_unknown_keys(patch, _schema_with_wildcard())

@@ -21,7 +21,17 @@ This guide explains how to configure and use the LLM provider abstraction built 
 
 ## Configuration examples
 
-### Example 1: OpenAI with environment API key
+The provider config accepts the following common fields:
+
+- `provider`: one of `openai`, `anthropic`, or `ollama`
+- `model`: provider-specific model name
+- `api_key`: API key string (usually supplied from env vars)
+- `base_url`: override for self-hosted or local endpoints (Ollama)
+- `timeout`: request timeout in seconds
+- `max_retries`: retry attempts inside the provider SDK
+- `extra`: provider-specific kwargs (e.g., `temperature`, `max_tokens`)
+
+### Example 1: OpenAI with environment API key (Python + YAML)
 
 OpenAI uses `OPENAI_API_KEY` and supports optional retry/timeout tuning.
 
@@ -41,7 +51,18 @@ config = LLMProviderConfig(
 llm = create_llm(config)
 ```
 
-### Example 2: Anthropic with explicit overrides
+```yaml
+llm:
+  provider: openai
+  model: gpt-4o-mini
+  api_key: "<set-from-env-at-runtime>"
+  timeout: 30
+  max_retries: 2
+  extra:
+    temperature: 0.1
+```
+
+### Example 2: Anthropic with explicit overrides (Python + YAML)
 
 Anthropic uses `ANTHROPIC_API_KEY` and supports additional model params via `extra`.
 
@@ -62,6 +83,18 @@ config = LLMProviderConfig(
 llm = create_llm(config)
 ```
 
+```yaml
+llm:
+  provider: anthropic
+  model: claude-3-5-sonnet-20240620
+  api_key: "<set-from-env-at-runtime>"
+  timeout: 45
+  max_retries: 3
+  extra:
+    temperature: 0.2
+    max_tokens: 2048
+```
+
 ### Example 3: Ollama local model with extra overrides
 
 ```python
@@ -77,47 +110,14 @@ config = LLMProviderConfig(
 llm = create_llm(config)
 ```
 
-### Example 4: Config-driven setup (YAML)
-
-If you load provider settings from YAML, map the data into `LLMProviderConfig` in your
-application code and inject secrets from the environment (do not commit API keys).
-
-```yaml
-llm:
-  provider: openai
-  model: gpt-4o-mini
-  api_key: "<set-from-env-at-runtime>"
-  timeout: 30
-  max_retries: 2
-  extra:
-    temperature: 0.1
-```
-
 ## Troubleshooting
 
-- Missing provider dependency
-  - Symptom: `RuntimeError: Provider dependency 'langchain_openai' is not installed.`
-  - Fix: install the extras (`pip install -e ".[llm]"`) and retry.
-- Missing API key
-  - Symptom: `ValueError: API key is required` or provider-specific auth error.
-  - Fix: set the appropriate env var (`OPENAI_API_KEY` or `ANTHROPIC_API_KEY`) and
-    restart the process to refresh the environment.
-- Authentication failures
-  - Symptom: 401/403 responses or `Invalid API key` errors from the provider.
-  - Fix: verify the relevant API key env var (`OPENAI_API_KEY` or `ANTHROPIC_API_KEY`) and
-    restart the process so the environment is refreshed.
-- Ollama connection errors
-  - Symptom: connection refused or timeout when using the `ollama` provider.
-  - Fix: confirm the Ollama daemon is running and `base_url` points to the correct host/port.
-- Timeouts or slow responses
-  - Symptom: request timeouts or unusually long response times.
-  - Fix: increase `timeout`, reduce model size, or lower `max_tokens` via `extra`.
-- Rate limit or quota errors
-  - Symptom: `429` responses or `Rate limit exceeded`.
-  - Fix: reduce request volume, add backoff (via `max_retries`), or wait for quota reset.
-- Unknown model name
-  - Symptom: `Invalid model` or `Model not found` errors.
-  - Fix: verify the model name is supported by the provider and matches your account access.
-- Unknown provider name
-  - Symptom: `ValueError: Unknown provider: ...`
-  - Fix: use one of the supported providers: `openai`, `anthropic`, or `ollama`.
+| Error or symptom | Likely cause | Resolution |
+| --- | --- | --- |
+| `RuntimeError: Provider dependency 'langchain_openai' is not installed.` | LLM extras not installed | Run `pip install -e ".[llm]"` and retry. |
+| `ValueError: API key is required` | Missing API key environment variable | Set `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`, then restart the process. |
+| `Invalid API key` / `401` / `403` | Incorrect or expired credentials | Rotate the key and update the env var, then restart. |
+| Connection refused / timeout (Ollama) | Ollama daemon not running or wrong `base_url` | Start Ollama and confirm `base_url` matches the host/port. |
+| `Rate limit exceeded` / `429` | Provider rate limit or quota exhaustion | Reduce request volume, raise `max_retries`, or wait for quota reset. |
+| `Invalid model` / `Model not found` | Model name not supported for your account | Verify the model name and account access. |
+| `ValueError: Unknown provider: ...` | Unsupported provider value | Use `openai`, `anthropic`, or `ollama`. |

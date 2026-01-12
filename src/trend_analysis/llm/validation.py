@@ -10,8 +10,16 @@ from typing import Any, Iterable
 
 from trend_analysis.config.patch import ConfigPatch, PatchOperation
 
+class _ArrayWildcardMarker:
+    pass
+
+
+_ARRAY_WILDCARD = _ArrayWildcardMarker()
+_Segment = str | int | _ArrayWildcardMarker
+
 _DOTPATH_RE = re.compile(
-    r"^(?:[A-Za-z0-9_-]+|\*)(?:\[\d+\])*" r"(?:\.(?:[A-Za-z0-9_-]+|\*)(?:\[\d+\])*)*$"
+    r"^(?:[A-Za-z0-9_-]+|\*)(?:\[(?:\d+|\*)\])*"
+    r"(?:\.(?:[A-Za-z0-9_-]+|\*)(?:\[(?:\d+|\*)\])*)*$"
 )
 
 
@@ -71,7 +79,7 @@ def flag_unknown_keys(
     return unknown
 
 
-def _parse_path_segments(path: str) -> list[str | int]:
+def _parse_path_segments(path: str) -> list[_Segment]:
     if path.startswith("/"):
         json_segments = [
             segment.replace("~1", "/").replace("~0", "~") for segment in path.split("/")[1:]
@@ -81,45 +89,54 @@ def _parse_path_segments(path: str) -> list[str | int]:
         return [path]
     segments: list[str | int] = []
     for part in path.split("."):
-        match = re.fullmatch(r"([A-Za-z0-9_-]+|\*)((?:\[\d+\])*)", part)
+        match = re.fullmatch(r"([A-Za-z0-9_-]+|\*)((?:\[(?:\d+|\*)\])*)", part)
         if not match:
             segments.append(part)
             continue
         key, indexes = match.groups()
         segments.append(key)
         if indexes:
-            for idx in re.findall(r"\[(\d+)\]", indexes):
-                segments.append(int(idx))
+            for idx in re.findall(r"\[(\d+|\*)\]", indexes):
+                segments.append(int(idx) if idx.isdigit() else _ARRAY_WILDCARD)
     return segments
 
 
-def _format_dotpath(segments: list[str | int]) -> str:
+def _format_dotpath(segments: list[_Segment]) -> str:
     parts: list[str] = []
     for segment in segments:
-        if isinstance(segment, int):
+        if isinstance(segment, int) or segment is _ARRAY_WILDCARD:
             if not parts:
-                parts.append(f"[{segment}]")
+                parts.append("[*]" if segment is _ARRAY_WILDCARD else f"[{segment}]")
             else:
-                parts[-1] += f"[{segment}]"
+                parts[-1] += "[*]" if segment is _ARRAY_WILDCARD else f"[{segment}]"
         else:
             parts.append(segment)
     return ".".join(parts)
 
 
-def _has_dynamic_segments(segments: list[str | int]) -> bool:
-    return any(isinstance(segment, int) or segment == "*" for segment in segments)
+def _has_dynamic_segments(segments: list[_Segment]) -> bool:
+    return any(
+        isinstance(segment, int) or segment == "*" or segment is _ARRAY_WILDCARD
+        for segment in segments
+    )
 
 
-def _path_exists(schema: dict[str, Any], segments: list[str | int]) -> bool:
+def _is_array_segment(segment: _Segment) -> bool:
+    return isinstance(segment, int) or segment is _ARRAY_WILDCARD
+
+
+def _path_exists(schema: dict[str, Any], segments: list[_Segment]) -> bool:
     return _path_exists_at(schema, segments, 0)
 
 
-def _path_exists_at(schema: dict[str, Any], segments: list[str | int], index: int) -> bool:
+def _path_exists_at(schema: dict[str, Any], segments: list[_Segment], index: int) -> bool:
     if index >= len(segments):
         return True
     current_segment = segments[index]
-    if isinstance(current_segment, int):
+    if _is_array_segment(current_segment):
         return _path_exists_array(schema, segments, index)
+    if current_segment == "*":
+        return _path_exists_wildcard(schema, segments, index)
     if not isinstance(schema, dict):
         return False
     properties = schema.get("properties")
@@ -133,13 +150,32 @@ def _path_exists_at(schema: dict[str, Any], segments: list[str | int], index: in
     return False
 
 
-def _path_exists_array(schema: dict[str, Any], segments: list[str | int], index: int) -> bool:
+def _path_exists_array(schema: dict[str, Any], segments: list[_Segment], index: int) -> bool:
     if not isinstance(schema, dict):
         return False
     items = schema.get("items")
     if not isinstance(items, dict):
         return False
     return _path_exists_at(items, segments, index + 1)
+
+
+def _path_exists_wildcard(schema: dict[str, Any], segments: list[_Segment], index: int) -> bool:
+    if not isinstance(schema, dict):
+        return False
+    items = schema.get("items")
+    if isinstance(items, dict):
+        return _path_exists_at(items, segments, index + 1)
+    additional = schema.get("additionalProperties")
+    if isinstance(additional, dict):
+        return _path_exists_at(additional, segments, index + 1)
+    if additional is True:
+        return True
+    properties = schema.get("properties")
+    if isinstance(properties, dict):
+        return any(
+            _path_exists_at(value, segments, index + 1) for value in properties.values()
+        )
+    return False
 
 
 def _collect_schema_paths(schema: dict[str, Any], prefix: str = "") -> list[str]:
