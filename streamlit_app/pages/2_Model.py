@@ -7,9 +7,9 @@ import hashlib
 import html
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor
 from time import monotonic, sleep
 from typing import Any, Mapping
 
