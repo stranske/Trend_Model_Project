@@ -46,6 +46,7 @@ def pytest_configure(config) -> None:  # noqa: ARG001
             return
         pytest_rerunfailures.HAS_PYTEST_HANDLECRASHITEM = False
 
+
 # --- Ensure local ``src`` packages are importable ---------------------------------------
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
