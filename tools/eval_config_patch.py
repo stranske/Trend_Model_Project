@@ -616,9 +616,9 @@ def evaluate_prompt(
                     if "risk_flags" not in response_patch:
                         response_patch["risk_flags"] = []
                     if "summary" not in response_patch:
-                        response_patch["summary"] = case.get("response_summary") or _default_summary(
-                            response_patch.get("operations")
-                        )
+                        response_patch["summary"] = case.get(
+                            "response_summary"
+                        ) or _default_summary(response_patch.get("operations"))
                 response_text = json.dumps(response_patch, ensure_ascii=True)
             responses = [response_text]
 
