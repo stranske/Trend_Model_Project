@@ -31,6 +31,13 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
         def __exit__(self, *_args):
             return False
 
+    class Placeholder:
+        def progress(self, *_args, **_kwargs):
+            return SimpleNamespace(progress=_noop)
+
+        def empty(self):
+            return None
+
     stub = SimpleNamespace()
     stub.session_state = {}
     stub.title = _noop
@@ -56,6 +63,7 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     stub.cache_resource = _passthrough_decorator
     stub.expander = lambda *_args, **_kwargs: Context()
     stub.sidebar = Context()
+    stub.dialog = lambda *_args, **_kwargs: Context()
     stub.form = lambda *_args, **_kwargs: Context()
     stub.form_submit_button = lambda *_args, **_kwargs: False
     stub.button = lambda *_args, **_kwargs: False
@@ -66,6 +74,7 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     stub.number_input = lambda _label, **kwargs: kwargs.get("value", 0)
     stub.checkbox = lambda _label, value=False, **_kwargs: value
     stub.slider = lambda _label, **kwargs: kwargs.get("value", 0)
+    stub.empty = lambda: Placeholder()
 
     monkeypatch.setitem(sys.modules, "streamlit", stub)
 
@@ -180,3 +189,71 @@ def test_side_by_side_diff_renders_yaml(model_module: ModuleType) -> None:
     model_module._render_side_by_side_diff({"lookback_periods": 12}, {"lookback_periods": 24})
 
     assert "yaml" in languages
+
+
+def test_revert_uses_config_history_stack(model_module: ModuleType) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    initial_state = {"lookback_periods": 6, "min_history_periods": 6}
+    stub.session_state["model_state"] = dict(initial_state)
+
+    preview_one = {
+        "before": dict(initial_state),
+        "after": {"lookback_periods": 12, "min_history_periods": 6},
+        "instruction": "Increase lookback",
+        "diff": "--- before\n+++ after\n",
+    }
+    model_module._apply_preview_state(preview_one, run_analysis=False)
+
+    preview_two = {
+        "before": dict(preview_one["after"]),
+        "after": {"lookback_periods": 12, "min_history_periods": 9},
+        "instruction": "Increase min history",
+        "diff": "--- before\n+++ after\n",
+    }
+    model_module._apply_preview_state(preview_two, run_analysis=False)
+
+    history = model_module._get_config_change_history()
+    assert len(history) == 2
+
+    model_module._revert_last_config_change()
+    assert stub.session_state.get("model_state") == preview_two["before"]
+    assert len(model_module._get_config_change_history()) == 1
+
+    model_module._revert_last_config_change()
+    assert stub.session_state.get("model_state") == initial_state
+    assert len(model_module._get_config_change_history()) == 0
+
+
+def test_render_config_change_history_renders_entries(model_module: ModuleType) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    initial_state = {"lookback_periods": 6, "min_history_periods": 6}
+    stub.session_state["model_state"] = dict(initial_state)
+
+    preview = {
+        "before": dict(initial_state),
+        "after": {"lookback_periods": 12, "min_history_periods": 6},
+        "instruction": "Increase lookback",
+        "diff": "--- before\n+++ after\n",
+    }
+    model_module._apply_preview_state(preview, run_analysis=False)
+
+    history_len = len(model_module._get_config_change_history())
+    model_module._render_config_change_history()
+    assert len(model_module._get_config_change_history()) == history_len
+
+
+def test_risky_change_requires_confirmation(model_module: ModuleType) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    preview = {"after": {"lookback_periods": 12}, "risk_flags": ["constraints"]}
+    assert model_module._requires_risky_confirmation(preview) is True
+
+    model_module._queue_risky_apply(preview, run_analysis=False)
+    pending = stub.session_state.get("config_chat_pending_apply")
+    assert isinstance(pending, dict)
+    assert pending.get("preview") == preview
