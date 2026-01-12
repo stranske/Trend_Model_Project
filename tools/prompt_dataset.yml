@@ -110,3 +110,53 @@
   constraints:
     - patch.operations | length == 1
     - not patch.risk_flags
+- id: selection_top_n_6
+  instruction: "Include the top 6 ranked managers."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.rank.n
+      value: 6
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_top_pct_5
+  instruction: "Use the top 5% for ranking inclusion."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.rank.pct
+      value: 0.05
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_rank_threshold
+  instruction: "Only include managers above a 2.0 threshold."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.rank.threshold
+      value: 2.0
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_drop_bottom_3
+  instruction: "Drop the bottom 3 ranked managers."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.rank.bottom_k
+      value: 3
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_use_rank_selector
+  instruction: "Use the rank-based selector."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.selector.name
+      value: rank
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
