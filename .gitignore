@@ -25,6 +25,7 @@ tmp_logs/
 test_output.log
 *.log
 node_modules/
+.trend_nl_logs/
 
 # auto-generated virtual environments
 .autofix-venv/
@@ -116,6 +117,11 @@ keepalive-metrics.ndjson
 coverage-trend-history.ndjson
 metrics-history.ndjson
 residual-trend-history.ndjson
+
+# --- Keepalive Status Files (HIGH conflict risk) ---
+# Auto-generated status tracking, should not be committed
+keepalive_status.md
+docs/keepalive/status/
 
 # PR-specific file - should not be tracked
 pr_body.md
