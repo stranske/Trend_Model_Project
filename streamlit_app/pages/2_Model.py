@@ -32,7 +32,79 @@ WEIGHTING_SCHEMES = [
 
 
 # Config chat panel helpers
-def _render_config_chat_contents() -> None:
+def _format_percent(value: Any) -> str:
+    if value is None:
+        return "—"
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return "—"
+    return f"{numeric * 100:.1f}%"
+
+
+def _format_value(value: Any) -> str:
+    if value is None:
+        return "—"
+    if isinstance(value, bool):
+        return "Yes" if value else "No"
+    if isinstance(value, float):
+        return f"{value:.3f}"
+    return str(value)
+
+
+def _config_summary_sections(
+    model_state: Mapping[str, Any],
+) -> list[tuple[str, list[tuple[str, str]]]]:
+    return [
+        (
+            "Overview",
+            [
+                ("Preset", _format_value(model_state.get("preset"))),
+                ("Weighting", _format_value(model_state.get("weighting_scheme"))),
+                ("Selection count", _format_value(model_state.get("selection_count"))),
+            ],
+        ),
+        (
+            "Time Windows",
+            [
+                ("Lookback periods", _format_value(model_state.get("lookback_periods"))),
+                ("Evaluation periods", _format_value(model_state.get("evaluation_periods"))),
+                ("Min history", _format_value(model_state.get("min_history_periods"))),
+                ("Frequency", _format_value(model_state.get("multi_period_frequency"))),
+            ],
+        ),
+        (
+            "Risk + Constraints",
+            [
+                ("Risk target", _format_percent(model_state.get("risk_target"))),
+                ("Max weight", _format_percent(model_state.get("max_weight"))),
+                ("Min weight", _format_percent(model_state.get("min_weight"))),
+                ("Max turnover", _format_percent(model_state.get("max_turnover"))),
+            ],
+        ),
+        (
+            "Signals",
+            [
+                ("Trend window", _format_value(model_state.get("trend_window"))),
+                ("Trend lag", _format_value(model_state.get("trend_lag"))),
+                ("Vol adjust", _format_value(model_state.get("vol_adjust_enabled"))),
+            ],
+        ),
+    ]
+
+
+def _render_config_summary(model_state: Mapping[str, Any] | None) -> None:
+    if not model_state:
+        st.info("No configuration loaded yet.")
+        return
+
+    for title, rows in _config_summary_sections(model_state):
+        st.markdown(f"**{title}**")
+        for label, value in rows:
+            st.markdown(f"- {label}: {value}")
+
+
+def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
     st.caption("Describe the configuration change you want to try.")
     instruction = st.text_area(
         "Instruction",
@@ -48,19 +120,26 @@ def _render_config_chat_contents() -> None:
         else:
             st.session_state["config_chat_last_instruction"] = trimmed
             st.success("Instruction captured. Preview coming next.")
+    st.markdown("---")
+    st.markdown("**Current configuration summary**")
+    _render_config_summary(model_state)
 
 
-def render_config_chat_panel(*, location: str = "sidebar") -> None:
+def render_config_chat_panel(
+    *,
+    location: str = "sidebar",
+    model_state: Mapping[str, Any] | None = None,
+) -> None:
     """Render the Config Chat panel for natural-language config tweaks."""
 
     if location == "sidebar":
         with st.sidebar:
             with st.expander("💬 Config Chat", expanded=False):
-                _render_config_chat_contents()
+                _render_config_chat_contents(model_state)
         return
 
     with st.expander("💬 Config Chat", expanded=False):
-        _render_config_chat_contents()
+        _render_config_chat_contents(model_state)
 
 
 # Preset configurations with default parameter values
@@ -578,7 +657,8 @@ for the covariance matrix.
 
 def render_model_page() -> None:
     app_state.initialize_session_state()
-    render_config_chat_panel()
+    model_state = st.session_state.setdefault("model_state", _initial_model_state())
+    render_config_chat_panel(model_state=model_state)
     st.title("Model Configuration")
 
     # Clarify this is for custom analysis
@@ -674,7 +754,6 @@ def render_model_page() -> None:
 
     st.markdown("---")
 
-    model_state = st.session_state.setdefault("model_state", _initial_model_state())
     saved_model_states = app_state.get_saved_model_states()
     saved_names = sorted(saved_model_states)
 
