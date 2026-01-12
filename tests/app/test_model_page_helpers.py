@@ -40,6 +40,7 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     stub.info = _noop
     stub.success = _noop
     stub.warning = _noop
+    stub.code = _noop
     stub.altair_chart = _noop
     stub.markdown = _noop
     stub.caption = _noop
@@ -54,10 +55,12 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     stub.cache_data = _passthrough_decorator
     stub.cache_resource = _passthrough_decorator
     stub.expander = lambda *_args, **_kwargs: Context()
+    stub.sidebar = Context()
     stub.form = lambda *_args, **_kwargs: Context()
     stub.form_submit_button = lambda *_args, **_kwargs: False
     stub.button = lambda *_args, **_kwargs: False
     stub.download_button = _noop
+    stub.tabs = lambda labels: [Context() for _ in labels]
     stub.columns = lambda n: [Context() for _ in range(n)]
     stub.selectbox = lambda _label, options, index=0, **_kwargs: options[index]
     stub.number_input = lambda _label, **kwargs: kwargs.get("value", 0)
@@ -151,3 +154,29 @@ def test_render_model_page_clears_cached_results(
     assert stub.clear_calls == initial_clears + 1
     for key in ["analysis_result", "analysis_result_key", "analysis_error"]:
         assert key not in stub.session_state
+
+
+def test_render_config_chat_panel_stores_instruction(model_module: ModuleType) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    stub.text_area = lambda *_args, **_kwargs: "Increase lookback to 24"
+    stub.button = lambda *_args, **_kwargs: True
+
+    model_module.render_config_chat_panel()
+
+    assert stub.session_state.get("config_chat_last_instruction") == "Increase lookback to 24"
+
+
+def test_side_by_side_diff_renders_yaml(model_module: ModuleType) -> None:
+    stub = model_module.st
+    languages: list[str | None] = []
+
+    def capture_code(_value: str, *, language: str | None = None, **_kwargs):
+        languages.append(language)
+
+    stub.code = capture_code
+
+    model_module._render_side_by_side_diff({"lookback_periods": 12}, {"lookback_periods": 24})
+
+    assert "yaml" in languages
