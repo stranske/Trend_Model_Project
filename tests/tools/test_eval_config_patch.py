@@ -53,6 +53,51 @@ def test_evaluate_case_missing_instruction_errors() -> None:
     assert "Missing instruction." in result.errors
 
 
+def test_evaluate_prompt_rejects_empty_llm_responses() -> None:
+    case = {
+        "id": "empty_llm_responses",
+        "instruction": "Set top_n to 9.",
+        "current_config": {"analysis": {"top_n": 8}},
+        "expected_patch": {"operations": [], "risk_flags": [], "summary": "No changes."},
+        "llm_responses": [],
+    }
+
+    result = eval_config_patch.evaluate_prompt(case, chain=None, mode="mock")
+
+    assert not result.passed
+    assert "llm_responses must be a non-empty list." in result.errors
+
+
+def test_evaluate_prompt_rejects_non_string_llm_responses() -> None:
+    case = {
+        "id": "non_string_llm_responses",
+        "instruction": "Set top_n to 9.",
+        "current_config": {"analysis": {"top_n": 8}},
+        "expected_patch": {"operations": [], "risk_flags": [], "summary": "No changes."},
+        "llm_responses": [{"operations": []}],
+    }
+
+    result = eval_config_patch.evaluate_prompt(case, chain=None, mode="mock")
+
+    assert not result.passed
+    assert "llm_responses must contain only strings." in result.errors
+
+
+def test_evaluate_prompt_rejects_non_string_llm_response() -> None:
+    case = {
+        "id": "non_string_llm_response",
+        "instruction": "Set top_n to 9.",
+        "current_config": {"analysis": {"top_n": 8}},
+        "expected_patch": {"operations": [], "risk_flags": [], "summary": "No changes."},
+        "llm_response": {"operations": []},
+    }
+
+    result = eval_config_patch.evaluate_prompt(case, chain=None, mode="mock")
+
+    assert not result.passed
+    assert "llm_response must be a string." in result.errors
+
+
 def test_evaluate_case_accepts_prompt_dataset_format() -> None:
     result = _evaluate_case(
         {

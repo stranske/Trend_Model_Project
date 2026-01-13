@@ -187,8 +187,15 @@ def evaluate_prompt(
     errors: list[str] = []
     if not isinstance(instruction, str) or not instruction.strip():
         errors.append("Missing instruction.")
-    if responses is not None and not isinstance(responses, list):
-        errors.append("llm_responses must be a list.")
+    if responses is not None:
+        if not isinstance(responses, list):
+            errors.append("llm_responses must be a list.")
+        elif not responses:
+            errors.append("llm_responses must be a non-empty list.")
+        elif not all(isinstance(item, str) for item in responses):
+            errors.append("llm_responses must contain only strings.")
+    if response_text is not None and not isinstance(response_text, str):
+        errors.append("llm_response must be a string.")
     if expected is None and expected_ops is not None:
         expected = {
             "operations": expected_ops,
