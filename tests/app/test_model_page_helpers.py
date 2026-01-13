@@ -499,9 +499,9 @@ def test_render_side_by_side_diff_snapshot(model_module: ModuleType) -> None:
 
     def normalize_ids(value: str) -> str:
         value = re.sub(r"difflib_chg_to\d+__", "difflib_chg_toX__", value)
-        value = re.sub(r"id=\"from\d+_", "id=\"fromX_", value)
-        value = re.sub(r"id=\"to\d+_", "id=\"toX_", value)
-        value = re.sub(r"href=\"#difflib_chg_to\d+__", "href=\"#difflib_chg_toX__", value)
+        value = re.sub(r"id=\"from\d+_", 'id="fromX_', value)
+        value = re.sub(r"id=\"to\d+_", 'id="toX_', value)
+        value = re.sub(r"href=\"#difflib_chg_to\d+__", 'href="#difflib_chg_toX__', value)
         return value
 
     assert normalize_ids(markdown_calls[-1]) == normalize_ids(expected)
@@ -550,7 +550,10 @@ def test_render_config_diff_preview_renders_tabs_and_diff(
     assert tab_sets == [["Unified diff", "Side-by-side"]]
     assert unified_calls == ["--- before\n+++ after\n+ lookback_periods: 12\n"]
     assert side_by_side_calls == [
-        ({"lookback_periods": 6, "min_history_periods": 6}, {"lookback_periods": 12, "min_history_periods": 6})
+        (
+            {"lookback_periods": 6, "min_history_periods": 6},
+            {"lookback_periods": 12, "min_history_periods": 6},
+        )
     ]
 
 
