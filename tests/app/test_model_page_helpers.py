@@ -261,6 +261,19 @@ def test_risky_change_requires_confirmation(model_module: ModuleType) -> None:
     assert pending.get("preview") == preview
 
 
+def test_unknown_keys_require_confirmation(model_module: ModuleType) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    preview = {"after": {"lookback_periods": 12}, "needs_review": True}
+    assert model_module._requires_risky_confirmation(preview) is True
+
+    model_module._queue_risky_apply(preview, run_analysis=False)
+    pending = stub.session_state.get("config_chat_pending_apply")
+    assert isinstance(pending, dict)
+    assert pending.get("preview") == preview
+
+
 def test_render_config_change_history_shows_tabs_and_entries(
     monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
 ) -> None:

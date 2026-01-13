@@ -76,6 +76,7 @@ def _record_config_change(preview: Mapping[str, Any]) -> None:
         "instruction": preview.get("instruction"),
         "summary": preview.get("summary"),
         "risk_flags": list(preview.get("risk_flags") or []),
+        "needs_review": bool(preview.get("needs_review")),
         "before": deepcopy(dict(before)),
         "after": deepcopy(dict(after)),
         "diff": preview.get("diff"),
@@ -245,6 +246,7 @@ def _generate_config_preview(
         "diff": diff_text,
         "summary": patch.summary,
         "risk_flags": [flag.value for flag in patch.risk_flags],
+        "needs_review": patch.needs_review,
         "patch": patch.model_dump(),
     }
 
@@ -368,7 +370,7 @@ def _apply_preview_state(
 
 def _requires_risky_confirmation(preview: Mapping[str, Any]) -> bool:
     risk_flags = preview.get("risk_flags")
-    return bool(risk_flags)
+    return bool(risk_flags) or bool(preview.get("needs_review"))
 
 
 def _queue_risky_apply(preview: Mapping[str, Any], *, run_analysis: bool) -> None:
@@ -387,7 +389,8 @@ def _render_risky_change_dialog() -> None:
         st.session_state.pop("config_chat_pending_apply", None)
         return
     risk_flags = preview.get("risk_flags") or []
-    if not risk_flags:
+    needs_review = bool(preview.get("needs_review"))
+    if not risk_flags and not needs_review:
         st.session_state.pop("config_chat_pending_apply", None)
         return
 
@@ -398,7 +401,10 @@ def _render_risky_change_dialog() -> None:
 
     with dialog("Confirm risky change"):
         st.warning("This change modifies sensitive configuration settings.")
-        st.caption(f"Flags: {', '.join(risk_flags)}")
+        if risk_flags:
+            st.caption(f"Flags: {', '.join(risk_flags)}")
+        if needs_review:
+            st.caption("Needs review: unknown or ambiguous keys detected.")
         confirm = st.button("Apply anyway", type="primary")
         cancel = st.button("Cancel", type="secondary")
         if confirm:
@@ -576,6 +582,8 @@ def _render_config_change_history() -> None:
             risk_flags = entry.get("risk_flags")
             if risk_flags:
                 st.caption(f"Risk flags: {', '.join(risk_flags)}")
+            if entry.get("needs_review"):
+                st.caption("Needs review: unknown or ambiguous keys detected.")
             before = entry.get("before")
             after = entry.get("after")
             if not isinstance(before, Mapping) or not isinstance(after, Mapping):
