@@ -132,7 +132,9 @@ def test_evaluate_prompt_constraint_checks_pass() -> None:
         "current_config": {"analysis": {"top_n": 8}},
         "allowed_schema": {
             "type": "object",
-            "properties": {"analysis": {"type": "object", "properties": {"top_n": {"type": "integer"}}}},
+            "properties": {
+                "analysis": {"type": "object", "properties": {"top_n": {"type": "integer"}}}
+            },
         },
         "expected_patch": {
             "operations": [{"op": "set", "path": "analysis.top_n", "value": 9}],
@@ -162,7 +164,9 @@ def test_evaluate_prompt_constraint_checks_fail() -> None:
         "current_config": {"analysis": {"top_n": 8}},
         "allowed_schema": {
             "type": "object",
-            "properties": {"analysis": {"type": "object", "properties": {"top_n": {"type": "integer"}}}},
+            "properties": {
+                "analysis": {"type": "object", "properties": {"top_n": {"type": "integer"}}}
+            },
         },
         "expected_patch": {
             "operations": [{"op": "set", "path": "analysis.top_n", "value": 9}],
@@ -183,7 +187,9 @@ def test_evaluate_prompt_constraint_checks_fail() -> None:
     result = eval_config_patch.evaluate_prompt(case, chain=None, mode="mock")
 
     assert not result.passed
-    assert any("Constraint failed: patch.operations | length == 2" in error for error in result.errors)
+    assert any(
+        "Constraint failed: patch.operations | length == 2" in error for error in result.errors
+    )
 
 
 def test_format_summary_table_includes_failure_diagnostics() -> None:
