@@ -285,7 +285,9 @@ def test_render_config_change_history_shows_tabs_and_entries(
         tab_sets.append(list(labels))
         return [DummyContext() for _ in labels]
 
-    monkeypatch.setattr(model_module, "_render_unified_diff", lambda diff: unified_calls.append(diff))
+    monkeypatch.setattr(
+        model_module, "_render_unified_diff", lambda diff: unified_calls.append(diff)
+    )
     monkeypatch.setattr(
         model_module,
         "_render_side_by_side_diff",
