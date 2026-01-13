@@ -863,7 +863,9 @@ def test_main_nl_requires_confirmation_for_unknown_keys(
 ) -> None:
     output_path = tmp_path / "confirmed.yml"
     patch = ConfigPatch(
-        operations=[PatchOperation(op="set", path="portfolio.constraints", value={"max_weight": 0.5})],
+        operations=[
+            PatchOperation(op="set", path="portfolio.constraints", value={"max_weight": 0.5})
+        ],
         summary="Set max weight",
         needs_review=True,
     )
