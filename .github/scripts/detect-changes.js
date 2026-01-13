@@ -230,7 +230,7 @@ async function detectChanges({ github, context, core, files, fetchFiles } = {}) 
       doc_only: 'false',
       run_core: 'true',
       reason: 'non_pr_event',
-      docker_changed: 'false',
+      docker_changed: 'true',
       workflow_changed: 'true',
     };
     if (core) {
