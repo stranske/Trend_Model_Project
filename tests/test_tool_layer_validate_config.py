@@ -53,7 +53,7 @@ def test_validate_config_rejects_path_traversal(
     result = tool.validate_config({}, base_path=Path("config/../secrets"))
 
     assert result.status == "error"
-    assert "traversal" in (result.message or "")
+    assert result.message == "SecurityError: Path traversal detected: config/../secrets"
 
 
 def test_validate_config_rejects_symlink_escape(

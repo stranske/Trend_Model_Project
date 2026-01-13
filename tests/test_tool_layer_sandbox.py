@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -30,7 +31,10 @@ def test_sandbox_rejects_traversal_components(
     monkeypatch.setenv("TREND_REPO_ROOT", str(repo_root))
     tool = ToolLayer()
 
-    with pytest.raises(ValueError, match="traversal"):
+    with pytest.raises(
+        ValueError,
+        match=re.escape("SecurityError: Path traversal detected: data/../secrets.csv"),
+    ):
         tool._sandbox_path("data/../secrets.csv")
 
 
@@ -44,7 +48,10 @@ def test_sandbox_rejects_absolute_traversal_components(
     tool = ToolLayer()
 
     absolute_path = repo_root / "data" / ".." / "secrets.csv"
-    with pytest.raises(ValueError, match="traversal"):
+    with pytest.raises(
+        ValueError,
+        match=re.escape(f"SecurityError: Path traversal detected: {absolute_path}"),
+    ):
         tool._sandbox_path(absolute_path)
 
 

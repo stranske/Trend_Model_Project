@@ -33,6 +33,7 @@ from utils.paths import proj_path
 
 _CONFIG_DIR = Path(__file__).resolve().parents[3] / "config"
 _GLOB_CHARS = {"*", "?", "[", "]"}
+_PATH_TRAVERSAL_MESSAGE = "SecurityError: Path traversal detected: {path}"
 
 
 def _resolve_path(value: str | os.PathLike[str], *, base_dir: Path | None) -> Path:
@@ -49,6 +50,7 @@ def _resolve_path(value: str | os.PathLike[str], *, base_dir: Path | None) -> Pa
     """
 
     # Strip whitespace from string paths to handle copy-paste artifacts
+    display_value = value.strip() if isinstance(value, str) else str(value)
     if isinstance(value, str):
         value = value.strip()
 
@@ -87,9 +89,7 @@ def _resolve_path(value: str | os.PathLike[str], *, base_dir: Path | None) -> Pa
 
         # Verify resolved path is under at least one allowed root
         if not any(path.resolve().is_relative_to(root) for root in allowed_roots):
-            raise ValueError(
-                f"path traversal outside project directory is not allowed (resolved to {path})"
-            )
+            raise ValueError(_PATH_TRAVERSAL_MESSAGE.format(path=display_value))
     if any(ch in str(raw) for ch in _GLOB_CHARS):
         # Globs are not supported because downstream readers expect a concrete
         # CSV file.  Raising here keeps the failure actionable.

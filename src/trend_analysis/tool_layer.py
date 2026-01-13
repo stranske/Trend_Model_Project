@@ -22,6 +22,7 @@ from utils.paths import proj_path
 _SANDBOX_DIRS = ("config", "data", "outputs")
 _TOOL_LOG_PATH = Path("outputs") / "logs" / "tool_calls.jsonl"
 _REDACTED_VALUE = "***redacted***"
+_PATH_TRAVERSAL_MESSAGE = "SecurityError: Path traversal detected: {path}"
 _SENSITIVE_KEYS = (
     "password",
     "token",
@@ -62,6 +63,10 @@ def _summarize_value(value: Any) -> str:
     if len(text) > 120:
         return f"{type(value).__name__}(len={len(text)})"
     return text
+
+
+def _format_path_traversal(path: str | Path) -> str:
+    return _PATH_TRAVERSAL_MESSAGE.format(path=str(path))
 
 
 def _sanitize_value(value: Any, *, key: str | None = None) -> Any:
@@ -114,9 +119,10 @@ class ToolLayer:
         if not isinstance(path, (str, Path)):
             raise TypeError("path must be a string or Path")
 
+        raw_path = path
         candidate = Path(path).expanduser()
         if any(part == ".." for part in candidate.parts):
-            raise ValueError("path traversal is not allowed")
+            raise ValueError(_format_path_traversal(raw_path))
 
         if not candidate.is_absolute():
             candidate = proj_path() / candidate
