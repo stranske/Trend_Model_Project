@@ -186,9 +186,7 @@ class ConfigPatchChain:
                     "Prompt injection detected (%s); skipping LLM call.",
                     ", ".join(sorted(set(injection_hits))),
                 )
-                patch = ConfigPatch(
-                    operations=[], summary=DEFAULT_BLOCK_SUMMARY, risk_flags=[]
-                )
+                patch = ConfigPatch(operations=[], summary=DEFAULT_BLOCK_SUMMARY, risk_flags=[])
                 return patch
 
             def _response_provider(attempt: int, last_error: Exception | None) -> str:
