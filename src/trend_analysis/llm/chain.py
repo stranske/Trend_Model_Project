@@ -17,7 +17,10 @@ from trend_analysis.config.patch import (
     format_retry_error,
     parse_config_patch_with_retries,
 )
-from trend_analysis.llm.injection_guard import detect_prompt_injection, prompt_injection_summary
+from trend_analysis.llm.injection_guard import (
+    detect_prompt_injection,
+    prompt_injection_summary,
+)
 from trend_analysis.llm.nl_logging import NLOperationLog, write_nl_log
 from trend_analysis.llm.prompts import build_retry_prompt, format_config_for_prompt
 from trend_analysis.llm.schema import load_compact_schema, select_schema_sections
