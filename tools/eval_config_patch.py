@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 import time
 from dataclasses import dataclass
@@ -17,6 +18,8 @@ from langchain_core.runnables import RunnableLambda
 from trend_analysis.config.patch import ConfigPatch
 from trend_analysis.llm.chain import ConfigPatchChain
 from trend_analysis.llm.prompts import build_config_patch_prompt
+from trend_analysis.llm.providers import LLMProviderConfig, create_llm
+from trend_analysis.llm.schema import load_compact_schema
 
 
 @dataclass(frozen=True)
@@ -758,6 +761,87 @@ def _build_report(results: list[EvalResult]) -> dict[str, Any]:
     }
 
 
+def _resolve_provider_config(
+    *,
+    provider: str | None,
+    model: str | None,
+    base_url: str | None,
+    organization: str | None,
+    max_retries: int | None,
+    timeout: float | None,
+) -> LLMProviderConfig:
+    provider_name = (provider or os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
+    supported = {"openai", "anthropic", "ollama"}
+    if provider_name not in supported:
+        raise ValueError(
+            f"Unknown LLM provider '{provider_name}'. Expected one of: {', '.join(sorted(supported))}."
+        )
+    api_key = os.environ.get("TREND_LLM_API_KEY")
+    if not api_key:
+        if provider_name == "openai":
+            api_key = os.environ.get("OPENAI_API_KEY")
+        elif provider_name == "anthropic":
+            api_key = os.environ.get("ANTHROPIC_API_KEY")
+    model_name = model or os.environ.get("TREND_LLM_MODEL")
+    base_url = base_url or os.environ.get("TREND_LLM_BASE_URL")
+    organization = organization or os.environ.get("TREND_LLM_ORG")
+    max_retries_value = max_retries
+    timeout_value = timeout
+    if max_retries_value is None:
+        max_retries_env = os.environ.get("TREND_LLM_MAX_RETRIES")
+        if max_retries_env:
+            max_retries_value = int(max_retries_env)
+    if timeout_value is None:
+        timeout_env = os.environ.get("TREND_LLM_TIMEOUT")
+        if timeout_env:
+            timeout_value = float(timeout_env)
+    config_kwargs: dict[str, Any] = {"provider": provider_name}
+    if model_name:
+        config_kwargs["model"] = model_name
+    if api_key:
+        config_kwargs["api_key"] = api_key
+    if base_url:
+        config_kwargs["base_url"] = base_url
+    if organization:
+        config_kwargs["organization"] = organization
+    if max_retries_value is not None:
+        config_kwargs["max_retries"] = max_retries_value
+    if timeout_value is not None:
+        config_kwargs["timeout"] = timeout_value
+    return LLMProviderConfig(**config_kwargs)
+
+
+def _build_live_chain(
+    *,
+    provider: str | None,
+    model: str | None,
+    temperature: float | None,
+    max_tokens: int | None,
+    max_retries: int | None,
+    timeout: float | None,
+    base_url: str | None,
+    organization: str | None,
+) -> ConfigPatchChain:
+    config = _resolve_provider_config(
+        provider=provider,
+        model=model,
+        base_url=base_url,
+        organization=organization,
+        max_retries=max_retries,
+        timeout=timeout,
+    )
+    llm = create_llm(config)
+    schema = load_compact_schema()
+    return ConfigPatchChain.from_env(
+        llm=llm,
+        schema=schema,
+        prompt_builder=build_config_patch_prompt,
+        temperature=temperature,
+        model=config.model,
+        max_tokens=max_tokens,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Evaluate ConfigPatchChain outputs.")
     parser.add_argument(
@@ -771,6 +855,23 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Use embedded test cases instead of reading from a file.",
     )
+    parser.add_argument(
+        "--mode",
+        choices=("mock", "live"),
+        default="mock",
+        help="Evaluation mode: mock uses canned LLM responses; live calls a real provider.",
+    )
+    parser.add_argument(
+        "--provider",
+        help="LLM provider for live mode (defaults to TREND_LLM_PROVIDER or openai).",
+    )
+    parser.add_argument("--model", help="Override the model for live mode.")
+    parser.add_argument("--temperature", type=float, help="Override model temperature.")
+    parser.add_argument("--max-tokens", type=int, help="Override max tokens for live mode.")
+    parser.add_argument("--max-retries", type=int, help="Override provider max retries.")
+    parser.add_argument("--timeout", type=float, help="Override provider timeout in seconds.")
+    parser.add_argument("--base-url", help="Override provider base URL.")
+    parser.add_argument("--organization", help="Override provider organization.")
     parser.add_argument(
         "--report",
         type=Path,
@@ -786,7 +887,24 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Failed to load cases: {exc}", file=sys.stderr)
         return 1
 
-    results = [_evaluate_case(case) for case in cases]
+    if args.mode == "live":
+        try:
+            chain = _build_live_chain(
+                provider=args.provider,
+                model=args.model,
+                temperature=args.temperature,
+                max_tokens=args.max_tokens,
+                max_retries=args.max_retries,
+                timeout=args.timeout,
+                base_url=args.base_url,
+                organization=args.organization,
+            )
+        except Exception as exc:
+            print(f"Failed to initialize live mode: {exc}", file=sys.stderr)
+            return 1
+        results = [evaluate_prompt(case, chain=chain, mode="live") for case in cases]
+    else:
+        results = [_evaluate_case(case) for case in cases]
     report = _build_report(results)
     try:
         args.report.write_text(json.dumps(report, indent=2, ensure_ascii=True), encoding="utf-8")
