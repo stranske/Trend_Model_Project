@@ -146,9 +146,7 @@ def test_run_analysis_rejects_path_traversal(
     result = tool.run_analysis(cfg)
 
     assert result.status == "error"
-    assert "SecurityError: Path traversal detected: ../../secrets.csv" in (
-        result.message or ""
-    )
+    assert "SecurityError: Path traversal detected: ../../secrets.csv" in (result.message or "")
 
 
 def test_run_analysis_rejects_symlink_escape(
