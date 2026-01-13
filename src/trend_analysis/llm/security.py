@@ -6,7 +6,7 @@ import re
 
 _INJECTION_PATTERNS: dict[str, re.Pattern[str]] = {
     "override_instructions": re.compile(
-        r"\b(ignore|disregard|override)\b[\s\S]{0,80}\b(instruction|instructions|rules)\b",
+        r"\b(ignore|disregard|override|forget|bypass)\b[\s\S]{0,80}\b(instruction|instructions|rules)\b",
         re.IGNORECASE,
     ),
     "system_prompt_leak": re.compile(
@@ -19,6 +19,18 @@ _INJECTION_PATTERNS: dict[str, re.Pattern[str]] = {
     ),
     "tool_execution": re.compile(
         r"\b(run|execute)\b[\s\S]{0,80}\b(shell|bash|terminal|command)\b",
+        re.IGNORECASE,
+    ),
+    "tool_call_injection": re.compile(
+        r"\b(call|use|invoke)\b[\s\S]{0,80}\b(tool|tools|function|functions|api|plugin)\b",
+        re.IGNORECASE,
+    ),
+    "role_tag_injection": re.compile(
+        r"(?m)^\s*(system|assistant|developer|user)\s*:",
+        re.IGNORECASE,
+    ),
+    "role_json_injection": re.compile(
+        r"\"role\"\s*:\s*\"(system|assistant|developer|user)\"",
         re.IGNORECASE,
     ),
     "jailbreak_keyword": re.compile(r"\b(jailbreak|do anything now|dan)\b", re.IGNORECASE),
