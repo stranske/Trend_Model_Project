@@ -98,6 +98,22 @@ def test_evaluate_prompt_rejects_non_string_llm_response() -> None:
     assert "llm_response must be a string." in result.errors
 
 
+def test_evaluate_prompt_rejects_conflicting_response_inputs() -> None:
+    case = {
+        "id": "conflicting_llm_response_inputs",
+        "instruction": "Set top_n to 9.",
+        "current_config": {"analysis": {"top_n": 8}},
+        "expected_patch": {"operations": [], "risk_flags": [], "summary": "No changes."},
+        "llm_response": json.dumps({"operations": []}, ensure_ascii=True),
+        "llm_responses": [json.dumps({"operations": []}, ensure_ascii=True)],
+    }
+
+    result = eval_config_patch.evaluate_prompt(case, chain=None, mode="mock")
+
+    assert not result.passed
+    assert "Provide only one of llm_response or llm_responses." in result.errors
+
+
 def test_evaluate_case_accepts_prompt_dataset_format() -> None:
     result = _evaluate_case(
         {

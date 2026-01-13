@@ -196,6 +196,8 @@ def evaluate_prompt(
             errors.append("llm_responses must contain only strings.")
     if response_text is not None and not isinstance(response_text, str):
         errors.append("llm_response must be a string.")
+    if responses is not None and response_text is not None:
+        errors.append("Provide only one of llm_response or llm_responses.")
     if expected is None and expected_ops is not None:
         expected = {
             "operations": expected_ops,
