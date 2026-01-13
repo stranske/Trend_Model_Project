@@ -24,6 +24,8 @@ def main() -> None:
     instruction = "use risk parity weighting"
     config_path = Path("config/demo.yml")
     provider = os.environ.get("TREND_LLM_PROVIDER", "openai").lower()
+    if not config_path.exists():
+        raise SystemExit(f"Config file not found: {config_path}")
 
     config = LLMProviderConfig(
         provider=provider,
@@ -32,6 +34,10 @@ def main() -> None:
         base_url=os.environ.get("TREND_LLM_BASE_URL"),
         organization=os.environ.get("TREND_LLM_ORG"),
     )
+    if provider != "ollama" and not config.api_key:
+        raise SystemExit(
+            "Missing API key. Set TREND_LLM_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY."
+        )
     llm = create_llm(config)
     chain = ConfigPatchChain.from_env(
         llm=llm,
