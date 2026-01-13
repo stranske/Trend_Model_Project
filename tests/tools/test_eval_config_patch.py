@@ -228,12 +228,13 @@ def test_evaluate_prompt_constraint_checks_fail() -> None:
 
 def test_format_summary_table_includes_failure_diagnostics() -> None:
     results = [
-        EvalResult(case_id="case_pass", passed=True, errors=[]),
+        EvalResult(case_id="case_pass", passed=True, errors=[], duration=0.12),
         EvalResult(
             case_id="case_fail",
             passed=False,
             errors=["Bad output"],
             logs=["ConfigPatch parse attempt 1/2 failed"],
+            duration=0.34,
         ),
     ]
     table = _format_summary_table(results)
@@ -241,6 +242,7 @@ def test_format_summary_table_includes_failure_diagnostics() -> None:
     assert "PASS" in table
     assert "case_fail" in table
     assert "FAIL" in table
+    assert "Time(s)" in table
     assert "Errors" in table
     assert "Warnings" in table
     assert "1: Bad output" in table

@@ -504,6 +504,7 @@ def _build_report(results: list[EvalResult]) -> dict[str, Any]:
                 "errors": result.errors,
                 "patch": result.patch,
                 "logs": result.logs,
+                "duration": result.duration,
             }
             for result in results
         ],
@@ -511,10 +512,11 @@ def _build_report(results: list[EvalResult]) -> dict[str, Any]:
 
 
 def _format_summary_table(results: list[EvalResult]) -> str:
-    headers = ("Case", "Status", "Errors", "Warnings", "Summary")
-    rows: list[tuple[str, str, str, str, str]] = []
+    headers = ("Case", "Status", "Time(s)", "Errors", "Warnings", "Summary")
+    rows: list[tuple[str, str, str, str, str, str]] = []
     for result in results:
         status = "PASS" if result.passed else "FAIL"
+        duration_text = "-" if result.duration is None else f"{result.duration:.2f}"
         error_text = "-"
         if result.errors:
             error_text = f"{len(result.errors)}: " + "; ".join(result.errors)
@@ -524,23 +526,26 @@ def _format_summary_table(results: list[EvalResult]) -> str:
         summary_text = "-"
         if result.patch and isinstance(result.patch, dict):
             summary_text = str(result.patch.get("summary") or "-")
-        rows.append((result.case_id, status, error_text, log_text, summary_text))
+        rows.append((result.case_id, status, duration_text, error_text, log_text, summary_text))
 
     case_width = max(len(headers[0]), *(len(row[0]) for row in rows)) if rows else len(headers[0])
     status_width = max(len(headers[1]), *(len(row[1]) for row in rows)) if rows else len(headers[1])
-    error_width = max(len(headers[2]), *(len(row[2]) for row in rows)) if rows else len(headers[2])
-    warn_width = max(len(headers[3]), *(len(row[3]) for row in rows)) if rows else len(headers[3])
+    duration_width = max(len(headers[2]), *(len(row[2]) for row in rows)) if rows else len(headers[2])
+    error_width = max(len(headers[3]), *(len(row[3]) for row in rows)) if rows else len(headers[3])
+    warn_width = max(len(headers[4]), *(len(row[4]) for row in rows)) if rows else len(headers[4])
 
     lines = [
         f"{headers[0]:<{case_width}}  {headers[1]:<{status_width}}  "
-        f"{headers[2]:<{error_width}}  {headers[3]:<{warn_width}}  {headers[4]}",
-        f"{'-' * case_width}  {'-' * status_width}  {'-' * error_width}  "
-        f"{'-' * warn_width}  {'-' * len(headers[4])}",
+        f"{headers[2]:<{duration_width}}  {headers[3]:<{error_width}}  "
+        f"{headers[4]:<{warn_width}}  {headers[5]}",
+        f"{'-' * case_width}  {'-' * status_width}  {'-' * duration_width}  "
+        f"{'-' * error_width}  {'-' * warn_width}  {'-' * len(headers[5])}",
     ]
-    for case_id, status, errors, warnings, summary in rows:
+    for case_id, status, duration, errors, warnings, summary in rows:
         lines.append(
             f"{case_id:<{case_width}}  {status:<{status_width}}  "
-            f"{errors:<{error_width}}  {warnings:<{warn_width}}  {summary}"
+            f"{duration:<{duration_width}}  {errors:<{error_width}}  "
+            f"{warnings:<{warn_width}}  {summary}"
         )
     return "\n".join(lines)
 

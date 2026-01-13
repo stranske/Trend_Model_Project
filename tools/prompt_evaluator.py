@@ -25,6 +25,7 @@ class EvalResult:
     errors: list[str]
     patch: dict[str, Any] | None = None
     logs: list[str] | None = None
+    duration: float | None = None
 
 
 def _load_config(config_path: str | Path, base_dir: Path) -> dict[str, Any]:
@@ -241,8 +242,9 @@ def evaluate_prompt(
     chain_logger.addHandler(handler)
     chain_logger.setLevel(logging.WARNING)
 
-    start_time = time.perf_counter() if mode_value == "mock" else None
+    start_time = time.perf_counter()
     patch_payload: dict[str, Any] | None = None
+    elapsed: float | None = None
 
     try:
         patch = chain.run(
@@ -284,7 +286,7 @@ def evaluate_prompt(
 
     if start_time is not None:
         elapsed = time.perf_counter() - start_time
-        if elapsed > 10.0:
+        if mode_value == "mock" and elapsed > 10.0:
             errors.append(f"Mock mode execution exceeded 10 seconds ({elapsed:.3f}s).")
 
     return EvalResult(
@@ -293,4 +295,5 @@ def evaluate_prompt(
         errors=errors,
         patch=patch_payload,
         logs=log_messages,
+        duration=elapsed,
     )
