@@ -370,3 +370,93 @@ def test_render_config_chat_revert_restores_previous_state(
     assert stub.session_state.get("model_state") == initial_state
     assert stub.session_state.get("config_chat_preview") is None
     assert stub.session_state.get(model_module._CONFIG_HISTORY_KEY) == []
+
+
+def test_risky_apply_requires_confirmation_dialog(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    model_state = {"lookback_periods": 6}
+    preview = {"after": {"lookback_periods": 12}, "risk_flags": ["constraints"]}
+
+    stub.session_state["model_state"] = dict(model_state)
+    stub.session_state["config_chat_preview"] = dict(preview)
+
+    dialog_titles: list[str] = []
+
+    class DummyContext:
+        def __enter__(self):
+            return stub
+
+        def __exit__(self, *_args):
+            return False
+
+    def record_dialog(title: str):
+        dialog_titles.append(title)
+        return DummyContext()
+
+    def button_handler(label: str, *, key: str | None = None, **_kwargs):
+        return key == "config_chat_apply_btn"
+
+    applied: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        model_module,
+        "_apply_preview_state",
+        lambda *args, **kwargs: applied.append({"args": args, "kwargs": kwargs}),
+    )
+
+    stub.dialog = record_dialog
+    stub.button = button_handler
+
+    model_module.render_config_chat_panel(location="main", model_state=model_state)
+
+    assert dialog_titles == ["Confirm risky change"]
+    assert applied == []
+    assert "config_chat_pending_apply" in stub.session_state
+
+
+def test_risky_confirmation_apply_uses_dialog_confirm(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    preview = {"after": {"lookback_periods": 12}, "risk_flags": ["constraints"]}
+    stub.session_state["config_chat_pending_apply"] = {
+        "preview": dict(preview),
+        "run_analysis": False,
+    }
+
+    dialog_titles: list[str] = []
+
+    class DummyContext:
+        def __enter__(self):
+            return stub
+
+        def __exit__(self, *_args):
+            return False
+
+    def record_dialog(title: str):
+        dialog_titles.append(title)
+        return DummyContext()
+
+    def button_handler(label: str, **_kwargs):
+        return label == "Apply anyway"
+
+    applied: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        model_module,
+        "_apply_preview_state",
+        lambda *args, **kwargs: applied.append({"args": args, "kwargs": kwargs}),
+    )
+
+    stub.dialog = record_dialog
+    stub.button = button_handler
+
+    model_module._render_risky_change_dialog()
+
+    assert dialog_titles == ["Confirm risky change"]
+    assert applied == [{"args": (preview,), "kwargs": {"run_analysis": False}}]
+    assert "config_chat_pending_apply" not in stub.session_state
