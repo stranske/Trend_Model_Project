@@ -761,6 +761,33 @@ def _build_report(results: list[EvalResult]) -> dict[str, Any]:
     }
 
 
+def _format_summary_table(results: list[EvalResult]) -> str:
+    headers = ("Case", "Status", "Details")
+    rows: list[tuple[str, str, str]] = []
+    for result in results:
+        status = "PASS" if result.passed else "FAIL"
+        details = ""
+        if not result.passed:
+            detail_parts: list[str] = []
+            if result.errors:
+                detail_parts.append("; ".join(result.errors))
+            if result.logs:
+                detail_parts.append(f"Logs: {'; '.join(result.logs)}")
+            details = " | ".join(detail_parts) if detail_parts else "Unknown failure."
+        rows.append((result.case_id, status, details))
+
+    case_width = max(len(headers[0]), *(len(row[0]) for row in rows)) if rows else len(headers[0])
+    status_width = max(len(headers[1]), *(len(row[1]) for row in rows)) if rows else len(headers[1])
+
+    lines = [
+        f"{headers[0]:<{case_width}}  {headers[1]:<{status_width}}  {headers[2]}",
+        f"{'-' * case_width}  {'-' * status_width}  {'-' * len(headers[2])}",
+    ]
+    for case_id, status, details in rows:
+        lines.append(f"{case_id:<{case_width}}  {status:<{status_width}}  {details}")
+    return "\n".join(lines)
+
+
 def _resolve_provider_config(
     *,
     provider: str | None,
@@ -916,10 +943,9 @@ def main(argv: list[str] | None = None) -> int:
         f"Evaluated {report['total']} cases. "
         f"Passed {report['passed']} ({report['success_rate'] * 100:.1f}%)."
     )
+    print(_format_summary_table(results))
     failed = [result for result in results if not result.passed]
     if failed:
-        for result in failed:
-            print(f"- {result.case_id}: {', '.join(result.errors)}")
         return 2
     return 0
 

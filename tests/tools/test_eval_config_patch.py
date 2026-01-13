@@ -5,7 +5,7 @@ import time
 import pytest
 
 from tools import eval_config_patch
-from tools.eval_config_patch import DEFAULT_CASES, _evaluate_case
+from tools.eval_config_patch import DEFAULT_CASES, EvalResult, _evaluate_case, _format_summary_table
 
 
 def _find_case(case_id: str) -> dict[str, object]:
@@ -84,3 +84,22 @@ def test_evaluate_prompt_mock_mode_timeout_fails(monkeypatch: pytest.MonkeyPatch
     result = eval_config_patch.evaluate_prompt(case, chain=None, mode="mock")
     assert not result.passed
     assert any("Mock mode execution exceeded 10 seconds" in error for error in result.errors)
+
+
+def test_format_summary_table_includes_failure_diagnostics() -> None:
+    results = [
+        EvalResult(case_id="case_pass", passed=True, errors=[]),
+        EvalResult(
+            case_id="case_fail",
+            passed=False,
+            errors=["Bad output"],
+            logs=["ConfigPatch parse attempt 1/2 failed"],
+        ),
+    ]
+    table = _format_summary_table(results)
+    assert "case_pass" in table
+    assert "PASS" in table
+    assert "case_fail" in table
+    assert "FAIL" in table
+    assert "Bad output" in table
+    assert "ConfigPatch parse attempt 1/2 failed" in table
