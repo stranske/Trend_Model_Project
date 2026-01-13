@@ -18,6 +18,11 @@ import yaml
 
 from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner
+from streamlit_app.components.progress_eta import (
+    estimate_eta_seconds,
+    progress_ratio_and_remaining,
+    update_eta_seconds,
+)
 from trend_analysis.config.patch import apply_config_patch, diff_configs
 from trend_analysis.llm import (
     ConfigPatchChain,
@@ -246,19 +251,15 @@ def _generate_config_preview(
 
 def _estimate_llm_seconds() -> float:
     stored = st.session_state.get("config_chat_llm_seconds")
-    if isinstance(stored, (int, float)) and stored > 0:
-        return float(min(max(stored, 5.0), 90.0))
-    return 25.0
+    return estimate_eta_seconds(stored)
 
 
 def _record_llm_seconds(duration: float) -> None:
-    if duration <= 0:
-        return
     stored = st.session_state.get("config_chat_llm_seconds")
-    if isinstance(stored, (int, float)) and stored > 0:
-        st.session_state["config_chat_llm_seconds"] = stored * 0.6 + duration * 0.4
-    else:
-        st.session_state["config_chat_llm_seconds"] = duration
+    updated = update_eta_seconds(stored, duration)
+    if updated is None:
+        return
+    st.session_state["config_chat_llm_seconds"] = updated
 
 
 def _generate_preview_with_progress(
@@ -273,8 +274,7 @@ def _generate_preview_with_progress(
         future = executor.submit(_generate_config_preview, model_state, instruction)
         while not future.done():
             elapsed = monotonic() - start
-            remaining = max(estimate - elapsed, 0.0)
-            ratio = min(elapsed / estimate, 0.95) if estimate > 0 else 0.0
+            ratio, remaining = progress_ratio_and_remaining(elapsed, estimate)
             progress_bar.progress(
                 ratio,
                 text=f"Generating preview... ~{int(round(remaining))}s remaining",
