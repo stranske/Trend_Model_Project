@@ -59,6 +59,19 @@ export LANGCHAIN_PROJECT="trend-model"
 
 When the key is present, NL operations send traces to LangSmith automatically.
 
+#### Natural Language Configuration
+
+Use `trend nl` to generate structured config patches from plain-language
+instructions. Start with a diff preview and review the full docs before
+applying changes:
+
+```bash
+trend nl "use risk parity weighting" --in config/demo.yml --diff
+```
+
+See `docs/natural-language-config.md` for setup, `docs/nl-cli-reference.md` for
+flags, and `docs/nl-troubleshooting.md` for common fixes.
+
 ### 2. Verify Installation
 
 ```bash
@@ -167,6 +180,7 @@ Trend_Model_Project/
 | **[docs/CLI.md](docs/CLI.md)** | Command-line interface reference |
 | **[docs/ConfigMap.md](docs/ConfigMap.md)** | Configuration parameter reference |
 | **[docs/PresetStrategies.md](docs/PresetStrategies.md)** | Strategy preset descriptions |
+| **[docs/natural-language-config.md](docs/natural-language-config.md)** | Natural language config guide |
 
 ## Key Features
 
