@@ -1162,6 +1162,8 @@ def _format_nl_explanation(patch: ConfigPatch) -> str:
     if patch.risk_flags:
         flags = ", ".join(flag.value for flag in patch.risk_flags)
         lines.append(f"Risk flags: {flags}")
+    if patch.needs_review:
+        lines.append("Needs review: unknown config keys detected.")
     rationales = [
         (operation.path, operation.rationale)
         for operation in patch.operations
@@ -1185,14 +1187,17 @@ def _validate_nl_run_config(updated: dict[str, Any], *, base_path: Path) -> None
 
 
 def _confirm_risky_patch(patch: ConfigPatch, *, no_confirm: bool) -> None:
-    if not patch.risk_flags or no_confirm:
+    flags = [flag.value for flag in patch.risk_flags]
+    if patch.needs_review:
+        flags.append("UNKNOWN_KEYS")
+    if not flags or no_confirm:
         return
-    flags = ", ".join(flag.value for flag in patch.risk_flags)
+    flags_text = ", ".join(flags)
     if not sys.stdin.isatty():
         raise TrendCLIError(
-            f"Risky changes detected ({flags}). Re-run with --no-confirm to apply without prompting."
+            f"Risky changes detected ({flags_text}). Re-run with --no-confirm to apply without prompting."
         )
-    response = input(f"Risky changes detected ({flags}). Continue? [y/N]: ")
+    response = input(f"Risky changes detected ({flags_text}). Continue? [y/N]: ")
     if response.strip().lower() not in {"y", "yes"}:
         raise TrendCLIError("Update cancelled by user.")
 

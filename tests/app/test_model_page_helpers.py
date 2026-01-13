@@ -261,6 +261,11 @@ def test_risky_change_requires_confirmation(model_module: ModuleType) -> None:
     assert pending.get("preview") == preview
 
 
+def test_unknown_key_review_requires_confirmation(model_module: ModuleType) -> None:
+    preview = {"after": {"lookback_periods": 12}, "needs_review": True}
+    assert model_module._requires_risky_confirmation(preview) is True
+
+
 def test_render_config_change_history_shows_tabs_and_entries(
     monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
 ) -> None:
