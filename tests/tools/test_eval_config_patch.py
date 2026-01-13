@@ -78,6 +78,17 @@ def test_evaluate_prompt_mock_mode_runs_under_ten_seconds() -> None:
     assert elapsed < 10.0
 
 
+def test_evaluate_prompt_mock_mode_benchmark_under_ten_seconds() -> None:
+    case = _find_case("risk_parity_weighting")
+    timings: list[float] = []
+    for _ in range(3):
+        start = time.perf_counter()
+        result = eval_config_patch.evaluate_prompt(case, chain=None, mode="mock")
+        timings.append(time.perf_counter() - start)
+        assert result.passed
+    assert max(timings) < 10.0
+
+
 def test_evaluate_prompt_mock_mode_timeout_fails(monkeypatch: pytest.MonkeyPatch) -> None:
     case = _find_case("risk_parity_weighting")
     ticks = [0.0, 11.0]
