@@ -257,3 +257,114 @@ def test_risky_change_requires_confirmation(model_module: ModuleType) -> None:
     pending = stub.session_state.get("config_chat_pending_apply")
     assert isinstance(pending, dict)
     assert pending.get("preview") == preview
+
+
+def test_render_config_change_history_shows_tabs_and_entries(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    expander_labels: list[str] = []
+    tab_sets: list[list[str]] = []
+    unified_calls: list[str] = []
+    side_by_side_calls: list[tuple[dict[str, int], dict[str, int]]] = []
+
+    class DummyContext:
+        def __enter__(self):
+            return stub
+
+        def __exit__(self, *_args):
+            return False
+
+    def record_expander(label: str, *args, **kwargs):
+        expander_labels.append(label)
+        return DummyContext()
+
+    def record_tabs(labels: list[str]):
+        tab_sets.append(list(labels))
+        return [DummyContext() for _ in labels]
+
+    monkeypatch.setattr(model_module, "_render_unified_diff", lambda diff: unified_calls.append(diff))
+    monkeypatch.setattr(
+        model_module,
+        "_render_side_by_side_diff",
+        lambda before, after: side_by_side_calls.append((dict(before), dict(after))),
+    )
+    stub.expander = record_expander
+    stub.tabs = record_tabs
+
+    history = [
+        {
+            "timestamp": "2024-01-01T00:00:00Z",
+            "instruction": "Increase lookback",
+            "before": {"lookback_periods": 6},
+            "after": {"lookback_periods": 12},
+            "diff": "--- before\n+++ after\n+  lookback_periods: 12\n",
+        },
+        {
+            "timestamp": "2024-01-02T00:00:00Z",
+            "instruction": "Increase min history",
+            "before": {"min_history_periods": 6},
+            "after": {"min_history_periods": 9},
+            "diff": "--- before\n+++ after\n+  min_history_periods: 9\n",
+        },
+    ]
+    stub.session_state[model_module._CONFIG_HISTORY_KEY] = history
+
+    model_module._render_config_change_history()
+
+    assert expander_labels == [
+        "2024-01-02T00:00:00Z • Increase min history",
+        "2024-01-01T00:00:00Z • Increase lookback",
+    ]
+    assert tab_sets == [["Unified diff", "Side-by-side"], ["Unified diff", "Side-by-side"]]
+    assert unified_calls == [
+        "--- before\n+++ after\n+  min_history_periods: 9\n",
+        "--- before\n+++ after\n+  lookback_periods: 12\n",
+    ]
+    assert side_by_side_calls == [
+        ({"min_history_periods": 6}, {"min_history_periods": 9}),
+        ({"lookback_periods": 6}, {"lookback_periods": 12}),
+    ]
+
+
+def test_render_config_chat_revert_restores_previous_state(
+    model_module: ModuleType,
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    initial_state = {"lookback_periods": 6, "min_history_periods": 6}
+    updated_state = {"lookback_periods": 12, "min_history_periods": 6}
+
+    stub.session_state["model_state"] = dict(updated_state)
+    stub.session_state["config_chat_preview"] = {"after": dict(updated_state)}
+    stub.session_state[model_module._CONFIG_HISTORY_KEY] = [
+        {
+            "timestamp": "2024-01-01T00:00:00Z",
+            "instruction": "Increase lookback",
+            "before": dict(initial_state),
+            "after": dict(updated_state),
+            "diff": "--- before\n+++ after\n",
+        }
+    ]
+
+    def button_handler(label: str, *, key: str | None = None, **_kwargs):
+        return key == "config_chat_revert_btn"
+
+    class DummyContext:
+        def __enter__(self):
+            return stub
+
+        def __exit__(self, *_args):
+            return False
+
+    stub.button = button_handler
+    stub.expander = lambda *_args, **_kwargs: DummyContext()
+
+    model_module.render_config_chat_panel(location="main", model_state=updated_state)
+
+    assert stub.session_state.get("model_state") == initial_state
+    assert stub.session_state.get("config_chat_preview") is None
+    assert stub.session_state.get(model_module._CONFIG_HISTORY_KEY) == []
