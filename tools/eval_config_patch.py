@@ -10,12 +10,12 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+
+from tools.prompt_evaluator import EvalResult, _load_config, evaluate_prompt
 from trend_analysis.llm.chain import ConfigPatchChain
 from trend_analysis.llm.prompts import build_config_patch_prompt
 from trend_analysis.llm.providers import LLMProviderConfig, create_llm
 from trend_analysis.llm.schema import load_compact_schema
-from tools.prompt_evaluator import EvalResult, evaluate_prompt, _load_config
-
 
 BASE_CONFIG: dict[str, Any] = {
     "analysis": {

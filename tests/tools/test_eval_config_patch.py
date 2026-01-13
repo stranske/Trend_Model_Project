@@ -93,7 +93,9 @@ def test_evaluate_prompt_mock_mode_timeout_fails(monkeypatch: pytest.MonkeyPatch
     assert any("Mock mode execution exceeded 10 seconds" in error for error in result.errors)
 
 
-def test_cli_live_mode_flag_switches_to_live(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cli_live_mode_flag_switches_to_live(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     calls: list[str] = []
 
     def _fake_evaluate_prompt(case, chain, mode):

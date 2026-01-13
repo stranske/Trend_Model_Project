@@ -18,7 +18,6 @@ from trend_analysis.llm.chain import ConfigPatchChain
 from trend_analysis.llm.prompts import build_config_patch_prompt
 
 
-
 @dataclass(frozen=True)
 class EvalResult:
     case_id: str
