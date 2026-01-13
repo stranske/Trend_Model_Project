@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Sequence
 from pathlib import Path
 
 from trend.cli import _ensure_dataframe, _resolve_returns_path
@@ -47,7 +48,7 @@ def _normalize_threshold(value: float) -> float:
     return value
 
 
-def main() -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Run config coverage on a config file and enforce a threshold."
     )
@@ -69,7 +70,14 @@ def main() -> int:
         default=0.0,
         help="Minimum schema validity ratio (0-1) or percent (0-100) before failing.",
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--ci",
+        action="store_true",
+        help="Use CI defaults (min validity 95% unless overridden).",
+    )
+    args = parser.parse_args(argv)
+    if args.ci and args.min_validity == parser.get_default("min_validity"):
+        args.min_validity = 0.95
 
     config_path = args.config.expanduser().resolve()
     tracker, report = _run_coverage(config_path)
