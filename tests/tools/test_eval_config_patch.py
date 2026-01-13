@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import textwrap
 import time
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from tools import eval_config_patch, prompt_evaluator
 from tools.eval_config_patch import (
     DEFAULT_CASES,
     EvalResult,
+    _load_cases,
     _evaluate_case,
     _format_summary_table,
 )
@@ -247,3 +249,54 @@ def test_format_summary_table_includes_failure_diagnostics() -> None:
     assert "Warnings" in table
     assert "1: Bad output" in table
     assert "1: ConfigPatch parse attempt 1/2 failed" in table
+
+
+def test_load_cases_clones_shared_yaml_anchors(tmp_path: Path) -> None:
+    cases_file = tmp_path / "cases.yml"
+    cases_file.write_text(
+        textwrap.dedent(
+            """
+            base_config: &base_config
+              analysis:
+                top_n: 8
+            base_schema: &base_schema
+              type: object
+              properties:
+                analysis:
+                  type: object
+                  properties:
+                    top_n:
+                      type: integer
+            cases:
+              - id: case_one
+                instruction: "Set top_n to 9."
+                current_config: *base_config
+                allowed_schema: *base_schema
+                expected_patch:
+                  operations: []
+                  risk_flags: []
+                  summary: "No changes."
+              - id: case_two
+                instruction: "Set top_n to 10."
+                current_config: *base_config
+                allowed_schema: *base_schema
+                expected_patch:
+                  operations: []
+                  risk_flags: []
+                  summary: "No changes."
+            """
+        ).lstrip(),
+        encoding="utf-8",
+    )
+
+    cases = _load_cases(cases_file)
+    cases[0]["current_config"]["analysis"]["top_n"] = 12
+    cases[0]["allowed_schema"]["properties"]["analysis"]["properties"]["top_n"][
+        "type"
+    ] = "number"
+
+    assert cases[1]["current_config"]["analysis"]["top_n"] == 8
+    assert (
+        cases[1]["allowed_schema"]["properties"]["analysis"]["properties"]["top_n"]["type"]
+        == "integer"
+    )

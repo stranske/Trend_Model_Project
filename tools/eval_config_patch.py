@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import os
 import sys
@@ -468,6 +469,16 @@ def _load_cases(
 
 def _normalize_case(case: dict[str, Any], *, base_dir: Path) -> dict[str, Any]:
     normalized = dict(case)
+    for key in (
+        "current_config",
+        "allowed_schema",
+        "expected_patch",
+        "schema",
+        "expected_operations",
+        "expected_risk_flags",
+    ):
+        if key in normalized and isinstance(normalized[key], (dict, list)):
+            normalized[key] = copy.deepcopy(normalized[key])
     if "current_config" not in normalized and "starting_config" in normalized:
         normalized["current_config"] = _load_config(normalized["starting_config"], base_dir)
     expected_ops = normalized.get("expected_operations")
