@@ -181,7 +181,7 @@ def evaluate_prompt(
     expected_error_contains = case.get("expected_error_contains")
     expected_log_fragments = case.get("expected_log_fragments", [])
     expected_log_count = case.get("expected_log_count")
-    retries = int(case.get("retries", 1))
+    retries = case.get("retries", 1)
     constraints = case.get("constraints")
 
     errors: list[str] = []
@@ -198,6 +198,18 @@ def evaluate_prompt(
         errors.append("llm_response must be a string.")
     if responses is not None and response_text is not None:
         errors.append("Provide only one of llm_response or llm_responses.")
+    if expected_log_fragments is None:
+        expected_log_fragments = []
+    elif not isinstance(expected_log_fragments, list):
+        errors.append("expected_log_fragments must be a list.")
+    elif not all(isinstance(fragment, str) for fragment in expected_log_fragments):
+        errors.append("expected_log_fragments must contain only strings.")
+    if expected_log_count is not None and not isinstance(expected_log_count, int):
+        errors.append("expected_log_count must be an integer.")
+    if not isinstance(retries, int):
+        errors.append("retries must be an integer.")
+    elif retries < 0:
+        errors.append("retries must be >= 0.")
     if expected is None and expected_ops is not None:
         expected = {
             "operations": expected_ops,
