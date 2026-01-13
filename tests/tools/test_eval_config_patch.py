@@ -5,7 +5,12 @@ import time
 import pytest
 
 from tools import eval_config_patch
-from tools.eval_config_patch import DEFAULT_CASES, EvalResult, _evaluate_case, _format_summary_table
+from tools.eval_config_patch import (
+    DEFAULT_CASES,
+    EvalResult,
+    _evaluate_case,
+    _format_summary_table,
+)
 
 
 def _find_case(case_id: str) -> dict[str, object]:
