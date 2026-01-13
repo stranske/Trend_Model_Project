@@ -12,12 +12,14 @@ from trend.cli import (
     SCENARIO_WINDOWS,
     TrendCLIError,
     _adjust_for_scenario,
+    _confirm_risky_patch,
     _determine_seed,
     _resolve_returns_path,
     build_parser,
     main,
 )
 from trend_analysis.api import RunResult
+from trend_analysis.config.patch import ConfigPatch, PatchOperation
 from trend_analysis.reporting import generate_unified_report
 
 
@@ -168,6 +170,31 @@ def test_adjust_for_scenario_updates_sample_split() -> None:
     _adjust_for_scenario(cfg, "2008")
     assert cfg.sample_split["in_start"] == SCENARIO_WINDOWS["2008"][0][0]
     assert cfg.sample_split["out_end"] == SCENARIO_WINDOWS["2008"][1][1]
+
+
+def test_confirm_risky_patch_requires_tty_for_unknown_keys(monkeypatch) -> None:
+    patch = ConfigPatch(
+        operations=[PatchOperation(op="set", path="portfolio.unknown", value=1)],
+        risk_flags=[],
+        summary="Set an unknown key.",
+        needs_review=True,
+    )
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+
+    with pytest.raises(TrendCLIError, match="unknown or ambiguous keys"):
+        _confirm_risky_patch(patch, no_confirm=False)
+
+
+def test_confirm_risky_patch_allows_no_confirm_for_unknown_keys(monkeypatch) -> None:
+    patch = ConfigPatch(
+        operations=[PatchOperation(op="set", path="portfolio.unknown", value=1)],
+        risk_flags=[],
+        summary="Set an unknown key.",
+        needs_review=True,
+    )
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+
+    _confirm_risky_patch(patch, no_confirm=True)
 
 
 def test_main_run_invokes_pipeline(monkeypatch, tmp_path: Path) -> None:

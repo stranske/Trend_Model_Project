@@ -473,6 +473,21 @@ def test_validation_error_includes_expected_actual_suggestion_fields(tmp_path: P
     assert issue.suggestion is not None and "Add" in issue.suggestion
 
 
+def test_validate_config_rejects_unknown_keys(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["unknown_key"] = 123
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    assert _has_path(result, "unknown_key")
+    issue = next((issue for issue in result.errors if issue.path == "unknown_key"), None)
+    assert issue is not None
+    assert issue.message == "Unexpected field."
+    assert issue.expected == "no additional properties"
+    assert issue.actual == "unknown_key"
+
+
 def test_validate_config_strict_mode_treats_warnings_as_errors(tmp_path: Path) -> None:
     cfg = _base_config(tmp_path)
     cfg["data"]["csv_path"] = str(tmp_path / "missing.csv")

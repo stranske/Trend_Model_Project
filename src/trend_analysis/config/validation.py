@@ -175,10 +175,7 @@ def _collect_schema_errors(
     for error in sorted(validator.iter_errors(config), key=lambda err: list(err.absolute_path)):
         issues = _schema_error_to_issues(error)
         for issue in issues:
-            if error.validator == "additionalProperties":
-                _append_issue(warnings, issue)
-            else:
-                _append_issue(errors, issue)
+            _append_issue(errors, issue)
 
 
 def _schema_error_to_issues(error: Any) -> list[ValidationError]:
