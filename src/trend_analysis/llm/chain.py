@@ -17,6 +17,7 @@ from trend_analysis.config.patch import (
     format_retry_error,
     parse_config_patch_with_retries,
 )
+from trend_analysis.llm.injection_guard import detect_prompt_injection, prompt_injection_summary
 from trend_analysis.llm.nl_logging import NLOperationLog, write_nl_log
 from trend_analysis.llm.prompts import build_retry_prompt, format_config_for_prompt
 from trend_analysis.llm.schema import load_compact_schema, select_schema_sections
@@ -156,29 +157,51 @@ class ConfigPatchChain:
         patch: ConfigPatch | None = None
         error: str | None = None
 
-        config_text = (
-            current_config
-            if isinstance(current_config, str)
-            else format_config_for_prompt(current_config)
-        )
-        schema_text = allowed_schema or self._serialize_schema(
-            self._select_schema(instruction=instruction)
-        )
-        prompt_text = self.prompt_builder(
-            current_config=config_text,
-            allowed_schema=schema_text,
-            instruction=instruction,
-            system_prompt=system_prompt,
-            safety_rules=safety_rules,
-        )
-        input_hash = _hash_payload(
-            {
-                "prompt": prompt_text,
-                "model": self.model,
-                "temperature": self.temperature,
-            }
-        )
         try:
+            matches = detect_prompt_injection(instruction)
+            if matches:
+                logger.warning(
+                    "Blocked prompt injection patterns: %s",
+                    ", ".join(matches),
+                )
+                prompt_text = f"[blocked prompt injection: {', '.join(matches)}]"
+                input_hash = _hash_payload(
+                    {
+                        "prompt": prompt_text,
+                        "model": self.model,
+                        "temperature": self.temperature,
+                    }
+                )
+                patch = ConfigPatch(
+                    operations=[],
+                    risk_flags=[],
+                    summary=prompt_injection_summary(matches),
+                    needs_review=True,
+                )
+                return patch
+
+            config_text = (
+                current_config
+                if isinstance(current_config, str)
+                else format_config_for_prompt(current_config)
+            )
+            schema_text = allowed_schema or self._serialize_schema(
+                self._select_schema(instruction=instruction)
+            )
+            prompt_text = self.prompt_builder(
+                current_config=config_text,
+                allowed_schema=schema_text,
+                instruction=instruction,
+                system_prompt=system_prompt,
+                safety_rules=safety_rules,
+            )
+            input_hash = _hash_payload(
+                {
+                    "prompt": prompt_text,
+                    "model": self.model,
+                    "temperature": self.temperature,
+                }
+            )
 
             def _response_provider(attempt: int, last_error: Exception | None) -> str:
                 nonlocal response_text, trace_url
