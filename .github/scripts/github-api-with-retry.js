@@ -32,7 +32,7 @@ async function withRetry(fn, options = {}) {
 
   let lastError;
   
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
     } catch (error) {
