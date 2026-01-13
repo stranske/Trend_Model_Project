@@ -530,7 +530,9 @@ def _format_summary_table(results: list[EvalResult]) -> str:
 
     case_width = max(len(headers[0]), *(len(row[0]) for row in rows)) if rows else len(headers[0])
     status_width = max(len(headers[1]), *(len(row[1]) for row in rows)) if rows else len(headers[1])
-    duration_width = max(len(headers[2]), *(len(row[2]) for row in rows)) if rows else len(headers[2])
+    duration_width = (
+        max(len(headers[2]), *(len(row[2]) for row in rows)) if rows else len(headers[2])
+    )
     error_width = max(len(headers[3]), *(len(row[3]) for row in rows)) if rows else len(headers[3])
     warn_width = max(len(headers[4]), *(len(row[4]) for row in rows)) if rows else len(headers[4])
 
