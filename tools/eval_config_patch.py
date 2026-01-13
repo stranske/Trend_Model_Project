@@ -674,6 +674,10 @@ def evaluate_prompt(
         )
         if expected is not None:
             errors.extend(_compare_patch(expected, patch))
+        if expected_error_contains:
+            errors.append(
+                f"Expected error containing '{expected_error_contains}', but evaluation succeeded."
+            )
         patch_payload = patch.model_dump(mode="python")
     finally:
         if handler in chain_logger.handlers:

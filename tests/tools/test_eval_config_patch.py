@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 
 import pytest
@@ -89,6 +90,39 @@ def test_evaluate_prompt_mock_mode_timeout_fails(monkeypatch: pytest.MonkeyPatch
     result = eval_config_patch.evaluate_prompt(case, chain=None, mode="mock")
     assert not result.passed
     assert any("Mock mode execution exceeded 10 seconds" in error for error in result.errors)
+
+
+def test_evaluate_prompt_expected_error_must_fail_when_successful() -> None:
+    case = {
+        "id": "expected_error_not_raised",
+        "instruction": "Set top_n to 9.",
+        "current_config": {"analysis": {"top_n": 8}},
+        "allowed_schema": {
+            "type": "object",
+            "properties": {
+                "analysis": {"type": "object", "properties": {"top_n": {"type": "integer"}}}
+            },
+        },
+        "expected_patch": {
+            "operations": [{"op": "set", "path": "analysis.top_n", "value": 9}],
+            "risk_flags": [],
+            "summary": "Set top_n to 9.",
+        },
+        "expected_error_contains": "Failed to parse ConfigPatch",
+        "llm_response": json.dumps(
+            {
+                "operations": [{"op": "set", "path": "analysis.top_n", "value": 9}],
+                "risk_flags": [],
+                "summary": "Set top_n to 9.",
+            },
+            ensure_ascii=True,
+        ),
+    }
+
+    result = eval_config_patch.evaluate_prompt(case, chain=None, mode="mock")
+
+    assert not result.passed
+    assert any("Expected error containing" in error for error in result.errors)
 
 
 def test_format_summary_table_includes_failure_diagnostics() -> None:
