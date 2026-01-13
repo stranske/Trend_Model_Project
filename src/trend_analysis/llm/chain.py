@@ -20,6 +20,7 @@ from trend_analysis.config.patch import (
 from trend_analysis.llm.nl_logging import NLOperationLog, write_nl_log
 from trend_analysis.llm.prompts import build_retry_prompt, format_config_for_prompt
 from trend_analysis.llm.schema import load_compact_schema, select_schema_sections
+from trend_analysis.llm.security import guard_instruction
 from trend_analysis.llm.validation import flag_unknown_keys
 
 PromptBuilder = Callable[..., str]
@@ -117,6 +118,7 @@ class ConfigPatchChain:
     ) -> str:
         """Render the ConfigPatch prompt text."""
 
+        guard_instruction(instruction)
         config_text = (
             current_config
             if isinstance(current_config, str)
@@ -146,6 +148,7 @@ class ConfigPatchChain:
     ) -> ConfigPatch:
         """Invoke the LLM and parse the ConfigPatch response."""
 
+        guard_instruction(instruction)
         started_at = time.perf_counter()
         timestamp = datetime.now(timezone.utc)
         request_id = request_id or uuid4().hex
