@@ -1201,9 +1201,7 @@ def _confirm_risky_patch(patch: ConfigPatch, *, no_confirm: bool) -> None:
         prompt_body = f"Risky changes detected ({flag_text})."
 
     if not sys.stdin.isatty():
-        raise TrendCLIError(
-            f"{prompt_body} Re-run with --no-confirm to apply without prompting."
-        )
+        raise TrendCLIError(f"{prompt_body} Re-run with --no-confirm to apply without prompting.")
     response = input(f"{prompt_body} Continue? [y/N]: ")
     if response.strip().lower() not in {"y", "yes"}:
         raise TrendCLIError("Update cancelled by user.")
