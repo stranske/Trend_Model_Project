@@ -11,9 +11,9 @@ from tools import eval_config_patch, prompt_evaluator
 from tools.eval_config_patch import (
     DEFAULT_CASES,
     EvalResult,
-    _load_cases,
     _evaluate_case,
     _format_summary_table,
+    _load_cases,
 )
 
 
@@ -291,9 +291,7 @@ def test_load_cases_clones_shared_yaml_anchors(tmp_path: Path) -> None:
 
     cases = _load_cases(cases_file)
     cases[0]["current_config"]["analysis"]["top_n"] = 12
-    cases[0]["allowed_schema"]["properties"]["analysis"]["properties"]["top_n"][
-        "type"
-    ] = "number"
+    cases[0]["allowed_schema"]["properties"]["analysis"]["properties"]["top_n"]["type"] = "number"
 
     assert cases[1]["current_config"]["analysis"]["top_n"] == 8
     assert (
