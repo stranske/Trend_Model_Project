@@ -1,5 +1,5 @@
-from pathlib import Path
 import os
+from pathlib import Path
 
 from trend_analysis.config.patch import apply_and_diff
 from trend_analysis.llm import ConfigPatchChain
@@ -38,7 +38,9 @@ def main() -> None:
         prompt_builder=build_config_patch_prompt,
     )
 
-    patch = chain.run(current_config=config_path.read_text(encoding="utf-8"), instruction=instruction)
+    patch = chain.run(
+        current_config=config_path.read_text(encoding="utf-8"), instruction=instruction
+    )
     _, diff = apply_and_diff(config_path, patch)
 
     print(patch.summary)
