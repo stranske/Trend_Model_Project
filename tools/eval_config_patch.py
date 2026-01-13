@@ -511,29 +511,37 @@ def _build_report(results: list[EvalResult]) -> dict[str, Any]:
 
 
 def _format_summary_table(results: list[EvalResult]) -> str:
-    headers = ("Case", "Status", "Details")
-    rows: list[tuple[str, str, str]] = []
+    headers = ("Case", "Status", "Errors", "Warnings", "Summary")
+    rows: list[tuple[str, str, str, str, str]] = []
     for result in results:
         status = "PASS" if result.passed else "FAIL"
-        details = ""
-        if not result.passed:
-            detail_parts: list[str] = []
-            if result.errors:
-                detail_parts.append("; ".join(result.errors))
-            if result.logs:
-                detail_parts.append(f"Logs: {'; '.join(result.logs)}")
-            details = " | ".join(detail_parts) if detail_parts else "Unknown failure."
-        rows.append((result.case_id, status, details))
+        error_text = "-"
+        if result.errors:
+            error_text = f"{len(result.errors)}: " + "; ".join(result.errors)
+        log_text = "-"
+        if result.logs:
+            log_text = f"{len(result.logs)}: " + "; ".join(result.logs)
+        summary_text = "-"
+        if result.patch and isinstance(result.patch, dict):
+            summary_text = str(result.patch.get("summary") or "-")
+        rows.append((result.case_id, status, error_text, log_text, summary_text))
 
     case_width = max(len(headers[0]), *(len(row[0]) for row in rows)) if rows else len(headers[0])
     status_width = max(len(headers[1]), *(len(row[1]) for row in rows)) if rows else len(headers[1])
+    error_width = max(len(headers[2]), *(len(row[2]) for row in rows)) if rows else len(headers[2])
+    warn_width = max(len(headers[3]), *(len(row[3]) for row in rows)) if rows else len(headers[3])
 
     lines = [
-        f"{headers[0]:<{case_width}}  {headers[1]:<{status_width}}  {headers[2]}",
-        f"{'-' * case_width}  {'-' * status_width}  {'-' * len(headers[2])}",
+        f"{headers[0]:<{case_width}}  {headers[1]:<{status_width}}  "
+        f"{headers[2]:<{error_width}}  {headers[3]:<{warn_width}}  {headers[4]}",
+        f"{'-' * case_width}  {'-' * status_width}  {'-' * error_width}  "
+        f"{'-' * warn_width}  {'-' * len(headers[4])}",
     ]
-    for case_id, status, details in rows:
-        lines.append(f"{case_id:<{case_width}}  {status:<{status_width}}  {details}")
+    for case_id, status, errors, warnings, summary in rows:
+        lines.append(
+            f"{case_id:<{case_width}}  {status:<{status_width}}  "
+            f"{errors:<{error_width}}  {warnings:<{warn_width}}  {summary}"
+        )
     return "\n".join(lines)
 
 

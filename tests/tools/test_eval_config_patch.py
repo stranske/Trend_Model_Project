@@ -241,5 +241,7 @@ def test_format_summary_table_includes_failure_diagnostics() -> None:
     assert "PASS" in table
     assert "case_fail" in table
     assert "FAIL" in table
-    assert "Bad output" in table
-    assert "ConfigPatch parse attempt 1/2 failed" in table
+    assert "Errors" in table
+    assert "Warnings" in table
+    assert "1: Bad output" in table
+    assert "1: ConfigPatch parse attempt 1/2 failed" in table
