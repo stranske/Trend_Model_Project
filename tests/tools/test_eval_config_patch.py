@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 import time
+from pathlib import Path
 
 import pytest
 
-from tools import eval_config_patch
+from tools import eval_config_patch, prompt_evaluator
 from tools.eval_config_patch import (
     DEFAULT_CASES,
     EvalResult,
@@ -86,10 +87,30 @@ def test_evaluate_prompt_mock_mode_timeout_fails(monkeypatch: pytest.MonkeyPatch
             return ticks.pop(0)
         return 11.0
 
-    monkeypatch.setattr(eval_config_patch.time, "perf_counter", _fake_perf_counter)
+    monkeypatch.setattr(prompt_evaluator.time, "perf_counter", _fake_perf_counter)
     result = eval_config_patch.evaluate_prompt(case, chain=None, mode="mock")
     assert not result.passed
     assert any("Mock mode execution exceeded 10 seconds" in error for error in result.errors)
+
+
+def test_cli_live_mode_flag_switches_to_live(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def _fake_evaluate_prompt(case, chain, mode):
+        calls.append(mode)
+        return eval_config_patch.EvalResult(case_id=str(case["id"]), passed=True, errors=[])
+
+    monkeypatch.setattr(eval_config_patch, "evaluate_prompt", _fake_evaluate_prompt)
+    monkeypatch.setattr(eval_config_patch, "_build_live_chain", lambda **_kwargs: object())
+    report_path = tmp_path / "report.json"
+
+    exit_code = eval_config_patch.main(
+        ["--use-default-cases", "--live-mode", "--report", str(report_path)]
+    )
+
+    assert exit_code == 0
+    assert calls
+    assert all(mode == "live" for mode in calls)
 
 
 def test_evaluate_prompt_expected_error_must_fail_when_successful() -> None:
