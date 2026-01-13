@@ -6,6 +6,7 @@ import argparse
 import json
 import logging
 import os
+import re
 import sys
 import time
 from dataclasses import dataclass
@@ -559,6 +560,29 @@ def _validate_log_expectations(
     return errors
 
 
+def _validate_constraints(constraints: list[str], patch: ConfigPatch) -> list[str]:
+    errors: list[str] = []
+    for constraint in constraints:
+        normalized = constraint.strip()
+        if not normalized:
+            continue
+        if normalized == "not patch.risk_flags":
+            if patch.risk_flags:
+                errors.append(f"Constraint failed: {constraint}")
+            continue
+        if normalized.startswith("patch.operations"):
+            match = re.match(r"patch\.operations\s*\|\s*length\s*==\s*(\d+)$", normalized)
+            if match is None:
+                errors.append(f"Unsupported constraint: {constraint}")
+                continue
+            expected_length = int(match.group(1))
+            if len(patch.operations) != expected_length:
+                errors.append(f"Constraint failed: {constraint}")
+            continue
+        errors.append(f"Unsupported constraint: {constraint}")
+    return errors
+
+
 def evaluate_prompt(
     case: dict[str, Any],
     chain: ConfigPatchChain | None,
@@ -588,6 +612,7 @@ def evaluate_prompt(
     expected_log_fragments = case.get("expected_log_fragments", [])
     expected_log_count = case.get("expected_log_count")
     retries = int(case.get("retries", 1))
+    constraints = case.get("constraints")
 
     errors: list[str] = []
     if not isinstance(instruction, str) or not instruction.strip():
@@ -607,6 +632,8 @@ def evaluate_prompt(
         errors.append("Missing expected_patch or llm_response.")
     if mode_value == "live" and chain is None:
         errors.append("Live mode requires a ConfigPatchChain instance.")
+    if constraints is not None and not isinstance(constraints, list):
+        errors.append("constraints must be a list.")
     if errors:
         return EvalResult(case_id=case_id, passed=False, errors=errors)
 
@@ -678,6 +705,8 @@ def evaluate_prompt(
             errors.append(
                 f"Expected error containing '{expected_error_contains}', but evaluation succeeded."
             )
+        if constraints:
+            errors.extend(_validate_constraints(constraints, patch))
         patch_payload = patch.model_dump(mode="python")
     finally:
         if handler in chain_logger.handlers:
