@@ -116,7 +116,7 @@ class ToolLayer:
 
         candidate = Path(path).expanduser()
         if any(part == ".." for part in candidate.parts):
-            raise ValueError("path traversal is not allowed")
+            raise ValueError(f"SecurityError: Path traversal detected: {path}")
 
         if not candidate.is_absolute():
             candidate = proj_path() / candidate

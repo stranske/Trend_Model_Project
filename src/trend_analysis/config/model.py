@@ -87,9 +87,7 @@ def _resolve_path(value: str | os.PathLike[str], *, base_dir: Path | None) -> Pa
 
         # Verify resolved path is under at least one allowed root
         if not any(path.resolve().is_relative_to(root) for root in allowed_roots):
-            raise ValueError(
-                f"path traversal outside project directory is not allowed (resolved to {path})"
-            )
+            raise ValueError(f"SecurityError: Path traversal detected: {value}")
     if any(ch in str(raw) for ch in _GLOB_CHARS):
         # Globs are not supported because downstream readers expect a concrete
         # CSV file.  Raising here keeps the failure actionable.
