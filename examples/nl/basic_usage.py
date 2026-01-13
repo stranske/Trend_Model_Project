@@ -2,21 +2,22 @@ import os
 from pathlib import Path
 
 from trend_analysis.config.patch import apply_and_diff
-from trend_analysis.llm import ConfigPatchChain
-from trend_analysis.llm.prompts import build_config_patch_prompt
-from trend_analysis.llm.providers import LLMProviderConfig, create_llm
+from trend_analysis.llm import (
+    ConfigPatchChain,
+    LLMProviderConfig,
+    build_config_patch_prompt,
+    create_llm,
+)
 from trend_analysis.llm.schema import load_compact_schema
 
 
 def _resolve_api_key(provider: str) -> str | None:
-    key = os.environ.get("TREND_LLM_API_KEY")
-    if key:
-        return key
-    if provider == "openai":
-        return os.environ.get("OPENAI_API_KEY")
-    if provider == "anthropic":
-        return os.environ.get("ANTHROPIC_API_KEY")
-    return None
+    override = os.environ.get("TREND_LLM_API_KEY")
+    if override:
+        return override
+    provider_key = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY"}
+    env_var = provider_key.get(provider, "")
+    return os.environ.get(env_var) if env_var else None
 
 
 def main() -> None:

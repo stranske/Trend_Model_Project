@@ -25,7 +25,9 @@ pip install trend-model[llm]
 trend nl "use risk parity weighting" --in config/demo.yml --diff
 ```
 
-## Provider Configuration
+## Configuration
+
+### Provider setup
 
 Natural language edits use LangChain-backed providers. The CLI reads provider
 settings from environment variables:
@@ -66,6 +68,9 @@ export TREND_LLM_MODEL="llama3.1"
 
 ## Usage Examples
 
+Common operations include previewing diffs, writing to a new config, or applying
+changes directly before running a backtest.
+
 Preview changes without writing files:
 
 ```bash
@@ -82,6 +87,12 @@ Apply changes and run the pipeline:
 
 ```bash
 trend nl "set top_n to 12" --in config/demo.yml --run
+```
+
+Apply a risky change without interactive confirmation:
+
+```bash
+trend nl "remove max weight constraints" --in config/demo.yml --run --no-confirm
 ```
 
 Add a data path and keep a dry-run copy in stdout:

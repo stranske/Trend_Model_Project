@@ -29,28 +29,28 @@ Preview a diff from the demo config:
 trend nl "use risk parity weighting" --in config/demo.yml --diff
 ```
 
-Write updates to a new file:
-
-```bash
-trend nl "set max weight to 8%" --in config/demo.yml --out config/updated.yml
-```
-
-Run the pipeline after applying a change:
+Apply a change and run immediately:
 
 ```bash
 trend nl "set top_n to 12" --in config/demo.yml --run
 ```
 
-Skip confirmation for a risky change:
+Skip confirmation for a risky change while running:
 
 ```bash
 trend nl "remove max weight constraints" --in config/demo.yml --run --no-confirm
 ```
 
-Use a specific provider:
+Use a specific provider with a diff preview:
 
 ```bash
 trend nl "add a 3% turnover cap" --in config/demo.yml --provider anthropic --diff
+```
+
+Write updates to a new file:
+
+```bash
+trend nl "set max weight to 8%" --in config/demo.yml --out config/updated.yml
 ```
 
 Print the updated YAML without writing it:
