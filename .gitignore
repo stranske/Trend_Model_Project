@@ -25,9 +25,7 @@ tmp_logs/
 test_output.log
 *.log
 node_modules/
-.trend_nl_logs/
-/.trend_nl_logs/*.jsonl
-.trend_nl_logs/nl_ops_*.jsonl
+/.trend_nl_logs/
 
 # auto-generated virtual environments
 .autofix-venv/
