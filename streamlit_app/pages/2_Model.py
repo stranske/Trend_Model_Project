@@ -245,6 +245,7 @@ def _generate_config_preview(
         "diff": diff_text,
         "summary": patch.summary,
         "risk_flags": [flag.value for flag in patch.risk_flags],
+        "needs_review": patch.needs_review,
         "patch": patch.model_dump(),
     }
 
@@ -368,7 +369,8 @@ def _apply_preview_state(
 
 def _requires_risky_confirmation(preview: Mapping[str, Any]) -> bool:
     risk_flags = preview.get("risk_flags")
-    return bool(risk_flags)
+    needs_review = preview.get("needs_review")
+    return bool(risk_flags) or bool(needs_review)
 
 
 def _queue_risky_apply(preview: Mapping[str, Any], *, run_analysis: bool) -> None:
@@ -387,9 +389,11 @@ def _render_risky_change_dialog() -> None:
         st.session_state.pop("config_chat_pending_apply", None)
         return
     risk_flags = preview.get("risk_flags") or []
+    needs_review = bool(preview.get("needs_review"))
     if not risk_flags:
-        st.session_state.pop("config_chat_pending_apply", None)
-        return
+        if not needs_review:
+            st.session_state.pop("config_chat_pending_apply", None)
+            return
 
     dialog = getattr(st, "dialog", None)
     if dialog is None:
@@ -398,7 +402,10 @@ def _render_risky_change_dialog() -> None:
 
     with dialog("Confirm risky change"):
         st.warning("This change modifies sensitive configuration settings.")
-        st.caption(f"Flags: {', '.join(risk_flags)}")
+        if risk_flags:
+            st.caption(f"Flags: {', '.join(risk_flags)}")
+        if needs_review:
+            st.caption("Unknown config keys detected; please review before applying.")
         confirm = st.button("Apply anyway", type="primary")
         cancel = st.button("Cancel", type="secondary")
         if confirm:
