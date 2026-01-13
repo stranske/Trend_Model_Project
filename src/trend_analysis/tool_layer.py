@@ -114,16 +114,17 @@ class ToolLayer:
         if not isinstance(path, (str, Path)):
             raise TypeError("path must be a string or Path")
 
+        path_display = str(path)
         candidate = Path(path).expanduser()
         if any(part == ".." for part in candidate.parts):
-            raise ValueError(f"SecurityError: Path traversal detected: {path}")
+            raise ValueError(f"SecurityError: Path traversal detected: {path_display}")
 
         if not candidate.is_absolute():
             candidate = proj_path() / candidate
 
         resolved = candidate.resolve(strict=False)
         if not any(_is_relative_to(resolved, root) for root in self._allowed_roots()):
-            raise ValueError("path is outside the sandbox")
+            raise ValueError(f"SecurityError: Path traversal detected: {path_display}")
 
         return resolved
 

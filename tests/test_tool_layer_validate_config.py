@@ -38,7 +38,7 @@ def test_validate_config_rejects_paths_outside_sandbox(
     result = tool.validate_config({}, base_path=tmp_path / "outside")
 
     assert result.status == "error"
-    assert "sandbox" in (result.message or "")
+    assert (result.message or "").startswith("SecurityError: Path traversal detected:")
 
 
 def test_validate_config_rejects_path_traversal(
@@ -77,4 +77,4 @@ def test_validate_config_rejects_symlink_escape(
     result = tool.validate_config({}, base_path=link_path)
 
     assert result.status == "error"
-    assert "sandbox" in (result.message or "")
+    assert (result.message or "").startswith("SecurityError: Path traversal detected:")

@@ -128,7 +128,7 @@ def test_run_analysis_rejects_paths_outside_sandbox(
     result = tool.run_analysis(cfg)
 
     assert result.status == "error"
-    assert "sandbox" in (result.message or "")
+    assert (result.message or "").startswith("SecurityError: Path traversal detected:")
 
 
 def test_run_analysis_rejects_path_traversal(
@@ -175,4 +175,4 @@ def test_run_analysis_rejects_symlink_escape(
     result = tool.run_analysis(cfg)
 
     assert result.status == "error"
-    assert "sandbox" in (result.message or "")
+    assert (result.message or "").startswith("SecurityError: Path traversal detected:")
