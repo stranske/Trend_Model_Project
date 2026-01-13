@@ -103,6 +103,8 @@ Date,FUND_A,FUND_B,FUND_C
 2021-01-31,0.02,0.015,0.018
 2021-02-28,0.01,0.012,0.017
 2021-03-31,-0.005,0.02,0.013
+```
+
 ### Uploading Your Data
 1. Prepare your CSV with the format above
 2. Use the "Upload" section in the sidebar
@@ -131,15 +133,35 @@ source .venv/bin/activate
 pip install --upgrade pip
 pip install -e .[app]
 
-# Run analysis with config via the packaged CLI
-trend run -c config/demo.yml --returns demo/demo_returns.csv
+# Generate demo data
+python scripts/generate_demo.py
+
+# Run analysis with the quickstart configuration
+trend run -c config/quickstart.yml
 
 # Generate a quick HTML report (heatmap included) for a completed run
 trend quick-report --run-id demo_run --artifacts perf/demo_run --config config/demo.yml
-
-# Generate demo data
-python scripts/generate_demo.py
 ```
+
+### Edit Configs with Natural Language (10-minute path)
+
+To apply simple config tweaks using natural language, install the LLM extras and
+set your provider credentials (see the LLM section in `README.md`):
+
+```bash
+# Install the optional LLM dependencies
+pip install -e ".[llm]"
+
+# Apply a natural language change and write a new config file
+trend nl "Limit max weight to 10% and select 6 funds" \
+  --in config/quickstart.yml \
+  --out config/quickstart_nl.yml
+
+# Validate and run the updated config
+trend run -c config/quickstart_nl.yml
+```
+
+Use `--diff` or `--dry-run` if you want to inspect changes before writing files.
 
 ---
 
