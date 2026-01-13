@@ -31,6 +31,7 @@ from trend_analysis.llm import (
     create_llm,
 )
 from trend_analysis.llm.schema import load_compact_schema
+from trend_analysis.llm.validation import validate_patch_keys
 
 # Extended metric fields for ranking
 METRIC_FIELDS = [
@@ -76,6 +77,8 @@ def _record_config_change(preview: Mapping[str, Any]) -> None:
         "instruction": preview.get("instruction"),
         "summary": preview.get("summary"),
         "risk_flags": list(preview.get("risk_flags") or []),
+        "needs_review": bool(preview.get("needs_review")),
+        "unknown_keys": list(preview.get("unknown_keys") or []),
         "before": deepcopy(dict(before)),
         "after": deepcopy(dict(after)),
         "diff": preview.get("diff"),
@@ -238,6 +241,7 @@ def _generate_config_preview(
     before = deepcopy(dict(model_state))
     after = apply_config_patch(before, patch)
     diff_text = diff_configs(before, after)
+    unknown_keys = validate_patch_keys(patch.operations, chain.schema)
     return {
         "instruction": instruction,
         "before": before,
@@ -245,6 +249,8 @@ def _generate_config_preview(
         "diff": diff_text,
         "summary": patch.summary,
         "risk_flags": [flag.value for flag in patch.risk_flags],
+        "needs_review": bool(patch.needs_review),
+        "unknown_keys": [entry.path for entry in unknown_keys],
         "patch": patch.model_dump(),
     }
 
@@ -368,7 +374,8 @@ def _apply_preview_state(
 
 def _requires_risky_confirmation(preview: Mapping[str, Any]) -> bool:
     risk_flags = preview.get("risk_flags")
-    return bool(risk_flags)
+    needs_review = preview.get("needs_review")
+    return bool(risk_flags) or bool(needs_review)
 
 
 def _queue_risky_apply(preview: Mapping[str, Any], *, run_analysis: bool) -> None:
@@ -387,7 +394,8 @@ def _render_risky_change_dialog() -> None:
         st.session_state.pop("config_chat_pending_apply", None)
         return
     risk_flags = preview.get("risk_flags") or []
-    if not risk_flags:
+    needs_review = bool(preview.get("needs_review"))
+    if not risk_flags and not needs_review:
         st.session_state.pop("config_chat_pending_apply", None)
         return
 
@@ -398,7 +406,14 @@ def _render_risky_change_dialog() -> None:
 
     with dialog("Confirm risky change"):
         st.warning("This change modifies sensitive configuration settings.")
-        st.caption(f"Flags: {', '.join(risk_flags)}")
+        if risk_flags:
+            st.caption(f"Flags: {', '.join(risk_flags)}")
+        if needs_review:
+            unknown_keys = preview.get("unknown_keys") or []
+            if unknown_keys:
+                st.caption(f"Unknown keys: {', '.join(unknown_keys)}")
+            else:
+                st.caption("Patch includes unknown or ambiguous keys.")
         confirm = st.button("Apply anyway", type="primary")
         cancel = st.button("Cancel", type="secondary")
         if confirm:
@@ -545,6 +560,12 @@ def _render_config_diff_preview(model_state: Mapping[str, Any] | None) -> None:
     if not isinstance(after, Mapping):
         st.warning("Preview data is incomplete. Try generating a new diff.")
         return
+    if preview.get("needs_review"):
+        unknown_keys = preview.get("unknown_keys") or []
+        if unknown_keys:
+            st.warning(f"Unknown config keys detected: {', '.join(unknown_keys)}")
+        else:
+            st.warning("Patch includes unknown or ambiguous config keys.")
     diff_text = preview.get("diff")
     if not isinstance(diff_text, str):
         diff_text = diff_configs(dict(before), dict(after))

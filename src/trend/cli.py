@@ -1185,14 +1185,26 @@ def _validate_nl_run_config(updated: dict[str, Any], *, base_path: Path) -> None
 
 
 def _confirm_risky_patch(patch: ConfigPatch, *, no_confirm: bool) -> None:
-    if not patch.risk_flags or no_confirm:
+    if no_confirm:
         return
-    flags = ", ".join(flag.value for flag in patch.risk_flags)
+    has_risk_flags = bool(patch.risk_flags)
+    needs_review = bool(patch.needs_review)
+    if not has_risk_flags and not needs_review:
+        return
+
+    flag_text = ", ".join(flag.value for flag in patch.risk_flags)
+    if needs_review and has_risk_flags:
+        prompt_body = f"Risky changes detected ({flag_text}); patch needs review."
+    elif needs_review:
+        prompt_body = "Patch needs review due to unknown or ambiguous config keys."
+    else:
+        prompt_body = f"Risky changes detected ({flag_text})."
+
     if not sys.stdin.isatty():
         raise TrendCLIError(
-            f"Risky changes detected ({flags}). Re-run with --no-confirm to apply without prompting."
+            f"{prompt_body} Re-run with --no-confirm to apply without prompting."
         )
-    response = input(f"Risky changes detected ({flags}). Continue? [y/N]: ")
+    response = input(f"{prompt_body} Continue? [y/N]: ")
     if response.strip().lower() not in {"y", "yes"}:
         raise TrendCLIError("Update cancelled by user.")
 
