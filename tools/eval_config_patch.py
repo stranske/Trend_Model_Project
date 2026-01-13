@@ -5,7 +5,10 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
+import re
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -16,6 +19,8 @@ from langchain_core.runnables import RunnableLambda
 from trend_analysis.config.patch import ConfigPatch
 from trend_analysis.llm.chain import ConfigPatchChain
 from trend_analysis.llm.prompts import build_config_patch_prompt
+from trend_analysis.llm.providers import LLMProviderConfig, create_llm
+from trend_analysis.llm.schema import load_compact_schema
 
 
 @dataclass(frozen=True)
@@ -555,8 +560,43 @@ def _validate_log_expectations(
     return errors
 
 
-def _evaluate_case(case: dict[str, Any]) -> EvalResult:
+def _validate_constraints(constraints: list[str], patch: ConfigPatch) -> list[str]:
+    errors: list[str] = []
+    for constraint in constraints:
+        normalized = constraint.strip()
+        if not normalized:
+            continue
+        if normalized == "not patch.risk_flags":
+            if patch.risk_flags:
+                errors.append(f"Constraint failed: {constraint}")
+            continue
+        if normalized.startswith("patch.operations"):
+            match = re.match(r"patch\.operations\s*\|\s*length\s*==\s*(\d+)$", normalized)
+            if match is None:
+                errors.append(f"Unsupported constraint: {constraint}")
+                continue
+            expected_length = int(match.group(1))
+            if len(patch.operations) != expected_length:
+                errors.append(f"Constraint failed: {constraint}")
+            continue
+        errors.append(f"Unsupported constraint: {constraint}")
+    return errors
+
+
+def evaluate_prompt(
+    case: dict[str, Any],
+    chain: ConfigPatchChain | None,
+    mode: str,
+) -> EvalResult:
     case_id = str(case.get("id") or case.get("name") or "case")
+    mode_value = (mode or "").strip().lower()
+    if mode_value not in {"mock", "live"}:
+        return EvalResult(
+            case_id=case_id,
+            passed=False,
+            errors=[f"Unsupported evaluation mode: {mode!r}."],
+        )
+
     instruction = case.get("instruction")
     if "current_config" in case:
         current_config = case.get("current_config", {})
@@ -572,6 +612,7 @@ def _evaluate_case(case: dict[str, Any]) -> EvalResult:
     expected_log_fragments = case.get("expected_log_fragments", [])
     expected_log_count = case.get("expected_log_count")
     retries = int(case.get("retries", 1))
+    constraints = case.get("constraints")
 
     errors: list[str] = []
     if not isinstance(instruction, str) or not instruction.strip():
@@ -589,30 +630,35 @@ def _evaluate_case(case: dict[str, Any]) -> EvalResult:
             expected["summary_contains"] = case["expected_summary_contains"]
     if expected is None and response_text is None and not responses:
         errors.append("Missing expected_patch or llm_response.")
+    if mode_value == "live" and chain is None:
+        errors.append("Live mode requires a ConfigPatchChain instance.")
+    if constraints is not None and not isinstance(constraints, list):
+        errors.append("constraints must be a list.")
     if errors:
         return EvalResult(case_id=case_id, passed=False, errors=errors)
 
-    if responses is None:
-        if response_text is None:
-            response_patch = case.get("response_patch") or expected or {}
-            if isinstance(response_patch, dict):
-                response_patch = dict(response_patch)
-                if "risk_flags" not in response_patch:
-                    response_patch["risk_flags"] = []
-                if "summary" not in response_patch:
-                    response_patch["summary"] = case.get("response_summary") or _default_summary(
-                        response_patch.get("operations")
-                    )
-            response_text = json.dumps(response_patch, ensure_ascii=True)
-        responses = [response_text]
+    if mode_value == "mock":
+        if responses is None:
+            if response_text is None:
+                response_patch = case.get("response_patch") or expected or {}
+                if isinstance(response_patch, dict):
+                    response_patch = dict(response_patch)
+                    if "risk_flags" not in response_patch:
+                        response_patch["risk_flags"] = []
+                    if "summary" not in response_patch:
+                        response_patch["summary"] = case.get(
+                            "response_summary"
+                        ) or _default_summary(response_patch.get("operations"))
+                response_text = json.dumps(response_patch, ensure_ascii=True)
+            responses = [response_text]
 
-    llm = _build_llm(responses)
-    chain = ConfigPatchChain(
-        llm=llm,
-        prompt_builder=build_config_patch_prompt,
-        schema=case.get("schema"),
-        retries=retries,
-    )
+        llm = _build_llm(responses)
+        chain = ConfigPatchChain(
+            llm=llm,
+            prompt_builder=build_config_patch_prompt,
+            schema=case.get("schema"),
+            retries=retries,
+        )
 
     log_messages: list[str] = []
 
@@ -626,6 +672,9 @@ def _evaluate_case(case: dict[str, Any]) -> EvalResult:
     chain_logger.addHandler(handler)
     chain_logger.setLevel(logging.WARNING)
 
+    start_time = time.perf_counter() if mode_value == "mock" else None
+    patch_payload: dict[str, Any] | None = None
+
     try:
         patch = chain.run(
             current_config=current_config,
@@ -635,8 +684,6 @@ def _evaluate_case(case: dict[str, Any]) -> EvalResult:
             safety_rules=case.get("safety_rules"),
         )
     except Exception as exc:  # pragma: no cover - surfaced in report
-        chain_logger.removeHandler(handler)
-        chain_logger.setLevel(previous_level)
         error_text = str(exc)
         if expected_error_contains:
             if expected_error_contains not in error_text:
@@ -646,25 +693,31 @@ def _evaluate_case(case: dict[str, Any]) -> EvalResult:
             errors.extend(
                 _validate_log_expectations(log_messages, expected_log_fragments, expected_log_count)
             )
-            return EvalResult(
-                case_id=case_id,
-                passed=not errors,
-                errors=errors,
-                patch=None,
-                logs=log_messages,
+        else:
+            errors.append(error_text)
+    else:
+        errors.extend(
+            _validate_log_expectations(log_messages, expected_log_fragments, expected_log_count)
+        )
+        if expected is not None:
+            errors.extend(_compare_patch(expected, patch))
+        if expected_error_contains:
+            errors.append(
+                f"Expected error containing '{expected_error_contains}', but evaluation succeeded."
             )
-        return EvalResult(case_id=case_id, passed=False, errors=[error_text], logs=log_messages)
+        if constraints:
+            errors.extend(_validate_constraints(constraints, patch))
+        patch_payload = patch.model_dump(mode="python")
     finally:
         if handler in chain_logger.handlers:
             chain_logger.removeHandler(handler)
         chain_logger.setLevel(previous_level)
 
-    errors.extend(
-        _validate_log_expectations(log_messages, expected_log_fragments, expected_log_count)
-    )
-    if expected is not None:
-        errors.extend(_compare_patch(expected, patch))
-    patch_payload = patch.model_dump(mode="python")
+    if start_time is not None:
+        elapsed = time.perf_counter() - start_time
+        if elapsed > 10.0:
+            errors.append(f"Mock mode execution exceeded 10 seconds ({elapsed:.3f}s).")
+
     return EvalResult(
         case_id=case_id,
         passed=not errors,
@@ -672,6 +725,10 @@ def _evaluate_case(case: dict[str, Any]) -> EvalResult:
         patch=patch_payload,
         logs=log_messages,
     )
+
+
+def _evaluate_case(case: dict[str, Any]) -> EvalResult:
+    return evaluate_prompt(case, chain=None, mode="mock")
 
 
 def _default_summary(operations: Any) -> str:
@@ -737,6 +794,114 @@ def _build_report(results: list[EvalResult]) -> dict[str, Any]:
     }
 
 
+def _format_summary_table(results: list[EvalResult]) -> str:
+    headers = ("Case", "Status", "Details")
+    rows: list[tuple[str, str, str]] = []
+    for result in results:
+        status = "PASS" if result.passed else "FAIL"
+        details = ""
+        if not result.passed:
+            detail_parts: list[str] = []
+            if result.errors:
+                detail_parts.append("; ".join(result.errors))
+            if result.logs:
+                detail_parts.append(f"Logs: {'; '.join(result.logs)}")
+            details = " | ".join(detail_parts) if detail_parts else "Unknown failure."
+        rows.append((result.case_id, status, details))
+
+    case_width = max(len(headers[0]), *(len(row[0]) for row in rows)) if rows else len(headers[0])
+    status_width = max(len(headers[1]), *(len(row[1]) for row in rows)) if rows else len(headers[1])
+
+    lines = [
+        f"{headers[0]:<{case_width}}  {headers[1]:<{status_width}}  {headers[2]}",
+        f"{'-' * case_width}  {'-' * status_width}  {'-' * len(headers[2])}",
+    ]
+    for case_id, status, details in rows:
+        lines.append(f"{case_id:<{case_width}}  {status:<{status_width}}  {details}")
+    return "\n".join(lines)
+
+
+def _resolve_provider_config(
+    *,
+    provider: str | None,
+    model: str | None,
+    base_url: str | None,
+    organization: str | None,
+    max_retries: int | None,
+    timeout: float | None,
+) -> LLMProviderConfig:
+    provider_name = (provider or os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
+    supported = {"openai", "anthropic", "ollama"}
+    if provider_name not in supported:
+        raise ValueError(
+            f"Unknown LLM provider '{provider_name}'. Expected one of: {', '.join(sorted(supported))}."
+        )
+    api_key = os.environ.get("TREND_LLM_API_KEY")
+    if not api_key:
+        if provider_name == "openai":
+            api_key = os.environ.get("OPENAI_API_KEY")
+        elif provider_name == "anthropic":
+            api_key = os.environ.get("ANTHROPIC_API_KEY")
+    model_name = model or os.environ.get("TREND_LLM_MODEL")
+    base_url = base_url or os.environ.get("TREND_LLM_BASE_URL")
+    organization = organization or os.environ.get("TREND_LLM_ORG")
+    max_retries_value = max_retries
+    timeout_value = timeout
+    if max_retries_value is None:
+        max_retries_env = os.environ.get("TREND_LLM_MAX_RETRIES")
+        if max_retries_env:
+            max_retries_value = int(max_retries_env)
+    if timeout_value is None:
+        timeout_env = os.environ.get("TREND_LLM_TIMEOUT")
+        if timeout_env:
+            timeout_value = float(timeout_env)
+    config_kwargs: dict[str, Any] = {"provider": provider_name}
+    if model_name:
+        config_kwargs["model"] = model_name
+    if api_key:
+        config_kwargs["api_key"] = api_key
+    if base_url:
+        config_kwargs["base_url"] = base_url
+    if organization:
+        config_kwargs["organization"] = organization
+    if max_retries_value is not None:
+        config_kwargs["max_retries"] = max_retries_value
+    if timeout_value is not None:
+        config_kwargs["timeout"] = timeout_value
+    return LLMProviderConfig(**config_kwargs)
+
+
+def _build_live_chain(
+    *,
+    provider: str | None,
+    model: str | None,
+    temperature: float | None,
+    max_tokens: int | None,
+    max_retries: int | None,
+    timeout: float | None,
+    base_url: str | None,
+    organization: str | None,
+) -> ConfigPatchChain:
+    config = _resolve_provider_config(
+        provider=provider,
+        model=model,
+        base_url=base_url,
+        organization=organization,
+        max_retries=max_retries,
+        timeout=timeout,
+    )
+    llm = create_llm(config)
+    schema = load_compact_schema()
+    return ConfigPatchChain.from_env(
+        llm=llm,
+        schema=schema,
+        prompt_builder=build_config_patch_prompt,
+        temperature=temperature,
+        model=config.model,
+        max_tokens=max_tokens,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Evaluate ConfigPatchChain outputs.")
     parser.add_argument(
@@ -750,6 +915,23 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Use embedded test cases instead of reading from a file.",
     )
+    parser.add_argument(
+        "--mode",
+        choices=("mock", "live"),
+        default="mock",
+        help="Evaluation mode: mock uses canned LLM responses; live calls a real provider.",
+    )
+    parser.add_argument(
+        "--provider",
+        help="LLM provider for live mode (defaults to TREND_LLM_PROVIDER or openai).",
+    )
+    parser.add_argument("--model", help="Override the model for live mode.")
+    parser.add_argument("--temperature", type=float, help="Override model temperature.")
+    parser.add_argument("--max-tokens", type=int, help="Override max tokens for live mode.")
+    parser.add_argument("--max-retries", type=int, help="Override provider max retries.")
+    parser.add_argument("--timeout", type=float, help="Override provider timeout in seconds.")
+    parser.add_argument("--base-url", help="Override provider base URL.")
+    parser.add_argument("--organization", help="Override provider organization.")
     parser.add_argument(
         "--report",
         type=Path,
@@ -765,7 +947,24 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Failed to load cases: {exc}", file=sys.stderr)
         return 1
 
-    results = [_evaluate_case(case) for case in cases]
+    if args.mode == "live":
+        try:
+            chain = _build_live_chain(
+                provider=args.provider,
+                model=args.model,
+                temperature=args.temperature,
+                max_tokens=args.max_tokens,
+                max_retries=args.max_retries,
+                timeout=args.timeout,
+                base_url=args.base_url,
+                organization=args.organization,
+            )
+        except Exception as exc:
+            print(f"Failed to initialize live mode: {exc}", file=sys.stderr)
+            return 1
+        results = [evaluate_prompt(case, chain=chain, mode="live") for case in cases]
+    else:
+        results = [_evaluate_case(case) for case in cases]
     report = _build_report(results)
     try:
         args.report.write_text(json.dumps(report, indent=2, ensure_ascii=True), encoding="utf-8")
@@ -777,10 +976,9 @@ def main(argv: list[str] | None = None) -> int:
         f"Evaluated {report['total']} cases. "
         f"Passed {report['passed']} ({report['success_rate'] * 100:.1f}%)."
     )
+    print(_format_summary_table(results))
     failed = [result for result in results if not result.passed]
     if failed:
-        for result in failed:
-            print(f"- {result.case_id}: {', '.join(result.errors)}")
         return 2
     return 0
 

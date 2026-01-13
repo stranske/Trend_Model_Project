@@ -1,6 +1,17 @@
 from __future__ import annotations
 
-from tools.eval_config_patch import DEFAULT_CASES, _evaluate_case
+import json
+import time
+
+import pytest
+
+from tools import eval_config_patch
+from tools.eval_config_patch import (
+    DEFAULT_CASES,
+    EvalResult,
+    _evaluate_case,
+    _format_summary_table,
+)
 
 
 def _find_case(case_id: str) -> dict[str, object]:
@@ -55,3 +66,146 @@ def test_evaluate_case_accepts_prompt_dataset_format() -> None:
         }
     )
     assert result.passed
+
+
+def test_evaluate_prompt_mock_mode_runs_under_ten_seconds() -> None:
+    case = _find_case("risk_parity_weighting")
+    start = time.perf_counter()
+    result = eval_config_patch.evaluate_prompt(case, chain=None, mode="mock")
+    elapsed = time.perf_counter() - start
+    assert result.passed
+    assert elapsed < 10.0
+
+
+def test_evaluate_prompt_mock_mode_timeout_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    case = _find_case("risk_parity_weighting")
+    ticks = [0.0, 11.0]
+
+    def _fake_perf_counter() -> float:
+        if ticks:
+            return ticks.pop(0)
+        return 11.0
+
+    monkeypatch.setattr(eval_config_patch.time, "perf_counter", _fake_perf_counter)
+    result = eval_config_patch.evaluate_prompt(case, chain=None, mode="mock")
+    assert not result.passed
+    assert any("Mock mode execution exceeded 10 seconds" in error for error in result.errors)
+
+
+def test_evaluate_prompt_expected_error_must_fail_when_successful() -> None:
+    case = {
+        "id": "expected_error_not_raised",
+        "instruction": "Set top_n to 9.",
+        "current_config": {"analysis": {"top_n": 8}},
+        "allowed_schema": {
+            "type": "object",
+            "properties": {
+                "analysis": {"type": "object", "properties": {"top_n": {"type": "integer"}}}
+            },
+        },
+        "expected_patch": {
+            "operations": [{"op": "set", "path": "analysis.top_n", "value": 9}],
+            "risk_flags": [],
+            "summary": "Set top_n to 9.",
+        },
+        "expected_error_contains": "Failed to parse ConfigPatch",
+        "llm_response": json.dumps(
+            {
+                "operations": [{"op": "set", "path": "analysis.top_n", "value": 9}],
+                "risk_flags": [],
+                "summary": "Set top_n to 9.",
+            },
+            ensure_ascii=True,
+        ),
+    }
+
+    result = eval_config_patch.evaluate_prompt(case, chain=None, mode="mock")
+
+    assert not result.passed
+    assert any("Expected error containing" in error for error in result.errors)
+
+
+def test_evaluate_prompt_constraint_checks_pass() -> None:
+    case = {
+        "id": "constraints_pass",
+        "instruction": "Set top_n to 9.",
+        "current_config": {"analysis": {"top_n": 8}},
+        "allowed_schema": {
+            "type": "object",
+            "properties": {
+                "analysis": {"type": "object", "properties": {"top_n": {"type": "integer"}}}
+            },
+        },
+        "expected_patch": {
+            "operations": [{"op": "set", "path": "analysis.top_n", "value": 9}],
+            "risk_flags": [],
+            "summary": "Set top_n to 9.",
+        },
+        "constraints": ["patch.operations | length == 1", "not patch.risk_flags"],
+        "llm_response": json.dumps(
+            {
+                "operations": [{"op": "set", "path": "analysis.top_n", "value": 9}],
+                "risk_flags": [],
+                "summary": "Set top_n to 9.",
+            },
+            ensure_ascii=True,
+        ),
+    }
+
+    result = eval_config_patch.evaluate_prompt(case, chain=None, mode="mock")
+
+    assert result.passed
+
+
+def test_evaluate_prompt_constraint_checks_fail() -> None:
+    case = {
+        "id": "constraints_fail",
+        "instruction": "Set top_n to 9.",
+        "current_config": {"analysis": {"top_n": 8}},
+        "allowed_schema": {
+            "type": "object",
+            "properties": {
+                "analysis": {"type": "object", "properties": {"top_n": {"type": "integer"}}}
+            },
+        },
+        "expected_patch": {
+            "operations": [{"op": "set", "path": "analysis.top_n", "value": 9}],
+            "risk_flags": [],
+            "summary": "Set top_n to 9.",
+        },
+        "constraints": ["patch.operations | length == 2"],
+        "llm_response": json.dumps(
+            {
+                "operations": [{"op": "set", "path": "analysis.top_n", "value": 9}],
+                "risk_flags": [],
+                "summary": "Set top_n to 9.",
+            },
+            ensure_ascii=True,
+        ),
+    }
+
+    result = eval_config_patch.evaluate_prompt(case, chain=None, mode="mock")
+
+    assert not result.passed
+    assert any(
+        "Constraint failed: patch.operations | length == 2" in error for error in result.errors
+    )
+
+
+def test_format_summary_table_includes_failure_diagnostics() -> None:
+    results = [
+        EvalResult(case_id="case_pass", passed=True, errors=[]),
+        EvalResult(
+            case_id="case_fail",
+            passed=False,
+            errors=["Bad output"],
+            logs=["ConfigPatch parse attempt 1/2 failed"],
+        ),
+    ]
+    table = _format_summary_table(results)
+    assert "case_pass" in table
+    assert "PASS" in table
+    assert "case_fail" in table
+    assert "FAIL" in table
+    assert "Bad output" in table
+    assert "ConfigPatch parse attempt 1/2 failed" in table
