@@ -14,6 +14,17 @@ __pycache__/
 # macOS metadata
 .DS_Store
 
+# local environment files
+.env
+.env.*
+.python-version
+.tool-versions
+.direnv/
+.idea/
+.mypy_cache/
+.ruff_cache/
+.vscode/
+
 # test artefacts
 .coverage
 .coverage.*
