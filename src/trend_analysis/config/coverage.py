@@ -10,6 +10,7 @@ __all__ = [
     "ConfigCoverageReport",
     "ConfigCoverageTracker",
     "activate_config_coverage",
+    "compute_schema_validity",
     "deactivate_config_coverage",
     "get_config_coverage_tracker",
     "wrap_config_for_coverage",
@@ -86,6 +87,14 @@ def deactivate_config_coverage() -> None:
 
 def get_config_coverage_tracker() -> ConfigCoverageTracker | None:
     return _ACTIVE_TRACKER
+
+
+def compute_schema_validity(report: ConfigCoverageReport) -> float:
+    """Return ratio of keys that are both read and validated."""
+    total = len(report.read | report.validated)
+    if total == 0:
+        return 1.0
+    return len(report.read & report.validated) / total
 
 
 class _TrackedMapping(MutableMapping[str, Any]):

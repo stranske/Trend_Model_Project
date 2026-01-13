@@ -20,6 +20,10 @@ __pycache__/
 .python-version
 .tool-versions
 .direnv/
+.idea/
+.mypy_cache/
+.ruff_cache/
+.vscode/
 
 # test artefacts
 .coverage
