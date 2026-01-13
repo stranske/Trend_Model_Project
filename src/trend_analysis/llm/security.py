@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import re
-from typing import Iterable
-
 
 _INJECTION_PATTERNS: dict[str, re.Pattern[str]] = {
     "override_instructions": re.compile(
