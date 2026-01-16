@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from trend_analysis.llm.result_metrics import extract_metric_catalog, format_metric_catalog
+from trend_analysis.llm.result_metrics import (
+    extract_metric_catalog,
+    format_metric_catalog,
+)
 
 
 def test_extract_metric_catalog_collects_stats_weights_benchmarks() -> None:
