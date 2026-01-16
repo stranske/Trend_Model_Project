@@ -23,6 +23,7 @@ from .prompts import (
 )
 from .providers import LLMProviderConfig, create_llm
 from .replay import ReplayResult, load_nl_log_entry, render_prompt, replay_nl_entry
+from .result_metrics import MetricEntry, extract_metric_catalog, format_metric_catalog
 
 __all__ = [
     "ConfigPatchChain",
@@ -47,6 +48,9 @@ __all__ = [
     "ReplayResult",
     "LLMProviderConfig",
     "create_llm",
+    "MetricEntry",
+    "extract_metric_catalog",
+    "format_metric_catalog",
     "load_nl_log_entry",
     "replay_nl_entry",
     "render_prompt",
