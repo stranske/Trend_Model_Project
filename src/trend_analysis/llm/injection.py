@@ -146,10 +146,10 @@ def _iter_decoded_variants(text: str) -> Iterable[str]:
             if nested and nested not in seen:
                 seen.add(nested)
                 yield nested
-    for decoded in (_maybe_decode_base64(text), _maybe_decode_hex(text)):
-        if decoded and decoded not in seen:
-            seen.add(decoded)
-            yield decoded
+    for decoded_variant in (_maybe_decode_base64(text), _maybe_decode_hex(text)):
+        if decoded_variant and decoded_variant not in seen:
+            seen.add(decoded_variant)
+            yield decoded_variant
 
 
 def _maybe_decode_base64(text: str) -> str | None:
