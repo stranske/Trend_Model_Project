@@ -21,3 +21,4 @@
 - [x] `pytest tests/test_prompt_injection_guard.py -m "not slow"` (unicode escape coverage)
 - [x] `pytest tests/test_prompt_injection_guard.py -m "not slow"` (data URL base64 coverage)
 - [x] `pytest tests/test_prompt_injection_guard.py -m "not slow"` (zero-width obfuscation coverage)
+- [x] `pytest tests/test_prompt_injection_guard.py -m "not slow"` (charset base64 + hex entity coverage)
