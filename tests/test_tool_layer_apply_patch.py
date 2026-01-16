@@ -61,3 +61,19 @@ def test_apply_patch_requires_confirmation_for_unknown_key_review() -> None:
 
     assert confirmed.status == "success"
     assert confirmed.data["analysis"]["top_n"] == 12
+
+
+def test_apply_patch_requires_confirmation_for_combined_risks() -> None:
+    tool = ToolLayer()
+    config = {"portfolio": {"constraints": {"max_weight": 0.2}}}
+    patch = {
+        "operations": [{"op": "remove", "path": "portfolio.constraints"}],
+        "summary": "Remove constraints and apply manual overrides",
+        "needs_review": True,
+    }
+
+    result = tool.apply_patch(config, patch)
+
+    assert result.status == "error"
+    assert "REMOVES_CONSTRAINT" in (result.message or "")
+    assert "UNKNOWN_KEYS" in (result.message or "")
