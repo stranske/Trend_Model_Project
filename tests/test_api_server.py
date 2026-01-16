@@ -99,6 +99,35 @@ def test_api_allows_risky_patch_with_confirmation(client):
     assert "portfolio" in body["config"]
 
 
+def test_api_guard_blocks_risky_patch_before_tool_layer(client, monkeypatch):
+    class DummyTool:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def apply_patch(self, *args, **kwargs):
+            self.calls += 1
+            raise AssertionError("Tool layer should not be called when guard blocks.")
+
+    tool = DummyTool()
+    monkeypatch.setattr(api_server, "_get_tool_layer", lambda: tool)
+
+    payload = {
+        "config": {"portfolio": {"max_turnover": 1.0}},
+        "patch": {
+            "operations": [
+                {"op": "remove", "path": "portfolio.max_turnover"},
+            ],
+            "risk_flags": [],
+            "summary": "Remove turnover cap.",
+        },
+    }
+
+    response = client.post("/config/patch", json=payload)
+
+    assert response.status_code == 400
+    assert tool.calls == 0
+
+
 def test_api_rejects_unknown_key_review_without_confirmation(client):
     payload = {
         "config": {"analysis": {"top_n": 10}},
@@ -158,6 +187,35 @@ def test_api_preview_rejects_risky_patch_without_confirmation(client):
 
     assert response.status_code == 400
     assert "Risky changes detected" in response.json()["detail"]
+
+
+def test_api_guard_blocks_preview_risky_patch_before_tool_layer(client, monkeypatch):
+    class DummyTool:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def apply_patch(self, *args, **kwargs):
+            self.calls += 1
+            raise AssertionError("Tool layer should not be called when guard blocks.")
+
+    tool = DummyTool()
+    monkeypatch.setattr(api_server, "_get_tool_layer", lambda: tool)
+
+    payload = {
+        "config": {"portfolio": {"max_turnover": 1.0}},
+        "patch": {
+            "operations": [
+                {"op": "remove", "path": "portfolio.max_turnover"},
+            ],
+            "risk_flags": [],
+            "summary": "Remove turnover cap.",
+        },
+    }
+
+    response = client.post("/config/patch/preview", json=payload)
+
+    assert response.status_code == 400
+    assert tool.calls == 0
 
 
 def test_api_preview_rejects_unknown_key_review_without_confirmation(client):
