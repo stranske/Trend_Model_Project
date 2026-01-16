@@ -17,8 +17,8 @@ from trend.cli import (
     build_parser,
     main,
 )
-from trend_analysis.config.patch import ConfigPatch, PatchOperation
 from trend_analysis.api import RunResult
+from trend_analysis.config.patch import ConfigPatch, PatchOperation
 from trend_analysis.reporting import generate_unified_report
 
 
