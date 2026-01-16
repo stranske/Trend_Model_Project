@@ -10,3 +10,6 @@
 - [x] Implement unit/integration tests for high-risk change confirmations across CLI, Streamlit, and API interfaces.
 - [x] Enhance error handling for unknown config keys by updating the configuration processing function to produce detailed error messages.
 - [x] Review and augment prompt-injection tests to include additional injection vectors like encoded or obfuscated patterns.
+
+## Verification
+- [x] `pytest tests/test_prompt_injection_guard.py -m "not slow"`

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import html
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
@@ -136,6 +137,9 @@ def _extend_unique(target: list[str], values: Iterable[str]) -> None:
 
 
 def _iter_decoded_variants(text: str) -> Iterable[str]:
+    html_decoded = html.unescape(text)
+    if html_decoded and html_decoded != text:
+        yield html_decoded
     decoded = unquote_plus(text)
     if decoded and decoded != text:
         yield decoded
