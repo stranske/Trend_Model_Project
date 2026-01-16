@@ -183,6 +183,13 @@ def _iter_decoded_variants(text: str) -> Iterable[str]:
 
 def _maybe_decode_base64(text: str) -> str | None:
     candidate = "".join(text.split())
+    lowered = candidate.lower()
+    if "base64," in lowered:
+        candidate = candidate[lowered.index("base64,") + len("base64,") :]
+        lowered = candidate.lower()
+    elif lowered.startswith("base64:"):
+        candidate = candidate[len("base64:") :]
+        lowered = candidate.lower()
     if len(candidate) < 16:
         return None
     if not re.fullmatch(r"[A-Za-z0-9+/_=-]+", candidate):
