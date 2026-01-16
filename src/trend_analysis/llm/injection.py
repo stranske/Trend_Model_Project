@@ -158,8 +158,9 @@ def _maybe_decode_base64(text: str) -> str | None:
         return None
     if not re.fullmatch(r"[A-Za-z0-9+/=]+", candidate):
         return None
+    padded = candidate + ("=" * ((4 - (len(candidate) % 4)) % 4))
     try:
-        decoded = base64.b64decode(candidate, validate=True)
+        decoded = base64.b64decode(padded, validate=True)
     except Exception:
         return None
     try:
