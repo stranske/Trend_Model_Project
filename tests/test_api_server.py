@@ -120,6 +120,46 @@ def test_api_rejects_unknown_key_review_without_confirmation(client):
     assert "confirm_risky" in detail
 
 
+def test_api_preview_rejects_risky_patch_without_confirmation(client):
+    payload = {
+        "config": {"portfolio": {"max_turnover": 1.0}},
+        "patch": {
+            "operations": [
+                {"op": "remove", "path": "portfolio.max_turnover"},
+            ],
+            "risk_flags": [],
+            "summary": "Remove turnover cap.",
+        },
+    }
+
+    response = client.post("/config/patch/preview", json=payload)
+
+    assert response.status_code == 400
+    assert "Risky changes detected" in response.json()["detail"]
+
+
+def test_api_preview_allows_risky_patch_with_confirmation(client):
+    payload = {
+        "config": {"portfolio": {"max_turnover": 1.0}},
+        "patch": {
+            "operations": [
+                {"op": "remove", "path": "portfolio.max_turnover"},
+            ],
+            "risk_flags": [],
+            "summary": "Remove turnover cap.",
+        },
+        "confirm_risky": True,
+    }
+
+    response = client.post("/config/patch/preview", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "success"
+    assert "diff" in body
+    assert "max_turnover" in body["diff"]
+
+
 def test_lifespan_context_logs_startup_and_shutdown(caplog):
     """Ensure the custom lifespan context logs both lifecycle events."""
 
