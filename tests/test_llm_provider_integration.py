@@ -67,9 +67,7 @@ def test_chain_runs_with_provider_responses(
     _register_provider(monkeypatch, module_name, class_name)
 
     payload = {
-        "operations": [
-            {"op": "set", "path": "analysis.weighting.scheme", "value": "risk_parity"}
-        ],
+        "operations": [{"op": "set", "path": "analysis.weighting.scheme", "value": "risk_parity"}],
         "risk_flags": [],
         "summary": "Switch weighting to risk parity.",
     }
