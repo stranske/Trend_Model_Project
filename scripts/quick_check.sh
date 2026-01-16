@@ -33,10 +33,15 @@ fi
 # Quick format check
 echo -e "${BLUE}Checking formatting...${NC}"
 if [[ ${#CHANGED_FILES_ARRAY[@]} -gt 0 ]]; then
-    if black --check "${CHANGED_FILES_ARRAY[@]}" > /dev/null 2>&1; then
+    if timeout 30s black --check "${CHANGED_FILES_ARRAY[@]}" > /dev/null 2>&1; then
         echo -e "${GREEN}✓ Formatting OK${NC}"
     else
-        echo -e "${RED}✗ Formatting issues (run: black ${CHANGED_FILES_ARRAY[*]})${NC}"
+        exit_code=$?
+        if [[ $exit_code -eq 124 ]]; then
+            echo -e "${RED}✗ Formatting check timed out${NC}"
+        else
+            echo -e "${RED}✗ Formatting issues (run: black ${CHANGED_FILES_ARRAY[*]})${NC}"
+        fi
     fi
 else
     echo -e "${GREEN}✓ No Python files changed (skipping formatting check)${NC}"
@@ -45,10 +50,15 @@ fi
 # Quick lint check on recent changes
 echo -e "${BLUE}Checking recent changes...${NC}"
 if [[ ${#CHANGED_FILES_ARRAY[@]} -gt 0 ]]; then
-    if flake8 "${CHANGED_FILES_ARRAY[@]}" 2>/dev/null; then
+    if timeout 30s flake8 "${CHANGED_FILES_ARRAY[@]}" 2>/dev/null; then
         echo -e "${GREEN}✓ Recent changes look good${NC}"
     else
-        echo -e "${RED}✗ Linting issues in recent changes${NC}"
+        exit_code=$?
+        if [[ $exit_code -eq 124 ]]; then
+            echo -e "${RED}✗ Linting check timed out${NC}"
+        else
+            echo -e "${RED}✗ Linting issues in recent changes${NC}"
+        fi
     fi
 else
     echo -e "${GREEN}✓ No Python files changed (excluding old folders)${NC}"

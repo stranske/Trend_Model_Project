@@ -3,6 +3,13 @@
 const normalizeNewlines = (value) => String(value || '').replace(/\r\n/g, '\n');
 const stripBlockquotePrefixes = (value) =>
   String(value || '').replace(/^[ \t]*>+[ \t]?/gm, '');
+
+/**
+ * Check if a line is a code fence delimiter (``` or ~~~).
+ * Used to track code block boundaries when processing content.
+ */
+const isCodeFenceLine = (line) => /^(`{3,}|~{3,})/.test(line.trim());
+
 const LIST_ITEM_REGEX = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 
 const SECTION_DEFS = [
@@ -84,7 +91,20 @@ function normaliseChecklist(content) {
 
   const lines = raw.split('\n');
   let mutated = false;
+  let insideCodeBlock = false;
+  
   const updated = lines.map((line) => {
+    // Track code fence boundaries - don't add checkboxes inside code blocks
+    if (isCodeFenceLine(line)) {
+      insideCodeBlock = !insideCodeBlock;
+      return line;
+    }
+    
+    // Skip checkbox normalization for lines inside code blocks
+    if (insideCodeBlock) {
+      return line;
+    }
+    
     const match = line.match(LIST_ITEM_REGEX);
     if (!match) {
       return line;
@@ -141,9 +161,21 @@ function extractHeadingLabel(rawLine) {
   return cleaned;
 }
 
+function isExplicitHeadingLine(rawLine) {
+  const line = String(rawLine || '').trim();
+  if (!line) {
+    return false;
+  }
+  if (/^#{1,6}\s+\S/.test(line)) {
+    return true;
+  }
+  return /^(?:\*\*|__)(.+?)(?:\*\*|__)\s*:?\s*$/.test(line);
+}
+
 function extractListBlocks(lines) {
   const blocks = [];
   let current = [];
+  let insideCodeBlock = false;
 
   const flush = () => {
     if (current.length) {
@@ -156,6 +188,24 @@ function extractListBlocks(lines) {
   };
 
   for (const line of lines) {
+    // Track code fence boundaries
+    if (isCodeFenceLine(line)) {
+      insideCodeBlock = !insideCodeBlock;
+      // Include code fence lines in current block if we're building one
+      if (current.length) {
+        current.push(line);
+      }
+      continue;
+    }
+    
+    // Lines inside code blocks are treated as continuation (don't break the block)
+    if (insideCodeBlock) {
+      if (current.length) {
+        current.push(line);
+      }
+      continue;
+    }
+    
     if (LIST_ITEM_REGEX.test(line)) {
       current.push(line);
       continue;
@@ -179,6 +229,7 @@ function extractListBlocksWithOffsets(lines) {
   let blockStart = null;
   let blockEnd = null;
   let offset = 0;
+  let insideCodeBlock = false;
 
   const flush = () => {
     if (!current.length) {
@@ -194,6 +245,27 @@ function extractListBlocksWithOffsets(lines) {
   };
 
   for (const line of lines) {
+    // Track code fence boundaries
+    if (isCodeFenceLine(line)) {
+      insideCodeBlock = !insideCodeBlock;
+      if (current.length) {
+        current.push(line);
+        blockEnd = offset + line.length;
+      }
+      offset += line.length + 1;
+      continue;
+    }
+    
+    // Lines inside code blocks continue the current block
+    if (insideCodeBlock) {
+      if (current.length) {
+        current.push(line);
+        blockEnd = offset + line.length;
+      }
+      offset += line.length + 1;
+      continue;
+    }
+    
     const isList = LIST_ITEM_REGEX.test(line);
     if (isList) {
       if (!current.length) {
@@ -362,25 +434,63 @@ function collectSections(source) {
   }, {});
 
   const headings = [];
+  const allHeadings = [];
   const lines = segment.split('\n');
   const listBlocks = extractListBlocksWithOffsets(lines);
   let offset = 0;
+  let insideCodeBlock = false;
   for (const line of lines) {
-    const matchedLabel = extractHeadingLabel(line);
-    if (matchedLabel) {
-      const title = matchedLabel.toLowerCase();
-      if (aliasLookup[title]) {
-        const section = aliasLookup[title];
-        headings.push({
-          title: section.key,
-          label: section.label,
-          index: offset,
-          length: line.length,
-          matchedLabel,
-        });
+    // Track code fence boundaries - skip heading detection inside code blocks
+    if (isCodeFenceLine(line)) {
+      insideCodeBlock = !insideCodeBlock;
+      offset += line.length + 1;
+      continue;
+    }
+    
+    if (!insideCodeBlock) {
+      const matchedLabel = extractHeadingLabel(line);
+      if (matchedLabel) {
+        const title = matchedLabel.toLowerCase();
+        if (aliasLookup[title]) {
+          const section = aliasLookup[title];
+          // Detect heading level (number of # characters)
+          const headingMatch = line.match(/^(#{1,6})\s+/);
+          const level = headingMatch ? headingMatch[1].length : 2; // Default to level 2 for non-# headings
+          headings.push({
+            title: section.key,
+            label: section.label,
+            index: offset,
+            length: line.length,
+            matchedLabel,
+            level,
+          });
+          // Also add recognized section headings to allHeadings so they act as boundaries
+          // Only add if not already present (avoid duplicates with isExplicitHeadingLine)
+          const alreadyAdded = allHeadings.some(h => h.index === offset);
+          if (!alreadyAdded && level <= 2) {
+            allHeadings.push({ index: offset, length: line.length, level });
+          }
+        }
+      }
+      if (isExplicitHeadingLine(line)) {
+        // Detect heading level for all headings
+        // NOTE: Trim line before matching to handle indented headings consistently
+        // isExplicitHeadingLine already trims, so we should too
+        const trimmedLine = line.trim();
+        const headingMatch = trimmedLine.match(/^(#{1,6})\s+/);
+        const level = headingMatch ? headingMatch[1].length : 2; // Default to level 2 for non-# headings
+        allHeadings.push({ index: offset, length: line.length, level });
       }
     }
     offset += line.length + 1;
+  }
+
+  const headingIndexSet = new Set(allHeadings.map((heading) => heading.index));
+  for (const header of headings) {
+    if (!headingIndexSet.has(header.index)) {
+      allHeadings.push({ index: header.index, length: header.length });
+      headingIndexSet.add(header.index);
+    }
   }
 
   const extracted = SECTION_DEFS.reduce((acc, section) => {
@@ -413,9 +523,24 @@ function collectSections(source) {
     if (!header) {
       continue; // Skip missing sections instead of failing
     }
-    const nextHeader = headings
-      .filter((entry) => entry.index > header.index)
+    // Find the boundary for this section's content:
+    // 1. Next heading at SAME LEVEL or HIGHER (allows subsections to be included)
+    // 2. OR next recognized section heading (even if it's a subsection level)
+    //    Example: ## Scope followed by ### Tasks should stop at ### Tasks
+    const headingIndexSet = new Set(headings.map(h => h.index));
+    const nextSameLevelOrHigher = allHeadings
+      .filter((entry) => entry.index > header.index && entry.level <= header.level)
       .sort((a, b) => a.index - b.index)[0];
+    const nextRecognizedSection = headings
+      .filter((entry) => entry.index > header.index && entry.title !== header.title)
+      .sort((a, b) => a.index - b.index)[0];
+    
+    // Use whichever boundary comes first
+    const boundaries = [nextSameLevelOrHigher, nextRecognizedSection].filter(Boolean);
+    const nextHeader = boundaries.length > 0 
+      ? boundaries.sort((a, b) => a.index - b.index)[0]
+      : null;
+    
     const contentStart = (() => {
       const start = header.index + header.length;
       if (segment[start] === '\n') {

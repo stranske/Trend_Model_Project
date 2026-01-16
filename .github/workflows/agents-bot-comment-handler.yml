@@ -20,13 +20,13 @@ on:
   # Manual trigger via label
   pull_request:
     types: [labeled]
-  
+
   # Automatic trigger after Gate completes (for agent PRs)
   # Note: branches-ignore is not supported for workflow_run, filtering is done in job logic
   workflow_run:
     workflows: ["Gate"]
     types: [completed]
-  
+
   # Manual dispatch for testing
   workflow_dispatch:
     inputs:
@@ -47,7 +47,11 @@ permissions:
   actions: read
 
 concurrency:
-  group: bot-comments-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || inputs.pr_number || github.run_id }}
+  group: >-
+    bot-comments-${{ github.event.pull_request.number ||
+      github.event.workflow_run.pull_requests[0].number ||
+      inputs.pr_number ||
+      github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -67,7 +71,7 @@ jobs:
             const eventName = context.eventName;
             let prNumber = null;
             let shouldRun = false;
-            
+
             if (eventName === 'workflow_dispatch') {
               prNumber = '${{ inputs.pr_number }}';
               shouldRun = true;
@@ -87,20 +91,20 @@ jobs:
             else if (eventName === 'workflow_run') {
               // Only run if Gate succeeded and PR has agent:* label
               const workflowRun = context.payload.workflow_run;
-              
+
               // Skip main branch
               if (workflowRun.head_branch === 'main') {
                 console.log('Skipping main branch');
                 core.setOutput('should_run', 'false');
                 return;
               }
-              
+
               if (workflowRun.conclusion !== 'success') {
                 console.log(`Gate did not succeed (${workflowRun.conclusion}), skipping`);
                 core.setOutput('should_run', 'false');
                 return;
               }
-              
+
               // Get PR from workflow run
               const prs = workflowRun.pull_requests;
               if (!prs || prs.length === 0) {
@@ -108,9 +112,9 @@ jobs:
                 core.setOutput('should_run', 'false');
                 return;
               }
-              
+
               prNumber = prs[0].number;
-              
+
               // Check if PR has agent label
               let pr;
               try {
@@ -121,22 +125,25 @@ jobs:
                 });
                 pr = response.data;
               } catch (error) {
-                console.log(`Failed to fetch PR #${prNumber} details, skipping. Error: ${error.message || error}`);
+                console.log(
+                  `Failed to fetch PR #${prNumber} details, skipping. ` +
+                    `Error: ${error.message || error}`
+                );
                 core.setOutput('should_run', 'false');
                 return;
               }
-              
+
               const hasAgentLabel = pr.labels.some(l => /^agent:/.test(l.name));
               if (!hasAgentLabel) {
                 console.log(`PR #${prNumber} has no agent label, skipping`);
                 core.setOutput('should_run', 'false');
                 return;
               }
-              
+
               shouldRun = true;
               console.log(`Gate completion trigger for agent PR #${prNumber}`);
             }
-            
+
             core.setOutput('pr_number', prNumber || '');
             core.setOutput('should_run', shouldRun ? 'true' : 'false');
 
@@ -158,7 +165,10 @@ jobs:
   cleanup:
     name: Cleanup
     needs: [resolve, handle]
-    if: always() && github.event_name == 'pull_request' && github.event.label.name == 'autofix:bot-comments'
+    if: |
+      always() &&
+      github.event_name == 'pull_request' &&
+      github.event.label.name == 'autofix:bot-comments'
     runs-on: ubuntu-latest
     steps:
       - name: Remove trigger label

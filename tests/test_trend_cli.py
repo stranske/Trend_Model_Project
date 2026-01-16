@@ -18,6 +18,7 @@ from trend.cli import (
     main,
 )
 from trend_analysis.api import RunResult
+from trend_analysis.config.patch import ConfigPatch, PatchOperation
 from trend_analysis.reporting import generate_unified_report
 
 
@@ -66,6 +67,13 @@ def _sample_config() -> SimpleNamespace:
         portfolio={"selection_mode": "all", "weighting_scheme": "equal"},
         run={},
         benchmarks={},
+    )
+
+
+def _risky_patch() -> ConfigPatch:
+    return ConfigPatch(
+        operations=[PatchOperation(op="remove", path="portfolio.constraints.max_weight")],
+        summary="Remove the max_weight constraint.",
     )
 
 
@@ -963,6 +971,35 @@ def test_resolve_report_output_path_without_suffix(tmp_path: Path) -> None:
     resolved = cli._resolve_report_output_path(str(target), tmp_path, "run02")
 
     assert resolved == target / "trend_report_run02.html"
+
+
+def test_confirm_risky_patch_requires_no_confirm_when_non_tty(monkeypatch) -> None:
+    patch = _risky_patch()
+    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: False)
+
+    with pytest.raises(TrendCLIError) as excinfo:
+        cli._confirm_risky_patch(patch, no_confirm=False)
+
+    assert "Risky changes detected" in str(excinfo.value)
+    assert "--no-confirm" in str(excinfo.value)
+
+
+def test_confirm_risky_patch_cancels_on_decline(monkeypatch) -> None:
+    patch = _risky_patch()
+    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda _prompt: "n")
+
+    with pytest.raises(TrendCLIError) as excinfo:
+        cli._confirm_risky_patch(patch, no_confirm=False)
+
+    assert "Update cancelled" in str(excinfo.value)
+
+
+def test_confirm_risky_patch_skips_prompt_when_no_confirm(monkeypatch) -> None:
+    patch = _risky_patch()
+    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: False)
+
+    cli._confirm_risky_patch(patch, no_confirm=True)
 
 
 def test_json_default_handles_known_types(tmp_path: Path) -> None:

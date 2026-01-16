@@ -76,8 +76,21 @@ def _build_cases() -> list[dict[str, Any]]:
 
 def _matches_expected(actual: dict[str, Any], expected: dict[str, Any]) -> bool:
     expected_ops = expected["operations"]
-    if actual.get("operations") != expected_ops:
+    actual_ops = actual.get("operations", [])
+
+    # Compare operations by normalizing them (remove rationale if present)
+    if len(actual_ops) != len(expected_ops):
         return False
+
+    for actual_op, expected_op in zip(actual_ops, expected_ops):
+        # Only compare op, path, and value; ignore rationale
+        if (
+            actual_op.get("op") != expected_op.get("op")
+            or actual_op.get("path") != expected_op.get("path")
+            or actual_op.get("value") != expected_op.get("value")
+        ):
+            return False
+
     if actual.get("summary") != expected.get("summary"):
         return False
     return True

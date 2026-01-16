@@ -1,0 +1,329 @@
+- id: risk_parity_basic
+  instruction: "Use risk parity weighting"
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: analysis.weighting.scheme
+      value: risk_parity
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: hrp_weighting
+  instruction: "Switch to HRP weighting"
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: analysis.weighting.scheme
+      value: hrp
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: erc_weighting
+  instruction: "Use equal risk contribution weighting"
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: analysis.weighting.scheme
+      value: erc
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: robust_mv_weighting
+  instruction: "Use robust mean-variance weighting"
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: analysis.weighting.scheme
+      value: robust_mv
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: robust_risk_parity_weighting
+  instruction: "Switch to robust risk parity weighting"
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: analysis.weighting.scheme
+      value: robust_risk_parity
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: custom_weighting
+  instruction: "Use custom weighting scheme"
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: analysis.weighting.scheme
+      value: custom
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_random_mode
+  instruction: "Select a random subset of managers."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.selection_mode
+      value: random
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_random_count
+  instruction: "Pick 15 managers at random."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.random_n
+      value: 15
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_manual_mode
+  instruction: "Switch to manual selection."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.selection_mode
+      value: manual
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_manual_list
+  instruction: "Manually include AlphaFund and BetaFund only."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.manual_list
+      value:
+        - AlphaFund
+        - BetaFund
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_top_pct
+  instruction: "Use top 20% for inclusion."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.rank.inclusion_approach
+      value: top_pct
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_top_n_6
+  instruction: "Include the top 6 ranked managers."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.rank.n
+      value: 6
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_top_pct_5
+  instruction: "Use the top 5% for ranking inclusion."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.rank.pct
+      value: 0.05
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_rank_threshold
+  instruction: "Only include managers above a 2.0 threshold."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.rank.threshold
+      value: 2.0
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_drop_bottom_3
+  instruction: "Drop the bottom 3 ranked managers."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.rank.bottom_k
+      value: 3
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: selection_use_rank_selector
+  instruction: "Use the rank-based selector."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.selector.name
+      value: rank
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: data_frequency_weekly
+  instruction: "Switch the data frequency to weekly."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: data.frequency
+      value: W
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: data_missing_policy_zero
+  instruction: "Fill missing data with zeros."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: data.missing_policy
+      value: zero
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: preprocessing_log_prices
+  instruction: "Enable log prices for preprocessing."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: preprocessing.log_prices
+      value: true
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: preprocessing_resample_weekly
+  instruction: "Resample preprocessing to weekly with last price."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: preprocessing.resample.target
+      value: W
+    - op: set
+      path: preprocessing.resample.method
+      value: last
+  constraints:
+    - patch.operations | length == 2
+    - not patch.risk_flags
+- id: vol_adjust_disable
+  instruction: "Disable volatility adjustment."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: vol_adjust.enabled
+      value: false
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: vol_adjust_target_vol
+  instruction: "Set target volatility to 12%."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: vol_adjust.target_vol
+      value: 0.12
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: sample_split_ratio
+  instruction: "Use a 75% in-sample split by ratio."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: sample_split.method
+      value: ratio
+    - op: set
+      path: sample_split.ratio
+      value: 0.75
+  constraints:
+    - patch.operations | length == 2
+    - not patch.risk_flags
+- id: portfolio_rebalance_quarterly
+  instruction: "Rebalance quarterly."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.rebalance_freq
+      value: Q
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: portfolio_leverage_cap
+  instruction: "Cap leverage at 1.5x."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.leverage_cap
+      value: 1.5
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: portfolio_cost_slippage
+  instruction: "Set slippage to 5 bps per trade."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.cost_model.slippage_bps
+      value: 5
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: portfolio_max_weight_constraint
+  instruction: "Limit max weight to 15%."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.constraints.max_weight
+      value: 0.15
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: portfolio_shrinkage_disable
+  instruction: "Disable covariance shrinkage."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: portfolio.robustness.shrinkage.enabled
+      value: false
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: regime_disable
+  instruction: "Turn off regime analysis."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: regime.enabled
+      value: false
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: metrics_rf_rate
+  instruction: "Set the annual risk-free rate to 1%."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: metrics.rf_rate_annual
+      value: 0.01
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: export_csv_only
+  instruction: "Export results as CSV only."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: export.formats
+      value:
+        - csv
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags
+- id: run_log_level_debug
+  instruction: "Set logging to DEBUG."
+  starting_config: config/defaults.yml
+  expected_operations:
+    - op: set
+      path: run.log_level
+      value: DEBUG
+  constraints:
+    - patch.operations | length == 1
+    - not patch.risk_flags

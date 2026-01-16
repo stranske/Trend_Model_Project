@@ -19,6 +19,34 @@ const IGNORED_CONFLICT_FILES = [
   'residual-trend-history.ndjson',
 ];
 
+// Comments from automation often mention "conflict" but should not block execution.
+const IGNORED_COMMENT_AUTHORS = new Set([
+  'github-actions[bot]',
+  'github-merge-queue[bot]',
+  'dependabot[bot]',
+  'github',
+]);
+
+const IGNORED_COMMENT_MARKERS = [
+  '<!-- keepalive-state',
+  'keepalive-loop-summary',
+  'auto-status-summary',
+];
+
+function isIgnoredComment(comment) {
+  if (!comment) {
+    return false;
+  }
+
+  const author = comment.user?.login || '';
+  if (comment.user?.type === 'Bot' || IGNORED_COMMENT_AUTHORS.has(author)) {
+    return true;
+  }
+
+  const body = comment.body || '';
+  return IGNORED_COMMENT_MARKERS.some((marker) => body.includes(marker));
+}
+
 /**
  * Check if a file should be excluded from conflict detection.
  * @param {string} filename - File path to check
@@ -31,15 +59,19 @@ function shouldIgnoreConflictFile(filename) {
   });
 }
 
+// Only match definitive merge conflict markers, not general text mentioning conflicts.
+// The phrase "merge conflict" can appear in commit messages, comments, and other text
+// without indicating an actual active conflict. We require git-generated markers.
 const CONFLICT_PATTERNS = [
-  /merge conflict/i,
-  /CONFLICT \(content\)/i,
-  /Automatic merge failed/i,
-  /fix conflicts and then commit/i,
-  /Merge branch .* into .* failed/i,
+  // Git conflict markers (highly reliable)
   /<<<<<<< HEAD/,
-  /=======\n/,
-  />>>>>>> /,
+  />>>>>>> [a-f0-9]{7,40}/,  // Conflict marker with SHA
+  />>>>>>> origin\//,         // Conflict marker with remote branch
+  // Git merge failure messages (from actual merge operations, not log text)
+  /CONFLICT \(content\):/,    // Note: requires colon to be more specific
+  /CONFLICT \(add\/add\):/,
+  /CONFLICT \(modify\/delete\):/,
+  /Automatic merge failed; fix conflicts and then commit/,  // Full message
 ];
 
 /**
@@ -223,8 +255,10 @@ async function checkCommentsForConflicts(github, context, prNumber) {
       per_page: 20,
     });
 
-    // Check recent comments (last 10)
-    const recentComments = comments.slice(-10);
+    // Check recent comments (last 10) and ignore bot/system noise
+    const recentComments = comments
+      .filter((comment) => !isIgnoredComment(comment))
+      .slice(-10);
 
     for (const comment of recentComments) {
       for (const pattern of CONFLICT_PATTERNS) {

@@ -11,7 +11,13 @@ from pathlib import Path
 from typing import Any, Literal, Mapping, Optional, Sequence
 
 import pandas as pd
-import streamlit as st
+
+try:
+    import streamlit as st
+except ModuleNotFoundError:
+    from types import SimpleNamespace
+
+    st = SimpleNamespace(session_state={})
 
 _DEFAULT_STATE: dict[str, Any] = {
     "returns_df": None,

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import importlib
+import re
 import sys
+from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import pandas as pd
@@ -31,6 +33,13 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
         def __exit__(self, *_args):
             return False
 
+    class Placeholder:
+        def progress(self, *_args, **_kwargs):
+            return SimpleNamespace(progress=_noop)
+
+        def empty(self):
+            return None
+
     stub = SimpleNamespace()
     stub.session_state = {}
     stub.title = _noop
@@ -40,6 +49,7 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     stub.info = _noop
     stub.success = _noop
     stub.warning = _noop
+    stub.code = _noop
     stub.altair_chart = _noop
     stub.markdown = _noop
     stub.caption = _noop
@@ -54,15 +64,19 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     stub.cache_data = _passthrough_decorator
     stub.cache_resource = _passthrough_decorator
     stub.expander = lambda *_args, **_kwargs: Context()
+    stub.sidebar = Context()
+    stub.dialog = lambda *_args, **_kwargs: Context()
     stub.form = lambda *_args, **_kwargs: Context()
     stub.form_submit_button = lambda *_args, **_kwargs: False
     stub.button = lambda *_args, **_kwargs: False
     stub.download_button = _noop
+    stub.tabs = lambda labels: [Context() for _ in labels]
     stub.columns = lambda n: [Context() for _ in range(n)]
     stub.selectbox = lambda _label, options, index=0, **_kwargs: options[index]
     stub.number_input = lambda _label, **kwargs: kwargs.get("value", 0)
     stub.checkbox = lambda _label, value=False, **_kwargs: value
     stub.slider = lambda _label, **kwargs: kwargs.get("value", 0)
+    stub.empty = lambda: Placeholder()
 
     monkeypatch.setitem(sys.modules, "streamlit", stub)
 
@@ -151,3 +165,413 @@ def test_render_model_page_clears_cached_results(
     assert stub.clear_calls == initial_clears + 1
     for key in ["analysis_result", "analysis_result_key", "analysis_error"]:
         assert key not in stub.session_state
+
+
+def test_render_config_chat_panel_stores_instruction(model_module: ModuleType) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    stub.text_area = lambda *_args, **_kwargs: "Increase lookback to 24"
+    stub.button = lambda *_args, **_kwargs: True
+
+    model_module.render_config_chat_panel()
+
+    assert stub.session_state.get("config_chat_last_instruction") == "Increase lookback to 24"
+
+
+def test_side_by_side_diff_renders_yaml(model_module: ModuleType) -> None:
+    stub = model_module.st
+    languages: list[str | None] = []
+
+    def capture_code(_value: str, *, language: str | None = None, **_kwargs):
+        languages.append(language)
+
+    stub.code = capture_code
+
+    model_module._render_side_by_side_diff({"lookback_periods": 12}, {"lookback_periods": 24})
+
+    assert "yaml" in languages
+
+
+def test_revert_uses_config_history_stack(model_module: ModuleType) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    initial_state = {"lookback_periods": 6, "min_history_periods": 6}
+    stub.session_state["model_state"] = dict(initial_state)
+
+    preview_one = {
+        "before": dict(initial_state),
+        "after": {"lookback_periods": 12, "min_history_periods": 6},
+        "instruction": "Increase lookback",
+        "diff": "--- before\n+++ after\n",
+    }
+    model_module._apply_preview_state(preview_one, run_analysis=False)
+
+    preview_two = {
+        "before": dict(preview_one["after"]),
+        "after": {"lookback_periods": 12, "min_history_periods": 9},
+        "instruction": "Increase min history",
+        "diff": "--- before\n+++ after\n",
+    }
+    model_module._apply_preview_state(preview_two, run_analysis=False)
+
+    history = model_module._get_config_change_history()
+    assert len(history) == 2
+
+    model_module._revert_last_config_change()
+    assert stub.session_state.get("model_state") == preview_two["before"]
+    assert len(model_module._get_config_change_history()) == 1
+
+    model_module._revert_last_config_change()
+    assert stub.session_state.get("model_state") == initial_state
+    assert len(model_module._get_config_change_history()) == 0
+
+
+def test_render_config_change_history_renders_entries(model_module: ModuleType) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    initial_state = {"lookback_periods": 6, "min_history_periods": 6}
+    stub.session_state["model_state"] = dict(initial_state)
+
+    preview = {
+        "before": dict(initial_state),
+        "after": {"lookback_periods": 12, "min_history_periods": 6},
+        "instruction": "Increase lookback",
+        "diff": "--- before\n+++ after\n",
+    }
+    model_module._apply_preview_state(preview, run_analysis=False)
+
+    history_len = len(model_module._get_config_change_history())
+    model_module._render_config_change_history()
+    assert len(model_module._get_config_change_history()) == history_len
+
+
+def test_risky_change_requires_confirmation(model_module: ModuleType) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    preview = {"after": {"lookback_periods": 12}, "risk_flags": ["constraints"]}
+    assert model_module._requires_risky_confirmation(preview) is True
+
+    model_module._queue_risky_apply(preview, run_analysis=False)
+    pending = stub.session_state.get("config_chat_pending_apply")
+    assert isinstance(pending, dict)
+    assert pending.get("preview") == preview
+
+
+def test_unknown_key_review_requires_confirmation(model_module: ModuleType) -> None:
+    preview = {"after": {"lookback_periods": 12}, "needs_review": True}
+    assert model_module._requires_risky_confirmation(preview) is True
+
+
+def test_render_config_change_history_shows_tabs_and_entries(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    expander_labels: list[str] = []
+    tab_sets: list[list[str]] = []
+    unified_calls: list[str] = []
+    side_by_side_calls: list[tuple[dict[str, int], dict[str, int]]] = []
+
+    class DummyContext:
+        def __enter__(self):
+            return stub
+
+        def __exit__(self, *_args):
+            return False
+
+    def record_expander(label: str, *args, **kwargs):
+        expander_labels.append(label)
+        return DummyContext()
+
+    def record_tabs(labels: list[str]):
+        tab_sets.append(list(labels))
+        return [DummyContext() for _ in labels]
+
+    monkeypatch.setattr(
+        model_module, "_render_unified_diff", lambda diff: unified_calls.append(diff)
+    )
+    monkeypatch.setattr(
+        model_module,
+        "_render_side_by_side_diff",
+        lambda before, after: side_by_side_calls.append((dict(before), dict(after))),
+    )
+    stub.expander = record_expander
+    stub.tabs = record_tabs
+
+    history = [
+        {
+            "timestamp": "2024-01-01T00:00:00Z",
+            "instruction": "Increase lookback",
+            "before": {"lookback_periods": 6},
+            "after": {"lookback_periods": 12},
+            "diff": "--- before\n+++ after\n+  lookback_periods: 12\n",
+        },
+        {
+            "timestamp": "2024-01-02T00:00:00Z",
+            "instruction": "Increase min history",
+            "before": {"min_history_periods": 6},
+            "after": {"min_history_periods": 9},
+            "diff": "--- before\n+++ after\n+  min_history_periods: 9\n",
+        },
+    ]
+    stub.session_state[model_module._CONFIG_HISTORY_KEY] = history
+
+    model_module._render_config_change_history()
+
+    assert expander_labels == [
+        "2024-01-02T00:00:00Z • Increase min history",
+        "2024-01-01T00:00:00Z • Increase lookback",
+    ]
+    assert tab_sets == [["Unified diff", "Side-by-side"], ["Unified diff", "Side-by-side"]]
+    assert unified_calls == [
+        "--- before\n+++ after\n+  min_history_periods: 9\n",
+        "--- before\n+++ after\n+  lookback_periods: 12\n",
+    ]
+    assert side_by_side_calls == [
+        ({"min_history_periods": 6}, {"min_history_periods": 9}),
+        ({"lookback_periods": 6}, {"lookback_periods": 12}),
+    ]
+
+
+def test_render_config_chat_revert_restores_previous_state(
+    model_module: ModuleType,
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    initial_state = {"lookback_periods": 6, "min_history_periods": 6}
+    updated_state = {"lookback_periods": 12, "min_history_periods": 6}
+
+    stub.session_state["model_state"] = dict(updated_state)
+    stub.session_state["config_chat_preview"] = {"after": dict(updated_state)}
+    stub.session_state[model_module._CONFIG_HISTORY_KEY] = [
+        {
+            "timestamp": "2024-01-01T00:00:00Z",
+            "instruction": "Increase lookback",
+            "before": dict(initial_state),
+            "after": dict(updated_state),
+            "diff": "--- before\n+++ after\n",
+        }
+    ]
+
+    def button_handler(label: str, *, key: str | None = None, **_kwargs):
+        return key == "config_chat_revert_btn"
+
+    class DummyContext:
+        def __enter__(self):
+            return stub
+
+        def __exit__(self, *_args):
+            return False
+
+    stub.button = button_handler
+    stub.expander = lambda *_args, **_kwargs: DummyContext()
+
+    model_module.render_config_chat_panel(location="main", model_state=updated_state)
+
+    assert stub.session_state.get("model_state") == initial_state
+    assert stub.session_state.get("config_chat_preview") is None
+    assert stub.session_state.get(model_module._CONFIG_HISTORY_KEY) == []
+
+
+def test_risky_apply_requires_confirmation_dialog(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    model_state = {"lookback_periods": 6}
+    preview = {"after": {"lookback_periods": 12}, "risk_flags": ["constraints"]}
+
+    stub.session_state["model_state"] = dict(model_state)
+    stub.session_state["config_chat_preview"] = dict(preview)
+
+    dialog_titles: list[str] = []
+
+    class DummyContext:
+        def __enter__(self):
+            return stub
+
+        def __exit__(self, *_args):
+            return False
+
+    def record_dialog(title: str):
+        dialog_titles.append(title)
+        return DummyContext()
+
+    def button_handler(label: str, *, key: str | None = None, **_kwargs):
+        return key == "config_chat_apply_btn"
+
+    applied: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        model_module,
+        "_apply_preview_state",
+        lambda *args, **kwargs: applied.append({"args": args, "kwargs": kwargs}),
+    )
+
+    stub.dialog = record_dialog
+    stub.button = button_handler
+
+    model_module.render_config_chat_panel(location="main", model_state=model_state)
+
+    assert dialog_titles == ["Confirm risky change"]
+    assert applied == []
+    assert "config_chat_pending_apply" in stub.session_state
+
+
+def test_risky_confirmation_apply_uses_dialog_confirm(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    preview = {"after": {"lookback_periods": 12}, "risk_flags": ["constraints"]}
+    stub.session_state["config_chat_pending_apply"] = {
+        "preview": dict(preview),
+        "run_analysis": False,
+    }
+
+    dialog_titles: list[str] = []
+
+    class DummyContext:
+        def __enter__(self):
+            return stub
+
+        def __exit__(self, *_args):
+            return False
+
+    def record_dialog(title: str):
+        dialog_titles.append(title)
+        return DummyContext()
+
+    def button_handler(label: str, **_kwargs):
+        return label == "Apply anyway"
+
+    applied: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        model_module,
+        "_apply_preview_state",
+        lambda *args, **kwargs: applied.append({"args": args, "kwargs": kwargs}),
+    )
+
+    stub.dialog = record_dialog
+    stub.button = button_handler
+
+    model_module._render_risky_change_dialog()
+
+    assert dialog_titles == ["Confirm risky change"]
+    assert applied == [{"args": (preview,), "kwargs": {"run_analysis": False}}]
+    assert "config_chat_pending_apply" not in stub.session_state
+
+
+def test_diff_text_to_html_snapshot(model_module: ModuleType) -> None:
+    diff_text = (
+        "--- before\n"
+        "+++ after\n"
+        "@@ -1,3 +1,3 @@\n"
+        "-lookback_periods: 6\n"
+        "+lookback_periods: 12\n"
+        " min_history_periods: 6\n"
+    )
+    snapshot_path = Path(__file__).parents[1] / "fixtures" / "diff_preview_unified.html"
+    expected = snapshot_path.read_text(encoding="utf-8")
+
+    assert model_module._diff_text_to_html(diff_text) == expected
+
+
+def test_render_side_by_side_diff_snapshot(model_module: ModuleType) -> None:
+    stub = model_module.st
+    markdown_calls: list[str] = []
+
+    def capture_markdown(body: str, **_kwargs):
+        markdown_calls.append(body)
+
+    stub.markdown = capture_markdown
+
+    model_module._render_side_by_side_diff(
+        {"lookback_periods": 6, "min_history_periods": 6},
+        {"lookback_periods": 12, "min_history_periods": 6},
+    )
+
+    snapshot_path = Path(__file__).parents[1] / "fixtures" / "diff_preview_side_by_side.html"
+    expected = snapshot_path.read_text(encoding="utf-8")
+    assert markdown_calls
+
+    def normalize_ids(value: str) -> str:
+        value = re.sub(r"difflib_chg_to\d+__", "difflib_chg_toX__", value)
+        value = re.sub(r"id=\"from\d+_", 'id="fromX_', value)
+        value = re.sub(r"id=\"to\d+_", 'id="toX_', value)
+        value = re.sub(r"href=\"#difflib_chg_to\d+__", 'href="#difflib_chg_toX__', value)
+        return value
+
+    assert normalize_ids(markdown_calls[-1]) == normalize_ids(expected)
+
+
+def test_render_config_diff_preview_renders_tabs_and_diff(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    tab_sets: list[list[str]] = []
+    unified_calls: list[str] = []
+    side_by_side_calls: list[tuple[dict[str, int], dict[str, int]]] = []
+
+    class DummyContext:
+        def __enter__(self):
+            return stub
+
+        def __exit__(self, *_args):
+            return False
+
+    def record_tabs(labels: list[str]):
+        tab_sets.append(list(labels))
+        return [DummyContext() for _ in labels]
+
+    monkeypatch.setattr(
+        model_module, "_render_unified_diff", lambda diff: unified_calls.append(diff)
+    )
+    monkeypatch.setattr(
+        model_module,
+        "_render_side_by_side_diff",
+        lambda before, after: side_by_side_calls.append((dict(before), dict(after))),
+    )
+    stub.tabs = record_tabs
+
+    preview = {
+        "before": {"lookback_periods": 6, "min_history_periods": 6},
+        "after": {"lookback_periods": 12, "min_history_periods": 6},
+        "diff": "--- before\n+++ after\n+ lookback_periods: 12\n",
+    }
+    stub.session_state["config_chat_preview"] = preview
+
+    model_module._render_config_diff_preview(model_state={"lookback_periods": 6})
+
+    assert tab_sets == [["Unified diff", "Side-by-side"]]
+    assert unified_calls == ["--- before\n+++ after\n+ lookback_periods: 12\n"]
+    assert side_by_side_calls == [
+        (
+            {"lookback_periods": 6, "min_history_periods": 6},
+            {"lookback_periods": 12, "min_history_periods": 6},
+        )
+    ]
+
+
+def test_render_config_diff_preview_no_preview_shows_info(model_module: ModuleType) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+    info_calls: list[str] = []
+
+    def capture_info(message: str, **_kwargs):
+        info_calls.append(message)
+
+    stub.info = capture_info
+
+    model_module._render_config_diff_preview(model_state={"lookback_periods": 6})
+
+    assert info_calls == ["No preview available yet. Send an instruction to generate a diff."]

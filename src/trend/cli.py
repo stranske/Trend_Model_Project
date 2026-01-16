@@ -1,19 +1,23 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import os
 import subprocess
 import sys
+import time
 import uuid
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, Iterable, Mapping, Protocol, cast
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Protocol, cast
 
 import numpy as np
 import pandas as pd
+import yaml
 
 from trend.config_schema import CoreConfigError, load_core_config
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
@@ -22,7 +26,16 @@ from trend.reporting.quick_summary import main as quick_summary_main
 from trend_analysis import export
 from trend_analysis import logging as run_logging
 from trend_analysis.api import RunResult, run_simulation
-from trend_analysis.config import format_validation_messages, validate_config
+from trend_analysis.config import (
+    DEFAULTS,
+    ConfigPatch,
+    diff_configs,
+    format_validation_messages,
+    validate_config,
+)
+from trend_analysis.config import (
+    apply_patch as apply_config_patch,
+)
 from trend_analysis.config import load as load_config
 from trend_analysis.config.coverage import (
     ConfigCoverageTracker,
@@ -31,13 +44,27 @@ from trend_analysis.config.coverage import (
     wrap_config_for_coverage,
 )
 from trend_analysis.config.schema_validation import load_config as load_schema_config
+from trend_analysis.config.validation import ValidationResult
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from trend_analysis.data import load_csv
+from trend_analysis.llm import (
+    ConfigPatchChain,
+    LLMProviderConfig,
+    build_config_patch_prompt,
+    create_llm,
+)
+from trend_analysis.llm.nl_logging import NLOperationLog, write_nl_log
+from trend_analysis.llm.replay import ReplayResult
+from trend_analysis.llm.schema import load_compact_schema
 from trend_analysis.logging_setup import setup_logging
 from trend_model.spec import ensure_run_spec
 from utils.paths import proj_path
 
 LegacyExtractCacheStats = Callable[[object], dict[str, int] | None]
+
+if TYPE_CHECKING:
+    from trend_analysis.llm.nl_logging import NLOperationLog
+    from trend_analysis.llm.replay import ReplayResult
 
 
 class LegacyMaybeLogStep(Protocol):
@@ -311,6 +338,74 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=Path,
         help="Explicit HTML output path (default: <base-dir>/reports/<run-id>.html)",
+    )
+
+    nl_p = sub.add_parser("nl", help="Edit config using natural language")
+    nl_p.add_argument("instruction", help="Natural language instruction to apply")
+    nl_p.add_argument(
+        "--in",
+        dest="input_path",
+        type=Path,
+        help=(
+            "Input configuration file (default: config/defaults.yml) used as the base for edits. "
+            "Example: --in config/base.yml"
+        ),
+    )
+    nl_p.add_argument(
+        "--out",
+        dest="output_path",
+        type=Path,
+        help=(
+            "Output configuration file (default: same as --in) for writing the updated config. "
+            "Example: --out config/updated.yml"
+        ),
+    )
+    nl_p.add_argument(
+        "--diff",
+        action="store_true",
+        help=(
+            "Print the unified diff between input and updated config without writing the file. "
+            'Example: trend nl "Lower max weight" --diff'
+        ),
+    )
+    nl_p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help=(
+            "Print the updated config to stdout without writing the file. "
+            'Example: trend nl "Lower max weight" --dry-run'
+        ),
+    )
+    nl_p.add_argument(
+        "--run",
+        action="store_true",
+        help=(
+            "Validate the updated config against the schema and run the pipeline if valid. "
+            'Example: trend nl "Add CSV path" --run'
+        ),
+    )
+    nl_p.add_argument(
+        "--no-confirm",
+        action="store_true",
+        help=(
+            "Apply risky changes without an interactive confirmation prompt. "
+            'Example: trend nl "Remove constraints" --no-confirm'
+        ),
+    )
+    nl_p.add_argument(
+        "--provider",
+        help=(
+            "LLM provider for natural language edits (defaults to TREND_LLM_PROVIDER). "
+            "Example: --provider openai"
+        ),
+    )
+    nl_p.add_argument(
+        "--explain",
+        action="store_true",
+        help=(
+            "Print an explanation of the generated changes alongside optional diff output. "
+            'Example: trend nl "Lower max weight" --explain --diff'
+        ),
     )
 
     return parser
@@ -826,9 +921,294 @@ def _load_configuration(path: str) -> Any:
 _register_fallback("_load_configuration", _load_configuration)
 
 
+def _resolve_llm_provider_config(provider: str | None = None) -> LLMProviderConfig:
+    provider_name = (provider or os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
+    supported = {"openai", "anthropic", "ollama"}
+    if provider_name not in supported:
+        raise TrendCLIError(
+            f"Unknown LLM provider '{provider_name}'. Expected one of: {', '.join(sorted(supported))}."
+        )
+    api_key = os.environ.get("TREND_LLM_API_KEY")
+    if not api_key:
+        if provider_name == "openai":
+            api_key = os.environ.get("OPENAI_API_KEY")
+        elif provider_name == "anthropic":
+            api_key = os.environ.get("ANTHROPIC_API_KEY")
+    model = os.environ.get("TREND_LLM_MODEL")
+    base_url = os.environ.get("TREND_LLM_BASE_URL")
+    organization = os.environ.get("TREND_LLM_ORG")
+    max_retries = os.environ.get("TREND_LLM_MAX_RETRIES")
+    timeout = os.environ.get("TREND_LLM_TIMEOUT")
+    max_retries_value: int | None = None
+    timeout_value: float | None = None
+    if max_retries:
+        try:
+            max_retries_value = int(max_retries)
+        except ValueError as exc:
+            raise TrendCLIError("TREND_LLM_MAX_RETRIES must be an integer") from exc
+    if timeout:
+        try:
+            timeout_value = float(timeout)
+        except ValueError as exc:
+            raise TrendCLIError("TREND_LLM_TIMEOUT must be a number") from exc
+    config_kwargs: dict[str, Any] = {"provider": provider_name}
+    if model:
+        config_kwargs["model"] = model
+    if api_key:
+        config_kwargs["api_key"] = api_key
+    if base_url:
+        config_kwargs["base_url"] = base_url
+    if organization:
+        config_kwargs["organization"] = organization
+    if max_retries_value is not None:
+        config_kwargs["max_retries"] = max_retries_value
+    if timeout_value is not None:
+        config_kwargs["timeout"] = timeout_value
+    return LLMProviderConfig(**config_kwargs)
+
+
+def _build_nl_chain(provider: str | None = None) -> ConfigPatchChain:
+    config = _resolve_llm_provider_config(provider)
+    try:
+        llm = create_llm(config)
+        schema = load_compact_schema()
+    except Exception as exc:
+        raise TrendCLIError(str(exc)) from exc
+    return ConfigPatchChain.from_env(
+        llm=llm,
+        schema=schema,
+        prompt_builder=build_config_patch_prompt,
+    )
+
+
+def _load_nl_log_entry(path: Path, entry: int) -> NLOperationLog:
+    from trend_analysis.llm.replay import load_nl_log_entry
+
+    return load_nl_log_entry(path, entry)
+
+
+def _replay_nl_entry(
+    entry: NLOperationLog,
+    *,
+    provider: str | None = None,
+    model: str | None = None,
+    temperature: float | None = None,
+) -> ReplayResult:
+    from trend_analysis.llm.replay import replay_nl_entry
+
+    return replay_nl_entry(entry, provider=provider, model=model, temperature=temperature)
+
+
+def _build_nl_replay_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="trend nl replay",
+        description="Replay a logged NL operation entry.",
+    )
+    parser.add_argument("log_file", type=Path, help="Path to nl_ops_<date>.jsonl log file")
+    parser.add_argument("--entry", type=int, required=True, help="1-based entry index")
+    parser.add_argument("--provider", help="Override the logged LLM provider")
+    parser.add_argument("--model", help="Override the logged LLM model")
+    parser.add_argument("--temperature", type=float, help="Override the logged temperature")
+    parser.add_argument("--show-prompt", action="store_true", help="Print the prompt text")
+    return parser
+
+
+def _run_nl_replay(argv: list[str]) -> int:
+    parser = _build_nl_replay_parser()
+    args = parser.parse_args(argv)
+    log_path = Path(args.log_file)
+    if not log_path.exists():
+        raise TrendCLIError(f"Log file not found: {log_path}")
+    try:
+        entry = _load_nl_log_entry(log_path, args.entry)
+    except (ValueError, IndexError) as exc:
+        raise TrendCLIError(str(exc)) from exc
+    result = _replay_nl_entry(
+        entry,
+        provider=args.provider,
+        model=args.model,
+        temperature=args.temperature,
+    )
+    if args.show_prompt:
+        print("Prompt:")
+        print(result.prompt)
+    print(f"Prompt hash: {result.prompt_hash}")
+    print(f"Output hash: {result.output_hash}")
+    if result.trace_url:
+        print(f"Trace URL: {result.trace_url}")
+    if result.recorded_hash is None:
+        print("Recorded hash: <none>")
+    else:
+        print(f"Recorded hash: {result.recorded_hash}")
+    print(f"Matches: {result.matches}")
+    if result.recorded_output is None:
+        print("Recorded output: <none>")
+    else:
+        print("Recorded output:")
+        print(result.recorded_output)
+    if result.recorded_output is None:
+        print("Comparison: skipped (no recorded output)")
+        exit_code = 0
+    elif result.matches:
+        print("Comparison: match")
+        exit_code = 0
+    else:
+        print("Comparison: mismatch")
+        exit_code = 1
+    if result.diff:
+        print("Diff:")
+        print(result.diff)
+    print("Replay output:")
+    print(result.output)
+    return exit_code
+
+
+def _maybe_handle_nl_replay(argv: list[str]) -> int | None:
+    if len(argv) >= 2 and argv[0] == "nl" and argv[1] == "replay":
+        return _run_nl_replay(argv[2:])
+    return None
+
+
+def _load_nl_config(path: Path) -> dict[str, Any]:
+    try:
+        payload = load_schema_config(path)
+    except Exception as exc:
+        raise TrendCLIError(str(exc)) from exc
+    if not isinstance(payload, dict):
+        raise TrendCLIError("Config file must contain a mapping at the root.")
+    return payload
+
+
+def _hash_nl_payload(payload: dict[str, Any]) -> str:
+    text = json.dumps(
+        payload, sort_keys=True, ensure_ascii=True, separators=(",", ":"), default=str
+    )
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _log_nl_operation(
+    *,
+    request_id: str,
+    operation: str,
+    input_payload: dict[str, Any],
+    model_name: str,
+    temperature: float,
+    parsed_patch: ConfigPatch | None = None,
+    validation_result: ValidationResult | None = None,
+    error: str | None = None,
+    started_at: float,
+    timestamp: datetime,
+) -> None:
+    entry = NLOperationLog(
+        request_id=request_id,
+        timestamp=timestamp,
+        operation=cast(Any, operation),
+        input_hash=_hash_nl_payload(input_payload),
+        prompt_template="",
+        prompt_variables={},
+        model_output=None,
+        parsed_patch=parsed_patch,
+        validation_result=validation_result,
+        error=error,
+        duration_ms=(time.perf_counter() - started_at) * 1000,
+        model_name=model_name,
+        temperature=temperature,
+        token_usage=None,
+    )
+    write_nl_log(entry)
+
+
+def _apply_nl_instruction(
+    config: dict[str, Any],
+    instruction: str,
+    *,
+    provider: str | None = None,
+    request_id: str,
+) -> tuple[ConfigPatch, dict[str, Any], str, str, float]:
+    chain = _build_nl_chain(provider)
+    try:
+        patch = chain.run(current_config=config, instruction=instruction, request_id=request_id)
+    except Exception as exc:
+        raise TrendCLIError(str(exc)) from exc
+    apply_started = time.perf_counter()
+    apply_timestamp = datetime.now(timezone.utc)
+    apply_error: str | None = None
+    try:
+        updated = apply_config_patch(config, patch)
+    except Exception as exc:
+        apply_error = str(exc) or type(exc).__name__
+        raise TrendCLIError(str(exc)) from exc
+    finally:
+        _log_nl_operation(
+            request_id=request_id,
+            operation="apply_patch",
+            input_payload={
+                "config": config,
+                "patch": patch.model_dump(mode="json"),
+            },
+            model_name=chain.model or "unknown",
+            temperature=chain.temperature,
+            parsed_patch=patch,
+            error=apply_error,
+            started_at=apply_started,
+            timestamp=apply_timestamp,
+        )
+    diff = diff_configs(config, updated)
+    return patch, updated, diff, chain.model or "unknown", chain.temperature
+
+
+def _format_nl_explanation(patch: ConfigPatch) -> str:
+    lines = [f"Summary: {patch.summary}"]
+    if patch.risk_flags:
+        flags = ", ".join(flag.value for flag in patch.risk_flags)
+        lines.append(f"Risk flags: {flags}")
+    if patch.needs_review:
+        lines.append("Needs review: unknown config keys detected.")
+    rationales = [
+        (operation.path, operation.rationale)
+        for operation in patch.operations
+        if operation.rationale
+    ]
+    if rationales:
+        lines.append("Rationales:")
+        lines.extend(f"- {path}: {rationale}" for path, rationale in rationales)
+    return "\n".join(lines).strip() + "\n"
+
+
+def _validate_nl_run_config(updated: dict[str, Any], *, base_path: Path) -> None:
+    validation = validate_config(
+        updated,
+        base_path=base_path,
+        include_model_validation=True,
+    )
+    if not validation.valid:
+        details = "\n".join(format_validation_messages(validation))
+        raise TrendCLIError(f"Config validation failed:\n{details}")
+
+
+def _confirm_risky_patch(patch: ConfigPatch, *, no_confirm: bool) -> None:
+    flags = [flag.value for flag in patch.risk_flags]
+    if patch.needs_review:
+        flags.append("UNKNOWN_KEYS")
+    if not flags or no_confirm:
+        return
+    flags_text = ", ".join(flags)
+    if not sys.stdin.isatty():
+        raise TrendCLIError(
+            f"Risky changes detected ({flags_text}). Re-run with --no-confirm to apply without prompting."
+        )
+    response = input(f"Risky changes detected ({flags_text}). Continue? [y/N]: ")
+    if response.strip().lower() not in {"y", "yes"}:
+        raise TrendCLIError("Update cancelled by user.")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     try:
+        argv_list = argv if argv is not None else sys.argv[1:]
+        maybe_replay_exit = _maybe_handle_nl_replay(argv_list)
+        if maybe_replay_exit is not None:
+            return maybe_replay_exit
         args = parser.parse_args(argv)
 
         command = args.subcommand
@@ -864,6 +1244,131 @@ def main(argv: list[str] | None = None) -> int:
             if args.output:
                 quick_args.extend(["--output", os.fspath(args.output)])
             return quick_summary_main(quick_args)
+
+        if command == "nl":
+            request_id = uuid.uuid4().hex
+            input_path = Path(args.input_path) if args.input_path else DEFAULTS
+            if not input_path.exists():
+                raise TrendCLIError(f"Input config not found: {input_path}")
+            output_path = Path(args.output_path) if args.output_path else input_path
+            config = _load_nl_config(input_path)
+            patch, updated, diff, model_name, temperature = _apply_nl_instruction(
+                config,
+                args.instruction,
+                provider=args.provider,
+                request_id=request_id,
+            )
+            if args.run and (args.diff or args.dry_run):
+                raise TrendCLIError("--run cannot be combined with --diff or --dry-run")
+            if args.run:
+                _validate_nl_run_config(updated, base_path=output_path.parent)
+            if args.explain:
+                sys.stdout.write(_format_nl_explanation(patch))
+            if args.diff:
+                if diff:
+                    sys.stdout.write(diff)
+                else:
+                    print("No changes.")
+                return 0
+            if args.dry_run:
+                sys.stdout.write(yaml.safe_dump(updated, sort_keys=False, default_flow_style=False))
+                return 0
+            if args.run:
+                validate_started = time.perf_counter()
+                validate_timestamp = datetime.now(timezone.utc)
+                validation_error: str | None = None
+                try:
+                    validation = validate_config(
+                        updated,
+                        base_path=output_path.parent,
+                        include_model_validation=True,
+                    )
+                except Exception as exc:
+                    validation_error = str(exc) or type(exc).__name__
+                    _log_nl_operation(
+                        request_id=request_id,
+                        operation="validate",
+                        input_payload={
+                            "config": updated,
+                            "base_path": output_path.parent,
+                        },
+                        model_name=model_name,
+                        temperature=temperature,
+                        parsed_patch=patch,
+                        error=validation_error,
+                        started_at=validate_started,
+                        timestamp=validate_timestamp,
+                    )
+                    raise TrendCLIError(str(exc)) from exc
+                if not validation.valid:
+                    details = "\n".join(format_validation_messages(validation))
+                    validation_error = f"validation failed: {details}"
+                _log_nl_operation(
+                    request_id=request_id,
+                    operation="validate",
+                    input_payload={"config": updated, "base_path": output_path.parent},
+                    model_name=model_name,
+                    temperature=temperature,
+                    parsed_patch=patch,
+                    validation_result=validation,
+                    error=validation_error,
+                    started_at=validate_started,
+                    timestamp=validate_timestamp,
+                )
+                if validation_error is not None:
+                    raise TrendCLIError(f"Config validation failed:\n{details}")
+            _confirm_risky_patch(patch, no_confirm=args.no_confirm)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(
+                yaml.safe_dump(updated, sort_keys=False, default_flow_style=False),
+                encoding="utf-8",
+            )
+            print(f"Updated config written: {output_path}")
+            if args.run:
+                try:
+                    cfg = load_config(output_path)
+                except Exception as exc:
+                    raise TrendCLIError(str(exc)) from exc
+                ensure_run_spec(cfg, base_path=output_path.parent)
+                returns_path = _resolve_returns_path(output_path, cfg, None)
+                returns_df = _ensure_dataframe(returns_path)
+                _determine_seed(cfg, None)
+                run_pipeline = _legacy_callable("_run_pipeline", _run_pipeline)
+                run_started = time.perf_counter()
+                run_timestamp = datetime.now(timezone.utc)
+                run_error: str | None = None
+                try:
+                    result, run_id, log_path = run_pipeline(
+                        cfg,
+                        returns_df,
+                        source_path=returns_path,
+                        log_file=None,
+                        structured_log=True,
+                        bundle=None,
+                    )
+                except Exception as exc:
+                    run_error = str(exc) or type(exc).__name__
+                    raise TrendCLIError(str(exc)) from exc
+                finally:
+                    _log_nl_operation(
+                        request_id=request_id,
+                        operation="run",
+                        input_payload={
+                            "config_path": str(output_path),
+                            "returns_path": str(returns_path),
+                        },
+                        model_name=model_name,
+                        temperature=temperature,
+                        parsed_patch=patch,
+                        error=run_error,
+                        started_at=run_started,
+                        timestamp=run_timestamp,
+                    )
+                print_summary = _legacy_callable("_print_summary", _print_summary)
+                print_summary(cfg, result)
+                if log_path:
+                    print(f"Structured log: {log_path}")
+            return 0
 
         if command not in {"run", "report", "stress"}:
             raise TrendCLIError(f"Unknown command: {command}")

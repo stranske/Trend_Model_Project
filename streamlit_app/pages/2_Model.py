@@ -2,13 +2,35 @@
 
 from __future__ import annotations
 
+import difflib
+import hashlib
+import html
 import json
+import os
+from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
+from datetime import datetime
+from time import monotonic, sleep
 from typing import Any, Mapping
 
 import streamlit as st
+import yaml
 
 from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner
+from streamlit_app.components.progress_eta import (
+    estimate_eta_seconds,
+    progress_ratio_and_remaining,
+    update_eta_seconds,
+)
+from trend_analysis.config.patch import apply_config_patch, diff_configs
+from trend_analysis.llm import (
+    ConfigPatchChain,
+    LLMProviderConfig,
+    build_config_patch_prompt,
+    create_llm,
+)
+from trend_analysis.llm.schema import load_compact_schema
 
 # Extended metric fields for ranking
 METRIC_FIELDS = [
@@ -29,6 +51,658 @@ WEIGHTING_SCHEMES = [
     ("Robust Mean-Variance", "robust_mv"),
     ("Robust Risk Parity", "robust_risk_parity"),
 ]
+
+
+# Config chat panel helpers
+_CONFIG_HISTORY_KEY = "config_chat_history"
+_MAX_CONFIG_HISTORY = 20
+
+
+def _get_config_change_history() -> list[dict[str, Any]]:
+    history = st.session_state.get(_CONFIG_HISTORY_KEY)
+    if not isinstance(history, list):
+        history = []
+        st.session_state[_CONFIG_HISTORY_KEY] = history
+    return history
+
+
+def _record_config_change(preview: Mapping[str, Any]) -> None:
+    before = preview.get("before")
+    after = preview.get("after")
+    if not isinstance(before, Mapping) or not isinstance(after, Mapping):
+        return
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "instruction": preview.get("instruction"),
+        "summary": preview.get("summary"),
+        "risk_flags": list(preview.get("risk_flags") or []),
+        "before": deepcopy(dict(before)),
+        "after": deepcopy(dict(after)),
+        "diff": preview.get("diff"),
+    }
+    history = _get_config_change_history()
+    history.append(entry)
+    if len(history) > _MAX_CONFIG_HISTORY:
+        del history[:-_MAX_CONFIG_HISTORY]
+
+
+def _format_percent(value: Any) -> str:
+    if value is None:
+        return "—"
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return "—"
+    return f"{numeric * 100:.1f}%"
+
+
+def _format_value(value: Any) -> str:
+    if value is None:
+        return "—"
+    if isinstance(value, bool):
+        return "Yes" if value else "No"
+    if isinstance(value, float):
+        return f"{value:.3f}"
+    return str(value)
+
+
+def _render_validation_error_styles() -> None:
+    st.markdown(
+        """
+<style>
+.validation-errors {
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #991b1b;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+}
+.validation-errors ul {
+  margin: 0.25rem 0 0 1.25rem;
+}
+</style>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def _render_validation_errors(errors: list[str]) -> None:
+    if not errors:
+        return
+    _render_validation_error_styles()
+    items = "".join(f"<li>{html.escape(err)}</li>" for err in errors)
+    st.markdown(
+        f'<div class="validation-errors"><strong>Validation errors</strong><ul>{items}</ul></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _config_summary_sections(
+    model_state: Mapping[str, Any],
+) -> list[tuple[str, list[tuple[str, str]]]]:
+    return [
+        (
+            "Overview",
+            [
+                ("Preset", _format_value(model_state.get("preset"))),
+                ("Weighting", _format_value(model_state.get("weighting_scheme"))),
+                ("Selection count", _format_value(model_state.get("selection_count"))),
+            ],
+        ),
+        (
+            "Time Windows",
+            [
+                ("Lookback periods", _format_value(model_state.get("lookback_periods"))),
+                ("Evaluation periods", _format_value(model_state.get("evaluation_periods"))),
+                ("Min history", _format_value(model_state.get("min_history_periods"))),
+                ("Frequency", _format_value(model_state.get("multi_period_frequency"))),
+            ],
+        ),
+        (
+            "Risk + Constraints",
+            [
+                ("Risk target", _format_percent(model_state.get("risk_target"))),
+                ("Max weight", _format_percent(model_state.get("max_weight"))),
+                ("Min weight", _format_percent(model_state.get("min_weight"))),
+                ("Max turnover", _format_percent(model_state.get("max_turnover"))),
+            ],
+        ),
+        (
+            "Signals",
+            [
+                ("Trend window", _format_value(model_state.get("trend_window"))),
+                ("Trend lag", _format_value(model_state.get("trend_lag"))),
+                ("Vol adjust", _format_value(model_state.get("vol_adjust_enabled"))),
+            ],
+        ),
+    ]
+
+
+def _render_config_summary(model_state: Mapping[str, Any] | None) -> None:
+    if not model_state:
+        st.info("No configuration loaded yet.")
+        return
+
+    for title, rows in _config_summary_sections(model_state):
+        st.markdown(f"**{title}**")
+        for label, value in rows:
+            st.markdown(f"- {label}: {value}")
+
+
+def _resolve_llm_provider_config() -> LLMProviderConfig:
+    provider_name = (os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
+    supported = {"openai", "anthropic", "ollama"}
+    if provider_name not in supported:
+        raise ValueError(
+            f"Unknown LLM provider '{provider_name}'. "
+            f"Expected one of: {', '.join(sorted(supported))}."
+        )
+    api_key = os.environ.get("TREND_LLM_API_KEY")
+    if not api_key:
+        if provider_name == "openai":
+            api_key = os.environ.get("OPENAI_API_KEY")
+        elif provider_name == "anthropic":
+            api_key = os.environ.get("ANTHROPIC_API_KEY")
+    model = os.environ.get("TREND_LLM_MODEL")
+    base_url = os.environ.get("TREND_LLM_BASE_URL")
+    organization = os.environ.get("TREND_LLM_ORG")
+    kwargs: dict[str, Any] = {"provider": provider_name}
+    if model:
+        kwargs["model"] = model
+    if api_key:
+        kwargs["api_key"] = api_key
+    if base_url:
+        kwargs["base_url"] = base_url
+    if organization:
+        kwargs["organization"] = organization
+    return LLMProviderConfig(**kwargs)
+
+
+def _build_nl_chain() -> ConfigPatchChain:
+    config = _resolve_llm_provider_config()
+    llm = create_llm(config)
+    schema = load_compact_schema()
+    return ConfigPatchChain.from_env(
+        llm=llm,
+        schema=schema,
+        prompt_builder=build_config_patch_prompt,
+    )
+
+
+def _generate_config_preview(
+    model_state: Mapping[str, Any],
+    instruction: str,
+) -> dict[str, Any]:
+    chain = _build_nl_chain()
+    patch = chain.run(current_config=dict(model_state), instruction=instruction)
+    before = deepcopy(dict(model_state))
+    after = apply_config_patch(before, patch)
+    diff_text = diff_configs(before, after)
+    return {
+        "instruction": instruction,
+        "before": before,
+        "after": after,
+        "diff": diff_text,
+        "summary": patch.summary,
+        "risk_flags": [flag.value for flag in patch.risk_flags],
+        "needs_review": patch.needs_review,
+        "patch": patch.model_dump(),
+    }
+
+
+def _estimate_llm_seconds() -> float:
+    stored = st.session_state.get("config_chat_llm_seconds")
+    return estimate_eta_seconds(stored)
+
+
+def _record_llm_seconds(duration: float) -> None:
+    stored = st.session_state.get("config_chat_llm_seconds")
+    updated = update_eta_seconds(stored, duration)
+    if updated is None:
+        return
+    st.session_state["config_chat_llm_seconds"] = updated
+
+
+def _generate_preview_with_progress(
+    model_state: Mapping[str, Any],
+    instruction: str,
+) -> dict[str, Any]:
+    estimate = _estimate_llm_seconds()
+    progress_slot = st.empty()
+    progress_bar = progress_slot.progress(0.0, text="Preparing preview...")
+    start = monotonic()
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_generate_config_preview, model_state, instruction)
+        while not future.done():
+            elapsed = monotonic() - start
+            ratio, remaining = progress_ratio_and_remaining(elapsed, estimate)
+            progress_bar.progress(
+                ratio,
+                text=f"Generating preview... ~{int(round(remaining))}s remaining",
+            )
+            sleep(0.25)
+    duration = monotonic() - start
+    _record_llm_seconds(duration)
+    progress_bar.progress(1.0, text="Preview ready.")
+    progress_slot.empty()
+    return future.result()
+
+
+def _current_run_key(model_state: dict[str, Any], benchmark: str | None) -> str:
+    fingerprint = st.session_state.get("data_fingerprint", "unknown")
+    model_blob = json.dumps(model_state, sort_keys=True, default=str)
+    bench = benchmark or "__none__"
+    applied_funds = st.session_state.get("analysis_fund_columns")
+    if not isinstance(applied_funds, list):
+        applied_funds = st.session_state.get("fund_columns")
+    if not isinstance(applied_funds, list):
+        applied_funds = []
+
+    selected_rf = st.session_state.get("selected_risk_free")
+    info_ratio_benchmark = (
+        model_state.get("info_ratio_benchmark") if isinstance(model_state, dict) else None
+    )
+    prohibited = {selected_rf, benchmark, info_ratio_benchmark} - {None}
+    sanitized_funds = [c for c in applied_funds if c not in prohibited]
+
+    funds_blob = json.dumps(list(sanitized_funds), sort_keys=False, default=str)
+    funds_hash = hashlib.sha256(funds_blob.encode("utf-8")).hexdigest()[:12]
+    return f"{fingerprint}:{bench}:{funds_hash}:{model_blob}"
+
+
+def _apply_preview_state(
+    preview: Mapping[str, Any],
+    *,
+    run_analysis: bool = False,
+) -> None:
+    after = preview.get("after")
+    if not isinstance(after, Mapping):
+        st.warning("Preview is missing updated configuration data.")
+        return
+
+    _record_config_change(preview)
+    st.session_state["model_state"] = deepcopy(dict(after))
+    analysis_runner.clear_cached_analysis()
+    app_state.clear_analysis_results()
+
+    if not run_analysis:
+        st.success("Applied config changes to this session.")
+        return
+
+    df, _ = app_state.get_uploaded_data()
+    if df is None:
+        st.error("Load data before running analysis.")
+        return
+
+    benchmark = st.session_state.get("selected_benchmark")
+    selected_rf = st.session_state.get("selected_risk_free")
+    effective_model_state = dict(st.session_state.get("model_state", {}))
+    if selected_rf:
+        effective_model_state["risk_free_column"] = selected_rf
+
+    with st.spinner("Running analysis..."):
+        try:
+            result = analysis_runner.run_analysis(
+                df,
+                effective_model_state,
+                benchmark,
+                data_hash=st.session_state.get("data_hash"),
+            )
+        except Exception as exc:
+            st.error(f"Analysis failed: {exc}")
+            st.session_state["analysis_result"] = None
+            st.session_state["analysis_result_key"] = None
+            st.session_state["analysis_error"] = {
+                "message": "Analysis failed.",
+                "detail": str(exc),
+            }
+            return
+
+    st.session_state["analysis_result"] = result
+    st.session_state["analysis_result_key"] = _current_run_key(
+        st.session_state.get("model_state", {}),
+        benchmark,
+    )
+    st.session_state.pop("analysis_error", None)
+    st.success("Applied config changes and ran analysis.")
+
+
+def _requires_risky_confirmation(preview: Mapping[str, Any]) -> bool:
+    risk_flags = preview.get("risk_flags")
+    needs_review = preview.get("needs_review")
+    return bool(risk_flags) or bool(needs_review)
+
+
+def _queue_risky_apply(preview: Mapping[str, Any], *, run_analysis: bool) -> None:
+    st.session_state["config_chat_pending_apply"] = {
+        "preview": preview,
+        "run_analysis": run_analysis,
+    }
+
+
+def _render_risky_change_dialog() -> None:
+    pending = st.session_state.get("config_chat_pending_apply")
+    if not isinstance(pending, Mapping):
+        return
+    preview = pending.get("preview")
+    if not isinstance(preview, Mapping):
+        st.session_state.pop("config_chat_pending_apply", None)
+        return
+    risk_flags = preview.get("risk_flags") or []
+    needs_review = bool(preview.get("needs_review"))
+    if not risk_flags:
+        if not needs_review:
+            st.session_state.pop("config_chat_pending_apply", None)
+            return
+
+    dialog = getattr(st, "dialog", None)
+    if dialog is None:
+        st.error("RISKY CHANGE: confirmation dialog unavailable.")
+        return
+
+    with dialog("Confirm risky change"):
+        st.warning("This change modifies sensitive configuration settings.")
+        if risk_flags:
+            st.caption(f"Flags: {', '.join(risk_flags)}")
+        if needs_review:
+            st.caption("Unknown config keys detected; please review before applying.")
+        confirm = st.button("Apply anyway", type="primary")
+        cancel = st.button("Cancel", type="secondary")
+        if confirm:
+            st.session_state.pop("config_chat_pending_apply", None)
+            _apply_preview_state(preview, run_analysis=bool(pending.get("run_analysis")))
+        elif cancel:
+            st.session_state.pop("config_chat_pending_apply", None)
+
+
+def _revert_last_config_change() -> None:
+    history = _get_config_change_history()
+    if not history:
+        st.warning("No prior config change to revert.")
+        return
+    entry = history.pop()
+    previous = entry.get("before") if isinstance(entry, Mapping) else None
+    if not isinstance(previous, Mapping):
+        st.error("Revert failed: missing previous configuration.")
+        return
+    st.session_state["model_state"] = deepcopy(dict(previous))
+    st.session_state.pop("config_chat_preview", None)
+    analysis_runner.clear_cached_analysis()
+    app_state.clear_analysis_results()
+    st.success("Reverted to the previous configuration.")
+
+
+def _render_diff_preview_styles() -> None:
+    st.markdown(
+        """
+<style>
+.config-diff {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  overflow-x: auto;
+}
+.config-diff .diff-line {
+  padding: 2px 8px;
+  white-space: pre;
+}
+.config-diff .diff-add { background: #e6ffed; color: #14532d; }
+.config-diff .diff-remove { background: #ffeef0; color: #7f1d1d; }
+.config-diff .diff-header { background: #f8fafc; color: #0f172a; font-weight: 600; }
+.config-diff .diff-hunk { background: #eff6ff; color: #1d4ed8; }
+.config-diff .diff-context { color: #111827; }
+.config-diff-table table.diff {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+.config-diff-table table.diff th {
+  background: #f8fafc;
+  color: #0f172a;
+  text-align: left;
+  padding: 4px 6px;
+  border: 1px solid #e2e8f0;
+}
+.config-diff-table table.diff td {
+  padding: 2px 6px;
+  vertical-align: top;
+  white-space: pre;
+  border: 1px solid #e2e8f0;
+}
+.config-diff-table .diff_add { background: #e6ffed; color: #14532d; }
+.config-diff-table .diff_sub { background: #ffeef0; color: #7f1d1d; }
+.config-diff-table .diff_chg { background: #fff7ed; color: #9a3412; }
+</style>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def _diff_text_to_html(diff_text: str) -> str:
+    lines = diff_text.splitlines()
+    html_lines: list[str] = []
+    for line in lines:
+        if line.startswith(("+++ ", "--- ")):
+            css_class = "diff-header"
+        elif line.startswith("@@"):
+            css_class = "diff-hunk"
+        elif line.startswith("+"):
+            css_class = "diff-add"
+        elif line.startswith("-"):
+            css_class = "diff-remove"
+        else:
+            css_class = "diff-context"
+        safe_line = html.escape(line)
+        html_lines.append(f'<div class="diff-line {css_class}">{safe_line}</div>')
+    return '<div class="config-diff">' + "".join(html_lines) + "</div>"
+
+
+def _render_unified_diff(diff_text: str) -> None:
+    if not diff_text.strip():
+        st.info("No differences found.")
+        return
+    _render_diff_preview_styles()
+    st.markdown(_diff_text_to_html(diff_text), unsafe_allow_html=True)
+
+
+def _render_side_by_side_diff(before: Mapping[str, Any], after: Mapping[str, Any]) -> None:
+    before_yaml = yaml.safe_dump(dict(before), sort_keys=False, default_flow_style=False)
+    after_yaml = yaml.safe_dump(dict(after), sort_keys=False, default_flow_style=False)
+    differ = difflib.HtmlDiff(tabsize=2, wrapcolumn=80)
+    diff_table = differ.make_table(
+        before_yaml.splitlines(),
+        after_yaml.splitlines(),
+        fromdesc="Before",
+        todesc="After",
+        context=True,
+        numlines=3,
+    )
+    _render_diff_preview_styles()
+    st.markdown(
+        f'<div class="config-diff config-diff-table">{diff_table}</div>',
+        unsafe_allow_html=True,
+    )
+    with st.expander("Raw YAML", expanded=False):
+        col_before, col_after = st.columns(2)
+        with col_before:
+            st.caption("Before")
+            st.code(before_yaml, language="yaml")
+        with col_after:
+            st.caption("After")
+            st.code(after_yaml, language="yaml")
+
+
+def _render_config_diff_preview(model_state: Mapping[str, Any] | None) -> None:
+    st.markdown("---")
+    st.markdown("**Diff preview**")
+    preview = st.session_state.get("config_chat_preview")
+    if not isinstance(preview, Mapping):
+        st.info("No preview available yet. Send an instruction to generate a diff.")
+        return
+
+    before = preview.get("before")
+    if not isinstance(before, Mapping):
+        before = model_state or {}
+    after = preview.get("after")
+    if not isinstance(after, Mapping):
+        st.warning("Preview data is incomplete. Try generating a new diff.")
+        return
+    diff_text = preview.get("diff")
+    if not isinstance(diff_text, str):
+        diff_text = diff_configs(dict(before), dict(after))
+
+    tabs = st.tabs(["Unified diff", "Side-by-side"])
+    with tabs[0]:
+        _render_unified_diff(diff_text)
+    with tabs[1]:
+        _render_side_by_side_diff(before, after)
+
+
+def _render_config_change_history() -> None:
+    history = _get_config_change_history()
+    st.markdown("**Change history**")
+    if not history:
+        st.info("No configuration changes applied yet.")
+        return
+
+    for entry in reversed(history):
+        if not isinstance(entry, Mapping):
+            continue
+        timestamp = entry.get("timestamp") or "Unknown time"
+        instruction = entry.get("instruction") or "Config change"
+        label = f"{timestamp} • {instruction}"
+        with st.expander(label, expanded=False):
+            summary = entry.get("summary")
+            if summary:
+                st.caption(summary)
+            risk_flags = entry.get("risk_flags")
+            if risk_flags:
+                st.caption(f"Risk flags: {', '.join(risk_flags)}")
+            before = entry.get("before")
+            after = entry.get("after")
+            if not isinstance(before, Mapping) or not isinstance(after, Mapping):
+                st.warning("History entry is missing configuration data.")
+                continue
+            diff_text = entry.get("diff")
+            if not isinstance(diff_text, str):
+                diff_text = diff_configs(dict(before), dict(after))
+            tabs = st.tabs(["Unified diff", "Side-by-side"])
+            with tabs[0]:
+                _render_unified_diff(diff_text)
+            with tabs[1]:
+                _render_side_by_side_diff(before, after)
+
+
+def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
+    st.caption("Describe the configuration change you want to try.")
+    instruction = st.text_area(
+        "Instruction",
+        key="config_chat_instruction",
+        height=120,
+        placeholder="e.g. Increase lookback to 24 months and reduce max weight to 10%",
+    )
+    send_clicked = st.button("Send", key="config_chat_send", use_container_width=True)
+    if send_clicked:
+        trimmed = instruction.strip()
+        if not trimmed:
+            st.warning("Enter an instruction before sending.")
+        else:
+            st.session_state["config_chat_last_instruction"] = trimmed
+            st.success("Instruction captured. Preview coming next.")
+    preview = st.session_state.get("config_chat_preview")
+    has_preview = isinstance(preview, Mapping) and isinstance(preview.get("after"), Mapping)
+    action_cols = st.columns(4)
+    with action_cols[0]:
+        preview_clicked = st.button(
+            "Preview",
+            key="config_chat_preview_btn",
+            use_container_width=True,
+            disabled=not instruction.strip(),
+        )
+    with action_cols[1]:
+        apply_clicked = st.button(
+            "Apply",
+            key="config_chat_apply_btn",
+            use_container_width=True,
+            disabled=not has_preview,
+        )
+    with action_cols[2]:
+        apply_run_clicked = st.button(
+            "Apply + Run",
+            key="config_chat_apply_run_btn",
+            use_container_width=True,
+            type="primary",
+            disabled=not has_preview,
+        )
+    with action_cols[3]:
+        history = _get_config_change_history()
+        revert_clicked = st.button(
+            "Revert",
+            key="config_chat_revert_btn",
+            use_container_width=True,
+            disabled=len(history) == 0,
+        )
+
+    if preview_clicked:
+        trimmed = instruction.strip()
+        if not trimmed:
+            st.warning("Enter an instruction before previewing.")
+        elif model_state is None:
+            st.error("No configuration is loaded to preview against.")
+        else:
+            try:
+                preview_payload = _generate_preview_with_progress(model_state, trimmed)
+            except Exception as exc:
+                st.error(f"Preview failed: {exc}")
+            else:
+                st.session_state["config_chat_preview"] = preview_payload
+                st.session_state["config_chat_last_instruction"] = trimmed
+                st.success("Preview ready. Review the diff below.")
+
+    if apply_clicked and has_preview:
+        if _requires_risky_confirmation(preview):
+            _queue_risky_apply(preview, run_analysis=False)
+        else:
+            _apply_preview_state(preview, run_analysis=False)
+
+    if apply_run_clicked and has_preview:
+        if _requires_risky_confirmation(preview):
+            _queue_risky_apply(preview, run_analysis=True)
+        else:
+            _apply_preview_state(preview, run_analysis=True)
+
+    if revert_clicked:
+        _revert_last_config_change()
+    _render_risky_change_dialog()
+    st.markdown("---")
+    st.markdown("**Current configuration summary**")
+    _render_config_summary(model_state)
+    _render_config_diff_preview(model_state)
+    st.markdown("---")
+    _render_config_change_history()
+
+
+def render_config_chat_panel(
+    *,
+    location: str = "sidebar",
+    model_state: Mapping[str, Any] | None = None,
+) -> None:
+    """Render the Config Chat panel for natural-language config tweaks."""
+
+    if location == "sidebar":
+        with st.sidebar:
+            with st.expander("💬 Config Chat", expanded=False):
+                _render_config_chat_contents(model_state)
+        return
+
+    with st.expander("💬 Config Chat", expanded=False):
+        _render_config_chat_contents(model_state)
+
 
 # Preset configurations with default parameter values
 PRESET_CONFIGS = {
@@ -545,6 +1219,8 @@ for the covariance matrix.
 
 def render_model_page() -> None:
     app_state.initialize_session_state()
+    model_state = st.session_state.setdefault("model_state", _initial_model_state())
+    render_config_chat_panel(model_state=model_state)
     st.title("Model Configuration")
 
     # Clarify this is for custom analysis
@@ -640,7 +1316,6 @@ def render_model_page() -> None:
 
     st.markdown("---")
 
-    model_state = st.session_state.setdefault("model_state", _initial_model_state())
     saved_model_states = app_state.get_saved_model_states()
     saved_names = sorted(saved_model_states)
 
@@ -2270,7 +2945,7 @@ def render_model_page() -> None:
             }
             errors = _validate_model(candidate_state, len(fund_cols) if fund_cols else 0)
             if errors:
-                st.error("\n".join(f"• {err}" for err in errors))
+                _render_validation_errors(errors)
             else:
                 st.session_state["model_state"] = candidate_state
                 analysis_runner.clear_cached_analysis()

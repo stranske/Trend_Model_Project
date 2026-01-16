@@ -12,6 +12,19 @@
 
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
+const childProcess = require('child_process');
+
+class RateLimitError extends Error {
+  constructor(message, options = {}) {
+    super(message);
+    this.name = 'RateLimitError';
+    this.isRateLimit = true;
+    this.status = options.status ?? null;
+    this.remaining = options.remaining ?? null;
+    this.reset = options.reset ?? null;
+  }
+}
 
 // ========== Utility Functions ==========
 
@@ -25,6 +38,10 @@ function normalizeWhitespace(text) {
     .join(' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function normalise(value) {
+  return String(value ?? '').trim();
 }
 
 function extractSection(body, heading) {
@@ -45,7 +62,22 @@ function ensureChecklist(text) {
     return '- [ ] —';
   }
   return lines
-    .map((line) => (line.startsWith('- [') ? line : `- [ ] ${line}`))
+    .map((line) => {
+      // Skip lines that are already checkboxes
+      if (line.startsWith('- [')) {
+        return line;
+      }
+      // Skip HTML comments - they are informational, not actionable
+      if (line.startsWith('<!--') && line.endsWith('-->')) {
+        return line;
+      }
+      // Skip section headers
+      if (line.startsWith('#')) {
+        return line;
+      }
+      // Convert other lines to checkboxes
+      return `- [ ] ${line}`;
+    })
     .join('\n');
 }
 
@@ -58,6 +90,185 @@ function extractBlock(body, marker) {
     return '';
   }
   return body.slice(startIndex + start.length, endIndex).trim();
+}
+
+function extractContextSectionWithPython(issueBody, comments, core) {
+  const bodyText = String(issueBody || '').trim();
+  if (!bodyText) {
+    return '';
+  }
+
+  try {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workflows-context-'));
+    const issuePath = path.join(tmpDir, 'issue.md');
+    fs.writeFileSync(issuePath, bodyText, 'utf8');
+
+    const commentsPath = path.join(tmpDir, 'comments.json');
+    fs.writeFileSync(commentsPath, JSON.stringify(Array.isArray(comments) ? comments : [], null, 2), 'utf8');
+
+    const output = childProcess.execFileSync(
+      'python3',
+      ['scripts/langchain/context_extractor.py', '--input-file', issuePath, '--comments-file', commentsPath],
+      { encoding: 'utf8' },
+    );
+    return String(output || '').trim();
+  } catch (error) {
+    if (core && typeof core.warning === 'function') {
+      core.warning(`Context extraction failed (python): ${error.message}`);
+    }
+    return '';
+  }
+}
+
+function linkifyIssueRefs(text, { owner, repo } = {}) {
+  const repoOwner = normalise(owner);
+  const repoName = normalise(repo);
+  if (!repoOwner || !repoName) {
+    return String(text || '');
+  }
+  const slug = `${repoOwner}/${repoName}`;
+  const lines = String(text || '').split(/\r?\n/);
+  const linked = lines.map((line) => {
+    if (!line || line.includes('](')) {
+      return line;
+    }
+    let updated = line.replace(
+      /\b([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)#(\d+)\b/g,
+      (_match, ownerRef, repoRef, number) => {
+        const url = `https://github.com/${ownerRef}/${repoRef}/issues/${number}`;
+        return `[${ownerRef}/${repoRef}#${number}](${url})`;
+      }
+    );
+    updated = updated.replace(
+      /(^|[^A-Za-z0-9_])#(\d+)\b/g,
+      (_match, prefix, number) => {
+        const url = `https://github.com/${slug}/issues/${number}`;
+        return `${prefix}[#${number}](${url})`;
+      }
+    );
+    return updated;
+  });
+  return linked.join('\n');
+}
+
+function extractIssueRefsFromText(text) {
+  const refs = [];
+  const seen = new Set();
+  if (!text) {
+    return refs;
+  }
+  const pushRef = (ref) => {
+    const key = String(ref || '').toLowerCase();
+    if (!key || seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    refs.push(ref);
+  };
+  const raw = String(text);
+  const urlRegex = /https?:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)\/(issues|pull)\/(\d+)/g;
+  for (const match of raw.matchAll(urlRegex)) {
+    pushRef(`${match[1]}/${match[2]}#${match[4]}`);
+  }
+  const crossRepoRegex = /\b[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+#\d+\b/g;
+  for (const match of raw.matchAll(crossRepoRegex)) {
+    pushRef(match[0]);
+  }
+  const localRegex = /(^|[^A-Za-z0-9_])(#\d+)\b/g;
+  for (const match of raw.matchAll(localRegex)) {
+    pushRef(match[2]);
+  }
+  return refs;
+}
+
+function augmentContextWithRelatedIssues(contextSection, issueBody) {
+  const refs = extractIssueRefsFromText(issueBody);
+  if (refs.length === 0) {
+    return contextSection;
+  }
+
+  const contextText = String(contextSection || '').trim();
+  if (!contextText) {
+    return [
+      '## Context for Agent',
+      '',
+      '### Related Issues/PRs',
+      ...refs.map((ref) => `- ${ref}`),
+    ].join('\n').trim();
+  }
+
+  const lines = contextText.split(/\r?\n/);
+  const headerRegex = /^\s*###\s+Related Issues\/PRs\s*$/i;
+  let headerIndex = -1;
+  for (let i = 0; i < lines.length; i += 1) {
+    if (headerRegex.test(lines[i])) {
+      headerIndex = i;
+      break;
+    }
+  }
+
+  if (headerIndex === -1) {
+    return [
+      contextText,
+      '',
+      '### Related Issues/PRs',
+      ...refs.map((ref) => `- ${ref}`),
+    ].join('\n').trim();
+  }
+
+  let endIndex = lines.length;
+  for (let i = headerIndex + 1; i < lines.length; i += 1) {
+    if (/^\s*#{2,3}\s+/.test(lines[i])) {
+      endIndex = i;
+      break;
+    }
+  }
+
+  const existingBlock = lines.slice(headerIndex + 1, endIndex).join('\n');
+  const existingRefs = new Set(
+    extractIssueRefsFromText(existingBlock).map((ref) => ref.toLowerCase())
+  );
+  const missing = refs.filter((ref) => !existingRefs.has(ref.toLowerCase()));
+  if (missing.length === 0) {
+    return contextSection;
+  }
+
+  const beforeLines = lines.slice(0, endIndex);
+  while (beforeLines.length > 0 && beforeLines[beforeLines.length - 1].trim() === '') {
+    beforeLines.pop();
+  }
+  const afterLines = lines.slice(endIndex);
+  const updatedLines = beforeLines.concat(missing.map((ref) => `- ${ref}`));
+  if (afterLines.length > 0) {
+    updatedLines.push('');
+    updatedLines.push(...afterLines);
+  }
+  return updatedLines.join('\n');
+}
+
+function buildContextBlock(contextText, { owner, repo } = {}) {
+  const trimmed = String(contextText || '').trim();
+  if (!trimmed) {
+    return '';
+  }
+  const cleaned = trimmed
+    .replace(/<!--\s*context:start\s*-->/gi, '')
+    .replace(/<!--\s*context:end\s*-->/gi, '')
+    .replace(/<!--\s*Updated WORKFLOW_OUTPUTS\.md context:start\s*-->/gi, '')
+    .replace(/<!--\s*Updated WORKFLOW_OUTPUTS\.md context:end\s*-->/gi, '')
+    .trim();
+  if (!cleaned) {
+    return '';
+  }
+  const linked = linkifyIssueRefs(cleaned, { owner, repo }).trim();
+  if (!linked) {
+    return '';
+  }
+  return [
+    '<!-- Updated WORKFLOW_OUTPUTS.md context:start -->',
+    linked,
+    '<!-- Updated WORKFLOW_OUTPUTS.md context:end -->',
+  ].join('\n');
 }
 
 function parseCheckboxStates(block) {
@@ -75,6 +286,26 @@ function parseCheckboxStates(block) {
     }
   }
   return states;
+}
+
+function resolveAgentType({ inputs = {}, env = {}, pr = {} } = {}) {
+  const explicit = normalise(inputs.agent_type || inputs.agentType || env.AGENT_TYPE);
+  if (explicit) {
+    return explicit;
+  }
+  const labels = Array.isArray(pr.labels) ? pr.labels : [];
+  for (const label of labels) {
+    const name = typeof label === 'string' ? label : label?.name;
+    const trimmed = normalise(name);
+    if (!trimmed) {
+      continue;
+    }
+    const match = trimmed.match(/^agent\s*:\s*(.+)$/i);
+    if (match && match[1]) {
+      return match[1].trim().toLowerCase();
+    }
+  }
+  return '';
 }
 
 /**
@@ -147,7 +378,7 @@ async function fetchConnectorCheckboxStates(github, owner, repo, prNumber, core)
     // Later comments override earlier ones (most recent state wins)
     for (const comment of connectorComments) {
       const commentStates = parseCheckboxStates(comment.body);
-      for (const [key, value] of commentStates) {
+      for (const [key] of commentStates) {
         states.set(key, true);
       }
     }
@@ -162,6 +393,39 @@ async function fetchConnectorCheckboxStates(github, owner, repo, prNumber, core)
   }
   
   return states;
+}
+
+/**
+ * Strip PR template content that appears before the first managed marker.
+ * This handles the case where GitHub prepends PULL_REQUEST_TEMPLATE.md content
+ * when a PR is created via the API or UI for agent-managed branches.
+ * 
+ * @param {string} body - PR body that may contain template content
+ * @returns {string} Body with template content stripped (everything before first marker)
+ */
+function stripPrTemplateContent(body) {
+  if (!body) return '';
+  
+  // Look for the first managed marker (preamble or status summary)
+  const preambleStart = body.indexOf('<!-- pr-preamble:start -->');
+  const statusStart = body.indexOf('<!-- auto-status-summary:start -->');
+  
+  // Find the earliest marker
+  let firstMarkerIndex = -1;
+  if (preambleStart !== -1 && statusStart !== -1) {
+    firstMarkerIndex = Math.min(preambleStart, statusStart);
+  } else if (preambleStart !== -1) {
+    firstMarkerIndex = preambleStart;
+  } else if (statusStart !== -1) {
+    firstMarkerIndex = statusStart;
+  }
+  
+  // If we found a marker and there's content before it, strip that content
+  if (firstMarkerIndex > 0) {
+    return body.slice(firstMarkerIndex);
+  }
+  
+  return body;
 }
 
 function upsertBlock(body, marker, replacement) {
@@ -184,68 +448,108 @@ function upsertBlock(body, marker, replacement) {
 /**
  * Simple retry wrapper with linear backoff for general API errors.
  * 
- * Note: This differs from api-helpers.js `withBackoff` which specifically handles
- * rate limit errors (403/429) with exponential backoff and reset time extraction.
- * This function retries any error type with simple linear delay, suitable for
- * transient network/server errors during PR body updates.
+ * Note: api-helpers.js now has `withBackoff` which handles all transient errors
+ * (not just rate limits) with exponential backoff. This function uses linear delay
+ * which may be preferred for specific use cases in PR body updates.
  * 
  * @param {Function} fn - Async function to retry
- * @param {Object} options - Configuration options
+ * @param {Object} [options] - Retry configuration options
  * @param {number} [options.attempts=3] - Number of attempts
  * @param {number} [options.delayMs=1000] - Base delay between attempts in ms
- * @param {number} [options.maxDelayMs=120000] - Maximum delay between retries (default 2 minutes)
  * @param {string} [options.description] - Label for logging
  * @param {Object} [options.core] - GitHub Actions core object for logging
- * @param {boolean} [options.softFail=false] - If true, return null on rate limit instead of throwing
  * @returns {Promise<any>} Result of the function call
  */
 async function withRetries(fn, options = {}) {
-  const attempts = Number(options.attempts) || 3;
+  const baseAttempts = Number(options.attempts) || 3;
   const baseDelay = Number(options.delayMs) || 1000;
-  const maxDelay = Number(options.maxDelayMs) || 120000;
   const label = options.description || 'operation';
   const core = options.core;
-  const softFail = Boolean(options.softFail);
   let lastError;
+  let rateLimitDetected = false;
   
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+  // Rate limits get more attempts and longer delays
+  const maxAttempts = baseAttempts;
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       return await fn();
     } catch (error) {
       lastError = error;
       const status = error && typeof error.status === 'number' ? error.status : null;
       const message = error instanceof Error ? error.message : String(error);
+      const messageLower = message.toLowerCase();
       const headers = error?.response?.headers || {};
       const remainingRaw = headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
       const resetRaw = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];
-      const remaining = typeof remainingRaw === 'string' ? Number(remainingRaw) : Number(remainingRaw);
-      const reset = typeof resetRaw === 'string' ? Number(resetRaw) : Number(resetRaw);
-      const isRateLimit = status === 403 && Number.isFinite(remaining) && remaining <= 0;
-      const retryable = !status || status >= 500 || status === 429 || isRateLimit;
+      const remaining = Number(remainingRaw);
+      const reset = Number(resetRaw);
       
-      if (!retryable || attempt === attempts) {
-        // On final attempt with rate limit, consider soft fail
-        if (isRateLimit && softFail) {
-          if (core) core.warning(`Rate limit exceeded for ${label}; soft-failing operation (non-critical).`);
-          return null;
+      // Detect rate limits by headers OR message content
+      const isRateLimitByHeader = status === 403 && Number.isFinite(remaining) && remaining <= 0;
+      const isRateLimitByMessage = (status === 403 || status === 429) && 
+        (messageLower.includes('rate limit') || messageLower.includes('abuse detection'));
+      const isRateLimit = isRateLimitByHeader || isRateLimitByMessage || status === 429;
+      
+      if (isRateLimit && !rateLimitDetected) {
+        rateLimitDetected = true;
+        if (core) core.warning(`Rate limit detected for ${label}. Will retry with extended delays.`);
+      }
+      
+      const retryable = !status || status >= 500 || isRateLimit;
+      
+      if (!retryable || attempt === maxAttempts) {
+        if (isRateLimit) {
+          throw new RateLimitError(message, { status, remaining, reset });
         }
         if (core) core.error(`Failed ${label}: ${message}`);
         throw error;
       }
       
       let delay = baseDelay * attempt;
-      if (isRateLimit && Number.isFinite(reset)) {
-        const nowSeconds = Math.floor(Date.now() / 1000);
-        const waitMs = Math.max((reset - nowSeconds) * 1000 + 500, delay);
-        delay = Math.min(waitMs, maxDelay);
-        if (core) core.warning(`Rate limit hit for ${label}; waiting ${delay}ms before retrying (attempt ${attempt + 1}/${attempts}).`);
+      if (isRateLimit) {
+        // For rate limits, use exponential backoff with longer max delay
+        if (Number.isFinite(reset)) {
+          const nowSeconds = Math.floor(Date.now() / 1000);
+          const waitMs = Math.max((reset - nowSeconds) * 1000 + 500, delay);
+          delay = Math.min(waitMs, 120000); // Up to 2 minutes for rate limits
+        } else {
+          // No reset header - use exponential backoff
+          delay = Math.min(baseDelay * Math.pow(2, attempt - 1), 60000);
+        }
+        if (core) core.warning(`Rate limit hit for ${label}; waiting ${delay}ms before retrying (attempt ${attempt + 1}/${maxAttempts}).`);
       } else {
-        if (core) core.warning(`Retrying ${label} after ${delay}ms (attempt ${attempt + 1}/${attempts}) due to ${status || 'error'}`);
+        if (core) core.warning(`Retrying ${label} after ${delay}ms (attempt ${attempt + 1}/${maxAttempts}) due to ${status || 'error'}`);
       }
       await sleep(delay);
     }
   }
   throw lastError;
+}
+
+function isRateLimitError(error) {
+  if (!error) {
+    return false;
+  }
+  if (error instanceof RateLimitError) {
+    return true;
+  }
+  const status = typeof error.status === 'number' ? error.status : null;
+  const message = error instanceof Error ? error.message : String(error);
+  const messageLower = message.toLowerCase();
+  if (status === 429) {
+    return true;
+  }
+  if (status !== 403) {
+    return false;
+  }
+  if (messageLower.includes('rate limit')) {
+    return true;
+  }
+  const headers = error?.response?.headers || {};
+  const remainingRaw = headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
+  const remaining = Number(remainingRaw);
+  return Number.isFinite(remaining) && remaining <= 0;
 }
 
 // ========== Status Block Functions ==========
@@ -309,6 +613,11 @@ function fallbackChecklist(message) {
 function buildPreamble(sections) {
   const lines = ['<!-- pr-preamble:start -->'];
   
+  // Add reference to source issue if available
+  if (sections.issueNumber) {
+    lines.push(`> **Source:** Issue #${sections.issueNumber}`, '');
+  }
+  
   if (sections.summary && sections.summary.trim()) {
     lines.push('## Summary', sections.summary, '');
   }
@@ -325,11 +634,13 @@ function buildPreamble(sections) {
   return lines.join('\n');
 }
 
-function buildStatusBlock({scope, tasks, acceptance, headSha, workflowRuns, requiredChecks, existingBody, connectorStates, core}) {
+function buildStatusBlock({scope, contextSection, tasks, acceptance, headSha, workflowRuns, requiredChecks, existingBody, connectorStates, core, agentType, owner, repo}) {
   const statusLines = ['<!-- auto-status-summary:start -->', '## Automated Status Summary'];
+  const isCliAgent = Boolean(agentType && String(agentType).trim());
 
   const existingBlock = extractBlock(existingBody || '', 'auto-status-summary');
   const existingStates = parseCheckboxStates(existingBlock);
+  const contextBlock = buildContextBlock(contextSection, { owner, repo });
   
   // Merge existing PR body states with connector bot comment states
   // Connector states take precedence (they represent actual completion signals from agents)
@@ -348,10 +659,16 @@ function buildStatusBlock({scope, tasks, acceptance, headSha, workflowRuns, requ
   }
 
   statusLines.push('#### Scope');
-  let scopeFormatted = scope ? ensureChecklist(scope) : fallbackChecklist('Scope section missing from source issue.');
-  scopeFormatted = mergeCheckboxStates(scopeFormatted, mergedStates);
+  // Scope is informational, not actionable - don't force checkbox format
+  // Use italicized placeholder if missing, otherwise preserve original scope text
+  let scopeFormatted = scope ? scope.trim() : '_Scope section missing from source issue._';
   statusLines.push(scopeFormatted);
   statusLines.push('');
+
+  if (contextBlock) {
+    statusLines.push(contextBlock);
+    statusLines.push('');
+  }
 
   statusLines.push('#### Tasks');
   let tasksFormatted = tasks ? ensureChecklist(tasks) : fallbackChecklist('Tasks section missing from source issue.');
@@ -365,45 +682,47 @@ function buildStatusBlock({scope, tasks, acceptance, headSha, workflowRuns, requ
   statusLines.push(acceptanceFormatted);
   statusLines.push('');
 
-  statusLines.push(`**Head SHA:** ${headSha}`);
+  if (!isCliAgent) {
+    statusLines.push(`**Head SHA:** ${headSha}`);
 
-  const latestRuns = Array.from(workflowRuns.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  let latestLine = '—';
-  if (latestRuns.length > 0) {
-    const gate = latestRuns.find((run) => (run.name || '').toLowerCase() === 'gate');
-    const chosen = gate || latestRuns[0];
-    const status = combineStatus(chosen);
-    latestLine = `${status.icon} ${status.label} — ${chosen.name}`;
-  }
-  statusLines.push(`**Latest Runs:** ${latestLine}`);
+    const latestRuns = Array.from(workflowRuns.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    let latestLine = '—';
+    if (latestRuns.length > 0) {
+      const gate = latestRuns.find((run) => (run.name || '').toLowerCase() === 'gate');
+      const chosen = gate || latestRuns[0];
+      const status = combineStatus(chosen);
+      latestLine = `${status.icon} ${status.label} — ${chosen.name}`;
+    }
+    statusLines.push(`**Latest Runs:** ${latestLine}`);
 
-  const requiredParts = [];
-  for (const name of requiredChecks) {
-    const run = Array.from(workflowRuns.values()).find((item) => (item.name || '').toLowerCase() === name.toLowerCase());
-    if (!run) {
-      requiredParts.push(`${name}: ⏸️ not started`);
+    const requiredParts = [];
+    for (const name of requiredChecks) {
+      const run = Array.from(workflowRuns.values()).find((item) => (item.name || '').toLowerCase() === name.toLowerCase());
+      if (!run) {
+        requiredParts.push(`${name}: ⏸️ not started`);
+      } else {
+        const status = combineStatus(run);
+        requiredParts.push(`${name}: ${status.icon} ${status.label}`);
+      }
+    }
+    statusLines.push(`**Required:** ${requiredParts.length > 0 ? requiredParts.join(', ') : '—'}`);
+    statusLines.push('');
+
+    const table = ['| Workflow / Job | Result | Logs |', '|----------------|--------|------|'];
+    const runs = Array.from(workflowRuns.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    if (runs.length === 0) {
+      table.push('| _(no workflow runs yet for this commit)_ | — | — |');
     } else {
-      const status = combineStatus(run);
-      requiredParts.push(`${name}: ${status.icon} ${status.label}`);
+      for (const run of runs) {
+        const status = combineStatus(run);
+        const link = run.html_url ? `[View run](${run.html_url})` : '—';
+        table.push(`| ${run.name || 'Unnamed workflow'} | ${status.icon} ${status.label} | ${link} |`);
+      }
     }
+
+    statusLines.push(...table);
   }
-  statusLines.push(`**Required:** ${requiredParts.length > 0 ? requiredParts.join(', ') : '—'}`);
-  statusLines.push('');
-
-  const table = ['| Workflow / Job | Result | Logs |', '|----------------|--------|------|'];
-  const runs = Array.from(workflowRuns.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-
-  if (runs.length === 0) {
-    table.push('| _(no workflow runs yet for this commit)_ | — | — |');
-  } else {
-    for (const run of runs) {
-      const status = combineStatus(run);
-      const link = run.html_url ? `[View run](${run.html_url})` : '—';
-      table.push(`| ${run.name || 'Unnamed workflow'} | ${status.icon} ${status.label} | ${link} |`);
-    }
-  }
-
-  statusLines.push(...table);
   statusLines.push('<!-- auto-status-summary:end -->');
 
   return statusLines.join('\n');
@@ -512,16 +831,19 @@ async function discoverPr({github, context, core, inputs}) {
 // ========== Main Entry Point ==========
 
 async function run({github, context, core, inputs}) {
-  const {owner, repo} = context.repo;
-  const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
+  try {
+    const {owner, repo} = context.repo;
+  // Support dual-checkout pattern: WORKFLOWS_SCRIPTS_PATH points to where the
+  // Workflows repo scripts are, or fall back to the workspace root
+  const scriptsBase = process.env.WORKFLOWS_SCRIPTS_PATH || process.env.GITHUB_WORKSPACE || process.cwd();
   
   // Load external helper scripts
   let extractIssueNumberFromPull;
   let parseScopeTasksAcceptanceSections;
 
   try {
-    const keepalivePath = path.resolve(workspace, '.github/scripts/agents_pr_meta_keepalive.js');
-    const parserPath = path.resolve(workspace, '.github/scripts/issue_scope_parser.js');
+    const keepalivePath = path.resolve(scriptsBase, '.github/scripts/agents_pr_meta_keepalive.js');
+    const parserPath = path.resolve(scriptsBase, '.github/scripts/issue_scope_parser.js');
 
     if (!fs.existsSync(keepalivePath)) {
       throw new Error(`Keepalive script not found at ${keepalivePath}`);
@@ -552,14 +874,10 @@ async function run({github, context, core, inputs}) {
 
   const prResponse = await withRetries(
     () => github.rest.pulls.get({owner, repo, pull_number: prInfo.number}),
-    {description: `pulls.get #${prInfo.number}`, core, attempts: 5, maxDelayMs: 120000},
+    {description: `pulls.get #${prInfo.number}`, core},
   );
-  if (!prResponse) {
-    core.warning(`Unable to fetch PR #${prInfo.number} due to API limits; skipping update.`);
-    return;
-  }
   const pr = prResponse.data;
-  
+
   if (pr.state === 'closed') {
     core.info(`Pull request #${pr.number} is closed; skipping update.`);
     return;
@@ -572,6 +890,7 @@ async function run({github, context, core, inputs}) {
 
   const issueNumber = extractIssueNumberFromPull(pr);
   if (!issueNumber) {
+    const marker = '<!-- missing-issue-warning -->';
     const warningMsg = `Unable to determine source issue for PR #${pr.number}. The PR title, branch name, or body must contain the issue number (e.g. #123, branch: issue-123, or the hidden marker <!-- meta:issue:123 -->).`;
     core.warning(warningMsg);
 
@@ -581,14 +900,19 @@ async function run({github, context, core, inputs}) {
         repo,
         issue_number: pr.number,
       });
-      const alreadyWarned = comments.some((c) => c.body && c.body.includes('Unable to determine source issue'));
+      // Find existing warning comment by marker to enable upsert pattern
+      const existingWarning = comments.find((c) => c.body && c.body.includes(marker));
+      const commentBody = `${marker}\n⚠️ **Action Required**: ${warningMsg}`;
       
-      if (!alreadyWarned) {
+      if (existingWarning) {
+        // Update existing comment (avoids duplicates from race conditions)
+        core.info(`Warning comment already exists (id: ${existingWarning.id}), skipping duplicate`);
+      } else {
         await github.rest.issues.createComment({
           owner,
           repo,
           issue_number: pr.number,
-          body: `⚠️ **Action Required**: ${warningMsg}`
+          body: commentBody
         });
       }
     } catch (error) {
@@ -600,12 +924,8 @@ async function run({github, context, core, inputs}) {
   core.info(`Fetching content from issue #${issueNumber} for PR #${pr.number}`);
   const issueResponse = await withRetries(
     () => github.rest.issues.get({owner, repo, issue_number: issueNumber}),
-    {description: `issues.get #${issueNumber}`, core, attempts: 4, softFail: true},
+    {description: `issues.get #${issueNumber}`, core},
   );
-  if (!issueResponse) {
-    core.warning(`Unable to fetch issue #${issueNumber} due to API limits; skipping body update.`);
-    return;
-  }
   const issueBody = issueResponse.data.body || '';
 
   if (!issueBody) {
@@ -650,8 +970,31 @@ async function run({github, context, core, inputs}) {
     parsedSections.acceptance
     || extractWithAliases(issueBody, ['Acceptance criteria', 'Success criteria', 'Definition of done'])
     || '';
+  let contextSection = extractSection(issueBody, 'Context for Agent')
+    || extractBlock(pr.body || '', 'context')
+    || '';
+  if (!String(contextSection || '').trim()) {
+    let issueComments = [];
+    try {
+      issueComments = await github.paginate(github.rest.issues.listComments, {
+        owner,
+        repo,
+        issue_number: issueNumber,
+        per_page: 100,
+      });
+    } catch (error) {
+      core.warning(`Failed to fetch issue comments for context extraction: ${error.message}`);
+    }
+    const commentBodies = Array.isArray(issueComments)
+      ? issueComments
+        .map((comment) => String(comment?.body || '').trim())
+        .filter(Boolean)
+      : [];
+    contextSection = extractContextSectionWithPython(issueBody, commentBodies, core);
+  }
+  contextSection = augmentContextWithRelatedIssues(contextSection, issueBody);
 
-  const preamble = buildPreamble({summary, testing, ci});
+  const preamble = buildPreamble({summary, testing, ci, issueNumber});
 
   const workflowRunResponse = await withRetries(
     () => github.rest.actions.listWorkflowRunsForRepo({
@@ -660,11 +1003,9 @@ async function run({github, context, core, inputs}) {
       head_sha: pr.head.sha,
       per_page: 100,
     }),
-    {description: 'list workflow runs', core, softFail: true},
+    {description: 'list workflow runs', core},
   );
-  const workflowRuns = workflowRunResponse
-    ? selectLatestWorkflows(workflowRunResponse.data.workflow_runs || [])
-    : [];
+  const workflowRuns = selectLatestWorkflows(workflowRunResponse.data.workflow_runs || []);
 
   const requiredChecksRaw = await fetchRequiredChecks(github, owner, repo, pr.base.ref, core);
   // Avoid mutating the returned array - create a new one with 'gate' appended if needed
@@ -675,8 +1016,11 @@ async function run({github, context, core, inputs}) {
   // Fetch checkbox states from connector bot comments to merge into status summary
   const connectorStates = await fetchConnectorCheckboxStates(github, owner, repo, pr.number, core);
 
+  const agentType = resolveAgentType({ inputs, env: process.env, pr });
+
   const statusBlock = buildStatusBlock({
     scope,
+    contextSection,
     tasks,
     acceptance,
     headSha: prInfo.headSha,
@@ -685,9 +1029,16 @@ async function run({github, context, core, inputs}) {
     existingBody: pr.body,
     connectorStates,
     core,
+    agentType,
+    owner,
+    repo,
   });
 
-  const bodyWithPreamble = upsertBlock(pr.body || '', 'pr-preamble', preamble);
+  // Strip PR template content that GitHub may have prepended when the PR was created
+  // This only affects agent PRs (those linked to issues with agent processing)
+  const cleanedBody = stripPrTemplateContent(pr.body || '');
+  
+  const bodyWithPreamble = upsertBlock(cleanedBody, 'pr-preamble', preamble);
   const newBody = upsertBlock(bodyWithPreamble, 'auto-status-summary', statusBlock);
 
   if (newBody !== (pr.body || '')) {
@@ -704,7 +1055,16 @@ async function run({github, context, core, inputs}) {
     return;
   }
 
-  core.info('PR body already up to date; no changes required.');
+    core.info('PR body already up to date; no changes required.');
+  } catch (error) {
+    if (isRateLimitError(error)) {
+      const message = error instanceof Error ? error.message : String(error);
+      core.warning(`PR Meta update skipped due to GitHub API rate limiting: ${message}`);
+      return;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    core.setFailed(`PR Meta update failed: ${message}`);
+  }
 }
 
 module.exports = {
@@ -714,12 +1074,20 @@ module.exports = {
   extractSection,
   ensureChecklist,
   extractBlock,
+  extractContextSectionWithPython,
+  extractIssueRefsFromText,
+  augmentContextWithRelatedIssues,
   parseCheckboxStates,
   mergeCheckboxStates,
   fetchConnectorCheckboxStates,
+  stripPrTemplateContent,
   upsertBlock,
+  buildContextBlock,
   buildPreamble,
   buildStatusBlock,
   withRetries,
+  RateLimitError,
+  isRateLimitError,
+  resolveAgentType,
   discoverPr,
 };

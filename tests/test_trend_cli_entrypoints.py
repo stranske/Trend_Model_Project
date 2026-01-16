@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import builtins
 import json
 import textwrap
 import types
@@ -12,6 +13,8 @@ import pandas as pd
 import pytest
 
 from trend import cli as trend_cli
+from trend_analysis.config import DEFAULTS, ConfigPatch, PatchOperation
+from trend_analysis.config.validation import ValidationResult
 from trend_analysis.logging_setup import RUNS_ROOT
 
 
@@ -494,6 +497,444 @@ def test_main_report_command(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     )
 
     assert exit_code == 0 and created
+
+
+def test_main_nl_diff_command(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cfg_path = tmp_path / "config.yml"
+    cfg_path.write_text(
+        "version: 1\nportfolio:\n  constraints:\n    max_weight: 0.2\n",
+        encoding="utf-8",
+    )
+
+    patch = ConfigPatch(
+        operations=[
+            PatchOperation(
+                op="set",
+                path="portfolio.constraints.max_weight",
+                value=0.1,
+            )
+        ],
+        summary="Adjust max weight",
+    )
+
+    class DummyChain:
+        model = "test-model"
+        temperature = 0.5
+
+        def run(self, **kwargs: object) -> ConfigPatch:
+            return patch
+
+    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+
+    exit_code = trend_cli.main(["nl", "Lower max weight", "--in", str(cfg_path), "--diff"])
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "--- before" in output
+    assert "-    max_weight: 0.2" in output
+    assert "+    max_weight: 0.1" in output
+    assert cfg_path.read_text(encoding="utf-8") == (
+        "version: 1\nportfolio:\n  constraints:\n    max_weight: 0.2\n"
+    )
+
+
+def test_main_nl_explain_command(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cfg_path = tmp_path / "config.yml"
+    cfg_path.write_text(
+        "version: 1\nportfolio:\n  constraints:\n    max_weight: 0.2\n",
+        encoding="utf-8",
+    )
+
+    patch = ConfigPatch(
+        operations=[
+            PatchOperation(
+                op="set",
+                path="portfolio.constraints.max_weight",
+                value=0.1,
+                rationale="Lower concentration risk",
+            )
+        ],
+        summary="Adjust max weight",
+    )
+
+    class DummyChain:
+        model = "test-model"
+        temperature = 0.5
+
+        def run(self, **kwargs: object) -> ConfigPatch:
+            return patch
+
+    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+
+    exit_code = trend_cli.main(
+        ["nl", "Lower max weight", "--in", str(cfg_path), "--explain", "--diff"]
+    )
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "Summary: Adjust max weight" in output
+    assert "portfolio.constraints.max_weight" in output
+    assert "Lower concentration risk" in output
+    assert cfg_path.read_text(encoding="utf-8") == (
+        "version: 1\nportfolio:\n  constraints:\n    max_weight: 0.2\n"
+    )
+
+
+def test_main_nl_run_command_executes_pipeline(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    output_path = tmp_path / "updated.yml"
+    patch = ConfigPatch(
+        operations=[
+            PatchOperation(
+                op="set",
+                path="data.csv_path",
+                value="data/raw/indices/sample_index.csv",
+            )
+        ],
+        summary="Add CSV path for run",
+    )
+
+    class DummyChain:
+        model = "test-model"
+        temperature = 0.5
+
+        def run(self, **kwargs: object) -> ConfigPatch:
+            return patch
+
+    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(trend_cli, "_ensure_dataframe", lambda *_args, **_kwargs: pd.DataFrame())
+    monkeypatch.setattr(
+        trend_cli,
+        "validate_config",
+        lambda *_args, **_kwargs: ValidationResult(valid=True),
+    )
+    calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+    def _fake_run_pipeline(*args: object, **kwargs: object) -> tuple[DummyResult, str, None]:
+        calls.append((args, kwargs))
+        return DummyResult(), "run123", None
+
+    monkeypatch.setattr(trend_cli, "_run_pipeline", _fake_run_pipeline)
+    monkeypatch.setattr(trend_cli, "_print_summary", lambda *args, **kwargs: None)
+
+    exit_code = trend_cli.main(
+        [
+            "nl",
+            "Add CSV path",
+            "--in",
+            str(DEFAULTS),
+            "--out",
+            str(output_path),
+            "--run",
+        ]
+    )
+
+    assert exit_code == 0
+    assert output_path.exists()
+    assert "csv_path: data/raw/indices/sample_index.csv" in output_path.read_text(encoding="utf-8")
+    assert calls
+
+
+def test_main_nl_run_requires_valid_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    output_path = tmp_path / "invalid.yml"
+    patch = ConfigPatch(
+        operations=[PatchOperation(op="set", path="version", value="")],
+        summary="Invalidate version",
+    )
+
+    class DummyChain:
+        model = "test-model"
+        temperature = 0.5
+
+        def run(self, **kwargs: object) -> ConfigPatch:
+            return patch
+
+    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(
+        trend_cli,
+        "_run_pipeline",
+        lambda *_args, **_kwargs: pytest.fail("Pipeline should not run for invalid config"),
+    )
+
+    exit_code = trend_cli.main(
+        [
+            "nl",
+            "Invalidate version",
+            "--in",
+            str(DEFAULTS),
+            "--out",
+            str(output_path),
+            "--run",
+        ]
+    )
+
+    assert exit_code == 2
+    assert not output_path.exists()
+
+
+def test_main_nl_run_requires_existing_csv_path(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    output_path = tmp_path / "invalid.yml"
+    patch = ConfigPatch(
+        operations=[PatchOperation(op="set", path="data.csv_path", value="missing.csv")],
+        summary="Missing CSV path",
+    )
+
+    class DummyChain:
+        model = "test-model"
+        temperature = 0.5
+
+        def run(self, **kwargs: object) -> ConfigPatch:
+            return patch
+
+    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(
+        trend_cli,
+        "_run_pipeline",
+        lambda *_args, **_kwargs: pytest.fail("Pipeline should not run for invalid CSV"),
+    )
+
+    exit_code = trend_cli.main(
+        [
+            "nl",
+            "Set missing csv path",
+            "--in",
+            str(DEFAULTS),
+            "--out",
+            str(output_path),
+            "--run",
+        ]
+    )
+
+    assert exit_code == 2
+    assert not output_path.exists()
+
+
+def test_main_nl_replay_command(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    log_path = tmp_path / "nl.jsonl"
+    log_path.write_text("{}", encoding="utf-8")
+    sentinel = object()
+    calls: dict[str, object] = {}
+
+    def _fake_load(path: Path, entry: int) -> object:
+        calls["path"] = path
+        calls["entry"] = entry
+        return sentinel
+
+    result = SimpleNamespace(
+        prompt="prompt",
+        prompt_hash="prompt-hash",
+        output="new-output",
+        output_hash="new-hash",
+        recorded_output="old-output",
+        recorded_hash="old-hash",
+        diff="diff",
+        matches=False,
+        trace_url=None,
+    )
+
+    def _fake_replay(
+        entry: object,
+        *,
+        provider: str | None = None,
+        model: str | None = None,
+        temperature: float | None = None,
+    ) -> object:
+        calls["entry_obj"] = entry
+        calls["provider"] = provider
+        calls["model"] = model
+        calls["temperature"] = temperature
+        return result
+
+    monkeypatch.setattr(trend_cli, "_load_nl_log_entry", _fake_load)
+    monkeypatch.setattr(trend_cli, "_replay_nl_entry", _fake_replay)
+
+    exit_code = trend_cli.main(["nl", "replay", str(log_path), "--entry", "2"])
+
+    captured = capsys.readouterr().out
+    assert exit_code == 1
+    assert "Prompt hash: prompt-hash" in captured
+    assert "Matches: False" in captured
+    assert "Comparison: mismatch" in captured
+    assert "Recorded output:" in captured
+    assert "Replay output:" in captured
+    assert calls["path"] == log_path
+    assert calls["entry"] == 2
+    assert calls["entry_obj"] is sentinel
+
+
+def test_main_nl_run_schema_validation_blocks_invalid_config(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    csv_path = tmp_path / "returns.csv"
+    csv_path.write_text(
+        "Date,A,B,C,D,E,F,G,H,I,J\n2020-01-01,1,1,1,1,1,1,1,1,1,1\n",
+        encoding="utf-8",
+    )
+    output_path = tmp_path / "invalid.yml"
+    patch = ConfigPatch(
+        operations=[
+            PatchOperation(op="set", path="data.csv_path", value=str(csv_path)),
+            PatchOperation(op="set", path="data.managers_glob", value=None),
+            PatchOperation(op="set", path="portfolio", value="invalid"),
+        ],
+        summary="Break schema",
+    )
+
+    class DummyChain:
+        model = "test-model"
+        temperature = 0.5
+
+        def run(self, **kwargs: object) -> ConfigPatch:
+            return patch
+
+    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(
+        trend_cli,
+        "_run_pipeline",
+        lambda *_args, **_kwargs: pytest.fail("Pipeline should not run for schema errors"),
+    )
+
+    exit_code = trend_cli.main(
+        [
+            "nl",
+            "Break config schema",
+            "--in",
+            str(DEFAULTS),
+            "--out",
+            str(output_path),
+            "--run",
+            "--no-confirm",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "Config validation failed" in captured.err
+    assert not output_path.exists()
+
+
+def test_main_nl_requires_confirmation_for_risky_patch(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output_path = tmp_path / "confirmed.yml"
+    patch = ConfigPatch(
+        operations=[PatchOperation(op="remove", path="portfolio.constraints")],
+        summary="Remove constraints",
+    )
+    called: dict[str, str] = {}
+
+    class DummyChain:
+        model = "test-model"
+        temperature = 0.5
+
+        def run(self, **kwargs: object) -> ConfigPatch:
+            return patch
+
+    def _fake_input(prompt: str = "") -> str:
+        called["prompt"] = prompt
+        return "n"
+
+    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(trend_cli.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(builtins, "input", _fake_input)
+
+    exit_code = trend_cli.main(
+        ["nl", "Remove constraints", "--in", str(DEFAULTS), "--out", str(output_path)]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "Update cancelled by user." in captured.err
+    assert called
+    assert not output_path.exists()
+
+
+def test_main_nl_requires_confirmation_for_unknown_keys(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output_path = tmp_path / "confirmed.yml"
+    patch = ConfigPatch(
+        operations=[
+            PatchOperation(op="set", path="portfolio.constraints", value={"max_weight": 0.5})
+        ],
+        summary="Set max weight",
+        needs_review=True,
+    )
+    called: dict[str, str] = {}
+
+    class DummyChain:
+        model = "test-model"
+        temperature = 0.5
+
+        def run(self, **kwargs: object) -> ConfigPatch:
+            return patch
+
+    def _fake_input(prompt: str = "") -> str:
+        called["prompt"] = prompt
+        return "n"
+
+    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(trend_cli.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(builtins, "input", _fake_input)
+
+    exit_code = trend_cli.main(
+        ["nl", "Set max weight", "--in", str(DEFAULTS), "--out", str(output_path)]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "Update cancelled by user." in captured.err
+    assert "UNKNOWN_KEYS" in called.get("prompt", "")
+    assert not output_path.exists()
+
+
+def test_main_nl_no_confirm_skips_prompt_for_risky_patch(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output_path = tmp_path / "confirmed.yml"
+    patch = ConfigPatch(
+        operations=[PatchOperation(op="remove", path="portfolio.constraints")],
+        summary="Remove constraints",
+    )
+
+    class DummyChain:
+        model = "test-model"
+        temperature = 0.5
+
+        def run(self, **kwargs: object) -> ConfigPatch:
+            return patch
+
+    def _fail_input(prompt: str = "") -> str:
+        raise AssertionError("Prompt should be skipped when --no-confirm is set.")
+
+    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(builtins, "input", _fail_input)
+
+    exit_code = trend_cli.main(
+        [
+            "nl",
+            "Remove constraints",
+            "--in",
+            str(DEFAULTS),
+            "--out",
+            str(output_path),
+            "--no-confirm",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Updated config written" in captured.out
+    assert output_path.exists()
 
 
 def test_main_stress_command(

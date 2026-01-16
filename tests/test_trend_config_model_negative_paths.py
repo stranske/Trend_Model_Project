@@ -52,6 +52,42 @@ def test_resolve_path_rejects_directory(tmp_path):
         config_model._resolve_path(directory, base_dir=None)
 
 
+def test_resolve_path_rejects_symlink_escape(tmp_path, monkeypatch):
+    workspace = tmp_path / "workspace"
+    base_dir = workspace / "configs"
+    nested_dir = base_dir / "nested"
+    nested_dir.mkdir(parents=True)
+    outside_root = tmp_path / "outside"
+    outside_root.mkdir()
+    target_file = outside_root / "returns.csv"
+    target_file.write_text("date,nav\n", encoding="utf-8")
+    link_path = nested_dir / "returns.csv"
+
+    try:
+        os.symlink(target_file, link_path)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks not supported in this environment")
+
+    monkeypatch.chdir(base_dir)
+    with pytest.raises(ValueError, match=r"SecurityError: Path traversal detected:"):
+        config_model._resolve_path("nested/returns.csv", base_dir=base_dir)
+
+
+def test_resolve_path_accepts_deeply_nested_paths(tmp_path):
+    base_dir = tmp_path / "configs"
+    nested = base_dir
+    for idx in range(12):
+        nested = nested / f"level_{idx}"
+    nested.mkdir(parents=True)
+    target_file = nested / "returns.csv"
+    target_file.write_text("date,nav\n", encoding="utf-8")
+
+    relative = target_file.relative_to(base_dir)
+    resolved = config_model._resolve_path(str(relative), base_dir=base_dir)
+
+    assert resolved == target_file.resolve()
+
+
 def test_ensure_glob_matches_reports_missing_files(tmp_path):
     with pytest.raises(ValueError, match="did not match any CSV files"):
         config_model._ensure_glob_matches("missing/*.csv", base_dir=tmp_path)

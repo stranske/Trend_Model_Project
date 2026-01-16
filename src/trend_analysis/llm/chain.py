@@ -2,22 +2,49 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
+import time
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable
+from datetime import datetime, timezone
+from typing import Any, Callable, Iterable, Iterator
+from uuid import uuid4
 
-from pydantic import ValidationError
-
-from trend_analysis.config.patch import ConfigPatch
+from trend_analysis.config.patch import (
+    ConfigPatch,
+    format_retry_error,
+    parse_config_patch_with_retries,
+)
+from trend_analysis.llm.injection import (
+    DEFAULT_BLOCK_SUMMARY,
+    detect_prompt_injection_payload,
+)
+from trend_analysis.llm.nl_logging import NLOperationLog, write_nl_log
 from trend_analysis.llm.prompts import build_retry_prompt, format_config_for_prompt
 from trend_analysis.llm.schema import load_compact_schema, select_schema_sections
-from trend_analysis.llm.validation import normalize_patch_path, validate_patch_keys
+from trend_analysis.llm.validation import (
+    flag_unknown_keys,
+    normalize_patch_path,
+)
 
 PromptBuilder = Callable[..., str]
 
 logger = logging.getLogger(__name__)
+
+
+class _LLMResponse(str):
+    trace_url: str | None
+
+    def __new__(cls, text: str, trace_url: str | None) -> "_LLMResponse":
+        obj = super().__new__(cls, text)
+        obj.trace_url = trace_url
+        return obj
+
+    def __iter__(self) -> Iterator[str]:
+        yield str(self)
+        yield self.trace_url or ""
 
 
 @dataclass(slots=True)
@@ -121,8 +148,20 @@ class ConfigPatchChain:
         allowed_schema: str | None = None,
         system_prompt: str | None = None,
         safety_rules: Iterable[str] | None = None,
+        request_id: str | None = None,
+        log_operation: bool = True,
     ) -> ConfigPatch:
         """Invoke the LLM and parse the ConfigPatch response."""
+
+        started_at = time.perf_counter()
+        timestamp = datetime.now(timezone.utc)
+        request_id = request_id or uuid4().hex
+        prompt_text = ""
+        input_hash = ""
+        response_text: str | None = None
+        trace_url: str | None = None
+        patch: ConfigPatch | None = None
+        error: str | None = None
 
         config_text = (
             current_config
@@ -139,72 +178,132 @@ class ConfigPatchChain:
             system_prompt=system_prompt,
             safety_rules=safety_rules,
         )
-        last_error: Exception | None = None
-        total_attempts = self.retries + 1
-        for attempt in range(total_attempts):
-            if attempt == 0:
-                response_text = self._invoke_llm(prompt_text)
-            else:
-                response_text = self._invoke_llm(
-                    build_retry_prompt(
+        input_hash = _hash_payload(
+            {
+                "prompt": prompt_text,
+                "model": self.model,
+                "temperature": self.temperature,
+            }
+        )
+        injection_hits = detect_prompt_injection_payload(
+            instruction=instruction,
+            current_config=current_config,
+        )
+        try:
+            if injection_hits:
+                logger.warning(
+                    "Prompt injection detected (%s); skipping LLM call.",
+                    ", ".join(sorted(set(injection_hits))),
+                )
+                patch = ConfigPatch(
+                    operations=[], summary=DEFAULT_BLOCK_SUMMARY, risk_flags=[]
+                )
+                return patch
+
+            def _response_provider(attempt: int, last_error: Exception | None) -> str:
+                nonlocal response_text, trace_url
+                prompt = (
+                    prompt_text
+                    if attempt == 0
+                    else build_retry_prompt(
                         current_config=config_text,
                         allowed_schema=schema_text,
                         instruction=instruction,
-                        error_message=_format_retry_error(last_error),
+                        error_message=format_retry_error(last_error),
                         system_prompt=system_prompt,
                         safety_rules=safety_rules,
                     )
                 )
-            try:
-                patch = self._parse_patch(response_text)
-                break
-            except (json.JSONDecodeError, ValidationError) as exc:
-                last_error = exc
-                logger.warning(
-                    "ConfigPatch parse attempt %s/%s failed: %s",
-                    attempt + 1,
-                    total_attempts,
-                    _format_retry_error(exc),
+                response = self._invoke_llm(
+                    prompt,
+                    request_id=request_id,
+                    operation="nl_to_patch",
                 )
-                if attempt >= self.retries:
-                    raise ValueError(
-                        "Failed to parse ConfigPatch after "
-                        f"{self.retries + 1} attempts: {_format_retry_error(exc)}"
-                    ) from exc
-        else:
-            raise ValueError("Failed to parse ConfigPatch: unknown error")
+                response_text = str(response)
+                trace_url = response.trace_url
+                return response_text
 
-        schema = self._schema_for_validation(allowed_schema, instruction)
-        unknown_keys = validate_patch_keys(patch.operations, schema)
-        if unknown_keys:
-            patch.needs_review = True
-            unknown_paths = {entry.path for entry in unknown_keys}
-            filtered_ops = [
-                operation
-                for operation in patch.operations
-                if normalize_patch_path(operation.path) not in unknown_paths
-            ]
-            if len(filtered_ops) != len(patch.operations):
-                patch.operations = filtered_ops
-            patch.summary = _append_unknown_keys_note(patch.summary, unknown_paths)
-            for entry in unknown_keys:
-                if entry.suggestion:
-                    logger.warning(
-                        "Unknown config key '%s'. Did you mean '%s'?",
-                        entry.path,
-                        entry.suggestion,
-                    )
-                else:
-                    logger.warning("Unknown config key '%s'.", entry.path)
-        return patch
+            patch = parse_config_patch_with_retries(
+                _response_provider,
+                retries=max(1, self.retries + 1),
+                logger=logger,
+            )
+            schema = self._schema_for_validation(allowed_schema, instruction)
+            unknown_keys = flag_unknown_keys(patch, schema, logger=logger)
 
-    def _invoke_llm(self, prompt_text: str) -> str:
+            # Filter out operations with unknown keys
+            if unknown_keys:
+                unknown_paths = {
+                    normalize_patch_path(entry.path) for entry in unknown_keys
+                }
+                filtered_ops = [
+                    operation
+                    for operation in patch.operations
+                    if normalize_patch_path(operation.path) not in unknown_paths
+                ]
+                if len(filtered_ops) != len(patch.operations):
+                    patch.operations = filtered_ops
+
+            return patch
+        except Exception as exc:
+            error = str(exc) or type(exc).__name__
+            raise
+        finally:
+            if log_operation:
+                elapsed_ms = (time.perf_counter() - started_at) * 1000
+                entry = NLOperationLog(
+                    request_id=request_id,
+                    timestamp=timestamp,
+                    operation="nl_to_patch",
+                    input_hash=input_hash,
+                    prompt_template=prompt_text,
+                    prompt_variables={},
+                    model_output=response_text,
+                    parsed_patch=patch,
+                    validation_result=None,
+                    error=error,
+                    duration_ms=elapsed_ms,
+                    model_name=self.model or "unknown",
+                    temperature=self.temperature,
+                    token_usage=None,
+                    trace_url=trace_url,
+                )
+                write_nl_log(entry)
+
+    def _invoke_llm(
+        self,
+        prompt_text: str,
+        *,
+        request_id: str | None = None,
+        operation: str | None = None,
+    ) -> _LLMResponse:
         from langchain_core.prompts import ChatPromptTemplate
+
+        from trend_analysis.llm.tracing import langsmith_tracing_context
 
         template = ChatPromptTemplate.from_messages([("system", "{prompt}")])
         chain = template | self._bind_llm()
-        response = chain.invoke({"prompt": prompt_text})
-        return getattr(response, "content", None) or str(response)
+        metadata = {
+            "request_id": request_id,
+            "operation": operation or "nl_operation",
+            "model": self.model,
+            "temperature": self.temperature,
+        }
+        trace_url: str | None = None
+        with langsmith_tracing_context(
+            name=operation or "nl_operation",
+            run_type="chain",
+            inputs={"prompt": prompt_text},
+            metadata=metadata,
+        ) as run:
+            response = chain.invoke({"prompt": prompt_text})
+            response_text = getattr(response, "content", None) or str(response)
+            if run is not None:
+                run.end(outputs={"output": response_text})
+                trace_url = getattr(run, "url", None)
+                if trace_url:
+                    logger.info("LangSmith trace: %s", trace_url)
+        return _LLMResponse(response_text, trace_url)
 
     def _bind_llm(self) -> Any:
         if not hasattr(self.llm, "bind"):
@@ -221,9 +320,6 @@ class ConfigPatchChain:
 
     def _serialize_schema(self, schema: dict[str, Any]) -> str:
         return json.dumps(schema, indent=2, ensure_ascii=True)
-
-    def _parse_patch(self, response_text: str) -> ConfigPatch:
-        return ConfigPatch.model_validate_json(_strip_code_fence(response_text))
 
     def _schema_for_validation(
         self,
@@ -242,21 +338,6 @@ class ConfigPatchChain:
         return select_schema_sections(schema, instruction)
 
 
-def _strip_code_fence(text: str) -> str:
-    stripped = text.strip()
-    if stripped.startswith("```") and stripped.endswith("```"):
-        lines = stripped.splitlines()
-        if len(lines) >= 3:
-            return "\n".join(lines[1:-1]).strip()
-    return stripped
-
-
-def _format_retry_error(error: Exception | None) -> str:
-    if error is None:
-        return "Unknown parse error."
-    return f"{error.__class__.__name__}: {error}"
-
-
 def _read_env_float(name: str, *, default: float) -> float:
     value = os.environ.get(name)
     if value is None or value == "":
@@ -267,9 +348,6 @@ def _read_env_float(name: str, *, default: float) -> float:
         raise ValueError(f"{name} must be a float, got {value!r}.") from exc
 
 
-def _append_unknown_keys_note(summary: str, unknown_paths: Iterable[str]) -> str:
-    unknown_list = ", ".join(sorted(unknown_paths))
-    note = f"Unknown keys flagged: {unknown_list}."
-    if note in summary:
-        return summary
-    return f"{summary.rstrip()} {note}".strip()
+def _hash_payload(payload: dict[str, Any]) -> str:
+    text = json.dumps(payload, sort_keys=True, ensure_ascii=True, separators=(",", ":"))
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
