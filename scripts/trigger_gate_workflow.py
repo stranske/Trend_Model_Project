@@ -168,7 +168,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if args.ensure and not triggered:
-        print(f"Gate workflow already present for PR #{args.pr_number} (branch: {branch}) in {args.repo}")
+        print(
+            f"Gate workflow already present for PR #{args.pr_number} (branch: {branch}) in {args.repo}"
+        )
         print(note)
     else:
         print(
