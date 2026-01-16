@@ -257,6 +257,49 @@ def test_api_preview_allows_risky_patch_with_confirmation(client):
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "success"
+    assert "portfolio" in body["config"]
+
+
+def test_api_preview_allows_unknown_key_review_with_confirmation(client):
+    payload = {
+        "config": {"analysis": {"top_n": 10}},
+        "patch": {
+            "operations": [
+                {"op": "set", "path": "analysis.top_n", "value": 12},
+            ],
+            "needs_review": True,
+            "risk_flags": [],
+            "summary": "Update selection count.",
+        },
+        "confirm_risky": True,
+    }
+
+    response = client.post("/config/patch/preview", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "success"
+    assert body["config"]["analysis"]["top_n"] == 12
+
+
+def test_api_preview_allows_risky_patch_with_confirmation(client):
+    payload = {
+        "config": {"portfolio": {"max_turnover": 1.0}},
+        "patch": {
+            "operations": [
+                {"op": "remove", "path": "portfolio.max_turnover"},
+            ],
+            "risk_flags": [],
+            "summary": "Remove turnover cap.",
+        },
+        "confirm_risky": True,
+    }
+
+    response = client.post("/config/patch/preview", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "success"
     assert "diff" in body
     assert "max_turnover" in body["diff"]
 
