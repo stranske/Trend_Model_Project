@@ -142,6 +142,9 @@ def _iter_decoded_variants(text: str) -> Iterable[str]:
     base64_decoded = _maybe_decode_base64(text)
     if base64_decoded:
         yield base64_decoded
+    hex_decoded = _maybe_decode_hex(text)
+    if hex_decoded:
+        yield hex_decoded
 
 
 def _maybe_decode_base64(text: str) -> str | None:
@@ -157,6 +160,21 @@ def _maybe_decode_base64(text: str) -> str | None:
     try:
         decoded_text = decoded.decode("utf-8")
     except UnicodeDecodeError:
+        return None
+    if not decoded_text or not any(ch.isalpha() for ch in decoded_text):
+        return None
+    return decoded_text
+
+
+def _maybe_decode_hex(text: str) -> str | None:
+    candidate = "".join(text.split())
+    if len(candidate) < 16 or len(candidate) % 2:
+        return None
+    if not re.fullmatch(r"[A-Fa-f0-9]+", candidate):
+        return None
+    try:
+        decoded_text = bytes.fromhex(candidate).decode("utf-8")
+    except (ValueError, UnicodeDecodeError):
         return None
     if not decoded_text or not any(ch.isalpha() for ch in decoded_text):
         return None
