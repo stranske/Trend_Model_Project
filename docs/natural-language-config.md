@@ -66,6 +66,15 @@ export TREND_LLM_BASE_URL="http://localhost:11434"
 export TREND_LLM_MODEL="llama3.1"
 ```
 
+### CLI overrides
+
+Use command-line flags to override the model or temperature without changing
+environment variables:
+
+```bash
+trend nl "lower max weight" --model gpt-4o-mini --temperature 0.2
+```
+
 ## Usage Examples
 
 Common operations include previewing diffs, writing to a new config, or applying

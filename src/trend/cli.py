@@ -400,6 +400,21 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     nl_p.add_argument(
+        "--model",
+        help=(
+            "Override the LLM model for natural language edits (defaults to TREND_LLM_MODEL). "
+            "Example: --model gpt-4o-mini"
+        ),
+    )
+    nl_p.add_argument(
+        "--temperature",
+        type=float,
+        help=(
+            "Override the LLM temperature for natural language edits (defaults to TREND_LLM_TEMPERATURE). "
+            "Example: --temperature 0.2"
+        ),
+    )
+    nl_p.add_argument(
         "--explain",
         action="store_true",
         help=(
@@ -921,7 +936,11 @@ def _load_configuration(path: str) -> Any:
 _register_fallback("_load_configuration", _load_configuration)
 
 
-def _resolve_llm_provider_config(provider: str | None = None) -> LLMProviderConfig:
+def _resolve_llm_provider_config(
+    provider: str | None = None,
+    *,
+    model: str | None = None,
+) -> LLMProviderConfig:
     provider_name = (provider or os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
     supported = {"openai", "anthropic", "ollama"}
     if provider_name not in supported:
@@ -934,7 +953,7 @@ def _resolve_llm_provider_config(provider: str | None = None) -> LLMProviderConf
             api_key = os.environ.get("OPENAI_API_KEY")
         elif provider_name == "anthropic":
             api_key = os.environ.get("ANTHROPIC_API_KEY")
-    model = os.environ.get("TREND_LLM_MODEL")
+    model_name = model or os.environ.get("TREND_LLM_MODEL")
     base_url = os.environ.get("TREND_LLM_BASE_URL")
     organization = os.environ.get("TREND_LLM_ORG")
     max_retries = os.environ.get("TREND_LLM_MAX_RETRIES")
@@ -964,11 +983,18 @@ def _resolve_llm_provider_config(provider: str | None = None) -> LLMProviderConf
         config_kwargs["max_retries"] = max_retries_value
     if timeout_value is not None:
         config_kwargs["timeout"] = timeout_value
+    if model_name:
+        config_kwargs["model"] = model_name
     return LLMProviderConfig(**config_kwargs)
 
 
-def _build_nl_chain(provider: str | None = None) -> ConfigPatchChain:
-    config = _resolve_llm_provider_config(provider)
+def _build_nl_chain(
+    provider: str | None = None,
+    *,
+    model: str | None = None,
+    temperature: float | None = None,
+) -> ConfigPatchChain:
+    config = _resolve_llm_provider_config(provider, model=model)
     try:
         llm = create_llm(config)
         schema = load_compact_schema()
@@ -978,6 +1004,8 @@ def _build_nl_chain(provider: str | None = None) -> ConfigPatchChain:
         llm=llm,
         schema=schema,
         prompt_builder=build_config_patch_prompt,
+        model=config.model,
+        temperature=temperature,
     )
 
 
@@ -1123,9 +1151,11 @@ def _apply_nl_instruction(
     instruction: str,
     *,
     provider: str | None = None,
+    model: str | None = None,
+    temperature: float | None = None,
     request_id: str,
 ) -> tuple[ConfigPatch, dict[str, Any], str, str, float]:
-    chain = _build_nl_chain(provider)
+    chain = _build_nl_chain(provider, model=model, temperature=temperature)
     try:
         patch = chain.run(current_config=config, instruction=instruction, request_id=request_id)
     except Exception as exc:
@@ -1256,6 +1286,8 @@ def main(argv: list[str] | None = None) -> int:
                 config,
                 args.instruction,
                 provider=args.provider,
+                model=args.model,
+                temperature=args.temperature,
                 request_id=request_id,
             )
             if args.run and (args.diff or args.dry_run):

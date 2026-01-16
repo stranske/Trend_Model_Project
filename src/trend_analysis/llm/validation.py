@@ -80,6 +80,13 @@ def flag_unknown_keys(
     return unknown
 
 
+def normalize_patch_path(path: str) -> str:
+    """Return a dotpath representation for patch paths."""
+
+    segments = _parse_path_segments(path)
+    return _format_dotpath(segments)
+
+
 def _parse_path_segments(path: str) -> list[_Segment]:
     if path.startswith("/"):
         json_segments = [
@@ -222,4 +229,9 @@ def _append_unknown_key_detail(patch: ConfigPatch, unknown: list[UnknownKey]) ->
     patch.summary = f"{patch.summary}\nUnknown config keys detected: {detail_text}"
 
 
-__all__ = ["UnknownKey", "flag_unknown_keys", "validate_patch_keys"]
+__all__ = [
+    "UnknownKey",
+    "flag_unknown_keys",
+    "normalize_patch_path",
+    "validate_patch_keys",
+]

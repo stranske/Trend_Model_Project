@@ -407,3 +407,32 @@ def test_load_cases_clones_shared_yaml_anchors(tmp_path: Path) -> None:
         cases[1]["allowed_schema"]["properties"]["analysis"]["properties"]["top_n"]["type"]
         == "integer"
     )
+
+
+def test_cli_min_cases_enforced(tmp_path: Path) -> None:
+    cases_file = tmp_path / "cases.yml"
+    cases_file.write_text(
+        textwrap.dedent(
+            """
+            cases:
+              - id: single_case
+                instruction: "Set top_n to 9."
+                current_config:
+                  analysis:
+                    top_n: 8
+                expected_patch:
+                  operations: []
+                  risk_flags: []
+                  summary: "No changes."
+            """
+        ).lstrip(),
+        encoding="utf-8",
+    )
+    report_path = tmp_path / "report.json"
+
+    exit_code = eval_config_patch.main(
+        ["--cases", str(cases_file), "--min-cases", "2", "--report", str(report_path)]
+    )
+
+    assert exit_code == 1
+    assert not report_path.exists()

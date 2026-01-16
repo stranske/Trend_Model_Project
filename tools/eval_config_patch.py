@@ -658,6 +658,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Use embedded test cases instead of reading from a file.",
     )
     parser.add_argument(
+        "--min-cases",
+        type=int,
+        default=10,
+        help="Minimum number of test cases required (set to 0 to disable).",
+    )
+    parser.add_argument(
         "--mode",
         choices=("mock", "live"),
         default="mock",
@@ -694,6 +700,15 @@ def main(argv: list[str] | None = None) -> int:
         cases = _load_cases(case_path, default_cases=DEFAULT_CASES)
     except Exception as exc:
         print(f"Failed to load cases: {exc}", file=sys.stderr)
+        return 1
+    if args.min_cases < 0:
+        print("Minimum case count must be >= 0.", file=sys.stderr)
+        return 1
+    if args.min_cases and len(cases) < args.min_cases:
+        print(
+            f"Expected at least {args.min_cases} test cases, found {len(cases)}.",
+            file=sys.stderr,
+        )
         return 1
 
     if args.mode == "live":
