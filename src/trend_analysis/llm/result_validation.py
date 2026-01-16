@@ -80,6 +80,15 @@ def validate_result_claims(
                 )
             )
 
+    if not citation_spans:
+        issues.append(
+            ResultClaimIssue(
+                kind="missing_citation",
+                message="Explanation does not include any cited metric values.",
+                detail={},
+            )
+        )
+
     for match in _SOURCE_RE.finditer(text):
         if _overlaps(match.span(), citation_spans):
             continue
@@ -120,7 +129,13 @@ def detect_result_hallucinations(
     """Return potential hallucinations in a result explanation."""
 
     issues = validate_result_claims(text, entries, logger=None)
-    hallucination_kinds = {"unknown_source", "value_mismatch", "missing_value", "uncited_value"}
+    hallucination_kinds = {
+        "unknown_source",
+        "value_mismatch",
+        "missing_value",
+        "uncited_value",
+        "missing_citation",
+    }
     hallucinations = [issue for issue in issues if issue.kind in hallucination_kinds]
     if logger is not None:
         for issue in hallucinations:

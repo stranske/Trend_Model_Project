@@ -54,10 +54,10 @@ from trend_analysis.llm import (
     build_config_patch_prompt,
     build_result_summary_prompt,
     create_llm,
-    detect_result_hallucinations,
     ensure_result_disclaimer,
     extract_metric_catalog,
     format_metric_catalog,
+    validate_result_claims,
 )
 from trend_analysis.llm.nl_logging import NLOperationLog, write_nl_log
 from trend_analysis.llm.replay import ReplayResult
@@ -1384,12 +1384,12 @@ def main(argv: list[str] | None = None) -> int:
                 request_id=request_id,
             )
             raw_explanation = response.text
-            hallucinations = detect_result_hallucinations(
+            claim_issues = validate_result_claims(
                 raw_explanation,
                 entries,
                 logger=logger,
             )
-            if hallucinations:
+            if claim_issues:
                 raw_explanation = _fallback_explanation(metric_catalog)
             explanation = ensure_result_disclaimer(raw_explanation)
             print(explanation)
