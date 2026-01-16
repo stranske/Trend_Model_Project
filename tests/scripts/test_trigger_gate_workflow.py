@@ -203,7 +203,10 @@ def test_format_gate_status_with_run(monkeypatch: pytest.MonkeyPatch) -> None:
     assert lines[0] == "Gate workflow state: active"
     assert lines[1] == "PR #123 branch: feature-branch"
     assert lines[2] == "PR #123 head: abc123"
-    assert "Latest Gate run: status=completed conclusion=success head=abc123 created=2026-01-01T00:00:00Z" in lines[3]
+    assert (
+        "Latest Gate run: status=completed conclusion=success head=abc123 created=2026-01-01T00:00:00Z"
+        in lines[3]
+    )
 
 
 def test_main_status(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
