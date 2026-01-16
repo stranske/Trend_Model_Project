@@ -15,3 +15,4 @@
 - [x] `pytest tests/test_prompt_injection_guard.py -m "not slow"`
 - [x] `pytest tests/test_prompt_injection_guard.py -m "not slow"` (URL/HTML-encoded base64 coverage)
 - [x] `pytest tests/test_prompt_injection_guard.py -m "not slow"` (unpadded base64 + spaced prompt coverage)
+- [x] `pytest tests/test_prompt_injection_guard.py -m "not slow"` (urlsafe base64 coverage)

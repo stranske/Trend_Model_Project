@@ -169,11 +169,14 @@ def _maybe_decode_base64(text: str) -> str | None:
     candidate = "".join(text.split())
     if len(candidate) < 16:
         return None
-    if not re.fullmatch(r"[A-Za-z0-9+/=]+", candidate):
+    if not re.fullmatch(r"[A-Za-z0-9+/_=-]+", candidate):
         return None
     padded = candidate + ("=" * ((4 - (len(candidate) % 4)) % 4))
     try:
-        decoded = base64.b64decode(padded, validate=True)
+        if "-" in candidate or "_" in candidate:
+            decoded = base64.b64decode(padded, altchars=b"-_", validate=True)
+        else:
+            decoded = base64.b64decode(padded, validate=True)
     except Exception:
         return None
     try:
