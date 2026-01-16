@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import os
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -26,17 +27,23 @@ def create_llm(config: LLMProviderConfig) -> Any:
 
     provider = config.provider.lower()
     if provider == "openai":
-        return _create_provider("langchain_openai", "ChatOpenAI", config)
+        return _create_provider("langchain_openai", "ChatOpenAI", config, provider=provider)
     if provider == "anthropic":
-        return _create_provider("langchain_anthropic", "ChatAnthropic", config)
+        return _create_provider("langchain_anthropic", "ChatAnthropic", config, provider=provider)
     if provider == "ollama":
-        return _create_provider("langchain_ollama", "ChatOllama", config)
+        return _create_provider("langchain_ollama", "ChatOllama", config, provider=provider)
     raise ValueError(f"Unknown provider: {config.provider}")
 
 
-def _create_provider(module_name: str, class_name: str, config: LLMProviderConfig) -> Any:
+def _create_provider(
+    module_name: str,
+    class_name: str,
+    config: LLMProviderConfig,
+    *,
+    provider: str,
+) -> Any:
     provider_cls = _import_provider(module_name, class_name)
-    return provider_cls(**_build_kwargs(config))
+    return provider_cls(**_build_kwargs(config, provider=provider))
 
 
 def _import_provider(module_name: str, class_name: str) -> Any:
@@ -53,10 +60,11 @@ def _import_provider(module_name: str, class_name: str) -> Any:
         raise RuntimeError(f"Provider class '{class_name}' not found in '{module_name}'.") from exc
 
 
-def _build_kwargs(config: LLMProviderConfig) -> dict[str, Any]:
+def _build_kwargs(config: LLMProviderConfig, *, provider: str) -> dict[str, Any]:
     kwargs: dict[str, Any] = {"model": config.model}
-    if config.api_key:
-        kwargs["api_key"] = config.api_key
+    api_key = _resolve_api_key(provider, config.api_key)
+    if api_key:
+        kwargs["api_key"] = api_key
     if config.base_url:
         kwargs["base_url"] = config.base_url
     if config.organization:
@@ -68,6 +76,19 @@ def _build_kwargs(config: LLMProviderConfig) -> dict[str, Any]:
     if config.extra:
         kwargs.update(config.extra)
     return kwargs
+
+
+def _resolve_api_key(provider: str, api_key: str | None) -> str | None:
+    if api_key:
+        return api_key
+    env_override = os.environ.get("TREND_LLM_API_KEY")
+    if env_override:
+        return env_override
+    if provider == "openai":
+        return os.environ.get("OPENAI_API_KEY")
+    if provider == "anthropic":
+        return os.environ.get("ANTHROPIC_API_KEY")
+    return None
 
 
 __all__ = ["LLMProviderConfig", "create_llm"]

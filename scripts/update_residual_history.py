@@ -12,9 +12,12 @@ import json
 import pathlib
 import time
 
-from trend_analysis.script_logging import setup_script_logging
+try:
+    from trend_analysis.script_logging import setup_script_logging
 
-setup_script_logging(module_file=__file__, announce=False)
+    setup_script_logging(module_file=__file__, announce=False)
+except ImportError:
+    pass
 
 report_path = pathlib.Path("autofix_report_enriched.json")
 hist_path = pathlib.Path("ci/autofix/history.json")
