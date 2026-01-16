@@ -60,6 +60,7 @@ DEFAULT_RESULT_RULES = (
     "Keep summaries concise and grounded in quantitative evidence.",
 )
 
+
 def format_config_for_prompt(config: Any) -> str:
     """Render a config mapping or excerpt as YAML for prompt injection."""
 
