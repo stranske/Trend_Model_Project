@@ -11,7 +11,7 @@ data:
   missing_fill_limit: null
 
 preprocessing:
-  steps: []                     # none for a synthetic demo
+  steps: null                   # none for a synthetic demo
   missing_data:
     policy: ffill
     limit: 2
@@ -76,10 +76,6 @@ metrics:
 export:
   directory: demo/exports
   formats: [csv, xlsx, json, txt]
-
-output:
-  format: csv
-  path: demo/exports/alias_demo.csv
 
 run:
   seed: 42                      # makes demo deterministic

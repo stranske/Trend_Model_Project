@@ -95,3 +95,31 @@ def test_sandbox_rejects_symlinked_directory_escape(
     tool = ToolLayer()
     with pytest.raises(ValueError, match=r"SecurityError: Path traversal detected:"):
         tool._sandbox_path(link_dir / "returns.csv")
+
+
+def test_sandbox_rejects_deep_symlink_escape(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo_root = tmp_path / "repo"
+    data_root = repo_root / "data"
+    deep_root = data_root / "alpha" / "beta" / "gamma" / "delta" / "epsilon"
+    deep_root.mkdir(parents=True)
+    monkeypatch.setenv("TREND_REPO_ROOT", str(repo_root))
+    outside_root = tmp_path / "outside"
+    outside_root.mkdir()
+    target_file = outside_root / "returns.csv"
+    target_file.write_text("Date,A\n2020-01-01,0.01\n", encoding="utf-8")
+
+    link_path = deep_root / "linked.csv"
+    try:
+        os.symlink(target_file, link_path)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks not supported in this environment")
+
+    tool = ToolLayer()
+    with pytest.raises(
+        ValueError,
+        match=r"SecurityError: Path traversal detected: data/alpha/beta/gamma/delta/epsilon/linked.csv",
+    ):
+        tool._sandbox_path("data/alpha/beta/gamma/delta/epsilon/linked.csv")
