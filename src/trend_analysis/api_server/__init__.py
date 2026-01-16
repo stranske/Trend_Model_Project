@@ -9,13 +9,14 @@ from __future__ import annotations
 import json
 import logging
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, Any, AsyncGenerator, Tuple
+from typing import TYPE_CHECKING, Any, AsyncGenerator, Awaitable, Callable, Tuple
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
+    from trend_analysis.config.patch import ConfigPatch
     from trend_analysis.tool_layer import ToolLayer
 
 logger = logging.getLogger(__name__)
@@ -76,7 +77,10 @@ def _build_risky_detail(flags: list[str]) -> str:
     return f"Risky changes detected ({flags_text}). Set confirm_risky=True to apply."
 
 
-async def _risky_change_guard(request: Request, call_next):
+async def _risky_change_guard(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
     if request.method not in {"POST", "PUT", "PATCH"}:
         return await call_next(request)
 
@@ -85,7 +89,7 @@ async def _risky_change_guard(request: Request, call_next):
         return await call_next(request)
 
     # Preserve the body for downstream request parsing.
-    request._body = body  # type: ignore[attr-defined]
+    request._body = body
 
     try:
         payload = json.loads(body)
