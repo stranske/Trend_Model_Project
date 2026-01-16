@@ -598,7 +598,11 @@ def test_main_nl_passes_model_and_temperature(
     )
 
     assert exit_code == 0
-    assert captured == {"provider": "openai", "model": "custom-model", "temperature": 0.7}
+    assert captured == {
+        "provider": "openai",
+        "model": "custom-model",
+        "temperature": 0.7,
+    }
 
 
 def test_main_nl_explain_command(
@@ -643,6 +647,64 @@ def test_main_nl_explain_command(
     assert cfg_path.read_text(encoding="utf-8") == (
         "version: 1\nportfolio:\n  constraints:\n    max_weight: 0.2\n"
     )
+
+
+def _write_explain_details(tmp_path: Path) -> Path:
+    details = {
+        "out_sample_stats": {
+            "portfolio": {
+                "cagr": 0.08,
+                "vol": 0.12,
+                "sharpe": 1.2,
+                "sortino": 1.1,
+                "information_ratio": 0.4,
+                "max_drawdown": -0.2,
+            }
+        }
+    }
+    details_path = tmp_path / "details.json"
+    details_path.write_text(json.dumps(details), encoding="utf-8")
+    return details_path
+
+
+def test_main_explain_command_accepts_cited_metrics(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    details_path = _write_explain_details(tmp_path)
+
+    class DummyChain:
+        def run(self, **kwargs: object) -> SimpleNamespace:
+            return SimpleNamespace(text="CAGR was 8% [from out_sample_stats].")
+
+    monkeypatch.setattr(trend_cli, "_build_result_chain", lambda *_args, **_kwargs: DummyChain())
+
+    exit_code = trend_cli.main(["explain", "--details", str(details_path)])
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "CAGR was 8% [from out_sample_stats]." in output
+    assert "metric catalog" not in output
+
+
+def test_main_explain_command_blocks_unknown_metrics(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    details_path = _write_explain_details(tmp_path)
+
+    class DummyChain:
+        def run(self, **kwargs: object) -> SimpleNamespace:
+            return SimpleNamespace(text="Alpha was 1.2 [from alpha_stats].")
+
+    monkeypatch.setattr(trend_cli, "_build_result_chain", lambda *_args, **_kwargs: DummyChain())
+
+    exit_code = trend_cli.main(
+        ["explain", "--details", str(details_path), "--question", "What is alpha?"]
+    )
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "Unable to verify the generated explanation" in output
+    assert "alpha_stats" not in output
 
 
 def test_main_nl_run_command_executes_pipeline(

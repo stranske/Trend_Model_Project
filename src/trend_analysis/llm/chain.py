@@ -334,6 +334,136 @@ class ConfigPatchChain:
         return select_schema_sections(schema, instruction)
 
 
+@dataclass(slots=True)
+class ResultSummaryResponse:
+    text: str
+    trace_url: str | None = None
+
+
+@dataclass(slots=True)
+class ResultSummaryChain:
+    """Container for the result summary explanation chain."""
+
+    llm: Any
+    prompt_builder: PromptBuilder
+    temperature: float = 0.0
+    model: str | None = None
+    max_tokens: int | None = None
+
+    @classmethod
+    def from_env(
+        cls,
+        *,
+        llm: Any,
+        prompt_builder: PromptBuilder,
+        temperature: float | None = None,
+        model: str | None = None,
+        max_tokens: int | None = None,
+    ) -> "ResultSummaryChain":
+        env_temperature = (
+            temperature
+            if temperature is not None
+            else _read_env_float("TREND_LLM_TEMPERATURE", default=0.0)
+        )
+        env_model = model if model is not None else os.environ.get("TREND_LLM_MODEL")
+        return cls(
+            llm=llm,
+            prompt_builder=prompt_builder,
+            temperature=env_temperature,
+            model=env_model,
+            max_tokens=max_tokens,
+        )
+
+    def build_prompt(
+        self,
+        *,
+        analysis_output: str,
+        metric_catalog: str,
+        questions: str,
+        system_prompt: str | None = None,
+        safety_rules: Iterable[str] | None = None,
+    ) -> str:
+        return self.prompt_builder(
+            analysis_output=analysis_output,
+            metric_catalog=metric_catalog,
+            questions=questions,
+            system_prompt=system_prompt,
+            safety_rules=safety_rules,
+        )
+
+    def run(
+        self,
+        *,
+        analysis_output: str,
+        metric_catalog: str,
+        questions: str,
+        system_prompt: str | None = None,
+        safety_rules: Iterable[str] | None = None,
+        request_id: str | None = None,
+    ) -> ResultSummaryResponse:
+        prompt_text = self.build_prompt(
+            analysis_output=analysis_output,
+            metric_catalog=metric_catalog,
+            questions=questions,
+            system_prompt=system_prompt,
+            safety_rules=safety_rules,
+        )
+        response = self._invoke_llm(
+            prompt_text,
+            request_id=request_id,
+            operation="result_explain",
+        )
+        return ResultSummaryResponse(text=str(response), trace_url=response.trace_url)
+
+    def _invoke_llm(
+        self,
+        prompt_text: str,
+        *,
+        request_id: str | None = None,
+        operation: str | None = None,
+    ) -> _LLMResponse:
+        from langchain_core.prompts import ChatPromptTemplate
+
+        from trend_analysis.llm.tracing import langsmith_tracing_context
+
+        template = ChatPromptTemplate.from_messages([("system", "{prompt}")])
+        chain = template | self._bind_llm()
+        metadata = {
+            "request_id": request_id,
+            "operation": operation or "nl_operation",
+            "model": self.model,
+            "temperature": self.temperature,
+        }
+        trace_url: str | None = None
+        with langsmith_tracing_context(
+            name=operation or "nl_operation",
+            run_type="chain",
+            inputs={"prompt": prompt_text},
+            metadata=metadata,
+        ) as run:
+            response = chain.invoke({"prompt": prompt_text})
+            response_text = getattr(response, "content", None) or str(response)
+            if run is not None:
+                run.end(outputs={"output": response_text})
+                trace_url = getattr(run, "url", None)
+                if trace_url:
+                    logger.info("LangSmith trace: %s", trace_url)
+        return _LLMResponse(response_text, trace_url)
+
+    def _bind_llm(self) -> Any:
+        if not hasattr(self.llm, "bind"):
+            return self.llm
+        params: dict[str, Any] = {"temperature": self.temperature}
+        if self.model is not None:
+            params["model"] = self.model
+        if self.max_tokens is not None:
+            params["max_tokens"] = self.max_tokens
+        try:
+            return self.llm.bind(**params)
+        except TypeError:
+            return self.llm
+
+
 def _read_env_float(name: str, *, default: float) -> float:
     value = os.environ.get(name)
     if value is None or value == "":

@@ -50,8 +50,14 @@ from trend_analysis.data import load_csv
 from trend_analysis.llm import (
     ConfigPatchChain,
     LLMProviderConfig,
+    ResultSummaryChain,
     build_config_patch_prompt,
+    build_result_summary_prompt,
     create_llm,
+    ensure_result_disclaimer,
+    extract_metric_catalog,
+    format_metric_catalog,
+    validate_result_claims,
 )
 from trend_analysis.llm.nl_logging import NLOperationLog, write_nl_log
 from trend_analysis.llm.replay import ReplayResult
@@ -338,6 +344,43 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=Path,
         help="Explicit HTML output path (default: <base-dir>/reports/<run-id>.html)",
+    )
+
+    explain_p = sub.add_parser(
+        "explain",
+        help="Explain analysis results using natural language with citations",
+    )
+    explain_p.add_argument(
+        "--details",
+        type=Path,
+        help="Path to details_<run-id>.json produced by the report command",
+    )
+    explain_p.add_argument(
+        "--run-id",
+        help="Run identifier used to locate details_<run-id>.json",
+    )
+    explain_p.add_argument(
+        "--artifacts",
+        type=Path,
+        help="Directory containing details_<run-id>.json (default: perf)",
+    )
+    explain_p.add_argument(
+        "--question",
+        action="append",
+        dest="questions",
+        help="Question to answer (repeatable; defaults to a summary prompt)",
+    )
+    explain_p.add_argument(
+        "--questions-file",
+        type=Path,
+        help="Optional file containing questions (one per line)",
+    )
+    explain_p.add_argument(
+        "--provider",
+        help=(
+            "LLM provider for result explanations (defaults to TREND_LLM_PROVIDER). "
+            "Example: --provider openai"
+        ),
     )
 
     nl_p = sub.add_parser("nl", help="Edit config using natural language")
@@ -936,6 +979,68 @@ def _load_configuration(path: str) -> Any:
 _register_fallback("_load_configuration", _load_configuration)
 
 
+def _resolve_explain_details_path(args: argparse.Namespace) -> Path:
+    if args.details:
+        return Path(args.details)
+    if not args.run_id:
+        raise TrendCLIError("The explain command requires --details or --run-id.")
+    artifacts_dir = Path(args.artifacts) if args.artifacts else Path("perf")
+    return artifacts_dir / f"details_{args.run_id}.json"
+
+
+def _load_explain_details(path: Path) -> Mapping[str, Any]:
+    if not path.exists():
+        raise TrendCLIError(f"Details file not found: {path}")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise TrendCLIError(f"Details file is not valid JSON: {path}") from exc
+    if not isinstance(payload, Mapping):
+        raise TrendCLIError("Details file must contain a JSON object at the root.")
+    return payload
+
+
+def _render_analysis_output(details: Mapping[str, Any]) -> str:
+    parts: list[str] = []
+    summary = pd.DataFrame()
+    try:
+        summary = export.summary_frame_from_result(details)
+    except Exception:
+        summary = pd.DataFrame()
+    if not summary.empty:
+        parts.append("Summary table:\n" + summary.to_string(index=False))
+    else:
+        parts.append("Summary table unavailable.")
+    sections = ", ".join(sorted(str(k) for k in details.keys()))
+    if sections:
+        parts.append(f"Available sections: {sections}")
+    return "\n\n".join(parts)
+
+
+def _resolve_explain_questions(args: argparse.Namespace) -> str:
+    questions: list[str] = []
+    if args.questions:
+        questions.extend([q.strip() for q in args.questions if q and q.strip()])
+    if args.questions_file:
+        if not args.questions_file.exists():
+            raise TrendCLIError(f"Questions file not found: {args.questions_file}")
+        raw_lines = args.questions_file.read_text(encoding="utf-8").splitlines()
+        questions.extend([line.strip() for line in raw_lines if line.strip()])
+    if not questions:
+        questions = ["Summarize key findings and notable risks in the results."]
+    return "\n".join(f"- {question}" for question in questions)
+
+
+def _fallback_explanation(metric_catalog: str) -> str:
+    if metric_catalog:
+        return (
+            "Unable to verify the generated explanation against the available metrics. "
+            "Here is the metric catalog:\n"
+            f"{metric_catalog}"
+        )
+    return "No metrics were detected in the analysis output."
+
+
 def _resolve_llm_provider_config(
     provider: str | None = None,
     *,
@@ -1006,6 +1111,18 @@ def _build_nl_chain(
         prompt_builder=build_config_patch_prompt,
         model=config.model,
         temperature=temperature,
+    )
+
+
+def _build_result_chain(provider: str | None = None) -> ResultSummaryChain:
+    config = _resolve_llm_provider_config(provider)
+    try:
+        llm = create_llm(config)
+    except Exception as exc:
+        raise TrendCLIError(str(exc)) from exc
+    return ResultSummaryChain.from_env(
+        llm=llm,
+        prompt_builder=build_result_summary_prompt,
     )
 
 
@@ -1275,6 +1392,39 @@ def main(argv: list[str] | None = None) -> int:
                 quick_args.extend(["--output", os.fspath(args.output)])
             return quick_summary_main(quick_args)
 
+        if command == "explain":
+            request_id = uuid.uuid4().hex
+            details_path = _resolve_explain_details_path(args)
+            details = _load_explain_details(details_path)
+            entries = extract_metric_catalog(details)
+            metric_catalog = format_metric_catalog(entries)
+            if not entries:
+                explanation = ensure_result_disclaimer(
+                    "No metrics were detected in the analysis output."
+                )
+                print(explanation)
+                return 0
+            analysis_output = _render_analysis_output(details)
+            questions = _resolve_explain_questions(args)
+            chain = _build_result_chain(args.provider)
+            response = chain.run(
+                analysis_output=analysis_output,
+                metric_catalog=metric_catalog,
+                questions=questions,
+                request_id=request_id,
+            )
+            raw_explanation = response.text
+            claim_issues = validate_result_claims(
+                raw_explanation,
+                entries,
+                logger=logger,
+            )
+            if claim_issues:
+                raw_explanation = _fallback_explanation(metric_catalog)
+            explanation = ensure_result_disclaimer(raw_explanation)
+            print(explanation)
+            return 0
+
         if command == "nl":
             request_id = uuid.uuid4().hex
             input_path = Path(args.input_path) if args.input_path else DEFAULTS
@@ -1333,8 +1483,8 @@ def main(argv: list[str] | None = None) -> int:
                     )
                     raise TrendCLIError(str(exc)) from exc
                 if not validation.valid:
-                    details = "\n".join(format_validation_messages(validation))
-                    validation_error = f"validation failed: {details}"
+                    validation_details = "\n".join(format_validation_messages(validation))
+                    validation_error = f"validation failed: {validation_details}"
                 _log_nl_operation(
                     request_id=request_id,
                     operation="validate",
@@ -1348,7 +1498,7 @@ def main(argv: list[str] | None = None) -> int:
                     timestamp=validate_timestamp,
                 )
                 if validation_error is not None:
-                    raise TrendCLIError(f"Config validation failed:\n{details}")
+                    raise TrendCLIError(f"Config validation failed:\n{validation_details}")
             _confirm_risky_patch(patch, no_confirm=args.no_confirm)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(
