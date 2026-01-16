@@ -86,6 +86,22 @@ def _sanitize_value(value: Any, *, key: str | None = None) -> Any:
     return str(value)
 
 
+def _risky_patch_flags(patch: ConfigPatch) -> list[str]:
+    flags = [flag.value for flag in patch.risk_flags]
+    if patch.needs_review:
+        flags.append("UNKNOWN_KEYS")
+    return flags
+
+
+def _ensure_risky_confirmation(patch: ConfigPatch, *, confirm_risky: bool) -> None:
+    flags = _risky_patch_flags(patch)
+    if flags and not confirm_risky:
+        flags_text = ", ".join(flags)
+        raise ValueError(
+            f"Risky changes detected ({flags_text}). Set confirm_risky=True to apply."
+        )
+
+
 class ToolLogEntry(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -194,6 +210,8 @@ class ToolLayer:
         self,
         config: Mapping[str, Any],
         patch: Mapping[str, Any] | ConfigPatch,
+        *,
+        confirm_risky: bool = False,
     ) -> ToolResult:
         """Apply a config patch and return the updated config mapping."""
 
@@ -206,9 +224,14 @@ class ToolLayer:
             else:
                 patch_obj = ConfigPatch.model_validate(patch)
 
+            _ensure_risky_confirmation(patch_obj, confirm_risky=confirm_risky)
             return apply_config_patch(dict(config), patch_obj)
 
-        return self._wrap_result("apply_patch", {"config": config, "patch": patch}, _execute)
+        return self._wrap_result(
+            "apply_patch",
+            {"config": config, "patch": patch, "confirm_risky": confirm_risky},
+            _execute,
+        )
 
     def validate_config(
         self,
