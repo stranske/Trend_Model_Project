@@ -11,6 +11,7 @@ This guide explains how to configure and use the LLM provider abstraction built 
 3. Set provider credentials or endpoints in your environment:
    - OpenAI: `OPENAI_API_KEY`
    - Anthropic: `ANTHROPIC_API_KEY`
+   - Optional override: `TREND_LLM_API_KEY` (takes precedence over provider keys)
    - Ollama (local): ensure the Ollama daemon is running and set `base_url` if needed.
 4. Decide how you want to configure the provider:
    - Python: build a `LLMProviderConfig` and call `create_llm()`.
