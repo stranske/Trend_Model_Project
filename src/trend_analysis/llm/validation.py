@@ -149,6 +149,12 @@ def _path_exists_at(schema: dict[str, Any], segments: list[_Segment], index: int
         return True
     if isinstance(additional, dict):
         return _path_exists_at(additional, segments, index + 1)
+    if (
+        (not isinstance(properties, dict) or not properties)
+        and "additionalProperties" not in schema
+        and schema.get("type") == "object"
+    ):
+        return True
     return False
 
 
