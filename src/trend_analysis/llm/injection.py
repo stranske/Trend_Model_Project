@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import codecs
 import html
 import re
 from collections.abc import Iterable, Mapping
@@ -147,7 +148,11 @@ def _iter_decoded_variants(text: str) -> Iterable[str]:
         if decoded and decoded != text and decoded not in seen:
             seen.add(decoded)
             yield decoded
-        for nested in (_maybe_decode_base64(decoded), _maybe_decode_hex(decoded)):
+        for nested in (
+            _maybe_decode_base64(decoded),
+            _maybe_decode_hex(decoded),
+            _maybe_decode_rot13(decoded),
+        ):
             if nested and nested not in seen:
                 seen.add(nested)
                 yield nested
@@ -155,11 +160,19 @@ def _iter_decoded_variants(text: str) -> Iterable[str]:
         if decoded and decoded != text and decoded not in seen:
             seen.add(decoded)
             yield decoded
-        for nested in (_maybe_decode_base64(decoded), _maybe_decode_hex(decoded)):
+        for nested in (
+            _maybe_decode_base64(decoded),
+            _maybe_decode_hex(decoded),
+            _maybe_decode_rot13(decoded),
+        ):
             if nested and nested not in seen:
                 seen.add(nested)
                 yield nested
-    for decoded_variant in (_maybe_decode_base64(text), _maybe_decode_hex(text)):
+    for decoded_variant in (
+        _maybe_decode_base64(text),
+        _maybe_decode_hex(text),
+        _maybe_decode_rot13(text),
+    ):
         if decoded_variant and decoded_variant not in seen:
             seen.add(decoded_variant)
             yield decoded_variant
@@ -197,6 +210,17 @@ def _maybe_decode_hex(text: str) -> str | None:
     try:
         decoded_text = bytes.fromhex(candidate).decode("utf-8")
     except (ValueError, UnicodeDecodeError):
+        return None
+    if not decoded_text or not any(ch.isalpha() for ch in decoded_text):
+        return None
+    return decoded_text
+
+
+def _maybe_decode_rot13(text: str) -> str | None:
+    if not text or not re.search(r"[A-Za-z]", text):
+        return None
+    decoded_text = codecs.decode(text, "rot_13")
+    if decoded_text == text:
         return None
     if not decoded_text or not any(ch.isalpha() for ch in decoded_text):
         return None
