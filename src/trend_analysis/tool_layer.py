@@ -97,9 +97,7 @@ def _ensure_risky_confirmation(patch: ConfigPatch, *, confirm_risky: bool) -> No
     flags = _risky_patch_flags(patch)
     if flags and not confirm_risky:
         flags_text = ", ".join(flags)
-        raise ValueError(
-            f"Risky changes detected ({flags_text}). Set confirm_risky=True to apply."
-        )
+        raise ValueError(f"Risky changes detected ({flags_text}). Set confirm_risky=True to apply.")
 
 
 class ToolLogEntry(BaseModel):
