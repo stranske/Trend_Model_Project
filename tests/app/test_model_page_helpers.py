@@ -469,6 +469,74 @@ def test_risky_confirmation_apply_uses_dialog_confirm(
     assert "config_chat_pending_apply" not in stub.session_state
 
 
+def test_risky_confirmation_dialog_emits_warning_and_flags(
+    model_module: ModuleType,
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    preview = {"after": {"lookback_periods": 12}, "risk_flags": ["constraints"]}
+    stub.session_state["config_chat_pending_apply"] = {
+        "preview": dict(preview),
+        "run_analysis": False,
+    }
+
+    warnings: list[str] = []
+    captions: list[str] = []
+
+    stub.warning = lambda message, **_kwargs: warnings.append(message)
+    stub.caption = lambda message, **_kwargs: captions.append(message)
+
+    class DummyContext:
+        def __enter__(self):
+            return stub
+
+        def __exit__(self, *_args):
+            return False
+
+    stub.dialog = lambda *_args, **_kwargs: DummyContext()
+    stub.button = lambda *_args, **_kwargs: False
+
+    model_module._render_risky_change_dialog()
+
+    assert any("sensitive configuration" in message.lower() for message in warnings)
+    assert any("Flags:" in message for message in captions)
+
+
+def test_risky_confirmation_dialog_emits_unknown_key_caption(
+    model_module: ModuleType,
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    preview = {"after": {"lookback_periods": 12}, "needs_review": True, "risk_flags": []}
+    stub.session_state["config_chat_pending_apply"] = {
+        "preview": dict(preview),
+        "run_analysis": False,
+    }
+
+    warnings: list[str] = []
+    captions: list[str] = []
+
+    stub.warning = lambda message, **_kwargs: warnings.append(message)
+    stub.caption = lambda message, **_kwargs: captions.append(message)
+
+    class DummyContext:
+        def __enter__(self):
+            return stub
+
+        def __exit__(self, *_args):
+            return False
+
+    stub.dialog = lambda *_args, **_kwargs: DummyContext()
+    stub.button = lambda *_args, **_kwargs: False
+
+    model_module._render_risky_change_dialog()
+
+    assert any("sensitive configuration" in message.lower() for message in warnings)
+    assert any("Unknown config keys detected" in message for message in captions)
+
+
 def test_diff_text_to_html_snapshot(model_module: ModuleType) -> None:
     diff_text = (
         "--- before\n"

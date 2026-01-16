@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import difflib
 import glob
 import re
 from pathlib import Path
@@ -175,10 +176,7 @@ def _collect_schema_errors(
     for error in sorted(validator.iter_errors(config), key=lambda err: list(err.absolute_path)):
         issues = _schema_error_to_issues(error)
         for issue in issues:
-            if error.validator == "additionalProperties":
-                _append_issue(warnings, issue)
-            else:
-                _append_issue(errors, issue)
+            _append_issue(errors, issue)
 
 
 def _schema_error_to_issues(error: Any) -> list[ValidationError]:
@@ -202,14 +200,10 @@ def _schema_error_to_issues(error: Any) -> list[ValidationError]:
         unexpected = _unexpected_property(message)
         if unexpected:
             path = _join_path(path, unexpected)
-        message = "Unexpected field."
+        message = f"Unexpected field '{unexpected}'." if unexpected else "Unexpected field."
         expected = "no additional properties"
         actual = unexpected or "unknown"
-        suggestion = (
-            f"Remove '{unexpected}' or move it under the correct section."
-            if unexpected
-            else suggestion
-        )
+        suggestion = _suggest_additional_property(unexpected, error) or suggestion
 
     return [
         ValidationError(
@@ -220,6 +214,22 @@ def _schema_error_to_issues(error: Any) -> list[ValidationError]:
             suggestion=suggestion,
         )
     ]
+
+
+def _suggest_additional_property(unexpected: str | None, error: Any) -> str | None:
+    if not unexpected:
+        return None
+    schema = error.schema or {}
+    properties = schema.get("properties") or {}
+    if not isinstance(properties, Mapping) or not properties:
+        return f"Remove '{unexpected}' or move it under the correct section."
+    valid_keys = sorted(str(key) for key in properties.keys())
+    suggestions = difflib.get_close_matches(unexpected, valid_keys, n=3, cutoff=0.6)
+    hint = f"Did you mean: {', '.join(suggestions)}? " if suggestions else ""
+    cap = 8
+    listed = ", ".join(valid_keys[:cap])
+    suffix = "..." if len(valid_keys) > cap else ""
+    return f"{hint}Valid keys: {listed}{suffix}."
 
 
 def _expected_for_error(error: Any) -> str:
