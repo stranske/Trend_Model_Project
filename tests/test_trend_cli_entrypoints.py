@@ -540,6 +540,67 @@ def test_main_nl_diff_command(
     )
 
 
+def test_main_nl_passes_model_and_temperature(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    cfg_path = tmp_path / "config.yml"
+    cfg_path.write_text(
+        "version: 1\nportfolio:\n  constraints:\n    max_weight: 0.2\n",
+        encoding="utf-8",
+    )
+    captured: dict[str, object] = {}
+
+    patch = ConfigPatch(
+        operations=[
+            PatchOperation(
+                op="set",
+                path="portfolio.constraints.max_weight",
+                value=0.1,
+            )
+        ],
+        summary="Adjust max weight",
+    )
+
+    class DummyChain:
+        model = "test-model"
+        temperature = 0.5
+
+        def run(self, **kwargs: object) -> ConfigPatch:
+            return patch
+
+    def _capture_build_chain(
+        provider: str | None = None,
+        *,
+        model: str | None = None,
+        temperature: float | None = None,
+    ) -> DummyChain:
+        captured["provider"] = provider
+        captured["model"] = model
+        captured["temperature"] = temperature
+        return DummyChain()
+
+    monkeypatch.setattr(trend_cli, "_build_nl_chain", _capture_build_chain)
+
+    exit_code = trend_cli.main(
+        [
+            "nl",
+            "Lower max weight",
+            "--in",
+            str(cfg_path),
+            "--diff",
+            "--provider",
+            "openai",
+            "--model",
+            "custom-model",
+            "--temperature",
+            "0.7",
+        ]
+    )
+
+    assert exit_code == 0
+    assert captured == {"provider": "openai", "model": "custom-model", "temperature": 0.7}
+
+
 def test_main_nl_explain_command(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

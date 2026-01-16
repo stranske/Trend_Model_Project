@@ -18,7 +18,12 @@ def test_apply_nl_instruction_logs_apply_patch(monkeypatch) -> None:
             captured["request_id"] = request_id
             return ConfigPatch(operations=[], summary="noop")
 
-    def fake_build_chain(provider: str | None = None) -> DummyChain:
+    def fake_build_chain(
+        provider: str | None = None,
+        *,
+        model: str | None = None,
+        temperature: float | None = None,
+    ) -> DummyChain:
         return DummyChain()
 
     def fake_write(entry: cli.NLOperationLog, **_: object) -> Path:
