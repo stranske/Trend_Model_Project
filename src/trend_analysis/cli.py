@@ -19,6 +19,7 @@ from . import export, pipeline
 from . import logging as run_logging
 from .api import run_simulation
 from .config import format_validation_messages, load_config, validate_config
+from .config.schema_validation import load_config as load_config_yaml
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from .data import load_csv
 from .diagnostics import coerce_pipeline_result
@@ -57,16 +58,36 @@ def load_market_data_csv(
     return load_csv(path, **effective_kwargs)
 
 
-def _maybe_validate_config(cfg: Any, *, base_path: Path) -> bool:
+def _maybe_validate_config(
+    cfg: Any,
+    *,
+    base_path: Path,
+    config_path: Path | None = None,
+) -> bool:
     """Return True when configuration validation passes or is skipped."""
 
     payload: dict[str, Any] | None = None
-    if isinstance(cfg, Mapping):
-        payload = dict(cfg)
-    elif hasattr(cfg, "model_dump"):
-        payload = cfg.model_dump(exclude_none=True)
-    elif hasattr(cfg, "__dict__"):
-        payload = dict(cfg.__dict__)
+    used_raw = False
+    if config_path is not None:
+        try:
+            payload = load_config_yaml(config_path)
+            used_raw = True
+        except Exception:
+            payload = None
+
+    if payload is None:
+        if isinstance(cfg, Mapping):
+            payload = dict(cfg)
+        elif hasattr(cfg, "model_dump"):
+            try:
+                payload = cfg.model_dump(exclude_none=True, exclude_unset=True, mode="json")
+            except TypeError:
+                try:
+                    payload = cfg.model_dump(exclude_none=True, exclude_unset=True)
+                except TypeError:
+                    payload = cfg.model_dump(exclude_none=True)
+        elif hasattr(cfg, "__dict__"):
+            payload = dict(cfg.__dict__)
 
     if not payload or "version" not in payload:
         return True
@@ -74,6 +95,18 @@ def _maybe_validate_config(cfg: Any, *, base_path: Path) -> bool:
     result = validate_config(payload, base_path=base_path, skip_required_fields=True)
     if result.valid:
         return True
+
+    if used_raw:
+        ignored = []
+        for issue in result.errors:
+            if issue.path == "output":
+                ignored.append(issue)
+                continue
+            if issue.path == "preprocessing.steps" and isinstance(issue.actual, list):
+                ignored.append(issue)
+                continue
+        if ignored and len(ignored) == len(result.errors):
+            return True
 
     print("Config validation failed:", file=sys.stderr)
     for line in format_validation_messages(result):
@@ -402,7 +435,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "run":
         cfg = load_config(args.config)
-        if not _maybe_validate_config(cfg, base_path=Path(args.config).resolve().parent):
+        config_path = Path(args.config).resolve()
+        if not _maybe_validate_config(cfg, base_path=config_path.parent, config_path=config_path):
             return 1
         if args.preset:
             try:
