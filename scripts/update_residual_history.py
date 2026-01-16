@@ -28,8 +28,7 @@ except Exception:
     rep = {}
 cls = rep.get("classification", {})
 entry = {
-    "timestamp": cls.get("timestamp")
-    or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    "timestamp": cls.get("timestamp") or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     "remaining": cls.get("total"),
     "new": cls.get("new"),
     "allowed": cls.get("allowed"),
