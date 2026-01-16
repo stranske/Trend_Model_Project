@@ -201,8 +201,7 @@ def _maybe_decode_base64(text: str) -> str | None:
     return decoded_text
 
 
-def _maybe_decode_hex(text: str) -> str | None:
-    candidate = "".join(text.split())
+def _decode_hex_candidate(candidate: str) -> str | None:
     if len(candidate) < 16 or len(candidate) % 2:
         return None
     if not re.fullmatch(r"[A-Fa-f0-9]+", candidate):
@@ -214,6 +213,20 @@ def _maybe_decode_hex(text: str) -> str | None:
     if not decoded_text or not any(ch.isalpha() for ch in decoded_text):
         return None
     return decoded_text
+
+
+def _maybe_decode_hex(text: str) -> str | None:
+    candidate = "".join(text.split())
+    if candidate.lower().startswith("0x"):
+        candidate = candidate[2:]
+    decoded_text = _decode_hex_candidate(candidate)
+    if decoded_text:
+        return decoded_text
+    if "0x" in text.lower():
+        hex_pairs = re.findall(r"0x([0-9a-fA-F]{2})", text)
+        if hex_pairs and len(hex_pairs) * 2 >= 16:
+            return _decode_hex_candidate("".join(hex_pairs))
+    return None
 
 
 def _maybe_decode_rot13(text: str) -> str | None:
