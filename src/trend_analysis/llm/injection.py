@@ -137,18 +137,19 @@ def _extend_unique(target: list[str], values: Iterable[str]) -> None:
 
 
 def _iter_decoded_variants(text: str) -> Iterable[str]:
-    html_decoded = html.unescape(text)
-    if html_decoded and html_decoded != text:
-        yield html_decoded
-    decoded = unquote_plus(text)
-    if decoded and decoded != text:
-        yield decoded
-    base64_decoded = _maybe_decode_base64(text)
-    if base64_decoded:
-        yield base64_decoded
-    hex_decoded = _maybe_decode_hex(text)
-    if hex_decoded:
-        yield hex_decoded
+    seen: set[str] = set()
+    for decoded in (html.unescape(text), unquote_plus(text)):
+        if decoded and decoded != text and decoded not in seen:
+            seen.add(decoded)
+            yield decoded
+        for nested in (_maybe_decode_base64(decoded), _maybe_decode_hex(decoded)):
+            if nested and nested not in seen:
+                seen.add(nested)
+                yield nested
+    for decoded in (_maybe_decode_base64(text), _maybe_decode_hex(text)):
+        if decoded and decoded not in seen:
+            seen.add(decoded)
+            yield decoded
 
 
 def _maybe_decode_base64(text: str) -> str | None:
