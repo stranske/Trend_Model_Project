@@ -181,3 +181,42 @@ def test_main_ensure_enabled(
     assert exit_code == 0
     assert "Gate workflow is already active." in captured.out
     assert "Triggering pr-00-gate.yml for PR #123" in captured.out
+
+
+def test_format_gate_status_with_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(tgw, "resolve_pr_info", lambda pr, repo: ("feature-branch", "abc123"))
+    monkeypatch.setattr(tgw, "resolve_gate_workflow_state", lambda repo: "active")
+    monkeypatch.setattr(
+        tgw,
+        "fetch_latest_gate_run",
+        lambda branch, repo: {
+            "status": "completed",
+            "conclusion": "success",
+            "headSha": "abc123",
+            "createdAt": "2026-01-01T00:00:00Z",
+            "htmlUrl": "https://example.test/run/1",
+        },
+    )
+
+    lines = tgw.format_gate_status("123", "org/repo")
+
+    assert lines[0] == "Gate workflow state: active"
+    assert lines[1] == "PR #123 branch: feature-branch"
+    assert lines[2] == "PR #123 head: abc123"
+    assert "Latest Gate run: status=completed conclusion=success head=abc123 created=2026-01-01T00:00:00Z" in lines[3]
+
+
+def test_main_status(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setattr(tgw.shutil, "which", lambda _: "/usr/bin/gh")
+    monkeypatch.setattr(
+        tgw,
+        "format_gate_status",
+        lambda pr, repo: ["Gate workflow state: active", "Latest Gate run: none found"],
+    )
+
+    exit_code = tgw.main(["123", "org/repo", "--status"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Gate workflow state: active" in captured.out
+    assert "Latest Gate run: none found" in captured.out

@@ -176,6 +176,31 @@ def trigger_gate(pr_number: str, repo: str) -> tuple[str, str]:
     return branch, followup
 
 
+def format_gate_status(pr_number: str, repo: str) -> list[str]:
+    branch, head_sha = resolve_pr_info(pr_number, repo)
+    state = resolve_gate_workflow_state(repo)
+    latest_run = fetch_latest_gate_run(branch, repo)
+    lines = [
+        f"Gate workflow state: {state}",
+        f"PR #{pr_number} branch: {branch}",
+        f"PR #{pr_number} head: {head_sha}",
+    ]
+    if latest_run is None:
+        lines.append("Latest Gate run: none found")
+        return lines
+
+    status = str(latest_run.get("status") or "unknown").strip().lower() or "unknown"
+    conclusion = str(latest_run.get("conclusion") or "unknown").strip().lower() or "unknown"
+    run_head = str(latest_run.get("headSha") or "unknown").strip() or "unknown"
+    created_at = str(latest_run.get("createdAt") or "unknown").strip() or "unknown"
+    url = latest_run.get("htmlUrl")
+    url_suffix = f" ({url})" if isinstance(url, str) and url else ""
+    lines.append(
+        f"Latest Gate run: status={status} conclusion={conclusion} head={run_head} created={created_at}{url_suffix}"
+    )
+    return lines
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Trigger the Gate workflow for a PR via GitHub CLI."
@@ -194,6 +219,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Enable Gate workflow if it is disabled before dispatching.",
     )
+    parser.add_argument(
+        "--status",
+        action="store_true",
+        help="Print Gate workflow state and latest run details for the PR.",
+    )
     args = parser.parse_args(argv)
 
     if shutil.which("gh") is None:
@@ -201,6 +231,10 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
+        if args.status:
+            for line in format_gate_status(args.pr_number, args.repo):
+                print(line)
+            return 0
         if args.ensure_enabled:
             print(ensure_gate_workflow_enabled(args.repo))
         if args.ensure:
