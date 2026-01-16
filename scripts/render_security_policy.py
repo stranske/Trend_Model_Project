@@ -65,9 +65,7 @@ def _write_output(output_path: Path, payload: str) -> None:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Render a comprehensive security policy document."
-    )
+    parser = argparse.ArgumentParser(description="Render a comprehensive security policy document.")
     parser.add_argument(
         "--output",
         type=Path,
