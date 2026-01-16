@@ -81,7 +81,7 @@ app.add_api_route("/health", health_check, methods=["GET"])
 app.add_api_route("/", root, methods=["GET"])
 
 
-@app.post("/config/patch")  # type: ignore[misc]
+@app.post("/config/patch")
 async def apply_config_patch(payload: ConfigPatchRequest) -> dict[str, Any]:
     """Apply a config patch with risk confirmation enforcement."""
     tool = _get_tool_layer()
@@ -91,7 +91,9 @@ async def apply_config_patch(payload: ConfigPatchRequest) -> dict[str, Any]:
         confirm_risky=payload.confirm_risky,
     )
     if result.status != "success":
-        raise HTTPException(status_code=400, detail=result.message or "Invalid config patch.")
+        raise HTTPException(
+            status_code=400, detail=result.message or "Invalid config patch."
+        )
     return {"status": "success", "config": result.data}
 
 
