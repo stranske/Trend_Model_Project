@@ -152,6 +152,7 @@ def _iter_decoded_variants(text: str) -> Iterable[str]:
             _maybe_decode_base64(decoded),
             _maybe_decode_hex(decoded),
             _maybe_decode_rot13(decoded),
+            _maybe_decode_unicode_escape(decoded),
         ):
             if nested and nested not in seen:
                 seen.add(nested)
@@ -164,6 +165,7 @@ def _iter_decoded_variants(text: str) -> Iterable[str]:
             _maybe_decode_base64(decoded),
             _maybe_decode_hex(decoded),
             _maybe_decode_rot13(decoded),
+            _maybe_decode_unicode_escape(decoded),
         ):
             if nested and nested not in seen:
                 seen.add(nested)
@@ -172,6 +174,7 @@ def _iter_decoded_variants(text: str) -> Iterable[str]:
         _maybe_decode_base64(text),
         _maybe_decode_hex(text),
         _maybe_decode_rot13(text),
+        _maybe_decode_unicode_escape(text),
     ):
         if decoded_variant and decoded_variant not in seen:
             seen.add(decoded_variant)
@@ -233,6 +236,20 @@ def _maybe_decode_rot13(text: str) -> str | None:
     if not text or not re.search(r"[A-Za-z]", text):
         return None
     decoded_text = codecs.decode(text, "rot_13")
+    if decoded_text == text:
+        return None
+    if not decoded_text or not any(ch.isalpha() for ch in decoded_text):
+        return None
+    return decoded_text
+
+
+def _maybe_decode_unicode_escape(text: str) -> str | None:
+    if not text or not re.search(r"\\u[0-9a-fA-F]{4}|\\x[0-9a-fA-F]{2}", text):
+        return None
+    try:
+        decoded_text = codecs.decode(text, "unicode_escape")
+    except Exception:
+        return None
     if decoded_text == text:
         return None
     if not decoded_text or not any(ch.isalpha() for ch in decoded_text):
