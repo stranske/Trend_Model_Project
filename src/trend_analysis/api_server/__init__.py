@@ -8,16 +8,19 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Tuple
+from typing import TYPE_CHECKING, Any, AsyncGenerator, Tuple
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from trend_analysis.tool_layer import ToolLayer
 
 logger = logging.getLogger(__name__)
 _tool_layer = None
 
 
-def _get_tool_layer():
+def _get_tool_layer() -> "ToolLayer":
     global _tool_layer
     if _tool_layer is None:
         from trend_analysis.tool_layer import ToolLayer
@@ -78,7 +81,7 @@ app.add_api_route("/health", health_check, methods=["GET"])
 app.add_api_route("/", root, methods=["GET"])
 
 
-@app.post("/config/patch")
+@app.post("/config/patch")  # type: ignore[misc]
 async def apply_config_patch(payload: ConfigPatchRequest) -> dict[str, Any]:
     """Apply a config patch with risk confirmation enforcement."""
     tool = _get_tool_layer()
@@ -88,7 +91,9 @@ async def apply_config_patch(payload: ConfigPatchRequest) -> dict[str, Any]:
         confirm_risky=payload.confirm_risky,
     )
     if result.status != "success":
-        raise HTTPException(status_code=400, detail=result.message or "Invalid config patch.")
+        raise HTTPException(
+            status_code=400, detail=result.message or "Invalid config patch."
+        )
     return {"status": "success", "config": result.data}
 
 
