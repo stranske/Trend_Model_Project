@@ -6,9 +6,9 @@ lifespan context manager for startup/shutdown events.
 
 from __future__ import annotations
 
+import json
 import logging
 from contextlib import asynccontextmanager
-import json
 from typing import TYPE_CHECKING, Any, AsyncGenerator, Tuple
 
 from fastapi import FastAPI, HTTPException, Request
