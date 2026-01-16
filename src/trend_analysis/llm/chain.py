@@ -24,7 +24,10 @@ from trend_analysis.llm.injection import (
 from trend_analysis.llm.nl_logging import NLOperationLog, write_nl_log
 from trend_analysis.llm.prompts import build_retry_prompt, format_config_for_prompt
 from trend_analysis.llm.schema import load_compact_schema, select_schema_sections
-from trend_analysis.llm.validation import flag_unknown_keys
+from trend_analysis.llm.validation import (
+    flag_unknown_keys,
+    normalize_patch_path,
+)
 
 PromptBuilder = Callable[..., str]
 
@@ -192,7 +195,9 @@ class ConfigPatchChain:
                     "Prompt injection detected (%s); skipping LLM call.",
                     ", ".join(sorted(set(injection_hits))),
                 )
-                patch = ConfigPatch(operations=[], summary=DEFAULT_BLOCK_SUMMARY, risk_flags=[])
+                patch = ConfigPatch(
+                    operations=[], summary=DEFAULT_BLOCK_SUMMARY, risk_flags=[]
+                )
                 return patch
 
             def _response_provider(attempt: int, last_error: Exception | None) -> str:
@@ -224,7 +229,21 @@ class ConfigPatchChain:
                 logger=logger,
             )
             schema = self._schema_for_validation(allowed_schema, instruction)
-            flag_unknown_keys(patch, schema, logger=logger)
+            unknown_keys = flag_unknown_keys(patch, schema, logger=logger)
+
+            # Filter out operations with unknown keys
+            if unknown_keys:
+                unknown_paths = {
+                    normalize_patch_path(entry.path) for entry in unknown_keys
+                }
+                filtered_ops = [
+                    operation
+                    for operation in patch.operations
+                    if normalize_patch_path(operation.path) not in unknown_paths
+                ]
+                if len(filtered_ops) != len(patch.operations):
+                    patch.operations = filtered_ops
+
             return patch
         except Exception as exc:
             error = str(exc) or type(exc).__name__

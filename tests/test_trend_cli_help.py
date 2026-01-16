@@ -36,6 +36,10 @@ def test_trend_cli_nl_help(capsys: pytest.CaptureFixture[str]) -> None:
     )
     assert "--provider" in captured.out
     assert re.search(r"Example:\s+--provider\s+openai", captured.out)
+    assert "--model" in captured.out
+    assert re.search(r"Example:\s+--model\s+gpt-4o-mini", captured.out)
+    assert "--temperature" in captured.out
+    assert re.search(r"Example:\s+--temperature\s+0\.2", captured.out)
     assert re.search(
         r'Example:\s+trend\s+nl\s+"Lower\s+max\s+weight"\s+--explain\s+--diff',
         captured.out,
