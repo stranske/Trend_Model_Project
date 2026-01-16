@@ -19,8 +19,7 @@ _ARRAY_WILDCARD = _ArrayWildcardMarker()
 _Segment = str | int | _ArrayWildcardMarker
 
 _DOTPATH_RE = re.compile(
-    r"^(?:[A-Za-z0-9_-]+|\*)(?:\[(?:\d+|\*)\])*"
-    r"(?:\.(?:[A-Za-z0-9_-]+|\*)(?:\[(?:\d+|\*)\])*)*$"
+    r"^(?:[A-Za-z0-9_-]+|\*)(?:\[(?:\d+|\*)\])*" r"(?:\.(?:[A-Za-z0-9_-]+|\*)(?:\[(?:\d+|\*)\])*)*$"
 )
 
 
@@ -91,12 +90,9 @@ def normalize_patch_path(path: str) -> str:
 def _parse_path_segments(path: str) -> list[_Segment]:
     if path.startswith("/"):
         json_segments = [
-            segment.replace("~1", "/").replace("~0", "~")
-            for segment in path.split("/")[1:]
+            segment.replace("~1", "/").replace("~0", "~") for segment in path.split("/")[1:]
         ]
-        return [
-            int(segment) if segment.isdigit() else segment for segment in json_segments
-        ]
+        return [int(segment) if segment.isdigit() else segment for segment in json_segments]
     if not _DOTPATH_RE.match(path):
         return [path]
     segments: list[_Segment] = []
@@ -142,9 +138,7 @@ def _path_exists(schema: dict[str, Any], segments: list[_Segment]) -> bool:
     return _path_exists_at(schema, segments, 0)
 
 
-def _path_exists_at(
-    schema: dict[str, Any], segments: list[_Segment], index: int
-) -> bool:
+def _path_exists_at(schema: dict[str, Any], segments: list[_Segment], index: int) -> bool:
     if index >= len(segments):
         return True
     current_segment = segments[index]
@@ -171,9 +165,7 @@ def _path_exists_at(
     return False
 
 
-def _path_exists_array(
-    schema: dict[str, Any], segments: list[_Segment], index: int
-) -> bool:
+def _path_exists_array(schema: dict[str, Any], segments: list[_Segment], index: int) -> bool:
     if not isinstance(schema, dict):
         return False
     items = schema.get("items")
@@ -182,9 +174,7 @@ def _path_exists_array(
     return _path_exists_at(items, segments, index + 1)
 
 
-def _path_exists_wildcard(
-    schema: dict[str, Any], segments: list[_Segment], index: int
-) -> bool:
+def _path_exists_wildcard(schema: dict[str, Any], segments: list[_Segment], index: int) -> bool:
     if not isinstance(schema, dict):
         return False
     items = schema.get("items")
@@ -197,9 +187,7 @@ def _path_exists_wildcard(
         return True
     properties = schema.get("properties")
     if isinstance(properties, dict):
-        return any(
-            _path_exists_at(value, segments, index + 1) for value in properties.values()
-        )
+        return any(_path_exists_at(value, segments, index + 1) for value in properties.values())
     return False
 
 

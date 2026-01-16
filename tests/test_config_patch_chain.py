@@ -402,9 +402,7 @@ def test_config_patch_chain_logs_parse_errors(caplog: pytest.LogCaptureFixture) 
 
     assert patch.summary == "Update max_weight"
     parse_logs = [
-        record
-        for record in caplog.records
-        if "ConfigPatch parse attempt" in record.message
+        record for record in caplog.records if "ConfigPatch parse attempt" in record.message
     ]
     assert len(parse_logs) == 2
     assert "attempt 1/3" in parse_logs[0].message
@@ -455,9 +453,7 @@ def test_config_patch_chain_logs_validation_errors(
 
     assert patch.summary == "Update max_weight"
     parse_logs = [
-        record
-        for record in caplog.records
-        if "ConfigPatch parse attempt" in record.message
+        record for record in caplog.records if "ConfigPatch parse attempt" in record.message
     ]
     assert len(parse_logs) == 2
     assert "attempt 2/3" in parse_logs[-1].message
@@ -488,9 +484,7 @@ def test_config_patch_chain_logs_parse_errors_on_exhaustion(
             )
 
     parse_logs = [
-        record
-        for record in caplog.records
-        if "ConfigPatch parse attempt" in record.message
+        record for record in caplog.records if "ConfigPatch parse attempt" in record.message
     ]
     assert len(parse_logs) == 3
     assert "attempt 3/3" in parse_logs[-1].message
@@ -522,9 +516,7 @@ def test_config_patch_chain_no_retry_when_retries_zero(
             )
 
     parse_logs = [
-        record
-        for record in caplog.records
-        if "ConfigPatch parse attempt" in record.message
+        record for record in caplog.records if "ConfigPatch parse attempt" in record.message
     ]
     assert len(parse_logs) == 1
     assert "attempt 1/1" in parse_logs[0].message
