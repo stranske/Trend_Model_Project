@@ -14,7 +14,7 @@ data:
     max_consecutive_gap: 1
 
 preprocessing:
-  steps: []
+  steps: null
 
 vol_adjust:
   enabled: true

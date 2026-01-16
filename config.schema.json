@@ -311,6 +311,26 @@
           "nl_editable": true,
           "type": "boolean"
         },
+        "columns": {
+          "constraints": {},
+          "default": null,
+          "description": "Subset of columns to load from the returns CSV.",
+          "nl_editable": true,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "csv_path": {
+          "constraints": {},
+          "default": null,
+          "description": "Path to a single returns CSV file.",
+          "nl_editable": false,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "currency": {
           "constraints": {},
           "default": "USD",
@@ -372,6 +392,16 @@
             "null"
           ]
         },
+        "missing_fill_limit": {
+          "constraints": {},
+          "default": null,
+          "description": "Maximum consecutive periods to forward-fill missing data.",
+          "nl_editable": true,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "missing_limit": {
           "constraints": {},
           "default": null,
@@ -400,6 +430,40 @@
           "nl_editable": true,
           "type": "string"
         },
+        "na_as_zero": {
+          "additionalProperties": false,
+          "constraints": {},
+          "default": null,
+          "description": "Config option for data.na_as_zero.",
+          "nl_editable": true,
+          "properties": {
+            "enabled": {
+              "constraints": {},
+              "default": true,
+              "description": "Config option for data.na_as_zero.enabled.",
+              "nl_editable": true,
+              "type": "boolean"
+            },
+            "max_consecutive_gap": {
+              "constraints": {},
+              "default": 1,
+              "description": "Config option for data.na_as_zero.max_consecutive_gap.",
+              "nl_editable": true,
+              "type": "integer"
+            },
+            "max_missing_per_window": {
+              "constraints": {},
+              "default": 1,
+              "description": "Config option for data.na_as_zero.max_missing_per_window.",
+              "nl_editable": true,
+              "type": "integer"
+            }
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
         "price_column": {
           "constraints": {},
           "default": "Adj_Close",
@@ -423,6 +487,16 @@
           "description": "for parsing",
           "nl_editable": true,
           "type": "string"
+        },
+        "universe_membership_path": {
+          "constraints": {},
+          "default": null,
+          "description": "Optional CSV with universe membership overrides.",
+          "nl_editable": false,
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "type": "object"
@@ -516,6 +590,16 @@
             }
           },
           "type": "object"
+        },
+        "filename": {
+          "constraints": {},
+          "default": null,
+          "description": "Config option for export.filename.",
+          "nl_editable": false,
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "formats": {
           "constraints": {},
@@ -665,6 +749,26 @@
           "nl_editable": true,
           "type": "array"
         },
+        "drawdown": {
+          "constraints": {},
+          "default": null,
+          "description": "Config option for metrics.drawdown.",
+          "nl_editable": true,
+          "type": [
+            "null",
+            "number"
+          ]
+        },
+        "max_drawdown": {
+          "constraints": {},
+          "default": null,
+          "description": "Config option for metrics.max_drawdown.",
+          "nl_editable": true,
+          "type": [
+            "null",
+            "number"
+          ]
+        },
         "registry": {
           "constraints": {},
           "default": [
@@ -682,6 +786,16 @@
           "nl_editable": true,
           "type": "array"
         },
+        "return_ann": {
+          "constraints": {},
+          "default": null,
+          "description": "Config option for metrics.return_ann.",
+          "nl_editable": true,
+          "type": [
+            "null",
+            "number"
+          ]
+        },
         "rf_rate_annual": {
           "constraints": {
             "minimum": 0
@@ -692,12 +806,42 @@
           "nl_editable": true,
           "type": "number"
         },
+        "sharpe": {
+          "constraints": {},
+          "default": null,
+          "description": "Config option for metrics.sharpe.",
+          "nl_editable": true,
+          "type": [
+            "null",
+            "number"
+          ]
+        },
+        "sharpe_ratio": {
+          "constraints": {},
+          "default": null,
+          "description": "Config option for metrics.sharpe_ratio.",
+          "nl_editable": true,
+          "type": [
+            "null",
+            "number"
+          ]
+        },
         "use_continuous": {
           "constraints": {},
           "default": false,
           "description": "geometric (default) vs. log",
           "nl_editable": true,
           "type": "boolean"
+        },
+        "volatility": {
+          "constraints": {},
+          "default": null,
+          "description": "Config option for metrics.volatility.",
+          "nl_editable": true,
+          "type": [
+            "null",
+            "number"
+          ]
         }
       },
       "type": "object"
@@ -1055,6 +1199,16 @@
           "description": "Portfolio constraint settings.",
           "nl_editable": true,
           "properties": {
+            "cash_weight": {
+              "constraints": {},
+              "default": null,
+              "description": "Config option for portfolio.constraints.cash_weight.",
+              "nl_editable": true,
+              "type": [
+                "null",
+                "number"
+              ]
+            },
             "group_caps": {
               "additionalProperties": {
                 "type": "number"
@@ -1063,8 +1217,70 @@
               "default": {},
               "description": "Group-level exposure caps by tag.",
               "nl_editable": true,
-              "properties": {},
+              "properties": {
+                "Macro": {
+                  "constraints": {},
+                  "default": null,
+                  "description": "Config option for portfolio.constraints.group_caps.Macro.",
+                  "nl_editable": true,
+                  "type": [
+                    "null",
+                    "number"
+                  ]
+                },
+                "Trend": {
+                  "constraints": {},
+                  "default": null,
+                  "description": "Config option for portfolio.constraints.group_caps.Trend.",
+                  "nl_editable": true,
+                  "type": [
+                    "null",
+                    "number"
+                  ]
+                }
+              },
               "type": "object"
+            },
+            "groups": {
+              "additionalProperties": false,
+              "constraints": {},
+              "default": null,
+              "description": "Config option for portfolio.constraints.groups.",
+              "nl_editable": true,
+              "properties": {
+                "FundA": {
+                  "constraints": {},
+                  "default": "Trend",
+                  "description": "Config option for portfolio.constraints.groups.FundA.",
+                  "nl_editable": true,
+                  "type": "string"
+                },
+                "FundB": {
+                  "constraints": {},
+                  "default": "Trend",
+                  "description": "Config option for portfolio.constraints.groups.FundB.",
+                  "nl_editable": true,
+                  "type": "string"
+                },
+                "FundC": {
+                  "constraints": {},
+                  "default": "Macro",
+                  "description": "Config option for portfolio.constraints.groups.FundC.",
+                  "nl_editable": true,
+                  "type": "string"
+                },
+                "FundD": {
+                  "constraints": {},
+                  "default": "Macro",
+                  "description": "Config option for portfolio.constraints.groups.FundD.",
+                  "nl_editable": true,
+                  "type": "string"
+                }
+              },
+              "type": [
+                "null",
+                "object"
+              ]
             },
             "long_only": {
               "constraints": {},
@@ -1095,6 +1311,16 @@
           },
           "type": "object"
         },
+        "cooldown_months": {
+          "constraints": {},
+          "default": null,
+          "description": "Config option for portfolio.cooldown_months.",
+          "nl_editable": true,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "cost_model": {
           "additionalProperties": false,
           "constraints": {},
@@ -1121,6 +1347,65 @@
             }
           },
           "type": "object"
+        },
+        "custom_weights": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "constraints": {},
+          "default": null,
+          "description": "Explicit weight overrides keyed by manager name.",
+          "nl_editable": true,
+          "properties": {
+            "Mgr_01": {
+              "constraints": {},
+              "default": 60,
+              "description": "Config option for portfolio.custom_weights.Mgr_01.",
+              "nl_editable": true,
+              "type": "integer"
+            },
+            "Mgr_02": {
+              "constraints": {},
+              "default": 40,
+              "description": "Config option for portfolio.custom_weights.Mgr_02.",
+              "nl_editable": true,
+              "type": "integer"
+            }
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "entry_eligible_strikes": {
+          "constraints": {},
+          "default": null,
+          "description": "Config option for portfolio.entry_eligible_strikes.",
+          "nl_editable": true,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "entry_soft_strikes": {
+          "constraints": {},
+          "default": null,
+          "description": "Config option for portfolio.entry_soft_strikes.",
+          "nl_editable": true,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "indices_list": {
+          "constraints": {},
+          "default": null,
+          "description": "Config option for portfolio.indices_list.",
+          "nl_editable": true,
+          "type": [
+            "array",
+            "null"
+          ]
         },
         "leverage_cap": {
           "constraints": {
@@ -1155,6 +1440,26 @@
           "type": [
             "number",
             "null"
+          ]
+        },
+        "max_weight": {
+          "constraints": {},
+          "default": null,
+          "description": "Config option for portfolio.max_weight.",
+          "nl_editable": true,
+          "type": [
+            "null",
+            "number"
+          ]
+        },
+        "policy": {
+          "constraints": {},
+          "default": null,
+          "description": "Config option for portfolio.policy.",
+          "nl_editable": true,
+          "type": [
+            "null",
+            "string"
           ]
         },
         "random_n": {
@@ -1245,6 +1550,16 @@
               ],
               "nl_editable": true,
               "type": "string"
+            },
+            "limit_one_per_firm": {
+              "constraints": {},
+              "default": null,
+              "description": "Config option for portfolio.rank.limit_one_per_firm.",
+              "nl_editable": true,
+              "type": [
+                "boolean",
+                "null"
+              ]
             },
             "n": {
               "constraints": {},
@@ -1508,18 +1823,117 @@
               "description": "Parameters for selector plugin.",
               "nl_editable": true,
               "properties": {
+                "rank_column": {
+                  "constraints": {},
+                  "default": null,
+                  "description": "Config option for portfolio.selector.params.rank_column.",
+                  "nl_editable": true,
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
                 "threshold": {
                   "constraints": {},
                   "default": 1.0,
                   "description": "",
                   "nl_editable": true,
                   "type": "number"
+                },
+                "top_n": {
+                  "constraints": {},
+                  "default": null,
+                  "description": "Config option for portfolio.selector.params.top_n.",
+                  "nl_editable": true,
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
                 }
               },
               "type": "object"
             }
           },
           "type": "object"
+        },
+        "target_n": {
+          "constraints": {},
+          "default": null,
+          "description": "Config option for portfolio.target_n.",
+          "nl_editable": true,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "threshold_hold": {
+          "additionalProperties": false,
+          "constraints": {},
+          "default": null,
+          "description": "Config option for portfolio.threshold_hold.",
+          "nl_editable": true,
+          "properties": {
+            "metric": {
+              "constraints": {},
+              "default": "Sharpe",
+              "description": "Config option for portfolio.threshold_hold.metric.",
+              "nl_editable": true,
+              "type": "string"
+            },
+            "soft_strikes": {
+              "constraints": {},
+              "default": 2,
+              "description": "Config option for portfolio.threshold_hold.soft_strikes.",
+              "nl_editable": true,
+              "type": "integer"
+            },
+            "target_n": {
+              "constraints": {},
+              "default": 8,
+              "description": "Config option for portfolio.threshold_hold.target_n.",
+              "nl_editable": true,
+              "type": "integer"
+            },
+            "weighting": {
+              "constraints": {},
+              "default": "score_prop_bayes",
+              "description": "Config option for portfolio.threshold_hold.weighting.",
+              "nl_editable": true,
+              "type": "string"
+            },
+            "z_entry_hard": {
+              "constraints": {},
+              "default": 1.5,
+              "description": "Config option for portfolio.threshold_hold.z_entry_hard.",
+              "nl_editable": true,
+              "type": "number"
+            },
+            "z_entry_soft": {
+              "constraints": {},
+              "default": 1.0,
+              "description": "Config option for portfolio.threshold_hold.z_entry_soft.",
+              "nl_editable": true,
+              "type": "number"
+            },
+            "z_exit_hard": {
+              "constraints": {},
+              "default": -1.5,
+              "description": "Config option for portfolio.threshold_hold.z_exit_hard.",
+              "nl_editable": true,
+              "type": "number"
+            },
+            "z_exit_soft": {
+              "constraints": {},
+              "default": -1.0,
+              "description": "Config option for portfolio.threshold_hold.z_exit_soft.",
+              "nl_editable": true,
+              "type": "number"
+            }
+          },
+          "type": [
+            "null",
+            "object"
+          ]
         },
         "transaction_cost_bps": {
           "constraints": {
@@ -1568,12 +1982,52 @@
               "description": "Parameters for weighting plugin.",
               "nl_editable": true,
               "properties": {
+                "condition_threshold": {
+                  "constraints": {},
+                  "default": null,
+                  "description": "Config option for portfolio.weighting.params.condition_threshold.",
+                  "nl_editable": true,
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "diagonal_loading_factor": {
+                  "constraints": {},
+                  "default": null,
+                  "description": "Config option for portfolio.weighting.params.diagonal_loading_factor.",
+                  "nl_editable": true,
+                  "type": [
+                    "null",
+                    "number"
+                  ]
+                },
+                "safe_mode": {
+                  "constraints": {},
+                  "default": null,
+                  "description": "Config option for portfolio.weighting.params.safe_mode.",
+                  "nl_editable": true,
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
                 "shrink_tau": {
                   "constraints": {},
                   "default": 0.25,
                   "description": "Shrinkage tau for Bayesian weighting.",
                   "nl_editable": true,
                   "type": "number"
+                },
+                "shrinkage_method": {
+                  "constraints": {},
+                  "default": null,
+                  "description": "Config option for portfolio.weighting.params.shrinkage_method.",
+                  "nl_editable": true,
+                  "type": [
+                    "null",
+                    "string"
+                  ]
                 }
               },
               "type": "object"
@@ -1779,6 +2233,13 @@
           },
           "type": "object"
         },
+        "steps": {
+          "constraints": {},
+          "default": null,
+          "description": "Optional list of preprocessing steps to run in order.",
+          "nl_editable": true,
+          "type": "null"
+        },
         "winsorise": {
           "additionalProperties": false,
           "constraints": {},
@@ -1966,12 +2427,32 @@
           "nl_editable": true,
           "type": "string"
         },
+        "checkpoint_dir": {
+          "constraints": {},
+          "default": null,
+          "description": "Directory for saving checkpoints.",
+          "nl_editable": true,
+          "type": [
+            "null",
+            "string"
+          ]
+        },
         "deterministic": {
           "constraints": {},
           "default": true,
           "description": "sets NumPy & pandas options",
           "nl_editable": true,
           "type": "boolean"
+        },
+        "jobs": {
+          "constraints": {},
+          "default": null,
+          "description": "Parallel worker count for a run.",
+          "nl_editable": true,
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "log_file": {
           "constraints": {},
@@ -1993,6 +2474,36 @@
           "description": "1  all CPUs",
           "nl_editable": true,
           "type": "integer"
+        },
+        "name": {
+          "constraints": {},
+          "default": null,
+          "description": "Config option for run.name.",
+          "nl_editable": true,
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "output_dir": {
+          "constraints": {},
+          "default": null,
+          "description": "Config option for run.output_dir.",
+          "nl_editable": true,
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "seed": {
+          "constraints": {},
+          "default": null,
+          "description": "Random seed used for deterministic runs.",
+          "nl_editable": true,
+          "type": [
+            "integer",
+            "null"
+          ]
         }
       },
       "type": "object"
@@ -2024,6 +2535,26 @@
           "nl_editable": true,
           "type": "integer"
         },
+        "in_end": {
+          "constraints": {},
+          "default": null,
+          "description": "End period for in-sample window.",
+          "nl_editable": true,
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "in_start": {
+          "constraints": {},
+          "default": null,
+          "description": "Start period for in-sample window.",
+          "nl_editable": true,
+          "type": [
+            "null",
+            "string"
+          ]
+        },
         "method": {
           "constraints": {
             "enum": [
@@ -2039,6 +2570,26 @@
           ],
           "nl_editable": true,
           "type": "string"
+        },
+        "out_end": {
+          "constraints": {},
+          "default": null,
+          "description": "End period for out-of-sample window.",
+          "nl_editable": true,
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "out_start": {
+          "constraints": {},
+          "default": null,
+          "description": "Start period for out-of-sample window.",
+          "nl_editable": true,
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "ratio": {
           "constraints": {

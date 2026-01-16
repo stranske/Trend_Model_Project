@@ -9,7 +9,7 @@ data:
   allow_risk_free_fallback: true
 
 preprocessing:
-  steps: []
+  steps: null
 
 vol_adjust:
   enabled: true

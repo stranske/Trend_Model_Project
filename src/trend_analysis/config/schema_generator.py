@@ -321,8 +321,11 @@ def gather_samples(configs: Iterable[dict[str, Any]]) -> dict[str, Any]:
     def _walk(value: Any, path: list[str]) -> None:
         path_key = ".".join(path)
         if isinstance(value, dict):
-            if path_key and path_key not in samples and value:
-                samples[path_key] = value
+            if path_key:
+                if path_key in samples and isinstance(samples[path_key], dict):
+                    samples[path_key] = merge_defaults(samples[path_key], value)
+                elif path_key not in samples and value:
+                    samples[path_key] = value
             for key, child in value.items():
                 _walk(child, path + [key])
             return
@@ -493,7 +496,10 @@ def build_schema(
         schema["type"] = "object"
         schema["properties"] = {}
         schema["additionalProperties"] = False
-        for key, child in value.items():
+        sample_dict = samples.get(path_key) if path_key else samples.get("")
+        sample_keys = sample_dict.keys() if isinstance(sample_dict, dict) else []
+        for key in sorted({*value.keys(), *sample_keys}):
+            child = value.get(key)
             schema["properties"][key] = build_schema(
                 child,
                 path=path + [key],

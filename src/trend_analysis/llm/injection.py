@@ -6,6 +6,7 @@ import base64
 import codecs
 import html
 import re
+import unicodedata
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -124,11 +125,13 @@ def _detect_patterns(text: str, patterns: Iterable[InjectionMatch]) -> list[str]
 
 
 def _normalize_text(text: str) -> str:
-    return " ".join(text.lower().split())
+    normalized = unicodedata.normalize("NFKC", text)
+    return " ".join(normalized.lower().split())
 
 
 def _compact_text(text: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "", text.lower())
+    normalized = unicodedata.normalize("NFKC", text)
+    return re.sub(r"[^a-z0-9]+", "", normalized.lower())
 
 
 def _extend_unique(target: list[str], values: Iterable[str]) -> None:
