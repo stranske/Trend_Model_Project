@@ -77,6 +77,48 @@ def fetch_latest_gate_run(branch: str, repo: str) -> Mapping[str, object] | None
     return latest if isinstance(latest, Mapping) else None
 
 
+def fetch_gate_workflow(repo: str) -> Mapping[str, object]:
+    data = run_json_command(
+        [
+            "gh",
+            "workflow",
+            "view",
+            "pr-00-gate.yml",
+            "--repo",
+            repo,
+            "--json",
+            "name,state,path",
+        ]
+    )
+    if not isinstance(data, Mapping):
+        raise RuntimeError(f"Unable to resolve Gate workflow metadata for {repo}.")
+    return data
+
+
+def resolve_gate_workflow_state(repo: str) -> str:
+    workflow = fetch_gate_workflow(repo)
+    state = workflow.get("state")
+    if not isinstance(state, str) or not state:
+        raise RuntimeError(f"Unable to resolve Gate workflow state for {repo}.")
+    return state.strip().lower()
+
+
+def enable_gate_workflow(repo: str) -> None:
+    subprocess.run(
+        ["gh", "workflow", "enable", "pr-00-gate.yml", "--repo", repo],
+        check=True,
+        text=True,
+    )
+
+
+def ensure_gate_workflow_enabled(repo: str) -> str:
+    state = resolve_gate_workflow_state(repo)
+    if state == "active":
+        return "Gate workflow is already active."
+    enable_gate_workflow(repo)
+    return f"Gate workflow was {state}; enabled via gh workflow enable."
+
+
 def dispatch_gate(branch: str, repo: str) -> str:
     subprocess.run(
         ["gh", "workflow", "run", "pr-00-gate.yml", "--repo", repo, "--ref", branch],
@@ -147,6 +189,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Only dispatch Gate if no matching run exists for the latest commit.",
     )
+    parser.add_argument(
+        "--ensure-enabled",
+        action="store_true",
+        help="Enable Gate workflow if it is disabled before dispatching.",
+    )
     args = parser.parse_args(argv)
 
     if shutil.which("gh") is None:
@@ -154,6 +201,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
+        if args.ensure_enabled:
+            print(ensure_gate_workflow_enabled(args.repo))
         if args.ensure:
             triggered, branch, note, followup = ensure_gate(args.pr_number, args.repo)
         else:

@@ -65,6 +65,42 @@ def test_trigger_gate_dispatches(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+def test_ensure_gate_workflow_enabled_noop_when_active(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    monkeypatch.setattr(tgw, "fetch_gate_workflow", lambda repo: {"state": "active"})
+
+    def fake_enable(repo: str) -> None:
+        calls.append(repo)
+
+    monkeypatch.setattr(tgw, "enable_gate_workflow", fake_enable)
+
+    note = tgw.ensure_gate_workflow_enabled("org/repo")
+
+    assert note == "Gate workflow is already active."
+    assert calls == []
+
+
+def test_ensure_gate_workflow_enabled_enables_when_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    monkeypatch.setattr(tgw, "fetch_gate_workflow", lambda repo: {"state": "disabled_manually"})
+
+    def fake_enable(repo: str) -> None:
+        calls.append(repo)
+
+    monkeypatch.setattr(tgw, "enable_gate_workflow", fake_enable)
+
+    note = tgw.ensure_gate_workflow_enabled("org/repo")
+
+    assert "enabled via gh workflow enable" in note
+    assert calls == ["org/repo"]
+
+
 def test_ensure_gate_triggers_when_missing_run(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(tgw, "resolve_pr_info", lambda pr, repo: ("feature-branch", "abc123"))
     monkeypatch.setattr(tgw, "fetch_latest_gate_run", lambda branch, repo: None)
@@ -128,3 +164,20 @@ def test_main_success_path(
     assert exit_code == 0
     assert "Triggering pr-00-gate.yml for PR #123" in captured.out
     assert "gh run list ..." in captured.out
+
+
+def test_main_ensure_enabled(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(tgw.shutil, "which", lambda _: "/usr/bin/gh")
+    monkeypatch.setattr(
+        tgw, "ensure_gate_workflow_enabled", lambda repo: "Gate workflow is already active."
+    )
+    monkeypatch.setattr(tgw, "trigger_gate", lambda pr, repo: ("feature-branch", "gh run list ..."))
+
+    exit_code = tgw.main(["123", "org/repo", "--ensure-enabled"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Gate workflow is already active." in captured.out
+    assert "Triggering pr-00-gate.yml for PR #123" in captured.out
