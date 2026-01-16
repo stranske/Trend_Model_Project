@@ -50,6 +50,7 @@ from trend_analysis.data import load_csv
 from trend_analysis.llm import (
     ConfigPatchChain,
     LLMProviderConfig,
+    ResultSummaryChain,
     build_config_patch_prompt,
     build_result_summary_prompt,
     create_llm,
@@ -57,7 +58,6 @@ from trend_analysis.llm import (
     ensure_result_disclaimer,
     extract_metric_catalog,
     format_metric_catalog,
-    ResultSummaryChain,
 )
 from trend_analysis.llm.nl_logging import NLOperationLog, write_nl_log
 from trend_analysis.llm.replay import ReplayResult
