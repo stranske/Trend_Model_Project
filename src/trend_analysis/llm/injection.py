@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import base64
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import unquote_plus
 
 DEFAULT_BLOCK_SUMMARY = "Unsafe instruction blocked by prompt-injection guard."
 
@@ -39,17 +41,45 @@ _PATTERNS: tuple[InjectionMatch, ...] = (
     ),
 )
 
+_COMPACT_TRIGGERS: tuple[InjectionMatch, ...] = (
+    InjectionMatch(
+        reason="override_instructions",
+        pattern="ignorepreviousinstructions|disregardinstructions|overrideinstructions|bypassinstructions",
+    ),
+    InjectionMatch(
+        reason="system_prompt_exfil",
+        pattern=(
+            "revealsystemprompt|showsystemprompt|printsystemprompt|displaysystemprompt|exposesystemprompt"
+            "|revealdevelopermessage|showdevelopermessage|printdevelopermessage|displaydevelopermessage"
+            "|exposehiddeninstructions"
+        ),
+    ),
+    InjectionMatch(
+        reason="system_prompt_reference",
+        pattern="systemprompt|developermessage|hiddeninstructions",
+    ),
+    InjectionMatch(
+        reason="explicit_jailbreak",
+        pattern="promptinjection|jailbreak",
+    ),
+    InjectionMatch(
+        reason="tool_execution",
+        pattern="runbash|executeshell|runcommand|runcurl|runwget|runpython",
+    ),
+)
+
 
 def detect_prompt_injection(instruction: str) -> list[str]:
     """Return matched injection reasons for a given instruction."""
 
     if not instruction:
         return []
-    text = " ".join(instruction.lower().split())
     matches: list[str] = []
-    for entry in _PATTERNS:
-        if re.search(entry.pattern, text):
-            matches.append(entry.reason)
+    _extend_unique(matches, _detect_patterns(_normalize_text(instruction), _PATTERNS))
+    _extend_unique(matches, _detect_patterns(_compact_text(instruction), _COMPACT_TRIGGERS))
+    for decoded in _iter_decoded_variants(instruction):
+        _extend_unique(matches, _detect_patterns(_normalize_text(decoded), _PATTERNS))
+        _extend_unique(matches, _detect_patterns(_compact_text(decoded), _COMPACT_TRIGGERS))
     return matches
 
 
@@ -81,6 +111,56 @@ def _iter_text_values(payload: Any) -> Iterable[str]:
         for item in payload:
             yield from _iter_text_values(item)
         return
+
+
+def _detect_patterns(text: str, patterns: Iterable[InjectionMatch]) -> list[str]:
+    reasons: list[str] = []
+    for entry in patterns:
+        if re.search(entry.pattern, text):
+            reasons.append(entry.reason)
+    return reasons
+
+
+def _normalize_text(text: str) -> str:
+    return " ".join(text.lower().split())
+
+
+def _compact_text(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", text.lower())
+
+
+def _extend_unique(target: list[str], values: Iterable[str]) -> None:
+    for value in values:
+        if value not in target:
+            target.append(value)
+
+
+def _iter_decoded_variants(text: str) -> Iterable[str]:
+    decoded = unquote_plus(text)
+    if decoded and decoded != text:
+        yield decoded
+    base64_decoded = _maybe_decode_base64(text)
+    if base64_decoded:
+        yield base64_decoded
+
+
+def _maybe_decode_base64(text: str) -> str | None:
+    candidate = "".join(text.split())
+    if len(candidate) < 16:
+        return None
+    if not re.fullmatch(r"[A-Za-z0-9+/=]+", candidate):
+        return None
+    try:
+        decoded = base64.b64decode(candidate, validate=True)
+    except Exception:
+        return None
+    try:
+        decoded_text = decoded.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    if not decoded_text or not any(ch.isalpha() for ch in decoded_text):
+        return None
+    return decoded_text
 
 
 __all__ = [

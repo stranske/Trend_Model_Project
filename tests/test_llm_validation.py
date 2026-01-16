@@ -206,6 +206,8 @@ def test_flag_unknown_keys_marks_review() -> None:
 
     assert patch.needs_review is True
     assert len(unknown) == 1
+    assert "Unknown config keys detected" in patch.summary
+    assert "analysis.unknown" in patch.summary
 
 
 def test_flag_unknown_keys_skips_known_paths() -> None:
