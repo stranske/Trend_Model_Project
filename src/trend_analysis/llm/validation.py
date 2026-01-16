@@ -66,6 +66,7 @@ def flag_unknown_keys(
     if not unknown:
         return []
     patch.needs_review = True
+    _append_unknown_key_detail(patch, unknown)
     active_logger = logger or logging.getLogger(__name__)
     for entry in unknown:
         if entry.suggestion:
@@ -148,6 +149,12 @@ def _path_exists_at(schema: dict[str, Any], segments: list[_Segment], index: int
         return True
     if isinstance(additional, dict):
         return _path_exists_at(additional, segments, index + 1)
+    if (
+        (not isinstance(properties, dict) or not properties)
+        and "additionalProperties" not in schema
+        and schema.get("type") == "object"
+    ):
+        return True
     return False
 
 
@@ -198,6 +205,21 @@ def _collect_schema_paths(schema: dict[str, Any], prefix: str = "") -> list[str]
 def _suggest_path(path: str, candidates: list[str]) -> str | None:
     suggestions = difflib.get_close_matches(path, candidates, n=1, cutoff=0.8)
     return suggestions[0] if suggestions else None
+
+
+def _append_unknown_key_detail(patch: ConfigPatch, unknown: list[UnknownKey]) -> None:
+    if not patch.summary:
+        return
+    if "unknown config keys detected" in patch.summary.lower():
+        return
+    details = []
+    for entry in unknown:
+        if entry.suggestion:
+            details.append(f"{entry.path} (did you mean {entry.suggestion}?)")
+        else:
+            details.append(entry.path)
+    detail_text = "; ".join(details)
+    patch.summary = f"{patch.summary}\nUnknown config keys detected: {detail_text}"
 
 
 __all__ = ["UnknownKey", "flag_unknown_keys", "validate_patch_keys"]
