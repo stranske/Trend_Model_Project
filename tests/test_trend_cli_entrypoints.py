@@ -640,6 +640,8 @@ def test_main_explain_command_blocks_unknown_metrics(
     assert exit_code == 0
     assert "Unable to verify the generated explanation" in output
     assert "alpha_stats" not in output
+
+
 def test_main_nl_run_command_executes_pipeline(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
