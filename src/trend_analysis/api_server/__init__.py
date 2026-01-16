@@ -8,11 +8,28 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Tuple
+from typing import Any, AsyncGenerator, Tuple
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
+_tool_layer = None
+
+
+def _get_tool_layer():
+    global _tool_layer
+    if _tool_layer is None:
+        from trend_analysis.tool_layer import ToolLayer
+
+        _tool_layer = ToolLayer()
+    return _tool_layer
+
+
+class ConfigPatchRequest(BaseModel):
+    config: dict[str, Any] = Field(default_factory=dict)
+    patch: dict[str, Any] = Field(default_factory=dict)
+    confirm_risky: bool = False
 
 
 @asynccontextmanager
@@ -59,6 +76,20 @@ async def root() -> dict[str, str]:
 
 app.add_api_route("/health", health_check, methods=["GET"])
 app.add_api_route("/", root, methods=["GET"])
+
+
+@app.post("/config/patch")
+async def apply_config_patch(payload: ConfigPatchRequest) -> dict[str, Any]:
+    """Apply a config patch with risk confirmation enforcement."""
+    tool = _get_tool_layer()
+    result = tool.apply_patch(
+        payload.config,
+        payload.patch,
+        confirm_risky=payload.confirm_risky,
+    )
+    if result.status != "success":
+        raise HTTPException(status_code=400, detail=result.message or "Invalid config patch.")
+    return {"status": "success", "config": result.data}
 
 
 def run(host: str = "127.0.0.1", port: int = 8000) -> Tuple[str, int]:

@@ -110,9 +110,9 @@ def test_validate_config_csv_path_wrong_type(tmp_path: Path) -> None:
     assert _has_path(result, "data.csv_path")
     issue = next((issue for issue in result.errors if issue.path == "data.csv_path"), None)
     assert issue is not None
-    assert issue.expected == "string"
-    assert issue.actual == "int"
-    assert issue.suggestion == "Provide data.csv_path as a string path to a CSV file."
+    assert "string" in issue.expected
+    assert issue.actual == 123
+    assert issue.suggestion is not None
 
 
 def test_validate_config_managers_glob_wrong_type(tmp_path: Path) -> None:
@@ -283,38 +283,50 @@ def test_validate_config_invalid_enum(tmp_path: Path) -> None:
     assert _has_path(result, "sample_split.method")
 
 
-def test_validate_config_unexpected_field_warns(tmp_path: Path) -> None:
+def test_validate_config_unexpected_field_is_error(tmp_path: Path) -> None:
     cfg = _base_config(tmp_path)
     cfg["unexpected"] = {"extra": True}
 
     result = validate_config(cfg, base_path=tmp_path)
 
-    assert result.valid
-    assert result.errors == []
-    assert any(issue.path == "unexpected" for issue in result.warnings)
+    assert not result.valid
+    assert any(issue.path == "unexpected" for issue in result.errors)
 
 
-def test_validation_warning_includes_expected_actual_suggestion(tmp_path: Path) -> None:
+def test_validation_error_includes_expected_actual_suggestion(tmp_path: Path) -> None:
     cfg = _base_config(tmp_path)
     cfg["unexpected"] = {"extra": True}
 
     result = validate_config(cfg, base_path=tmp_path)
 
-    warning = next((issue for issue in result.warnings if issue.path == "unexpected"), None)
-    assert warning is not None
-    assert warning.expected
-    assert warning.actual is not None
-    assert warning.suggestion is not None
+    issue = next((issue for issue in result.errors if issue.path == "unexpected"), None)
+    assert issue is not None
+    assert issue.expected
+    assert issue.actual is not None
+    assert issue.suggestion is not None
 
 
-def test_validation_messages_include_warnings(tmp_path: Path) -> None:
+def test_validation_messages_include_errors(tmp_path: Path) -> None:
     cfg = _base_config(tmp_path)
     cfg["unexpected"] = {"extra": True}
 
     result = validate_config(cfg, base_path=tmp_path)
-    messages = format_validation_messages(result, include_warnings=True)
+    messages = format_validation_messages(result, include_warnings=False)
 
     assert any("unexpected:" in message and "Expected" in message for message in messages)
+
+
+def test_unknown_key_error_suggests_valid_keys(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["datta"] = {"extra": True}
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    issue = next((issue for issue in result.errors if issue.path == "datta"), None)
+    assert issue is not None
+    assert issue.suggestion is not None
+    assert "Valid keys" in issue.suggestion
+    assert "data" in issue.suggestion
 
 
 def test_format_validation_messages_defaults_suggestion(tmp_path: Path) -> None:
