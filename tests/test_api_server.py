@@ -99,6 +99,27 @@ def test_api_allows_risky_patch_with_confirmation(client):
     assert "portfolio" in body["config"]
 
 
+def test_api_rejects_unknown_key_review_without_confirmation(client):
+    payload = {
+        "config": {"analysis": {"top_n": 10}},
+        "patch": {
+            "operations": [
+                {"op": "set", "path": "analysis.top_n", "value": 12},
+            ],
+            "needs_review": True,
+            "risk_flags": [],
+            "summary": "Update selection count.",
+        },
+    }
+
+    response = client.post("/config/patch", json=payload)
+
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "UNKNOWN_KEYS" in detail
+    assert "confirm_risky" in detail
+
+
 def test_lifespan_context_logs_startup_and_shutdown(caplog):
     """Ensure the custom lifespan context logs both lifecycle events."""
 
