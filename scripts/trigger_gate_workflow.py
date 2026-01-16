@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import subprocess
 import sys
+from typing import Mapping
 
 
 def run_command(args: list[str]) -> str:
@@ -14,8 +16,16 @@ def run_command(args: list[str]) -> str:
     return completed.stdout.strip()
 
 
-def resolve_branch(pr_number: str, repo: str) -> str:
-    output = run_command(
+def run_json_command(args: list[str]) -> object:
+    output = run_command(args)
+    try:
+        return json.loads(output)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"Expected JSON output from command: {' '.join(args)}") from exc
+
+
+def resolve_pr_info(pr_number: str, repo: str) -> tuple[str, str]:
+    data = run_json_command(
         [
             "gh",
             "pr",
@@ -24,24 +34,104 @@ def resolve_branch(pr_number: str, repo: str) -> str:
             "--repo",
             repo,
             "--json",
-            "headRefName",
-            "-q",
-            ".headRefName",
+            "headRefName,headRefOid",
         ]
     )
-    if not output:
+    if not isinstance(data, Mapping):
+        raise RuntimeError(f"Unable to resolve PR metadata for #{pr_number} in {repo}.")
+    branch = data.get("headRefName")
+    head_sha = data.get("headRefOid")
+    if not isinstance(branch, str) or not branch:
         raise RuntimeError(f"Unable to resolve branch for PR #{pr_number} in {repo}.")
-    return output
+    if not isinstance(head_sha, str) or not head_sha:
+        raise RuntimeError(f"Unable to resolve head SHA for PR #{pr_number} in {repo}.")
+    return branch, head_sha
 
 
-def trigger_gate(pr_number: str, repo: str) -> tuple[str, str]:
-    branch = resolve_branch(pr_number, repo)
+def resolve_branch(pr_number: str, repo: str) -> str:
+    branch, _head_sha = resolve_pr_info(pr_number, repo)
+    return branch
+
+
+def fetch_latest_gate_run(branch: str, repo: str) -> Mapping[str, object] | None:
+    runs = run_json_command(
+        [
+            "gh",
+            "run",
+            "list",
+            "--repo",
+            repo,
+            "--workflow",
+            "pr-00-gate.yml",
+            "--branch",
+            branch,
+            "--limit",
+            "1",
+            "--json",
+            "headSha,status,conclusion,htmlUrl,createdAt",
+        ]
+    )
+    if not isinstance(runs, list) or not runs:
+        return None
+    latest = runs[0]
+    return latest if isinstance(latest, Mapping) else None
+
+
+def dispatch_gate(branch: str, repo: str) -> str:
     subprocess.run(
         ["gh", "workflow", "run", "pr-00-gate.yml", "--repo", repo, "--ref", branch],
         check=True,
         text=True,
     )
-    return branch, f"gh run list --repo {repo} --workflow pr-00-gate.yml --branch {branch}"
+    return f"gh run list --repo {repo} --workflow pr-00-gate.yml --branch {branch}"
+
+
+def should_dispatch_gate(
+    latest_run: Mapping[str, object] | None, head_sha: str
+) -> tuple[bool, str]:
+    if latest_run is None:
+        return True, "Dispatching Gate workflow: no existing runs found."
+
+    run_head = latest_run.get("headSha")
+    if not isinstance(run_head, str):
+        return True, "Dispatching Gate workflow: latest run missing head SHA."
+
+    status = str(latest_run.get("status") or "").strip().lower()
+    conclusion = str(latest_run.get("conclusion") or "").strip().lower()
+    url = latest_run.get("htmlUrl")
+    url_suffix = f" ({url})" if isinstance(url, str) and url else ""
+    short_sha = head_sha[:7]
+
+    if run_head == head_sha and status in {"queued", "in_progress"}:
+        return False, f"Gate workflow already running for {short_sha}{url_suffix}"
+    if run_head == head_sha and status == "completed":
+        if conclusion:
+            return (
+                False,
+                f"Gate workflow already completed ({conclusion}) for {short_sha}{url_suffix}",
+            )
+        return False, f"Gate workflow already completed for {short_sha}{url_suffix}"
+    if run_head == head_sha and conclusion:
+        return False, f"Gate workflow already reported {conclusion} for {short_sha}{url_suffix}"
+
+    return True, "Dispatching Gate workflow: latest run does not match head SHA."
+
+
+def ensure_gate(pr_number: str, repo: str) -> tuple[bool, str, str, str]:
+    branch, head_sha = resolve_pr_info(pr_number, repo)
+    latest_run = fetch_latest_gate_run(branch, repo)
+    should_dispatch, note = should_dispatch_gate(latest_run, head_sha)
+    if not should_dispatch:
+        followup = f"gh run list --repo {repo} --workflow pr-00-gate.yml --branch {branch}"
+        return False, branch, note, followup
+    followup = dispatch_gate(branch, repo)
+    return True, branch, note, followup
+
+
+def trigger_gate(pr_number: str, repo: str) -> tuple[str, str]:
+    branch = resolve_branch(pr_number, repo)
+    followup = dispatch_gate(branch, repo)
+    return branch, followup
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -52,6 +142,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "repo", nargs="?", default="stranske/Trend_Model_Project", help="owner/repo"
     )
+    parser.add_argument(
+        "--ensure",
+        action="store_true",
+        help="Only dispatch Gate if no matching run exists for the latest commit.",
+    )
     args = parser.parse_args(argv)
 
     if shutil.which("gh") is None:
@@ -59,7 +154,12 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        branch, followup = trigger_gate(args.pr_number, args.repo)
+        if args.ensure:
+            triggered, branch, note, followup = ensure_gate(args.pr_number, args.repo)
+        else:
+            triggered = True
+            branch, followup = trigger_gate(args.pr_number, args.repo)
+            note = "Dispatched Gate workflow."
     except subprocess.CalledProcessError as exc:
         print(exc.stderr or str(exc), file=sys.stderr)
         return exc.returncode or 1
@@ -67,8 +167,15 @@ def main(argv: list[str] | None = None) -> int:
         print(str(exc), file=sys.stderr)
         return 1
 
-    print(f"Triggering pr-00-gate.yml for PR #{args.pr_number} (branch: {branch}) in {args.repo}")
-    print("Dispatched. You can monitor runs with:")
+    if args.ensure and not triggered:
+        print(f"Gate workflow already present for PR #{args.pr_number} (branch: {branch}) in {args.repo}")
+        print(note)
+    else:
+        print(
+            f"Triggering pr-00-gate.yml for PR #{args.pr_number} (branch: {branch}) in {args.repo}"
+        )
+        print(note)
+    print("You can monitor runs with:")
     print(f"  {followup}")
     return 0
 
