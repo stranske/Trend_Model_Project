@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import math
-from typing import Any, Mapping, OrderedDict as OrderedDictType, cast
+from dataclasses import dataclass
+from typing import Any, Mapping, cast
+from typing import OrderedDict as OrderedDictType
 
 import pandas as pd
 
@@ -300,9 +301,7 @@ def extract_narrative_metrics(res: Mapping[str, Any]) -> dict[str, str]:
         manager_count = int(out_df.shape[1])
         avg_weight = 1.0 / float(manager_count) if manager_count else None
         top_weight_count = min(3, manager_count) if manager_count else None
-        top_weight_share = (
-            float(top_weight_count) / float(manager_count) if manager_count else None
-        )
+        top_weight_share = float(top_weight_count) / float(manager_count) if manager_count else None
 
     positive_months = None
     observations = None
