@@ -1394,7 +1394,7 @@ def _format_holdings_for_csv(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def _render_download_section(result) -> None:
+def _render_download_section(result, *, include_narrative: bool = True) -> None:
     """Render download buttons for portfolio data."""
     weights_df = _build_period_weights_df(result)
     returns_df = _build_period_returns_df(result)
@@ -1465,6 +1465,10 @@ def _render_download_section(result) -> None:
         "Downloads a Phase-1 style workbook including summary + per-period sheets, "
         "with out-of-sample return/risk metrics and the requested number formats."
     )
+    if include_narrative:
+        st.caption("Auto-generated narrative summary is enabled for exports.")
+    else:
+        st.caption("Auto-generated narrative summary is disabled for exports.")
 
     def _build_xlsx_bytes() -> bytes:
         import tempfile
@@ -2146,7 +2150,13 @@ def render_results_page() -> None:
         st.header("Export Data")
         st.caption("Download detailed data for external analysis and verification")
 
-        _render_download_section(result)
+        include_narrative = st.checkbox(
+            "Generate Summary",
+            value=st.session_state.get("export_generate_summary", True),
+            key="export_generate_summary",
+            help="Include auto-generated narrative summaries in Excel and text exports.",
+        )
+        _render_download_section(result, include_narrative=include_narrative)
 
         # Additional: Full period data export
         st.divider()

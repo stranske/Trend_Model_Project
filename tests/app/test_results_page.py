@@ -26,6 +26,7 @@ class DummyStreamlit:
         self.altair_payloads: list[object] = []
         self.dataframes: list[pd.DataFrame] = []
         self.metrics: list[tuple[str, object]] = []
+        self.checkbox_labels: list[str] = []
 
     # Basic UI primitives -------------------------------------------------
     def title(self, _text: str) -> None:  # pragma: no cover - trivial
@@ -86,6 +87,14 @@ class DummyStreamlit:
     def expander(self, *_args, **_kwargs) -> "ColumnContext":
         return ColumnContext(self)
 
+    def checkbox(self, label: str, value: bool = False, key: str | None = None, **_kwargs) -> bool:
+        self.checkbox_labels.append(label)
+        if key is None:
+            return bool(value)
+        if key not in self.session_state:
+            self.session_state[key] = value
+        return bool(self.session_state.get(key))
+
     def cache_data(self, *_args, **_kwargs):
         def decorator(func):
             return func
@@ -136,6 +145,7 @@ def results_page(monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType, DummyStre
         "tabs",
         "metric",
         "expander",
+        "checkbox",
     ]:
         setattr(module, attr, bind(attr))
 
@@ -245,6 +255,7 @@ def test_results_page_recomputes_when_benchmark_changes(
     page.render_results_page()
     assert run_calls == ["BenchA"]
     assert stub.session_state.get("analysis_result_key")
+    assert "Generate Summary" in stub.checkbox_labels
 
     # Changing benchmark should invalidate cached result and trigger a new run.
     stub.session_state["selected_benchmark"] = "BenchB"
