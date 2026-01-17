@@ -191,7 +191,7 @@ jobs:
         run: |
           echo "CODEX_AUTH_JSON present: $HAS_CODEX_AUTH"
           echo "KEEPALIVE_APP or WORKFLOWS_APP present: $HAS_APP_ID"
-          echo "App private key present: $HAS_APP_KEY"
+          echo "WORKFLOWS_APP_PRIVATE_KEY present: $HAS_APP_KEY"
           if [ "$HAS_CODEX_AUTH" = "true" ] || [ "$HAS_APP_ID" = "true" ]; then
             echo "secrets_ok=true" >> "$GITHUB_OUTPUT"
           else
