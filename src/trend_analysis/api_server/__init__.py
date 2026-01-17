@@ -144,9 +144,7 @@ async def apply_config_patch(payload: ConfigPatchRequest) -> dict[str, Any]:
         confirm_risky=payload.confirm_risky,
     )
     if result.status != "success":
-        raise HTTPException(
-            status_code=400, detail=result.message or "Invalid config patch."
-        )
+        raise HTTPException(status_code=400, detail=result.message or "Invalid config patch.")
     return {"status": "success", "config": result.data}
 
 
@@ -160,9 +158,7 @@ async def preview_config_patch(payload: ConfigPatchRequest) -> dict[str, Any]:
         confirm_risky=payload.confirm_risky,
     )
     if result.status != "success":
-        raise HTTPException(
-            status_code=400, detail=result.message or "Invalid config patch."
-        )
+        raise HTTPException(status_code=400, detail=result.message or "Invalid config patch.")
 
     from trend_analysis.config.patch import diff_configs
 
