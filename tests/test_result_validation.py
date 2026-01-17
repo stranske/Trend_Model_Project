@@ -115,3 +115,13 @@ def test_detect_unavailable_metric_requests_returns_missing_metrics() -> None:
 
     assert "alpha" in missing
     assert "beta" in missing
+
+
+def test_postprocess_skips_discrepancy_log_for_unavailability() -> None:
+    text = "Requested data is unavailable in the analysis output for: alpha."
+
+    output, issues = postprocess_result_text(text, [])
+
+    assert issues == []
+    assert "Discrepancy log:" not in output
+    assert "This is analytical output, not financial advice." in output
