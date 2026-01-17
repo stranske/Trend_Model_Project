@@ -6,11 +6,13 @@ lifespan context manager for startup/shutdown events.
 
 from __future__ import annotations
 
+import json
 import logging
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, Any, AsyncGenerator, Tuple
+from typing import TYPE_CHECKING, Any, AsyncGenerator, Awaitable, Callable, Tuple
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
@@ -62,6 +64,57 @@ app = FastAPI(
 )
 
 
+def _build_risky_detail(flags: list[str]) -> str:
+    flags_text = ", ".join(flags)
+    return f"Risky changes detected ({flags_text}). Set confirm_risky=True to apply."
+
+
+async def _risky_change_guard(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
+    if request.method not in {"POST", "PUT", "PATCH"}:
+        return await call_next(request)
+
+    body = await request.body()
+    if not body:
+        return await call_next(request)
+
+    # Preserve the body for downstream request parsing.
+    request._body = body
+
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        return await call_next(request)
+
+    if not isinstance(payload, dict):
+        return await call_next(request)
+
+    patch_payload = payload.get("patch")
+    if not isinstance(patch_payload, dict):
+        return await call_next(request)
+
+    try:
+        from trend_analysis.config.patch import ConfigPatch, risky_patch_flags
+
+        patch_obj = ConfigPatch.model_validate(patch_payload)
+    except Exception:
+        return await call_next(request)
+
+    confirm_risky = payload.get("confirm_risky") is True
+    if not confirm_risky:
+        flags = risky_patch_flags(patch_obj)
+        if flags:
+            detail = _build_risky_detail(flags)
+            return JSONResponse(status_code=400, content={"detail": detail})
+
+    return await call_next(request)
+
+
+app.middleware("http")(_risky_change_guard)
+
+
 async def health_check() -> dict[str, str]:
     """Health check endpoint."""
     return {"status": "ok"}
@@ -93,6 +146,25 @@ async def apply_config_patch(payload: ConfigPatchRequest) -> dict[str, Any]:
     if result.status != "success":
         raise HTTPException(status_code=400, detail=result.message or "Invalid config patch.")
     return {"status": "success", "config": result.data}
+
+
+@app.post("/config/patch/preview")
+async def preview_config_patch(payload: ConfigPatchRequest) -> dict[str, Any]:
+    """Preview a config patch with risk confirmation enforcement."""
+    tool = _get_tool_layer()
+    result = tool.apply_patch(
+        payload.config,
+        payload.patch,
+        confirm_risky=payload.confirm_risky,
+    )
+    if result.status != "success":
+        raise HTTPException(status_code=400, detail=result.message or "Invalid config patch.")
+
+    from trend_analysis.config.patch import diff_configs
+
+    updated = result.data if isinstance(result.data, dict) else {}
+    diff = diff_configs(dict(payload.config), updated)
+    return {"status": "success", "config": updated, "diff": diff}
 
 
 def run(host: str = "127.0.0.1", port: int = 8000) -> Tuple[str, int]:

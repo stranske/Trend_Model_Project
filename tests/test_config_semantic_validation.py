@@ -329,6 +329,36 @@ def test_unknown_key_error_suggests_valid_keys(tmp_path: Path) -> None:
     assert "data" in issue.suggestion
 
 
+def test_nested_unknown_key_reports_full_path(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["portfolio"]["constraints"] = {"max_weightt": 0.2}
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    issue = next(
+        (issue for issue in result.errors if issue.path == "portfolio.constraints.max_weightt"),
+        None,
+    )
+    assert issue is not None
+    assert issue.suggestion is not None
+    assert "max_weight" in issue.suggestion
+
+
+def test_deep_nested_unknown_key_suggests_typo(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["preprocessing"]["missing_data"] = {"polciy": "drop"}
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    issue = next(
+        (issue for issue in result.errors if issue.path == "preprocessing.missing_data.polciy"),
+        None,
+    )
+    assert issue is not None
+    assert issue.suggestion is not None
+    assert "policy" in issue.suggestion
+
+
 def test_format_validation_messages_defaults_suggestion(tmp_path: Path) -> None:
     result = ValidationResult(
         errors=[
