@@ -66,7 +66,9 @@ def test_debounce_coalesces_calls() -> None:
         debounced = gui_utils.debounce(wait_ms=20)(sync_callback)
         await debounced(1, value=1)
         await debounced(2, value=2)
-        await asyncio.sleep(0.05)
+        # Wait long enough for debounce + execution to complete
+        # (20ms debounce + some buffer for execution)
+        await asyncio.sleep(0.1)
 
     asyncio.run(runner())
 
@@ -92,7 +94,9 @@ def test_debounce_awaits_coroutine() -> None:
     assert observed == [10]
 
 
-def test_list_builtin_cfgs_returns_sorted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_list_builtin_cfgs_returns_sorted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Built-in configuration listing should return sorted YAML stem names."""
 
     cfg_dir = tmp_path / "cfg"

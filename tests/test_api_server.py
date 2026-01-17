@@ -282,7 +282,7 @@ def test_api_preview_allows_unknown_key_review_with_confirmation(client):
     assert body["config"]["analysis"]["top_n"] == 12
 
 
-def test_api_preview_allows_risky_patch_with_confirmation(client):
+def test_api_preview_allows_risky_patch_returns_diff(client):
     payload = {
         "config": {"portfolio": {"max_turnover": 1.0}},
         "patch": {
@@ -304,7 +304,7 @@ def test_api_preview_allows_risky_patch_with_confirmation(client):
     assert "max_turnover" in body["diff"]
 
 
-def test_api_preview_allows_unknown_key_review_with_confirmation(client):
+def test_api_preview_allows_unknown_key_returns_diff(client):
     payload = {
         "config": {"analysis": {"top_n": 10}},
         "patch": {
