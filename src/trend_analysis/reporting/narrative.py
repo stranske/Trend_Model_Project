@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 from typing import Any, Mapping, cast
 from typing import OrderedDict as OrderedDictType
@@ -18,6 +19,16 @@ class NarrativeTemplateSection:
     title: str
     template: str
     placeholders: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class NarrativeQualityIssue:
+    """Describe a narrative quality issue."""
+
+    kind: str
+    message: str
+    section: str | None = None
+    detail: dict[str, str] | None = None
 
 
 def default_narrative_templates() -> OrderedDictType[str, NarrativeTemplateSection]:
@@ -110,11 +121,85 @@ DEFAULT_NARRATIVE_TEMPLATES = default_narrative_templates()
 __all__ = [
     "DEFAULT_NARRATIVE_TEMPLATES",
     "NarrativeTemplateSection",
+    "NarrativeQualityIssue",
     "extract_narrative_metrics",
     "generate_narrative_sections",
     "build_narrative_sections",
+    "validate_narrative_quality",
     "default_narrative_templates",
 ]
+
+
+_FORWARD_LOOKING_RE = re.compile(
+    r"\b("
+    r"will|forecast|project(?:ed)?|expect(?:ed)?|anticipate(?:d)?|"
+    r"estimate(?:d)?|target(?:ed)?|aim(?:ed)?|plan(?:s|ned)?|"
+    r"going forward|next (?:month|quarter|year)|future"
+    r")\b",
+    re.IGNORECASE,
+)
+_DISCLAIMER_SNIPPETS = (
+    "auto-generated",
+    "excludes forward-looking statements",
+    "investment advice",
+)
+
+
+def validate_narrative_quality(sections: Mapping[str, str]) -> list[NarrativeQualityIssue]:
+    """Validate narrative sections for forward-looking language and disclaimers."""
+
+    issues: list[NarrativeQualityIssue] = []
+    if not sections:
+        issues.append(
+            NarrativeQualityIssue(
+                kind="missing_sections",
+                message="Narrative sections are empty.",
+            )
+        )
+        return issues
+
+    for key, text in sections.items():
+        content = str(text or "").strip()
+        if not content:
+            issues.append(
+                NarrativeQualityIssue(
+                    kind="empty_section",
+                    message="Narrative section is empty.",
+                    section=str(key),
+                )
+            )
+            continue
+        if _FORWARD_LOOKING_RE.search(content):
+            issues.append(
+                NarrativeQualityIssue(
+                    kind="forward_looking",
+                    message="Narrative contains forward-looking language.",
+                    section=str(key),
+                )
+            )
+
+    methodology = sections.get("methodology_note")
+    if methodology is None:
+        issues.append(
+            NarrativeQualityIssue(
+                kind="missing_disclaimer_section",
+                message="Methodology note section is missing.",
+            )
+        )
+    else:
+        content = str(methodology).lower()
+        missing = [snippet for snippet in _DISCLAIMER_SNIPPETS if snippet not in content]
+        if missing:
+            issues.append(
+                NarrativeQualityIssue(
+                    kind="missing_disclaimer_text",
+                    message="Methodology note lacks required disclaimer text.",
+                    section="methodology_note",
+                    detail={"missing_snippets": ", ".join(missing)},
+                )
+            )
+
+    return issues
 
 
 def _coerce_stats(stats_obj: Any) -> dict[str, float | None]:
