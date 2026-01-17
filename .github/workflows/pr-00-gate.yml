@@ -205,13 +205,9 @@ jobs:
           echo "description=${description}" >> "$GITHUB_OUTPUT"
           echo "[Gate] State: ${state}, Description: ${description}"
 
-      - name: Generate App Token for commit status
-        id: app_token
-        continue-on-error: true
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
-          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+      # Note: We use GITHUB_TOKEN directly for commit status creation.
+      # This is just one API call per CI run, so it doesn't contribute significantly to rate limits.
+      # Using App token would require statuses:write permission which may not be configured.
 
       - name: Report Gate commit status
         if: ${{ always() }}
@@ -220,10 +216,9 @@ jobs:
           STATE: ${{ steps.summarize.outputs.state || 'pending' }}
           DESCRIPTION: ${{ steps.summarize.outputs.description || 'Gate status pending' }}
           TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          APP_TOKEN: ${{ steps.app_token.outputs.token }}
         with:
-          # Use app token if available (5000/hr pool) to avoid rate limits
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
+          # Use GITHUB_TOKEN directly - commit status is one call per run, not rate limit sensitive
+          github-token: ${{ github.token }}
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
@@ -232,7 +227,10 @@ jobs:
             const allowed = new Set(['error', 'failure', 'pending', 'success']);
             const state = allowed.has(rawState) ? rawState : 'pending';
             const rawDescription = process.env.DESCRIPTION || 'Gate status update';
-            const description = rawDescription.length > 140 ? `${rawDescription.slice(0, 137)}...` : rawDescription;
+            const description =
+              rawDescription.length > 140
+                ? `${rawDescription.slice(0, 137)}...`
+                : rawDescription;
             const targetUrl = process.env.TARGET_URL;
 
             try {
@@ -247,8 +245,10 @@ jobs:
               });
               console.log(`Created commit status: ${state} - ${description}`);
             } catch (error) {
-              const hitRateLimit = error?.status === 403 && /rate limit/i.test(error?.message || '');
-              if (hitRateLimit) {
+              const isRateLimitError =
+                error?.status === 403 &&
+                /rate limit/i.test(error?.message || '');
+              if (isRateLimitError) {
                 core.warning('Rate limit prevented Gate from updating the commit status.');
               } else {
                 throw error;
