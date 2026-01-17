@@ -12,7 +12,7 @@ import pandas as pd
 import streamlit as st
 
 from streamlit_app import state as app_state
-from streamlit_app.components import analysis_runner, charts, comparison
+from streamlit_app.components import analysis_runner, charts, comparison, explain_results
 
 # =============================================================================
 # Formatting Helpers
@@ -2058,6 +2058,9 @@ def render_results_page() -> None:
     with main_tabs[0]:
         st.header("Total Portfolio Performance")
         st.caption("Aggregated statistics computed from all out-of-sample returns")
+
+        explain_results.render_explain_results(result, run_key=run_key)
+        st.divider()
 
         # Selection criteria used
         st.subheader("🎯 Selection Criteria Used")
