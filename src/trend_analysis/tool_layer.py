@@ -87,6 +87,7 @@ def _sanitize_value(value: Any, *, key: str | None = None) -> Any:
 
 
 def _ensure_risky_confirmation(patch: ConfigPatch, *, confirm_risky: bool) -> None:
+    # Keep this centralized confirmation check aligned with API middleware behavior.
     flags = risky_patch_flags(patch)
     if flags and not confirm_risky:
         flags_text = ", ".join(flags)
@@ -215,6 +216,7 @@ class ToolLayer:
             else:
                 patch_obj = ConfigPatch.model_validate(patch)
 
+            # This guard intentionally mirrors the API middleware to prevent regressions.
             _ensure_risky_confirmation(patch_obj, confirm_risky=confirm_risky)
             return apply_config_patch(dict(config), patch_obj)
 
