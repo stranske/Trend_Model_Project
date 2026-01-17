@@ -300,6 +300,56 @@ def test_api_guard_blocks_risky_changes_across_endpoints(
     assert expected_flag in response.json()["detail"]
 
 
+@pytest.mark.parametrize("endpoint", ["/config/patch", "/config/patch/preview"])
+@pytest.mark.parametrize(
+    "patch_payload",
+    [
+        {
+            "operations": [{"op": "remove", "path": "portfolio.max_turnover"}],
+            "risk_flags": [],
+            "summary": "Remove turnover cap.",
+        },
+        {
+            "operations": [
+                {"op": "set", "path": "robustness.condition_check.enabled", "value": False}
+            ],
+            "risk_flags": [],
+            "summary": "Disable robustness checks.",
+        },
+        {
+            "operations": [{"op": "set", "path": "vol_adjust.target_vol", "value": 0.25}],
+            "risk_flags": [],
+            "summary": "Increase target volatility.",
+        },
+        {
+            "operations": [{"op": "set", "path": "portfolio", "value": {"max_turnover": 1.0}}],
+            "risk_flags": [],
+            "summary": "Override portfolio settings.",
+        },
+        {
+            "operations": [{"op": "set", "path": "analysis.top_n", "value": 12}],
+            "needs_review": True,
+            "risk_flags": [],
+            "summary": "Update selection count.",
+        },
+    ],
+)
+def test_api_guard_allows_confirmed_risky_changes_across_endpoints(
+    client, endpoint, patch_payload
+):
+    config = {
+        "analysis": {"top_n": 10},
+        "portfolio": {"max_turnover": 1.0},
+        "robustness": {"condition_check": {"enabled": True}},
+        "vol_adjust": {"target_vol": 0.1},
+    }
+    payload = {"config": config, "patch": patch_payload, "confirm_risky": True}
+
+    response = client.post(endpoint, json=payload)
+
+    assert response.status_code == 200
+
+
 def test_api_preview_allows_risky_patch_with_confirmation(client):
     payload = {
         "config": {"portfolio": {"max_turnover": 1.0}},
