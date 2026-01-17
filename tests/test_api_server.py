@@ -334,9 +334,7 @@ def test_api_guard_blocks_risky_changes_across_endpoints(
         },
     ],
 )
-def test_api_guard_allows_confirmed_risky_changes_across_endpoints(
-    client, endpoint, patch_payload
-):
+def test_api_guard_allows_confirmed_risky_changes_across_endpoints(client, endpoint, patch_payload):
     config = {
         "analysis": {"top_n": 10},
         "portfolio": {"max_turnover": 1.0},
