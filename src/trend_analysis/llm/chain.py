@@ -9,7 +9,7 @@ import os
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Callable, Iterable, Iterator, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator
 from uuid import uuid4
 
 from trend_analysis.config.patch import (
@@ -414,8 +414,7 @@ class ResultSummaryChain:
             if missing_metrics:
                 missing_text = ", ".join(missing_metrics)
                 message = (
-                    "Requested data is unavailable in the analysis output for: "
-                    f"{missing_text}."
+                    "Requested data is unavailable in the analysis output for: " f"{missing_text}."
                 )
                 return ResultSummaryResponse(text=ensure_result_disclaimer(message))
         prompt_text = self.build_prompt(

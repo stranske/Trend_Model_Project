@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import math
 import numbers
+import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-import re
 from typing import Any
 
 _BASE_STATS_FIELDS = (

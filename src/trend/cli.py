@@ -58,9 +58,12 @@ from trend_analysis.llm import (
     format_metric_catalog,
     postprocess_result_text,
 )
-from trend_analysis.llm.result_validation import append_discrepancy_log, ensure_result_disclaimer
 from trend_analysis.llm.nl_logging import NLOperationLog, write_nl_log
 from trend_analysis.llm.replay import ReplayResult
+from trend_analysis.llm.result_validation import (
+    append_discrepancy_log,
+    ensure_result_disclaimer,
+)
 from trend_analysis.llm.schema import load_compact_schema
 from trend_analysis.logging_setup import setup_logging
 from trend_model.spec import ensure_run_spec
