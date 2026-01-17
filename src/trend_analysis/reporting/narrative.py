@@ -384,9 +384,10 @@ def extract_narrative_metrics(res: Mapping[str, Any]) -> dict[str, str]:
             )
     elif out_df is not None:
         manager_count = int(out_df.shape[1])
-        avg_weight = 1.0 / float(manager_count) if manager_count else None
-        top_weight_count = min(3, manager_count) if manager_count else None
-        top_weight_share = float(top_weight_count) / float(manager_count) if manager_count else None
+        if manager_count:
+            avg_weight = 1.0 / float(manager_count)
+            top_weight_count = min(3, manager_count)
+            top_weight_share = float(top_weight_count) / float(manager_count)
 
     positive_months = None
     observations = None
