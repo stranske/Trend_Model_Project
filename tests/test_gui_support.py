@@ -66,7 +66,9 @@ def test_debounce_coalesces_calls() -> None:
         debounced = gui_utils.debounce(wait_ms=20)(sync_callback)
         await debounced(1, value=1)
         await debounced(2, value=2)
-        await asyncio.sleep(0.05)
+        # Wait long enough for debounce + execution to complete
+        # (20ms debounce + some buffer for execution)
+        await asyncio.sleep(0.1)
 
     asyncio.run(runner())
 
