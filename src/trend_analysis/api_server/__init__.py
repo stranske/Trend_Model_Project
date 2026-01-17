@@ -65,13 +65,6 @@ app = FastAPI(
 )
 
 
-def _risky_patch_flags(patch: "ConfigPatch") -> list[str]:
-    flags = [flag.value for flag in patch.risk_flags]
-    if patch.needs_review:
-        flags.append("UNKNOWN_KEYS")
-    return flags
-
-
 def _build_risky_detail(flags: list[str]) -> str:
     flags_text = ", ".join(flags)
     return f"Risky changes detected ({flags_text}). Set confirm_risky=True to apply."
@@ -104,7 +97,7 @@ async def _risky_change_guard(
         return await call_next(request)
 
     try:
-        from trend_analysis.config.patch import ConfigPatch
+        from trend_analysis.config.patch import ConfigPatch, risky_patch_flags
 
         patch_obj = ConfigPatch.model_validate(patch_payload)
     except Exception:
@@ -112,7 +105,7 @@ async def _risky_change_guard(
 
     confirm_risky = payload.get("confirm_risky") is True
     if not confirm_risky:
-        flags = _risky_patch_flags(patch_obj)
+        flags = risky_patch_flags(patch_obj)
         if flags:
             detail = _build_risky_detail(flags)
             return JSONResponse(status_code=400, content={"detail": detail})

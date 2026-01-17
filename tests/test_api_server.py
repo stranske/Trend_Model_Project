@@ -239,6 +239,41 @@ def test_api_preview_rejects_unknown_key_review_without_confirmation(client):
     assert "confirm_risky" in detail
 
 
+@pytest.mark.parametrize("endpoint", ["/config/patch", "/config/patch/preview"])
+@pytest.mark.parametrize(
+    ("patch_payload", "expected_flag"),
+    [
+        (
+            {
+                "operations": [{"op": "remove", "path": "portfolio.max_turnover"}],
+                "risk_flags": [],
+                "summary": "Remove turnover cap.",
+            },
+            "REMOVES_CONSTRAINT",
+        ),
+        (
+            {
+                "operations": [{"op": "set", "path": "analysis.top_n", "value": 12}],
+                "needs_review": True,
+                "risk_flags": [],
+                "summary": "Update selection count.",
+            },
+            "UNKNOWN_KEYS",
+        ),
+    ],
+)
+def test_api_guard_blocks_risky_changes_across_endpoints(
+    client, endpoint, patch_payload, expected_flag
+):
+    config = {"portfolio": {"max_turnover": 1.0}, "analysis": {"top_n": 10}}
+    payload = {"config": config, "patch": patch_payload}
+
+    response = client.post(endpoint, json=payload)
+
+    assert response.status_code == 400
+    assert expected_flag in response.json()["detail"]
+
+
 def test_api_preview_allows_risky_patch_with_confirmation(client):
     payload = {
         "config": {"portfolio": {"max_turnover": 1.0}},

@@ -120,6 +120,15 @@ class ConfigPatch(BaseModel):
         return cls.model_json_schema()
 
 
+def risky_patch_flags(patch: ConfigPatch) -> list[str]:
+    """Return the risk flag labels that require confirmation."""
+
+    flags = [flag.value for flag in patch.risk_flags]
+    if patch.needs_review:
+        flags.append("UNKNOWN_KEYS")
+    return flags
+
+
 def apply_patch(config: dict[str, Any], patch: ConfigPatch) -> dict[str, Any]:
     """Apply a validated patch to a config mapping."""
 

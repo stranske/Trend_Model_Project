@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict
 
 from trend_analysis import api
 from trend_analysis.config import ConfigType, load_config
-from trend_analysis.config.patch import ConfigPatch, diff_configs
+from trend_analysis.config.patch import ConfigPatch, diff_configs, risky_patch_flags
 from trend_analysis.config.patch import apply_patch as apply_config_patch
 from trend_analysis.config.validation import ValidationResult, validate_config
 from trend_analysis.data import load_csv
@@ -86,15 +86,8 @@ def _sanitize_value(value: Any, *, key: str | None = None) -> Any:
     return str(value)
 
 
-def _risky_patch_flags(patch: ConfigPatch) -> list[str]:
-    flags = [flag.value for flag in patch.risk_flags]
-    if patch.needs_review:
-        flags.append("UNKNOWN_KEYS")
-    return flags
-
-
 def _ensure_risky_confirmation(patch: ConfigPatch, *, confirm_risky: bool) -> None:
-    flags = _risky_patch_flags(patch)
+    flags = risky_patch_flags(patch)
     if flags and not confirm_risky:
         flags_text = ", ".join(flags)
         raise ValueError(f"Risky changes detected ({flags_text}). Set confirm_risky=True to apply.")
