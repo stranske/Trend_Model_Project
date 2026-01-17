@@ -69,6 +69,7 @@ jobs:
       - name: Checkout Workflows repository for scripts
         if: steps.check.outputs.should_run == 'true'
         uses: actions/checkout@v6
+        continue-on-error: false
         with:
           repository: stranske/Workflows
           path: workflows-scripts
@@ -76,6 +77,7 @@ jobs:
             scripts/langchain
             tools
           sparse-checkout-cone-mode: false
+        timeout-minutes: 10
 
       - name: Set up Python
         if: steps.check.outputs.should_run == 'true'
@@ -323,3 +325,39 @@ jobs:
             gh issue edit "${ISSUE_NUMBER}" --add-label "agents:formatted"
             echo "Labels updated: removed format, added formatted"
           fi
+
+      - name: Report workflow failure
+        if: failure() && steps.check.outputs.should_run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
+          PHASE: ${{ steps.check.outputs.phase }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          cat > /tmp/failure_comment.md <<'EOF'
+          ## ⚠️ Workflow Failure
+
+          The **agents:${{ steps.check.outputs.phase }}** workflow failed during execution.
+
+          **Details:**
+          - Phase: `${{ steps.check.outputs.phase }}`
+          - Run: [View logs](${{ env.RUN_URL }})
+          - Attempt: ${{ env.RUN_ATTEMPT }}
+          - Timestamp: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+          **Common causes:**
+          - GitHub API rate limiting
+          - Network/timeout issues
+          - Missing or invalid data
+
+          **Next steps:**
+          1. Check the [workflow logs](${{ env.RUN_URL }}) for specific errors
+          2. If this was a transient error (rate limit, timeout), re-run the workflow:
+             - Re-add the label, or
+             - Manually dispatch: `gh workflow run "Agents Issue Optimizer" --field issue_number=${{ steps.check.outputs.issue_number }} --field phase=${{ steps.check.outputs.phase }}`
+
+          The label has been left on the issue for automatic retry when conditions improve.
+          EOF
+
+          gh issue comment "${ISSUE_NUMBER}" --body-file /tmp/failure_comment.md || echo "Failed to post error comment"
