@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from trend_analysis.llm.chain import ResultSummaryChain
 from trend_analysis.llm.result_metrics import MetricEntry
