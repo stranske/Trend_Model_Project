@@ -253,6 +253,32 @@ def test_api_preview_rejects_unknown_key_review_without_confirmation(client):
         ),
         (
             {
+                "operations": [
+                    {"op": "set", "path": "robustness.condition_check.enabled", "value": False}
+                ],
+                "risk_flags": [],
+                "summary": "Disable robustness checks.",
+            },
+            "REMOVES_VALIDATION",
+        ),
+        (
+            {
+                "operations": [{"op": "set", "path": "vol_adjust.target_vol", "value": 0.25}],
+                "risk_flags": [],
+                "summary": "Increase target volatility.",
+            },
+            "INCREASES_LEVERAGE",
+        ),
+        (
+            {
+                "operations": [{"op": "set", "path": "portfolio", "value": {"max_turnover": 1.0}}],
+                "risk_flags": [],
+                "summary": "Override portfolio settings.",
+            },
+            "BROAD_SCOPE",
+        ),
+        (
+            {
                 "operations": [{"op": "set", "path": "analysis.top_n", "value": 12}],
                 "needs_review": True,
                 "risk_flags": [],
