@@ -12,7 +12,12 @@ import pandas as pd
 import streamlit as st
 
 from streamlit_app import state as app_state
-from streamlit_app.components import analysis_runner, charts, comparison, explain_results
+from streamlit_app.components import (
+    analysis_runner,
+    charts,
+    comparison,
+    explain_results,
+)
 
 # =============================================================================
 # Formatting Helpers
