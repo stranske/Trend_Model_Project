@@ -27,8 +27,10 @@ from .result_metrics import MetricEntry, extract_metric_catalog, format_metric_c
 from .result_validation import (
     RESULT_DISCLAIMER,
     ResultClaimIssue,
+    append_discrepancy_log,
     detect_result_hallucinations,
     ensure_result_disclaimer,
+    postprocess_result_text,
     validate_result_claims,
 )
 
@@ -62,8 +64,10 @@ __all__ = [
     "format_metric_catalog",
     "RESULT_DISCLAIMER",
     "ResultClaimIssue",
+    "append_discrepancy_log",
     "detect_result_hallucinations",
     "ensure_result_disclaimer",
+    "postprocess_result_text",
     "validate_result_claims",
     "load_nl_log_entry",
     "replay_nl_entry",

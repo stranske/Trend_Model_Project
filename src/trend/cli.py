@@ -54,11 +54,11 @@ from trend_analysis.llm import (
     build_config_patch_prompt,
     build_result_summary_prompt,
     create_llm,
-    ensure_result_disclaimer,
     extract_metric_catalog,
     format_metric_catalog,
-    validate_result_claims,
+    postprocess_result_text,
 )
+from trend_analysis.llm.result_validation import append_discrepancy_log, ensure_result_disclaimer
 from trend_analysis.llm.nl_logging import NLOperationLog, write_nl_log
 from trend_analysis.llm.replay import ReplayResult
 from trend_analysis.llm.schema import load_compact_schema
@@ -1412,17 +1412,18 @@ def main(argv: list[str] | None = None) -> int:
                 metric_catalog=metric_catalog,
                 questions=questions,
                 request_id=request_id,
+                metric_entries=entries,
             )
-            raw_explanation = response.text
-            claim_issues = validate_result_claims(
-                raw_explanation,
+            explanation_text, claim_issues = postprocess_result_text(
+                response.text,
                 entries,
                 logger=logger,
             )
             if claim_issues:
-                raw_explanation = _fallback_explanation(metric_catalog)
-            explanation = ensure_result_disclaimer(raw_explanation)
-            print(explanation)
+                fallback = _fallback_explanation(metric_catalog)
+                fallback = append_discrepancy_log(fallback, claim_issues)
+                explanation_text = ensure_result_disclaimer(fallback)
+            print(explanation_text)
             return 0
 
         if command == "nl":

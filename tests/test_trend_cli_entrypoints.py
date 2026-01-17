@@ -683,6 +683,7 @@ def test_main_explain_command_accepts_cited_metrics(
     output = capsys.readouterr().out
     assert exit_code == 0
     assert "CAGR was 8% [from out_sample_stats]." in output
+    assert "This is analytical output, not financial advice." in output
     assert "metric catalog" not in output
 
 
@@ -704,7 +705,8 @@ def test_main_explain_command_blocks_unknown_metrics(
     output = capsys.readouterr().out
     assert exit_code == 0
     assert "Unable to verify the generated explanation" in output
-    assert "alpha_stats" not in output
+    assert "Discrepancy log:" in output
+    assert "This is analytical output, not financial advice." in output
 
 
 def test_main_nl_run_command_executes_pipeline(

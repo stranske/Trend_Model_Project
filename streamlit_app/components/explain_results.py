@@ -21,7 +21,7 @@ from trend_analysis.llm import (
     ensure_result_disclaimer,
     extract_metric_catalog,
     format_metric_catalog,
-    validate_result_claims,
+    postprocess_result_text,
 )
 
 DEFAULT_QUESTION = "Summarize key findings and notable risks in the results."
@@ -130,9 +130,9 @@ def generate_result_explanation(
         metric_catalog=metric_catalog,
         questions=_format_questions(questions),
         request_id=uuid4().hex,
+        metric_entries=entries,
     )
-    claim_issues = validate_result_claims(response.text, entries)
-    text = ensure_result_disclaimer(response.text)
+    text, claim_issues = postprocess_result_text(response.text, entries)
     return ExplanationResult(
         text=text,
         trace_url=response.trace_url,

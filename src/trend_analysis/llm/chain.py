@@ -9,7 +9,7 @@ import os
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Callable, Iterable, Iterator
+from typing import Any, Callable, Iterable, Iterator, TYPE_CHECKING
 from uuid import uuid4
 
 from trend_analysis.config.patch import (
@@ -23,11 +23,18 @@ from trend_analysis.llm.injection import (
 )
 from trend_analysis.llm.nl_logging import NLOperationLog, write_nl_log
 from trend_analysis.llm.prompts import build_retry_prompt, format_config_for_prompt
+from trend_analysis.llm.result_validation import (
+    detect_unavailable_metric_requests,
+    ensure_result_disclaimer,
+)
 from trend_analysis.llm.schema import load_compact_schema, select_schema_sections
 from trend_analysis.llm.validation import (
     flag_unknown_keys,
     normalize_patch_path,
 )
+
+if TYPE_CHECKING:
+    from trend_analysis.llm.result_metrics import MetricEntry
 
 PromptBuilder = Callable[..., str]
 
@@ -400,7 +407,17 @@ class ResultSummaryChain:
         system_prompt: str | None = None,
         safety_rules: Iterable[str] | None = None,
         request_id: str | None = None,
+        metric_entries: Iterable["MetricEntry"] | None = None,
     ) -> ResultSummaryResponse:
+        if metric_entries is not None:
+            missing_metrics = detect_unavailable_metric_requests(questions, metric_entries)
+            if missing_metrics:
+                missing_text = ", ".join(missing_metrics)
+                message = (
+                    "Requested data is unavailable in the analysis output for: "
+                    f"{missing_text}."
+                )
+                return ResultSummaryResponse(text=ensure_result_disclaimer(message))
         prompt_text = self.build_prompt(
             analysis_output=analysis_output,
             metric_catalog=metric_catalog,
@@ -413,7 +430,10 @@ class ResultSummaryChain:
             request_id=request_id,
             operation="result_explain",
         )
-        return ResultSummaryResponse(text=str(response), trace_url=response.trace_url)
+        return ResultSummaryResponse(
+            text=ensure_result_disclaimer(str(response)),
+            trace_url=response.trace_url,
+        )
 
     def _invoke_llm(
         self,

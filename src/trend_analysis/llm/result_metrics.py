@@ -6,6 +6,7 @@ import math
 import numbers
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+import re
 from typing import Any
 
 _BASE_STATS_FIELDS = (
@@ -34,6 +35,30 @@ _SINGLE_STATS_SECTIONS = (
 )
 _WEIGHT_SECTIONS = ("fund_weights", "ew_weights")
 _BENCHMARK_SECTION = "benchmark_ir"
+_METRIC_SYNONYMS: dict[str, tuple[str, ...]] = {
+    "cagr": ("cagr", "compound annual growth rate"),
+    "vol": ("vol", "volatility"),
+    "sharpe": ("sharpe", "sharpe ratio"),
+    "sortino": ("sortino", "sortino ratio"),
+    "information_ratio": ("information ratio", "information_ratio"),
+    "max_drawdown": ("max drawdown", "drawdown", "max_drawdown"),
+    "is_avg_corr": ("avg corr", "average correlation", "correlation"),
+    "os_avg_corr": ("avg corr", "average correlation", "correlation"),
+    "weights": ("weights", "fund weights", "portfolio weights"),
+    "benchmark_ir": ("benchmark ir", "benchmark information ratio"),
+}
+_KNOWN_METRIC_KEYWORDS = {
+    "alpha",
+    "beta",
+    "tracking error",
+    "turnover",
+    "treynor",
+    "calmar",
+    "omega",
+    "skew",
+    "kurtosis",
+}
+_TOKEN_RE = re.compile(r"[^a-z0-9]+")
 
 
 @dataclass(frozen=True)
@@ -97,6 +122,25 @@ def format_metric_catalog(entries: Iterable[MetricEntry]) -> str:
     return "\n".join(lines).strip()
 
 
+def available_metric_keywords(entries: Iterable[MetricEntry]) -> set[str]:
+    """Return normalized metric keywords available in the metric catalog."""
+
+    keywords: set[str] = set()
+    for entry in entries:
+        for label in _metric_labels_for_entry(entry):
+            keywords.add(_normalize_metric_label(label))
+    return {keyword for keyword in keywords if keyword}
+
+
+def known_metric_keywords() -> set[str]:
+    """Return a normalized set of known metric keywords to detect missing requests."""
+
+    keywords = set(_KNOWN_METRIC_KEYWORDS)
+    for aliases in _METRIC_SYNONYMS.values():
+        keywords.update(aliases)
+    return {_normalize_metric_label(keyword) for keyword in keywords if keyword}
+
+
 def _extract_stats_entries(stats: Any, base: str, source: str) -> list[MetricEntry]:
     stats_map = _stats_to_mapping(stats)
     entries: list[MetricEntry] = []
@@ -146,4 +190,27 @@ def _sorted_keys(mapping: Mapping[str, Any]) -> list[str]:
     return sorted((str(key) for key in mapping.keys()))
 
 
-__all__ = ["MetricEntry", "extract_metric_catalog", "format_metric_catalog"]
+def _metric_labels_for_entry(entry: MetricEntry) -> Iterable[str]:
+    path_parts = entry.path.split(".")
+    metric_label = path_parts[-1] if path_parts else entry.path
+    if entry.source in _WEIGHT_SECTIONS:
+        metric_label = "weights"
+    elif entry.source == _BENCHMARK_SECTION:
+        metric_label = "benchmark_ir"
+
+    synonyms = _METRIC_SYNONYMS.get(metric_label, (metric_label,))
+    return synonyms
+
+
+def _normalize_metric_label(label: str) -> str:
+    normalized = _TOKEN_RE.sub(" ", label.lower()).strip()
+    return " ".join(normalized.split())
+
+
+__all__ = [
+    "MetricEntry",
+    "available_metric_keywords",
+    "extract_metric_catalog",
+    "format_metric_catalog",
+    "known_metric_keywords",
+]
