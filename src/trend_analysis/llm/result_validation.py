@@ -8,7 +8,11 @@ import re
 from dataclasses import dataclass
 from typing import Iterable
 
-from trend_analysis.llm.result_metrics import MetricEntry
+from trend_analysis.llm.result_metrics import (
+    MetricEntry,
+    available_metric_keywords,
+    known_metric_keywords,
+)
 
 RESULT_DISCLAIMER = (
     "This is analytical output, not financial advice. Always verify metrics independently."
@@ -20,6 +24,11 @@ _CITATION_RE = re.compile(
 )
 _SOURCE_RE = re.compile(r"\[from\s+(?P<source>[^\]]+)\]", re.IGNORECASE)
 _NUMBER_RE = re.compile(r"(?<![A-Za-z0-9_.])[-+]?\d+(?:\.\d+)?%?")
+_QUESTION_TOKEN_RE = re.compile(r"[^a-z0-9]+")
+_UNAVAILABLE_RE = re.compile(
+    r"requested data is unavailable in the analysis output",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -38,6 +47,100 @@ def ensure_result_disclaimer(text: str) -> str:
     if cleaned:
         return f"{cleaned}\n\n{RESULT_DISCLAIMER}"
     return RESULT_DISCLAIMER
+
+
+def apply_metric_citations(
+    text: str,
+    entries: Iterable[MetricEntry],
+    *,
+    tolerance: float = 1e-4,
+) -> str:
+    """Append citations for uncited numeric values when matches are available."""
+
+    entries_list = list(entries)
+    if not text or not entries_list:
+        return text
+    citation_spans = [match.span() for match in _CITATION_RE.finditer(text)]
+    parts: list[str] = []
+    cursor = 0
+    for match in _NUMBER_RE.finditer(text):
+        start, end = match.span()
+        parts.append(text[cursor:start])
+        parts.append(text[start:end])
+        if not _overlaps((start, end), citation_spans):
+            sources = _find_matching_sources(
+                match.group(0),
+                entries_list,
+                tolerance=tolerance,
+            )
+            if sources:
+                parts.append(f" [from {', '.join(sources)}]")
+        cursor = end
+    parts.append(text[cursor:])
+    return "".join(parts)
+
+
+def format_discrepancy_log(issues: Iterable[ResultClaimIssue]) -> str:
+    """Render discrepancy issues into a user-facing log block."""
+
+    lines = ["Discrepancy log:"]
+    issues_list = list(issues)
+    for issue in issues_list:
+        lines.append(f"- {issue.kind}: {issue.message}")
+    if len(lines) == 1:
+        return ""
+    return "\n".join(lines)
+
+
+def append_discrepancy_log(text: str, issues: Iterable[ResultClaimIssue]) -> str:
+    """Append the discrepancy log to the explanation text."""
+
+    log_block = format_discrepancy_log(issues)
+    if not log_block:
+        return text
+    cleaned = text.rstrip()
+    if cleaned:
+        return f"{cleaned}\n\n{log_block}"
+    return log_block
+
+
+def postprocess_result_text(
+    text: str,
+    entries: Iterable[MetricEntry],
+    *,
+    logger: logging.Logger | None = None,
+    tolerance: float = 1e-4,
+) -> tuple[str, list[ResultClaimIssue]]:
+    """Apply citations, validate claims, and append discrepancy logs."""
+
+    if is_unavailability_response(text):
+        output = ensure_result_disclaimer(text)
+        return output, []
+    cited_text = apply_metric_citations(text, entries, tolerance=tolerance)
+    issues = validate_result_claims(cited_text, entries, logger=logger, tolerance=tolerance)
+    output = append_discrepancy_log(cited_text, issues)
+    output = ensure_result_disclaimer(output)
+    return output, issues
+
+
+def detect_unavailable_metric_requests(
+    questions: str,
+    entries: Iterable[MetricEntry],
+) -> list[str]:
+    """Return normalized metric keywords requested but unavailable."""
+
+    normalized_questions = _normalize_question_text(questions)
+    available = available_metric_keywords(entries)
+    known = known_metric_keywords()
+    requested = {kw for kw in known if f" {kw} " in normalized_questions}
+    missing = sorted(requested - available)
+    return missing
+
+
+def is_unavailability_response(text: str) -> bool:
+    """Return True if the text indicates unavailable data."""
+
+    return bool(_UNAVAILABLE_RE.search(text))
 
 
 def validate_result_claims(
@@ -175,10 +278,42 @@ def _overlaps(span: tuple[int, int], spans: Iterable[tuple[int, int]]) -> bool:
     return False
 
 
+def _find_matching_sources(
+    value_text: str,
+    entries: Iterable[MetricEntry],
+    *,
+    tolerance: float,
+) -> list[str]:
+    is_percent = value_text.endswith("%")
+    try:
+        value = float(value_text.rstrip("%"))
+    except ValueError:
+        return []
+    sources: list[str] = []
+    for entry in entries:
+        if isinstance(entry.value, (int, float)):
+            expected = float(entry.value)
+            expected = expected * 100 if is_percent else expected
+            if _close_enough(value, expected, tolerance):
+                sources.append(entry.source)
+    return sorted(set(sources))
+
+
+def _normalize_question_text(text: str) -> str:
+    normalized = _QUESTION_TOKEN_RE.sub(" ", text.lower()).strip()
+    return f" { ' '.join(normalized.split()) } "
+
+
 __all__ = [
     "RESULT_DISCLAIMER",
     "ResultClaimIssue",
+    "append_discrepancy_log",
+    "apply_metric_citations",
+    "detect_unavailable_metric_requests",
     "ensure_result_disclaimer",
+    "format_discrepancy_log",
+    "is_unavailability_response",
+    "postprocess_result_text",
     "validate_result_claims",
     "detect_result_hallucinations",
 ]
