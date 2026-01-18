@@ -1,3 +1,6 @@
+from collections import OrderedDict
+import logging
+
 import pandas as pd
 
 from trend_analysis import export
@@ -64,3 +67,22 @@ def test_export_respects_disable_narrative_generation():
     )
 
     assert "narrative" not in data
+
+
+def test_narrative_frame_logs_quality_issues(monkeypatch, caplog):
+    def fake_sections(_: object) -> OrderedDict[str, str]:
+        return OrderedDict(
+            [
+                ("key_findings", "We will improve next year based on these results."),
+                ("methodology_note", "Metrics are computed from monthly returns."),
+            ]
+        )
+
+    monkeypatch.setattr(export, "build_narrative_sections", fake_sections)
+    with caplog.at_level(logging.WARNING):
+        frame = export.narrative_frame_from_result({}, config={"export": {}})
+
+    assert frame is not None
+    messages = " ".join(caplog.messages)
+    assert "forward_looking" in messages
+    assert "missing_disclaimer_text" in messages

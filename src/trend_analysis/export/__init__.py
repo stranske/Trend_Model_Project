@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import inspect
+import logging
 import math
 from collections import OrderedDict
 from pathlib import Path
@@ -22,6 +23,7 @@ from ..reporting.narrative import (
     DEFAULT_NARRATIVE_TEMPLATES,
     build_narrative_sections,
     narrative_generation_enabled,
+    validate_narrative_quality,
 )
 from . import bundle as bundle  # noqa: F401  # re-exported module for tests/compat
 from .bundle import export_bundle
@@ -34,6 +36,8 @@ FORMATTERS_EXCEL: dict[str, Callable[[Any, Any], None]] = {}
 _OPENPYXL_COLOR_MAP = {
     "red": "FFFF0000",
 }
+
+logger = logging.getLogger(__name__)
 
 
 def _normalise_color(value: Any) -> str | None:
@@ -442,6 +446,20 @@ def narrative_frame_from_result(
     sections = build_narrative_sections(res)
     if not sections:
         return None
+    issues = validate_narrative_quality(sections)
+    if issues:
+        for issue in issues:
+            detail = ""
+            if issue.section:
+                detail = f" section={issue.section}"
+            if issue.detail:
+                detail = f"{detail} detail={issue.detail}"
+            logger.warning(
+                "Narrative quality issue (%s)%s: %s",
+                issue.kind,
+                detail,
+                issue.message,
+            )
     rows: list[dict[str, str]] = []
     for key, text in sections.items():
         template = DEFAULT_NARRATIVE_TEMPLATES.get(key)
