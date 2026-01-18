@@ -6,6 +6,7 @@ import pytest
 from trend.reporting import generate_unified_report
 from trend_analysis.api import RunResult
 from trend_analysis.backtesting import CostModel
+from trend_analysis.reporting.narrative import STANDARD_NARRATIVE_DISCLAIMER
 from trend_analysis.signals import TrendSpec
 from trend_model.spec import BacktestSpec, SampleWindow, TrendRunSpec
 
@@ -140,6 +141,16 @@ def test_generate_unified_report_includes_spec_summary() -> None:
 
     assert "Trend window" in params
     assert "Rank inclusion" in params
+
+
+def test_generate_unified_report_includes_narrative_disclaimer_by_default() -> None:
+    result = _make_result()
+    config = _make_config()
+
+    artifacts = generate_unified_report(result, config, run_id="narrative", include_pdf=False)
+
+    assert '<section id="narrative">' in artifacts.html
+    assert STANDARD_NARRATIVE_DISCLAIMER in artifacts.html
 
 
 def test_generate_unified_report_skips_narrative_when_disabled() -> None:
