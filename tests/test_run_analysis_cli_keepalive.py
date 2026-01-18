@@ -127,7 +127,12 @@ def test_main_normalizes_missing_policy_aliases(
     (data_arg, path_arg), kwargs = export_spy[0]
     assert path_arg == str(Path(".") / "analysis")
     assert kwargs == {"formats": ["json"]}
-    assert set(data_arg.keys()) == {"metrics", "performance_by_regime", "regime_notes"}
+    assert set(data_arg.keys()) == {
+        "metrics",
+        "narrative",
+        "performance_by_regime",
+        "regime_notes",
+    }
     tm.assert_frame_equal(data_arg["metrics"], default_result.metrics)
     tm.assert_frame_equal(
         data_arg["performance_by_regime"],

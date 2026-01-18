@@ -885,10 +885,17 @@ def format_summary_text(
 
     rows: list[list[str | float | None]] = []
 
-    for label, ins, outs in [
-        ("Equal Weight", res["in_ew_stats"], res["out_ew_stats"]),
-        ("User Weight", res["in_user_stats"], res["out_user_stats"]),
-    ]:
+    base_rows: list[tuple[str, Any, Any]] = []
+    in_ew = res.get("in_ew_stats")
+    out_ew = res.get("out_ew_stats")
+    if in_ew is not None and out_ew is not None:
+        base_rows.append(("Equal Weight", in_ew, out_ew))
+    in_user = res.get("in_user_stats")
+    out_user = res.get("out_user_stats")
+    if in_user is not None and out_user is not None:
+        base_rows.append(("User Weight", in_user, out_user))
+
+    for label, ins, outs in base_rows:
         weights = None
         if label == "User Weight":
             weights = cast(Mapping[str, float], res.get("fund_weights", {}))
@@ -1369,10 +1376,17 @@ def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
             w = pd.Series(1.0 / float(len(df.columns)), index=df.columns)
         return df.mul(w, axis=1).sum(axis=1)
 
-    for label, ins, outs in [
-        ("Equal Weight", res["in_ew_stats"], res["out_ew_stats"]),
-        ("User Weight", res["in_user_stats"], res["out_user_stats"]),
-    ]:
+    base_rows: list[tuple[str, Any, Any]] = []
+    in_ew = res.get("in_ew_stats")
+    out_ew = res.get("out_ew_stats")
+    if in_ew is not None and out_ew is not None:
+        base_rows.append(("Equal Weight", in_ew, out_ew))
+    in_user = res.get("in_user_stats")
+    out_user = res.get("out_user_stats")
+    if in_user is not None and out_user is not None:
+        base_rows.append(("User Weight", in_user, out_user))
+
+    for label, ins, outs in base_rows:
         weights = None
         if label == "User Weight":
             weights = cast(Mapping[str, float], res.get("fund_weights", {}))
@@ -1399,12 +1413,21 @@ def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
         ]
         rows.append([label, pd.NA, *vals])
 
-    rows.append([pd.NA] * len(columns))
+    if base_rows:
+        rows.append([pd.NA] * len(columns))
 
     include_avg = "OS AvgCorr" in columns and "IS AvgCorr" in columns
-    for fund, stat_in in cast(Mapping[str, _Stats], res["in_sample_stats"]).items():
-        stat_out = cast(Mapping[str, _Stats], res["out_sample_stats"])[fund]
-        weight = cast(Mapping[str, float], res["fund_weights"])[fund] * 100
+    in_stats_map = cast(Mapping[str, _Stats], res.get("in_sample_stats", {}))
+    out_stats_map = cast(Mapping[str, _Stats], res.get("out_sample_stats", {}))
+    weights_map = cast(Mapping[str, float], res.get("fund_weights", {}))
+    for fund, stat_in in in_stats_map.items():
+        stat_out = out_stats_map.get(fund)
+        if stat_out is None:
+            continue
+        if fund in weights_map:
+            weight: Any = weights_map[fund] * 100
+        else:
+            weight = pd.NA
         extra = [bench_map.get(b, {}).get(fund, pd.NA) for b in bench_labels]
         os_vals = pct(stat_out)
         is_vals = pct(stat_in)
