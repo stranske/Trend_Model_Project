@@ -18,13 +18,13 @@ except Exception:  # pragma: no cover - openpyxl not installed
 import numpy as np
 import pandas as pd
 
-from . import bundle as bundle  # noqa: F401  # re-exported module for tests/compat
-from .bundle import export_bundle
 from ..reporting.narrative import (
     DEFAULT_NARRATIVE_TEMPLATES,
     build_narrative_sections,
     narrative_generation_enabled,
 )
+from . import bundle as bundle  # noqa: F401  # re-exported module for tests/compat
+from .bundle import export_bundle
 
 Formatter = Callable[[pd.DataFrame], pd.DataFrame]
 

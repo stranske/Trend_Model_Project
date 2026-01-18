@@ -36,9 +36,7 @@ def test_validate_narrative_quality_passes_for_generated_sections():
 
     metrics = extract_narrative_metrics(res)
     assert metrics["out_total_return"] in sections["executive_summary"]
-    assert any(
-        STANDARD_NARRATIVE_DISCLAIMER in section for section in sections.values()
-    )
+    assert any(STANDARD_NARRATIVE_DISCLAIMER in section for section in sections.values())
     assert issues == []
 
 
