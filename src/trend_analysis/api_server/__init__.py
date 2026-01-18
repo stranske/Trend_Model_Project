@@ -69,16 +69,26 @@ def _build_risky_detail(flags: list[str]) -> str:
     return f"Risky changes detected ({flags_text}). Set confirm_risky=True to apply."
 
 
+def _bad_request(detail: str) -> JSONResponse:
+    return JSONResponse(status_code=400, content={"detail": detail})
+
+
 async def _risky_change_guard(
     request: Request,
     call_next: Callable[[Request], Awaitable[Response]],
 ) -> Response:
+    # Global middleware to stop high-risk config patch changes unless explicitly confirmed.
+    # High-risk means risky_patch_flags() detects constraint removals, validation disables,
+    # leverage increases, broad-scope edits, or unknown keys (needs_review=True).
+    # If confirm_risky is missing, malformed, or not True when risk flags exist, return 400.
     if request.method not in {"POST", "PUT", "PATCH"}:
+        return await call_next(request)
+    if request.url.path not in {"/config/patch", "/config/patch/preview"}:
         return await call_next(request)
 
     body = await request.body()
     if not body:
-        return await call_next(request)
+        return _bad_request("Request body is required.")
 
     # Preserve the body for downstream request parsing.
     request._body = body
@@ -86,26 +96,31 @@ async def _risky_change_guard(
     try:
         payload = json.loads(body)
     except json.JSONDecodeError:
-        return await call_next(request)
+        return _bad_request("Request body must be valid JSON.")
 
     if not isinstance(payload, dict):
-        return await call_next(request)
+        return _bad_request("Request body must be a JSON object.")
 
     patch_payload = payload.get("patch")
     if not isinstance(patch_payload, dict):
-        return await call_next(request)
+        return _bad_request("patch must be a JSON object.")
+
+    if "confirm_risky" in payload and type(payload["confirm_risky"]) is not bool:
+        return _bad_request("confirm_risky must be a boolean.")
 
     try:
         from trend_analysis.config.patch import ConfigPatch, risky_patch_flags
 
         patch_obj = ConfigPatch.model_validate(patch_payload)
     except Exception:
-        return await call_next(request)
+        return _bad_request("patch must match the ConfigPatch schema.")
 
-    confirm_risky = payload.get("confirm_risky") is True
-    if not confirm_risky:
-        flags = risky_patch_flags(patch_obj)
-        if flags:
+    flags = risky_patch_flags(patch_obj)
+    if flags:
+        if "confirm_risky" not in payload:
+            return _bad_request(_build_risky_detail(flags))
+        confirm_risky = payload["confirm_risky"] is True
+        if not confirm_risky:
             detail = _build_risky_detail(flags)
             return JSONResponse(status_code=400, content={"detail": detail})
 

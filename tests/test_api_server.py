@@ -128,6 +128,47 @@ def test_api_guard_blocks_risky_patch_before_tool_layer(client, monkeypatch):
     assert tool.calls == 0
 
 
+@pytest.mark.parametrize("endpoint", ["/config/patch", "/config/patch/preview"])
+@pytest.mark.parametrize("confirm_risky", ["true", 1, None, {}, []])
+def test_api_guard_rejects_malformed_confirmation(client, endpoint, confirm_risky):
+    payload = {
+        "config": {"portfolio": {"max_turnover": 1.0}},
+        "patch": {
+            "operations": [
+                {"op": "remove", "path": "portfolio.max_turnover"},
+            ],
+            "risk_flags": [],
+            "summary": "Remove turnover cap.",
+        },
+        "confirm_risky": confirm_risky,
+    }
+
+    response = client.post(endpoint, json=payload)
+
+    assert response.status_code == 400
+    assert "confirm_risky" in response.json()["detail"]
+
+
+@pytest.mark.parametrize("endpoint", ["/config/patch", "/config/patch/preview"])
+def test_api_guard_rejects_unconfirmed_risky_patch(client, endpoint):
+    payload = {
+        "config": {"portfolio": {"max_turnover": 1.0}},
+        "patch": {
+            "operations": [
+                {"op": "remove", "path": "portfolio.max_turnover"},
+            ],
+            "risk_flags": [],
+            "summary": "Remove turnover cap.",
+        },
+        "confirm_risky": False,
+    }
+
+    response = client.post(endpoint, json=payload)
+
+    assert response.status_code == 400
+    assert "Risky changes detected" in response.json()["detail"]
+
+
 def test_api_rejects_unknown_key_review_without_confirmation(client):
     payload = {
         "config": {"analysis": {"top_n": 10}},
