@@ -632,7 +632,7 @@ def main(argv: list[str] | None = None) -> int:
                     str(split.get("out_start")),
                     str(split.get("out_end")),
                 )
-                data["summary"] = pd.DataFrame()
+                data["summary"] = export.summary_frame_from_result(res)
                 export.export_to_excel(
                     data,
                     str(out_dir_path / f"{filename}.xlsx"),
