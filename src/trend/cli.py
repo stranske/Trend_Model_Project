@@ -652,6 +652,7 @@ def _handle_exports(cfg: Any, result: RunResult, structured_log: bool, run_id: s
     out_dir_path = Path(out_dir)
     out_dir_path.mkdir(parents=True, exist_ok=True)
     data = {"metrics": result.metrics}
+    export.append_narrative_section(data, result.details, config=cfg)
     split = getattr(cfg, "sample_split", {})
     in_start = str(split.get("in_start")) if split else ""
     in_end = str(split.get("in_end")) if split else ""

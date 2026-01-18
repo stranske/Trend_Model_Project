@@ -17,6 +17,10 @@ import pandas as pd
 
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 from trend_analysis.backtesting import BacktestResult, CostModel
+from trend_analysis.reporting.narrative import (
+    STANDARD_NARRATIVE_DISCLAIMER,
+    narrative_generation_enabled,
+)
 
 
 def _init_matplotlib() -> Any:
@@ -676,7 +680,16 @@ def _render_html(context: Mapping[str, Any]) -> str:
     exec_items = "\n".join(
         f"      <li>{html.escape(item)}</li>" for item in context["exec_summary"]
     )
-    narrative = html.escape(context["narrative"])
+    narrative_text = str(context.get("narrative") or "")
+    narrative_section = ""
+    if narrative_text:
+        narrative = html.escape(narrative_text)
+        narrative_section = (
+            '  <section id="narrative">\n'
+            "    <h2>Narrative</h2>\n"
+            f"    <p>{narrative}</p>\n"
+            "  </section>\n"
+        )
     metrics_html = context["metrics_html"]
     regime_table_html = context["regime_html"]
     regime_summary_text = context.get("regime_summary") or ""
@@ -729,10 +742,7 @@ def _render_html(context: Mapping[str, Any]) -> str:
         f"{exec_items}\n"
         "    </ul>\n"
         "  </section>\n"
-        '  <section id="narrative">\n'
-        "    <h2>Narrative</h2>\n"
-        f"    <p>{narrative}</p>\n"
-        "  </section>\n"
+        f"{narrative_section}"
         '  <section id="metrics">\n'
         "    <h2>Metrics</h2>\n"
         f"    {metrics_html}\n"
@@ -843,15 +853,17 @@ def _render_pdf(context: Mapping[str, Any]) -> bytes:
         pdf.multi_cell(usable_width, 6, _pdf_safe(wrapped))
     pdf.ln(2)
 
-    pdf.set_font("Helvetica", "B", 13)
-    pdf.cell(0, 8, "Narrative", ln=True)
-    pdf.set_font("Helvetica", "", 11)
-    pdf.multi_cell(
-        usable_width,
-        6,
-        _pdf_safe(_wrap_pdf_text(context["narrative"], width=84)),
-    )
-    pdf.ln(2)
+    narrative_text = str(context.get("narrative") or "")
+    if narrative_text:
+        pdf.set_font("Helvetica", "B", 13)
+        pdf.cell(0, 8, "Narrative", ln=True)
+        pdf.set_font("Helvetica", "", 11)
+        pdf.multi_cell(
+            usable_width,
+            6,
+            _pdf_safe(_wrap_pdf_text(narrative_text, width=84)),
+        )
+        pdf.ln(2)
 
     pdf.set_font("Helvetica", "B", 13)
     pdf.cell(0, 8, "Metrics", ln=True)
@@ -970,7 +982,14 @@ def generate_unified_report(
     regime_html, regime_text = _format_regime_table(regime_table)
     regime_notes = list(details_mapping.get("regime_notes", []))
     regime_summary = details_mapping.get("regime_summary")
-    narrative = _narrative(backtest, regime_summary if isinstance(regime_summary, str) else None)
+    if narrative_generation_enabled(config):
+        narrative = _narrative(
+            backtest, regime_summary if isinstance(regime_summary, str) else None
+        )
+        if STANDARD_NARRATIVE_DISCLAIMER not in narrative:
+            narrative = f"{narrative} {STANDARD_NARRATIVE_DISCLAIMER}".strip()
+    else:
+        narrative = ""
     diagnostics: list[DiagnosticPayload] = []
     if backtest_result.diagnostic:
         diagnostics.append(backtest_result.diagnostic)

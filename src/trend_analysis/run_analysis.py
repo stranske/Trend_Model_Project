@@ -98,6 +98,7 @@ def main(argv: list[str] | None = None) -> int:
                 out_formats = DEFAULT_OUTPUT_FORMATS
             if out_dir and out_formats:  # pragma: no cover - file output
                 data = {"metrics": result.metrics}
+                export.append_narrative_section(data, result.details, config=cfg)
                 regime_table = result.details.get("performance_by_regime")
                 if isinstance(regime_table, pd.DataFrame) and not regime_table.empty:
                     data["performance_by_regime"] = regime_table

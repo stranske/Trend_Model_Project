@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import inspect
+import logging
 import math
 from collections import OrderedDict
 from pathlib import Path
@@ -18,6 +19,12 @@ except Exception:  # pragma: no cover - openpyxl not installed
 import numpy as np
 import pandas as pd
 
+from ..reporting.narrative import (
+    DEFAULT_NARRATIVE_TEMPLATES,
+    build_narrative_sections,
+    narrative_generation_enabled,
+    validate_narrative_quality,
+)
 from . import bundle as bundle  # noqa: F401  # re-exported module for tests/compat
 from .bundle import export_bundle
 
@@ -29,6 +36,8 @@ FORMATTERS_EXCEL: dict[str, Callable[[Any, Any], None]] = {}
 _OPENPYXL_COLOR_MAP = {
     "red": "FFFF0000",
 }
+
+logger = logging.getLogger(__name__)
 
 
 def _normalise_color(value: Any) -> str | None:
@@ -423,6 +432,52 @@ def _metadata_summary_lines(res: Mapping[str, Any]) -> list[str]:
     # Combine all entries into one readable line separated by " | " to
     # preserve the new metadata while keeping the row budget constant.
     return [" | ".join(segments)]
+
+
+def narrative_frame_from_result(
+    res: Mapping[str, Any],
+    config: Any | None = None,
+) -> pd.DataFrame | None:
+    """Return a narrative DataFrame for exports when enabled."""
+    if not narrative_generation_enabled(config):
+        return None
+    if not isinstance(res, Mapping):
+        return None
+    sections = build_narrative_sections(res)
+    if not sections:
+        return None
+    issues = validate_narrative_quality(sections)
+    if issues:
+        for issue in issues:
+            detail = ""
+            if issue.section:
+                detail = f" section={issue.section}"
+            if issue.detail:
+                detail = f"{detail} detail={issue.detail}"
+            logger.warning(
+                "Narrative quality issue (%s)%s: %s",
+                issue.kind,
+                detail,
+                issue.message,
+            )
+    rows: list[dict[str, str]] = []
+    for key, text in sections.items():
+        template = DEFAULT_NARRATIVE_TEMPLATES.get(key)
+        title = template.title if template else str(key).replace("_", " ").title()
+        rows.append({"Section": title, "Narrative": str(text)})
+    return pd.DataFrame(rows, columns=["Section", "Narrative"])
+
+
+def append_narrative_section(
+    data: dict[str, pd.DataFrame],
+    res: Mapping[str, Any],
+    *,
+    config: Any | None = None,
+) -> None:
+    """Append a narrative frame to export payloads when enabled."""
+    frame = narrative_frame_from_result(res, config=config)
+    if frame is not None and not frame.empty:
+        data["narrative"] = frame
 
 
 def _build_summary_formatter(
@@ -830,10 +885,17 @@ def format_summary_text(
 
     rows: list[list[str | float | None]] = []
 
-    for label, ins, outs in [
-        ("Equal Weight", res["in_ew_stats"], res["out_ew_stats"]),
-        ("User Weight", res["in_user_stats"], res["out_user_stats"]),
-    ]:
+    base_rows: list[tuple[str, Any, Any]] = []
+    in_ew = res.get("in_ew_stats")
+    out_ew = res.get("out_ew_stats")
+    if in_ew is not None and out_ew is not None:
+        base_rows.append(("Equal Weight", in_ew, out_ew))
+    in_user = res.get("in_user_stats")
+    out_user = res.get("out_user_stats")
+    if in_user is not None and out_user is not None:
+        base_rows.append(("User Weight", in_user, out_user))
+
+    for label, ins, outs in base_rows:
         weights = None
         if label == "User Weight":
             weights = cast(Mapping[str, float], res.get("fund_weights", {}))
@@ -1314,10 +1376,17 @@ def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
             w = pd.Series(1.0 / float(len(df.columns)), index=df.columns)
         return df.mul(w, axis=1).sum(axis=1)
 
-    for label, ins, outs in [
-        ("Equal Weight", res["in_ew_stats"], res["out_ew_stats"]),
-        ("User Weight", res["in_user_stats"], res["out_user_stats"]),
-    ]:
+    base_rows: list[tuple[str, Any, Any]] = []
+    in_ew = res.get("in_ew_stats")
+    out_ew = res.get("out_ew_stats")
+    if in_ew is not None and out_ew is not None:
+        base_rows.append(("Equal Weight", in_ew, out_ew))
+    in_user = res.get("in_user_stats")
+    out_user = res.get("out_user_stats")
+    if in_user is not None and out_user is not None:
+        base_rows.append(("User Weight", in_user, out_user))
+
+    for label, ins, outs in base_rows:
         weights = None
         if label == "User Weight":
             weights = cast(Mapping[str, float], res.get("fund_weights", {}))
@@ -1344,12 +1413,21 @@ def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
         ]
         rows.append([label, pd.NA, *vals])
 
-    rows.append([pd.NA] * len(columns))
+    if base_rows:
+        rows.append([pd.NA] * len(columns))
 
     include_avg = "OS AvgCorr" in columns and "IS AvgCorr" in columns
-    for fund, stat_in in cast(Mapping[str, _Stats], res["in_sample_stats"]).items():
-        stat_out = cast(Mapping[str, _Stats], res["out_sample_stats"])[fund]
-        weight = cast(Mapping[str, float], res["fund_weights"])[fund] * 100
+    in_stats_map = cast(Mapping[str, _Stats], res.get("in_sample_stats", {}))
+    out_stats_map = cast(Mapping[str, _Stats], res.get("out_sample_stats", {}))
+    weights_map = cast(Mapping[str, float], res.get("fund_weights", {}))
+    for fund, stat_in in in_stats_map.items():
+        stat_out = out_stats_map.get(fund)
+        if stat_out is None:
+            continue
+        if fund in weights_map:
+            weight: Any = weights_map[fund] * 100
+        else:
+            weight = pd.NA
         extra = [bench_map.get(b, {}).get(fund, pd.NA) for b in bench_labels]
         os_vals = pct(stat_out)
         is_vals = pct(stat_in)
@@ -1910,6 +1988,8 @@ __all__ = [
     "make_summary_formatter",
     "make_period_formatter",
     "format_summary_text",
+    "narrative_frame_from_result",
+    "append_narrative_section",
     "export_to_excel",
     "export_to_csv",
     "export_to_json",

@@ -101,6 +101,7 @@ registry = [
 [export]
 directory = "../demo/exports"
 formats = ["csv", "xlsx", "json", "txt"]
+disable_narrative_generation = false
 
 [output]
 format = "csv"                      # default CLI export when --output is used
@@ -123,4 +124,3 @@ in_sample_len = 36
 out_sample_len = 12
 start = "2018-01"
 end = "2024-12"
-

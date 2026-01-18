@@ -89,6 +89,7 @@ def test_main_happy_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None
     assert export_calls["formats"] == ["json"]
     assert export_calls["payload_keys"] == {
         "metrics",
+        "narrative",
         "performance_by_regime",
         "regime_notes",
     }

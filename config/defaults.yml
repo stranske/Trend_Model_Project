@@ -186,6 +186,7 @@ export:
       palette: "RdYlGn"
   include_raw_returns: true
   include_vol_adj: true
+  disable_narrative_generation: false
   include_figures: false # Phase-2
 # ----------------------------------------------------------------------
 # 9. LOGGING & EXECUTION

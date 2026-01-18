@@ -31,6 +31,36 @@ class NarrativeQualityIssue:
     detail: dict[str, str] | None = None
 
 
+FORWARD_LOOKING_PHRASES = [
+    "will",
+    "forecast",
+    "projected",
+    "expect",
+    "expected",
+    "anticipate",
+    "anticipated",
+    "estimate",
+    "estimated",
+    "target",
+    "targeted",
+    "aim",
+    "aimed",
+    "plan",
+    "plans",
+    "planned",
+    "going forward",
+    "next month",
+    "next quarter",
+    "next year",
+    "future",
+]
+
+STANDARD_NARRATIVE_DISCLAIMER = (
+    "This narrative is auto-generated from observed results, excludes forward-looking "
+    "statements, and should be treated as a descriptive summary rather than investment advice."
+)
+
+
 def default_narrative_templates() -> OrderedDictType[str, NarrativeTemplateSection]:
     """Return the default narrative templates in display order."""
 
@@ -102,9 +132,7 @@ def default_narrative_templates() -> OrderedDictType[str, NarrativeTemplateSecti
         template=(
             "Metrics are computed from {return_frequency} returns between "
             "{analysis_start} and {analysis_end} using the configured rebalancing "
-            "schedule. This narrative is auto-generated from observed results, "
-            "excludes forward-looking statements, and should be treated as a "
-            "descriptive summary rather than investment advice."
+            f"schedule. {STANDARD_NARRATIVE_DISCLAIMER}"
         ),
         placeholders=(
             "return_frequency",
@@ -122,27 +150,70 @@ __all__ = [
     "DEFAULT_NARRATIVE_TEMPLATES",
     "NarrativeTemplateSection",
     "NarrativeQualityIssue",
+    "FORWARD_LOOKING_PHRASES",
+    "STANDARD_NARRATIVE_DISCLAIMER",
+    "narrative_generation_enabled",
     "extract_narrative_metrics",
     "generate_narrative_sections",
     "build_narrative_sections",
     "validate_narrative_quality",
     "default_narrative_templates",
 ]
-
-
-_FORWARD_LOOKING_RE = re.compile(
-    r"\b("
-    r"will|forecast|project(?:ed)?|expect(?:ed)?|anticipate(?:d)?|"
-    r"estimate(?:d)?|target(?:ed)?|aim(?:ed)?|plan(?:s|ned)?|"
-    r"going forward|next (?:month|quarter|year)|future"
-    r")\b",
-    re.IGNORECASE,
-)
 _DISCLAIMER_SNIPPETS = (
     "auto-generated",
     "excludes forward-looking statements",
     "investment advice",
 )
+
+
+def narrative_generation_enabled(config: Any | None) -> bool:
+    """Return True when narrative generation is enabled."""
+    if config is None:
+        return True
+    export_cfg: Any = None
+    if isinstance(config, Mapping):
+        export_cfg = config.get("export")
+        if export_cfg is None:
+            export_cfg = config
+    elif hasattr(config, "export"):
+        export_cfg = getattr(config, "export")
+    if not isinstance(export_cfg, Mapping):
+        export_cfg = {}
+
+    def _truthy(value: Any) -> bool:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+        if isinstance(value, (int, float)):
+            return bool(value)
+        return False
+
+    disable = _truthy(export_cfg.get("disable_narrative_generation"))
+    disable = disable or _truthy(export_cfg.get("DISABLE_NARRATIVE_GENERATION"))
+    return not disable
+
+
+def _contains_forward_looking(content: str) -> str | None:
+    lowered = content.lower()
+    for phrase in FORWARD_LOOKING_PHRASES:
+        phrase_l = phrase.lower()
+        if " " in phrase_l:
+            if phrase_l in lowered:
+                return phrase
+            continue
+        pattern = r"\b" + re.escape(phrase_l) + r"\b"
+        if re.search(pattern, lowered):
+            return phrase
+    return None
+
+
+def _has_standard_disclaimer(sections: Mapping[str, str]) -> bool:
+    for text in sections.values():
+        content = str(text or "").lower()
+        if STANDARD_NARRATIVE_DISCLAIMER.lower() in content:
+            return True
+    return False
 
 
 def validate_narrative_quality(sections: Mapping[str, str]) -> list[NarrativeQualityIssue]:
@@ -169,35 +240,41 @@ def validate_narrative_quality(sections: Mapping[str, str]) -> list[NarrativeQua
                 )
             )
             continue
-        if _FORWARD_LOOKING_RE.search(content):
+        phrase = _contains_forward_looking(content)
+        if phrase:
             issues.append(
                 NarrativeQualityIssue(
                     kind="forward_looking",
                     message="Narrative contains forward-looking language.",
                     section=str(key),
+                    detail={"phrase": phrase},
                 )
             )
 
+    if not sections:
+        return issues
+    has_disclaimer = _has_standard_disclaimer(sections)
     methodology = sections.get("methodology_note")
-    if methodology is None:
-        issues.append(
-            NarrativeQualityIssue(
-                kind="missing_disclaimer_section",
-                message="Methodology note section is missing.",
-            )
-        )
-    else:
-        content = str(methodology).lower()
-        missing = [snippet for snippet in _DISCLAIMER_SNIPPETS if snippet not in content]
-        if missing:
+    if not has_disclaimer:
+        if methodology is None:
             issues.append(
                 NarrativeQualityIssue(
-                    kind="missing_disclaimer_text",
-                    message="Methodology note lacks required disclaimer text.",
-                    section="methodology_note",
-                    detail={"missing_snippets": ", ".join(missing)},
+                    kind="missing_disclaimer_section",
+                    message="Methodology note section is missing.",
                 )
             )
+        else:
+            content = str(methodology).lower()
+            missing = [snippet for snippet in _DISCLAIMER_SNIPPETS if snippet not in content]
+            if missing:
+                issues.append(
+                    NarrativeQualityIssue(
+                        kind="missing_disclaimer_text",
+                        message="Methodology note lacks required disclaimer text.",
+                        section="methodology_note",
+                        detail={"missing_snippets": ", ".join(missing)},
+                    )
+                )
 
     return issues
 
@@ -436,15 +513,35 @@ class _SafeMetrics(dict[str, str]):
         return "N/A"
 
 
+def _stringify_metric(value: Any) -> str:
+    if value is None:
+        return "N/A"
+    if isinstance(value, str) and not value.strip():
+        return "N/A"
+    try:
+        if pd.isna(value):
+            return "N/A"
+    except Exception:
+        pass
+    return str(value)
+
+
+def _append_disclaimer(sections: OrderedDictType[str, str]) -> None:
+    if _has_standard_disclaimer(sections):
+        return
+    sections["disclaimer"] = STANDARD_NARRATIVE_DISCLAIMER
+
+
 def generate_narrative_sections(
     metrics: Mapping[str, str],
     templates: OrderedDictType[str, NarrativeTemplateSection] | None = None,
 ) -> OrderedDictType[str, str]:
     """Render narrative sections using templates and provided metrics."""
     sections: OrderedDictType[str, str] = OrderedDictType()
-    safe = _SafeMetrics({str(k): str(v) for k, v in metrics.items()})
+    safe = _SafeMetrics({str(k): _stringify_metric(v) for k, v in metrics.items()})
     for key, template in (templates or DEFAULT_NARRATIVE_TEMPLATES).items():
         sections[key] = template.template.format_map(safe)
+    _append_disclaimer(sections)
     return sections
 
 

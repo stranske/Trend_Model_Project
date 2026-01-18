@@ -2,6 +2,7 @@ import pandas as pd
 
 from trend_analysis.reporting.narrative import (
     DEFAULT_NARRATIVE_TEMPLATES,
+    STANDARD_NARRATIVE_DISCLAIMER,
     build_narrative_sections,
     extract_narrative_metrics,
     generate_narrative_sections,
@@ -70,9 +71,24 @@ def test_build_narrative_sections_formats_templates():
     sections = generate_narrative_sections(metrics, templates=DEFAULT_NARRATIVE_TEMPLATES)
     built = build_narrative_sections(res)
 
-    assert list(sections) == list(DEFAULT_NARRATIVE_TEMPLATES)
-    assert list(built) == list(DEFAULT_NARRATIVE_TEMPLATES)
+    expected_keys = list(DEFAULT_NARRATIVE_TEMPLATES)
+    assert list(sections) == expected_keys
+    assert list(built) == expected_keys
     for section_text in sections.values():
         assert "{" not in section_text
         assert "}" not in section_text
     assert "Monthly returns" in sections["methodology_note"]
+    assert STANDARD_NARRATIVE_DISCLAIMER in sections["methodology_note"]
+
+
+def test_generate_narrative_sections_handles_sparse_metrics():
+    res = {
+        "out_user_stats": (None, float("nan"), None, None, None, None),
+        "out_sample_scaled": pd.DataFrame(),
+        "metadata": {},
+    }
+
+    sections = build_narrative_sections(res)
+
+    assert "nan" not in sections["executive_summary"].lower()
+    assert "N/A" in sections["executive_summary"]

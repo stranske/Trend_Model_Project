@@ -521,7 +521,8 @@
         ],
         "include_figures": false,
         "include_raw_returns": true,
-        "include_vol_adj": true
+        "include_vol_adj": true,
+        "disable_narrative_generation": false
       },
       "description": "Export settings for output artifacts.",
       "nl_editable": true,
@@ -633,6 +634,13 @@
           "constraints": {},
           "default": true,
           "description": "Include volatility-adjusted series in exports.",
+          "nl_editable": true,
+          "type": "boolean"
+        },
+        "disable_narrative_generation": {
+          "constraints": {},
+          "default": false,
+          "description": "Disable narrative generation in exports.",
           "nl_editable": true,
           "type": "boolean"
         }

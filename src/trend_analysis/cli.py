@@ -616,6 +616,8 @@ def main(argv: list[str] | None = None) -> int:
             out_dir_path = Path(out_dir)
             fmt_list = list(out_formats)
             data = {"metrics": metrics_df}
+            if isinstance(res, Mapping):
+                export.append_narrative_section(data, res, config=cfg)
             maybe_log_step(
                 do_structured,
                 run_id,
@@ -632,7 +634,7 @@ def main(argv: list[str] | None = None) -> int:
                     str(split.get("out_start")),
                     str(split.get("out_end")),
                 )
-                data["summary"] = pd.DataFrame()
+                data["summary"] = export.summary_frame_from_result(res)
                 export.export_to_excel(
                     data,
                     str(out_dir_path / f"{filename}.xlsx"),
