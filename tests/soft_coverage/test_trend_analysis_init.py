@@ -179,9 +179,7 @@ def test_conditional_forwarders_execute(monkeypatch):
     trend_analysis_module.__dict__["data"] = importlib.import_module("trend_analysis.data")
     trend_analysis_module.__dict__["export"] = importlib.import_module("trend_analysis.export")
 
-    block = (
-        "\n" * 171
-        + """
+    block = "\n" * 171 + """
 if "data" in globals():
     from .data import identify_risk_free_fund, load_csv
 
@@ -206,7 +204,6 @@ if "export" in globals():
         reset_formatters_excel,
     )
 """
-    )
 
     exec(
         compile(block, trend_analysis_module.__file__, "exec"),

@@ -327,8 +327,7 @@ def test_load_configuration_reads_file(tmp_path: Path, monkeypatch: pytest.Monke
     csv_path = tmp_path / "returns.csv"
     csv_path.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
     cfg_file.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             version: "1"
             data:
               csv_path: returns.csv
@@ -348,8 +347,7 @@ def test_load_configuration_reads_file(tmp_path: Path, monkeypatch: pytest.Monke
             metrics: {}
             export: {}
             run: {}
-            """
-        ),
+            """),
         encoding="utf-8",
     )
 
@@ -367,8 +365,7 @@ def test_load_configuration_runs_core_then_full_validation(
     csv_path = tmp_path / "returns.csv"
     csv_path.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
     cfg_file.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             version: "1"
             data:
               csv_path: returns.csv
@@ -385,8 +382,7 @@ def test_load_configuration_runs_core_then_full_validation(
             metrics: {}
             export: {}
             run: {}
-            """
-        ),
+            """),
         encoding="utf-8",
     )
 

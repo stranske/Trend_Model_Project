@@ -290,7 +290,9 @@ def main():
         return
 
     if "sim_config" not in st.session_state or not st.session_state["sim_config"]:
-        st.warning("⚠️ **Configuration Required**: Please configure your analysis parameters first.")
+        st.warning(
+            "⚠️ **Configuration Required**: Please configure your analysis parameters first."
+        )
         st.info("👈 Go to the **Configure** page to set up your analysis.")
         return
 

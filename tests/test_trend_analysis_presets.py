@@ -15,8 +15,7 @@ def create_registry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     base = tmp_path / "presets"
     base.mkdir()
 
-    sample = dedent(
-        """
+    sample = dedent("""
         name: Zulu Preset
         description: Sample preset used for tests
         signals:
@@ -35,8 +34,7 @@ def create_registry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
             length: 42
         run:
           trend_preset: zulu
-        """
-    ).strip()
+        """).strip()
 
     (base / "zulu.yml").write_text(sample, encoding="utf-8")
 
@@ -317,18 +315,15 @@ def test_preset_registry_loads_yaml_and_handles_overrides(
     base.mkdir()
     env_dir.mkdir()
 
-    (base / "alpha.yml").write_text(
-        """
+    (base / "alpha.yml").write_text("""
 name: Alpha Base
 signals:
   window: 40
   min_periods: 20
   lag: 1
-"""
-    )
+""")
 
-    (env_dir / "alpha.yml").write_text(
-        """
+    (env_dir / "alpha.yml").write_text("""
 name: Alpha Override
 description: Override description
 signals:
@@ -353,18 +348,15 @@ vol_adjust:
   enabled: false
   window:
     fast: 21
-"""
-    )
+""")
 
-    (env_dir / "beta.yml").write_text(
-        """
+    (env_dir / "beta.yml").write_text("""
 name: Beta Preset
 signals:
   window: 30
   min_periods: 15
   lag: 2
-"""
-    )
+""")
 
     monkeypatch.setattr(preset_module, "PRESETS_DIR", base)
     monkeypatch.setenv("TREND_PRESETS_DIR", str(env_dir))
@@ -443,15 +435,13 @@ def test_apply_trend_preset_handles_non_mapping_sections(
     base.mkdir()
     env_dir.mkdir()
 
-    (env_dir / "alpha.yml").write_text(
-        """
+    (env_dir / "alpha.yml").write_text("""
 name: Alpha Override
 signals:
   window: 20
   lag: 1
   vol_adjust: false
-"""
-    )
+""")
 
     monkeypatch.setattr(preset_module, "PRESETS_DIR", base)
     monkeypatch.setattr(preset_module, "_DEFAULT_PRESETS_DIR", base)

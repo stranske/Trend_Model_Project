@@ -285,7 +285,7 @@ def test_main_applies_default_export_settings(
 
     assert exit_code == 0
     assert export_calls, "export_data should be invoked with default settings"
-    (data_args, data_kwargs) = export_calls[0]
+    data_args, data_kwargs = export_calls[0]
     assert Path(data_args[1]).parent == sentinel_dir
     assert "formats" in data_kwargs
     assert data_kwargs["formats"] == sentinel_formats

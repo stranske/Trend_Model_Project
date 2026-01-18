@@ -14,8 +14,7 @@ from scripts import sync_test_dependencies as sync
 
 def _write_pyproject(base: Path, dev: list[str] | None = None) -> None:
     dev = dev or []
-    content = textwrap.dedent(
-        """
+    content = textwrap.dedent("""
         [project]
         name = "demo"
         version = "0.0.0"
@@ -28,8 +27,7 @@ def _write_pyproject(base: Path, dev: list[str] | None = None) -> None:
         dev = [
         {dev_entries}
         ]
-        """
-    ).strip()
+        """).strip()
     dev_block = "\n".join(f'    "{item}",' for item in dev)
     content = content.format(dev_entries=dev_block)
     base.joinpath("pyproject.toml").write_text(content + "\n", encoding="utf-8")

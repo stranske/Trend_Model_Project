@@ -76,12 +76,10 @@ def test_load_csv_raises_when_requested(tmp_path: Path) -> None:
 
 def test_load_csv_numeric_normalisation(tmp_path: Path) -> None:
     csv = tmp_path / "coerce.csv"
-    csv.write_text(
-        """Date,Value,Percent,Neg
+    csv.write_text("""Date,Value,Percent,Neg
 01/31/24,"1,234e-4",50%,(100e-3)
 02/29/24,"2,468e-4",75%,(200e-3)
-"""
-    )
+""")
 
     df = data_mod.load_csv(str(csv))
     assert df is not None

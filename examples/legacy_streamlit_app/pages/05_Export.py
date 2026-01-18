@@ -59,9 +59,7 @@ def _cached_export_bundle(cache_key: str, config_dict, _run):
         return bundle_data, zip_path.name
 
 
-st.markdown(
-    textwrap.dedent(
-        """
+st.markdown(textwrap.dedent("""
         ### Export Analysis Bundle
 
         Create a comprehensive ZIP bundle containing all analysis results, charts, and metadata.
@@ -72,9 +70,7 @@ st.markdown(
         - 📋 **Summary**: Analysis metrics and performance data (Excel format)
         - 🔍 **Metadata**: Configuration, versions, git hash, and reproducibility receipt
         - 📄 **README**: Package description and contents guide
-        """
-    )
-)
+        """))
 
 # Generate cache key for current data
 cache_key = _generate_cache_key(run, config)
@@ -112,9 +108,7 @@ try:
 
     # Bundle details
     with st.expander("📋 Bundle Details", expanded=False):
-        st.markdown(
-            textwrap.dedent(
-                f"""
+        st.markdown(textwrap.dedent(f"""
                 **Bundle Information:**
                 - **Size**: {bundle_size_mb:.2f} MB
                 - **Format**: ZIP archive
@@ -140,17 +134,13 @@ try:
                 - Git commit hash recorded
                 - Environment versions captured
                 - Input file SHA256 hash (if available)
-                """
-            )
-        )
+                """))
 
 except Exception as e:
     st.error(f"❌ Failed to create export bundle: {str(e)}")
-    st.markdown(
-        """
+    st.markdown("""
     **Troubleshooting:**
     - Ensure you have completed a simulation run
     - Check that results are available in session state
     - Try running the analysis again if the error persists
-    """
-    )
+    """)

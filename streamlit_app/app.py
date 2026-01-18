@@ -28,8 +28,7 @@ st.set_page_config(
     layout="wide",
 )
 st.title("Portfolio Simulator")
-st.markdown(
-    """
+st.markdown("""
 Welcome! This app analyzes trend-following fund portfolios with volatility adjustment.
 
 **Quick Start:**
@@ -38,8 +37,7 @@ Welcome! This app analyzes trend-following fund portfolios with volatility adjus
 
 The demo uses a specialized policy-based engine optimized for the sample dataset.
 For full control over all parameters, use the Custom Analysis flow.
-    """
-)
+    """)
 
 st.markdown("---")
 
@@ -225,14 +223,12 @@ st.markdown("---")
 # CUSTOM ANALYSIS SECTION
 # =============================================================================
 st.subheader("🔧 Custom Analysis")
-st.markdown(
-    """
+st.markdown("""
     For full control over all parameters, use the manual workflow:
     1. **Data** - Load your own CSV/Excel file
     2. **Model** - Configure all analysis parameters
     3. **Results** - View and export results
-    """
-)
+    """)
 
 if st.button("📂 Go to Data Upload", use_container_width=True):
     st.switch_page("pages/1_Data.py")

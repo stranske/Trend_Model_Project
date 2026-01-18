@@ -51,8 +51,7 @@ def test_src_only_import_rejects_legacy_modules(tmp_path: Path) -> None:
     env = os.environ.copy()
     env["PYTHONPATH"] = str(src_dir)
 
-    script = textwrap.dedent(
-        f"""
+    script = textwrap.dedent(f"""
         import importlib
 
         for package_name in {PACKAGE_NAMES!r}:
@@ -68,8 +67,7 @@ def test_src_only_import_rejects_legacy_modules(tmp_path: Path) -> None:
 
         if failures:
             raise SystemExit("Unexpectedly imported legacy modules: " + str(failures))
-        """
-    )
+        """)
 
     # Use -S (no site-packages) to prevent editable installs from leaking repo root
     subprocess.run(

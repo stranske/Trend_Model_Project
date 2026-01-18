@@ -363,8 +363,7 @@ def test_format_summary_table_includes_failure_diagnostics() -> None:
 def test_load_cases_clones_shared_yaml_anchors(tmp_path: Path) -> None:
     cases_file = tmp_path / "cases.yml"
     cases_file.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             base_config: &base_config
               analysis:
                 top_n: 8
@@ -393,8 +392,7 @@ def test_load_cases_clones_shared_yaml_anchors(tmp_path: Path) -> None:
                   operations: []
                   risk_flags: []
                   summary: "No changes."
-            """
-        ).lstrip(),
+            """).lstrip(),
         encoding="utf-8",
     )
 
@@ -412,8 +410,7 @@ def test_load_cases_clones_shared_yaml_anchors(tmp_path: Path) -> None:
 def test_cli_min_cases_enforced(tmp_path: Path) -> None:
     cases_file = tmp_path / "cases.yml"
     cases_file.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             cases:
               - id: single_case
                 instruction: "Set top_n to 9."
@@ -424,8 +421,7 @@ def test_cli_min_cases_enforced(tmp_path: Path) -> None:
                   operations: []
                   risk_flags: []
                   summary: "No changes."
-            """
-        ).lstrip(),
+            """).lstrip(),
         encoding="utf-8",
     )
     report_path = tmp_path / "report.json"
