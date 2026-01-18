@@ -140,3 +140,13 @@ def test_generate_unified_report_includes_spec_summary() -> None:
 
     assert "Trend window" in params
     assert "Rank inclusion" in params
+
+
+def test_generate_unified_report_skips_narrative_when_disabled() -> None:
+    result = _make_result()
+    config = _make_config()
+    config.export = {"disable_narrative_generation": True}
+
+    artifacts = generate_unified_report(result, config, run_id="nonarrative", include_pdf=False)
+
+    assert '<section id="narrative">' not in artifacts.html
