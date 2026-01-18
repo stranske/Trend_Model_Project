@@ -303,6 +303,13 @@ def _resolve_parent(
             if segment not in current or current[segment] is None:
                 if allow_missing:
                     return None, None
+                if segment not in current and current:
+                    close = difflib.get_close_matches(segment, current.keys(), n=1, cutoff=0.6)
+                    if close:
+                        raise KeyError(
+                            f"path segment '{segment}' does not exist. "
+                            f"Did you mean '{close[0]}'?"
+                        )
                 current[segment] = [] if isinstance(next_segment, int) else {}
             current = current[segment]
         else:
