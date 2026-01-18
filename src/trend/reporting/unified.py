@@ -15,6 +15,11 @@ from typing import TYPE_CHECKING, Any, Literal, Mapping, Sequence, cast
 import matplotlib
 import pandas as pd
 
+from trend_analysis.reporting.narrative import (
+    STANDARD_NARRATIVE_DISCLAIMER,
+    narrative_generation_enabled,
+)
+
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 from trend_analysis.backtesting import BacktestResult, CostModel
 
@@ -970,7 +975,14 @@ def generate_unified_report(
     regime_html, regime_text = _format_regime_table(regime_table)
     regime_notes = list(details_mapping.get("regime_notes", []))
     regime_summary = details_mapping.get("regime_summary")
-    narrative = _narrative(backtest, regime_summary if isinstance(regime_summary, str) else None)
+    if narrative_generation_enabled(config):
+        narrative = _narrative(
+            backtest, regime_summary if isinstance(regime_summary, str) else None
+        )
+        if STANDARD_NARRATIVE_DISCLAIMER not in narrative:
+            narrative = f"{narrative} {STANDARD_NARRATIVE_DISCLAIMER}".strip()
+    else:
+        narrative = ""
     diagnostics: list[DiagnosticPayload] = []
     if backtest_result.diagnostic:
         diagnostics.append(backtest_result.diagnostic)

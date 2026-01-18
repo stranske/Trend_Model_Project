@@ -616,6 +616,8 @@ def main(argv: list[str] | None = None) -> int:
             out_dir_path = Path(out_dir)
             fmt_list = list(out_formats)
             data = {"metrics": metrics_df}
+            if isinstance(res, Mapping):
+                export.append_narrative_section(data, res, config=cfg)
             maybe_log_step(
                 do_structured,
                 run_id,

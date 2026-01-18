@@ -20,6 +20,11 @@ import pandas as pd
 
 from . import bundle as bundle  # noqa: F401  # re-exported module for tests/compat
 from .bundle import export_bundle
+from ..reporting.narrative import (
+    DEFAULT_NARRATIVE_TEMPLATES,
+    build_narrative_sections,
+    narrative_generation_enabled,
+)
 
 Formatter = Callable[[pd.DataFrame], pd.DataFrame]
 
@@ -423,6 +428,38 @@ def _metadata_summary_lines(res: Mapping[str, Any]) -> list[str]:
     # Combine all entries into one readable line separated by " | " to
     # preserve the new metadata while keeping the row budget constant.
     return [" | ".join(segments)]
+
+
+def narrative_frame_from_result(
+    res: Mapping[str, Any],
+    config: Any | None = None,
+) -> pd.DataFrame | None:
+    """Return a narrative DataFrame for exports when enabled."""
+    if not narrative_generation_enabled(config):
+        return None
+    if not isinstance(res, Mapping):
+        return None
+    sections = build_narrative_sections(res)
+    if not sections:
+        return None
+    rows: list[dict[str, str]] = []
+    for key, text in sections.items():
+        template = DEFAULT_NARRATIVE_TEMPLATES.get(key)
+        title = template.title if template else str(key).replace("_", " ").title()
+        rows.append({"Section": title, "Narrative": str(text)})
+    return pd.DataFrame(rows, columns=["Section", "Narrative"])
+
+
+def append_narrative_section(
+    data: dict[str, pd.DataFrame],
+    res: Mapping[str, Any],
+    *,
+    config: Any | None = None,
+) -> None:
+    """Append a narrative frame to export payloads when enabled."""
+    frame = narrative_frame_from_result(res, config=config)
+    if frame is not None and not frame.empty:
+        data["narrative"] = frame
 
 
 def _build_summary_formatter(
@@ -1910,6 +1947,8 @@ __all__ = [
     "make_summary_formatter",
     "make_period_formatter",
     "format_summary_text",
+    "narrative_frame_from_result",
+    "append_narrative_section",
     "export_to_excel",
     "export_to_csv",
     "export_to_json",

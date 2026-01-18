@@ -114,6 +114,7 @@ _MANUAL_DESCRIPTIONS: dict[str, str] = {
     "export.excel.conditional_bands.palette": "Color palette name for Excel conditional bands.",
     "export.include_raw_returns": "Include raw return series in exports.",
     "export.include_vol_adj": "Include volatility-adjusted series in exports.",
+    "export.disable_narrative_generation": "Disable narrative generation in exports.",
     "metrics": "Performance metrics configuration.",
     "metrics.compute": "Legacy metrics list for reporting exports.",
     "metrics.registry": "Metric registry identifiers for score frame.",
