@@ -50,8 +50,7 @@ def test_apply_trend_preset_updates_config():
 def test_env_override_directory_precedence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     override_dir = tmp_path / "override"
     override_dir.mkdir()
-    yaml_content = dedent(
-        """
+    yaml_content = dedent("""
         name: Conservative
         description: Override conservative preset
         lookback_periods: 48
@@ -65,8 +64,7 @@ def test_env_override_directory_precedence(tmp_path: Path, monkeypatch: pytest.M
           window: 10
           lag: 1
           vol_adjust: false
-        """
-    )
+        """)
     (override_dir / "conservative.yml").write_text(yaml_content, encoding="utf-8")
 
     monkeypatch.setenv("TREND_PRESETS_DIR", str(override_dir))

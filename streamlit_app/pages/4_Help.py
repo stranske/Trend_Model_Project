@@ -9,17 +9,14 @@ st.set_page_config(page_title="Help - Portfolio Simulator", page_icon="📖", la
 
 def render_help_page() -> None:
     st.title("📖 Configuration Reference")
-    st.markdown(
-        """
+    st.markdown("""
 This guide explains all configuration parameters available in the Model page.
 Use the sections below to understand how each setting affects your analysis.
-        """
-    )
+        """)
 
     # Table of contents
     st.markdown("---")
-    st.markdown(
-        """
+    st.markdown("""
 **Jump to section:**
 - [Fund Selection Settings](#fund-selection-settings)
 - [Portfolio Settings](#portfolio-settings)
@@ -27,21 +24,17 @@ Use the sections below to understand how each setting affects your analysis.
 - [Risk Settings](#risk-settings)
 - [Weighting Schemes](#weighting-schemes)
 - [Tips for Common Scenarios](#tips-for-common-scenarios)
-        """
-    )
+        """)
 
     # Fund Selection Settings (formerly Trend Signal)
     st.markdown("---")
     st.header("Fund Selection Settings")
-    st.markdown(
-        """
+    st.markdown("""
 These settings control how funds are evaluated and filtered for inclusion in the portfolio.
-        """
-    )
+        """)
 
     st.subheader("Preset")
-    st.markdown(
-        """
+    st.markdown("""
 **What it does:** Selects a pre-configured set of parameters optimized for different investment styles.
 
 | Preset | Description |
@@ -50,12 +43,10 @@ These settings control how funds are evaluated and filtered for inclusion in the
 | **Conservative** | Longer lookback periods, more data required. Reduces noise but may lag market turns. |
 | **Aggressive** | Shorter lookbacks, faster response. More responsive but potentially noisier. |
 | **Custom** | Manually configure all parameters below. |
-        """
-    )
+        """)
 
     st.subheader("Lookback Window (months)")
-    st.markdown(
-        """
+    st.markdown("""
 **What it does:** The number of months of historical returns used to calculate fund performance metrics
 (Sharpe ratio, returns, drawdowns) for ranking and selection.
 
@@ -66,12 +57,10 @@ These settings control how funds are evaluated and filtered for inclusion in the
 - **Shorter windows (12–24 months):** More relevant to current market conditions, but higher estimation error
 
 **Example:** A 36-month window bases fund metrics on the past 3 years of performance.
-        """
-    )
+        """)
 
     st.subheader("Minimum History Required")
-    st.markdown(
-        """
+    st.markdown("""
 **What it does:** The minimum number of months of return data a fund must have to be considered
 for portfolio inclusion. Funds with less history are excluded from selection.
 
@@ -83,21 +72,17 @@ for portfolio inclusion. Funds with less history are excluded from selection.
 
 **Example:** With Lookback=36 and Min History=18, a fund with only 20 months of data
 will still be evaluated for inclusion.
-        """
-    )
+        """)
 
     # Portfolio Settings
     st.markdown("---")
     st.header("Portfolio Settings")
-    st.markdown(
-        """
+    st.markdown("""
 These settings control how the portfolio is constructed from the selected funds.
-        """
-    )
+        """)
 
     st.subheader("Evaluation Window (months)")
-    st.markdown(
-        """
+    st.markdown("""
 **What it does:** Defines the out-of-sample period over which portfolio performance is measured
 after fund selection. This is the "test" period.
 
@@ -107,12 +92,10 @@ after fund selection. This is the "test" period.
 then held for the evaluation period to measure realized performance.
 
 **Minimum:** 3 months (shorter periods have high variance)
-        """
-    )
+        """)
 
     st.subheader("Selection Count")
-    st.markdown(
-        """
+    st.markdown("""
 **What it does:** The number of top-ranked funds to include in the portfolio.
 
 **Default:** 10 funds
@@ -122,23 +105,19 @@ then held for the evaluation period to measure realized performance.
 - **More funds (15–20):** Diversified portfolio, lower individual fund impact, more index-like behavior
 
 **Constraint:** Cannot exceed the number of available funds in your dataset.
-        """
-    )
+        """)
 
     st.subheader("Weighting Scheme")
-    st.markdown(
-        """
+    st.markdown("""
 **What it does:** Determines how capital is allocated across the selected funds.
 
 See the [Weighting Schemes](#weighting-schemes) section below for detailed descriptions of all available options.
-        """
-    )
+        """)
 
     # Metric Weights
     st.markdown("---")
     st.header("Metric Weights")
-    st.markdown(
-        """
+    st.markdown("""
 These weights control the relative importance of each performance metric when ranking funds for selection.
 The final ranking score is a weighted combination of z-scored metrics.
 
@@ -148,13 +127,11 @@ The final ranking score is a weighted combination of z-scored metrics.
 3. Z-scores are combined using these weights
 4. Funds are ranked by their combined score
 5. Top N funds (Selection Count) are included in the portfolio
-        """
-    )
+        """)
 
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown(
-            """
+        st.markdown("""
 **Available Metrics:**
 
 | Metric | Description | Higher is Better |
@@ -165,12 +142,10 @@ The final ranking score is a weighted combination of z-scored metrics.
 | **Info Ratio** | Excess return over benchmark / tracking error | ✓ |
 | **Max Drawdown** | Largest peak-to-trough decline | ✗ (penalized) |
 | **Volatility** | Annualized standard deviation | ✗ (penalized) |
-            """
-        )
+            """)
 
     with col2:
-        st.markdown(
-            """
+        st.markdown("""
 **Example Weight Configurations:**
 
 **Risk-Focused (Conservative):**
@@ -183,16 +158,14 @@ The final ranking score is a weighted combination of z-scored metrics.
 - All weights equal (1.0 each)
 
 Weights are normalized internally, so only relative values matter.
-            """
-        )
+            """)
 
     # Risk Settings
     st.markdown("---")
     st.header("Risk Settings")
 
     st.subheader("Target Volatility (Portfolio)")
-    st.markdown(
-        """
+    st.markdown("""
 **What it does:** The target annualized volatility for the overall portfolio.
 The system scales portfolio weights to achieve approximately this volatility level.
 
@@ -204,21 +177,17 @@ weights are reduced by 1/3 (with the remainder allocated to cash or not invested
 **Trade-offs:**
 - **Lower targets (5–8%):** Conservative, more cash buffer, smaller drawdowns
 - **Higher targets (12–20%):** Aggressive, fully invested, larger potential gains and losses
-        """
-    )
+        """)
 
     # Weighting Schemes
     st.markdown("---")
     st.header("Weighting Schemes")
-    st.markdown(
-        """
+    st.markdown("""
 The weighting scheme determines how capital is distributed across selected funds.
 All schemes normalize final weights to sum to 100%.
-        """
-    )
+        """)
 
-    st.markdown(
-        """
+    st.markdown("""
 | Scheme | Description | Best For |
 |--------|-------------|----------|
 | **equal** | Each fund receives equal weight (1/N). Simple, robust, transparent. | Most users; no assumptions about fund characteristics |
@@ -230,8 +199,7 @@ All schemes normalize final weights to sum to 100%.
 
 **Fallback behavior:** If an advanced weighting scheme fails (e.g., due to insufficient data or
 numerical issues), the system automatically falls back to equal weighting and logs a warning.
-        """
-    )
+        """)
 
     # Tips
     st.markdown("---")
@@ -240,40 +208,34 @@ numerical issues), the system automatically falls back to equal weighting and lo
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.markdown(
-            """
+        st.markdown("""
 **🛡️ Conservative Long-Term**
 - Lookback: 48–60 months
 - Selection: 15–20 funds
 - Weights: Emphasize Sharpe, Drawdown
 - Target Vol: 6–8%
 - Scheme: risk_parity or hrp
-            """
-        )
+            """)
 
     with col2:
-        st.markdown(
-            """
+        st.markdown("""
 **⚡ Aggressive Momentum**
 - Lookback: 12–24 months
 - Selection: 5–8 funds
 - Weights: Emphasize Return
 - Target Vol: 15–20%
 - Scheme: equal
-            """
-        )
+            """)
 
     with col3:
-        st.markdown(
-            """
+        st.markdown("""
 **⚖️ Balanced Portfolio**
 - Lookback: 36 months
 - Selection: 10–12 funds
 - Weights: Equal (1.0 each)
 - Target Vol: 10%
 - Scheme: equal or risk_parity
-            """
-        )
+            """)
 
     st.markdown("---")
     st.caption(

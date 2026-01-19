@@ -346,8 +346,7 @@ def export_bundle(run: Any, path: Path) -> Path:
         commit_short = str(commit_hash)[:8]
         readme_path = bundle_dir / "README.txt"
         with open(readme_path, "w", encoding="utf-8") as f:
-            f.write(
-                f"""Trend Analysis Bundle
+            f.write(f"""Trend Analysis Bundle
 ====================
 
 This bundle contains the complete results of a trend analysis run, including data,
@@ -383,8 +382,7 @@ For more information about the Trend Analysis Project, visit:
 https://github.com/stranske/Trend_Model_Project
 
 Git commit: {commit_short}
-"""
-            )
+""")
 
         # Now that README.txt and receipt.txt exist, compute output hashes
         for fp in [*files_to_hash, readme_path, receipt_path]:

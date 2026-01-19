@@ -533,13 +533,11 @@ def render_validation_page() -> None:
     )
 
     st.title("🔧 Settings Validation")
-    st.markdown(
-        """
+    st.markdown("""
     This page systematically tests each UI setting to verify it's properly
     connected to the analysis pipeline. Select a setting, choose test values,
     and compare the results.
-    """
-    )
+    """)
 
     # Check if we have data loaded
     app_data = st.session_state.get("app_data")
@@ -644,15 +642,12 @@ def render_validation_page() -> None:
 
             # Check for hash computation failures before comparing
             if baseline_hash == "error" or test_hash == "error":
-                st.warning(
-                    f"""
+                st.warning(f"""
                 ⚠️ **HASH COMPUTATION FAILED**: Could not reliably compare results
                 for setting `{selected_setting.key}`. Check the console for error details.
-                """
-                )
+                """)
             elif baseline_hash == test_hash:
-                st.error(
-                    f"""
+                st.error(f"""
                 ❌ **SETTING NOT WIRED**: The setting `{selected_setting.key}` had 
                 **no effect** on the analysis results!
                 
@@ -661,15 +656,12 @@ def render_validation_page() -> None:
                 
                 Both runs produced identical results. This setting may not be
                 connected to the analysis pipeline.
-                """
-                )
+                """)
             else:
-                st.success(
-                    f"""
+                st.success(f"""
                 ✅ **SETTING IS WIRED**: The setting `{selected_setting.key}` 
                 **did change** the analysis results.
-                """
-                )
+                """)
 
             # Show detailed comparison
             col1, col2, col3 = st.columns([2, 2, 2])
@@ -792,14 +784,12 @@ def render_validation_page() -> None:
             not_wired = sum(1 for r in results if "NOT WIRED" in r["Status"])
             errors = sum(1 for r in results if "ERROR" in r["Status"])
 
-            st.markdown(
-                f"""
+            st.markdown(f"""
             **Summary for {category}:**
             - ✅ Wired: {wired}
             - ❌ Not Wired: {not_wired}
             - ⚠️ Errors: {errors}
-            """
-            )
+            """)
 
             # Download button
             csv = results_df.to_csv(index=False)

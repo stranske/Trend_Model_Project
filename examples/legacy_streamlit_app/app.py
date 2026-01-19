@@ -15,9 +15,7 @@ st.set_page_config(
 def main():
     st.title("📈 Trend Analysis Application")
 
-    st.markdown(
-        textwrap.dedent(
-            """
+    st.markdown(textwrap.dedent("""
             Welcome to the enhanced Trend Analysis application with unified execution and progress tracking.
 
             ### Getting Started:
@@ -27,9 +25,7 @@ def main():
             4. **💾 Export**: Save your findings
 
             Use the sidebar navigation to move between sections.
-            """
-        )
-    )
+            """))
 
     # Status indicators
     col1, col2, col3 = st.columns(3)
@@ -82,9 +78,7 @@ def main():
     st.markdown("### About This App")
 
     with st.expander("ℹ️ Application Features", expanded=False):
-        st.markdown(
-            textwrap.dedent(
-                """
+        st.markdown(textwrap.dedent("""
                 **Enhanced Run Page Features:**
                 - 📊 **Progress Tracking**: Real-time progress bar with 5-phase analysis
                 - 📋 **Live Logging**: View analysis logs as they happen
@@ -97,9 +91,7 @@ def main():
                 - Clear progress indication throughout analysis
                 - Expandable technical details for debugging
                 - Robust error recovery and user guidance
-                """
-            )
-        )
+                """))
 
 
 if __name__ == "__main__":

@@ -14,8 +14,7 @@ st.set_page_config(page_title="Trend Analysis Upload Test", page_icon="📤", la
 
 st.title("🔬 Upload Page Test")
 
-st.markdown(
-    """
+st.markdown("""
 This is a test environment for the new upload page functionality.
 
 **Features being tested:**
@@ -24,8 +23,7 @@ This is a test environment for the new upload page functionality.
 - Frequency detection
 - Sample template download
 - Error handling with actionable messages
-"""
-)
+""")
 
 # Import and run the upload page
 try:
