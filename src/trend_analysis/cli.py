@@ -544,6 +544,7 @@ def main(argv: list[str] | None = None) -> int:
                     port_ser = (
                         res.get("portfolio_user_weight")
                         or res.get("portfolio_equal_weight")
+                        or res.get("portfolio_user_weight_combined")
                         or res.get("portfolio_equal_weight_combined")
                     )
                 except Exception:

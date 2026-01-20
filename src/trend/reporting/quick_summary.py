@@ -66,6 +66,7 @@ def _maybe_datetime_index(series: pd.Series) -> pd.Series:
 
 def _extract_returns(details: Mapping[str, Any]) -> pd.Series:
     candidates = [
+        details.get("portfolio_user_weight_combined"),
         details.get("portfolio_equal_weight_combined"),
         details.get("portfolio_user_weight"),
         details.get("portfolio"),

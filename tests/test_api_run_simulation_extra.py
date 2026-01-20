@@ -292,3 +292,55 @@ def test_run_simulation_handles_mapping_payload_and_logging_errors(
     assert "alpha" in result.metrics.columns
     assert events[:2] == ["api_start", "analysis_start"]
     assert "portfolio_equal_weight_combined" not in result.details
+
+
+def test_build_multi_period_portfolio_dedupes_keep_last() -> None:
+    idx_first = pd.to_datetime(["2020-01-31", "2020-02-29"])
+    idx_second = pd.to_datetime(["2020-02-29", "2020-03-31"])
+    first = pd.Series([0.01, 0.02], index=idx_first)
+    second = pd.Series([0.03, 0.04], index=idx_second)
+
+    combined = api._build_multi_period_portfolio(
+        [
+            {"portfolio_user_weight": first},
+            {"portfolio_user_weight": second},
+        ]
+    )
+
+    assert combined is not None
+    assert combined.index.is_unique
+    assert combined.index.is_monotonic_increasing
+    assert combined.loc[pd.Timestamp("2020-02-29")] == second.loc[pd.Timestamp("2020-02-29")]
+
+
+def test_run_multi_period_simulation_uses_user_weight_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import trend_analysis.export as export
+    import trend_analysis.multi_period as multi_period
+
+    cfg = SimpleNamespace(multi_period={"periods": []})
+    returns = _make_returns()
+
+    idx_first = pd.to_datetime(["2020-01-31", "2020-02-29"])
+    idx_second = pd.to_datetime(["2020-02-29", "2020-03-31"])
+    first = pd.Series([0.01, 0.02], index=idx_first)
+    second = pd.Series([0.03, 0.04], index=idx_second)
+    period_results = [
+        {
+            "period": ("2020-01-01", "2020-02-29", "2020-02-29", "2020-03-31"),
+            "portfolio_user_weight": first,
+        },
+        {
+            "period": ("2020-03-01", "2020-04-30", "2020-04-30", "2020-05-31"),
+            "portfolio_user_weight": second,
+        },
+    ]
+
+    monkeypatch.setattr(multi_period, "run", lambda *_args, **_kwargs: period_results)
+    monkeypatch.setattr(export, "combined_summary_result", lambda *_args, **_kwargs: {})
+
+    result = api._run_multi_period_simulation(cfg, returns, {"python": "3.11"}, seed=1)
+
+    assert "portfolio_user_weight_combined" in result.details
+    assert "portfolio_equal_weight_combined" not in result.details

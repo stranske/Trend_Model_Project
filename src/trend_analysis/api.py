@@ -217,7 +217,7 @@ def _run_multi_period_simulation(
     details["period_results"] = period_results
     details["period_count"] = len(period_results)
     if portfolio_series is not None:
-        details["portfolio_equal_weight_combined"] = portfolio_series
+        details["portfolio_user_weight_combined"] = portfolio_series
     if turnover_series is not None:
         details["turnover"] = turnover_series
 
@@ -330,7 +330,9 @@ def _build_multi_period_portfolio(
     if not out_series_list:
         return None
 
-    return pd.concat(out_series_list).sort_index()
+    combined = pd.concat(out_series_list)
+    combined = combined[~combined.index.duplicated(keep="last")]
+    return combined.sort_index()
 
 
 def _build_combined_portfolio_series(
