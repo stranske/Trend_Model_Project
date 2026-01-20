@@ -4,8 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from trend import compat_entrypoints
 from trend import cli as trend_cli
+from trend import compat_entrypoints
 
 
 def _assert_help_exit(func, argv: list[str]) -> None:

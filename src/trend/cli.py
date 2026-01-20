@@ -67,7 +67,11 @@ from trend_analysis.llm.result_validation import (
 from trend_analysis.llm.schema import load_compact_schema
 from trend_analysis.logging_setup import setup_logging
 from trend_analysis.perf.rolling_cache import set_cache_enabled
-from trend_analysis.presets import apply_trend_preset, get_trend_preset, list_preset_slugs
+from trend_analysis.presets import (
+    apply_trend_preset,
+    get_trend_preset,
+    list_preset_slugs,
+)
 from trend_analysis.reporting.portfolio_series import select_primary_portfolio_series
 from trend_analysis.signal_presets import (
     TrendSpecPreset,
@@ -1746,9 +1750,7 @@ def main(argv: list[str] | None = None) -> int:
                     portfolio_preset = get_trend_preset(args.preset)
                 except KeyError:
                     available = ", ".join(list_preset_slugs())
-                    raise TrendCLIError(
-                        f"Unknown preset '{args.preset}'. Available: {available}"
-                    )
+                    raise TrendCLIError(f"Unknown preset '{args.preset}'. Available: {available}")
                 apply_trend_preset(cfg, portfolio_preset)
             if getattr(args, "universe", None):
                 mask, universe_spec = load_universe(args.universe, prices=returns_df)
