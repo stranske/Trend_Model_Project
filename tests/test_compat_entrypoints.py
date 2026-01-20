@@ -66,12 +66,30 @@ def test_compat_entrypoints_emit_deprecation_warnings(
     )
 
     warnings = [
-        (compat_entrypoints.trend_analysis, "Warning: 'trend-analysis' is deprecated; use 'trend run' instead."),
-        (compat_entrypoints.trend_multi_analysis, "Warning: 'trend-multi-analysis' is deprecated; use 'trend run' instead."),
-        (compat_entrypoints.trend_model, "Warning: 'trend-model' is deprecated; use 'trend' instead."),
-        (compat_entrypoints.trend_app, "Warning: 'trend-app' is deprecated; use 'trend app' instead."),
-        (compat_entrypoints.trend_run, "Warning: 'trend-run' is deprecated; use 'trend report' instead."),
-        (compat_entrypoints.trend_quick_report, "Warning: 'trend-quick-report' is deprecated; use 'trend quick-report' instead."),
+        (
+            compat_entrypoints.trend_analysis,
+            "Warning: 'trend-analysis' is deprecated; use 'trend run' instead.",
+        ),
+        (
+            compat_entrypoints.trend_multi_analysis,
+            "Warning: 'trend-multi-analysis' is deprecated; use 'trend run' instead.",
+        ),
+        (
+            compat_entrypoints.trend_model,
+            "Warning: 'trend-model' is deprecated; use 'trend' instead.",
+        ),
+        (
+            compat_entrypoints.trend_app,
+            "Warning: 'trend-app' is deprecated; use 'trend app' instead.",
+        ),
+        (
+            compat_entrypoints.trend_run,
+            "Warning: 'trend-run' is deprecated; use 'trend report' instead.",
+        ),
+        (
+            compat_entrypoints.trend_quick_report,
+            "Warning: 'trend-quick-report' is deprecated; use 'trend quick-report' instead.",
+        ),
     ]
 
     for wrapper, expected in warnings:
