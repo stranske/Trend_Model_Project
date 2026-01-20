@@ -187,9 +187,9 @@ def test_run_simulation_builds_user_weight_combined_and_dedupes(
     assert equal_series.index.is_monotonic_increasing
     pd.testing.assert_series_equal(user_series, expected_user)
     pd.testing.assert_series_equal(equal_series, expected_equal)
-    assert user_series.loc[pd.Timestamp("2020-03-31")] == expected_user.loc[
-        pd.Timestamp("2020-03-31")
-    ]
+    assert (
+        user_series.loc[pd.Timestamp("2020-03-31")] == expected_user.loc[pd.Timestamp("2020-03-31")]
+    )
 
 
 def test_run_simulation_handles_unexpected_result_type(
