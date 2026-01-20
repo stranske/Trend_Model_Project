@@ -1,0 +1,2139 @@
+version: 1
+issue: 4449
+base: main
+branch: codex/issue-4449
+tasks:
+  - id: task-01
+    title: Update `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop
+      duplicate timestamps deterministically (keep last).
+    status: done
+    started_at: '2026-01-20T14:39:46Z'
+    finished_at: '2026-01-20T14:39:56Z'
+    commit: 63bf38f636e56a2573abedf86c7e3e4baf31d12e
+    notes: []
+  - id: task-02
+    title: 'Define scope for: Define scope for: Define approach for: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
+      to drop duplicate timestamps deterministically (keep last). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Implement focused slice for: Define scope for: Define approach for: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Validate focused slice for: Define scope for: Define approach for: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Define scope for: Implement focused slice for: Define approach for: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Implement focused slice for: Implement focused slice for: Define approach
+      for: Update `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop
+      duplicate timestamps deterministically (keep last). (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Validate focused slice for: Implement focused slice for: Define approach
+      for: Update `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop
+      duplicate timestamps deterministically (keep last). (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Define scope for: Validate focused slice for: Define approach for: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Implement focused slice for: Validate focused slice for: Define approach
+      for: Update `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop
+      duplicate timestamps deterministically (keep last). (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Validate focused slice for: Validate focused slice for: Define approach
+      for: Update `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop
+      duplicate timestamps deterministically (keep last). (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Define scope for: Define scope for: Implement: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
+      to drop duplicate timestamps deterministically (keep last). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Implement focused slice for: Define scope for: Implement: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
+      to drop duplicate timestamps deterministically (keep last). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Validate focused slice for: Define scope for: Implement: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
+      to drop duplicate timestamps deterministically (keep last). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Define scope for: Implement focused slice for: Implement: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
+      to drop duplicate timestamps deterministically (keep last). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Implement focused slice for: Implement focused slice for: Implement: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Validate focused slice for: Implement focused slice for: Implement: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Define scope for: Validate focused slice for: Implement: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
+      to drop duplicate timestamps deterministically (keep last). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Implement focused slice for: Validate focused slice for: Implement: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Validate focused slice for: Validate focused slice for: Implement: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Define scope for: Define scope for: Validate: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
+      to drop duplicate timestamps deterministically (keep last). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'Implement focused slice for: Define scope for: Validate: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
+      to drop duplicate timestamps deterministically (keep last). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'Validate focused slice for: Define scope for: Validate: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
+      to drop duplicate timestamps deterministically (keep last). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: 'Define scope for: Implement focused slice for: Validate: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
+      to drop duplicate timestamps deterministically (keep last). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'Implement focused slice for: Implement focused slice for: Validate: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: 'Validate focused slice for: Implement focused slice for: Validate: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: 'Define scope for: Validate focused slice for: Validate: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
+      to drop duplicate timestamps deterministically (keep last). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: 'Implement focused slice for: Validate focused slice for: Validate: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: 'Validate focused slice for: Validate focused slice for: Validate: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: Update `_run_multi_period_simulation` to store the combined series under
+      `portfolio_user_weight_combined` (or another unambiguous key), not `portfolio_equal_weight_combined`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: 'Define scope for: Define scope for: Update `_run_multi_period_simulation`
+      to store the combined series under `portfolio_user_weight_combined` (or another
+      unambiguous key) (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: 'Implement focused slice for: Define scope for: Update `_run_multi_period_simulation`
+      to store the combined series under `portfolio_user_weight_combined` (or another
+      unambiguous key) (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: 'Validate focused slice for: Define scope for: Update `_run_multi_period_simulation`
+      to store the combined series under `portfolio_user_weight_combined` (or another
+      unambiguous key) (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: 'Define scope for: Implement focused slice for: Update `_run_multi_period_simulation`
+      to store the combined series under `portfolio_user_weight_combined` (or another
+      unambiguous key) (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: 'Implement focused slice for: Implement focused slice for: Update `_run_multi_period_simulation`
+      to store the combined series under `portfolio_user_weight_combined` (or another
+      unambiguous key) (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: 'Validate focused slice for: Implement focused slice for: Update `_run_multi_period_simulation`
+      to store the combined series under `portfolio_user_weight_combined` (or another
+      unambiguous key) (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: 'Define scope for: Validate focused slice for: Update `_run_multi_period_simulation`
+      to store the combined series under `portfolio_user_weight_combined` (or another
+      unambiguous key) (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: 'Implement focused slice for: Validate focused slice for: Update `_run_multi_period_simulation`
+      to store the combined series under `portfolio_user_weight_combined` (or another
+      unambiguous key) (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: 'Validate focused slice for: Validate focused slice for: Update `_run_multi_period_simulation`
+      to store the combined series under `portfolio_user_weight_combined` (or another
+      unambiguous key) (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: 'not `portfolio_equal_weight_combined`. (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: If backward compatibility is required, optionally keep the old key but
+      add metadata flag (e.g., `metadata["deprecated_keys"]["portfolio_equal_weight_combined"]
+      = "use portfolio_user_weight_combined"`).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: 'If backward compatibility is required (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: 'Define scope for: Define scope for: optionally keep the old key but add
+      metadata flag (e.g. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: 'Implement focused slice for: Define scope for: optionally keep the old
+      key but add metadata flag (e.g. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: 'Validate focused slice for: Define scope for: optionally keep the old
+      key but add metadata flag (e.g. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: 'Define scope for: Implement focused slice for: optionally keep the old
+      key but add metadata flag (e.g. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: 'Implement focused slice for: Implement focused slice for: optionally keep
+      the old key but add metadata flag (e.g. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: 'Validate focused slice for: Implement focused slice for: optionally keep
+      the old key but add metadata flag (e.g. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: 'Define scope for: Validate focused slice for: optionally keep the old
+      key but add metadata flag (e.g. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: 'Implement focused slice for: Validate focused slice for: optionally keep
+      the old key but add metadata flag (e.g. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: 'Validate focused slice for: Validate focused slice for: optionally keep
+      the old key but add metadata flag (e.g. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: 'Define scope for: Define scope for: `metadata["deprecated_keys"]["portfolio_equal_weight_combined"]
+      = "use portfolio_user_weight_combined"`). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: 'Implement focused slice for: Define scope for: `metadata["deprecated_keys"]["portfolio_equal_weight_combined"]
+      = "use portfolio_user_weight_combined"`). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: 'Validate focused slice for: Define scope for: `metadata["deprecated_keys"]["portfolio_equal_weight_combined"]
+      = "use portfolio_user_weight_combined"`). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: 'Define scope for: Implement focused slice for: `metadata["deprecated_keys"]["portfolio_equal_weight_combined"]
+      = "use portfolio_user_weight_combined"`). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: 'Implement focused slice for: Implement focused slice for: `metadata["deprecated_keys"]["portfolio_equal_weight_combined"]
+      = "use portfolio_user_weight_combined"`). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-56
+    title: 'Validate focused slice for: Implement focused slice for: `metadata["deprecated_keys"]["portfolio_equal_weight_combined"]
+      = "use portfolio_user_weight_combined"`). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-57
+    title: 'Define scope for: Validate focused slice for: `metadata["deprecated_keys"]["portfolio_equal_weight_combined"]
+      = "use portfolio_user_weight_combined"`). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-58
+    title: 'Implement focused slice for: Validate focused slice for: `metadata["deprecated_keys"]["portfolio_equal_weight_combined"]
+      = "use portfolio_user_weight_combined"`). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-59
+    title: 'Validate focused slice for: Validate focused slice for: `metadata["deprecated_keys"]["portfolio_equal_weight_combined"]
+      = "use portfolio_user_weight_combined"`). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-60
+    title: Add a unit test constructing `period_results` with overlapping boundary
+      timestamps to assert unique index after combination.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-61
+    title: 'Define scope for: Define scope for: Define approach for: Add a unit test
+      constructing `period_results` with overlapping boundary timestamps to assert
+      unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-62
+    title: 'Implement focused slice for: Define scope for: Define approach for: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-63
+    title: 'Validate focused slice for: Define scope for: Define approach for: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-64
+    title: 'Define scope for: Implement focused slice for: Define approach for: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-65
+    title: 'Implement focused slice for: Implement focused slice for: Define approach
+      for: Add a unit test constructing `period_results` with overlapping boundary
+      timestamps to assert unique index after combination. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-66
+    title: 'Validate focused slice for: Implement focused slice for: Define approach
+      for: Add a unit test constructing `period_results` with overlapping boundary
+      timestamps to assert unique index after combination. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-67
+    title: 'Define scope for: Validate focused slice for: Define approach for: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-68
+    title: 'Implement focused slice for: Validate focused slice for: Define approach
+      for: Add a unit test constructing `period_results` with overlapping boundary
+      timestamps to assert unique index after combination. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-69
+    title: 'Validate focused slice for: Validate focused slice for: Define approach
+      for: Add a unit test constructing `period_results` with overlapping boundary
+      timestamps to assert unique index after combination. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-70
+    title: 'Define scope for: Define scope for: Implement: Add a unit test constructing
+      `period_results` with overlapping boundary timestamps to assert unique index
+      after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-71
+    title: 'Implement focused slice for: Define scope for: Implement: Add a unit test
+      constructing `period_results` with overlapping boundary timestamps to assert
+      unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-72
+    title: 'Validate focused slice for: Define scope for: Implement: Add a unit test
+      constructing `period_results` with overlapping boundary timestamps to assert
+      unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-73
+    title: 'Define scope for: Implement focused slice for: Implement: Add a unit test
+      constructing `period_results` with overlapping boundary timestamps to assert
+      unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-74
+    title: 'Implement focused slice for: Implement focused slice for: Implement: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-75
+    title: 'Validate focused slice for: Implement focused slice for: Implement: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-76
+    title: 'Define scope for: Validate focused slice for: Implement: Add a unit test
+      constructing `period_results` with overlapping boundary timestamps to assert
+      unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-77
+    title: 'Implement focused slice for: Validate focused slice for: Implement: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-78
+    title: 'Validate focused slice for: Validate focused slice for: Implement: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-79
+    title: 'Define scope for: Define scope for: Validate: Add a unit test constructing
+      `period_results` with overlapping boundary timestamps to assert unique index
+      after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-80
+    title: 'Implement focused slice for: Define scope for: Validate: Add a unit test
+      constructing `period_results` with overlapping boundary timestamps to assert
+      unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-81
+    title: 'Validate focused slice for: Define scope for: Validate: Add a unit test
+      constructing `period_results` with overlapping boundary timestamps to assert
+      unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-82
+    title: 'Define scope for: Implement focused slice for: Validate: Add a unit test
+      constructing `period_results` with overlapping boundary timestamps to assert
+      unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-83
+    title: 'Implement focused slice for: Implement focused slice for: Validate: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-84
+    title: 'Validate focused slice for: Implement focused slice for: Validate: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-85
+    title: 'Define scope for: Validate focused slice for: Validate: Add a unit test
+      constructing `period_results` with overlapping boundary timestamps to assert
+      unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-86
+    title: 'Implement focused slice for: Validate focused slice for: Validate: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-87
+    title: 'Validate focused slice for: Validate focused slice for: Validate: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-88
+    title: Add a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-89
+    title: 'Define scope for: Define scope for: Define approach for: Add a unit test
+      confirming the multi-period combined key is the new user-weight key (and that
+      the old key is either absent or explicitly marked deprecated). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-90
+    title: 'Implement focused slice for: Define scope for: Define approach for: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-91
+    title: 'Validate focused slice for: Define scope for: Define approach for: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-92
+    title: 'Define scope for: Implement focused slice for: Define approach for: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-93
+    title: 'Implement focused slice for: Implement focused slice for: Define approach
+      for: Add a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-94
+    title: 'Validate focused slice for: Implement focused slice for: Define approach
+      for: Add a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-95
+    title: 'Define scope for: Validate focused slice for: Define approach for: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-96
+    title: 'Implement focused slice for: Validate focused slice for: Define approach
+      for: Add a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-97
+    title: 'Validate focused slice for: Validate focused slice for: Define approach
+      for: Add a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-98
+    title: 'Define scope for: Define scope for: Implement: Add a unit test confirming
+      the multi-period combined key is the new user-weight key (and that the old key
+      is either absent or explicitly marked deprecated). (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-99
+    title: 'Implement focused slice for: Define scope for: Implement: Add a unit test
+      confirming the multi-period combined key is the new user-weight key (and that
+      the old key is either absent or explicitly marked deprecated). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-100
+    title: 'Validate focused slice for: Define scope for: Implement: Add a unit test
+      confirming the multi-period combined key is the new user-weight key (and that
+      the old key is either absent or explicitly marked deprecated). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-101
+    title: 'Define scope for: Implement focused slice for: Implement: Add a unit test
+      confirming the multi-period combined key is the new user-weight key (and that
+      the old key is either absent or explicitly marked deprecated). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-102
+    title: 'Implement focused slice for: Implement focused slice for: Implement: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-103
+    title: 'Validate focused slice for: Implement focused slice for: Implement: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-104
+    title: 'Define scope for: Validate focused slice for: Implement: Add a unit test
+      confirming the multi-period combined key is the new user-weight key (and that
+      the old key is either absent or explicitly marked deprecated). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-105
+    title: 'Implement focused slice for: Validate focused slice for: Implement: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-106
+    title: 'Validate focused slice for: Validate focused slice for: Implement: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-107
+    title: 'Define scope for: Define scope for: Validate: Add a unit test confirming
+      the multi-period combined key is the new user-weight key (and that the old key
+      is either absent or explicitly marked deprecated). (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-108
+    title: 'Implement focused slice for: Define scope for: Validate: Add a unit test
+      confirming the multi-period combined key is the new user-weight key (and that
+      the old key is either absent or explicitly marked deprecated). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-109
+    title: 'Validate focused slice for: Define scope for: Validate: Add a unit test
+      confirming the multi-period combined key is the new user-weight key (and that
+      the old key is either absent or explicitly marked deprecated). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-110
+    title: 'Define scope for: Implement focused slice for: Validate: Add a unit test
+      confirming the multi-period combined key is the new user-weight key (and that
+      the old key is either absent or explicitly marked deprecated). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-111
+    title: 'Implement focused slice for: Implement focused slice for: Validate: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-112
+    title: 'Validate focused slice for: Implement focused slice for: Validate: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-113
+    title: 'Define scope for: Validate focused slice for: Validate: Add a unit test
+      confirming the multi-period combined key is the new user-weight key (and that
+      the old key is either absent or explicitly marked deprecated). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-114
+    title: 'Implement focused slice for: Validate focused slice for: Validate: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-115
+    title: 'Validate focused slice for: Validate focused slice for: Validate: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-116
+    title: Update `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop
+      duplicate timestamps deterministically (keep last).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-117
+    title: 'Define scope for: Define scope for: Define approach for: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
+      to drop duplicate timestamps deterministically (keep last). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-118
+    title: 'Implement focused slice for: Define scope for: Define approach for: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-119
+    title: 'Validate focused slice for: Define scope for: Define approach for: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-120
+    title: 'Define scope for: Implement focused slice for: Define approach for: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-121
+    title: 'Implement focused slice for: Implement focused slice for: Define approach
+      for: Update `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop
+      duplicate timestamps deterministically (keep last). (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-122
+    title: 'Validate focused slice for: Implement focused slice for: Define approach
+      for: Update `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop
+      duplicate timestamps deterministically (keep last). (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-123
+    title: 'Define scope for: Validate focused slice for: Define approach for: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-124
+    title: 'Implement focused slice for: Validate focused slice for: Define approach
+      for: Update `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop
+      duplicate timestamps deterministically (keep last). (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-125
+    title: 'Validate focused slice for: Validate focused slice for: Define approach
+      for: Update `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop
+      duplicate timestamps deterministically (keep last). (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-126
+    title: 'Define scope for: Define scope for: Implement: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
+      to drop duplicate timestamps deterministically (keep last). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-127
+    title: 'Implement focused slice for: Define scope for: Implement: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
+      to drop duplicate timestamps deterministically (keep last). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-128
+    title: 'Validate focused slice for: Define scope for: Implement: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
+      to drop duplicate timestamps deterministically (keep last). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-129
+    title: 'Define scope for: Implement focused slice for: Implement: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
+      to drop duplicate timestamps deterministically (keep last). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-130
+    title: 'Implement focused slice for: Implement focused slice for: Implement: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-131
+    title: 'Validate focused slice for: Implement focused slice for: Implement: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-132
+    title: 'Define scope for: Validate focused slice for: Implement: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
+      to drop duplicate timestamps deterministically (keep last). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-133
+    title: 'Implement focused slice for: Validate focused slice for: Implement: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-134
+    title: 'Validate focused slice for: Validate focused slice for: Implement: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-135
+    title: 'Define scope for: Define scope for: Validate: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
+      to drop duplicate timestamps deterministically (keep last). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-136
+    title: 'Implement focused slice for: Define scope for: Validate: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
+      to drop duplicate timestamps deterministically (keep last). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-137
+    title: 'Validate focused slice for: Define scope for: Validate: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
+      to drop duplicate timestamps deterministically (keep last). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-138
+    title: 'Define scope for: Implement focused slice for: Validate: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
+      to drop duplicate timestamps deterministically (keep last). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-139
+    title: 'Implement focused slice for: Implement focused slice for: Validate: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-140
+    title: 'Validate focused slice for: Implement focused slice for: Validate: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-141
+    title: 'Define scope for: Validate focused slice for: Validate: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
+      to drop duplicate timestamps deterministically (keep last). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-142
+    title: 'Implement focused slice for: Validate focused slice for: Validate: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-143
+    title: 'Validate focused slice for: Validate focused slice for: Validate: Update
+      `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate
+      timestamps deterministically (keep last). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-144
+    title: Update `_run_multi_period_simulation` to store the combined series under
+      `portfolio_user_weight_combined` (or another unambiguous key), not `portfolio_equal_weight_combined`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-145
+    title: 'Define scope for: Define scope for: Update `_run_multi_period_simulation`
+      to store the combined series under `portfolio_user_weight_combined` (or another
+      unambiguous key) (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-146
+    title: 'Implement focused slice for: Define scope for: Update `_run_multi_period_simulation`
+      to store the combined series under `portfolio_user_weight_combined` (or another
+      unambiguous key) (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-147
+    title: 'Validate focused slice for: Define scope for: Update `_run_multi_period_simulation`
+      to store the combined series under `portfolio_user_weight_combined` (or another
+      unambiguous key) (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-148
+    title: 'Define scope for: Implement focused slice for: Update `_run_multi_period_simulation`
+      to store the combined series under `portfolio_user_weight_combined` (or another
+      unambiguous key) (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-149
+    title: 'Implement focused slice for: Implement focused slice for: Update `_run_multi_period_simulation`
+      to store the combined series under `portfolio_user_weight_combined` (or another
+      unambiguous key) (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-150
+    title: 'Validate focused slice for: Implement focused slice for: Update `_run_multi_period_simulation`
+      to store the combined series under `portfolio_user_weight_combined` (or another
+      unambiguous key) (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-151
+    title: 'Define scope for: Validate focused slice for: Update `_run_multi_period_simulation`
+      to store the combined series under `portfolio_user_weight_combined` (or another
+      unambiguous key) (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-152
+    title: 'Implement focused slice for: Validate focused slice for: Update `_run_multi_period_simulation`
+      to store the combined series under `portfolio_user_weight_combined` (or another
+      unambiguous key) (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-153
+    title: 'Validate focused slice for: Validate focused slice for: Update `_run_multi_period_simulation`
+      to store the combined series under `portfolio_user_weight_combined` (or another
+      unambiguous key) (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-154
+    title: 'not `portfolio_equal_weight_combined`. (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-155
+    title: If backward compatibility is required, optionally keep the old key but
+      add metadata flag (e.g., `metadata["deprecated_keys"]["portfolio_equal_weight_combined"]
+      = "use portfolio_user_weight_combined"`).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-156
+    title: 'If backward compatibility is required (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-157
+    title: 'Define scope for: Define scope for: optionally keep the old key but add
+      metadata flag (e.g. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-158
+    title: 'Implement focused slice for: Define scope for: optionally keep the old
+      key but add metadata flag (e.g. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-159
+    title: 'Validate focused slice for: Define scope for: optionally keep the old
+      key but add metadata flag (e.g. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-160
+    title: 'Define scope for: Implement focused slice for: optionally keep the old
+      key but add metadata flag (e.g. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-161
+    title: 'Implement focused slice for: Implement focused slice for: optionally keep
+      the old key but add metadata flag (e.g. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-162
+    title: 'Validate focused slice for: Implement focused slice for: optionally keep
+      the old key but add metadata flag (e.g. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-163
+    title: 'Define scope for: Validate focused slice for: optionally keep the old
+      key but add metadata flag (e.g. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-164
+    title: 'Implement focused slice for: Validate focused slice for: optionally keep
+      the old key but add metadata flag (e.g. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-165
+    title: 'Validate focused slice for: Validate focused slice for: optionally keep
+      the old key but add metadata flag (e.g. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-166
+    title: 'Define scope for: Define scope for: `metadata["deprecated_keys"]["portfolio_equal_weight_combined"]
+      = "use portfolio_user_weight_combined"`). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-167
+    title: 'Implement focused slice for: Define scope for: `metadata["deprecated_keys"]["portfolio_equal_weight_combined"]
+      = "use portfolio_user_weight_combined"`). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-168
+    title: 'Validate focused slice for: Define scope for: `metadata["deprecated_keys"]["portfolio_equal_weight_combined"]
+      = "use portfolio_user_weight_combined"`). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-169
+    title: 'Define scope for: Implement focused slice for: `metadata["deprecated_keys"]["portfolio_equal_weight_combined"]
+      = "use portfolio_user_weight_combined"`). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-170
+    title: 'Implement focused slice for: Implement focused slice for: `metadata["deprecated_keys"]["portfolio_equal_weight_combined"]
+      = "use portfolio_user_weight_combined"`). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-171
+    title: 'Validate focused slice for: Implement focused slice for: `metadata["deprecated_keys"]["portfolio_equal_weight_combined"]
+      = "use portfolio_user_weight_combined"`). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-172
+    title: 'Define scope for: Validate focused slice for: `metadata["deprecated_keys"]["portfolio_equal_weight_combined"]
+      = "use portfolio_user_weight_combined"`). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-173
+    title: 'Implement focused slice for: Validate focused slice for: `metadata["deprecated_keys"]["portfolio_equal_weight_combined"]
+      = "use portfolio_user_weight_combined"`). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-174
+    title: 'Validate focused slice for: Validate focused slice for: `metadata["deprecated_keys"]["portfolio_equal_weight_combined"]
+      = "use portfolio_user_weight_combined"`). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-175
+    title: Add a unit test constructing `period_results` with overlapping boundary
+      timestamps to assert unique index after combination.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-176
+    title: 'Define scope for: Define scope for: Define approach for: Add a unit test
+      constructing `period_results` with overlapping boundary timestamps to assert
+      unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-177
+    title: 'Implement focused slice for: Define scope for: Define approach for: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-178
+    title: 'Validate focused slice for: Define scope for: Define approach for: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-179
+    title: 'Define scope for: Implement focused slice for: Define approach for: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-180
+    title: 'Implement focused slice for: Implement focused slice for: Define approach
+      for: Add a unit test constructing `period_results` with overlapping boundary
+      timestamps to assert unique index after combination. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-181
+    title: 'Validate focused slice for: Implement focused slice for: Define approach
+      for: Add a unit test constructing `period_results` with overlapping boundary
+      timestamps to assert unique index after combination. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-182
+    title: 'Define scope for: Validate focused slice for: Define approach for: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-183
+    title: 'Implement focused slice for: Validate focused slice for: Define approach
+      for: Add a unit test constructing `period_results` with overlapping boundary
+      timestamps to assert unique index after combination. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-184
+    title: 'Validate focused slice for: Validate focused slice for: Define approach
+      for: Add a unit test constructing `period_results` with overlapping boundary
+      timestamps to assert unique index after combination. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-185
+    title: 'Define scope for: Define scope for: Implement: Add a unit test constructing
+      `period_results` with overlapping boundary timestamps to assert unique index
+      after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-186
+    title: 'Implement focused slice for: Define scope for: Implement: Add a unit test
+      constructing `period_results` with overlapping boundary timestamps to assert
+      unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-187
+    title: 'Validate focused slice for: Define scope for: Implement: Add a unit test
+      constructing `period_results` with overlapping boundary timestamps to assert
+      unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-188
+    title: 'Define scope for: Implement focused slice for: Implement: Add a unit test
+      constructing `period_results` with overlapping boundary timestamps to assert
+      unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-189
+    title: 'Implement focused slice for: Implement focused slice for: Implement: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-190
+    title: 'Validate focused slice for: Implement focused slice for: Implement: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-191
+    title: 'Define scope for: Validate focused slice for: Implement: Add a unit test
+      constructing `period_results` with overlapping boundary timestamps to assert
+      unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-192
+    title: 'Implement focused slice for: Validate focused slice for: Implement: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-193
+    title: 'Validate focused slice for: Validate focused slice for: Implement: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-194
+    title: 'Define scope for: Define scope for: Validate: Add a unit test constructing
+      `period_results` with overlapping boundary timestamps to assert unique index
+      after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-195
+    title: 'Implement focused slice for: Define scope for: Validate: Add a unit test
+      constructing `period_results` with overlapping boundary timestamps to assert
+      unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-196
+    title: 'Validate focused slice for: Define scope for: Validate: Add a unit test
+      constructing `period_results` with overlapping boundary timestamps to assert
+      unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-197
+    title: 'Define scope for: Implement focused slice for: Validate: Add a unit test
+      constructing `period_results` with overlapping boundary timestamps to assert
+      unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-198
+    title: 'Implement focused slice for: Implement focused slice for: Validate: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-199
+    title: 'Validate focused slice for: Implement focused slice for: Validate: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-200
+    title: 'Define scope for: Validate focused slice for: Validate: Add a unit test
+      constructing `period_results` with overlapping boundary timestamps to assert
+      unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-201
+    title: 'Implement focused slice for: Validate focused slice for: Validate: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-202
+    title: 'Validate focused slice for: Validate focused slice for: Validate: Add
+      a unit test constructing `period_results` with overlapping boundary timestamps
+      to assert unique index after combination. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-203
+    title: Add a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-204
+    title: 'Define scope for: Define scope for: Define approach for: Add a unit test
+      confirming the multi-period combined key is the new user-weight key (and that
+      the old key is either absent or explicitly marked deprecated). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-205
+    title: 'Implement focused slice for: Define scope for: Define approach for: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-206
+    title: 'Validate focused slice for: Define scope for: Define approach for: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-207
+    title: 'Define scope for: Implement focused slice for: Define approach for: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-208
+    title: 'Implement focused slice for: Implement focused slice for: Define approach
+      for: Add a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-209
+    title: 'Validate focused slice for: Implement focused slice for: Define approach
+      for: Add a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-210
+    title: 'Define scope for: Validate focused slice for: Define approach for: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-211
+    title: 'Implement focused slice for: Validate focused slice for: Define approach
+      for: Add a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-212
+    title: 'Validate focused slice for: Validate focused slice for: Define approach
+      for: Add a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-213
+    title: 'Define scope for: Define scope for: Implement: Add a unit test confirming
+      the multi-period combined key is the new user-weight key (and that the old key
+      is either absent or explicitly marked deprecated). (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-214
+    title: 'Implement focused slice for: Define scope for: Implement: Add a unit test
+      confirming the multi-period combined key is the new user-weight key (and that
+      the old key is either absent or explicitly marked deprecated). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-215
+    title: 'Validate focused slice for: Define scope for: Implement: Add a unit test
+      confirming the multi-period combined key is the new user-weight key (and that
+      the old key is either absent or explicitly marked deprecated). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-216
+    title: 'Define scope for: Implement focused slice for: Implement: Add a unit test
+      confirming the multi-period combined key is the new user-weight key (and that
+      the old key is either absent or explicitly marked deprecated). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-217
+    title: 'Implement focused slice for: Implement focused slice for: Implement: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-218
+    title: 'Validate focused slice for: Implement focused slice for: Implement: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-219
+    title: 'Define scope for: Validate focused slice for: Implement: Add a unit test
+      confirming the multi-period combined key is the new user-weight key (and that
+      the old key is either absent or explicitly marked deprecated). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-220
+    title: 'Implement focused slice for: Validate focused slice for: Implement: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-221
+    title: 'Validate focused slice for: Validate focused slice for: Implement: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-222
+    title: 'Define scope for: Define scope for: Validate: Add a unit test confirming
+      the multi-period combined key is the new user-weight key (and that the old key
+      is either absent or explicitly marked deprecated). (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-223
+    title: 'Implement focused slice for: Define scope for: Validate: Add a unit test
+      confirming the multi-period combined key is the new user-weight key (and that
+      the old key is either absent or explicitly marked deprecated). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-224
+    title: 'Validate focused slice for: Define scope for: Validate: Add a unit test
+      confirming the multi-period combined key is the new user-weight key (and that
+      the old key is either absent or explicitly marked deprecated). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-225
+    title: 'Define scope for: Implement focused slice for: Validate: Add a unit test
+      confirming the multi-period combined key is the new user-weight key (and that
+      the old key is either absent or explicitly marked deprecated). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-226
+    title: 'Implement focused slice for: Implement focused slice for: Validate: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-227
+    title: 'Validate focused slice for: Implement focused slice for: Validate: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-228
+    title: 'Define scope for: Validate focused slice for: Validate: Add a unit test
+      confirming the multi-period combined key is the new user-weight key (and that
+      the old key is either absent or explicitly marked deprecated). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-229
+    title: 'Implement focused slice for: Validate focused slice for: Validate: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-230
+    title: 'Validate focused slice for: Validate focused slice for: Validate: Add
+      a unit test confirming the multi-period combined key is the new user-weight
+      key (and that the old key is either absent or explicitly marked deprecated).
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-231
+    title: Multi-period API results expose a correctly named combined portfolio return
+      series.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-232
+    title: Combined series index has no duplicates and is sorted.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-233
+    title: No existing multi-period tests regress.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-234
+    title: Multi-period API results expose a correctly named combined portfolio return
+      series.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-235
+    title: Combined series index has no duplicates and is sorted.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-236
+    title: No existing multi-period tests regress.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []

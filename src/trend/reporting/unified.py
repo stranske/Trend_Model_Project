@@ -186,7 +186,9 @@ def _build_backtest(result: Any) -> DiagnosticResult[BacktestResult]:
     details: Mapping[str, Any] = details_obj if isinstance(details_obj, Mapping) else {}
     portfolio = getattr(result, "portfolio", None)
     if portfolio is None:
-        portfolio = details.get("portfolio_equal_weight_combined")
+        portfolio = details.get("portfolio_user_weight_combined")
+        if portfolio is None:
+            portfolio = details.get("portfolio_equal_weight_combined")
         if portfolio is None:
             portfolio = details.get("portfolio")
     series = _maybe_series(portfolio)

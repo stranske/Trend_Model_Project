@@ -361,6 +361,7 @@ def _portfolio_series(
     for key in (
         "portfolio_user_weight",
         "portfolio_equal_weight",
+        "portfolio_user_weight_combined",
         "portfolio_equal_weight_combined",
     ):
         series = res.get(key)

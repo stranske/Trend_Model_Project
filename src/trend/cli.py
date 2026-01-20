@@ -606,6 +606,7 @@ def _run_pipeline(
             portfolio_series = (
                 details.get("portfolio_user_weight")
                 or details.get("portfolio_equal_weight")
+                or details.get("portfolio_user_weight_combined")
                 or details.get("portfolio_equal_weight_combined")
             )
             if portfolio_series is not None:
