@@ -539,7 +539,7 @@ def main(argv: list[str] | None = None) -> int:
                 return 0
             # Attach time series required by export_bundle if present
             if isinstance(res, dict):
-                port_ser = select_primary_portfolio_series(res)
+                port_ser = select_primary_portfolio_series(res, prefer_raw=True)
                 if port_ser is not None:
                     setattr(run_result, "portfolio", port_ser)
                 bench_map = res.get("benchmarks") if isinstance(res, dict) else None

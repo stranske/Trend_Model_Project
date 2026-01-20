@@ -604,7 +604,7 @@ def _run_pipeline(
     details = result.details
     if isinstance(details, dict):
         if analysis is None:
-            portfolio_series = select_primary_portfolio_series(details)
+            portfolio_series = select_primary_portfolio_series(details, prefer_raw=True)
             if portfolio_series is not None:
                 setattr(result, "portfolio", portfolio_series)
         benchmarks = details.get("benchmarks")
