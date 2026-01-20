@@ -18,6 +18,7 @@ from streamlit_app.components import (
     comparison,
     explain_results,
 )
+from trend_analysis.util.weights import normalize_weights
 
 # =============================================================================
 # Formatting Helpers
@@ -91,25 +92,7 @@ def _diagnostic_message(result: Any) -> tuple[str | None, str | None]:
 
 
 def _coerce_weight_mapping(raw: Any) -> dict[str, float]:
-    if raw is None:
-        return {}
-    if isinstance(raw, dict):
-        items = raw.items()
-    elif isinstance(raw, pd.Series):
-        items = raw.items()
-    else:
-        return {}
-    out: dict[str, float] = {}
-    for k, v in items:
-        try:
-            out[str(k)] = float(v)
-        except (TypeError, ValueError):
-            continue
-    total = sum(out.values())
-    # Heuristic: if weights look like percents, scale to fractions.
-    if total > 2.0:
-        out = {k: v / 100.0 for k, v in out.items()}
-    return out
+    return normalize_weights(raw)
 
 
 def _compute_weighted_portfolio_returns(

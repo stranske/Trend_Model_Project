@@ -19,7 +19,6 @@ from __future__ import annotations  # mypy: ignore-errors
 
 import logging
 import os
-from collections.abc import Mapping as _MappingABC
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Mapping, Protocol, cast
 
@@ -52,6 +51,7 @@ from ..universe import (
 from ..util.frequency import detect_frequency
 from ..util.missing import apply_missing_policy
 from ..util.risk_free import resolve_risk_free_settings
+from ..util.weights import normalize_weights
 from ..weighting import (
     AdaptiveBayesWeighting,
     BaseWeighting,
@@ -103,21 +103,10 @@ def _call_pipeline_with_diag(*args: Any, **kwargs: Any) -> DiagnosticResult[dict
 def _coerce_previous_weights(
     weights: Mapping[str, float] | pd.Series | None,
 ) -> dict[str, float] | None:
-    if weights is None:
+    normalized = normalize_weights(weights)
+    if not normalized:
         return None
-    if isinstance(weights, pd.Series):
-        series = weights.astype(float).copy()
-    elif isinstance(weights, _MappingABC):
-        series = pd.Series({str(k): float(v) for k, v in weights.items()}, dtype=float)
-    else:  # pragma: no cover - defensive
-        return None
-    if series.empty:
-        return None
-    series = series.fillna(0.0)
-    total = float(series.sum())
-    if total and abs(total - 100.0) <= 1e-6:
-        series = series / 100.0
-    return {str(k): float(v) for k, v in series.items()}
+    return normalized
 
 
 def _get_missing_policy_settings(

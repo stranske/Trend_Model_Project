@@ -155,6 +155,33 @@ def test_run_simulation_safe_mode_changes_weights():
     assert not np.allclose(rp_values, diag_values, rtol=1e-3, atol=1e-4)
 
 
+def _assert_fraction_mapping(weights: dict[str, float]) -> None:
+    total = sum(weights.values())
+    assert total == pytest.approx(1.0, abs=1e-6)
+    assert all(-1e-9 <= w <= 1.0 + 1e-9 for w in weights.values())
+
+
+def test_run_simulation_weight_mappings_are_fractions() -> None:
+    df = make_df()
+    cfg = make_cfg()
+
+    result = api.run_simulation(cfg, df)
+    details = result.details
+
+    for key in ("fund_weights", "ew_weights"):
+        weights = details.get(key)
+        assert isinstance(weights, dict)
+        _assert_fraction_mapping(weights)
+
+    for key, value in details.items():
+        if not key.startswith("weights_"):
+            continue
+        if isinstance(value, pd.Series):
+            _assert_fraction_mapping({str(k): float(v) for k, v in value.items()})
+        elif isinstance(value, dict):
+            _assert_fraction_mapping({str(k): float(v) for k, v in value.items()})
+
+
 def test_run_simulation_logs_weight_engine_fallback(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
