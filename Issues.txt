@@ -1,286 +1,201 @@
-1: Canonicalize weight units (fractions everywhere; normalize at inputs)
+Issue 1: Explain Results metric catalog should include turnover + cost diagnostics
 ## Why
 
-Weights are currently represented in mixed units across the codebase (percent vs. fraction), which forces downstream code (including Streamlit) to guess and rescale. This is fragile and can produce incorrect portfolio returns when weights are misinterpreted.
+The Explain Results Q&A flow treats metrics like "turnover" as a known request keyword, but the metric catalog currently does not include turnover/cost diagnostics. This causes unnecessary "requested data is unavailable" refusals for questions about turnover or transaction costs, even when the underlying analysis output contains those values.
 
 ## Scope
 
-Standardize weights to fractions (0–1) for all internal computations and all result payloads. Accept both percent-sum (~100) and fraction-sum (~1) only at input boundaries (config/UI), normalize once, then propagate fractions everywhere.
+Extend the metric catalog extraction used by Explain Results to include scalar turnover and transaction cost metrics from `risk_diagnostics` (and multi-period turnover series when present). Ensure these metrics are available for citation and "missing metric" detection.
 
 ## Non-Goals
 
-- Changing weighting algorithms (risk parity, robust MV, etc.).
-- Changing constraint semantics beyond unit normalization.
-- Reworking Streamlit UX beyond removing weight-rescaling heuristics.
+Do not change how turnover or transaction costs are computed in the pipeline.
+Do not add new analytics or risk models.
+Do not loosen citation requirements for numeric claims.
 
 ## Tasks
 
-- [ ] Add `normalize_weights()` helper under `src/trend_analysis/util/weights.py` (accept dict/Series; detect percent vs fraction; return fractions; tolerance-aware).
-- [ ] Update `src/trend_analysis/multi_period/engine.py::_coerce_previous_weights` to use `normalize_weights()` (convert near-100 totals, not only exactly 100).
-- [ ] Update `streamlit_app/pages/3_Results.py::_coerce_weight_mapping` to call `normalize_weights()` and remove local percent-guessing logic.
-- [ ] Update `src/trend_analysis/api.py::_build_multi_period_portfolio` to normalize `fund_weights` / `ew_weights` before computing weighted returns.
-- [ ] Add unit tests for `normalize_weights()` covering: sum≈1, sum≈100, rounding error (99.999 / 100.001), empty/None, and long/short cases.
-- [ ] Add/extend tests asserting output weight mappings (`fund_weights`, `ew_weights`, and any `weights_*` keys when present) are fractions and sum ~1 for long-only portfolios.
+- [ ] Add extraction of `risk_diagnostics` scalar fields in `src/trend_analysis/llm/result_metrics.py` (support dicts and objects with attributes).
+- [ ] Include turnover fields (e.g., `turnover`, `turnover_value`) in the metric catalog with source `[from risk_diagnostics]`.
+- [ ] Include transaction cost fields (e.g., `transaction_cost`, `cost`, `per_trade_bps`, `half_spread_bps`) in the metric catalog when present.
+- [ ] When `details["turnover"]` is present as a `pd.Series` (multi-period), add scalar summaries under deterministic paths (e.g., `turnover.latest`, `turnover.mean`) with an explicit source label.
+- [ ] Update metric synonyms / keyword mapping so "turnover" and "transaction cost" are treated as available when entries exist.
+- [ ] Update `tests/test_result_metric_extraction.py` to validate new entries are extracted and formatted with correct `[from ...]` sources.
+- [ ] Update `tests/test_result_validation.py` to ensure `detect_unavailable_metric_requests()` does not flag turnover when turnover entries exist.
 
 ## Acceptance Criteria
 
-- [ ] All production code paths treat weight mappings as fractions internally and in result payloads.
-- [ ] Percent-style inputs (sum≈100) normalize deterministically to fractions with unit tests proving behavior.
-- [ ] Streamlit Results page no longer performs its own percent-to-fraction guessing.
-- [ ] All existing tests pass and the new normalization tests pass.
+- [ ] `extract_metric_catalog()` returns at least one turnover entry when turnover is present in `risk_diagnostics` or `details["turnover"]`.
+- [ ] `extract_metric_catalog()` returns at least one transaction cost entry when cost fields exist in `risk_diagnostics`.
+- [ ] `format_metric_catalog()` renders these entries with explicit `[from <source>]` annotations.
+- [ ] `detect_unavailable_metric_requests("Report turnover", entries)` returns no missing turnover keyword when turnover entries exist.
+- [ ] All unit tests pass.
 
 ## Implementation Notes
 
-- Suggested labels: `agent:codex`, `status:ready`.
-- Touchpoints: `streamlit_app/pages/3_Results.py`, `src/trend_analysis/multi_period/engine.py`, `src/trend_analysis/api.py`.
-- Prefer conservative detection (e.g., if total > ~1.5 treat as percent) with explicit tolerance to avoid misclassifying long/short weights.
+Primary files:
+- `src/trend_analysis/llm/result_metrics.py`
+- `tests/test_result_metric_extraction.py`
+- `tests/test_result_validation.py`
 
-2: Single-period API should publish a user-weight combined portfolio series (not just EW)
+Suggested labels: `agent:codex`, `status:ready`.
+
+Issue 2: Cap Explain Results prompt size with a deterministic compact metric catalog
 ## Why
 
-`run_simulation` currently builds `portfolio_equal_weight_combined` for artifacts, but does not build an equivalent user-weight combined series. Downstream consumers can end up summarizing the equal-weight baseline by accident when that’s the only combined series available.
+The current Explain Results prompt can become extremely large because it includes per-fund metrics across multiple sections (and weights) without any cap. With larger universes, this risks token-limit failures, slow responses, and reduced answer quality.
 
 ## Scope
 
-For single-period runs, compute and publish:
-- `portfolio_user_weight_combined` (using `fund_weights`)
-- `portfolio_equal_weight_combined` (existing behavior using `ew_weights`)
-
-Also ensure combined series concatenation is deterministic and does not introduce duplicate timestamps at the IS/OOS boundary.
+Introduce a deterministic, configurable compaction step for the metric catalog used by Explain Results (Streamlit + CLI). Keep the output useful by prioritizing portfolio-level stats and top holdings, while keeping catalog size bounded.
 
 ## Non-Goals
 
-- Changing how `fund_weights` are computed.
-- Changing scaling logic in `in_sample_scaled` / `out_sample_scaled`.
+Do not change the underlying analysis results payload.
+Do not remove the ability to cite metrics.
+Do not introduce non-deterministic sampling in catalog selection.
 
 ## Tasks
 
-- [ ] In `src/trend_analysis/api.py`, add construction of `portfolio_user_weight_combined` when `in_sample_scaled`, `out_sample_scaled`, and `fund_weights` are available.
-- [ ] Ensure both combined series are sorted and de-duplicated on index (keep last observation on duplicate).
-- [ ] Add a small helper in `src/trend_analysis/api.py` (or shared util) to build “combined” portfolio series from (weights, in_df, out_df) without repeating logic.
-- [ ] Add/extend tests validating that `portfolio_user_weight_combined` is present and uses `fund_weights` (not `ew_weights`) when available.
-- [ ] Add a regression test for duplicate boundary timestamps to verify dedupe behavior.
+- [ ] Add `compact_metric_catalog(...)` helper in `src/trend_analysis/llm/result_metrics.py` that selects a bounded subset of `MetricEntry` objects.
+- [ ] Implement deterministic selection rules:
+- [ ] Always include `_SINGLE_STATS_SECTIONS` entries (e.g., `out_user_stats`, `out_ew_stats`, etc.).
+- [ ] Always include benchmark IR entries (if present).
+- [ ] Include top-N weights from `fund_weights` (and `ew_weights` if `fund_weights` absent), sorted by absolute weight.
+- [ ] Include per-fund stats only for funds in the selected top-N weights set (and optionally funds explicitly mentioned in the user questions).
+- [ ] Add configuration knobs (env vars) for caps, e.g. `TREND_EXPLAIN_MAX_FUNDS`, `TREND_EXPLAIN_MAX_WEIGHTS`, `TREND_EXPLAIN_MAX_ENTRIES`.
+- [ ] Update `streamlit_app/components/explain_results.py` to use the compacted catalog before calling `format_metric_catalog(...)`.
+- [ ] Update `src/trend/cli.py` Explain Results flow to use the same compaction logic (shared helper).
+- [ ] Add tests that create a synthetic result with many funds and assert the formatted catalog line count stays within bounds and includes top-weight funds.
 
 ## Acceptance Criteria
 
-- [ ] `run_simulation(...).details` includes `portfolio_user_weight_combined` whenever `fund_weights` exist.
-- [ ] `run_simulation(...).details` still includes `portfolio_equal_weight_combined` as before.
-- [ ] Combined series index is strictly unique and sorted.
-- [ ] All tests pass, including new regression coverage.
+- [ ] Explain Results metric catalog size is bounded by `TREND_EXPLAIN_MAX_ENTRIES` (or default cap) for large universes.
+- [ ] The compact catalog still contains portfolio-level stats and top holdings weights.
+- [ ] Citations remain valid and discrepancy logging still works.
+- [ ] All unit tests pass.
 
 ## Implementation Notes
 
-- Suggested labels: `agent:codex`, `status:ready`.
-- Current baseline construction happens in `src/trend_analysis/api.py` where `portfolio_equal_weight_combined` is set.
-- Use the same column alignment pattern used for equal-weight baseline (ensure weights align to DataFrame columns).
+Primary files:
+- `src/trend_analysis/llm/result_metrics.py`
+- `streamlit_app/components/explain_results.py`
+- `src/trend/cli.py`
+- Add or extend tests under `tests/` (new test file acceptable).
 
-3: Multi-period API: store combined portfolio under the correct key + dedupe timestamps
+Suggested labels: `agent:codex`, `status:ready`.
+
+Issue 3: Reduce discrepancy-log noise by ignoring date-like numbers in result validation
 ## Why
 
-In multi-period mode, the API stores the combined portfolio return series under `portfolio_equal_weight_combined` even when it was computed using actual applied weights. This mislabels the series and makes downstream reporting ambiguous. Also, concatenation can yield duplicate timestamps at period boundaries.
+The discrepancy logger currently flags all uncited numbers, including dates/years (e.g., "2023-01 to 2024-12"). This creates excessive false positives in the discrepancy log, making the log harder to trust and less actionable.
 
 ## Scope
 
-- Ensure multi-period combined portfolio series is:
-  - Deterministic (sorted, no duplicate timestamps)
-  - Labeled correctly as user-weight (actual applied weights)
-- Preserve backward compatibility where practical.
+Update result validation so date-like numbers (years and YYYY-MM / YYYY-MM-DD components) are not treated as uncited metric claims. Preserve strict validation for actual numeric performance claims.
 
 ## Non-Goals
 
-- Rewriting the multi-period engine output schema.
-- Changing the logic of multi-period selection or rebalancing.
+Do not weaken validation for real metric claims (returns, Sharpe, drawdown, etc.).
+Do not remove the requirement that at least one cited metric value is present.
 
 ## Tasks
 
-- [ ] Update `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate timestamps deterministically (keep last).
-- [ ] Update `_run_multi_period_simulation` to store the combined series under `portfolio_user_weight_combined` (or another unambiguous key), not `portfolio_equal_weight_combined`.
-- [ ] If backward compatibility is required, optionally keep the old key but add metadata flag (e.g., `metadata["deprecated_keys"]["portfolio_equal_weight_combined"]="use portfolio_user_weight_combined"`).
-- [ ] Add unit test constructing `period_results` with overlapping boundary timestamps to assert unique index after combination.
-- [ ] Add unit test confirming the multi-period combined key is the new user-weight key (and that the old key is either absent or explicitly marked deprecated).
+- [ ] Add a helper in `src/trend_analysis/llm/result_validation.py` to detect date-like numeric spans (e.g., numbers that appear within YYYY-MM or YYYY-MM-DD patterns).
+- [ ] Update `validate_result_claims()` so date-like numbers do not generate `uncited_value` issues.
+- [ ] Add unit tests in `tests/test_result_validation.py` to confirm that a date range (e.g., "2023-01 to 2024-12") does not produce `uncited_value` issues.
+- [ ] Add unit tests to confirm that non-date uncited metric values (e.g., "CAGR was 8%.") are still flagged when missing citations.
 
 ## Acceptance Criteria
 
-- [ ] Multi-period API results expose a correctly named combined portfolio return series.
-- [ ] Combined series index has no duplicates and is sorted.
-- [ ] No existing multi-period tests regress.
+- [ ] Date-like numbers inside common date formats do not produce `uncited_value` issues.
+- [ ] Actual metric numbers still produce `uncited_value` issues when uncited.
+- [ ] Existing hallucination detection behavior remains intact.
+- [ ] All unit tests pass.
 
 ## Implementation Notes
 
-- Suggested labels: `agent:codex`, `status:ready`.
-- Key code lives in `src/trend_analysis/api.py` (`_run_multi_period_simulation`, `_build_multi_period_portfolio`).
-- Prefer “keep last” dedupe to mirror typical “later period overrides earlier boundary” semantics.
+Primary files:
+- `src/trend_analysis/llm/result_validation.py`
+- `tests/test_result_validation.py`
 
-4: One canonical “pick the portfolio series” helper for reporting + CLI
+Suggested labels: `agent:codex`, `status:ready`.
+
+Issue 4: Wire Explain Results into Streamlit Results page
 ## Why
 
-Different consumers choose different portfolio series keys and in different orders, which can cause reports/bundles to summarize a baseline series when a user-weight series exists. The selection logic should be centralized and consistent.
+The Explain Results component exists (`streamlit_app/components/explain_results.py`) and is imported by the Results page, but it is not actually rendered from `streamlit_app/pages/3_Results.py`. Users therefore cannot access Explain Results from the UI.
 
 ## Scope
 
-Create a single helper that selects the “primary” portfolio return series from a result payload (user-weight preferred), and update reporting + CLI modules to use it.
+Render the Explain Results component on the Streamlit Results page for completed runs, using a stable `run_key` for caching.
 
 ## Non-Goals
 
-- Changing report layout or adding new report sections.
-- Modifying metric computation.
+Do not redesign the Results page layout.
+Do not change the Explain Results chain behavior beyond UI integration.
 
 ## Tasks
 
-- [ ] Add `select_primary_portfolio_series(res: Mapping[str, Any])` helper (location: `src/trend_analysis/reporting/portfolio_series.py` or similar).
-- [ ] Selection precedence should be: `portfolio_user_weight_combined` → `portfolio_user_weight` → `portfolio_equal_weight_combined` → `portfolio_equal_weight` → computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.
-- [ ] Update `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining its own key order.
-- [ ] Update `src/trend_analysis/cli.py` and `src/trend/cli.py` to attach `run_result.portfolio` using the helper (so bundle/report tools use the same definition).
-- [ ] Update `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to use the helper for portfolio selection.
-- [ ] Add a small unit test suite to assert selection precedence with synthetic payloads (presence/absence of each key).
+- [ ] Identify the section in `streamlit_app/pages/3_Results.py` where a completed analysis result is rendered.
+- [ ] Compute a stable `run_key` for the current run (reuse existing helpers such as `_current_run_key(...)` where appropriate).
+- [ ] Call `streamlit_app.components.explain_results.render_explain_results(result, run_key=run_key)` for completed runs.
+- [ ] Ensure the UI path gracefully handles missing `details` payloads (component already supports this).
+- [ ] Add a lightweight test that asserts the Results page contains a call site for `render_explain_results` (e.g., file-content assertion) to prevent regressions.
 
 ## Acceptance Criteria
 
-- [ ] Reporting + CLI use the same portfolio series selection logic.
-- [ ] User-weight series is preferred whenever available.
-- [ ] Tests demonstrate correct precedence and pass in CI.
+- [ ] The Streamlit Results page displays an "Explain Results" section for completed runs.
+- [ ] Clicking the Explain Results button generates output or a clear error message when LLM configuration is missing.
+- [ ] Cached results are reused for the same `run_key`.
+- [ ] All unit tests pass.
 
 ## Implementation Notes
 
-- Suggested labels: `agent:codex`, `status:ready`.
-- This issue depends on the new key(s) added in Issues 2–3.
+Primary files:
+- `streamlit_app/pages/3_Results.py`
+- `streamlit_app/components/explain_results.py`
 
-5: Collapse CLI entrypoints to trend and make other scripts thin wrappers
+Suggested labels: `agent:codex`, `status:ready`.
+
+Issue 5: Export Explain Results output as reproducibility artifacts (CLI + Streamlit download)
 ## Why
 
-The project currently exposes multiple CLI entrypoints with overlapping responsibilities, which increases the chance of diverging behavior and user confusion. A single canonical CLI (“trend”) should be the default, with legacy commands forwarding to it.
+Explain Results outputs are currently ephemeral (printed/rendered only). Persisting explanation artifacts enables reproducibility, sharing, and auditability (especially since the system emphasizes grounding, discrepancy logs, and disclaimers).
 
 ## Scope
 
-- Keep `trend` as the canonical entrypoint.
-- Convert other scripts to thin wrappers that call `trend` with the equivalent subcommand and print a deprecation notice.
-- Update documentation to prefer `trend`.
+Add artifact writing support for Explain Results in the CLI and add download buttons in Streamlit once an explanation is generated. Artifacts should include both the final text and a structured JSON payload (claim issues, trace URL, metric count).
 
 ## Non-Goals
 
-- Removing legacy commands outright (unless clearly safe).
-- Reworking argument semantics beyond forwarding.
+Do not change existing analysis artifact naming for metrics/details.
+Do not require LLM availability in CI.
 
 ## Tasks
 
-- [ ] Identify redundant scripts in `pyproject.toml` `[project.scripts]` and map each to a `trend <subcommand>` equivalent.
-- [ ] Add wrapper functions (e.g., `src/trend/compat_entrypoints.py`) that call `trend.cli:main([...])` with preset argv and emit a deprecation warning.
-- [ ] Update `pyproject.toml` to point legacy scripts at wrappers where applicable.
-- [ ] Update `README.md` / `docs/ReproducibilityGuide.md` to recommend `trend` and include a migration table (old → new).
-- [ ] Add a minimal smoke test that wrapper entrypoints return `--help` successfully (or at least import and run without error).
+- [ ] Add `--output` (directory or file prefix) option to the `trend explain` subcommand in `src/trend/cli.py`.
+- [ ] Implement writing:
+- [ ] `explanation_<run-id>.txt` containing the final rendered text (including discrepancy log + disclaimer).
+- [ ] `explanation_<run-id>.json` containing `{ run_id, created_at, text, metric_count, trace_url, claim_issues }`.
+- [ ] Add a helper to serialize `ResultClaimIssue` objects into JSON-friendly dicts.
+- [ ] Update `streamlit_app/components/explain_results.py` to show download buttons for:
+- [ ] Explanation text (TXT)
+- [ ] Structured JSON (claim issues, trace URL, metric count)
+- [ ] Add unit tests for the serializer helper and artifact path generation (no live LLM required).
 
 ## Acceptance Criteria
 
-- [ ] `trend` covers core workflows (run/report/app/quick-report).
-- [ ] Legacy scripts still function and forward to `trend` with a clear warning.
-- [ ] Docs prefer `trend`, and tests pass.
+- [ ] `trend explain --details <path> --output <dir>` writes both TXT and JSON explanation artifacts.
+- [ ] Streamlit Explain Results section provides download buttons after an explanation is generated.
+- [ ] JSON artifact includes claim issues and trace URL when available.
+- [ ] All unit tests pass.
 
 ## Implementation Notes
 
-- Suggested labels: `agent:codex`, `status:ready`.
-- Keep wrappers lightweight: no duplicated logic, just argv translation + call into `trend.cli`.
+Primary files:
+- `src/trend/cli.py`
+- `streamlit_app/components/explain_results.py`
+- Add a new test module under `tests/` for artifact serialization if needed.
 
-6: Remove pipeline._sync_stage_dependencies runtime mutation
-## Why
-
-`trend_analysis/pipeline.py` currently mutates stage module globals at runtime to make monkeypatching “work.” This is brittle, surprising, and can hide dependency boundaries. Tests should patch the real dependency locations, and production code should not depend on global reassignment.
-
-## Scope
-
-Remove runtime stage dependency synchronization and refactor patch points so tests remain clean and deterministic without mutating module globals per call.
-
-## Non-Goals
-
-- Rewriting the pipeline architecture end-to-end.
-- Changing pipeline outputs or algorithm behavior.
-
-## Tasks
-
-- [ ] Inventory tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages to reflect those patches.
-- [ ] Update tests to patch the true implementation points (e.g., stage module functions, `pipeline_runner`, `pipeline_helpers`) instead of relying on pipeline global sync.
-- [ ] Refactor `src/trend_analysis/pipeline.py` to call stage implementation functions directly without `_call_with_sync`.
-- [ ] Remove `_sync_stage_dependencies` and any related glue once tests no longer depend on it.
-- [ ] Confirm public API compatibility: keep expected names/exports where required (backward-compatible wrappers are acceptable, but no runtime mutation).
-
-## Acceptance Criteria
-
-- [ ] Pipeline no longer mutates stage module globals during execution.
-- [ ] All existing tests pass after patch-point updates.
-- [ ] Pipeline behavior (outputs/diagnostics) remains unchanged.
-
-## Implementation Notes
-
-- Suggested labels: `agent:codex`, `status:ready`.
-- Primary file: `src/trend_analysis/pipeline.py`.
-- Aim for small, mechanical refactors: remove sync, move patches to where dependencies actually live.
-
-7: Align risk-free fallback semantics (opt-in everywhere) + remove misleading “breaking change” block
-## Why
-
-The risk-free fallback default is documented and implemented inconsistently across modules. The resolver helper treats fallback as opt-in, while the selection stage contains a “breaking change” comment implying default-on behavior. This increases confusion and risks mismatched behavior when calling lower-level functions directly.
-
-## Scope
-
-Make risk-free fallback opt-in consistently:
-- Only enable fallback when `allow_risk_free_fallback is True`.
-- Remove misleading “breaking change” comment/warning in selection stage.
-- Ensure direct callers and entrypoints behave the same.
-
-## Non-Goals
-
-- Changing the fallback heuristic itself (lowest volatility selection).
-- Changing validation thresholds or coverage logic.
-
-## Tasks
-
-- [ ] Update `src/trend_analysis/stages/selection.py` fallback gating to: `fallback_enabled = (allow_risk_free_fallback is True)`.
-- [ ] Remove or rewrite the “BREAKING CHANGE” comment/warning to reflect actual behavior.
-- [ ] Consider changing `pipeline.run_analysis(... allow_risk_free_fallback=...)` default from `None` to `False` for clarity (if no API break).
-- [ ] Add/adjust tests to ensure: missing rf + `allow_risk_free_fallback=None/False` raises, and `True` enables fallback.
-- [ ] Confirm multi-period and single-period entrypoints both pass the same resolved flag.
-
-## Acceptance Criteria
-
-- [ ] Default behavior is opt-in for risk-free fallback everywhere.
-- [ ] No misleading “breaking change” warning triggers in normal runs.
-- [ ] Tests pass and cover the default/True/False combinations.
-
-## Implementation Notes
-
-- Suggested labels: `agent:codex`, `status:ready`.
-- Touchpoints: `src/trend_analysis/util/risk_free.py`, `src/trend_analysis/stages/selection.py`, and entrypoints that pass the flag downstream.
-
-8: Make details_sanitized compact (hash large frames instead of serializing them)
-## Why
-
-`details_sanitized` exists to support deterministic hashing and JSON-safe payloads, but serializing full DataFrames/Series (especially large ones) can explode memory/time for hashing and logging. We want determinism without dragging half of pandas into a JSON blob.
-
-## Scope
-
-Modify `details_sanitized` generation to represent large pandas objects using stable hashes + small metadata (shape/columns), while preserving current behavior for small/primitive structures.
-
-## Non-Goals
-
-- Removing `details_sanitized`.
-- Changing the core run artifacts/bundle layout beyond internal sanitization.
-
-## Tasks
-
-- [ ] Implement size-aware pandas handling in `src/trend_analysis/api.py` sanitization:
-  - For DataFrames/Series above a threshold, replace with `{ "__type__": "DataFrame", "shape": ..., "columns": ..., "hash": ... }`.
-- [ ] Choose a deterministic hash function (e.g., sha256 of sorted-index/column CSV bytes or a stable pandas hash).
-- [ ] Keep current key-stringification behavior for dict keys (timestamps → strings).
-- [ ] Update determinism tests to accept hashed representations while still validating stability.
-- [ ] Add a regression test that verifies sanitization of a “large enough” DataFrame produces a compact hashed object (not full data expansion).
-
-## Acceptance Criteria
-
-- [ ] Determinism tests still pass.
-- [ ] `details_sanitized` stays small even when `details` contains large DataFrames.
-- [ ] Sanitization remains deterministic across runs (stable hash output).
-
-## Implementation Notes
-
-- Suggested labels: `agent:codex`, `status:ready`.
-- Touchpoints: `src/trend_analysis/api.py`, `tests/test_api_run_simulation.py` (hashing behavior), and any tests asserting sanitized payload structure.
-
+Suggested labels: `agent:codex`, `status:ready`.
