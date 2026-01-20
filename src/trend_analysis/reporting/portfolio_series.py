@@ -21,9 +21,11 @@ class SeriesLike(Protocol):
 
     def dropna(self) -> pd.Series: ...
 
+    def sort_index(self) -> pd.Series: ...
+
 
 def _series_is_empty(series: pd.Series) -> bool:
-    return series.empty or series.dropna().empty
+    return bool(series.empty) or bool(series.dropna().empty)
 
 
 def _coerce_series(value: Any) -> pd.Series | SeriesLike | None:
