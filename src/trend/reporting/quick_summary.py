@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 import pandas as pd
 
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
+from trend_analysis.reporting.portfolio_series import select_primary_portfolio_series
 
 
 def _init_matplotlib() -> Any:  # pragma: no cover - thin wrapper
@@ -65,16 +66,11 @@ def _maybe_datetime_index(series: pd.Series) -> pd.Series:
 
 
 def _extract_returns(details: Mapping[str, Any]) -> pd.Series:
-    candidates = [
-        details.get("portfolio_user_weight_combined"),
-        details.get("portfolio_equal_weight_combined"),
-        details.get("portfolio_user_weight"),
-        details.get("portfolio"),
-    ]
-    for candidate in candidates:
-        series = _coerce_series(candidate)
-        if not series.empty:
-            return _maybe_datetime_index(series.sort_index())
+    series = select_primary_portfolio_series(details)
+    if series is None:
+        series = _coerce_series(details.get("portfolio"))
+    if not series.empty:
+        return _maybe_datetime_index(series.sort_index())
     return pd.Series(dtype=float)
 
 

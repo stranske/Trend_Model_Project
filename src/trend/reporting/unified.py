@@ -21,6 +21,7 @@ from trend_analysis.reporting.narrative import (
     STANDARD_NARRATIVE_DISCLAIMER,
     narrative_generation_enabled,
 )
+from trend_analysis.reporting.portfolio_series import select_primary_portfolio_series
 
 
 def _init_matplotlib() -> Any:
@@ -184,14 +185,12 @@ def _coerce_window_mode(value: Any) -> WindowMode:
 def _build_backtest(result: Any) -> DiagnosticResult[BacktestResult]:
     details_obj = getattr(result, "details", None)
     details: Mapping[str, Any] = details_obj if isinstance(details_obj, Mapping) else {}
-    portfolio = getattr(result, "portfolio", None)
-    if portfolio is None:
-        portfolio = details.get("portfolio_user_weight_combined")
-        if portfolio is None:
-            portfolio = details.get("portfolio_equal_weight_combined")
-        if portfolio is None:
-            portfolio = details.get("portfolio")
-    series = _maybe_series(portfolio)
+    portfolio_series = select_primary_portfolio_series(details)
+    if portfolio_series is None:
+        portfolio_series = _maybe_series(getattr(result, "portfolio", None))
+        if portfolio_series is None:
+            portfolio_series = _maybe_series(details.get("portfolio"))
+    series = portfolio_series
     if series is None or series.empty:
         return DiagnosticResult.failure(
             reason_code="NO_PORTFOLIO_SERIES",

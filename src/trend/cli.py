@@ -66,6 +66,7 @@ from trend_analysis.llm.result_validation import (
 )
 from trend_analysis.llm.schema import load_compact_schema
 from trend_analysis.logging_setup import setup_logging
+from trend_analysis.reporting.portfolio_series import select_primary_portfolio_series
 from trend_model.spec import ensure_run_spec
 from utils.paths import proj_path
 
@@ -603,12 +604,7 @@ def _run_pipeline(
     details = result.details
     if isinstance(details, dict):
         if analysis is None:
-            portfolio_series = (
-                details.get("portfolio_user_weight")
-                or details.get("portfolio_equal_weight")
-                or details.get("portfolio_user_weight_combined")
-                or details.get("portfolio_equal_weight_combined")
-            )
+            portfolio_series = select_primary_portfolio_series(details)
             if portfolio_series is not None:
                 setattr(result, "portfolio", portfolio_series)
         benchmarks = details.get("benchmarks")

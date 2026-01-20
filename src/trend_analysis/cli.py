@@ -27,6 +27,7 @@ from .io.market_data import MarketDataValidationError
 from .logging_setup import setup_logging
 from .perf.rolling_cache import set_cache_enabled
 from .presets import apply_trend_preset, get_trend_preset, list_preset_slugs
+from .reporting.portfolio_series import select_primary_portfolio_series
 from .reporting.run_artifacts import write_run_artifacts
 from .signal_presets import (
     TrendSpecPreset,
@@ -538,17 +539,7 @@ def main(argv: list[str] | None = None) -> int:
                 return 0
             # Attach time series required by export_bundle if present
             if isinstance(res, dict):
-                # portfolio returns preference: user_weight then equal_weight fallback
-                port_ser = None
-                try:
-                    port_ser = (
-                        res.get("portfolio_user_weight")
-                        or res.get("portfolio_equal_weight")
-                        or res.get("portfolio_user_weight_combined")
-                        or res.get("portfolio_equal_weight_combined")
-                    )
-                except Exception:
-                    port_ser = None
+                port_ser = select_primary_portfolio_series(res)
                 if port_ser is not None:
                     setattr(run_result, "portfolio", port_ser)
                 bench_map = res.get("benchmarks") if isinstance(res, dict) else None
