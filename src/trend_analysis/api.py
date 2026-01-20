@@ -5,7 +5,7 @@ import random
 import sys
 from collections.abc import Mapping, Sized
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, SupportsInt, cast
+from typing import TYPE_CHECKING, Any, Mapping, SupportsInt, cast
 
 import numpy as np
 import pandas as pd
@@ -617,8 +617,13 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         in_scaled = res_dict.get("in_sample_scaled")
         out_scaled = res_dict.get("out_sample_scaled")
         ew_weights = res_dict.get("ew_weights")
+        ew_weights_map = (
+            cast(Mapping[str, float], ew_weights)
+            if isinstance(ew_weights, Mapping)
+            else None
+        )
         portfolio_series = _build_combined_portfolio_series(
-            ew_weights,
+            ew_weights_map,
             in_scaled,
             out_scaled,
         )
@@ -626,8 +631,13 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             res_dict["portfolio_equal_weight_combined"] = portfolio_series
 
         fund_weights = res_dict.get("fund_weights")
+        fund_weights_map = (
+            cast(Mapping[str, float], fund_weights)
+            if isinstance(fund_weights, Mapping)
+            else None
+        )
         user_series = _build_combined_portfolio_series(
-            fund_weights,
+            fund_weights_map,
             in_scaled,
             out_scaled,
         )
