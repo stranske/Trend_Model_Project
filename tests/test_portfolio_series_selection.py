@@ -37,6 +37,19 @@ def test_select_primary_portfolio_series_falls_back_to_fund_weights() -> None:
     pd.testing.assert_series_equal(selected, expected)
 
 
+def test_select_primary_portfolio_series_uses_equal_weight_combined() -> None:
+    equal_combined = pd.Series([0.02, 0.01], index=[0, 1])
+    equal = pd.Series([0.05, 0.03], index=[0, 1])
+    res = {
+        "portfolio_equal_weight_combined": equal_combined,
+        "portfolio_equal_weight": equal,
+    }
+
+    selected = select_primary_portfolio_series(res)
+
+    pd.testing.assert_series_equal(selected, equal_combined)
+
+
 def test_select_primary_portfolio_series_uses_ew_weights_when_fund_missing() -> None:
     out_sample_scaled = pd.DataFrame(
         {"A": [0.1, 0.0], "B": [0.05, 0.02]},
