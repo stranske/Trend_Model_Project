@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Protocol, Sequence
 
 import pandas as pd
 
@@ -15,18 +15,45 @@ _PORTFOLIO_SERIES_KEYS = (
 )
 
 
-def _coerce_series(value: Any) -> pd.Series | None:
+class SeriesLike(Protocol):
+    @property
+    def empty(self) -> bool: ...
+
+    def dropna(self) -> pd.Series: ...
+
+
+def _series_is_empty(series: pd.Series) -> bool:
+    return series.empty or series.dropna().empty
+
+
+def _coerce_series(value: Any) -> pd.Series | SeriesLike | None:
     if isinstance(value, pd.Series):
         series = value.copy()
+        if _series_is_empty(series):
+            return None
+        try:
+            return series.astype(float)
+        except (TypeError, ValueError):
+            return None
     elif isinstance(value, Mapping):
+        if "series" in value:
+            nested = _coerce_series(value.get("series"))
+            if nested is not None:
+                return nested
         series = pd.Series(dict(value), dtype=float)
     elif isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         series = pd.Series(list(value), dtype=float)
     else:
+        series_like = getattr(value, "series", None)
+        if isinstance(series_like, pd.Series) and not _series_is_empty(series_like):
+            return value
         return None
-    if series.empty or series.dropna().empty:
+    if _series_is_empty(series):
         return None
-    return series.astype(float)
+    try:
+        return series.astype(float)
+    except (TypeError, ValueError):
+        return None
 
 
 def _normalise_weights(weights: Mapping[str, float]) -> pd.Series:
@@ -56,7 +83,7 @@ def _weighted_portfolio(
     return out_df.mul(equal_weight, axis=1).sum(axis=1)
 
 
-def select_primary_portfolio_series(res: Mapping[str, Any]) -> pd.Series | None:
+def select_primary_portfolio_series(res: Mapping[str, Any]) -> pd.Series | SeriesLike | None:
     """Select the preferred portfolio series from a run result payload."""
     for key in _PORTFOLIO_SERIES_KEYS:
         series = _coerce_series(res.get(key))
