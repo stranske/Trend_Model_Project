@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Add `normalize_weights()` helper under `src/trend_analysis/util/weights.py`
       (accept dict/Series; detect percent vs fraction; return fractions; tolerance-aware).
-    status: doing
+    status: done
     started_at: '2026-01-20T08:13:17Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-20T08:13:25Z'
+    commit: 0920437eda3453961e29d2f55a79818285d0045c
     notes: []
   - id: task-02
     title: 'Define scope for: Define scope for: Add `normalize_weights()` helper under
