@@ -5,7 +5,7 @@ import random
 import sys
 from collections.abc import Mapping, Sized
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Mapping, SupportsInt, cast
+from typing import TYPE_CHECKING, Any, SupportsInt, cast
 
 import numpy as np
 import pandas as pd
