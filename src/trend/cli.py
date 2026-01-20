@@ -373,8 +373,10 @@ class TrendCLIError(RuntimeError):
     """Raised when CLI validation fails before dispatching work."""
 
 
-def build_parser(*, prog: str = "trend") -> argparse.ArgumentParser:
+def build_parser(*, prog: str = "trend", include_gui_alias: bool | None = None) -> argparse.ArgumentParser:
     """Construct the argument parser for the unified ``trend`` command."""
+    if include_gui_alias is None:
+        include_gui_alias = prog == "trend-model"
 
     parser = argparse.ArgumentParser(prog=prog)
     sub = parser.add_subparsers(dest="subcommand", required=True)
@@ -475,6 +477,8 @@ def build_parser(*, prog: str = "trend") -> argparse.ArgumentParser:
     )
 
     sub.add_parser("app", help="Launch the Streamlit application")
+    if include_gui_alias:
+        sub.add_parser("gui", help="Launch the app (legacy alias for app)")
 
     quick_p = sub.add_parser("quick-report", help="Build a compact HTML report from run artefacts")
     quick_p.add_argument("--run-id", help="Run identifier (defaults to artefact inference)")
@@ -701,7 +705,9 @@ def _determine_seed(cfg: Any, override: int | None) -> int:
 
 def _prepare_export_config(cfg: Any, directory: Path | None, formats: Iterable[str] | None) -> None:
     if directory is None and formats is None:
-        return
+    if include_gui_alias is None:
+        include_gui_alias = prog == "trend-model"
+    sub = parser.add_subparsers(dest="subcommand", required=True)
     export_cfg = dict(getattr(cfg, "export", {}) or {})
     if directory is not None:
         export_cfg["directory"] = str(directory)
@@ -1500,7 +1506,10 @@ def _confirm_risky_patch(patch: ConfigPatch, *, no_confirm: bool) -> None:
 
 
 def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
-    parser = build_parser(prog=prog)
+    try:
+        parser = build_parser(prog=prog)
+    except TypeError:
+        parser = build_parser()
     try:
         argv_list = argv if argv is not None else sys.argv[1:]
         maybe_replay_exit = _maybe_handle_nl_replay(argv_list)
@@ -1527,7 +1536,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                 deactivate_config_coverage()
             return _run_environment_check()
 
-        if command == "app":
+        if command in {"app", "gui"}:
             if coverage_tracker is not None:
                 deactivate_config_coverage()
             try:
