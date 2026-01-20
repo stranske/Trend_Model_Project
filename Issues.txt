@@ -1,73 +1,286 @@
-1) Add saved parameter sets (named configs) to Streamlit UI
-Labels: agent:codex, enhancement, app, ui
-Why
-Users need to compare outcomes across multiple parameter sets. Today, the app has a single mutable `model_state`; users have to manually screenshot/copy settings, making A/B comparison error-prone.
-Scope
-- Streamlit session state management for storing multiple named parameter sets.
-- UI controls on the Model page for save/load/rename/delete parameter sets.
-Tasks
-- Define a session-state schema for saved parameter sets (e.g., `st.session_state["saved_model_states"][name] = model_state_payload`).
-- Add UI controls on `streamlit_app/pages/2_Model.py`:
-	- Save current config as name (with overwrite confirmation).
-	- Load a saved config into the current form.
-	- Rename and delete saved configs.
-- Add minimal serialization (optional) so users can export/import a parameter set as JSON (no persistence required beyond session state unless explicitly chosen).
-- Add tests under `tests/app/` to ensure save/load preserves all model_state keys and does not mutate other saved sets.
-Acceptance criteria
-- A user can save at least two named parameter sets in a session, load either into the Model page, and see the current UI reflect the loaded values.
-- Export/import (if implemented) round-trips with no loss of keys and maintains type correctness (ints remain ints, booleans remain booleans).
-- Tests cover save/load/rename/delete behaviours.
-Implementation notes
-- Keep persistence optional; start with session-state-only to avoid file I/O complexity.
-- Use the same captured payload structure as `docs/debugging/ui_run_2025-12-15.json` where feasible.
+1: Canonicalize weight units (fractions everywhere; normalize at inputs)
+## Why
 
-2) Add in-app parameter diff view (A vs B)
-Labels: agent:codex, enhancement, app, ui
-Why
-Before running expensive simulations, users should be able to verify what actually differs between two parameter sets. This also strengthens the debugging workflow by making “what changed?” explicit.
-Scope
-- UI compare view between two saved parameter sets.
-- Shared diff logic for nested model_state/config payloads.
-Tasks
-- Implement a deterministic diff function for two model_state dictionaries (recursive key paths, ignore cosmetic ordering).
-- Add a UI section (preferably on `streamlit_app/pages/2_Model.py` or a small compare panel on Results) to:
-	- Select config A and config B from saved sets.
-	- Show a table of changed keys with A/B values.
-	- Support a "copy diff" output for issue/debugging notes.
-- Add tests for diff correctness (added/removed keys, type changes, float tolerances if applicable).
-Acceptance criteria
-- Selecting two saved parameter sets shows a stable, deterministic diff of all changed keys.
-- The diff view is usable without running simulations and can be copied for debugging.
-- Tests cover core diff semantics.
-Implementation notes
-- Reuse/align with the JSON diff logic from `scripts/diff_ui_runs.py` where possible (but keep UI logic dependency-free).
+Weights are currently represented in mixed units across the codebase (percent vs. fraction), which forces downstream code (including Streamlit) to guess and rescale. This is fragile and can produce incorrect portfolio returns when weights are misinterpreted.
 
-3) Implement A/B simulation compare workflow in Streamlit
-Labels: agent:codex, enhancement, app, backend
-Why
-Users want to compare outcomes (metrics, holdings, turnover, manager changes) between two parameter sets to understand sensitivity and validate changes.
-Scope
-- Run two simulations from two saved parameter sets against the same dataset.
-- Present side-by-side and diff views for top-level metrics and multi-period outputs.
-Tasks
-- Add a Results-page compare mode (likely `streamlit_app/pages/3_Results.py`):
-	- Select A and B parameter sets.
-	- Run both simulations with the same input data and benchmark/RF selections.
-	- Cache results separately (cache key should include a hash of the parameter set + dataset).
-- Produce comparison outputs:
-	- Top-level metrics: side-by-side table + delta column.
-	- Multi-period summary: `period_results_summary` side-by-side + delta for key columns.
-	- Manager change counts by reason (e.g., `z_exit`, `cooldown`, `min_funds`, `low_weight_strikes`).
-- Add an “export comparison bundle” option:
-	- Write `config_A.json`, `config_B.json`, and a diff report similar to `scripts/diff_ui_runs.py`.
-- Add regression tests that run small synthetic datasets twice with slightly different configs and assert the compare UI/controller produces:
-	- distinct cache entries
-	- stable delta calculations
-Acceptance criteria
-- A user can select two saved parameter sets and run A/B; the app shows both outputs and a clear delta.
-- Caching prevents unnecessary recomputation when rerunning the same A/B selection.
-- Exported comparison bundle contains both configs and a diff summary.
-- Tests cover A/B run separation and basic delta correctness.
-Implementation notes
-- Start with comparing stable outputs already produced by the API (`metrics`, `period_results_summary`, `period_manager_changes`).
-- Avoid adding new analytics; focus on wiring, caching, and diff presentation.
+## Scope
+
+Standardize weights to fractions (0–1) for all internal computations and all result payloads. Accept both percent-sum (~100) and fraction-sum (~1) only at input boundaries (config/UI), normalize once, then propagate fractions everywhere.
+
+## Non-Goals
+
+- Changing weighting algorithms (risk parity, robust MV, etc.).
+- Changing constraint semantics beyond unit normalization.
+- Reworking Streamlit UX beyond removing weight-rescaling heuristics.
+
+## Tasks
+
+- [ ] Add `normalize_weights()` helper under `src/trend_analysis/util/weights.py` (accept dict/Series; detect percent vs fraction; return fractions; tolerance-aware).
+- [ ] Update `src/trend_analysis/multi_period/engine.py::_coerce_previous_weights` to use `normalize_weights()` (convert near-100 totals, not only exactly 100).
+- [ ] Update `streamlit_app/pages/3_Results.py::_coerce_weight_mapping` to call `normalize_weights()` and remove local percent-guessing logic.
+- [ ] Update `src/trend_analysis/api.py::_build_multi_period_portfolio` to normalize `fund_weights` / `ew_weights` before computing weighted returns.
+- [ ] Add unit tests for `normalize_weights()` covering: sum≈1, sum≈100, rounding error (99.999 / 100.001), empty/None, and long/short cases.
+- [ ] Add/extend tests asserting output weight mappings (`fund_weights`, `ew_weights`, and any `weights_*` keys when present) are fractions and sum ~1 for long-only portfolios.
+
+## Acceptance Criteria
+
+- [ ] All production code paths treat weight mappings as fractions internally and in result payloads.
+- [ ] Percent-style inputs (sum≈100) normalize deterministically to fractions with unit tests proving behavior.
+- [ ] Streamlit Results page no longer performs its own percent-to-fraction guessing.
+- [ ] All existing tests pass and the new normalization tests pass.
+
+## Implementation Notes
+
+- Suggested labels: `agent:codex`, `status:ready`.
+- Touchpoints: `streamlit_app/pages/3_Results.py`, `src/trend_analysis/multi_period/engine.py`, `src/trend_analysis/api.py`.
+- Prefer conservative detection (e.g., if total > ~1.5 treat as percent) with explicit tolerance to avoid misclassifying long/short weights.
+
+2: Single-period API should publish a user-weight combined portfolio series (not just EW)
+## Why
+
+`run_simulation` currently builds `portfolio_equal_weight_combined` for artifacts, but does not build an equivalent user-weight combined series. Downstream consumers can end up summarizing the equal-weight baseline by accident when that’s the only combined series available.
+
+## Scope
+
+For single-period runs, compute and publish:
+- `portfolio_user_weight_combined` (using `fund_weights`)
+- `portfolio_equal_weight_combined` (existing behavior using `ew_weights`)
+
+Also ensure combined series concatenation is deterministic and does not introduce duplicate timestamps at the IS/OOS boundary.
+
+## Non-Goals
+
+- Changing how `fund_weights` are computed.
+- Changing scaling logic in `in_sample_scaled` / `out_sample_scaled`.
+
+## Tasks
+
+- [ ] In `src/trend_analysis/api.py`, add construction of `portfolio_user_weight_combined` when `in_sample_scaled`, `out_sample_scaled`, and `fund_weights` are available.
+- [ ] Ensure both combined series are sorted and de-duplicated on index (keep last observation on duplicate).
+- [ ] Add a small helper in `src/trend_analysis/api.py` (or shared util) to build “combined” portfolio series from (weights, in_df, out_df) without repeating logic.
+- [ ] Add/extend tests validating that `portfolio_user_weight_combined` is present and uses `fund_weights` (not `ew_weights`) when available.
+- [ ] Add a regression test for duplicate boundary timestamps to verify dedupe behavior.
+
+## Acceptance Criteria
+
+- [ ] `run_simulation(...).details` includes `portfolio_user_weight_combined` whenever `fund_weights` exist.
+- [ ] `run_simulation(...).details` still includes `portfolio_equal_weight_combined` as before.
+- [ ] Combined series index is strictly unique and sorted.
+- [ ] All tests pass, including new regression coverage.
+
+## Implementation Notes
+
+- Suggested labels: `agent:codex`, `status:ready`.
+- Current baseline construction happens in `src/trend_analysis/api.py` where `portfolio_equal_weight_combined` is set.
+- Use the same column alignment pattern used for equal-weight baseline (ensure weights align to DataFrame columns).
+
+3: Multi-period API: store combined portfolio under the correct key + dedupe timestamps
+## Why
+
+In multi-period mode, the API stores the combined portfolio return series under `portfolio_equal_weight_combined` even when it was computed using actual applied weights. This mislabels the series and makes downstream reporting ambiguous. Also, concatenation can yield duplicate timestamps at period boundaries.
+
+## Scope
+
+- Ensure multi-period combined portfolio series is:
+  - Deterministic (sorted, no duplicate timestamps)
+  - Labeled correctly as user-weight (actual applied weights)
+- Preserve backward compatibility where practical.
+
+## Non-Goals
+
+- Rewriting the multi-period engine output schema.
+- Changing the logic of multi-period selection or rebalancing.
+
+## Tasks
+
+- [ ] Update `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop duplicate timestamps deterministically (keep last).
+- [ ] Update `_run_multi_period_simulation` to store the combined series under `portfolio_user_weight_combined` (or another unambiguous key), not `portfolio_equal_weight_combined`.
+- [ ] If backward compatibility is required, optionally keep the old key but add metadata flag (e.g., `metadata["deprecated_keys"]["portfolio_equal_weight_combined"]="use portfolio_user_weight_combined"`).
+- [ ] Add unit test constructing `period_results` with overlapping boundary timestamps to assert unique index after combination.
+- [ ] Add unit test confirming the multi-period combined key is the new user-weight key (and that the old key is either absent or explicitly marked deprecated).
+
+## Acceptance Criteria
+
+- [ ] Multi-period API results expose a correctly named combined portfolio return series.
+- [ ] Combined series index has no duplicates and is sorted.
+- [ ] No existing multi-period tests regress.
+
+## Implementation Notes
+
+- Suggested labels: `agent:codex`, `status:ready`.
+- Key code lives in `src/trend_analysis/api.py` (`_run_multi_period_simulation`, `_build_multi_period_portfolio`).
+- Prefer “keep last” dedupe to mirror typical “later period overrides earlier boundary” semantics.
+
+4: One canonical “pick the portfolio series” helper for reporting + CLI
+## Why
+
+Different consumers choose different portfolio series keys and in different orders, which can cause reports/bundles to summarize a baseline series when a user-weight series exists. The selection logic should be centralized and consistent.
+
+## Scope
+
+Create a single helper that selects the “primary” portfolio return series from a result payload (user-weight preferred), and update reporting + CLI modules to use it.
+
+## Non-Goals
+
+- Changing report layout or adding new report sections.
+- Modifying metric computation.
+
+## Tasks
+
+- [ ] Add `select_primary_portfolio_series(res: Mapping[str, Any])` helper (location: `src/trend_analysis/reporting/portfolio_series.py` or similar).
+- [ ] Selection precedence should be: `portfolio_user_weight_combined` → `portfolio_user_weight` → `portfolio_equal_weight_combined` → `portfolio_equal_weight` → computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.
+- [ ] Update `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining its own key order.
+- [ ] Update `src/trend_analysis/cli.py` and `src/trend/cli.py` to attach `run_result.portfolio` using the helper (so bundle/report tools use the same definition).
+- [ ] Update `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to use the helper for portfolio selection.
+- [ ] Add a small unit test suite to assert selection precedence with synthetic payloads (presence/absence of each key).
+
+## Acceptance Criteria
+
+- [ ] Reporting + CLI use the same portfolio series selection logic.
+- [ ] User-weight series is preferred whenever available.
+- [ ] Tests demonstrate correct precedence and pass in CI.
+
+## Implementation Notes
+
+- Suggested labels: `agent:codex`, `status:ready`.
+- This issue depends on the new key(s) added in Issues 2–3.
+
+5: Collapse CLI entrypoints to trend and make other scripts thin wrappers
+## Why
+
+The project currently exposes multiple CLI entrypoints with overlapping responsibilities, which increases the chance of diverging behavior and user confusion. A single canonical CLI (“trend”) should be the default, with legacy commands forwarding to it.
+
+## Scope
+
+- Keep `trend` as the canonical entrypoint.
+- Convert other scripts to thin wrappers that call `trend` with the equivalent subcommand and print a deprecation notice.
+- Update documentation to prefer `trend`.
+
+## Non-Goals
+
+- Removing legacy commands outright (unless clearly safe).
+- Reworking argument semantics beyond forwarding.
+
+## Tasks
+
+- [ ] Identify redundant scripts in `pyproject.toml` `[project.scripts]` and map each to a `trend <subcommand>` equivalent.
+- [ ] Add wrapper functions (e.g., `src/trend/compat_entrypoints.py`) that call `trend.cli:main([...])` with preset argv and emit a deprecation warning.
+- [ ] Update `pyproject.toml` to point legacy scripts at wrappers where applicable.
+- [ ] Update `README.md` / `docs/ReproducibilityGuide.md` to recommend `trend` and include a migration table (old → new).
+- [ ] Add a minimal smoke test that wrapper entrypoints return `--help` successfully (or at least import and run without error).
+
+## Acceptance Criteria
+
+- [ ] `trend` covers core workflows (run/report/app/quick-report).
+- [ ] Legacy scripts still function and forward to `trend` with a clear warning.
+- [ ] Docs prefer `trend`, and tests pass.
+
+## Implementation Notes
+
+- Suggested labels: `agent:codex`, `status:ready`.
+- Keep wrappers lightweight: no duplicated logic, just argv translation + call into `trend.cli`.
+
+6: Remove pipeline._sync_stage_dependencies runtime mutation
+## Why
+
+`trend_analysis/pipeline.py` currently mutates stage module globals at runtime to make monkeypatching “work.” This is brittle, surprising, and can hide dependency boundaries. Tests should patch the real dependency locations, and production code should not depend on global reassignment.
+
+## Scope
+
+Remove runtime stage dependency synchronization and refactor patch points so tests remain clean and deterministic without mutating module globals per call.
+
+## Non-Goals
+
+- Rewriting the pipeline architecture end-to-end.
+- Changing pipeline outputs or algorithm behavior.
+
+## Tasks
+
+- [ ] Inventory tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages to reflect those patches.
+- [ ] Update tests to patch the true implementation points (e.g., stage module functions, `pipeline_runner`, `pipeline_helpers`) instead of relying on pipeline global sync.
+- [ ] Refactor `src/trend_analysis/pipeline.py` to call stage implementation functions directly without `_call_with_sync`.
+- [ ] Remove `_sync_stage_dependencies` and any related glue once tests no longer depend on it.
+- [ ] Confirm public API compatibility: keep expected names/exports where required (backward-compatible wrappers are acceptable, but no runtime mutation).
+
+## Acceptance Criteria
+
+- [ ] Pipeline no longer mutates stage module globals during execution.
+- [ ] All existing tests pass after patch-point updates.
+- [ ] Pipeline behavior (outputs/diagnostics) remains unchanged.
+
+## Implementation Notes
+
+- Suggested labels: `agent:codex`, `status:ready`.
+- Primary file: `src/trend_analysis/pipeline.py`.
+- Aim for small, mechanical refactors: remove sync, move patches to where dependencies actually live.
+
+7: Align risk-free fallback semantics (opt-in everywhere) + remove misleading “breaking change” block
+## Why
+
+The risk-free fallback default is documented and implemented inconsistently across modules. The resolver helper treats fallback as opt-in, while the selection stage contains a “breaking change” comment implying default-on behavior. This increases confusion and risks mismatched behavior when calling lower-level functions directly.
+
+## Scope
+
+Make risk-free fallback opt-in consistently:
+- Only enable fallback when `allow_risk_free_fallback is True`.
+- Remove misleading “breaking change” comment/warning in selection stage.
+- Ensure direct callers and entrypoints behave the same.
+
+## Non-Goals
+
+- Changing the fallback heuristic itself (lowest volatility selection).
+- Changing validation thresholds or coverage logic.
+
+## Tasks
+
+- [ ] Update `src/trend_analysis/stages/selection.py` fallback gating to: `fallback_enabled = (allow_risk_free_fallback is True)`.
+- [ ] Remove or rewrite the “BREAKING CHANGE” comment/warning to reflect actual behavior.
+- [ ] Consider changing `pipeline.run_analysis(... allow_risk_free_fallback=...)` default from `None` to `False` for clarity (if no API break).
+- [ ] Add/adjust tests to ensure: missing rf + `allow_risk_free_fallback=None/False` raises, and `True` enables fallback.
+- [ ] Confirm multi-period and single-period entrypoints both pass the same resolved flag.
+
+## Acceptance Criteria
+
+- [ ] Default behavior is opt-in for risk-free fallback everywhere.
+- [ ] No misleading “breaking change” warning triggers in normal runs.
+- [ ] Tests pass and cover the default/True/False combinations.
+
+## Implementation Notes
+
+- Suggested labels: `agent:codex`, `status:ready`.
+- Touchpoints: `src/trend_analysis/util/risk_free.py`, `src/trend_analysis/stages/selection.py`, and entrypoints that pass the flag downstream.
+
+8: Make details_sanitized compact (hash large frames instead of serializing them)
+## Why
+
+`details_sanitized` exists to support deterministic hashing and JSON-safe payloads, but serializing full DataFrames/Series (especially large ones) can explode memory/time for hashing and logging. We want determinism without dragging half of pandas into a JSON blob.
+
+## Scope
+
+Modify `details_sanitized` generation to represent large pandas objects using stable hashes + small metadata (shape/columns), while preserving current behavior for small/primitive structures.
+
+## Non-Goals
+
+- Removing `details_sanitized`.
+- Changing the core run artifacts/bundle layout beyond internal sanitization.
+
+## Tasks
+
+- [ ] Implement size-aware pandas handling in `src/trend_analysis/api.py` sanitization:
+  - For DataFrames/Series above a threshold, replace with `{ "__type__": "DataFrame", "shape": ..., "columns": ..., "hash": ... }`.
+- [ ] Choose a deterministic hash function (e.g., sha256 of sorted-index/column CSV bytes or a stable pandas hash).
+- [ ] Keep current key-stringification behavior for dict keys (timestamps → strings).
+- [ ] Update determinism tests to accept hashed representations while still validating stability.
+- [ ] Add a regression test that verifies sanitization of a “large enough” DataFrame produces a compact hashed object (not full data expansion).
+
+## Acceptance Criteria
+
+- [ ] Determinism tests still pass.
+- [ ] `details_sanitized` stays small even when `details` contains large DataFrames.
+- [ ] Sanitization remains deterministic across runs (stable hash output).
+
+## Implementation Notes
+
+- Suggested labels: `agent:codex`, `status:ready`.
+- Touchpoints: `src/trend_analysis/api.py`, `tests/test_api_run_simulation.py` (hashing behavior), and any tests asserting sanitized payload structure.
+
