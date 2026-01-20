@@ -128,3 +128,23 @@ def test_compat_entrypoints_map_to_trend_subcommands(
         (["report", "--output", "reports/trend_report.html"], "trend"),
         (["quick-report", "--help"], "trend"),
     ]
+
+
+def test_trend_run_artefacts_skip_default_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[list[str], str]] = []
+
+    def fake_main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
+        calls.append((list(argv or []), prog))
+        return 0
+
+    monkeypatch.setattr(trend_cli, "main", fake_main)
+
+    compat_entrypoints.trend_run(["--artefacts", "outdir"])
+    compat_entrypoints.trend_run(["--artefacts=otherdir"])
+
+    assert calls == [
+        (["report", "--out", "outdir"], "trend"),
+        (["report", "--out=otherdir"], "trend"),
+    ]
