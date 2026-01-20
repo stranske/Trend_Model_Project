@@ -19,7 +19,6 @@ from __future__ import annotations  # mypy: ignore-errors
 
 import logging
 import os
-from collections.abc import Mapping as _MappingABC
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Mapping, Protocol, cast
 
