@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: In `src/trend_analysis/api.py`, add construction of `portfolio_user_weight_combined`
       when `in_sample_scaled`, `out_sample_scaled`, and `fund_weights` are available.
-    status: doing
+    status: done
     started_at: '2026-01-20T07:59:23Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-20T07:59:30Z'
+    commit: 7a9832a1857a53c0141406d5e683dba042a8afd6
     notes: []
   - id: task-02
     title: 'In `src/trend_analysis/api.py` (verify: confirm completion in repo)'
