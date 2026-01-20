@@ -34,6 +34,7 @@ from .pipeline import (
     _run_analysis_with_diagnostics,
 )
 from .util.risk_free import resolve_risk_free_settings
+from .util.weights import normalize_weights
 from .weights.robust_config import weight_engine_params_from_robustness
 
 
@@ -308,10 +309,10 @@ def _build_multi_period_portfolio(
         out_df = res.get("out_sample_scaled")
         # Use actual fund weights (user weights) instead of equal weights
         # fund_weights contains the weights actually applied during the simulation
-        fund_weights = res.get("fund_weights", {})
+        fund_weights = normalize_weights(res.get("fund_weights"))
         # Fall back to ew_weights only if fund_weights is empty
         if not fund_weights:
-            fund_weights = res.get("ew_weights", {})
+            fund_weights = normalize_weights(res.get("ew_weights"))
 
         if not isinstance(out_df, pd.DataFrame) or out_df.empty:
             continue
