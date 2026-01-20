@@ -1,0 +1,2673 @@
+version: 1
+issue: 4450
+base: main
+branch: codex/issue-4450
+tasks:
+  - id: task-01
+    title: 'Add `select_primary_portfolio_series(res: Mapping[str, Any])` helper (location:
+      `src/trend_analysis/reporting/portfolio_series.py` or similar).'
+    status: doing
+    started_at: '2026-01-20T14:44:54Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Define scope for: Define scope for: Add `select_primary_portfolio_series(res:
+      Mapping[str (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Implement focused slice for: Define scope for: Add `select_primary_portfolio_series(res:
+      Mapping[str (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Validate focused slice for: Define scope for: Add `select_primary_portfolio_series(res:
+      Mapping[str (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Define scope for: Implement focused slice for: Add `select_primary_portfolio_series(res:
+      Mapping[str (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Implement focused slice for: Implement focused slice for: Add `select_primary_portfolio_series(res:
+      Mapping[str (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Validate focused slice for: Implement focused slice for: Add `select_primary_portfolio_series(res:
+      Mapping[str (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Define scope for: Validate focused slice for: Add `select_primary_portfolio_series(res:
+      Mapping[str (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Implement focused slice for: Validate focused slice for: Add `select_primary_portfolio_series(res:
+      Mapping[str (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Validate focused slice for: Validate focused slice for: Add `select_primary_portfolio_series(res:
+      Mapping[str (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Define scope for: Define scope for: Any])` helper (location: `src/trend_analysis/reporting/portfolio_series.py`
+      or similar). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Implement focused slice for: Define scope for: Any])` helper (location:
+      `src/trend_analysis/reporting/portfolio_series.py` or similar). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Validate focused slice for: Define scope for: Any])` helper (location:
+      `src/trend_analysis/reporting/portfolio_series.py` or similar). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Define scope for: Implement focused slice for: Any])` helper (location:
+      `src/trend_analysis/reporting/portfolio_series.py` or similar). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Implement focused slice for: Implement focused slice for: Any])` helper
+      (location: `src/trend_analysis/reporting/portfolio_series.py` or similar). (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Validate focused slice for: Implement focused slice for: Any])` helper
+      (location: `src/trend_analysis/reporting/portfolio_series.py` or similar). (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Define scope for: Validate focused slice for: Any])` helper (location:
+      `src/trend_analysis/reporting/portfolio_series.py` or similar). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Implement focused slice for: Validate focused slice for: Any])` helper
+      (location: `src/trend_analysis/reporting/portfolio_series.py` or similar). (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Validate focused slice for: Validate focused slice for: Any])` helper
+      (location: `src/trend_analysis/reporting/portfolio_series.py` or similar). (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: "Implement selection precedence: `portfolio_user_weight_combined` \u2192\
+      \ `portfolio_user_weight` \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight`\
+      \ \u2192 computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: "Define scope for: Define scope for: Define approach for: Implement selection\
+      \ precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: "Implement focused slice for: Define scope for: Define approach for: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: "Validate focused slice for: Define scope for: Define approach for: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: "Define scope for: Implement focused slice for: Define approach for: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: "Implement focused slice for: Implement focused slice for: Define approach\
+      \ for: Implement selection precedence: `portfolio_user_weight_combined` \u2192\
+      \ `portfolio_user_weight` \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight`\
+      \ \u2192 computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: "Validate focused slice for: Implement focused slice for: Define approach\
+      \ for: Implement selection precedence: `portfolio_user_weight_combined` \u2192\
+      \ `portfolio_user_weight` \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight`\
+      \ \u2192 computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: "Define scope for: Validate focused slice for: Define approach for: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: "Implement focused slice for: Validate focused slice for: Define approach\
+      \ for: Implement selection precedence: `portfolio_user_weight_combined` \u2192\
+      \ `portfolio_user_weight` \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight`\
+      \ \u2192 computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: "Validate focused slice for: Validate focused slice for: Define approach\
+      \ for: Implement selection precedence: `portfolio_user_weight_combined` \u2192\
+      \ `portfolio_user_weight` \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight`\
+      \ \u2192 computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: "Define scope for: Define scope for: Implement: Implement selection precedence:\
+      \ `portfolio_user_weight_combined` \u2192 `portfolio_user_weight` \u2192 `portfolio_equal_weight_combined`\
+      \ \u2192 `portfolio_equal_weight` \u2192 computed fallback from `out_sample_scaled`\
+      \ + `fund_weights`/`ew_weights`. (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: "Implement focused slice for: Define scope for: Implement: Implement selection\
+      \ precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: "Validate focused slice for: Define scope for: Implement: Implement selection\
+      \ precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: "Define scope for: Implement focused slice for: Implement: Implement selection\
+      \ precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: "Implement focused slice for: Implement focused slice for: Implement: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: "Validate focused slice for: Implement focused slice for: Implement: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: "Define scope for: Validate focused slice for: Implement: Implement selection\
+      \ precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: "Implement focused slice for: Validate focused slice for: Implement: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: "Validate focused slice for: Validate focused slice for: Implement: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: "Define scope for: Define scope for: Validate: Implement selection precedence:\
+      \ `portfolio_user_weight_combined` \u2192 `portfolio_user_weight` \u2192 `portfolio_equal_weight_combined`\
+      \ \u2192 `portfolio_equal_weight` \u2192 computed fallback from `out_sample_scaled`\
+      \ + `fund_weights`/`ew_weights`. (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: "Implement focused slice for: Define scope for: Validate: Implement selection\
+      \ precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: "Validate focused slice for: Define scope for: Validate: Implement selection\
+      \ precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: "Define scope for: Implement focused slice for: Validate: Implement selection\
+      \ precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: "Implement focused slice for: Implement focused slice for: Validate: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: "Validate focused slice for: Implement focused slice for: Validate: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: "Define scope for: Validate focused slice for: Validate: Implement selection\
+      \ precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: "Implement focused slice for: Validate focused slice for: Validate: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: "Validate focused slice for: Validate focused slice for: Validate: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: Update `src/trend_analysis/reporting/narrative.py` to use the helper instead
+      of maintaining its own key order.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: 'Define scope for: Define scope for: Define approach for: Update `src/trend_analysis/reporting/narrative.py`
+      to use the helper instead of maintaining its own key order. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: 'Implement focused slice for: Define scope for: Define approach for: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: 'Validate focused slice for: Define scope for: Define approach for: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: 'Define scope for: Implement focused slice for: Define approach for: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: 'Implement focused slice for: Implement focused slice for: Define approach
+      for: Update `src/trend_analysis/reporting/narrative.py` to use the helper instead
+      of maintaining its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: 'Validate focused slice for: Implement focused slice for: Define approach
+      for: Update `src/trend_analysis/reporting/narrative.py` to use the helper instead
+      of maintaining its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: 'Define scope for: Validate focused slice for: Define approach for: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-56
+    title: 'Implement focused slice for: Validate focused slice for: Define approach
+      for: Update `src/trend_analysis/reporting/narrative.py` to use the helper instead
+      of maintaining its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-57
+    title: 'Validate focused slice for: Validate focused slice for: Define approach
+      for: Update `src/trend_analysis/reporting/narrative.py` to use the helper instead
+      of maintaining its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-58
+    title: 'Define scope for: Define scope for: Implement: Update `src/trend_analysis/reporting/narrative.py`
+      to use the helper instead of maintaining its own key order. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-59
+    title: 'Implement focused slice for: Define scope for: Implement: Update `src/trend_analysis/reporting/narrative.py`
+      to use the helper instead of maintaining its own key order. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-60
+    title: 'Validate focused slice for: Define scope for: Implement: Update `src/trend_analysis/reporting/narrative.py`
+      to use the helper instead of maintaining its own key order. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-61
+    title: 'Define scope for: Implement focused slice for: Implement: Update `src/trend_analysis/reporting/narrative.py`
+      to use the helper instead of maintaining its own key order. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-62
+    title: 'Implement focused slice for: Implement focused slice for: Implement: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-63
+    title: 'Validate focused slice for: Implement focused slice for: Implement: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-64
+    title: 'Define scope for: Validate focused slice for: Implement: Update `src/trend_analysis/reporting/narrative.py`
+      to use the helper instead of maintaining its own key order. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-65
+    title: 'Implement focused slice for: Validate focused slice for: Implement: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-66
+    title: 'Validate focused slice for: Validate focused slice for: Implement: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-67
+    title: 'Define scope for: Define scope for: Validate: Update `src/trend_analysis/reporting/narrative.py`
+      to use the helper instead of maintaining its own key order. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-68
+    title: 'Implement focused slice for: Define scope for: Validate: Update `src/trend_analysis/reporting/narrative.py`
+      to use the helper instead of maintaining its own key order. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-69
+    title: 'Validate focused slice for: Define scope for: Validate: Update `src/trend_analysis/reporting/narrative.py`
+      to use the helper instead of maintaining its own key order. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-70
+    title: 'Define scope for: Implement focused slice for: Validate: Update `src/trend_analysis/reporting/narrative.py`
+      to use the helper instead of maintaining its own key order. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-71
+    title: 'Implement focused slice for: Implement focused slice for: Validate: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-72
+    title: 'Validate focused slice for: Implement focused slice for: Validate: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-73
+    title: 'Define scope for: Validate focused slice for: Validate: Update `src/trend_analysis/reporting/narrative.py`
+      to use the helper instead of maintaining its own key order. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-74
+    title: 'Implement focused slice for: Validate focused slice for: Validate: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-75
+    title: 'Validate focused slice for: Validate focused slice for: Validate: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-76
+    title: Update `src/trend_analysis/cli.py` and `src/trend/cli.py` to attach `run_result.portfolio`
+      using the helper (so bundle/report tools use the same definition).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-77
+    title: 'Update `src/trend_analysis/cli.py` (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-78
+    title: 'Define scope for: Define scope for: `src/trend/cli.py` to attach `run_result.portfolio`
+      using the helper (so bundle/report tools use the same definition). (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-79
+    title: 'Implement focused slice for: Define scope for: `src/trend/cli.py` to attach
+      `run_result.portfolio` using the helper (so bundle/report tools use the same
+      definition). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-80
+    title: 'Validate focused slice for: Define scope for: `src/trend/cli.py` to attach
+      `run_result.portfolio` using the helper (so bundle/report tools use the same
+      definition). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-81
+    title: 'Define scope for: Implement focused slice for: `src/trend/cli.py` to attach
+      `run_result.portfolio` using the helper (so bundle/report tools use the same
+      definition). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-82
+    title: 'Implement focused slice for: Implement focused slice for: `src/trend/cli.py`
+      to attach `run_result.portfolio` using the helper (so bundle/report tools use
+      the same definition). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-83
+    title: 'Validate focused slice for: Implement focused slice for: `src/trend/cli.py`
+      to attach `run_result.portfolio` using the helper (so bundle/report tools use
+      the same definition). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-84
+    title: 'Define scope for: Validate focused slice for: `src/trend/cli.py` to attach
+      `run_result.portfolio` using the helper (so bundle/report tools use the same
+      definition). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-85
+    title: 'Implement focused slice for: Validate focused slice for: `src/trend/cli.py`
+      to attach `run_result.portfolio` using the helper (so bundle/report tools use
+      the same definition). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-86
+    title: 'Validate focused slice for: Validate focused slice for: `src/trend/cli.py`
+      to attach `run_result.portfolio` using the helper (so bundle/report tools use
+      the same definition). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-87
+    title: Update `src/trend/reporting/quick_summary.py` (and any other report entrypoints)
+      to use the helper for portfolio selection.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-88
+    title: 'Define scope for: Define scope for: Define approach for: Update `src/trend/reporting/quick_summary.py`
+      (and any other report entrypoints) to use the helper for portfolio selection.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-89
+    title: 'Implement focused slice for: Define scope for: Define approach for: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-90
+    title: 'Validate focused slice for: Define scope for: Define approach for: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-91
+    title: 'Define scope for: Implement focused slice for: Define approach for: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-92
+    title: 'Implement focused slice for: Implement focused slice for: Define approach
+      for: Update `src/trend/reporting/quick_summary.py` (and any other report entrypoints)
+      to use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-93
+    title: 'Validate focused slice for: Implement focused slice for: Define approach
+      for: Update `src/trend/reporting/quick_summary.py` (and any other report entrypoints)
+      to use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-94
+    title: 'Define scope for: Validate focused slice for: Define approach for: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-95
+    title: 'Implement focused slice for: Validate focused slice for: Define approach
+      for: Update `src/trend/reporting/quick_summary.py` (and any other report entrypoints)
+      to use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-96
+    title: 'Validate focused slice for: Validate focused slice for: Define approach
+      for: Update `src/trend/reporting/quick_summary.py` (and any other report entrypoints)
+      to use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-97
+    title: 'Define scope for: Define scope for: Implement: Update `src/trend/reporting/quick_summary.py`
+      (and any other report entrypoints) to use the helper for portfolio selection.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-98
+    title: 'Implement focused slice for: Define scope for: Implement: Update `src/trend/reporting/quick_summary.py`
+      (and any other report entrypoints) to use the helper for portfolio selection.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-99
+    title: 'Validate focused slice for: Define scope for: Implement: Update `src/trend/reporting/quick_summary.py`
+      (and any other report entrypoints) to use the helper for portfolio selection.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-100
+    title: 'Define scope for: Implement focused slice for: Implement: Update `src/trend/reporting/quick_summary.py`
+      (and any other report entrypoints) to use the helper for portfolio selection.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-101
+    title: 'Implement focused slice for: Implement focused slice for: Implement: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-102
+    title: 'Validate focused slice for: Implement focused slice for: Implement: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-103
+    title: 'Define scope for: Validate focused slice for: Implement: Update `src/trend/reporting/quick_summary.py`
+      (and any other report entrypoints) to use the helper for portfolio selection.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-104
+    title: 'Implement focused slice for: Validate focused slice for: Implement: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-105
+    title: 'Validate focused slice for: Validate focused slice for: Implement: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-106
+    title: 'Define scope for: Define scope for: Validate: Update `src/trend/reporting/quick_summary.py`
+      (and any other report entrypoints) to use the helper for portfolio selection.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-107
+    title: 'Implement focused slice for: Define scope for: Validate: Update `src/trend/reporting/quick_summary.py`
+      (and any other report entrypoints) to use the helper for portfolio selection.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-108
+    title: 'Validate focused slice for: Define scope for: Validate: Update `src/trend/reporting/quick_summary.py`
+      (and any other report entrypoints) to use the helper for portfolio selection.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-109
+    title: 'Define scope for: Implement focused slice for: Validate: Update `src/trend/reporting/quick_summary.py`
+      (and any other report entrypoints) to use the helper for portfolio selection.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-110
+    title: 'Implement focused slice for: Implement focused slice for: Validate: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-111
+    title: 'Validate focused slice for: Implement focused slice for: Validate: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-112
+    title: 'Define scope for: Validate focused slice for: Validate: Update `src/trend/reporting/quick_summary.py`
+      (and any other report entrypoints) to use the helper for portfolio selection.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-113
+    title: 'Implement focused slice for: Validate focused slice for: Validate: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-114
+    title: 'Validate focused slice for: Validate focused slice for: Validate: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-115
+    title: Add a small unit test suite to assert selection precedence with synthetic
+      payloads (presence/absence of each key).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-116
+    title: 'Define scope for: Define scope for: Define approach for: Add a small unit
+      test suite to assert selection precedence with synthetic payloads (presence/absence
+      of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-117
+    title: 'Implement focused slice for: Define scope for: Define approach for: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-118
+    title: 'Validate focused slice for: Define scope for: Define approach for: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-119
+    title: 'Define scope for: Implement focused slice for: Define approach for: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-120
+    title: 'Implement focused slice for: Implement focused slice for: Define approach
+      for: Add a small unit test suite to assert selection precedence with synthetic
+      payloads (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-121
+    title: 'Validate focused slice for: Implement focused slice for: Define approach
+      for: Add a small unit test suite to assert selection precedence with synthetic
+      payloads (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-122
+    title: 'Define scope for: Validate focused slice for: Define approach for: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-123
+    title: 'Implement focused slice for: Validate focused slice for: Define approach
+      for: Add a small unit test suite to assert selection precedence with synthetic
+      payloads (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-124
+    title: 'Validate focused slice for: Validate focused slice for: Define approach
+      for: Add a small unit test suite to assert selection precedence with synthetic
+      payloads (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-125
+    title: 'Define scope for: Define scope for: Implement: Add a small unit test suite
+      to assert selection precedence with synthetic payloads (presence/absence of
+      each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-126
+    title: 'Implement focused slice for: Define scope for: Implement: Add a small
+      unit test suite to assert selection precedence with synthetic payloads (presence/absence
+      of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-127
+    title: 'Validate focused slice for: Define scope for: Implement: Add a small unit
+      test suite to assert selection precedence with synthetic payloads (presence/absence
+      of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-128
+    title: 'Define scope for: Implement focused slice for: Implement: Add a small
+      unit test suite to assert selection precedence with synthetic payloads (presence/absence
+      of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-129
+    title: 'Implement focused slice for: Implement focused slice for: Implement: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-130
+    title: 'Validate focused slice for: Implement focused slice for: Implement: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-131
+    title: 'Define scope for: Validate focused slice for: Implement: Add a small unit
+      test suite to assert selection precedence with synthetic payloads (presence/absence
+      of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-132
+    title: 'Implement focused slice for: Validate focused slice for: Implement: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-133
+    title: 'Validate focused slice for: Validate focused slice for: Implement: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-134
+    title: 'Define scope for: Define scope for: Validate: Add a small unit test suite
+      to assert selection precedence with synthetic payloads (presence/absence of
+      each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-135
+    title: 'Implement focused slice for: Define scope for: Validate: Add a small unit
+      test suite to assert selection precedence with synthetic payloads (presence/absence
+      of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-136
+    title: 'Validate focused slice for: Define scope for: Validate: Add a small unit
+      test suite to assert selection precedence with synthetic payloads (presence/absence
+      of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-137
+    title: 'Define scope for: Implement focused slice for: Validate: Add a small unit
+      test suite to assert selection precedence with synthetic payloads (presence/absence
+      of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-138
+    title: 'Implement focused slice for: Implement focused slice for: Validate: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-139
+    title: 'Validate focused slice for: Implement focused slice for: Validate: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-140
+    title: 'Define scope for: Validate focused slice for: Validate: Add a small unit
+      test suite to assert selection precedence with synthetic payloads (presence/absence
+      of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-141
+    title: 'Implement focused slice for: Validate focused slice for: Validate: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-142
+    title: 'Validate focused slice for: Validate focused slice for: Validate: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-143
+    title: 'Add `select_primary_portfolio_series(res: Mapping[str, Any])` helper (location:
+      `src/trend_analysis/reporting/portfolio_series.py` or similar).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-144
+    title: 'Define scope for: Define scope for: Add `select_primary_portfolio_series(res:
+      Mapping[str (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-145
+    title: 'Implement focused slice for: Define scope for: Add `select_primary_portfolio_series(res:
+      Mapping[str (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-146
+    title: 'Validate focused slice for: Define scope for: Add `select_primary_portfolio_series(res:
+      Mapping[str (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-147
+    title: 'Define scope for: Implement focused slice for: Add `select_primary_portfolio_series(res:
+      Mapping[str (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-148
+    title: 'Implement focused slice for: Implement focused slice for: Add `select_primary_portfolio_series(res:
+      Mapping[str (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-149
+    title: 'Validate focused slice for: Implement focused slice for: Add `select_primary_portfolio_series(res:
+      Mapping[str (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-150
+    title: 'Define scope for: Validate focused slice for: Add `select_primary_portfolio_series(res:
+      Mapping[str (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-151
+    title: 'Implement focused slice for: Validate focused slice for: Add `select_primary_portfolio_series(res:
+      Mapping[str (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-152
+    title: 'Validate focused slice for: Validate focused slice for: Add `select_primary_portfolio_series(res:
+      Mapping[str (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-153
+    title: 'Define scope for: Define scope for: Any])` helper (location: `src/trend_analysis/reporting/portfolio_series.py`
+      or similar). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-154
+    title: 'Implement focused slice for: Define scope for: Any])` helper (location:
+      `src/trend_analysis/reporting/portfolio_series.py` or similar). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-155
+    title: 'Validate focused slice for: Define scope for: Any])` helper (location:
+      `src/trend_analysis/reporting/portfolio_series.py` or similar). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-156
+    title: 'Define scope for: Implement focused slice for: Any])` helper (location:
+      `src/trend_analysis/reporting/portfolio_series.py` or similar). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-157
+    title: 'Implement focused slice for: Implement focused slice for: Any])` helper
+      (location: `src/trend_analysis/reporting/portfolio_series.py` or similar). (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-158
+    title: 'Validate focused slice for: Implement focused slice for: Any])` helper
+      (location: `src/trend_analysis/reporting/portfolio_series.py` or similar). (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-159
+    title: 'Define scope for: Validate focused slice for: Any])` helper (location:
+      `src/trend_analysis/reporting/portfolio_series.py` or similar). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-160
+    title: 'Implement focused slice for: Validate focused slice for: Any])` helper
+      (location: `src/trend_analysis/reporting/portfolio_series.py` or similar). (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-161
+    title: 'Validate focused slice for: Validate focused slice for: Any])` helper
+      (location: `src/trend_analysis/reporting/portfolio_series.py` or similar). (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-162
+    title: "Implement selection precedence: `portfolio_user_weight_combined` \u2192\
+      \ `portfolio_user_weight` \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight`\
+      \ \u2192 computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-163
+    title: "Define scope for: Define scope for: Define approach for: Implement selection\
+      \ precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-164
+    title: "Implement focused slice for: Define scope for: Define approach for: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-165
+    title: "Validate focused slice for: Define scope for: Define approach for: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-166
+    title: "Define scope for: Implement focused slice for: Define approach for: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-167
+    title: "Implement focused slice for: Implement focused slice for: Define approach\
+      \ for: Implement selection precedence: `portfolio_user_weight_combined` \u2192\
+      \ `portfolio_user_weight` \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight`\
+      \ \u2192 computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-168
+    title: "Validate focused slice for: Implement focused slice for: Define approach\
+      \ for: Implement selection precedence: `portfolio_user_weight_combined` \u2192\
+      \ `portfolio_user_weight` \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight`\
+      \ \u2192 computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-169
+    title: "Define scope for: Validate focused slice for: Define approach for: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-170
+    title: "Implement focused slice for: Validate focused slice for: Define approach\
+      \ for: Implement selection precedence: `portfolio_user_weight_combined` \u2192\
+      \ `portfolio_user_weight` \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight`\
+      \ \u2192 computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-171
+    title: "Validate focused slice for: Validate focused slice for: Define approach\
+      \ for: Implement selection precedence: `portfolio_user_weight_combined` \u2192\
+      \ `portfolio_user_weight` \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight`\
+      \ \u2192 computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-172
+    title: "Define scope for: Define scope for: Implement: Implement selection precedence:\
+      \ `portfolio_user_weight_combined` \u2192 `portfolio_user_weight` \u2192 `portfolio_equal_weight_combined`\
+      \ \u2192 `portfolio_equal_weight` \u2192 computed fallback from `out_sample_scaled`\
+      \ + `fund_weights`/`ew_weights`. (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-173
+    title: "Implement focused slice for: Define scope for: Implement: Implement selection\
+      \ precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-174
+    title: "Validate focused slice for: Define scope for: Implement: Implement selection\
+      \ precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-175
+    title: "Define scope for: Implement focused slice for: Implement: Implement selection\
+      \ precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-176
+    title: "Implement focused slice for: Implement focused slice for: Implement: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-177
+    title: "Validate focused slice for: Implement focused slice for: Implement: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-178
+    title: "Define scope for: Validate focused slice for: Implement: Implement selection\
+      \ precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-179
+    title: "Implement focused slice for: Validate focused slice for: Implement: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-180
+    title: "Validate focused slice for: Validate focused slice for: Implement: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-181
+    title: "Define scope for: Define scope for: Validate: Implement selection precedence:\
+      \ `portfolio_user_weight_combined` \u2192 `portfolio_user_weight` \u2192 `portfolio_equal_weight_combined`\
+      \ \u2192 `portfolio_equal_weight` \u2192 computed fallback from `out_sample_scaled`\
+      \ + `fund_weights`/`ew_weights`. (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-182
+    title: "Implement focused slice for: Define scope for: Validate: Implement selection\
+      \ precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-183
+    title: "Validate focused slice for: Define scope for: Validate: Implement selection\
+      \ precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-184
+    title: "Define scope for: Implement focused slice for: Validate: Implement selection\
+      \ precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-185
+    title: "Implement focused slice for: Implement focused slice for: Validate: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-186
+    title: "Validate focused slice for: Implement focused slice for: Validate: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-187
+    title: "Define scope for: Validate focused slice for: Validate: Implement selection\
+      \ precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-188
+    title: "Implement focused slice for: Validate focused slice for: Validate: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-189
+    title: "Validate focused slice for: Validate focused slice for: Validate: Implement\
+      \ selection precedence: `portfolio_user_weight_combined` \u2192 `portfolio_user_weight`\
+      \ \u2192 `portfolio_equal_weight_combined` \u2192 `portfolio_equal_weight` \u2192\
+      \ computed fallback from `out_sample_scaled` + `fund_weights`/`ew_weights`.\
+      \ (verify: confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-190
+    title: Update `src/trend_analysis/reporting/narrative.py` to use the helper instead
+      of maintaining its own key order.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-191
+    title: 'Define scope for: Define scope for: Define approach for: Update `src/trend_analysis/reporting/narrative.py`
+      to use the helper instead of maintaining its own key order. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-192
+    title: 'Implement focused slice for: Define scope for: Define approach for: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-193
+    title: 'Validate focused slice for: Define scope for: Define approach for: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-194
+    title: 'Define scope for: Implement focused slice for: Define approach for: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-195
+    title: 'Implement focused slice for: Implement focused slice for: Define approach
+      for: Update `src/trend_analysis/reporting/narrative.py` to use the helper instead
+      of maintaining its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-196
+    title: 'Validate focused slice for: Implement focused slice for: Define approach
+      for: Update `src/trend_analysis/reporting/narrative.py` to use the helper instead
+      of maintaining its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-197
+    title: 'Define scope for: Validate focused slice for: Define approach for: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-198
+    title: 'Implement focused slice for: Validate focused slice for: Define approach
+      for: Update `src/trend_analysis/reporting/narrative.py` to use the helper instead
+      of maintaining its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-199
+    title: 'Validate focused slice for: Validate focused slice for: Define approach
+      for: Update `src/trend_analysis/reporting/narrative.py` to use the helper instead
+      of maintaining its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-200
+    title: 'Define scope for: Define scope for: Implement: Update `src/trend_analysis/reporting/narrative.py`
+      to use the helper instead of maintaining its own key order. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-201
+    title: 'Implement focused slice for: Define scope for: Implement: Update `src/trend_analysis/reporting/narrative.py`
+      to use the helper instead of maintaining its own key order. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-202
+    title: 'Validate focused slice for: Define scope for: Implement: Update `src/trend_analysis/reporting/narrative.py`
+      to use the helper instead of maintaining its own key order. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-203
+    title: 'Define scope for: Implement focused slice for: Implement: Update `src/trend_analysis/reporting/narrative.py`
+      to use the helper instead of maintaining its own key order. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-204
+    title: 'Implement focused slice for: Implement focused slice for: Implement: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-205
+    title: 'Validate focused slice for: Implement focused slice for: Implement: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-206
+    title: 'Define scope for: Validate focused slice for: Implement: Update `src/trend_analysis/reporting/narrative.py`
+      to use the helper instead of maintaining its own key order. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-207
+    title: 'Implement focused slice for: Validate focused slice for: Implement: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-208
+    title: 'Validate focused slice for: Validate focused slice for: Implement: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-209
+    title: 'Define scope for: Define scope for: Validate: Update `src/trend_analysis/reporting/narrative.py`
+      to use the helper instead of maintaining its own key order. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-210
+    title: 'Implement focused slice for: Define scope for: Validate: Update `src/trend_analysis/reporting/narrative.py`
+      to use the helper instead of maintaining its own key order. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-211
+    title: 'Validate focused slice for: Define scope for: Validate: Update `src/trend_analysis/reporting/narrative.py`
+      to use the helper instead of maintaining its own key order. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-212
+    title: 'Define scope for: Implement focused slice for: Validate: Update `src/trend_analysis/reporting/narrative.py`
+      to use the helper instead of maintaining its own key order. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-213
+    title: 'Implement focused slice for: Implement focused slice for: Validate: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-214
+    title: 'Validate focused slice for: Implement focused slice for: Validate: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-215
+    title: 'Define scope for: Validate focused slice for: Validate: Update `src/trend_analysis/reporting/narrative.py`
+      to use the helper instead of maintaining its own key order. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-216
+    title: 'Implement focused slice for: Validate focused slice for: Validate: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-217
+    title: 'Validate focused slice for: Validate focused slice for: Validate: Update
+      `src/trend_analysis/reporting/narrative.py` to use the helper instead of maintaining
+      its own key order. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-218
+    title: Update `src/trend_analysis/cli.py` and `src/trend/cli.py` to attach `run_result.portfolio`
+      using the helper (so bundle/report tools use the same definition).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-219
+    title: 'Update `src/trend_analysis/cli.py` (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-220
+    title: 'Define scope for: Define scope for: `src/trend/cli.py` to attach `run_result.portfolio`
+      using the helper (so bundle/report tools use the same definition). (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-221
+    title: 'Implement focused slice for: Define scope for: `src/trend/cli.py` to attach
+      `run_result.portfolio` using the helper (so bundle/report tools use the same
+      definition). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-222
+    title: 'Validate focused slice for: Define scope for: `src/trend/cli.py` to attach
+      `run_result.portfolio` using the helper (so bundle/report tools use the same
+      definition). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-223
+    title: 'Define scope for: Implement focused slice for: `src/trend/cli.py` to attach
+      `run_result.portfolio` using the helper (so bundle/report tools use the same
+      definition). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-224
+    title: 'Implement focused slice for: Implement focused slice for: `src/trend/cli.py`
+      to attach `run_result.portfolio` using the helper (so bundle/report tools use
+      the same definition). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-225
+    title: 'Validate focused slice for: Implement focused slice for: `src/trend/cli.py`
+      to attach `run_result.portfolio` using the helper (so bundle/report tools use
+      the same definition). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-226
+    title: 'Define scope for: Validate focused slice for: `src/trend/cli.py` to attach
+      `run_result.portfolio` using the helper (so bundle/report tools use the same
+      definition). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-227
+    title: 'Implement focused slice for: Validate focused slice for: `src/trend/cli.py`
+      to attach `run_result.portfolio` using the helper (so bundle/report tools use
+      the same definition). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-228
+    title: 'Validate focused slice for: Validate focused slice for: `src/trend/cli.py`
+      to attach `run_result.portfolio` using the helper (so bundle/report tools use
+      the same definition). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-229
+    title: Update `src/trend/reporting/quick_summary.py` (and any other report entrypoints)
+      to use the helper for portfolio selection.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-230
+    title: 'Define scope for: Define scope for: Define approach for: Update `src/trend/reporting/quick_summary.py`
+      (and any other report entrypoints) to use the helper for portfolio selection.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-231
+    title: 'Implement focused slice for: Define scope for: Define approach for: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-232
+    title: 'Validate focused slice for: Define scope for: Define approach for: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-233
+    title: 'Define scope for: Implement focused slice for: Define approach for: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-234
+    title: 'Implement focused slice for: Implement focused slice for: Define approach
+      for: Update `src/trend/reporting/quick_summary.py` (and any other report entrypoints)
+      to use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-235
+    title: 'Validate focused slice for: Implement focused slice for: Define approach
+      for: Update `src/trend/reporting/quick_summary.py` (and any other report entrypoints)
+      to use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-236
+    title: 'Define scope for: Validate focused slice for: Define approach for: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-237
+    title: 'Implement focused slice for: Validate focused slice for: Define approach
+      for: Update `src/trend/reporting/quick_summary.py` (and any other report entrypoints)
+      to use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-238
+    title: 'Validate focused slice for: Validate focused slice for: Define approach
+      for: Update `src/trend/reporting/quick_summary.py` (and any other report entrypoints)
+      to use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-239
+    title: 'Define scope for: Define scope for: Implement: Update `src/trend/reporting/quick_summary.py`
+      (and any other report entrypoints) to use the helper for portfolio selection.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-240
+    title: 'Implement focused slice for: Define scope for: Implement: Update `src/trend/reporting/quick_summary.py`
+      (and any other report entrypoints) to use the helper for portfolio selection.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-241
+    title: 'Validate focused slice for: Define scope for: Implement: Update `src/trend/reporting/quick_summary.py`
+      (and any other report entrypoints) to use the helper for portfolio selection.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-242
+    title: 'Define scope for: Implement focused slice for: Implement: Update `src/trend/reporting/quick_summary.py`
+      (and any other report entrypoints) to use the helper for portfolio selection.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-243
+    title: 'Implement focused slice for: Implement focused slice for: Implement: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-244
+    title: 'Validate focused slice for: Implement focused slice for: Implement: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-245
+    title: 'Define scope for: Validate focused slice for: Implement: Update `src/trend/reporting/quick_summary.py`
+      (and any other report entrypoints) to use the helper for portfolio selection.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-246
+    title: 'Implement focused slice for: Validate focused slice for: Implement: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-247
+    title: 'Validate focused slice for: Validate focused slice for: Implement: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-248
+    title: 'Define scope for: Define scope for: Validate: Update `src/trend/reporting/quick_summary.py`
+      (and any other report entrypoints) to use the helper for portfolio selection.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-249
+    title: 'Implement focused slice for: Define scope for: Validate: Update `src/trend/reporting/quick_summary.py`
+      (and any other report entrypoints) to use the helper for portfolio selection.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-250
+    title: 'Validate focused slice for: Define scope for: Validate: Update `src/trend/reporting/quick_summary.py`
+      (and any other report entrypoints) to use the helper for portfolio selection.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-251
+    title: 'Define scope for: Implement focused slice for: Validate: Update `src/trend/reporting/quick_summary.py`
+      (and any other report entrypoints) to use the helper for portfolio selection.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-252
+    title: 'Implement focused slice for: Implement focused slice for: Validate: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-253
+    title: 'Validate focused slice for: Implement focused slice for: Validate: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-254
+    title: 'Define scope for: Validate focused slice for: Validate: Update `src/trend/reporting/quick_summary.py`
+      (and any other report entrypoints) to use the helper for portfolio selection.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-255
+    title: 'Implement focused slice for: Validate focused slice for: Validate: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-256
+    title: 'Validate focused slice for: Validate focused slice for: Validate: Update
+      `src/trend/reporting/quick_summary.py` (and any other report entrypoints) to
+      use the helper for portfolio selection. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-257
+    title: Add a small unit test suite to assert selection precedence with synthetic
+      payloads (presence/absence of each key).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-258
+    title: 'Define scope for: Define scope for: Define approach for: Add a small unit
+      test suite to assert selection precedence with synthetic payloads (presence/absence
+      of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-259
+    title: 'Implement focused slice for: Define scope for: Define approach for: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-260
+    title: 'Validate focused slice for: Define scope for: Define approach for: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-261
+    title: 'Define scope for: Implement focused slice for: Define approach for: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-262
+    title: 'Implement focused slice for: Implement focused slice for: Define approach
+      for: Add a small unit test suite to assert selection precedence with synthetic
+      payloads (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-263
+    title: 'Validate focused slice for: Implement focused slice for: Define approach
+      for: Add a small unit test suite to assert selection precedence with synthetic
+      payloads (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-264
+    title: 'Define scope for: Validate focused slice for: Define approach for: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-265
+    title: 'Implement focused slice for: Validate focused slice for: Define approach
+      for: Add a small unit test suite to assert selection precedence with synthetic
+      payloads (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-266
+    title: 'Validate focused slice for: Validate focused slice for: Define approach
+      for: Add a small unit test suite to assert selection precedence with synthetic
+      payloads (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-267
+    title: 'Define scope for: Define scope for: Implement: Add a small unit test suite
+      to assert selection precedence with synthetic payloads (presence/absence of
+      each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-268
+    title: 'Implement focused slice for: Define scope for: Implement: Add a small
+      unit test suite to assert selection precedence with synthetic payloads (presence/absence
+      of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-269
+    title: 'Validate focused slice for: Define scope for: Implement: Add a small unit
+      test suite to assert selection precedence with synthetic payloads (presence/absence
+      of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-270
+    title: 'Define scope for: Implement focused slice for: Implement: Add a small
+      unit test suite to assert selection precedence with synthetic payloads (presence/absence
+      of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-271
+    title: 'Implement focused slice for: Implement focused slice for: Implement: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-272
+    title: 'Validate focused slice for: Implement focused slice for: Implement: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-273
+    title: 'Define scope for: Validate focused slice for: Implement: Add a small unit
+      test suite to assert selection precedence with synthetic payloads (presence/absence
+      of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-274
+    title: 'Implement focused slice for: Validate focused slice for: Implement: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-275
+    title: 'Validate focused slice for: Validate focused slice for: Implement: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-276
+    title: 'Define scope for: Define scope for: Validate: Add a small unit test suite
+      to assert selection precedence with synthetic payloads (presence/absence of
+      each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-277
+    title: 'Implement focused slice for: Define scope for: Validate: Add a small unit
+      test suite to assert selection precedence with synthetic payloads (presence/absence
+      of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-278
+    title: 'Validate focused slice for: Define scope for: Validate: Add a small unit
+      test suite to assert selection precedence with synthetic payloads (presence/absence
+      of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-279
+    title: 'Define scope for: Implement focused slice for: Validate: Add a small unit
+      test suite to assert selection precedence with synthetic payloads (presence/absence
+      of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-280
+    title: 'Implement focused slice for: Implement focused slice for: Validate: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-281
+    title: 'Validate focused slice for: Implement focused slice for: Validate: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-282
+    title: 'Define scope for: Validate focused slice for: Validate: Add a small unit
+      test suite to assert selection precedence with synthetic payloads (presence/absence
+      of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-283
+    title: 'Implement focused slice for: Validate focused slice for: Validate: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-284
+    title: 'Validate focused slice for: Validate focused slice for: Validate: Add
+      a small unit test suite to assert selection precedence with synthetic payloads
+      (presence/absence of each key). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-285
+    title: Reporting + CLI use the same portfolio series selection logic.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-286
+    title: User-weight series is preferred whenever available.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-287
+    title: Tests demonstrate correct precedence and pass in CI.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-288
+    title: Reporting + CLI use the same portfolio series selection logic.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-289
+    title: User-weight series is preferred whenever available.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-290
+    title: Tests demonstrate correct precedence and pass in CI.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
