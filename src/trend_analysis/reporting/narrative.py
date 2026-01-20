@@ -10,6 +10,8 @@ from typing import OrderedDict as OrderedDictType
 
 import pandas as pd
 
+from trend_analysis.reporting.portfolio_series import select_primary_portfolio_series
+
 
 @dataclass(frozen=True)
 class NarrativeTemplateSection:
@@ -353,31 +355,6 @@ def _normalise_weights(weights: Mapping[str, float]) -> pd.Series:
     return series
 
 
-def _portfolio_series(
-    res: Mapping[str, Any],
-    out_df: pd.DataFrame | None,
-    weights: Mapping[str, float] | None,
-) -> pd.Series | None:
-    for key in (
-        "portfolio_user_weight",
-        "portfolio_equal_weight",
-        "portfolio_user_weight_combined",
-        "portfolio_equal_weight_combined",
-    ):
-        series = res.get(key)
-        if isinstance(series, pd.Series) and not series.empty:
-            return series.astype(float)
-    if out_df is None or out_df.empty:
-        return None
-    if weights:
-        w = _normalise_weights(weights)
-        if not w.empty:
-            aligned = w.reindex(out_df.columns, fill_value=0.0)
-            return out_df.mul(aligned, axis=1).sum(axis=1)
-    w = pd.Series(1.0 / float(len(out_df.columns)), index=out_df.columns)
-    return out_df.mul(w, axis=1).sum(axis=1)
-
-
 def _extract_frequency_label(res: Mapping[str, Any]) -> str:
     freq = res.get("input_frequency") or res.get("input_frequency_details")
     if not freq:
@@ -421,7 +398,7 @@ def extract_narrative_metrics(res: Mapping[str, Any]) -> dict[str, str]:
     weights_map = weights if isinstance(weights, Mapping) else None
     stats_obj = res.get("out_user_stats") or res.get("out_ew_stats")
     stats = _coerce_stats(stats_obj)
-    port_series = _portfolio_series(res, out_df, weights_map)
+    port_series = select_primary_portfolio_series(res)
 
     total_return = _total_return(port_series)
     out_cagr = _to_float(stats.get("cagr"))
