@@ -17,6 +17,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
+# Maximum issue body size to prevent OpenAI rate limit errors (30k TPM limit)
+# ~4 chars per token, so 50k chars ≈ 12.5k tokens, leaving headroom for prompt + output
+MAX_ISSUE_BODY_SIZE = 50000
+
 ISSUE_FORMATTER_PROMPT = """
 You are a formatting assistant. Convert the raw GitHub issue body into the
 AGENT_ISSUE_TEMPLATE format with the exact section headers in order:
@@ -74,7 +78,7 @@ SECTION_TITLES = {
     "implementation": "Implementation Notes",
 }
 
-LIST_ITEM_REGEX = re.compile(r"^(\s*)([-*+]|\d+[.)])\s+(.*)$")
+LIST_ITEM_REGEX = re.compile(r"^(\s*)([-*+]|\d+[.)]|[A-Za-z][.)])\s+(.*)$")
 CHECKBOX_REGEX = re.compile(r"^\[([ xX])\]\s*(.*)$")
 
 
@@ -306,7 +310,8 @@ def _append_raw_issue_section(formatted: str, issue_body: str) -> str:
     if not raw:
         return formatted
     marker = "<summary>Original Issue</summary>"
-    if marker in formatted:
+    # Check INPUT body, not output - if input already has Original Issue, don't nest another
+    if marker in raw:
         return formatted
     fence = _select_code_fence(raw)
     details = (
@@ -353,31 +358,63 @@ def _extract_tasks_from_formatted(body: str) -> list[str]:
     return tasks
 
 
-def _apply_task_decomposition(formatted: str, *, use_llm: bool) -> str:
+def _validate_and_refine_tasks(formatted: str, *, use_llm: bool) -> tuple[str, str | None]:
+    """
+    Validate tasks using two-pass heuristic + LLM refinement.
+
+    Returns:
+        Tuple of (updated_formatted_body, audit_summary)
+    """
     tasks = _extract_tasks_from_formatted(formatted)
     if not tasks:
-        return formatted
+        return formatted, None
 
     try:
-        from scripts.langchain import task_decomposer
-    except ModuleNotFoundError:
-        import task_decomposer
+        from scripts.langchain import task_validator
+    except ImportError:
+        try:
+            import task_validator
+        except ImportError:
+            return formatted, None
 
-    suggestions: list[dict[str, Any]] = []
-    for task in tasks:
-        decomposition = task_decomposer.decompose_task(task, use_llm=use_llm)
-        sub_tasks = decomposition.get("sub_tasks") or []
-        if sub_tasks:
-            suggestions.append({"task": task, "split_suggestions": sub_tasks})
-    if not suggestions:
-        return formatted
+    # Run validation
+    result = task_validator.validate_tasks(tasks, context=formatted, use_llm=use_llm)
 
+    # If no changes, return original
+    if set(result.tasks) == set(tasks) and len(result.tasks) == len(tasks):
+        return formatted, result.audit_summary
+
+    # Replace tasks section with validated tasks
+    lines = formatted.splitlines()
+    header = "## Tasks"
     try:
-        from scripts.langchain import issue_optimizer
-    except ModuleNotFoundError:
-        import issue_optimizer
+        header_idx = next(i for i, line in enumerate(lines) if line.strip() == header)
+    except StopIteration:
+        return formatted, result.audit_summary
 
-    return issue_optimizer._apply_task_decomposition(formatted, {"task_splitting": suggestions})
+    # Find end of Tasks section
+    end_idx = next(
+        (
+            i
+            for i in range(header_idx + 1, len(lines))
+            if lines[i].startswith("## ") and lines[i].strip() != header
+        ),
+        len(lines),
+    )
+
+    # Build new tasks section
+    new_task_lines = [f"- [ ] {task}" for task in result.tasks]
+    if not new_task_lines:
+        new_task_lines = ["- [ ] _Not provided._"]
+
+    # Reconstruct formatted body
+    new_lines = lines[: header_idx + 1]
+    new_lines.append("")  # blank line after header
+    new_lines.extend(new_task_lines)
+    new_lines.append("")  # blank line before next section
+    new_lines.extend(lines[end_idx:])
+
+    return "\n".join(new_lines).strip(), result.audit_summary
 
 
 def _is_github_models_auth_error(exc: Exception) -> bool:
@@ -389,6 +426,20 @@ def _is_github_models_auth_error(exc: Exception) -> bool:
 def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any]:
     if not issue_body:
         issue_body = ""
+
+    # Check size before processing to avoid rate limit errors
+    if len(issue_body) > MAX_ISSUE_BODY_SIZE:
+        err_msg = (
+            f"Issue body too large ({len(issue_body):,} chars). "
+            f"Max is {MAX_ISSUE_BODY_SIZE:,}. "
+            "Recursive task decomposition spam suspected; needs manual cleanup."
+        )
+        return {
+            "error": err_msg,
+            "formatted_body": None,
+            "provider_used": None,
+            "used_llm": False,
+        }
 
     if use_llm:
         client_info = _get_llm_client()
@@ -417,24 +468,32 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                 content = getattr(response, "content", None) or str(response)
                 formatted = content.strip()
                 if _formatted_output_valid(formatted):
-                    formatted = _apply_task_decomposition(formatted, use_llm=use_llm)
+                    # NOTE: Task decomposition is now handled by agents:optimize step
+                    # which uses LLM for intelligent splitting. Don't do heuristic
+                    # splitting here - it causes task explosion (issue #805, #1143).
+                    formatted, audit = _validate_and_refine_tasks(formatted, use_llm=use_llm)
                     formatted = _append_raw_issue_section(formatted, issue_body)
                     return {
                         "formatted_body": formatted,
                         "provider_used": provider,
                         "used_llm": True,
+                        "validation_audit": audit,
                     }
             except ImportError:
                 # Fall through to fallback if imports fail
                 pass
 
     formatted = _format_issue_fallback(issue_body)
-    formatted = _apply_task_decomposition(formatted, use_llm=use_llm)
+    # NOTE: Task decomposition is now handled by agents:optimize step
+    # which uses LLM for intelligent splitting. Don't do heuristic
+    # splitting here - it causes task explosion (issue #805, #1143).
+    formatted, audit = _validate_and_refine_tasks(formatted, use_llm=use_llm)
     formatted = _append_raw_issue_section(formatted, issue_body)
     return {
         "formatted_body": formatted,
         "provider_used": None,
         "used_llm": False,
+        "validation_audit": audit,
     }
 
 
