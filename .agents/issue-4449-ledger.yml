@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Update `src/trend_analysis/api.py::_build_multi_period_portfolio` to drop
       duplicate timestamps deterministically (keep last).
-    status: doing
+    status: done
     started_at: '2026-01-20T14:39:46Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-20T14:39:56Z'
+    commit: 63bf38f636e56a2573abedf86c7e3e4baf31d12e
     notes: []
   - id: task-02
     title: 'Define scope for: Define scope for: Define approach for: Update `src/trend_analysis/api.py::_build_multi_period_portfolio`
