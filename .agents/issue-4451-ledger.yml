@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Identify redundant scripts in `pyproject.toml` `[project.scripts]` and
       map each to a `trend <subcommand>` equivalent.
-    status: doing
+    status: done
     started_at: '2026-01-20T18:08:06Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-20T18:08:14Z'
+    commit: e3ef1e8a47a89441bcbfcd75e7b40f97ed207781
     notes: []
   - id: task-02
     title: 'Define scope for: Define scope for: Identify redundant scripts in `pyproject.toml`
