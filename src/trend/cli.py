@@ -373,7 +373,9 @@ class TrendCLIError(RuntimeError):
     """Raised when CLI validation fails before dispatching work."""
 
 
-def build_parser(*, prog: str = "trend", include_gui_alias: bool | None = None) -> argparse.ArgumentParser:
+def build_parser(
+    *, prog: str = "trend", include_gui_alias: bool | None = None
+) -> argparse.ArgumentParser:
     """Construct the argument parser for the unified ``trend`` command."""
     if include_gui_alias is None:
         include_gui_alias = prog == "trend-model"
