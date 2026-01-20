@@ -54,7 +54,7 @@ optionally `LANGCHAIN_PROJECT` or `LANGSMITH_PROJECT` to label traces:
 
 ```bash
 export LANGSMITH_API_KEY="..."
-export LANGCHAIN_PROJECT="trend-model"
+export LANGCHAIN_PROJECT="trend"
 ```
 
 When the key is present, NL operations send traces to LangSmith automatically.
@@ -103,6 +103,21 @@ Then open http://localhost:8501 in your browser.
 | **CLI** | `trend run -c config.yml` | Scripted/automated analysis |
 | **Streamlit App** | `trend app` | Interactive exploration |
 | **Jupyter GUI** | `from trend_analysis.gui import launch; launch()` | Notebook workflows |
+
+## CLI Migration (Legacy -> trend)
+
+Legacy console scripts still work but forward to `trend` with a deprecation warning.
+
+| Legacy command | Trend equivalent |
+|---------------|------------------|
+| `trend-analysis` | `trend run` |
+| `trend-multi-analysis` | `trend run` (multi-period via config) |
+| `trend-model run` | `trend run` (use `--returns` instead of `-i/--input`) |
+| `trend-model gui` | `trend app` |
+| `trend-model --check` | `trend check` |
+| `trend-app` | `trend app` |
+| `trend-run` | `trend report` |
+| `trend-quick-report` | `trend quick-report` |
 
 ### Command-Line Examples
 
