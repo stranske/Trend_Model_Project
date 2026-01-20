@@ -121,11 +121,7 @@ def select_primary_portfolio_series(
 from __future__ import annotations
 
 import math
-<<<<<<< HEAD
-from typing import Any, Mapping, Protocol, Sequence
-=======
 from typing import Any, Literal, Mapping, Sequence, overload
->>>>>>> 02ac0228 (fix: keep raw portfolio payloads in cli)
 
 import pandas as pd
 
@@ -137,21 +133,13 @@ _PORTFOLIO_SERIES_KEYS = (
 )
 
 
-<<<<<<< HEAD
-class SeriesLike(Protocol):
-    @property
-    def empty(self) -> bool: ...
-
-    def dropna(self) -> pd.Series: ...
-
-    def sort_index(self) -> pd.Series: ...
-
-
 def _series_is_empty(series: pd.Series) -> bool:
     return bool(series.empty) or bool(series.dropna().empty)
 
 
-def _coerce_series(value: Any) -> pd.Series | SeriesLike | None:
+def _coerce_series(value: Any) -> pd.Series | None:
+    if value is None:
+        return None
     if isinstance(value, pd.Series):
         series = value.copy()
         if _series_is_empty(series):
@@ -160,42 +148,24 @@ def _coerce_series(value: Any) -> pd.Series | SeriesLike | None:
             return series.astype(float)
         except (TypeError, ValueError):
             return None
-    elif isinstance(value, Mapping):
+    if isinstance(value, Mapping):
         if "series" in value:
             nested = _coerce_series(value.get("series"))
             if nested is not None:
                 return nested
-        series = pd.Series(dict(value), dtype=float)
-=======
-def _coerce_series(value: Any) -> pd.Series | None:
-    if value is None:
-        return None
-    if isinstance(value, pd.Series):
-        series = value.copy()
-    elif hasattr(value, "series") and isinstance(getattr(value, "series"), pd.Series):
-        series = value.series.copy()
-    elif isinstance(value, Mapping):
-        if "series" in value:
-            series = _coerce_series(value.get("series"))
-            if series is not None:
-                index = value.get("index")
-                if isinstance(index, Sequence) and not isinstance(index, (str, bytes, bytearray)):
-                    try:
-                        series = pd.Series(series.values, index=pd.Index(list(index)))
-                    except Exception:
-                        pass
-        else:
-            try:
-                series = pd.Series(dict(value), dtype=float)
-            except (TypeError, ValueError):
-                return None
->>>>>>> 02ac0228 (fix: keep raw portfolio payloads in cli)
+        try:
+            series = pd.Series(dict(value), dtype=float)
+        except (TypeError, ValueError):
+            return None
     elif isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         series = pd.Series(list(value), dtype=float)
     else:
         series_like = getattr(value, "series", None)
         if isinstance(series_like, pd.Series) and not _series_is_empty(series_like):
-            return value
+            try:
+                return series_like.copy().astype(float)
+            except (TypeError, ValueError):
+                return None
         return None
     if _series_is_empty(series):
         return None
@@ -232,9 +202,6 @@ def _weighted_portfolio(
     return out_df.mul(equal_weight, axis=1).sum(axis=1)
 
 
-<<<<<<< HEAD
-def select_primary_portfolio_series(res: Mapping[str, Any]) -> pd.Series | SeriesLike | None:
-=======
 @overload
 def select_primary_portfolio_series(
     res: Mapping[str, Any], *, prefer_raw: Literal[False] = False
@@ -250,7 +217,6 @@ def select_primary_portfolio_series(
 def select_primary_portfolio_series(
     res: Mapping[str, Any], *, prefer_raw: bool = False
 ) -> pd.Series | Any | None:
->>>>>>> 02ac0228 (fix: keep raw portfolio payloads in cli)
     """Select the preferred portfolio series from a run result payload."""
     for key in _PORTFOLIO_SERIES_KEYS:
         raw_value = res.get(key)
