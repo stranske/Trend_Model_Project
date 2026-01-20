@@ -12,6 +12,7 @@ import pandas as pd
 
 from trend_analysis.reporting.portfolio_series import select_primary_portfolio_series
 
+
 @dataclass(frozen=True)
 class NarrativeTemplateSection:
     """Template metadata for a narrative section."""
@@ -352,6 +353,8 @@ def _normalise_weights(weights: Mapping[str, float]) -> pd.Series:
     if total:
         series = series / total
     return series
+
+
 def _extract_frequency_label(res: Mapping[str, Any]) -> str:
     freq = res.get("input_frequency") or res.get("input_frequency_details")
     if not freq:

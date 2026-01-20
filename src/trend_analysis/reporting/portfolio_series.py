@@ -7,7 +7,6 @@ from typing import Any, Mapping, Sequence
 
 import pandas as pd
 
-
 _PORTFOLIO_SERIES_KEYS = (
     "portfolio_user_weight_combined",
     "portfolio_user_weight",
