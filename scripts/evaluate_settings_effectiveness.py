@@ -141,7 +141,7 @@ def _extract_literal_dict(node: ast.AST) -> dict[str, Any] | None:
 def _extract_literal_str(node: ast.AST) -> str | None:
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
-    if isinstance(node, ast.Str):
+    if isinstance(node, ast.Str) and isinstance(node.s, str):
         return node.s
     return None
 

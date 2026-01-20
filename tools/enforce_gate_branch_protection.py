@@ -338,11 +338,12 @@ def _fetch_ruleset_status_checks(
         if not ruleset_id:
             continue
 
+        def _fetch_ruleset_detail() -> requests.Response:
+            return session.get(f"{api_root}/repos/{repo}/rulesets/{ruleset_id}", timeout=30)
+
         detail_response = _call_with_rate_limit_retry(
             f"fetching ruleset {ruleset_id}",
-            lambda rid=ruleset_id: session.get(
-                f"{api_root}/repos/{repo}/rulesets/{rid}", timeout=30
-            ),
+            _fetch_ruleset_detail,
         )
         if detail_response.status_code >= 400:
             continue
