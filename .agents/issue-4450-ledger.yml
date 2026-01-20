@@ -6,11 +6,12 @@ tasks:
   - id: task-01
     title: 'Add `select_primary_portfolio_series(res: Mapping[str, Any])` helper (location:
       `src/trend_analysis/reporting/portfolio_series.py` or similar).'
-    status: doing
-    started_at: '2026-01-20T14:44:54Z'
+    status: todo
+    started_at: null
     finished_at: null
     commit: ''
-    notes: []
+    notes:
+      - '2026-01-20T14:44:57Z failure (run 21175688698): status=failure'
   - id: task-02
     title: 'Define scope for: Define scope for: Add `select_primary_portfolio_series(res:
       Mapping[str (verify: confirm completion in repo)'
