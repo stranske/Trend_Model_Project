@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -147,4 +148,27 @@ def test_trend_run_artefacts_skip_default_output(
     assert calls == [
         (["report", "--out", "outdir"], "trend"),
         (["report", "--out=otherdir"], "trend"),
+    ]
+
+
+def test_compat_entrypoints_use_sys_argv_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[list[str], str]] = []
+
+    def fake_main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
+        calls.append((list(argv or []), prog))
+        return 0
+
+    monkeypatch.setattr(trend_cli, "main", fake_main)
+
+    monkeypatch.setattr(sys, "argv", ["trend-analysis", "--help"])
+    compat_entrypoints.trend_analysis()
+
+    monkeypatch.setattr(sys, "argv", ["trend-run", "--output", "out.html"])
+    compat_entrypoints.trend_run()
+
+    assert calls == [
+        (["run", "--help"], "trend"),
+        (["report", "--output", "out.html"], "trend"),
     ]
