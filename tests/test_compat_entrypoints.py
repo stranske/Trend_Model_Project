@@ -114,6 +114,7 @@ def test_compat_entrypoints_map_to_trend_subcommands(
     compat_entrypoints.trend_model(["run", "-c", "cfg.yml", "-i", "data.csv"])
     compat_entrypoints.trend_app(["--help"])
     compat_entrypoints.trend_run(["--output", "out.html"])
+    compat_entrypoints.trend_run([])
     compat_entrypoints.trend_quick_report(["--help"])
 
     assert calls == [
@@ -124,5 +125,6 @@ def test_compat_entrypoints_map_to_trend_subcommands(
         (["run", "-c", "cfg.yml", "--returns", "data.csv"], "trend-model"),
         (["app", "--help"], "trend"),
         (["report", "--output", "out.html"], "trend"),
+        (["report", "--output", "reports/trend_report.html"], "trend"),
         (["quick-report", "--help"], "trend"),
     ]
