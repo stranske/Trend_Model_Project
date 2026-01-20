@@ -94,3 +94,35 @@ def test_compat_entrypoints_emit_deprecation_warnings(
 
     for wrapper, expected in warnings:
         _assert_warned(capsys, wrapper, ["--help"], expected)
+
+
+def test_compat_entrypoints_map_to_trend_subcommands(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[list[str], str]] = []
+
+    def fake_main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
+        calls.append((list(argv or []), prog))
+        return 0
+
+    monkeypatch.setattr(trend_cli, "main", fake_main)
+
+    compat_entrypoints.trend_analysis(["--help"])
+    compat_entrypoints.trend_multi_analysis(["--help"])
+    compat_entrypoints.trend_model(["--check"])
+    compat_entrypoints.trend_model(["gui", "--help"])
+    compat_entrypoints.trend_model(["run", "-c", "cfg.yml", "-i", "data.csv"])
+    compat_entrypoints.trend_app(["--help"])
+    compat_entrypoints.trend_run(["--output", "out.html"])
+    compat_entrypoints.trend_quick_report(["--help"])
+
+    assert calls == [
+        (["run", "--help"], "trend"),
+        (["run", "--help"], "trend"),
+        (["check"], "trend-model"),
+        (["app", "--help"], "trend-model"),
+        (["run", "-c", "cfg.yml", "--returns", "data.csv"], "trend-model"),
+        (["app", "--help"], "trend"),
+        (["report", "--output", "out.html"], "trend"),
+        (["quick-report", "--help"], "trend"),
+    ]
