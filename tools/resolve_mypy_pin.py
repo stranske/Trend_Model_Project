@@ -33,13 +33,9 @@ def get_mypy_python_version() -> str | None:
         data = tomlkit.parse(content)
         tool_raw = data.get("tool")
         # tomlkit Table implements Mapping but is typed as Any here.
-        tool: dict[str, object] = (
-            dict(tool_raw) if isinstance(tool_raw, Mapping) else {}
-        )
+        tool: dict[str, object] = dict(tool_raw) if isinstance(tool_raw, Mapping) else {}
         mypy_raw = tool.get("mypy")
-        mypy: dict[str, object] = (
-            dict(mypy_raw) if isinstance(mypy_raw, Mapping) else {}
-        )
+        mypy: dict[str, object] = dict(mypy_raw) if isinstance(mypy_raw, Mapping) else {}
         version = mypy.get("python_version")
         # Validate type before conversion - TOML can parse various types
         if isinstance(version, (str, int, float)):
