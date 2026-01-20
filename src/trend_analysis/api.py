@@ -332,6 +332,37 @@ def _build_multi_period_portfolio(
     return pd.concat(out_series_list).sort_index()
 
 
+def _build_combined_portfolio_series(
+    weights: Mapping[str, float] | None,
+    in_df: pd.DataFrame | None,
+    out_df: pd.DataFrame | None,
+) -> pd.Series | None:
+    """Build a combined in/out-sample portfolio series from weights."""
+    if not isinstance(weights, Mapping) or not weights:
+        return None
+    if not isinstance(in_df, pd.DataFrame) or not isinstance(out_df, pd.DataFrame):
+        return None
+    if in_df.empty or out_df.empty:
+        return None
+
+    from .pipeline import calc_portfolio_returns
+
+    try:
+        in_cols = list(in_df.columns)
+        in_weights = np.array([weights.get(c, 0.0) for c in in_cols])
+        port_is = calc_portfolio_returns(in_weights, in_df)
+
+        out_cols = list(out_df.columns)
+        out_weights = np.array([weights.get(c, 0.0) for c in out_cols])
+        port_os = calc_portfolio_returns(out_weights, out_df)
+    except Exception:
+        return None
+
+    combined = pd.concat([port_is, port_os])
+    combined = combined[~combined.index.duplicated(keep="last")]
+    return combined.sort_index()
+
+
 def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     """Execute the analysis pipeline using pre-loaded returns data.
 
@@ -586,22 +617,22 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         in_scaled = res_dict.get("in_sample_scaled")
         out_scaled = res_dict.get("out_sample_scaled")
         ew_weights = res_dict.get("ew_weights")
-        if (
-            isinstance(in_scaled, pd.DataFrame)
-            and isinstance(out_scaled, pd.DataFrame)
-            and isinstance(ew_weights, dict)
-        ):
-            # Build one continuous portfolio series across IS + OS
-            import numpy as _np
-
-            from .pipeline import calc_portfolio_returns as _cpr
-
-            cols = list(in_scaled.columns)
-            w = _np.array([ew_weights.get(c, 0.0) for c in cols])
-            port_is = _cpr(w, in_scaled)
-            port_os = _cpr(w, out_scaled)
-            portfolio_series = pd.concat([port_is, port_os])
+        portfolio_series = _build_combined_portfolio_series(
+            ew_weights,
+            in_scaled,
+            out_scaled,
+        )
+        if portfolio_series is not None:
             res_dict["portfolio_equal_weight_combined"] = portfolio_series
+
+        fund_weights = res_dict.get("fund_weights")
+        user_series = _build_combined_portfolio_series(
+            fund_weights,
+            in_scaled,
+            out_scaled,
+        )
+        if user_series is not None:
+            res_dict["portfolio_user_weight_combined"] = user_series
     except (
         KeyError,
         AttributeError,
