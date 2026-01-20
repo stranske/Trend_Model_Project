@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import UserDict
 from types import SimpleNamespace
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -123,6 +124,123 @@ def test_run_simulation_sanitizes_details_and_combines_portfolio(
     assert all(isinstance(col, str) for col in regime_sanitized.keys())
     assert "User / Risk-On" in regime_sanitized
     assert all(isinstance(metric, str) for metric in regime_sanitized["User / Risk-On"].keys())
+
+
+def test_run_simulation_builds_user_weight_combined_and_dedupes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _DummyConfig(metrics={"registry": ["Sharpe"]})
+    returns = _make_returns()
+
+    in_index = pd.to_datetime(["2020-01-31", "2020-02-29", "2020-03-31"])
+    out_index = pd.to_datetime(["2020-03-31", "2020-04-30"])
+    in_scaled = pd.DataFrame(
+        {"FundA": [0.01, 0.02, 0.03], "FundB": [0.0, 0.01, -0.02]},
+        index=in_index,
+    )
+    out_scaled = pd.DataFrame(
+        {"FundA": [0.04, 0.05], "FundB": [0.02, -0.01]},
+        index=out_index,
+    )
+
+    payload = UserDict(
+        {
+            "out_sample_stats": {"FundA": SimpleNamespace(alpha=1.0, beta=2.0)},
+            "in_sample_scaled": in_scaled,
+            "out_sample_scaled": out_scaled,
+            "ew_weights": {"FundA": 0.5, "FundB": 0.5},
+            "fund_weights": {"FundA": 0.8, "FundB": 0.2},
+        }
+    )
+
+    monkeypatch.setattr(api, "_run_analysis", lambda *a, **k: payload)
+
+    result = api.run_simulation(cfg, returns)
+
+    from trend_analysis.pipeline import calc_portfolio_returns
+
+    user_weights = np.array([0.8, 0.2])
+    ew_weights = np.array([0.5, 0.5])
+    expected_user = pd.concat(
+        [
+            calc_portfolio_returns(user_weights, in_scaled),
+            calc_portfolio_returns(user_weights, out_scaled),
+        ]
+    )
+    expected_user = expected_user[~expected_user.index.duplicated(keep="last")].sort_index()
+    expected_equal = pd.concat(
+        [
+            calc_portfolio_returns(ew_weights, in_scaled),
+            calc_portfolio_returns(ew_weights, out_scaled),
+        ]
+    )
+    expected_equal = expected_equal[~expected_equal.index.duplicated(keep="last")].sort_index()
+
+    user_series = result.details.get("portfolio_user_weight_combined")
+    equal_series = result.details.get("portfolio_equal_weight_combined")
+
+    assert user_series is not None
+    assert equal_series is not None
+    assert user_series.index.is_unique
+    assert user_series.index.is_monotonic_increasing
+    assert equal_series.index.is_unique
+    assert equal_series.index.is_monotonic_increasing
+    pd.testing.assert_series_equal(user_series, expected_user)
+    pd.testing.assert_series_equal(equal_series, expected_equal)
+    assert (
+        user_series.loc[pd.Timestamp("2020-03-31")] == expected_user.loc[pd.Timestamp("2020-03-31")]
+    )
+
+
+def test_run_simulation_combined_keeps_last_duplicate_boundary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _DummyConfig(metrics={"registry": ["Sharpe"]})
+    returns = _make_returns()
+
+    in_index = pd.to_datetime(["2020-02-29", "2020-03-31"])
+    out_index = pd.to_datetime(["2020-03-31", "2020-04-30"])
+    in_scaled = pd.DataFrame(
+        {"FundA": [0.01, 0.02], "FundB": [0.03, 0.04]},
+        index=in_index,
+    )
+    out_scaled = pd.DataFrame(
+        {"FundA": [0.12, 0.01], "FundB": [-0.08, 0.02]},
+        index=out_index,
+    )
+
+    payload = UserDict(
+        {
+            "out_sample_stats": {"FundA": SimpleNamespace(alpha=1.0, beta=2.0)},
+            "in_sample_scaled": in_scaled,
+            "out_sample_scaled": out_scaled,
+            "ew_weights": {"FundA": 0.5, "FundB": 0.5},
+            "fund_weights": {"FundA": 0.7, "FundB": 0.3},
+        }
+    )
+
+    monkeypatch.setattr(api, "_run_analysis", lambda *a, **k: payload)
+
+    result = api.run_simulation(cfg, returns)
+
+    from trend_analysis.pipeline import calc_portfolio_returns
+
+    user_weights = np.array([0.7, 0.3])
+    ew_weights = np.array([0.5, 0.5])
+    user_out = calc_portfolio_returns(user_weights, out_scaled).loc[pd.Timestamp("2020-03-31")]
+    user_in = calc_portfolio_returns(user_weights, in_scaled).loc[pd.Timestamp("2020-03-31")]
+    equal_out = calc_portfolio_returns(ew_weights, out_scaled).loc[pd.Timestamp("2020-03-31")]
+    equal_in = calc_portfolio_returns(ew_weights, in_scaled).loc[pd.Timestamp("2020-03-31")]
+
+    user_series = result.details.get("portfolio_user_weight_combined")
+    equal_series = result.details.get("portfolio_equal_weight_combined")
+
+    assert user_series is not None
+    assert equal_series is not None
+    assert user_series.loc[pd.Timestamp("2020-03-31")] == user_out
+    assert user_series.loc[pd.Timestamp("2020-03-31")] != user_in
+    assert equal_series.loc[pd.Timestamp("2020-03-31")] == equal_out
+    assert equal_series.loc[pd.Timestamp("2020-03-31")] != equal_in
 
 
 def test_run_simulation_handles_unexpected_result_type(
