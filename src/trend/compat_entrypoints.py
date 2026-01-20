@@ -127,16 +127,16 @@ def trend_model(argv: Sequence[str] | None = None) -> int:
     _warn_deprecated("trend-model", "trend")
     args = list(argv) if argv is not None else list(sys.argv[1:])
     if "--check" in args:
-        return trend_cli.main(["check"])
+        return trend_cli.main(["check"], prog="trend-model")
     if not args:
-        return trend_cli.main(args)
+        return trend_cli.main(args, prog="trend-model")
     command, rest = args[0], args[1:]
     if command == "gui":
-        return trend_cli.main(["app", *rest])
+        return trend_cli.main(["app", *rest], prog="trend-model")
     if command == "run":
         translated = _translate_trend_model_run_args(rest)
-        return trend_cli.main(["run", *translated])
-    return trend_cli.main(args)
+        return trend_cli.main(["run", *translated], prog="trend-model")
+    return trend_cli.main(args, prog="trend-model")
 
 
 def trend_app(argv: Sequence[str] | None = None) -> int:

@@ -373,10 +373,10 @@ class TrendCLIError(RuntimeError):
     """Raised when CLI validation fails before dispatching work."""
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser(*, prog: str = "trend") -> argparse.ArgumentParser:
     """Construct the argument parser for the unified ``trend`` command."""
 
-    parser = argparse.ArgumentParser(prog="trend")
+    parser = argparse.ArgumentParser(prog=prog)
     sub = parser.add_subparsers(dest="subcommand", required=True)
 
     sub.add_parser("check", help="Print environment info and exit")
@@ -1499,8 +1499,8 @@ def _confirm_risky_patch(patch: ConfigPatch, *, no_confirm: bool) -> None:
         raise TrendCLIError("Update cancelled by user.")
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = build_parser()
+def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
+    parser = build_parser(prog=prog)
     try:
         argv_list = argv if argv is not None else sys.argv[1:]
         maybe_replay_exit = _maybe_handle_nl_replay(argv_list)
