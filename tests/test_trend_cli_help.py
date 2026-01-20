@@ -45,3 +45,16 @@ def test_trend_cli_nl_help(capsys: pytest.CaptureFixture[str]) -> None:
         captured.out,
     )
     assert "Example:" in captured.out
+
+
+@pytest.mark.parametrize("command", ["run", "report", "app", "quick-report"])
+def test_trend_cli_core_help(
+    capsys: pytest.CaptureFixture[str],
+    command: str,
+) -> None:
+    with pytest.raises(SystemExit) as exc:
+        cli.main([command, "--help"])
+    captured = capsys.readouterr()
+    assert exc.value.code == 0
+    assert "usage:" in captured.out
+    assert f"trend {command}" in captured.out
