@@ -705,9 +705,7 @@ def _determine_seed(cfg: Any, override: int | None) -> int:
 
 def _prepare_export_config(cfg: Any, directory: Path | None, formats: Iterable[str] | None) -> None:
     if directory is None and formats is None:
-    if include_gui_alias is None:
-        include_gui_alias = prog == "trend-model"
-    sub = parser.add_subparsers(dest="subcommand", required=True)
+        return
     export_cfg = dict(getattr(cfg, "export", {}) or {})
     if directory is not None:
         export_cfg["directory"] = str(directory)
