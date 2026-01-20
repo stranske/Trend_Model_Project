@@ -618,9 +618,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         out_scaled = res_dict.get("out_sample_scaled")
         ew_weights = res_dict.get("ew_weights")
         ew_weights_map = (
-            cast(Mapping[str, float], ew_weights)
-            if isinstance(ew_weights, Mapping)
-            else None
+            cast(Mapping[str, float], ew_weights) if isinstance(ew_weights, Mapping) else None
         )
         portfolio_series = _build_combined_portfolio_series(
             ew_weights_map,
@@ -632,9 +630,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
 
         fund_weights = res_dict.get("fund_weights")
         fund_weights_map = (
-            cast(Mapping[str, float], fund_weights)
-            if isinstance(fund_weights, Mapping)
-            else None
+            cast(Mapping[str, float], fund_weights) if isinstance(fund_weights, Mapping) else None
         )
         user_series = _build_combined_portfolio_series(
             fund_weights_map,
