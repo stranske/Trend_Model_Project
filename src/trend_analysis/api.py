@@ -539,7 +539,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         else:
             logger.warning("run_simulation produced no result (unknown reason)")
         return RunResult(pd.DataFrame(), {}, seed, env, diagnostic=diag)
-    res_dict = payload
+    res_dict = cast(dict[str, Any], payload)
     if isinstance(res_dict, dict):
         _attach_reporting_metadata(res_dict, config)
 
