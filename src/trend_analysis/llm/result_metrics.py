@@ -9,6 +9,8 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+import pandas as pd
+
 _BASE_STATS_FIELDS = (
     "cagr",
     "vol",
@@ -35,6 +37,17 @@ _SINGLE_STATS_SECTIONS = (
 )
 _WEIGHT_SECTIONS = ("fund_weights", "ew_weights")
 _BENCHMARK_SECTION = "benchmark_ir"
+_RISK_DIAGNOSTICS_SECTION = "risk_diagnostics"
+_RISK_DIAGNOSTICS_FIELDS = (
+    "turnover",
+    "turnover_value",
+    "transaction_cost",
+    "transaction_costs",
+    "cost",
+    "per_trade_bps",
+    "half_spread_bps",
+)
+_TURNOVER_SUMMARY_SOURCE = "turnover_series"
 _METRIC_SYNONYMS: dict[str, tuple[str, ...]] = {
     "cagr": ("cagr", "compound annual growth rate"),
     "vol": ("vol", "volatility"),
@@ -44,6 +57,13 @@ _METRIC_SYNONYMS: dict[str, tuple[str, ...]] = {
     "max_drawdown": ("max drawdown", "drawdown", "max_drawdown"),
     "is_avg_corr": ("avg corr", "average correlation", "correlation"),
     "os_avg_corr": ("avg corr", "average correlation", "correlation"),
+    "turnover": ("turnover", "turnover rate"),
+    "turnover_value": ("turnover", "turnover value"),
+    "transaction_cost": ("transaction cost", "transaction costs", "tx cost"),
+    "transaction_costs": ("transaction cost", "transaction costs", "tx cost"),
+    "cost": ("transaction cost", "transaction costs", "cost"),
+    "per_trade_bps": ("transaction cost", "per trade bps", "per_trade_bps"),
+    "half_spread_bps": ("transaction cost", "half spread bps", "half_spread_bps"),
     "weights": ("weights", "fund weights", "portfolio weights"),
     "benchmark_ir": ("benchmark ir", "benchmark information ratio"),
 }
@@ -57,6 +77,8 @@ _KNOWN_METRIC_KEYWORDS = {
     "omega",
     "skew",
     "kurtosis",
+    "transaction cost",
+    "transaction costs",
 }
 _TOKEN_RE = re.compile(r"[^a-z0-9]+")
 
@@ -111,6 +133,9 @@ def extract_metric_catalog(result: Mapping[str, Any]) -> list[MetricEntry]:
                 )
                 if entry is not None:
                     entries.append(entry)
+
+    entries.extend(_extract_risk_diagnostics_entries(result))
+    entries.extend(_extract_turnover_series_entries(result))
 
     return entries
 
@@ -193,6 +218,8 @@ def _sorted_keys(mapping: Mapping[str, Any]) -> list[str]:
 def _metric_labels_for_entry(entry: MetricEntry) -> Iterable[str]:
     path_parts = entry.path.split(".")
     metric_label = path_parts[-1] if path_parts else entry.path
+    if entry.path.startswith("turnover."):
+        metric_label = "turnover"
     if entry.source in _WEIGHT_SECTIONS:
         metric_label = "weights"
     elif entry.source == _BENCHMARK_SECTION:
@@ -205,6 +232,70 @@ def _metric_labels_for_entry(entry: MetricEntry) -> Iterable[str]:
 def _normalize_metric_label(label: str) -> str:
     normalized = _TOKEN_RE.sub(" ", label.lower()).strip()
     return " ".join(normalized.split())
+
+
+def _extract_risk_diagnostics_entries(result: Mapping[str, Any]) -> list[MetricEntry]:
+    diagnostics = result.get(_RISK_DIAGNOSTICS_SECTION)
+    diag_map = _diagnostics_to_mapping(diagnostics)
+    entries: list[MetricEntry] = []
+    for field in _RISK_DIAGNOSTICS_FIELDS:
+        if field not in diag_map:
+            continue
+        entry = _make_entry(
+            f"{_RISK_DIAGNOSTICS_SECTION}.{field}",
+            diag_map[field],
+            _RISK_DIAGNOSTICS_SECTION,
+        )
+        if entry is not None:
+            entries.append(entry)
+    return entries
+
+
+def _diagnostics_to_mapping(diagnostics: Any) -> dict[str, Any]:
+    if isinstance(diagnostics, Mapping):
+        return {str(key): value for key, value in diagnostics.items()}
+    if diagnostics is None:
+        return {}
+    return {
+        field: getattr(diagnostics, field)
+        for field in _RISK_DIAGNOSTICS_FIELDS
+        if hasattr(diagnostics, field)
+    }
+    return {}
+
+
+def _extract_turnover_series_entries(result: Mapping[str, Any]) -> list[MetricEntry]:
+    turnover_obj = result.get("turnover")
+    if turnover_obj is None:
+        details = result.get("details")
+        if isinstance(details, Mapping):
+            turnover_obj = details.get("turnover")
+    series = _coerce_series(turnover_obj)
+    if series is None or series.empty:
+        return []
+    series = series.dropna()
+    if series.empty:
+        return []
+    latest = float(series.iloc[-1])
+    mean = float(series.mean())
+    return [
+        MetricEntry(path="turnover.latest", value=latest, source=_TURNOVER_SUMMARY_SOURCE),
+        MetricEntry(path="turnover.mean", value=mean, source=_TURNOVER_SUMMARY_SOURCE),
+    ]
+
+
+def _coerce_series(value: Any) -> pd.Series | None:
+    if isinstance(value, pd.Series):
+        return value.astype(float).copy()
+    if isinstance(value, Mapping):
+        if not value:
+            return None
+        return pd.Series(value, dtype=float)
+    if isinstance(value, (list, tuple)):
+        if not value:
+            return None
+        return pd.Series(value, dtype=float)
+    return None
 
 
 __all__ = [
