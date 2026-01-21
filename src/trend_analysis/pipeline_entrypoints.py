@@ -9,6 +9,7 @@ import pandas as pd
 from trend.diagnostics import DiagnosticResult
 
 from .diagnostics import PipelineResult, coerce_pipeline_result
+from .util.risk_free import resolve_risk_free_settings
 
 if TYPE_CHECKING:
     from .diagnostics import PipelineResult
@@ -101,8 +102,9 @@ def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
     )
     trend_spec = bindings.build_trend_spec(cfg, vol_adjust)
     lambda_tc_val = bindings.section_get(portfolio_cfg, "lambda_tc", 0.0)
-    risk_free_column = bindings.section_get(data_settings, "risk_free_column")
-    allow_risk_free_fallback = bindings.section_get(data_settings, "allow_risk_free_fallback")
+    risk_free_column, allow_risk_free_fallback = resolve_risk_free_settings(
+        data_settings if isinstance(data_settings, Mapping) else None
+    )
 
     diag_res = bindings.invoke_analysis_with_diag(
         df,

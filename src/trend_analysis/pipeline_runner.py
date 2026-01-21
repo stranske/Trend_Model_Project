@@ -52,7 +52,7 @@ def _run_analysis_with_diagnostics(
     regime_cfg: Mapping[str, Any] | None = None,
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
-    allow_risk_free_fallback: bool | None = None,
+    allow_risk_free_fallback: bool | None = False,
     weight_engine_params: Mapping[str, Any] | None = None,
 ) -> PipelineResult:
     preprocess_stage = preprocessing_stage._prepare_preprocess_stage(
@@ -186,7 +186,7 @@ def _run_analysis(
     regime_cfg: Mapping[str, Any] | None = None,
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
-    allow_risk_free_fallback: bool | None = None,
+    allow_risk_free_fallback: bool | None = False,
     weight_engine_params: Mapping[str, Any] | None = None,
 ) -> AnalysisResult | None:
     """Backward-compatible wrapper returning raw payloads for tests."""

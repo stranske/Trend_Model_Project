@@ -205,14 +205,32 @@ def test_pipeline_requires_flag_for_fallback_when_missing_rf():
         )
 
 
-def test_pipeline_implicit_fallback_enabled_by_default():
-    """Risk-free fallback is now enabled by default per config change."""
+def test_pipeline_requires_explicit_flag_when_missing_rf_defaults_off():
     df = _mini_df().drop(columns=["RF"])
     from trend_analysis import pipeline
     from trend_analysis.core.rank_selection import RiskStatsConfig
 
-    kwargs = dict(
-        df=df,
+    with pytest.raises(ValueError, match="allow_risk_free_fallback"):
+        pipeline._run_analysis(  # type: ignore[attr-defined]
+            df,
+            in_start="2020-01",
+            in_end="2020-03",
+            out_start="2020-04",
+            out_end="2020-06",
+            target_vol=0.10,
+            monthly_cost=0.0,
+            selection_mode="all",
+            stats_cfg=RiskStatsConfig(),
+        )
+
+
+def test_pipeline_enables_fallback_when_flag_true_and_rf_missing():
+    df = _mini_df().drop(columns=["RF"])
+    from trend_analysis import pipeline
+    from trend_analysis.core.rank_selection import RiskStatsConfig
+
+    result = pipeline._run_analysis(  # type: ignore[attr-defined]
+        df,
         in_start="2020-01",
         in_end="2020-03",
         out_start="2020-04",
@@ -221,10 +239,10 @@ def test_pipeline_implicit_fallback_enabled_by_default():
         monthly_cost=0.0,
         selection_mode="all",
         stats_cfg=RiskStatsConfig(),
+        allow_risk_free_fallback=True,
     )
-    # Should not raise - fallback is now enabled by default
-    result = pipeline._run_analysis(**kwargs)  # type: ignore[attr-defined]
     assert result is not None
+    assert result.get("risk_free_source") == "fallback"
 
 
 def test_identify_risk_free_name_heuristics():
