@@ -254,7 +254,7 @@ def run_analysis(
     holiday_calendar: str | None = None,
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
-    allow_risk_free_fallback: bool | None = None,
+    allow_risk_free_fallback: bool | None = False,
     weight_engine_params: Mapping[str, Any] | None = None,
 ) -> PipelineResult:
     """Diagnostics-aware wrapper mirroring ``_run_analysis``."""
