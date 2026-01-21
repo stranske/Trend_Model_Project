@@ -139,3 +139,35 @@ def test_render_explain_results_uses_cached_result(explain_module) -> None:
     explain_module.render_explain_results(result, run_key=run_key)
 
     st_stub.markdown.assert_any_call("Cached output")
+
+
+def test_render_explain_results_handles_missing_details(explain_module) -> None:
+    st_stub = sys.modules["streamlit"]
+
+    result = SimpleNamespace(details=None)
+
+    explain_module.render_explain_results(result, run_key="run:missing")
+
+    st_stub.info.assert_any_call("Explanation is unavailable because detailed results are missing.")
+
+
+def test_render_explain_results_reports_llm_error(explain_module, monkeypatch) -> None:
+    st_stub = sys.modules["streamlit"]
+    st_stub.button.return_value = True
+
+    spinner = MagicMock()
+    spinner.__enter__.return_value = spinner
+    spinner.__exit__.return_value = False
+    st_stub.spinner.return_value = spinner
+
+    def _raise_error(*_args, **_kwargs):
+        raise ValueError("Missing API key for openai.")
+
+    monkeypatch.setattr(explain_module, "generate_result_explanation", _raise_error)
+
+    result = SimpleNamespace(details={"out_sample_stats": {"Portfolio": (0.1,)}})
+
+    explain_module.render_explain_results(result, run_key="run:error")
+
+    st_stub.error.assert_any_call("We could not generate an explanation.")
+    st_stub.caption.assert_any_call("Missing API key for openai.")
