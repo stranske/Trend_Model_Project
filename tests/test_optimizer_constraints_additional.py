@@ -70,6 +70,17 @@ def test_apply_constraints_rescales_weights_with_cash_and_cap() -> None:
     pd.testing.assert_index_equal(result.index, pd.Index(["Asset1", "Asset2", "CASH"]))
 
 
+def test_apply_constraints_preserves_series_name_with_cash() -> None:
+    """Output should retain the input Series name after cash processing."""
+
+    weights = pd.Series({"Asset1": 2.0, "Asset2": 1.0}, name="weights")
+    constraints = ConstraintSet(cash_weight=0.25, max_weight=0.6)
+
+    result = apply_constraints(weights, constraints)
+
+    assert result.name == "weights"
+
+
 @pytest.mark.parametrize("cash_weight", [0.0, 1.0, -0.1, 1.5])
 def test_apply_constraints_rejects_invalid_cash_weight(cash_weight: float) -> None:
     """Values outside ``(0, 1)`` should be rejected before any rescaling."""

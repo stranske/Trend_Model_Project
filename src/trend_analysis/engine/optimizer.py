@@ -191,6 +191,7 @@ def apply_constraints(
         constraints = ConstraintSet(**constraints)
 
     w = weights.astype(float).copy()
+    series_name = w.name
     if w.empty:
         return w
 
@@ -250,6 +251,7 @@ def apply_constraints(
 
     # Final normalisation guard
     w /= _safe_sum(w)
+    w.name = series_name
     return w
 
 
