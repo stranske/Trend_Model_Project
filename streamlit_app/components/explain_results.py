@@ -91,7 +91,9 @@ def _format_questions(raw: str | None) -> str:
 
 
 def _resolve_llm_provider_config(provider: str | None = None) -> LLMProviderConfig:
-    provider_name = (provider or os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
+    provider_name = (
+        provider or os.environ.get("TREND_LLM_PROVIDER") or "openai"
+    ).lower()
     supported = {"openai", "anthropic", "ollama"}
     if provider_name not in supported:
         raise ValueError(
@@ -140,7 +142,9 @@ def generate_result_explanation(
     entries = compact_metric_catalog(entries, questions=questions)
     metric_catalog = format_metric_catalog(entries)
     if not entries:
-        text = ensure_result_disclaimer("No metrics were detected in the analysis output.")
+        text = ensure_result_disclaimer(
+            "No metrics were detected in the analysis output."
+        )
         return ExplanationResult(
             text=text,
             trace_url=None,
@@ -233,15 +237,29 @@ def render_explain_results(
         "trace_url": cached.trace_url,
         "claim_issues": [serialize_claim_issue(issue) for issue in cached.claim_issues],
     }
-    col_a, col_b = st.columns(2)
-    with col_a:
+    columns = st.columns(2)
+    if len(columns) >= 2:
+        with columns[0]:
+            st.download_button(
+                "Download explanation (TXT)",
+                data=cached.text,
+                file_name=f"explanation_{run_id}.txt",
+                mime="text/plain",
+            )
+        with columns[1]:
+            st.download_button(
+                "Download explanation (JSON)",
+                data=json.dumps(artifact_payload, indent=2, sort_keys=True),
+                file_name=f"explanation_{run_id}.json",
+                mime="application/json",
+            )
+    else:
         st.download_button(
             "Download explanation (TXT)",
             data=cached.text,
             file_name=f"explanation_{run_id}.txt",
             mime="text/plain",
         )
-    with col_b:
         st.download_button(
             "Download explanation (JSON)",
             data=json.dumps(artifact_payload, indent=2, sort_keys=True),
