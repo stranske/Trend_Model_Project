@@ -150,13 +150,14 @@ def _current_run_key(model_state: dict[str, Any], benchmark: str | None) -> str:
     fingerprint = st.session_state.get("data_fingerprint", "unknown")
     model_blob = json.dumps(model_state, sort_keys=True, default=str)
     bench = benchmark or "__none__"
+    selected_rf = st.session_state.get("selected_risk_free")
+    selected_rf_key = selected_rf or "__none__"
     applied_funds = st.session_state.get("analysis_fund_columns")
     if not isinstance(applied_funds, list):
         applied_funds = st.session_state.get("fund_columns")
     if not isinstance(applied_funds, list):
         applied_funds = []
 
-    selected_rf = st.session_state.get("selected_risk_free")
     info_ratio_benchmark = (
         model_state.get("info_ratio_benchmark") if isinstance(model_state, dict) else None
     )
@@ -165,7 +166,7 @@ def _current_run_key(model_state: dict[str, Any], benchmark: str | None) -> str:
 
     funds_blob = json.dumps(list(sanitized_funds), sort_keys=False, default=str)
     funds_hash = hashlib.sha256(funds_blob.encode("utf-8")).hexdigest()[:12]
-    return f"{fingerprint}:{bench}:{funds_hash}:{model_blob}"
+    return f"{fingerprint}:{bench}:{selected_rf_key}:{funds_hash}:{model_blob}"
 
 
 def _data_hash_for_analysis(df: pd.DataFrame) -> str:
