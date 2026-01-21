@@ -359,6 +359,8 @@ def _extract_risk_diagnostics_entries(result: Mapping[str, Any]) -> list[MetricE
 
 
 def _diagnostics_to_mapping(diagnostics: Any) -> dict[str, Any]:
+    if isinstance(diagnostics, pd.Series):
+        return {str(key): value for key, value in diagnostics.items()}
     if isinstance(diagnostics, Mapping):
         return {str(key): value for key, value in diagnostics.items()}
     if diagnostics is None:
@@ -368,7 +370,6 @@ def _diagnostics_to_mapping(diagnostics: Any) -> dict[str, Any]:
         for field in _RISK_DIAGNOSTICS_FIELDS
         if hasattr(diagnostics, field)
     }
-    return {}
 
 
 def _extract_turnover_series_entries(result: Mapping[str, Any]) -> list[MetricEntry]:
