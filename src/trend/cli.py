@@ -1641,10 +1641,10 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
             questions = _resolve_explain_questions(args)
             run_id = _infer_explain_run_id(details_path, args.run_id)
             created_at = datetime.now(timezone.utc)
-            entries = extract_metric_catalog(details)
-            entries = compact_metric_catalog(entries, questions=questions)
-            metric_catalog = format_metric_catalog(entries)
-            if not entries:
+            all_entries = extract_metric_catalog(details)
+            compacted_entries = compact_metric_catalog(all_entries, questions=questions)
+            metric_catalog = format_metric_catalog(compacted_entries)
+            if not all_entries:
                 explanation = ensure_result_disclaimer(
                     "No metrics were detected in the analysis output."
                 )
@@ -1673,11 +1673,11 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                 metric_catalog=metric_catalog,
                 questions=questions,
                 request_id=request_id,
-                metric_entries=entries,
+                metric_entries=all_entries,
             )
             explanation_text, claim_issues = postprocess_result_text(
                 response.text,
-                entries,
+                all_entries,
                 logger=logger,
             )
             trace_url = getattr(response, "trace_url", None)
@@ -1690,7 +1690,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                     run_id=run_id,
                     created_at=created_at,
                     text=explanation_text,
-                    metric_count=len(entries),
+                    metric_count=len(compacted_entries),
                     trace_url=trace_url,
                     claim_issues=claim_issues,
                 )
