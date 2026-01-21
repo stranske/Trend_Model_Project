@@ -101,17 +101,17 @@ Do not remove the requirement that at least one cited metric value is present.
 
 ## Tasks
 
-- [ ] Add a helper in `src/trend_analysis/llm/result_validation.py` to detect date-like numeric spans (e.g., numbers that appear within YYYY-MM or YYYY-MM-DD patterns).
-- [ ] Update `validate_result_claims()` so date-like numbers do not generate `uncited_value` issues.
-- [ ] Add unit tests in `tests/test_result_validation.py` to confirm that a date range (e.g., "2023-01 to 2024-12") does not produce `uncited_value` issues.
-- [ ] Add unit tests to confirm that non-date uncited metric values (e.g., "CAGR was 8%.") are still flagged when missing citations.
+- [x] Add a helper in `src/trend_analysis/llm/result_validation.py` to detect date-like numeric spans (e.g., numbers that appear within YYYY-MM or YYYY-MM-DD patterns).
+- [x] Update `validate_result_claims()` so date-like numbers do not generate `uncited_value` issues.
+- [x] Add unit tests in `tests/test_result_validation.py` to confirm that a date range (e.g., "2023-01 to 2024-12") does not produce `uncited_value` issues.
+- [x] Add unit tests to confirm that non-date uncited metric values (e.g., "CAGR was 8%.") are still flagged when missing citations.
 
 ## Acceptance Criteria
 
-- [ ] Date-like numbers inside common date formats do not produce `uncited_value` issues.
-- [ ] Actual metric numbers still produce `uncited_value` issues when uncited.
-- [ ] Existing hallucination detection behavior remains intact.
-- [ ] All unit tests pass.
+- [x] Date-like numbers inside common date formats do not produce `uncited_value` issues.
+- [x] Actual metric numbers still produce `uncited_value` issues when uncited.
+- [x] Existing hallucination detection behavior remains intact.
+- [x] All unit tests pass.
 
 ## Implementation Notes
 

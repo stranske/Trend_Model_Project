@@ -24,6 +24,10 @@ _CITATION_RE = re.compile(
 )
 _SOURCE_RE = re.compile(r"\[from\s+(?P<source>[^\]]+)\]", re.IGNORECASE)
 _NUMBER_RE = re.compile(r"(?<![A-Za-z0-9_.])[-+]?\d+(?:\.\d+)?%?")
+_DATE_RE = re.compile(
+    r"\b(?P<year>(?:19|20)\d{2})(?:-(?P<month>0[1-9]|1[0-2])"
+    r"(?:-(?P<day>0[1-9]|[12]\d|3[01]))?)?\b"
+)
 _QUESTION_TOKEN_RE = re.compile(r"[^a-z0-9]+")
 _UNAVAILABLE_RE = re.compile(
     r"requested data is unavailable in the analysis output",
@@ -159,6 +163,7 @@ def validate_result_claims(
 
     citation_spans: list[tuple[int, int]] = []
     value_spans: list[tuple[int, int]] = []
+    date_spans = _date_like_number_spans(text)
 
     for match in _CITATION_RE.finditer(text):
         source = match.group("source").strip()
@@ -206,6 +211,8 @@ def validate_result_claims(
 
     for match in _NUMBER_RE.finditer(text):
         if _overlaps(match.span(), value_spans):
+            continue
+        if _overlaps(match.span(), date_spans):
             continue
         value_text = match.group(0)
         issues.append(
@@ -276,6 +283,17 @@ def _overlaps(span: tuple[int, int], spans: Iterable[tuple[int, int]]) -> bool:
         if start < other_end and other_start < end:
             return True
     return False
+
+
+def _date_like_number_spans(text: str) -> list[tuple[int, int]]:
+    spans: list[tuple[int, int]] = []
+    for match in _DATE_RE.finditer(text):
+        spans.append(match.span("year"))
+        if match.group("month"):
+            spans.append(match.span("month"))
+        if match.group("day"):
+            spans.append(match.span("day"))
+    return spans
 
 
 def _find_matching_sources(
