@@ -29,7 +29,7 @@ _DATE_RE = re.compile(
     r"\b(?P<year>(?:19|20)\d{2})-(?P<month>0?[1-9]|1[0-2])" r"(?:-(?P<day>0?[1-9]|[12]\d|3[01]))?\b"
 )
 _YEAR_RANGE_RE = re.compile(
-    r"\b(?P<start>(?:19|20)\d{2})\s*(?:-|to|through)\s*(?P<end>(?:19|20)\d{2})\b",
+    r"\b(?P<start>(?:19|20)\d{2})\s*(?:-|to|through|\u2013|\u2014)\s*(?P<end>(?:19|20)\d{2})\b",
     re.IGNORECASE,
 )
 _YEAR_RANGE_SLASH_RE = re.compile(r"\b(?P<start>(?:19|20)\d{2})\s*/\s*(?P<end>(?:19|20)\d{2})\b")

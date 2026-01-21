@@ -137,6 +137,22 @@ def test_validate_result_claims_ignores_short_year_range_with_slash() -> None:
     assert not any(issue.kind == "uncited_value" for issue in issues)
 
 
+def test_validate_result_claims_ignores_en_dash_year_range() -> None:
+    text = "Coverage runs from 2023\u20132024."
+
+    issues = validate_result_claims(text, [])
+
+    assert not any(issue.kind == "uncited_value" for issue in issues)
+
+
+def test_validate_result_claims_ignores_em_dash_year_range() -> None:
+    text = "Coverage runs from 2023\u20142024."
+
+    issues = validate_result_claims(text, [])
+
+    assert not any(issue.kind == "uncited_value" for issue in issues)
+
+
 def test_validate_result_claims_ignores_slash_dates() -> None:
     text = "Coverage runs from 01/15/2023 to 12/31/2023."
 
