@@ -58,6 +58,23 @@ def test_detect_result_hallucinations_flags_uncited_metric_with_dates() -> None:
     assert "missing_citation" in kinds
 
 
+def test_detect_result_hallucinations_flags_uncited_metric_without_dates() -> None:
+    entries = [
+        MetricEntry(
+            path="out_sample_stats.portfolio.cagr",
+            value=0.08,
+            source="out_sample_stats",
+        )
+    ]
+    text = "CAGR was 8%."
+
+    issues = detect_result_hallucinations(text, entries)
+    kinds = {issue.kind for issue in issues}
+
+    assert "uncited_value" in kinds
+    assert "missing_citation" in kinds
+
+
 def test_validate_result_claims_flags_uncited_values() -> None:
     entries = [
         MetricEntry(
