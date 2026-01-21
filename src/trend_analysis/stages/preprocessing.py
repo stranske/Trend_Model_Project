@@ -135,7 +135,7 @@ def _prepare_preprocess_stage(
 
     na_cfg = getattr(stats_cfg, "na_as_zero_cfg", None) if stats_cfg else None
     enforce_complete = not (na_cfg and bool(na_cfg.get("enabled", False)))
-    if allow_risk_free_fallback:
+    if allow_risk_free_fallback is True:
         enforce_complete = False
 
     df_prepared, freq_summary, missing_result, normalised = _prepare_input_data(

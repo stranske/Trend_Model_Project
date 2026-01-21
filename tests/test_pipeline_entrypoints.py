@@ -125,6 +125,55 @@ def test_run_returns_empty_frame_when_analysis_none(
     assert result.empty
 
 
+@pytest.mark.parametrize(
+    "data_overrides, expected_allow",
+    [
+        ({}, False),
+        ({"allow_risk_free_fallback": None}, False),
+        ({"allow_risk_free_fallback": True, "risk_free_column": "RF"}, False),
+        ({"allow_risk_free_fallback": True}, True),
+    ],
+)
+def test_run_resolves_risk_free_defaults(
+    data_overrides: dict[str, object],
+    expected_allow: bool,
+    monkeypatch: pytest.MonkeyPatch,
+    sample_frame: pd.DataFrame,
+    sample_split: dict[str, str],
+) -> None:
+    base_config = {
+        "data": {"csv_path": "dummy.csv"},
+        "sample_split": {},
+        "preprocessing": {},
+        "run": {},
+        "portfolio": {},
+        "vol_adjust": {},
+    }
+    base_config["data"].update(data_overrides)
+
+    monkeypatch.setattr(pipeline, "load_csv", lambda *_, **__: sample_frame)
+    monkeypatch.setattr(pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split)
+    monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
+
+    captured_kwargs: dict[str, object] = {}
+
+    def fake_run_analysis(*args, **kwargs):
+        captured_kwargs.update(kwargs)
+        return {
+            "out_sample_stats": {},
+            "benchmark_ir": {},
+            "risk_diagnostics": {},
+            "fund_weights": {},
+            "in_sample_stats": {},
+        }
+
+    monkeypatch.setattr(pipeline, "_run_analysis", fake_run_analysis)
+
+    pipeline.run(base_config)
+
+    assert captured_kwargs["allow_risk_free_fallback"] is expected_allow
+
+
 def test_run_full_propagates_analysis_payload(
     monkeypatch: pytest.MonkeyPatch,
     sample_frame: pd.DataFrame,
