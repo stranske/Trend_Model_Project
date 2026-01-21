@@ -49,6 +49,7 @@ _RISK_DIAGNOSTICS_FIELDS = (
     "half_spread_bps",
 )
 _TURNOVER_SUMMARY_SOURCE = "turnover_series"
+_TURNOVER_SCALAR_SOURCE = "turnover_scalar"
 _MAX_FUNDS_ENV = "TREND_EXPLAIN_MAX_FUNDS"
 _MAX_WEIGHTS_ENV = "TREND_EXPLAIN_MAX_WEIGHTS"
 _MAX_ENTRIES_ENV = "TREND_EXPLAIN_MAX_ENTRIES"
@@ -245,7 +246,7 @@ def compact_metric_catalog(
 def format_metric_catalog(entries: Iterable[MetricEntry]) -> str:
     """Render metric entries into a readable catalog string."""
 
-    lines = [f"{entry.path}: {entry.value} [from {entry.source}]" for entry in entries]
+    lines = [f"{entry.path}: {entry.value} [from {entry.source or 'unknown'}]" for entry in entries]
     return "\n".join(lines).strip()
 
 
@@ -338,6 +339,10 @@ def _normalize_metric_label(label: str) -> str:
 
 def _extract_risk_diagnostics_entries(result: Mapping[str, Any]) -> list[MetricEntry]:
     diagnostics = result.get(_RISK_DIAGNOSTICS_SECTION)
+    if diagnostics is None:
+        details = result.get("details")
+        if isinstance(details, Mapping):
+            diagnostics = details.get(_RISK_DIAGNOSTICS_SECTION)
     diag_map = _diagnostics_to_mapping(diagnostics)
     entries: list[MetricEntry] = []
     for field in _RISK_DIAGNOSTICS_FIELDS:
@@ -354,6 +359,8 @@ def _extract_risk_diagnostics_entries(result: Mapping[str, Any]) -> list[MetricE
 
 
 def _diagnostics_to_mapping(diagnostics: Any) -> dict[str, Any]:
+    if isinstance(diagnostics, pd.Series):
+        return {str(key): value for key, value in diagnostics.items()}
     if isinstance(diagnostics, Mapping):
         return {str(key): value for key, value in diagnostics.items()}
     if diagnostics is None:
@@ -363,7 +370,6 @@ def _diagnostics_to_mapping(diagnostics: Any) -> dict[str, Any]:
         for field in _RISK_DIAGNOSTICS_FIELDS
         if hasattr(diagnostics, field)
     }
-    return {}
 
 
 def _extract_turnover_series_entries(result: Mapping[str, Any]) -> list[MetricEntry]:
@@ -374,7 +380,8 @@ def _extract_turnover_series_entries(result: Mapping[str, Any]) -> list[MetricEn
             turnover_obj = details.get("turnover")
     series = _coerce_series(turnover_obj)
     if series is None or series.empty:
-        return []
+        entry = _make_entry("turnover.value", turnover_obj, _TURNOVER_SCALAR_SOURCE)
+        return [entry] if entry is not None else []
     series = series.dropna()
     if series.empty:
         return []

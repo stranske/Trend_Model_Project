@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pandas as pd
 
 from trend_analysis.llm.result_metrics import (
+    MetricEntry,
     extract_metric_catalog,
     format_metric_catalog,
 )
@@ -126,6 +127,27 @@ def test_extract_metric_catalog_reads_risk_diagnostics_attributes() -> None:
     assert "risk_diagnostics.half_spread_bps" in paths
 
 
+def test_extract_metric_catalog_reads_risk_diagnostics_series() -> None:
+    risk_diag = pd.Series({"turnover": 0.07, "transaction_costs": 0.02})
+    result = {"risk_diagnostics": risk_diag}
+
+    entries = extract_metric_catalog(result)
+    paths = {entry.path for entry in entries}
+
+    assert "risk_diagnostics.turnover" in paths
+    assert "risk_diagnostics.transaction_costs" in paths
+
+
+def test_extract_metric_catalog_reads_risk_diagnostics_from_details() -> None:
+    result = {"details": {"risk_diagnostics": {"turnover": 0.2, "cost": 0.01}}}
+
+    entries = extract_metric_catalog(result)
+    paths = {entry.path for entry in entries}
+
+    assert "risk_diagnostics.turnover" in paths
+    assert "risk_diagnostics.cost" in paths
+
+
 def test_extract_metric_catalog_adds_turnover_series_summaries() -> None:
     result = {"turnover": pd.Series([0.05, 0.1, 0.2])}
 
@@ -136,3 +158,37 @@ def test_extract_metric_catalog_adds_turnover_series_summaries() -> None:
     assert "turnover.latest" in paths
     assert "turnover.mean" in paths
     assert "[from turnover_series]" in catalog
+
+
+def test_extract_metric_catalog_adds_turnover_series_from_details() -> None:
+    result = {"details": {"turnover": pd.Series([0.02, 0.08])}}
+
+    entries = extract_metric_catalog(result)
+    paths = {entry.path for entry in entries}
+    catalog = format_metric_catalog(entries)
+
+    assert "turnover.latest" in paths
+    assert "turnover.mean" in paths
+    assert "[from turnover_series]" in catalog
+
+
+def test_extract_metric_catalog_adds_turnover_scalar_from_details() -> None:
+    result = {"details": {"turnover": 0.12}}
+
+    entries = extract_metric_catalog(result)
+    paths = {entry.path for entry in entries}
+    catalog = format_metric_catalog(entries)
+
+    assert "turnover.value" in paths
+    assert "[from turnover_scalar]" in catalog
+
+
+def test_format_metric_catalog_defaults_missing_source() -> None:
+    entries = [
+        MetricEntry(path="risk_diagnostics.turnover", value=0.2, source=""),
+    ]
+
+    catalog = format_metric_catalog(entries)
+
+    assert "risk_diagnostics.turnover" in catalog
+    assert "[from unknown]" in catalog

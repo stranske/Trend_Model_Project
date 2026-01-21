@@ -162,6 +162,20 @@ def test_detect_unavailable_metric_requests_ignores_available_turnover() -> None
     assert "turnover" not in missing
 
 
+def test_detect_unavailable_metric_requests_ignores_transaction_cost() -> None:
+    entries = [
+        MetricEntry(
+            path="risk_diagnostics.transaction_cost",
+            value=0.01,
+            source="risk_diagnostics",
+        )
+    ]
+
+    missing = detect_unavailable_metric_requests("Report transaction cost.", entries)
+
+    assert "transaction cost" not in missing
+
+
 def test_postprocess_skips_discrepancy_log_for_unavailability() -> None:
     text = "Requested data is unavailable in the analysis output for: alpha."
 
