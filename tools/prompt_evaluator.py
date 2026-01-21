@@ -62,12 +62,12 @@ def _serialize_schema(allowed_schema: Any | None) -> str | None:
     return json.dumps(allowed_schema, indent=2, ensure_ascii=True)
 
 
-def _build_llm(responses: list[str]) -> RunnableLambda:
+def _build_llm(responses: list[str]) -> RunnableLambda[Any, str]:
     if not responses:
         raise ValueError("LLM responses list cannot be empty.")
     index = {"value": 0}
 
-    def _respond(_prompt_value, **_kwargs) -> str:
+    def _respond(_prompt_value: Any, **_kwargs: Any) -> str:
         current = responses[min(index["value"], len(responses) - 1)]
         index["value"] += 1
         return current
@@ -262,6 +262,9 @@ def evaluate_prompt(
     previous_level = chain_logger.level
     chain_logger.addHandler(handler)
     chain_logger.setLevel(logging.WARNING)
+
+    assert isinstance(instruction, str)
+    assert chain is not None
 
     start_time = time.perf_counter()
     patch_payload: dict[str, Any] | None = None

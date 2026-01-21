@@ -52,12 +52,12 @@ Documentation = "https://github.com/stranske/Trend_Model_Project#readme"
 
 [project.scripts]
 trend = "trend.cli:main"
-trend-analysis = "trend_analysis.run_analysis:main"
-trend-multi-analysis = "trend_analysis.run_multi_analysis:main"
-trend-model = "trend_analysis.cli:main"
-trend-app = "trend_model.app:main"
-trend-run = "trend_model.cli:run"
-trend-quick-report = "trend.reporting.quick_summary:main"
+trend-analysis = "trend.compat_entrypoints:trend_analysis"
+trend-multi-analysis = "trend.compat_entrypoints:trend_multi_analysis"
+trend-model = "trend.compat_entrypoints:trend_model"
+trend-app = "trend.compat_entrypoints:trend_app"
+trend-run = "trend.compat_entrypoints:trend_run"
+trend-quick-report = "trend.compat_entrypoints:trend_quick_report"
 
 [tool.setuptools.packages.find]
 where = ["src", "."]

@@ -19,7 +19,7 @@ def test_installed_trend_model_available():
 
     assert result.returncode == 0
     assert "trend-model" in result.stdout
-    assert "gui" in result.stdout
+    assert "app" in result.stdout
     assert "run" in result.stdout
 
 

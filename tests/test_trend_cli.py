@@ -79,7 +79,7 @@ def _risky_patch() -> ConfigPatch:
 
 def test_build_parser_contains_expected_subcommands() -> None:
     parser = build_parser()
-    expected_subcommands = {"run", "report", "stress", "app"}
+    expected_subcommands = {"run", "report", "stress", "app", "check"}
     for subcommand in expected_subcommands:
         # Should not raise SystemExit
         try:
@@ -1029,7 +1029,10 @@ def test_main_handles_file_not_found(monkeypatch, tmp_path: Path, capsys) -> Non
 
 def test_main_reports_unknown_command(monkeypatch, capsys) -> None:
     parser = SimpleNamespace(
-        parse_args=lambda _argv: SimpleNamespace(subcommand="mystery", config="cfg.yml")
+        parse_known_args=lambda _argv: (
+            SimpleNamespace(subcommand="mystery", config="cfg.yml"),
+            [],
+        )
     )
 
     monkeypatch.setattr(cli, "build_parser", lambda: parser)

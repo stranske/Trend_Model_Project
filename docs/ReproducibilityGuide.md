@@ -120,9 +120,24 @@ When invoking the CLI, the effective random seed is resolved using this order:
 
 ### Enforced Hash Seed
 
-The `scripts/trend-model` wrapper (and Docker image) force `PYTHONHASHSEED=0`
+The `scripts/trend` wrapper (and Docker image) force `PYTHONHASHSEED=0`
 if it is not already set, ensuring stable dict/set iteration ordering. Override
 by exporting a different value before calling the script if required.
+
+### CLI Migration (Legacy -> trend)
+
+Legacy console scripts still work but forward to `trend` with a deprecation warning.
+
+| Legacy command | Trend equivalent |
+|---------------|------------------|
+| `trend-analysis` | `trend run` |
+| `trend-multi-analysis` | `trend run` (multi-period via config) |
+| `trend-model run` | `trend run` (use `--returns` instead of `-i/--input`) |
+| `trend-model gui` | `trend app` |
+| `trend-model --check` | `trend check` |
+| `trend-app` | `trend app` |
+| `trend-run` | `trend report` |
+| `trend-quick-report` | `trend quick-report` |
 
 ### Reproducibility Bundle
 
@@ -137,15 +152,15 @@ Contents:
 
 Example:
 ```bash
-./scripts/trend-model run -c config/demo.yml -i demo/demo_returns.csv --seed 777 --bundle outputs/deterministic.zip
+./scripts/trend run -c config/demo.yml --returns demo/demo_returns.csv --seed 777 --bundle outputs/deterministic.zip
 unzip -p outputs/deterministic.zip run_meta.json | jq .seed
 ```
 
 ### Verifying Bitwise Stability
 
 ```bash
-./scripts/trend-model run -c config/demo.yml -i demo/demo_returns.csv --seed 111 --bundle first.zip
-./scripts/trend-model run -c config/demo.yml -i demo/demo_returns.csv --seed 111 --bundle second.zip
+./scripts/trend run -c config/demo.yml --returns demo/demo_returns.csv --seed 111 --bundle first.zip
+./scripts/trend run -c config/demo.yml --returns demo/demo_returns.csv --seed 111 --bundle second.zip
 diff <(unzip -p first.zip run_meta.json | jq -S .) <(unzip -p second.zip run_meta.json | jq -S .) && echo "Deterministic ✅"
 ```
 
@@ -156,7 +171,7 @@ unexpected version or ordering changes) and open an issue.
 
 ```bash
 docker run --rm -e TREND_SEED=202 -v "$PWD/demo/demo_returns.csv":/data/returns.csv -v "$PWD/config/demo.yml":/cfg.yml \
-  ghcr.io/stranske/trend-model:latest trend-model run -c /cfg.yml -i /data/returns.csv --bundle /tmp/bundle.zip
+  ghcr.io/stranske/trend-model:latest trend run -c /cfg.yml --returns /data/returns.csv --bundle /tmp/bundle.zip
 ```
 
 Copy the bundle from the container if needed or mount an output volume.

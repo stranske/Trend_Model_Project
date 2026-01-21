@@ -66,7 +66,19 @@ from trend_analysis.llm.result_validation import (
 )
 from trend_analysis.llm.schema import load_compact_schema
 from trend_analysis.logging_setup import setup_logging
+from trend_analysis.perf.rolling_cache import set_cache_enabled
+from trend_analysis.presets import (
+    apply_trend_preset,
+    get_trend_preset,
+    list_preset_slugs,
+)
 from trend_analysis.reporting.portfolio_series import select_primary_portfolio_series
+from trend_analysis.signal_presets import (
+    TrendSpecPreset,
+    get_trend_spec_preset,
+    list_trend_spec_presets,
+)
+from trend_analysis.universe_catalog import NamedUniverse, load_universe
 from trend_model.spec import ensure_run_spec
 from utils.paths import proj_path
 
@@ -116,6 +128,116 @@ def _report_legacy_pipeline_diagnostic(
         reason_code=diagnostic.reason_code,
         **safe_fields,
     )
+
+
+def _apply_trend_spec_preset(cfg: Any, preset: TrendSpecPreset) -> None:
+    """Merge TrendSpec preset parameters into ``cfg`` in-place."""
+
+    payload = preset.as_signal_config()
+    if isinstance(cfg, dict):
+        existing = cfg.get("signals")
+        merged = dict(existing) if isinstance(existing, Mapping) else {}
+        merged.update(payload)
+        cfg["signals"] = merged
+        cfg["trend_spec_preset"] = preset.name
+        return
+
+    existing = getattr(cfg, "signals", None)
+    if isinstance(existing, Mapping):
+        merged = dict(existing)
+        merged.update(payload)
+    else:
+        merged = dict(payload)
+
+    try:
+        setattr(cfg, "signals", merged)
+    except ValueError:
+        object.__setattr__(cfg, "signals", merged)
+    try:
+        setattr(cfg, "trend_spec_preset", preset.name)
+    except ValueError:
+        object.__setattr__(cfg, "trend_spec_preset", preset.name)
+
+
+def _apply_universe_mask(df: pd.DataFrame, mask: pd.DataFrame, *, date_column: str) -> pd.DataFrame:
+    """Apply a time-varying membership mask to returns data."""
+
+    if mask.empty:
+        return df
+    working = df.copy()
+    lookup = {str(col).lower(): col for col in working.columns}
+    try:
+        date_col = lookup[date_column.lower()]
+    except KeyError as exc:  # pragma: no cover - defensive guard
+        raise KeyError(f"Date column '{date_column}' is missing from the returns data") from exc
+
+    working[date_col] = pd.to_datetime(working[date_col])
+    working = working.set_index(date_col)
+    aligned_mask = mask.reindex(index=working.index, fill_value=False)
+
+    missing = [col for col in aligned_mask.columns if col not in working.columns]
+    if missing:
+        preview = ", ".join(missing[:3])
+        raise KeyError(
+            "Universe members missing from returns data: "
+            f"{preview}" + ("..." if len(missing) > 3 else "")
+        )
+
+    masked = working.copy()
+    masked.loc[:, aligned_mask.columns] = masked.loc[:, aligned_mask.columns].where(aligned_mask)
+    masked.reset_index(inplace=True)
+    return masked
+
+
+def _attach_universe_paths(cfg: Any, spec: NamedUniverse, *, csv_path: str | None) -> None:
+    """Persist the selected universe paths onto ``cfg.data`` when possible."""
+
+    membership_value = str(spec.membership_path)
+    csv_value = csv_path
+    data_section = getattr(cfg, "data", None)
+    if isinstance(data_section, Mapping):
+        merged = dict(data_section)
+        merged["universe_membership_path"] = membership_value
+        if csv_value:
+            merged.setdefault("csv_path", csv_value)
+        try:
+            setattr(cfg, "data", merged)
+        except Exception:
+            object.__setattr__(cfg, "data", merged)
+        return
+
+    if data_section is None:
+        payload: dict[str, str] = {"universe_membership_path": membership_value}
+        if csv_value:
+            payload["csv_path"] = csv_value
+        try:
+            setattr(cfg, "data", payload)
+        except Exception:
+            object.__setattr__(cfg, "data", payload)
+        return
+
+    try:
+        setattr(data_section, "universe_membership_path", membership_value)
+    except Exception:
+        try:
+            object.__setattr__(data_section, "universe_membership_path", membership_value)
+        except Exception:
+            data_section = None
+
+    if csv_value and data_section is not None:
+        try:
+            setattr(data_section, "csv_path", csv_value)
+        except Exception:
+            try:
+                object.__setattr__(data_section, "csv_path", csv_value)
+            except Exception:
+                pass
+
+
+def _run_environment_check() -> int:
+    from trend_analysis.cli import check_environment
+
+    return check_environment()
 
 
 def _env_flag(name: str) -> bool:
@@ -251,15 +373,27 @@ class TrendCLIError(RuntimeError):
     """Raised when CLI validation fails before dispatching work."""
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser(
+    *, prog: str = "trend", include_gui_alias: bool | None = None
+) -> argparse.ArgumentParser:
     """Construct the argument parser for the unified ``trend`` command."""
+    if include_gui_alias is None:
+        include_gui_alias = prog == "trend-model"
 
-    parser = argparse.ArgumentParser(prog="trend")
+    parser = argparse.ArgumentParser(prog=prog)
     sub = parser.add_subparsers(dest="subcommand", required=True)
+
+    sub.add_parser("check", help="Print environment info and exit")
 
     run_p = sub.add_parser("run", help="Execute the analysis pipeline")
     run_p.add_argument("-c", "--config", help="Path to YAML config")
-    run_p.add_argument("--returns", help="Override returns CSV path")
+    run_p.add_argument(
+        "-i",
+        "--input",
+        "--returns",
+        dest="returns",
+        help="Override returns CSV path",
+    )
     run_p.add_argument("--seed", type=int, help="Force random seed for the run")
     run_p.add_argument(
         "--bundle",
@@ -274,6 +408,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Disable JSONL structured logging",
     )
     run_p.add_argument(
+        "--universe",
+        help="Select a named universe defined under config/universe",
+    )
+    run_p.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Disable persistent caching for rolling computations",
+    )
+    run_p.add_argument(
+        "--preset",
+        help="Apply a named trend preset to signal generation",
+    )
+    run_p.add_argument(
         "--config-coverage",
         action="store_true",
         help="Report which config keys were validated vs read",
@@ -281,7 +428,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     report_p = sub.add_parser("report", help="Generate summary artefacts for a configuration")
     report_p.add_argument("-c", "--config", help="Path to YAML config")
-    report_p.add_argument("--returns", help="Override returns CSV path")
+    report_p.add_argument(
+        "-i",
+        "--input",
+        "--returns",
+        dest="returns",
+        help="Override returns CSV path",
+    )
     report_p.add_argument(
         "--out",
         help="Directory where summary outputs will be written",
@@ -326,6 +479,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     sub.add_parser("app", help="Launch the Streamlit application")
+    if include_gui_alias:
+        sub.add_parser("gui", help="Launch the app (legacy alias for app)")
 
     quick_p = sub.add_parser("quick-report", help="Build a compact HTML report from run artefacts")
     quick_p.add_argument("--run-id", help="Run identifier (defaults to artefact inference)")
@@ -1350,16 +1505,21 @@ def _confirm_risky_patch(patch: ConfigPatch, *, no_confirm: bool) -> None:
         raise TrendCLIError("Update cancelled by user.")
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = build_parser()
+def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
+    try:
+        parser = build_parser(prog=prog)
+    except TypeError:
+        parser = build_parser()
     try:
         argv_list = argv if argv is not None else sys.argv[1:]
         maybe_replay_exit = _maybe_handle_nl_replay(argv_list)
         if maybe_replay_exit is not None:
             return maybe_replay_exit
-        args = parser.parse_args(argv)
+        args, extra_args = parser.parse_known_args(argv_list)
 
         command = args.subcommand
+        if extra_args and command != "app":
+            raise TrendCLIError(f"Unexpected arguments: {' '.join(extra_args)}")
         coverage_tracker: ConfigCoverageTracker | None = None
         if getattr(args, "config_coverage", False):
             coverage_tracker = ConfigCoverageTracker()
@@ -1371,10 +1531,23 @@ def main(argv: list[str] | None = None) -> int:
             print(coverage_tracker.format_report())
             deactivate_config_coverage()
 
-        if command == "app":
+        if command == "check":
             if coverage_tracker is not None:
                 deactivate_config_coverage()
-            proc = subprocess.run(["streamlit", "run", str(APP_PATH)])
+            return _run_environment_check()
+
+        if command in {"app", "gui"}:
+            if coverage_tracker is not None:
+                deactivate_config_coverage()
+            try:
+                proc = subprocess.run(["streamlit", "run", str(APP_PATH), *extra_args])
+            except FileNotFoundError:
+                print(
+                    "Error: the 'streamlit' executable was not found. "
+                    "Install the optional 'app' extra.",
+                    file=sys.stderr,
+                )
+                return 127
             return proc.returncode
 
         if command == "quick-report":
@@ -1572,6 +1745,28 @@ def main(argv: list[str] | None = None) -> int:
         seed = _determine_seed(cfg, getattr(args, "seed", None))
 
         if command == "run":
+            set_cache_enabled(not getattr(args, "no_cache", False))
+            if getattr(args, "preset", None):
+                try:
+                    spec_preset = get_trend_spec_preset(args.preset)
+                except KeyError:
+                    available = ", ".join(list_trend_spec_presets())
+                    raise TrendCLIError(
+                        f"Unknown preset '{args.preset}'. Available presets: {available}"
+                    )
+                _apply_trend_spec_preset(cfg, spec_preset)
+                try:
+                    portfolio_preset = get_trend_preset(args.preset)
+                except KeyError:
+                    available = ", ".join(list_preset_slugs())
+                    raise TrendCLIError(f"Unknown preset '{args.preset}'. Available: {available}")
+                apply_trend_preset(cfg, portfolio_preset)
+            if getattr(args, "universe", None):
+                mask, universe_spec = load_universe(args.universe, prices=returns_df)
+                returns_df = _apply_universe_mask(
+                    returns_df, mask, date_column=universe_spec.date_column
+                )
+                _attach_universe_paths(cfg, universe_spec, csv_path=str(returns_path))
             run_pipeline = _legacy_callable("_run_pipeline", _run_pipeline)
             result, run_id, log_path = run_pipeline(
                 cfg,
