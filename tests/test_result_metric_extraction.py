@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pandas as pd
 
 from trend_analysis.llm.result_metrics import (
+    MetricEntry,
     extract_metric_catalog,
     format_metric_catalog,
 )
@@ -180,3 +181,14 @@ def test_extract_metric_catalog_adds_turnover_scalar_from_details() -> None:
 
     assert "turnover.value" in paths
     assert "[from turnover_scalar]" in catalog
+
+
+def test_format_metric_catalog_defaults_missing_source() -> None:
+    entries = [
+        MetricEntry(path="risk_diagnostics.turnover", value=0.2, source=""),
+    ]
+
+    catalog = format_metric_catalog(entries)
+
+    assert "risk_diagnostics.turnover" in catalog
+    assert "[from unknown]" in catalog
