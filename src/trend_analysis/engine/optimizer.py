@@ -80,6 +80,18 @@ def _normalize_max_weight(cap: float | None) -> float | None:
     return cap
 
 
+def _normalize_cash_weight(cash_weight: float | None) -> float | None:
+    if cash_weight is None:
+        return None
+    try:
+        cash_weight = float(cash_weight)
+    except (TypeError, ValueError) as exc:
+        raise ConstraintViolation("cash_weight must be numeric") from exc
+    if not np.isfinite(cash_weight):
+        raise ConstraintViolation("cash_weight must be finite")
+    return cash_weight
+
+
 def _apply_cap(w: pd.Series, cap: float | None, total: float | None = None) -> pd.Series:
     """Cap individual weights at ``cap`` and redistribute the excess."""
 
@@ -167,6 +179,9 @@ def _apply_group_caps(
 def _apply_cash_weight(w: pd.Series, cash_weight: float, max_weight: float | None) -> pd.Series:
     """Scale non-cash weights to accommodate a fixed CASH slice."""
 
+    cash_weight = _normalize_cash_weight(cash_weight)
+    if cash_weight is None:
+        raise ConstraintViolation("cash_weight must be numeric")
     if not (0 < cash_weight < 1):
         raise ConstraintViolation("cash_weight must be in (0,1) exclusive")
 
@@ -244,7 +259,9 @@ def apply_constraints(
 
     # cash_weight processing (fixed slice). We treat a dedicated 'CASH' label.
     if constraints.cash_weight is not None:
-        cash_weight = float(constraints.cash_weight)
+        cash_weight = _normalize_cash_weight(constraints.cash_weight)
+        if cash_weight is None:
+            raise ConstraintViolation("cash_weight must be numeric")
         w = _apply_cash_weight(w, cash_weight, max_weight)
         total_allocation = 1.0 - cash_weight
         working = w.loc[w.index != "CASH"].copy()
@@ -277,7 +294,9 @@ def apply_constraints(
         w = working
 
     if revalidate_cash_weight and constraints.cash_weight is not None:
-        cash_weight = float(constraints.cash_weight)
+        cash_weight = _normalize_cash_weight(constraints.cash_weight)
+        if cash_weight is None:
+            raise ConstraintViolation("cash_weight must be numeric")
         w = _apply_cash_weight(w, cash_weight, max_weight)
 
     # Final normalisation guard

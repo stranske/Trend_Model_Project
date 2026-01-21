@@ -40,6 +40,28 @@ def test_apply_constraints_requires_non_cash_assets_when_cash_weight_set() -> No
         apply_constraints(weights, ConstraintSet(cash_weight=0.2))
 
 
+def test_apply_constraints_rejects_non_numeric_cash_weight() -> None:
+    weights = pd.Series({"A": 0.6, "B": 0.4}, dtype=float)
+
+    with pytest.raises(ConstraintViolation, match="cash_weight must be numeric"):
+        apply_constraints(weights, ConstraintSet(cash_weight="invalid"))  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("cash_weight", [np.nan, np.inf, -np.inf])
+def test_apply_constraints_rejects_non_finite_cash_weight(cash_weight: float) -> None:
+    weights = pd.Series({"A": 0.6, "B": 0.4}, dtype=float)
+
+    with pytest.raises(ConstraintViolation, match="cash_weight must be finite"):
+        apply_constraints(weights, ConstraintSet(cash_weight=cash_weight))
+
+
+def test_apply_constraints_rejects_non_numeric_cash_weight_mapping() -> None:
+    weights = pd.Series({"A": 0.6, "B": 0.4}, dtype=float)
+
+    with pytest.raises(ConstraintViolation, match="cash_weight must be numeric"):
+        apply_constraints(weights, {"cash_weight": "invalid"})
+
+
 @pytest.mark.parametrize("cap", [np.nan, np.inf, -np.inf])
 def test_apply_constraints_rejects_non_finite_max_weight(cap: float) -> None:
     weights = pd.Series({"A": 0.6, "B": 0.4}, dtype=float)

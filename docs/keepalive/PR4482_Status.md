@@ -7,3 +7,6 @@
 ## Acceptance Criteria
 - [x] - Original PR: #4476
 - [x] - Parent issue: #4475
+
+## Verification
+- `pytest tests/test_optimizer_constraints_guardrails.py tests/test_optimizer.py -m "not slow"`
