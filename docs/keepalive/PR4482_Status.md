@@ -11,3 +11,4 @@
 ## Verification
 - `pytest tests/test_optimizer_constraints_guardrails.py tests/test_optimizer.py -m "not slow"`
 - `pytest tests/test_optimizer_constraints_guardrails.py -m "not slow"`
+- `pytest tests/test_rebalancing_strategies.py -m "not slow"`

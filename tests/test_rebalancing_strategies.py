@@ -103,6 +103,25 @@ def _assert_cash_policy_effects(
             assert pytest.approx(base_sum) == float(weights.sum())
 
 
+def _assert_cash_policy_sum(
+    weights: pd.Series,
+    policy: CashPolicy,
+    base_sum: float,
+) -> None:
+    if policy.explicit_cash:
+        assert "CASH" in weights.index
+        non_cash_sum = float(weights.drop(labels=["CASH"]).sum())
+        assert pytest.approx(1.0) == float(weights.sum())
+        assert pytest.approx(1.0 - non_cash_sum) == float(weights.loc["CASH"])
+    else:
+        assert "CASH" not in weights.index
+
+    if policy.normalize_weights or policy.explicit_cash:
+        assert pytest.approx(1.0) == float(weights.sum())
+    else:
+        assert pytest.approx(base_sum) == float(weights.sum())
+
+
 def test_turnover_cap_cash_policy_variants():
     strat = strat_mod.TurnoverCapStrategy({"max_turnover": 1.0, "cost_bps": 0})
     current = pd.Series({"A": 0.5, "B": 0.5})
@@ -117,6 +136,27 @@ def test_drift_band_cash_policy_variants():
     target = pd.Series({"A": 0.2, "B": 0.7})
 
     _assert_cash_policy_effects(strat, current, target)
+
+
+def test_periodic_rebalance_cash_policy_variants():
+    policies = [
+        CashPolicy(explicit_cash=False, normalize_weights=False),
+        CashPolicy(explicit_cash=True, normalize_weights=False),
+        CashPolicy(explicit_cash=False, normalize_weights=True),
+        CashPolicy(explicit_cash=True, normalize_weights=True),
+    ]
+    current = pd.Series({"A": 0.4, "B": 0.3})
+    target = pd.Series({"A": 0.5, "B": 0.2})
+    base_sum = float(current.sum())
+
+    for policy in policies:
+        strat = strat_mod.PeriodicRebalanceStrategy({"interval": 2})
+
+        held, _ = strat.apply(current, target, cash_policy=policy)
+        _assert_cash_policy_sum(held, policy, base_sum)
+
+        rebalanced, _ = strat.apply(current, target, cash_policy=policy)
+        _assert_cash_policy_sum(rebalanced, policy, base_sum)
 
 
 def test_vol_target_cash_policy_variants():
