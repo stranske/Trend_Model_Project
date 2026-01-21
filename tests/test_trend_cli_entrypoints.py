@@ -663,6 +663,28 @@ def _write_explain_details(tmp_path: Path) -> Path:
     return details_path
 
 
+def _write_explain_details_with_run_id(tmp_path: Path, run_id: str) -> Path:
+    details_path = tmp_path / f"details_{run_id}.json"
+    details_path.write_text(
+        json.dumps(
+            {
+                "out_sample_stats": {
+                    "portfolio": {
+                        "cagr": 0.08,
+                        "vol": 0.12,
+                        "sharpe": 1.2,
+                        "sortino": 1.1,
+                        "information_ratio": 0.4,
+                        "max_drawdown": -0.2,
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    return details_path
+
+
 def test_main_explain_command_accepts_cited_metrics(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -703,6 +725,41 @@ def test_main_explain_command_blocks_unknown_metrics(
     assert "Unable to verify the generated explanation" in output
     assert "Discrepancy log:" in output
     assert "This is analytical output, not financial advice." in output
+
+
+def test_main_explain_command_writes_json_artifact(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    details_path = _write_explain_details_with_run_id(tmp_path, "run-009")
+    output_dir = tmp_path / "artifacts"
+
+    class DummyChain:
+        def run(self, **kwargs: object) -> SimpleNamespace:
+            return SimpleNamespace(
+                text="CAGR was 8% [from out_sample_stats].",
+                trace_url="trace://cli",
+            )
+
+    monkeypatch.setattr(trend_cli, "_build_result_chain", lambda *_args, **_kwargs: DummyChain())
+
+    exit_code = trend_cli.main(
+        ["explain", "--details", str(details_path), "--output", str(output_dir)]
+    )
+
+    assert exit_code == 0
+    txt_path = output_dir / "explanation_run-009.txt"
+    json_path = output_dir / "explanation_run-009.json"
+    assert txt_path.exists()
+    assert json_path.exists()
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    assert payload["run_id"] == "run-009"
+    assert payload["trace_url"] == "trace://cli"
+    assert payload["metric_count"] > 0
+    assert payload["claim_issues"] == []
+    assert "CAGR was 8%" in payload["text"]
+    assert "This is analytical output, not financial advice." in payload["text"]
+    assert txt_path.read_text(encoding="utf-8") == payload["text"]
 
 
 def test_main_nl_run_command_executes_pipeline(
