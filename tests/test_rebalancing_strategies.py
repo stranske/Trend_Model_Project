@@ -6,8 +6,8 @@ import pandas as pd
 import pytest
 
 import trend_analysis
-from trend_analysis.rebalancing import CashPolicy
 from trend_analysis.plugins import rebalancer_registry
+from trend_analysis.rebalancing import CashPolicy
 from trend_analysis.rebalancing import strategies as strat_mod
 
 # Load the rebalancing.py module which is shadowed by the package
