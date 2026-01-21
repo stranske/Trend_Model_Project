@@ -40,7 +40,7 @@ from ..pipeline import (
     _resolve_target_vol,
 )
 from ..portfolio import apply_weight_policy
-from ..rebalancing import apply_rebalancing_strategies
+from ..rebalancing import CashPolicy, apply_rebalancing_strategies
 from ..schedules import get_rebalance_dates
 from ..timefreq import MONTHLY_DATE_FREQ
 from ..universe import (
@@ -424,6 +424,7 @@ def run_schedule(
     rebalancer: "Rebalancer | None" = None,
     rebalance_strategies: List[str] | None = None,
     rebalance_params: Dict[str, Dict[str, Any]] | None = None,
+    cash_policy: CashPolicy | None = None,
     weight_policy: Mapping[str, Any] | None = None,
     seed: int | None = None,
     target_n: int | None = None,
@@ -446,6 +447,8 @@ def run_schedule(
         List of rebalancing strategy names to apply
     rebalance_params : dict, optional
         Parameters for each rebalancing strategy
+    cash_policy : CashPolicy, optional
+        Policy controlling explicit cash rows and normalization for rebalancers.
 
     Returns
     -------
@@ -571,6 +574,7 @@ def run_schedule(
                 rebalance_params,
                 current_weights,
                 target_weight_series,
+                cash_policy=cash_policy,
                 scores=scores,
             )
 
