@@ -26,7 +26,8 @@ _CITATION_RE = re.compile(
 _SOURCE_RE = re.compile(r"\[from\s+(?P<source>[^\]]+)\]", re.IGNORECASE)
 _NUMBER_RE = re.compile(r"(?<![A-Za-z0-9_.])[-+]?\d+(?:\.\d+)?%?")
 _DATE_RE = re.compile(
-    r"\b(?P<year>(?:19|20)\d{2})-(?P<month>0[1-9]|1[0-2])" r"(?:-(?P<day>0[1-9]|[12]\d|3[01]))?\b"
+    r"\b(?P<year>(?:19|20)\d{2})-(?P<month>0?[1-9]|1[0-2])"
+    r"(?:-(?P<day>0?[1-9]|[12]\d|3[01]))?\b"
 )
 _YEAR_RANGE_RE = re.compile(
     r"\b(?P<start>(?:19|20)\d{2})\s*(?:-|to|through)\s*(?P<end>(?:19|20)\d{2})\b",
@@ -36,7 +37,8 @@ _SLASH_DATE_RE = re.compile(
     r"\b(?P<month>0?[1-9]|1[0-2])/(?P<day>0?[1-9]|[12]\d|3[01])" r"(?:/(?P<year>(?:19|20)\d{2}))?\b"
 )
 _YEAR_SLASH_DATE_RE = re.compile(
-    r"\b(?P<year>(?:19|20)\d{2})/(?P<month>0[1-9]|1[0-2])" r"(?:/(?P<day>0[1-9]|[12]\d|3[01]))?\b"
+    r"\b(?P<year>(?:19|20)\d{2})/(?P<month>0?[1-9]|1[0-2])"
+    r"(?:/(?P<day>0?[1-9]|[12]\d|3[01]))?\b"
 )
 _QUESTION_TOKEN_RE = re.compile(r"[^a-z0-9]+")
 _UNAVAILABLE_RE = re.compile(
