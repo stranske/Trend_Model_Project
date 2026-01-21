@@ -145,3 +145,25 @@ def test_get_rebalancing_strategies_matches_registry():
     mapping = reb_module.get_rebalancing_strategies()
     assert set(mapping) == set(rebalancer_registry.available())
     assert mapping["turnover_cap"] is strat_mod.TurnoverCapStrategy
+
+
+def test_cash_policy_explicit_cash_overwrites_existing_cash() -> None:
+    weights = pd.Series({"A": 0.4, "CASH": 0.2})
+
+    updated = strat_mod._apply_cash_policy(
+        weights, CashPolicy(explicit_cash=True, normalize_weights=False)
+    )
+
+    assert pytest.approx(1.0) == float(updated.sum())
+    assert pytest.approx(0.6) == float(updated.loc["CASH"])
+
+
+def test_cash_policy_explicit_cash_handles_empty_series() -> None:
+    weights = pd.Series(dtype=float)
+
+    updated = strat_mod._apply_cash_policy(
+        weights, CashPolicy(explicit_cash=True, normalize_weights=False)
+    )
+
+    assert list(updated.index) == ["CASH"]
+    assert pytest.approx(1.0) == float(updated.loc["CASH"])
