@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Sequence
 
-
 PIPELINE_MODULE = "trend_analysis.pipeline"
 IMPORTLIB_NAMES = {"import_module"}
 
@@ -83,7 +82,11 @@ def _is_pipeline_string(nodes: Sequence[ast.AST]) -> bool:
     if not nodes:
         return False
     arg = nodes[0]
-    return isinstance(arg, ast.Constant) and isinstance(arg.value, str) and arg.value == PIPELINE_MODULE
+    return (
+        isinstance(arg, ast.Constant)
+        and isinstance(arg.value, str)
+        and arg.value == PIPELINE_MODULE
+    )
 
 
 def _is_pipeline_ref(
