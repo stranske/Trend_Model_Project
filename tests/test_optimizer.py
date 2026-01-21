@@ -93,6 +93,23 @@ def test_apply_cash_weight_rejects_infeasible_max_weight() -> None:
         optimizer._apply_cash_weight(weights, cash_weight=0.2, max_weight=0.3)
 
 
+def test_apply_cash_weight_rejects_out_of_bounds_cash_weight() -> None:
+    weights = pd.Series({"A": 0.6, "B": 0.4})
+
+    with pytest.raises(optimizer.ConstraintViolation):
+        optimizer._apply_cash_weight(weights, cash_weight=0.0, max_weight=None)
+
+    with pytest.raises(optimizer.ConstraintViolation):
+        optimizer._apply_cash_weight(weights, cash_weight=1.0, max_weight=None)
+
+
+def test_apply_cash_weight_rejects_cash_above_max_weight() -> None:
+    weights = pd.Series({"A": 0.6, "B": 0.4})
+
+    with pytest.raises(optimizer.ConstraintViolation):
+        optimizer._apply_cash_weight(weights, cash_weight=0.5, max_weight=0.4)
+
+
 def test_apply_cap_early_return_when_total_near_zero() -> None:
     weights = pd.Series({"A": 1e-13, "B": 0.0})
 
