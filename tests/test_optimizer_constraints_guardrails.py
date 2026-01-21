@@ -55,6 +55,13 @@ def test_apply_constraints_rejects_non_numeric_max_weight() -> None:
         apply_constraints(weights, ConstraintSet(max_weight="invalid"))  # type: ignore[arg-type]
 
 
+def test_apply_constraints_rejects_non_positive_max_weight_with_cash_weight() -> None:
+    weights = pd.Series({"A": 0.6, "B": 0.4}, dtype=float)
+
+    with pytest.raises(ConstraintViolation, match="max_weight must be positive"):
+        apply_constraints(weights, ConstraintSet(max_weight=0.0, cash_weight=0.2))
+
+
 @pytest.mark.parametrize(
     ("cap", "message"),
     [

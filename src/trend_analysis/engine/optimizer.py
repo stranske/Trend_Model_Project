@@ -66,11 +66,9 @@ def _redistribute(w: pd.Series, mask: pd.Series, amount: float) -> pd.Series:
     return pd.Series(values, index=w.index)
 
 
-def _apply_cap(w: pd.Series, cap: float, total: float | None = None) -> pd.Series:
-    """Cap individual weights at ``cap`` and redistribute the excess."""
-
+def _normalize_max_weight(cap: float | None) -> float | None:
     if cap is None:
-        return w
+        return None
     try:
         cap = float(cap)
     except (TypeError, ValueError) as exc:
@@ -79,6 +77,15 @@ def _apply_cap(w: pd.Series, cap: float, total: float | None = None) -> pd.Serie
         raise ConstraintViolation("max_weight must be finite")
     if cap <= 0:
         raise ConstraintViolation("max_weight must be positive")
+    return cap
+
+
+def _apply_cap(w: pd.Series, cap: float | None, total: float | None = None) -> pd.Series:
+    """Cap individual weights at ``cap`` and redistribute the excess."""
+
+    cap = _normalize_max_weight(cap)
+    if cap is None:
+        return w
     total_allocation = float(total if total is not None else _safe_sum(w))
     if total_allocation <= NUMERICAL_TOLERANCE_HIGH:
         # Early return: If total allocation is (near) zero, there's nothing to cap or redistribute.
@@ -217,6 +224,7 @@ def apply_constraints(
     if not np.isfinite(values).all():
         raise ConstraintViolation("Weights must be finite")
 
+    max_weight = _normalize_max_weight(constraints.max_weight)
     if constraints.long_only:
         w = _clip_series(w, lower=0)
         total_weight = _safe_sum(w)
@@ -237,15 +245,15 @@ def apply_constraints(
     # cash_weight processing (fixed slice). We treat a dedicated 'CASH' label.
     if constraints.cash_weight is not None:
         cash_weight = float(constraints.cash_weight)
-        w = _apply_cash_weight(w, cash_weight, constraints.max_weight)
+        w = _apply_cash_weight(w, cash_weight, max_weight)
         total_allocation = 1.0 - cash_weight
         working = w.loc[w.index != "CASH"].copy()
         original_order = list(w.index)
     else:
         working = w.copy()
 
-    if constraints.max_weight is not None:
-        working = _apply_cap(working, constraints.max_weight, total=total_allocation)
+    if max_weight is not None:
+        working = _apply_cap(working, max_weight, total=total_allocation)
 
     if constraints.group_caps:
         if not constraints.groups:
@@ -258,8 +266,8 @@ def apply_constraints(
             working, constraints.group_caps, group_mapping, total=total_allocation
         )
         # max weight may have been violated again
-        if constraints.max_weight is not None:
-            working = _apply_cap(working, constraints.max_weight, total=total_allocation)
+        if max_weight is not None:
+            working = _apply_cap(working, max_weight, total=total_allocation)
 
     if cash_weight is not None:
         result = working.copy()
@@ -270,7 +278,7 @@ def apply_constraints(
 
     if revalidate_cash_weight and constraints.cash_weight is not None:
         cash_weight = float(constraints.cash_weight)
-        w = _apply_cash_weight(w, cash_weight, constraints.max_weight)
+        w = _apply_cash_weight(w, cash_weight, max_weight)
 
     # Final normalisation guard
     w /= _safe_sum(w)
