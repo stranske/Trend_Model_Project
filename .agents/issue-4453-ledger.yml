@@ -1,0 +1,127 @@
+version: 1
+issue: 4453
+base: main
+branch: codex/issue-4453
+tasks:
+  - id: task-01
+    title: 'Update `src/trend_analysis/stages/selection.py` fallback gating to: `fallback_enabled
+      = (allow_risk_free_fallback is True)`.'
+    status: doing
+    started_at: '2026-01-21T07:19:34Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: "Remove or rewrite the \u201CBREAKING CHANGE\u201D comment/warning to reflect\
+      \ actual behavior."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Consider changing `pipeline.run_analysis(... allow_risk_free_fallback=...)`
+      default from `None` to `False` for clarity (if no API break).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Add/adjust tests to ensure: missing rf + `allow_risk_free_fallback=None/False`
+      raises, and `True` enables fallback.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Confirm multi-period and single-period entrypoints both pass the same resolved
+      flag.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Update `src/trend_analysis/stages/selection.py` fallback gating to: `fallback_enabled
+      = (allow_risk_free_fallback is True)`.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: "Remove or rewrite the \u201CBREAKING CHANGE\u201D comment/warning to reflect\
+      \ actual behavior."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Consider changing `pipeline.run_analysis(... allow_risk_free_fallback=...)`
+      default from `None` to `False` for clarity (if no API break).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Add/adjust tests to ensure: missing rf + `allow_risk_free_fallback=None/False`
+      raises, and `True` enables fallback.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Confirm multi-period and single-period entrypoints both pass the same resolved
+      flag.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Default behavior is opt-in for risk-free fallback everywhere.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: "No misleading \u201Cbreaking change\u201D warning triggers in normal runs."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Tests pass and cover the default/True/False combinations.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Default behavior is opt-in for risk-free fallback everywhere.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: "No misleading \u201Cbreaking change\u201D warning triggers in normal runs."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Tests pass and cover the default/True/False combinations.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
