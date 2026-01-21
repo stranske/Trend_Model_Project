@@ -15,7 +15,9 @@ def test_compute_turnover_state_with_previous_allocation() -> None:
     prev_vals = np.array([0.4, 0.6], dtype=float)
     new_series = pd.Series([0.5, 0.1], index=["A", "C"], dtype=float)
 
-    turnover, next_idx, next_vals = engine._compute_turnover_state(prev_idx, prev_vals, new_series)
+    turnover, next_idx, next_vals = engine._compute_turnover_state(
+        prev_idx, prev_vals, new_series
+    )
 
     assert pytest.approx(turnover) == 0.8
     assert next_idx.tolist() == ["A", "C"]
@@ -35,7 +37,9 @@ def test_run_schedule_with_rebalance_strategies(
         def __init__(self) -> None:
             self.updates: list[tuple[pd.Series, int]] = []
 
-        def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
+        def weight(
+            self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+        ) -> pd.DataFrame:
             del date
             weights = selected["score"].astype(float)
             weights = weights / weights.sum()
@@ -51,7 +55,9 @@ def test_run_schedule_with_rebalance_strategies(
         target_weights: pd.Series,
         *,
         scores: pd.Series | None = None,
+        cash_policy: object | None = None,
     ) -> tuple[pd.Series, float]:
+        del cash_policy
         assert strategies == ["demo"]
         assert "demo" in params
         return target_weights.astype(float), 0.05
@@ -129,7 +135,9 @@ def test_run_combines_price_frames(monkeypatch: pytest.MonkeyPatch) -> None:
 
     captured: dict[str, Any] = {}
 
-    def fake_run_analysis(df: pd.DataFrame, *args: Any, **kwargs: Any) -> dict[str, Any]:
+    def fake_run_analysis(
+        df: pd.DataFrame, *args: Any, **kwargs: Any
+    ) -> dict[str, Any]:
         captured["df"] = df
         return {"ok": True}
 
@@ -244,14 +252,20 @@ def test_run_skips_missing_policy_with_price_frames(
     def fail_apply_missing_policy(*_args, **_kwargs):
         nonlocal called
         called = True
-        raise AssertionError("apply_missing_policy should not run when price frames provided")
+        raise AssertionError(
+            "apply_missing_policy should not run when price frames provided"
+        )
 
     monkeypatch.setattr(engine, "apply_missing_policy", fail_apply_missing_policy)
-    monkeypatch.setattr(engine, "load_csv", lambda *a, **k: (_ for _ in ()).throw(AssertionError()))
+    monkeypatch.setattr(
+        engine, "load_csv", lambda *a, **k: (_ for _ in ()).throw(AssertionError())
+    )
 
     captured_frames: list[pd.DataFrame] = []
 
-    def fake_run_analysis(df: pd.DataFrame, *args: object, **kwargs: object) -> dict[str, object]:
+    def fake_run_analysis(
+        df: pd.DataFrame, *args: object, **kwargs: object
+    ) -> dict[str, object]:
         captured_frames.append(df.copy())
         return {"ok": True}
 
@@ -323,7 +337,9 @@ def test_run_incremental_covariance(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(engine, "generate_periods", lambda _: periods)
 
-    def fake_run_analysis(df: pd.DataFrame, *args: Any, **kwargs: Any) -> dict[str, Any]:
+    def fake_run_analysis(
+        df: pd.DataFrame, *args: Any, **kwargs: Any
+    ) -> dict[str, Any]:
         return {}
 
     monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
@@ -473,7 +489,9 @@ def test_run_threshold_hold_low_weight_replacement(
 
     monkeypatch.setattr(engine, "apply_missing_policy", fake_apply_missing_policy)
 
-    def fake_metric_series(frame: pd.DataFrame, metric: str, stats_cfg: object) -> pd.Series:
+    def fake_metric_series(
+        frame: pd.DataFrame, metric: str, stats_cfg: object
+    ) -> pd.Series:
         del metric, stats_cfg
         base = np.linspace(1.0, 1.0 + frame.shape[1], num=frame.shape[1])
         series = pd.Series(base, index=frame.columns, dtype=float)
@@ -495,7 +513,9 @@ def test_run_threshold_hold_low_weight_replacement(
         def __init__(self) -> None:
             self.calls = 0
 
-        def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
+        def weight(
+            self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+        ) -> pd.DataFrame:
             del date
             self.calls += 1
             mapping = {
@@ -521,7 +541,9 @@ def test_run_threshold_hold_low_weight_replacement(
     selector_stub = SelectorStub()
     from trend_analysis import selector as selector_mod
 
-    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: selector_stub)
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *a, **k: selector_stub
+    )
 
     class RebalancerStub:
         def __init__(self, *_args: Any, **_kwargs: Any) -> None:
@@ -561,14 +583,20 @@ def test_run_threshold_hold_low_weight_replacement(
     assert "FundE" in analysis_calls[1]
 
     events = results[1]["manager_changes"]
-    drop_event = next(e for e in events if e["manager"] == "FundA" and e["action"] == "dropped")
+    drop_event = next(
+        e for e in events if e["manager"] == "FundA" and e["action"] == "dropped"
+    )
     assert drop_event["reason"] == "low_weight_strikes"
-    add_event = next(e for e in events if e["manager"] == "FundE" and e["action"] == "added")
+    add_event = next(
+        e for e in events if e["manager"] == "FundE" and e["action"] == "added"
+    )
     assert add_event["reason"] == "replacement"
 
     turnover_cap = cfg.portfolio["max_turnover"]
     assert results[1]["turnover"] <= turnover_cap + 1e-9
-    expected_cost = results[1]["turnover"] * (cfg.portfolio["transaction_cost_bps"] / 10000)
+    expected_cost = results[1]["turnover"] * (
+        cfg.portfolio["transaction_cost_bps"] / 10000
+    )
     assert results[1]["transaction_cost"] == pytest.approx(expected_cost)
 
 
@@ -622,7 +650,9 @@ def test_run_threshold_hold_weight_bounds_fill_deficit(
         lambda frame, *, policy, limit: (frame, {"policy": policy, "limit": limit}),
     )
 
-    def fake_metric_series(frame: pd.DataFrame, metric: str, stats_cfg: object) -> pd.Series:
+    def fake_metric_series(
+        frame: pd.DataFrame, metric: str, stats_cfg: object
+    ) -> pd.Series:
         del metric, stats_cfg
         base = pd.Series(
             {
@@ -646,13 +676,17 @@ def test_run_threshold_hold_weight_bounds_fill_deficit(
     selector_stub = SelectorStub()
     from trend_analysis import selector as selector_mod
 
-    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: selector_stub)
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *a, **k: selector_stub
+    )
 
     class WeightingStub:
         def __init__(self) -> None:
             self.calls = 0
 
-        def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
+        def weight(
+            self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+        ) -> pd.DataFrame:
             del date
             self.calls += 1
             base = pd.Series(0.1, index=selected.index, dtype=float)
@@ -761,7 +795,9 @@ def test_run_reconciles_manager_changes_to_pipeline_fund_weights(
             selected = frame.loc[["FundA", "FundB"]]
             return selected, selected
 
-    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: SelectorStub())
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *a, **k: SelectorStub()
+    )
 
     class RebalancerStub:
         def __init__(self, *_args: Any, **_kwargs: Any) -> None:
@@ -886,7 +922,9 @@ def test_run_threshold_hold_reseeds_and_skips_period(
         lambda frame, *, policy, limit: (frame, {"policy": policy, "limit": limit}),
     )
 
-    def fake_metric_series(frame: pd.DataFrame, metric: str, stats_cfg: object) -> pd.Series:
+    def fake_metric_series(
+        frame: pd.DataFrame, metric: str, stats_cfg: object
+    ) -> pd.Series:
         del metric, stats_cfg
         base = pd.Series(
             {
@@ -910,13 +948,17 @@ def test_run_threshold_hold_reseeds_and_skips_period(
     selector_stub = SelectorStub()
     from trend_analysis import selector as selector_mod
 
-    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: selector_stub)
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *a, **k: selector_stub
+    )
 
     class WeightingStub:
         def __init__(self) -> None:
             self.calls = 0
 
-        def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
+        def weight(
+            self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+        ) -> pd.DataFrame:
             del date
             self.calls += 1
             mapping = {
@@ -1018,7 +1060,9 @@ def test_run_covariance_cache_converts_string_dates(
 
     captured_frames: list[pd.DataFrame] = []
 
-    def fake_run_analysis(df_arg: pd.DataFrame, *args: Any, **kwargs: Any) -> dict[str, Any]:
+    def fake_run_analysis(
+        df_arg: pd.DataFrame, *args: Any, **kwargs: Any
+    ) -> dict[str, Any]:
         captured_frames.append(df_arg.copy())
         return {
             "manager_changes": [],
@@ -1139,11 +1183,15 @@ def test_threshold_hold_replacements_and_turnover_cap(
 
     import trend_analysis.selector as selector_mod
 
-    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *_a, **_k: StubSelector())
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *_a, **_k: StubSelector()
+    )
 
     import trend_analysis.core.rank_selection as rank_selection_mod
 
-    def fake_metric_series(frame: pd.DataFrame, metric: str, stats_cfg: object) -> pd.Series:
+    def fake_metric_series(
+        frame: pd.DataFrame, metric: str, stats_cfg: object
+    ) -> pd.Series:
         base = pd.Series(
             {
                 "Alpha Fund": 0.9,
@@ -1154,7 +1202,9 @@ def test_threshold_hold_replacements_and_turnover_cap(
         )
         return base.reindex(frame.columns, fill_value=0.4)
 
-    monkeypatch.setattr(rank_selection_mod, "_compute_metric_series", fake_metric_series)
+    monkeypatch.setattr(
+        rank_selection_mod, "_compute_metric_series", fake_metric_series
+    )
 
     class StubBayes:
         def __init__(self) -> None:
@@ -1186,7 +1236,9 @@ def test_threshold_hold_replacements_and_turnover_cap(
     monkeypatch.setattr(
         engine,
         "Rebalancer",
-        lambda *_a, **_k: SimpleNamespace(apply_triggers=lambda weights, sf, **kwargs: weights),
+        lambda *_a, **_k: SimpleNamespace(
+            apply_triggers=lambda weights, sf, **kwargs: weights
+        ),
     )
 
     def fake_apply_missing_policy(
@@ -1202,7 +1254,9 @@ def test_threshold_hold_replacements_and_turnover_cap(
 
     captured_custom_weights: list[dict[str, float]] = []
 
-    def fake_run_analysis(df_arg: pd.DataFrame, *args: Any, **kwargs: Any) -> dict[str, Any]:
+    def fake_run_analysis(
+        df_arg: pd.DataFrame, *args: Any, **kwargs: Any
+    ) -> dict[str, Any]:
         custom = kwargs.get("custom_weights", {})
         captured_custom_weights.append(dict(custom))
         return {

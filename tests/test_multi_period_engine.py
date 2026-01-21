@@ -54,7 +54,9 @@ class DummyWeighting:
     def __init__(self) -> None:
         self.update_calls: list[tuple[pd.Series, int]] = []
 
-    def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
+    def weight(
+        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+    ) -> pd.DataFrame:
         del date
         weights = selected[["weight"]].astype(float)
         weights["weight"] = weights["weight"].to_numpy() / weights["weight"].sum()
@@ -93,8 +95,16 @@ def test_run_schedule_with_strategies_and_rebalancer(monkeypatch):
     weighting = DummyWeighting()
     rebalancer = DummyRebalancer()
 
-    def fake_apply(strategies, params, current_weights, target_weights, *, scores=None):
-        del strategies, params, current_weights, scores
+    def fake_apply(
+        strategies,
+        params,
+        current_weights,
+        target_weights,
+        *,
+        scores=None,
+        cash_policy=None,
+    ):
+        del strategies, params, current_weights, scores, cash_policy
         normalised = target_weights / target_weights.sum()
         return normalised, 0.25
 

@@ -29,7 +29,9 @@ class _UpdatingWeighting(BaseWeighting):
     def __init__(self) -> None:
         self.update_calls: list[tuple[pd.Series, int]] = []
 
-    def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
+    def weight(
+        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+    ) -> pd.DataFrame:
         del date
         if selected.empty:
             return pd.DataFrame({"weight": []}, index=pd.Index([], dtype=object))
@@ -37,7 +39,9 @@ class _UpdatingWeighting(BaseWeighting):
         weights = np.linspace(1.0, 2.0, n) / np.linspace(1.0, 2.0, n).sum()
         return pd.DataFrame({"weight": weights}, index=selected.index)
 
-    def update(self, scores: pd.Series, days: int) -> None:  # pragma: no cover - runtime hook
+    def update(
+        self, scores: pd.Series, days: int
+    ) -> None:  # pragma: no cover - runtime hook
         self.update_calls.append((scores.copy(), days))
 
 
@@ -83,7 +87,16 @@ def test_run_schedule_invokes_rebalance_strategies_and_weighting_update(monkeypa
 
     calls: list[_StrategyCall] = []
 
-    def fake_apply(strategies, params, current_weights, target_weights, *, scores=None):
+    def fake_apply(
+        strategies,
+        params,
+        current_weights,
+        target_weights,
+        *,
+        scores=None,
+        cash_policy=None,
+    ):
+        del cash_policy
         calls.append(
             _StrategyCall(
                 strategies=list(strategies),

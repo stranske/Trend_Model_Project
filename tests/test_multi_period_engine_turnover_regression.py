@@ -101,8 +101,9 @@ def test_fast_turnover_matches_recomputed_history(
         target: pd.Series,
         *,
         scores: pd.Series | None = None,
+        cash_policy: object | None = None,
     ) -> tuple[pd.Series, float]:
-        del strategies, params, current, target, scores
+        del strategies, params, current, target, scores, cash_policy
         series = returned[call_idx["i"]]
         call_idx["i"] += 1
         return series, 0.0
@@ -116,7 +117,9 @@ def test_fast_turnover_matches_recomputed_history(
     )
 
     class DummySelector:
-        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(
+            self, score_frame: pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
             return score_frame, score_frame
 
     weighting = _FixedWeighting(returned)

@@ -79,7 +79,9 @@ class SequenceWeighting:
         self.calls = 0
         self.update_calls: list[tuple[pd.Series, int]] = []
 
-    def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
+    def weight(
+        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+    ) -> pd.DataFrame:
         del date
         seq = self._sequences[min(self.calls, len(self._sequences) - 1)]
         weights = pd.Series(
@@ -112,7 +114,9 @@ class IdentityRebalancer:
     def __init__(self, *_cfg: Any) -> None:
         self.calls: list[pd.Series] = []
 
-    def apply_triggers(self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs) -> pd.Series:
+    def apply_triggers(
+        self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs
+    ) -> pd.Series:
         self.calls.append(prev_weights.copy())
         return prev_weights.astype(float)
 
@@ -293,8 +297,12 @@ def test_threshold_hold_drops_low_weight_and_replenishes(
 
     import trend_analysis.selector as selector_mod
 
-    selector = ScriptedSelector(["Alpha One", "Alpha Two", "Beta One", "Gamma One", "Delta One"])
-    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: selector)
+    selector = ScriptedSelector(
+        ["Alpha One", "Alpha Two", "Beta One", "Gamma One", "Delta One"]
+    )
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *a, **k: selector
+    )
 
     run_calls: list[Dict[str, Any]] = []
     monkeypatch.setattr(mp_engine, "_run_analysis", _stub_run_analysis(run_calls))
@@ -316,7 +324,8 @@ def test_threshold_hold_drops_low_weight_and_replenishes(
         for change in changes
     )
     assert any(
-        change["manager"] == "Gamma One" and change["reason"] == "replacement" for change in changes
+        change["manager"] == "Gamma One" and change["reason"] == "replacement"
+        for change in changes
     )
 
 
@@ -383,7 +392,9 @@ def test_threshold_hold_scales_trades_to_respect_turnover_cap(
     import trend_analysis.selector as selector_mod
 
     selector = ScriptedSelector(["Alpha One", "Beta One"])
-    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: selector)
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *a, **k: selector
+    )
 
     run_calls: list[Dict[str, Any]] = []
     monkeypatch.setattr(mp_engine, "_run_analysis", _stub_run_analysis(run_calls))
@@ -548,7 +559,9 @@ def test_threshold_hold_seed_dedupe_and_rebalance_events(
         def __init__(self, ordering: Sequence[str]) -> None:
             self._ordering = list(ordering)
 
-        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(
+            self, score_frame: pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
             ordered = [fund for fund in self._ordering if fund in score_frame.index]
             selected = score_frame.loc[ordered]
             return selected, selected
@@ -614,8 +627,12 @@ def test_run_schedule_applies_strategy_and_turnover_fast_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     score_frames = {
-        "2020-01-31": pd.DataFrame({"Sharpe": [1.0, 0.5]}, index=["Alpha One", "Beta One"]),
-        "2020-02-29": pd.DataFrame({"Sharpe": [0.3, 1.2]}, index=["Alpha One", "Beta One"]),
+        "2020-01-31": pd.DataFrame(
+            {"Sharpe": [1.0, 0.5]}, index=["Alpha One", "Beta One"]
+        ),
+        "2020-02-29": pd.DataFrame(
+            {"Sharpe": [0.3, 1.2]}, index=["Alpha One", "Beta One"]
+        ),
     }
 
     selector = ScriptedSelector(["Alpha One", "Beta One"])
@@ -632,7 +649,9 @@ def test_run_schedule_applies_strategy_and_turnover_fast_path(
         target: pd.Series,
         *,
         scores: pd.Series | None = None,
+        cash_policy: object | None = None,
     ) -> tuple[pd.Series, float]:
+        del cash_policy
         assert strategies == ["one"]
         assert "one" in params
         if not apply_calls:
@@ -791,7 +810,9 @@ def test_threshold_hold_enforces_bounds_and_replacement_flow(
             self.top_n = top_n
             self.rank_column = rank_column
 
-        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(
+            self, score_frame: pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
             ordered = score_frame.sort_values(self.rank_column, ascending=False)
             picked = ordered.head(self.top_n)
             return picked, picked
@@ -806,7 +827,9 @@ def test_threshold_hold_enforces_bounds_and_replacement_flow(
         def __init__(self, *_, **__) -> None:
             self.calls = 0
 
-        def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
+        def weight(
+            self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+        ) -> pd.DataFrame:
             del date
             sequences = [
                 {
@@ -985,9 +1008,13 @@ def test_threshold_hold_weight_bounds_handles_uniform_minimum(monkeypatch):
     selector = ScriptedSelector(["Alpha One", "Bravo One", "Charlie One"])
     from trend_analysis import selector as selector_mod
 
-    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: selector)
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *a, **k: selector
+    )
 
-    weighting = SequenceWeighting([{"Alpha One": 0.01, "Bravo One": 0.02, "Charlie One": 0.03}])
+    weighting = SequenceWeighting(
+        [{"Alpha One": 0.01, "Bravo One": 0.02, "Charlie One": 0.03}]
+    )
     monkeypatch.setattr(mp_engine, "EqualWeight", lambda: weighting)
     monkeypatch.setattr(mp_engine, "Rebalancer", lambda *_: IdentityRebalancer())
 
@@ -1086,7 +1113,9 @@ def test_threshold_hold_turnover_cap_scales_then_bounds(monkeypatch):
     selector = ScriptedSelector(["Alpha One", "Bravo One", "Charlie One"])
     from trend_analysis import selector as selector_mod
 
-    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: selector)
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *a, **k: selector
+    )
 
     weighting = SequenceWeighting(
         [

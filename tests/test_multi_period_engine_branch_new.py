@@ -60,7 +60,9 @@ def test_run_uses_nan_policy_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
             {"Date": pd.to_datetime(["2020-01-31", "2020-02-29"]), "Alpha": [0.1, 0.2]}
         )
 
-    def fake_apply_missing_policy(frame: pd.DataFrame, *, policy: str | None, limit: int | None):
+    def fake_apply_missing_policy(
+        frame: pd.DataFrame, *, policy: str | None, limit: int | None
+    ):
         captured["applied_policy"] = policy
         captured["applied_limit"] = limit
         return frame, {}
@@ -109,7 +111,9 @@ def test_run_raises_when_policy_drops_all(monkeypatch: pytest.MonkeyPatch) -> No
     def fake_load_csv(*_args, **_kwargs):
         return pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"]), "Alpha": [pd.NA]})
 
-    def fake_apply_missing_policy(frame: pd.DataFrame, *, policy: str | None, limit: int | None):
+    def fake_apply_missing_policy(
+        frame: pd.DataFrame, *, policy: str | None, limit: int | None
+    ):
         empty = frame.copy()
         empty.iloc[:, :] = pd.NA
         return empty, {"status": "dropped"}
@@ -192,11 +196,15 @@ def test_apply_weight_bounds_handles_zero_room_share(
 
 def test_run_schedule_applies_rebalancer(monkeypatch: pytest.MonkeyPatch) -> None:
     score_frames = {
-        "2020-01": pd.DataFrame({"Sharpe": [1.0, 0.5]}, index=["Alpha One", "Alpha Two"])
+        "2020-01": pd.DataFrame(
+            {"Sharpe": [1.0, 0.5]}, index=["Alpha One", "Alpha Two"]
+        )
     }
 
     class StubSelector:
-        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(
+            self, score_frame: pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
             return score_frame, score_frame
 
     class StubWeighting:
@@ -209,7 +217,9 @@ def test_run_schedule_applies_rebalancer(monkeypatch: pytest.MonkeyPatch) -> Non
         def __init__(self) -> None:
             pass
 
-        def apply_triggers(self, prev_weights: pd.Series, sf: pd.DataFrame, **kwargs) -> pd.Series:
+        def apply_triggers(
+            self, prev_weights: pd.Series, sf: pd.DataFrame, **kwargs
+        ) -> pd.Series:
             calls.append(prev_weights)
             return prev_weights
 
@@ -226,10 +236,14 @@ def test_run_schedule_applies_rebalancer(monkeypatch: pytest.MonkeyPatch) -> Non
 def test_run_schedule_applies_rebalance_strategies(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    score_frames = {"2020-01": pd.DataFrame({"Sharpe": [1.2, 0.8]}, index=["Alpha", "Beta"])}
+    score_frames = {
+        "2020-01": pd.DataFrame({"Sharpe": [1.2, 0.8]}, index=["Alpha", "Beta"])
+    }
 
     class StubSelector:
-        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(
+            self, score_frame: pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
             return score_frame, score_frame
 
     class StubWeighting:
@@ -238,13 +252,24 @@ def test_run_schedule_applies_rebalance_strategies(
 
     captured: dict[str, object] = {}
 
-    def fake_apply_strategies(names, params, current, target, *, scores=None):
+    def fake_apply_strategies(
+        names,
+        params,
+        current,
+        target,
+        *,
+        scores=None,
+        cash_policy=None,
+    ):
+        del cash_policy
         captured["names"] = names
         captured["scores"] = scores
         captured["current"] = current
         return target * 0.5, 1.23
 
-    monkeypatch.setattr(mp_engine, "apply_rebalancing_strategies", fake_apply_strategies)
+    monkeypatch.setattr(
+        mp_engine, "apply_rebalancing_strategies", fake_apply_strategies
+    )
 
     portfolio = mp_engine.run_schedule(
         score_frames,

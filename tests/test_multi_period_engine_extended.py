@@ -28,7 +28,9 @@ class DummyWeighting(engine.BaseWeighting):
     def __init__(self) -> None:
         self.updates: list[tuple[pd.Series, int]] = []
 
-    def weight(self, df: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
+    def weight(
+        self, df: pd.DataFrame, date: pd.Timestamp | None = None
+    ) -> pd.DataFrame:
         del date
         if df.empty:
             return pd.DataFrame({"weight": pd.Series(dtype=float)})
@@ -76,7 +78,9 @@ def test_compute_turnover_state_tracks_union_alignment() -> None:
     prev_vals = np.array([0.6, 0.4], dtype=float)
     new_weights = pd.Series({"FundA": 0.2, "FundC": 0.8})
 
-    turnover, next_idx, next_vals = engine._compute_turnover_state(prev_idx, prev_vals, new_weights)
+    turnover, next_idx, next_vals = engine._compute_turnover_state(
+        prev_idx, prev_vals, new_weights
+    )
 
     union = pd.Index(["FundA", "FundC", "FundB"])
     expected_turnover = float(
@@ -111,7 +115,16 @@ def test_run_schedule_applies_rebalance_strategies(
 
     captured: list[Dict[str, Any]] = []
 
-    def fake_apply(strategies, params, current, target, *, scores=None):
+    def fake_apply(
+        strategies,
+        params,
+        current,
+        target,
+        *,
+        scores=None,
+        cash_policy=None,
+    ):
+        del cash_policy
         captured.append(
             {
                 "strategies": strategies,
