@@ -53,6 +53,7 @@ from trend_analysis.llm import (
     ResultSummaryChain,
     build_config_patch_prompt,
     build_result_summary_prompt,
+    compact_metric_catalog,
     create_llm,
     extract_metric_catalog,
     format_metric_catalog,
@@ -1570,7 +1571,9 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
             request_id = uuid.uuid4().hex
             details_path = _resolve_explain_details_path(args)
             details = _load_explain_details(details_path)
+            questions = _resolve_explain_questions(args)
             entries = extract_metric_catalog(details)
+            entries = compact_metric_catalog(entries, questions=questions)
             metric_catalog = format_metric_catalog(entries)
             if not entries:
                 explanation = ensure_result_disclaimer(
@@ -1579,7 +1582,6 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                 print(explanation)
                 return 0
             analysis_output = _render_analysis_output(details)
-            questions = _resolve_explain_questions(args)
             chain = _build_result_chain(args.provider)
             response = chain.run(
                 analysis_output=analysis_output,

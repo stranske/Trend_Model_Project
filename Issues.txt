@@ -15,21 +15,21 @@ Do not loosen citation requirements for numeric claims.
 
 ## Tasks
 
-- [ ] Add extraction of `risk_diagnostics` scalar fields in `src/trend_analysis/llm/result_metrics.py` (support dicts and objects with attributes).
-- [ ] Include turnover fields (e.g., `turnover`, `turnover_value`) in the metric catalog with source `[from risk_diagnostics]`.
-- [ ] Include transaction cost fields (e.g., `transaction_cost`, `cost`, `per_trade_bps`, `half_spread_bps`) in the metric catalog when present.
-- [ ] When `details["turnover"]` is present as a `pd.Series` (multi-period), add scalar summaries under deterministic paths (e.g., `turnover.latest`, `turnover.mean`) with an explicit source label.
-- [ ] Update metric synonyms / keyword mapping so "turnover" and "transaction cost" are treated as available when entries exist.
-- [ ] Update `tests/test_result_metric_extraction.py` to validate new entries are extracted and formatted with correct `[from ...]` sources.
-- [ ] Update `tests/test_result_validation.py` to ensure `detect_unavailable_metric_requests()` does not flag turnover when turnover entries exist.
+- [x] Add extraction of `risk_diagnostics` scalar fields in `src/trend_analysis/llm/result_metrics.py` (support dicts and objects with attributes).
+- [x] Include turnover fields (e.g., `turnover`, `turnover_value`) in the metric catalog with source `[from risk_diagnostics]`.
+- [x] Include transaction cost fields (e.g., `transaction_cost`, `cost`, `per_trade_bps`, `half_spread_bps`) in the metric catalog when present.
+- [x] When `details["turnover"]` is present as a `pd.Series` (multi-period), add scalar summaries under deterministic paths (e.g., `turnover.latest`, `turnover.mean`) with an explicit source label.
+- [x] Update metric synonyms / keyword mapping so "turnover" and "transaction cost" are treated as available when entries exist.
+- [x] Update `tests/test_result_metric_extraction.py` to validate new entries are extracted and formatted with correct `[from ...]` sources.
+- [x] Update `tests/test_result_validation.py` to ensure `detect_unavailable_metric_requests()` does not flag turnover when turnover entries exist.
 
 ## Acceptance Criteria
 
-- [ ] `extract_metric_catalog()` returns at least one turnover entry when turnover is present in `risk_diagnostics` or `details["turnover"]`.
-- [ ] `extract_metric_catalog()` returns at least one transaction cost entry when cost fields exist in `risk_diagnostics`.
-- [ ] `format_metric_catalog()` renders these entries with explicit `[from <source>]` annotations.
-- [ ] `detect_unavailable_metric_requests("Report turnover", entries)` returns no missing turnover keyword when turnover entries exist.
-- [ ] All unit tests pass.
+- [x] `extract_metric_catalog()` returns at least one turnover entry when turnover is present in `risk_diagnostics` or `details["turnover"]`.
+- [x] `extract_metric_catalog()` returns at least one transaction cost entry when cost fields exist in `risk_diagnostics`.
+- [x] `format_metric_catalog()` renders these entries with explicit `[from <source>]` annotations.
+- [x] `detect_unavailable_metric_requests("Report turnover", entries)` returns no missing turnover keyword when turnover entries exist.
+- [x] All unit tests pass.
 
 ## Implementation Notes
 
@@ -57,23 +57,23 @@ Do not introduce non-deterministic sampling in catalog selection.
 
 ## Tasks
 
-- [ ] Add `compact_metric_catalog(...)` helper in `src/trend_analysis/llm/result_metrics.py` that selects a bounded subset of `MetricEntry` objects.
-- [ ] Implement deterministic selection rules:
-- [ ] Always include `_SINGLE_STATS_SECTIONS` entries (e.g., `out_user_stats`, `out_ew_stats`, etc.).
-- [ ] Always include benchmark IR entries (if present).
-- [ ] Include top-N weights from `fund_weights` (and `ew_weights` if `fund_weights` absent), sorted by absolute weight.
-- [ ] Include per-fund stats only for funds in the selected top-N weights set (and optionally funds explicitly mentioned in the user questions).
-- [ ] Add configuration knobs (env vars) for caps, e.g. `TREND_EXPLAIN_MAX_FUNDS`, `TREND_EXPLAIN_MAX_WEIGHTS`, `TREND_EXPLAIN_MAX_ENTRIES`.
-- [ ] Update `streamlit_app/components/explain_results.py` to use the compacted catalog before calling `format_metric_catalog(...)`.
-- [ ] Update `src/trend/cli.py` Explain Results flow to use the same compaction logic (shared helper).
-- [ ] Add tests that create a synthetic result with many funds and assert the formatted catalog line count stays within bounds and includes top-weight funds.
+- [x] Add `compact_metric_catalog(...)` helper in `src/trend_analysis/llm/result_metrics.py` that selects a bounded subset of `MetricEntry` objects.
+- [x] Implement deterministic selection rules:
+- [x] Always include `_SINGLE_STATS_SECTIONS` entries (e.g., `out_user_stats`, `out_ew_stats`, etc.).
+- [x] Always include benchmark IR entries (if present).
+- [x] Include top-N weights from `fund_weights` (and `ew_weights` if `fund_weights` absent), sorted by absolute weight.
+- [x] Include per-fund stats only for funds in the selected top-N weights set (and optionally funds explicitly mentioned in the user questions).
+- [x] Add configuration knobs (env vars) for caps, e.g. `TREND_EXPLAIN_MAX_FUNDS`, `TREND_EXPLAIN_MAX_WEIGHTS`, `TREND_EXPLAIN_MAX_ENTRIES`.
+- [x] Update `streamlit_app/components/explain_results.py` to use the compacted catalog before calling `format_metric_catalog(...)`.
+- [x] Update `src/trend/cli.py` Explain Results flow to use the same compaction logic (shared helper).
+- [x] Add tests that create a synthetic result with many funds and assert the formatted catalog line count stays within bounds and includes top-weight funds.
 
 ## Acceptance Criteria
 
-- [ ] Explain Results metric catalog size is bounded by `TREND_EXPLAIN_MAX_ENTRIES` (or default cap) for large universes.
-- [ ] The compact catalog still contains portfolio-level stats and top holdings weights.
-- [ ] Citations remain valid and discrepancy logging still works.
-- [ ] All unit tests pass.
+- [x] Explain Results metric catalog size is bounded by `TREND_EXPLAIN_MAX_ENTRIES` (or default cap) for large universes.
+- [x] The compact catalog still contains portfolio-level stats and top holdings weights.
+- [x] Citations remain valid and discrepancy logging still works.
+- [x] All unit tests pass.
 
 ## Implementation Notes
 

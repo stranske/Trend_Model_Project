@@ -17,6 +17,7 @@ from trend_analysis.llm import (
     ResultSummaryChain,
     ResultSummaryResponse,
     build_result_summary_prompt,
+    compact_metric_catalog,
     create_llm,
     ensure_result_disclaimer,
     extract_metric_catalog,
@@ -118,6 +119,7 @@ def generate_result_explanation(
     provider: str | None = None,
 ) -> ExplanationResult:
     entries = extract_metric_catalog(details)
+    entries = compact_metric_catalog(entries, questions=questions)
     metric_catalog = format_metric_catalog(entries)
     if not entries:
         text = ensure_result_disclaimer("No metrics were detected in the analysis output.")
