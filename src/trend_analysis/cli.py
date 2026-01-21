@@ -480,7 +480,9 @@ def main(argv: list[str] | None = None) -> int:
                 if not _maybe_track_config_coverage(config_path, args.input):
                     return 1
                 wrap_config_for_coverage(cfg, coverage_tracker)
-            if not _maybe_validate_config(cfg, base_path=config_path.parent, config_path=config_path):
+            if not _maybe_validate_config(
+                cfg, base_path=config_path.parent, config_path=config_path
+            ):
                 return 1
             if args.preset:
                 try:
@@ -685,7 +687,9 @@ def main(argv: list[str] | None = None) -> int:
                     formats=target_formats,
                 )
                 data_keys = list(data.keys())
-                artifact_paths = _resolve_artifact_paths(out_dir_path, filename, data_keys, fmt_list)
+                artifact_paths = _resolve_artifact_paths(
+                    out_dir_path, filename, data_keys, fmt_list
+                )
                 maybe_log_step(
                     do_structured,
                     run_id,
