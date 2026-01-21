@@ -38,9 +38,7 @@ def test_compute_turnover_state_handles_fresh_and_existing_weights() -> None:
     updates."""
 
     first_series = pd.Series([0.4, -0.1], index=["A", "B"], dtype=float)
-    first_turnover, idx, vals = mp_engine._compute_turnover_state(
-        None, None, first_series
-    )
+    first_turnover, idx, vals = mp_engine._compute_turnover_state(None, None, first_series)
 
     assert list(idx) == ["A", "B"]
     assert vals.tolist() == pytest.approx(first_series.to_list())
@@ -62,9 +60,7 @@ def test_compute_turnover_state_handles_fresh_and_existing_weights() -> None:
     expected = float(
         np.abs(
             new_series.reindex(union, fill_value=0.0).to_numpy()
-            - pd.Series(prev_vals, index=prev_idx)
-            .reindex(union, fill_value=0.0)
-            .to_numpy()
+            - pd.Series(prev_vals, index=prev_idx).reindex(union, fill_value=0.0).to_numpy()
         ).sum()
     )
     assert turnover == pytest.approx(expected)
@@ -113,18 +109,14 @@ def test_run_schedule_invokes_update_and_fast_turnover(
     class DummySelector:
         rank_column = "Sharpe"
 
-        def select(
-            self, score_frame: pd.DataFrame
-        ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
             return score_frame, score_frame
 
     class RecordingWeighting:
         def __init__(self) -> None:
             self.updates: list[tuple[pd.Series, int]] = []
 
-        def weight(
-            self, selected: pd.DataFrame, date: pd.Timestamp | None = None
-        ) -> pd.DataFrame:
+        def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
             del date
             weights = pd.Series(1.0 / len(selected), index=selected.index, dtype=float)
             return weights.to_frame("weight")
@@ -133,12 +125,8 @@ def test_run_schedule_invokes_update_and_fast_turnover(
             self.updates.append((scores.astype(float), int(days)))
 
     score_frames = {
-        "2020-01-31": pd.DataFrame(
-            {"Sharpe": [1.0, 0.5]}, index=["Alpha Fund", "Beta Fund"]
-        ),
-        "2020-02-29": pd.DataFrame(
-            {"Sharpe": [0.8, 1.1]}, index=["Alpha Fund", "Gamma Fund"]
-        ),
+        "2020-01-31": pd.DataFrame({"Sharpe": [1.0, 0.5]}, index=["Alpha Fund", "Beta Fund"]),
+        "2020-02-29": pd.DataFrame({"Sharpe": [0.8, 1.1]}, index=["Alpha Fund", "Gamma Fund"]),
     }
 
     selector = DummySelector()
