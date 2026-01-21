@@ -83,7 +83,16 @@ def test_run_schedule_invokes_rebalance_strategies_and_weighting_update(monkeypa
 
     calls: list[_StrategyCall] = []
 
-    def fake_apply(strategies, params, current_weights, target_weights, *, scores=None):
+    def fake_apply(
+        strategies,
+        params,
+        current_weights,
+        target_weights,
+        *,
+        scores=None,
+        cash_policy=None,
+    ):
+        del cash_policy
         calls.append(
             _StrategyCall(
                 strategies=list(strategies),

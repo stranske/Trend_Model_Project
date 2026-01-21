@@ -632,7 +632,9 @@ def test_run_schedule_applies_strategy_and_turnover_fast_path(
         target: pd.Series,
         *,
         scores: pd.Series | None = None,
+        cash_policy: object | None = None,
     ) -> tuple[pd.Series, float]:
+        del cash_policy
         assert strategies == ["one"]
         assert "one" in params
         if not apply_calls:

@@ -299,15 +299,19 @@ def _current_run_key(model_state: dict[str, Any], benchmark: str | None) -> str:
         applied_funds = []
 
     selected_rf = st.session_state.get("selected_risk_free")
+    selected_rf_key = selected_rf or "__none__"
     info_ratio_benchmark = (
         model_state.get("info_ratio_benchmark") if isinstance(model_state, dict) else None
     )
-    prohibited = {selected_rf, benchmark, info_ratio_benchmark} - {None}
+    regime_proxy = None
+    if bool(model_state.get("regime_enabled", False)):
+        regime_proxy = model_state.get("regime_proxy")
+    prohibited = {selected_rf, benchmark, info_ratio_benchmark, regime_proxy} - {None}
     sanitized_funds = [c for c in applied_funds if c not in prohibited]
 
     funds_blob = json.dumps(list(sanitized_funds), sort_keys=False, default=str)
     funds_hash = hashlib.sha256(funds_blob.encode("utf-8")).hexdigest()[:12]
-    return f"{fingerprint}:{bench}:{funds_hash}:{model_blob}"
+    return f"{fingerprint}:{bench}:{selected_rf_key}:{funds_hash}:{model_blob}"
 
 
 def _apply_preview_state(

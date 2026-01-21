@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -14,6 +15,18 @@ def test_apply_constraints_rejects_cash_weight_outside_unit_interval() -> None:
         apply_constraints(weights, ConstraintSet(cash_weight=1.0))
 
 
+def test_apply_constraints_rejects_non_finite_weights() -> None:
+    weights = pd.Series({"A": 0.5, "B": np.nan}, dtype=float)
+    with pytest.raises(ConstraintViolation, match="Weights must be finite"):
+        apply_constraints(weights, ConstraintSet())
+
+
+def test_apply_constraints_rejects_infinite_weights() -> None:
+    weights = pd.Series({"A": 0.5, "B": np.inf}, dtype=float)
+    with pytest.raises(ConstraintViolation, match="Weights must be finite"):
+        apply_constraints(weights, ConstraintSet())
+
+
 def test_apply_constraints_rejects_cash_weight_even_when_cash_present() -> None:
     weights = pd.Series({"FundA": 0.7, "FundB": 0.3, "CASH": 0.0}, dtype=float)
 
@@ -25,6 +38,84 @@ def test_apply_constraints_requires_non_cash_assets_when_cash_weight_set() -> No
     weights = pd.Series({"CASH": 1.0}, dtype=float)
     with pytest.raises(ConstraintViolation, match="No assets available for non-CASH allocation"):
         apply_constraints(weights, ConstraintSet(cash_weight=0.2))
+
+
+def test_apply_constraints_rejects_non_numeric_cash_weight() -> None:
+    weights = pd.Series({"A": 0.6, "B": 0.4}, dtype=float)
+
+    with pytest.raises(ConstraintViolation, match="cash_weight must be numeric"):
+        apply_constraints(weights, ConstraintSet(cash_weight="invalid"))  # type: ignore[arg-type]
+
+
+def test_apply_constraints_rejects_cash_weight_when_shorting_enabled() -> None:
+    weights = pd.Series({"A": 0.6, "B": 0.4}, dtype=float)
+
+    with pytest.raises(ConstraintViolation, match="cash_weight requires long_only constraints"):
+        apply_constraints(weights, ConstraintSet(long_only=False, cash_weight=0.2))
+
+
+@pytest.mark.parametrize("cash_weight", [np.nan, np.inf, -np.inf])
+def test_apply_constraints_rejects_non_finite_cash_weight(cash_weight: float) -> None:
+    weights = pd.Series({"A": 0.6, "B": 0.4}, dtype=float)
+
+    with pytest.raises(ConstraintViolation, match="cash_weight must be finite"):
+        apply_constraints(weights, ConstraintSet(cash_weight=cash_weight))
+
+
+def test_apply_constraints_rejects_non_numeric_cash_weight_mapping() -> None:
+    weights = pd.Series({"A": 0.6, "B": 0.4}, dtype=float)
+
+    with pytest.raises(ConstraintViolation, match="cash_weight must be numeric"):
+        apply_constraints(weights, {"cash_weight": "invalid"})
+
+
+@pytest.mark.parametrize("cap", [np.nan, np.inf, -np.inf])
+def test_apply_constraints_rejects_non_finite_max_weight(cap: float) -> None:
+    weights = pd.Series({"A": 0.6, "B": 0.4}, dtype=float)
+
+    with pytest.raises(ConstraintViolation, match="max_weight must be finite"):
+        apply_constraints(weights, ConstraintSet(max_weight=cap))
+
+
+def test_apply_constraints_rejects_non_numeric_max_weight() -> None:
+    weights = pd.Series({"A": 0.6, "B": 0.4}, dtype=float)
+
+    with pytest.raises(ConstraintViolation, match="max_weight must be numeric"):
+        apply_constraints(weights, ConstraintSet(max_weight="invalid"))  # type: ignore[arg-type]
+
+
+def test_apply_constraints_rejects_non_positive_max_weight_with_cash_weight() -> None:
+    weights = pd.Series({"A": 0.6, "B": 0.4}, dtype=float)
+
+    with pytest.raises(ConstraintViolation, match="max_weight must be positive"):
+        apply_constraints(weights, ConstraintSet(max_weight=0.0, cash_weight=0.2))
+
+
+@pytest.mark.parametrize(
+    ("cap", "message"),
+    [
+        (np.nan, "group_caps must be finite"),
+        (np.inf, "group_caps must be finite"),
+        (-0.1, "group_caps must be non-negative"),
+    ],
+)
+def test_apply_constraints_rejects_invalid_group_caps(cap: float, message: str) -> None:
+    weights = pd.Series({"TechA": 0.6, "TechB": 0.4}, dtype=float)
+    constraints = ConstraintSet(group_caps={"Tech": cap}, groups={"TechA": "Tech", "TechB": "Tech"})
+
+    with pytest.raises(ConstraintViolation, match=message):
+        apply_constraints(weights, constraints)
+
+
+def test_apply_constraints_rejects_non_numeric_group_caps() -> None:
+    weights = pd.Series({"TechA": 0.6, "TechB": 0.4}, dtype=float)
+    constraints = ConstraintSet(
+        group_caps={"Tech": "invalid"},  # type: ignore[dict-item]
+        groups={"TechA": "Tech", "TechB": "Tech"},
+    )
+
+    with pytest.raises(ConstraintViolation, match="group_caps values must be numeric"):
+        apply_constraints(weights, constraints)
 
 
 def test_apply_constraints_reapplies_max_weight_after_group_caps() -> None:
@@ -126,3 +217,12 @@ def test_apply_constraints_rescales_existing_cash_row() -> None:
     non_cash = adjusted.drop("CASH")
     assert pytest.approx(float(non_cash.sum()), rel=0, abs=1e-12) == 0.8
     assert (non_cash <= 0.6 + 1e-12).all()
+
+
+def test_apply_constraints_rejects_zero_total_with_shorting() -> None:
+    """Shorting without net allocation should be rejected to avoid division errors."""
+
+    weights = pd.Series({"FundA": 0.5, "FundB": -0.5}, dtype=float)
+
+    with pytest.raises(ConstraintViolation, match="Total weight must be non-zero"):
+        apply_constraints(weights, ConstraintSet(long_only=False))

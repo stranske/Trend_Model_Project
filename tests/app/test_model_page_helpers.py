@@ -167,6 +167,25 @@ def test_render_model_page_clears_cached_results(
         assert key not in stub.session_state
 
 
+def test_current_run_key_changes_with_risk_free(model_module: ModuleType) -> None:
+    stub = model_module.st
+    stub.session_state.update(
+        {
+            "data_fingerprint": "abc123",
+            "analysis_fund_columns": ["FundA"],
+            "fund_columns": ["FundA"],
+            "selected_risk_free": "RF1",
+        }
+    )
+    model_state = {"trend_spec": {"window": 63, "lag": 1}}
+
+    key_one = model_module._current_run_key(model_state, None)
+    stub.session_state["selected_risk_free"] = "RF2"
+    key_two = model_module._current_run_key(model_state, None)
+
+    assert key_one != key_two
+
+
 def test_render_config_chat_panel_stores_instruction(model_module: ModuleType) -> None:
     stub = model_module.st
     stub.session_state.clear()

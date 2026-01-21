@@ -224,19 +224,21 @@ class PeriodicRebalanceStrategy(Rebalancer):
         **kwargs: Any,
     ) -> Tuple[pd.Series, float]:
         """Apply periodic rebalancing."""
+        all_assets = current_weights.index.union(target_weights.index)
+        current = current_weights.reindex(all_assets, fill_value=0.0)
+        target = target_weights.reindex(all_assets, fill_value=0.0)
         self._period_count += 1
 
         if self._period_count >= self.interval:
             # Time to rebalance
             self._period_count = 0
-            all_assets = current_weights.index.union(target_weights.index)
-            new_weights = target_weights.reindex(all_assets, fill_value=0.0)
+            new_weights = target.copy()
             new_weights = _apply_cash_policy(new_weights, cash_policy)
             # No transaction costs in basic implementation
             cost = 0.0
         else:
             # Keep current weights
-            new_weights = _apply_cash_policy(current_weights.copy(), cash_policy)
+            new_weights = _apply_cash_policy(current.copy(), cash_policy)
             cost = 0.0
 
         return new_weights, cost

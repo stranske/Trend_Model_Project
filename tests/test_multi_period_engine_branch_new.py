@@ -238,7 +238,16 @@ def test_run_schedule_applies_rebalance_strategies(
 
     captured: dict[str, object] = {}
 
-    def fake_apply_strategies(names, params, current, target, *, scores=None):
+    def fake_apply_strategies(
+        names,
+        params,
+        current,
+        target,
+        *,
+        scores=None,
+        cash_policy=None,
+    ):
+        del cash_policy
         captured["names"] = names
         captured["scores"] = scores
         captured["current"] = current

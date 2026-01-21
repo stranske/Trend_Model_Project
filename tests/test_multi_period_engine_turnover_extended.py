@@ -78,7 +78,9 @@ def test_run_schedule_fast_turnover_tracks_union(
         target: pd.Series,
         *,
         scores: pd.Series | None = None,
+        cash_policy: object | None = None,
     ) -> tuple[pd.Series, float]:
+        del cash_policy
         # Return deterministic weights but change the universe on the second call.
         if scores is not None and scores.index.equals(pd.Index(["A", "B"])):
             series = pd.Series({"A": 0.55, "B": 0.45}, dtype=float)

@@ -141,7 +141,9 @@ def test_run_schedule_invokes_update_and_fast_turnover(
         target_weights: pd.Series,
         *,
         scores: pd.Series | None = None,
+        cash_policy: object | None = None,
     ) -> tuple[pd.Series, float]:
+        del cash_policy
         assert strategies == ["noop"]
         assert "noop" in params
         assert scores is not None

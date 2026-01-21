@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from trend_analysis.multi_period.engine import run_schedule
+from trend_analysis.rebalancing import CashPolicy
 from trend_analysis.selector import RankSelector
 from trend_analysis.weighting import EqualWeight
 
@@ -84,6 +85,40 @@ def test_run_schedule_with_multiple_strategies():
 
     assert len(portfolio.history) == len(dates)
     assert portfolio.total_rebalance_costs >= 0
+
+
+def test_run_schedule_applies_cash_policy():
+    """Ensure run_schedule passes cash policy to rebalancing strategies."""
+    dates = ["2020-01", "2020-02"]
+    assets = ["A", "B"]
+
+    score_frames = {}
+    for date in dates:
+        score_frames[date] = pd.DataFrame({"Sharpe": [1.0, 0.9]}, index=assets)
+
+    selector = RankSelector(top_n=2, rank_column="Sharpe")
+    weighting = EqualWeight()
+
+    rebalance_strategies = ["turnover_cap"]
+    rebalance_params = {"turnover_cap": {"max_turnover": 1.0, "cost_bps": 0}}
+    cash_policy = CashPolicy(
+        explicit_cash=True,
+        cash_return_source="risk_free",
+        normalize_weights=False,
+    )
+
+    portfolio = run_schedule(
+        score_frames,
+        selector,
+        weighting,
+        rebalance_strategies=rebalance_strategies,
+        rebalance_params=rebalance_params,
+        cash_policy=cash_policy,
+    )
+
+    for weights in portfolio.history.values():
+        assert "CASH" in weights.index
+        assert pytest.approx(1.0) == float(weights.sum())
 
 
 def test_run_schedule_without_rebalancing():

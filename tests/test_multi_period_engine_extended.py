@@ -111,7 +111,16 @@ def test_run_schedule_applies_rebalance_strategies(
 
     captured: list[Dict[str, Any]] = []
 
-    def fake_apply(strategies, params, current, target, *, scores=None):
+    def fake_apply(
+        strategies,
+        params,
+        current,
+        target,
+        *,
+        scores=None,
+        cash_policy=None,
+    ):
+        del cash_policy
         captured.append(
             {
                 "strategies": strategies,

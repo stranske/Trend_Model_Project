@@ -93,8 +93,16 @@ def test_run_schedule_with_strategies_and_rebalancer(monkeypatch):
     weighting = DummyWeighting()
     rebalancer = DummyRebalancer()
 
-    def fake_apply(strategies, params, current_weights, target_weights, *, scores=None):
-        del strategies, params, current_weights, scores
+    def fake_apply(
+        strategies,
+        params,
+        current_weights,
+        target_weights,
+        *,
+        scores=None,
+        cash_policy=None,
+    ):
+        del strategies, params, current_weights, scores, cash_policy
         normalised = target_weights / target_weights.sum()
         return normalised, 0.25
 

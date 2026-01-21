@@ -101,8 +101,9 @@ def test_fast_turnover_matches_recomputed_history(
         target: pd.Series,
         *,
         scores: pd.Series | None = None,
+        cash_policy: object | None = None,
     ) -> tuple[pd.Series, float]:
-        del strategies, params, current, target, scores
+        del strategies, params, current, target, scores, cash_policy
         series = returned[call_idx["i"]]
         call_idx["i"] += 1
         return series, 0.0

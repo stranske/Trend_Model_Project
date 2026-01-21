@@ -51,7 +51,9 @@ def test_run_schedule_with_rebalance_strategies(
         target_weights: pd.Series,
         *,
         scores: pd.Series | None = None,
+        cash_policy: object | None = None,
     ) -> tuple[pd.Series, float]:
+        del cash_policy
         assert strategies == ["demo"]
         assert "demo" in params
         return target_weights.astype(float), 0.05
