@@ -71,6 +71,14 @@ def test_validate_result_claims_ignores_date_like_numbers() -> None:
     assert not any(issue.kind == "uncited_value" for issue in issues)
 
 
+def test_validate_result_claims_ignores_date_range_without_metrics() -> None:
+    text = "Coverage runs from 2023-01 to 2024-12."
+
+    issues = validate_result_claims(text, [])
+
+    assert not any(issue.kind == "uncited_value" for issue in issues)
+
+
 def test_validate_result_claims_still_flags_uncited_non_dates() -> None:
     entries = [
         MetricEntry(
@@ -85,6 +93,22 @@ def test_validate_result_claims_still_flags_uncited_non_dates() -> None:
     uncited_values = [issue.detail["value"] for issue in issues if issue.kind == "uncited_value"]
 
     assert uncited_values == ["8%"]
+
+
+def test_validate_result_claims_flags_uncited_metric_without_date_context() -> None:
+    entries = [
+        MetricEntry(
+            path="out_sample_stats.portfolio.cagr",
+            value=0.08,
+            source="out_sample_stats",
+        )
+    ]
+    text = "CAGR was 8%."
+
+    issues = validate_result_claims(text, entries)
+    kinds = {issue.kind for issue in issues}
+
+    assert "uncited_value" in kinds
 
 
 def test_validate_result_claims_flags_missing_citations() -> None:
