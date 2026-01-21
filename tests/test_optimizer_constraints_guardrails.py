@@ -126,3 +126,12 @@ def test_apply_constraints_rescales_existing_cash_row() -> None:
     non_cash = adjusted.drop("CASH")
     assert pytest.approx(float(non_cash.sum()), rel=0, abs=1e-12) == 0.8
     assert (non_cash <= 0.6 + 1e-12).all()
+
+
+def test_apply_constraints_rejects_zero_total_with_shorting() -> None:
+    """Shorting without net allocation should be rejected to avoid division errors."""
+
+    weights = pd.Series({"FundA": 0.5, "FundB": -0.5}, dtype=float)
+
+    with pytest.raises(ConstraintViolation, match="Total weight must be non-zero"):
+        apply_constraints(weights, ConstraintSet(long_only=False))

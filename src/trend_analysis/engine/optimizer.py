@@ -203,6 +203,8 @@ def apply_constraints(
             raise ConstraintViolation("All weights non-positive under long-only constraint")
     else:
         total_weight = _safe_sum(w)
+        if abs(total_weight) <= NUMERICAL_TOLERANCE_HIGH:
+            raise ConstraintViolation("Total weight must be non-zero")
 
     w /= total_weight
 
