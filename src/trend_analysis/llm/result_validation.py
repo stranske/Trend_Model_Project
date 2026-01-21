@@ -32,9 +32,7 @@ _YEAR_RANGE_RE = re.compile(
     r"\b(?P<start>(?:19|20)\d{2})\s*(?:-|to|through)\s*(?P<end>(?:19|20)\d{2})\b",
     re.IGNORECASE,
 )
-_YEAR_RANGE_SLASH_RE = re.compile(
-    r"\b(?P<start>(?:19|20)\d{2})\s*/\s*(?P<end>(?:19|20)\d{2})\b"
-)
+_YEAR_RANGE_SLASH_RE = re.compile(r"\b(?P<start>(?:19|20)\d{2})\s*/\s*(?P<end>(?:19|20)\d{2})\b")
 _SHORT_YEAR_RANGE_RE = re.compile(
     r"(?<!\d)(?P<start>(?:19|20)\d{2})\s*(?:-|/|\u2013|\u2014)\s*(?P<end>\d{2})(?![-/\d])"
 )
