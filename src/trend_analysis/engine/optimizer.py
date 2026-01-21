@@ -146,6 +146,7 @@ def _apply_cash_weight(w: pd.Series, cash_weight: float, max_weight: float | Non
         raise ConstraintViolation("cash_weight must be in (0,1) exclusive")
 
     w = w.copy()
+    series_name = w.name
     if "CASH" not in w.index:
         # Create a CASH row with zero pre-allocation so scaling logic is uniform
         w.loc["CASH"] = 0.0
@@ -170,7 +171,7 @@ def _apply_cash_weight(w: pd.Series, cash_weight: float, max_weight: float | Non
     scale = (1 - cash_weight) / non_cash_total
     values[non_cash_mask] = non_cash_values * scale
     values[index == "CASH"] = cash_weight
-    w = pd.Series(values, index=index)
+    w = pd.Series(values, index=index, name=series_name)
 
     if max_weight is not None and w.loc["CASH"] > max_weight + NUMERICAL_TOLERANCE_HIGH:
         raise ConstraintViolation("cash_weight exceeds max_weight constraint")

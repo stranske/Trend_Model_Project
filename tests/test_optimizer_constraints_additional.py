@@ -209,12 +209,14 @@ def test_apply_cash_weight_overwrites_existing_cash_value() -> None:
     """Helper should overwrite any pre-existing CASH weight."""
 
     weights = pd.Series({"Asset1": 1.0, "CASH": 0.9})
+    weights.name = "weights"
 
     adjusted = _apply_cash_weight(weights, cash_weight=0.2, max_weight=0.9)
 
     assert pytest.approx(adjusted.loc["CASH"], rel=1e-9) == 0.2
     assert pytest.approx(adjusted.loc["Asset1"], rel=1e-9) == 0.8
     assert pytest.approx(_safe_sum(adjusted), rel=1e-9) == 1.0
+    assert adjusted.name == "weights"
 
 
 def test_apply_cash_weight_requires_non_cash_assets() -> None:
