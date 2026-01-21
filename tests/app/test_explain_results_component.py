@@ -141,6 +141,16 @@ def test_render_explain_results_uses_cached_result(explain_module) -> None:
     st_stub.markdown.assert_any_call("Cached output")
 
 
+def test_render_explain_results_handles_missing_details(explain_module) -> None:
+    st_stub = sys.modules["streamlit"]
+
+    result = SimpleNamespace(details=None)
+
+    explain_module.render_explain_results(result, run_key="run:missing")
+
+    st_stub.info.assert_any_call("Explanation is unavailable because detailed results are missing.")
+
+
 def test_render_explain_results_reports_llm_error(explain_module, monkeypatch) -> None:
     st_stub = sys.modules["streamlit"]
     st_stub.button.return_value = True
