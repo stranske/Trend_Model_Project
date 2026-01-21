@@ -14,159 +14,159 @@ tasks:
   - id: task-02
     title: Always include `_SINGLE_STATS_SECTIONS` entries (e.g., `out_user_stats`,
       `out_ew_stats`, etc.).
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-03
     title: Always include benchmark IR entries (if present).
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-04
     title: Include top-N weights from `fund_weights` (and `ew_weights` if `fund_weights`
       absent), sorted by absolute weight.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-05
     title: Include per-fund stats only for funds in the selected top-N weights set
       (and optionally funds explicitly mentioned in the user questions).
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-06
     title: Add configuration knobs (env vars) for caps, e.g. `TREND_EXPLAIN_MAX_FUNDS`,
       `TREND_EXPLAIN_MAX_WEIGHTS`, `TREND_EXPLAIN_MAX_ENTRIES`.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-07
     title: Update `streamlit_app/components/explain_results.py` to use the compacted
       catalog before calling `format_metric_catalog(...)`.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-08
     title: Update `src/trend/cli.py` Explain Results flow to use the same compaction
       logic (shared helper).
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-09
     title: Add tests that create a synthetic result with many funds and assert the
       formatted catalog line count stays within bounds and includes top-weight funds.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-10
     title: Add `compact_metric_catalog(...)` helper in `src/trend_analysis/llm/result_metrics.py`
       that selects a bounded subset of `MetricEntry` objects.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-11
     title: Always include `_SINGLE_STATS_SECTIONS` entries (e.g., `out_user_stats`,
       `out_ew_stats`, etc.).
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-12
     title: Always include benchmark IR entries (if present).
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-13
     title: Include top-N weights from `fund_weights` (and `ew_weights` if `fund_weights`
       absent), sorted by absolute weight.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-14
     title: Include per-fund stats only for funds in the selected top-N weights set
       (and optionally funds explicitly mentioned in the user questions).
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-15
     title: Add configuration knobs (env vars) for caps, e.g. `TREND_EXPLAIN_MAX_FUNDS`,
       `TREND_EXPLAIN_MAX_WEIGHTS`, `TREND_EXPLAIN_MAX_ENTRIES`.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-16
     title: Update `streamlit_app/components/explain_results.py` to use the compacted
       catalog before calling `format_metric_catalog(...)`.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-17
     title: Update `src/trend/cli.py` Explain Results flow to use the same compaction
       logic (shared helper).
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-18
     title: Add tests that create a synthetic result with many funds and assert the
       formatted catalog line count stays within bounds and includes top-weight funds.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-19
     title: Explain Results metric catalog size is bounded by `TREND_EXPLAIN_MAX_ENTRIES`
       (or default cap) for large universes.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-20
     title: The compact catalog still contains portfolio-level stats and top holdings
       weights.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-21
     title: Citations remain valid and discrepancy logging still works.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-22
     title: All unit tests pass.
@@ -178,25 +178,25 @@ tasks:
   - id: task-23
     title: Explain Results metric catalog size is bounded by `TREND_EXPLAIN_MAX_ENTRIES`
       (or default cap) for large universes.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-24
     title: The compact catalog still contains portfolio-level stats and top holdings
       weights.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-25
     title: Citations remain valid and discrepancy logging still works.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-01-21T16:08:02Z'
+    finished_at: '2026-01-21T16:08:02Z'
+    commit: 64f9147d1b2222c195e20ad1743ad8fe02d491df
     notes: []
   - id: task-26
     title: All unit tests pass.
