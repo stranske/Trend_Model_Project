@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Identify the section in `streamlit_app/pages/3_Results.py` where a completed
       analysis result is rendered.
-    status: doing
+    status: done
     started_at: '2026-01-21T17:36:21Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-21T17:36:30Z'
+    commit: 06c641b0d1ad0e9669158890d23bc1f86824c571
     notes: []
   - id: task-02
     title: Call `streamlit_app.components.explain_results.render_explain_results(result,
