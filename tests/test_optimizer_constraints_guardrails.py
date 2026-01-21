@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -12,6 +13,18 @@ def test_apply_constraints_rejects_cash_weight_outside_unit_interval() -> None:
     weights = pd.Series({"A": 0.6, "B": 0.4}, dtype=float)
     with pytest.raises(ConstraintViolation, match=r"cash_weight must be in \(0,1\) exclusive"):
         apply_constraints(weights, ConstraintSet(cash_weight=1.0))
+
+
+def test_apply_constraints_rejects_non_finite_weights() -> None:
+    weights = pd.Series({"A": 0.5, "B": np.nan}, dtype=float)
+    with pytest.raises(ConstraintViolation, match="Weights must be finite"):
+        apply_constraints(weights, ConstraintSet())
+
+
+def test_apply_constraints_rejects_infinite_weights() -> None:
+    weights = pd.Series({"A": 0.5, "B": np.inf}, dtype=float)
+    with pytest.raises(ConstraintViolation, match="Weights must be finite"):
+        apply_constraints(weights, ConstraintSet())
 
 
 def test_apply_constraints_rejects_cash_weight_even_when_cash_present() -> None:

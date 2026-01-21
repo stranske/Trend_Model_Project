@@ -195,6 +195,9 @@ def apply_constraints(
     series_name = w.name
     if w.empty:
         return w
+    values = w.to_numpy(dtype=float)
+    if not np.isfinite(values).all():
+        raise ConstraintViolation("Weights must be finite")
 
     if constraints.long_only:
         w = _clip_series(w, lower=0)
