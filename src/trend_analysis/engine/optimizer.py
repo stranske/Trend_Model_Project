@@ -240,6 +240,8 @@ def apply_constraints(
         raise ConstraintViolation("Weights must be finite")
 
     max_weight = _normalize_max_weight(constraints.max_weight)
+    if constraints.cash_weight is not None and not constraints.long_only:
+        raise ConstraintViolation("cash_weight requires long_only constraints")
     if constraints.long_only:
         w = _clip_series(w, lower=0)
         total_weight = _safe_sum(w)

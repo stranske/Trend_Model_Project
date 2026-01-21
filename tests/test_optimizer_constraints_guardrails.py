@@ -47,6 +47,13 @@ def test_apply_constraints_rejects_non_numeric_cash_weight() -> None:
         apply_constraints(weights, ConstraintSet(cash_weight="invalid"))  # type: ignore[arg-type]
 
 
+def test_apply_constraints_rejects_cash_weight_when_shorting_enabled() -> None:
+    weights = pd.Series({"A": 0.6, "B": 0.4}, dtype=float)
+
+    with pytest.raises(ConstraintViolation, match="cash_weight requires long_only constraints"):
+        apply_constraints(weights, ConstraintSet(long_only=False, cash_weight=0.2))
+
+
 @pytest.mark.parametrize("cash_weight", [np.nan, np.inf, -np.inf])
 def test_apply_constraints_rejects_non_finite_cash_weight(cash_weight: float) -> None:
     weights = pd.Series({"A": 0.6, "B": 0.4}, dtype=float)
