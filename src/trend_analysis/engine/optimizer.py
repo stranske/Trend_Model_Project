@@ -156,6 +156,9 @@ def _apply_cash_weight(w: pd.Series, cash_weight: float, max_weight: float | Non
     non_cash_values = values[non_cash_mask]
     if non_cash_values.size == 0:
         raise ConstraintViolation("No assets available for non-CASH allocation")
+    non_cash_total = _safe_sum(non_cash_values)
+    if non_cash_total <= NUMERICAL_TOLERANCE_HIGH:
+        raise ConstraintViolation("No assets available for non-CASH allocation")
 
     if max_weight is not None:
         eq_after = (1 - cash_weight) / len(non_cash_values)
@@ -164,7 +167,7 @@ def _apply_cash_weight(w: pd.Series, cash_weight: float, max_weight: float | Non
                 "cash_weight infeasible: remaining allocation forces per-asset weight above max_weight"
             )
 
-    scale = (1 - cash_weight) / _safe_sum(non_cash_values)
+    scale = (1 - cash_weight) / non_cash_total
     values[non_cash_mask] = non_cash_values * scale
     values[index == "CASH"] = cash_weight
     w = pd.Series(values, index=index)

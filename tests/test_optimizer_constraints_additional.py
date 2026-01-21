@@ -226,6 +226,15 @@ def test_apply_cash_weight_requires_non_cash_assets() -> None:
         _apply_cash_weight(weights, cash_weight=0.2, max_weight=None)
 
 
+def test_apply_cash_weight_rejects_zero_non_cash_sum() -> None:
+    """Helper should reject non-cash assets with zero allocation."""
+
+    weights = pd.Series({"A": 0.0, "B": 0.0, "CASH": 1.0})
+
+    with pytest.raises(ConstraintViolation, match="No assets available for non-CASH allocation"):
+        _apply_cash_weight(weights, cash_weight=0.2, max_weight=None)
+
+
 def test_apply_cash_weight_rejects_invalid_cash_weight() -> None:
     """Helper should guard against invalid cash ranges."""
 
