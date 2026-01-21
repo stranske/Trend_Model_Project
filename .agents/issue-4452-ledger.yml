@@ -1,0 +1,1759 @@
+version: 1
+issue: 4452
+base: main
+branch: codex/issue-4452
+tasks:
+  - id: task-01
+    title: Inventory tests that rely on patching `trend_analysis.pipeline.*` symbols
+      expecting stages to reflect those patches.
+    status: doing
+    started_at: '2026-01-21T01:57:04Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Define scope for: Define scope for: Define approach for: Inventory tests
+      that rely on patching `trend_analysis.pipeline.*` symbols expecting stages to
+      reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Implement focused slice for: Define scope for: Define approach for: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Validate focused slice for: Define scope for: Define approach for: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Define scope for: Implement focused slice for: Define approach for: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Implement focused slice for: Implement focused slice for: Define approach
+      for: Inventory tests that rely on patching `trend_analysis.pipeline.*` symbols
+      expecting stages to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Validate focused slice for: Implement focused slice for: Define approach
+      for: Inventory tests that rely on patching `trend_analysis.pipeline.*` symbols
+      expecting stages to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Define scope for: Validate focused slice for: Define approach for: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Implement focused slice for: Validate focused slice for: Define approach
+      for: Inventory tests that rely on patching `trend_analysis.pipeline.*` symbols
+      expecting stages to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Validate focused slice for: Validate focused slice for: Define approach
+      for: Inventory tests that rely on patching `trend_analysis.pipeline.*` symbols
+      expecting stages to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Define scope for: Define scope for: Implement: Inventory tests that rely
+      on patching `trend_analysis.pipeline.*` symbols expecting stages to reflect
+      those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Implement focused slice for: Define scope for: Implement: Inventory tests
+      that rely on patching `trend_analysis.pipeline.*` symbols expecting stages to
+      reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Validate focused slice for: Define scope for: Implement: Inventory tests
+      that rely on patching `trend_analysis.pipeline.*` symbols expecting stages to
+      reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Define scope for: Implement focused slice for: Implement: Inventory tests
+      that rely on patching `trend_analysis.pipeline.*` symbols expecting stages to
+      reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Implement focused slice for: Implement focused slice for: Implement: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Validate focused slice for: Implement focused slice for: Implement: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Define scope for: Validate focused slice for: Implement: Inventory tests
+      that rely on patching `trend_analysis.pipeline.*` symbols expecting stages to
+      reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Implement focused slice for: Validate focused slice for: Implement: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Validate focused slice for: Validate focused slice for: Implement: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Define scope for: Define scope for: Validate: Inventory tests that rely
+      on patching `trend_analysis.pipeline.*` symbols expecting stages to reflect
+      those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'Implement focused slice for: Define scope for: Validate: Inventory tests
+      that rely on patching `trend_analysis.pipeline.*` symbols expecting stages to
+      reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'Validate focused slice for: Define scope for: Validate: Inventory tests
+      that rely on patching `trend_analysis.pipeline.*` symbols expecting stages to
+      reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: 'Define scope for: Implement focused slice for: Validate: Inventory tests
+      that rely on patching `trend_analysis.pipeline.*` symbols expecting stages to
+      reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'Implement focused slice for: Implement focused slice for: Validate: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: 'Validate focused slice for: Implement focused slice for: Validate: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: 'Define scope for: Validate focused slice for: Validate: Inventory tests
+      that rely on patching `trend_analysis.pipeline.*` symbols expecting stages to
+      reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: 'Implement focused slice for: Validate focused slice for: Validate: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: 'Validate focused slice for: Validate focused slice for: Validate: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: Update tests to patch the true implementation points (e.g., stage module
+      functions, `pipeline_runner`, `pipeline_helpers`) instead of relying on pipeline
+      global sync.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: 'Define scope for: Define scope for: Update tests to patch the true implementation
+      points (e.g. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: 'Implement focused slice for: Define scope for: Update tests to patch the
+      true implementation points (e.g. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: 'Validate focused slice for: Define scope for: Update tests to patch the
+      true implementation points (e.g. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: 'Define scope for: Implement focused slice for: Update tests to patch the
+      true implementation points (e.g. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: 'Implement focused slice for: Implement focused slice for: Update tests
+      to patch the true implementation points (e.g. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: 'Validate focused slice for: Implement focused slice for: Update tests
+      to patch the true implementation points (e.g. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: 'Define scope for: Validate focused slice for: Update tests to patch the
+      true implementation points (e.g. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: 'Implement focused slice for: Validate focused slice for: Update tests
+      to patch the true implementation points (e.g. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: 'Validate focused slice for: Validate focused slice for: Update tests to
+      patch the true implementation points (e.g. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: 'stage module functions (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: '`pipeline_runner` (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: 'Define scope for: Define scope for: `pipeline_helpers`) instead of relying
+      on pipeline global sync. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: 'Implement focused slice for: Define scope for: `pipeline_helpers`) instead
+      of relying on pipeline global sync. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: 'Validate focused slice for: Define scope for: `pipeline_helpers`) instead
+      of relying on pipeline global sync. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: 'Define scope for: Implement focused slice for: `pipeline_helpers`) instead
+      of relying on pipeline global sync. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: 'Implement focused slice for: Implement focused slice for: `pipeline_helpers`)
+      instead of relying on pipeline global sync. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: 'Validate focused slice for: Implement focused slice for: `pipeline_helpers`)
+      instead of relying on pipeline global sync. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: 'Define scope for: Validate focused slice for: `pipeline_helpers`) instead
+      of relying on pipeline global sync. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: 'Implement focused slice for: Validate focused slice for: `pipeline_helpers`)
+      instead of relying on pipeline global sync. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: 'Validate focused slice for: Validate focused slice for: `pipeline_helpers`)
+      instead of relying on pipeline global sync. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: Refactor `src/trend_analysis/pipeline.py` to call stage implementation
+      functions directly without `_call_with_sync`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: 'Define scope for: Define scope for: Define approach for: Refactor `src/trend_analysis/pipeline.py`
+      to call stage implementation functions directly without `_call_with_sync`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: 'Implement focused slice for: Define scope for: Define approach for: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: 'Validate focused slice for: Define scope for: Define approach for: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: 'Define scope for: Implement focused slice for: Define approach for: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: 'Implement focused slice for: Implement focused slice for: Define approach
+      for: Refactor `src/trend_analysis/pipeline.py` to call stage implementation
+      functions directly without `_call_with_sync`. (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-56
+    title: 'Validate focused slice for: Implement focused slice for: Define approach
+      for: Refactor `src/trend_analysis/pipeline.py` to call stage implementation
+      functions directly without `_call_with_sync`. (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-57
+    title: 'Define scope for: Validate focused slice for: Define approach for: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-58
+    title: 'Implement focused slice for: Validate focused slice for: Define approach
+      for: Refactor `src/trend_analysis/pipeline.py` to call stage implementation
+      functions directly without `_call_with_sync`. (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-59
+    title: 'Validate focused slice for: Validate focused slice for: Define approach
+      for: Refactor `src/trend_analysis/pipeline.py` to call stage implementation
+      functions directly without `_call_with_sync`. (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-60
+    title: 'Define scope for: Define scope for: Implement: Refactor `src/trend_analysis/pipeline.py`
+      to call stage implementation functions directly without `_call_with_sync`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-61
+    title: 'Implement focused slice for: Define scope for: Implement: Refactor `src/trend_analysis/pipeline.py`
+      to call stage implementation functions directly without `_call_with_sync`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-62
+    title: 'Validate focused slice for: Define scope for: Implement: Refactor `src/trend_analysis/pipeline.py`
+      to call stage implementation functions directly without `_call_with_sync`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-63
+    title: 'Define scope for: Implement focused slice for: Implement: Refactor `src/trend_analysis/pipeline.py`
+      to call stage implementation functions directly without `_call_with_sync`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-64
+    title: 'Implement focused slice for: Implement focused slice for: Implement: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-65
+    title: 'Validate focused slice for: Implement focused slice for: Implement: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-66
+    title: 'Define scope for: Validate focused slice for: Implement: Refactor `src/trend_analysis/pipeline.py`
+      to call stage implementation functions directly without `_call_with_sync`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-67
+    title: 'Implement focused slice for: Validate focused slice for: Implement: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-68
+    title: 'Validate focused slice for: Validate focused slice for: Implement: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-69
+    title: 'Define scope for: Define scope for: Validate: Refactor `src/trend_analysis/pipeline.py`
+      to call stage implementation functions directly without `_call_with_sync`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-70
+    title: 'Implement focused slice for: Define scope for: Validate: Refactor `src/trend_analysis/pipeline.py`
+      to call stage implementation functions directly without `_call_with_sync`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-71
+    title: 'Validate focused slice for: Define scope for: Validate: Refactor `src/trend_analysis/pipeline.py`
+      to call stage implementation functions directly without `_call_with_sync`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-72
+    title: 'Define scope for: Implement focused slice for: Validate: Refactor `src/trend_analysis/pipeline.py`
+      to call stage implementation functions directly without `_call_with_sync`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-73
+    title: 'Implement focused slice for: Implement focused slice for: Validate: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-74
+    title: 'Validate focused slice for: Implement focused slice for: Validate: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-75
+    title: 'Define scope for: Validate focused slice for: Validate: Refactor `src/trend_analysis/pipeline.py`
+      to call stage implementation functions directly without `_call_with_sync`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-76
+    title: 'Implement focused slice for: Validate focused slice for: Validate: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-77
+    title: 'Validate focused slice for: Validate focused slice for: Validate: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-78
+    title: Remove `_sync_stage_dependencies` and any related glue once tests no longer
+      depend on it.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-79
+    title: 'Remove `_sync_stage_dependencies` (verify: dependencies updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-80
+    title: 'Define scope for: Define scope for: any related glue once tests no longer
+      depend on it. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-81
+    title: 'Implement focused slice for: Define scope for: any related glue once tests
+      no longer depend on it. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-82
+    title: 'Validate focused slice for: Define scope for: any related glue once tests
+      no longer depend on it. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-83
+    title: 'Define scope for: Implement focused slice for: any related glue once tests
+      no longer depend on it. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-84
+    title: 'Implement focused slice for: Implement focused slice for: any related
+      glue once tests no longer depend on it. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-85
+    title: 'Validate focused slice for: Implement focused slice for: any related glue
+      once tests no longer depend on it. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-86
+    title: 'Define scope for: Validate focused slice for: any related glue once tests
+      no longer depend on it. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-87
+    title: 'Implement focused slice for: Validate focused slice for: any related glue
+      once tests no longer depend on it. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-88
+    title: 'Validate focused slice for: Validate focused slice for: any related glue
+      once tests no longer depend on it. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-89
+    title: 'Confirm public API compatibility: keep expected names/exports where required
+      (backward-compatible wrappers are acceptable, but no runtime mutation).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-90
+    title: 'Define scope for: Define scope for: Confirm public API compatibility:
+      keep expected names/exports where required (backward-compatible wrappers are
+      acceptable (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-91
+    title: 'Implement focused slice for: Define scope for: Confirm public API compatibility:
+      keep expected names/exports where required (backward-compatible wrappers are
+      acceptable (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-92
+    title: 'Validate focused slice for: Define scope for: Confirm public API compatibility:
+      keep expected names/exports where required (backward-compatible wrappers are
+      acceptable (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-93
+    title: 'Define scope for: Implement focused slice for: Confirm public API compatibility:
+      keep expected names/exports where required (backward-compatible wrappers are
+      acceptable (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-94
+    title: 'Implement focused slice for: Implement focused slice for: Confirm public
+      API compatibility: keep expected names/exports where required (backward-compatible
+      wrappers are acceptable (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-95
+    title: 'Validate focused slice for: Implement focused slice for: Confirm public
+      API compatibility: keep expected names/exports where required (backward-compatible
+      wrappers are acceptable (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-96
+    title: 'Define scope for: Validate focused slice for: Confirm public API compatibility:
+      keep expected names/exports where required (backward-compatible wrappers are
+      acceptable (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-97
+    title: 'Implement focused slice for: Validate focused slice for: Confirm public
+      API compatibility: keep expected names/exports where required (backward-compatible
+      wrappers are acceptable (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-98
+    title: 'Validate focused slice for: Validate focused slice for: Confirm public
+      API compatibility: keep expected names/exports where required (backward-compatible
+      wrappers are acceptable (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-99
+    title: 'but no runtime mutation). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-100
+    title: Inventory tests that rely on patching `trend_analysis.pipeline.*` symbols
+      expecting stages to reflect those patches.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-101
+    title: 'Define scope for: Define scope for: Define approach for: Inventory tests
+      that rely on patching `trend_analysis.pipeline.*` symbols expecting stages to
+      reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-102
+    title: 'Implement focused slice for: Define scope for: Define approach for: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-103
+    title: 'Validate focused slice for: Define scope for: Define approach for: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-104
+    title: 'Define scope for: Implement focused slice for: Define approach for: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-105
+    title: 'Implement focused slice for: Implement focused slice for: Define approach
+      for: Inventory tests that rely on patching `trend_analysis.pipeline.*` symbols
+      expecting stages to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-106
+    title: 'Validate focused slice for: Implement focused slice for: Define approach
+      for: Inventory tests that rely on patching `trend_analysis.pipeline.*` symbols
+      expecting stages to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-107
+    title: 'Define scope for: Validate focused slice for: Define approach for: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-108
+    title: 'Implement focused slice for: Validate focused slice for: Define approach
+      for: Inventory tests that rely on patching `trend_analysis.pipeline.*` symbols
+      expecting stages to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-109
+    title: 'Validate focused slice for: Validate focused slice for: Define approach
+      for: Inventory tests that rely on patching `trend_analysis.pipeline.*` symbols
+      expecting stages to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-110
+    title: 'Define scope for: Define scope for: Implement: Inventory tests that rely
+      on patching `trend_analysis.pipeline.*` symbols expecting stages to reflect
+      those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-111
+    title: 'Implement focused slice for: Define scope for: Implement: Inventory tests
+      that rely on patching `trend_analysis.pipeline.*` symbols expecting stages to
+      reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-112
+    title: 'Validate focused slice for: Define scope for: Implement: Inventory tests
+      that rely on patching `trend_analysis.pipeline.*` symbols expecting stages to
+      reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-113
+    title: 'Define scope for: Implement focused slice for: Implement: Inventory tests
+      that rely on patching `trend_analysis.pipeline.*` symbols expecting stages to
+      reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-114
+    title: 'Implement focused slice for: Implement focused slice for: Implement: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-115
+    title: 'Validate focused slice for: Implement focused slice for: Implement: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-116
+    title: 'Define scope for: Validate focused slice for: Implement: Inventory tests
+      that rely on patching `trend_analysis.pipeline.*` symbols expecting stages to
+      reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-117
+    title: 'Implement focused slice for: Validate focused slice for: Implement: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-118
+    title: 'Validate focused slice for: Validate focused slice for: Implement: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-119
+    title: 'Define scope for: Define scope for: Validate: Inventory tests that rely
+      on patching `trend_analysis.pipeline.*` symbols expecting stages to reflect
+      those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-120
+    title: 'Implement focused slice for: Define scope for: Validate: Inventory tests
+      that rely on patching `trend_analysis.pipeline.*` symbols expecting stages to
+      reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-121
+    title: 'Validate focused slice for: Define scope for: Validate: Inventory tests
+      that rely on patching `trend_analysis.pipeline.*` symbols expecting stages to
+      reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-122
+    title: 'Define scope for: Implement focused slice for: Validate: Inventory tests
+      that rely on patching `trend_analysis.pipeline.*` symbols expecting stages to
+      reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-123
+    title: 'Implement focused slice for: Implement focused slice for: Validate: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-124
+    title: 'Validate focused slice for: Implement focused slice for: Validate: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-125
+    title: 'Define scope for: Validate focused slice for: Validate: Inventory tests
+      that rely on patching `trend_analysis.pipeline.*` symbols expecting stages to
+      reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-126
+    title: 'Implement focused slice for: Validate focused slice for: Validate: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-127
+    title: 'Validate focused slice for: Validate focused slice for: Validate: Inventory
+      tests that rely on patching `trend_analysis.pipeline.*` symbols expecting stages
+      to reflect those patches. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-128
+    title: Update tests to patch the true implementation points (e.g., stage module
+      functions, `pipeline_runner`, `pipeline_helpers`) instead of relying on pipeline
+      global sync.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-129
+    title: 'Define scope for: Define scope for: Update tests to patch the true implementation
+      points (e.g. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-130
+    title: 'Implement focused slice for: Define scope for: Update tests to patch the
+      true implementation points (e.g. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-131
+    title: 'Validate focused slice for: Define scope for: Update tests to patch the
+      true implementation points (e.g. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-132
+    title: 'Define scope for: Implement focused slice for: Update tests to patch the
+      true implementation points (e.g. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-133
+    title: 'Implement focused slice for: Implement focused slice for: Update tests
+      to patch the true implementation points (e.g. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-134
+    title: 'Validate focused slice for: Implement focused slice for: Update tests
+      to patch the true implementation points (e.g. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-135
+    title: 'Define scope for: Validate focused slice for: Update tests to patch the
+      true implementation points (e.g. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-136
+    title: 'Implement focused slice for: Validate focused slice for: Update tests
+      to patch the true implementation points (e.g. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-137
+    title: 'Validate focused slice for: Validate focused slice for: Update tests to
+      patch the true implementation points (e.g. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-138
+    title: 'stage module functions (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-139
+    title: '`pipeline_runner` (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-140
+    title: 'Define scope for: Define scope for: `pipeline_helpers`) instead of relying
+      on pipeline global sync. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-141
+    title: 'Implement focused slice for: Define scope for: `pipeline_helpers`) instead
+      of relying on pipeline global sync. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-142
+    title: 'Validate focused slice for: Define scope for: `pipeline_helpers`) instead
+      of relying on pipeline global sync. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-143
+    title: 'Define scope for: Implement focused slice for: `pipeline_helpers`) instead
+      of relying on pipeline global sync. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-144
+    title: 'Implement focused slice for: Implement focused slice for: `pipeline_helpers`)
+      instead of relying on pipeline global sync. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-145
+    title: 'Validate focused slice for: Implement focused slice for: `pipeline_helpers`)
+      instead of relying on pipeline global sync. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-146
+    title: 'Define scope for: Validate focused slice for: `pipeline_helpers`) instead
+      of relying on pipeline global sync. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-147
+    title: 'Implement focused slice for: Validate focused slice for: `pipeline_helpers`)
+      instead of relying on pipeline global sync. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-148
+    title: 'Validate focused slice for: Validate focused slice for: `pipeline_helpers`)
+      instead of relying on pipeline global sync. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-149
+    title: Refactor `src/trend_analysis/pipeline.py` to call stage implementation
+      functions directly without `_call_with_sync`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-150
+    title: 'Define scope for: Define scope for: Define approach for: Refactor `src/trend_analysis/pipeline.py`
+      to call stage implementation functions directly without `_call_with_sync`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-151
+    title: 'Implement focused slice for: Define scope for: Define approach for: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-152
+    title: 'Validate focused slice for: Define scope for: Define approach for: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-153
+    title: 'Define scope for: Implement focused slice for: Define approach for: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-154
+    title: 'Implement focused slice for: Implement focused slice for: Define approach
+      for: Refactor `src/trend_analysis/pipeline.py` to call stage implementation
+      functions directly without `_call_with_sync`. (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-155
+    title: 'Validate focused slice for: Implement focused slice for: Define approach
+      for: Refactor `src/trend_analysis/pipeline.py` to call stage implementation
+      functions directly without `_call_with_sync`. (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-156
+    title: 'Define scope for: Validate focused slice for: Define approach for: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-157
+    title: 'Implement focused slice for: Validate focused slice for: Define approach
+      for: Refactor `src/trend_analysis/pipeline.py` to call stage implementation
+      functions directly without `_call_with_sync`. (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-158
+    title: 'Validate focused slice for: Validate focused slice for: Define approach
+      for: Refactor `src/trend_analysis/pipeline.py` to call stage implementation
+      functions directly without `_call_with_sync`. (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-159
+    title: 'Define scope for: Define scope for: Implement: Refactor `src/trend_analysis/pipeline.py`
+      to call stage implementation functions directly without `_call_with_sync`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-160
+    title: 'Implement focused slice for: Define scope for: Implement: Refactor `src/trend_analysis/pipeline.py`
+      to call stage implementation functions directly without `_call_with_sync`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-161
+    title: 'Validate focused slice for: Define scope for: Implement: Refactor `src/trend_analysis/pipeline.py`
+      to call stage implementation functions directly without `_call_with_sync`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-162
+    title: 'Define scope for: Implement focused slice for: Implement: Refactor `src/trend_analysis/pipeline.py`
+      to call stage implementation functions directly without `_call_with_sync`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-163
+    title: 'Implement focused slice for: Implement focused slice for: Implement: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-164
+    title: 'Validate focused slice for: Implement focused slice for: Implement: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-165
+    title: 'Define scope for: Validate focused slice for: Implement: Refactor `src/trend_analysis/pipeline.py`
+      to call stage implementation functions directly without `_call_with_sync`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-166
+    title: 'Implement focused slice for: Validate focused slice for: Implement: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-167
+    title: 'Validate focused slice for: Validate focused slice for: Implement: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-168
+    title: 'Define scope for: Define scope for: Validate: Refactor `src/trend_analysis/pipeline.py`
+      to call stage implementation functions directly without `_call_with_sync`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-169
+    title: 'Implement focused slice for: Define scope for: Validate: Refactor `src/trend_analysis/pipeline.py`
+      to call stage implementation functions directly without `_call_with_sync`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-170
+    title: 'Validate focused slice for: Define scope for: Validate: Refactor `src/trend_analysis/pipeline.py`
+      to call stage implementation functions directly without `_call_with_sync`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-171
+    title: 'Define scope for: Implement focused slice for: Validate: Refactor `src/trend_analysis/pipeline.py`
+      to call stage implementation functions directly without `_call_with_sync`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-172
+    title: 'Implement focused slice for: Implement focused slice for: Validate: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-173
+    title: 'Validate focused slice for: Implement focused slice for: Validate: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-174
+    title: 'Define scope for: Validate focused slice for: Validate: Refactor `src/trend_analysis/pipeline.py`
+      to call stage implementation functions directly without `_call_with_sync`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-175
+    title: 'Implement focused slice for: Validate focused slice for: Validate: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-176
+    title: 'Validate focused slice for: Validate focused slice for: Validate: Refactor
+      `src/trend_analysis/pipeline.py` to call stage implementation functions directly
+      without `_call_with_sync`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-177
+    title: Remove `_sync_stage_dependencies` and any related glue once tests no longer
+      depend on it.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-178
+    title: 'Remove `_sync_stage_dependencies` (verify: dependencies updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-179
+    title: 'Define scope for: Define scope for: any related glue once tests no longer
+      depend on it. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-180
+    title: 'Implement focused slice for: Define scope for: any related glue once tests
+      no longer depend on it. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-181
+    title: 'Validate focused slice for: Define scope for: any related glue once tests
+      no longer depend on it. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-182
+    title: 'Define scope for: Implement focused slice for: any related glue once tests
+      no longer depend on it. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-183
+    title: 'Implement focused slice for: Implement focused slice for: any related
+      glue once tests no longer depend on it. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-184
+    title: 'Validate focused slice for: Implement focused slice for: any related glue
+      once tests no longer depend on it. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-185
+    title: 'Define scope for: Validate focused slice for: any related glue once tests
+      no longer depend on it. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-186
+    title: 'Implement focused slice for: Validate focused slice for: any related glue
+      once tests no longer depend on it. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-187
+    title: 'Validate focused slice for: Validate focused slice for: any related glue
+      once tests no longer depend on it. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-188
+    title: 'Confirm public API compatibility: keep expected names/exports where required
+      (backward-compatible wrappers are acceptable, but no runtime mutation).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-189
+    title: 'Define scope for: Define scope for: Confirm public API compatibility:
+      keep expected names/exports where required (backward-compatible wrappers are
+      acceptable (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-190
+    title: 'Implement focused slice for: Define scope for: Confirm public API compatibility:
+      keep expected names/exports where required (backward-compatible wrappers are
+      acceptable (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-191
+    title: 'Validate focused slice for: Define scope for: Confirm public API compatibility:
+      keep expected names/exports where required (backward-compatible wrappers are
+      acceptable (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-192
+    title: 'Define scope for: Implement focused slice for: Confirm public API compatibility:
+      keep expected names/exports where required (backward-compatible wrappers are
+      acceptable (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-193
+    title: 'Implement focused slice for: Implement focused slice for: Confirm public
+      API compatibility: keep expected names/exports where required (backward-compatible
+      wrappers are acceptable (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-194
+    title: 'Validate focused slice for: Implement focused slice for: Confirm public
+      API compatibility: keep expected names/exports where required (backward-compatible
+      wrappers are acceptable (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-195
+    title: 'Define scope for: Validate focused slice for: Confirm public API compatibility:
+      keep expected names/exports where required (backward-compatible wrappers are
+      acceptable (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-196
+    title: 'Implement focused slice for: Validate focused slice for: Confirm public
+      API compatibility: keep expected names/exports where required (backward-compatible
+      wrappers are acceptable (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-197
+    title: 'Validate focused slice for: Validate focused slice for: Confirm public
+      API compatibility: keep expected names/exports where required (backward-compatible
+      wrappers are acceptable (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-198
+    title: 'but no runtime mutation). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-199
+    title: Pipeline no longer mutates stage module globals during execution.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-200
+    title: All existing tests pass after patch-point updates.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-201
+    title: Pipeline behavior (outputs/diagnostics) remains unchanged.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-202
+    title: Pipeline no longer mutates stage module globals during execution.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-203
+    title: All existing tests pass after patch-point updates.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-204
+    title: Pipeline behavior (outputs/diagnostics) remains unchanged.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
