@@ -50,8 +50,8 @@ from trend_analysis.data import load_csv
 from trend_analysis.llm import (
     ConfigPatchChain,
     LLMProviderConfig,
-    ResultSummaryChain,
     ResultClaimIssue,
+    ResultSummaryChain,
     build_config_patch_prompt,
     build_result_summary_prompt,
     compact_metric_catalog,
