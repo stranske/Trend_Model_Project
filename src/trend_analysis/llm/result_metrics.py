@@ -233,21 +233,35 @@ def compact_metric_catalog(
         [
             single_stats_paths,
             benchmark_paths,
-            other_paths,
             selected_weight_paths,
             fund_stats_paths,
+            other_paths,
         ],
     )
     if resolved_max_entries is not None and resolved_max_entries > 0:
-        selected_entries = selected_entries[:resolved_max_entries]
+        selected_entries = _apply_entry_cap(
+            selected_entries,
+            resolved_max_entries,
+            single_stats_paths=single_stats_paths,
+            weight_entries=selected_weight_entries,
+        )
     return selected_entries
 
 
 def format_metric_catalog(entries: Iterable[MetricEntry]) -> str:
     """Render metric entries into a readable catalog string."""
 
-    lines = [f"{entry.path}: {entry.value} [from {entry.source or 'unknown'}]" for entry in entries]
+    lines = [
+        f"{entry.path}: {_format_metric_value(entry.value)} [from {entry.source or 'unknown'}]"
+        for entry in entries
+    ]
     return "\n".join(lines).strip()
+
+
+def _format_metric_value(value: float | int | str) -> str:
+    if isinstance(value, str):
+        return " ".join(value.splitlines()).strip()
+    return str(value)
 
 
 def available_metric_keywords(entries: Iterable[MetricEntry]) -> set[str]:
@@ -518,6 +532,52 @@ def _collect_entries_in_priority_order(
             if entry.path in path_set and entry.path not in added:
                 added.add(entry.path)
                 selected.append(entry)
+    return selected
+
+
+def _apply_entry_cap(
+    entries: Iterable[MetricEntry],
+    max_entries: int,
+    *,
+    single_stats_paths: set[str],
+    weight_entries: Iterable[MetricEntry],
+) -> list[MetricEntry]:
+    if max_entries <= 0:
+        return []
+    selected = list(entries)
+    if len(selected) <= max_entries:
+        return selected
+
+    selected = selected[:max_entries]
+    weight_entries_list = list(weight_entries)
+    if not weight_entries_list:
+        return selected
+
+    weight_paths = {entry.path for entry in weight_entries_list}
+    selected_paths = {entry.path for entry in selected}
+    if weight_paths.issubset(selected_paths):
+        return selected
+
+    single_count = sum(1 for entry in selected if entry.path in single_stats_paths)
+    for weight_entry in weight_entries_list:
+        if weight_entry.path in selected_paths:
+            continue
+        remove_idx = None
+        for idx in range(len(selected) - 1, -1, -1):
+            path = selected[idx].path
+            if path in weight_paths:
+                continue
+            if path in single_stats_paths and single_count <= 1:
+                continue
+            remove_idx = idx
+            break
+        if remove_idx is None:
+            break
+        removed = selected.pop(remove_idx)
+        if removed.path in single_stats_paths:
+            single_count -= 1
+        selected.append(weight_entry)
+        selected_paths.add(weight_entry.path)
     return selected
 
 

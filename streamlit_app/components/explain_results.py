@@ -104,6 +104,11 @@ def _resolve_llm_provider_config(provider: str | None = None) -> LLMProviderConf
             api_key = os.environ.get("OPENAI_API_KEY")
         elif provider_name == "anthropic":
             api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if provider_name in {"openai", "anthropic"} and not api_key:
+        env_hint = "OPENAI_API_KEY" if provider_name == "openai" else "ANTHROPIC_API_KEY"
+        raise ValueError(
+            f"Missing API key for {provider_name}. " f"Set TREND_LLM_API_KEY or {env_hint}."
+        )
     model = os.environ.get("TREND_LLM_MODEL")
     base_url = os.environ.get("TREND_LLM_BASE_URL")
     organization = os.environ.get("TREND_LLM_ORG")
@@ -136,10 +141,10 @@ def generate_result_explanation(
     provider: str | None = None,
 ) -> ExplanationResult:
     created_at = datetime.now(timezone.utc).isoformat()
-    entries = extract_metric_catalog(details)
-    entries = compact_metric_catalog(entries, questions=questions)
-    metric_catalog = format_metric_catalog(entries)
-    if not entries:
+    all_entries = extract_metric_catalog(details)
+    compacted_entries = compact_metric_catalog(all_entries, questions=questions)
+    metric_catalog = format_metric_catalog(compacted_entries)
+    if not all_entries:
         text = ensure_result_disclaimer("No metrics were detected in the analysis output.")
         return ExplanationResult(
             text=text,
@@ -156,14 +161,14 @@ def generate_result_explanation(
         metric_catalog=metric_catalog,
         questions=_format_questions(questions),
         request_id=uuid4().hex,
-        metric_entries=entries,
+        metric_entries=all_entries,
     )
-    text, claim_issues = postprocess_result_text(response.text, entries)
+    text, claim_issues = postprocess_result_text(response.text, all_entries)
     return ExplanationResult(
         text=text,
         trace_url=response.trace_url,
         claim_issues=claim_issues,
-        metric_count=len(entries),
+        metric_count=len(compacted_entries),
         created_at=created_at,
     )
 

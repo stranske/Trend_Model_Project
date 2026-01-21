@@ -6,6 +6,7 @@ import hashlib
 import importlib
 import sys
 from dataclasses import dataclass
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -97,3 +98,44 @@ def test_resolve_explanation_run_id_prefers_details(explain_module) -> None:
     details = {}
     expected = hashlib.sha256(run_key.encode("utf-8")).hexdigest()[:12]
     assert explain_module._resolve_explanation_run_id(details, run_key) == expected
+
+
+def test_resolve_llm_provider_config_requires_api_key(
+    explain_module, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("TREND_LLM_PROVIDER", "openai")
+    monkeypatch.delenv("TREND_LLM_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    with pytest.raises(ValueError, match="Missing API key.*OPENAI_API_KEY"):
+        explain_module._resolve_llm_provider_config()
+
+
+def test_render_explain_results_uses_cached_result(explain_module) -> None:
+    st_stub = sys.modules["streamlit"]
+    st_stub.button.return_value = False
+
+    col_one = MagicMock()
+    col_one.__enter__.return_value = col_one
+    col_one.__exit__.return_value = False
+    col_two = MagicMock()
+    col_two.__enter__.return_value = col_two
+    col_two.__exit__.return_value = False
+    st_stub.columns.return_value = [col_one, col_two]
+
+    run_key = "run:cached"
+    cached = explain_module.ExplanationResult(
+        text="Cached output",
+        trace_url=None,
+        claim_issues=[],
+        metric_count=1,
+        created_at="2024-01-01T00:00:00+00:00",
+    )
+    st_stub.session_state[explain_module._CACHE_KEY] = {run_key: cached}
+
+    details = {"run_id": "run-001"}
+    result = SimpleNamespace(details=details)
+
+    explain_module.render_explain_results(result, run_key=run_key)
+
+    st_stub.markdown.assert_any_call("Cached output")

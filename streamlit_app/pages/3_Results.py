@@ -71,7 +71,8 @@ def _analysis_error_messages(error: Exception) -> tuple[str, str | None]:
 
 def _diagnostic_message(result: Any) -> tuple[str | None, str | None]:
     """Extract a human-readable failure message from a RunResult-like object."""
-    details = getattr(result, "details", {}) or {}
+    raw_details = getattr(result, "details", None)
+    details = raw_details if isinstance(raw_details, dict) else {}
     diag = getattr(result, "diagnostic", None)
 
     if isinstance(details, dict) and details.get("error"):
