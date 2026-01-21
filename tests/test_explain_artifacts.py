@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from trend.cli import _build_explain_artifact_payload, _resolve_explain_output_paths, _write_explain_artifacts
+from trend.cli import (
+    _build_explain_artifact_payload,
+    _resolve_explain_output_paths,
+    _write_explain_artifacts,
+)
 from trend_analysis.llm.result_validation import ResultClaimIssue, serialize_claim_issue
 
 
