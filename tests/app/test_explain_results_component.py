@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib
+import json
 import sys
 from dataclasses import dataclass
 from types import SimpleNamespace
@@ -11,7 +12,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from trend_analysis.llm import ResultSummaryResponse
+from trend_analysis.llm import ResultClaimIssue, ResultSummaryResponse
 
 
 @dataclass
@@ -139,6 +140,50 @@ def test_render_explain_results_uses_cached_result(explain_module) -> None:
     explain_module.render_explain_results(result, run_key=run_key)
 
     st_stub.markdown.assert_any_call("Cached output")
+
+
+def test_render_explain_results_downloads_include_json_payload(explain_module) -> None:
+    st_stub = sys.modules["streamlit"]
+    st_stub.button.return_value = False
+
+    col_one = MagicMock()
+    col_one.__enter__.return_value = col_one
+    col_one.__exit__.return_value = False
+    col_two = MagicMock()
+    col_two.__enter__.return_value = col_two
+    col_two.__exit__.return_value = False
+    st_stub.columns.return_value = [col_one, col_two]
+
+    run_key = "run:cached"
+    issue = ResultClaimIssue(
+        kind="missing_citation",
+        message="Missing citation",
+        detail={"source": "out_sample_stats"},
+    )
+    cached = explain_module.ExplanationResult(
+        text="Cached output",
+        trace_url="trace://example",
+        claim_issues=[issue],
+        metric_count=2,
+        created_at="2024-01-01T00:00:00+00:00",
+    )
+    st_stub.session_state[explain_module._CACHE_KEY] = {run_key: cached}
+
+    details = {"run_id": "run-001"}
+    result = SimpleNamespace(details=details)
+
+    explain_module.render_explain_results(result, run_key=run_key)
+
+    calls = st_stub.download_button.call_args_list
+    assert len(calls) == 2
+    json_call = next(
+        call for call in calls if call.kwargs.get("file_name") == "explanation_run-001.json"
+    )
+    payload = json.loads(json_call.kwargs["data"])
+    assert payload["run_id"] == "run-001"
+    assert payload["trace_url"] == "trace://example"
+    assert payload["metric_count"] == 2
+    assert payload["claim_issues"][0]["kind"] == "missing_citation"
 
 
 def test_render_explain_results_handles_missing_details(explain_module) -> None:
