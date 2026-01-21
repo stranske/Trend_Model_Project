@@ -19,7 +19,7 @@ def test_collect_patch_hits_detects_monkeypatch_alias(tmp_path: Path) -> None:
                 "import trend_analysis.pipeline as pipeline",
                 "",
                 "def test_case(monkeypatch):",
-                "    monkeypatch.setattr(pipeline, \"load_csv\", lambda *a, **k: None)",
+                '    monkeypatch.setattr(pipeline, "load_csv", lambda *a, **k: None)',
             ]
         ),
     )
@@ -39,7 +39,7 @@ def test_collect_patch_hits_detects_trend_package_attr(tmp_path: Path) -> None:
                 "import trend_analysis",
                 "",
                 "def test_case(monkeypatch):",
-                "    monkeypatch.setattr(trend_analysis.pipeline, \"load_csv\", lambda: None)",
+                '    monkeypatch.setattr(trend_analysis.pipeline, "load_csv", lambda: None)',
             ]
         ),
     )
@@ -58,10 +58,10 @@ def test_collect_patch_hits_detects_dynamic_import_alias(tmp_path: Path) -> None
             [
                 "import importlib",
                 "",
-                "pipeline = importlib.import_module(\"trend_analysis.pipeline\")",
+                'pipeline = importlib.import_module("trend_analysis.pipeline")',
                 "",
                 "def test_case(monkeypatch):",
-                "    monkeypatch.setattr(pipeline, \"load_csv\", lambda: None)",
+                '    monkeypatch.setattr(pipeline, "load_csv", lambda: None)',
             ]
         ),
     )
@@ -81,7 +81,7 @@ def test_collect_patch_hits_detects_patch_string(tmp_path: Path) -> None:
                 "from unittest.mock import patch",
                 "",
                 "def test_case():",
-                "    with patch(\"trend_analysis.pipeline.load_csv\"):",
+                '    with patch("trend_analysis.pipeline.load_csv"):',
                 "        pass",
             ]
         ),
