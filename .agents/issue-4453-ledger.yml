@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: 'Update `src/trend_analysis/stages/selection.py` fallback gating to: `fallback_enabled
       = (allow_risk_free_fallback is True)`.'
-    status: doing
+    status: done
     started_at: '2026-01-21T07:19:34Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-21T07:19:41Z'
+    commit: 4e215687684e9f910cafb2975b1d9ebd38fadba8
     notes: []
   - id: task-02
     title: "Remove or rewrite the \u201CBREAKING CHANGE\u201D comment/warning to reflect\
