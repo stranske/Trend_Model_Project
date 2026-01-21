@@ -91,9 +91,7 @@ def _format_questions(raw: str | None) -> str:
 
 
 def _resolve_llm_provider_config(provider: str | None = None) -> LLMProviderConfig:
-    provider_name = (
-        provider or os.environ.get("TREND_LLM_PROVIDER") or "openai"
-    ).lower()
+    provider_name = (provider or os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
     supported = {"openai", "anthropic", "ollama"}
     if provider_name not in supported:
         raise ValueError(
@@ -142,9 +140,7 @@ def generate_result_explanation(
     entries = compact_metric_catalog(entries, questions=questions)
     metric_catalog = format_metric_catalog(entries)
     if not entries:
-        text = ensure_result_disclaimer(
-            "No metrics were detected in the analysis output."
-        )
+        text = ensure_result_disclaimer("No metrics were detected in the analysis output.")
         return ExplanationResult(
             text=text,
             trace_url=None,
