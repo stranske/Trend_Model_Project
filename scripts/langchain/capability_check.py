@@ -3,7 +3,8 @@
 Capability classification for agent issue intake.
 
 Run with:
-    python scripts/langchain/capability_check.py --tasks-file tasks.md --acceptance-file acceptance.md
+    python scripts/langchain/capability_check.py \
+        --tasks-file tasks.md --acceptance-file acceptance.md
 """
 
 from __future__ import annotations
@@ -176,7 +177,7 @@ def _is_multi_action_task(task: str) -> bool:
         return True
     if any(sep in lowered for sep in (" and ", " + ", " & ", " then ", "; ")):
         return True
-    return bool("," in task or "/" in task or re.search(r"\s\+\s", lowered))
+    return bool("," in task or " / " in task or re.search(r"\s\+\s", lowered))
 
 
 def _requires_admin_access(task: str) -> bool:
@@ -217,7 +218,7 @@ def _requires_external_dependency(task: str) -> bool:
 
 
 def _fallback_classify(
-    tasks: list[str], acceptance: str, reason: str | None
+    tasks: list[str], _acceptance: str, reason: str | None
 ) -> CapabilityCheckResult:
     actionable: list[str] = []
     partial: list[dict[str, str]] = []
@@ -240,7 +241,9 @@ def _fallback_classify(
                 {
                     "task": task,
                     "reason": "Requires external service credentials or configuration",
-                    "suggested_action": "Provide credentials or have a human set up the external service.",
+                    "suggested_action": (
+                        "Provide credentials or have a human set up " "the external service."
+                    ),
                 }
             )
             human_actions.append(f"External dependency setup required: {task}")
