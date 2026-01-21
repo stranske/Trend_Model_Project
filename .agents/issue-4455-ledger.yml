@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Add `compact_metric_catalog(...)` helper in `src/trend_analysis/llm/result_metrics.py`
       that selects a bounded subset of `MetricEntry` objects.
-    status: doing
+    status: done
     started_at: '2026-01-21T15:48:16Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-21T15:48:25Z'
+    commit: 30837e49d6dcbea6f145de119634ceb9b3ba2b8f
     notes: []
   - id: task-02
     title: Always include `_SINGLE_STATS_SECTIONS` entries (e.g., `out_user_stats`,
