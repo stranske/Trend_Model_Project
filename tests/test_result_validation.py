@@ -121,6 +121,22 @@ def test_validate_result_claims_ignores_year_only_range() -> None:
     assert not any(issue.kind == "uncited_value" for issue in issues)
 
 
+def test_validate_result_claims_ignores_short_year_range() -> None:
+    text = "Coverage runs from 2023-24."
+
+    issues = validate_result_claims(text, [])
+
+    assert not any(issue.kind == "uncited_value" for issue in issues)
+
+
+def test_validate_result_claims_ignores_short_year_range_with_slash() -> None:
+    text = "Coverage runs from 2023/24."
+
+    issues = validate_result_claims(text, [])
+
+    assert not any(issue.kind == "uncited_value" for issue in issues)
+
+
 def test_validate_result_claims_ignores_slash_dates() -> None:
     text = "Coverage runs from 01/15/2023 to 12/31/2023."
 
@@ -154,6 +170,22 @@ def test_validate_result_claims_still_flags_uncited_non_dates() -> None:
         )
     ]
     text = "Period 2023-01 to 2024-12. CAGR was 8%."
+
+    issues = validate_result_claims(text, entries)
+    uncited_values = [issue.detail["value"] for issue in issues if issue.kind == "uncited_value"]
+
+    assert uncited_values == ["8%"]
+
+
+def test_validate_result_claims_flags_uncited_metric_with_short_year_range() -> None:
+    entries = [
+        MetricEntry(
+            path="out_sample_stats.portfolio.cagr",
+            value=0.08,
+            source="out_sample_stats",
+        )
+    ]
+    text = "Coverage runs from 2023-24. CAGR was 8%."
 
     issues = validate_result_claims(text, entries)
     uncited_values = [issue.detail["value"] for issue in issues if issue.kind == "uncited_value"]
