@@ -49,6 +49,7 @@ _RISK_DIAGNOSTICS_FIELDS = (
     "half_spread_bps",
 )
 _TURNOVER_SUMMARY_SOURCE = "turnover_series"
+_TURNOVER_SCALAR_SOURCE = "turnover_scalar"
 _MAX_FUNDS_ENV = "TREND_EXPLAIN_MAX_FUNDS"
 _MAX_WEIGHTS_ENV = "TREND_EXPLAIN_MAX_WEIGHTS"
 _MAX_ENTRIES_ENV = "TREND_EXPLAIN_MAX_ENTRIES"
@@ -378,7 +379,8 @@ def _extract_turnover_series_entries(result: Mapping[str, Any]) -> list[MetricEn
             turnover_obj = details.get("turnover")
     series = _coerce_series(turnover_obj)
     if series is None or series.empty:
-        return []
+        entry = _make_entry("turnover.value", turnover_obj, _TURNOVER_SCALAR_SOURCE)
+        return [entry] if entry is not None else []
     series = series.dropna()
     if series.empty:
         return []
