@@ -175,19 +175,26 @@ def compact_metric_catalog(
     question_text = _normalize_text(questions or "")
 
     single_stats_paths = {
-        entry.path for entry in entries_list if _matches_section(entry.path, _SINGLE_STATS_SECTIONS)
+        entry.path
+        for entry in entries_list
+        if _matches_section(entry.path, _SINGLE_STATS_SECTIONS)
     }
     benchmark_paths = {
         entry.path
         for entry in entries_list
-        if entry.source == _BENCHMARK_SECTION or entry.path.startswith(f"{_BENCHMARK_SECTION}.")
+        if entry.source == _BENCHMARK_SECTION
+        or entry.path.startswith(f"{_BENCHMARK_SECTION}.")
     }
 
     fund_weight_entries = [
-        entry for entry in entries_list if entry.path.startswith(f"{_WEIGHT_SECTIONS[0]}.")
+        entry
+        for entry in entries_list
+        if entry.path.startswith(f"{_WEIGHT_SECTIONS[0]}.")
     ]
     ew_weight_entries = [
-        entry for entry in entries_list if entry.path.startswith(f"{_WEIGHT_SECTIONS[1]}.")
+        entry
+        for entry in entries_list
+        if entry.path.startswith(f"{_WEIGHT_SECTIONS[1]}.")
     ]
     weight_entries = fund_weight_entries if fund_weight_entries else ew_weight_entries
     selected_weight_entries = _select_top_weight_entries(
@@ -206,6 +213,10 @@ def compact_metric_catalog(
         selected_weight_funds,
         resolved_max_funds,
     )
+    if not selected_funds:
+        selected_funds = sorted(fund_names)
+        if resolved_max_funds > 0:
+            selected_funds = selected_funds[:resolved_max_funds]
     selected_fund_set = set(selected_funds)
 
     fund_stats_paths = {
@@ -284,12 +295,16 @@ def _stats_to_mapping(stats: Any) -> dict[str, Any]:
         if len(stats) >= len(_BASE_STATS_FIELDS):
             return {
                 field: value
-                for field, value in zip(_BASE_STATS_FIELDS, stats[: len(_BASE_STATS_FIELDS)])
+                for field, value in zip(
+                    _BASE_STATS_FIELDS, stats[: len(_BASE_STATS_FIELDS)]
+                )
             }
         return {}
 
     if hasattr(stats, "__dict__"):
-        data = {key: getattr(stats, key) for key in _ALL_STATS_FIELDS if hasattr(stats, key)}
+        data = {
+            key: getattr(stats, key) for key in _ALL_STATS_FIELDS if hasattr(stats, key)
+        }
         return data
 
     return {}
@@ -377,7 +392,9 @@ def _extract_turnover_series_entries(result: Mapping[str, Any]) -> list[MetricEn
     latest = float(series.iloc[-1])
     mean = float(series.mean())
     return [
-        MetricEntry(path="turnover.latest", value=latest, source=_TURNOVER_SUMMARY_SOURCE),
+        MetricEntry(
+            path="turnover.latest", value=latest, source=_TURNOVER_SUMMARY_SOURCE
+        ),
         MetricEntry(path="turnover.mean", value=mean, source=_TURNOVER_SUMMARY_SOURCE),
     ]
 
@@ -468,10 +485,10 @@ def _merge_fund_sets(
         if fund and fund not in seen:
             seen.add(fund)
             selected.append(fund)
-    for fund in weight_funds:
-        if fund and fund not in seen:
-            seen.add(fund)
-            selected.append(fund)
+    for weight_fund in weight_funds:
+        if weight_fund and weight_fund not in seen:
+            seen.add(weight_fund)
+            selected.append(weight_fund)
     if max_funds > 0:
         return selected[:max_funds]
     return selected
