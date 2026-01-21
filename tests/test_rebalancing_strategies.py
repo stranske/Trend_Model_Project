@@ -70,6 +70,18 @@ def test_periodic_rebalance_interval():
     assert c2 == 0
 
 
+def test_periodic_rebalance_retains_target_assets_between_intervals():
+    strat = PeriodicRebalanceStrategy({"interval": 3})
+    current = pd.Series({"A": 0.6, "B": 0.4})
+    target = pd.Series({"A": 0.5, "B": 0.4, "C": 0.1})
+
+    held, cost = strat.apply(current, target)
+
+    expected = current.reindex(current.index.union(target.index), fill_value=0.0)
+    pd.testing.assert_series_equal(held.sort_index(), expected.sort_index())
+    assert cost == 0
+
+
 def _assert_cash_policy_effects(
     strategy: strat_mod.RebalancingStrategy,
     current: pd.Series,
