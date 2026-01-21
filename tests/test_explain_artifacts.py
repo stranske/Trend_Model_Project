@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 
 from trend.cli import (
@@ -77,7 +78,14 @@ def test_build_explain_artifact_payload_serializes_claims() -> None:
 
 def test_write_explain_artifacts_creates_files(tmp_path) -> None:
     output = tmp_path / "artifacts"
-    payload = {"run_id": "run-321"}
+    payload = _build_explain_artifact_payload(
+        run_id="run-321",
+        created_at=datetime(2024, 2, 1, tzinfo=timezone.utc),
+        text="Rendered explanation",
+        metric_count=3,
+        trace_url="trace://unit-test",
+        claim_issues=[],
+    )
 
     txt_path, json_path = _write_explain_artifacts(
         output=output,
@@ -87,7 +95,13 @@ def test_write_explain_artifacts_creates_files(tmp_path) -> None:
     )
 
     assert txt_path.read_text(encoding="utf-8") == "Rendered explanation"
-    assert json_path.read_text(encoding="utf-8") == '{\n  "run_id": "run-321"\n}'
+    json_payload = json.loads(json_path.read_text(encoding="utf-8"))
+    assert json_payload["run_id"] == "run-321"
+    assert json_payload["created_at"] == "2024-02-01T00:00:00+00:00"
+    assert json_payload["text"] == "Rendered explanation"
+    assert json_payload["metric_count"] == 3
+    assert json_payload["trace_url"] == "trace://unit-test"
+    assert json_payload["claim_issues"] == []
 
 
 def test_finalize_explanation_text_adds_discrepancy_log_and_disclaimer() -> None:
