@@ -184,9 +184,10 @@ def apply_constraints(
 ) -> pd.Series:
     """Project ``weights`` onto the feasible region defined by
     ``constraints``. When ``cash_weight`` is provided, a CASH carve-out is
-    applied before caps/group redistribution and revalidated afterward to
-    guard against constraint objects that mutate between passes."""
+    applied before caps/group redistribution and revalidated afterward for
+    non-dataclass constraint objects that might mutate between passes."""
 
+    revalidate_cash_weight = not isinstance(constraints, (ConstraintSet, Mapping))
     if isinstance(constraints, Mapping) and not isinstance(constraints, ConstraintSet):
         constraints = ConstraintSet(**constraints)
 
@@ -244,8 +245,7 @@ def apply_constraints(
     else:
         w = working
 
-    # cash_weight processing (fixed slice). We treat a dedicated 'CASH' label.
-    if constraints.cash_weight is not None:
+    if revalidate_cash_weight and constraints.cash_weight is not None:
         cash_weight = float(constraints.cash_weight)
         w = _apply_cash_weight(w, cash_weight, constraints.max_weight)
 

@@ -289,10 +289,10 @@ def test_apply_cash_weight_allows_none_max_weight() -> None:
     assert pytest.approx(adjusted.loc["CASH"], rel=1e-9) == 0.2
 
 
-def test_apply_constraints_cash_weight_two_passes_match(
+def test_apply_constraints_cash_weight_single_pass_matches(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Both cash passes should be idempotent for stable constraints."""
+    """Cash processing should run once for stable constraints."""
 
     weights = pd.Series({"A": 0.7, "B": 0.3})
     constraints = ConstraintSet(cash_weight=0.2, max_weight=0.6)
@@ -314,8 +314,7 @@ def test_apply_constraints_cash_weight_two_passes_match(
     finally:
         monkeypatch.setattr(optimizer_mod, "_apply_cash_weight", original_helper, raising=False)
 
-    assert len(helper_calls) == 2
-    pd.testing.assert_series_equal(helper_calls[0], helper_calls[1])
+    assert len(helper_calls) == 1
     pd.testing.assert_series_equal(out, helper_calls[-1])
 
 
