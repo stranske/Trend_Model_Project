@@ -31,7 +31,7 @@ Return the sub-tasks as a markdown bullet list.
 
 PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "decompose_task.md"
 
-LIST_ITEM_REGEX = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+(.*)$")
+LIST_ITEM_REGEX = re.compile(r"^\s*(?:[-*+]|\d+[.)]|[A-Za-z][.)])\s+(.*)$")
 DEPENDENCY_PHRASE_REGEX = re.compile(
     r"\b(depends on|blocked by|waiting for|post-merge|"
     r"(?:after|once|when)\b[^,]*\bmerge\b|requires\b[^.]*\bmerge\b)\b",
@@ -63,6 +63,14 @@ LARGE_TASK_PREFIXES = (
     "scope ",
     "outline ",
     "plan ",
+)
+
+# Prefixes that indicate already-expanded tasks (never re-expand these)
+EXPANSION_PREFIXES = (
+    "define scope for:",
+    "implement focused slice for:",
+    "validate focused slice for:",
+    "define approach for:",
 )
 MAX_CHILD_TITLE_LEN = 96
 
@@ -158,6 +166,24 @@ def _parse_subtasks(text: str) -> list[str]:
 
 
 def _split_task_parts(task: str) -> list[str]:
+    # Handle parenthesized lists intelligently: "Add stats (mean, p50, p90)" becomes
+    # ["Add stats for mean", "Add stats for p50", "Add stats for p90"]
+    # NOT garbage like ["Add stats (mean", "p50", "p90)"]
+    paren_match = re.match(r"^(.+?)\s*\(([^)]+)\)\s*$", task)
+    if paren_match:
+        base = paren_match.group(1).strip()
+        paren_content = paren_match.group(2).strip()
+        # Check if parentheses contain a comma-separated list
+        if ", " in paren_content or " and " in paren_content:
+            items = [
+                item.strip()
+                for item in re.split(r"\s*,\s*|\s+and\s+", paren_content)
+                if item.strip()
+            ]
+            if len(items) > 1:
+                # Create meaningful sub-tasks: "Add stats for mean", "Add stats for p50", etc.
+                return [f"{base} for {item}" for item in items]
+
     for marker in (" with ", " including "):
         if marker in task:
             base, suffix = task.split(marker, 1)
@@ -191,6 +217,9 @@ def _word_count(text: str) -> int:
 
 def _is_large_task(task: str) -> bool:
     lowered = task.lower().strip()
+    # Never re-expand already-expanded tasks (prevents recursive explosion)
+    if _is_already_expanded(task):
+        return False
     has_large_keyword = any(keyword in lowered for keyword in LARGE_TASK_KEYWORDS)
     if lowered.startswith(LARGE_TASK_PREFIXES):
         return has_large_keyword or _word_count(task) > MAX_SUBTASK_WORDS
@@ -206,7 +235,21 @@ def _should_decompose(task: str) -> bool:
     return _is_large_task(task)
 
 
+def _is_already_expanded(task: str) -> bool:
+    """Check if task already has expansion prefix (prevent recursion)."""
+    lowered = task.lower().strip()
+    return any(lowered.startswith(prefix) for prefix in EXPANSION_PREFIXES)
+
+
 def _expand_large_task(task: str) -> list[str]:
+    """Expand a large task into scope/implement/validate sub-tasks.
+
+    Returns the original task unchanged if it already has expansion prefix
+    to prevent recursive expansion (which caused issue #873, #4191).
+    """
+    # Guard against recursive expansion
+    if _is_already_expanded(task):
+        return [task]
     return [
         f"Define scope for: {task}",
         f"Implement focused slice for: {task}",
