@@ -7,10 +7,10 @@ tasks:
     title: Add a helper in `src/trend_analysis/llm/result_validation.py` to detect
       date-like numeric spans (e.g., numbers that appear within YYYY-MM or YYYY-MM-DD
       patterns).
-    status: doing
+    status: done
     started_at: '2026-01-21T16:23:54Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-21T16:24:04Z'
+    commit: f596f0e2b06834c18e7d0d33f0dec68210eb69c3
     notes: []
   - id: task-02
     title: Update `validate_result_claims()` so date-like numbers do not generate
