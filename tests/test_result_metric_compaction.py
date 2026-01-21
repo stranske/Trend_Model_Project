@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from trend_analysis.llm.result_metrics import (
+    MetricEntry,
     compact_metric_catalog,
     extract_metric_catalog,
     format_metric_catalog,
@@ -97,3 +98,16 @@ def test_compact_metric_catalog_bounds_formatted_lines() -> None:
     assert len(lines) <= 20
     assert "fund_weights.Fund0" in metric_catalog
     assert "fund_weights.Fund1" in metric_catalog
+
+
+def test_format_metric_catalog_sanitizes_multiline_values() -> None:
+    entries = [
+        MetricEntry(path="notes.detail", value="line1\nline2", source="details"),
+        MetricEntry(path="out_ew_stats.cagr", value=0.05, source="out_ew_stats"),
+    ]
+
+    metric_catalog = format_metric_catalog(entries)
+    lines = [line for line in metric_catalog.splitlines() if line.strip()]
+
+    assert len(lines) == 2
+    assert "line1 line2" in metric_catalog

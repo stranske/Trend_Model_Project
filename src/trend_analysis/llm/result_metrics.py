@@ -246,8 +246,17 @@ def compact_metric_catalog(
 def format_metric_catalog(entries: Iterable[MetricEntry]) -> str:
     """Render metric entries into a readable catalog string."""
 
-    lines = [f"{entry.path}: {entry.value} [from {entry.source or 'unknown'}]" for entry in entries]
+    lines = [
+        f"{entry.path}: {_format_metric_value(entry.value)} [from {entry.source or 'unknown'}]"
+        for entry in entries
+    ]
     return "\n".join(lines).strip()
+
+
+def _format_metric_value(value: float | int | str) -> str:
+    if isinstance(value, str):
+        return " ".join(value.splitlines()).strip()
+    return str(value)
 
 
 def available_metric_keywords(entries: Iterable[MetricEntry]) -> set[str]:
