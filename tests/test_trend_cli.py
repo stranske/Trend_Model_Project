@@ -90,6 +90,23 @@ def test_build_parser_contains_expected_subcommands() -> None:
         assert getattr(args, "subcommand", None) == subcommand
 
 
+def test_explain_parser_accepts_output_option(tmp_path: Path) -> None:
+    parser = build_parser()
+
+    output_path = tmp_path / "explanations"
+    args = parser.parse_args(
+        [
+            "explain",
+            "--details",
+            "details_run.json",
+            "--output",
+            str(output_path),
+        ]
+    )
+
+    assert args.output == output_path
+
+
 def test_legacy_callable_returns_fallback_when_module_missing(monkeypatch) -> None:
     monkeypatch.setattr(cli, "_legacy_cli_module", None)
     monkeypatch.setattr(cli, "_refresh_legacy_cli_module", lambda: None)

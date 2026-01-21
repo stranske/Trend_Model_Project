@@ -1,0 +1,177 @@
+version: 1
+issue: 4458
+base: main
+branch: codex/issue-4458
+tasks:
+  - id: task-01
+    title: Add `--output` (directory or file prefix) option to the `trend explain`
+      subcommand in `src/trend/cli.py`.
+    status: done
+    started_at: '2026-01-21T20:14:31Z'
+    finished_at: '2026-01-21T20:14:38Z'
+    commit: 55b550b179197783b86886371b443b0aee2134a0
+    notes: []
+  - id: task-02
+    title: Implement writing `explanation_<run-id>.txt` containing the final rendered
+      text (including discrepancy log + disclaimer).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Implement writing `explanation_<run-id>.json` containing `{ run_id, created_at,
+      text, metric_count, trace_url, claim_issues }`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Add a helper to serialize `ResultClaimIssue` objects into JSON-friendly
+      dicts.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Update `streamlit_app/components/explain_results.py` to show download buttons
+      for explanation text (TXT).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Update `streamlit_app/components/explain_results.py` to show download buttons
+      for structured JSON (claim issues, trace URL, metric count).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Add unit tests for the serializer helper and artifact path generation (no
+      live LLM required).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Add `--output` (directory or file prefix) option to the `trend explain`
+      subcommand in `src/trend/cli.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Implement writing `explanation_<run-id>.txt` containing the final rendered
+      text (including discrepancy log + disclaimer).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Implement writing `explanation_<run-id>.json` containing `{ run_id, created_at,
+      text, metric_count, trace_url, claim_issues }`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Add a helper to serialize `ResultClaimIssue` objects into JSON-friendly
+      dicts.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Update `streamlit_app/components/explain_results.py` to show download buttons
+      for explanation text (TXT).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Update `streamlit_app/components/explain_results.py` to show download buttons
+      for structured JSON (claim issues, trace URL, metric count).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Add unit tests for the serializer helper and artifact path generation (no
+      live LLM required).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: '`trend explain --details <path> --output <dir>` writes both TXT and JSON
+      explanation artifacts.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Streamlit Explain Results section provides download buttons after an explanation
+      is generated.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: JSON artifact includes claim issues and trace URL when available.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: All unit tests pass.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: '`trend explain --details <path> --output <dir>` writes both TXT and JSON
+      explanation artifacts.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Streamlit Explain Results section provides download buttons after an explanation
+      is generated.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: JSON artifact includes claim issues and trace URL when available.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: All unit tests pass.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
