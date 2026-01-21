@@ -126,6 +126,16 @@ def test_extract_metric_catalog_reads_risk_diagnostics_attributes() -> None:
     assert "risk_diagnostics.half_spread_bps" in paths
 
 
+def test_extract_metric_catalog_reads_risk_diagnostics_from_details() -> None:
+    result = {"details": {"risk_diagnostics": {"turnover": 0.2, "cost": 0.01}}}
+
+    entries = extract_metric_catalog(result)
+    paths = {entry.path for entry in entries}
+
+    assert "risk_diagnostics.turnover" in paths
+    assert "risk_diagnostics.cost" in paths
+
+
 def test_extract_metric_catalog_adds_turnover_series_summaries() -> None:
     result = {"turnover": pd.Series([0.05, 0.1, 0.2])}
 

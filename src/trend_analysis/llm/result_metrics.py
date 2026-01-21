@@ -338,6 +338,10 @@ def _normalize_metric_label(label: str) -> str:
 
 def _extract_risk_diagnostics_entries(result: Mapping[str, Any]) -> list[MetricEntry]:
     diagnostics = result.get(_RISK_DIAGNOSTICS_SECTION)
+    if diagnostics is None:
+        details = result.get("details")
+        if isinstance(details, Mapping):
+            diagnostics = details.get(_RISK_DIAGNOSTICS_SECTION)
     diag_map = _diagnostics_to_mapping(diagnostics)
     entries: list[MetricEntry] = []
     for field in _RISK_DIAGNOSTICS_FIELDS:
