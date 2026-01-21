@@ -193,6 +193,52 @@ def test_drawdown_guard_cash_policy_variants():
     _assert_cash_policy_effects(strat, current, target, kwargs={"equity_curve": equity_curve})
 
 
+@pytest.mark.parametrize(
+    ("name", "params", "kwargs"),
+    [
+        ("turnover_cap", {"max_turnover": 1.0, "cost_bps": 0}, {}),
+        ("periodic_rebalance", {"interval": 1}, {}),
+        ("drift_band", {"band_pct": 0.1, "min_trade": 0.0, "mode": "partial"}, {}),
+        (
+            "vol_target_rebalance",
+            {
+                "target": 0.2,
+                "window": 2,
+                "lev_min": 1.2,
+                "lev_max": 1.2,
+                "financing_spread_bps": 0.0,
+            },
+            {"equity_curve": [100.0, 101.0, 99.0]},
+        ),
+        (
+            "drawdown_guard",
+            {
+                "dd_window": 3,
+                "dd_threshold": 0.05,
+                "guard_multiplier": 0.5,
+                "recover_threshold": 0.01,
+            },
+            {"equity_curve": [100.0, 90.0, 80.0]},
+        ),
+    ],
+)
+def test_rebalancing_strategy_explicit_cash_sums_to_one(
+    name: str,
+    params: dict[str, float | int | str],
+    kwargs: dict[str, object],
+) -> None:
+    strategy = strat_mod.create_rebalancing_strategy(name, params)
+    current = pd.Series({"A": 0.5, "B": 0.5})
+    target = pd.Series({"A": 0.6, "B": 0.2})
+
+    weights, _ = strategy.apply(
+        current, target, cash_policy=CashPolicy(explicit_cash=True), **kwargs
+    )
+
+    assert "CASH" in weights.index
+    assert pytest.approx(1.0) == float(weights.sum())
+
+
 def test_get_rebalancing_strategies_matches_registry():
     mapping = reb_module.get_rebalancing_strategies()
     assert set(mapping) == set(rebalancer_registry.available())
