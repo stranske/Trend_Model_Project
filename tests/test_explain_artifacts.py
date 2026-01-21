@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from trend.cli import _resolve_explain_output_paths
+from datetime import datetime, timezone
+
+from trend.cli import _build_explain_artifact_payload, _resolve_explain_output_paths, _write_explain_artifacts
 from trend_analysis.llm.result_validation import ResultClaimIssue, serialize_claim_issue
 
 
@@ -44,3 +46,40 @@ def test_resolve_explain_output_paths_missing_directory(tmp_path) -> None:
 
     assert txt_path == out_dir / "explanation_run-42.txt"
     assert json_path == out_dir / "explanation_run-42.json"
+
+
+def test_build_explain_artifact_payload_serializes_claims() -> None:
+    issue = ResultClaimIssue(
+        kind="missing_citation",
+        message="Missing citation",
+        detail={"source": "out_sample_stats"},
+    )
+
+    payload = _build_explain_artifact_payload(
+        run_id="run-123",
+        created_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        text="Explanation text",
+        metric_count=5,
+        trace_url="trace://example",
+        claim_issues=[issue],
+    )
+
+    assert payload["run_id"] == "run-123"
+    assert payload["metric_count"] == 5
+    assert payload["trace_url"] == "trace://example"
+    assert payload["claim_issues"] == [serialize_claim_issue(issue)]
+
+
+def test_write_explain_artifacts_creates_files(tmp_path) -> None:
+    output = tmp_path / "artifacts"
+    payload = {"run_id": "run-321"}
+
+    txt_path, json_path = _write_explain_artifacts(
+        output=output,
+        run_id="run-321",
+        text="Rendered explanation",
+        payload=payload,
+    )
+
+    assert txt_path.read_text(encoding="utf-8") == "Rendered explanation"
+    assert json_path.read_text(encoding="utf-8") == '{\n  "run_id": "run-321"\n}'
