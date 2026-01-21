@@ -117,6 +117,22 @@ def test_compact_metric_catalog_bounds_formatted_lines() -> None:
     assert "fund_weights.Fund1" in metric_catalog
 
 
+def test_compact_metric_catalog_keeps_weights_with_tight_entry_cap() -> None:
+    entries = extract_metric_catalog(_make_result(num_funds=6))
+    compacted = compact_metric_catalog(
+        entries,
+        max_funds=3,
+        max_weights=2,
+        max_entries=6,
+    )
+    paths = {entry.path for entry in compacted}
+
+    assert "fund_weights.Fund0" in paths
+    assert "fund_weights.Fund1" in paths
+    assert any(path.startswith("out_ew_stats.") for path in paths)
+    assert len(compacted) <= 6
+
+
 def test_format_metric_catalog_sanitizes_multiline_values() -> None:
     entries = [
         MetricEntry(path="notes.detail", value="line1\nline2", source="details"),
