@@ -233,9 +233,9 @@ def compact_metric_catalog(
         [
             single_stats_paths,
             benchmark_paths,
-            other_paths,
             selected_weight_paths,
             fund_stats_paths,
+            other_paths,
         ],
     )
     if resolved_max_entries is not None and resolved_max_entries > 0:

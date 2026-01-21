@@ -67,3 +67,19 @@ def test_compact_metric_catalog_includes_question_fund() -> None:
 
     assert "out_sample_stats.Fund4.cagr" in paths
     assert "out_sample_stats.Fund0.cagr" in paths
+
+
+def test_compact_metric_catalog_prioritizes_weights_over_misc_entries() -> None:
+    entries = extract_metric_catalog(_make_result())
+    compacted = compact_metric_catalog(
+        entries,
+        max_funds=2,
+        max_weights=1,
+        max_entries=8,
+    )
+    paths = {entry.path for entry in compacted}
+
+    assert "out_ew_stats.cagr" in paths
+    assert "benchmark_ir.SPX.Fund0" in paths
+    assert "fund_weights.Fund0" in paths
+    assert "risk_diagnostics.turnover" not in paths
