@@ -146,3 +146,15 @@ def test_extract_metric_catalog_adds_turnover_series_summaries() -> None:
     assert "turnover.latest" in paths
     assert "turnover.mean" in paths
     assert "[from turnover_series]" in catalog
+
+
+def test_extract_metric_catalog_adds_turnover_series_from_details() -> None:
+    result = {"details": {"turnover": pd.Series([0.02, 0.08])}}
+
+    entries = extract_metric_catalog(result)
+    paths = {entry.path for entry in entries}
+    catalog = format_metric_catalog(entries)
+
+    assert "turnover.latest" in paths
+    assert "turnover.mean" in paths
+    assert "[from turnover_series]" in catalog
