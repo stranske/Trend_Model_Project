@@ -69,6 +69,30 @@ def test_apply_constraints_cash_weight_infeasible_with_max_weight() -> None:
         optimizer.apply_constraints(weights, constraints)
 
 
+def test_apply_cash_weight_scales_non_cash_and_sets_cash() -> None:
+    weights = pd.Series({"A": 0.7, "B": 0.3})
+
+    result = optimizer._apply_cash_weight(weights, cash_weight=0.2, max_weight=None)
+
+    assert result.loc["CASH"] == pytest.approx(0.2)
+    assert result.loc["A"] == pytest.approx(0.56)
+    assert result.loc["B"] == pytest.approx(0.24)
+
+
+def test_apply_cash_weight_rejects_missing_non_cash_assets() -> None:
+    weights = pd.Series({"CASH": 1.0})
+
+    with pytest.raises(optimizer.ConstraintViolation):
+        optimizer._apply_cash_weight(weights, cash_weight=0.2, max_weight=None)
+
+
+def test_apply_cash_weight_rejects_infeasible_max_weight() -> None:
+    weights = pd.Series({"A": 0.6, "B": 0.4})
+
+    with pytest.raises(optimizer.ConstraintViolation):
+        optimizer._apply_cash_weight(weights, cash_weight=0.2, max_weight=0.3)
+
+
 def test_apply_cap_early_return_when_total_near_zero() -> None:
     weights = pd.Series({"A": 1e-13, "B": 0.0})
 
