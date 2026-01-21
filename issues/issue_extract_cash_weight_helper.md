@@ -25,21 +25,21 @@ Extract the cash-weight processing logic into a single helper function called fr
 
 ## Tasks
 
-- [ ] Create `_apply_cash_weight()` helper function that encapsulates lines 137-175 logic
-- [ ] Define helper signature: `_apply_cash_weight(w: pd.Series, cash_weight: float, max_weight: float | None) -> pd.Series`
-- [ ] Replace first cash-weight block (lines 137-175) with call to helper
-- [ ] Replace second cash-weight block (lines 200-235) with call to helper
-- [ ] Remove the third duplicated block (lines 237-278) since it's unreachable with modern ConstraintSet
-- [ ] Add unit test that validates both passes produce identical results
-- [ ] Update docstring to explain the two-pass pattern
+- [x] Create `_apply_cash_weight()` helper function that encapsulates lines 137-175 logic
+- [x] Define helper signature: `_apply_cash_weight(w: pd.Series, cash_weight: float, max_weight: float | None) -> pd.Series`
+- [x] Replace first cash-weight block (lines 137-175) with call to helper
+- [x] Replace second cash-weight block (lines 200-235) with call to helper
+- [x] Remove the third duplicated block (lines 237-278) since it's unreachable with modern ConstraintSet
+- [x] Add unit test that validates both passes produce identical results
+- [x] Update docstring to explain the two-pass pattern
 
 ## Acceptance Criteria
 
-- [ ] Only one implementation of cash-weight logic exists (in the helper)
-- [ ] Both passes call the same helper function
-- [ ] All existing optimizer tests pass unchanged
-- [ ] New test verifies helper produces correct output for edge cases (0 < cash_weight < 1, max_weight conflicts)
-- [ ] Coverage on the helper is 100%
+- [x] Only one implementation of cash-weight logic exists (in the helper)
+- [x] Both passes call the same helper function
+- [x] All existing optimizer tests pass unchanged
+- [x] New test verifies helper produces correct output for edge cases (0 < cash_weight < 1, max_weight conflicts)
+- [x] Coverage on the helper is 100%
 
 ## Implementation Notes
 
