@@ -107,8 +107,7 @@ def _resolve_llm_provider_config(provider: str | None = None) -> LLMProviderConf
     if provider_name in {"openai", "anthropic"} and not api_key:
         env_hint = "OPENAI_API_KEY" if provider_name == "openai" else "ANTHROPIC_API_KEY"
         raise ValueError(
-            f"Missing API key for {provider_name}. "
-            f"Set TREND_LLM_API_KEY or {env_hint}."
+            f"Missing API key for {provider_name}. " f"Set TREND_LLM_API_KEY or {env_hint}."
         )
     model = os.environ.get("TREND_LLM_MODEL")
     base_url = os.environ.get("TREND_LLM_BASE_URL")
