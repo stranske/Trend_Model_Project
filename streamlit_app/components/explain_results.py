@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Mapping
 from uuid import uuid4
 
@@ -23,6 +25,7 @@ from trend_analysis.llm import (
     extract_metric_catalog,
     format_metric_catalog,
     postprocess_result_text,
+    serialize_claim_issue,
 )
 
 DEFAULT_QUESTION = "Summarize key findings and notable risks in the results."
@@ -35,6 +38,7 @@ class ExplanationResult:
     trace_url: str | None
     claim_issues: list[ResultClaimIssue]
     metric_count: int
+    created_at: str
 
 
 def _cache_bucket() -> dict[str, ExplanationResult]:
@@ -118,12 +122,19 @@ def generate_result_explanation(
     questions: str | None,
     provider: str | None = None,
 ) -> ExplanationResult:
+    created_at = datetime.now(timezone.utc).isoformat()
     entries = extract_metric_catalog(details)
     entries = compact_metric_catalog(entries, questions=questions)
     metric_catalog = format_metric_catalog(entries)
     if not entries:
         text = ensure_result_disclaimer("No metrics were detected in the analysis output.")
-        return ExplanationResult(text=text, trace_url=None, claim_issues=[], metric_count=0)
+        return ExplanationResult(
+            text=text,
+            trace_url=None,
+            claim_issues=[],
+            metric_count=0,
+            created_at=created_at,
+        )
 
     chain = _build_result_chain(provider)
     analysis_output = _render_analysis_output(details)
@@ -140,6 +151,7 @@ def generate_result_explanation(
         trace_url=response.trace_url,
         claim_issues=claim_issues,
         metric_count=len(entries),
+        created_at=created_at,
     )
 
 
@@ -198,6 +210,31 @@ def render_explain_results(
                 st.markdown(f"- {issue.kind}: {issue.message}")
     else:
         st.caption("No discrepancies detected in the explanation.")
+
+    run_hash = hashlib.sha256(run_key.encode("utf-8")).hexdigest()[:12]
+    artifact_payload = {
+        "run_id": run_hash,
+        "created_at": cached.created_at,
+        "text": cached.text,
+        "metric_count": cached.metric_count,
+        "trace_url": cached.trace_url,
+        "claim_issues": [serialize_claim_issue(issue) for issue in cached.claim_issues],
+    }
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.download_button(
+            "Download explanation (TXT)",
+            data=cached.text,
+            file_name=f"explanation_{run_hash}.txt",
+            mime="text/plain",
+        )
+    with col_b:
+        st.download_button(
+            "Download explanation (JSON)",
+            data=json.dumps(artifact_payload, indent=2, sort_keys=True),
+            file_name=f"explanation_{run_hash}.json",
+            mime="application/json",
+        )
 
 
 __all__ = [

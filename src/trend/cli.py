@@ -51,6 +51,7 @@ from trend_analysis.llm import (
     ConfigPatchChain,
     LLMProviderConfig,
     ResultSummaryChain,
+    ResultClaimIssue,
     build_config_patch_prompt,
     build_result_summary_prompt,
     compact_metric_catalog,
@@ -58,6 +59,7 @@ from trend_analysis.llm import (
     extract_metric_catalog,
     format_metric_catalog,
     postprocess_result_text,
+    serialize_claim_issue,
 )
 from trend_analysis.llm.nl_logging import NLOperationLog, write_nl_log
 from trend_analysis.llm.replay import ReplayResult
@@ -540,6 +542,14 @@ def build_parser(
         help=(
             "LLM provider for result explanations (defaults to TREND_LLM_PROVIDER). "
             "Example: --provider openai"
+        ),
+    )
+    explain_p.add_argument(
+        "--output",
+        type=Path,
+        help=(
+            "Directory or file prefix for explanation artifacts. "
+            "Example: --output perf/explanations"
         ),
     )
 
@@ -1188,6 +1198,63 @@ def _resolve_explain_questions(args: argparse.Namespace) -> str:
     return "\n".join(f"- {question}" for question in questions)
 
 
+def _infer_explain_run_id(details_path: Path, run_id: str | None) -> str:
+    if run_id:
+        return run_id
+    name = details_path.name
+    prefix = "details_"
+    suffix = ".json"
+    if name.startswith(prefix) and name.endswith(suffix):
+        return name[len(prefix) : -len(suffix)]
+    return "unknown"
+
+
+def _resolve_explain_output_paths(output: Path, run_id: str) -> tuple[Path, Path]:
+    if output.exists() and output.is_dir():
+        prefix = output / f"explanation_{run_id}"
+    elif output.suffix:
+        prefix = output.with_suffix("")
+    else:
+        prefix = output
+    return prefix.with_suffix(".txt"), prefix.with_suffix(".json")
+
+
+def _build_explain_artifact_payload(
+    *,
+    run_id: str,
+    created_at: datetime,
+    text: str,
+    metric_count: int,
+    trace_url: str | None,
+    claim_issues: Iterable[ResultClaimIssue],
+) -> dict[str, object]:
+    return {
+        "run_id": run_id,
+        "created_at": created_at.isoformat(),
+        "text": text,
+        "metric_count": metric_count,
+        "trace_url": trace_url,
+        "claim_issues": [serialize_claim_issue(issue) for issue in claim_issues],
+    }
+
+
+def _write_explain_artifacts(
+    *,
+    output: Path,
+    run_id: str,
+    text: str,
+    payload: Mapping[str, object],
+) -> tuple[Path, Path]:
+    txt_path, json_path = _resolve_explain_output_paths(output, run_id)
+    txt_path.parent.mkdir(parents=True, exist_ok=True)
+    txt_path.write_text(text, encoding="utf-8")
+    json_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=True),
+        encoding="utf-8",
+    )
+    return txt_path, json_path
+
+
 def _fallback_explanation(metric_catalog: str) -> str:
     if metric_catalog:
         return (
@@ -1572,6 +1639,8 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
             details_path = _resolve_explain_details_path(args)
             details = _load_explain_details(details_path)
             questions = _resolve_explain_questions(args)
+            run_id = _infer_explain_run_id(details_path, args.run_id)
+            created_at = datetime.now(timezone.utc)
             entries = extract_metric_catalog(details)
             entries = compact_metric_catalog(entries, questions=questions)
             metric_catalog = format_metric_catalog(entries)
@@ -1579,7 +1648,23 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                 explanation = ensure_result_disclaimer(
                     "No metrics were detected in the analysis output."
                 )
-                print(explanation)
+                if args.output:
+                    payload = _build_explain_artifact_payload(
+                        run_id=run_id,
+                        created_at=created_at,
+                        text=explanation,
+                        metric_count=0,
+                        trace_url=None,
+                        claim_issues=[],
+                    )
+                    _write_explain_artifacts(
+                        output=Path(args.output),
+                        run_id=run_id,
+                        text=explanation,
+                        payload=payload,
+                    )
+                else:
+                    print(explanation)
                 return 0
             analysis_output = _render_analysis_output(details)
             chain = _build_result_chain(args.provider)
@@ -1595,11 +1680,28 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                 entries,
                 logger=logger,
             )
+            trace_url = response.trace_url
             if claim_issues:
                 fallback = _fallback_explanation(metric_catalog)
                 fallback = append_discrepancy_log(fallback, claim_issues)
                 explanation_text = ensure_result_disclaimer(fallback)
-            print(explanation_text)
+            if args.output:
+                payload = _build_explain_artifact_payload(
+                    run_id=run_id,
+                    created_at=created_at,
+                    text=explanation_text,
+                    metric_count=len(entries),
+                    trace_url=trace_url,
+                    claim_issues=claim_issues,
+                )
+                _write_explain_artifacts(
+                    output=Path(args.output),
+                    run_id=run_id,
+                    text=explanation_text,
+                    payload=payload,
+                )
+            else:
+                print(explanation_text)
             return 0
 
         if command == "nl":

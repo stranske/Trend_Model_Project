@@ -36,6 +36,7 @@ from .result_validation import (
     detect_result_hallucinations,
     ensure_result_disclaimer,
     postprocess_result_text,
+    serialize_claim_issue,
     validate_result_claims,
 )
 
@@ -74,6 +75,7 @@ __all__ = [
     "detect_result_hallucinations",
     "ensure_result_disclaimer",
     "postprocess_result_text",
+    "serialize_claim_issue",
     "validate_result_claims",
     "load_nl_log_entry",
     "replay_nl_entry",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 import re
@@ -40,6 +41,14 @@ class ResultClaimIssue:
     kind: str
     message: str
     detail: dict[str, object]
+
+
+def serialize_claim_issue(issue: ResultClaimIssue) -> dict[str, object]:
+    """Convert a claim issue into a JSON-friendly dict."""
+
+    detail = issue.detail if isinstance(issue.detail, dict) else {"detail": issue.detail}
+    safe_detail = json.loads(json.dumps(detail, default=str))
+    return {"kind": issue.kind, "message": issue.message, "detail": safe_detail}
 
 
 def ensure_result_disclaimer(text: str) -> str:
