@@ -13,12 +13,19 @@ from typing import Any, cast
 import numpy as np
 import pandas as pd
 
+from trend.config_schema import CoreConfigError, validate_core_config
 from trend.diagnostics import DiagnosticPayload
 
 from . import export, pipeline
 from . import logging as run_logging
 from .api import run_simulation
 from .config import format_validation_messages, load_config, validate_config
+from .config.coverage import (
+    ConfigCoverageTracker,
+    activate_config_coverage,
+    deactivate_config_coverage,
+    wrap_config_for_coverage,
+)
 from .config.schema_validation import load_config as load_config_yaml
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from .data import load_csv
@@ -113,6 +120,28 @@ def _maybe_validate_config(
     for line in format_validation_messages(result):
         print(f"- {line}", file=sys.stderr)
     return False
+
+
+def _maybe_track_config_coverage(config_path: Path, input_path: str) -> bool:
+    try:
+        payload = load_config_yaml(config_path)
+    except Exception:
+        return True
+    if not isinstance(payload, Mapping):
+        return True
+
+    data_section = dict(payload.get("data") or {})
+    if input_path and not data_section.get("csv_path") and not data_section.get("managers_glob"):
+        data_section["csv_path"] = input_path
+        payload = dict(payload)
+        payload["data"] = data_section
+
+    try:
+        validate_core_config(payload, base_path=config_path.parent)
+    except CoreConfigError as exc:
+        print(f"Config coverage validation failed: {exc}", file=sys.stderr)
+        return False
+    return True
 
 
 def _report_pipeline_diagnostic(
@@ -407,6 +436,11 @@ def main(argv: list[str] | None = None) -> int:
         "--preset",
         help="Apply a named trend preset to signal generation",
     )
+    run_p.add_argument(
+        "--config-coverage",
+        action="store_true",
+        help="Report which config keys were validated vs read",
+    )
 
     # Handle --check flag before parsing subcommands
     # This allows --check to work without requiring a subcommand
@@ -435,291 +469,308 @@ def main(argv: list[str] | None = None) -> int:
         return proc.returncode
 
     if args.command == "run":
-        cfg = load_config(args.config)
-        config_path = Path(args.config).resolve()
-        if not _maybe_validate_config(cfg, base_path=config_path.parent, config_path=config_path):
-            return 1
-        if args.preset:
-            try:
-                spec_preset = get_trend_spec_preset(args.preset)
-            except KeyError:
-                available = ", ".join(list_trend_spec_presets())
-                print(
-                    f"Unknown preset '{args.preset}'. Available presets: {available}",
-                    file=sys.stderr,
-                )
-                return 2
-            _apply_trend_spec_preset(cfg, spec_preset)
-        set_cache_enabled(not args.no_cache)
-        if getattr(args, "preset", None):
-            try:
-                portfolio_preset = get_trend_preset(args.preset)
-            except KeyError:
-                available = ", ".join(list_preset_slugs())
-                print(
-                    f"Unknown preset '{args.preset}'. Available: {available}",
-                    file=sys.stderr,
-                )
-                return 2
-            apply_trend_preset(cfg, portfolio_preset)
-        cli_seed = args.seed
-        env_seed = os.getenv("TREND_SEED")
-        # Precedence: CLI flag > TREND_SEED > config.seed > default 42
-        if cli_seed is not None:
-            setattr(cfg, "seed", int(cli_seed))
-        elif env_seed is not None and env_seed.isdigit():
-            setattr(cfg, "seed", int(env_seed))
+        coverage_tracker: ConfigCoverageTracker | None = None
+        if getattr(args, "config_coverage", False):
+            coverage_tracker = ConfigCoverageTracker()
+            activate_config_coverage(coverage_tracker)
         try:
-            loaded = load_market_data_csv(args.input)
-        except MarketDataValidationError as exc:
-            print(exc.user_message, file=sys.stderr)
-            return 1
-        if loaded is None:  # pragma: no cover - defensive fallback
-            print("Failed to load data", file=sys.stderr)
-            return 1
-        df = loaded.frame if hasattr(loaded, "frame") else loaded
-        universe_spec: NamedUniverse | None = None
-        if getattr(args, "universe", None):
-            mask, universe_spec = load_universe(args.universe, prices=df)
-            df = _apply_universe_mask(df, mask, date_column=universe_spec.date_column)
-        if universe_spec is not None:
-            _attach_universe_paths(cfg, universe_spec, csv_path=args.input)
-        res: dict[str, Any] | None = None
-        split = cfg.sample_split
-        required_keys = {"in_start", "in_end", "out_start", "out_end"}
-        import uuid
-
-        run_id = getattr(cfg, "run_id", None) or uuid.uuid4().hex[:12]
-        try:
-            setattr(cfg, "run_id", run_id)
-        except Exception:
-            # Some config implementations may forbid new attrs; proceed without persisting
-            pass
-        log_path = (
-            Path(args.log_file) if args.log_file else run_logging.get_default_log_path(run_id)
-        )
-        do_structured = not args.no_structured_log
-        if do_structured:
-            run_logging.init_run_logger(run_id, log_path)
-        maybe_log_step(
-            do_structured,
-            run_id,
-            "start",
-            "CLI run initialised",
-            config_path=args.config,
-        )
-        pipeline_diagnostic: DiagnosticPayload | None = None
-        if required_keys.issubset(split):
-            maybe_log_step(
-                do_structured,
-                run_id,
-                "load_data",
-                "Loaded returns dataframe",
-                rows=len(df),
-            )
-            run_result = run_simulation(cfg, df)
-            maybe_log_step(
-                do_structured,
-                run_id,
-                "pipeline_complete",
-                "Pipeline execution finished",
-                metrics_rows=len(run_result.metrics),
-            )
-            metrics_df = run_result.metrics
-            res = run_result.details
-            run_seed = run_result.seed
-            pipeline_diagnostic = getattr(run_result, "diagnostic", None)
-            if pipeline_diagnostic and not res:
-                _report_pipeline_diagnostic(
-                    pipeline_diagnostic,
-                    structured_log=do_structured,
-                    run_id=run_id,
-                )
-                print("No results")
-                return 0
-            # Attach time series required by export_bundle if present
-            if isinstance(res, dict):
-                port_ser = select_primary_portfolio_series(res, prefer_raw=True)
-                if port_ser is not None:
-                    setattr(run_result, "portfolio", port_ser)
-                bench_map = res.get("benchmarks") if isinstance(res, dict) else None
-                if isinstance(bench_map, dict) and bench_map:
-                    # Pick first benchmark for manifest (simple case)
-                    first_bench = next(iter(bench_map.values()))
-                    setattr(run_result, "benchmark", first_bench)
-                weights_user = res.get("weights_user_weight") if isinstance(res, dict) else None
-                if weights_user is not None:
-                    setattr(run_result, "weights", weights_user)
-        else:  # pragma: no cover - legacy fallback
-            metrics_df = pipeline.run(cfg)
-            full_result = pipeline.run_full(cfg)
-            res, diag_payload = coerce_pipeline_result(full_result)
-            run_seed = getattr(cfg, "seed", 42)
-            pipeline_diagnostic = diag_payload or cast(
-                DiagnosticPayload | None, metrics_df.attrs.get("diagnostic")
-            )
-            if res is None:
-                res = {}
-        if not res:
-            if pipeline_diagnostic:
-                _report_pipeline_diagnostic(
-                    pipeline_diagnostic,
-                    structured_log=do_structured,
-                    run_id=run_id,
-                )
-            print("No results")
-            return 0
-
-        split = cfg.sample_split
-        text = export.format_summary_text(
-            res,
-            str(split.get("in_start")),
-            str(split.get("in_end")),
-            str(split.get("out_start")),
-            str(split.get("out_end")),
-        )
-        print(text)
-        maybe_log_step(do_structured, run_id, "summary_render", "Printed summary text")
-
-        cache_stats = _extract_cache_stats(res)
-        if cache_stats:
-            print("\nCache statistics:")
-            print(f"  Entries: {cache_stats['entries']}")
-            print(f"  Hits: {cache_stats['hits']}")
-            print(f"  Misses: {cache_stats['misses']}")
-            print(f"  Incremental updates: {cache_stats['incremental_updates']}")
-            maybe_log_step(
-                do_structured,
-                run_id,
-                "cache_stats",
-                "Cache statistics summary",
-                **cache_stats,
-            )
-
-        export_cfg = cfg.export
-        out_dir = export_cfg.get("directory")
-        out_formats = export_cfg.get("formats")
-        filename = export_cfg.get("filename", "analysis")
-        if not out_dir and not out_formats:
-            out_dir = DEFAULT_OUTPUT_DIRECTORY
-            out_formats = DEFAULT_OUTPUT_FORMATS
-        manifest_dir: Path | None = None
-        if out_dir and out_formats:
-            out_dir_path = Path(out_dir)
-            fmt_list = list(out_formats)
-            data = {"metrics": metrics_df}
-            if isinstance(res, Mapping):
-                export.append_narrative_section(data, res, config=cfg)
-            maybe_log_step(
-                do_structured,
-                run_id,
-                "export_start",
-                "Beginning export",
-                formats=fmt_list,
-            )
-            excel_requested = any(f.lower() in {"excel", "xlsx"} for f in fmt_list)
-            if excel_requested:
-                sheet_formatter = export.make_summary_formatter(
-                    res,
-                    str(split.get("in_start")),
-                    str(split.get("in_end")),
-                    str(split.get("out_start")),
-                    str(split.get("out_end")),
-                )
-                data["summary"] = export.summary_frame_from_result(res)
-                export.export_to_excel(
-                    data,
-                    str(out_dir_path / f"{filename}.xlsx"),
-                    default_sheet_formatter=sheet_formatter,
-                )
-                other = [f for f in fmt_list if f.lower() not in {"excel", "xlsx"}]
-                target_formats = other if other else fmt_list
-            else:
-                target_formats = fmt_list
-            export.export_data(
-                data,
-                str(out_dir_path / filename),
-                formats=target_formats,
-            )
-            data_keys = list(data.keys())
-            artifact_paths = _resolve_artifact_paths(out_dir_path, filename, data_keys, fmt_list)
-            maybe_log_step(
-                do_structured,
-                run_id,
-                "export_complete",
-                "Export finished",
-            )
-            config_payload: Any
-            if hasattr(cfg, "model_dump"):
+            cfg = load_config(args.config)
+            config_path = Path(args.config).resolve()
+            if coverage_tracker is not None:
+                if not _maybe_track_config_coverage(config_path, args.input):
+                    return 1
+                wrap_config_for_coverage(cfg, coverage_tracker)
+            if not _maybe_validate_config(
+                cfg, base_path=config_path.parent, config_path=config_path
+            ):
+                return 1
+            if args.preset:
                 try:
-                    config_payload = cfg.model_dump()
-                except TypeError:  # pragma: no cover - defensive for exotic configs
-                    config_payload = cfg.model_dump()
-            elif hasattr(cfg, "__dict__"):
-                config_payload = dict(getattr(cfg, "__dict__"))
-            else:
-                config_payload = cfg
+                    spec_preset = get_trend_spec_preset(args.preset)
+                except KeyError:
+                    available = ", ".join(list_trend_spec_presets())
+                    print(
+                        f"Unknown preset '{args.preset}'. Available presets: {available}",
+                        file=sys.stderr,
+                    )
+                    return 2
+                _apply_trend_spec_preset(cfg, spec_preset)
+            set_cache_enabled(not args.no_cache)
+            if getattr(args, "preset", None):
+                try:
+                    portfolio_preset = get_trend_preset(args.preset)
+                except KeyError:
+                    available = ", ".join(list_preset_slugs())
+                    print(
+                        f"Unknown preset '{args.preset}'. Available: {available}",
+                        file=sys.stderr,
+                    )
+                    return 2
+                apply_trend_preset(cfg, portfolio_preset)
+            cli_seed = args.seed
+            env_seed = os.getenv("TREND_SEED")
+            # Precedence: CLI flag > TREND_SEED > config.seed > default 42
+            if cli_seed is not None:
+                setattr(cfg, "seed", int(cli_seed))
+            elif env_seed is not None and env_seed.isdigit():
+                setattr(cfg, "seed", int(env_seed))
             try:
-                manifest_dir = write_run_artifacts(
-                    output_dir=out_dir_path,
-                    run_id=run_id,
-                    config=config_payload,
-                    config_path=args.config,
-                    input_path=Path(args.input),
-                    data_frame=df,
-                    metrics_frame=metrics_df,
-                    run_details=res if isinstance(res, Mapping) else {},
-                    exported_files=artifact_paths,
-                    summary_text=text,
-                )
-            except Exception as exc:  # pragma: no cover - defensive guard
-                logging.getLogger(__name__).warning("Failed to write run artifacts: %s", exc)
-            else:
+                loaded = load_market_data_csv(args.input)
+            except MarketDataValidationError as exc:
+                print(exc.user_message, file=sys.stderr)
+                return 1
+            if loaded is None:  # pragma: no cover - defensive fallback
+                print("Failed to load data", file=sys.stderr)
+                return 1
+            df = loaded.frame if hasattr(loaded, "frame") else loaded
+            universe_spec: NamedUniverse | None = None
+            if getattr(args, "universe", None):
+                mask, universe_spec = load_universe(args.universe, prices=df)
+                df = _apply_universe_mask(df, mask, date_column=universe_spec.date_column)
+            if universe_spec is not None:
+                _attach_universe_paths(cfg, universe_spec, csv_path=args.input)
+            res: dict[str, Any] | None = None
+            split = cfg.sample_split
+            required_keys = {"in_start", "in_end", "out_start", "out_end"}
+            import uuid
+
+            run_id = getattr(cfg, "run_id", None) or uuid.uuid4().hex[:12]
+            try:
+                setattr(cfg, "run_id", run_id)
+            except Exception:
+                # Some config implementations may forbid new attrs; proceed without persisting
+                pass
+            log_path = (
+                Path(args.log_file) if args.log_file else run_logging.get_default_log_path(run_id)
+            )
+            do_structured = not args.no_structured_log
+            if do_structured:
+                run_logging.init_run_logger(run_id, log_path)
+            maybe_log_step(
+                do_structured,
+                run_id,
+                "start",
+                "CLI run initialised",
+                config_path=args.config,
+            )
+            pipeline_diagnostic: DiagnosticPayload | None = None
+            if required_keys.issubset(split):
                 maybe_log_step(
                     do_structured,
                     run_id,
-                    "run_artifacts",
-                    "Run manifest written",
-                    directory=str(manifest_dir),
+                    "load_data",
+                    "Loaded returns dataframe",
+                    rows=len(df),
+                )
+                run_result = run_simulation(cfg, df)
+                maybe_log_step(
+                    do_structured,
+                    run_id,
+                    "pipeline_complete",
+                    "Pipeline execution finished",
+                    metrics_rows=len(run_result.metrics),
+                )
+                metrics_df = run_result.metrics
+                res = run_result.details
+                run_seed = run_result.seed
+                pipeline_diagnostic = getattr(run_result, "diagnostic", None)
+                if pipeline_diagnostic and not res:
+                    _report_pipeline_diagnostic(
+                        pipeline_diagnostic,
+                        structured_log=do_structured,
+                        run_id=run_id,
+                    )
+                    print("No results")
+                    return 0
+                # Attach time series required by export_bundle if present
+                if isinstance(res, dict):
+                    port_ser = select_primary_portfolio_series(res, prefer_raw=True)
+                    if port_ser is not None:
+                        setattr(run_result, "portfolio", port_ser)
+                    bench_map = res.get("benchmarks") if isinstance(res, dict) else None
+                    if isinstance(bench_map, dict) and bench_map:
+                        # Pick first benchmark for manifest (simple case)
+                        first_bench = next(iter(bench_map.values()))
+                        setattr(run_result, "benchmark", first_bench)
+                    weights_user = res.get("weights_user_weight") if isinstance(res, dict) else None
+                    if weights_user is not None:
+                        setattr(run_result, "weights", weights_user)
+            else:  # pragma: no cover - legacy fallback
+                metrics_df = pipeline.run(cfg)
+                full_result = pipeline.run_full(cfg)
+                res, diag_payload = coerce_pipeline_result(full_result)
+                run_seed = getattr(cfg, "seed", 42)
+                pipeline_diagnostic = diag_payload or cast(
+                    DiagnosticPayload | None, metrics_df.attrs.get("diagnostic")
+                )
+                if res is None:
+                    res = {}
+            if not res:
+                if pipeline_diagnostic:
+                    _report_pipeline_diagnostic(
+                        pipeline_diagnostic,
+                        structured_log=do_structured,
+                        run_id=run_id,
+                    )
+                print("No results")
+                return 0
+
+            split = cfg.sample_split
+            text = export.format_summary_text(
+                res,
+                str(split.get("in_start")),
+                str(split.get("in_end")),
+                str(split.get("out_start")),
+                str(split.get("out_end")),
+            )
+            print(text)
+            maybe_log_step(do_structured, run_id, "summary_render", "Printed summary text")
+
+            cache_stats = _extract_cache_stats(res)
+            if cache_stats:
+                print("\nCache statistics:")
+                print(f"  Entries: {cache_stats['entries']}")
+                print(f"  Hits: {cache_stats['hits']}")
+                print(f"  Misses: {cache_stats['misses']}")
+                print(f"  Incremental updates: {cache_stats['incremental_updates']}")
+                maybe_log_step(
+                    do_structured,
+                    run_id,
+                    "cache_stats",
+                    "Cache statistics summary",
+                    **cache_stats,
                 )
 
-        # Optional bundle export (reproducibility manifest + hashes)
-        if args.bundle:
-            from .api import RunResult as _RR
-            from .export.bundle import export_bundle
+            export_cfg = cfg.export
+            out_dir = export_cfg.get("directory")
+            out_formats = export_cfg.get("formats")
+            filename = export_cfg.get("filename", "analysis")
+            if not out_dir and not out_formats:
+                out_dir = DEFAULT_OUTPUT_DIRECTORY
+                out_formats = DEFAULT_OUTPUT_FORMATS
+            manifest_dir: Path | None = None
+            if out_dir and out_formats:
+                out_dir_path = Path(out_dir)
+                fmt_list = list(out_formats)
+                data = {"metrics": metrics_df}
+                if isinstance(res, Mapping):
+                    export.append_narrative_section(data, res, config=cfg)
+                maybe_log_step(
+                    do_structured,
+                    run_id,
+                    "export_start",
+                    "Beginning export",
+                    formats=fmt_list,
+                )
+                excel_requested = any(f.lower() in {"excel", "xlsx"} for f in fmt_list)
+                if excel_requested:
+                    sheet_formatter = export.make_summary_formatter(
+                        res,
+                        str(split.get("in_start")),
+                        str(split.get("in_end")),
+                        str(split.get("out_start")),
+                        str(split.get("out_end")),
+                    )
+                    data["summary"] = export.summary_frame_from_result(res)
+                    export.export_to_excel(
+                        data,
+                        str(out_dir_path / f"{filename}.xlsx"),
+                        default_sheet_formatter=sheet_formatter,
+                    )
+                    other = [f for f in fmt_list if f.lower() not in {"excel", "xlsx"}]
+                    target_formats = other if other else fmt_list
+                else:
+                    target_formats = fmt_list
+                export.export_data(
+                    data,
+                    str(out_dir_path / filename),
+                    formats=target_formats,
+                )
+                data_keys = list(data.keys())
+                artifact_paths = _resolve_artifact_paths(
+                    out_dir_path, filename, data_keys, fmt_list
+                )
+                maybe_log_step(
+                    do_structured,
+                    run_id,
+                    "export_complete",
+                    "Export finished",
+                )
+                config_payload: Any
+                if hasattr(cfg, "model_dump"):
+                    try:
+                        config_payload = cfg.model_dump()
+                    except TypeError:  # pragma: no cover - defensive for exotic configs
+                        config_payload = cfg.model_dump()
+                elif hasattr(cfg, "__dict__"):
+                    config_payload = dict(getattr(cfg, "__dict__"))
+                else:
+                    config_payload = cfg
+                try:
+                    manifest_dir = write_run_artifacts(
+                        output_dir=out_dir_path,
+                        run_id=run_id,
+                        config=config_payload,
+                        config_path=args.config,
+                        input_path=Path(args.input),
+                        data_frame=df,
+                        metrics_frame=metrics_df,
+                        run_details=res if isinstance(res, Mapping) else {},
+                        exported_files=artifact_paths,
+                        summary_text=text,
+                    )
+                except Exception as exc:  # pragma: no cover - defensive guard
+                    logging.getLogger(__name__).warning("Failed to write run artifacts: %s", exc)
+                else:
+                    maybe_log_step(
+                        do_structured,
+                        run_id,
+                        "run_artifacts",
+                        "Run manifest written",
+                        directory=str(manifest_dir),
+                    )
 
-            bundle_path = Path(args.bundle)
-            if bundle_path.is_dir():
-                bundle_path = bundle_path / "analysis_bundle.zip"
-            # Build a minimal RunResult-like shim if we executed legacy path
-            rr = locals().get("run_result")
-            if rr is None:  # legacy path
-                env = {
-                    "python": sys.version.split()[0],
-                    "numpy": np.__version__,
-                    "pandas": pd.__version__,
-                }
-                rr = _RR(metrics_df, res, run_seed, env)
-            # Attach config + seed for export_bundle
-            setattr(rr, "config", getattr(cfg, "__dict__", {}))
-            setattr(rr, "input_path", Path(args.input))
-            export_bundle(rr, bundle_path)
-            print(f"Bundle written: {bundle_path}")
+            # Optional bundle export (reproducibility manifest + hashes)
+            if args.bundle:
+                from .api import RunResult as _RR
+                from .export.bundle import export_bundle
+
+                bundle_path = Path(args.bundle)
+                if bundle_path.is_dir():
+                    bundle_path = bundle_path / "analysis_bundle.zip"
+                # Build a minimal RunResult-like shim if we executed legacy path
+                rr = locals().get("run_result")
+                if rr is None:  # legacy path
+                    env = {
+                        "python": sys.version.split()[0],
+                        "numpy": np.__version__,
+                        "pandas": pd.__version__,
+                    }
+                    rr = _RR(metrics_df, res, run_seed, env)
+                # Attach config + seed for export_bundle
+                setattr(rr, "config", getattr(cfg, "__dict__", {}))
+                setattr(rr, "input_path", Path(args.input))
+                export_bundle(rr, bundle_path)
+                print(f"Bundle written: {bundle_path}")
+                maybe_log_step(
+                    do_structured,
+                    run_id,
+                    "bundle_complete",
+                    "Reproducibility bundle written",
+                    bundle=str(bundle_path),
+                )
             maybe_log_step(
                 do_structured,
                 run_id,
-                "bundle_complete",
-                "Reproducibility bundle written",
-                bundle=str(bundle_path),
+                "end",
+                "CLI run complete",
+                log_file=str(log_path),
             )
-        maybe_log_step(
-            do_structured,
-            run_id,
-            "end",
-            "CLI run complete",
-            log_file=str(log_path),
-        )
-        return 0
+            return 0
+        finally:
+            if coverage_tracker is not None:
+                print(coverage_tracker.format_report())
+                deactivate_config_coverage()
 
     # This shouldn't be reached with required=True.
     return 0

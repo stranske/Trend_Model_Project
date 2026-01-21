@@ -167,6 +167,67 @@ def test_main_run_handles_market_data_validation_error(monkeypatch, capsys):
     assert "bad data" in captured.err
 
 
+def test_main_run_with_config_coverage_prints_report(monkeypatch, tmp_path, capsys):
+    cfg = _make_config()
+    returns_path = tmp_path / "returns.csv"
+    returns_path.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+    cfg.data = {"csv_path": str(returns_path)}
+    config_payload = {
+        "data": {"csv_path": str(returns_path)},
+        "portfolio": {"transaction_cost_bps": 0.0},
+    }
+
+    monkeypatch.setattr(cli, "load_config", lambda path: cfg)
+    monkeypatch.setattr(cli, "load_config_yaml", lambda path: config_payload)
+    monkeypatch.setattr(cli, "_maybe_validate_config", lambda *_a, **_k: True)
+    monkeypatch.setattr(cli, "set_cache_enabled", lambda enabled: None)
+    monkeypatch.setattr(
+        cli,
+        "load_market_data_csv",
+        lambda path: SimpleNamespace(
+            frame=pd.DataFrame(
+                {
+                    "Date": [pd.Timestamp("2020-01-31")],
+                    "A": [0.1],
+                }
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "run_simulation",
+        lambda *_a, **_k: SimpleNamespace(
+            metrics=pd.DataFrame({"metric": [1.0]}),
+            details={"portfolio": pd.Series([1.0], index=[pd.Timestamp("2020-01-31")])},
+            seed=7,
+        ),
+    )
+    monkeypatch.setattr(cli.export, "format_summary_text", lambda *a, **k: "SUMMARY")
+    monkeypatch.setattr(cli.export, "export_to_excel", lambda *a, **k: None)
+    monkeypatch.setattr(cli.export, "export_data", lambda *a, **k: None)
+    monkeypatch.setattr(cli, "write_run_artifacts", lambda **_: tmp_path)
+    monkeypatch.setattr(cli.run_logging, "init_run_logger", lambda *a, **k: None)
+    monkeypatch.setattr(cli.run_logging, "get_default_log_path", lambda *_: tmp_path)
+
+    rc = cli.main(
+        [
+            "run",
+            "--config",
+            "cfg.yml",
+            "--input",
+            str(returns_path),
+            "--config-coverage",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert "Config coverage report:" in captured.out
+    from trend_analysis.config.coverage import get_config_coverage_tracker
+
+    assert get_config_coverage_tracker() is None
+
+
 def test_main_check_flag_short_circuits(monkeypatch):
     called: dict[str, int] = {}
 

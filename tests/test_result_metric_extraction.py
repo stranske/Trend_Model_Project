@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pandas as pd
+
 from trend_analysis.llm.result_metrics import (
     extract_metric_catalog,
     format_metric_catalog,
@@ -90,3 +92,47 @@ def test_format_metric_catalog_includes_sources() -> None:
 
     assert "out_sample_stats.FundA.cagr" in catalog
     assert "[from out_sample_stats]" in catalog
+
+
+def test_extract_metric_catalog_includes_risk_diagnostics_scalars() -> None:
+    result = {
+        "risk_diagnostics": {
+            "turnover": 0.12,
+            "turnover_value": 0.2,
+            "transaction_cost": 0.01,
+            "per_trade_bps": 5.0,
+        }
+    }
+
+    entries = extract_metric_catalog(result)
+    paths = {entry.path for entry in entries}
+
+    assert "risk_diagnostics.turnover" in paths
+    assert "risk_diagnostics.turnover_value" in paths
+    assert "risk_diagnostics.transaction_cost" in paths
+    assert "risk_diagnostics.per_trade_bps" in paths
+    assert "[from risk_diagnostics]" in format_metric_catalog(entries)
+
+
+def test_extract_metric_catalog_reads_risk_diagnostics_attributes() -> None:
+    risk_diag = SimpleNamespace(turnover=0.08, cost=0.004, half_spread_bps=1.5)
+    result = {"risk_diagnostics": risk_diag}
+
+    entries = extract_metric_catalog(result)
+    paths = {entry.path for entry in entries}
+
+    assert "risk_diagnostics.turnover" in paths
+    assert "risk_diagnostics.cost" in paths
+    assert "risk_diagnostics.half_spread_bps" in paths
+
+
+def test_extract_metric_catalog_adds_turnover_series_summaries() -> None:
+    result = {"turnover": pd.Series([0.05, 0.1, 0.2])}
+
+    entries = extract_metric_catalog(result)
+    paths = {entry.path for entry in entries}
+    catalog = format_metric_catalog(entries)
+
+    assert "turnover.latest" in paths
+    assert "turnover.mean" in paths
+    assert "[from turnover_series]" in catalog

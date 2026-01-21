@@ -374,3 +374,78 @@ def test_results_page_reports_plain_language_error(
         "message": "We couldn't run the analysis with the current data or settings. Please review the configuration and try again.",
         "detail": "No returns available after filtering",
     }
+
+
+def test_results_page_renders_explain_results(
+    monkeypatch: pytest.MonkeyPatch, results_page
+) -> None:
+    page, stub = results_page
+    returns = _sample_returns()
+
+    stub.session_state.update(
+        {
+            "model_state": {
+                "trend_spec": {"window": 63, "lag": 1},
+                "metric_weights": {"sharpe": 1.0},
+            },
+            "selected_benchmark": "BenchA",
+            "selected_risk_free": None,
+            "data_fingerprint": "abc123",
+            "returns_df": returns,
+            "schema_meta": {},
+            "upload_status": "success",
+            "analysis_fund_columns": ["FundA", "FundB"],
+            "fund_columns": ["FundA", "FundB"],
+        }
+    )
+
+    called: dict[str, object] = {}
+
+    def fake_render(result, *, run_key: str, provider: str | None = None) -> None:
+        called["result"] = result
+        called["run_key"] = run_key
+        called["provider"] = provider
+
+    monkeypatch.setattr(page.explain_results, "render_explain_results", fake_render)
+
+    def fake_run(
+        df: pd.DataFrame,
+        model_state: dict,
+        benchmark: str | None,
+        **_kwargs,
+    ):
+        return SimpleNamespace(
+            metrics=pd.DataFrame({"Sharpe": [1.23]}),
+            details={
+                "portfolio_equal_weight_combined": df["FundA"],
+                "risk_diagnostics": {
+                    "turnover": pd.Series([0.1, 0.2], index=returns.index[:2]),
+                    "final_weights": pd.Series({"FundA": 0.6, "FundB": 0.4}),
+                },
+            },
+            fallback_info=None,
+        )
+
+    for chart in [
+        "equity_chart",
+        "drawdown_chart",
+        "rolling_sharpe_chart",
+        "turnover_chart",
+        "exposure_chart",
+    ]:
+        monkeypatch.setattr(
+            getattr(page, "charts"), chart, lambda *_args, chart_name=chart: chart_name
+        )
+
+    monkeypatch.setattr(page.analysis_runner, "run_analysis", fake_run)
+
+    stub.button_responses = [True]
+
+    expected_run_key = page._current_run_key(
+        stub.session_state["model_state"], stub.session_state["selected_benchmark"]
+    )
+
+    page.render_results_page()
+
+    assert called["result"] is not None
+    assert called["run_key"] == expected_run_key

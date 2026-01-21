@@ -23,7 +23,12 @@ from .prompts import (
 )
 from .providers import LLMProviderConfig, create_llm
 from .replay import ReplayResult, load_nl_log_entry, render_prompt, replay_nl_entry
-from .result_metrics import MetricEntry, extract_metric_catalog, format_metric_catalog
+from .result_metrics import (
+    MetricEntry,
+    compact_metric_catalog,
+    extract_metric_catalog,
+    format_metric_catalog,
+)
 from .result_validation import (
     RESULT_DISCLAIMER,
     ResultClaimIssue,
@@ -31,6 +36,7 @@ from .result_validation import (
     detect_result_hallucinations,
     ensure_result_disclaimer,
     postprocess_result_text,
+    serialize_claim_issue,
     validate_result_claims,
 )
 
@@ -60,6 +66,7 @@ __all__ = [
     "LLMProviderConfig",
     "create_llm",
     "MetricEntry",
+    "compact_metric_catalog",
     "extract_metric_catalog",
     "format_metric_catalog",
     "RESULT_DISCLAIMER",
@@ -68,6 +75,7 @@ __all__ = [
     "detect_result_hallucinations",
     "ensure_result_disclaimer",
     "postprocess_result_text",
+    "serialize_claim_issue",
     "validate_result_claims",
     "load_nl_log_entry",
     "replay_nl_entry",
