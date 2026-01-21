@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib
 import sys
 from dataclasses import dataclass
@@ -80,3 +81,19 @@ def test_generate_result_explanation_handles_missing_metrics(
     assert explanation.metric_count == 0
     assert "No metrics were detected in the analysis output." in explanation.text
     assert "This is analytical output, not financial advice." in explanation.text
+
+
+def test_resolve_explanation_run_id_prefers_details(explain_module) -> None:
+    run_key = "run:abc123"
+    details = {"run_id": "run-001"}
+    assert explain_module._resolve_explanation_run_id(details, run_key) == "run-001"
+
+    details = {"metadata": {"run_id": "run-002"}}
+    assert explain_module._resolve_explanation_run_id(details, run_key) == "run-002"
+
+    details = {"metadata": {"reporting": {"run_id": "run-003"}}}
+    assert explain_module._resolve_explanation_run_id(details, run_key) == "run-003"
+
+    details = {}
+    expected = hashlib.sha256(run_key.encode("utf-8")).hexdigest()[:12]
+    assert explain_module._resolve_explanation_run_id(details, run_key) == expected

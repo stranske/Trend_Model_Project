@@ -49,6 +49,19 @@ def _cache_bucket() -> dict[str, ExplanationResult]:
     return cache
 
 
+def _resolve_explanation_run_id(details: Mapping[str, Any], run_key: str) -> str:
+    candidates = [
+        details.get("run_id"),
+        (details.get("metadata") or {}).get("run_id"),
+        ((details.get("metadata") or {}).get("reporting") or {}).get("run_id"),
+        (details.get("reporting") or {}).get("run_id"),
+    ]
+    for value in candidates:
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return hashlib.sha256(run_key.encode("utf-8")).hexdigest()[:12]
+
+
 def _render_analysis_output(details: Mapping[str, Any]) -> str:
     parts: list[str] = []
     summary = pd.DataFrame()
@@ -211,9 +224,9 @@ def render_explain_results(
     else:
         st.caption("No discrepancies detected in the explanation.")
 
-    run_hash = hashlib.sha256(run_key.encode("utf-8")).hexdigest()[:12]
+    run_id = _resolve_explanation_run_id(details, run_key)
     artifact_payload = {
-        "run_id": run_hash,
+        "run_id": run_id,
         "created_at": cached.created_at,
         "text": cached.text,
         "metric_count": cached.metric_count,
@@ -225,14 +238,14 @@ def render_explain_results(
         st.download_button(
             "Download explanation (TXT)",
             data=cached.text,
-            file_name=f"explanation_{run_hash}.txt",
+            file_name=f"explanation_{run_id}.txt",
             mime="text/plain",
         )
     with col_b:
         st.download_button(
             "Download explanation (JSON)",
             data=json.dumps(artifact_payload, indent=2, sort_keys=True),
-            file_name=f"explanation_{run_hash}.json",
+            file_name=f"explanation_{run_id}.json",
             mime="application/json",
         )
 
