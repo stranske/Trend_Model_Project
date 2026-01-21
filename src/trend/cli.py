@@ -548,8 +548,8 @@ def build_parser(
         "--output",
         type=Path,
         help=(
-            "Directory or file prefix for explanation artifacts. "
-            "Example: --output perf/explanations"
+            "Directory (created if needed) or file prefix for explanation artifacts. "
+            "Example: --output perf/explanations or --output perf/explanation_run.txt"
         ),
     )
 
@@ -1212,10 +1212,14 @@ def _infer_explain_run_id(details_path: Path, run_id: str | None) -> str:
 def _resolve_explain_output_paths(output: Path, run_id: str) -> tuple[Path, Path]:
     if output.exists() and output.is_dir():
         prefix = output / f"explanation_{run_id}"
+    elif output.exists() and output.is_file():
+        prefix = output.with_suffix("")
     elif output.suffix:
         prefix = output.with_suffix("")
-    else:
+    elif output.name.startswith("explanation_"):
         prefix = output
+    else:
+        prefix = output / f"explanation_{run_id}"
     return prefix.with_suffix(".txt"), prefix.with_suffix(".json")
 
 
