@@ -175,26 +175,19 @@ def compact_metric_catalog(
     question_text = _normalize_text(questions or "")
 
     single_stats_paths = {
-        entry.path
-        for entry in entries_list
-        if _matches_section(entry.path, _SINGLE_STATS_SECTIONS)
+        entry.path for entry in entries_list if _matches_section(entry.path, _SINGLE_STATS_SECTIONS)
     }
     benchmark_paths = {
         entry.path
         for entry in entries_list
-        if entry.source == _BENCHMARK_SECTION
-        or entry.path.startswith(f"{_BENCHMARK_SECTION}.")
+        if entry.source == _BENCHMARK_SECTION or entry.path.startswith(f"{_BENCHMARK_SECTION}.")
     }
 
     fund_weight_entries = [
-        entry
-        for entry in entries_list
-        if entry.path.startswith(f"{_WEIGHT_SECTIONS[0]}.")
+        entry for entry in entries_list if entry.path.startswith(f"{_WEIGHT_SECTIONS[0]}.")
     ]
     ew_weight_entries = [
-        entry
-        for entry in entries_list
-        if entry.path.startswith(f"{_WEIGHT_SECTIONS[1]}.")
+        entry for entry in entries_list if entry.path.startswith(f"{_WEIGHT_SECTIONS[1]}.")
     ]
     weight_entries = fund_weight_entries if fund_weight_entries else ew_weight_entries
     selected_weight_entries = _select_top_weight_entries(
