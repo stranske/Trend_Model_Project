@@ -71,6 +71,8 @@ def _apply_cap(w: pd.Series, cap: float, total: float | None = None) -> pd.Serie
 
     if cap is None:
         return w
+    if not np.isfinite(cap):
+        raise ConstraintViolation("max_weight must be finite")
     if cap <= 0:
         raise ConstraintViolation("max_weight must be positive")
     total_allocation = float(total if total is not None else _safe_sum(w))
@@ -112,6 +114,12 @@ def _apply_group_caps(
     if not set(w.index).issubset(groups.keys()):
         missing = set(w.index) - set(groups.keys())
         raise KeyError(f"Missing group mapping for: {sorted(missing)}")
+
+    for cap in group_caps.values():
+        if not np.isfinite(cap):
+            raise ConstraintViolation("group_caps must be finite")
+        if cap < 0:
+            raise ConstraintViolation("group_caps must be non-negative")
 
     group_list = [groups[asset] for asset in w.index]
     all_groups = set(group_list)

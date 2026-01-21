@@ -40,6 +40,30 @@ def test_apply_constraints_requires_non_cash_assets_when_cash_weight_set() -> No
         apply_constraints(weights, ConstraintSet(cash_weight=0.2))
 
 
+@pytest.mark.parametrize("cap", [np.nan, np.inf, -np.inf])
+def test_apply_constraints_rejects_non_finite_max_weight(cap: float) -> None:
+    weights = pd.Series({"A": 0.6, "B": 0.4}, dtype=float)
+
+    with pytest.raises(ConstraintViolation, match="max_weight must be finite"):
+        apply_constraints(weights, ConstraintSet(max_weight=cap))
+
+
+@pytest.mark.parametrize(
+    ("cap", "message"),
+    [
+        (np.nan, "group_caps must be finite"),
+        (np.inf, "group_caps must be finite"),
+        (-0.1, "group_caps must be non-negative"),
+    ],
+)
+def test_apply_constraints_rejects_invalid_group_caps(cap: float, message: str) -> None:
+    weights = pd.Series({"TechA": 0.6, "TechB": 0.4}, dtype=float)
+    constraints = ConstraintSet(group_caps={"Tech": cap}, groups={"TechA": "Tech", "TechB": "Tech"})
+
+    with pytest.raises(ConstraintViolation, match=message):
+        apply_constraints(weights, constraints)
+
+
 def test_apply_constraints_reapplies_max_weight_after_group_caps() -> None:
     weights = pd.Series({"TechA": 0.9, "TechB": 0.05, "Other": 0.05}, dtype=float)
     constraints = ConstraintSet(
