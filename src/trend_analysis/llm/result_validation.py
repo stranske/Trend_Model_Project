@@ -39,6 +39,10 @@ _SHORT_YEAR_RANGE_RE = re.compile(
 _SLASH_DATE_RE = re.compile(
     r"\b(?P<month>0?[1-9]|1[0-2])/(?P<day>0?[1-9]|[12]\d|3[01])" r"(?:/(?P<year>(?:19|20)\d{2}))?\b"
 )
+_DASH_DATE_RE = re.compile(
+    r"\b(?P<month>0?[1-9]|1[0-2])-(?P<day>0?[1-9]|[12]\d|3[01])-(?P<year>(?:19|20)\d{2})\b"
+)
+_MONTH_YEAR_RE = re.compile(r"\b(?P<month>0?[1-9]|1[0-2])\s*[/\-]\s*(?P<year>(?:19|20)\d{2})\b")
 _YEAR_SLASH_DATE_RE = re.compile(
     r"\b(?P<year>(?:19|20)\d{2})/(?P<month>0?[1-9]|1[0-2])" r"(?:/(?P<day>0?[1-9]|[12]\d|3[01]))?\b"
 )
@@ -329,6 +333,13 @@ def _date_like_number_spans(text: str) -> list[tuple[int, int]]:
         spans.append(match.span("day"))
         if match.group("year"):
             spans.append(match.span("year"))
+    for match in _DASH_DATE_RE.finditer(text):
+        spans.append(match.span("month"))
+        spans.append(match.span("day"))
+        spans.append(match.span("year"))
+    for match in _MONTH_YEAR_RE.finditer(text):
+        spans.append(match.span("month"))
+        spans.append(match.span("year"))
     for match in _YEAR_SLASH_DATE_RE.finditer(text):
         spans.append(match.span("year"))
         spans.append(match.span("month"))

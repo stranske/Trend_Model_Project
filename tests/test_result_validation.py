@@ -161,6 +161,22 @@ def test_validate_result_claims_ignores_slash_dates() -> None:
     assert not any(issue.kind == "uncited_value" for issue in issues)
 
 
+def test_validate_result_claims_ignores_dash_dates() -> None:
+    text = "Coverage runs from 01-15-2023 to 12-31-2023."
+
+    issues = validate_result_claims(text, [])
+
+    assert not any(issue.kind == "uncited_value" for issue in issues)
+
+
+def test_validate_result_claims_ignores_month_year_dates() -> None:
+    text = "Coverage runs from 01/2023 to 12/2023."
+
+    issues = validate_result_claims(text, [])
+
+    assert not any(issue.kind == "uncited_value" for issue in issues)
+
+
 def test_validate_result_claims_ignores_unpadded_hyphen_dates() -> None:
     text = "Coverage runs from 2023-1-5 to 2024-12-31."
 
