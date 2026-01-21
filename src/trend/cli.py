@@ -1242,6 +1242,16 @@ def _build_explain_artifact_payload(
     }
 
 
+def _finalize_explanation_text(
+    text: str,
+    claim_issues: Iterable[ResultClaimIssue],
+) -> str:
+    output = text
+    if claim_issues and "Discrepancy log:" not in output:
+        output = append_discrepancy_log(output, claim_issues)
+    return ensure_result_disclaimer(output)
+
+
 def _write_explain_artifacts(
     *,
     output: Path,
@@ -1649,8 +1659,9 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
             compacted_entries = compact_metric_catalog(all_entries, questions=questions)
             metric_catalog = format_metric_catalog(compacted_entries)
             if not all_entries:
-                explanation = ensure_result_disclaimer(
-                    "No metrics were detected in the analysis output."
+                explanation = _finalize_explanation_text(
+                    "No metrics were detected in the analysis output.",
+                    [],
                 )
                 if args.output:
                     payload = _build_explain_artifact_payload(
@@ -1688,7 +1699,8 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
             if claim_issues:
                 fallback = _fallback_explanation(metric_catalog)
                 fallback = append_discrepancy_log(fallback, claim_issues)
-                explanation_text = ensure_result_disclaimer(fallback)
+                explanation_text = fallback
+            explanation_text = _finalize_explanation_text(explanation_text, claim_issues)
             if args.output:
                 payload = _build_explain_artifact_payload(
                     run_id=run_id,

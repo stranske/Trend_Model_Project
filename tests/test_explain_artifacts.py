@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from trend.cli import (
     _build_explain_artifact_payload,
+    _finalize_explanation_text,
     _resolve_explain_output_paths,
     _write_explain_artifacts,
 )
@@ -87,3 +88,32 @@ def test_write_explain_artifacts_creates_files(tmp_path) -> None:
 
     assert txt_path.read_text(encoding="utf-8") == "Rendered explanation"
     assert json_path.read_text(encoding="utf-8") == '{\n  "run_id": "run-321"\n}'
+
+
+def test_finalize_explanation_text_adds_discrepancy_log_and_disclaimer() -> None:
+    issue = ResultClaimIssue(
+        kind="missing_citation",
+        message="Missing citation",
+        detail={"source": "out_sample_stats"},
+    )
+
+    output = _finalize_explanation_text("Base output", [issue])
+
+    assert "Discrepancy log:" in output
+    assert "This is analytical output, not financial advice." in output
+
+
+def test_finalize_explanation_text_avoids_duplicate_log() -> None:
+    issue = ResultClaimIssue(
+        kind="missing_citation",
+        message="Missing citation",
+        detail={"source": "out_sample_stats"},
+    )
+    text = (
+        "Base output\n\nDiscrepancy log:\n- missing_citation: Missing citation\n\n"
+        "This is analytical output, not financial advice."
+    )
+
+    output = _finalize_explanation_text(text, [issue])
+
+    assert output.count("Discrepancy log:") == 1
