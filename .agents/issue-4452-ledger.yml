@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Inventory tests that rely on patching `trend_analysis.pipeline.*` symbols
       expecting stages to reflect those patches.
-    status: doing
+    status: done
     started_at: '2026-01-21T01:57:04Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-21T01:57:12Z'
+    commit: 02f744cc267fe301e33d1aaff02cc9a8a7c4c84a
     notes: []
   - id: task-02
     title: 'Define scope for: Define scope for: Define approach for: Inventory tests
