@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Add extraction of `risk_diagnostics` scalar fields in `src/trend_analysis/llm/result_metrics.py`
       (support dicts and objects with attributes).
-    status: doing
+    status: done
     started_at: '2026-01-21T14:23:21Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-21T14:23:32Z'
+    commit: d19fc5d5c29958c70239bb591eb141cd61982984
     notes: []
   - id: task-02
     title: Include turnover fields (e.g., `turnover`, `turnover_value`) in the metric
