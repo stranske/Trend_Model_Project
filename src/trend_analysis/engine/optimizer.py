@@ -71,6 +71,10 @@ def _apply_cap(w: pd.Series, cap: float, total: float | None = None) -> pd.Serie
 
     if cap is None:
         return w
+    try:
+        cap = float(cap)
+    except (TypeError, ValueError) as exc:
+        raise ConstraintViolation("max_weight must be numeric") from exc
     if not np.isfinite(cap):
         raise ConstraintViolation("max_weight must be finite")
     if cap <= 0:
@@ -115,22 +119,28 @@ def _apply_group_caps(
         missing = set(w.index) - set(groups.keys())
         raise KeyError(f"Missing group mapping for: {sorted(missing)}")
 
-    for cap in group_caps.values():
-        if not np.isfinite(cap):
+    normalized_caps: dict[str, float] = {}
+    for group, cap in group_caps.items():
+        try:
+            cap_value = float(cap)
+        except (TypeError, ValueError) as exc:
+            raise ConstraintViolation("group_caps values must be numeric") from exc
+        if not np.isfinite(cap_value):
             raise ConstraintViolation("group_caps must be finite")
-        if cap < 0:
+        if cap_value < 0:
             raise ConstraintViolation("group_caps must be non-negative")
+        normalized_caps[group] = cap_value
 
     group_list = [groups[asset] for asset in w.index]
     all_groups = set(group_list)
     total_allocation = float(total if total is not None else _safe_sum(w))
-    if all_groups.issubset(group_caps.keys()):
-        total_cap = sum(group_caps[g] for g in all_groups)
+    if all_groups.issubset(normalized_caps.keys()):
+        total_cap = sum(normalized_caps[g] for g in all_groups)
         if total_cap < total_allocation - NUMERICAL_TOLERANCE_HIGH:
             raise ConstraintViolation("Group caps sum to less than required allocation")
 
     values = w.to_numpy(dtype=float)
-    for group, cap in group_caps.items():
+    for group, cap in normalized_caps.items():
         members_mask = np.array([grp == group for grp in group_list], dtype=bool)
         if not members_mask.any():
             continue

@@ -48,6 +48,13 @@ def test_apply_constraints_rejects_non_finite_max_weight(cap: float) -> None:
         apply_constraints(weights, ConstraintSet(max_weight=cap))
 
 
+def test_apply_constraints_rejects_non_numeric_max_weight() -> None:
+    weights = pd.Series({"A": 0.6, "B": 0.4}, dtype=float)
+
+    with pytest.raises(ConstraintViolation, match="max_weight must be numeric"):
+        apply_constraints(weights, ConstraintSet(max_weight="invalid"))  # type: ignore[arg-type]
+
+
 @pytest.mark.parametrize(
     ("cap", "message"),
     [
@@ -61,6 +68,17 @@ def test_apply_constraints_rejects_invalid_group_caps(cap: float, message: str) 
     constraints = ConstraintSet(group_caps={"Tech": cap}, groups={"TechA": "Tech", "TechB": "Tech"})
 
     with pytest.raises(ConstraintViolation, match=message):
+        apply_constraints(weights, constraints)
+
+
+def test_apply_constraints_rejects_non_numeric_group_caps() -> None:
+    weights = pd.Series({"TechA": 0.6, "TechB": 0.4}, dtype=float)
+    constraints = ConstraintSet(
+        group_caps={"Tech": "invalid"},  # type: ignore[dict-item]
+        groups={"TechA": "Tech", "TechB": "Tech"},
+    )
+
+    with pytest.raises(ConstraintViolation, match="group_caps values must be numeric"):
         apply_constraints(weights, constraints)
 
 
