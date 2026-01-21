@@ -5,14 +5,12 @@ from __future__ import annotations
 from trend_analysis.llm.result_metrics import (
     compact_metric_catalog,
     extract_metric_catalog,
+    format_metric_catalog,
 )
 
 
 def _make_result(num_funds: int = 8) -> dict:
-    weights = {
-        f"Fund{idx}": weight
-        for idx, weight in enumerate([0.5, 0.25, 0.1, 0.05, 0.04, 0.03, 0.02, 0.01][:num_funds])
-    }
+    weights = {f"Fund{idx}": 1.0 / (idx + 1) for idx in range(num_funds)}
     stats = {
         fund: {
             "cagr": 0.05 + idx * 0.01,
@@ -83,3 +81,19 @@ def test_compact_metric_catalog_prioritizes_weights_over_misc_entries() -> None:
     assert "benchmark_ir.SPX.Fund0" in paths
     assert "fund_weights.Fund0" in paths
     assert "risk_diagnostics.turnover" not in paths
+
+
+def test_compact_metric_catalog_bounds_formatted_lines() -> None:
+    entries = extract_metric_catalog(_make_result(num_funds=30))
+    compacted = compact_metric_catalog(
+        entries,
+        max_funds=5,
+        max_weights=3,
+        max_entries=20,
+    )
+    metric_catalog = format_metric_catalog(compacted)
+    lines = [line for line in metric_catalog.splitlines() if line.strip()]
+
+    assert len(lines) <= 20
+    assert "fund_weights.Fund0" in metric_catalog
+    assert "fund_weights.Fund1" in metric_catalog
