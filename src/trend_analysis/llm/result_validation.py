@@ -28,6 +28,18 @@ _NUMBER_RE = re.compile(r"(?<![A-Za-z0-9_.])[-+]?\d+(?:\.\d+)?%?")
 _DATE_RE = re.compile(
     r"\b(?P<year>(?:19|20)\d{2})-(?P<month>0[1-9]|1[0-2])" r"(?:-(?P<day>0[1-9]|[12]\d|3[01]))?\b"
 )
+_YEAR_RANGE_RE = re.compile(
+    r"\b(?P<start>(?:19|20)\d{2})\s*(?:-|to|through)\s*(?P<end>(?:19|20)\d{2})\b",
+    re.IGNORECASE,
+)
+_SLASH_DATE_RE = re.compile(
+    r"\b(?P<month>0?[1-9]|1[0-2])/(?P<day>0?[1-9]|[12]\d|3[01])"
+    r"(?:/(?P<year>(?:19|20)\d{2}))?\b"
+)
+_YEAR_SLASH_DATE_RE = re.compile(
+    r"\b(?P<year>(?:19|20)\d{2})/(?P<month>0[1-9]|1[0-2])"
+    r"(?:/(?P<day>0[1-9]|[12]\d|3[01]))?\b"
+)
 _QUESTION_TOKEN_RE = re.compile(r"[^a-z0-9]+")
 _UNAVAILABLE_RE = re.compile(
     r"requested data is unavailable in the analysis output",
@@ -299,6 +311,19 @@ def _date_like_number_spans(text: str) -> list[tuple[int, int]]:
         spans.append(match.span("year"))
         if match.group("month"):
             spans.append(match.span("month"))
+        if match.group("day"):
+            spans.append(match.span("day"))
+    for match in _YEAR_RANGE_RE.finditer(text):
+        spans.append(match.span("start"))
+        spans.append(match.span("end"))
+    for match in _SLASH_DATE_RE.finditer(text):
+        spans.append(match.span("month"))
+        spans.append(match.span("day"))
+        if match.group("year"):
+            spans.append(match.span("year"))
+    for match in _YEAR_SLASH_DATE_RE.finditer(text):
+        spans.append(match.span("year"))
+        spans.append(match.span("month"))
         if match.group("day"):
             spans.append(match.span("day"))
     return spans
