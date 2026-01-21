@@ -92,7 +92,9 @@ def _normalize_cash_weight(cash_weight: float | None) -> float | None:
     return cash_weight
 
 
-def _apply_cap(w: pd.Series, cap: float | None, total: float | None = None) -> pd.Series:
+def _apply_cap(
+    w: pd.Series, cap: float | None, total: float | None = None
+) -> pd.Series:
     """Cap individual weights at ``cap`` and redistribute the excess."""
 
     cap = _normalize_max_weight(cap)
@@ -176,12 +178,15 @@ def _apply_group_caps(
     return w
 
 
-def _apply_cash_weight(w: pd.Series, cash_weight: float, max_weight: float | None) -> pd.Series:
+def _apply_cash_weight(
+    w: pd.Series, cash_weight: float, max_weight: float | None
+) -> pd.Series:
     """Scale non-cash weights to accommodate a fixed CASH slice."""
 
-    cash_weight = _normalize_cash_weight(cash_weight)
-    if cash_weight is None:
+    normalized_cash = _normalize_cash_weight(cash_weight)
+    if normalized_cash is None:
         raise ConstraintViolation("cash_weight must be numeric")
+    cash_weight = normalized_cash
     if not (0 < cash_weight < 1):
         raise ConstraintViolation("cash_weight must be in (0,1) exclusive")
 
@@ -246,7 +251,9 @@ def apply_constraints(
         w = _clip_series(w, lower=0)
         total_weight = _safe_sum(w)
         if total_weight == 0:
-            raise ConstraintViolation("All weights non-positive under long-only constraint")
+            raise ConstraintViolation(
+                "All weights non-positive under long-only constraint"
+            )
     else:
         total_weight = _safe_sum(w)
         if abs(total_weight) <= NUMERICAL_TOLERANCE_HIGH:
@@ -260,8 +267,9 @@ def apply_constraints(
     original_order = list(w.index)
 
     # cash_weight processing (fixed slice). We treat a dedicated 'CASH' label.
-    if constraints.cash_weight is not None:
-        cash_weight = _normalize_cash_weight(constraints.cash_weight)
+    raw_cash_weight = constraints.cash_weight
+    if raw_cash_weight is not None:
+        cash_weight = _normalize_cash_weight(raw_cash_weight)
         if cash_weight is None:
             raise ConstraintViolation("cash_weight must be numeric")
         w = _apply_cash_weight(w, cash_weight, max_weight)
@@ -277,9 +285,13 @@ def apply_constraints(
     if constraints.group_caps:
         if not constraints.groups:
             raise ConstraintViolation("Group mapping required when group_caps set")
-        missing_assets = [asset for asset in working.index if asset not in constraints.groups]
+        missing_assets = [
+            asset for asset in working.index if asset not in constraints.groups
+        ]
         if missing_assets:
-            raise KeyError(f"Missing group mapping for assets: {', '.join(missing_assets)}")
+            raise KeyError(
+                f"Missing group mapping for assets: {', '.join(missing_assets)}"
+            )
         group_mapping = {asset: constraints.groups[asset] for asset in working.index}
         working = _apply_group_caps(
             working, constraints.group_caps, group_mapping, total=total_allocation
@@ -295,11 +307,13 @@ def apply_constraints(
     else:
         w = working
 
-    if revalidate_cash_weight and constraints.cash_weight is not None:
-        cash_weight = _normalize_cash_weight(constraints.cash_weight)
-        if cash_weight is None:
-            raise ConstraintViolation("cash_weight must be numeric")
-        w = _apply_cash_weight(w, cash_weight, max_weight)
+    if revalidate_cash_weight:
+        raw_cash_weight = constraints.cash_weight
+        if raw_cash_weight is not None:
+            cash_weight = _normalize_cash_weight(raw_cash_weight)
+            if cash_weight is None:
+                raise ConstraintViolation("cash_weight must be numeric")
+            w = _apply_cash_weight(w, cash_weight, max_weight)
 
     # Final normalisation guard
     w /= _safe_sum(w)
