@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from trend.cli import (
     _build_explain_artifact_payload,
     _finalize_explanation_text,
+    _infer_explain_run_id,
     _resolve_explain_output_paths,
     _write_explain_artifacts,
 )
@@ -52,6 +53,23 @@ def test_resolve_explain_output_paths_missing_directory(tmp_path) -> None:
 
     assert txt_path == out_dir / "explanation_run-42.txt"
     assert json_path == out_dir / "explanation_run-42.json"
+
+
+def test_infer_explain_run_id_prefers_details(tmp_path) -> None:
+    details_path = tmp_path / "details_unknown.json"
+    details = {"metadata": {"reporting": {"run_id": "run-007"}}}
+
+    run_id = _infer_explain_run_id(details_path, None, details)
+
+    assert run_id == "run-007"
+
+
+def test_infer_explain_run_id_falls_back_to_filename(tmp_path) -> None:
+    details_path = tmp_path / "details_run-42.json"
+
+    run_id = _infer_explain_run_id(details_path, None, None)
+
+    assert run_id == "run-42"
 
 
 def test_build_explain_artifact_payload_serializes_claims() -> None:
