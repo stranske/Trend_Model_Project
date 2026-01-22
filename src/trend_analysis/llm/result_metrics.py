@@ -388,10 +388,13 @@ def _diagnostics_to_mapping(diagnostics: Any) -> dict[str, Any]:
 
 def _extract_turnover_series_entries(result: Mapping[str, Any]) -> list[MetricEntry]:
     turnover_obj = result.get("turnover")
+    details = result.get("details")
+    if turnover_obj is None and isinstance(details, Mapping):
+        turnover_obj = details.get("turnover")
     if turnover_obj is None:
-        details = result.get("details")
-        if isinstance(details, Mapping):
-            turnover_obj = details.get("turnover")
+        turnover_obj = _turnover_from_diagnostics(result.get(_RISK_DIAGNOSTICS_SECTION))
+        if turnover_obj is None and isinstance(details, Mapping):
+            turnover_obj = _turnover_from_diagnostics(details.get(_RISK_DIAGNOSTICS_SECTION))
     series = _coerce_series(turnover_obj)
     if series is None or series.empty:
         entry = _make_entry("turnover.value", turnover_obj, _TURNOVER_SCALAR_SOURCE)
@@ -405,6 +408,16 @@ def _extract_turnover_series_entries(result: Mapping[str, Any]) -> list[MetricEn
         MetricEntry(path="turnover.latest", value=latest, source=_TURNOVER_SUMMARY_SOURCE),
         MetricEntry(path="turnover.mean", value=mean, source=_TURNOVER_SUMMARY_SOURCE),
     ]
+
+
+def _turnover_from_diagnostics(diagnostics: Any) -> Any:
+    if diagnostics is None:
+        return None
+    diag_map = _diagnostics_to_mapping(diagnostics)
+    turnover = diag_map.get("turnover")
+    if turnover is not None:
+        return turnover
+    return diag_map.get("turnover_value")
 
 
 def _coerce_series(value: Any) -> pd.Series | None:

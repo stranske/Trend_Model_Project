@@ -1199,9 +1199,24 @@ def _resolve_explain_questions(args: argparse.Namespace) -> str:
     return "\n".join(f"- {question}" for question in questions)
 
 
-def _infer_explain_run_id(details_path: Path, run_id: str | None) -> str:
+def _infer_explain_run_id(
+    details_path: Path,
+    run_id: str | None,
+    details: Mapping[str, Any] | None = None,
+) -> str:
     if run_id:
         return run_id
+    candidates = []
+    if isinstance(details, Mapping):
+        candidates = [
+            details.get("run_id"),
+            (details.get("metadata") or {}).get("run_id"),
+            ((details.get("metadata") or {}).get("reporting") or {}).get("run_id"),
+            (details.get("reporting") or {}).get("run_id"),
+        ]
+    for candidate in candidates:
+        if isinstance(candidate, str) and candidate.strip():
+            return candidate.strip()
     name = details_path.name
     prefix = "details_"
     suffix = ".json"
@@ -1232,8 +1247,9 @@ def _build_explain_artifact_payload(
     metric_count: int,
     trace_url: str | None,
     claim_issues: Iterable[ResultClaimIssue],
+    questions: str | None = None,
 ) -> dict[str, object]:
-    return {
+    payload: dict[str, object] = {
         "run_id": run_id,
         "created_at": created_at.isoformat(),
         "text": text,
@@ -1241,6 +1257,9 @@ def _build_explain_artifact_payload(
         "trace_url": trace_url,
         "claim_issues": [serialize_claim_issue(issue) for issue in claim_issues],
     }
+    if questions is not None:
+        payload["questions"] = questions
+    return payload
 
 
 def _finalize_explanation_text(
@@ -1654,7 +1673,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
             details_path = _resolve_explain_details_path(args)
             details = _load_explain_details(details_path)
             questions = _resolve_explain_questions(args)
-            run_id = _infer_explain_run_id(details_path, args.run_id)
+            run_id = _infer_explain_run_id(details_path, args.run_id, details)
             created_at = datetime.now(timezone.utc)
             all_entries = extract_metric_catalog(details)
             compacted_entries = compact_metric_catalog(all_entries, questions=questions)
@@ -1672,6 +1691,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                         metric_count=0,
                         trace_url=None,
                         claim_issues=[],
+                        questions=questions,
                     )
                     _write_explain_artifacts(
                         output=Path(args.output),
@@ -1713,6 +1733,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                     metric_count=len(compacted_entries),
                     trace_url=trace_url,
                     claim_issues=claim_issues,
+                    questions=questions,
                 )
                 _write_explain_artifacts(
                     output=Path(args.output),

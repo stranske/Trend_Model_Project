@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from trend.cli import (
     _build_explain_artifact_payload,
     _finalize_explanation_text,
+    _infer_explain_run_id,
     _resolve_explain_output_paths,
     _write_explain_artifacts,
 )
@@ -54,6 +55,23 @@ def test_resolve_explain_output_paths_missing_directory(tmp_path) -> None:
     assert json_path == out_dir / "explanation_run-42.json"
 
 
+def test_infer_explain_run_id_prefers_details(tmp_path) -> None:
+    details_path = tmp_path / "details_unknown.json"
+    details = {"metadata": {"reporting": {"run_id": "run-007"}}}
+
+    run_id = _infer_explain_run_id(details_path, None, details)
+
+    assert run_id == "run-007"
+
+
+def test_infer_explain_run_id_falls_back_to_filename(tmp_path) -> None:
+    details_path = tmp_path / "details_run-42.json"
+
+    run_id = _infer_explain_run_id(details_path, None, None)
+
+    assert run_id == "run-42"
+
+
 def test_build_explain_artifact_payload_serializes_claims() -> None:
     issue = ResultClaimIssue(
         kind="missing_citation",
@@ -68,12 +86,14 @@ def test_build_explain_artifact_payload_serializes_claims() -> None:
         metric_count=5,
         trace_url="trace://example",
         claim_issues=[issue],
+        questions="- Summarize results.",
     )
 
     assert payload["run_id"] == "run-123"
     assert payload["metric_count"] == 5
     assert payload["trace_url"] == "trace://example"
     assert payload["claim_issues"] == [serialize_claim_issue(issue)]
+    assert payload["questions"] == "- Summarize results."
 
 
 def test_write_explain_artifacts_creates_files(tmp_path) -> None:
@@ -85,6 +105,7 @@ def test_write_explain_artifacts_creates_files(tmp_path) -> None:
         metric_count=3,
         trace_url="trace://unit-test",
         claim_issues=[],
+        questions="- Summarize results.",
     )
 
     txt_path, json_path = _write_explain_artifacts(
@@ -102,6 +123,7 @@ def test_write_explain_artifacts_creates_files(tmp_path) -> None:
     assert json_payload["metric_count"] == 3
     assert json_payload["trace_url"] == "trace://unit-test"
     assert json_payload["claim_issues"] == []
+    assert json_payload["questions"] == "- Summarize results."
 
 
 def test_finalize_explanation_text_adds_discrepancy_log_and_disclaimer() -> None:

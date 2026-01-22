@@ -198,6 +198,9 @@ def render_explain_results(
         key=question_key,
         help="Leave blank to use the default summary prompt.",
     )
+    questions_text = st.session_state.get(question_key)
+    if not questions_text:
+        questions_text = DEFAULT_QUESTION
 
     button_key = hashlib.sha256(run_key.encode("utf-8")).hexdigest()[:12]
     clicked = st.button("Explain Results", key=f"btn_explain_results_{button_key}")
@@ -240,6 +243,7 @@ def render_explain_results(
         "text": cached.text,
         "metric_count": cached.metric_count,
         "trace_url": cached.trace_url,
+        "questions": questions_text,
         "claim_issues": [serialize_claim_issue(issue) for issue in cached.claim_issues],
     }
     columns = st.columns(2)

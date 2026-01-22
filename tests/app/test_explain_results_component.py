@@ -207,6 +207,7 @@ def test_render_explain_results_downloads_include_json_payload(explain_module) -
     assert payload["trace_url"] == "trace://example"
     assert payload["metric_count"] == 2
     assert payload["claim_issues"][0]["kind"] == "missing_citation"
+    assert payload["questions"] == explain_module.DEFAULT_QUESTION
 
 
 def test_render_explain_results_downloads_include_text(explain_module) -> None:
