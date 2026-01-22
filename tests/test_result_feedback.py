@@ -72,3 +72,25 @@ def test_build_deterministic_feedback_respects_env_thresholds(
     assert "high turnover" in lower
     assert "high concentration" in lower
     assert "large drawdown" in lower
+
+
+def test_missing_sections_respect_multi_period_expectation() -> None:
+    details_with_periods = {
+        "period_count": 2,
+        "out_user_stats": {"max_drawdown": -0.05},
+        "out_sample_scaled": {"foo": 1},
+    }
+    entries_with_periods = extract_metric_catalog(details_with_periods)
+    feedback_with_periods = build_deterministic_feedback(details_with_periods, entries_with_periods)
+
+    assert "missing result sections" in feedback_with_periods.lower()
+    assert "period_results" in feedback_with_periods
+
+    details_no_periods = {
+        "out_user_stats": {"max_drawdown": -0.05},
+        "out_sample_scaled": {"foo": 1},
+    }
+    entries_no_periods = extract_metric_catalog(details_no_periods)
+    feedback_no_periods = build_deterministic_feedback(details_no_periods, entries_no_periods)
+
+    assert feedback_no_periods == ""
