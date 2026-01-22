@@ -1247,8 +1247,9 @@ def _build_explain_artifact_payload(
     metric_count: int,
     trace_url: str | None,
     claim_issues: Iterable[ResultClaimIssue],
+    questions: str | None = None,
 ) -> dict[str, object]:
-    return {
+    payload: dict[str, object] = {
         "run_id": run_id,
         "created_at": created_at.isoformat(),
         "text": text,
@@ -1256,6 +1257,9 @@ def _build_explain_artifact_payload(
         "trace_url": trace_url,
         "claim_issues": [serialize_claim_issue(issue) for issue in claim_issues],
     }
+    if questions is not None:
+        payload["questions"] = questions
+    return payload
 
 
 def _finalize_explanation_text(
@@ -1687,6 +1691,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                         metric_count=0,
                         trace_url=None,
                         claim_issues=[],
+                        questions=questions,
                     )
                     _write_explain_artifacts(
                         output=Path(args.output),
@@ -1728,6 +1733,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                     metric_count=len(compacted_entries),
                     trace_url=trace_url,
                     claim_issues=claim_issues,
+                    questions=questions,
                 )
                 _write_explain_artifacts(
                     output=Path(args.output),

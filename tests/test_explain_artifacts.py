@@ -86,12 +86,14 @@ def test_build_explain_artifact_payload_serializes_claims() -> None:
         metric_count=5,
         trace_url="trace://example",
         claim_issues=[issue],
+        questions="- Summarize results.",
     )
 
     assert payload["run_id"] == "run-123"
     assert payload["metric_count"] == 5
     assert payload["trace_url"] == "trace://example"
     assert payload["claim_issues"] == [serialize_claim_issue(issue)]
+    assert payload["questions"] == "- Summarize results."
 
 
 def test_write_explain_artifacts_creates_files(tmp_path) -> None:
@@ -103,6 +105,7 @@ def test_write_explain_artifacts_creates_files(tmp_path) -> None:
         metric_count=3,
         trace_url="trace://unit-test",
         claim_issues=[],
+        questions="- Summarize results.",
     )
 
     txt_path, json_path = _write_explain_artifacts(
@@ -120,6 +123,7 @@ def test_write_explain_artifacts_creates_files(tmp_path) -> None:
     assert json_payload["metric_count"] == 3
     assert json_payload["trace_url"] == "trace://unit-test"
     assert json_payload["claim_issues"] == []
+    assert json_payload["questions"] == "- Summarize results."
 
 
 def test_finalize_explanation_text_adds_discrepancy_log_and_disclaimer() -> None:
