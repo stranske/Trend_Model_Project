@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+import pytest
 from trend_analysis.llm import build_deterministic_feedback, extract_metric_catalog
 
 
@@ -48,3 +49,25 @@ def test_build_deterministic_feedback_flags_and_citations() -> None:
     banned = ("will ", "should ", "expect", "forecast", "project", "may ", "might ", "could ")
     lower = feedback.lower()
     assert not any(term in lower for term in banned)
+
+
+def test_build_deterministic_feedback_respects_env_thresholds(
+    monkeypatch: "pytest.MonkeyPatch",
+) -> None:
+    details = {
+        "risk_diagnostics": {"turnover_value": 0.4},
+        "fund_weights": {"FundA": 0.15},
+        "out_user_stats": {"max_drawdown": -0.1},
+    }
+    entries = extract_metric_catalog(details)
+
+    monkeypatch.setenv("TREND_EXPLAIN_TURNOVER_WARN", "0.3")
+    monkeypatch.setenv("TREND_EXPLAIN_MAX_WEIGHT_WARN", "0.1")
+    monkeypatch.setenv("TREND_EXPLAIN_MAX_DD_WARN", "-0.05")
+
+    feedback = build_deterministic_feedback(details, entries)
+    lower = feedback.lower()
+
+    assert "high turnover" in lower
+    assert "high concentration" in lower
+    assert "large drawdown" in lower
