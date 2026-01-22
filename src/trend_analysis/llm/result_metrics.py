@@ -398,10 +398,8 @@ def _extract_turnover_series_entries(result: Mapping[str, Any]) -> list[MetricEn
             turnover_obj = _turnover_from_diagnostics(details.get(_RISK_DIAGNOSTICS_SECTION))
     series = _coerce_series(turnover_obj)
     if series is None or series.empty:
-        if turnover_source == "direct":
-            entry = _make_entry("turnover.value", turnover_obj, _TURNOVER_SCALAR_SOURCE)
-            return [entry] if entry is not None else []
-        return []
+        entry = _make_entry("turnover.value", turnover_obj, _TURNOVER_SCALAR_SOURCE)
+        return [entry] if entry is not None else []
     series = series.dropna()
     if series.empty:
         return []
@@ -417,7 +415,10 @@ def _turnover_from_diagnostics(diagnostics: Any) -> Any:
     if diagnostics is None:
         return None
     diag_map = _diagnostics_to_mapping(diagnostics)
-    return diag_map.get("turnover")
+    turnover = diag_map.get("turnover")
+    if turnover is not None:
+        return turnover
+    return diag_map.get("turnover_value")
 
 
 def _coerce_series(value: Any) -> pd.Series | None:

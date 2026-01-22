@@ -195,6 +195,18 @@ def test_extract_metric_catalog_adds_turnover_scalar_from_details() -> None:
     assert "[from turnover_scalar]" in catalog
 
 
+def test_extract_metric_catalog_adds_turnover_scalar_from_risk_diagnostics() -> None:
+    result = {"risk_diagnostics": {"turnover_value": 0.18}}
+
+    entries = extract_metric_catalog(result)
+    paths = {entry.path for entry in entries}
+    catalog = format_metric_catalog(entries)
+
+    assert "risk_diagnostics.turnover_value" in paths
+    assert "turnover.value" in paths
+    assert "[from turnover_scalar]" in catalog
+
+
 def test_format_metric_catalog_defaults_missing_source() -> None:
     entries = [
         MetricEntry(path="risk_diagnostics.turnover", value=0.2, source=""),
