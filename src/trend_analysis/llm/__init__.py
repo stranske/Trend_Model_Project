@@ -23,6 +23,7 @@ from .prompts import (
 )
 from .providers import LLMProviderConfig, create_llm
 from .replay import ReplayResult, load_nl_log_entry, render_prompt, replay_nl_entry
+from .result_feedback import build_deterministic_feedback
 from .result_metrics import (
     MetricEntry,
     compact_metric_catalog,
@@ -69,6 +70,7 @@ __all__ = [
     "compact_metric_catalog",
     "extract_metric_catalog",
     "format_metric_catalog",
+    "build_deterministic_feedback",
     "RESULT_DISCLAIMER",
     "ResultClaimIssue",
     "append_discrepancy_log",

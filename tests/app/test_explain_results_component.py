@@ -85,6 +85,29 @@ def test_generate_result_explanation_handles_missing_metrics(
     assert "This is analytical output, not financial advice." in explanation.text
 
 
+def test_generate_result_explanation_appends_diagnostics(
+    explain_module, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    details = {"out_user_stats": {"max_drawdown": -0.2}}
+    response = ResultSummaryResponse(
+        text="Max drawdown -0.2 [from out_user_stats].",
+        trace_url=None,
+    )
+    stub = _StubChain(response)
+
+    monkeypatch.setattr(explain_module, "_build_result_chain", lambda provider=None: stub)
+    monkeypatch.setattr(
+        explain_module,
+        "build_deterministic_feedback",
+        lambda *_args, **_kwargs: "Deterministic diagnostics:\n- diag 1 [from details]",
+    )
+
+    explain_module.generate_result_explanation(details, questions="Summarize")
+
+    assert stub.last_payload is not None
+    assert "Deterministic diagnostics" in stub.last_payload["analysis_output"]
+
+
 def test_resolve_explanation_run_id_prefers_details(explain_module) -> None:
     run_key = "run:abc123"
     details = {"run_id": "run-001"}
