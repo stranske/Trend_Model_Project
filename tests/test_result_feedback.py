@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 import pytest
+
 from trend_analysis.llm import build_deterministic_feedback, extract_metric_catalog
 
 
