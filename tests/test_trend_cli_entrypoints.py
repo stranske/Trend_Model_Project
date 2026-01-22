@@ -733,6 +733,7 @@ def test_main_explain_command_writes_json_artifact(
 ) -> None:
     details_path = _write_explain_details_with_run_id(tmp_path, "run-009")
     output_dir = tmp_path / "artifacts"
+    question = "Summarize the results."
 
     class DummyChain:
         def run(self, **kwargs: object) -> SimpleNamespace:
@@ -744,7 +745,15 @@ def test_main_explain_command_writes_json_artifact(
     monkeypatch.setattr(trend_cli, "_build_result_chain", lambda *_args, **_kwargs: DummyChain())
 
     exit_code = trend_cli.main(
-        ["explain", "--details", str(details_path), "--output", str(output_dir)]
+        [
+            "explain",
+            "--details",
+            str(details_path),
+            "--output",
+            str(output_dir),
+            "--question",
+            question,
+        ]
     )
 
     assert exit_code == 0
@@ -757,6 +766,7 @@ def test_main_explain_command_writes_json_artifact(
     assert payload["trace_url"] == "trace://cli"
     assert payload["metric_count"] > 0
     assert payload["claim_issues"] == []
+    assert payload["questions"] == f"- {question}"
     assert "CAGR was 8%" in payload["text"]
     assert "This is analytical output, not financial advice." in payload["text"]
     assert txt_path.read_text(encoding="utf-8") == payload["text"]
