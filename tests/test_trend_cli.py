@@ -19,6 +19,7 @@ from trend.cli import (
 )
 from trend_analysis.api import RunResult
 from trend_analysis.config.patch import ConfigPatch, PatchOperation
+from trend_analysis.llm import ResultSummaryResponse
 from trend_analysis.reporting import generate_unified_report
 
 
@@ -105,6 +106,44 @@ def test_explain_parser_accepts_output_option(tmp_path: Path) -> None:
     )
 
     assert args.output == output_path
+
+
+def test_explain_appends_diagnostics(monkeypatch, tmp_path: Path) -> None:
+    details = {
+        "out_user_stats": {"max_drawdown": -0.3},
+        "fund_weights": {"FundA": 0.6, "FundB": 0.4},
+    }
+    details_path = tmp_path / "details_run.json"
+    details_path.write_text(json.dumps(details), encoding="utf-8")
+
+    response = ResultSummaryResponse(
+        text="Max drawdown -0.3 [from out_user_stats].",
+        trace_url=None,
+    )
+
+    class _StubChain:
+        def __init__(self, response: ResultSummaryResponse) -> None:
+            self.response = response
+            self.last_payload: dict | None = None
+
+        def run(self, **kwargs):
+            self.last_payload = kwargs
+            return self.response
+
+    stub = _StubChain(response)
+
+    monkeypatch.setattr(cli, "_build_result_chain", lambda provider=None: stub)
+    monkeypatch.setattr(
+        cli,
+        "build_deterministic_feedback",
+        lambda *_args, **_kwargs: "Deterministic diagnostics:\n- diag 1 [from details]",
+    )
+
+    exit_code = main(["explain", "--details", str(details_path)])
+
+    assert exit_code == 0
+    assert stub.last_payload is not None
+    assert "Deterministic diagnostics" in stub.last_payload["analysis_output"]
 
 
 def test_legacy_callable_returns_fallback_when_module_missing(monkeypatch) -> None:

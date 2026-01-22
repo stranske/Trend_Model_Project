@@ -19,6 +19,7 @@ from trend_analysis.llm import (
     ResultSummaryChain,
     ResultSummaryResponse,
     build_result_summary_prompt,
+    build_deterministic_feedback,
     compact_metric_catalog,
     create_llm,
     ensure_result_disclaimer,
@@ -156,6 +157,9 @@ def generate_result_explanation(
 
     chain = _build_result_chain(provider)
     analysis_output = _render_analysis_output(details)
+    diagnostics = build_deterministic_feedback(details, all_entries)
+    if diagnostics:
+        analysis_output = f"{analysis_output}\n\n{diagnostics}"
     response: ResultSummaryResponse = chain.run(
         analysis_output=analysis_output,
         metric_catalog=metric_catalog,

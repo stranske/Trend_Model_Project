@@ -53,6 +53,7 @@ from trend_analysis.llm import (
     ResultClaimIssue,
     ResultSummaryChain,
     build_config_patch_prompt,
+    build_deterministic_feedback,
     build_result_summary_prompt,
     compact_metric_catalog,
     create_llm,
@@ -1682,6 +1683,9 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                     print(explanation)
                 return 0
             analysis_output = _render_analysis_output(details)
+            diagnostics = build_deterministic_feedback(details, all_entries)
+            if diagnostics:
+                analysis_output = f"{analysis_output}\n\n{diagnostics}"
             chain = _build_result_chain(args.provider)
             response = chain.run(
                 analysis_output=analysis_output,
