@@ -391,7 +391,6 @@ def _extract_turnover_series_entries(result: Mapping[str, Any]) -> list[MetricEn
     details = result.get("details")
     if turnover_obj is None and isinstance(details, Mapping):
         turnover_obj = details.get("turnover")
-    turnover_source = "direct" if turnover_obj is not None else "diagnostics"
     if turnover_obj is None:
         turnover_obj = _turnover_from_diagnostics(result.get(_RISK_DIAGNOSTICS_SECTION))
         if turnover_obj is None and isinstance(details, Mapping):
