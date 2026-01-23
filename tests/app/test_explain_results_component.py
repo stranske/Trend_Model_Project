@@ -56,7 +56,11 @@ def test_generate_result_explanation_uses_chain_and_disclaimer(
     )
     stub = _StubChain(response)
 
-    monkeypatch.setattr(explain_module, "_build_result_chain", lambda provider=None: stub)
+    monkeypatch.setattr(
+        explain_module,
+        "_build_result_chain",
+        lambda *args, **kwargs: stub,
+    )
 
     explanation = explain_module.generate_result_explanation(details, questions="Summarize")
 
@@ -95,7 +99,11 @@ def test_generate_result_explanation_appends_diagnostics(
     )
     stub = _StubChain(response)
 
-    monkeypatch.setattr(explain_module, "_build_result_chain", lambda provider=None: stub)
+    monkeypatch.setattr(
+        explain_module,
+        "_build_result_chain",
+        lambda *args, **kwargs: stub,
+    )
     monkeypatch.setattr(
         explain_module,
         "build_deterministic_feedback",

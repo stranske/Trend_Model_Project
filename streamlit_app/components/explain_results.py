@@ -91,7 +91,14 @@ def _format_questions(raw: str | None) -> str:
     return "\n".join(f"- {line}" for line in lines)
 
 
-def _resolve_llm_provider_config(provider: str | None = None) -> LLMProviderConfig:
+def _resolve_llm_provider_config(
+    provider: str | None = None,
+    *,
+    api_key: str | None = None,
+    model: str | None = None,
+    base_url: str | None = None,
+    organization: str | None = None,
+) -> LLMProviderConfig:
     provider_name = (provider or os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
     supported = {"openai", "anthropic", "ollama"}
     if provider_name not in supported:
@@ -99,34 +106,47 @@ def _resolve_llm_provider_config(provider: str | None = None) -> LLMProviderConf
             f"Unknown LLM provider '{provider_name}'. "
             f"Expected one of: {', '.join(sorted(supported))}."
         )
-    api_key = os.environ.get("TREND_LLM_API_KEY")
-    if not api_key:
+    resolved_api_key = api_key or os.environ.get("TREND_LLM_API_KEY")
+    if not resolved_api_key:
         if provider_name == "openai":
-            api_key = os.environ.get("OPENAI_API_KEY")
+            resolved_api_key = os.environ.get("OPENAI_API_KEY")
         elif provider_name == "anthropic":
-            api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if provider_name in {"openai", "anthropic"} and not api_key:
+            resolved_api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if provider_name in {"openai", "anthropic"} and not resolved_api_key:
         env_hint = "OPENAI_API_KEY" if provider_name == "openai" else "ANTHROPIC_API_KEY"
         raise ValueError(
             f"Missing API key for {provider_name}. " f"Set TREND_LLM_API_KEY or {env_hint}."
         )
-    model = os.environ.get("TREND_LLM_MODEL")
-    base_url = os.environ.get("TREND_LLM_BASE_URL")
-    organization = os.environ.get("TREND_LLM_ORG")
+    resolved_model = model or os.environ.get("TREND_LLM_MODEL")
+    resolved_base_url = base_url or os.environ.get("TREND_LLM_BASE_URL")
+    resolved_org = organization or os.environ.get("TREND_LLM_ORG")
     kwargs: dict[str, Any] = {"provider": provider_name}
-    if model:
-        kwargs["model"] = model
-    if api_key:
-        kwargs["api_key"] = api_key
-    if base_url:
-        kwargs["base_url"] = base_url
-    if organization:
-        kwargs["organization"] = organization
+    if resolved_model:
+        kwargs["model"] = resolved_model
+    if resolved_api_key:
+        kwargs["api_key"] = resolved_api_key
+    if resolved_base_url:
+        kwargs["base_url"] = resolved_base_url
+    if resolved_org:
+        kwargs["organization"] = resolved_org
     return LLMProviderConfig(**kwargs)
 
 
-def _build_result_chain(provider: str | None = None) -> ResultSummaryChain:
-    config = _resolve_llm_provider_config(provider)
+def _build_result_chain(
+    provider: str | None = None,
+    *,
+    api_key: str | None = None,
+    model: str | None = None,
+    base_url: str | None = None,
+    organization: str | None = None,
+) -> ResultSummaryChain:
+    config = _resolve_llm_provider_config(
+        provider,
+        api_key=api_key,
+        model=model,
+        base_url=base_url,
+        organization=organization,
+    )
     llm = create_llm(config)
     return ResultSummaryChain.from_env(
         llm=llm,
@@ -140,6 +160,10 @@ def generate_result_explanation(
     *,
     questions: str | None,
     provider: str | None = None,
+    api_key: str | None = None,
+    model: str | None = None,
+    base_url: str | None = None,
+    organization: str | None = None,
 ) -> ExplanationResult:
     created_at = datetime.now(timezone.utc).isoformat()
     all_entries = extract_metric_catalog(details)
@@ -155,7 +179,13 @@ def generate_result_explanation(
             created_at=created_at,
         )
 
-    chain = _build_result_chain(provider)
+    chain = _build_result_chain(
+        provider,
+        api_key=api_key,
+        model=model,
+        base_url=base_url,
+        organization=organization,
+    )
     analysis_output = _render_analysis_output(details)
     diagnostics = build_deterministic_feedback(details, all_entries)
     if diagnostics:
@@ -198,6 +228,45 @@ def render_explain_results(
         key=question_key,
         help="Leave blank to use the default summary prompt.",
     )
+    st.markdown("#### LLM Settings")
+    with st.expander("Configure provider and API key", expanded=False):
+        provider_key = "explain_results_provider"
+        api_key_key = "explain_results_api_key"
+        model_key = "explain_results_model"
+        base_url_key = "explain_results_base_url"
+        org_key = "explain_results_org"
+
+        st.selectbox(
+            "Provider",
+            ["openai", "anthropic", "ollama"],
+            index=["openai", "anthropic", "ollama"].index(
+                st.session_state.get(provider_key, provider or "openai")
+            ),
+            key=provider_key,
+            help="Defaults to TREND_LLM_PROVIDER if set; otherwise OpenAI.",
+        )
+        st.text_input(
+            "API Key",
+            value=st.session_state.get(api_key_key, ""),
+            key=api_key_key,
+            type="password",
+            help="Stored only in this browser session.",
+        )
+        st.text_input(
+            "Model (optional)",
+            value=st.session_state.get(model_key, ""),
+            key=model_key,
+        )
+        st.text_input(
+            "Base URL (optional)",
+            value=st.session_state.get(base_url_key, ""),
+            key=base_url_key,
+        )
+        st.text_input(
+            "Organization (optional)",
+            value=st.session_state.get(org_key, ""),
+            key=org_key,
+        )
     questions_text = st.session_state.get(question_key)
     if not questions_text:
         questions_text = DEFAULT_QUESTION
@@ -213,7 +282,11 @@ def render_explain_results(
                 cached = generate_result_explanation(
                     details,
                     questions=st.session_state.get(question_key),
-                    provider=provider,
+                    provider=st.session_state.get("explain_results_provider", provider),
+                    api_key=st.session_state.get("explain_results_api_key") or None,
+                    model=st.session_state.get("explain_results_model") or None,
+                    base_url=st.session_state.get("explain_results_base_url") or None,
+                    organization=st.session_state.get("explain_results_org") or None,
                 )
                 cache[run_key] = cached
             except Exception as exc:
