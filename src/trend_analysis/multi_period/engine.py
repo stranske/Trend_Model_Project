@@ -528,6 +528,15 @@ def run_schedule(
     for date in sorted(score_frames):
         sf = score_frames[date]
         sf_for_selection = sf
+        if (
+            rebalancer is not None
+            and getattr(rebalancer, "high_z_hard", None) is not None
+        ):
+            if "zscore" in sf.columns:
+                z_entry_hard = float(getattr(rebalancer, "high_z_hard"))
+                z = pd.to_numeric(sf["zscore"], errors="coerce")
+                mask = z >= z_entry_hard - NUMERICAL_TOLERANCE_HIGH
+                sf_for_selection = sf.loc[mask]
         date_ts = pd.to_datetime(date)
         selected, _ = selector.select(sf_for_selection)
         target_weights = weighting.weight(selected, date_ts)
@@ -1785,6 +1794,10 @@ def run(
 
     def _filter_entry_frame(score_frame: pd.DataFrame) -> pd.DataFrame:
         filtered = score_frame
+        if z_entry_hard is not None and "zscore" in score_frame.columns:
+            z = pd.to_numeric(score_frame["zscore"], errors="coerce")
+            mask = z >= z_entry_hard - NUMERICAL_TOLERANCE_HIGH
+            filtered = score_frame.loc[mask]
         if bottom_k <= 0 or filtered.empty:
             return filtered
         scores, ascending = _rank_scores_for_bottom_k(filtered)

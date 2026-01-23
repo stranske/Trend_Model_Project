@@ -172,6 +172,10 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
             f_str = str(f)
             if f_str in prev_w:
                 continue
+            # Hard entry barrier: never add below the hard threshold.
+            if self.high_z_hard is not None and z < self.high_z_hard:
+                self._entry_strikes[f_str] = 0
+                continue
             # Update soft entry strike counts
             if z >= self.high_z_soft:
                 self._entry_strikes[f_str] = self._entry_strikes.get(f_str, 0) + 1
