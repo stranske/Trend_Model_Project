@@ -6,8 +6,6 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from trend_analysis.config.validation import ValidationError, ValidationResult
-
 
 def test_execute_analysis_raises_on_invalid_config(monkeypatch) -> None:
     stub = SimpleNamespace()
@@ -22,32 +20,25 @@ def test_execute_analysis_raises_on_invalid_config(monkeypatch) -> None:
     import trend_analysis.api as api
     from streamlit_app.components import analysis_runner
 
-    issue = ValidationError(
-        path="data.csv_path",
-        message="Data source is required.",
-        expected="csv_path or managers_glob",
-        actual="missing",
-        suggestion="Set data.csv_path to a CSV file or data.managers_glob to a CSV glob.",
-    )
-
     monkeypatch.setattr(
         analysis_runner,
-        "validate_config",
-        lambda config_payload: ValidationResult(valid=False, errors=[issue], warnings=[]),
+        "build_config_payload",
+        lambda **_kwargs: {},
     )
     monkeypatch.setattr(
         analysis_runner,
-        "format_validation_messages",
-        lambda result: [
-            "data.csv_path: Data source is required. Expected csv_path or managers_glob, "
-            "got missing. Suggestion: Set data.csv_path to a CSV file or data.managers_glob "
-            "to a CSV glob."
-        ],
+        "validate_payload",
+        lambda _payload, *, base_path: (
+            None,
+            "data.csv_path must point to the returns CSV file",
+        ),
     )
     monkeypatch.setattr(
         api,
         "run_simulation",
-        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("run should not run")),
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("run should not run")
+        ),
     )
 
     returns = pd.DataFrame(
@@ -65,5 +56,3 @@ def test_execute_analysis_raises_on_invalid_config(monkeypatch) -> None:
 
     message = str(exc.value)
     assert "data.csv_path" in message
-    assert "Expected" in message
-    assert "Suggestion" in message

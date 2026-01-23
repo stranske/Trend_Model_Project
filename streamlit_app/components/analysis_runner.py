@@ -2,18 +2,23 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+from pathlib import Path
 from dataclasses import dataclass
 from typing import Any, Mapping
 
 import pandas as pd
 import streamlit as st
 
-from trend_analysis.config import format_validation_messages, validate_config
+from trend_analysis.config.bridge import build_config_payload, validate_payload
 from trend_analysis.config.legacy import Config
 from trend_analysis.signals import TrendSpec as TrendSpecModel
+from utils.paths import proj_path
 
 from .data_cache import cache_key_for_frame
+from .guardrails import infer_frequency
+from .upload_guard import DEFAULT_UPLOAD_DIR
 
 METRIC_REGISTRY = {
     "sharpe": "Sharpe",
@@ -72,7 +77,9 @@ def _month_end(ts: pd.Timestamp) -> pd.Timestamp:
     return period.to_timestamp("M", how="end")
 
 
-def _build_sample_split(index: pd.DatetimeIndex, config: Mapping[str, Any]) -> dict[str, str]:
+def _build_sample_split(
+    index: pd.DatetimeIndex, config: Mapping[str, Any]
+) -> dict[str, str]:
     if index.empty:
         raise ValueError("Dataset is empty")
 
@@ -182,7 +189,9 @@ def _build_signals_config(config: Mapping[str, Any]) -> dict[str, Any]:
     lag = _coerce_positive_int(config.get("lag"), default=base.lag)
     min_periods_raw = config.get("min_periods")
     try:
-        min_periods = int(min_periods_raw) if min_periods_raw not in (None, "") else None
+        min_periods = (
+            int(min_periods_raw) if min_periods_raw not in (None, "") else None
+        )
     except (TypeError, ValueError):
         min_periods = None
     if min_periods is not None and min_periods <= 0:
@@ -243,10 +252,13 @@ def _normalise_metric_weights(raw: Mapping[str, Any]) -> dict[str, float]:
 def _build_portfolio_config(
     config: Mapping[str, Any], weights: Mapping[str, float]
 ) -> dict[str, Any]:
-    selection_count = _coerce_positive_int(config.get("selection_count"), default=10, minimum=1)
+    selection_count = _coerce_positive_int(
+        config.get("selection_count"), default=10, minimum=1
+    )
     weighting_scheme = str(config.get("weighting_scheme", "equal") or "equal")
     registry_weights = {
-        METRIC_REGISTRY.get(metric, metric): float(weight) for metric, weight in weights.items()
+        METRIC_REGISTRY.get(metric, metric): float(weight)
+        for metric, weight in weights.items()
     }
 
     # Advanced settings
@@ -279,7 +291,9 @@ def _build_portfolio_config(
     # For buy_and_hold, use the initial method's transform
     effective_approach = buy_hold_initial if is_buy_and_hold else selection_approach
     rank_transform = "zscore" if effective_approach == "threshold" else "raw"
-    slippage_bps = _coerce_positive_int(config.get("slippage_bps"), default=0, minimum=0)
+    slippage_bps = _coerce_positive_int(
+        config.get("slippage_bps"), default=0, minimum=0
+    )
     bottom_k = _coerce_positive_int(config.get("bottom_k"), default=0, minimum=0)
 
     # Phase 9: Selection approach parameters
@@ -363,8 +377,12 @@ def _build_config(payload: AnalysisPayload) -> Config:
     # Risk settings
     vol_adjust_enabled = bool(state.get("vol_adjust_enabled", True))
     vol_floor = _coerce_positive_float(state.get("vol_floor"), default=0.015)
-    warmup_periods = _coerce_positive_int(state.get("warmup_periods"), default=0, minimum=0)
-    vol_window_length = _coerce_positive_int(state.get("vol_window_length"), default=63, minimum=1)
+    warmup_periods = _coerce_positive_int(
+        state.get("warmup_periods"), default=0, minimum=0
+    )
+    vol_window_length = _coerce_positive_int(
+        state.get("vol_window_length"), default=63, minimum=1
+    )
     vol_window_decay = str(state.get("vol_window_decay", "ewma") or "ewma").lower()
     if vol_window_decay == "constant":
         vol_window_decay = "simple"
@@ -406,12 +424,16 @@ def _build_config(payload: AnalysisPayload) -> Config:
         portfolio_cfg.setdefault("constraints", {})
         portfolio_cfg["constraints"]["min_weight"] = min_weight
 
-    min_weight_strikes = _coerce_positive_int(state.get("min_weight_strikes"), default=0, minimum=0)
+    min_weight_strikes = _coerce_positive_int(
+        state.get("min_weight_strikes"), default=0, minimum=0
+    )
     if min_weight_strikes > 0:
         portfolio_cfg.setdefault("constraints", {})
         portfolio_cfg["constraints"]["min_weight_strikes"] = min_weight_strikes
 
-    cooldown_periods = _coerce_positive_int(state.get("cooldown_periods"), default=0, minimum=0)
+    cooldown_periods = _coerce_positive_int(
+        state.get("cooldown_periods"), default=0, minimum=0
+    )
     if cooldown_periods > 0:
         portfolio_cfg["cooldown_periods"] = cooldown_periods
 
@@ -442,7 +464,9 @@ def _build_config(payload: AnalysisPayload) -> Config:
 
     # Robustness settings (Phase 7)
     shrinkage_enabled = bool(state.get("shrinkage_enabled", True))
-    shrinkage_method = str(state.get("shrinkage_method", "ledoit_wolf") or "ledoit_wolf")
+    shrinkage_method = str(
+        state.get("shrinkage_method", "ledoit_wolf") or "ledoit_wolf"
+    )
 
     robustness_cfg = {
         "shrinkage": {
@@ -488,7 +512,8 @@ def _build_config(payload: AnalysisPayload) -> Config:
     selection_count = _coerce_positive_int(state.get("selection_count"), default=10)
     threshold_hold_cfg["metric"] = "blended"
     threshold_hold_cfg["blended_weights"] = {
-        METRIC_REGISTRY.get(metric, metric): float(weight) for metric, weight in weights.items()
+        METRIC_REGISTRY.get(metric, metric): float(weight)
+        for metric, weight in weights.items()
     }
     threshold_hold_cfg["target_n"] = selection_count
     # Add hard thresholds if enabled (Phase 13)
@@ -496,7 +521,9 @@ def _build_config(payload: AnalysisPayload) -> Config:
         threshold_hold_cfg["z_entry_hard"] = z_entry_hard
     if z_exit_hard is not None:
         threshold_hold_cfg["z_exit_hard"] = z_exit_hard
-    min_tenure_periods = _coerce_positive_int(state.get("min_tenure_periods"), default=0, minimum=0)
+    min_tenure_periods = _coerce_positive_int(
+        state.get("min_tenure_periods"), default=0, minimum=0
+    )
     if min_tenure_periods > 0:
         threshold_hold_cfg["min_tenure_n"] = min_tenure_periods
 
@@ -590,7 +617,13 @@ def _build_config(payload: AnalysisPayload) -> Config:
     # Data config
     data_cfg: dict[str, Any] = {
         "allow_risk_free_fallback": True,
+        "date_column": "Date",
+        "frequency": _resolve_frequency(payload.returns),
     }
+
+    csv_path = _ensure_validation_csv_path(payload.returns)
+    if csv_path:
+        data_cfg["csv_path"] = csv_path
 
     # Optional: allow the UI to explicitly choose the risk-free column.
     # This makes runs reproducible and avoids the fallback heuristic picking a
@@ -600,6 +633,8 @@ def _build_config(payload: AnalysisPayload) -> Config:
         data_cfg["risk_free_column"] = risk_free_column.strip()
 
     preprocessing_cfg: dict[str, Any] = {}
+
+    portfolio_cfg.setdefault("rebalance_calendar", "NYSE")
 
     return Config(
         version="1",
@@ -640,15 +675,75 @@ def _prepare_returns(df: pd.DataFrame) -> pd.DataFrame:
     return reset.rename(columns={index_name: "Date"})
 
 
+def _resolve_frequency(returns: pd.DataFrame) -> str:
+    meta = st.session_state.get("schema_meta")
+    if isinstance(meta, Mapping):
+        freq = meta.get("frequency_code") or meta.get("frequency")
+        if isinstance(freq, str) and freq.strip():
+            return freq.strip().upper()
+    return infer_frequency(returns.index)
+
+
+def _ensure_validation_csv_path(returns: pd.DataFrame) -> str | None:
+    candidate = st.session_state.get("data_saved_path") or st.session_state.get(
+        "uploaded_file_path"
+    )
+    if isinstance(candidate, str) and candidate:
+        path = Path(candidate)
+        if path.exists() and path.suffix.lower() == ".csv":
+            return str(path)
+
+    try:
+        upload_dir = DEFAULT_UPLOAD_DIR
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        digest = hashlib.sha256(
+            cache_key_for_frame(returns).encode("utf-8")
+        ).hexdigest()[:12]
+        target = upload_dir / f"streamlit-returns-{digest}.csv"
+        if not target.exists():
+            _prepare_returns(returns).to_csv(target, index=False)
+        return str(target)
+    except Exception:
+        return None
+
+
+def _validate_streamlit_payload(payload: AnalysisPayload) -> None:
+    state = payload.model_state
+    date_column = "Date"
+    frequency = _resolve_frequency(payload.returns)
+    csv_path = _ensure_validation_csv_path(payload.returns)
+    rebalance_calendar = "NYSE"
+    max_turnover = _coerce_positive_float(state.get("max_turnover"), default=1.0)
+    transaction_cost_bps = _coerce_positive_float(
+        state.get("transaction_cost_bps"), default=0.0
+    )
+    slippage_bps = _coerce_positive_float(state.get("slippage_bps"), default=0.0)
+    target_vol = _coerce_positive_float(state.get("risk_target"), default=0.1)
+
+    payload_dict = build_config_payload(
+        csv_path=csv_path,
+        universe_membership_path=None,
+        managers_glob=None,
+        date_column=date_column,
+        frequency=frequency,
+        rebalance_calendar=rebalance_calendar,
+        max_turnover=max_turnover,
+        transaction_cost_bps=transaction_cost_bps,
+        slippage_bps=slippage_bps,
+        target_vol=target_vol,
+    )
+
+    base_dir = Path(csv_path).parent if csv_path else proj_path()
+    _, validation_error = validate_payload(payload_dict, base_path=base_dir)
+    if validation_error:
+        raise ValueError(f"Config validation failed:\n{validation_error}")
+
+
 def _execute_analysis(payload: AnalysisPayload):
     from trend_analysis.api import run_simulation
 
     config = _build_config(payload)
-    config_payload = config.model_dump() if hasattr(config, "model_dump") else dict(config.__dict__)
-    validation = validate_config(config_payload)
-    if not validation.valid:
-        details = "\n".join(format_validation_messages(validation))
-        raise ValueError(f"Config validation failed:\n{details}")
+    _validate_streamlit_payload(payload)
     returns = _prepare_returns(payload.returns)
     return run_simulation(config, returns)
 
@@ -657,7 +752,9 @@ def _hashable_model_state(state: Mapping[str, Any]) -> str:
     return json.dumps(state, sort_keys=True, default=str)
 
 
-@st.cache_data(show_spinner="Running analysis…", hash_funcs={pd.DataFrame: cache_key_for_frame})
+@st.cache_data(
+    show_spinner="Running analysis…", hash_funcs={pd.DataFrame: cache_key_for_frame}
+)
 def run_cached_analysis(
     returns: pd.DataFrame,
     model_state_blob: str,
