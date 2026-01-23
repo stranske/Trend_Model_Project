@@ -615,11 +615,16 @@ def _build_config(payload: AnalysisPayload) -> Config:
         }
 
     # Data config
+    missing_policy = state.get("missing_policy")
+    missing_limit = state.get("missing_limit")
     data_cfg: dict[str, Any] = {
         "allow_risk_free_fallback": True,
         "date_column": "Date",
         "frequency": _resolve_frequency(payload.returns),
+        "missing_policy": missing_policy or "ffill",
     }
+    if missing_limit is not None:
+        data_cfg["missing_limit"] = missing_limit
 
     csv_path = _ensure_validation_csv_path(payload.returns)
     if csv_path:

@@ -69,7 +69,9 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
         self.entry_eligible_strikes = int(
             th.get("entry_eligible_strikes", max(1, self.entry_soft_strikes - 1))
         )
-        constraints = portfolio.get("constraints", {}) if isinstance(portfolio, dict) else {}
+        constraints = (
+            portfolio.get("constraints", {}) if isinstance(portfolio, dict) else {}
+        )
         mp_cfg = self.cfg.get("multi_period") if isinstance(self.cfg, dict) else None
         mp_cfg = mp_cfg or {}
         self.max_funds = int(constraints.get("max_funds", mp_cfg.get("max_funds", 10)))
@@ -81,7 +83,9 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
         )
         self.weighting_name = str(th_name).lower()
         self.weighting_params = (
-            portfolio.get("weighting", {}).get("params", {}) if isinstance(portfolio, dict) else {}
+            portfolio.get("weighting", {}).get("params", {})
+            if isinstance(portfolio, dict)
+            else {}
         )
 
     # ------------------------------------------------------------------
@@ -140,7 +144,9 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
 
         # --- 1) update strike counts & decide removals -----------------
         zscores = (
-            score_frame["zscore"] if "zscore" in score_frame.columns else score_frame.iloc[:, 0]
+            score_frame["zscore"]
+            if "zscore" in score_frame.columns
+            else score_frame.iloc[:, 0]
         )
         to_drop: list[str] = []
 
@@ -171,10 +177,6 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
         for f, z in zscores.items():
             f_str = str(f)
             if f_str in prev_w:
-                continue
-            # Hard entry barrier: never add below the hard threshold.
-            if self.high_z_hard is not None and z < self.high_z_hard:
-                self._entry_strikes[f_str] = 0
                 continue
             # Update soft entry strike counts
             if z >= self.high_z_soft:

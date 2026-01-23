@@ -99,7 +99,9 @@ def _resolve_llm_provider_config(
     base_url: str | None = None,
     organization: str | None = None,
 ) -> LLMProviderConfig:
-    provider_name = (provider or os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
+    provider_name = (
+        provider or os.environ.get("TREND_LLM_PROVIDER") or "openai"
+    ).lower()
     supported = {"openai", "anthropic", "ollama"}
     if provider_name not in supported:
         raise ValueError(
@@ -113,9 +115,12 @@ def _resolve_llm_provider_config(
         elif provider_name == "anthropic":
             resolved_api_key = os.environ.get("ANTHROPIC_API_KEY")
     if provider_name in {"openai", "anthropic"} and not resolved_api_key:
-        env_hint = "OPENAI_API_KEY" if provider_name == "openai" else "ANTHROPIC_API_KEY"
+        env_hint = (
+            "OPENAI_API_KEY" if provider_name == "openai" else "ANTHROPIC_API_KEY"
+        )
         raise ValueError(
-            f"Missing API key for {provider_name}. " f"Set TREND_LLM_API_KEY or {env_hint}."
+            f"Missing API key for {provider_name}. "
+            f"Set TREND_LLM_API_KEY or {env_hint}."
         )
     resolved_model = model or os.environ.get("TREND_LLM_MODEL")
     resolved_base_url = base_url or os.environ.get("TREND_LLM_BASE_URL")
@@ -130,6 +135,35 @@ def _resolve_llm_provider_config(
     if resolved_org:
         kwargs["organization"] = resolved_org
     return LLMProviderConfig(**kwargs)
+
+
+def _default_api_key(provider_name: str) -> str | None:
+    try:
+        secrets_key = st.secrets.get("TREND_LLM_API_KEY")
+    except Exception:
+        secrets_key = None
+    if secrets_key:
+        return secrets_key
+    env_key = os.environ.get("TREND_LLM_API_KEY")
+    if env_key:
+        return env_key
+    if provider_name == "openai":
+        try:
+            secrets_openai = st.secrets.get("OPENAI_API_KEY")
+        except Exception:
+            secrets_openai = None
+        if secrets_openai:
+            return secrets_openai
+        return os.environ.get("OPENAI_API_KEY")
+    if provider_name == "anthropic":
+        try:
+            secrets_anthropic = st.secrets.get("ANTHROPIC_API_KEY")
+        except Exception:
+            secrets_anthropic = None
+        if secrets_anthropic:
+            return secrets_anthropic
+        return os.environ.get("ANTHROPIC_API_KEY")
+    return None
 
 
 def _build_result_chain(
@@ -170,7 +204,9 @@ def generate_result_explanation(
     compacted_entries = compact_metric_catalog(all_entries, questions=questions)
     metric_catalog = format_metric_catalog(compacted_entries)
     if not all_entries:
-        text = ensure_result_disclaimer("No metrics were detected in the analysis output.")
+        text = ensure_result_disclaimer(
+            "No metrics were detected in the analysis output."
+        )
         return ExplanationResult(
             text=text,
             trace_url=None,
@@ -236,18 +272,27 @@ def render_explain_results(
         base_url_key = "explain_results_base_url"
         org_key = "explain_results_org"
 
+        provider_default = (
+            st.session_state.get(provider_key)
+            or provider
+            or os.environ.get("TREND_LLM_PROVIDER")
+            or "openai"
+        )
+        provider_default = str(provider_default).lower()
+
         st.selectbox(
             "Provider",
             ["openai", "anthropic", "ollama"],
-            index=["openai", "anthropic", "ollama"].index(
-                st.session_state.get(provider_key, provider or "openai")
-            ),
+            index=["openai", "anthropic", "ollama"].index(provider_default),
             key=provider_key,
             help="Defaults to TREND_LLM_PROVIDER if set; otherwise OpenAI.",
         )
+        api_default = st.session_state.get(api_key_key)
+        if not api_default:
+            api_default = _default_api_key(provider_default) or ""
         st.text_input(
             "API Key",
-            value=st.session_state.get(api_key_key, ""),
+            value=api_default,
             key=api_key_key,
             type="password",
             help="Stored only in this browser session.",
