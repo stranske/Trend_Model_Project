@@ -36,9 +36,7 @@ def test_execute_analysis_raises_on_invalid_config(monkeypatch) -> None:
     monkeypatch.setattr(
         api,
         "run_simulation",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
-            AssertionError("run should not run")
-        ),
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("run should not run")),
     )
 
     returns = pd.DataFrame(
