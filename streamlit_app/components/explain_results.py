@@ -99,9 +99,7 @@ def _resolve_llm_provider_config(
     base_url: str | None = None,
     organization: str | None = None,
 ) -> LLMProviderConfig:
-    provider_name = (
-        provider or os.environ.get("TREND_LLM_PROVIDER") or "openai"
-    ).lower()
+    provider_name = (provider or os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
     supported = {"openai", "anthropic", "ollama"}
     if provider_name not in supported:
         raise ValueError(
@@ -115,12 +113,9 @@ def _resolve_llm_provider_config(
         elif provider_name == "anthropic":
             resolved_api_key = os.environ.get("ANTHROPIC_API_KEY")
     if provider_name in {"openai", "anthropic"} and not resolved_api_key:
-        env_hint = (
-            "OPENAI_API_KEY" if provider_name == "openai" else "ANTHROPIC_API_KEY"
-        )
+        env_hint = "OPENAI_API_KEY" if provider_name == "openai" else "ANTHROPIC_API_KEY"
         raise ValueError(
-            f"Missing API key for {provider_name}. "
-            f"Set TREND_LLM_API_KEY or {env_hint}."
+            f"Missing API key for {provider_name}. " f"Set TREND_LLM_API_KEY or {env_hint}."
         )
     resolved_model = model or os.environ.get("TREND_LLM_MODEL")
     resolved_base_url = base_url or os.environ.get("TREND_LLM_BASE_URL")
@@ -175,9 +170,7 @@ def generate_result_explanation(
     compacted_entries = compact_metric_catalog(all_entries, questions=questions)
     metric_catalog = format_metric_catalog(compacted_entries)
     if not all_entries:
-        text = ensure_result_disclaimer(
-            "No metrics were detected in the analysis output."
-        )
+        text = ensure_result_disclaimer("No metrics were detected in the analysis output.")
         return ExplanationResult(
             text=text,
             trace_url=None,
