@@ -76,6 +76,7 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     stub.number_input = lambda _label, **kwargs: kwargs.get("value", 0)
     stub.checkbox = lambda _label, value=False, **_kwargs: value
     stub.slider = lambda _label, **kwargs: kwargs.get("value", 0)
+    stub.file_uploader = lambda *_args, **_kwargs: None
     stub.empty = lambda: Placeholder()
 
     monkeypatch.setitem(sys.modules, "streamlit", stub)
@@ -346,7 +347,10 @@ def test_render_config_change_history_shows_tabs_and_entries(
         "2024-01-02T00:00:00Z • Increase min history",
         "2024-01-01T00:00:00Z • Increase lookback",
     ]
-    assert tab_sets == [["Unified diff", "Side-by-side"], ["Unified diff", "Side-by-side"]]
+    assert tab_sets == [
+        ["Unified diff", "Side-by-side"],
+        ["Unified diff", "Side-by-side"],
+    ]
     assert unified_calls == [
         "--- before\n+++ after\n+  min_history_periods: 9\n",
         "--- before\n+++ after\n+  lookback_periods: 12\n",
@@ -528,7 +532,11 @@ def test_risky_confirmation_dialog_emits_unknown_key_caption(
     stub = model_module.st
     stub.session_state.clear()
 
-    preview = {"after": {"lookback_periods": 12}, "needs_review": True, "risk_flags": []}
+    preview = {
+        "after": {"lookback_periods": 12},
+        "needs_review": True,
+        "risk_flags": [],
+    }
     stub.session_state["config_chat_pending_apply"] = {
         "preview": dict(preview),
         "run_analysis": False,
@@ -649,7 +657,9 @@ def test_render_config_diff_preview_renders_tabs_and_diff(
     ]
 
 
-def test_render_config_diff_preview_no_preview_shows_info(model_module: ModuleType) -> None:
+def test_render_config_diff_preview_no_preview_shows_info(
+    model_module: ModuleType,
+) -> None:
     stub = model_module.st
     stub.session_state.clear()
     info_calls: list[str] = []

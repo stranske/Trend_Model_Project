@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -31,6 +32,15 @@ from trend_analysis.llm import (
 
 DEFAULT_QUESTION = "Summarize key findings and notable risks in the results."
 _CACHE_KEY = "explain_results_cache"
+logger = logging.getLogger(__name__)
+
+
+def _read_secret(key: str) -> str | None:
+    try:
+        return st.secrets.get(key)
+    except (KeyError, FileNotFoundError, RuntimeError, ValueError) as exc:
+        logger.debug("Unable to read Streamlit secret %s: %s", key, exc)
+        return None
 
 
 @dataclass(frozen=True)
@@ -106,16 +116,20 @@ def _resolve_llm_provider_config(
             f"Unknown LLM provider '{provider_name}'. "
             f"Expected one of: {', '.join(sorted(supported))}."
         )
-    resolved_api_key = api_key or os.environ.get("TREND_LLM_API_KEY")
+    resolved_api_key = api_key
     if not resolved_api_key:
-        if provider_name == "openai":
-            resolved_api_key = os.environ.get("OPENAI_API_KEY")
-        elif provider_name == "anthropic":
-            resolved_api_key = os.environ.get("ANTHROPIC_API_KEY")
+        resolved_api_key = os.environ.get("TS_STREAMLIT_API_KEY")
+    if not resolved_api_key:
+        resolved_api_key = os.environ.get("OPENAI_API_KEY")
+    if not resolved_api_key:
+        resolved_api_key = os.environ.get("TREND_LLM_API_KEY")
+    if not resolved_api_key and provider_name == "anthropic":
+        resolved_api_key = os.environ.get("ANTHROPIC_API_KEY")
     if provider_name in {"openai", "anthropic"} and not resolved_api_key:
         env_hint = "OPENAI_API_KEY" if provider_name == "openai" else "ANTHROPIC_API_KEY"
         raise ValueError(
-            f"Missing API key for {provider_name}. " f"Set TREND_LLM_API_KEY or {env_hint}."
+            f"Missing API key for {provider_name}. "
+            f"Set TS_STREAMLIT_API_KEY, OPENAI_API_KEY, TREND_LLM_API_KEY, or {env_hint}."
         )
     resolved_model = model or os.environ.get("TREND_LLM_MODEL")
     resolved_base_url = base_url or os.environ.get("TREND_LLM_BASE_URL")
@@ -133,28 +147,30 @@ def _resolve_llm_provider_config(
 
 
 def _default_api_key(provider_name: str) -> str | None:
-    try:
-        secrets_key = st.secrets.get("TREND_LLM_API_KEY")
-    except Exception:
-        secrets_key = None
+    proxy_url = os.environ.get("TS_LLM_PROXY_URL")
+    if proxy_url:
+        token = os.environ.get("TS_LLM_PROXY_TOKEN")
+        if token:
+            return token
+    secrets_key = _read_secret("TS_STREAMLIT_API_KEY")
     if secrets_key:
         return secrets_key
+    secrets_key = _read_secret("TREND_LLM_API_KEY")
+    if secrets_key:
+        return secrets_key
+    secrets_key = _read_secret("OPENAI_API_KEY")
+    if secrets_key:
+        return secrets_key
+    env_key = os.environ.get("TS_STREAMLIT_API_KEY")
+    if env_key:
+        return env_key
     env_key = os.environ.get("TREND_LLM_API_KEY")
     if env_key:
         return env_key
     if provider_name == "openai":
-        try:
-            secrets_openai = st.secrets.get("OPENAI_API_KEY")
-        except Exception:
-            secrets_openai = None
-        if secrets_openai:
-            return secrets_openai
         return os.environ.get("OPENAI_API_KEY")
     if provider_name == "anthropic":
-        try:
-            secrets_anthropic = st.secrets.get("ANTHROPIC_API_KEY")
-        except Exception:
-            secrets_anthropic = None
+        secrets_anthropic = _read_secret("ANTHROPIC_API_KEY")
         if secrets_anthropic:
             return secrets_anthropic
         return os.environ.get("ANTHROPIC_API_KEY")
@@ -314,14 +330,34 @@ def render_explain_results(
     cache = _cache_bucket()
     cached = cache.get(run_key)
 
+    def _resolve_api_key_input(raw: str | None) -> str | None:
+        if not raw:
+            return None
+        trimmed = raw.strip()
+        if not trimmed:
+            return None
+        env_names = {
+            "TS_STREAMLIT_API_KEY",
+            "OPENAI_API_KEY",
+            "TREND_LLM_API_KEY",
+            "ANTHROPIC_API_KEY",
+        }
+        if trimmed in env_names:
+            secret_val = _read_secret(trimmed)
+            return secret_val or os.environ.get(trimmed)
+        return trimmed
+
     if clicked:
         with st.spinner("Generating explanation..."):
             try:
+                resolved_key = _resolve_api_key_input(
+                    st.session_state.get("explain_results_api_key")
+                )
                 cached = generate_result_explanation(
                     details,
                     questions=st.session_state.get(question_key),
                     provider=st.session_state.get("explain_results_provider", provider),
-                    api_key=st.session_state.get("explain_results_api_key") or None,
+                    api_key=resolved_key,
                     model=st.session_state.get("explain_results_model") or None,
                     base_url=st.session_state.get("explain_results_base_url") or None,
                     organization=st.session_state.get("explain_results_org") or None,

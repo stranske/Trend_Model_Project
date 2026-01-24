@@ -31,6 +31,25 @@ Place the `src/` and `streamlit_app/` folders at the root of your repo (next to 
 trend app
 ```
 
+## Secrets (local dev + Streamlit Cloud)
+
+**Local dev (safe)**
+  - `.streamlit/secrets.toml`
+  - `OPENAI_API_KEY = "..."`
+
+Quick setup script (writes the file and locks permissions):
+
+```
+./scripts/setup_streamlit_secrets.sh
+```
+**Streamlit Cloud (hosted)**
+  - `OPENAI_API_KEY = "..."`
+
+**How Streamlit Cloud differs**
+- Local: you control the environment on your machine.
+- Cloud: Streamlit runs the app on their infrastructure and loads secrets from
+  the app settings (not from repo files).
+
 The legacy launcher (`scripts/run_streamlit.sh`) still works, but the packaged
 command keeps the environment consistent across machines and enforces the
 installed-package workflow.

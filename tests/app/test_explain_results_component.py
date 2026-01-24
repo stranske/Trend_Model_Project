@@ -136,6 +136,7 @@ def test_resolve_llm_provider_config_requires_api_key(
     explain_module, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("TREND_LLM_PROVIDER", "openai")
+    monkeypatch.delenv("TS_STREAMLIT_API_KEY", raising=False)
     monkeypatch.delenv("TREND_LLM_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
