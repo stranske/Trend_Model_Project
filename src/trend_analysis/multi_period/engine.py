@@ -2466,7 +2466,17 @@ def run(
                 # Replace exited funds using the same initial selection method
                 n_needed = buy_hold_n - len(current_holdings)
                 if n_needed > 0:
-                    available = [str(c) for c in sf.index if str(c) not in current_holdings]
+                    available = [
+                        str(c) for c in sf.index if str(c) not in current_holdings
+                    ]
+                    # Only consider funds that still have out-of-sample data;
+                    # prevents re-adding funds whose data has disappeared.
+                    if isinstance(out_df, pd.DataFrame) and not out_df.empty:
+                        available = [
+                            c
+                            for c in available
+                            if c in out_df.columns and out_df[c].notna().any()
+                        ]
                     if cooldown_periods > 0 and cooldown_book:
                         available = [c for c in available if c not in cooldown_book]
                     available = _filter_entry_candidates(available, sf)
@@ -3365,16 +3375,21 @@ def run(
         res_dict["selection_score_frame"] = sf.copy()
         res_dict["selection_metric"] = metric
 
-        # Determine the realised weights/holdings.
-        # IMPORTANT: Use final_w (our selection-engine computed weights) rather
-        # than pipeline_weights_raw, because the pipeline may filter out newly
-        # added funds that don't meet its data requirements for the in-sample
-        # window. The multi-period engine has already validated these funds can
-        # be selected; their weights should be respected.
-        #
-        # Note: If pipeline_weights_raw has funds NOT in final_w (e.g., indices,
-        # benchmarks), we filter those out later via drop_cols.
-        effective_w: pd.Series = final_w.copy()
+        # Determine the realised weights/holdings as used by the pipeline.
+        # This is the contract for downstream reporting/export.  In particular,
+        # missing-data filters or other pipeline constraints may alter the final
+        # investable set.  Manager changes must match these realised holdings.
+        pipeline_weights_raw = res_dict.get("fund_weights")
+        effective_w: pd.Series
+        used_pipeline_weights = False
+        if isinstance(pipeline_weights_raw, dict) and pipeline_weights_raw:
+            try:
+                effective_w = pd.Series(pipeline_weights_raw, dtype=float)
+                used_pipeline_weights = True
+            except Exception:
+                effective_w = final_w.copy()
+        else:
+            effective_w = final_w.copy()
 
         effective_w = effective_w[effective_w.abs() > eps]
 
@@ -3397,6 +3412,20 @@ def run(
                 labels=[c for c in effective_w.index if str(c) not in manual_set],
                 errors="ignore",
             )
+
+        # Some pipeline fallbacks can yield a populated-but-zero weight mapping.
+        # Treat that as unusable and fall back to the intended weights.
+        if used_pipeline_weights and effective_w.abs().sum() <= eps:
+            effective_w = final_w.copy()
+            effective_w = effective_w[effective_w.abs() > eps]
+            if drop_cols:
+                effective_w = effective_w.drop(labels=list(drop_cols), errors="ignore")
+            if manual_holdings:
+                manual_set = {str(x) for x in manual_holdings}
+                effective_w = effective_w.drop(
+                    labels=[c for c in effective_w.index if str(c) not in manual_set],
+                    errors="ignore",
+                )
 
         # Enforce max_funds contract on realised holdings.
         # This guards against any upstream components returning extra positions.

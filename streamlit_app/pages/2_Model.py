@@ -1605,7 +1605,10 @@ def render_model_page() -> None:
             help="Download all current parameters including model settings, fund selections, and benchmark choices.",
         )
         with st.expander("Preview current configuration", expanded=False):
-            st.json(current_wrapper)
+            if hasattr(st, "json"):
+                st.json(current_wrapper)
+            else:
+                st.write(current_wrapper)
 
         st.markdown("---")
         export_col, import_col = st.columns(2)
