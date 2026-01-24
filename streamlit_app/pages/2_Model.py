@@ -1533,9 +1533,7 @@ def render_model_page() -> None:
                 try:
                     raw_value = uploaded_config.getvalue()
                     if isinstance(raw_value, bytes):
-                        st.session_state["import_config_payload"] = raw_value.decode(
-                            "utf-8"
-                        )
+                        st.session_state["import_config_payload"] = raw_value.decode("utf-8")
                     else:
                         st.session_state["import_config_payload"] = str(raw_value)
                 except UnicodeDecodeError:
@@ -1544,14 +1542,10 @@ def render_model_page() -> None:
                         "Please upload a UTF-8 encoded JSON file."
                     )
                 except (AttributeError, TypeError):
-                    st.error(
-                        "Unable to read uploaded JSON file due to an unexpected file format."
-                    )
+                    st.error("Unable to read uploaded JSON file due to an unexpected file format.")
                 except OSError as exc:
                     st.error(f"Unable to read uploaded file: {exc}")
-            import_payload = st.text_area(
-                "Paste JSON to import", key="import_config_payload"
-            )
+            import_payload = st.text_area("Paste JSON to import", key="import_config_payload")
             if st.button("Import JSON configuration", key="import_config_button"):
                 if not import_payload.strip():
                     st.error("Paste a JSON payload to import a configuration.")

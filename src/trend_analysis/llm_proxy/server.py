@@ -148,9 +148,7 @@ class LLMProxy:
             )
         except httpx.TimeoutException as exc:
             logger.warning("Upstream request timed out: %s", exc)
-            raise HTTPException(
-                status_code=504, detail="Upstream service timed out"
-            ) from exc
+            raise HTTPException(status_code=504, detail="Upstream service timed out") from exc
         except httpx.RequestError as exc:
             logger.warning("Network error while contacting upstream: %s", exc)
             raise HTTPException(
@@ -158,9 +156,7 @@ class LLMProxy:
             ) from exc
         except httpx.HTTPError as exc:
             logger.warning("HTTP error from upstream: %s", exc)
-            raise HTTPException(
-                status_code=502, detail="Upstream service error"
-            ) from exc
+            raise HTTPException(status_code=502, detail="Upstream service error") from exc
 
         filtered = _filter_response_headers(dict(response.headers))
         return Response(

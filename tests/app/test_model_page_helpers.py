@@ -99,9 +99,7 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
         app_state,
         "get_uploaded_data",
         lambda: (
-            pd.DataFrame(
-                {f"A{i}": [0.01 + i * 0.001, 0.02 + i * 0.001] for i in range(12)}
-            ),
+            pd.DataFrame({f"A{i}": [0.01 + i * 0.001, 0.02 + i * 0.001] for i in range(12)}),
             {},
         ),
     )
@@ -198,10 +196,7 @@ def test_render_config_chat_panel_stores_instruction(model_module: ModuleType) -
 
     model_module.render_config_chat_panel()
 
-    assert (
-        stub.session_state.get("config_chat_last_instruction")
-        == "Increase lookback to 24"
-    )
+    assert stub.session_state.get("config_chat_last_instruction") == "Increase lookback to 24"
 
 
 def test_side_by_side_diff_renders_yaml(model_module: ModuleType) -> None:
@@ -213,9 +208,7 @@ def test_side_by_side_diff_renders_yaml(model_module: ModuleType) -> None:
 
     stub.code = capture_code
 
-    model_module._render_side_by_side_diff(
-        {"lookback_periods": 12}, {"lookback_periods": 24}
-    )
+    model_module._render_side_by_side_diff({"lookback_periods": 12}, {"lookback_periods": 24})
 
     assert "yaml" in languages
 
@@ -600,9 +593,7 @@ def test_render_side_by_side_diff_snapshot(model_module: ModuleType) -> None:
         {"lookback_periods": 12, "min_history_periods": 6},
     )
 
-    snapshot_path = (
-        Path(__file__).parents[1] / "fixtures" / "diff_preview_side_by_side.html"
-    )
+    snapshot_path = Path(__file__).parents[1] / "fixtures" / "diff_preview_side_by_side.html"
     expected = snapshot_path.read_text(encoding="utf-8")
     assert markdown_calls
 
@@ -610,9 +601,7 @@ def test_render_side_by_side_diff_snapshot(model_module: ModuleType) -> None:
         value = re.sub(r"difflib_chg_to\d+__", "difflib_chg_toX__", value)
         value = re.sub(r"id=\"from\d+_", 'id="fromX_', value)
         value = re.sub(r"id=\"to\d+_", 'id="toX_', value)
-        value = re.sub(
-            r"href=\"#difflib_chg_to\d+__", 'href="#difflib_chg_toX__', value
-        )
+        value = re.sub(r"href=\"#difflib_chg_to\d+__", 'href="#difflib_chg_toX__', value)
         return value
 
     assert normalize_ids(markdown_calls[-1]) == normalize_ids(expected)
@@ -682,6 +671,4 @@ def test_render_config_diff_preview_no_preview_shows_info(
 
     model_module._render_config_diff_preview(model_state={"lookback_periods": 6})
 
-    assert info_calls == [
-        "No preview available yet. Send an instruction to generate a diff."
-    ]
+    assert info_calls == ["No preview available yet. Send an instruction to generate a diff."]
