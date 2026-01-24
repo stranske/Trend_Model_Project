@@ -473,8 +473,14 @@ def _select_universe(
         else:
             fund_cols = rank_result
     elif selection_mode == "manual":
-        if manual_funds:  # pragma: no cover - rarely hit
-            fund_cols = [c for c in fund_cols if c in manual_funds]
+        if manual_funds:
+            # Manual mode: use the explicitly requested funds. The caller has
+            # already determined these are the target holdings, so bypass the
+            # missing-data filter applied above. Only require that the column
+            # exists in both in-sample and out-sample windows. This ensures
+            # newly-hired funds are not filtered out due to missing data.
+            available = set(window.in_df.columns) & set(window.out_df.columns)
+            fund_cols = [c for c in manual_funds if c in available]
         else:
             fund_cols = []  # pragma: no cover
 
