@@ -1925,7 +1925,10 @@ def run(
             # Risk-based weighting requires returns data
             try:
                 if returns_window is not None and not returns_window.empty:
-                    subset = returns_window.reindex(columns=holdings).dropna(axis=1, how="all")
+                    # Only include holdings that have data in returns_window
+                    # to avoid NaN columns that would get 0 weight
+                    holdings_in_window = [h for h in holdings if h in returns_window.columns]
+                    subset = returns_window[holdings_in_window].dropna(axis=1, how="all")
                 else:
                     # Fall back to score frame data if no returns window provided
                     subset = sf.loc[holdings]
@@ -1937,6 +1940,7 @@ def run(
                     return weighting.weight(sf.loc[holdings], date)
                 w_series = risk_weight_engine.weight(cov)
                 # Ensure all holdings have weights (fill missing with zero)
+                # Note: holdings not in returns_window will get 0 weight here
                 w_series = w_series.reindex(holdings).fillna(0.0)
                 total = w_series.sum()
                 if total > 1e-9:
@@ -2399,7 +2403,11 @@ def run(
                         holdings.append(replacement)
 
             # Compute weights using risk engine or fallback to legacy weighting
-            weights_df = _compute_weights(sf, holdings, period_ts, in_df.reindex(columns=fund_cols))
+            # Use holdings (not fund_cols) so newly added funds get proper weight data
+            holdings_with_data = [h for h in holdings if h in in_df.columns]
+            weights_df = _compute_weights(
+                sf, holdings, period_ts, in_df.reindex(columns=holdings_with_data)
+            )
             raw_weight_series = _as_weight_series(weights_df)
             signal_slice = sf.loc[holdings, metric] if metric in sf.columns else None
             weight_series = _apply_policy_to_weights(weights_df, signal_slice)
@@ -2459,6 +2467,12 @@ def run(
                 n_needed = buy_hold_n - len(current_holdings)
                 if n_needed > 0:
                     available = [str(c) for c in sf.index if str(c) not in current_holdings]
+                    # Only consider funds that still have out-of-sample data;
+                    # prevents re-adding funds whose data has disappeared.
+                    if isinstance(out_df, pd.DataFrame) and not out_df.empty:
+                        available = [
+                            c for c in available if c in out_df.columns and out_df[c].notna().any()
+                        ]
                     if cooldown_periods > 0 and cooldown_book:
                         available = [c for c in available if c not in cooldown_book]
                     available = _filter_entry_candidates(available, sf)
@@ -3075,7 +3089,11 @@ def run(
                 )
 
             # Compute weights using risk engine or fallback to legacy weighting
-            weights_df = _compute_weights(sf, holdings, period_ts, in_df.reindex(columns=fund_cols))
+            # Use holdings (not fund_cols) so newly added funds get proper weight data
+            holdings_with_data = [h for h in holdings if h in in_df.columns]
+            weights_df = _compute_weights(
+                sf, holdings, period_ts, in_df.reindex(columns=holdings_with_data)
+            )
             raw_weight_series = _as_weight_series(weights_df)
             signal_slice = sf.loc[holdings, metric] if metric in sf.columns else None
             weight_series = _apply_policy_to_weights(weights_df, signal_slice)
@@ -3155,8 +3173,10 @@ def run(
                     )
             if holdings:
                 # Compute weights using risk engine or fallback to legacy weighting
+                # Use holdings (not fund_cols) so newly added funds get proper weight data
+                holdings_with_data = [h for h in holdings if h in in_df.columns]
                 weights_df = _compute_weights(
-                    sf, holdings, period_ts, in_df.reindex(columns=fund_cols)
+                    sf, holdings, period_ts, in_df.reindex(columns=holdings_with_data)
                 )
                 raw_weight_series = _as_weight_series(weights_df)
                 signal_slice = sf.loc[holdings, metric] if metric in sf.columns else None
@@ -3177,8 +3197,10 @@ def run(
             )
             if holdings and prev_weights is not None:
                 # Compute weights using risk engine or fallback to legacy weighting
+                # Use holdings (not fund_cols) so newly added funds get proper weight data
+                holdings_with_data = [h for h in holdings if h in in_df.columns]
                 weights_df = _compute_weights(
-                    sf, holdings, period_ts, in_df.reindex(columns=fund_cols)
+                    sf, holdings, period_ts, in_df.reindex(columns=holdings_with_data)
                 )
                 raw_weight_series = _as_weight_series(weights_df)
                 signal_slice = sf.loc[holdings, metric] if metric in sf.columns else None
@@ -3379,9 +3401,8 @@ def run(
         # Turnover alignment can introduce additional indices (e.g., prior
         # holdings carried at zero then floored by bounds). These should not
         # become realised holdings unless they are part of the manual fund list
-        # passed to the pipeline. However, if the pipeline emits a non-empty
-        # fund_weights mapping, treat it as authoritative for realised holdings
-        # (subject to index/risk-free filtering).
+        # passed to the pipeline. If we are using pipeline weights directly,
+        # respect the pipeline's realised holdings instead of filtering them out.
         if manual_holdings and not used_pipeline_weights:
             manual_set = {str(x) for x in manual_holdings}
             effective_w = effective_w.drop(

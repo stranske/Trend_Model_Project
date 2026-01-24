@@ -30,9 +30,26 @@ from trend_analysis.llm import (
     serialize_claim_issue,
 )
 
-DEFAULT_QUESTION = "Summarize key findings and notable risks in the results."
+DEFAULT_QUESTION = """Analyze this manager selection backtest:
+1. What drove the selection of specific managers over alternatives?
+2. Which managers persisted across periods and why - true quality or lack of underperformance?
+3. Are there signs the selection rules favored managers that entered during benign periods?
+4. What parameter changes might improve future selection quality?"""
 _CACHE_KEY = "explain_results_cache"
 logger = logging.getLogger(__name__)
+_PLACEHOLDER_PREFIXES = ("YOUR_", "CHANGE_ME", "REPLACE_ME")
+
+
+def _sanitize_api_key(value: str | None) -> str | None:
+    if not value:
+        return None
+    trimmed = value.strip()
+    if not trimmed:
+        return None
+    upper = trimmed.upper()
+    if upper.startswith(_PLACEHOLDER_PREFIXES):
+        return None
+    return trimmed
 
 
 def _read_secret(key: str) -> str | None:
@@ -116,15 +133,23 @@ def _resolve_llm_provider_config(
             f"Unknown LLM provider '{provider_name}'. "
             f"Expected one of: {', '.join(sorted(supported))}."
         )
-    resolved_api_key = api_key
+    resolved_api_key = _sanitize_api_key(api_key)
     if not resolved_api_key:
-        resolved_api_key = os.environ.get("TS_STREAMLIT_API_KEY")
+        resolved_api_key = _sanitize_api_key(_read_secret("TS_STREAMLIT_API_KEY"))
     if not resolved_api_key:
-        resolved_api_key = os.environ.get("OPENAI_API_KEY")
+        resolved_api_key = _sanitize_api_key(_read_secret("OPENAI_API_KEY"))
     if not resolved_api_key:
-        resolved_api_key = os.environ.get("TREND_LLM_API_KEY")
+        resolved_api_key = _sanitize_api_key(_read_secret("TREND_LLM_API_KEY"))
+    if not resolved_api_key:
+        resolved_api_key = _sanitize_api_key(os.environ.get("TS_STREAMLIT_API_KEY"))
+    if not resolved_api_key:
+        resolved_api_key = _sanitize_api_key(os.environ.get("OPENAI_API_KEY"))
+    if not resolved_api_key:
+        resolved_api_key = _sanitize_api_key(os.environ.get("TREND_LLM_API_KEY"))
     if not resolved_api_key and provider_name == "anthropic":
-        resolved_api_key = os.environ.get("ANTHROPIC_API_KEY")
+        resolved_api_key = _sanitize_api_key(_read_secret("ANTHROPIC_API_KEY"))
+    if not resolved_api_key and provider_name == "anthropic":
+        resolved_api_key = _sanitize_api_key(os.environ.get("ANTHROPIC_API_KEY"))
     if provider_name in {"openai", "anthropic"} and not resolved_api_key:
         env_hint = "OPENAI_API_KEY" if provider_name == "openai" else "ANTHROPIC_API_KEY"
         raise ValueError(
@@ -150,30 +175,31 @@ def _default_api_key(provider_name: str) -> str | None:
     proxy_url = os.environ.get("TS_LLM_PROXY_URL")
     if proxy_url:
         token = os.environ.get("TS_LLM_PROXY_TOKEN")
+        token = _sanitize_api_key(token)
         if token:
             return token
-    secrets_key = _read_secret("TS_STREAMLIT_API_KEY")
+    secrets_key = _sanitize_api_key(_read_secret("TS_STREAMLIT_API_KEY"))
     if secrets_key:
         return secrets_key
-    secrets_key = _read_secret("TREND_LLM_API_KEY")
+    secrets_key = _sanitize_api_key(_read_secret("TREND_LLM_API_KEY"))
     if secrets_key:
         return secrets_key
-    secrets_key = _read_secret("OPENAI_API_KEY")
+    secrets_key = _sanitize_api_key(_read_secret("OPENAI_API_KEY"))
     if secrets_key:
         return secrets_key
-    env_key = os.environ.get("TS_STREAMLIT_API_KEY")
+    env_key = _sanitize_api_key(os.environ.get("TS_STREAMLIT_API_KEY"))
     if env_key:
         return env_key
-    env_key = os.environ.get("TREND_LLM_API_KEY")
+    env_key = _sanitize_api_key(os.environ.get("TREND_LLM_API_KEY"))
     if env_key:
         return env_key
     if provider_name == "openai":
-        return os.environ.get("OPENAI_API_KEY")
+        return _sanitize_api_key(os.environ.get("OPENAI_API_KEY"))
     if provider_name == "anthropic":
-        secrets_anthropic = _read_secret("ANTHROPIC_API_KEY")
+        secrets_anthropic = _sanitize_api_key(_read_secret("ANTHROPIC_API_KEY"))
         if secrets_anthropic:
             return secrets_anthropic
-        return os.environ.get("ANTHROPIC_API_KEY")
+        return _sanitize_api_key(os.environ.get("ANTHROPIC_API_KEY"))
     return None
 
 
@@ -296,16 +322,24 @@ def render_explain_results(
             key=provider_key,
             help="Defaults to TREND_LLM_PROVIDER if set; otherwise OpenAI.",
         )
-        api_default = st.session_state.get(api_key_key)
-        if not api_default:
-            api_default = _default_api_key(provider_default) or ""
+        # Pre-populate API key from environment if empty or not set
+        current_api_key = st.session_state.get(api_key_key)
+        if not current_api_key or not _sanitize_api_key(current_api_key):
+            env_key = _default_api_key(provider_default)
+            if env_key:
+                st.session_state[api_key_key] = env_key
         st.text_input(
             "API Key",
-            value=api_default,
+            value="",  # Ignored when key is set; session_state takes precedence
             key=api_key_key,
             type="password",
-            help="Stored only in this browser session.",
+            help="Leave blank to use TS_STREAMLIT_API_KEY or OPENAI_API_KEY from environment.",
         )
+        # Show indicator if env key is being used
+        if st.session_state.get(api_key_key):
+            st.caption("✓ API key configured")
+        else:
+            st.caption("⚠️ No API key found in environment or secrets")
         st.text_input(
             "Model (optional)",
             value=st.session_state.get(model_key, ""),
@@ -333,7 +367,7 @@ def render_explain_results(
     def _resolve_api_key_input(raw: str | None) -> str | None:
         if not raw:
             return None
-        trimmed = raw.strip()
+        trimmed = _sanitize_api_key(raw)
         if not trimmed:
             return None
         env_names = {
@@ -343,16 +377,22 @@ def render_explain_results(
             "ANTHROPIC_API_KEY",
         }
         if trimmed in env_names:
-            secret_val = _read_secret(trimmed)
-            return secret_val or os.environ.get(trimmed)
+            secret_val = _sanitize_api_key(_read_secret(trimmed))
+            if secret_val:
+                return secret_val
+            return _sanitize_api_key(os.environ.get(trimmed))
         return trimmed
 
     if clicked:
         with st.spinner("Generating explanation..."):
             try:
-                resolved_key = _resolve_api_key_input(
-                    st.session_state.get("explain_results_api_key")
-                )
+                raw_key = st.session_state.get("explain_results_api_key")
+                resolved_key = _resolve_api_key_input(raw_key)
+                # If empty or placeholder, auto-resolve from environment
+                if not resolved_key:
+                    resolved_key = _default_api_key(
+                        st.session_state.get("explain_results_provider") or "openai"
+                    )
                 cached = generate_result_explanation(
                     details,
                     questions=st.session_state.get(question_key),

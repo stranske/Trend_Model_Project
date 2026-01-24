@@ -597,6 +597,21 @@ def _render_manager_changes(result) -> None:
     hired = len(changes_df[changes_df["Action"] == "Hired"])
     terminated = len(changes_df[changes_df["Action"] == "Terminated"])
 
+    # Compute expected final count for sanity check
+    details = getattr(result, "details", {}) or {}
+    period_results = details.get("period_results", [])
+    final_count = 0
+    if period_results:
+        last_res = period_results[-1]
+        weights = last_res.get("fund_weights") or last_res.get("ew_weights") or {}
+        if isinstance(weights, dict):
+            final_count = sum(1 for v in weights.values() if float(v or 0) > 1e-12)
+        if final_count == 0:
+            selected = last_res.get("selected_funds", [])
+            final_count = len(selected) if selected else 0
+
+    expected_final = initial + hired - terminated
+
     summary_parts = []
     if initial > 0:
         summary_parts.append(f"{initial} initial")
@@ -606,6 +621,14 @@ def _render_manager_changes(result) -> None:
         summary_parts.append(f"{terminated} terminated")
 
     st.caption(f"Total: {len(changes_df)} ({', '.join(summary_parts)})")
+
+    # Sanity check: Initial + Hired - Terminated should equal final holdings
+    if final_count > 0 and expected_final != final_count:
+        st.warning(
+            f"⚠️ Data consistency check: Initial ({initial}) + Hired ({hired}) - "
+            f"Terminated ({terminated}) = {expected_final}, but final portfolio has "
+            f"{final_count} managers. This may indicate a data extraction issue."
+        )
 
     def highlight_action(row):
         if row["Action"] == "Initial":
@@ -618,6 +641,30 @@ def _render_manager_changes(result) -> None:
 
     styled = changes_df.style.apply(highlight_action, axis=1)
     st.dataframe(styled, use_container_width=True, height=300)
+
+    # Debug expander for period-by-period breakdown
+    with st.expander("📊 Period-by-Period Diagnostic", expanded=False):
+        # Show period breakdown
+        period_stats = changes_df.groupby("Date")["Action"].value_counts().unstack(fill_value=0)
+        st.caption("Changes by period:")
+        st.dataframe(period_stats, use_container_width=True)
+
+        # Show unique manager counts
+        unique_initial = changes_df[changes_df["Action"] == "Initial"]["Manager"].nunique()
+        unique_hired = changes_df[changes_df["Action"] == "Hired"]["Manager"].nunique()
+        unique_terminated = changes_df[changes_df["Action"] == "Terminated"]["Manager"].nunique()
+
+        st.caption(
+            f"Unique managers: {unique_initial} initial, {unique_hired} ever hired, "
+            f"{unique_terminated} ever terminated"
+        )
+
+        # Check for managers hired multiple times
+        hire_counts = changes_df[changes_df["Action"] == "Hired"]["Manager"].value_counts()
+        multi_hired = hire_counts[hire_counts > 1]
+        if not multi_hired.empty:
+            st.caption(f"Managers hired multiple times: {len(multi_hired)}")
+            st.write(multi_hired.head(10).to_dict())
 
 
 # =============================================================================
@@ -1826,125 +1873,6 @@ def render_results_page() -> None:
         df_for_analysis = df
         st.caption("Using all columns for analysis")
 
-    with st.expander("Debug: download current parameters", expanded=False):
-        params = {
-            "uploaded_filename": st.session_state.get("uploaded_filename"),
-            "data_loaded_key": st.session_state.get("data_loaded_key"),
-            "data_fingerprint": st.session_state.get("data_fingerprint"),
-            "selected_benchmark": benchmark,
-            "selected_risk_free": selected_rf,
-            "analysis_fund_columns": st.session_state.get("analysis_fund_columns"),
-            "fund_columns": st.session_state.get("fund_columns"),
-            "model_state": model_state,
-        }
-
-        payload = json.dumps(params, indent=2, sort_keys=True, default=str).encode("utf-8")
-        st.download_button(
-            "Download parameters (JSON)",
-            data=payload,
-            file_name="trend_run_parameters.json",
-            mime="application/json",
-        )
-
-        def _apply_params(uploaded_params: dict[str, Any]) -> None:
-            for k in (
-                "selected_benchmark",
-                "selected_risk_free",
-                "analysis_fund_columns",
-                "fund_columns",
-                "model_state",
-                "uploaded_filename",
-                "data_loaded_key",
-                "data_fingerprint",
-            ):
-                if k in uploaded_params:
-                    st.session_state[k] = uploaded_params.get(k)
-            analysis_runner.clear_cached_analysis()
-
-        st.markdown("**Import parameters (JSON)**")
-        st.caption(
-            "Codespaces tip: the file picker can’t browse the Codespace filesystem. "
-            "Use either paste, or load from a workspace path (e.g. tmp/trend_run_parameters.json)."
-        )
-
-        import_mode = st.radio(
-            "Import method",
-            options=["Paste JSON", "Load from workspace path", "Upload file"],
-            horizontal=True,
-            key="run_params_import_mode",
-        )
-
-        uploaded_params: dict[str, Any] | None = None
-        if import_mode == "Paste JSON":
-            pasted = st.text_area(
-                "Paste JSON here",
-                value="",
-                height=180,
-                key="run_params_paste",
-            )
-            if pasted.strip():
-                try:
-                    obj = json.loads(pasted)
-                    uploaded_params = obj if isinstance(obj, dict) else None
-                    if uploaded_params is None:
-                        st.error("JSON must be an object (top-level dictionary).")
-                except Exception as exc:
-                    st.error(f"Could not parse JSON: {exc}")
-
-        elif import_mode == "Load from workspace path":
-            default_path = "tmp/trend_run_parameters.json"
-            rel_path = st.text_input(
-                "Workspace-relative path",
-                value=default_path,
-                key="run_params_workspace_path",
-                help="Example: tmp/trend_run_parameters.json",
-            )
-            if st.button("Load JSON from path", key="btn_load_params_from_path"):
-                try:
-                    repo_root = Path.cwd()
-                    candidate = (repo_root / rel_path).resolve()
-                    if not str(candidate).startswith(str(repo_root.resolve())):
-                        raise ValueError("Path must be inside the workspace")
-                    text = candidate.read_text(encoding="utf-8")
-                    obj = json.loads(text)
-                    uploaded_params = obj if isinstance(obj, dict) else None
-                    if uploaded_params is None:
-                        st.error("JSON must be an object (top-level dictionary).")
-                except Exception as exc:
-                    st.error(f"Could not load JSON: {exc}")
-
-        else:  # Upload file
-            uploaded = st.file_uploader(
-                "Upload trend_run_parameters.json",
-                type=["json"],
-                accept_multiple_files=False,
-                key="uploaded_run_parameters_json",
-            )
-            if uploaded is not None:
-                try:
-                    uploaded_text = uploaded.getvalue().decode("utf-8")
-                    obj = json.loads(uploaded_text)
-                    uploaded_params = obj if isinstance(obj, dict) else None
-                    if uploaded_params is None:
-                        st.error("JSON must be an object (top-level dictionary).")
-                except Exception as exc:
-                    st.error(f"Could not parse JSON: {exc}")
-
-        if isinstance(uploaded_params, dict):
-            st.success("Parameters loaded.")
-            with st.expander("Preview imported parameters", expanded=False):
-                st.json(uploaded_params)
-
-            apply_cols = st.columns([1, 3])
-            with apply_cols[0]:
-                if st.button("Apply imported parameters", key="btn_apply_imported_params"):
-                    _apply_params(uploaded_params)
-                    st.success("Applied. Re-run analysis to reproduce the run.")
-                    st.rerun()
-            with apply_cols[1]:
-                st.caption(
-                    "Applying will overwrite your current selections and model settings for this session."
-                )
     run_key = _current_run_key(model_state, benchmark)
     cached_key = st.session_state.get("analysis_result_key")
     result = st.session_state.get("analysis_result") if cached_key == run_key else None

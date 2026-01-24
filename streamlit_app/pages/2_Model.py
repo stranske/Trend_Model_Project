@@ -9,7 +9,7 @@ import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
-from datetime import datetime
+from datetime import date, datetime
 from time import monotonic, sleep
 from typing import Any, Mapping
 
@@ -232,11 +232,102 @@ def _build_config_wrapper(model_state: Mapping[str, Any]) -> dict[str, Any]:
     return wrapper
 
 
+_MODEL_WIDGET_KEYS = {
+    "date_mode_radio",
+    "sim_start_date",
+    "sim_end_date",
+    "preset_selector",
+    "weighting_scheme_selector",
+    "inclusion_approach_select",
+    "buy_hold_initial_select",
+    "rank_pct_primary",
+    "mp_min_funds_input",
+    "mp_max_funds_input",
+    "benchmark_selector",
+}
+
+
+def _reset_model_widget_state() -> None:
+    for key in _MODEL_WIDGET_KEYS:
+        st.session_state.pop(key, None)
+    for key in list(st.session_state.keys()):
+        if isinstance(key, str) and key.startswith("metric_"):
+            st.session_state.pop(key, None)
+
+
+def _parse_date(value: Any) -> date | None:
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str) and value:
+        try:
+            return datetime.strptime(value[:10], "%Y-%m-%d").date()
+        except ValueError:
+            return None
+    return None
+
+
+def _sync_model_widgets_from_state(model_state: Mapping[str, Any]) -> None:
+    """Sync widget session_state keys from model_state values.
+
+    This ensures widgets with explicit keys reflect imported config values.
+    """
+    date_mode = model_state.get("date_mode")
+    if date_mode in {"relative", "explicit"}:
+        st.session_state["date_mode_radio"] = date_mode
+
+    start_date = _parse_date(model_state.get("start_date"))
+    if start_date is not None:
+        st.session_state["sim_start_date"] = start_date
+
+    end_date = _parse_date(model_state.get("end_date"))
+    if end_date is not None:
+        st.session_state["sim_end_date"] = end_date
+
+    preset = model_state.get("preset")
+    if isinstance(preset, str) and preset:
+        st.session_state["preset_selector"] = preset
+
+    weighting = model_state.get("weighting_scheme")
+    if isinstance(weighting, str) and weighting:
+        st.session_state["weighting_scheme_selector"] = weighting
+
+    inclusion = model_state.get("inclusion_approach")
+    if isinstance(inclusion, str) and inclusion:
+        st.session_state["inclusion_approach_select"] = inclusion
+
+    buy_hold = model_state.get("buy_hold_initial")
+    if isinstance(buy_hold, str) and buy_hold:
+        st.session_state["buy_hold_initial_select"] = buy_hold
+
+    rank_pct = model_state.get("rank_pct")
+    if isinstance(rank_pct, (int, float)):
+        st.session_state["rank_pct_primary"] = int(float(rank_pct) * 100)
+
+    mp_min = model_state.get("mp_min_funds")
+    if isinstance(mp_min, (int, float)):
+        st.session_state["mp_min_funds_input"] = int(mp_min)
+
+    mp_max = model_state.get("mp_max_funds")
+    if isinstance(mp_max, (int, float)):
+        st.session_state["mp_max_funds_input"] = int(mp_max)
+
+    info_benchmark = model_state.get("info_ratio_benchmark")
+    if isinstance(info_benchmark, str) and info_benchmark:
+        st.session_state["benchmark_selector"] = info_benchmark
+
+    metric_weights = model_state.get("metric_weights")
+    if isinstance(metric_weights, Mapping):
+        for key, value in metric_weights.items():
+            st.session_state[f"metric_{key}"] = value
+
+
 def _apply_config_wrapper(wrapper: Mapping[str, Any]) -> None:
     model_state = wrapper.get("model_state")
     if isinstance(model_state, Mapping):
         st.session_state["model_state"] = dict(model_state)
         st.session_state["last_loaded_model_state"] = dict(model_state)
+        _reset_model_widget_state()
+        _sync_model_widgets_from_state(model_state)
     for key in (
         "analysis_fund_columns",
         "fund_columns",
@@ -1452,12 +1543,11 @@ def render_model_page() -> None:
                     if isinstance(wrapper, Mapping):
                         _apply_config_wrapper(wrapper)
                     else:
-                        st.session_state["model_state"] = app_state.load_saved_model_state(
-                            selected_saved
-                        )
-                        st.session_state["last_loaded_model_state"] = dict(
-                            st.session_state["model_state"]
-                        )
+                        loaded_state = app_state.load_saved_model_state(selected_saved)
+                        st.session_state["model_state"] = loaded_state
+                        st.session_state["last_loaded_model_state"] = dict(loaded_state)
+                        _reset_model_widget_state()
+                        _sync_model_widgets_from_state(loaded_state)
                     st.session_state["active_saved_model_name"] = selected_saved
                     analysis_runner.clear_cached_analysis()
                     app_state.clear_analysis_results()
@@ -1496,6 +1586,31 @@ def render_model_page() -> None:
                     st.rerun()
 
         st.markdown("---")
+
+        # Quick download of current configuration (without saving)
+        st.markdown("**Download Current Configuration**")
+        current_wrapper = _build_config_wrapper(st.session_state["model_state"])
+        current_payload = json.dumps(current_wrapper, indent=2, sort_keys=True, default=str)
+        # Use active saved name if set, else uploaded filename, else "config"
+        config_name = (
+            st.session_state.get("active_saved_model_name")
+            or st.session_state.get("uploaded_filename")
+            or "config"
+        )
+        st.download_button(
+            "📥 Download Configuration (JSON)",
+            data=current_payload.encode("utf-8"),
+            file_name=f"{config_name}_parameters.json",
+            mime="application/json",
+            help="Download all current parameters including model settings, fund selections, and benchmark choices.",
+        )
+        with st.expander("Preview current configuration", expanded=False):
+            if hasattr(st, "json"):
+                st.json(current_wrapper)
+            else:
+                st.write(current_wrapper)
+
+        st.markdown("---")
         export_col, import_col = st.columns(2)
         with export_col:
             st.markdown("**Export saved configuration**")
@@ -1510,13 +1625,21 @@ def render_model_page() -> None:
                     key="export_config_selector",
                 )
                 export_payload = app_state.export_model_state(export_target)
-                st.text_area(
-                    "Exported JSON",
-                    value=export_payload,
-                    height=160,
-                    key="exported_config_payload",
-                    help="Copy this JSON to share or reuse the configuration.",
+                st.download_button(
+                    "📥 Download Saved Configuration",
+                    data=export_payload.encode("utf-8"),
+                    file_name=f"{export_target}_parameters.json",
+                    mime="application/json",
+                    key="download_saved_config_button",
                 )
+                with st.expander("Preview saved configuration", expanded=False):
+                    st.text_area(
+                        "Exported JSON",
+                        value=export_payload,
+                        height=160,
+                        key="exported_config_payload",
+                        help="Copy this JSON to share or reuse the configuration.",
+                    )
             else:
                 st.info("Save a configuration to enable export.")
 
@@ -1533,7 +1656,7 @@ def render_model_page() -> None:
                 try:
                     raw_value = uploaded_config.getvalue()
                     if isinstance(raw_value, bytes):
-                        st.session_state["import_config_payload"] = raw_value.decode("utf-8")
+                        st.session_state["import_config_payload"] = raw_value.decode("utf-8-sig")
                     else:
                         st.session_state["import_config_payload"] = str(raw_value)
                 except UnicodeDecodeError:
@@ -1561,9 +1684,9 @@ def render_model_page() -> None:
                             _apply_config_wrapper(wrapper)
                         else:
                             st.session_state["model_state"] = imported_state
-                            st.session_state["last_loaded_model_state"] = dict(
-                                st.session_state["model_state"]
-                            )
+                            st.session_state["last_loaded_model_state"] = dict(imported_state)
+                            _reset_model_widget_state()
+                            _sync_model_widgets_from_state(imported_state)
                         analysis_runner.clear_cached_analysis()
                         app_state.clear_analysis_results()
                         st.success(

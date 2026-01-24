@@ -270,6 +270,7 @@ def import_model_state(name: str, payload: str) -> dict[str, Any]:
 
     if not name or not name.strip():
         raise ValueError("Provide a name for the imported configuration.")
+    payload = payload.lstrip("\ufeff").strip()
     try:
         parsed = json.loads(payload)
     except json.JSONDecodeError as exc:  # pragma: no cover - defensive guard
