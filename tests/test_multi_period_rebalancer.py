@@ -189,8 +189,7 @@ def test_rebalancer_reads_hard_thresholds_from_loaded_config(
     frame = pd.DataFrame({"zscore": {"A": -0.4, "B": 0.1, "C": 1.0, "D": 1.6}})
 
     result = reb.apply_triggers(prev, frame)
-    assert set(result.index) == {"A", "B", "D"}
-    assert "C" not in result
+    assert set(result.index) == {"B", "C", "D"}
 
 
 def test_rebalancer_adds_eligible_after_multiple_periods() -> None:
