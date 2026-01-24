@@ -30,7 +30,9 @@ def explain_module(monkeypatch: pytest.MonkeyPatch):
     st_stub = MagicMock()
     st_stub.session_state = {}
     monkeypatch.setitem(sys.modules, "streamlit", st_stub)
-    module = importlib.reload(importlib.import_module("streamlit_app.components.explain_results"))
+    module = importlib.reload(
+        importlib.import_module("streamlit_app.components.explain_results")
+    )
     return module
 
 
@@ -62,7 +64,9 @@ def test_generate_result_explanation_uses_chain_and_disclaimer(
         lambda *args, **kwargs: stub,
     )
 
-    explanation = explain_module.generate_result_explanation(details, questions="Summarize")
+    explanation = explain_module.generate_result_explanation(
+        details, questions="Summarize"
+    )
 
     assert explanation.trace_url == "trace://example"
     assert explanation.metric_count == 6
@@ -136,6 +140,7 @@ def test_resolve_llm_provider_config_requires_api_key(
     explain_module, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("TREND_LLM_PROVIDER", "openai")
+    monkeypatch.delenv("TS_STREAMLIT_API_KEY", raising=False)
     monkeypatch.delenv("TREND_LLM_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
@@ -208,7 +213,9 @@ def test_render_explain_results_downloads_include_json_payload(explain_module) -
     calls = st_stub.download_button.call_args_list
     assert len(calls) == 2
     json_call = next(
-        call for call in calls if call.kwargs.get("file_name") == "explanation_run-001.json"
+        call
+        for call in calls
+        if call.kwargs.get("file_name") == "explanation_run-001.json"
     )
     payload = json.loads(json_call.kwargs["data"])
     assert payload["run_id"] == "run-001"
@@ -248,7 +255,9 @@ def test_render_explain_results_downloads_include_text(explain_module) -> None:
     calls = st_stub.download_button.call_args_list
     assert len(calls) == 2
     txt_call = next(
-        call for call in calls if call.kwargs.get("file_name") == "explanation_run-001.txt"
+        call
+        for call in calls
+        if call.kwargs.get("file_name") == "explanation_run-001.txt"
     )
     assert txt_call.kwargs["data"] == "Cached output"
 
@@ -260,7 +269,9 @@ def test_render_explain_results_handles_missing_details(explain_module) -> None:
 
     explain_module.render_explain_results(result, run_key="run:missing")
 
-    st_stub.info.assert_any_call("Explanation is unavailable because detailed results are missing.")
+    st_stub.info.assert_any_call(
+        "Explanation is unavailable because detailed results are missing."
+    )
 
 
 def test_render_explain_results_reports_llm_error(explain_module, monkeypatch) -> None:
