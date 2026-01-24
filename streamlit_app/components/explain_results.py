@@ -132,6 +132,35 @@ def _resolve_llm_provider_config(
     return LLMProviderConfig(**kwargs)
 
 
+def _default_api_key(provider_name: str) -> str | None:
+    try:
+        secrets_key = st.secrets.get("TREND_LLM_API_KEY")
+    except Exception:
+        secrets_key = None
+    if secrets_key:
+        return secrets_key
+    env_key = os.environ.get("TREND_LLM_API_KEY")
+    if env_key:
+        return env_key
+    if provider_name == "openai":
+        try:
+            secrets_openai = st.secrets.get("OPENAI_API_KEY")
+        except Exception:
+            secrets_openai = None
+        if secrets_openai:
+            return secrets_openai
+        return os.environ.get("OPENAI_API_KEY")
+    if provider_name == "anthropic":
+        try:
+            secrets_anthropic = st.secrets.get("ANTHROPIC_API_KEY")
+        except Exception:
+            secrets_anthropic = None
+        if secrets_anthropic:
+            return secrets_anthropic
+        return os.environ.get("ANTHROPIC_API_KEY")
+    return None
+
+
 def _build_result_chain(
     provider: str | None = None,
     *,
@@ -236,18 +265,27 @@ def render_explain_results(
         base_url_key = "explain_results_base_url"
         org_key = "explain_results_org"
 
+        provider_default = (
+            st.session_state.get(provider_key)
+            or provider
+            or os.environ.get("TREND_LLM_PROVIDER")
+            or "openai"
+        )
+        provider_default = str(provider_default).lower()
+
         st.selectbox(
             "Provider",
             ["openai", "anthropic", "ollama"],
-            index=["openai", "anthropic", "ollama"].index(
-                st.session_state.get(provider_key, provider or "openai")
-            ),
+            index=["openai", "anthropic", "ollama"].index(provider_default),
             key=provider_key,
             help="Defaults to TREND_LLM_PROVIDER if set; otherwise OpenAI.",
         )
+        api_default = st.session_state.get(api_key_key)
+        if not api_default:
+            api_default = _default_api_key(provider_default) or ""
         st.text_input(
             "API Key",
-            value=st.session_state.get(api_key_key, ""),
+            value=api_default,
             key=api_key_key,
             type="password",
             help="Stored only in this browser session.",

@@ -638,10 +638,13 @@ def _build_summary_formatter(
 
         # Start fund rows immediately after the aggregate rows (no spacer),
         # so the first fund appears on row 8 (1-based indexing).
+        fund_weights = cast(Mapping[str, float], res.get("fund_weights", {}))
         for fund, stat_in in res["in_sample_stats"].items():
-            stat_out = res["out_sample_stats"][fund]
+            stat_out = res.get("out_sample_stats", {}).get(fund)
+            if stat_out is None:
+                continue
             ws.write(row, 0, fund, bold)
-            wt = res["fund_weights"][fund]
+            wt = fund_weights.get(fund, 0.0)
             # Write weights as fractions with percent formatting
             ws.write(row, 1, safe(wt), pct1)
             os_tr, os_m = total_return_months(

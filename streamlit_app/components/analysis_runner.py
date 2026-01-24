@@ -2,18 +2,23 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Mapping
 
 import pandas as pd
 import streamlit as st
 
-from trend_analysis.config import format_validation_messages, validate_config
+from trend_analysis.config.bridge import build_config_payload, validate_payload
 from trend_analysis.config.legacy import Config
 from trend_analysis.signals import TrendSpec as TrendSpecModel
+from utils.paths import proj_path
 
 from .data_cache import cache_key_for_frame
+from .guardrails import infer_frequency
+from .upload_guard import DEFAULT_UPLOAD_DIR
 
 METRIC_REGISTRY = {
     "sharpe": "Sharpe",
@@ -588,9 +593,20 @@ def _build_config(payload: AnalysisPayload) -> Config:
         }
 
     # Data config
+    missing_policy = state.get("missing_policy")
+    missing_limit = state.get("missing_limit")
     data_cfg: dict[str, Any] = {
         "allow_risk_free_fallback": True,
+        "date_column": "Date",
+        "frequency": _resolve_frequency(payload.returns),
+        "missing_policy": missing_policy or "ffill",
     }
+    if missing_limit is not None:
+        data_cfg["missing_limit"] = missing_limit
+
+    csv_path = _ensure_validation_csv_path(payload.returns)
+    if csv_path:
+        data_cfg["csv_path"] = csv_path
 
     # Optional: allow the UI to explicitly choose the risk-free column.
     # This makes runs reproducible and avoids the fallback heuristic picking a
@@ -600,6 +616,8 @@ def _build_config(payload: AnalysisPayload) -> Config:
         data_cfg["risk_free_column"] = risk_free_column.strip()
 
     preprocessing_cfg: dict[str, Any] = {}
+
+    portfolio_cfg.setdefault("rebalance_calendar", "NYSE")
 
     return Config(
         version="1",
@@ -640,15 +658,71 @@ def _prepare_returns(df: pd.DataFrame) -> pd.DataFrame:
     return reset.rename(columns={index_name: "Date"})
 
 
+def _resolve_frequency(returns: pd.DataFrame) -> str:
+    meta = st.session_state.get("schema_meta")
+    if isinstance(meta, Mapping):
+        freq = meta.get("frequency_code") or meta.get("frequency")
+        if isinstance(freq, str) and freq.strip():
+            return freq.strip().upper()
+    return infer_frequency(returns.index)
+
+
+def _ensure_validation_csv_path(returns: pd.DataFrame) -> str | None:
+    candidate = st.session_state.get("data_saved_path") or st.session_state.get(
+        "uploaded_file_path"
+    )
+    if isinstance(candidate, str) and candidate:
+        path = Path(candidate)
+        if path.exists() and path.suffix.lower() == ".csv":
+            return str(path)
+
+    try:
+        upload_dir = DEFAULT_UPLOAD_DIR
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        digest = hashlib.sha256(cache_key_for_frame(returns).encode("utf-8")).hexdigest()[:12]
+        target = upload_dir / f"streamlit-returns-{digest}.csv"
+        if not target.exists():
+            _prepare_returns(returns).to_csv(target, index=False)
+        return str(target)
+    except Exception:
+        return None
+
+
+def _validate_streamlit_payload(payload: AnalysisPayload) -> None:
+    state = payload.model_state
+    date_column = "Date"
+    frequency = _resolve_frequency(payload.returns)
+    csv_path = _ensure_validation_csv_path(payload.returns)
+    rebalance_calendar = "NYSE"
+    max_turnover = _coerce_positive_float(state.get("max_turnover"), default=1.0)
+    transaction_cost_bps = _coerce_positive_float(state.get("transaction_cost_bps"), default=0.0)
+    slippage_bps = _coerce_positive_float(state.get("slippage_bps"), default=0.0)
+    target_vol = _coerce_positive_float(state.get("risk_target"), default=0.1)
+
+    payload_dict = build_config_payload(
+        csv_path=csv_path,
+        universe_membership_path=None,
+        managers_glob=None,
+        date_column=date_column,
+        frequency=frequency,
+        rebalance_calendar=rebalance_calendar,
+        max_turnover=max_turnover,
+        transaction_cost_bps=transaction_cost_bps,
+        slippage_bps=slippage_bps,
+        target_vol=target_vol,
+    )
+
+    base_dir = Path(csv_path).parent if csv_path else proj_path()
+    _, validation_error = validate_payload(payload_dict, base_path=base_dir)
+    if validation_error:
+        raise ValueError(f"Config validation failed:\n{validation_error}")
+
+
 def _execute_analysis(payload: AnalysisPayload):
     from trend_analysis.api import run_simulation
 
     config = _build_config(payload)
-    config_payload = config.model_dump() if hasattr(config, "model_dump") else dict(config.__dict__)
-    validation = validate_config(config_payload)
-    if not validation.valid:
-        details = "\n".join(format_validation_messages(validation))
-        raise ValueError(f"Config validation failed:\n{details}")
+    _validate_streamlit_payload(payload)
     returns = _prepare_returns(payload.returns)
     return run_simulation(config, returns)
 

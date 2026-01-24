@@ -371,7 +371,7 @@ def test_min_funds_can_exceed_turnover_budget(monkeypatch: pytest.MonkeyPatch) -
     assert any(ev.get("reason") == "min_funds" and ev.get("action") == "added" for ev in changes)
 
 
-def test_threshold_hold_hard_entry_blocks_selection(
+def test_threshold_hold_hard_entry_does_not_block_selection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     cfg = THCfg()
@@ -389,7 +389,7 @@ def test_threshold_hold_hard_entry_blocks_selection(
     _patch_metric_series(
         monkeypatch,
         by_in_end={
-            "2020-02": {"A": 0.0, "B": 1.0, "C": 2.0, "D": 0.0, "E": 0.0},
+            "2020-02": {"A": 0.0, "B": 1.0, "C": 2.0, "D": -1.0, "E": -1.0},
         },
     )
     _patch_pipeline(monkeypatch)
@@ -398,16 +398,16 @@ def test_threshold_hold_hard_entry_blocks_selection(
     assert len(results) == 1
 
     selected = set(results[0]["selected_funds"])
-    assert selected == {"C"}
+    assert selected == {"A", "B", "C"}
 
 
-def test_threshold_hold_hard_exit_protects_holdings(
+def test_threshold_hold_hard_exit_forces_removal(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     cfg = THCfg()
     cfg.portfolio["threshold_hold"]["target_n"] = 2
     cfg.portfolio["threshold_hold"]["z_entry_soft"] = -5.0
-    cfg.portfolio["threshold_hold"]["z_exit_soft"] = 0.6
+    cfg.portfolio["threshold_hold"]["z_exit_soft"] = -5.0
     cfg.portfolio["threshold_hold"]["z_exit_hard"] = -0.5
     cfg.portfolio["threshold_hold"]["soft_strikes"] = 1
 
@@ -425,7 +425,7 @@ def test_threshold_hold_hard_exit_protects_holdings(
         monkeypatch,
         by_in_end={
             "2020-02": {"A": 0.0, "B": 1.0, "C": 2.0, "D": 0.0, "E": 0.0},
-            "2020-03": {"A": 0.0, "B": 1.0, "C": 2.0, "D": 0.0, "E": 0.0},
+            "2020-03": {"A": 0.0, "B": -1.0, "C": 2.0, "D": 0.0, "E": 0.0},
         },
     )
     _patch_pipeline(monkeypatch)
@@ -434,10 +434,10 @@ def test_threshold_hold_hard_exit_protects_holdings(
     assert len(results) == 2
 
     selected = set(results[1]["selected_funds"])
-    assert "B" in selected
+    assert "B" not in selected
 
 
-def test_threshold_hold_hard_exit_blocks_low_weight_removal(
+def test_threshold_hold_hard_exit_does_not_block_low_weight_removal(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     cfg = THCfg()
@@ -461,7 +461,7 @@ def test_threshold_hold_hard_exit_blocks_low_weight_removal(
         monkeypatch,
         by_in_end={
             "2020-02": {"A": 2.0, "B": 1.0, "C": 0.0, "D": 0.0, "E": 0.0},
-            "2020-03": {"A": 2.0, "B": 1.0, "C": 0.0, "D": 0.0, "E": 0.0},
+            "2020-03": {"A": -2.0, "B": -1.0, "C": 2.0, "D": 1.5, "E": 0.0},
         },
     )
     _patch_pipeline(monkeypatch)
@@ -471,7 +471,7 @@ def test_threshold_hold_hard_exit_blocks_low_weight_removal(
 
     period2 = results[1]
     selected = set(period2["selected_funds"])
-    assert "A" in selected
+    assert "A" not in selected
 
     changes = period2.get("manager_changes") or []
-    assert not any(ev.get("action") == "dropped" and ev.get("manager") == "A" for ev in changes)
+    assert any(ev.get("action") == "dropped" and ev.get("manager") == "A" for ev in changes)
