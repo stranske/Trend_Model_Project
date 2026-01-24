@@ -34,8 +34,8 @@ def test_rebalancer_drops_after_consecutive_soft_strikes() -> None:
     assert pytest.approx(final.loc["B"], rel=1e-9) == 1.0
 
 
-def test_rebalancer_hard_exit_protects_above_threshold() -> None:
-    """A hard exit threshold should prevent removals above the threshold."""
+def test_rebalancer_hard_exit_forces_removal_below_threshold() -> None:
+    """A hard exit threshold should force removals below the threshold."""
 
     cfg = {
         "portfolio": {
@@ -48,10 +48,10 @@ def test_rebalancer_hard_exit_protects_above_threshold() -> None:
     }
     reb = Rebalancer(cfg)
     prev = {"A": 0.7, "B": 0.3}  # dict input exercises the Series conversion path
-    frame = pd.DataFrame({"zscore": {"A": -0.4, "B": 0.0}})
+    frame = pd.DataFrame({"zscore": {"A": -0.6, "B": 0.0}})
 
     updated = reb.apply_triggers(prev, frame)
-    assert set(updated.index) == {"A", "B"}
+    assert set(updated.index) == {"B"}
 
 
 def test_rebalancer_null_hard_thresholds_preserve_soft_exits() -> None:
@@ -99,8 +99,8 @@ def test_rebalancer_hard_candidates_fill_capacity_first() -> None:
     assert "C" not in result
 
 
-def test_rebalancer_entry_hard_blocks_soft_entries() -> None:
-    """Funds below the hard entry threshold should never be added."""
+def test_rebalancer_entry_hard_does_not_block_soft_entries() -> None:
+    """Hard entry should not block soft/eligible additions."""
 
     cfg = {
         "portfolio": {
@@ -118,8 +118,7 @@ def test_rebalancer_entry_hard_blocks_soft_entries() -> None:
     frame = pd.DataFrame({"zscore": {"B": 1.0, "C": 1.6}})
 
     result = reb.apply_triggers(prev, frame)
-    assert set(result.index) == {"A", "C"}
-    assert "B" not in result
+    assert set(result.index) == {"A", "B", "C"}
 
 
 def test_rebalancer_reads_hard_thresholds_from_portfolio_root() -> None:
@@ -142,9 +141,7 @@ def test_rebalancer_reads_hard_thresholds_from_portfolio_root() -> None:
     frame = pd.DataFrame({"zscore": {"A": -0.4, "B": -0.6, "C": 1.6, "D": 1.0}})
 
     result = reb.apply_triggers(prev, frame)
-    assert set(result.index) == {"A", "C"}
-    assert "B" not in result
-    assert "D" not in result
+    assert set(result.index) == {"C", "D"}
 
 
 def test_rebalancer_reads_hard_thresholds_from_loaded_config(
