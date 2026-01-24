@@ -102,11 +102,11 @@ class LLMProxy:
     def _register_routes(self) -> None:
         assert self.app is not None
 
-        @self.app.get("/health")  # type: ignore[misc]
+        @self.app.get("/health")
         async def _health() -> dict[str, str]:
             return {"status": "ok"}
 
-        @self.app.api_route(  # type: ignore[misc]
+        @self.app.api_route(
             "/v1/{path:path}",
             methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         )

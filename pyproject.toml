@@ -184,6 +184,10 @@ module = "trend_analysis.api_server.*"
 disallow_untyped_decorators = false
 
 [[tool.mypy.overrides]]
+module = "trend_analysis.llm_proxy.*"
+disallow_untyped_decorators = false
+
+[[tool.mypy.overrides]]
 module = "health_summarize.*"
 ignore_errors = true
 
