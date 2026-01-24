@@ -454,9 +454,7 @@ def _current_run_key(model_state: dict[str, Any], benchmark: str | None) -> str:
     selected_rf = st.session_state.get("selected_risk_free")
     selected_rf_key = selected_rf or "__none__"
     info_ratio_benchmark = (
-        model_state.get("info_ratio_benchmark")
-        if isinstance(model_state, dict)
-        else None
+        model_state.get("info_ratio_benchmark") if isinstance(model_state, dict) else None
     )
     regime_proxy = None
     if bool(model_state.get("regime_enabled", False)):
@@ -569,9 +567,7 @@ def _render_risky_change_dialog() -> None:
         cancel = st.button("Cancel", type="secondary")
         if confirm:
             st.session_state.pop("config_chat_pending_apply", None)
-            _apply_preview_state(
-                preview, run_analysis=bool(pending.get("run_analysis"))
-            )
+            _apply_preview_state(preview, run_analysis=bool(pending.get("run_analysis")))
         elif cancel:
             st.session_state.pop("config_chat_pending_apply", None)
 
@@ -671,12 +667,8 @@ def _render_unified_diff(diff_text: str) -> None:
     st.markdown(_diff_text_to_html(diff_text), unsafe_allow_html=True)
 
 
-def _render_side_by_side_diff(
-    before: Mapping[str, Any], after: Mapping[str, Any]
-) -> None:
-    before_yaml = yaml.safe_dump(
-        dict(before), sort_keys=False, default_flow_style=False
-    )
+def _render_side_by_side_diff(before: Mapping[str, Any], after: Mapping[str, Any]) -> None:
+    before_yaml = yaml.safe_dump(dict(before), sort_keys=False, default_flow_style=False)
     after_yaml = yaml.safe_dump(dict(after), sort_keys=False, default_flow_style=False)
     differ = difflib.HtmlDiff(tabsize=2, wrapcolumn=80)
     diff_table = differ.make_table(
@@ -780,9 +772,7 @@ def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
             st.session_state["config_chat_last_instruction"] = trimmed
             st.success("Instruction captured. Preview coming next.")
     preview = st.session_state.get("config_chat_preview")
-    has_preview = isinstance(preview, Mapping) and isinstance(
-        preview.get("after"), Mapping
-    )
+    has_preview = isinstance(preview, Mapping) and isinstance(preview.get("after"), Mapping)
     action_cols = st.columns(4)
     with action_cols[0]:
         preview_clicked = st.button(
@@ -1429,9 +1419,7 @@ def render_model_page() -> None:
             applied_funds = st.session_state.get("fund_columns")
 
         if isinstance(applied_funds, list) and applied_funds:
-            fund_cols = [
-                c for c in applied_funds if c in df.columns and c not in system_cols
-            ]
+            fund_cols = [c for c in applied_funds if c in df.columns and c not in system_cols]
         else:
             # Fallback: count only fund columns (exclude benchmarks/indices)
             fund_cols = [
@@ -1514,18 +1502,14 @@ def render_model_page() -> None:
                         else "Disabled until a duplicate name is entered."
                     ),
                 )
-                save_clicked = st.form_submit_button(
-                    "Save Current Settings", type="primary"
-                )
+                save_clicked = st.form_submit_button("Save Current Settings", type="primary")
 
             if save_clicked:
                 trimmed = save_name.strip()
                 if not trimmed:
                     st.error("Enter a name to save your configuration.")
                 elif overwrite_required and not overwrite_confirmed:
-                    st.warning(
-                        "This name already exists. Check 'Confirm overwrite' to replace it."
-                    )
+                    st.warning("This name already exists. Check 'Confirm overwrite' to replace it.")
                 else:
                     app_state.save_model_state(trimmed, st.session_state["model_state"])
                     app_state.save_config_wrapper(
@@ -1541,9 +1525,7 @@ def render_model_page() -> None:
         with manage_col:
             st.markdown("**Load or manage saved configurations**")
             if not saved_names:
-                st.info(
-                    "No saved configurations yet. Save one to enable loading and export."
-                )
+                st.info("No saved configurations yet. Save one to enable loading and export.")
             else:
                 selected_index = 0
                 active_saved_name = st.session_state.get("active_saved_model_name")
@@ -1556,9 +1538,7 @@ def render_model_page() -> None:
                     key="saved_configuration_selector",
                 )
 
-                if st.button(
-                    "Load selected configuration", key="load_saved_config_button"
-                ):
+                if st.button("Load selected configuration", key="load_saved_config_button"):
                     wrapper = app_state.load_saved_config_wrapper(selected_saved)
                     if isinstance(wrapper, Mapping):
                         _apply_config_wrapper(wrapper)
@@ -1586,18 +1566,12 @@ def render_model_page() -> None:
 
                 if rename_clicked:
                     try:
-                        app_state.rename_saved_model_state(
-                            selected_saved, rename_target
-                        )
+                        app_state.rename_saved_model_state(selected_saved, rename_target)
                     except (KeyError, ValueError) as exc:
                         st.error(str(exc))
                     else:
-                        st.session_state["active_saved_model_name"] = (
-                            rename_target.strip()
-                        )
-                        st.success(
-                            f"Renamed configuration to '{rename_target.strip()}'."
-                        )
+                        st.session_state["active_saved_model_name"] = rename_target.strip()
+                        st.success(f"Renamed configuration to '{rename_target.strip()}'.")
                         st.rerun()
 
                 if st.button(
@@ -1606,10 +1580,7 @@ def render_model_page() -> None:
                     type="secondary",
                 ):
                     app_state.delete_saved_model_state(selected_saved)
-                    if (
-                        st.session_state.get("active_saved_model_name")
-                        == selected_saved
-                    ):
+                    if st.session_state.get("active_saved_model_name") == selected_saved:
                         st.session_state.pop("active_saved_model_name", None)
                     st.success(f"Deleted configuration '{selected_saved}'.")
                     st.rerun()
@@ -1619,9 +1590,7 @@ def render_model_page() -> None:
         # Quick download of current configuration (without saving)
         st.markdown("**Download Current Configuration**")
         current_wrapper = _build_config_wrapper(st.session_state["model_state"])
-        current_payload = json.dumps(
-            current_wrapper, indent=2, sort_keys=True, default=str
-        )
+        current_payload = json.dumps(current_wrapper, indent=2, sort_keys=True, default=str)
         # Use active saved name if set, else uploaded filename, else "config"
         config_name = (
             st.session_state.get("active_saved_model_name")
@@ -1645,9 +1614,7 @@ def render_model_page() -> None:
             if saved_names:
                 export_index = 0
                 if st.session_state.get("active_saved_model_name") in saved_names:
-                    export_index = saved_names.index(
-                        st.session_state["active_saved_model_name"]
-                    )
+                    export_index = saved_names.index(st.session_state["active_saved_model_name"])
                 export_target = st.selectbox(
                     "Choose configuration to export",
                     saved_names,
@@ -1675,9 +1642,7 @@ def render_model_page() -> None:
 
         with import_col:
             st.markdown("**Import configuration from JSON**")
-            import_name = st.text_input(
-                "Name for imported configuration", key="import_config_name"
-            )
+            import_name = st.text_input("Name for imported configuration", key="import_config_name")
             uploaded_config = st.file_uploader(
                 "Upload JSON file",
                 type=["json"],
@@ -1688,9 +1653,7 @@ def render_model_page() -> None:
                 try:
                     raw_value = uploaded_config.getvalue()
                     if isinstance(raw_value, bytes):
-                        st.session_state["import_config_payload"] = raw_value.decode(
-                            "utf-8-sig"
-                        )
+                        st.session_state["import_config_payload"] = raw_value.decode("utf-8-sig")
                     else:
                         st.session_state["import_config_payload"] = str(raw_value)
                 except UnicodeDecodeError:
@@ -1699,38 +1662,26 @@ def render_model_page() -> None:
                         "Please upload a UTF-8 encoded JSON file."
                     )
                 except (AttributeError, TypeError):
-                    st.error(
-                        "Unable to read uploaded JSON file due to an unexpected file format."
-                    )
+                    st.error("Unable to read uploaded JSON file due to an unexpected file format.")
                 except OSError as exc:
                     st.error(f"Unable to read uploaded file: {exc}")
-            import_payload = st.text_area(
-                "Paste JSON to import", key="import_config_payload"
-            )
+            import_payload = st.text_area("Paste JSON to import", key="import_config_payload")
             if st.button("Import JSON configuration", key="import_config_button"):
                 if not import_payload.strip():
                     st.error("Paste a JSON payload to import a configuration.")
                 else:
                     try:
-                        imported_state = app_state.import_model_state(
-                            import_name, import_payload
-                        )
+                        imported_state = app_state.import_model_state(import_name, import_payload)
                     except ValueError as exc:
                         st.error(str(exc))
                     else:
-                        st.session_state["active_saved_model_name"] = (
-                            import_name.strip()
-                        )
-                        wrapper = app_state.load_saved_config_wrapper(
-                            import_name.strip()
-                        )
+                        st.session_state["active_saved_model_name"] = import_name.strip()
+                        wrapper = app_state.load_saved_config_wrapper(import_name.strip())
                         if isinstance(wrapper, Mapping):
                             _apply_config_wrapper(wrapper)
                         else:
                             st.session_state["model_state"] = imported_state
-                            st.session_state["last_loaded_model_state"] = dict(
-                                imported_state
-                            )
+                            st.session_state["last_loaded_model_state"] = dict(imported_state)
                             _reset_model_widget_state()
                             _sync_model_widgets_from_state(imported_state)
                         analysis_runner.clear_cached_analysis()
@@ -1770,9 +1721,7 @@ def render_model_page() -> None:
                     saved_model_states[config_b_name],
                 )
                 if not diffs:
-                    st.success(
-                        "No differences found. The selected configurations match."
-                    )
+                    st.success("No differences found. The selected configurations match.")
                 else:
                     diff_rows = []
                     for entry in diffs:
@@ -1892,9 +1841,7 @@ def render_model_page() -> None:
                 import datetime
 
                 original_end_str = current_end
-                current_end = datetime.datetime.strptime(
-                    current_end[:7] + "-01", "%Y-%m-%d"
-                ).date()
+                current_end = datetime.datetime.strptime(current_end[:7] + "-01", "%Y-%m-%d").date()
             except (ValueError, TypeError):
                 current_end = max_date
         elif current_end is None:
@@ -1921,14 +1868,10 @@ def render_model_page() -> None:
             )
             # Show warning if date was auto-corrected
             if start_was_corrected and original_start_str:
-                st.caption(
-                    f"⚠️ Adjusted from {original_start_str[:10]} to nearest available date"
-                )
+                st.caption(f"⚠️ Adjusted from {original_start_str[:10]} to nearest available date")
             # Update model state
             if sim_start_date:
-                st.session_state["model_state"]["start_date"] = sim_start_date.strftime(
-                    "%Y-%m-%d"
-                )
+                st.session_state["model_state"]["start_date"] = sim_start_date.strftime("%Y-%m-%d")
 
         with date_col2:
             sim_end_date = st.date_input(
@@ -1941,14 +1884,10 @@ def render_model_page() -> None:
             )
             # Show warning if date was auto-corrected
             if end_was_corrected and original_end_str:
-                st.caption(
-                    f"⚠️ Adjusted from {original_end_str[:10]} to nearest available date"
-                )
+                st.caption(f"⚠️ Adjusted from {original_end_str[:10]} to nearest available date")
             # Update model state
             if sim_end_date:
-                st.session_state["model_state"]["end_date"] = sim_end_date.strftime(
-                    "%Y-%m-%d"
-                )
+                st.session_state["model_state"]["end_date"] = sim_end_date.strftime("%Y-%m-%d")
 
         # Validate date range
         if sim_start_date and sim_end_date and sim_start_date > sim_end_date:
@@ -1960,9 +1899,7 @@ def render_model_page() -> None:
                     sim_end_date.month - sim_start_date.month
                 )
                 if months_span > 600:  # 50 years * 12 months
-                    st.warning(
-                        "Date range exceeds 50 years - please verify your selection."
-                    )
+                    st.warning("Date range exceeds 50 years - please verify your selection.")
                 else:
                     st.info(
                         f"📊 Selected period: {sim_start_date.strftime('%Y-%m')} to {sim_end_date.strftime('%Y-%m')} ({months_span} months)"
@@ -2075,9 +2012,7 @@ def render_model_page() -> None:
 
     # Show description for selected weighting scheme (updates dynamically)
     with st.expander("ℹ️ About this weighting scheme", expanded=False):
-        st.markdown(
-            WEIGHTING_DESCRIPTIONS.get(weighting_value, "No description available.")
-        )
+        st.markdown(WEIGHTING_DESCRIPTIONS.get(weighting_value, "No description available."))
 
     # Update model_state if weighting changed
     if weighting_value != current_weighting:
@@ -2207,9 +2142,7 @@ def render_model_page() -> None:
         # =====================================================================
         st.divider()
         st.subheader("📋 Fund Selection & Time Windows")
-        st.caption(
-            "Configure time windows for fund evaluation and walk-forward analysis."
-        )
+        st.caption("Configure time windows for fund evaluation and walk-forward analysis.")
 
         # Row 1: Frequency (sets the period unit for all time windows)
         # Note: This is inside the form, so labels won't update until form is submitted.
@@ -2273,9 +2206,7 @@ def render_model_page() -> None:
                 min_value=1,
                 max_value=20,
                 value=int(
-                    model_state.get(
-                        "min_history_periods", model_state.get("lookback_periods", 3)
-                    )
+                    model_state.get("min_history_periods", model_state.get("lookback_periods", 3))
                 ),
                 help=HELP_TEXT.get(
                     "min_history",
@@ -2387,9 +2318,7 @@ def render_model_page() -> None:
                 "🎲 **Random Mode**: Metric weights are not used for selection in random mode. "
                 "Funds are selected randomly. Metrics are still calculated for reporting purposes."
             )
-        st.caption(
-            "Relative importance of each metric when ranking funds for selection."
-        )
+        st.caption("Relative importance of each metric when ranking funds for selection.")
 
         metric_weights: dict[str, float] = {}
         # Create two rows for the 6 metrics
@@ -2414,9 +2343,7 @@ def render_model_page() -> None:
                     min_value=0.0,
                     value=float(model_state.get("metric_weights", {}).get(code, 1.0)),
                     step=0.1,
-                    help=HELP_TEXT.get(
-                        help_key, "Weight for this metric in fund ranking."
-                    ),
+                    help=HELP_TEXT.get(help_key, "Weight for this metric in fund ranking."),
                     key=f"metric_{code}",
                 )
 
@@ -2431,13 +2358,9 @@ def render_model_page() -> None:
                     metric_weights[code] = st.number_input(
                         label,
                         min_value=0.0,
-                        value=float(
-                            model_state.get("metric_weights", {}).get(code, 1.0)
-                        ),
+                        value=float(model_state.get("metric_weights", {}).get(code, 1.0)),
                         step=0.1,
-                        help=HELP_TEXT.get(
-                            help_key, "Weight for this metric in fund ranking."
-                        ),
+                        help=HELP_TEXT.get(help_key, "Weight for this metric in fund ranking."),
                         key=f"metric_{code}",
                     )
 
@@ -2453,9 +2376,7 @@ def render_model_page() -> None:
         # Benchmark selector for Info Ratio - always show when info_ratio weight > 0
         # Check both form value AND saved state for info_ratio weight
         info_ratio_weight = metric_weights.get("info_ratio", 0)
-        saved_info_ratio_weight = model_state.get("metric_weights", {}).get(
-            "info_ratio", 0
-        )
+        saved_info_ratio_weight = model_state.get("metric_weights", {}).get("info_ratio", 0)
         show_benchmark_selector = info_ratio_weight > 0 or saved_info_ratio_weight > 0
 
         info_ratio_benchmark = model_state.get("info_ratio_benchmark", "")
@@ -2593,9 +2514,7 @@ def render_model_page() -> None:
                     options=decay_methods,
                     format_func=lambda x: decay_labels.get(x, x),
                     index=(
-                        decay_methods.index(current_decay)
-                        if current_decay in decay_methods
-                        else 0
+                        decay_methods.index(current_decay) if current_decay in decay_methods else 0
                     ),
                     help=HELP_TEXT["vol_window_decay"],
                     disabled=not vol_adj_enabled,
@@ -2738,9 +2657,7 @@ def render_model_page() -> None:
             with reg_c2:
                 # Use benchmark columns as regime proxy options
                 regime_proxy_options = ["SPX", "TSX", "MSCI", "ACWI"] + [
-                    c
-                    for c in benchmark_options
-                    if c.upper() not in ["SPX", "TSX", "MSCI", "ACWI"]
+                    c for c in benchmark_options if c.upper() not in ["SPX", "TSX", "MSCI", "ACWI"]
                 ][
                     :10
                 ]  # Limit to 14 options
@@ -2903,9 +2820,7 @@ def render_model_page() -> None:
                         help=HELP_TEXT["sticky_add_periods"],
                         disabled=not mp_enabled_state,
                     )
-                    st.caption(
-                        f"Fund must rank in top-K for {sticky_add_periods} period(s)."
-                    )
+                    st.caption(f"Fund must rank in top-K for {sticky_add_periods} period(s).")
 
                 with rank_c2:
                     sticky_drop_periods = st.number_input(
@@ -2916,9 +2831,7 @@ def render_model_page() -> None:
                         help=HELP_TEXT["sticky_drop_periods"],
                         disabled=not mp_enabled_state,
                     )
-                    st.caption(
-                        f"Fund must fall out of top-K for {sticky_drop_periods} period(s)."
-                    )
+                    st.caption(f"Fund must fall out of top-K for {sticky_drop_periods} period(s).")
             elif is_random_mode:
                 # Random mode: no ranking stability needed
                 st.info(
@@ -2984,9 +2897,7 @@ def render_model_page() -> None:
                     help="Fund must fail threshold for this many consecutive periods.",
                     disabled=not mp_enabled_state,
                 )
-                st.caption(
-                    f"Score ≤ {z_exit_soft:.2f}σ for {soft_strikes} period(s) to exit."
-                )
+                st.caption(f"Score ≤ {z_exit_soft:.2f}σ for {soft_strikes} period(s) to exit.")
 
             st.markdown("**Underweight Exit (Weight-based)**")
             min_weight_strikes = st.number_input(
@@ -3019,9 +2930,7 @@ def render_model_page() -> None:
                     "Hard Entry Z-Score",
                     min_value=0.0,
                     max_value=5.0,
-                    value=float(
-                        z_entry_hard_val if z_entry_hard_val is not None else 2.0
-                    ),
+                    value=float(z_entry_hard_val if z_entry_hard_val is not None else 2.0),
                     step=0.25,
                     format="%.2f",
                     help=HELP_TEXT["z_entry_hard"],
@@ -3046,9 +2955,7 @@ def render_model_page() -> None:
                     "Hard Exit Z-Score",
                     min_value=-5.0,
                     max_value=0.0,
-                    value=float(
-                        z_exit_hard_val if z_exit_hard_val is not None else -2.0
-                    ),
+                    value=float(z_exit_hard_val if z_exit_hard_val is not None else -2.0),
                     step=0.25,
                     format="%.2f",
                     help=HELP_TEXT["z_exit_hard"],
@@ -3131,18 +3038,14 @@ def render_model_page() -> None:
                     help=HELP_TEXT["bottom_k"],
                 )
                 if bottom_k > 0:
-                    st.caption(
-                        f"Bottom {bottom_k} ranked funds will always be excluded."
-                    )
+                    st.caption(f"Bottom {bottom_k} ranked funds will always be excluded.")
 
         # =====================================================================
         # Reporting Options
         # =====================================================================
         st.markdown("---")
         with st.expander("📊 Reporting Options", expanded=False):
-            st.markdown(
-                "Configure what additional information to include in the Results page."
-            )
+            st.markdown("Configure what additional information to include in the Results page.")
 
             report_c1, report_c2 = st.columns(2)
             with report_c1:
@@ -3270,18 +3173,14 @@ def render_model_page() -> None:
                 "report_attribution": show_attribution,
                 "report_rolling_metrics": show_rolling_metrics,
             }
-            errors = _validate_model(
-                candidate_state, len(fund_cols) if fund_cols else 0
-            )
+            errors = _validate_model(candidate_state, len(fund_cols) if fund_cols else 0)
             if errors:
                 _render_validation_errors(errors)
             else:
                 st.session_state["model_state"] = candidate_state
                 analysis_runner.clear_cached_analysis()
                 app_state.clear_analysis_results()
-                st.success(
-                    "✅ Model configuration saved. Go to Results to run analysis."
-                )
+                st.success("✅ Model configuration saved. Go to Results to run analysis.")
 
 
 render_model_page()
