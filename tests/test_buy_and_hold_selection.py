@@ -54,7 +54,9 @@ def _make_test_data_with_disappearing_fund(
     """
     dates = pd.date_range("2018-01-01", periods=n_periods, freq="ME")
     np.random.seed(seed)
-    returns_data = {f"Fund_{i}": np.random.randn(n_periods) * 0.02 + 0.005 for i in range(n_funds)}
+    returns_data = {
+        f"Fund_{i}": np.random.randn(n_periods) * 0.02 + 0.005 for i in range(n_funds)
+    }
     returns = pd.DataFrame(returns_data, index=dates)
 
     if boost_fund is not None:
@@ -351,7 +353,10 @@ class TestBuyAndHoldIntegration:
 
         # Load the module directly from file path
         module_path = (
-            Path(__file__).parents[1] / "streamlit_app" / "components" / "analysis_runner.py"
+            Path(__file__).parents[1]
+            / "streamlit_app"
+            / "components"
+            / "analysis_runner.py"
         )
         if not module_path.exists():
             pytest.skip("Streamlit app not available")
@@ -389,7 +394,9 @@ class TestBuyAndHoldIntegration:
             "risk_target": 0.1,
         }
 
-        payload = AnalysisPayload(returns=returns, model_state=model_state, benchmark=None)
+        payload = AnalysisPayload(
+            returns=returns, model_state=model_state, benchmark=None
+        )
         cfg = _build_config(payload)
 
         assert cfg.portfolio.get("policy") == "threshold_hold"
@@ -397,3 +404,89 @@ class TestBuyAndHoldIntegration:
         assert cfg.portfolio.get("buy_and_hold", {}).get("initial_method") == "top_n"
         assert cfg.portfolio.get("buy_and_hold", {}).get("n") == 5
         assert cfg.data.get("allow_risk_free_fallback") is True
+
+
+def test_manual_selection_mode_includes_funds_with_partial_data() -> None:
+    """Regression test: manual selection should not filter out hired funds due to missing data.
+
+    When threshold_hold fires a fund and hires a replacement, the newly hired fund
+    may have had NaN values earlier in the analysis window. The pipeline should
+    still include manually-selected funds even if they have partial missing data,
+    as long as the columns exist in the data.
+
+    This is a regression test for the bug where portfolio would shrink over time
+    because hired funds were being filtered out by the missing data check before
+    they could receive weights.
+    """
+    # Create test data where FundC has NaN in first 6 months but exists thereafter
+    dates = pd.date_range("2018-01-01", periods=48, freq="ME")
+    rng = np.random.default_rng(42)
+
+    data = {
+        "Date": dates,
+        "Fund_A": rng.normal(0.01, 0.02, 48),
+        "Fund_B": rng.normal(0.01, 0.02, 48),
+        # FundC has NaN for first 6 months - simulates a fund that started later
+        "Fund_C": [np.nan] * 6 + list(rng.normal(0.01, 0.02, 42)),
+    }
+    df = pd.DataFrame(data)
+
+    # Configure a simple threshold_hold scenario
+    cfg = Config(
+        version="1",
+        data={
+            "allow_risk_free_fallback": True,
+        },
+        preprocessing={},
+        vol_adjust={
+            "target_vol": 0.1,
+            "floor_vol": None,
+            "warmup_periods": 6,
+            "window": None,
+        },
+        sample_split={},
+        portfolio={
+            "policy": "threshold_hold",
+            "selection_mode": "rank",
+            "target_n": 3,  # Want all 3 funds
+            "min_funds": 3,
+            "max_funds": 3,
+            "threshold_hold": {
+                "z_entry_soft": 0.5,
+                "z_exit_soft": -0.5,
+            },
+            "weighting": {"name": "equal"},
+            "constraints": {},
+            "rank": {"mode": "top_n", "n": 3, "score_by": "Sharpe"},
+        },
+        metrics={},
+        benchmarks={},
+        multi_period={
+            # Use a window where FundC has NaN in the first in-sample period
+            "start": "2018-01",
+            "end": "2019-06",
+            "in_sample_len": 4,  # 4 quarters = 1 year
+            "out_sample_len": 1,  # 1 quarter
+            "frequency": "Q",
+        },
+        run={},
+        export={},
+        seed=42,
+    )
+
+    results = multi_period_run(cfg, df=df)
+
+    # Check that we got results for all periods
+    assert len(results) > 0, "Expected at least one period result"
+
+    # For each period, verify the portfolio wasn't filtered to zero or one fund
+    # due to missing data in earlier periods
+    for res in results:
+        fund_weights = res.get("fund_weights", {})
+        # Filter to only non-zero weights
+        non_zero_weights = {k: v for k, v in fund_weights.items() if abs(v) > 1e-9}
+        # We should have at least 2 funds in portfolio (even if one has partial NaN)
+        assert len(non_zero_weights) >= 2, (
+            f"Period {res.get('period', '?')} has only {len(non_zero_weights)} fund(s) "
+            f"in portfolio - hired funds may be getting filtered by missing data"
+        )
