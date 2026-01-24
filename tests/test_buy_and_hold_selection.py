@@ -54,9 +54,7 @@ def _make_test_data_with_disappearing_fund(
     """
     dates = pd.date_range("2018-01-01", periods=n_periods, freq="ME")
     np.random.seed(seed)
-    returns_data = {
-        f"Fund_{i}": np.random.randn(n_periods) * 0.02 + 0.005 for i in range(n_funds)
-    }
+    returns_data = {f"Fund_{i}": np.random.randn(n_periods) * 0.02 + 0.005 for i in range(n_funds)}
     returns = pd.DataFrame(returns_data, index=dates)
 
     if boost_fund is not None:
@@ -353,10 +351,7 @@ class TestBuyAndHoldIntegration:
 
         # Load the module directly from file path
         module_path = (
-            Path(__file__).parents[1]
-            / "streamlit_app"
-            / "components"
-            / "analysis_runner.py"
+            Path(__file__).parents[1] / "streamlit_app" / "components" / "analysis_runner.py"
         )
         if not module_path.exists():
             pytest.skip("Streamlit app not available")
@@ -394,9 +389,7 @@ class TestBuyAndHoldIntegration:
             "risk_target": 0.1,
         }
 
-        payload = AnalysisPayload(
-            returns=returns, model_state=model_state, benchmark=None
-        )
+        payload = AnalysisPayload(returns=returns, model_state=model_state, benchmark=None)
         cfg = _build_config(payload)
 
         assert cfg.portfolio.get("policy") == "threshold_hold"
