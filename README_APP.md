@@ -34,17 +34,16 @@ trend app
 ## Secrets (local dev + Streamlit Cloud)
 
 **Local dev (safe)**
-- Create a local secrets file that is **git-ignored**:
   - `.streamlit/secrets.toml`
-- Add your key there:
   - `OPENAI_API_KEY = "..."`
-- Do **not** commit the file. It is ignored by `.gitignore`.
 
+Quick setup script (writes the file and locks permissions):
+
+```
+./scripts/setup_streamlit_secrets.sh
+```
 **Streamlit Cloud (hosted)**
-- Streamlit Cloud injects secrets at runtime; you never commit them.
-- In the app’s **Secrets** UI, add:
   - `OPENAI_API_KEY = "..."`
-- Deploy the app; the Streamlit process reads the key from `st.secrets`/env.
 
 **How Streamlit Cloud differs**
 - Local: you control the environment on your machine.

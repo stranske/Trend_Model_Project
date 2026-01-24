@@ -110,6 +110,8 @@ def _resolve_llm_provider_config(
         )
     resolved_api_key = api_key
     if not resolved_api_key:
+        resolved_api_key = os.environ.get("TS_STREAMLIT_API_KEY")
+    if not resolved_api_key:
         resolved_api_key = os.environ.get("OPENAI_API_KEY")
     if not resolved_api_key:
         resolved_api_key = os.environ.get("TREND_LLM_API_KEY")
@@ -124,7 +126,7 @@ def _resolve_llm_provider_config(
         )
         raise ValueError(
             f"Missing API key for {provider_name}. "
-            f"Set OPENAI_API_KEY, TREND_LLM_API_KEY, or {env_hint}."
+            f"Set TS_STREAMLIT_API_KEY, OPENAI_API_KEY, TREND_LLM_API_KEY, or {env_hint}."
         )
     resolved_model = model or os.environ.get("TREND_LLM_MODEL")
     resolved_base_url = base_url or os.environ.get("TREND_LLM_BASE_URL")
@@ -148,7 +150,7 @@ def _default_api_key(provider_name: str) -> str | None:
         if token:
             return token
     try:
-        secrets_key = st.secrets.get("TS_OPENAI_STREAMLIT")
+        secrets_key = st.secrets.get("TS_STREAMLIT_API_KEY")
     except Exception:
         secrets_key = None
     if secrets_key:
@@ -165,6 +167,9 @@ def _default_api_key(provider_name: str) -> str | None:
         secrets_key = None
     if secrets_key:
         return secrets_key
+    env_key = os.environ.get("TS_STREAMLIT_API_KEY")
+    if env_key:
+        return env_key
     env_key = os.environ.get("TREND_LLM_API_KEY")
     if env_key:
         return env_key
@@ -336,14 +341,37 @@ def render_explain_results(
     cache = _cache_bucket()
     cached = cache.get(run_key)
 
+    def _resolve_api_key_input(raw: str | None) -> str | None:
+        if not raw:
+            return None
+        trimmed = raw.strip()
+        if not trimmed:
+            return None
+        env_names = {
+            "TS_STREAMLIT_API_KEY",
+            "OPENAI_API_KEY",
+            "TREND_LLM_API_KEY",
+            "ANTHROPIC_API_KEY",
+        }
+        if trimmed in env_names:
+            try:
+                secret_val = st.secrets.get(trimmed)
+            except Exception:
+                secret_val = None
+            return secret_val or os.environ.get(trimmed)
+        return trimmed
+
     if clicked:
         with st.spinner("Generating explanation..."):
             try:
+                resolved_key = _resolve_api_key_input(
+                    st.session_state.get("explain_results_api_key")
+                )
                 cached = generate_result_explanation(
                     details,
                     questions=st.session_state.get(question_key),
                     provider=st.session_state.get("explain_results_provider", provider),
-                    api_key=st.session_state.get("explain_results_api_key") or None,
+                    api_key=resolved_key,
                     model=st.session_state.get("explain_results_model") or None,
                     base_url=st.session_state.get("explain_results_base_url") or None,
                     organization=st.session_state.get("explain_results_org") or None,

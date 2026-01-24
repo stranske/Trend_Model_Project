@@ -71,6 +71,23 @@ import importlib
 importlib.import_module('streamlit_sortables')
 PY
 
+# Map Codespaces secret into OPENAI_API_KEY when provided
+if [[ -z "${OPENAI_API_KEY:-}" && -n "${TS_STREAMLIT_API_KEY:-}" ]]; then
+    export OPENAI_API_KEY="$TS_STREAMLIT_API_KEY"
+fi
+
+# Bootstrap local Streamlit secrets from environment if available
+SECRETS_DIR="$ROOT_DIR/.streamlit"
+SECRETS_FILE="$SECRETS_DIR/secrets.toml"
+if [[ -n "${OPENAI_API_KEY:-}" && ! -f "$SECRETS_FILE" ]]; then
+    mkdir -p "$SECRETS_DIR"
+    cat > "$SECRETS_FILE" <<EOF
+# Local secrets (git-ignored). Do not commit real keys.
+OPENAI_API_KEY = "${OPENAI_API_KEY}"
+EOF
+    chmod 600 "$SECRETS_FILE"
+fi
+
 # Validate setup before executing streamlit
 if ! validate_streamlit_setup "$APP_PATH"; then
     echo "ERROR: Validation failed. Cannot start Streamlit app." >&2

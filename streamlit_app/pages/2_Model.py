@@ -195,6 +195,61 @@ def _render_config_summary(model_state: Mapping[str, Any] | None) -> None:
             st.markdown(f"- {label}: {value}")
 
 
+def _config_status_label(model_state: Mapping[str, Any] | None) -> tuple[str, str]:
+    active_name = st.session_state.get("active_saved_model_name")
+    if not model_state:
+        return "Not loaded", "⚪"
+    if not active_name:
+        return "Unsaved", "🟡"
+    snapshot = st.session_state.get("last_loaded_model_state")
+    if isinstance(snapshot, Mapping):
+        diffs = app_state.diff_model_states(snapshot, model_state)
+        if diffs:
+            return f"Modified (from '{active_name}')", "🟠"
+        return f"In sync with '{active_name}'", "🟢"
+    return f"Saved '{active_name}'", "🟢"
+
+
+def _render_config_status_badge(model_state: Mapping[str, Any] | None) -> None:
+    label, icon = _config_status_label(model_state)
+    st.caption(f"{icon} Config status: {label}")
+
+
+def _build_config_wrapper(model_state: Mapping[str, Any]) -> dict[str, Any]:
+    wrapper: dict[str, Any] = {"model_state": dict(model_state)}
+    for key in (
+        "analysis_fund_columns",
+        "fund_columns",
+        "data_fingerprint",
+        "data_loaded_key",
+        "selected_benchmark",
+        "selected_risk_free",
+        "uploaded_filename",
+    ):
+        value = st.session_state.get(key)
+        if value is not None:
+            wrapper[key] = value
+    return wrapper
+
+
+def _apply_config_wrapper(wrapper: Mapping[str, Any]) -> None:
+    model_state = wrapper.get("model_state")
+    if isinstance(model_state, Mapping):
+        st.session_state["model_state"] = dict(model_state)
+        st.session_state["last_loaded_model_state"] = dict(model_state)
+    for key in (
+        "analysis_fund_columns",
+        "fund_columns",
+        "data_fingerprint",
+        "data_loaded_key",
+        "selected_benchmark",
+        "selected_risk_free",
+        "uploaded_filename",
+    ):
+        if key in wrapper:
+            st.session_state[key] = wrapper[key]
+
+
 def _resolve_llm_provider_config() -> LLMProviderConfig:
     provider_name = (os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
     supported = {"openai", "anthropic", "ollama"}
@@ -203,7 +258,9 @@ def _resolve_llm_provider_config() -> LLMProviderConfig:
             f"Unknown LLM provider '{provider_name}'. "
             f"Expected one of: {', '.join(sorted(supported))}."
         )
-    api_key = os.environ.get("OPENAI_API_KEY")
+    api_key = os.environ.get("TS_STREAMLIT_API_KEY")
+    if not api_key:
+        api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         api_key = os.environ.get("TREND_LLM_API_KEY")
     if not api_key:
@@ -1251,6 +1308,8 @@ def render_model_page() -> None:
         "For quick demos with preset configurations, use the **Run Demo** button on the Home page."
     )
 
+    _render_config_status_badge(model_state)
+
     # Help link - use st.page_link for proper navigation
     st.markdown(
         "📖 Use the **Help** page in the sidebar for detailed explanations of all parameters."
@@ -1381,7 +1440,13 @@ def render_model_page() -> None:
                     )
                 else:
                     app_state.save_model_state(trimmed, st.session_state["model_state"])
+                    app_state.save_config_wrapper(
+                        trimmed, _build_config_wrapper(st.session_state["model_state"])
+                    )
                     st.session_state["active_saved_model_name"] = trimmed
+                    st.session_state["last_loaded_model_state"] = dict(
+                        st.session_state["model_state"]
+                    )
                     st.success(f"Saved configuration '{trimmed}'.")
                     st.rerun()
 
@@ -1406,9 +1471,16 @@ def render_model_page() -> None:
                 if st.button(
                     "Load selected configuration", key="load_saved_config_button"
                 ):
-                    st.session_state["model_state"] = app_state.load_saved_model_state(
-                        selected_saved
-                    )
+                    wrapper = app_state.load_saved_config_wrapper(selected_saved)
+                    if isinstance(wrapper, Mapping):
+                        _apply_config_wrapper(wrapper)
+                    else:
+                        st.session_state["model_state"] = (
+                            app_state.load_saved_model_state(selected_saved)
+                        )
+                        st.session_state["last_loaded_model_state"] = dict(
+                            st.session_state["model_state"]
+                        )
                     st.session_state["active_saved_model_name"] = selected_saved
                     analysis_runner.clear_cached_analysis()
                     app_state.clear_analysis_results()
@@ -1487,6 +1559,19 @@ def render_model_page() -> None:
             import_name = st.text_input(
                 "Name for imported configuration", key="import_config_name"
             )
+            uploaded_config = st.file_uploader(
+                "Upload JSON file",
+                type=["json"],
+                key="import_config_file",
+                help="Optional: upload a JSON file instead of pasting.",
+            )
+            if uploaded_config is not None:
+                try:
+                    st.session_state["import_config_payload"] = (
+                        uploaded_config.getvalue().decode("utf-8")
+                    )
+                except Exception:
+                    st.error("Unable to read uploaded JSON file.")
             import_payload = st.text_area(
                 "Paste JSON to import", key="import_config_payload"
             )
@@ -1504,7 +1589,16 @@ def render_model_page() -> None:
                         st.session_state["active_saved_model_name"] = (
                             import_name.strip()
                         )
-                        st.session_state["model_state"] = imported_state
+                        wrapper = app_state.load_saved_config_wrapper(
+                            import_name.strip()
+                        )
+                        if isinstance(wrapper, Mapping):
+                            _apply_config_wrapper(wrapper)
+                        else:
+                            st.session_state["model_state"] = imported_state
+                            st.session_state["last_loaded_model_state"] = dict(
+                                st.session_state["model_state"]
+                            )
                         analysis_runner.clear_cached_analysis()
                         app_state.clear_analysis_results()
                         st.success(

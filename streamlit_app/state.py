@@ -28,6 +28,7 @@ _DEFAULT_STATE: dict[str, Any] = {
     "data_hash": None,
     "data_saved_path": None,
     "saved_model_states": {},
+    "saved_config_wrappers": {},
 }
 
 
@@ -126,7 +127,9 @@ def has_valid_upload() -> bool:
 
     df, meta = get_uploaded_data()
     return (
-        df is not None and meta is not None and st.session_state.get("upload_status") == "success"
+        df is not None
+        and meta is not None
+        and st.session_state.get("upload_status") == "success"
     )
 
 
@@ -158,6 +161,16 @@ def get_saved_model_states() -> dict[str, dict[str, Any]]:
     return saved
 
 
+def get_saved_config_wrappers() -> dict[str, dict[str, Any]]:
+    """Return the mapping of saved config wrappers stored in session state."""
+
+    saved = st.session_state.get("saved_config_wrappers")
+    if not isinstance(saved, dict):
+        saved = {}
+        st.session_state["saved_config_wrappers"] = saved
+    return saved
+
+
 def save_model_state(name: str, model_state: Mapping[str, Any]) -> None:
     """Persist a model configuration under the provided name.
 
@@ -170,6 +183,16 @@ def save_model_state(name: str, model_state: Mapping[str, Any]) -> None:
 
     saved = get_saved_model_states()
     saved[name.strip()] = deepcopy(dict(model_state))
+
+
+def save_config_wrapper(name: str, wrapper: Mapping[str, Any]) -> None:
+    """Persist a full config wrapper under the provided name."""
+
+    if not name or not name.strip():
+        raise ValueError("A non-empty name is required to save a model configuration.")
+
+    saved = get_saved_config_wrappers()
+    saved[name.strip()] = deepcopy(dict(wrapper))
 
 
 def load_saved_model_state(name: str) -> dict[str, Any]:
@@ -185,6 +208,15 @@ def load_saved_model_state(name: str) -> dict[str, Any]:
     return deepcopy(saved[name])
 
 
+def load_saved_config_wrapper(name: str) -> dict[str, Any] | None:
+    """Load a saved config wrapper by name if available."""
+
+    saved = get_saved_config_wrappers()
+    if name not in saved:
+        return None
+    return deepcopy(saved[name])
+
+
 def rename_saved_model_state(current_name: str, new_name: str) -> None:
     """Rename a saved model configuration while preserving its payload.
 
@@ -194,6 +226,7 @@ def rename_saved_model_state(current_name: str, new_name: str) -> None:
     """
 
     saved = get_saved_model_states()
+    wrappers = get_saved_config_wrappers()
     if current_name not in saved:
         raise KeyError(f"No saved model configuration named '{current_name}'.")
 
@@ -204,12 +237,15 @@ def rename_saved_model_state(current_name: str, new_name: str) -> None:
         raise ValueError(f"A configuration named '{stripped_new_name}' already exists.")
 
     saved[stripped_new_name] = saved.pop(current_name)
+    if current_name in wrappers:
+        wrappers[stripped_new_name] = wrappers.pop(current_name)
 
 
 def delete_saved_model_state(name: str) -> None:
     """Remove a saved model configuration if it exists."""
 
     get_saved_model_states().pop(name, None)
+    get_saved_config_wrappers().pop(name, None)
 
 
 def export_model_state(name: str) -> str:
@@ -219,6 +255,9 @@ def export_model_state(name: str) -> str:
         KeyError: If the configuration name does not exist.
     """
 
+    wrapper = load_saved_config_wrapper(name)
+    if isinstance(wrapper, Mapping):
+        return json.dumps(wrapper, sort_keys=True)
     payload = load_saved_model_state(name)
     return json.dumps(payload, sort_keys=True)
 
@@ -241,7 +280,15 @@ def import_model_state(name: str, payload: str) -> dict[str, Any]:
     if not isinstance(parsed, Mapping):
         raise ValueError("Imported configuration must be a JSON object.")
 
-    save_model_state(name.strip(), parsed)
+    model_state = parsed
+    wrapper: dict[str, Any] | None = None
+    if isinstance(parsed.get("model_state"), Mapping):
+        model_state = parsed.get("model_state", {})
+        wrapper = dict(parsed)
+
+    save_model_state(name.strip(), model_state)
+    if wrapper is not None:
+        save_config_wrapper(name.strip(), wrapper)
     return load_saved_model_state(name.strip())
 
 
@@ -257,7 +304,9 @@ class ModelStateDiff:
 
 
 def _is_sequence(value: Any) -> bool:
-    return isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray))
+    return isinstance(value, Sequence) and not isinstance(
+        value, (str, bytes, bytearray)
+    )
 
 
 def _stringify_value(value: Any) -> str:
@@ -275,7 +324,9 @@ def _values_equal(left: Any, right: Any, float_tol: float) -> bool:
     if isinstance(left, Mapping) and isinstance(right, Mapping):
         if set(left.keys()) != set(right.keys()):
             return False
-        return all(_values_equal(left[key], right[key], float_tol) for key in left.keys())
+        return all(
+            _values_equal(left[key], right[key], float_tol) for key in left.keys()
+        )
     if _is_sequence(left) and _is_sequence(right):
         if len(left) != len(right):
             return False
@@ -404,5 +455,7 @@ def format_model_state_diff(
             lines.append(f"- {entry.path}: ({label_a}) {left}")
         else:
             type_note = " [type changed]" if entry.type_changed else ""
-            lines.append(f"~ {entry.path}: ({label_a}) {left} -> ({label_b}) {right}{type_note}")
+            lines.append(
+                f"~ {entry.path}: ({label_a}) {left} -> ({label_b}) {right}{type_note}"
+            )
     return "\n".join(lines)
