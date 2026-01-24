@@ -108,13 +108,9 @@ def _resolve_llm_provider_config(
             f"Unknown LLM provider '{provider_name}'. "
             f"Expected one of: {', '.join(sorted(supported))}."
         )
-    proxy_url = os.environ.get("TS_LLM_PROXY_URL")
-    proxy_token = os.environ.get("TS_LLM_PROXY_TOKEN")
     resolved_api_key = api_key
-    if not resolved_api_key and proxy_url:
-        resolved_api_key = proxy_token or "proxy"
     if not resolved_api_key:
-        resolved_api_key = os.environ.get("TS_OPENAI_STREAMLIT")
+        resolved_api_key = os.environ.get("OPENAI_API_KEY")
     if not resolved_api_key:
         resolved_api_key = os.environ.get("TREND_LLM_API_KEY")
     if not resolved_api_key:
@@ -122,20 +118,16 @@ def _resolve_llm_provider_config(
             resolved_api_key = os.environ.get("OPENAI_API_KEY")
         elif provider_name == "anthropic":
             resolved_api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if (
-        provider_name in {"openai", "anthropic"}
-        and not resolved_api_key
-        and not proxy_url
-    ):
+    if provider_name in {"openai", "anthropic"} and not resolved_api_key:
         env_hint = (
-            "TS_OPENAI_STREAMLIT" if provider_name == "openai" else "ANTHROPIC_API_KEY"
+            "OPENAI_API_KEY" if provider_name == "openai" else "ANTHROPIC_API_KEY"
         )
         raise ValueError(
             f"Missing API key for {provider_name}. "
-            f"Set TS_OPENAI_STREAMLIT, TREND_LLM_API_KEY, or {env_hint}."
+            f"Set OPENAI_API_KEY, TREND_LLM_API_KEY, or {env_hint}."
         )
     resolved_model = model or os.environ.get("TREND_LLM_MODEL")
-    resolved_base_url = base_url or proxy_url or os.environ.get("TREND_LLM_BASE_URL")
+    resolved_base_url = base_url or os.environ.get("TREND_LLM_BASE_URL")
     resolved_org = organization or os.environ.get("TREND_LLM_ORG")
     kwargs: dict[str, Any] = {"provider": provider_name}
     if resolved_model:
@@ -162,12 +154,6 @@ def _default_api_key(provider_name: str) -> str | None:
     if secrets_key:
         return secrets_key
     try:
-        secrets_key = st.secrets.get("TS_OPENAI_STREAMLIT")
-    except Exception:
-        secrets_key = None
-    if secrets_key:
-        return secrets_key
-    try:
         secrets_key = st.secrets.get("TREND_LLM_API_KEY")
     except Exception:
         secrets_key = None
@@ -183,12 +169,6 @@ def _default_api_key(provider_name: str) -> str | None:
     if env_key:
         return env_key
     if provider_name == "openai":
-        env_key = os.environ.get("TS_OPENAI_STREAMLIT")
-        if env_key:
-            return env_key
-        env_key = os.environ.get("TREND_LLM_API_KEY")
-        if env_key:
-            return env_key
         return os.environ.get("OPENAI_API_KEY")
     if provider_name == "anthropic":
         try:

@@ -203,13 +203,7 @@ def _resolve_llm_provider_config() -> LLMProviderConfig:
             f"Unknown LLM provider '{provider_name}'. "
             f"Expected one of: {', '.join(sorted(supported))}."
         )
-    proxy_url = os.environ.get("TS_LLM_PROXY_URL")
-    proxy_token = os.environ.get("TS_LLM_PROXY_TOKEN")
-    api_key = proxy_token if proxy_url and proxy_token else None
-    if not api_key and proxy_url:
-        api_key = "proxy"
-    if not api_key:
-        api_key = os.environ.get("TS_OPENAI_STREAMLIT")
+    api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         api_key = os.environ.get("TREND_LLM_API_KEY")
     if not api_key:
@@ -218,7 +212,7 @@ def _resolve_llm_provider_config() -> LLMProviderConfig:
         elif provider_name == "anthropic":
             api_key = os.environ.get("ANTHROPIC_API_KEY")
     model = os.environ.get("TREND_LLM_MODEL")
-    base_url = proxy_url or os.environ.get("TREND_LLM_BASE_URL")
+    base_url = os.environ.get("TREND_LLM_BASE_URL")
     organization = os.environ.get("TREND_LLM_ORG")
     kwargs: dict[str, Any] = {"provider": provider_name}
     if model:
