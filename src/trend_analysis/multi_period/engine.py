@@ -528,10 +528,7 @@ def run_schedule(
     for date in sorted(score_frames):
         sf = score_frames[date]
         sf_for_selection = sf
-        if (
-            rebalancer is not None
-            and getattr(rebalancer, "high_z_hard", None) is not None
-        ):
+        if rebalancer is not None and getattr(rebalancer, "high_z_hard", None) is not None:
             if "zscore" in sf.columns:
                 z_entry_hard = float(getattr(rebalancer, "high_z_hard"))
                 z = pd.to_numeric(sf["zscore"], errors="coerce")
