@@ -99,23 +99,30 @@ def _resolve_llm_provider_config(
     base_url: str | None = None,
     organization: str | None = None,
 ) -> LLMProviderConfig:
-    provider_name = (provider or os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
+    provider_name = (
+        provider or os.environ.get("TREND_LLM_PROVIDER") or "openai"
+    ).lower()
     supported = {"openai", "anthropic", "ollama"}
     if provider_name not in supported:
         raise ValueError(
             f"Unknown LLM provider '{provider_name}'. "
             f"Expected one of: {', '.join(sorted(supported))}."
         )
-    resolved_api_key = api_key or os.environ.get("TREND_LLM_API_KEY")
+    resolved_api_key = api_key or os.environ.get("TS_OPENAI_STREAMLIT")
+    if not resolved_api_key:
+        resolved_api_key = os.environ.get("TREND_LLM_API_KEY")
     if not resolved_api_key:
         if provider_name == "openai":
             resolved_api_key = os.environ.get("OPENAI_API_KEY")
         elif provider_name == "anthropic":
             resolved_api_key = os.environ.get("ANTHROPIC_API_KEY")
     if provider_name in {"openai", "anthropic"} and not resolved_api_key:
-        env_hint = "OPENAI_API_KEY" if provider_name == "openai" else "ANTHROPIC_API_KEY"
+        env_hint = (
+            "TS_OPENAI_STREAMLIT" if provider_name == "openai" else "ANTHROPIC_API_KEY"
+        )
         raise ValueError(
-            f"Missing API key for {provider_name}. " f"Set TREND_LLM_API_KEY or {env_hint}."
+            f"Missing API key for {provider_name}. "
+            f"Set TS_OPENAI_STREAMLIT, TREND_LLM_API_KEY, or {env_hint}."
         )
     resolved_model = model or os.environ.get("TREND_LLM_MODEL")
     resolved_base_url = base_url or os.environ.get("TREND_LLM_BASE_URL")
@@ -134,7 +141,19 @@ def _resolve_llm_provider_config(
 
 def _default_api_key(provider_name: str) -> str | None:
     try:
+        secrets_key = st.secrets.get("TS_OPENAI_STREAMLIT")
+    except Exception:
+        secrets_key = None
+    if secrets_key:
+        return secrets_key
+    try:
         secrets_key = st.secrets.get("TREND_LLM_API_KEY")
+    except Exception:
+        secrets_key = None
+    if secrets_key:
+        return secrets_key
+    try:
+        secrets_key = st.secrets.get("OPENAI_API_KEY")
     except Exception:
         secrets_key = None
     if secrets_key:
@@ -143,12 +162,12 @@ def _default_api_key(provider_name: str) -> str | None:
     if env_key:
         return env_key
     if provider_name == "openai":
-        try:
-            secrets_openai = st.secrets.get("OPENAI_API_KEY")
-        except Exception:
-            secrets_openai = None
-        if secrets_openai:
-            return secrets_openai
+        env_key = os.environ.get("TS_OPENAI_STREAMLIT")
+        if env_key:
+            return env_key
+        env_key = os.environ.get("TREND_LLM_API_KEY")
+        if env_key:
+            return env_key
         return os.environ.get("OPENAI_API_KEY")
     if provider_name == "anthropic":
         try:
@@ -199,7 +218,9 @@ def generate_result_explanation(
     compacted_entries = compact_metric_catalog(all_entries, questions=questions)
     metric_catalog = format_metric_catalog(compacted_entries)
     if not all_entries:
-        text = ensure_result_disclaimer("No metrics were detected in the analysis output.")
+        text = ensure_result_disclaimer(
+            "No metrics were detected in the analysis output."
+        )
         return ExplanationResult(
             text=text,
             trace_url=None,
