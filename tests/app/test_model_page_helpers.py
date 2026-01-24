@@ -76,6 +76,7 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     stub.number_input = lambda _label, **kwargs: kwargs.get("value", 0)
     stub.checkbox = lambda _label, value=False, **_kwargs: value
     stub.slider = lambda _label, **kwargs: kwargs.get("value", 0)
+    stub.file_uploader = lambda *_args, **_kwargs: None
     stub.empty = lambda: Placeholder()
 
     monkeypatch.setitem(sys.modules, "streamlit", stub)
@@ -98,7 +99,9 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
         app_state,
         "get_uploaded_data",
         lambda: (
-            pd.DataFrame({f"A{i}": [0.01 + i * 0.001, 0.02 + i * 0.001] for i in range(12)}),
+            pd.DataFrame(
+                {f"A{i}": [0.01 + i * 0.001, 0.02 + i * 0.001] for i in range(12)}
+            ),
             {},
         ),
     )
@@ -195,7 +198,10 @@ def test_render_config_chat_panel_stores_instruction(model_module: ModuleType) -
 
     model_module.render_config_chat_panel()
 
-    assert stub.session_state.get("config_chat_last_instruction") == "Increase lookback to 24"
+    assert (
+        stub.session_state.get("config_chat_last_instruction")
+        == "Increase lookback to 24"
+    )
 
 
 def test_side_by_side_diff_renders_yaml(model_module: ModuleType) -> None:
@@ -207,7 +213,9 @@ def test_side_by_side_diff_renders_yaml(model_module: ModuleType) -> None:
 
     stub.code = capture_code
 
-    model_module._render_side_by_side_diff({"lookback_periods": 12}, {"lookback_periods": 24})
+    model_module._render_side_by_side_diff(
+        {"lookback_periods": 12}, {"lookback_periods": 24}
+    )
 
     assert "yaml" in languages
 
@@ -346,7 +354,10 @@ def test_render_config_change_history_shows_tabs_and_entries(
         "2024-01-02T00:00:00Z • Increase min history",
         "2024-01-01T00:00:00Z • Increase lookback",
     ]
-    assert tab_sets == [["Unified diff", "Side-by-side"], ["Unified diff", "Side-by-side"]]
+    assert tab_sets == [
+        ["Unified diff", "Side-by-side"],
+        ["Unified diff", "Side-by-side"],
+    ]
     assert unified_calls == [
         "--- before\n+++ after\n+  min_history_periods: 9\n",
         "--- before\n+++ after\n+  lookback_periods: 12\n",
@@ -528,7 +539,11 @@ def test_risky_confirmation_dialog_emits_unknown_key_caption(
     stub = model_module.st
     stub.session_state.clear()
 
-    preview = {"after": {"lookback_periods": 12}, "needs_review": True, "risk_flags": []}
+    preview = {
+        "after": {"lookback_periods": 12},
+        "needs_review": True,
+        "risk_flags": [],
+    }
     stub.session_state["config_chat_pending_apply"] = {
         "preview": dict(preview),
         "run_analysis": False,
@@ -585,7 +600,9 @@ def test_render_side_by_side_diff_snapshot(model_module: ModuleType) -> None:
         {"lookback_periods": 12, "min_history_periods": 6},
     )
 
-    snapshot_path = Path(__file__).parents[1] / "fixtures" / "diff_preview_side_by_side.html"
+    snapshot_path = (
+        Path(__file__).parents[1] / "fixtures" / "diff_preview_side_by_side.html"
+    )
     expected = snapshot_path.read_text(encoding="utf-8")
     assert markdown_calls
 
@@ -593,7 +610,9 @@ def test_render_side_by_side_diff_snapshot(model_module: ModuleType) -> None:
         value = re.sub(r"difflib_chg_to\d+__", "difflib_chg_toX__", value)
         value = re.sub(r"id=\"from\d+_", 'id="fromX_', value)
         value = re.sub(r"id=\"to\d+_", 'id="toX_', value)
-        value = re.sub(r"href=\"#difflib_chg_to\d+__", 'href="#difflib_chg_toX__', value)
+        value = re.sub(
+            r"href=\"#difflib_chg_to\d+__", 'href="#difflib_chg_toX__', value
+        )
         return value
 
     assert normalize_ids(markdown_calls[-1]) == normalize_ids(expected)
@@ -649,7 +668,9 @@ def test_render_config_diff_preview_renders_tabs_and_diff(
     ]
 
 
-def test_render_config_diff_preview_no_preview_shows_info(model_module: ModuleType) -> None:
+def test_render_config_diff_preview_no_preview_shows_info(
+    model_module: ModuleType,
+) -> None:
     stub = model_module.st
     stub.session_state.clear()
     info_calls: list[str] = []
@@ -661,4 +682,6 @@ def test_render_config_diff_preview_no_preview_shows_info(model_module: ModuleTy
 
     model_module._render_config_diff_preview(model_state={"lookback_periods": 6})
 
-    assert info_calls == ["No preview available yet. Send an instruction to generate a diff."]
+    assert info_calls == [
+        "No preview available yet. Send an instruction to generate a diff."
+    ]

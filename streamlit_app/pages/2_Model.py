@@ -263,11 +263,8 @@ def _resolve_llm_provider_config() -> LLMProviderConfig:
         api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         api_key = os.environ.get("TREND_LLM_API_KEY")
-    if not api_key:
-        if provider_name == "openai":
-            api_key = os.environ.get("OPENAI_API_KEY")
-        elif provider_name == "anthropic":
-            api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key and provider_name == "anthropic":
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
     model = os.environ.get("TREND_LLM_MODEL")
     base_url = os.environ.get("TREND_LLM_BASE_URL")
     organization = os.environ.get("TREND_LLM_ORG")
@@ -1534,12 +1531,27 @@ def render_model_page() -> None:
             )
             if uploaded_config is not None:
                 try:
-                    st.session_state["import_config_payload"] = uploaded_config.getvalue().decode(
-                        "utf-8"
+                    raw_value = uploaded_config.getvalue()
+                    if isinstance(raw_value, bytes):
+                        st.session_state["import_config_payload"] = raw_value.decode(
+                            "utf-8"
+                        )
+                    else:
+                        st.session_state["import_config_payload"] = str(raw_value)
+                except UnicodeDecodeError:
+                    st.error(
+                        "Unable to decode uploaded file as UTF-8. "
+                        "Please upload a UTF-8 encoded JSON file."
                     )
-                except Exception:
-                    st.error("Unable to read uploaded JSON file.")
-            import_payload = st.text_area("Paste JSON to import", key="import_config_payload")
+                except (AttributeError, TypeError):
+                    st.error(
+                        "Unable to read uploaded JSON file due to an unexpected file format."
+                    )
+                except OSError as exc:
+                    st.error(f"Unable to read uploaded file: {exc}")
+            import_payload = st.text_area(
+                "Paste JSON to import", key="import_config_payload"
+            )
             if st.button("Import JSON configuration", key="import_config_button"):
                 if not import_payload.strip():
                     st.error("Paste a JSON payload to import a configuration.")

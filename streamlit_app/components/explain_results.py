@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -31,6 +32,15 @@ from trend_analysis.llm import (
 
 DEFAULT_QUESTION = "Summarize key findings and notable risks in the results."
 _CACHE_KEY = "explain_results_cache"
+logger = logging.getLogger(__name__)
+
+
+def _read_secret(key: str) -> str | None:
+    try:
+        return st.secrets.get(key)
+    except (KeyError, FileNotFoundError, RuntimeError, ValueError) as exc:
+        logger.debug("Unable to read Streamlit secret %s: %s", key, exc)
+        return None
 
 
 @dataclass(frozen=True)
@@ -113,11 +123,8 @@ def _resolve_llm_provider_config(
         resolved_api_key = os.environ.get("OPENAI_API_KEY")
     if not resolved_api_key:
         resolved_api_key = os.environ.get("TREND_LLM_API_KEY")
-    if not resolved_api_key:
-        if provider_name == "openai":
-            resolved_api_key = os.environ.get("OPENAI_API_KEY")
-        elif provider_name == "anthropic":
-            resolved_api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not resolved_api_key and provider_name == "anthropic":
+        resolved_api_key = os.environ.get("ANTHROPIC_API_KEY")
     if provider_name in {"openai", "anthropic"} and not resolved_api_key:
         env_hint = "OPENAI_API_KEY" if provider_name == "openai" else "ANTHROPIC_API_KEY"
         raise ValueError(
@@ -145,22 +152,13 @@ def _default_api_key(provider_name: str) -> str | None:
         token = os.environ.get("TS_LLM_PROXY_TOKEN")
         if token:
             return token
-    try:
-        secrets_key = st.secrets.get("TS_STREAMLIT_API_KEY")
-    except Exception:
-        secrets_key = None
+    secrets_key = _read_secret("TS_STREAMLIT_API_KEY")
     if secrets_key:
         return secrets_key
-    try:
-        secrets_key = st.secrets.get("TREND_LLM_API_KEY")
-    except Exception:
-        secrets_key = None
+    secrets_key = _read_secret("TREND_LLM_API_KEY")
     if secrets_key:
         return secrets_key
-    try:
-        secrets_key = st.secrets.get("OPENAI_API_KEY")
-    except Exception:
-        secrets_key = None
+    secrets_key = _read_secret("OPENAI_API_KEY")
     if secrets_key:
         return secrets_key
     env_key = os.environ.get("TS_STREAMLIT_API_KEY")
@@ -172,10 +170,7 @@ def _default_api_key(provider_name: str) -> str | None:
     if provider_name == "openai":
         return os.environ.get("OPENAI_API_KEY")
     if provider_name == "anthropic":
-        try:
-            secrets_anthropic = st.secrets.get("ANTHROPIC_API_KEY")
-        except Exception:
-            secrets_anthropic = None
+        secrets_anthropic = _read_secret("ANTHROPIC_API_KEY")
         if secrets_anthropic:
             return secrets_anthropic
         return os.environ.get("ANTHROPIC_API_KEY")
@@ -348,10 +343,7 @@ def render_explain_results(
             "ANTHROPIC_API_KEY",
         }
         if trimmed in env_names:
-            try:
-                secret_val = st.secrets.get(trimmed)
-            except Exception:
-                secret_val = None
+            secret_val = _read_secret(trimmed)
             return secret_val or os.environ.get(trimmed)
         return trimmed
 

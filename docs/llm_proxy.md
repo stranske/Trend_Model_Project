@@ -17,7 +17,9 @@ pip install -e ".[app]"
 ## Configuration
 Set environment variables on the proxy host:
 
-- `TS_OPENAI_STREAMLIT`: upstream OpenAI API key (required)
+- `TS_STREAMLIT_API_KEY`: upstream OpenAI API key (preferred)
+- `TS_OPENAI_STREAMLIT`: legacy upstream key name (also accepted)
+- `OPENAI_API_KEY` or `TREND_LLM_API_KEY`: fallback key names (optional)
 - `TS_LLM_PROXY_TOKEN`: optional shared token for access control
 - `TS_LLM_PROXY_UPSTREAM`: optional override for upstream base URL (default: https://api.openai.com)
 
@@ -26,6 +28,8 @@ Set environment variables on the proxy host:
 ```
 trend-llm-proxy --host 0.0.0.0 --port 8799
 ```
+
+⚠️ Binding to `0.0.0.0` exposes the proxy on all interfaces. For local-only use, set `--host 127.0.0.1`.
 
 ## Configure Streamlit
 Set these environment variables on the Streamlit server:

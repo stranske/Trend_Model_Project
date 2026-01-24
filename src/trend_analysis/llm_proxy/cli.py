@@ -15,7 +15,10 @@ def main() -> int:
     parser.add_argument(
         "--host",
         default="0.0.0.0",
-        help="Host to bind the proxy server (default: 0.0.0.0)",
+        help=(
+            "Host to bind the proxy server (default: 0.0.0.0). "
+            "Use 127.0.0.1 for local-only access."
+        ),
     )
     parser.add_argument(
         "--port",

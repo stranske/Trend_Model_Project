@@ -6,6 +6,7 @@ import asyncio
 import importlib
 import logging
 import os
+import secrets
 from typing import Any
 from urllib.parse import urljoin
 
@@ -55,7 +56,8 @@ def _assert_deps() -> None:
 
 def _resolve_upstream_key() -> str | None:
     return (
-        os.environ.get("TS_OPENAI_STREAMLIT")
+        os.environ.get("TS_STREAMLIT_API_KEY")
+        or os.environ.get("TS_OPENAI_STREAMLIT")
         or os.environ.get("OPENAI_API_KEY")
         or os.environ.get("TREND_LLM_API_KEY")
     )
@@ -112,7 +114,8 @@ class LLMProxy:
             auth_header = request.headers.get("authorization") or ""
             if not auth_header.startswith("Bearer "):
                 raise HTTPException(status_code=401, detail="Missing proxy token")
-            if auth_header.removeprefix("Bearer ").strip() != self.auth_token:
+            token = auth_header.removeprefix("Bearer ").strip()
+            if not secrets.compare_digest(token, self.auth_token):
                 raise HTTPException(status_code=403, detail="Invalid proxy token")
 
         upstream_key = _resolve_upstream_key()
@@ -136,12 +139,28 @@ class LLMProxy:
         headers["authorization"] = f"Bearer {upstream_key}"
         body = await request.body()
 
-        response = await self.client.request(
-            method=request.method,
-            url=target_url,
-            headers=headers,
-            content=body,
-        )
+        try:
+            response = await self.client.request(
+                method=request.method,
+                url=target_url,
+                headers=headers,
+                content=body,
+            )
+        except httpx.TimeoutException as exc:
+            logger.warning("Upstream request timed out: %s", exc)
+            raise HTTPException(
+                status_code=504, detail="Upstream service timed out"
+            ) from exc
+        except httpx.RequestError as exc:
+            logger.warning("Network error while contacting upstream: %s", exc)
+            raise HTTPException(
+                status_code=502, detail="Error contacting upstream service"
+            ) from exc
+        except httpx.HTTPError as exc:
+            logger.warning("HTTP error from upstream: %s", exc)
+            raise HTTPException(
+                status_code=502, detail="Upstream service error"
+            ) from exc
 
         filtered = _filter_response_headers(dict(response.headers))
         return Response(
