@@ -92,14 +92,10 @@ class LLMProxy:
         if FastAPI is None or httpx is None:  # pragma: no cover
             raise RuntimeError("FastAPI/httpx dependencies are required for LLMProxy")
         self.upstream_base = (
-            upstream_base
-            or os.environ.get("TS_LLM_PROXY_UPSTREAM")
-            or "https://api.openai.com"
+            upstream_base or os.environ.get("TS_LLM_PROXY_UPSTREAM") or "https://api.openai.com"
         ).rstrip("/")
         self.auth_token = os.environ.get("TS_LLM_PROXY_TOKEN")
-        self.app: FastAPIType = cast(
-            FastAPIType, FastAPI(title="LLM Proxy", version="1.0.0")
-        )
+        self.app: FastAPIType = cast(FastAPIType, FastAPI(title="LLM Proxy", version="1.0.0"))
         self.client = httpx.AsyncClient(timeout=90)
         self._register_routes()
 
@@ -129,9 +125,7 @@ class LLMProxy:
 
         upstream_key = _resolve_upstream_key()
         if not upstream_key:
-            raise HTTPException(
-                status_code=500, detail="Upstream API key not configured"
-            )
+            raise HTTPException(status_code=500, detail="Upstream API key not configured")
 
         normalized = path.lstrip("/")
         target_url = urljoin(f"{self.upstream_base}/", f"v1/{normalized}")
@@ -159,9 +153,7 @@ class LLMProxy:
             )
         except httpx.TimeoutException as exc:
             logger.warning("Upstream request timed out: %s", exc)
-            raise HTTPException(
-                status_code=504, detail="Upstream service timed out"
-            ) from exc
+            raise HTTPException(status_code=504, detail="Upstream service timed out") from exc
         except httpx.RequestError as exc:
             logger.warning("Network error while contacting upstream: %s", exc)
             raise HTTPException(
@@ -169,9 +161,7 @@ class LLMProxy:
             ) from exc
         except httpx.HTTPError as exc:
             logger.warning("HTTP error from upstream: %s", exc)
-            raise HTTPException(
-                status_code=502, detail="Upstream service error"
-            ) from exc
+            raise HTTPException(status_code=502, detail="Upstream service error") from exc
 
         filtered = _filter_response_headers(dict(response.headers))
         return Response(
@@ -180,14 +170,10 @@ class LLMProxy:
             headers=filtered,
         )
 
-    async def start(
-        self, host: str = "0.0.0.0", port: int = 8799
-    ) -> None:  # noqa: D401
+    async def start(self, host: str = "0.0.0.0", port: int = 8799) -> None:  # noqa: D401
         _assert_deps()
         if uvicorn is None:
-            raise RuntimeError(
-                "uvicorn dependency is required to start the proxy server"
-            )
+            raise RuntimeError("uvicorn dependency is required to start the proxy server")
         config = uvicorn.Config(app=self.app, host=host, port=port, log_level="info")
         server = uvicorn.Server(config)
         logger.info("Starting LLM proxy on %s:%s", host, port)
