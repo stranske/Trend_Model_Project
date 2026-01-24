@@ -2466,16 +2466,12 @@ def run(
                 # Replace exited funds using the same initial selection method
                 n_needed = buy_hold_n - len(current_holdings)
                 if n_needed > 0:
-                    available = [
-                        str(c) for c in sf.index if str(c) not in current_holdings
-                    ]
+                    available = [str(c) for c in sf.index if str(c) not in current_holdings]
                     # Only consider funds that still have out-of-sample data;
                     # prevents re-adding funds whose data has disappeared.
                     if isinstance(out_df, pd.DataFrame) and not out_df.empty:
                         available = [
-                            c
-                            for c in available
-                            if c in out_df.columns and out_df[c].notna().any()
+                            c for c in available if c in out_df.columns and out_df[c].notna().any()
                         ]
                     if cooldown_periods > 0 and cooldown_book:
                         available = [c for c in available if c not in cooldown_book]
