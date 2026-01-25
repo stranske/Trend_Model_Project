@@ -567,6 +567,15 @@ def _format_change_reason(reason: str, detail: str, action: str) -> str:
         "low_weight_strikes": "Persistent underweight",
         "replacement": "Replaced underperformer",
         "reseat": "Portfolio reconstruction",
+        "min_funds": "Minimum holdings enforced",
+        "cap_max_funds": "Maximum holdings cap",
+        "min_tenure": "Minimum tenure guard",
+        "cooldown": "Cooldown guard",
+        "data_ceased": "Data coverage ended",
+        "sticky_add": "Sticky add rule",
+        "sticky_drop": "Sticky drop rule",
+        "turnover_budget": "Turnover budget",
+        "seed": "Initial seed",
     }
 
     base_reason = reason_map.get(reason, reason.replace("_", " ").title())
@@ -585,17 +594,72 @@ def _format_change_reason(reason: str, detail: str, action: str) -> str:
     return base_reason
 
 
+def _extract_manager_decisions(result) -> pd.DataFrame:
+    """Extract detailed manager decision events for reporting."""
+    details = getattr(result, "details", {}) or {}
+    period_results = details.get("period_results", [])
+
+    if not period_results:
+        return pd.DataFrame()
+
+    rows: list[dict[str, str]] = []
+
+    for res in period_results:
+        period = res.get("period", ("", "", "", ""))
+        out_start = period[2] if len(period) > 2 else ""
+        raw_changes = res.get("manager_changes", [])
+        changes = [
+            c
+            for c in (raw_changes or [])
+            if isinstance(c, dict) and str(c.get("manager", "")).strip()
+        ]
+        for ev in changes:
+            action = str(ev.get("action", "")).strip()
+            if action not in {"added", "dropped", "skipped"}:
+                continue
+            manager = str(ev.get("manager", "")).strip()
+            reason = str(ev.get("reason", ""))
+            detail = str(ev.get("detail", ""))
+            firm = str(ev.get("firm", ""))
+            action_label = {
+                "added": "Hired",
+                "dropped": "Terminated",
+                "skipped": "Skipped",
+            }.get(action, action.title())
+            rows.append(
+                {
+                    "Date": out_start,
+                    "Action": action_label,
+                    "Manager": manager,
+                    "Firm": firm,
+                    "Reason": _format_change_reason(reason, detail, action),
+                    "Detail": detail,
+                }
+            )
+
+    if not rows:
+        return pd.DataFrame()
+
+    return pd.DataFrame(rows)
+
+
 def _render_manager_changes(result) -> None:
     """Render manager hiring/firing decisions table."""
     changes_df = _extract_manager_changes(result)
+    decisions_df = _extract_manager_decisions(result)
 
-    if changes_df.empty:
+    if changes_df.empty and decisions_df.empty:
         st.caption("No manager changes during simulation period.")
         return
 
-    initial = len(changes_df[changes_df["Action"] == "Initial"])
-    hired = len(changes_df[changes_df["Action"] == "Hired"])
-    terminated = len(changes_df[changes_df["Action"] == "Terminated"])
+    initial = len(changes_df[changes_df["Action"] == "Initial"]) if not changes_df.empty else 0
+    hired = len(changes_df[changes_df["Action"] == "Hired"]) if not changes_df.empty else 0
+    terminated = (
+        len(changes_df[changes_df["Action"] == "Terminated"]) if not changes_df.empty else 0
+    )
+    skipped = (
+        len(decisions_df[decisions_df["Action"] == "Skipped"]) if not decisions_df.empty else 0
+    )
 
     # Compute expected final count for sanity check
     details = getattr(result, "details", {}) or {}
@@ -619,8 +683,11 @@ def _render_manager_changes(result) -> None:
         summary_parts.append(f"{hired} hired")
     if terminated > 0:
         summary_parts.append(f"{terminated} terminated")
+    if skipped > 0:
+        summary_parts.append(f"{skipped} skipped")
 
-    st.caption(f"Total: {len(changes_df)} ({', '.join(summary_parts)})")
+    total_rows = len(changes_df) if not changes_df.empty else 0
+    st.caption(f"Total: {total_rows} ({', '.join(summary_parts)})")
 
     # Sanity check: Initial + Hired - Terminated should equal final holdings
     if final_count > 0 and expected_final != final_count:
@@ -639,8 +706,33 @@ def _render_manager_changes(result) -> None:
             return ["background-color: #f8d7da"] * len(row)  # Red for terminated
         return [""] * len(row)
 
-    styled = changes_df.style.apply(highlight_action, axis=1)
-    st.dataframe(styled, use_container_width=True, height=300)
+    if changes_df.empty:
+        st.caption("No net hires or terminations recorded.")
+    else:
+        st.subheader("Net changes")
+        styled = changes_df.style.apply(highlight_action, axis=1)
+        st.dataframe(styled, use_container_width=True, height=300)
+
+    with st.expander("Decision log (adds, drops, and skips)", expanded=True):
+        if decisions_df.empty:
+            st.caption("No decision log entries recorded.")
+        else:
+            st.caption(
+                "Includes eligible-but-skipped candidates and policy-driven holds. "
+                "Skipped entries indicate candidates that met criteria but were blocked by caps/guards."
+            )
+
+            def highlight_decision(row):
+                if row["Action"] == "Hired":
+                    return ["background-color: #d4edda"] * len(row)
+                if row["Action"] == "Terminated":
+                    return ["background-color: #f8d7da"] * len(row)
+                if row["Action"] == "Skipped":
+                    return ["background-color: #fff3cd"] * len(row)
+                return [""] * len(row)
+
+            decision_styled = decisions_df.style.apply(highlight_decision, axis=1)
+            st.dataframe(decision_styled, use_container_width=True, height=350)
 
     # Debug expander for period-by-period breakdown
     with st.expander("📊 Period-by-Period Diagnostic", expanded=False):
