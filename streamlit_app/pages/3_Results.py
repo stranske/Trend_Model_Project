@@ -160,7 +160,9 @@ def _current_run_key(model_state: dict[str, Any], benchmark: str | None) -> str:
         applied_funds = []
 
     info_ratio_benchmark = (
-        model_state.get("info_ratio_benchmark") if isinstance(model_state, dict) else None
+        model_state.get("info_ratio_benchmark")
+        if isinstance(model_state, dict)
+        else None
     )
     prohibited = {selected_rf, benchmark, info_ratio_benchmark} - {None}
     sanitized_funds = [c for c in applied_funds if c not in prohibited]
@@ -567,6 +569,15 @@ def _format_change_reason(reason: str, detail: str, action: str) -> str:
         "low_weight_strikes": "Persistent underweight",
         "replacement": "Replaced underperformer",
         "reseat": "Portfolio reconstruction",
+        "min_funds": "Minimum holdings enforced",
+        "cap_max_funds": "Maximum holdings cap",
+        "min_tenure": "Minimum tenure guard",
+        "cooldown": "Cooldown guard",
+        "data_ceased": "Data coverage ended",
+        "sticky_add": "Sticky add rule",
+        "sticky_drop": "Sticky drop rule",
+        "turnover_budget": "Turnover budget",
+        "seed": "Initial seed",
     }
 
     base_reason = reason_map.get(reason, reason.replace("_", " ").title())
@@ -585,17 +596,82 @@ def _format_change_reason(reason: str, detail: str, action: str) -> str:
     return base_reason
 
 
+def _extract_manager_decisions(result) -> pd.DataFrame:
+    """Extract detailed manager decision events for reporting."""
+    details = getattr(result, "details", {}) or {}
+    period_results = details.get("period_results", [])
+
+    if not period_results:
+        return pd.DataFrame()
+
+    rows: list[dict[str, str]] = []
+
+    for res in period_results:
+        period = res.get("period", ("", "", "", ""))
+        out_start = period[2] if len(period) > 2 else ""
+        raw_changes = res.get("manager_changes", [])
+        changes = [
+            c
+            for c in (raw_changes or [])
+            if isinstance(c, dict) and str(c.get("manager", "")).strip()
+        ]
+        for ev in changes:
+            action = str(ev.get("action", "")).strip()
+            if action not in {"added", "dropped", "skipped"}:
+                continue
+            manager = str(ev.get("manager", "")).strip()
+            reason = str(ev.get("reason", ""))
+            detail = str(ev.get("detail", ""))
+            firm = str(ev.get("firm", ""))
+            action_label = {
+                "added": "Hired",
+                "dropped": "Terminated",
+                "skipped": "Skipped",
+            }.get(action, action.title())
+            rows.append(
+                {
+                    "Date": out_start,
+                    "Action": action_label,
+                    "Manager": manager,
+                    "Firm": firm,
+                    "Reason": _format_change_reason(reason, detail, action),
+                    "Detail": detail,
+                }
+            )
+
+    if not rows:
+        return pd.DataFrame()
+
+    return pd.DataFrame(rows)
+
+
 def _render_manager_changes(result) -> None:
     """Render manager hiring/firing decisions table."""
     changes_df = _extract_manager_changes(result)
+    decisions_df = _extract_manager_decisions(result)
 
-    if changes_df.empty:
+    if changes_df.empty and decisions_df.empty:
         st.caption("No manager changes during simulation period.")
         return
 
-    initial = len(changes_df[changes_df["Action"] == "Initial"])
-    hired = len(changes_df[changes_df["Action"] == "Hired"])
-    terminated = len(changes_df[changes_df["Action"] == "Terminated"])
+    initial = (
+        len(changes_df[changes_df["Action"] == "Initial"])
+        if not changes_df.empty
+        else 0
+    )
+    hired = (
+        len(changes_df[changes_df["Action"] == "Hired"]) if not changes_df.empty else 0
+    )
+    terminated = (
+        len(changes_df[changes_df["Action"] == "Terminated"])
+        if not changes_df.empty
+        else 0
+    )
+    skipped = (
+        len(decisions_df[decisions_df["Action"] == "Skipped"])
+        if not decisions_df.empty
+        else 0
+    )
 
     # Compute expected final count for sanity check
     details = getattr(result, "details", {}) or {}
@@ -619,8 +695,11 @@ def _render_manager_changes(result) -> None:
         summary_parts.append(f"{hired} hired")
     if terminated > 0:
         summary_parts.append(f"{terminated} terminated")
+    if skipped > 0:
+        summary_parts.append(f"{skipped} skipped")
 
-    st.caption(f"Total: {len(changes_df)} ({', '.join(summary_parts)})")
+    total_rows = len(changes_df) if not changes_df.empty else 0
+    st.caption(f"Total: {total_rows} ({', '.join(summary_parts)})")
 
     # Sanity check: Initial + Hired - Terminated should equal final holdings
     if final_count > 0 and expected_final != final_count:
@@ -639,20 +718,51 @@ def _render_manager_changes(result) -> None:
             return ["background-color: #f8d7da"] * len(row)  # Red for terminated
         return [""] * len(row)
 
-    styled = changes_df.style.apply(highlight_action, axis=1)
-    st.dataframe(styled, use_container_width=True, height=300)
+    if changes_df.empty:
+        st.caption("No net hires or terminations recorded.")
+    else:
+        st.subheader("Net changes")
+        styled = changes_df.style.apply(highlight_action, axis=1)
+        st.dataframe(styled, use_container_width=True, height=300)
+
+    with st.expander("Decision log (adds, drops, and skips)", expanded=True):
+        if decisions_df.empty:
+            st.caption("No decision log entries recorded.")
+        else:
+            st.caption(
+                "Includes eligible-but-skipped candidates and policy-driven holds. "
+                "Skipped entries indicate candidates that met criteria but were blocked by caps/guards."
+            )
+
+            def highlight_decision(row):
+                if row["Action"] == "Hired":
+                    return ["background-color: #d4edda"] * len(row)
+                if row["Action"] == "Terminated":
+                    return ["background-color: #f8d7da"] * len(row)
+                if row["Action"] == "Skipped":
+                    return ["background-color: #fff3cd"] * len(row)
+                return [""] * len(row)
+
+            decision_styled = decisions_df.style.apply(highlight_decision, axis=1)
+            st.dataframe(decision_styled, use_container_width=True, height=350)
 
     # Debug expander for period-by-period breakdown
     with st.expander("📊 Period-by-Period Diagnostic", expanded=False):
         # Show period breakdown
-        period_stats = changes_df.groupby("Date")["Action"].value_counts().unstack(fill_value=0)
+        period_stats = (
+            changes_df.groupby("Date")["Action"].value_counts().unstack(fill_value=0)
+        )
         st.caption("Changes by period:")
         st.dataframe(period_stats, use_container_width=True)
 
         # Show unique manager counts
-        unique_initial = changes_df[changes_df["Action"] == "Initial"]["Manager"].nunique()
+        unique_initial = changes_df[changes_df["Action"] == "Initial"][
+            "Manager"
+        ].nunique()
         unique_hired = changes_df[changes_df["Action"] == "Hired"]["Manager"].nunique()
-        unique_terminated = changes_df[changes_df["Action"] == "Terminated"]["Manager"].nunique()
+        unique_terminated = changes_df[changes_df["Action"] == "Terminated"][
+            "Manager"
+        ].nunique()
 
         st.caption(
             f"Unique managers: {unique_initial} initial, {unique_hired} ever hired, "
@@ -660,7 +770,9 @@ def _render_manager_changes(result) -> None:
         )
 
         # Check for managers hired multiple times
-        hire_counts = changes_df[changes_df["Action"] == "Hired"]["Manager"].value_counts()
+        hire_counts = changes_df[changes_df["Action"] == "Hired"][
+            "Manager"
+        ].value_counts()
         multi_hired = hire_counts[hire_counts > 1]
         if not multi_hired.empty:
             st.caption(f"Managers hired multiple times: {len(multi_hired)}")
@@ -772,7 +884,10 @@ def _compute_fund_holding_periods(result) -> tuple[pd.DataFrame, pd.DataFrame]:
                     }
                     fund_returns[manager] = []
             elif action == "dropped":
-                if manager in fund_tenures and fund_tenures[manager]["Exit Date"] is None:
+                if (
+                    manager in fund_tenures
+                    and fund_tenures[manager]["Exit Date"] is None
+                ):
                     fund_tenures[manager]["Exit Date"] = out_start
 
         # Accumulate returns for funds held this period
@@ -828,7 +943,9 @@ def _render_fund_holdings(result) -> None:
 
     # Format summary
     display_summary = summary_df.copy()
-    display_summary["Years Held"] = display_summary["Years Held"].apply(lambda x: f"{x:.1f}")
+    display_summary["Years Held"] = display_summary["Years Held"].apply(
+        lambda x: f"{x:.1f}"
+    )
 
     def highlight_current(row):
         if row["Exit"] == "Current":
@@ -866,7 +983,9 @@ def _get_selection_config(result) -> dict[str, Any]:
 
     # Portfolio sizing source of truth (multi-period runs): mp_min_funds/mp_max_funds.
     # Avoid legacy/duplicate sizing knobs here.
-    max_funds = int(model_state.get("mp_max_funds") or model_state.get("selection_count") or 10)
+    max_funds = int(
+        model_state.get("mp_max_funds") or model_state.get("selection_count") or 10
+    )
     min_funds = int(model_state.get("mp_min_funds") or 0)
 
     config = {
@@ -919,7 +1038,9 @@ def _render_selection_criteria(result) -> None:
         st.markdown("**Time Parameters**")
         st.markdown(f"- Rebalance frequency: **{freq}**")
         st.markdown(f"- In-sample (lookback): **{config['lookback_periods']}** periods")
-        st.markdown(f"- Out-of-sample (eval): **{config['evaluation_periods']}** period(s)")
+        st.markdown(
+            f"- Out-of-sample (eval): **{config['evaluation_periods']}** period(s)"
+        )
 
 
 def _build_period_detail(res: dict[str, Any], period_num: int) -> dict[str, Any]:
@@ -981,10 +1102,16 @@ def _render_single_period(period_data: dict[str, Any]) -> None:
     """Render detailed view for a single period."""
     pn = period_data["period_num"]
 
-    st.markdown(f"### Period {pn}: {period_data['out_start']} to {period_data['out_end']}")
-    st.caption(f"In-sample window: {period_data['in_start']} to {period_data['in_end']}")
+    st.markdown(
+        f"### Period {pn}: {period_data['out_start']} to {period_data['out_end']}"
+    )
+    st.caption(
+        f"In-sample window: {period_data['in_start']} to {period_data['in_end']}"
+    )
 
-    tabs = st.tabs(["📊 In-Sample Metrics", "✅ Selection", "📈 Out-of-Sample", "💰 Period Return"])
+    tabs = st.tabs(
+        ["📊 In-Sample Metrics", "✅ Selection", "📈 Out-of-Sample", "💰 Period Return"]
+    )
 
     with tabs[0]:
         # In-sample metrics (score frame)
@@ -1006,7 +1133,9 @@ def _render_single_period(period_data: dict[str, Any]) -> None:
                 return [""] * len(row)
 
             # Sort by zscore if available, else by first column
-            sort_col = "zscore" if "zscore" in sf_display.columns else sf_display.columns[0]
+            sort_col = (
+                "zscore" if "zscore" in sf_display.columns else sf_display.columns[0]
+            )
             sf_sorted = sf_display.sort_values(sort_col, ascending=False)
 
             # Format numeric columns
@@ -1030,7 +1159,9 @@ def _render_single_period(period_data: dict[str, Any]) -> None:
                         lambda x: _fmt_pct(x, 1) if pd.notna(x) else "—"
                     )
 
-            st.markdown("**All candidates ranked by in-sample metrics** (green = selected)")
+            st.markdown(
+                "**All candidates ranked by in-sample metrics** (green = selected)"
+            )
             styled = sf_sorted.style.apply(highlight_selected, axis=1)
             st.dataframe(styled, use_container_width=True, height=300)
         else:
@@ -1096,9 +1227,16 @@ def _render_single_period(period_data: dict[str, Any]) -> None:
                         expected = pd.period_range(out_start, out_end, freq="M")
                         expected_labels = [str(p) for p in expected]
                         actual_labels = sorted(
-                            {str(p) for p in pd.to_datetime(out_df.index).to_period("M").tolist()}
+                            {
+                                str(p)
+                                for p in pd.to_datetime(out_df.index)
+                                .to_period("M")
+                                .tolist()
+                            }
                         )
-                        missing = [m for m in expected_labels if m not in set(actual_labels)]
+                        missing = [
+                            m for m in expected_labels if m not in set(actual_labels)
+                        ]
                         if missing:
                             st.warning(
                                 "Missing months inside this out-of-sample window: "
@@ -1178,7 +1316,9 @@ def _render_single_period(period_data: dict[str, Any]) -> None:
                 # Show raw returns in expander
                 with st.expander("View monthly returns detail"):
                     display_oos = out_df[cols_to_show].copy()
-                    display_oos.index = pd.to_datetime(display_oos.index).strftime("%Y-%m")
+                    display_oos.index = pd.to_datetime(display_oos.index).strftime(
+                        "%Y-%m"
+                    )
                     for col in display_oos.columns:
                         display_oos[col] = display_oos[col].apply(
                             lambda x: _fmt_pct(x, 2) if pd.notna(x) else "—"
@@ -1235,7 +1375,9 @@ def _render_period_breakdown(result) -> None:
         return
 
     # Build period data
-    periods_data = [_build_period_detail(res, i + 1) for i, res in enumerate(period_results)]
+    periods_data = [
+        _build_period_detail(res, i + 1) for i, res in enumerate(period_results)
+    ]
 
     # Show weights across all rebalance dates (sub-period visibility)
     try:
@@ -1257,7 +1399,8 @@ def _render_period_breakdown(result) -> None:
 
     # Period selector
     period_options = [
-        f"Period {p['period_num']}: {p['out_start']} to {p['out_end']}" for p in periods_data
+        f"Period {p['period_num']}: {p['out_start']} to {p['out_end']}"
+        for p in periods_data
     ]
 
     selected_period = st.selectbox(
@@ -1609,13 +1752,19 @@ def _render_download_section(result, *, include_narrative: bool = True) -> None:
             col_lower = col.lower()
 
             # Check column type
-            is_already_pct = col in already_pct_cols or any(p in col for p in already_pct_patterns)
+            is_already_pct = col in already_pct_cols or any(
+                p in col for p in already_pct_patterns
+            )
             is_raw_pct = col in raw_pct_cols
             is_ratio = (
-                col in ratio_cols or any(p in col for p in ratio_patterns) or ir_pattern in col
+                col in ratio_cols
+                or any(p in col for p in ratio_patterns)
+                or ir_pattern in col
             )
             is_decimal_1 = col in decimal_1_cols
-            is_decimal_2 = col in decimal_2_cols or any(p in col_lower for p in decimal_2_patterns)
+            is_decimal_2 = col in decimal_2_cols or any(
+                p in col_lower for p in decimal_2_patterns
+            )
             is_int = col in int_cols or any(p in col for p in int_patterns)
 
             if is_already_pct and not is_ratio:
@@ -1623,7 +1772,9 @@ def _render_download_section(result, *, include_narrative: bool = True) -> None:
                 out[col] = out[col].apply(
                     lambda x: (
                         f"{float(x):.1f}%"
-                        if pd.notna(x) and isinstance(x, (int, float)) and np.isfinite(x)
+                        if pd.notna(x)
+                        and isinstance(x, (int, float))
+                        and np.isfinite(x)
                         else ""
                     )
                 )
@@ -1632,7 +1783,9 @@ def _render_download_section(result, *, include_narrative: bool = True) -> None:
                 out[col] = out[col].apply(
                     lambda x: (
                         f"{float(x) * 100:.1f}%"
-                        if pd.notna(x) and isinstance(x, (int, float)) and np.isfinite(x)
+                        if pd.notna(x)
+                        and isinstance(x, (int, float))
+                        and np.isfinite(x)
                         else ""
                     )
                 )
@@ -1640,7 +1793,9 @@ def _render_download_section(result, *, include_narrative: bool = True) -> None:
                 out[col] = out[col].apply(
                     lambda x: (
                         f"{float(x):.2f}"
-                        if pd.notna(x) and isinstance(x, (int, float)) and np.isfinite(x)
+                        if pd.notna(x)
+                        and isinstance(x, (int, float))
+                        and np.isfinite(x)
                         else ""
                     )
                 )
@@ -1648,7 +1803,9 @@ def _render_download_section(result, *, include_narrative: bool = True) -> None:
                 out[col] = out[col].apply(
                     lambda x: (
                         f"{float(x):.1f}"
-                        if pd.notna(x) and isinstance(x, (int, float)) and np.isfinite(x)
+                        if pd.notna(x)
+                        and isinstance(x, (int, float))
+                        and np.isfinite(x)
                         else ""
                     )
                 )
@@ -1656,7 +1813,9 @@ def _render_download_section(result, *, include_narrative: bool = True) -> None:
                 out[col] = out[col].apply(
                     lambda x: (
                         f"{float(x):.2f}"
-                        if pd.notna(x) and isinstance(x, (int, float)) and np.isfinite(x)
+                        if pd.notna(x)
+                        and isinstance(x, (int, float))
+                        and np.isfinite(x)
                         else ""
                     )
                 )
@@ -1664,7 +1823,9 @@ def _render_download_section(result, *, include_narrative: bool = True) -> None:
                 out[col] = out[col].apply(
                     lambda x: (
                         f"{int(x)}"
-                        if pd.notna(x) and isinstance(x, (int, float)) and np.isfinite(x)
+                        if pd.notna(x)
+                        and isinstance(x, (int, float))
+                        and np.isfinite(x)
                         else ""
                     )
                 )
@@ -1854,7 +2015,9 @@ def render_results_page() -> None:
 
     # Policy: benchmark/index columns (including Info Ratio benchmark) and RF
     # are never investable funds.
-    sanitized_funds = [c for c in applied_funds if c in df.columns and c not in prohibited]
+    sanitized_funds = [
+        c for c in applied_funds if c in df.columns and c not in prohibited
+    ]
     removed = [c for c in applied_funds if c in df.columns and c in prohibited]
     keep_cols = list(sanitized_funds)
     for extra in (selected_rf, benchmark, regime_proxy):
@@ -2118,7 +2281,9 @@ def render_results_page() -> None:
                     "Weight",
                 ]
                 metric_cols = [c for c in full_df.columns if c.startswith("InSample_")]
-                ordered_cols = [c for c in base_cols if c in full_df.columns] + metric_cols
+                ordered_cols = [
+                    c for c in base_cols if c in full_df.columns
+                ] + metric_cols
                 full_df = full_df.loc[:, ordered_cols]
 
                 # Format the DataFrame to match Excel styling
@@ -2126,7 +2291,9 @@ def render_results_page() -> None:
                 # Format Weight as percentage
                 if "Weight" in export_df.columns:
                     export_df["Weight"] = export_df["Weight"].apply(
-                        lambda x: (f"{x * 100:.1f}%" if pd.notna(x) and np.isfinite(x) else "")
+                        lambda x: (
+                            f"{x * 100:.1f}%" if pd.notna(x) and np.isfinite(x) else ""
+                        )
                     )
                 # Format metric columns based on their names
                 for col in metric_cols:
@@ -2136,7 +2303,9 @@ def render_results_page() -> None:
                         export_df[col] = export_df[col].apply(
                             lambda x: (
                                 f"{float(x) * 100:.1f}%"
-                                if pd.notna(x) and isinstance(x, (int, float)) and np.isfinite(x)
+                                if pd.notna(x)
+                                and isinstance(x, (int, float))
+                                and np.isfinite(x)
                                 else ""
                             )
                         )
@@ -2145,7 +2314,9 @@ def render_results_page() -> None:
                         export_df[col] = export_df[col].apply(
                             lambda x: (
                                 f"{float(x):.2f}"
-                                if pd.notna(x) and isinstance(x, (int, float)) and np.isfinite(x)
+                                if pd.notna(x)
+                                and isinstance(x, (int, float))
+                                and np.isfinite(x)
                                 else ""
                             )
                         )
@@ -2171,7 +2342,9 @@ def render_results_page() -> None:
         saved_names = sorted(saved_states)
 
         if len(saved_names) < 2:
-            st.info("Save at least two configurations on the Model page to enable A/B comparison.")
+            st.info(
+                "Save at least two configurations on the Model page to enable A/B comparison."
+            )
         else:
             col_a, col_b = st.columns(2)
             with col_a:
