@@ -81,7 +81,9 @@ def _run_analysis(*args: Any, **kwargs: Any) -> PipelineResult:
     return _invoke_analysis_with_diag(*args, **kwargs)
 
 
-def _call_pipeline_with_diag(*args: Any, **kwargs: Any) -> DiagnosticResult[dict[str, Any] | None]:
+def _call_pipeline_with_diag(
+    *args: Any, **kwargs: Any
+) -> DiagnosticResult[dict[str, Any] | None]:
     """Execute ``_run_analysis`` and normalise into a ``DiagnosticResult``.
 
     Tests and legacy callers monkeypatch ``_run_analysis`` to return raw dict
@@ -151,7 +153,9 @@ def _membership_table_from_frame(frame: pd.DataFrame) -> MembershipTable:
     eff_col = lookup.get("effective_date")
     end_col = lookup.get("end_date")
     if not fund_col or not eff_col or not end_col:
-        raise ValueError("membership data must include fund, effective_date, and end_date columns")
+        raise ValueError(
+            "membership data must include fund, effective_date, and end_date columns"
+        )
 
     normalised = frame.rename(
         columns={fund_col: "fund", eff_col: "effective_date", end_col: "end_date"}
@@ -210,9 +214,9 @@ def _compute_turnover_state(
     new_aligned: FloatArray = new_series.reindex(union_index, fill_value=0.0).to_numpy(
         dtype=float, copy=False
     )
-    prev_aligned: FloatArray = prev_series.reindex(union_index, fill_value=0.0).to_numpy(
-        dtype=float, copy=False
-    )
+    prev_aligned: FloatArray = prev_series.reindex(
+        union_index, fill_value=0.0
+    ).to_numpy(dtype=float, copy=False)
 
     turnover = float(np.abs(new_aligned - prev_aligned).sum())
     return turnover, nidx, nvals
@@ -296,9 +300,9 @@ def _apply_weight_bounds(
                 room = (max_w_bound - receivers).clip(lower=0.0)
                 rm = room.sum()
                 if rm > 0:
-                    floored.loc[receivers.index] = (receivers + (room / rm) * deficit).clip(
-                        upper=max_w_bound
-                    )
+                    floored.loc[receivers.index] = (
+                        receivers + (room / rm) * deficit
+                    ).clip(upper=max_w_bound)
 
     return floored
 
@@ -338,7 +342,12 @@ def _enforce_max_active_positions(
                 .index
             )
     else:
-        keep = active.abs().sort_values(ascending=False, kind="mergesort").head(max_active).index
+        keep = (
+            active.abs()
+            .sort_values(ascending=False, kind="mergesort")
+            .head(max_active)
+            .index
+        )
     trimmed = weights.copy()
     trimmed.loc[~trimmed.index.isin(keep)] = 0.0
 
@@ -523,7 +532,11 @@ def run_schedule(
         turnover = float(np.abs(new_aligned - prev_aligned).sum())
         return turnover, nidx, nvals
 
-    col = rank_column or getattr(selector, "rank_column", None) or getattr(selector, "column", None)
+    col = (
+        rank_column
+        or getattr(selector, "rank_column", None)
+        or getattr(selector, "column", None)
+    )
 
     for date in sorted(score_frames):
         sf = score_frames[date]
@@ -557,7 +570,9 @@ def run_schedule(
 
         # Apply rebalancing strategies if configured
         if rebalance_strategies and rebalance_params:
-            current_weights = prev_weights if prev_weights is not None else pd.Series(dtype=float)
+            current_weights = (
+                prev_weights if prev_weights is not None else pd.Series(dtype=float)
+            )
             target_weight_series = target_weights["weight"].astype(float)
 
             # Get scores for priority-based strategies
@@ -582,7 +597,9 @@ def run_schedule(
             cost = 0.0
             weights = target_weights
             tw = target_weights["weight"].astype(float)
-            turnover, prev_tidx, prev_tvals = _compute_turnover_state(prev_tidx, prev_tvals, tw)
+            turnover, prev_tidx, prev_tvals = _compute_turnover_state(
+                prev_tidx, prev_tvals, tw
+            )
             prev_weights = tw
 
         pf.rebalance(date, weights, turnover, cost)
@@ -617,7 +634,9 @@ def run_schedule(
                     pv = prev.reindex(u, fill_value=0.0).to_numpy()
                     expected = float(np.abs(dv - pv).sum())
                 got = pf.turnover[d]
-                if not np.isclose(expected, got, rtol=0, atol=1e-12):  # pragma: no cover
+                if not np.isclose(
+                    expected, got, rtol=0, atol=1e-12
+                ):  # pragma: no cover
                     raise AssertionError(
                         f"Turnover mismatch for {d}: expected {expected} got {got}"
                     )
@@ -667,9 +686,13 @@ def run(
             raise TypeError("price_frames must be a dict[str, pd.DataFrame] or None")
         for date_key, frame in price_frames.items():
             if not isinstance(frame, pd.DataFrame):
-                raise TypeError(f"price_frames['{date_key}'] must be a pandas DataFrame")
+                raise TypeError(
+                    f"price_frames['{date_key}'] must be a pandas DataFrame"
+                )
             required_columns = ["Date"]
-            missing_columns = [col for col in required_columns if col not in frame.columns]
+            missing_columns = [
+                col for col in required_columns if col not in frame.columns
+            ]
             if missing_columns:
                 raise ValueError(
                     (
@@ -686,7 +709,9 @@ def run(
         # columns are included, handling missing data gracefully.
         combined_frames = [frame.copy() for frame in price_frames.values()]
         if combined_frames:
-            df = pd.concat(combined_frames, axis=0, join="outer", ignore_index=True, sort=True)
+            df = pd.concat(
+                combined_frames, axis=0, join="outer", ignore_index=True, sort=True
+            )
             # Sort by Date to ensure proper ordering
             df = df.sort_values("Date").reset_index(drop=True)
             # Remove any duplicates created during concatenation
@@ -873,7 +898,8 @@ def run(
         # Persist for debugging/export consumers.
         cleaned.attrs = dict(cleaned.attrs)
         cleaned.attrs["inception_dates"] = {
-            k: (v.strftime("%Y-%m-%d") if v is not None else None) for k, v in inception_raw.items()
+            k: (v.strftime("%Y-%m-%d") if v is not None else None)
+            for k, v in inception_raw.items()
         }
     except Exception:  # pragma: no cover - defensive
         pass
@@ -938,7 +964,9 @@ def run(
 
         periods = generate_periods(cfg_dump)
         if not periods:
-            logger.warning("generate_periods produced no periods; skipping multi-period run")
+            logger.warning(
+                "generate_periods produced no periods; skipping multi-period run"
+            )
             return []
         out_results: List[MultiPeriodPeriodResult] = []
         # Performance flags
@@ -955,7 +983,9 @@ def run(
             except Exception:  # pragma: no cover - defensive
                 cov_cache_obj = None
         prev_in_df = None
-        prev_weights_for_pipeline = _coerce_previous_weights(cfg.portfolio.get("previous_weights"))
+        prev_weights_for_pipeline = _coerce_previous_weights(
+            cfg.portfolio.get("previous_weights")
+        )
 
         for pt in periods:
             analysis_res = _call_pipeline_with_diag(
@@ -1028,7 +1058,9 @@ def run(
                 # Recreate in-sample frame identical to _run_analysis slice
                 date_col = "Date"
                 sub = df.copy()
-                sub[date_col] = pd.to_datetime(sub[date_col], utc=True).dt.tz_localize(None)
+                sub[date_col] = pd.to_datetime(sub[date_col], utc=True).dt.tz_localize(
+                    None
+                )
                 sub.sort_values(date_col, inplace=True)
                 sdate = pd.to_datetime(f"{in_start}-01", utc=True).tz_localize(
                     None
@@ -1036,19 +1068,27 @@ def run(
                 edate = pd.to_datetime(f"{in_end}-01", utc=True).tz_localize(
                     None
                 ) + pd.offsets.MonthEnd(0)
-                in_df_full = sub[(sub[date_col] >= sdate) & (sub[date_col] <= edate)].set_index(
-                    date_col
-                )
+                in_df_full = sub[
+                    (sub[date_col] >= sdate) & (sub[date_col] <= edate)
+                ].set_index(date_col)
                 # Remove benchmark columns if present in result universe
                 fund_cols = [
-                    c for c in in_df_full.columns if c not in (cfg.benchmarks or {}).values()
+                    c
+                    for c in in_df_full.columns
+                    if c not in (cfg.benchmarks or {}).values()
                 ]
                 in_df_full = in_df_full[fund_cols]
                 in_df_prepared = _prepare_returns_frame(in_df_full)
 
-                if incremental_cov and prev_cov_payload is not None and prev_in_df is not None:
+                if (
+                    incremental_cov
+                    and prev_cov_payload is not None
+                    and prev_in_df is not None
+                ):
                     same_len = prev_in_df.shape[0] == in_df_prepared.shape[0]
-                    same_cols = prev_in_df.columns.tolist() == in_df_prepared.columns.tolist()
+                    same_cols = (
+                        prev_in_df.columns.tolist() == in_df_prepared.columns.tolist()
+                    )
                     n_rows = in_df_prepared.shape[0]
                     if same_cols and n_rows >= 3:
                         # Determine shift distance k (number of rows replaced at head and appended at tail)
@@ -1086,10 +1126,12 @@ def run(
                             # Apply k incremental updates sequentially
                             try:
                                 for step in range(k):
-                                    old_row = prev_in_df.iloc[step].to_numpy(dtype=float)
-                                    new_row = in_df_prepared.iloc[n_rows - k + step].to_numpy(
+                                    old_row = prev_in_df.iloc[step].to_numpy(
                                         dtype=float
                                     )
+                                    new_row = in_df_prepared.iloc[
+                                        n_rows - k + step
+                                    ].to_numpy(dtype=float)
                                     prev_cov_payload = incremental_cov_update(
                                         prev_cov_payload, old_row, new_row
                                     )
@@ -1107,7 +1149,9 @@ def run(
                 else:
                     from ..perf.cache import compute_cov_payload as _ccp
 
-                    prev_cov_payload = _ccp(in_df_prepared, materialise_aggregates=incremental_cov)
+                    prev_cov_payload = _ccp(
+                        in_df_prepared, materialise_aggregates=incremental_cov
+                    )
                 prev_in_df = in_df_prepared
                 res_dict["cov_diag"] = prev_cov_payload.cov.diagonal().tolist()
                 if cov_cache_obj is not None:
@@ -1177,12 +1221,14 @@ def run(
                 continue
             seen.add(resolved)
             benchmark_cols.append(resolved)
-    resolved_rf_col, _resolver_fund_cols, resolved_rf_source = _resolve_risk_free_column(
-        df,
-        date_col="Date",
-        indices_list=indices_list,
-        risk_free_column=risk_free_column_cfg,
-        allow_risk_free_fallback=allow_risk_free_fallback_cfg,
+    resolved_rf_col, _resolver_fund_cols, resolved_rf_source = (
+        _resolve_risk_free_column(
+            df,
+            date_col="Date",
+            indices_list=indices_list,
+            risk_free_column=risk_free_column_cfg,
+            allow_risk_free_fallback=allow_risk_free_fallback_cfg,
+        )
     )
 
     # Build a stable investable universe list.
@@ -1195,7 +1241,9 @@ def run(
     idx_set |= {str(c) for c in benchmark_cols}
     resolved_fund_candidates = [c for c in numeric_cols_all if c not in idx_set]
     if resolved_rf_source == "configured" and resolved_rf_col:
-        resolved_fund_candidates = [c for c in resolved_fund_candidates if c != resolved_rf_col]
+        resolved_fund_candidates = [
+            c for c in resolved_fund_candidates if c != resolved_rf_col
+        ]
     elif resolved_rf_source == "fallback" and resolved_rf_col:
         # Fallback RF selection can legitimately pick a true cash proxy (flat
         # zero-return series). Treat such near-constant columns as non-investable
@@ -1212,7 +1260,9 @@ def run(
 
     # --- helpers --------------------------------------------------------
     def _parse_month(s: str) -> pd.Timestamp:
-        return pd.to_datetime(f"{s}-01", utc=True).tz_localize(None) + pd.offsets.MonthEnd(0)
+        return pd.to_datetime(f"{s}-01", utc=True).tz_localize(
+            None
+        ) + pd.offsets.MonthEnd(0)
 
     def _valid_universe(
         full: pd.DataFrame,
@@ -1220,6 +1270,8 @@ def run(
         in_end: str,
         out_start: str,
         out_end: str,
+        *,
+        require_out_sample: bool = True,
     ) -> tuple[pd.DataFrame, pd.DataFrame, list[str], str]:
         date_col = "Date"
         sub = full.copy()
@@ -1227,22 +1279,28 @@ def run(
         sub.sort_values(date_col, inplace=True)
         in_sdate, in_edate = _parse_month(in_start), _parse_month(in_end)
         out_sdate, out_edate = _parse_month(out_start), _parse_month(out_end)
-        in_df = sub[(sub[date_col] >= in_sdate) & (sub[date_col] <= in_edate)].set_index(date_col)
-        out_df = sub[(sub[date_col] >= out_sdate) & (sub[date_col] <= out_edate)].set_index(
-            date_col
-        )
+        in_df = sub[
+            (sub[date_col] >= in_sdate) & (sub[date_col] <= in_edate)
+        ].set_index(date_col)
+        out_df = sub[
+            (sub[date_col] >= out_sdate) & (sub[date_col] <= out_edate)
+        ].set_index(date_col)
         if in_df.empty or out_df.empty:
             return in_df, out_df, [], ""
         numeric_cols = [c for c in sub.select_dtypes("number").columns if c != date_col]
         idx_set = {str(c) for c in indices_list}
         idx_set |= {str(c) for c in benchmark_cols}
-        fund_cols = [c for c in resolved_fund_candidates if c in numeric_cols and c not in idx_set]
+        fund_cols = [
+            c
+            for c in resolved_fund_candidates
+            if c in numeric_cols and c not in idx_set
+        ]
 
         if not fund_cols:
             return in_df, out_df, [], resolved_rf_col
 
         # Keep only funds with sufficient in-sample history (last N months
-        # present) and complete out-of-sample data.
+        # present). Optionally also require complete out-of-sample data.
         # Note: risk metrics require at least 2 observations.
         required_in_months = max(2, int(min_history_months))
         required_in_months = min(required_in_months, int(len(in_df)))
@@ -1252,10 +1310,18 @@ def run(
 
         in_tail = in_df[fund_cols].tail(required_in_months)
         in_ok = ~in_tail.isna().any()
-        out_ok = ~out_df[fund_cols].isna().any()
-        fund_cols = [
-            c for c in fund_cols if bool(in_ok.get(c, False)) and bool(out_ok.get(c, False))
-        ]
+        if require_out_sample:
+            out_ok = ~out_df[fund_cols].isna().any()
+            fund_cols = [
+                c
+                for c in fund_cols
+                if bool(in_ok.get(c, False)) and bool(out_ok.get(c, False))
+            ]
+        else:
+            # For scoring purposes (e.g., hiring candidates), only require
+            # sufficient in-sample data; out-of-sample data will be checked
+            # separately when deciding which funds to actually hold.
+            fund_cols = [c for c in fund_cols if bool(in_ok.get(c, False))]
 
         # Guardrail: exclude funds that are effectively inactive/flatlined at
         # ~0.0 (often vendor pre-inception encoding) even if they are non-missing.
@@ -1380,11 +1446,15 @@ def run(
     z_exit_hard = _parse_optional_float(th_cfg.get("z_exit_hard"))
 
     target_n = int(
-        th_cfg.get("target_n", portfolio_cfg.get("target_n", cfg.portfolio.get("random_n", 8)))
+        th_cfg.get(
+            "target_n", portfolio_cfg.get("target_n", cfg.portfolio.get("random_n", 8))
+        )
     )
     seed_metric = cast(
         str,
-        (cfg.portfolio.get("selector", {}) or {}).get("params", {}).get("rank_column", "Sharpe"),
+        (cfg.portfolio.get("selector", {}) or {})
+        .get("params", {})
+        .get("rank_column", "Sharpe"),
     )
     selector = create_selector_by_name("rank", top_n=target_n, rank_column=seed_metric)
 
@@ -1429,7 +1499,9 @@ def run(
     if cooldown_periods_raw is None:
         cooldown_periods_raw = mp_cfg.get("cooldown_months")
     try:
-        cooldown_periods = int(cooldown_periods_raw) if cooldown_periods_raw is not None else 0
+        cooldown_periods = (
+            int(cooldown_periods_raw) if cooldown_periods_raw is not None else 0
+        )
     except (TypeError, ValueError):
         cooldown_periods = 0
     cooldown_periods = max(0, cooldown_periods)
@@ -1457,7 +1529,9 @@ def run(
     if raw_max_active is None:
         raw_max_active = constraints.get("max_active")
     try:
-        max_active_positions = int(raw_max_active) if raw_max_active is not None else None
+        max_active_positions = (
+            int(raw_max_active) if raw_max_active is not None else None
+        )
     except (TypeError, ValueError):
         max_active_positions = None
     if max_active_positions is not None and max_active_positions <= 0:
@@ -1502,7 +1576,9 @@ def run(
 
     # Risk-based weighting scheme (risk_parity, hrp) from weighting_scheme config.
     # This overrides the legacy `portfolio.weighting` dict config for primary weights.
-    weighting_scheme = str(cfg.portfolio.get("weighting_scheme", "equal") or "equal").lower()
+    weighting_scheme = str(
+        cfg.portfolio.get("weighting_scheme", "equal") or "equal"
+    ).lower()
     if weighting_scheme == "robust":
         weighting_scheme = "robust_mv"
     use_risk_weighting = weighting_scheme in {
@@ -1525,7 +1601,9 @@ def run(
                 weighting_scheme,
                 robustness_cfg if isinstance(robustness_cfg, Mapping) else None,
             )
-            risk_weight_engine = create_weight_engine(weighting_scheme, **weight_engine_params)
+            risk_weight_engine = create_weight_engine(
+                weighting_scheme, **weight_engine_params
+            )
         except Exception:  # pragma: no cover - best-effort only
             use_risk_weighting = False
             risk_weight_engine = None
@@ -1551,7 +1629,9 @@ def run(
     # --- main loop ------------------------------------------------------
     # Pre-index returns once for intra-period rebalance snapshots.
     df_indexed = df.copy()
-    df_indexed["Date"] = pd.to_datetime(df_indexed["Date"], utc=True).dt.tz_localize(None)
+    df_indexed["Date"] = pd.to_datetime(df_indexed["Date"], utc=True).dt.tz_localize(
+        None
+    )
     df_indexed.sort_values("Date", inplace=True)
     df_indexed = df_indexed.set_index("Date")
 
@@ -1590,7 +1670,9 @@ def run(
             return True
         return int(add_streaks.get(manager, 0)) >= sticky_add_periods
 
-    def _min_tenure_protected(holdings: Iterable[str], score_frame: pd.DataFrame) -> set[str]:
+    def _min_tenure_protected(
+        holdings: Iterable[str], score_frame: pd.DataFrame
+    ) -> set[str]:
         if min_tenure_n <= 0:
             return set()
         protected: set[str] = set()
@@ -1659,7 +1741,9 @@ def run(
                 int(cooldown_periods) + 1,
             )
 
-    def _dedupe_one_per_firm(sf: pd.DataFrame, holdings: list[str], metric: str) -> list[str]:
+    def _dedupe_one_per_firm(
+        sf: pd.DataFrame, holdings: list[str], metric: str
+    ) -> list[str]:
         if not holdings:
             return holdings
         col = metric if metric in sf.columns else "Sharpe"
@@ -1795,7 +1879,9 @@ def run(
         keep = ordered[:-bottom_k]
         return filtered.loc[keep]
 
-    def _filter_entry_candidates(candidates: list[str], score_frame: pd.DataFrame) -> list[str]:
+    def _filter_entry_candidates(
+        candidates: list[str], score_frame: pd.DataFrame
+    ) -> list[str]:
         if not candidates:
             return candidates
         eligible_frame = _filter_entry_frame(score_frame)
@@ -1804,7 +1890,9 @@ def run(
         eligible = {str(ix) for ix in eligible_frame.index}
         return [str(ix) for ix in candidates if str(ix) in eligible]
 
-    def _hard_exit_forced(holdings: Iterable[str], score_frame: pd.DataFrame) -> set[str]:
+    def _hard_exit_forced(
+        holdings: Iterable[str], score_frame: pd.DataFrame
+    ) -> set[str]:
         if z_exit_hard is None or "zscore" not in score_frame.columns:
             return set()
         z = pd.to_numeric(score_frame["zscore"], errors="coerce")
@@ -1927,8 +2015,12 @@ def run(
                 if returns_window is not None and not returns_window.empty:
                     # Only include holdings that have data in returns_window
                     # to avoid NaN columns that would get 0 weight
-                    holdings_in_window = [h for h in holdings if h in returns_window.columns]
-                    subset = returns_window[holdings_in_window].dropna(axis=1, how="all")
+                    holdings_in_window = [
+                        h for h in holdings if h in returns_window.columns
+                    ]
+                    subset = returns_window[holdings_in_window].dropna(
+                        axis=1, how="all"
+                    )
                 else:
                     # Fall back to score frame data if no returns window provided
                     subset = sf.loc[holdings]
@@ -1968,7 +2060,19 @@ def run(
             pt.in_end[:7],
             pt.out_start[:7],
             pt.out_end[:7],
+            # For threshold_hold, include all funds with valid in-sample data
+            # in the score frame so they can be considered for hiring. The
+            # out-of-sample check is applied later when deciding actual holdings.
+            require_out_sample=False,
         )
+        # Even with relaxed in-sample filtering, if no fund has OOS data,
+        # we cannot form a portfolio, so produce a placeholder.
+        if fund_cols and isinstance(out_df, pd.DataFrame) and not out_df.empty:
+            holdable_cols = [
+                c for c in fund_cols if c in out_df.columns and out_df[c].notna().any()
+            ]
+            if not holdable_cols:
+                fund_cols = []  # Force placeholder path
         if not fund_cols:
             # Preserve period alignment: produce a minimal placeholder so downstream
             # consumers expecting one entry per generated period retain indexing.
@@ -2019,7 +2123,9 @@ def run(
         rf_rate_annual = float(metrics_cfg.get("rf_rate_annual", 0.0) or 0.0)
         # Convert annualised RF to a per-period return.
         # Use geometric conversion so 2% annual becomes ~0.165% monthly.
-        rf_rate_periodic = (1.0 + rf_rate_annual) ** (1.0 / float(periods_per_year)) - 1.0
+        rf_rate_periodic = (1.0 + rf_rate_annual) ** (
+            1.0 / float(periods_per_year)
+        ) - 1.0
 
         # UI semantics:
         # - override disabled: use the selected risk-free column series (if available)
@@ -2088,12 +2194,16 @@ def run(
                     holdings = []
                 else:
                     # Seed varies per period to get different selections
-                    period_seed = abs(getattr(cfg, "seed", 42) or 42) + abs(hash(str(pt)) % 10000)
+                    period_seed = abs(getattr(cfg, "seed", 42) or 42) + abs(
+                        hash(str(pt)) % 10000
+                    )
                     rng = np.random.default_rng(period_seed)
                     n_select = max(1, min(target_n, len(available)))
                     holdings = list(rng.choice(available, size=n_select, replace=False))
                     # Enforce one-per-firm constraint
-                    holdings = _dedupe_one_per_firm_with_events(sf, holdings, metric, events)
+                    holdings = _dedupe_one_per_firm_with_events(
+                        sf, holdings, metric, events
+                    )
                     # If dedupe reduced us, refill with random selection
                     if len(holdings) < n_select:
                         candidates = [c for c in available if c not in holdings]
@@ -2118,11 +2228,15 @@ def run(
                     holdings = []
                 elif buy_hold_initial == "random":
                     # Random initial selection
-                    period_seed = abs((getattr(cfg, "seed", 42) or 42) + hash(str(pt)) % 10000)
+                    period_seed = abs(
+                        (getattr(cfg, "seed", 42) or 42) + hash(str(pt)) % 10000
+                    )
                     rng = np.random.default_rng(period_seed)
                     n_select = max(1, min(buy_hold_n, len(available)))
                     holdings = list(rng.choice(available, size=n_select, replace=False))
-                    holdings = _dedupe_one_per_firm_with_events(sf, holdings, metric, events)
+                    holdings = _dedupe_one_per_firm_with_events(
+                        sf, holdings, metric, events
+                    )
                     # Refill if dedupe reduced holdings
                     if len(holdings) < n_select:
                         candidates = [c for c in available if c not in holdings]
@@ -2145,7 +2259,9 @@ def run(
                     if rank_score_by == "blended" and rank_blended_weights:
                         total_w = sum(rank_blended_weights.values())
                         if total_w > 0:
-                            norm_w = {k: v / total_w for k, v in rank_blended_weights.items()}
+                            norm_w = {
+                                k: v / total_w for k, v in rank_blended_weights.items()
+                            }
                         else:
                             norm_w = {"Sharpe": 1.0}
                         combo = pd.Series(0.0, index=eligible_sf.index, dtype=float)
@@ -2165,7 +2281,9 @@ def run(
                         scores = combo
                     else:
                         score_col = (
-                            rank_score_by if rank_score_by in eligible_sf.columns else "Sharpe"
+                            rank_score_by
+                            if rank_score_by in eligible_sf.columns
+                            else "Sharpe"
                         )
                         scores = eligible_sf[score_col].astype(float)
 
@@ -2178,7 +2296,10 @@ def run(
                             scores = pd.Series(0.0, index=scores.index)
 
                     ascending = False
-                    if rank_score_by in ASCENDING_METRICS and buy_hold_initial != "threshold":
+                    if (
+                        rank_score_by in ASCENDING_METRICS
+                        and buy_hold_initial != "threshold"
+                    ):
                         ascending = True
 
                     sorted_scores = scores.sort_values(ascending=ascending)
@@ -2203,7 +2324,9 @@ def run(
                         holdings = all_candidates[:buy_hold_n]
 
                     # Enforce one-per-firm constraint
-                    holdings = _dedupe_one_per_firm_with_events(sf, holdings, metric, events)
+                    holdings = _dedupe_one_per_firm_with_events(
+                        sf, holdings, metric, events
+                    )
                     # Historical weighting call
                     if holdings:
                         try:
@@ -2234,7 +2357,9 @@ def run(
                         and rank_col in selected.columns
                     ):
                         ascending = rank_col in ASCENDING_METRICS
-                        ordered = selected.sort_values(rank_col, ascending=ascending).index
+                        ordered = selected.sort_values(
+                            rank_col, ascending=ascending
+                        ).index
                         holdings = [str(x) for x in ordered.tolist()]
                     else:
                         holdings = [str(x) for x in selected.index.tolist()]
@@ -2255,7 +2380,10 @@ def run(
                             # Normalize weights
                             total_w = sum(rank_blended_weights.values())
                             if total_w > 0:
-                                norm_w = {k: v / total_w for k, v in rank_blended_weights.items()}
+                                norm_w = {
+                                    k: v / total_w
+                                    for k, v in rank_blended_weights.items()
+                                }
                             else:
                                 norm_w = {"Sharpe": 1.0}
                             # Compute blended score from the score frame
@@ -2279,7 +2407,9 @@ def run(
                         else:
                             # Single metric
                             score_col = (
-                                rank_score_by if rank_score_by in score_frame.columns else "Sharpe"
+                                rank_score_by
+                                if rank_score_by in score_frame.columns
+                                else "Sharpe"
                             )
                             scores = score_frame[score_col].astype(float)
 
@@ -2293,7 +2423,10 @@ def run(
 
                         # Determine sort order
                         ascending = False  # Higher score is better for blended/zscore
-                        if rank_score_by in ASCENDING_METRICS and rank_transform != "zscore":
+                        if (
+                            rank_score_by in ASCENDING_METRICS
+                            and rank_transform != "zscore"
+                        ):
                             ascending = True
 
                         # Sort scores
@@ -2349,11 +2482,15 @@ def run(
                 if len(holdings) > target_n:
                     holdings = holdings[:target_n]
                 # Enforce one-per-firm on seed
-                holdings = _dedupe_one_per_firm_with_events(sf, holdings, metric, events)
+                holdings = _dedupe_one_per_firm_with_events(
+                    sf, holdings, metric, events
+                )
                 desired_seed = min(max_funds, target_n)
                 # If we're still above the desired size, trim by zscore (best-first).
                 if len(holdings) > desired_seed:
-                    zsorted = sf.loc[holdings].sort_values("zscore", ascending=False).index
+                    zsorted = (
+                        sf.loc[holdings].sort_values("zscore", ascending=False).index
+                    )
                     holdings = list(zsorted[:desired_seed])
 
                 # If dedupe reduced us below the target size, fill from the remaining
@@ -2363,8 +2500,12 @@ def run(
                 # that percentage of the universe.
                 if len(holdings) < desired_seed and inclusion_approach != "top_pct":
                     candidates = [c for c in sf.index if c not in holdings]
-                    candidates = _filter_entry_candidates([str(c) for c in candidates], sf)
-                    add_from = sf.loc[candidates].sort_values("zscore", ascending=False).index
+                    candidates = _filter_entry_candidates(
+                        [str(c) for c in candidates], sf
+                    )
+                    add_from = (
+                        sf.loc[candidates].sort_values("zscore", ascending=False).index
+                    )
                     seen_firms = {_firm(h) for h in holdings}
                     for f in add_from:
                         if len(holdings) >= desired_seed:
@@ -2384,7 +2525,9 @@ def run(
                     and resolved_rf_col in holdings
                 ):
                     candidates = [c for c in sf.index if c not in holdings]
-                    candidates = _filter_entry_candidates([str(c) for c in candidates], sf)
+                    candidates = _filter_entry_candidates(
+                        [str(c) for c in candidates], sf
+                    )
                     add_from = (
                         sf.loc[candidates].sort_values("zscore", ascending=False).index
                         if candidates
@@ -2466,12 +2609,16 @@ def run(
                 # Replace exited funds using the same initial selection method
                 n_needed = buy_hold_n - len(current_holdings)
                 if n_needed > 0:
-                    available = [str(c) for c in sf.index if str(c) not in current_holdings]
+                    available = [
+                        str(c) for c in sf.index if str(c) not in current_holdings
+                    ]
                     # Only consider funds that still have out-of-sample data;
                     # prevents re-adding funds whose data has disappeared.
                     if isinstance(out_df, pd.DataFrame) and not out_df.empty:
                         available = [
-                            c for c in available if c in out_df.columns and out_df[c].notna().any()
+                            c
+                            for c in available
+                            if c in out_df.columns and out_df[c].notna().any()
                         ]
                     if cooldown_periods > 0 and cooldown_book:
                         available = [c for c in available if c not in cooldown_book]
@@ -2499,7 +2646,10 @@ def run(
                         if rank_score_by == "blended" and rank_blended_weights:
                             total_w = sum(rank_blended_weights.values())
                             if total_w > 0:
-                                norm_w = {k: v / total_w for k, v in rank_blended_weights.items()}
+                                norm_w = {
+                                    k: v / total_w
+                                    for k, v in rank_blended_weights.items()
+                                }
                             else:
                                 norm_w = {"Sharpe": 1.0}
                             combo = pd.Series(0.0, index=sf.index, dtype=float)
@@ -2518,7 +2668,11 @@ def run(
                                     combo += w * z
                             scores = combo
                         else:
-                            score_col = rank_score_by if rank_score_by in sf.columns else "Sharpe"
+                            score_col = (
+                                rank_score_by
+                                if rank_score_by in sf.columns
+                                else "Sharpe"
+                            )
                             scores = sf[score_col].astype(float)
 
                         # Apply zscore transform if threshold mode
@@ -2530,11 +2684,16 @@ def run(
                                 scores = pd.Series(0.0, index=scores.index)
 
                         ascending = False
-                        if rank_score_by in ASCENDING_METRICS and buy_hold_initial != "threshold":
+                        if (
+                            rank_score_by in ASCENDING_METRICS
+                            and buy_hold_initial != "threshold"
+                        ):
                             ascending = True
 
                         # Sort scores and filter to available candidates
-                        sorted_scores = scores.loc[available].sort_values(ascending=ascending)
+                        sorted_scores = scores.loc[available].sort_values(
+                            ascending=ascending
+                        )
 
                         # Select replacements respecting threshold if applicable
                         if buy_hold_initial == "threshold":
@@ -2577,7 +2736,9 @@ def run(
                 # each period. This is essential to avoid survivorship bias - we select
                 # from the available universe at each point in time, not funds we know
                 # will survive.
-                period_seed = abs(getattr(cfg, "seed", 42) or 42) + abs(hash(str(pt)) % 10000)
+                period_seed = abs(getattr(cfg, "seed", 42) or 42) + abs(
+                    hash(str(pt)) % 10000
+                )
                 rebased = rebalancer.apply_triggers(
                     prev_weights.astype(float),
                     sf,
@@ -2585,11 +2746,18 @@ def run(
                     target_n=target_n,
                 )
 
-                # Restrict to funds available in this period's score-frame.
-                proposed_holdings = [str(h) for h in list(rebased.index) if h in sf.index]
+                # Restrict to funds available in this period's score-frame
+                # AND that have out-of-sample data (so we can compute returns).
+                proposed_holdings = [
+                    str(h)
+                    for h in list(rebased.index)
+                    if h in sf.index and h in out_df.columns and out_df[h].notna().any()
+                ]
 
             if hard_exit_forced:
-                proposed_holdings = [m for m in proposed_holdings if m not in hard_exit_forced]
+                proposed_holdings = [
+                    m for m in proposed_holdings if m not in hard_exit_forced
+                ]
 
             raw_proposed_holdings = [str(h) for h in proposed_holdings]
 
@@ -2662,7 +2830,8 @@ def run(
                                 "firm": _firm(mgr),
                                 "reason": "sticky_add",
                                 "detail": (
-                                    f"streak={add_streaks.get(mgr, 0)}/" f"{sticky_add_periods}"
+                                    f"streak={add_streaks.get(mgr, 0)}/"
+                                    f"{sticky_add_periods}"
                                 ),
                             }
                         )
@@ -2683,7 +2852,8 @@ def run(
                                 "firm": _firm(mgr),
                                 "reason": "sticky_drop",
                                 "detail": (
-                                    f"streak={drop_streaks.get(mgr, 0)}/" f"{sticky_drop_periods}"
+                                    f"streak={drop_streaks.get(mgr, 0)}/"
+                                    f"{sticky_drop_periods}"
                                 ),
                             }
                         )
@@ -2717,7 +2887,8 @@ def run(
                             "firm": _firm(mgr),
                             "reason": "min_tenure",
                             "detail": (
-                                f"tenure={int(holdings_tenure.get(mgr, 0))}/" f"{min_tenure_n}"
+                                f"tenure={int(holdings_tenure.get(mgr, 0))}/"
+                                f"{min_tenure_n}"
                             ),
                         }
                     )
@@ -2781,12 +2952,18 @@ def run(
                 candidates = _filter_entry_candidates(candidates, sf)
                 if candidates:
                     if is_random_mode:
-                        period_seed = abs((getattr(cfg, "seed", 42) or 42) + hash(str(pt)) % 10000)
+                        period_seed = abs(
+                            (getattr(cfg, "seed", 42) or 42) + hash(str(pt)) % 10000
+                        )
                         rng = np.random.default_rng(period_seed)
                         rng.shuffle(candidates)
                         ranked = candidates
                     else:
-                        ranked = sf.loc[candidates].sort_values("zscore", ascending=False).index
+                        ranked = (
+                            sf.loc[candidates]
+                            .sort_values("zscore", ascending=False)
+                            .index
+                        )
                     for c in ranked:
                         if len(proposed_holdings) >= desired_size:
                             break
@@ -2805,8 +2982,12 @@ def run(
             pruned_existing: set[str] = set()
             if desired_size > 0:
                 current_set = {str(x) for x in before_reb}
-                kept_existing = [str(h) for h in proposed_holdings if str(h) in current_set]
-                new_candidates = [str(h) for h in proposed_holdings if str(h) not in current_set]
+                kept_existing = [
+                    str(h) for h in proposed_holdings if str(h) in current_set
+                ]
+                new_candidates = [
+                    str(h) for h in proposed_holdings if str(h) not in current_set
+                ]
 
                 def _zscore(mgr: str) -> float:
                     try:
@@ -2829,14 +3010,20 @@ def run(
                 # not happen), prune incumbents by weakest zscore.
                 # In random mode, prune randomly instead.
                 if len(kept_existing) > desired_size:
-                    protected_existing = [mgr for mgr in kept_existing if mgr in protected_holdings]
+                    protected_existing = [
+                        mgr for mgr in kept_existing if mgr in protected_holdings
+                    ]
                     unprotected_existing = [
                         mgr for mgr in kept_existing if mgr not in protected_holdings
                     ]
                     if is_random_mode:
-                        unprotected_sorted = sorted(unprotected_existing, key=_random_key)
+                        unprotected_sorted = sorted(
+                            unprotected_existing, key=_random_key
+                        )
                     else:
-                        unprotected_sorted = sorted(unprotected_existing, key=_zscore, reverse=True)
+                        unprotected_sorted = sorted(
+                            unprotected_existing, key=_zscore, reverse=True
+                        )
                     if protected_existing:
                         slots = max(0, desired_size - len(protected_existing))
                         if slots > 0:
@@ -2892,7 +3079,9 @@ def run(
                 selected, _ = selector.select(_filter_entry_frame(sf))
                 proposed_holdings = [str(x) for x in selected.index.tolist()]
                 if cooldown_periods > 0 and cooldown_book:
-                    filtered = [mgr for mgr in proposed_holdings if mgr not in cooldown_book]
+                    filtered = [
+                        mgr for mgr in proposed_holdings if mgr not in cooldown_book
+                    ]
                     if filtered:
                         for mgr in proposed_holdings:
                             if mgr in cooldown_book:
@@ -3138,7 +3327,8 @@ def run(
                         "firm": _firm(f),
                         "reason": "low_weight_strikes",
                         "detail": (
-                            f"below min {min_w_bound:.2%} for " f"{low_min_strikes_req} periods"
+                            f"below min {min_w_bound:.2%} for "
+                            f"{low_min_strikes_req} periods"
                         ),
                     }
                 )
@@ -3151,11 +3341,17 @@ def run(
             need = max(0, desired_after_low_weight - len(holdings))
             if need > 0:
                 candidates = [
-                    c for c in sf.index if c not in holdings and _eligible_sticky_add(str(c))
+                    c
+                    for c in sf.index
+                    if c not in holdings and _eligible_sticky_add(str(c))
                 ]
                 if cooldown_periods > 0 and cooldown_book:
                     candidates = [c for c in candidates if str(c) not in cooldown_book]
-                add_from = sf.loc[candidates].sort_values("zscore", ascending=False).index.tolist()
+                add_from = (
+                    sf.loc[candidates]
+                    .sort_values("zscore", ascending=False)
+                    .index.tolist()
+                )
                 for f in add_from:
                     if len(holdings) >= desired_after_low_weight:
                         break
@@ -3179,7 +3375,9 @@ def run(
                     sf, holdings, period_ts, in_df.reindex(columns=holdings_with_data)
                 )
                 raw_weight_series = _as_weight_series(weights_df)
-                signal_slice = sf.loc[holdings, metric] if metric in sf.columns else None
+                signal_slice = (
+                    sf.loc[holdings, metric] if metric in sf.columns else None
+                )
                 weight_series = _apply_policy_to_weights(weights_df, signal_slice)
                 weights_df = weight_series.to_frame("weight")
                 prev_weights = weight_series.astype(float)
@@ -3190,7 +3388,9 @@ def run(
             holdings = _enforce_min_funds(
                 sf,
                 holdings,
-                before_reb=(set(prev_weights.index) if prev_weights is not None else None),
+                before_reb=(
+                    set(prev_weights.index) if prev_weights is not None else None
+                ),
                 cooldowns=cooldown_book,
                 desired_min=min_funds,
                 events=events,
@@ -3203,7 +3403,9 @@ def run(
                     sf, holdings, period_ts, in_df.reindex(columns=holdings_with_data)
                 )
                 raw_weight_series = _as_weight_series(weights_df)
-                signal_slice = sf.loc[holdings, metric] if metric in sf.columns else None
+                signal_slice = (
+                    sf.loc[holdings, metric] if metric in sf.columns else None
+                )
                 weight_series = _apply_policy_to_weights(weights_df, signal_slice)
                 weights_df = weight_series.to_frame("weight")
                 prev_weights = weight_series.astype(float)
@@ -3259,7 +3461,9 @@ def run(
             mandatory = desired_trades.copy()
             if forced_ix:
                 # Keep only forced exit trades in mandatory bucket
-                mandatory.loc[[ix for ix in mandatory.index if ix not in forced_ix]] = 0.0
+                mandatory.loc[[ix for ix in mandatory.index if ix not in forced_ix]] = (
+                    0.0
+                )
             else:
                 mandatory[:] = 0.0
 
@@ -3273,7 +3477,11 @@ def run(
                 final_w = last_aligned + mandatory
             else:
                 remaining_turnover = max_turnover_cap - mandatory_turnover
-                scale = remaining_turnover / optional_turnover if optional_turnover > 0 else 0.0
+                scale = (
+                    remaining_turnover / optional_turnover
+                    if optional_turnover > 0
+                    else 0.0
+                )
                 scale = max(0.0, min(1.0, scale))
                 final_w = last_aligned + mandatory + optional * scale
         # Ensure bounds and normalisation remain satisfied
@@ -3296,8 +3504,12 @@ def run(
             if total > eps and abs(total - 1.0) <= 1e-8:
                 final_w = final_w / total
         # Only pass the selected holdings (if still present after filtering).
-        manual_funds: list[str] = [str(h) for h in manual_holdings if h in final_w.index]
-        custom: dict[str, float] = {str(k): float(v) * 100.0 for k, v in final_w.items()}
+        manual_funds: list[str] = [
+            str(h) for h in manual_holdings if h in final_w.index
+        ]
+        custom: dict[str, float] = {
+            str(k): float(v) * 100.0 for k, v in final_w.items()
+        }
 
         # Construct previous weights dict for pipeline (turnover tracking)
         prev_weights_for_pipeline = _coerce_previous_weights(prev_final_weights)
@@ -3352,7 +3564,10 @@ def run(
         # consumers can audit soft-entry/soft-exit decisions without
         # recomputation.
         score_frame_payload = res_dict.get("score_frame")
-        if isinstance(score_frame_payload, pd.DataFrame) and not score_frame_payload.empty:
+        if (
+            isinstance(score_frame_payload, pd.DataFrame)
+            and not score_frame_payload.empty
+        ):
             score_frame_out = score_frame_payload.copy()
             if "zscore" in sf.columns and "zscore" not in score_frame_out.columns:
                 score_frame_out = score_frame_out.join(sf[["zscore"]], how="left")
@@ -3520,7 +3735,9 @@ def run(
         realised_holdings = [str(x) for x in effective_nonzero.index]
         # Do not emit zero-weight positions: they are not real holdings and
         # confuse downstream audits (e.g., a dropped fund showing up with 0.0).
-        res_dict["fund_weights"] = {str(k): float(v) for k, v in effective_nonzero.items()}
+        res_dict["fund_weights"] = {
+            str(k): float(v) for k, v in effective_nonzero.items()
+        }
 
         # Record cooldowns for any managers that exited based on realised holdings.
         if cooldown_periods > 0 and prev_final_weights is not None:
@@ -3581,7 +3798,8 @@ def run(
                         ) + pd.offsets.MonthEnd(0)
 
                         window = df_indexed.reindex(columns=realised_holdings).loc[
-                            (df_indexed.index >= start_dt) & (df_indexed.index <= end_dt)
+                            (df_indexed.index >= start_dt)
+                            & (df_indexed.index <= end_dt)
                         ]
                         if window.empty:
                             w_row = prev_reb_w
@@ -3592,10 +3810,18 @@ def run(
                                     cov = prepared.cov()
                                     w_series = risk_engine.weight(cov)
                                 else:
+                                    # Align rf_override to the rolling window's date index
+                                    # to avoid shape mismatch in metric calculations.
+                                    rf_aligned = rf_override
+                                    if (
+                                        isinstance(rf_override, pd.Series)
+                                        and not window.empty
+                                    ):
+                                        rf_aligned = rf_override.reindex(window.index)
                                     sf_roll = _score_frame(
                                         window,
                                         realised_holdings,
-                                        risk_free_override=rf_override,
+                                        risk_free_override=rf_aligned,
                                         periods_per_year=int(periods_per_year),
                                     )
                                     sf_roll = _ensure_zscore(sf_roll, metric)
@@ -3629,7 +3855,9 @@ def run(
                             except Exception:  # pragma: no cover - best-effort only
                                 w_row = prev_reb_w
 
-                        rebalance_rows.append({str(k): float(v) for k, v in w_row.items()})
+                        rebalance_rows.append(
+                            {str(k): float(v) for k, v in w_row.items()}
+                        )
 
                     rebalance_frame = pd.DataFrame(
                         rebalance_rows,
@@ -3643,7 +3871,9 @@ def run(
         if rebalance_frame is not None and not rebalance_frame.empty:
             out_scaled = res_dict.get("out_sample_scaled")
             if isinstance(out_scaled, pd.DataFrame) and not out_scaled.empty:
-                weights_by_date = rebalance_frame.reindex(out_scaled.index).ffill().fillna(0.0)
+                weights_by_date = (
+                    rebalance_frame.reindex(out_scaled.index).ffill().fillna(0.0)
+                )
                 weights_by_date = weights_by_date.reindex(
                     columns=out_scaled.columns, fill_value=0.0
                 )
@@ -3664,8 +3894,12 @@ def run(
 
                 out_raw = out_df.reindex(columns=out_scaled.columns)
                 if isinstance(out_raw, pd.DataFrame) and not out_raw.empty:
-                    weights_raw = rebalance_frame.reindex(out_raw.index).ffill().fillna(0.0)
-                    weights_raw = weights_raw.reindex(columns=out_raw.columns, fill_value=0.0)
+                    weights_raw = (
+                        rebalance_frame.reindex(out_raw.index).ffill().fillna(0.0)
+                    )
+                    weights_raw = weights_raw.reindex(
+                        columns=out_raw.columns, fill_value=0.0
+                    )
                     rebalance_raw = (out_raw * weights_raw).sum(axis=1)
                     res_dict["portfolio_user_weight_raw"] = rebalance_raw
                     res_dict["out_user_stats_raw"] = _compute_stats(
