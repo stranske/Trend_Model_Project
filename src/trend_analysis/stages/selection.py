@@ -80,9 +80,7 @@ def _resolve_risk_free_column(
 
     configured_rf = (risk_free_column or "").strip()
 
-    numeric_cols = [
-        c for c in candidate_df.select_dtypes("number").columns if c != date_col
-    ]
+    numeric_cols = [c for c in candidate_df.select_dtypes("number").columns if c != date_col]
     if not numeric_cols:
         raise ValueError(
             "No numeric return columns were found in the requested window; cannot select risk-free series"
@@ -142,9 +140,7 @@ def _resolve_risk_free_column(
                 f"Configured risk-free column '{configured_rf}' was not found in the dataset"
             )
         if configured_rf not in candidate_df.select_dtypes("number").columns:
-            raise ValueError(
-                f"Configured risk-free column '{configured_rf}' must be numeric"
-            )
+            raise ValueError(f"Configured risk-free column '{configured_rf}' must be numeric")
         if configured_rf in idx_set:
             raise ValueError(
                 f"Risk-free column '{configured_rf}' cannot also be listed as an index/benchmark"
@@ -176,9 +172,7 @@ def _resolve_risk_free_column(
         # Restrict candidates to columns with sufficient non-null coverage within
         # the requested windows. This keeps the fallback selection aligned with the
         # analysis slice rather than the full dataset.
-        ret_cols = [
-            c for c in numeric_cols if c not in idx_set and coverage_mask.get(c, False)
-        ]
+        ret_cols = [c for c in numeric_cols if c not in idx_set and coverage_mask.get(c, False)]
 
         if not ret_cols:
             raise ValueError(
@@ -195,9 +189,7 @@ def _resolve_risk_free_column(
                 "Set data.risk_free_column or enable data.allow_risk_free_fallback to select a risk-free series."
             )
         window_df = expanded_df.reset_index().rename(columns={"index": date_col})
-        probe_cols = (
-            [date_col, *ret_cols] if date_col in window_df.columns else ret_cols
-        )
+        probe_cols = [date_col, *ret_cols] if date_col in window_df.columns else ret_cols
 
         # With <2 observations, volatility is undefined (std = NaN), which can
         # cause the fallback heuristic to return NaN. Prefer obvious RF-like
@@ -227,9 +219,7 @@ def _resolve_risk_free_column(
             )
         else:
             detected = identify_risk_free_fund(window_df[probe_cols])
-            if detected is None or (
-                isinstance(detected, float) and math.isnan(detected)
-            ):
+            if detected is None or (isinstance(detected, float) and math.isnan(detected)):
                 raise ValueError(
                     "Risk-free fallback could not find a numeric return series in the requested window"
                 )
@@ -306,9 +296,7 @@ def single_period_run(
         raise ValueError("stats_cfg.metrics_to_run must not be empty")
 
     parts = [
-        _compute_metric_series(
-            window_no_all_nan, m, stats_cfg, risk_free_override=risk_free
-        )
+        _compute_metric_series(window_no_all_nan, m, stats_cfg, risk_free_override=risk_free)
         for m in metrics
     ]
     score_frame = pd.concat(parts, axis=1)
@@ -335,8 +323,7 @@ def single_period_run(
             )
         except Exception as exc:  # pragma: no cover - defensive
             msg = (
-                "Failed to compute AvgCorr for single_period_run"
-                f" window {start} to {end}: {exc}"
+                "Failed to compute AvgCorr for single_period_run" f" window {start} to {end}: {exc}"
             )
             logger.error(msg)
             raise RuntimeError(msg) from exc
@@ -368,9 +355,7 @@ def _select_universe(
     if requested_indices:
         available_cols = set(window.in_df.columns)
         available_indices = [idx for idx in requested_indices if idx in available_cols]
-        missing_indices = [
-            idx for idx in requested_indices if idx not in available_cols
-        ]
+        missing_indices = [idx for idx in requested_indices if idx not in available_cols]
 
         for idx in available_indices:
             has_data = window.in_df[idx].notnull().any()
@@ -397,10 +382,7 @@ def _select_universe(
         [window.in_df.reset_index(), window.out_df.reset_index()],
         ignore_index=True,
     )
-    if (
-        preprocess.date_col not in fallback_window.columns
-        and "index" in fallback_window.columns
-    ):
+    if preprocess.date_col not in fallback_window.columns and "index" in fallback_window.columns:
         fallback_window = fallback_window.rename(columns={"index": preprocess.date_col})
     rf_col, fund_cols, rf_source = _resolve_risk_free_column(
         preprocess.df,
@@ -472,9 +454,7 @@ def _select_universe(
         bundle = None
         if stats_cfg is not None and fund_cols:
             try:
-                window_key = make_window_key(
-                    window.in_start, window.in_end, sub.columns, stats_cfg
-                )
+                window_key = make_window_key(window.in_start, window.in_end, sub.columns, stats_cfg)
             except Exception:  # pragma: no cover - defensive
                 window_key = None
         if window_key is not None:
