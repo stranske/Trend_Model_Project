@@ -199,9 +199,9 @@ class TestDependencies:
         except ImportError:
             pytest.fail("coverage.py not installed. Install with: pip install coverage")
 
-        # Verify coverage CLI is available
+        # Verify coverage CLI is available (use python -m for venv compatibility)
         result = subprocess.run(
-            ["coverage", "--version"],
+            [sys.executable, "-m", "coverage", "--version"],
             capture_output=True,
             text=True,
         )

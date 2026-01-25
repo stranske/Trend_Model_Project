@@ -1220,6 +1220,8 @@ def run(
         in_end: str,
         out_start: str,
         out_end: str,
+        *,
+        require_out_sample: bool = True,
     ) -> tuple[pd.DataFrame, pd.DataFrame, list[str], str]:
         date_col = "Date"
         sub = full.copy()
@@ -1242,7 +1244,7 @@ def run(
             return in_df, out_df, [], resolved_rf_col
 
         # Keep only funds with sufficient in-sample history (last N months
-        # present) and complete out-of-sample data.
+        # present). Optionally also require complete out-of-sample data.
         # Note: risk metrics require at least 2 observations.
         required_in_months = max(2, int(min_history_months))
         required_in_months = min(required_in_months, int(len(in_df)))
@@ -1252,10 +1254,16 @@ def run(
 
         in_tail = in_df[fund_cols].tail(required_in_months)
         in_ok = ~in_tail.isna().any()
-        out_ok = ~out_df[fund_cols].isna().any()
-        fund_cols = [
-            c for c in fund_cols if bool(in_ok.get(c, False)) and bool(out_ok.get(c, False))
-        ]
+        if require_out_sample:
+            out_ok = ~out_df[fund_cols].isna().any()
+            fund_cols = [
+                c for c in fund_cols if bool(in_ok.get(c, False)) and bool(out_ok.get(c, False))
+            ]
+        else:
+            # For scoring purposes (e.g., hiring candidates), only require
+            # sufficient in-sample data; out-of-sample data will be checked
+            # separately when deciding which funds to actually hold.
+            fund_cols = [c for c in fund_cols if bool(in_ok.get(c, False))]
 
         # Guardrail: exclude funds that are effectively inactive/flatlined at
         # ~0.0 (often vendor pre-inception encoding) even if they are non-missing.
@@ -1968,7 +1976,19 @@ def run(
             pt.in_end[:7],
             pt.out_start[:7],
             pt.out_end[:7],
+            # For threshold_hold, include all funds with valid in-sample data
+            # in the score frame so they can be considered for hiring. The
+            # out-of-sample check is applied later when deciding actual holdings.
+            require_out_sample=False,
         )
+        # Even with relaxed in-sample filtering, if no fund has OOS data,
+        # we cannot form a portfolio, so produce a placeholder.
+        if fund_cols and isinstance(out_df, pd.DataFrame) and not out_df.empty:
+            holdable_cols = [
+                c for c in fund_cols if c in out_df.columns and out_df[c].notna().any()
+            ]
+            if not holdable_cols:
+                fund_cols = []  # Force placeholder path
         if not fund_cols:
             # Preserve period alignment: produce a minimal placeholder so downstream
             # consumers expecting one entry per generated period retain indexing.
@@ -2585,8 +2605,13 @@ def run(
                     target_n=target_n,
                 )
 
-                # Restrict to funds available in this period's score-frame.
-                proposed_holdings = [str(h) for h in list(rebased.index) if h in sf.index]
+                # Restrict to funds available in this period's score-frame
+                # AND that have out-of-sample data (so we can compute returns).
+                proposed_holdings = [
+                    str(h)
+                    for h in list(rebased.index)
+                    if h in sf.index and h in out_df.columns and out_df[h].notna().any()
+                ]
 
             if hard_exit_forced:
                 proposed_holdings = [m for m in proposed_holdings if m not in hard_exit_forced]
@@ -3592,10 +3617,15 @@ def run(
                                     cov = prepared.cov()
                                     w_series = risk_engine.weight(cov)
                                 else:
+                                    # Align rf_override to the rolling window's date index
+                                    # to avoid shape mismatch in metric calculations.
+                                    rf_aligned = rf_override
+                                    if isinstance(rf_override, pd.Series) and not window.empty:
+                                        rf_aligned = rf_override.reindex(window.index)
                                     sf_roll = _score_frame(
                                         window,
                                         realised_holdings,
-                                        risk_free_override=rf_override,
+                                        risk_free_override=rf_aligned,
                                         periods_per_year=int(periods_per_year),
                                     )
                                     sf_roll = _ensure_zscore(sf_roll, metric)
