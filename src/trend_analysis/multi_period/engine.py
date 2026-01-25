@@ -1849,6 +1849,22 @@ def run(
         )
         return pd.Series(1.0 / len(base), index=base.index, dtype=float)
 
+    def _ensure_holdings_weights(
+        weights: pd.Series,
+        holdings: list[str],
+        *,
+        min_weight: float,
+    ) -> pd.Series:
+        if not holdings:
+            return weights
+        holdings_index = [str(h) for h in holdings]
+        expanded = weights.reindex(holdings_index).fillna(0.0)
+        missing = expanded.abs() <= NUMERICAL_TOLERANCE_HIGH
+        if missing.any():
+            floor = max(float(min_weight), float(NUMERICAL_TOLERANCE_HIGH))
+            expanded.loc[missing] = floor
+        return expanded
+
     def _enforce_min_funds(
         sf: pd.DataFrame,
         holdings: list[str],
@@ -1933,10 +1949,7 @@ def run(
             # Risk-based weighting requires returns data
             try:
                 if returns_window is not None and not returns_window.empty:
-                    # Only include holdings that have data in returns_window
-                    # to avoid NaN columns that would get 0 weight
-                    holdings_in_window = [h for h in holdings if h in returns_window.columns]
-                    subset = returns_window[holdings_in_window].dropna(axis=1, how="all")
+                    subset = returns_window.reindex(columns=holdings).dropna(axis=1, how="all")
                 else:
                     # Fall back to score frame data if no returns window provided
                     subset = sf.loc[holdings]
@@ -2423,14 +2436,15 @@ def run(
                         holdings.append(replacement)
 
             # Compute weights using risk engine or fallback to legacy weighting
-            # Use holdings (not fund_cols) so newly added funds get proper weight data
-            holdings_with_data = [h for h in holdings if h in in_df.columns]
-            weights_df = _compute_weights(
-                sf, holdings, period_ts, in_df.reindex(columns=holdings_with_data)
-            )
+            weights_df = _compute_weights(sf, holdings, period_ts, in_df.reindex(columns=fund_cols))
             raw_weight_series = _as_weight_series(weights_df)
             signal_slice = sf.loc[holdings, metric] if metric in sf.columns else None
             weight_series = _apply_policy_to_weights(weights_df, signal_slice)
+            weight_series = _ensure_holdings_weights(
+                weight_series,
+                holdings,
+                min_weight=min_w_bound,
+            )
             weights_df = weight_series.to_frame("weight")
             prev_weights = weight_series.astype(float)
             # Log seed additions
@@ -3114,14 +3128,15 @@ def run(
                 )
 
             # Compute weights using risk engine or fallback to legacy weighting
-            # Use holdings (not fund_cols) so newly added funds get proper weight data
-            holdings_with_data = [h for h in holdings if h in in_df.columns]
-            weights_df = _compute_weights(
-                sf, holdings, period_ts, in_df.reindex(columns=holdings_with_data)
-            )
+            weights_df = _compute_weights(sf, holdings, period_ts, in_df.reindex(columns=fund_cols))
             raw_weight_series = _as_weight_series(weights_df)
             signal_slice = sf.loc[holdings, metric] if metric in sf.columns else None
             weight_series = _apply_policy_to_weights(weights_df, signal_slice)
+            weight_series = _ensure_holdings_weights(
+                weight_series,
+                holdings,
+                min_weight=min_w_bound,
+            )
             weights_df = weight_series.to_frame("weight")
             prev_weights = weight_series.astype(float)
 
@@ -3198,14 +3213,17 @@ def run(
                     )
             if holdings:
                 # Compute weights using risk engine or fallback to legacy weighting
-                # Use holdings (not fund_cols) so newly added funds get proper weight data
-                holdings_with_data = [h for h in holdings if h in in_df.columns]
                 weights_df = _compute_weights(
-                    sf, holdings, period_ts, in_df.reindex(columns=holdings_with_data)
+                    sf, holdings, period_ts, in_df.reindex(columns=fund_cols)
                 )
                 raw_weight_series = _as_weight_series(weights_df)
                 signal_slice = sf.loc[holdings, metric] if metric in sf.columns else None
                 weight_series = _apply_policy_to_weights(weights_df, signal_slice)
+                weight_series = _ensure_holdings_weights(
+                    weight_series,
+                    holdings,
+                    min_weight=min_w_bound,
+                )
                 weights_df = weight_series.to_frame("weight")
                 prev_weights = weight_series.astype(float)
                 nat_w = raw_weight_series.reindex(prev_weights.index).fillna(0.0)
@@ -3222,14 +3240,17 @@ def run(
             )
             if holdings and prev_weights is not None:
                 # Compute weights using risk engine or fallback to legacy weighting
-                # Use holdings (not fund_cols) so newly added funds get proper weight data
-                holdings_with_data = [h for h in holdings if h in in_df.columns]
                 weights_df = _compute_weights(
-                    sf, holdings, period_ts, in_df.reindex(columns=holdings_with_data)
+                    sf, holdings, period_ts, in_df.reindex(columns=fund_cols)
                 )
                 raw_weight_series = _as_weight_series(weights_df)
                 signal_slice = sf.loc[holdings, metric] if metric in sf.columns else None
                 weight_series = _apply_policy_to_weights(weights_df, signal_slice)
+                weight_series = _ensure_holdings_weights(
+                    weight_series,
+                    holdings,
+                    min_weight=min_w_bound,
+                )
                 weights_df = weight_series.to_frame("weight")
                 prev_weights = weight_series.astype(float)
                 nat_w = raw_weight_series.reindex(prev_weights.index).fillna(0.0)
@@ -3238,11 +3259,12 @@ def run(
         bounded_w = _apply_weight_bounds(prev_weights, min_w_bound, max_w_bound)
         min_tenure_guard = _min_tenure_guard(bounded_w.index)
 
-        # Preserve the selected holdings set for the pipeline manual selection.
-        # Subsequent turnover alignment (union with previous holdings) may
-        # introduce additional indices that should not automatically become
-        # part of the manual fund list.
-        manual_holdings = [str(x) for x in bounded_w.index.tolist()]
+        # Preserve the intended holdings for manual pipeline selection.
+        # Use the holdings list so newly hired funds are included even if
+        # their weights were altered by turnover/bounds logic.
+        manual_holdings = (
+            [str(x) for x in holdings] if holdings else [str(x) for x in bounded_w.index.tolist()]
+        )
 
         # Enforce optional turnover cap by scaling trades towards target
         target_w = bounded_w.copy()
@@ -3273,6 +3295,16 @@ def run(
         desired_trades = target_w - last_aligned
         desired_turnover = float(desired_trades.abs().sum())
         final_w = target_w.copy()
+        mandatory_entries: set[object] = set()
+        if min_funds > 0 and holdings:
+            desired_holdings_set = {str(h) for h in holdings}
+            mandatory_entries = {
+                ix
+                for ix in desired_trades.index
+                if str(ix) in desired_holdings_set
+                and abs(last_aligned.loc[ix]) <= NUMERICAL_TOLERANCE_HIGH
+                and abs(target_w.loc[ix]) > NUMERICAL_TOLERANCE_HIGH
+            }
         if (
             max_turnover_cap < 1.0 - NUMERICAL_TOLERANCE_HIGH
             and desired_turnover > max_turnover_cap + NUMERICAL_TOLERANCE_HIGH
@@ -3280,7 +3312,11 @@ def run(
             # Respect turnover cap, but prioritise forced exits (soft/hard z exits).
             # This prevents below-threshold holdings from lingering indefinitely
             # solely because turnover is capped.
-            forced_ix = [ix for ix in desired_trades.index if str(ix) in forced_exits]
+            forced_ix = [
+                ix
+                for ix in desired_trades.index
+                if str(ix) in forced_exits or ix in mandatory_entries
+            ]
             mandatory = desired_trades.copy()
             if forced_ix:
                 # Keep only forced exit trades in mandatory bucket
@@ -3350,13 +3386,12 @@ def run(
             regime_cfg=regime_cfg,
             risk_free_column=risk_free_column_cfg,
             allow_risk_free_fallback=allow_risk_free_fallback_cfg,
-            # Pass turnover parameters for pipeline-level enforcement.
-            # The pipeline applies vol-scaling after which turnover may exceed
-            # the threshold-hold logic's pre-scaled cap; passing these ensures
-            # the final weights respect the turnover constraint.
-            previous_weights=prev_weights_for_pipeline,
-            max_turnover=max_turnover_cap if max_turnover_cap < 1.0 else None,
-            lambda_tc=lambda_tc if lambda_tc > 0 else None,
+            # Manual multi-period selection already enforces turnover/budgets.
+            # Avoid pipeline-level turnover enforcement so new hires are not
+            # zeroed out by a second pass.
+            previous_weights=None,
+            max_turnover=None,
+            lambda_tc=None,
             signal_spec=trend_spec,
         )
         payload = res.value
@@ -3470,30 +3505,16 @@ def run(
         # Convention: report one-sided turnover (sum of buys or sells). For
         # fully-invested portfolios this is 0.5 * sum(|Δw|). The first rebalance
         # (from cash) is purely buys, so no halving is applied.
-        risk_turnover = None
-        risk_diag_payload = res_dict.get("risk_diagnostics")
-        if isinstance(risk_diag_payload, dict):
-            turnover_payload = risk_diag_payload.get("turnover")
-            if isinstance(turnover_payload, pd.Series) and not turnover_payload.empty:
-                risk_turnover = float(turnover_payload.iloc[-1])
-            elif isinstance(turnover_payload, (int, float)):
-                risk_turnover = float(turnover_payload)
         if prev_final_weights is None:
             last_effective = pd.Series(0.0, index=effective_w.index)
-            if risk_turnover is not None and np.isfinite(risk_turnover):
-                period_turnover = risk_turnover
-            else:
-                abs_diff = float((effective_w - last_effective).abs().sum())
-                period_turnover = abs_diff
+            abs_diff = float((effective_w - last_effective).abs().sum())
+            period_turnover = abs_diff
         else:
             union_ix = prev_final_weights.index.union(effective_w.index)
             last_effective = prev_final_weights.reindex(union_ix, fill_value=0.0)
             effective_w = effective_w.reindex(union_ix, fill_value=0.0)
-            if risk_turnover is not None and np.isfinite(risk_turnover):
-                period_turnover = 0.5 * risk_turnover
-            else:
-                abs_diff = float((effective_w - last_effective).abs().sum())
-                period_turnover = 0.5 * abs_diff
+            abs_diff = float((effective_w - last_effective).abs().sum())
+            period_turnover = 0.5 * abs_diff
 
         period_cost = period_turnover * ((tc_bps + slippage_bps) / 10000.0)
 
