@@ -69,7 +69,9 @@ def _patch_metric_series(
 ) -> None:
     import trend_analysis.core.rank_selection as rank_selection
 
-    def fake_metric_series(frame: pd.DataFrame, metric: str, stats_cfg: object) -> pd.Series:
+    def fake_metric_series(
+        frame: pd.DataFrame, metric: str, stats_cfg: object
+    ) -> pd.Series:
         del metric, stats_cfg
         if frame.empty:
             return pd.Series(dtype=float)
@@ -85,8 +87,42 @@ def _patch_metric_series(
 
 
 def _patch_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(engine, "apply_missing_policy", lambda frame, *, policy, limit: (frame, {}))
+    monkeypatch.setattr(
+        engine, "apply_missing_policy", lambda frame, *, policy, limit: (frame, {})
+    )
     monkeypatch.setattr(engine, "_run_analysis", lambda *args, **kwargs: {})
+
+
+def _patch_pipeline_capture(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    captured: dict[str, Any],
+) -> None:
+    from trend.diagnostics import DiagnosticResult
+
+    def fake_pipeline(
+        *_args: Any, **kwargs: Any
+    ) -> DiagnosticResult[dict[str, Any] | None]:
+        captured["previous_weights"] = kwargs.get("previous_weights")
+        captured["max_turnover"] = kwargs.get("max_turnover")
+        captured["lambda_tc"] = kwargs.get("lambda_tc")
+        manual_funds = kwargs.get("manual_funds") or []
+        captured["manual_funds"] = list(manual_funds)
+        weights = (
+            {str(f): 1.0 / len(manual_funds) for f in manual_funds}
+            if manual_funds
+            else {}
+        )
+        payload = {
+            "fund_weights": weights,
+            "score_frame": pd.DataFrame(),
+        }
+        return DiagnosticResult(value=payload, diagnostic=None)
+
+    monkeypatch.setattr(
+        engine, "apply_missing_policy", lambda frame, *, policy, limit: (frame, {})
+    )
+    monkeypatch.setattr(engine, "_call_pipeline_with_diag", fake_pipeline)
 
 
 def _count_reentries(results: list[dict[str, Any]], manager: str) -> int:
@@ -139,9 +175,53 @@ def test_threshold_hold_exit_drop_not_blocked_by_turnover_budget(
 
     changes = period2.get("manager_changes") or []
     assert any(
-        ev.get("reason") == "turnover_budget" and ev.get("action") == "skipped" for ev in changes
+        ev.get("reason") == "turnover_budget" and ev.get("action") == "skipped"
+        for ev in changes
     )
-    assert any(ev.get("action") == "dropped" and ev.get("manager") == "B" for ev in changes)
+    assert any(
+        ev.get("action") == "dropped" and ev.get("manager") == "B" for ev in changes
+    )
+
+
+def test_threshold_hold_new_hires_survive_manual_pipeline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = THCfg()
+    cfg.portfolio["max_turnover"] = 0.4
+    cfg.portfolio["lambda_tc"] = 0.1
+    cfg.portfolio["constraints"].update({"min_funds": 5, "max_funds": 5})
+    cfg.portfolio["threshold_hold"].update({"target_n": 3, "z_entry_soft": 1.0})
+
+    periods = [
+        SimpleNamespace(
+            in_start="2020-01", in_end="2020-02", out_start="2020-03", out_end="2020-03"
+        ),
+        SimpleNamespace(
+            in_start="2020-02", in_end="2020-03", out_start="2020-04", out_end="2020-04"
+        ),
+    ]
+    monkeypatch.setattr(engine, "generate_periods", lambda _cfg: periods)
+
+    _patch_metric_series(
+        monkeypatch,
+        by_in_end={
+            "2020-02": {"A": 3.0, "B": 2.0, "C": 1.0, "D": 0.0, "E": -1.0},
+            "2020-03": {"A": 0.0, "B": 0.1, "C": 0.2, "D": 5.0, "E": 4.0},
+        },
+    )
+
+    captured: dict[str, Any] = {}
+    _patch_pipeline_capture(monkeypatch, captured=captured)
+
+    results = engine.run(cfg, df=_df_5_funds())
+    assert len(results) == 2
+    period2 = results[1]
+    selected = set(period2.get("selected_funds") or [])
+
+    assert {"D", "E"}.issubset(selected)
+    assert captured.get("previous_weights") is None
+    assert captured.get("max_turnover") is None
+    assert captured.get("lambda_tc") is None
 
 
 def test_threshold_hold_cooldown_blocks_reentry(
@@ -184,7 +264,9 @@ def test_threshold_hold_cooldown_blocks_reentry(
     assert "B" not in selected
 
     changes = period3.get("manager_changes") or []
-    assert any(ev.get("reason") == "cooldown" and ev.get("manager") == "B" for ev in changes)
+    assert any(
+        ev.get("reason") == "cooldown" and ev.get("manager") == "B" for ev in changes
+    )
 
 
 def test_cooldown_reduces_reentry_frequency(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -284,7 +366,9 @@ def test_cooldown_blocks_reseed_reentry(
     assert "B" not in selected
 
     changes = period3.get("manager_changes") or []
-    assert any(ev.get("reason") == "cooldown" and ev.get("manager") == "B" for ev in changes)
+    assert any(
+        ev.get("reason") == "cooldown" and ev.get("manager") == "B" for ev in changes
+    )
 
 
 def test_min_tenure_blocks_early_exits(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -368,7 +452,10 @@ def test_min_funds_can_exceed_turnover_budget(monkeypatch: pytest.MonkeyPatch) -
     assert len(selected) >= 3
 
     changes = period2.get("manager_changes") or []
-    assert any(ev.get("reason") == "min_funds" and ev.get("action") == "added" for ev in changes)
+    assert any(
+        ev.get("reason") == "min_funds" and ev.get("action") == "added"
+        for ev in changes
+    )
 
 
 def test_threshold_hold_hard_entry_does_not_block_selection(
@@ -474,4 +561,6 @@ def test_threshold_hold_hard_exit_does_not_block_low_weight_removal(
     assert "A" not in selected
 
     changes = period2.get("manager_changes") or []
-    assert any(ev.get("action") == "dropped" and ev.get("manager") == "A" for ev in changes)
+    assert any(
+        ev.get("action") == "dropped" and ev.get("manager") == "A" for ev in changes
+    )
