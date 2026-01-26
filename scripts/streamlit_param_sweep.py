@@ -11,7 +11,6 @@ import argparse
 import hashlib
 import json
 import math
-import os
 import sys
 import zipfile
 from dataclasses import dataclass
@@ -127,12 +126,8 @@ def _serialise_result(result: Any) -> dict[str, Any]:
     details = getattr(result, "details", None)
     metrics = getattr(result, "metrics", None)
     payload: dict[str, Any] = {
-        "details": (
-            _serialise_value(details) if isinstance(details, Mapping) else details
-        ),
-        "metrics": (
-            _serialise_value(metrics) if isinstance(metrics, pd.DataFrame) else metrics
-        ),
+        "details": (_serialise_value(details) if isinstance(details, Mapping) else details),
+        "metrics": (_serialise_value(metrics) if isinstance(metrics, pd.DataFrame) else metrics),
     }
     if isinstance(details, Mapping):
         payload["summary"] = _serialise_value(summary_frame_from_result(details))
@@ -239,9 +234,7 @@ def _zip_folder(source: Path, zip_path: Path) -> None:
                 zf.write(file_path, file_path.relative_to(source))
 
 
-def _build_test_cases(
-    base_state: Mapping[str, Any], spec: dict[str, Any]
-) -> list[TestCase]:
+def _build_test_cases(base_state: Mapping[str, Any], spec: dict[str, Any]) -> list[TestCase]:
     cases: list[TestCase] = []
     from scripts.test_settings_wiring import SETTINGS_TO_TEST
 
@@ -315,9 +308,7 @@ def main() -> int:
     def run_cached(state: Mapping[str, Any]) -> Any:
         key = json.dumps(state, sort_keys=True, default=str)
         if key not in cache:
-            cache[key] = analysis_runner.run_analysis(
-                df, state, benchmark, data_hash=data_hash
-            )
+            cache[key] = analysis_runner.run_analysis(df, state, benchmark, data_hash=data_hash)
         return cache[key]
 
     numeric_spec = spec.get("numeric", {}) if isinstance(spec, Mapping) else {}

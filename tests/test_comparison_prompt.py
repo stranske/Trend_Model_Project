@@ -42,8 +42,5 @@ def test_comparison_rules_and_disclaimer_are_present() -> None:
     for rule in DEFAULT_COMPARISON_RULES:
         assert rule in prompt
 
-    assert (
-        "This is analytical output, not financial advice."
-        in DEFAULT_COMPARISON_SYSTEM_PROMPT
-    )
+    assert "This is analytical output, not financial advice." in DEFAULT_COMPARISON_SYSTEM_PROMPT
     assert "This is analytical output, not financial advice." in prompt

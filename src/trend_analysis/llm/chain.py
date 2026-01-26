@@ -202,9 +202,7 @@ class ConfigPatchChain:
                     "Prompt injection detected (%s); skipping LLM call.",
                     ", ".join(sorted(set(injection_hits))),
                 )
-                patch = ConfigPatch(
-                    operations=[], summary=DEFAULT_BLOCK_SUMMARY, risk_flags=[]
-                )
+                patch = ConfigPatch(operations=[], summary=DEFAULT_BLOCK_SUMMARY, risk_flags=[])
                 return patch
 
             def _response_provider(attempt: int, last_error: Exception | None) -> str:
@@ -240,9 +238,7 @@ class ConfigPatchChain:
 
             # Filter out operations with unknown keys
             if unknown_keys:
-                unknown_paths = {
-                    normalize_patch_path(entry.path) for entry in unknown_keys
-                }
+                unknown_paths = {normalize_patch_path(entry.path) for entry in unknown_keys}
                 filtered_ops = [
                     operation
                     for operation in patch.operations
@@ -415,9 +411,7 @@ class ResultSummaryChain:
     ) -> ResultSummaryResponse:
         questions_text = questions
         if metric_entries is not None:
-            missing_metrics = detect_unavailable_metric_requests(
-                questions, metric_entries
-            )
+            missing_metrics = detect_unavailable_metric_requests(questions, metric_entries)
             if missing_metrics:
                 missing_text = ", ".join(missing_metrics)
                 missing_note = (
