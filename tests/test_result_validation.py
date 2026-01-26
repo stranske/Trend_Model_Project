@@ -204,7 +204,9 @@ def test_validate_result_claims_still_flags_uncited_non_dates() -> None:
     text = "Period 2023-01 to 2024-12. CAGR was 8%."
 
     issues = validate_result_claims(text, entries)
-    uncited_values = [issue.detail["value"] for issue in issues if issue.kind == "uncited_value"]
+    uncited_values = [
+        issue.detail["value"] for issue in issues if issue.kind == "uncited_value"
+    ]
 
     assert uncited_values == ["8%"]
 
@@ -220,7 +222,9 @@ def test_validate_result_claims_flags_uncited_metric_with_short_year_range() -> 
     text = "Coverage runs from 2023-24. CAGR was 8%."
 
     issues = validate_result_claims(text, entries)
-    uncited_values = [issue.detail["value"] for issue in issues if issue.kind == "uncited_value"]
+    uncited_values = [
+        issue.detail["value"] for issue in issues if issue.kind == "uncited_value"
+    ]
 
     assert uncited_values == ["8%"]
 
@@ -285,6 +289,26 @@ def test_postprocess_result_text_appends_discrepancy_log() -> None:
 
     assert issues
     assert "Discrepancy log:" in output
+
+
+def test_postprocess_result_text_skips_discrepancy_log_when_disabled() -> None:
+    entries = [
+        MetricEntry(
+            path="out_sample_stats.portfolio.cagr",
+            value=0.08,
+            source="out_sample_stats",
+        )
+    ]
+    text = "CAGR was 12%."
+
+    output, issues = postprocess_result_text(
+        text,
+        entries,
+        include_discrepancy_log=False,
+    )
+
+    assert issues
+    assert "Discrepancy log:" not in output
 
 
 def test_detect_unavailable_metric_requests_returns_missing_metrics() -> None:
