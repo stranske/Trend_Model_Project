@@ -48,6 +48,10 @@ pipeline using a YAML or TOML configuration file and produces an HTML report by
 default. The repository now ships with a TOML example at `config/trend.toml`
 that mirrors the demonstration YAML configuration.
 
+If you pass a Streamlit JSON export instead of YAML/TOML, the `run` command will
+auto-detect it and replay the UI settings using the same mapping logic as the
+app.
+
 Generate the demo dataset first (see the prerequisites above), then invoke the
 command:
 
@@ -68,6 +72,19 @@ trend-run -c config/trend.toml \
   --artefacts reports/artefacts \
   --formats csv json xlsx
 ```
+
+If your CSV contains fixable date issues (e.g., 11/31/2024), you can opt into
+the Streamlit-style correction pass:
+
+```bash
+trend-model run \
+  -c config/trend.toml \
+  -i demo/demo_returns.csv \
+  --auto-fix-dates
+```
+
+You will be prompted to confirm the corrections. Use `--yes` to skip the
+interactive prompt in automation.
 
 ### PDF export
 
@@ -91,3 +108,14 @@ command writes `<output>.pdf` next to the HTML file.
 For advanced usage—including multi-period backtesting and custom selector or
 weighting logic—refer to the broader documentation under `docs/` and the
 configuration schema in `config/defaults.yml`.
+
+---
+
+## Replaying Streamlit JSON runs
+
+Use `trend-model run` with the JSON file exported from the Streamlit Model page.
+The CLI auto-detects the JSON format and applies the same UI mapping and data
+contract checks.
+
+The deprecated `trend-model run-ui` command continues to work but will be
+removed in a future release.

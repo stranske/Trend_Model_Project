@@ -1,4 +1,5 @@
 import argparse
+import json
 import logging
 import numbers
 import os
@@ -27,10 +28,12 @@ from .config.coverage import (
     wrap_config_for_coverage,
 )
 from .config.schema_validation import load_config as load_config_yaml
+from .config.ui_mapping import build_config_from_ui_state
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from .data import load_csv
 from .diagnostics import coerce_pipeline_result
 from .io.market_data import MarketDataValidationError
+from .io.ui_ingest import inspect_ui_date_issues, load_ui_dataset
 from .logging_setup import setup_logging
 from .perf.rolling_cache import set_cache_enabled
 from .presets import apply_trend_preset, get_trend_preset, list_preset_slugs
@@ -395,6 +398,412 @@ def maybe_log_step(enabled: bool, run_id: str, event: str, message: str, **field
         _log_step(run_id, event, message, **fields)
 
 
+def _load_ui_payload(path: Path) -> tuple[dict[str, Any], Mapping[str, Any]]:
+    payload_any: Any = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload_any, Mapping):
+        raise ValueError("UI params must be a JSON object")
+    payload = dict(payload_any)
+    model_state = payload.get("model_state")
+    if isinstance(model_state, Mapping):
+        return payload, model_state
+    return {"model_state": payload}, payload
+
+
+def _looks_like_model_state(payload: Mapping[str, Any]) -> bool:
+    ui_keys = {
+        "lookback_periods",
+        "evaluation_periods",
+        "selection_count",
+        "metric_weights",
+        "trend_window",
+        "trend_lag",
+        "trend_min_periods",
+        "trend_zscore",
+        "trend_vol_adjust",
+        "trend_vol_target",
+        "vol_adjust_enabled",
+        "risk_target",
+        "multi_period_enabled",
+        "multi_period_frequency",
+        "start_date",
+        "end_date",
+        "date_mode",
+    }
+    config_keys = {
+        "version",
+        "data",
+        "preprocessing",
+        "vol_adjust",
+        "sample_split",
+        "portfolio",
+        "metrics",
+        "export",
+        "run",
+        "benchmarks",
+        "regime",
+        "robustness",
+        "multi_period",
+    }
+    if any(key in payload for key in config_keys):
+        return False
+    hits = sum(1 for key in ui_keys if key in payload)
+    return hits >= 3 or ("metric_weights" in payload and "selection_count" in payload)
+
+
+def _should_handle_as_ui_config(path: Path) -> bool:
+    if path.suffix.lower() != ".json":
+        return False
+    try:
+        payload_any: Any = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    if not isinstance(payload_any, Mapping):
+        return False
+    if "model_state" in payload_any:
+        return True
+    return _looks_like_model_state(payload_any)
+
+
+def _run_from_ui_payload(
+    *,
+    params_path: Path,
+    data_path: Path,
+    auto_fix_dates: bool,
+    yes: bool,
+    no_cache: bool,
+    log_file: Path | None,
+    structured_log: bool,
+    bundle: Path | None,
+) -> int:
+    try:
+        payload, model_state = _load_ui_payload(params_path)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
+    if "risk_free_column" not in model_state:
+        rf_column = payload.get("selected_risk_free")
+        if isinstance(rf_column, str) and rf_column.strip():
+            model_state = dict(model_state)
+            model_state["risk_free_column"] = rf_column.strip()
+
+    benchmark = payload.get("selected_benchmark")
+    if not benchmark:
+        info_benchmark = model_state.get("info_ratio_benchmark")
+        if isinstance(info_benchmark, str) and info_benchmark.strip():
+            benchmark = info_benchmark
+
+    set_cache_enabled(not no_cache)
+
+    if auto_fix_dates:
+        try:
+            issues = inspect_ui_date_issues(str(data_path))
+        except MarketDataValidationError as exc:
+            print(exc.user_message, file=sys.stderr)
+            for issue in exc.issues:
+                print(f"- {issue}", file=sys.stderr)
+            return 1
+
+        has_fixable = issues.has_corrections or issues.total_droppable_rows > 0
+        if has_fixable and not yes:
+            if not sys.stdin.isatty():
+                print(
+                    "Date corrections require confirmation. Re-run with --yes to approve.",
+                    file=sys.stderr,
+                )
+                return 2
+            prompt = (
+                f"Apply {len(issues.corrections)} date correction(s) and "
+                f"drop {issues.total_droppable_rows} row(s)? [y/N]: "
+            )
+            response = input(prompt).strip().lower()
+            if response not in {"y", "yes"}:
+                print("Cancelled date corrections.")
+                return 2
+
+    try:
+        returns, meta, summary = load_ui_dataset(
+            str(data_path),
+            auto_fix_dates=auto_fix_dates,
+        )
+    except MarketDataValidationError as exc:
+        print(exc.user_message, file=sys.stderr)
+        for issue in exc.issues:
+            print(f"- {issue}", file=sys.stderr)
+        return 1
+
+    if summary.corrected_dates or summary.dropped_rows:
+        parts: list[str] = []
+        if summary.corrected_dates:
+            parts.append(f"{summary.corrected_dates} date correction(s)")
+        if summary.dropped_rows:
+            parts.append(f"{summary.dropped_rows} row(s) dropped")
+        print(f"Applied UI-style date fixes: {', '.join(parts)}")
+
+    csv_path = str(data_path) if data_path.suffix.lower() == ".csv" else None
+    cfg = build_config_from_ui_state(
+        returns=returns,
+        model_state=model_state,
+        benchmark=benchmark,
+        frequency=meta.frequency,
+        csv_path=csv_path,
+    )
+
+    returns_df = returns.reset_index()
+
+    return _execute_analysis_run(
+        cfg,
+        returns_df,
+        config_path=params_path,
+        input_path=data_path,
+        log_file=log_file,
+        structured_log=structured_log,
+        bundle=bundle,
+    )
+
+
+def _execute_analysis_run(
+    cfg: Any,
+    df: pd.DataFrame,
+    *,
+    config_path: Path | None,
+    input_path: Path | None,
+    log_file: Path | None,
+    structured_log: bool,
+    bundle: Path | None,
+) -> int:
+    import uuid
+
+    split = cfg.sample_split
+    required_keys = {"in_start", "in_end", "out_start", "out_end"}
+
+    run_id = getattr(cfg, "run_id", None) or uuid.uuid4().hex[:12]
+    try:
+        setattr(cfg, "run_id", run_id)
+    except Exception:
+        pass
+    log_path = log_file if log_file else run_logging.get_default_log_path(run_id)
+    if structured_log:
+        run_logging.init_run_logger(run_id, log_path)
+    maybe_log_step(
+        structured_log,
+        run_id,
+        "start",
+        "CLI run initialised",
+        config_path=str(config_path) if config_path else None,
+    )
+
+    res: Any = None
+    pipeline_diagnostic: DiagnosticPayload | None = None
+    if required_keys.issubset(split):
+        maybe_log_step(
+            structured_log,
+            run_id,
+            "load_data",
+            "Loaded returns dataframe",
+            rows=len(df),
+        )
+        run_result = run_simulation(cfg, df)
+        maybe_log_step(
+            structured_log,
+            run_id,
+            "pipeline_complete",
+            "Pipeline execution finished",
+            metrics_rows=len(run_result.metrics),
+        )
+        metrics_df = run_result.metrics
+        res = run_result.details
+        run_seed = run_result.seed
+        pipeline_diagnostic = getattr(run_result, "diagnostic", None)
+        if pipeline_diagnostic and not res:
+            _report_pipeline_diagnostic(
+                pipeline_diagnostic,
+                structured_log=structured_log,
+                run_id=run_id,
+            )
+            print("No results")
+            return 0
+        if isinstance(res, dict):
+            port_ser = select_primary_portfolio_series(res, prefer_raw=True)
+            if port_ser is not None:
+                setattr(run_result, "portfolio", port_ser)
+            bench_map = res.get("benchmarks") if isinstance(res, dict) else None
+            if isinstance(bench_map, dict) and bench_map:
+                first_bench = next(iter(bench_map.values()))
+                setattr(run_result, "benchmark", first_bench)
+            weights_user = res.get("weights_user_weight") if isinstance(res, dict) else None
+            if weights_user is not None:
+                setattr(run_result, "weights", weights_user)
+    else:  # pragma: no cover - legacy fallback
+        metrics_df = pipeline.run(cfg)
+        full_result = pipeline.run_full(cfg)
+        res, diag_payload = coerce_pipeline_result(full_result)
+        run_seed = getattr(cfg, "seed", 42)
+        pipeline_diagnostic = diag_payload or cast(
+            DiagnosticPayload | None, metrics_df.attrs.get("diagnostic")
+        )
+        if res is None:
+            res = {}
+    if not res:
+        if pipeline_diagnostic:
+            _report_pipeline_diagnostic(
+                pipeline_diagnostic,
+                structured_log=structured_log,
+                run_id=run_id,
+            )
+        print("No results")
+        return 0
+
+    text = export.format_summary_text(
+        res,
+        str(split.get("in_start")),
+        str(split.get("in_end")),
+        str(split.get("out_start")),
+        str(split.get("out_end")),
+    )
+    print(text)
+    maybe_log_step(structured_log, run_id, "summary_render", "Printed summary text")
+
+    cache_stats = _extract_cache_stats(res)
+    if cache_stats:
+        print("\nCache statistics:")
+        print(f"  Entries: {cache_stats['entries']}")
+        print(f"  Hits: {cache_stats['hits']}")
+        print(f"  Misses: {cache_stats['misses']}")
+        print(f"  Incremental updates: {cache_stats['incremental_updates']}")
+        maybe_log_step(
+            structured_log,
+            run_id,
+            "cache_stats",
+            "Cache statistics summary",
+            **cache_stats,
+        )
+
+    export_cfg = cfg.export
+    out_dir = export_cfg.get("directory")
+    out_formats = export_cfg.get("formats")
+    filename = export_cfg.get("filename", "analysis")
+    if not out_dir and not out_formats:
+        out_dir = DEFAULT_OUTPUT_DIRECTORY
+        out_formats = DEFAULT_OUTPUT_FORMATS
+    manifest_dir: Path | None = None
+    if out_dir and out_formats:
+        out_dir_path = Path(out_dir)
+        fmt_list = list(out_formats)
+        data = {"metrics": metrics_df}
+        if isinstance(res, Mapping):
+            export.append_narrative_section(data, res, config=cfg)
+        maybe_log_step(
+            structured_log,
+            run_id,
+            "export_start",
+            "Beginning export",
+            formats=fmt_list,
+        )
+        excel_requested = any(f.lower() in {"excel", "xlsx"} for f in fmt_list)
+        if excel_requested:
+            sheet_formatter = export.make_summary_formatter(
+                res,
+                str(split.get("in_start")),
+                str(split.get("in_end")),
+                str(split.get("out_start")),
+                str(split.get("out_end")),
+            )
+            data["summary"] = export.summary_frame_from_result(res)
+            export.export_to_excel(
+                data,
+                str(out_dir_path / f"{filename}.xlsx"),
+                default_sheet_formatter=sheet_formatter,
+            )
+            other = [f for f in fmt_list if f.lower() not in {"excel", "xlsx"}]
+            target_formats = other if other else fmt_list
+        else:
+            target_formats = fmt_list
+        export.export_data(
+            data,
+            str(out_dir_path / filename),
+            formats=target_formats,
+        )
+        data_keys = list(data.keys())
+        artifact_paths = _resolve_artifact_paths(out_dir_path, filename, data_keys, fmt_list)
+        maybe_log_step(
+            structured_log,
+            run_id,
+            "export_complete",
+            "Export finished",
+        )
+        config_payload: Any
+        if hasattr(cfg, "model_dump"):
+            try:
+                config_payload = cfg.model_dump()
+            except TypeError:  # pragma: no cover - defensive for exotic configs
+                config_payload = cfg.model_dump()
+        elif hasattr(cfg, "__dict__"):
+            config_payload = dict(getattr(cfg, "__dict__"))
+        else:
+            config_payload = cfg
+        if config_path is not None and input_path is not None:
+            try:
+                manifest_dir = write_run_artifacts(
+                    output_dir=out_dir_path,
+                    run_id=run_id,
+                    config=config_payload,
+                    config_path=str(config_path),
+                    input_path=input_path,
+                    data_frame=df,
+                    metrics_frame=metrics_df,
+                    run_details=res if isinstance(res, Mapping) else {},
+                    exported_files=artifact_paths,
+                    summary_text=text,
+                )
+            except Exception as exc:  # pragma: no cover - defensive guard
+                logging.getLogger(__name__).warning("Failed to write run artifacts: %s", exc)
+            else:
+                maybe_log_step(
+                    structured_log,
+                    run_id,
+                    "run_artifacts",
+                    "Run manifest written",
+                    directory=str(manifest_dir),
+                )
+
+    if bundle:
+        from .api import RunResult as _RR
+        from .export.bundle import export_bundle
+
+        bundle_path = Path(bundle)
+        if bundle_path.is_dir():
+            bundle_path = bundle_path / "analysis_bundle.zip"
+        rr = locals().get("run_result")
+        if rr is None:
+            env = {
+                "python": sys.version.split()[0],
+                "numpy": np.__version__,
+                "pandas": pd.__version__,
+            }
+            rr = _RR(metrics_df, res, run_seed, env)
+        setattr(rr, "config", getattr(cfg, "__dict__", {}))
+        if input_path is not None:
+            setattr(rr, "input_path", input_path)
+        export_bundle(rr, bundle_path)
+        print(f"Bundle written: {bundle_path}")
+        maybe_log_step(
+            structured_log,
+            run_id,
+            "bundle_complete",
+            "Reproducibility bundle written",
+            bundle=str(bundle_path),
+        )
+    maybe_log_step(
+        structured_log,
+        run_id,
+        "end",
+        "CLI run complete",
+        log_file=str(log_path),
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """Entry point for the ``trend-model`` command."""
 
@@ -441,6 +850,53 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Report which config keys were validated vs read",
     )
+    run_p.add_argument(
+        "--auto-fix-dates",
+        action="store_true",
+        help="Apply Streamlit-style date corrections automatically",
+    )
+    run_p.add_argument(
+        "--yes",
+        action="store_true",
+        help="Skip interactive confirmation for date corrections",
+    )
+
+    run_ui_p = sub.add_parser(
+        "run-ui",
+        help="Deprecated: use 'run' with Streamlit JSON params",
+    )
+    run_ui_p.add_argument("--params", required=True, help="Path to Streamlit JSON params")
+    run_ui_p.add_argument("--data", required=True, help="Path to returns CSV or Excel")
+    run_ui_p.add_argument(
+        "--auto-fix-dates",
+        action="store_true",
+        help="Apply Streamlit-style date corrections automatically",
+    )
+    run_ui_p.add_argument(
+        "--yes",
+        action="store_true",
+        help="Skip interactive confirmation for date corrections",
+    )
+    run_ui_p.add_argument(
+        "--bundle",
+        nargs="?",
+        const="analysis_bundle.zip",
+        help="Write reproducibility bundle (optional path or default analysis_bundle.zip)",
+    )
+    run_ui_p.add_argument(
+        "--log-file",
+        help="Path to JSONL structured log (defaults to outputs/logs/run_<id>.jsonl)",
+    )
+    run_ui_p.add_argument(
+        "--no-structured-log",
+        action="store_true",
+        help="Disable structured JSONL logging for this run",
+    )
+    run_ui_p.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Disable persistent caching for rolling computations",
+    )
 
     # Handle --check flag before parsing subcommands
     # This allows --check to work without requiring a subcommand
@@ -474,8 +930,19 @@ def main(argv: list[str] | None = None) -> int:
             coverage_tracker = ConfigCoverageTracker()
             activate_config_coverage(coverage_tracker)
         try:
-            cfg = load_config(args.config)
             config_path = Path(args.config).resolve()
+            if _should_handle_as_ui_config(config_path):
+                return _run_from_ui_payload(
+                    params_path=config_path,
+                    data_path=Path(args.input),
+                    auto_fix_dates=args.auto_fix_dates,
+                    yes=args.yes,
+                    no_cache=args.no_cache,
+                    log_file=Path(args.log_file) if args.log_file else None,
+                    structured_log=not args.no_structured_log,
+                    bundle=Path(args.bundle) if args.bundle else None,
+                )
+            cfg = load_config(args.config)
             if coverage_tracker is not None:
                 if not _maybe_track_config_coverage(config_path, args.input):
                     return 1
@@ -514,263 +981,98 @@ def main(argv: list[str] | None = None) -> int:
                 setattr(cfg, "seed", int(cli_seed))
             elif env_seed is not None and env_seed.isdigit():
                 setattr(cfg, "seed", int(env_seed))
+            data_section = getattr(cfg, "data", None)
+            missing_policy = None
+            missing_limit = None
+            if isinstance(data_section, Mapping):
+                missing_policy = data_section.get("missing_policy")
+                missing_limit = data_section.get("missing_limit")
+            else:
+                missing_policy = getattr(data_section, "missing_policy", None)
+                missing_limit = getattr(data_section, "missing_limit", None)
+
+            if args.auto_fix_dates:
+                try:
+                    issues = inspect_ui_date_issues(args.input)
+                except MarketDataValidationError as exc:
+                    print(exc.user_message, file=sys.stderr)
+                    for issue in exc.issues:
+                        print(f"- {issue}", file=sys.stderr)
+                    return 1
+                has_fixable = issues.has_corrections or issues.total_droppable_rows > 0
+                if has_fixable and not args.yes:
+                    if not sys.stdin.isatty():
+                        print(
+                            "Date corrections require confirmation. Re-run with --yes to approve.",
+                            file=sys.stderr,
+                        )
+                        return 2
+                    prompt = (
+                        f"Apply {len(issues.corrections)} date correction(s) and "
+                        f"drop {issues.total_droppable_rows} row(s)? [y/N]: "
+                    )
+                    response = input(prompt).strip().lower()
+                    if response not in {"y", "yes"}:
+                        print("Cancelled date corrections.")
+                        return 2
+
             try:
-                loaded = load_market_data_csv(args.input)
+                loaded_frame, _, summary = load_ui_dataset(
+                    args.input,
+                    auto_fix_dates=args.auto_fix_dates,
+                    missing_policy=missing_policy or "drop",
+                    missing_limit=missing_limit,
+                )
             except MarketDataValidationError as exc:
                 print(exc.user_message, file=sys.stderr)
+                for issue in exc.issues:
+                    print(f"- {issue}", file=sys.stderr)
                 return 1
-            if loaded is None:  # pragma: no cover - defensive fallback
-                print("Failed to load data", file=sys.stderr)
-                return 1
-            df = loaded.frame if hasattr(loaded, "frame") else loaded
+            if summary.corrected_dates or summary.dropped_rows:
+                parts: list[str] = []
+                if summary.corrected_dates:
+                    parts.append(f"{summary.corrected_dates} date correction(s)")
+                if summary.dropped_rows:
+                    parts.append(f"{summary.dropped_rows} row(s) dropped")
+                print(f"Applied UI-style date fixes: {', '.join(parts)}")
+
+            df = loaded_frame.reset_index()
             universe_spec: NamedUniverse | None = None
             if getattr(args, "universe", None):
                 mask, universe_spec = load_universe(args.universe, prices=df)
                 df = _apply_universe_mask(df, mask, date_column=universe_spec.date_column)
             if universe_spec is not None:
                 _attach_universe_paths(cfg, universe_spec, csv_path=args.input)
-            res: dict[str, Any] | None = None
-            split = cfg.sample_split
-            required_keys = {"in_start", "in_end", "out_start", "out_end"}
-            import uuid
-
-            run_id = getattr(cfg, "run_id", None) or uuid.uuid4().hex[:12]
-            try:
-                setattr(cfg, "run_id", run_id)
-            except Exception:
-                # Some config implementations may forbid new attrs; proceed without persisting
-                pass
-            log_path = (
-                Path(args.log_file) if args.log_file else run_logging.get_default_log_path(run_id)
+            return _execute_analysis_run(
+                cfg,
+                df,
+                config_path=config_path,
+                input_path=Path(args.input),
+                log_file=Path(args.log_file) if args.log_file else None,
+                structured_log=not args.no_structured_log,
+                bundle=Path(args.bundle) if args.bundle else None,
             )
-            do_structured = not args.no_structured_log
-            if do_structured:
-                run_logging.init_run_logger(run_id, log_path)
-            maybe_log_step(
-                do_structured,
-                run_id,
-                "start",
-                "CLI run initialised",
-                config_path=args.config,
-            )
-            pipeline_diagnostic: DiagnosticPayload | None = None
-            if required_keys.issubset(split):
-                maybe_log_step(
-                    do_structured,
-                    run_id,
-                    "load_data",
-                    "Loaded returns dataframe",
-                    rows=len(df),
-                )
-                run_result = run_simulation(cfg, df)
-                maybe_log_step(
-                    do_structured,
-                    run_id,
-                    "pipeline_complete",
-                    "Pipeline execution finished",
-                    metrics_rows=len(run_result.metrics),
-                )
-                metrics_df = run_result.metrics
-                res = run_result.details
-                run_seed = run_result.seed
-                pipeline_diagnostic = getattr(run_result, "diagnostic", None)
-                if pipeline_diagnostic and not res:
-                    _report_pipeline_diagnostic(
-                        pipeline_diagnostic,
-                        structured_log=do_structured,
-                        run_id=run_id,
-                    )
-                    print("No results")
-                    return 0
-                # Attach time series required by export_bundle if present
-                if isinstance(res, dict):
-                    port_ser = select_primary_portfolio_series(res, prefer_raw=True)
-                    if port_ser is not None:
-                        setattr(run_result, "portfolio", port_ser)
-                    bench_map = res.get("benchmarks") if isinstance(res, dict) else None
-                    if isinstance(bench_map, dict) and bench_map:
-                        # Pick first benchmark for manifest (simple case)
-                        first_bench = next(iter(bench_map.values()))
-                        setattr(run_result, "benchmark", first_bench)
-                    weights_user = res.get("weights_user_weight") if isinstance(res, dict) else None
-                    if weights_user is not None:
-                        setattr(run_result, "weights", weights_user)
-            else:  # pragma: no cover - legacy fallback
-                metrics_df = pipeline.run(cfg)
-                full_result = pipeline.run_full(cfg)
-                res, diag_payload = coerce_pipeline_result(full_result)
-                run_seed = getattr(cfg, "seed", 42)
-                pipeline_diagnostic = diag_payload or cast(
-                    DiagnosticPayload | None, metrics_df.attrs.get("diagnostic")
-                )
-                if res is None:
-                    res = {}
-            if not res:
-                if pipeline_diagnostic:
-                    _report_pipeline_diagnostic(
-                        pipeline_diagnostic,
-                        structured_log=do_structured,
-                        run_id=run_id,
-                    )
-                print("No results")
-                return 0
-
-            split = cfg.sample_split
-            text = export.format_summary_text(
-                res,
-                str(split.get("in_start")),
-                str(split.get("in_end")),
-                str(split.get("out_start")),
-                str(split.get("out_end")),
-            )
-            print(text)
-            maybe_log_step(do_structured, run_id, "summary_render", "Printed summary text")
-
-            cache_stats = _extract_cache_stats(res)
-            if cache_stats:
-                print("\nCache statistics:")
-                print(f"  Entries: {cache_stats['entries']}")
-                print(f"  Hits: {cache_stats['hits']}")
-                print(f"  Misses: {cache_stats['misses']}")
-                print(f"  Incremental updates: {cache_stats['incremental_updates']}")
-                maybe_log_step(
-                    do_structured,
-                    run_id,
-                    "cache_stats",
-                    "Cache statistics summary",
-                    **cache_stats,
-                )
-
-            export_cfg = cfg.export
-            out_dir = export_cfg.get("directory")
-            out_formats = export_cfg.get("formats")
-            filename = export_cfg.get("filename", "analysis")
-            if not out_dir and not out_formats:
-                out_dir = DEFAULT_OUTPUT_DIRECTORY
-                out_formats = DEFAULT_OUTPUT_FORMATS
-            manifest_dir: Path | None = None
-            if out_dir and out_formats:
-                out_dir_path = Path(out_dir)
-                fmt_list = list(out_formats)
-                data = {"metrics": metrics_df}
-                if isinstance(res, Mapping):
-                    export.append_narrative_section(data, res, config=cfg)
-                maybe_log_step(
-                    do_structured,
-                    run_id,
-                    "export_start",
-                    "Beginning export",
-                    formats=fmt_list,
-                )
-                excel_requested = any(f.lower() in {"excel", "xlsx"} for f in fmt_list)
-                if excel_requested:
-                    sheet_formatter = export.make_summary_formatter(
-                        res,
-                        str(split.get("in_start")),
-                        str(split.get("in_end")),
-                        str(split.get("out_start")),
-                        str(split.get("out_end")),
-                    )
-                    data["summary"] = export.summary_frame_from_result(res)
-                    export.export_to_excel(
-                        data,
-                        str(out_dir_path / f"{filename}.xlsx"),
-                        default_sheet_formatter=sheet_formatter,
-                    )
-                    other = [f for f in fmt_list if f.lower() not in {"excel", "xlsx"}]
-                    target_formats = other if other else fmt_list
-                else:
-                    target_formats = fmt_list
-                export.export_data(
-                    data,
-                    str(out_dir_path / filename),
-                    formats=target_formats,
-                )
-                data_keys = list(data.keys())
-                artifact_paths = _resolve_artifact_paths(
-                    out_dir_path, filename, data_keys, fmt_list
-                )
-                maybe_log_step(
-                    do_structured,
-                    run_id,
-                    "export_complete",
-                    "Export finished",
-                )
-                config_payload: Any
-                if hasattr(cfg, "model_dump"):
-                    try:
-                        config_payload = cfg.model_dump()
-                    except TypeError:  # pragma: no cover - defensive for exotic configs
-                        config_payload = cfg.model_dump()
-                elif hasattr(cfg, "__dict__"):
-                    config_payload = dict(getattr(cfg, "__dict__"))
-                else:
-                    config_payload = cfg
-                try:
-                    manifest_dir = write_run_artifacts(
-                        output_dir=out_dir_path,
-                        run_id=run_id,
-                        config=config_payload,
-                        config_path=args.config,
-                        input_path=Path(args.input),
-                        data_frame=df,
-                        metrics_frame=metrics_df,
-                        run_details=res if isinstance(res, Mapping) else {},
-                        exported_files=artifact_paths,
-                        summary_text=text,
-                    )
-                except Exception as exc:  # pragma: no cover - defensive guard
-                    logging.getLogger(__name__).warning("Failed to write run artifacts: %s", exc)
-                else:
-                    maybe_log_step(
-                        do_structured,
-                        run_id,
-                        "run_artifacts",
-                        "Run manifest written",
-                        directory=str(manifest_dir),
-                    )
-
-            # Optional bundle export (reproducibility manifest + hashes)
-            if args.bundle:
-                from .api import RunResult as _RR
-                from .export.bundle import export_bundle
-
-                bundle_path = Path(args.bundle)
-                if bundle_path.is_dir():
-                    bundle_path = bundle_path / "analysis_bundle.zip"
-                # Build a minimal RunResult-like shim if we executed legacy path
-                rr = locals().get("run_result")
-                if rr is None:  # legacy path
-                    env = {
-                        "python": sys.version.split()[0],
-                        "numpy": np.__version__,
-                        "pandas": pd.__version__,
-                    }
-                    rr = _RR(metrics_df, res, run_seed, env)
-                # Attach config + seed for export_bundle
-                setattr(rr, "config", getattr(cfg, "__dict__", {}))
-                setattr(rr, "input_path", Path(args.input))
-                export_bundle(rr, bundle_path)
-                print(f"Bundle written: {bundle_path}")
-                maybe_log_step(
-                    do_structured,
-                    run_id,
-                    "bundle_complete",
-                    "Reproducibility bundle written",
-                    bundle=str(bundle_path),
-                )
-            maybe_log_step(
-                do_structured,
-                run_id,
-                "end",
-                "CLI run complete",
-                log_file=str(log_path),
-            )
-            return 0
         finally:
             if coverage_tracker is not None:
                 print(coverage_tracker.format_report())
                 deactivate_config_coverage()
+
+    if args.command == "run-ui":
+        print(
+            "WARNING: 'trend-model run-ui' is deprecated. "
+            "Use 'trend-model run' with the same --params JSON file instead.",
+            file=sys.stderr,
+        )
+        return _run_from_ui_payload(
+            params_path=Path(args.params),
+            data_path=Path(args.data),
+            auto_fix_dates=args.auto_fix_dates,
+            yes=args.yes,
+            no_cache=args.no_cache,
+            log_file=Path(args.log_file) if args.log_file else None,
+            structured_log=not args.no_structured_log,
+            bundle=Path(args.bundle) if args.bundle else None,
+        )
 
     # This shouldn't be reached with required=True.
     return 0
