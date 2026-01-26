@@ -1,6 +1,6 @@
 version: 1
 issue: 4453
-base: main
+base: phase-3
 branch: codex/issue-4453
 tasks:
   - id: task-01
