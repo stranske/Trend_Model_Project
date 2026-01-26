@@ -221,7 +221,9 @@ class MarketDataMetadata(BaseModel):
     missing_policy_limit: Optional[int] = None
     missing_policy_overrides: Dict[str, str] = Field(default_factory=dict)
     missing_policy_limits: Dict[str, Optional[int]] = Field(default_factory=dict)
-    missing_policy_filled: Dict[str, MissingPolicyFillDetails] = Field(default_factory=dict)
+    missing_policy_filled: Dict[str, MissingPolicyFillDetails] = Field(
+        default_factory=dict
+    )
     missing_policy_dropped: List[str] = Field(default_factory=list)
     missing_policy_summary: Optional[str] = None
 
@@ -282,7 +284,9 @@ def _normalise_policy_value(value: str | None) -> str:
     policy = (value or _DEFAULT_MISSING_POLICY).strip().lower()
     if policy not in _VALID_MISSING_POLICIES:
         allowed = ", ".join(sorted(_VALID_MISSING_POLICIES))
-        raise ValueError(f"Unknown missing-data policy '{value}'. Choose one of {allowed}.")
+        raise ValueError(
+            f"Unknown missing-data policy '{value}'. Choose one of {allowed}."
+        )
     return policy
 
 
@@ -308,7 +312,8 @@ def _build_policy_maps(
         raw_policy = {str(k): v for k, v in policy.items()}
         default_policy = _normalise_policy_value(raw_policy.get("*"))
         policy_map = {
-            col: _normalise_policy_value(raw_policy.get(col, default_policy)) for col in cols
+            col: _normalise_policy_value(raw_policy.get(col, default_policy))
+            for col in cols
         }
     else:
         default_policy = _normalise_policy_value(policy)
@@ -317,7 +322,9 @@ def _build_policy_maps(
     if isinstance(limit, Mapping):
         raw_limit = {str(k): v for k, v in limit.items()}
         default_limit = _coerce_limit_value(raw_limit.get("*"))
-        limit_map = {col: _coerce_limit_value(raw_limit.get(col, default_limit)) for col in cols}
+        limit_map = {
+            col: _coerce_limit_value(raw_limit.get(col, default_limit)) for col in cols
+        }
     else:
         default_limit = _coerce_limit_value(limit)
         limit_map = {col: default_limit for col in cols}
@@ -393,12 +400,16 @@ def apply_missing_policy(
                 dropped.append(column)
                 continue
             result[column] = filled_series
-            filled[column] = MissingPolicyFillDetails(method="ffill", count=missing_total)
+            filled[column] = MissingPolicyFillDetails(
+                method="ffill", count=missing_total
+            )
             continue
 
         if col_policy == "zero":
             result[column] = series.fillna(0.0)
-            filled[column] = MissingPolicyFillDetails(method="zero", count=missing_total)
+            filled[column] = MissingPolicyFillDetails(
+                method="zero", count=missing_total
+            )
             continue
 
         raise ValueError(f"Unhandled missing-data policy '{col_policy}'.")
@@ -457,7 +468,9 @@ def _summarise_missing_policy(info: Mapping[str, Any]) -> str:
 
     parts = [f"policy={policy}", limit_text]
     if overrides:
-        overrides_text = ", ".join(f"{col}:{val}" for col, val in sorted(overrides.items()))
+        overrides_text = ", ".join(
+            f"{col}:{val}" for col, val in sorted(overrides.items())
+        )
         parts.append(f"overrides={overrides_text}")
     if filled_chunks:
         parts.append("filled=" + ", ".join(sorted(filled_chunks)))
@@ -647,7 +660,9 @@ def _resolve_datetime_index(
             preview = ", ".join(sample_values[:5])
             if len(sample_values) > 5:
                 preview += " …"
-            issues = [f"Found dates that could not be parsed. Examples: {preview or 'n/a'}."]
+            issues = [
+                f"Found dates that could not be parsed. Examples: {preview or 'n/a'}."
+            ]
             raise MarketDataValidationError(_format_issues(issues), issues) from exc
         if parsed.isna().any():
             bad_values = working.loc[parsed.isna(), date_col].astype(str).tolist()
@@ -833,10 +848,11 @@ def validate_market_data(
     source: str | None = None,
     missing_policy: str | Mapping[str, str] | None = None,
     missing_limit: int | Mapping[str, int | None] | None = None,
+    auto_fix_dates: bool = True,
 ) -> ValidatedMarketData:
     """Validate market data according to the ingest contract."""
 
-    frame = _resolve_datetime_index(data, source=source)
+    frame = _resolve_datetime_index(data, source=source, auto_fix_dates=auto_fix_dates)
     issues = _check_monotonic_index(frame.index)
     if issues:
         raise MarketDataValidationError(_format_issues(issues), issues)
@@ -859,7 +875,9 @@ def validate_market_data(
         raise MarketDataValidationError(_format_issues(issues), issues)
 
     limit_candidates = [
-        value for value in policy_info.get("limit_map", {}).values() if value is not None
+        value
+        for value in policy_info.get("limit_map", {}).values()
+        if value is not None
     ]
     max_gap_limit = max(limit_candidates) if limit_candidates else None
 
@@ -963,7 +981,11 @@ def attach_metadata(frame: pd.DataFrame, metadata: MarketDataMetadata) -> pd.Dat
             "missing_policy_overrides": dict(metadata.missing_policy_overrides),
             "missing_policy_limits": dict(metadata.missing_policy_limits),
             "missing_policy_filled": {
-                column: (details.model_dump() if hasattr(details, "model_dump") else dict(details))
+                column: (
+                    details.model_dump()
+                    if hasattr(details, "model_dump")
+                    else dict(details)
+                )
                 for column, details in metadata.missing_policy_filled.items()
             },
             "missing_policy_dropped": list(metadata.missing_policy_dropped),
