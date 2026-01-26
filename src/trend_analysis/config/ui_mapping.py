@@ -41,9 +41,7 @@ def month_end(ts: pd.Timestamp) -> pd.Timestamp:
     return period.to_timestamp("M", how="end")
 
 
-def build_sample_split(
-    index: pd.DatetimeIndex, config: Mapping[str, Any]
-) -> dict[str, str]:
+def build_sample_split(index: pd.DatetimeIndex, config: Mapping[str, Any]) -> dict[str, str]:
     if index.empty:
         raise ValueError("Dataset is empty")
 
@@ -208,13 +206,10 @@ def normalise_metric_weights(raw: Mapping[str, Any]) -> dict[str, float]:
 def build_portfolio_config(
     config: Mapping[str, Any], weights: Mapping[str, float]
 ) -> dict[str, Any]:
-    selection_count = coerce_positive_int(
-        config.get("selection_count"), default=10, minimum=1
-    )
+    selection_count = coerce_positive_int(config.get("selection_count"), default=10, minimum=1)
     weighting_scheme = str(config.get("weighting_scheme", "equal") or "equal")
     registry_weights = {
-        METRIC_REGISTRY.get(metric, metric): float(weight)
-        for metric, weight in weights.items()
+        METRIC_REGISTRY.get(metric, metric): float(weight) for metric, weight in weights.items()
     }
 
     max_weight = coerce_positive_float(config.get("max_weight"), default=0.20)
@@ -224,9 +219,7 @@ def build_portfolio_config(
     )
     rebalance_freq = str(config.get("rebalance_freq", "M") or "M")
 
-    min_tenure_periods = coerce_positive_int(
-        config.get("min_tenure_periods"), default=0, minimum=0
-    )
+    min_tenure_periods = coerce_positive_int(config.get("min_tenure_periods"), default=0, minimum=0)
     max_changes_per_period = coerce_positive_int(
         config.get("max_changes_per_period"), default=0, minimum=0
     )
@@ -324,28 +317,20 @@ def build_config_from_ui_state(
 
     vol_adjust_enabled = bool(model_state.get("vol_adjust_enabled", True))
     vol_floor = coerce_positive_float(model_state.get("vol_floor"), default=0.015)
-    warmup_periods = coerce_positive_int(
-        model_state.get("warmup_periods"), default=0, minimum=0
-    )
+    warmup_periods = coerce_positive_int(model_state.get("warmup_periods"), default=0, minimum=0)
     vol_window_length = coerce_positive_int(
         model_state.get("vol_window_length"), default=63, minimum=1
     )
-    vol_window_decay = str(
-        model_state.get("vol_window_decay", "ewma") or "ewma"
-    ).lower()
+    vol_window_decay = str(model_state.get("vol_window_decay", "ewma") or "ewma").lower()
     if vol_window_decay == "constant":
         vol_window_decay = "simple"
     if vol_window_decay not in {"ewma", "simple"}:
         vol_window_decay = "ewma"
-    vol_ewma_lambda = coerce_positive_float(
-        model_state.get("vol_ewma_lambda"), default=0.94
-    )
+    vol_ewma_lambda = coerce_positive_float(model_state.get("vol_ewma_lambda"), default=0.94)
     if not (0.0 < vol_ewma_lambda < 1.0):
         vol_ewma_lambda = 0.94
     rf_override_enabled = bool(model_state.get("rf_override_enabled", False))
-    rf_rate_annual = coerce_positive_float(
-        model_state.get("rf_rate_annual"), default=0.0
-    )
+    rf_rate_annual = coerce_positive_float(model_state.get("rf_rate_annual"), default=0.0)
 
     trend_spec = {
         "window": model_state.get("trend_window"),
@@ -359,16 +344,12 @@ def build_config_from_ui_state(
 
     portfolio_cfg = build_portfolio_config(model_state, weights)
 
-    mp_max_funds = coerce_positive_int(
-        model_state.get("mp_max_funds"), default=0, minimum=0
-    )
+    mp_max_funds = coerce_positive_int(model_state.get("mp_max_funds"), default=0, minimum=0)
     if mp_max_funds > 0:
         portfolio_cfg.setdefault("constraints", {})
         portfolio_cfg["constraints"]["max_funds"] = mp_max_funds
 
-    mp_min_funds = coerce_positive_int(
-        model_state.get("mp_min_funds"), default=0, minimum=0
-    )
+    mp_min_funds = coerce_positive_int(model_state.get("mp_min_funds"), default=0, minimum=0)
     if mp_min_funds > 0:
         portfolio_cfg.setdefault("constraints", {})
         portfolio_cfg["constraints"]["min_funds"] = mp_min_funds
@@ -379,16 +360,12 @@ def build_config_from_ui_state(
         portfolio_cfg.setdefault("constraints", {})
         portfolio_cfg["constraints"]["min_weight"] = min_weight
 
-    min_weight_strikes = coerce_positive_int(
-        model_state.get("min_weight_strikes"), default=0
-    )
+    min_weight_strikes = coerce_positive_int(model_state.get("min_weight_strikes"), default=0)
     if min_weight_strikes > 0:
         portfolio_cfg.setdefault("constraints", {})
         portfolio_cfg["constraints"]["min_weight_strikes"] = min_weight_strikes
 
-    cooldown_periods = coerce_positive_int(
-        model_state.get("cooldown_periods"), default=0
-    )
+    cooldown_periods = coerce_positive_int(model_state.get("cooldown_periods"), default=0)
     if cooldown_periods > 0:
         portfolio_cfg["cooldown_periods"] = cooldown_periods
 
@@ -416,9 +393,7 @@ def build_config_from_ui_state(
     }
 
     shrinkage_enabled = bool(model_state.get("shrinkage_enabled", True))
-    shrinkage_method = str(
-        model_state.get("shrinkage_method", "ledoit_wolf") or "ledoit_wolf"
-    )
+    shrinkage_method = str(model_state.get("shrinkage_method", "ledoit_wolf") or "ledoit_wolf")
 
     robustness_cfg = {
         "shrinkage": {
@@ -427,9 +402,7 @@ def build_config_from_ui_state(
         },
     }
 
-    condition_threshold = float(
-        model_state.get("condition_threshold", 1.0e12) or 1.0e12
-    )
+    condition_threshold = float(model_state.get("condition_threshold", 1.0e12) or 1.0e12)
     safe_mode = str(model_state.get("safe_mode", "hrp") or "hrp")
     robustness_cfg["condition_check"] = {
         "enabled": True,
@@ -457,22 +430,17 @@ def build_config_from_ui_state(
         "entry_soft_strikes": entry_soft_strikes,
     }
 
-    selection_count = coerce_positive_int(
-        model_state.get("selection_count"), default=10
-    )
+    selection_count = coerce_positive_int(model_state.get("selection_count"), default=10)
     threshold_hold_cfg["metric"] = "blended"
     threshold_hold_cfg["blended_weights"] = {
-        METRIC_REGISTRY.get(metric, metric): float(weight)
-        for metric, weight in weights.items()
+        METRIC_REGISTRY.get(metric, metric): float(weight) for metric, weight in weights.items()
     }
     threshold_hold_cfg["target_n"] = selection_count
     if z_entry_hard is not None:
         threshold_hold_cfg["z_entry_hard"] = z_entry_hard
     if z_exit_hard is not None:
         threshold_hold_cfg["z_exit_hard"] = z_exit_hard
-    min_tenure_periods = coerce_positive_int(
-        model_state.get("min_tenure_periods"), default=0
-    )
+    min_tenure_periods = coerce_positive_int(model_state.get("min_tenure_periods"), default=0)
     if min_tenure_periods > 0:
         threshold_hold_cfg["min_tenure_n"] = min_tenure_periods
 
@@ -485,9 +453,7 @@ def build_config_from_ui_state(
     multi_period_enabled = bool(model_state.get("multi_period_enabled", False))
     multi_period_cfg = None
     if multi_period_enabled:
-        multi_period_frequency = str(
-            model_state.get("multi_period_frequency", "A") or "A"
-        )
+        multi_period_frequency = str(model_state.get("multi_period_frequency", "A") or "A")
         in_sample_len = coerce_positive_int(
             model_state.get("lookback_periods")
             or model_state.get("in_sample_years")

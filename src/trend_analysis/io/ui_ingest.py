@@ -168,9 +168,7 @@ def _raise_date_issue(result: DateCorrectionResult, *, auto_fix_dates: bool) -> 
     if total_fixable > 0:
         issues.append(f"{total_fixable} row(s) can be auto-corrected.")
     if result.unfixable:
-        preview = ", ".join(
-            f"row {row + 1}: {val!r}" for row, val in result.unfixable[:3]
-        )
+        preview = ", ".join(f"row {row + 1}: {val!r}" for row, val in result.unfixable[:3])
         issues.append(f"Unfixable dates detected ({preview}).")
 
     if auto_fix_dates:

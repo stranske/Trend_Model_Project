@@ -51,9 +51,7 @@ class DateCorrectionResult:
 
     @property
     def all_fixable(self) -> bool:
-        has_any_fix = (
-            self.has_corrections or self.has_trailing_empty or self.has_droppable_empty
-        )
+        has_any_fix = self.has_corrections or self.has_trailing_empty or self.has_droppable_empty
         return has_any_fix and not self.has_unfixable
 
 
@@ -120,9 +118,7 @@ def _try_correct_date(value: str) -> tuple[str, str] | None:
         if day > last_day and day <= last_day + 3:
             corrected = formatter(year, month, last_day)
             month_name = calendar.month_name[month]
-            explanation = (
-                f"{month_name} {year} has {last_day} days; corrected {day} → {last_day}"
-            )
+            explanation = f"{month_name} {year} has {last_day} days; corrected {day} → {last_day}"
             return corrected, explanation
 
         if day < 1:
@@ -251,15 +247,11 @@ def format_corrections_for_display(
                 f"({c.explanation})"
             )
         if len(corrections) > max_display:
-            lines.append(
-                f"• ... and {len(corrections) - max_display} more date corrections"
-            )
+            lines.append(f"• ... and {len(corrections) - max_display} more date corrections")
 
     if droppable_rows:
         if len(droppable_rows) == 1:
-            lines.append(
-                f"• Row {droppable_rows[0] + 1}: Empty/NaN date (will be removed)"
-            )
+            lines.append(f"• Row {droppable_rows[0] + 1}: Empty/NaN date (will be removed)")
         elif len(droppable_rows) <= 5:
             row_nums = ", ".join(str(r + 1) for r in droppable_rows)
             lines.append(
