@@ -130,9 +130,7 @@ def test_check_environment_success(tmp_path, monkeypatch, capsys):
 
 def test_maybe_log_step(monkeypatch):
     calls: list[tuple] = []
-    monkeypatch.setattr(
-        cli, "_log_step", lambda *args, **kwargs: calls.append((args, kwargs))
-    )
+    monkeypatch.setattr(cli, "_log_step", lambda *args, **kwargs: calls.append((args, kwargs)))
 
     cli.maybe_log_step(False, "run", "event", "message")
     cli.maybe_log_step(True, "run", "event", "message", extra=1)
@@ -212,12 +210,8 @@ def test_main_run_success(monkeypatch, tmp_path, capsys):
     )
     monkeypatch.setattr(cli, "run_simulation", lambda cfg_arg, frame: run_result)
 
-    monkeypatch.setattr(
-        cli.export, "format_summary_text", lambda *args, **kwargs: "Summary"
-    )
-    monkeypatch.setattr(
-        cli.export, "make_summary_formatter", lambda *args, **kwargs: lambda df: df
-    )
+    monkeypatch.setattr(cli.export, "format_summary_text", lambda *args, **kwargs: "Summary")
+    monkeypatch.setattr(cli.export, "make_summary_formatter", lambda *args, **kwargs: lambda df: df)
 
     excel_calls: list[tuple] = []
     data_calls: list[tuple] = []
@@ -233,12 +227,8 @@ def test_main_run_success(monkeypatch, tmp_path, capsys):
     )
 
     log_path = tmp_path / "logs.jsonl"
-    monkeypatch.setattr(
-        cli.run_logging, "get_default_log_path", lambda run_id: log_path
-    )
-    monkeypatch.setattr(
-        cli.run_logging, "init_run_logger", lambda *args, **kwargs: None
-    )
+    monkeypatch.setattr(cli.run_logging, "get_default_log_path", lambda run_id: log_path)
+    monkeypatch.setattr(cli.run_logging, "init_run_logger", lambda *args, **kwargs: None)
     monkeypatch.setattr(cli.run_logging, "log_step", lambda *args, **kwargs: None)
 
     bundle_target = tmp_path / "bundle.zip"
@@ -309,22 +299,16 @@ def test_main_run_uses_env_seed(monkeypatch, tmp_path):
             seed=cfg_arg.seed,
         ),
     )
-    monkeypatch.setattr(
-        cli.export, "format_summary_text", lambda *args, **kwargs: "Summary"
-    )
+    monkeypatch.setattr(cli.export, "format_summary_text", lambda *args, **kwargs: "Summary")
     monkeypatch.setattr(cli.export, "export_data", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         cli.run_logging, "get_default_log_path", lambda run_id: tmp_path / "log.jsonl"
     )
-    monkeypatch.setattr(
-        cli.run_logging, "init_run_logger", lambda *args, **kwargs: None
-    )
+    monkeypatch.setattr(cli.run_logging, "init_run_logger", lambda *args, **kwargs: None)
     monkeypatch.setattr(cli.run_logging, "log_step", lambda *args, **kwargs: None)
 
     monkeypatch.setattr(cli, "APP_PATH", Path("/tmp/app.py"))
-    monkeypatch.setattr(
-        cli.subprocess, "run", lambda args: SimpleNamespace(returncode=0)
-    )
+    monkeypatch.setattr(cli.subprocess, "run", lambda args: SimpleNamespace(returncode=0))
 
     monkeypatch.setenv("TREND_SEED", "7")
 
@@ -354,9 +338,7 @@ def test_main_run_unknown_preset(monkeypatch, capsys):
     )
     monkeypatch.setattr(cli, "list_trend_spec_presets", lambda: ["alpha", "beta"])
 
-    exit_code = cli.main(
-        ["run", "-c", "cfg.yml", "-i", "returns.csv", "--preset", "missing"]
-    )
+    exit_code = cli.main(["run", "-c", "cfg.yml", "-i", "returns.csv", "--preset", "missing"])
     captured = capsys.readouterr()
 
     assert exit_code == 2
@@ -399,9 +381,7 @@ def test_main_run_invalid_config_reports_validation(monkeypatch, capsys):
     monkeypatch.setattr(
         cli,
         "run_simulation",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
-            AssertionError("run should not run")
-        ),
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("run should not run")),
     )
 
     exit_code = cli.main(["run", "-c", "cfg.yml", "-i", "returns.csv"])

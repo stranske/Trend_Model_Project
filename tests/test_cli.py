@@ -280,9 +280,7 @@ def test_cli_run_legacy_bundle_and_exports(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(
         cli.export,
         "make_summary_formatter",
-        lambda res, *periods: (
-            formatter_calls.append((res, tuple(periods))) or object()
-        ),
+        lambda res, *periods: (formatter_calls.append((res, tuple(periods))) or object()),
     )
 
     excel_calls: list[tuple[dict, Path, object]] = []
@@ -298,9 +296,7 @@ def test_cli_run_legacy_bundle_and_exports(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(
         cli.export,
         "export_data",
-        lambda data, path, formats: data_calls.append(
-            (data, Path(path), tuple(formats))
-        ),
+        lambda data, path, formats: data_calls.append((data, Path(path), tuple(formats))),
     )
 
     bundle_calls: dict[str, object] = {}
@@ -309,9 +305,7 @@ def test_cli_run_legacy_bundle_and_exports(tmp_path, capsys, monkeypatch):
         bundle_calls["rr"] = rr
         bundle_calls["path"] = path
 
-    monkeypatch.setattr(
-        "trend_analysis.export.bundle.export_bundle", fake_export_bundle
-    )
+    monkeypatch.setattr("trend_analysis.export.bundle.export_bundle", fake_export_bundle)
 
     rc = cli.main(
         [
@@ -328,9 +322,7 @@ def test_cli_run_legacy_bundle_and_exports(tmp_path, capsys, monkeypatch):
 
     assert rc == 0
     assert "Bundle written" in out
-    assert formatter_calls == [
-        (results_payload, ("2020-01-01", "None", "None", "None"))
-    ]
+    assert formatter_calls == [(results_payload, ("2020-01-01", "None", "None", "None"))]
     assert excel_calls and excel_calls[0][1] == tmp_path / "report.xlsx"
     excel_payload, _, _ = excel_calls[0]
     assert excel_payload["metrics"] is metrics_df
@@ -374,9 +366,7 @@ def test_cli_run_modern_bundle_attaches_payload(tmp_path, capsys, monkeypatch):
     )
 
     metrics_df = pd.DataFrame({"Return": [0.05]})
-    portfolio_series = pd.Series(
-        [0.1, 0.2], index=pd.Index(["2020-01", "2020-02"]), name="user"
-    )
+    portfolio_series = pd.Series([0.1, 0.2], index=pd.Index(["2020-01", "2020-02"]), name="user")
 
     class TruthySeries:
         def __init__(self, series: pd.Series):
@@ -395,9 +385,7 @@ def test_cli_run_modern_bundle_attaches_payload(tmp_path, capsys, monkeypatch):
         "portfolio_user_weight": 0,
         "portfolio_equal_weight": TruthySeries(portfolio_series),
         "benchmarks": {
-            "bench": pd.Series(
-                [0.3, 0.4], index=pd.Index(["2020-01", "2020-02"]), name="bench"
-            )
+            "bench": pd.Series([0.3, 0.4], index=pd.Index(["2020-01", "2020-02"]), name="bench")
         },
         "weights_user_weight": pd.DataFrame({"w": [1.0]}, index=["fund"]),
     }
@@ -424,9 +412,7 @@ def test_cli_run_modern_bundle_attaches_payload(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(
         cli.export,
         "export_to_excel",
-        lambda *a, **k: (_ for _ in ()).throw(
-            AssertionError("unexpected excel export")
-        ),
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("unexpected excel export")),
     )
 
     bundle_calls: dict[str, object] = {}
@@ -435,9 +421,7 @@ def test_cli_run_modern_bundle_attaches_payload(tmp_path, capsys, monkeypatch):
         bundle_calls["rr"] = rr
         bundle_calls["path"] = path
 
-    monkeypatch.setattr(
-        "trend_analysis.export.bundle.export_bundle", fake_export_bundle
-    )
+    monkeypatch.setattr("trend_analysis.export.bundle.export_bundle", fake_export_bundle)
 
     monkeypatch.chdir(tmp_path)
     rc = cli.main(
@@ -518,9 +502,7 @@ def test_cli_run_env_seed_and_default_exports(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(
         cli.export,
         "export_data",
-        lambda data, path, formats: data_calls.append(
-            (data, Path(path), tuple(formats))
-        ),
+        lambda data, path, formats: data_calls.append((data, Path(path), tuple(formats))),
     )
 
     monkeypatch.setattr(
@@ -585,12 +567,8 @@ def test_cli_run_uses_env_seed_and_populates_run_result(tmp_path, capsys, monkey
     )
 
     metrics_df = pd.DataFrame({"Sharpe": [1.0]}, index=["A"])
-    portfolio_series = pd.Series(
-        [0.1, 0.2], index=pd.Index(["2020-01", "2020-02"]), name="user"
-    )
-    benchmark_series = pd.Series(
-        [0.05], index=pd.Index(["2020-01"], name="month"), name="bench"
-    )
+    portfolio_series = pd.Series([0.1, 0.2], index=pd.Index(["2020-01", "2020-02"]), name="user")
+    benchmark_series = pd.Series([0.05], index=pd.Index(["2020-01"], name="month"), name="bench")
     weights_df = pd.DataFrame({"A": [0.6], "B": [0.4]})
 
     cache_first = {
@@ -663,9 +641,7 @@ def test_cli_run_uses_env_seed_and_populates_run_result(tmp_path, capsys, monkey
     monkeypatch.setattr(
         cli.export,
         "export_data",
-        lambda data, path, formats: data_calls.append(
-            (data, Path(path), tuple(formats))
-        ),
+        lambda data, path, formats: data_calls.append((data, Path(path), tuple(formats))),
     )
 
     bundle_calls: list[tuple] = []
