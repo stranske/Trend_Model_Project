@@ -115,7 +115,7 @@ STYLE GUIDELINES:
 - Use clear A/B framing (Simulation A vs Simulation B).
 
 Include this disclaimer verbatim at the end:
-"This is analytical output, not financial advice. Always verify metrics independently."
+This is analytical output, not financial advice. Always verify metrics independently.
 """
 
 DEFAULT_SAFETY_RULES = (
@@ -231,8 +231,8 @@ def build_result_summary_prompt(
 
 def build_comparison_prompt(
     *,
-    analysis_output: str,
-    metric_catalog: str,
+    analysis_output: str | tuple[str, str] | list[str],
+    metric_catalog: str | tuple[str, str] | list[str],
     questions: str,
     system_prompt: str | None = None,
     safety_rules: Iterable[str] | None = None,
@@ -242,14 +242,25 @@ def build_comparison_prompt(
     system_text = (system_prompt or DEFAULT_COMPARISON_SYSTEM_PROMPT).strip()
     rules = list(safety_rules or DEFAULT_COMPARISON_RULES)
     safety_text = "\n".join(f"- {rule}" for rule in rules)
+    output_a, output_b = _coerce_pair(analysis_output)
+    metrics_a, metrics_b = _coerce_pair(metric_catalog)
     sections = [
         _format_section(SECTION_COMPARISON_SYSTEM, system_text),
-        _format_section(SECTION_COMPARISON_RESULT_A, analysis_output.strip()),
-        _format_section(SECTION_COMPARISON_METRICS_A, metric_catalog.strip()),
+        _format_section(SECTION_COMPARISON_RESULT_A, output_a.strip()),
+        _format_section(SECTION_COMPARISON_RESULT_B, output_b.strip()),
+        _format_section(SECTION_COMPARISON_METRICS_A, metrics_a.strip()),
+        _format_section(SECTION_COMPARISON_METRICS_B, metrics_b.strip()),
         _format_section(SECTION_COMPARISON_RULES, safety_text),
         _format_section(SECTION_COMPARISON_QUESTIONS, questions.strip()),
     ]
     return "\n\n".join(sections).strip()
+
+
+def _coerce_pair(value: str | tuple[str, str] | list[str]) -> tuple[str, str]:
+    if isinstance(value, (list, tuple)) and len(value) >= 2:
+        return str(value[0]), str(value[1])
+    text = str(value)
+    return text, ""
 
 
 def _format_section(title: str, body: str) -> str:

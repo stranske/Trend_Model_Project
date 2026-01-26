@@ -66,7 +66,7 @@ def _render_analysis_output(details: Mapping[str, Any], label: str) -> str:
 
         summary = summary_frame_from_result(details)
     except Exception:
-        summary = pd.DataFrame()
+        pass
     if not summary.empty:
         parts.append(summary.to_string(index=False))
     else:
@@ -77,7 +77,9 @@ def _render_analysis_output(details: Mapping[str, Any], label: str) -> str:
     return "\n".join(parts)
 
 
-def _prefix_metric_entries(entries: list[MetricEntry], prefix: str) -> list[MetricEntry]:
+def _prefix_metric_entries(
+    entries: list[MetricEntry], prefix: str
+) -> list[MetricEntry]:
     prefixed: list[MetricEntry] = []
     for entry in entries:
         prefixed.append(
@@ -146,16 +148,20 @@ def generate_comparison_explanation(
     prefixed_b = _prefix_metric_entries(compact_b, "B")
     combined_entries = prefixed_a + prefixed_b
 
-    metrics_a = format_metric_catalog(prefixed_a) if prefixed_a else "No metrics available."
-    metrics_b = format_metric_catalog(prefixed_b) if prefixed_b else "No metrics available."
+    metrics_a = (
+        format_metric_catalog(prefixed_a) if prefixed_a else "No metrics available."
+    )
+    metrics_b = (
+        format_metric_catalog(prefixed_b) if prefixed_b else "No metrics available."
+    )
 
-    analysis_output = "\n\n".join(
+    analysis_output_a = "\n\n".join(
         [
             _render_analysis_output(details_a, "A"),
-            _render_analysis_output(details_b, "B"),
             f"Configuration differences ({label_a} vs {label_b}):\n{config_diff or 'No differences found.'}",
         ]
     )
+    analysis_output_b = _render_analysis_output(details_b, "B")
 
     chain = _build_comparison_chain(
         provider,
@@ -165,12 +171,10 @@ def generate_comparison_explanation(
         organization=organization,
     )
     response: ResultSummaryResponse = chain.run(
-        analysis_output=analysis_output,
-        metric_catalog="\n\n".join(
-            [
-                f"Metrics A ({label_a}):\n{metrics_a}",
-                f"Metrics B ({label_b}):\n{metrics_b}",
-            ]
+        analysis_output=(analysis_output_a, analysis_output_b),
+        metric_catalog=(
+            f"Metrics A ({label_a}):\n{metrics_a}",
+            f"Metrics B ({label_b}):\n{metrics_b}",
         ),
         questions=questions or DEFAULT_COMPARISON_QUESTIONS,
         request_id=uuid4().hex,
@@ -227,14 +231,21 @@ def render_comparison_llm(
         org_key = f"comparison_llm_org::{run_key}"
 
         provider_default = (
-            st.session_state.get(provider_key) or os.environ.get("TREND_LLM_PROVIDER") or "openai"
+            st.session_state.get(provider_key)
+            or os.environ.get("TREND_LLM_PROVIDER")
+            or "openai"
         )
         provider_default = str(provider_default).lower()
 
+        providers = ["openai", "anthropic", "ollama"]
+        try:
+            provider_index = providers.index(provider_default)
+        except ValueError:
+            provider_index = 0
         st.selectbox(
             "Provider",
-            ["openai", "anthropic", "ollama"],
-            index=["openai", "anthropic", "ollama"].index(provider_default),
+            providers,
+            index=provider_index,
             key=provider_key,
             help="Defaults to TREND_LLM_PROVIDER if set; otherwise OpenAI.",
         )
@@ -287,7 +298,9 @@ def render_comparison_llm(
                 raw_key = st.session_state.get(api_key_key)
                 resolved_key = resolve_api_key_input(raw_key)
                 if not resolved_key:
-                    resolved_key = default_api_key(st.session_state.get(provider_key) or "openai")
+                    resolved_key = default_api_key(
+                        st.session_state.get(provider_key) or "openai"
+                    )
                 cached = generate_comparison_explanation(
                     details_a,
                     details_b,
