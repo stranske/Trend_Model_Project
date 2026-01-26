@@ -287,6 +287,26 @@ def test_postprocess_result_text_appends_discrepancy_log() -> None:
     assert "Discrepancy log:" in output
 
 
+def test_postprocess_result_text_skips_discrepancy_log_when_disabled() -> None:
+    entries = [
+        MetricEntry(
+            path="out_sample_stats.portfolio.cagr",
+            value=0.08,
+            source="out_sample_stats",
+        )
+    ]
+    text = "CAGR was 12%."
+
+    output, issues = postprocess_result_text(
+        text,
+        entries,
+        include_discrepancy_log=False,
+    )
+
+    assert issues
+    assert "Discrepancy log:" not in output
+
+
 def test_detect_unavailable_metric_requests_returns_missing_metrics() -> None:
     entries = [
         MetricEntry(

@@ -16,6 +16,7 @@ from streamlit_app.components import (
     analysis_runner,
     charts,
     comparison,
+    comparison_llm,
     explain_results,
 )
 from trend_analysis.util.weights import normalize_weights
@@ -230,61 +231,86 @@ def _render_comparison_results(
     result_b: Any,
     model_state_a: dict[str, Any],
     model_state_b: dict[str, Any],
+    *,
+    data_hash: str,
 ) -> None:
     """Render side-by-side comparison outputs."""
-
     st.caption(
         "Runs are cached by dataset fingerprint, selected funds, benchmark, and configuration."
     )
-
-    metrics = comparison.metric_delta_frame(
-        result_a, result_b, label_a=config_a_name, label_b=config_b_name
-    )
-    st.subheader("Top-level metrics")
-    if metrics.empty:
-        st.caption("No comparable metrics available.")
-    else:
-        st.dataframe(metrics, use_container_width=True, hide_index=True)
-
-    period_delta = comparison.period_delta(
-        result_a, result_b, label_a=config_a_name, label_b=config_b_name
-    )
-    st.subheader("Multi-period summary")
-    if period_delta.empty:
-        st.caption("No period-level results available to compare.")
-    else:
-        st.dataframe(period_delta, use_container_width=True, hide_index=True)
-
-    mgr_delta = comparison.manager_change_delta(
-        result_a, result_b, label_a=config_a_name, label_b=config_b_name
-    )
-    st.subheader("Manager change counts by reason")
-    if mgr_delta.empty:
-        st.caption("No manager changes recorded in either run.")
-    else:
-        st.dataframe(mgr_delta, use_container_width=True, hide_index=True)
 
     diffs = app_state.diff_model_states(model_state_a, model_state_b)
     diff_text = app_state.format_model_state_diff(
         diffs, label_a=config_a_name, label_b=config_b_name
     )
-    bundle = comparison.build_comparison_bundle(
-        config_a=model_state_a,
-        config_b=model_state_b,
-        diff_text=diff_text,
-        metrics=metrics,
-        periods=period_delta,
-        manager_changes=mgr_delta,
+    run_payload = json.dumps(
+        {
+            "a": model_state_a,
+            "b": model_state_b,
+            "labels": [config_a_name, config_b_name],
+            "data_hash": data_hash,
+        },
+        sort_keys=True,
+        default=str,
     )
-    st.download_button(
-        "⬇️ Export comparison bundle",
-        data=bundle,
-        file_name="comparison_bundle.zip",
-        mime="application/zip",
-    )
-    st.caption(
-        "Bundle includes configs A/B, config diff text, and comparison CSVs for metrics, periods, and manager changes."
-    )
+    llm_run_key = hashlib.sha256(run_payload.encode("utf-8")).hexdigest()[:16]
+
+    tabs = st.tabs(["Overview", "LLM Analysis"])
+    with tabs[0]:
+        metrics = comparison.metric_delta_frame(
+            result_a, result_b, label_a=config_a_name, label_b=config_b_name
+        )
+        st.subheader("Top-level metrics")
+        if metrics.empty:
+            st.caption("No comparable metrics available.")
+        else:
+            st.dataframe(metrics, use_container_width=True, hide_index=True)
+
+        period_delta = comparison.period_delta(
+            result_a, result_b, label_a=config_a_name, label_b=config_b_name
+        )
+        st.subheader("Multi-period summary")
+        if period_delta.empty:
+            st.caption("No period-level results available to compare.")
+        else:
+            st.dataframe(period_delta, use_container_width=True, hide_index=True)
+
+        mgr_delta = comparison.manager_change_delta(
+            result_a, result_b, label_a=config_a_name, label_b=config_b_name
+        )
+        st.subheader("Manager change counts by reason")
+        if mgr_delta.empty:
+            st.caption("No manager changes recorded in either run.")
+        else:
+            st.dataframe(mgr_delta, use_container_width=True, hide_index=True)
+
+        bundle = comparison.build_comparison_bundle(
+            config_a=model_state_a,
+            config_b=model_state_b,
+            diff_text=diff_text,
+            metrics=metrics,
+            periods=period_delta,
+            manager_changes=mgr_delta,
+        )
+        st.download_button(
+            "⬇️ Export comparison bundle",
+            data=bundle,
+            file_name="comparison_bundle.zip",
+            mime="application/zip",
+        )
+        st.caption(
+            "Bundle includes configs A/B, config diff text, and comparison CSVs for metrics, periods, and manager changes."
+        )
+
+    with tabs[1]:
+        comparison_llm.render_comparison_llm(
+            result_a=result_a,
+            result_b=result_b,
+            label_a=config_a_name,
+            label_b=config_b_name,
+            config_diff=diff_text,
+            run_key=llm_run_key,
+        )
 
 
 def _prepare_equity_series(returns: pd.Series) -> pd.Series:
@@ -2332,6 +2358,7 @@ def render_results_page() -> None:
                             result_b,
                             saved_states[config_a_name],
                             saved_states[config_b_name],
+                            data_hash=data_hash,
                         )
 
 

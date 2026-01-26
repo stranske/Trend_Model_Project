@@ -18,6 +18,13 @@ SECTION_RESULT_OUTPUT = "ANALYSIS OUTPUT"
 SECTION_RESULT_METRICS = "METRIC CATALOG"
 SECTION_RESULT_QUESTIONS = "RESULT QUESTIONS"
 SECTION_RESULT_RULES = "RESULT SAFETY RULES"
+SECTION_COMPARISON_SYSTEM = "COMPARISON SYSTEM PROMPT"
+SECTION_COMPARISON_RESULT_A = "SIMULATION A OUTPUT"
+SECTION_COMPARISON_RESULT_B = "SIMULATION B OUTPUT"
+SECTION_COMPARISON_METRICS_A = "SIMULATION A METRICS"
+SECTION_COMPARISON_METRICS_B = "SIMULATION B METRICS"
+SECTION_COMPARISON_RULES = "COMPARISON SAFETY RULES"
+SECTION_COMPARISON_QUESTIONS = "COMPARISON QUESTIONS"
 
 DEFAULT_SYSTEM_PROMPT = """You are a configuration assistant for Trend Model.
 Your task is to read the user instruction and current configuration, then emit
@@ -77,6 +84,40 @@ Include this disclaimer verbatim at the end:
 "This is analytical output, not financial advice. Always verify metrics independently."
 """
 
+DEFAULT_COMPARISON_SYSTEM_PROMPT = """You are a quantitative investment analyst comparing two trend-following manager selection backtests.
+Your goal is to explain *why* the outcomes differ, grounding your reasoning in the parameter differences
+and the observed metrics for each simulation.
+
+ANALYSIS FRAMEWORK - Focus on differences and drivers:
+
+1. **Parameter Drivers**
+    - Which configuration changes most plausibly drive the outcome differences?
+    - Highlight the mechanisms: selection thresholds, ranking, constraints, or weighting.
+
+2. **Selection & Turnover Impact**
+    - How did the changes alter manager selection, turnover, and replacements?
+    - Are differences driven by entry/exit timing or persistent holdings?
+
+3. **Risk/Return Trade-offs**
+    - Compare how risk metrics (drawdown, volatility, turnover, transaction costs) shifted.
+    - Explain whether the changes improved risk-adjusted performance or just raw returns.
+
+4. **In-Sample vs Out-of-Sample Effects**
+    - Identify where in-sample gains failed to translate to out-of-sample results (or vice versa).
+    - Flag possible overfitting or regime sensitivity.
+
+5. **Next Tests**
+    - Recommend follow-up parameter tweaks or diagnostics to validate the observed differences.
+
+STYLE GUIDELINES:
+- Prioritize causal reasoning tied to configuration differences.
+- Do not restate full metric tables; cite only key values that support your conclusions.
+- Use clear A/B framing (Simulation A vs Simulation B).
+
+Include this disclaimer verbatim at the end:
+This is analytical output, not financial advice. Always verify metrics independently.
+"""
+
 DEFAULT_SAFETY_RULES = (
     "Use only keys that exist in the allowed schema or current config.",
     "Do not invent new keys or aliases; unknown keys must be explicitly flagged in the summary.",
@@ -96,6 +137,14 @@ DEFAULT_RESULT_RULES = (
     "Compare against equal-weight baseline when available to assess selection value.",
     "If critical data is missing, note what additional analysis would be needed.",
     "Prioritize actionable observations over comprehensive metric listing.",
+)
+
+DEFAULT_COMPARISON_RULES = (
+    "Ground all claims in the provided metrics and configuration differences.",
+    "Cite only key values that explain deltas; avoid listing every number.",
+    "Focus on causal explanations tied to parameter changes.",
+    "Call out uncertainty when differences cannot be attributed confidently.",
+    "If critical data is missing, note what additional analysis would be needed.",
 )
 
 
@@ -180,6 +229,40 @@ def build_result_summary_prompt(
     return "\n\n".join(sections).strip()
 
 
+def build_comparison_prompt(
+    *,
+    analysis_output: str | tuple[str, str] | list[str],
+    metric_catalog: str | tuple[str, str] | list[str],
+    questions: str,
+    system_prompt: str | None = None,
+    safety_rules: Iterable[str] | None = None,
+) -> str:
+    """Build the prompt text for comparing two simulation outputs."""
+
+    system_text = (system_prompt or DEFAULT_COMPARISON_SYSTEM_PROMPT).strip()
+    rules = list(safety_rules or DEFAULT_COMPARISON_RULES)
+    safety_text = "\n".join(f"- {rule}" for rule in rules)
+    output_a, output_b = _coerce_pair(analysis_output)
+    metrics_a, metrics_b = _coerce_pair(metric_catalog)
+    sections = [
+        _format_section(SECTION_COMPARISON_SYSTEM, system_text),
+        _format_section(SECTION_COMPARISON_RESULT_A, output_a.strip()),
+        _format_section(SECTION_COMPARISON_RESULT_B, output_b.strip()),
+        _format_section(SECTION_COMPARISON_METRICS_A, metrics_a.strip()),
+        _format_section(SECTION_COMPARISON_METRICS_B, metrics_b.strip()),
+        _format_section(SECTION_COMPARISON_RULES, safety_text),
+        _format_section(SECTION_COMPARISON_QUESTIONS, questions.strip()),
+    ]
+    return "\n\n".join(sections).strip()
+
+
+def _coerce_pair(value: str | tuple[str, str] | list[str]) -> tuple[str, str]:
+    if isinstance(value, (list, tuple)) and len(value) >= 2:
+        return str(value[0]), str(value[1])
+    text = str(value)
+    return text, ""
+
+
 def _format_section(title: str, body: str) -> str:
     return f"## {title}\n{body}".strip()
 
@@ -196,12 +279,22 @@ __all__ = [
     "SECTION_RESULT_METRICS",
     "SECTION_RESULT_QUESTIONS",
     "SECTION_RESULT_RULES",
+    "SECTION_COMPARISON_SYSTEM",
+    "SECTION_COMPARISON_RESULT_A",
+    "SECTION_COMPARISON_RESULT_B",
+    "SECTION_COMPARISON_METRICS_A",
+    "SECTION_COMPARISON_METRICS_B",
+    "SECTION_COMPARISON_RULES",
+    "SECTION_COMPARISON_QUESTIONS",
     "DEFAULT_SYSTEM_PROMPT",
     "DEFAULT_RESULT_SYSTEM_PROMPT",
+    "DEFAULT_COMPARISON_SYSTEM_PROMPT",
     "DEFAULT_SAFETY_RULES",
     "DEFAULT_RESULT_RULES",
+    "DEFAULT_COMPARISON_RULES",
     "format_config_for_prompt",
     "build_config_patch_prompt",
     "build_retry_prompt",
     "build_result_summary_prompt",
+    "build_comparison_prompt",
 ]

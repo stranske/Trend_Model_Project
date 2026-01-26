@@ -140,6 +140,7 @@ def postprocess_result_text(
     *,
     logger: logging.Logger | None = None,
     tolerance: float = 1e-4,
+    include_discrepancy_log: bool = True,
 ) -> tuple[str, list[ResultClaimIssue]]:
     """Apply citations, validate claims, and append discrepancy logs."""
 
@@ -148,7 +149,9 @@ def postprocess_result_text(
         return output, []
     cited_text = apply_metric_citations(text, entries, tolerance=tolerance)
     issues = validate_result_claims(cited_text, entries, logger=logger, tolerance=tolerance)
-    output = append_discrepancy_log(cited_text, issues)
+    output = cited_text
+    if include_discrepancy_log:
+        output = append_discrepancy_log(output, issues)
     output = ensure_result_disclaimer(output)
     return output, issues
 
