@@ -1,0 +1,409 @@
+version: 1
+issue: 4548
+base: phase-3
+branch: codex/issue-4548
+tasks:
+  - id: task-01
+    title: Create `config/scenarios/monte_carlo/index.yml` registry entries.
+    status: doing
+    started_at: '2026-01-26T20:48:39Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Implement `list_scenarios` function in `src/trend_analysis/monte_carlo/registry.py`
+      to list all registered scenarios, optionally filtered by tags.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Implement `load_scenario` function in `src/trend_analysis/monte_carlo/registry.py`
+      to load a scenario by name from the registry.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Implement `get_scenario_path` function in `src/trend_analysis/monte_carlo/registry.py`
+      to retrieve the file path for a scenario by name.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Write unit tests in `tests/monte_carlo/test_registry.py` for `list_scenarios`
+      to validate basic functionality.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Define scope for: Write unit tests in `tests/monte_carlo/test_registry.py`
+      for `list_scenarios` to validate basic functionality. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Implement focused slice for: Write unit tests in `tests/monte_carlo/test_registry.py`
+      for `list_scenarios` to validate basic functionality. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Validate focused slice for: Write unit tests in `tests/monte_carlo/test_registry.py`
+      for `list_scenarios` to validate basic functionality. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Define scope for: Write unit tests in `tests/monte_carlo/test_registry.py`
+      for `list_scenarios` to validate filtering by tags. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Implement focused slice for: Write unit tests in `tests/monte_carlo/test_registry.py`
+      for `list_scenarios` to validate filtering by tags. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Validate focused slice for: Write unit tests in `tests/monte_carlo/test_registry.py`
+      for `list_scenarios` to validate filtering by tags. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Write unit tests in `tests/monte_carlo/test_registry.py` for `list_scenarios`
+      to validate filtering by tags.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Write unit tests in `tests/monte_carlo/test_registry.py` for `load_scenario`
+      to validate the structure of the returned `MonteCarloScenario`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Define scope for: Write unit tests in `tests/monte_carlo/test_registry.py`
+      for `load_scenario` to validate the structure of the returned `MonteCarloScenario`.
+      (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Implement focused slice for: Write unit tests in `tests/monte_carlo/test_registry.py`
+      for `load_scenario` to validate the structure of the returned `MonteCarloScenario`.
+      (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Validate focused slice for: Write unit tests in `tests/monte_carlo/test_registry.py`
+      for `load_scenario` to validate the structure of the returned `MonteCarloScenario`.
+      (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Define scope for: Write unit tests in `tests/monte_carlo/test_registry.py`
+      for `load_scenario` to validate error handling for invalid scenarios. (verify:
+      tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Implement focused slice for: Write unit tests in `tests/monte_carlo/test_registry.py`
+      for `load_scenario` to validate error handling for invalid scenarios. (verify:
+      tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Validate focused slice for: Write unit tests in `tests/monte_carlo/test_registry.py`
+      for `load_scenario` to validate error handling for invalid scenarios. (verify:
+      tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Write unit tests in `tests/monte_carlo/test_registry.py` for `load_scenario`
+      to validate error handling for invalid scenarios.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Write unit tests in `tests/monte_carlo/test_registry.py` for `get_scenario_path`
+      to verify correct file paths for valid scenarios.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'Define scope for: Write unit tests in `tests/monte_carlo/test_registry.py`
+      for `get_scenario_path` to verify correct file paths for valid scenarios.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: 'Implement focused slice for: Write unit tests in `tests/monte_carlo/test_registry.py`
+      for `get_scenario_path` to verify correct file paths for valid scenarios.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'Validate focused slice for: Write unit tests in `tests/monte_carlo/test_registry.py`
+      for `get_scenario_path` to verify correct file paths for valid scenarios.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: 'Define scope for: Write unit tests in `tests/monte_carlo/test_registry.py`
+      for `get_scenario_path` to verify error handling for missing or invalid scenarios.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: 'Implement focused slice for: Write unit tests in `tests/monte_carlo/test_registry.py`
+      for `get_scenario_path` to verify error handling for missing or invalid scenarios.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: 'Validate focused slice for: Write unit tests in `tests/monte_carlo/test_registry.py`
+      for `get_scenario_path` to verify error handling for missing or invalid scenarios.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: Write unit tests in `tests/monte_carlo/test_registry.py` for `get_scenario_path`
+      to verify error handling for missing or invalid scenarios.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: Scenarios can be discovered by name.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: Scenarios can be filtered by tags.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: Adding a new scenario file only requires editing `config/scenarios/monte_carlo/index.yml`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: '`load_scenario("name")` returns a validated `MonteCarloScenario`.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: Missing scenarios produce clear error messages.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: Unit tests for `list_scenarios`, `load_scenario`, and `get_scenario_path`
+      pass.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: Create `config/scenarios/monte_carlo/index.yml` registry entries.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: Implement `list_scenarios` function in `src/trend_analysis/monte_carlo/registry.py`
+      to list all registered scenarios, optionally filtered by tags.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: Implement `load_scenario` function in `src/trend_analysis/monte_carlo/registry.py`
+      to load a scenario by name from the registry.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: Implement `get_scenario_path` function in `src/trend_analysis/monte_carlo/registry.py`
+      to retrieve the file path for a scenario by name.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: Write unit tests in `tests/monte_carlo/test_registry.py` for `list_scenarios`
+      to validate basic functionality.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: Write unit tests in `tests/monte_carlo/test_registry.py` for `list_scenarios`
+      to validate filtering by tags.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: Write unit tests in `tests/monte_carlo/test_registry.py` for `load_scenario`
+      to validate the structure of the returned `MonteCarloScenario`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: Write unit tests in `tests/monte_carlo/test_registry.py` for `load_scenario`
+      to validate error handling for invalid scenarios.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: Write unit tests in `tests/monte_carlo/test_registry.py` for `get_scenario_path`
+      to verify correct file paths for valid scenarios.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: Write unit tests in `tests/monte_carlo/test_registry.py` for `get_scenario_path`
+      to verify error handling for missing or invalid scenarios.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: Scenarios can be discovered by name.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: Scenarios can be filtered by tags.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: Adding a new scenario file only requires editing `config/scenarios/monte_carlo/index.yml`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: '`load_scenario("name")` returns a validated `MonteCarloScenario`.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: Missing scenarios produce clear error messages.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: Unit tests for `list_scenarios`, `load_scenario`, and `get_scenario_path`
+      pass.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: Adding a new scenario file only requires editing `config/scenarios/monte_carlo/index.yml`.
+      (The agent cannot modify `.yml` files in protected directories such as `.github/workflows/`.
+      | Ensure that the task does not require changes to protected `.yml` files or
+      clarify that the agent is not responsible for such changes.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
