@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: 'Create `MonteCarloSettings` dataclass in `src/trend_analysis/monte_carlo/scenario.py`
       with fields: `mode`, `n_paths`, `horizon_years`, `frequency`, `seed`, and `jobs`.'
-    status: doing
+    status: done
     started_at: '2026-01-26T20:52:55Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-26T20:53:04Z'
+    commit: eab76ffb2a32af09ec9396af5e3fcc890406a082
     notes: []
   - id: task-02
     title: 'Create `MonteCarloScenario` dataclass in `src/trend_analysis/monte_carlo/scenario.py`
