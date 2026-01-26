@@ -91,7 +91,9 @@ def _maybe_validate_config(
             payload = dict(cfg)
         elif hasattr(cfg, "model_dump"):
             try:
-                payload = cfg.model_dump(exclude_none=True, exclude_unset=True, mode="json")
+                payload = cfg.model_dump(
+                    exclude_none=True, exclude_unset=True, mode="json"
+                )
             except TypeError:
                 try:
                     payload = cfg.model_dump(exclude_none=True, exclude_unset=True)
@@ -134,7 +136,11 @@ def _maybe_track_config_coverage(config_path: Path, input_path: str) -> bool:
         return True
 
     data_section = dict(payload.get("data") or {})
-    if input_path and not data_section.get("csv_path") and not data_section.get("managers_glob"):
+    if (
+        input_path
+        and not data_section.get("csv_path")
+        and not data_section.get("managers_glob")
+    ):
         data_section["csv_path"] = input_path
         payload = dict(payload)
         payload["data"] = data_section
@@ -198,7 +204,9 @@ def _apply_trend_spec_preset(cfg: Any, preset: TrendSpecPreset) -> None:
         object.__setattr__(cfg, "trend_spec_preset", preset.name)
 
 
-def _log_step(run_id: str, event: str, message: str, level: str = "INFO", **fields: Any) -> None:
+def _log_step(
+    run_id: str, event: str, message: str, level: str = "INFO", **fields: Any
+) -> None:
     """Internal indirection for structured logging.
 
     Tests monkeypatch this symbol directly (`_log_step`) rather than the public
@@ -252,7 +260,9 @@ def _extract_cache_stats(payload: object) -> dict[str, int] | None:
     return found[-1] if found else None
 
 
-def _apply_universe_mask(df: pd.DataFrame, mask: pd.DataFrame, *, date_column: str) -> pd.DataFrame:
+def _apply_universe_mask(
+    df: pd.DataFrame, mask: pd.DataFrame, *, date_column: str
+) -> pd.DataFrame:
     """Apply a time-varying membership mask to returns data."""
 
     if mask.empty:
@@ -262,7 +272,9 @@ def _apply_universe_mask(df: pd.DataFrame, mask: pd.DataFrame, *, date_column: s
     try:
         date_col = lookup[date_column.lower()]
     except KeyError as exc:  # pragma: no cover - defensive guard
-        raise KeyError(f"Date column '{date_column}' is missing from the returns data") from exc
+        raise KeyError(
+            f"Date column '{date_column}' is missing from the returns data"
+        ) from exc
 
     working[date_col] = pd.to_datetime(working[date_col])
     working = working.set_index(date_col)
@@ -277,12 +289,16 @@ def _apply_universe_mask(df: pd.DataFrame, mask: pd.DataFrame, *, date_column: s
         )
 
     masked = working.copy()
-    masked.loc[:, aligned_mask.columns] = masked.loc[:, aligned_mask.columns].where(aligned_mask)
+    masked.loc[:, aligned_mask.columns] = masked.loc[:, aligned_mask.columns].where(
+        aligned_mask
+    )
     masked.reset_index(inplace=True)
     return masked
 
 
-def _attach_universe_paths(cfg: Any, spec: NamedUniverse, *, csv_path: str | None) -> None:
+def _attach_universe_paths(
+    cfg: Any, spec: NamedUniverse, *, csv_path: str | None
+) -> None:
     """Persist the selected universe paths onto ``cfg.data`` when possible."""
 
     membership_value = str(spec.membership_path)
@@ -313,7 +329,9 @@ def _attach_universe_paths(cfg: Any, spec: NamedUniverse, *, csv_path: str | Non
         setattr(data_section, "universe_membership_path", membership_value)
     except Exception:
         try:
-            object.__setattr__(data_section, "universe_membership_path", membership_value)
+            object.__setattr__(
+                data_section, "universe_membership_path", membership_value
+            )
         except Exception:
             data_section = None
 
@@ -392,7 +410,9 @@ def check_environment(lock_path: Path | None = None) -> int:
     return 0
 
 
-def maybe_log_step(enabled: bool, run_id: str, event: str, message: str, **fields: Any) -> None:
+def maybe_log_step(
+    enabled: bool, run_id: str, event: str, message: str, **fields: Any
+) -> None:
     """Log a structured step when ``enabled`` is True."""
     if enabled:
         _log_step(run_id, event, message, **fields)
@@ -409,6 +429,47 @@ def _load_ui_payload(path: Path) -> tuple[dict[str, Any], Mapping[str, Any]]:
     return {"model_state": payload}, payload
 
 
+def _looks_like_model_state(payload: Mapping[str, Any]) -> bool:
+    ui_keys = {
+        "lookback_periods",
+        "evaluation_periods",
+        "selection_count",
+        "metric_weights",
+        "trend_window",
+        "trend_lag",
+        "trend_min_periods",
+        "trend_zscore",
+        "trend_vol_adjust",
+        "trend_vol_target",
+        "vol_adjust_enabled",
+        "risk_target",
+        "multi_period_enabled",
+        "multi_period_frequency",
+        "start_date",
+        "end_date",
+        "date_mode",
+    }
+    config_keys = {
+        "version",
+        "data",
+        "preprocessing",
+        "vol_adjust",
+        "sample_split",
+        "portfolio",
+        "metrics",
+        "export",
+        "run",
+        "benchmarks",
+        "regime",
+        "robustness",
+        "multi_period",
+    }
+    if any(key in payload for key in config_keys):
+        return False
+    hits = sum(1 for key in ui_keys if key in payload)
+    return hits >= 3 or ("metric_weights" in payload and "selection_count" in payload)
+
+
 def _should_handle_as_ui_config(path: Path) -> bool:
     if path.suffix.lower() != ".json":
         return False
@@ -416,9 +477,11 @@ def _should_handle_as_ui_config(path: Path) -> bool:
         payload_any: Any = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return False
-    if isinstance(payload_any, Mapping) and "model_state" in payload_any:
+    if not isinstance(payload_any, Mapping):
+        return False
+    if "model_state" in payload_any:
         return True
-    return False
+    return _looks_like_model_state(payload_any)
 
 
 def _run_from_ui_payload(
@@ -588,7 +651,9 @@ def _execute_analysis_run(
             if isinstance(bench_map, dict) and bench_map:
                 first_bench = next(iter(bench_map.values()))
                 setattr(run_result, "benchmark", first_bench)
-            weights_user = res.get("weights_user_weight") if isinstance(res, dict) else None
+            weights_user = (
+                res.get("weights_user_weight") if isinstance(res, dict) else None
+            )
             if weights_user is not None:
                 setattr(run_result, "weights", weights_user)
     else:  # pragma: no cover - legacy fallback
@@ -682,7 +747,9 @@ def _execute_analysis_run(
             formats=target_formats,
         )
         data_keys = list(data.keys())
-        artifact_paths = _resolve_artifact_paths(out_dir_path, filename, data_keys, fmt_list)
+        artifact_paths = _resolve_artifact_paths(
+            out_dir_path, filename, data_keys, fmt_list
+        )
         maybe_log_step(
             structured_log,
             run_id,
@@ -714,7 +781,9 @@ def _execute_analysis_run(
                     summary_text=text,
                 )
             except Exception as exc:  # pragma: no cover - defensive guard
-                logging.getLogger(__name__).warning("Failed to write run artifacts: %s", exc)
+                logging.getLogger(__name__).warning(
+                    "Failed to write run artifacts: %s", exc
+                )
             else:
                 maybe_log_step(
                     structured_log,
@@ -765,7 +834,9 @@ def main(argv: list[str] | None = None) -> int:
     """Entry point for the ``trend-model`` command."""
 
     parser = argparse.ArgumentParser(prog="trend-model")
-    parser.add_argument("--check", action="store_true", help="Print environment info and exit")
+    parser.add_argument(
+        "--check", action="store_true", help="Print environment info and exit"
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("gui", help="Launch Streamlit interface")
@@ -773,7 +844,9 @@ def main(argv: list[str] | None = None) -> int:
     run_p = sub.add_parser("run", help="Run analysis pipeline")
     run_p.add_argument("-c", "--config", required=True, help="Path to YAML config")
     run_p.add_argument("-i", "--input", required=True, help="Path to returns CSV")
-    run_p.add_argument("--seed", type=int, help="Override random seed (takes precedence)")
+    run_p.add_argument(
+        "--seed", type=int, help="Override random seed (takes precedence)"
+    )
     run_p.add_argument(
         "--bundle",
         nargs="?",
@@ -822,7 +895,9 @@ def main(argv: list[str] | None = None) -> int:
         "run-ui",
         help="Deprecated: use 'run' with Streamlit JSON params",
     )
-    run_ui_p.add_argument("--params", required=True, help="Path to Streamlit JSON params")
+    run_ui_p.add_argument(
+        "--params", required=True, help="Path to Streamlit JSON params"
+    )
     run_ui_p.add_argument("--data", required=True, help="Path to returns CSV or Excel")
     run_ui_p.add_argument(
         "--auto-fix-dates",
@@ -997,7 +1072,9 @@ def main(argv: list[str] | None = None) -> int:
             universe_spec: NamedUniverse | None = None
             if getattr(args, "universe", None):
                 mask, universe_spec = load_universe(args.universe, prices=df)
-                df = _apply_universe_mask(df, mask, date_column=universe_spec.date_column)
+                df = _apply_universe_mask(
+                    df, mask, date_column=universe_spec.date_column
+                )
             if universe_spec is not None:
                 _attach_universe_paths(cfg, universe_spec, csv_path=args.input)
             return _execute_analysis_run(
