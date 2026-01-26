@@ -15,6 +15,7 @@ import pytest
 
 from trend_analysis import cli
 from trend_analysis.io.market_data import MarketDataValidationError
+from trend_analysis.io.ui_ingest import UiIngestSummary
 
 
 def _make_config() -> SimpleNamespace:
@@ -39,7 +40,11 @@ def test_main_run_reports_unknown_presets(monkeypatch, preset_missing: str, caps
     cfg = _make_config()
     monkeypatch.setattr(cli, "load_config", lambda path: cfg)
     monkeypatch.setattr(cli, "set_cache_enabled", lambda enabled: None)
-    monkeypatch.setattr(cli, "load_market_data_csv", lambda path: None)
+    monkeypatch.setattr(
+        cli,
+        "load_ui_dataset",
+        lambda path, **_: (pd.DataFrame(), SimpleNamespace(), UiIngestSummary()),
+    )
 
     if preset_missing == "spec":
         monkeypatch.setattr(
@@ -49,12 +54,16 @@ def test_main_run_reports_unknown_presets(monkeypatch, preset_missing: str, caps
         )
         monkeypatch.setattr(cli, "list_trend_spec_presets", lambda: ["alpha", "beta"])
     else:
-        monkeypatch.setattr(cli, "get_trend_spec_preset", lambda name: SimpleNamespace(name=name))
+        monkeypatch.setattr(
+            cli, "get_trend_spec_preset", lambda name: SimpleNamespace(name=name)
+        )
         monkeypatch.setattr(cli, "_apply_trend_spec_preset", lambda *_: None)
         monkeypatch.setattr(
             cli, "get_trend_preset", lambda name: (_ for _ in ()).throw(KeyError(name))
         )
-        monkeypatch.setattr(cli, "list_preset_slugs", lambda: ["balanced", "aggressive"])
+        monkeypatch.setattr(
+            cli, "list_preset_slugs", lambda: ["balanced", "aggressive"]
+        )
 
     rc = cli.main(
         [
@@ -111,7 +120,11 @@ def test_main_run_applies_named_universe(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(cli, "load_universe", fake_load_universe)
     monkeypatch.setattr(cli, "load_config", lambda path: cfg)
     monkeypatch.setattr(cli, "set_cache_enabled", lambda enabled: None)
-    monkeypatch.setattr(cli, "load_market_data_csv", lambda path: SimpleNamespace(frame=base_frame))
+    monkeypatch.setattr(
+        cli,
+        "load_ui_dataset",
+        lambda path, **_: (base_frame, SimpleNamespace(), UiIngestSummary()),
+    )
     monkeypatch.setattr(cli, "run_simulation", fake_run_simulation)
     monkeypatch.setattr(cli.export, "format_summary_text", lambda *a, **k: "SUMMARY")
     monkeypatch.setattr(cli.export, "export_to_excel", lambda *a, **k: None)
@@ -148,8 +161,8 @@ def test_main_run_handles_market_data_validation_error(monkeypatch, capsys):
     monkeypatch.setattr(cli, "set_cache_enabled", lambda enabled: None)
     monkeypatch.setattr(
         cli,
-        "load_market_data_csv",
-        lambda path: (_ for _ in ()).throw(MarketDataValidationError("bad data")),
+        "load_ui_dataset",
+        lambda path, **_: (_ for _ in ()).throw(MarketDataValidationError("bad data")),
     )
 
     rc = cli.main(
@@ -181,17 +194,16 @@ def test_main_run_with_config_coverage_prints_report(monkeypatch, tmp_path, caps
     monkeypatch.setattr(cli, "load_config_yaml", lambda path: config_payload)
     monkeypatch.setattr(cli, "_maybe_validate_config", lambda *_a, **_k: True)
     monkeypatch.setattr(cli, "set_cache_enabled", lambda enabled: None)
+    frame = pd.DataFrame(
+        {
+            "Date": [pd.Timestamp("2020-01-31")],
+            "A": [0.1],
+        }
+    )
     monkeypatch.setattr(
         cli,
-        "load_market_data_csv",
-        lambda path: SimpleNamespace(
-            frame=pd.DataFrame(
-                {
-                    "Date": [pd.Timestamp("2020-01-31")],
-                    "A": [0.1],
-                }
-            )
-        ),
+        "load_ui_dataset",
+        lambda path, **_: (frame, SimpleNamespace(), UiIngestSummary()),
     )
     monkeypatch.setattr(
         cli,
@@ -321,17 +333,27 @@ def test_main_run_success_path_covers_exports_and_bundle(monkeypatch, tmp_path, 
     monkeypatch.setenv("TREND_SEED", "7")
     monkeypatch.setattr(cli, "load_config", lambda path: cfg)
     monkeypatch.setattr(cli, "_apply_trend_spec_preset", fake_apply)
-    monkeypatch.setattr(cli, "get_trend_spec_preset", lambda name: SimpleNamespace(name=name))
-    monkeypatch.setattr(cli, "get_trend_preset", lambda name: SimpleNamespace(name=name))
+    monkeypatch.setattr(
+        cli, "get_trend_spec_preset", lambda name: SimpleNamespace(name=name)
+    )
+    monkeypatch.setattr(
+        cli, "get_trend_preset", lambda name: SimpleNamespace(name=name)
+    )
     monkeypatch.setattr(cli, "apply_trend_preset", fake_apply_portfolio)
-    monkeypatch.setattr(cli, "set_cache_enabled", lambda enabled: toggles.append(enabled))
+    monkeypatch.setattr(
+        cli, "set_cache_enabled", lambda enabled: toggles.append(enabled)
+    )
     frame = pd.DataFrame(
         {
             "Date": pd.date_range("2020-01-31", periods=3, freq="ME"),
             "Fund": [0.01, 0.02, 0.03],
         }
     )
-    monkeypatch.setattr(cli, "load_market_data_csv", lambda path: SimpleNamespace(frame=frame))
+    monkeypatch.setattr(
+        cli,
+        "load_ui_dataset",
+        lambda path, **_: (frame, SimpleNamespace(), UiIngestSummary()),
+    )
     run_result = SimpleNamespace(
         metrics=pd.DataFrame({"metric": [1.0]}),
         details={
@@ -365,7 +387,9 @@ def test_main_run_success_path_covers_exports_and_bundle(monkeypatch, tmp_path, 
     )
     monkeypatch.setattr(cli.run_logging, "init_run_logger", lambda *_, **__: None)
     monkeypatch.setattr(cli, "_log_step", fake_log_step)
-    monkeypatch.setattr("trend_analysis.export.bundle.export_bundle", fake_export_bundle)
+    monkeypatch.setattr(
+        "trend_analysis.export.bundle.export_bundle", fake_export_bundle
+    )
 
     bundle_dir = tmp_path / "bundle"
     bundle_dir.mkdir()
@@ -407,7 +431,9 @@ def test_main_run_success_path_covers_exports_and_bundle(monkeypatch, tmp_path, 
     }.issubset(set(logged))
 
 
-def test_main_prefers_env_seed_and_handles_run_id_failure(monkeypatch, tmp_path, capsys):
+def test_main_prefers_env_seed_and_handles_run_id_failure(
+    monkeypatch, tmp_path, capsys
+):
     base_cfg = _make_config()
 
     class ImmutableCfg(SimpleNamespace):
@@ -421,11 +447,14 @@ def test_main_prefers_env_seed_and_handles_run_id_failure(monkeypatch, tmp_path,
     toggles: list[bool] = []
     monkeypatch.setenv("TREND_SEED", "17")
     monkeypatch.setattr(cli, "load_config", lambda path: cfg)
-    monkeypatch.setattr(cli, "set_cache_enabled", lambda enabled: toggles.append(enabled))
+    monkeypatch.setattr(
+        cli, "set_cache_enabled", lambda enabled: toggles.append(enabled)
+    )
+    frame = pd.DataFrame({"v": [1.0]})
     monkeypatch.setattr(
         cli,
-        "load_market_data_csv",
-        lambda path: SimpleNamespace(frame=pd.DataFrame({"v": [1.0]})),
+        "load_ui_dataset",
+        lambda path, **_: (frame, SimpleNamespace(), UiIngestSummary()),
     )
     run_result = SimpleNamespace(
         metrics=pd.DataFrame({"metric": [1.0]}),
@@ -471,7 +500,9 @@ def test_main_prefers_env_seed_and_handles_run_id_failure(monkeypatch, tmp_path,
     assert hasattr(run_result, "weights")
 
 
-def test_main_run_handles_custom_formats_and_no_structured_log(monkeypatch, tmp_path, capsys):
+def test_main_run_handles_custom_formats_and_no_structured_log(
+    monkeypatch, tmp_path, capsys
+):
     cfg = _make_config()
     cfg.export = {
         "directory": str(tmp_path / "out"),
@@ -488,16 +519,27 @@ def test_main_run_handles_custom_formats_and_no_structured_log(monkeypatch, tmp_
     out_dir.mkdir()
 
     monkeypatch.setattr(cli, "load_config", lambda path: cfg)
-    monkeypatch.setattr(cli, "set_cache_enabled", lambda enabled: toggles.append(enabled))
-    monkeypatch.setattr(cli, "load_market_data_csv", lambda path: pd.DataFrame({"v": [1.0]}))
+    monkeypatch.setattr(
+        cli, "set_cache_enabled", lambda enabled: toggles.append(enabled)
+    )
+    frame = pd.DataFrame({"v": [1.0]})
+    monkeypatch.setattr(
+        cli,
+        "load_ui_dataset",
+        lambda path, **_: (frame, SimpleNamespace(), UiIngestSummary()),
+    )
     run_result = SimpleNamespace(
         metrics=pd.DataFrame({"metric": [2.0]}),
-        details={"cache": {"entries": 2, "hits": 3, "misses": 1, "incremental_updates": 4}},
+        details={
+            "cache": {"entries": 2, "hits": 3, "misses": 1, "incremental_updates": 4}
+        },
         seed=11,
         environment={},
     )
     monkeypatch.setattr(cli, "run_simulation", lambda *_, **__: run_result)
-    monkeypatch.setattr(cli.export, "format_summary_text", lambda *a, **k: "ALT SUMMARY")
+    monkeypatch.setattr(
+        cli.export, "format_summary_text", lambda *a, **k: "ALT SUMMARY"
+    )
     monkeypatch.setattr(
         cli.export,
         "export_to_excel",
@@ -506,7 +548,9 @@ def test_main_run_handles_custom_formats_and_no_structured_log(monkeypatch, tmp_
     monkeypatch.setattr(
         cli.export,
         "export_data",
-        lambda _payload, dest, formats: data_targets.append((dest, tuple(sorted(formats)))),
+        lambda _payload, dest, formats: data_targets.append(
+            (dest, tuple(sorted(formats)))
+        ),
     )
     monkeypatch.setattr(
         cli.run_logging,
@@ -552,12 +596,15 @@ def test_main_returns_zero_when_no_results(monkeypatch, tmp_path, capsys):
     cfg = _make_config()
     monkeypatch.setattr(cli, "load_config", lambda path: cfg)
     monkeypatch.setattr(cli, "set_cache_enabled", lambda enabled: None)
+    frame = pd.DataFrame({"v": [1.0]})
     monkeypatch.setattr(
         cli,
-        "load_market_data_csv",
-        lambda path: SimpleNamespace(frame=pd.DataFrame({"v": [1.0]})),
+        "load_ui_dataset",
+        lambda path, **_: (frame, SimpleNamespace(), UiIngestSummary()),
     )
-    run_result = SimpleNamespace(metrics=pd.DataFrame(), details={}, seed=5, environment={})
+    run_result = SimpleNamespace(
+        metrics=pd.DataFrame(), details={}, seed=5, environment={}
+    )
     monkeypatch.setattr(cli, "run_simulation", lambda *_, **__: run_result)
     monkeypatch.setattr(cli.export, "format_summary_text", lambda *a, **k: "IGNORED")
     monkeypatch.setattr(
@@ -605,12 +652,15 @@ def test_main_legacy_path_builds_bundle_shim(monkeypatch, tmp_path, capsys):
 
     monkeypatch.setattr(cli, "load_config", lambda path: cfg)
     monkeypatch.setattr(cli, "set_cache_enabled", lambda enabled: None)
+    frame = pd.DataFrame({"v": [1.0]})
     monkeypatch.setattr(
         cli,
-        "load_market_data_csv",
-        lambda path: SimpleNamespace(frame=pd.DataFrame({"v": [1.0]})),
+        "load_ui_dataset",
+        lambda path, **_: (frame, SimpleNamespace(), UiIngestSummary()),
     )
-    monkeypatch.setattr(cli.pipeline, "run", lambda cfg: pd.DataFrame({"metric": [1.0]}))
+    monkeypatch.setattr(
+        cli.pipeline, "run", lambda cfg: pd.DataFrame({"metric": [1.0]})
+    )
     monkeypatch.setattr(cli.pipeline, "run_full", lambda cfg: {"portfolio": [1, 2, 3]})
     monkeypatch.setattr(cli.export, "format_summary_text", lambda *a, **k: "LEGACY")
     monkeypatch.setattr(cli.export, "export_to_excel", lambda *a, **k: None)
@@ -765,7 +815,9 @@ def test_extract_cache_stats_prefers_latest(monkeypatch):
 
 
 def test_extract_cache_stats_ignores_non_integer_values():
-    payload = {"bad": {"entries": "x", "hits": 1, "misses": 2, "incremental_updates": 3}}
+    payload = {
+        "bad": {"entries": "x", "hits": 1, "misses": 2, "incremental_updates": 3}
+    }
     assert cli._extract_cache_stats(payload) is None
 
 
