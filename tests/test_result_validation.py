@@ -204,7 +204,9 @@ def test_validate_result_claims_still_flags_uncited_non_dates() -> None:
     text = "Period 2023-01 to 2024-12. CAGR was 8%."
 
     issues = validate_result_claims(text, entries)
-    uncited_values = [issue.detail["value"] for issue in issues if issue.kind == "uncited_value"]
+    uncited_values = [
+        issue.detail["value"] for issue in issues if issue.kind == "uncited_value"
+    ]
 
     assert uncited_values == ["8%"]
 
@@ -220,7 +222,9 @@ def test_validate_result_claims_flags_uncited_metric_with_short_year_range() -> 
     text = "Coverage runs from 2023-24. CAGR was 8%."
 
     issues = validate_result_claims(text, entries)
-    uncited_values = [issue.detail["value"] for issue in issues if issue.kind == "uncited_value"]
+    uncited_values = [
+        issue.detail["value"] for issue in issues if issue.kind == "uncited_value"
+    ]
 
     assert uncited_values == ["8%"]
 
@@ -348,6 +352,20 @@ def test_detect_unavailable_metric_requests_ignores_transaction_cost() -> None:
     missing = detect_unavailable_metric_requests("Report transaction cost.", entries)
 
     assert "transaction cost" not in missing
+
+
+def test_detect_unavailable_metric_requests_handles_prefixed_turnover() -> None:
+    entries = [
+        MetricEntry(
+            path="A.turnover.mean",
+            value=0.12,
+            source="A:turnover_series",
+        )
+    ]
+
+    missing = detect_unavailable_metric_requests("Report turnover.", entries)
+
+    assert "turnover" not in missing
 
 
 def test_postprocess_skips_discrepancy_log_for_unavailability() -> None:

@@ -176,19 +176,26 @@ def compact_metric_catalog(
     question_text = _normalize_text(questions or "")
 
     single_stats_paths = {
-        entry.path for entry in entries_list if _matches_section(entry.path, _SINGLE_STATS_SECTIONS)
+        entry.path
+        for entry in entries_list
+        if _matches_section(entry.path, _SINGLE_STATS_SECTIONS)
     }
     benchmark_paths = {
         entry.path
         for entry in entries_list
-        if entry.source == _BENCHMARK_SECTION or entry.path.startswith(f"{_BENCHMARK_SECTION}.")
+        if entry.source == _BENCHMARK_SECTION
+        or entry.path.startswith(f"{_BENCHMARK_SECTION}.")
     }
 
     fund_weight_entries = [
-        entry for entry in entries_list if entry.path.startswith(f"{_WEIGHT_SECTIONS[0]}.")
+        entry
+        for entry in entries_list
+        if entry.path.startswith(f"{_WEIGHT_SECTIONS[0]}.")
     ]
     ew_weight_entries = [
-        entry for entry in entries_list if entry.path.startswith(f"{_WEIGHT_SECTIONS[1]}.")
+        entry
+        for entry in entries_list
+        if entry.path.startswith(f"{_WEIGHT_SECTIONS[1]}.")
     ]
     weight_entries = fund_weight_entries if fund_weight_entries else ew_weight_entries
     selected_weight_entries = _select_top_weight_entries(
@@ -303,12 +310,16 @@ def _stats_to_mapping(stats: Any) -> dict[str, Any]:
         if len(stats) >= len(_BASE_STATS_FIELDS):
             return {
                 field: value
-                for field, value in zip(_BASE_STATS_FIELDS, stats[: len(_BASE_STATS_FIELDS)])
+                for field, value in zip(
+                    _BASE_STATS_FIELDS, stats[: len(_BASE_STATS_FIELDS)]
+                )
             }
         return {}
 
     if hasattr(stats, "__dict__"):
-        data = {key: getattr(stats, key) for key in _ALL_STATS_FIELDS if hasattr(stats, key)}
+        data = {
+            key: getattr(stats, key) for key in _ALL_STATS_FIELDS if hasattr(stats, key)
+        }
         return data
 
     return {}
@@ -335,11 +346,12 @@ def _sorted_keys(mapping: Mapping[str, Any]) -> list[str]:
 def _metric_labels_for_entry(entry: MetricEntry) -> Iterable[str]:
     path_parts = entry.path.split(".")
     metric_label = path_parts[-1] if path_parts else entry.path
-    if entry.path.startswith("turnover."):
+    if ".turnover." in entry.path or entry.path.endswith(".turnover"):
         metric_label = "turnover"
-    if entry.source in _WEIGHT_SECTIONS:
+    source = entry.source.split(":", 1)[-1]
+    if source in _WEIGHT_SECTIONS:
         metric_label = "weights"
-    elif entry.source == _BENCHMARK_SECTION:
+    elif source == _BENCHMARK_SECTION:
         metric_label = "benchmark_ir"
 
     synonyms = _METRIC_SYNONYMS.get(metric_label, (metric_label,))
@@ -394,7 +406,9 @@ def _extract_turnover_series_entries(result: Mapping[str, Any]) -> list[MetricEn
     if turnover_obj is None:
         turnover_obj = _turnover_from_diagnostics(result.get(_RISK_DIAGNOSTICS_SECTION))
         if turnover_obj is None and isinstance(details, Mapping):
-            turnover_obj = _turnover_from_diagnostics(details.get(_RISK_DIAGNOSTICS_SECTION))
+            turnover_obj = _turnover_from_diagnostics(
+                details.get(_RISK_DIAGNOSTICS_SECTION)
+            )
     series = _coerce_series(turnover_obj)
     if series is None or series.empty:
         entry = _make_entry("turnover.value", turnover_obj, _TURNOVER_SCALAR_SOURCE)
@@ -405,7 +419,9 @@ def _extract_turnover_series_entries(result: Mapping[str, Any]) -> list[MetricEn
     latest = float(series.iloc[-1])
     mean = float(series.mean())
     return [
-        MetricEntry(path="turnover.latest", value=latest, source=_TURNOVER_SUMMARY_SOURCE),
+        MetricEntry(
+            path="turnover.latest", value=latest, source=_TURNOVER_SUMMARY_SOURCE
+        ),
         MetricEntry(path="turnover.mean", value=mean, source=_TURNOVER_SUMMARY_SOURCE),
     ]
 
