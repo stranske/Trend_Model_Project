@@ -833,10 +833,11 @@ def validate_market_data(
     source: str | None = None,
     missing_policy: str | Mapping[str, str] | None = None,
     missing_limit: int | Mapping[str, int | None] | None = None,
+    auto_fix_dates: bool = True,
 ) -> ValidatedMarketData:
     """Validate market data according to the ingest contract."""
 
-    frame = _resolve_datetime_index(data, source=source)
+    frame = _resolve_datetime_index(data, source=source, auto_fix_dates=auto_fix_dates)
     issues = _check_monotonic_index(frame.index)
     if issues:
         raise MarketDataValidationError(_format_issues(issues), issues)

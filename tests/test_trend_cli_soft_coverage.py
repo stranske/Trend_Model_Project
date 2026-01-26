@@ -12,6 +12,7 @@ import pandas as pd
 import pytest
 
 from trend_analysis import cli
+from trend_analysis.io.ui_ingest import UiIngestSummary
 from trend_analysis.signal_presets import get_trend_spec_preset
 
 
@@ -410,10 +411,10 @@ def test_main_run_handles_market_data_error(
     monkeypatch.setattr(cli, "load_config", lambda path: cfg)
     monkeypatch.setattr(cli, "set_cache_enabled", lambda enabled: None)
 
-    def fake_load_csv(path: str) -> None:
+    def fake_load_csv(path: str, **_kwargs: object) -> None:
         raise cli.MarketDataValidationError("invalid returns file")
 
-    monkeypatch.setattr(cli, "load_market_data_csv", fake_load_csv)
+    monkeypatch.setattr(cli, "load_ui_dataset", fake_load_csv)
 
     exit_code = cli.main(
         [
@@ -443,10 +444,11 @@ def test_main_run_uses_env_seed_and_legacy_pipeline(
     cache_flags: list[bool] = []
     monkeypatch.setattr(cli, "set_cache_enabled", lambda flag: cache_flags.append(flag))
 
+    frame = pd.DataFrame({"A": [0.1, 0.2]})
     monkeypatch.setattr(
         cli,
-        "load_market_data_csv",
-        lambda path: pd.DataFrame({"A": [0.1, 0.2]}),
+        "load_ui_dataset",
+        lambda path, **_: (frame, SimpleNamespace(), UiIngestSummary()),
     )
     monkeypatch.setattr(cli.pipeline, "run", lambda cfg_obj: pd.DataFrame({"Sharpe": [0.5]}))
     monkeypatch.setattr(cli.pipeline, "run_full", lambda cfg_obj: {})
@@ -545,10 +547,11 @@ def test_main_run_default_outputs_and_bundle_directory(
     cache_flags: list[bool] = []
     monkeypatch.setattr(cli, "set_cache_enabled", lambda flag: cache_flags.append(flag))
 
+    frame = pd.DataFrame({"A": [0.1, 0.2]})
     monkeypatch.setattr(
         cli,
-        "load_market_data_csv",
-        lambda path: pd.DataFrame({"A": [0.1, 0.2]}),
+        "load_ui_dataset",
+        lambda path, **_: (frame, SimpleNamespace(), UiIngestSummary()),
     )
 
     details = {
@@ -653,10 +656,11 @@ def test_main_run_legacy_bundle_builds_run_result(
     monkeypatch.setattr(cli, "load_config", lambda path: cfg)
     monkeypatch.setattr(cli, "set_cache_enabled", lambda flag: None)
 
+    frame = pd.DataFrame({"A": [0.1, 0.2]})
     monkeypatch.setattr(
         cli,
-        "load_market_data_csv",
-        lambda path: pd.DataFrame({"A": [0.1, 0.2]}),
+        "load_ui_dataset",
+        lambda path, **_: (frame, SimpleNamespace(), UiIngestSummary()),
     )
     monkeypatch.setattr(cli.pipeline, "run", lambda cfg_obj: pd.DataFrame({"Sharpe": [0.2]}))
     monkeypatch.setattr(
@@ -813,15 +817,16 @@ def test_main_run_executes_pipeline_success(
     cache_flags: list[bool] = []
     monkeypatch.setattr(cli, "set_cache_enabled", lambda flag: cache_flags.append(flag))
 
-    def fake_load_market_data_csv(path: str) -> pd.DataFrame:
-        return pd.DataFrame(
+    def fake_load_ui_dataset(path: str, **_kwargs: object):
+        frame = pd.DataFrame(
             {
                 "Date": pd.date_range("2022-01-31", periods=3, freq="ME"),
                 "FundA": [0.1, 0.2, 0.3],
             }
         )
+        return frame, SimpleNamespace(), UiIngestSummary()
 
-    monkeypatch.setattr(cli, "load_market_data_csv", fake_load_market_data_csv)
+    monkeypatch.setattr(cli, "load_ui_dataset", fake_load_ui_dataset)
 
     metrics_df = pd.DataFrame({"Sharpe": [1.23]})
     details = {

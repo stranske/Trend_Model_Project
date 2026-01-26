@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 from trend_analysis import cli
+from trend_analysis.io.ui_ingest import UiIngestSummary
 
 
 class DummyPreset:
@@ -191,7 +192,11 @@ def test_main_run_success(monkeypatch, tmp_path, capsys):
     )
 
     df = pd.DataFrame({"A": [1, 2, 3]})
-    monkeypatch.setattr(cli, "load_market_data_csv", lambda path: df)
+    monkeypatch.setattr(
+        cli,
+        "load_ui_dataset",
+        lambda path, **_: (df, SimpleNamespace(), UiIngestSummary()),
+    )
 
     run_result = SimpleNamespace(
         metrics=pd.DataFrame({"m": [1, 2]}),
@@ -279,7 +284,12 @@ def test_main_run_uses_env_seed(monkeypatch, tmp_path):
 
     monkeypatch.setattr(cli, "load_config", lambda path: cfg)
     monkeypatch.setattr(cli, "set_cache_enabled", lambda enabled: None)
-    monkeypatch.setattr(cli, "load_market_data_csv", lambda path: pd.DataFrame({"A": [1]}))
+    frame = pd.DataFrame({"A": [1]})
+    monkeypatch.setattr(
+        cli,
+        "load_ui_dataset",
+        lambda path, **_: (frame, SimpleNamespace(), UiIngestSummary()),
+    )
     monkeypatch.setattr(
         cli,
         "run_simulation",
@@ -346,7 +356,9 @@ def test_main_run_market_data_error(monkeypatch, capsys):
     )
     monkeypatch.setattr(cli, "set_cache_enabled", lambda enabled: None)
     monkeypatch.setattr(
-        cli, "load_market_data_csv", lambda path: (_ for _ in ()).throw(DummyError())
+        cli,
+        "load_ui_dataset",
+        lambda path, **_: (_ for _ in ()).throw(DummyError()),
     )
 
     exit_code = cli.main(["run", "-c", "cfg.yml", "-i", "returns.csv"])
@@ -363,8 +375,8 @@ def test_main_run_invalid_config_reports_validation(monkeypatch, capsys):
     monkeypatch.setattr(cli, "set_cache_enabled", lambda enabled: None)
     monkeypatch.setattr(
         cli,
-        "load_market_data_csv",
-        lambda path: (_ for _ in ()).throw(AssertionError("load should not run")),
+        "load_ui_dataset",
+        lambda path, **_: (_ for _ in ()).throw(AssertionError("load should not run")),
     )
     monkeypatch.setattr(
         cli,
