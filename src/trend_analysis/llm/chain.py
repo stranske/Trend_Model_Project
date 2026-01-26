@@ -414,8 +414,7 @@ class ResultSummaryChain:
             if missing_metrics:
                 missing_text = ", ".join(missing_metrics)
                 response_text = (
-                    "Requested data is unavailable in the analysis output for: "
-                    f"{missing_text}."
+                    "Requested data is unavailable in the analysis output for: " f"{missing_text}."
                 )
                 return ResultSummaryResponse(
                     text=ensure_result_disclaimer(response_text),
