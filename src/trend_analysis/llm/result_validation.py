@@ -15,7 +15,9 @@ from trend_analysis.llm.result_metrics import (
     known_metric_keywords,
 )
 
-RESULT_DISCLAIMER = "This is analytical output, not financial advice. Always verify metrics independently."
+RESULT_DISCLAIMER = (
+    "This is analytical output, not financial advice. Always verify metrics independently."
+)
 
 _CITATION_RE = re.compile(
     r"(?P<value>[-+]?\d+(?:\.\d+)?%?)\s*\[from\s+(?P<source>[^\]]+)\]",
@@ -24,32 +26,25 @@ _CITATION_RE = re.compile(
 _SOURCE_RE = re.compile(r"\[from\s+(?P<source>[^\]]+)\]", re.IGNORECASE)
 _NUMBER_RE = re.compile(r"(?<![A-Za-z0-9_.])[-+]?\d+(?:\.\d+)?%?")
 _DATE_RE = re.compile(
-    r"\b(?P<year>(?:19|20)\d{2})-(?P<month>0?[1-9]|1[0-2])"
-    r"(?:-(?P<day>0?[1-9]|[12]\d|3[01]))?\b"
+    r"\b(?P<year>(?:19|20)\d{2})-(?P<month>0?[1-9]|1[0-2])" r"(?:-(?P<day>0?[1-9]|[12]\d|3[01]))?\b"
 )
 _YEAR_RANGE_RE = re.compile(
     r"\b(?P<start>(?:19|20)\d{2})\s*(?:-|to|through|\u2013|\u2014)\s*(?P<end>(?:19|20)\d{2})\b",
     re.IGNORECASE,
 )
-_YEAR_RANGE_SLASH_RE = re.compile(
-    r"\b(?P<start>(?:19|20)\d{2})\s*/\s*(?P<end>(?:19|20)\d{2})\b"
-)
+_YEAR_RANGE_SLASH_RE = re.compile(r"\b(?P<start>(?:19|20)\d{2})\s*/\s*(?P<end>(?:19|20)\d{2})\b")
 _SHORT_YEAR_RANGE_RE = re.compile(
     r"(?<!\d)(?P<start>(?:19|20)\d{2})\s*(?:-|/|\u2013|\u2014)\s*(?P<end>\d{2})(?![-/\d])"
 )
 _SLASH_DATE_RE = re.compile(
-    r"\b(?P<month>0?[1-9]|1[0-2])/(?P<day>0?[1-9]|[12]\d|3[01])"
-    r"(?:/(?P<year>(?:19|20)\d{2}))?\b"
+    r"\b(?P<month>0?[1-9]|1[0-2])/(?P<day>0?[1-9]|[12]\d|3[01])" r"(?:/(?P<year>(?:19|20)\d{2}))?\b"
 )
 _DASH_DATE_RE = re.compile(
     r"\b(?P<month>0?[1-9]|1[0-2])-(?P<day>0?[1-9]|[12]\d|3[01])-(?P<year>(?:19|20)\d{2})\b"
 )
-_MONTH_YEAR_RE = re.compile(
-    r"\b(?P<month>0?[1-9]|1[0-2])\s*[/\-]\s*(?P<year>(?:19|20)\d{2})\b"
-)
+_MONTH_YEAR_RE = re.compile(r"\b(?P<month>0?[1-9]|1[0-2])\s*[/\-]\s*(?P<year>(?:19|20)\d{2})\b")
 _YEAR_SLASH_DATE_RE = re.compile(
-    r"\b(?P<year>(?:19|20)\d{2})/(?P<month>0?[1-9]|1[0-2])"
-    r"(?:/(?P<day>0?[1-9]|[12]\d|3[01]))?\b"
+    r"\b(?P<year>(?:19|20)\d{2})/(?P<month>0?[1-9]|1[0-2])" r"(?:/(?P<day>0?[1-9]|[12]\d|3[01]))?\b"
 )
 _QUESTION_TOKEN_RE = re.compile(r"[^a-z0-9]+")
 _UNAVAILABLE_RE = re.compile(
@@ -68,9 +63,7 @@ class ResultClaimIssue:
 def serialize_claim_issue(issue: ResultClaimIssue) -> dict[str, object]:
     """Convert a claim issue into a JSON-friendly dict."""
 
-    detail = (
-        issue.detail if isinstance(issue.detail, dict) else {"detail": issue.detail}
-    )
+    detail = issue.detail if isinstance(issue.detail, dict) else {"detail": issue.detail}
     safe_detail = json.loads(json.dumps(detail, default=str))
     return {"kind": issue.kind, "message": issue.message, "detail": safe_detail}
 
@@ -155,9 +148,7 @@ def postprocess_result_text(
         output = ensure_result_disclaimer(text)
         return output, []
     cited_text = apply_metric_citations(text, entries, tolerance=tolerance)
-    issues = validate_result_claims(
-        cited_text, entries, logger=logger, tolerance=tolerance
-    )
+    issues = validate_result_claims(cited_text, entries, logger=logger, tolerance=tolerance)
     output = cited_text
     if include_discrepancy_log:
         output = append_discrepancy_log(output, issues)
@@ -287,9 +278,7 @@ def detect_result_hallucinations(
     hallucinations = [issue for issue in issues if issue.kind in hallucination_kinds]
     if logger is not None:
         for issue in hallucinations:
-            logger.warning(
-                "Potential hallucination (%s): %s", issue.kind, issue.message
-            )
+            logger.warning("Potential hallucination (%s): %s", issue.kind, issue.message)
     return hallucinations
 
 

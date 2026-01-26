@@ -14,6 +14,18 @@ from uuid import uuid4
 import pandas as pd
 import streamlit as st
 
+from streamlit_app.components.llm_settings import (
+    default_api_key as _default_api_key,
+)
+from streamlit_app.components.llm_settings import (
+    resolve_api_key_input as _resolve_api_key_input,
+)
+from streamlit_app.components.llm_settings import (
+    resolve_llm_provider_config as _resolve_llm_provider_config,
+)
+from streamlit_app.components.llm_settings import (
+    sanitize_api_key as _sanitize_api_key,
+)
 from trend_analysis.llm import (
     ResultClaimIssue,
     ResultSummaryChain,
@@ -27,12 +39,6 @@ from trend_analysis.llm import (
     format_metric_catalog,
     postprocess_result_text,
     serialize_claim_issue,
-)
-from streamlit_app.components.llm_settings import (
-    default_api_key as _default_api_key,
-    resolve_api_key_input as _resolve_api_key_input,
-    resolve_llm_provider_config as _resolve_llm_provider_config,
-    sanitize_api_key as _sanitize_api_key,
 )
 
 DEFAULT_QUESTION = """Analyze this manager selection backtest:
@@ -140,9 +146,7 @@ def generate_result_explanation(
     compacted_entries = compact_metric_catalog(all_entries, questions=questions)
     metric_catalog = format_metric_catalog(compacted_entries)
     if not all_entries:
-        text = ensure_result_disclaimer(
-            "No metrics were detected in the analysis output."
-        )
+        text = ensure_result_disclaimer("No metrics were detected in the analysis output.")
         return ExplanationResult(
             text=text,
             trace_url=None,
