@@ -5,10 +5,10 @@ branch: codex/issue-4548
 tasks:
   - id: task-01
     title: Create `config/scenarios/monte_carlo/index.yml` registry entries.
-    status: doing
+    status: done
     started_at: '2026-01-26T20:48:39Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-26T20:48:46Z'
+    commit: 50070f4019e0a7c7520eeda898bc280fdf87903b
     notes: []
   - id: task-02
     title: Implement `list_scenarios` function in `src/trend_analysis/monte_carlo/registry.py`
