@@ -204,9 +204,7 @@ def test_validate_result_claims_still_flags_uncited_non_dates() -> None:
     text = "Period 2023-01 to 2024-12. CAGR was 8%."
 
     issues = validate_result_claims(text, entries)
-    uncited_values = [
-        issue.detail["value"] for issue in issues if issue.kind == "uncited_value"
-    ]
+    uncited_values = [issue.detail["value"] for issue in issues if issue.kind == "uncited_value"]
 
     assert uncited_values == ["8%"]
 
@@ -222,9 +220,7 @@ def test_validate_result_claims_flags_uncited_metric_with_short_year_range() -> 
     text = "Coverage runs from 2023-24. CAGR was 8%."
 
     issues = validate_result_claims(text, entries)
-    uncited_values = [
-        issue.detail["value"] for issue in issues if issue.kind == "uncited_value"
-    ]
+    uncited_values = [issue.detail["value"] for issue in issues if issue.kind == "uncited_value"]
 
     assert uncited_values == ["8%"]
 
