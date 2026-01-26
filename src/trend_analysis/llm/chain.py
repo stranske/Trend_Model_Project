@@ -103,7 +103,6 @@ class ConfigPatchChain:
         retries: int = 1,
     ) -> "ConfigPatchChain":
         """Build a chain using environment overrides for model/temperature."""
-
         env_temperature = (
             temperature
             if temperature is not None
@@ -409,18 +408,22 @@ class ResultSummaryChain:
         request_id: str | None = None,
         metric_entries: Iterable["MetricEntry"] | None = None,
     ) -> ResultSummaryResponse:
+        questions_text = questions
         if metric_entries is not None:
             missing_metrics = detect_unavailable_metric_requests(questions, metric_entries)
             if missing_metrics:
                 missing_text = ", ".join(missing_metrics)
-                message = (
+                response_text = (
                     "Requested data is unavailable in the analysis output for: " f"{missing_text}."
                 )
-                return ResultSummaryResponse(text=ensure_result_disclaimer(message))
+                return ResultSummaryResponse(
+                    text=ensure_result_disclaimer(response_text),
+                    trace_url=None,
+                )
         prompt_text = self.build_prompt(
             analysis_output=analysis_output,
             metric_catalog=metric_catalog,
-            questions=questions,
+            questions=questions_text,
             system_prompt=system_prompt,
             safety_rules=safety_rules,
         )

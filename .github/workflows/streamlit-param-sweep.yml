@@ -1,0 +1,78 @@
+name: Streamlit Parameter Sweep
+
+on:
+  workflow_dispatch:
+    inputs:
+      dataset_path:
+        description: "Path to dataset CSV"
+        required: false
+        default: "Trend Universe Data.csv"
+      base_config:
+        description: "Path to base config JSON"
+        required: true
+      spec_config:
+        description: "Path to sweep spec JSON"
+        required: true
+      llm_provider:
+        description: "LLM provider"
+        required: false
+        default: "openai"
+      enable_llm:
+        description: "Enable LLM comparisons"
+        required: false
+        default: "true"
+      enable_advisor:
+        description: "Enable LLM numeric parameter advisor"
+        required: false
+        default: "false"
+
+permissions:
+  contents: read
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run parameter sweep
+        env:
+          TS_STREAMLIT_API_KEY: ${{ secrets.TS_STREAMLIT_API_KEY }}
+          TREND_LLM_API_KEY: ${{ secrets.TREND_LLM_API_KEY }}
+        run: |
+          LLM_FLAG=""
+          ADVISOR_FLAG=""
+          if [ "${{ inputs.enable_llm }}" = "true" ]; then
+            LLM_FLAG="--enable-llm"
+          fi
+          if [ "${{ inputs.enable_advisor }}" = "true" ]; then
+            ADVISOR_FLAG="--enable-advisor"
+          fi
+          python scripts/streamlit_param_sweep.py \
+            --base-config "${{ inputs.base_config }}" \
+            --spec "${{ inputs.spec_config }}" \
+            --dataset "${{ inputs.dataset_path }}" \
+            --output-dir "reports/streamlit_param_sweep" \
+            --zip-path "reports/streamlit_param_sweep.zip" \
+            $LLM_FLAG \
+            $ADVISOR_FLAG \
+            --llm-provider "${{ inputs.llm_provider }}"
+
+      - name: Upload sweep artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: streamlit-param-sweep
+          path: |
+            reports/streamlit_param_sweep
+            reports/streamlit_param_sweep.zip

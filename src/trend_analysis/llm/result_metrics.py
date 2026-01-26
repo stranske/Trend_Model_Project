@@ -335,11 +335,12 @@ def _sorted_keys(mapping: Mapping[str, Any]) -> list[str]:
 def _metric_labels_for_entry(entry: MetricEntry) -> Iterable[str]:
     path_parts = entry.path.split(".")
     metric_label = path_parts[-1] if path_parts else entry.path
-    if entry.path.startswith("turnover."):
+    if ".turnover." in entry.path or entry.path.endswith(".turnover"):
         metric_label = "turnover"
-    if entry.source in _WEIGHT_SECTIONS:
+    source = entry.source.split(":", 1)[-1]
+    if source in _WEIGHT_SECTIONS:
         metric_label = "weights"
-    elif entry.source == _BENCHMARK_SECTION:
+    elif source == _BENCHMARK_SECTION:
         metric_label = "benchmark_ir"
 
     synonyms = _METRIC_SYNONYMS.get(metric_label, (metric_label,))

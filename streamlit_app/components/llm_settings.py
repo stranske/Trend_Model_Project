@@ -64,6 +64,20 @@ def default_api_key(provider_name: str) -> str | None:
         token = sanitize_api_key(token)
         if token:
             return token
+    env_key = sanitize_api_key(os.environ.get("TS_STREAMLIT_API_KEY"))
+    if env_key:
+        return env_key
+    env_key = sanitize_api_key(os.environ.get("TREND_LLM_API_KEY"))
+    if env_key:
+        return env_key
+    if provider_name == "openai":
+        env_key = sanitize_api_key(os.environ.get("OPENAI_API_KEY"))
+        if env_key:
+            return env_key
+    if provider_name == "anthropic":
+        env_key = sanitize_api_key(os.environ.get("ANTHROPIC_API_KEY"))
+        if env_key:
+            return env_key
     secrets_key = sanitize_api_key(read_secret("TS_STREAMLIT_API_KEY"))
     if secrets_key:
         return secrets_key
@@ -73,19 +87,10 @@ def default_api_key(provider_name: str) -> str | None:
     secrets_key = sanitize_api_key(read_secret("OPENAI_API_KEY"))
     if secrets_key:
         return secrets_key
-    env_key = sanitize_api_key(os.environ.get("TS_STREAMLIT_API_KEY"))
-    if env_key:
-        return env_key
-    env_key = sanitize_api_key(os.environ.get("TREND_LLM_API_KEY"))
-    if env_key:
-        return env_key
-    if provider_name == "openai":
-        return sanitize_api_key(os.environ.get("OPENAI_API_KEY"))
     if provider_name == "anthropic":
         secrets_anthropic = sanitize_api_key(read_secret("ANTHROPIC_API_KEY"))
         if secrets_anthropic:
             return secrets_anthropic
-        return sanitize_api_key(os.environ.get("ANTHROPIC_API_KEY"))
     return None
 
 
