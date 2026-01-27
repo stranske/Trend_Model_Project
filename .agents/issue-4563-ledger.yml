@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Update `load_scenario` to import and use the `MonteCarloScenario` from
       `trend_analysis.monte_carlo.scenario` instead of defining a new one in `registry.py`.
-    status: doing
+    status: done
     started_at: '2026-01-27T20:32:03Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-27T20:32:13Z'
+    commit: a6c03b53717ff1c1721e5809a5b0e083696aa6ad
     notes: []
   - id: task-02
     title: Modify the `_parse_scenario` function to check that the base configuration
