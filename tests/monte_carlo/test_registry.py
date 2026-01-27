@@ -58,6 +58,10 @@ def test_load_scenario_returns_model() -> None:
     assert scenario.name == "hf_equity_ls_10y"
     assert scenario.base_config.name == "defaults.yml"
     assert "mode" in scenario.monte_carlo
+    assert scenario.strategy_set is not None
+    assert "curated" in scenario.strategy_set
+    assert scenario.outputs is not None
+    assert "directory" in scenario.outputs
 
 
 def test_load_scenario_rejects_invalid(tmp_path: Path) -> None:
@@ -78,6 +82,28 @@ def test_load_scenario_missing(tmp_path: Path) -> None:
     registry.write_text("scenarios: []\n", encoding="utf-8")
 
     with pytest.raises(ValueError, match="Unknown scenario"):
+        load_scenario("missing", registry_path=registry)
+
+
+def test_load_scenario_missing_includes_available(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "alpha.yml"
+    scenario_path.write_text(
+        "scenario:\n"
+        "  name: alpha\n"
+        "  version: '1'\n"
+        "base_config: alpha.yml\n"
+        "monte_carlo: {}\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n"
+        "  - name: alpha\n"
+        "    path: alpha.yml\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Available: alpha"):
         load_scenario("missing", registry_path=registry)
 
 
