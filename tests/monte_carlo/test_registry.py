@@ -62,6 +62,14 @@ def test_load_scenario_rejects_invalid(tmp_path: Path) -> None:
         load_scenario("broken", registry_path=registry)
 
 
+def test_load_scenario_missing(tmp_path: Path) -> None:
+    registry = tmp_path / "index.yml"
+    registry.write_text("scenarios: []\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Unknown scenario"):
+        load_scenario("missing", registry_path=registry)
+
+
 def test_load_scenario_requires_name() -> None:
     with pytest.raises(ValueError, match="Scenario name is required"):
         load_scenario(" ")
