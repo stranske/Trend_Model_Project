@@ -1,0 +1,10 @@
+scenarios:
+  - name: hf_equity_ls_10y
+    path: hf_equity_ls_10y.yml
+    description: "Equity L/S hedge fund sleeve 10-year forecast"
+    tags: [equity, hedge_fund, production]
+
+  - name: hf_macro_20y
+    path: hf_macro_20y.yml
+    description: "Global macro sleeve 20-year stress test"
+    tags: [macro, hedge_fund, stress_test]
