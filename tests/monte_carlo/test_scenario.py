@@ -77,8 +77,7 @@ def test_monte_carlo_scenario_builds_nested_configs_from_mappings() -> None:
 
 
 def test_monte_carlo_scenario_validates_full_schema_from_yaml() -> None:
-    payload = yaml.safe_load(
-        """
+    payload = yaml.safe_load("""
 name: example_scenario
 description: Example schema payload for validation
 base_config: config/defaults.yml
@@ -104,8 +103,7 @@ folds:
 outputs:
   directory: outputs/monte_carlo/example
   format: parquet
-"""
-    )
+""")
 
     scenario = MonteCarloScenario(**payload)
 
