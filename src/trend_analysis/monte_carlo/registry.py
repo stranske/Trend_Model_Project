@@ -108,9 +108,7 @@ def _is_within(path: Path, root: Path) -> bool:
     return True
 
 
-def _resolve_path(
-    value: str, *, base_dir: Path, search_dirs: Sequence[Path] | None = None
-) -> Path:
+def _resolve_path(value: str, *, base_dir: Path, search_dirs: Sequence[Path] | None = None) -> Path:
     raw = Path(value).expanduser()
     candidates: list[Path]
     if raw.is_absolute():
