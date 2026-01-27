@@ -158,6 +158,10 @@ def _resolve_base_config(value: str, *, source_path: Path) -> Path:
     )
 
 
+def _matches_any_tag(entry_tags: Iterable[str], tag_set: set[str]) -> bool:
+    return bool({tag.lower() for tag in entry_tags}.intersection(tag_set))
+
+
 def list_scenarios(
     *, tags: Iterable[str] | None = None, registry_path: Path | None = None
 ) -> list[ScenarioRegistryEntry]:
@@ -167,7 +171,7 @@ def list_scenarios(
     ----------
     tags:
         Optional tag filter. When provided, only scenarios that share at least
-        one tag are returned.
+        one tag (logical OR) are returned.
     registry_path:
         Optional override for the registry location (useful in tests).
     """
@@ -180,8 +184,7 @@ def list_scenarios(
         return scenarios
     filtered: list[ScenarioRegistryEntry] = []
     for entry in scenarios:
-        entry_tags = {tag.lower() for tag in entry.tags}
-        if entry_tags.intersection(tag_set):
+        if _matches_any_tag(entry.tags, tag_set):
             filtered.append(entry)
     return filtered
 
