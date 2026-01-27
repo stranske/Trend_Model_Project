@@ -44,3 +44,31 @@ def test_monte_carlo_scenario_accepts_valid_config() -> None:
 
     assert scenario.monte_carlo is settings
     assert scenario.return_model["kind"] == "stationary_bootstrap"
+
+
+def test_monte_carlo_scenario_builds_nested_configs_from_mappings() -> None:
+    scenario = MonteCarloScenario(
+        name="nested_demo",
+        description="Nested mapping inputs",
+        base_config="config/defaults.yml",
+        monte_carlo={
+            "mode": "two_layer",
+            "n_paths": 150,
+            "horizon_years": 3.0,
+            "frequency": "q",
+            "seed": 7,
+            "jobs": 2,
+        },
+        return_model={"kind": "stationary_bootstrap", "params": {"block_size": 12}},
+        strategy_set={"curated": ["trend_basic"], "guards": {"max_turnover": 0.2}},
+        folds={"enabled": True, "n_folds": 4},
+        outputs={"directory": "outputs/monte_carlo/nested", "format": "parquet"},
+    )
+
+    assert isinstance(scenario.monte_carlo, MonteCarloSettings)
+    assert scenario.monte_carlo.mode == "two_layer"
+    assert scenario.monte_carlo.frequency == "Q"
+    assert scenario.return_model["params"]["block_size"] == 12
+    assert scenario.strategy_set["guards"]["max_turnover"] == 0.2
+    assert scenario.folds["n_folds"] == 4
+    assert scenario.outputs["format"] == "parquet"
