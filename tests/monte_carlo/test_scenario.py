@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 from trend_analysis.monte_carlo import MonteCarloScenario, MonteCarloSettings
@@ -127,3 +128,36 @@ def test_example_scenario_file_loads_and_validates() -> None:
 
     assert scenario.name == "example_scenario"
     assert scenario.monte_carlo.n_paths == 500
+
+
+def test_monte_carlo_settings_missing_required_fields_raise_clear_errors() -> None:
+    with pytest.raises(ValueError, match="mode is required"):
+        MonteCarloSettings()
+
+
+def test_monte_carlo_scenario_missing_required_fields_raise_clear_errors() -> None:
+    with pytest.raises(ValueError, match="name is required"):
+        MonteCarloScenario()
+
+
+def test_monte_carlo_scenario_missing_mapping_fields_raise_clear_errors() -> None:
+    settings = MonteCarloSettings(
+        mode="mixture",
+        n_paths=10,
+        horizon_years=1.0,
+        frequency="M",
+        seed=None,
+        jobs=None,
+    )
+
+    with pytest.raises(ValueError, match="return_model is required"):
+        MonteCarloScenario(
+            name="missing_mappings",
+            description="Missing return_model mapping",
+            base_config="config/defaults.yml",
+            monte_carlo=settings,
+            return_model=None,
+            strategy_set={"curated": []},
+            folds={"enabled": False},
+            outputs={"directory": "outputs/monte_carlo/demo"},
+        )

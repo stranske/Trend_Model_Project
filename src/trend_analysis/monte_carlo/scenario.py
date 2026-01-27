@@ -9,7 +9,14 @@ _ALLOWED_MODES = {"two_layer", "mixture"}
 _ALLOWED_FREQUENCIES = {"D", "W", "M", "Q", "Y"}
 
 
+def _require_value(value: Any, field: str) -> Any:
+    if value is None:
+        raise ValueError(f"{field} is required")
+    return value
+
+
 def _require_non_empty_str(value: Any, field: str) -> str:
+    _require_value(value, field)
     if not isinstance(value, str):
         raise ValueError(f"{field} must be a string")
     text = value.strip()
@@ -19,6 +26,7 @@ def _require_non_empty_str(value: Any, field: str) -> str:
 
 
 def _coerce_int(value: Any, field: str, *, minimum: int | None = None) -> int:
+    _require_value(value, field)
     if isinstance(value, bool):
         raise ValueError(f"{field} must be an integer")
     try:
@@ -33,6 +41,7 @@ def _coerce_int(value: Any, field: str, *, minimum: int | None = None) -> int:
 
 
 def _coerce_float(value: Any, field: str, *, minimum: float | None = None) -> float:
+    _require_value(value, field)
     if isinstance(value, bool):
         raise ValueError(f"{field} must be a number")
     try:
@@ -45,6 +54,7 @@ def _coerce_float(value: Any, field: str, *, minimum: float | None = None) -> fl
 
 
 def _require_mapping(value: Any, field: str) -> Mapping[str, Any]:
+    _require_value(value, field)
     if not isinstance(value, Mapping):
         raise ValueError(f"{field} must be a mapping")
     return value
@@ -66,12 +76,12 @@ class MonteCarloSettings:
         jobs: Optional parallel job count (must be >= 1 when set).
     """
 
-    mode: str
-    n_paths: int
-    horizon_years: float
-    frequency: str
-    seed: int | None
-    jobs: int | None
+    mode: str | None = None
+    n_paths: int | None = None
+    horizon_years: float | None = None
+    frequency: str | None = None
+    seed: int | None = None
+    jobs: int | None = None
 
     def __post_init__(self) -> None:
         self.mode = _require_non_empty_str(self.mode, "mode").lower()
@@ -114,20 +124,21 @@ class MonteCarloScenario:
         outputs: Output configuration mapping.
     """
 
-    name: str
-    description: str
-    base_config: str
-    monte_carlo: MonteCarloSettings
-    return_model: Mapping[str, Any]
-    strategy_set: Mapping[str, Any]
-    folds: Mapping[str, Any]
-    outputs: Mapping[str, Any]
+    name: str | None = None
+    description: str | None = None
+    base_config: str | None = None
+    monte_carlo: MonteCarloSettings | Mapping[str, Any] | None = None
+    return_model: Mapping[str, Any] | None = None
+    strategy_set: Mapping[str, Any] | None = None
+    folds: Mapping[str, Any] | None = None
+    outputs: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         self.name = _require_non_empty_str(self.name, "name")
         self.description = _require_non_empty_str(self.description, "description")
         self.base_config = _require_non_empty_str(self.base_config, "base_config")
 
+        _require_value(self.monte_carlo, "monte_carlo")
         if isinstance(self.monte_carlo, Mapping):
             self.monte_carlo = MonteCarloSettings(**self.monte_carlo)
         if not isinstance(self.monte_carlo, MonteCarloSettings):
