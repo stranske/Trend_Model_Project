@@ -167,6 +167,22 @@ def test_load_scenario_rejects_registry_format(tmp_path: Path) -> None:
         load_scenario("alpha", registry_path=registry)
 
 
+def test_load_scenario_rejects_non_mapping_entry(tmp_path: Path) -> None:
+    registry = tmp_path / "index.yml"
+    registry.write_text("scenarios:\n  - 42\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="entries must be mappings"):
+        load_scenario("alpha", registry_path=registry)
+
+
+def test_load_scenario_rejects_missing_name(tmp_path: Path) -> None:
+    registry = tmp_path / "index.yml"
+    registry.write_text("scenarios:\n  - path: alpha.yml\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="missing 'name'"):
+        load_scenario("alpha", registry_path=registry)
+
+
 def test_load_scenario_rejects_missing_path(tmp_path: Path) -> None:
     registry = tmp_path / "index.yml"
     registry.write_text("scenarios:\n  - name: alpha\n", encoding="utf-8")
@@ -264,6 +280,14 @@ def test_get_scenario_path_rejects_registry_format(tmp_path: Path) -> None:
     registry.write_text("scenarios: {}\n", encoding="utf-8")
 
     with pytest.raises(ValueError, match="scenarios.*list"):
+        get_scenario_path("alpha", registry_path=registry)
+
+
+def test_get_scenario_path_rejects_non_mapping_entry(tmp_path: Path) -> None:
+    registry = tmp_path / "index.yml"
+    registry.write_text("scenarios:\n  - 42\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="entries must be mappings"):
         get_scenario_path("alpha", registry_path=registry)
 
 
