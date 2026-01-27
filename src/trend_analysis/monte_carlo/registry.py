@@ -6,6 +6,7 @@ from typing import Iterable, Mapping, Sequence
 
 import yaml
 
+from trend_analysis.monte_carlo.scenario import MonteCarloScenario
 from utils.paths import proj_path
 
 __all__ = [
@@ -26,19 +27,6 @@ class ScenarioRegistryEntry:
     path: Path
     description: str | None
     tags: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class MonteCarloScenario:
-    name: str
-    description: str | None
-    version: str
-    base_config: Path
-    monte_carlo: Mapping[str, object]
-    strategy_set: Mapping[str, object] | None
-    outputs: Mapping[str, object] | None
-    path: Path
-    raw: Mapping[str, object]
 
 
 def _ensure_mapping(value: object, *, label: str) -> Mapping[str, object]:
