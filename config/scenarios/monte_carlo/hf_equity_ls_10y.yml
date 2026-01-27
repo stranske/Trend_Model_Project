@@ -1,0 +1,29 @@
+scenario:
+  name: hf_equity_ls_10y
+  description: "Equity L/S hedge fund sleeve 10-year forecast"
+  version: "1.0"
+
+base_config: config/defaults.yml
+
+monte_carlo:
+  mode: two_layer
+  n_paths: 200
+  horizon_years: 10
+  frequency: M
+  seed: 12345
+  jobs: 1
+
+strategy_set:
+  curated:
+    - name: Rank_12_Equal_TightTurnover
+      overrides:
+        portfolio:
+          selection_mode: rank
+          rank:
+            n: 12
+            metric: Sharpe
+          weighting_scheme: equal
+
+outputs:
+  directory: outputs/monte_carlo/{scenario_name}/{timestamp}
+  formats: [csv]

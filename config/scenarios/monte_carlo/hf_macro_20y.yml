@@ -1,0 +1,30 @@
+scenario:
+  name: hf_macro_20y
+  description: "Global macro sleeve 20-year stress test"
+  version: "1.0"
+
+base_config: config/defaults.yml
+
+monte_carlo:
+  mode: mixture
+  n_paths: 300
+  horizon_years: 20
+  frequency: M
+  seed: 2020
+  jobs: 1
+
+strategy_set:
+  curated:
+    - name: ThresholdHold_Bayes_ModerateTurnover
+      overrides:
+        portfolio:
+          selection_mode: rank
+          rank:
+            inclusion_approach: threshold
+            threshold: 0.3
+          weighting_scheme: shrinkage
+          max_turnover: 0.18
+
+outputs:
+  directory: outputs/monte_carlo/{scenario_name}/{timestamp}
+  formats: [csv]
