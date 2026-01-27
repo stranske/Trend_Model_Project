@@ -62,9 +62,19 @@ def test_load_scenario_rejects_invalid(tmp_path: Path) -> None:
         load_scenario("broken", registry_path=registry)
 
 
+def test_load_scenario_requires_name() -> None:
+    with pytest.raises(ValueError, match="Scenario name is required"):
+        load_scenario(" ")
+
+
 def test_get_scenario_path() -> None:
     path = get_scenario_path("hf_macro_20y")
     assert path.name == "hf_macro_20y.yml"
+
+
+def test_get_scenario_path_requires_name() -> None:
+    with pytest.raises(ValueError, match="Scenario name is required"):
+        get_scenario_path("")
 
 
 def test_get_scenario_path_missing(tmp_path: Path) -> None:

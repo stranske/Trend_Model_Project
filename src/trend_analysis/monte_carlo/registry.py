@@ -167,11 +167,14 @@ def _format_missing(name: str, scenarios: Sequence[ScenarioRegistryEntry]) -> st
 def get_scenario_path(name: str, *, registry_path: Path | None = None) -> Path:
     """Return the resolved path for a registered scenario name."""
 
+    normalized = name.strip()
+    if not normalized:
+        raise ValueError("Scenario name is required")
     scenarios = _load_registry(registry_path)
     for entry in scenarios:
-        if entry.name == name:
+        if entry.name == normalized:
             return entry.path
-    raise ValueError(_format_missing(name, scenarios))
+    raise ValueError(_format_missing(normalized, scenarios))
 
 
 def _parse_scenario(
@@ -229,10 +232,13 @@ def _parse_scenario(
 def load_scenario(name: str, *, registry_path: Path | None = None) -> MonteCarloScenario:
     """Load and validate a scenario definition by name."""
 
+    normalized = name.strip()
+    if not normalized:
+        raise ValueError("Scenario name is required")
     scenarios = _load_registry(registry_path)
-    entry = next((item for item in scenarios if item.name == name), None)
+    entry = next((item for item in scenarios if item.name == normalized), None)
     if entry is None:
-        raise ValueError(_format_missing(name, scenarios))
+        raise ValueError(_format_missing(normalized, scenarios))
 
     raw = _load_yaml(entry.path)
-    return _parse_scenario(name, raw, source_path=entry.path)
+    return _parse_scenario(normalized, raw, source_path=entry.path)
