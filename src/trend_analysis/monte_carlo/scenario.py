@@ -67,13 +67,17 @@ class MonteCarloSettings:
     Use this dataclass directly or pass a mapping when building
     :class:`MonteCarloScenario`, which will coerce and validate fields.
 
+    This schema enforces required fields, permissible values, and numeric bounds
+    for the Monte Carlo simulation engine.
+
     Attributes:
-        mode: Simulation mode, either ``two_layer`` or ``mixture``.
-        n_paths: Number of simulation paths to generate (must be >= 1).
-        horizon_years: Forecast horizon in years (must be > 0).
-        frequency: Sampling frequency for generated paths (D/W/M/Q/Y).
-        seed: Optional random seed for reproducibility (must be >= 0 when set).
-        jobs: Optional parallel job count (must be >= 1 when set).
+        mode: Simulation mode, either ``two_layer`` or ``mixture`` (required).
+        n_paths: Number of simulation paths to generate (integer, >= 1).
+        horizon_years: Forecast horizon in years (float, > 0).
+        frequency: Sampling frequency for generated paths. Allowed values are
+            ``D``, ``W``, ``M``, ``Q``, or ``Y``.
+        seed: Optional random seed for reproducibility (integer, >= 0 when set).
+        jobs: Optional parallel job count (integer, >= 1 when set).
     """
 
     mode: str | None = None
@@ -111,17 +115,18 @@ class MonteCarloScenario:
     """Scenario configuration for Monte Carlo simulations.
 
     The schema accepts nested dictionaries for the ``monte_carlo`` field and
-    validates required fields for all top-level mappings.
+    validates required fields for all top-level mappings. All fields are
+    required unless explicitly documented as optional.
 
     Attributes:
-        name: Scenario identifier.
-        description: Human-readable description of the scenario.
-        base_config: Path to the base configuration file to extend.
-        monte_carlo: Monte Carlo settings (or a mapping to build them from).
-        return_model: Return model configuration mapping.
-        strategy_set: Strategy selection configuration mapping.
-        folds: Cross-validation fold configuration mapping.
-        outputs: Output configuration mapping.
+        name: Scenario identifier (required non-empty string).
+        description: Human-readable description (required non-empty string).
+        base_config: Path to the base configuration file to extend (required).
+        monte_carlo: Monte Carlo settings or a mapping to build them from.
+        return_model: Return model configuration mapping (required).
+        strategy_set: Strategy selection configuration mapping (required).
+        folds: Cross-validation fold configuration mapping (required).
+        outputs: Output configuration mapping (required).
     """
 
     name: str | None = None
