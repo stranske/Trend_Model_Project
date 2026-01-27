@@ -85,6 +85,17 @@ def test_list_scenarios_missing_registry(tmp_path: Path) -> None:
         list_scenarios(registry_path=registry)
 
 
+def test_list_scenarios_missing_file(tmp_path: Path) -> None:
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n" "  - name: alpha\n" "    path: alpha.yml\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(FileNotFoundError, match="Could not locate"):
+        list_scenarios(registry_path=registry)
+
+
 def test_list_scenarios_rejects_non_list_entries(tmp_path: Path) -> None:
     registry = tmp_path / "index.yml"
     registry.write_text("scenarios: {}\n", encoding="utf-8")
@@ -98,6 +109,14 @@ def test_list_scenarios_rejects_non_mapping_entry(tmp_path: Path) -> None:
     registry.write_text("scenarios:\n  - 42\n", encoding="utf-8")
 
     with pytest.raises(ValueError, match="entries must be mappings"):
+        list_scenarios(registry_path=registry)
+
+
+def test_list_scenarios_rejects_missing_name(tmp_path: Path) -> None:
+    registry = tmp_path / "index.yml"
+    registry.write_text("scenarios:\n  - path: alpha.yml\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="missing 'name'"):
         list_scenarios(registry_path=registry)
 
 
@@ -145,6 +164,14 @@ def test_load_scenario_rejects_registry_format(tmp_path: Path) -> None:
     registry.write_text("scenarios: {}\n", encoding="utf-8")
 
     with pytest.raises(ValueError, match="scenarios.*list"):
+        load_scenario("alpha", registry_path=registry)
+
+
+def test_load_scenario_rejects_missing_path(tmp_path: Path) -> None:
+    registry = tmp_path / "index.yml"
+    registry.write_text("scenarios:\n  - name: alpha\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="missing 'path'"):
         load_scenario("alpha", registry_path=registry)
 
 
@@ -221,9 +248,28 @@ def test_get_scenario_path_missing_registry(tmp_path: Path) -> None:
         get_scenario_path("alpha", registry_path=registry)
 
 
+def test_get_scenario_path_missing_file(tmp_path: Path) -> None:
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n" "  - name: alpha\n" "    path: alpha.yml\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(FileNotFoundError, match="Could not locate"):
+        get_scenario_path("alpha", registry_path=registry)
+
+
 def test_get_scenario_path_rejects_registry_format(tmp_path: Path) -> None:
     registry = tmp_path / "index.yml"
     registry.write_text("scenarios: {}\n", encoding="utf-8")
 
     with pytest.raises(ValueError, match="scenarios.*list"):
+        get_scenario_path("alpha", registry_path=registry)
+
+
+def test_get_scenario_path_rejects_missing_name(tmp_path: Path) -> None:
+    registry = tmp_path / "index.yml"
+    registry.write_text("scenarios:\n  - path: alpha.yml\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="missing 'name'"):
         get_scenario_path("alpha", registry_path=registry)
