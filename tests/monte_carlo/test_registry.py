@@ -115,6 +115,19 @@ def test_get_scenario_path() -> None:
     assert path.name == "hf_macro_20y.yml"
 
 
+def test_get_scenario_path_resolves_from_registry(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "alpha.yml"
+    scenario_path.write_text("{}", encoding="utf-8")
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n" "  - name: alpha\n" "    path: alpha.yml\n",
+        encoding="utf-8",
+    )
+
+    path = get_scenario_path("alpha", registry_path=registry)
+    assert path == scenario_path.resolve()
+
+
 def test_get_scenario_path_requires_name() -> None:
     with pytest.raises(ValueError, match="Scenario name is required"):
         get_scenario_path("")
