@@ -52,7 +52,16 @@ def _require_mapping(value: Any, field: str) -> Mapping[str, Any]:
 
 @dataclass
 class MonteCarloSettings:
-    """Configuration settings for Monte Carlo path generation."""
+    """Configuration settings for Monte Carlo path generation.
+
+    Attributes:
+        mode: Simulation mode, either ``two_layer`` or ``mixture``.
+        n_paths: Number of simulation paths to generate (must be >= 1).
+        horizon_years: Forecast horizon in years (must be > 0).
+        frequency: Sampling frequency for generated paths (D/W/M/Q/Y).
+        seed: Optional random seed for reproducibility (must be >= 0 when set).
+        jobs: Optional parallel job count (must be >= 1 when set).
+    """
 
     mode: str
     n_paths: int
@@ -86,7 +95,18 @@ class MonteCarloSettings:
 
 @dataclass
 class MonteCarloScenario:
-    """Scenario configuration for Monte Carlo simulations."""
+    """Scenario configuration for Monte Carlo simulations.
+
+    Attributes:
+        name: Scenario identifier.
+        description: Human-readable description of the scenario.
+        base_config: Path to the base configuration file to extend.
+        monte_carlo: Monte Carlo settings (or a mapping to build them from).
+        return_model: Return model configuration mapping.
+        strategy_set: Strategy selection configuration mapping.
+        folds: Cross-validation fold configuration mapping.
+        outputs: Output configuration mapping.
+    """
 
     name: str
     description: str

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import yaml
 
 from trend_analysis.monte_carlo import MonteCarloScenario, MonteCarloSettings
@@ -114,3 +116,14 @@ outputs:
     assert scenario.strategy_set["guards"]["max_turnover"] == 0.15
     assert scenario.folds["n_folds"] == 3
     assert scenario.outputs["directory"] == "outputs/monte_carlo/example"
+
+
+def test_example_scenario_file_loads_and_validates() -> None:
+    root = Path(__file__).resolve().parents[2]
+    scenario_path = root / "config" / "scenarios" / "monte_carlo" / "example.yml"
+
+    payload = yaml.safe_load(scenario_path.read_text())
+    scenario = MonteCarloScenario(**payload)
+
+    assert scenario.name == "example_scenario"
+    assert scenario.monte_carlo.n_paths == 500
