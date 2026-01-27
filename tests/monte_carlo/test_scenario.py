@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import yaml
+
 from trend_analysis.monte_carlo import MonteCarloScenario, MonteCarloSettings
 
 
@@ -72,3 +74,45 @@ def test_monte_carlo_scenario_builds_nested_configs_from_mappings() -> None:
     assert scenario.strategy_set["guards"]["max_turnover"] == 0.2
     assert scenario.folds["n_folds"] == 4
     assert scenario.outputs["format"] == "parquet"
+
+
+def test_monte_carlo_scenario_validates_full_schema_from_yaml() -> None:
+    payload = yaml.safe_load(
+        """
+name: example_scenario
+description: Example schema payload for validation
+base_config: config/defaults.yml
+monte_carlo:
+  mode: mixture
+  n_paths: 500
+  horizon_years: 4.0
+  frequency: M
+  seed: 123
+  jobs: 8
+return_model:
+  kind: stationary_bootstrap
+  params:
+    block_size: 6
+strategy_set:
+  curated:
+    - trend_basic
+  guards:
+    max_turnover: 0.15
+folds:
+  enabled: true
+  n_folds: 3
+outputs:
+  directory: outputs/monte_carlo/example
+  format: parquet
+"""
+    )
+
+    scenario = MonteCarloScenario(**payload)
+
+    assert scenario.name == "example_scenario"
+    assert scenario.monte_carlo.n_paths == 500
+    assert scenario.monte_carlo.frequency == "M"
+    assert scenario.return_model["params"]["block_size"] == 6
+    assert scenario.strategy_set["guards"]["max_turnover"] == 0.15
+    assert scenario.folds["n_folds"] == 3
+    assert scenario.outputs["directory"] == "outputs/monte_carlo/example"
