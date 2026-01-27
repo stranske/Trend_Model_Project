@@ -129,7 +129,9 @@ def _resolve_path(value: str, *, base_dir: Path) -> Path:
     )
 
 
-def list_scenarios(*, tags: Iterable[str] | None = None, registry_path: Path | None = None) -> list[ScenarioRegistryEntry]:
+def list_scenarios(
+    *, tags: Iterable[str] | None = None, registry_path: Path | None = None
+) -> list[ScenarioRegistryEntry]:
     """Return registered Monte Carlo scenarios.
 
     Parameters
@@ -172,7 +174,9 @@ def get_scenario_path(name: str, *, registry_path: Path | None = None) -> Path:
     raise ValueError(_format_missing(name, scenarios))
 
 
-def _parse_scenario(name: str, raw: Mapping[str, object], *, source_path: Path) -> MonteCarloScenario:
+def _parse_scenario(
+    name: str, raw: Mapping[str, object], *, source_path: Path
+) -> MonteCarloScenario:
     scenario = raw.get("scenario")
     scenario_map = _ensure_mapping(scenario, label="Scenario config 'scenario'")
 
@@ -180,9 +184,7 @@ def _parse_scenario(name: str, raw: Mapping[str, object], *, source_path: Path) 
     if not scenario_name:
         raise ValueError("Scenario config must define scenario.name")
     if scenario_name != name:
-        raise ValueError(
-            f"Scenario name mismatch: registry '{name}' vs config '{scenario_name}'"
-        )
+        raise ValueError(f"Scenario name mismatch: registry '{name}' vs config '{scenario_name}'")
 
     version = scenario_map.get("version")
     if not isinstance(version, str) or not version.strip():

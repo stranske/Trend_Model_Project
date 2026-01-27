@@ -54,9 +54,7 @@ def test_load_scenario_rejects_invalid(tmp_path: Path) -> None:
     scenario_path.write_text("monte_carlo: {}\n", encoding="utf-8")
     registry = tmp_path / "index.yml"
     registry.write_text(
-        "scenarios:\n"
-        "  - name: broken\n"
-        "    path: broken.yml\n",
+        "scenarios:\n" "  - name: broken\n" "    path: broken.yml\n",
         encoding="utf-8",
     )
 
