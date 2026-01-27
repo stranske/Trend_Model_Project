@@ -283,7 +283,12 @@ def _normalize_tasks_input(tasks: list[str] | str | None) -> list[str]:
     if tasks is None:
         return []
     if isinstance(tasks, list):
-        return [str(item).strip() for item in tasks if str(item).strip()]
+        cleaned_tasks: list[str] = []
+        for item in tasks:
+            cleaned = str(item).strip()
+            if cleaned:
+                cleaned_tasks.append(cleaned)
+        return cleaned_tasks
     if isinstance(tasks, str):
         parsed = _parse_tasks_from_text(tasks)
         if parsed:
