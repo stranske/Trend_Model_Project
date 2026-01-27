@@ -173,8 +173,9 @@ jobs:
             // For compare mode, use models from different families/providers
             // model1 goes to GitHub Models, model2 goes to OpenAI
             if (mode === 'compare') {
-              // gpt-4o (GitHub Models) + gpt-5.2 (OpenAI) for cross-provider comparison
-              core.setOutput('model', 'gpt-4o');
+              // gpt-4o-mini (GitHub Models) + gpt-5.2 (OpenAI) for cross-provider comparison
+              // gpt-4o has an 8k request limit which can overflow on larger PR contexts.
+              core.setOutput('model', 'gpt-4o-mini');
               core.setOutput('model2', 'gpt-5.2');
             } else {
               core.setOutput('model', '');  // Use default (gpt-4o)
