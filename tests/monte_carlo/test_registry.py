@@ -19,6 +19,17 @@ def test_list_scenarios_basic() -> None:
     assert "hf_macro_20y" in names
 
 
+def test_list_scenarios_returns_entries_with_paths() -> None:
+    scenarios = {entry.name: entry for entry in list_scenarios()}
+    equity = scenarios["hf_equity_ls_10y"]
+    macro = scenarios["hf_macro_20y"]
+
+    for entry in (equity, macro):
+        assert entry.path.exists()
+        assert entry.path.suffix == ".yml"
+        assert isinstance(entry.tags, tuple)
+
+
 def test_list_scenarios_filters_by_tags(tmp_path: Path) -> None:
     scenario_a = tmp_path / "alpha.yml"
     scenario_b = tmp_path / "beta.yml"
