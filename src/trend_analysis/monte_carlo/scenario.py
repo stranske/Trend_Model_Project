@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Mapping
 
 _ALLOWED_MODES = {"two_layer", "mixture"}
 _ALLOWED_FREQUENCIES = {"D", "W", "M", "Q", "Y"}
+_MISSING = object()
 
 
 def _require_value(value: Any, field: str) -> Any:
@@ -109,47 +111,66 @@ class MonteCarloSettings:
         if self.jobs is not None:
             self.jobs = _coerce_int(self.jobs, "jobs", minimum=1)
 
+    def __contains__(self, item: object) -> bool:
+        if not isinstance(item, str):
+            return False
+        return item in self.__dict__
+
 
 @dataclass
 class MonteCarloScenario:
-    """Scenario configuration for Monte Carlo simulations.
-
-    The schema accepts nested dictionaries for the ``monte_carlo`` field and
-    validates required fields for all top-level mappings. All fields are
-    required unless explicitly documented as optional.
-
-    Attributes:
-        name: Scenario identifier (required non-empty string).
-        description: Human-readable description (required non-empty string).
-        base_config: Path to the base configuration file to extend (required).
-        monte_carlo: Monte Carlo settings or a mapping to build them from.
-        return_model: Return model configuration mapping (required).
-        strategy_set: Strategy selection configuration mapping (required).
-        folds: Cross-validation fold configuration mapping (required).
-        outputs: Output configuration mapping (required).
-    """
+    """Resolved Monte Carlo scenario configuration."""
 
     name: str | None = None
     description: str | None = None
-    base_config: str | None = None
+    version: str | None = None
+    base_config: Path | str | None = None
     monte_carlo: MonteCarloSettings | Mapping[str, Any] | None = None
-    return_model: Mapping[str, Any] | None = None
-    strategy_set: Mapping[str, Any] | None = None
-    folds: Mapping[str, Any] | None = None
-    outputs: Mapping[str, Any] | None = None
+    return_model: Mapping[str, Any] | None | object = _MISSING
+    strategy_set: Mapping[str, Any] | None | object = _MISSING
+    folds: Mapping[str, Any] | None | object = _MISSING
+    outputs: Mapping[str, Any] | None | object = _MISSING
+    path: Path | str | None = None
+    raw: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         self.name = _require_non_empty_str(self.name, "name")
-        self.description = _require_non_empty_str(self.description, "description")
-        self.base_config = _require_non_empty_str(self.base_config, "base_config")
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+        if self.version is not None:
+            self.version = _require_non_empty_str(self.version, "version")
 
-        _require_value(self.monte_carlo, "monte_carlo")
-        if isinstance(self.monte_carlo, Mapping):
-            self.monte_carlo = MonteCarloSettings(**self.monte_carlo)
-        if not isinstance(self.monte_carlo, MonteCarloSettings):
-            raise ValueError("monte_carlo must be a MonteCarloSettings instance or mapping")
+        base_value = _require_value(self.base_config, "base_config")
+        if isinstance(base_value, Path):
+            self.base_config = base_value
+        else:
+            self.base_config = Path(_require_non_empty_str(base_value, "base_config"))
 
-        self.return_model = dict(_require_mapping(self.return_model, "return_model"))
-        self.strategy_set = dict(_require_mapping(self.strategy_set, "strategy_set"))
-        self.folds = dict(_require_mapping(self.folds, "folds"))
-        self.outputs = dict(_require_mapping(self.outputs, "outputs"))
+        monte_carlo_value = _require_value(self.monte_carlo, "monte_carlo")
+        if isinstance(monte_carlo_value, MonteCarloSettings):
+            self.monte_carlo = monte_carlo_value
+        else:
+            monte_carlo_map = _require_mapping(monte_carlo_value, "monte_carlo")
+            self.monte_carlo = MonteCarloSettings(**monte_carlo_map)
+
+        if self.return_model is _MISSING:
+            self.return_model = None
+        elif self.return_model is None:
+            raise ValueError("return_model is required")
+        else:
+            self.return_model = _require_mapping(self.return_model, "return_model")
+
+        self.strategy_set = _coerce_optional_mapping(self.strategy_set, "strategy_set")
+        self.folds = _coerce_optional_mapping(self.folds, "folds")
+        self.outputs = _coerce_optional_mapping(self.outputs, "outputs")
+
+        if self.path is not None and not isinstance(self.path, Path):
+            self.path = Path(str(self.path))
+        if self.raw is not None:
+            self.raw = _require_mapping(self.raw, "raw")
+
+
+def _coerce_optional_mapping(value: object, field: str) -> Mapping[str, Any] | None:
+    if value is _MISSING or value is None:
+        return None
+    return _require_mapping(value, field)

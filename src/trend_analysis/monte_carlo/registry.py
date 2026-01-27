@@ -6,6 +6,7 @@ from typing import Iterable, Mapping, Sequence
 
 import yaml
 
+from trend_analysis.monte_carlo.scenario import MonteCarloScenario
 from utils.paths import proj_path
 
 __all__ = [
@@ -26,19 +27,6 @@ class ScenarioRegistryEntry:
     path: Path
     description: str | None
     tags: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class MonteCarloScenario:
-    name: str
-    description: str | None
-    version: str
-    base_config: Path
-    monte_carlo: Mapping[str, object]
-    strategy_set: Mapping[str, object] | None
-    outputs: Mapping[str, object] | None
-    path: Path
-    raw: Mapping[str, object]
 
 
 def _ensure_mapping(value: object, *, label: str) -> Mapping[str, object]:
@@ -82,8 +70,8 @@ def _load_registry(registry_path: Path | None = None) -> list[ScenarioRegistryEn
         raise FileNotFoundError(f"Scenario registry '{path}' does not exist")
     raw = _load_yaml(path)
     entries = raw.get("scenarios")
-    if not isinstance(entries, Sequence):
-        raise ValueError("Scenario registry must define a list under 'scenarios'")
+    if not isinstance(entries, list):
+        raise ValueError("Scenario registry must define 'scenarios' as a list")
 
     scenarios: list[ScenarioRegistryEntry] = []
     for entry in entries:
@@ -95,7 +83,11 @@ def _load_registry(registry_path: Path | None = None) -> list[ScenarioRegistryEn
         path_value = entry.get("path")
         if not path_value:
             raise ValueError(f"Scenario registry entry '{name}' missing 'path'")
-        resolved_path = _resolve_path(str(path_value), base_dir=path.parent)
+        resolved_path = _resolve_path(
+            str(path_value),
+            base_dir=path.parent,
+            search_dirs=[proj_path()],
+        )
         scenarios.append(
             ScenarioRegistryEntry(
                 name=name,
@@ -108,7 +100,15 @@ def _load_registry(registry_path: Path | None = None) -> list[ScenarioRegistryEn
     return scenarios
 
 
-def _resolve_path(value: str, *, base_dir: Path) -> Path:
+def _is_within(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    return True
+
+
+def _resolve_path(value: str, *, base_dir: Path, search_dirs: Sequence[Path] | None = None) -> Path:
     raw = Path(value).expanduser()
     candidates: list[Path]
     if raw.is_absolute():
@@ -117,8 +117,9 @@ def _resolve_path(value: str, *, base_dir: Path) -> Path:
         candidates = [
             (base_dir / raw).resolve(),
             (base_dir.parent / raw).resolve(),
-            Path.cwd().resolve() / raw,
         ]
+        if search_dirs:
+            candidates.extend((Path(root) / raw).resolve() for root in search_dirs)
     for candidate in candidates:
         if candidate.exists():
             if candidate.is_dir():
@@ -127,6 +128,38 @@ def _resolve_path(value: str, *, base_dir: Path) -> Path:
     raise FileNotFoundError(
         f"Could not locate '{value}'. Checked: {', '.join(str(c) for c in candidates)}"
     )
+
+
+def _resolve_base_config(value: str, *, source_path: Path) -> Path:
+    raw = Path(value).expanduser()
+    allowed_roots = [
+        source_path.parent.resolve(),
+        proj_path().resolve(),
+    ]
+
+    candidates: list[Path] = []
+    if raw.is_absolute():
+        candidate = raw.resolve()
+        if not any(_is_within(candidate, root) for root in allowed_roots):
+            allowed = ", ".join(str(root) for root in allowed_roots)
+            raise ValueError(f"base_config must resolve under: {allowed}")
+        candidates = [candidate]
+    else:
+        candidates = [(root / raw).resolve() for root in allowed_roots]
+
+    for candidate in candidates:
+        if candidate.exists():
+            if candidate.is_dir():
+                raise IsADirectoryError(f"Path '{candidate}' must be a file")
+            return candidate
+
+    raise FileNotFoundError(
+        f"Could not locate base_config '{value}'. Checked: {', '.join(str(c) for c in candidates)}"
+    )
+
+
+def _matches_any_tag(entry_tags: Iterable[str], tag_set: set[str]) -> bool:
+    return bool({tag.lower() for tag in entry_tags}.intersection(tag_set))
 
 
 def list_scenarios(
@@ -138,7 +171,7 @@ def list_scenarios(
     ----------
     tags:
         Optional tag filter. When provided, only scenarios that share at least
-        one tag are returned.
+        one tag (logical OR) are returned.
     registry_path:
         Optional override for the registry location (useful in tests).
     """
@@ -151,8 +184,7 @@ def list_scenarios(
         return scenarios
     filtered: list[ScenarioRegistryEntry] = []
     for entry in scenarios:
-        entry_tags = {tag.lower() for tag in entry.tags}
-        if entry_tags.intersection(tag_set):
+        if _matches_any_tag(entry.tags, tag_set):
             filtered.append(entry)
     return filtered
 
@@ -199,7 +231,7 @@ def _parse_scenario(
     base_config_value = raw.get("base_config")
     if not base_config_value:
         raise ValueError("Scenario config must define base_config")
-    base_config = _resolve_path(str(base_config_value), base_dir=source_path.parent)
+    base_config = _resolve_base_config(str(base_config_value), source_path=source_path)
 
     monte_carlo = raw.get("monte_carlo")
     if monte_carlo is None:

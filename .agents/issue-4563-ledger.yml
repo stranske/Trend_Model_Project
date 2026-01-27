@@ -1,0 +1,509 @@
+version: 1
+issue: 4563
+base: phase-3
+branch: codex/issue-4563
+tasks:
+  - id: task-01
+    title: Update `load_scenario` to import and use the `MonteCarloScenario` from
+      `trend_analysis.monte_carlo.scenario` instead of defining a new one in `registry.py`.
+    status: done
+    started_at: '2026-01-27T20:32:03Z'
+    finished_at: '2026-01-27T20:32:13Z'
+    commit: a6c03b53717ff1c1721e5809a5b0e083696aa6ad
+    notes: []
+  - id: task-02
+    title: Modify the `_parse_scenario` function to check that the base configuration
+      file exists in a predetermined set of directories. Remove or restrict the use
+      of `Path.cwd()` as a fallback in `_resolve_path`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Add explicit type-checking in the registry loader to confirm that the 'scenarios'
+      field is a list. If it is not, raise a descriptive `ValueError`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Review and update the tag filtering implementation; decide whether the
+      filtering should be based on a logical AND or OR. Update the implementation
+      and documentation accordingly.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Define scope for: Decide whether the tag filtering logic should be based
+      on a logical AND or OR. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Implement focused slice for: Decide whether the tag filtering logic should
+      be based on a logical AND or OR. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Validate focused slice for: Decide whether the tag filtering logic should
+      be based on a logical AND or OR. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Define scope for: Update the tag filtering implementation based on the
+      decision. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Implement focused slice for: Update the tag filtering implementation based
+      on the decision. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Validate focused slice for: Update the tag filtering implementation based
+      on the decision. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Define scope for: Update the documentation to reflect the chosen tag filtering
+      logic. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Implement focused slice for: Update the documentation to reflect the chosen
+      tag filtering logic. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Validate focused slice for: Update the documentation to reflect the chosen
+      tag filtering logic. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Create or update unit tests for `list_scenarios`, `load_scenario`, and
+      `get_scenario_path` to cover scenarios including: valid loads, missing files,
+      malformed registry formats, and both tag-filtering behaviors (if applicable).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Define scope for: Create or update unit tests for `list_scenarios` to
+      cover valid loads (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'missing files (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: '(verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Implement focused slice for: Create or update unit tests for `list_scenarios`
+      to cover valid loads (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'missing files (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: '(verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'Validate focused slice for: Create or update unit tests for `list_scenarios`
+      to cover valid loads (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'missing files (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: '(verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'malformed registry formats. (verify: formatter passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: 'Define scope for: Create or update unit tests for `load_scenario` to cover
+      valid loads (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: 'missing files (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: '(verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: 'Implement focused slice for: Create or update unit tests for `load_scenario`
+      to cover valid loads (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: 'missing files (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: '(verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: 'Validate focused slice for: Create or update unit tests for `load_scenario`
+      to cover valid loads (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: 'missing files (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: '(verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: 'malformed registry formats. (verify: formatter passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: 'Define scope for: Create or update unit tests for `get_scenario_path`
+      to cover valid loads (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: 'missing files (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: '(verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: 'Implement focused slice for: Create or update unit tests for `get_scenario_path`
+      to cover valid loads (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: 'missing files (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: '(verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: 'Validate focused slice for: Create or update unit tests for `get_scenario_path`
+      to cover valid loads (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: 'missing files (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: '(verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: 'malformed registry formats. (verify: formatter passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: 'Define scope for: Create or update unit tests to cover both tag-filtering
+      behaviors (AND (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: 'Implement focused slice for: Create or update unit tests to cover both
+      tag-filtering behaviors (AND (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: 'Validate focused slice for: Create or update unit tests to cover both
+      tag-filtering behaviors (AND (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: 'OR). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: The function `load_scenario('name')` returns an instance of `trend_analysis.monte_carlo.scenario.MonteCarloScenario`
+      and raises a descriptive error if the scenario file is missing or fails validation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: The `_parse_scenario` function successfully resolves base configuration
+      files only from a predetermined set of directories, without using `Path.cwd()`
+      as a fallback.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: The registry loader raises a `ValueError` with a descriptive message if
+      the 'scenarios' field in the configuration is not a list.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: Tag filtering logic is clearly documented and implemented using either
+      logical AND or OR, as decided, with corresponding updates in `docs/tag_filtering.md`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: Unit tests for `list_scenarios`, `load_scenario`, and `get_scenario_path`
+      cover valid loads, missing files, malformed registry formats, and both tag-filtering
+      behaviors.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: Update `load_scenario` to import and use the `MonteCarloScenario` from
+      `trend_analysis.monte_carlo.scenario` instead of defining a new one in `registry.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: Modify the `_parse_scenario` function to check that the base configuration
+      file exists in a predetermined set of directories. Remove or restrict the use
+      of `Path.cwd()` as a fallback in `_resolve_path`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-56
+    title: Add explicit type-checking in the registry loader to confirm that the 'scenarios'
+      field is a list. If it is not, raise a descriptive `ValueError`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-57
+    title: Review and update the tag filtering implementation; decide whether the
+      filtering should be based on a logical AND or OR. Update the implementation
+      and documentation accordingly.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-58
+    title: 'Create or update unit tests for `list_scenarios`, `load_scenario`, and
+      `get_scenario_path` to cover scenarios including: valid loads, missing files,
+      malformed registry formats, and both tag-filtering behaviors (if applicable).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-59
+    title: The function `load_scenario('name')` returns an instance of `trend_analysis.monte_carlo.scenario.MonteCarloScenario`
+      and raises a descriptive error if the scenario file is missing or fails validation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-60
+    title: The `_parse_scenario` function successfully resolves base configuration
+      files only from a predetermined set of directories, without using `Path.cwd()`
+      as a fallback.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-61
+    title: The registry loader raises a `ValueError` with a descriptive message if
+      the 'scenarios' field in the configuration is not a list.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-62
+    title: Tag filtering logic is clearly documented and implemented using either
+      logical AND or OR, as decided, with corresponding updates in `docs/tag_filtering.md`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-63
+    title: Unit tests for `list_scenarios`, `load_scenario`, and `get_scenario_path`
+      cover valid loads, missing files, malformed registry formats, and both tag-filtering
+      behaviors.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-64
+    title: Review and update the tag filtering implementation; decide whether the
+      filtering should be based on a logical AND or OR. Update the implementation
+      and documentation accordingly. (The agent cannot make subjective design decisions,
+      such as deciding between logical AND or OR for tag filtering. | Provide a clear
+      decision or guideline on whether to use logical AND or OR for tag filtering
+      before assigning this task to the agent.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
