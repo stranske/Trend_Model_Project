@@ -54,6 +54,9 @@ def _require_mapping(value: Any, field: str) -> Mapping[str, Any]:
 class MonteCarloSettings:
     """Configuration settings for Monte Carlo path generation.
 
+    Use this dataclass directly or pass a mapping when building
+    :class:`MonteCarloScenario`, which will coerce and validate fields.
+
     Attributes:
         mode: Simulation mode, either ``two_layer`` or ``mixture``.
         n_paths: Number of simulation paths to generate (must be >= 1).
@@ -96,6 +99,9 @@ class MonteCarloSettings:
 @dataclass
 class MonteCarloScenario:
     """Scenario configuration for Monte Carlo simulations.
+
+    The schema accepts nested dictionaries for the ``monte_carlo`` field and
+    validates required fields for all top-level mappings.
 
     Attributes:
         name: Scenario identifier.
