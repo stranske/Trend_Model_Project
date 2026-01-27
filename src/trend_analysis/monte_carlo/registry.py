@@ -70,8 +70,8 @@ def _load_registry(registry_path: Path | None = None) -> list[ScenarioRegistryEn
         raise FileNotFoundError(f"Scenario registry '{path}' does not exist")
     raw = _load_yaml(path)
     entries = raw.get("scenarios")
-    if not isinstance(entries, Sequence):
-        raise ValueError("Scenario registry must define a list under 'scenarios'")
+    if not isinstance(entries, list):
+        raise ValueError("Scenario registry must define 'scenarios' as a list")
 
     scenarios: list[ScenarioRegistryEntry] = []
     for entry in entries:
