@@ -177,6 +177,38 @@ def test_monte_carlo_settings_invalid_fields_raise_clear_errors(
         MonteCarloSettings(**payload)
 
 
+def test_monte_carlo_settings_coerces_individual_fields() -> None:
+    settings = MonteCarloSettings(
+        mode=" mixture ",
+        n_paths="250",
+        horizon_years="2.5",
+        frequency=" q ",
+        seed="12",
+        jobs="3",
+    )
+
+    assert settings.mode == "mixture"
+    assert settings.n_paths == 250
+    assert settings.horizon_years == 2.5
+    assert settings.frequency == "Q"
+    assert settings.seed == 12
+    assert settings.jobs == 3
+
+
+def test_monte_carlo_settings_allows_optional_seed_and_jobs() -> None:
+    settings = MonteCarloSettings(
+        mode="two_layer",
+        n_paths=10,
+        horizon_years=1.0,
+        frequency="M",
+        seed=None,
+        jobs=None,
+    )
+
+    assert settings.seed is None
+    assert settings.jobs is None
+
+
 def test_monte_carlo_scenario_missing_required_fields_raise_clear_errors() -> None:
     with pytest.raises(ValueError, match="name is required"):
         MonteCarloScenario()
