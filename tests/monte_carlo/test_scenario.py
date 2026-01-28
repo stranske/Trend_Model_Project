@@ -133,6 +133,34 @@ def test_example_scenario_file_loads_and_validates() -> None:
     assert scenario.monte_carlo.n_paths == 500
 
 
+def test_example_scenario_file_invalid_monte_carlo_raises_clear_error() -> None:
+    root = Path(__file__).resolve().parents[2]
+    scenario_path = root / "config" / "scenarios" / "monte_carlo" / "example.yml"
+
+    payload = yaml.safe_load(scenario_path.read_text())
+    if "scenario" in payload:
+        scenario_meta = payload.pop("scenario")
+        payload = {**scenario_meta, **payload}
+    payload["monte_carlo"]["n_paths"] = 0
+
+    with pytest.raises(ValueError, match="monte_carlo.n_paths must be >= 1"):
+        MonteCarloScenario(**payload)
+
+
+def test_example_scenario_file_missing_base_config_raises_clear_error() -> None:
+    root = Path(__file__).resolve().parents[2]
+    scenario_path = root / "config" / "scenarios" / "monte_carlo" / "example.yml"
+
+    payload = yaml.safe_load(scenario_path.read_text())
+    if "scenario" in payload:
+        scenario_meta = payload.pop("scenario")
+        payload = {**scenario_meta, **payload}
+    payload.pop("base_config", None)
+
+    with pytest.raises(ValueError, match="base_config is required"):
+        MonteCarloScenario(**payload)
+
+
 def test_monte_carlo_settings_missing_required_fields_raise_clear_errors() -> None:
     with pytest.raises(ValueError, match="mode is required"):
         MonteCarloSettings()
@@ -144,32 +172,44 @@ def test_monte_carlo_settings_missing_required_fields_raise_clear_errors() -> No
         (
             "mode",
             {"mode": "invalid", "n_paths": 10, "horizon_years": 1.0, "frequency": "M"},
-            "mode must be one of",
+            r"mode must be one of: .*\(got 'invalid'\)",
         ),
         (
             "n_paths",
             {"mode": "mixture", "n_paths": 0, "horizon_years": 1.0, "frequency": "M"},
-            "n_paths must be >= 1",
+            r"n_paths must be >= 1 \(got 0\)",
         ),
         (
             "horizon_years",
             {"mode": "mixture", "n_paths": 10, "horizon_years": 0.0, "frequency": "M"},
-            "horizon_years must be > 0",
+            r"horizon_years must be > 0 \(got 0.0\)",
         ),
         (
             "frequency",
             {"mode": "mixture", "n_paths": 10, "horizon_years": 1.0, "frequency": "Z"},
-            "frequency must be one of",
+            r"frequency must be one of: .*\(got 'Z'\)",
         ),
         (
             "seed",
-            {"mode": "mixture", "n_paths": 10, "horizon_years": 1.0, "frequency": "M", "seed": -1},
-            "seed must be >= 0",
+            {
+                "mode": "mixture",
+                "n_paths": 10,
+                "horizon_years": 1.0,
+                "frequency": "M",
+                "seed": -1,
+            },
+            r"seed must be >= 0 \(got -1\)",
         ),
         (
             "jobs",
-            {"mode": "mixture", "n_paths": 10, "horizon_years": 1.0, "frequency": "M", "jobs": 0},
-            "jobs must be >= 1",
+            {
+                "mode": "mixture",
+                "n_paths": 10,
+                "horizon_years": 1.0,
+                "frequency": "M",
+                "jobs": 0,
+            },
+            r"jobs must be >= 1 \(got 0\)",
         ),
     ],
 )
@@ -178,6 +218,20 @@ def test_monte_carlo_settings_invalid_fields_raise_clear_errors(
 ) -> None:
     with pytest.raises(ValueError, match=message):
         MonteCarloSettings(**payload)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [float("nan"), float("inf"), -float("inf"), "nan", "inf", "-inf"],
+)
+def test_monte_carlo_settings_rejects_non_finite_horizon_years(value: object) -> None:
+    with pytest.raises(ValueError, match="horizon_years must be a finite number"):
+        MonteCarloSettings(
+            mode="mixture",
+            n_paths=10,
+            horizon_years=value,
+            frequency="M",
+        )
 
 
 def test_monte_carlo_settings_coerces_individual_fields() -> None:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 import yaml
 
@@ -290,27 +290,35 @@ def _parse_scenario(
 
     folds = None
     if "folds" in raw:
-        folds = _ensure_mapping(raw.get("folds"), label="Scenario config 'folds'")
-
-    scenario_kwargs: dict[str, object] = {}
-    if "return_model" in raw:
-        scenario_kwargs["return_model"] = _ensure_mapping(
-            raw.get("return_model"), label="Scenario config 'return_model'"
+        folds_value = raw.get("folds")
+        folds = (
+            _ensure_mapping(folds_value, label="Scenario config 'folds'")
+            if folds_value is not None
+            else None
         )
 
-    return MonteCarloScenario(
-        name=scenario_name,
-        description=description,
-        version=version,
-        base_config=base_config,
-        monte_carlo=monte_carlo_map,
-        strategy_set=strategy_set,
-        folds=folds,
-        outputs=outputs,
-        path=source_path,
-        raw=raw,
-        **scenario_kwargs,
-    )
+    scenario_kwargs: dict[str, Any] = {
+        "name": scenario_name,
+        "description": description,
+        "version": version,
+        "base_config": base_config,
+        "monte_carlo": monte_carlo_map,
+        "strategy_set": strategy_set,
+        "folds": folds,
+        "outputs": outputs,
+        "path": source_path,
+        "raw": raw,
+    }
+
+    if "return_model" in raw:
+        return_model_value = raw.get("return_model")
+        scenario_kwargs["return_model"] = (
+            _ensure_mapping(return_model_value, label="Scenario config 'return_model'")
+            if return_model_value is not None
+            else None
+        )
+
+    return MonteCarloScenario(**scenario_kwargs)
 
 
 def load_scenario(name: str, *, registry_path: Path | None = None) -> MonteCarloScenario:
