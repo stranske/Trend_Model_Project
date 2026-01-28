@@ -39,7 +39,7 @@ def _coerce_int(value: Any, field: str, *, minimum: int | None = None) -> int:
     if isinstance(value, float) and not value.is_integer():
         raise ValueError(f"{field} must be an integer")
     if minimum is not None and number < minimum:
-        raise ValueError(f"{field} must be >= {minimum}")
+        raise ValueError(f"{field} must be >= {minimum} (got {number})")
     return number
 
 
@@ -54,7 +54,7 @@ def _coerce_float(value: Any, field: str, *, minimum: float | None = None) -> fl
     if not math.isfinite(number):
         raise ValueError(f"{field} must be a finite number")
     if minimum is not None and number < minimum:
-        raise ValueError(f"{field} must be >= {minimum}")
+        raise ValueError(f"{field} must be >= {minimum} (got {number})")
     return number
 
 
@@ -105,17 +105,17 @@ class MonteCarloSettings:
         self.mode = _require_non_empty_str(self.mode, "mode").lower()
         if self.mode not in _ALLOWED_MODES:
             allowed = ", ".join(sorted(_ALLOWED_MODES))
-            raise ValueError(f"mode must be one of: {allowed}")
+            raise ValueError(f"mode must be one of: {allowed} (got {self.mode!r})")
 
         self.n_paths = _coerce_int(self.n_paths, "n_paths", minimum=1)
-        self.horizon_years = _coerce_float(self.horizon_years, "horizon_years", minimum=0.0)
+        self.horizon_years = _coerce_float(self.horizon_years, "horizon_years")
         if self.horizon_years <= 0.0:
-            raise ValueError("horizon_years must be > 0")
+            raise ValueError(f"horizon_years must be > 0 (got {self.horizon_years})")
 
         self.frequency = _require_non_empty_str(self.frequency, "frequency").upper()
         if self.frequency not in _ALLOWED_FREQUENCIES:
             allowed = ", ".join(sorted(_ALLOWED_FREQUENCIES))
-            raise ValueError(f"frequency must be one of: {allowed}")
+            raise ValueError(f"frequency must be one of: {allowed} (got {self.frequency!r})")
 
         if self.seed is not None:
             self.seed = _coerce_int(self.seed, "seed", minimum=0)

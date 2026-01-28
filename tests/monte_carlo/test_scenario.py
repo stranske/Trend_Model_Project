@@ -172,32 +172,32 @@ def test_monte_carlo_settings_missing_required_fields_raise_clear_errors() -> No
         (
             "mode",
             {"mode": "invalid", "n_paths": 10, "horizon_years": 1.0, "frequency": "M"},
-            "mode must be one of",
+            r"mode must be one of: .*\(got 'invalid'\)",
         ),
         (
             "n_paths",
             {"mode": "mixture", "n_paths": 0, "horizon_years": 1.0, "frequency": "M"},
-            "n_paths must be >= 1",
+            r"n_paths must be >= 1 \(got 0\)",
         ),
         (
             "horizon_years",
             {"mode": "mixture", "n_paths": 10, "horizon_years": 0.0, "frequency": "M"},
-            "horizon_years must be > 0",
+            r"horizon_years must be > 0 \(got 0.0\)",
         ),
         (
             "frequency",
             {"mode": "mixture", "n_paths": 10, "horizon_years": 1.0, "frequency": "Z"},
-            "frequency must be one of",
+            r"frequency must be one of: .*\(got 'Z'\)",
         ),
         (
             "seed",
             {"mode": "mixture", "n_paths": 10, "horizon_years": 1.0, "frequency": "M", "seed": -1},
-            "seed must be >= 0",
+            r"seed must be >= 0 \(got -1\)",
         ),
         (
             "jobs",
             {"mode": "mixture", "n_paths": 10, "horizon_years": 1.0, "frequency": "M", "jobs": 0},
-            "jobs must be >= 1",
+            r"jobs must be >= 1 \(got 0\)",
         ),
     ],
 )
