@@ -126,9 +126,7 @@ def _resolve_path(value: str, *, base_dir: Path, search_dirs: Sequence[Path] | N
                 raise IsADirectoryError(f"Path '{candidate}' must be a file")
             if candidate.suffix not in _SUPPORTED_SUFFIXES:
                 allowed = ", ".join(_SUPPORTED_SUFFIXES)
-                raise ValueError(
-                    f"Scenario config '{candidate}' must use one of: {allowed}"
-                )
+                raise ValueError(f"Scenario config '{candidate}' must use one of: {allowed}")
             return candidate
     raise FileNotFoundError(
         f"Could not locate '{value}'. Checked: {', '.join(str(c) for c in candidates)}"
