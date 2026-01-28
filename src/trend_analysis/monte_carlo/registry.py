@@ -212,24 +212,61 @@ def get_scenario_path(name: str, *, registry_path: Path | None = None) -> Path:
     raise ValueError(_format_missing(normalized, scenarios))
 
 
-def _parse_scenario(
+def _extract_scenario_metadata(
     name: str, raw: Mapping[str, object], *, source_path: Path
-) -> MonteCarloScenario:
-    scenario = raw.get("scenario")
-    scenario_map = _ensure_mapping(scenario, label="Scenario config 'scenario'")
+) -> tuple[str, str | None, str | None]:
+    scenario_block = raw.get("scenario")
+    scenario_map: Mapping[str, object] | None = None
+    if scenario_block is not None:
+        scenario_map = _ensure_mapping(scenario_block, label="Scenario config 'scenario'")
 
-    scenario_name = str(scenario_map.get("name") or "").strip()
+    top_level = {
+        "name": raw.get("name"),
+        "description": raw.get("description"),
+        "version": raw.get("version"),
+    }
+
+    if scenario_map is None:
+        merged = dict(top_level)
+    else:
+        merged = dict(scenario_map)
+        for key, value in top_level.items():
+            if value is None:
+                continue
+            if key in merged and merged.get(key) not in (None, ""):
+                if str(merged[key]).strip() != str(value).strip():
+                    raise ValueError(
+                        f"Scenario config has conflicting '{key}' values between scenario block "
+                        f"and top-level in '{source_path}'"
+                    )
+                continue
+            merged[key] = value
+
+    scenario_name = str(merged.get("name") or "").strip()
     if not scenario_name:
         raise ValueError("Scenario config must define scenario.name")
     if scenario_name != name:
         raise ValueError(f"Scenario name mismatch: registry '{name}' vs config '{scenario_name}'")
 
-    version = scenario_map.get("version")
-    if not isinstance(version, str) or not version.strip():
-        raise ValueError("Scenario config must define scenario.version as a string")
-
-    description_value = scenario_map.get("description")
+    description_value = merged.get("description")
     description = str(description_value) if description_value is not None else None
+
+    version_value = merged.get("version")
+    version = None
+    if version_value is not None:
+        version = str(version_value).strip()
+        if not version:
+            raise ValueError("Scenario config must define scenario.version as a non-empty string")
+
+    return scenario_name, description, version
+
+
+def _parse_scenario(
+    name: str, raw: Mapping[str, object], *, source_path: Path
+) -> MonteCarloScenario:
+    scenario_name, description, version = _extract_scenario_metadata(
+        name, raw, source_path=source_path
+    )
 
     base_config_value = raw.get("base_config")
     if not base_config_value:
@@ -241,15 +278,25 @@ def _parse_scenario(
         raise ValueError("Scenario config must define monte_carlo")
     monte_carlo_map = _ensure_mapping(monte_carlo, label="Scenario config 'monte_carlo'")
 
-    strategy_set_value = raw.get("strategy_set")
     strategy_set = None
-    if strategy_set_value is not None:
-        strategy_set = _ensure_mapping(strategy_set_value, label="Scenario config 'strategy_set'")
+    if "strategy_set" in raw:
+        strategy_set = _ensure_mapping(
+            raw.get("strategy_set"), label="Scenario config 'strategy_set'"
+        )
 
-    outputs_value = raw.get("outputs")
     outputs = None
-    if outputs_value is not None:
-        outputs = _ensure_mapping(outputs_value, label="Scenario config 'outputs'")
+    if "outputs" in raw:
+        outputs = _ensure_mapping(raw.get("outputs"), label="Scenario config 'outputs'")
+
+    folds = None
+    if "folds" in raw:
+        folds = _ensure_mapping(raw.get("folds"), label="Scenario config 'folds'")
+
+    scenario_kwargs: dict[str, object] = {}
+    if "return_model" in raw:
+        scenario_kwargs["return_model"] = _ensure_mapping(
+            raw.get("return_model"), label="Scenario config 'return_model'"
+        )
 
     return MonteCarloScenario(
         name=scenario_name,
@@ -258,9 +305,11 @@ def _parse_scenario(
         base_config=base_config,
         monte_carlo=monte_carlo_map,
         strategy_set=strategy_set,
+        folds=folds,
         outputs=outputs,
         path=source_path,
         raw=raw,
+        **scenario_kwargs,
     )
 
 
