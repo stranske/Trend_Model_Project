@@ -7,10 +7,10 @@ tasks:
     title: Implement the function `list_scenarios()` in the scenario registry module
       to read 'config/scenarios/monte_carlo/index.yml' and return a list of scenarios
       with their metadata, supporting optional filtering by tags.
-    status: doing
+    status: done
     started_at: '2026-01-28T17:55:16Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-28T17:55:23Z'
+    commit: c0e05a8dd90a59eab7451fb49a2652b9b57dee60
     notes: []
   - id: task-02
     title: Implement the function `get_scenario_path(name)` in the scenario registry
