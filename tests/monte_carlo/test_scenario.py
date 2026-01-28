@@ -133,6 +133,20 @@ def test_example_scenario_file_loads_and_validates() -> None:
     assert scenario.monte_carlo.n_paths == 500
 
 
+def test_example_scenario_file_invalid_monte_carlo_raises_clear_error() -> None:
+    root = Path(__file__).resolve().parents[2]
+    scenario_path = root / "config" / "scenarios" / "monte_carlo" / "example.yml"
+
+    payload = yaml.safe_load(scenario_path.read_text())
+    if "scenario" in payload:
+        scenario_meta = payload.pop("scenario")
+        payload = {**scenario_meta, **payload}
+    payload["monte_carlo"]["n_paths"] = 0
+
+    with pytest.raises(ValueError, match="n_paths must be >= 1"):
+        MonteCarloScenario(**payload)
+
+
 def test_monte_carlo_settings_missing_required_fields_raise_clear_errors() -> None:
     with pytest.raises(ValueError, match="mode is required"):
         MonteCarloSettings()

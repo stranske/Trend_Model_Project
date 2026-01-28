@@ -251,17 +251,35 @@ def _parse_scenario(
     if outputs_value is not None:
         outputs = _ensure_mapping(outputs_value, label="Scenario config 'outputs'")
 
-    return MonteCarloScenario(
-        name=scenario_name,
-        description=description,
-        version=version,
-        base_config=base_config,
-        monte_carlo=monte_carlo_map,
-        strategy_set=strategy_set,
-        outputs=outputs,
-        path=source_path,
-        raw=raw,
-    )
+    scenario_kwargs = {
+        "name": scenario_name,
+        "description": description,
+        "version": version,
+        "base_config": base_config,
+        "monte_carlo": monte_carlo_map,
+        "strategy_set": strategy_set,
+        "outputs": outputs,
+        "path": source_path,
+        "raw": raw,
+    }
+
+    if "return_model" in raw:
+        return_model_value = raw.get("return_model")
+        scenario_kwargs["return_model"] = (
+            _ensure_mapping(return_model_value, label="Scenario config 'return_model'")
+            if return_model_value is not None
+            else None
+        )
+
+    if "folds" in raw:
+        folds_value = raw.get("folds")
+        scenario_kwargs["folds"] = (
+            _ensure_mapping(folds_value, label="Scenario config 'folds'")
+            if folds_value is not None
+            else None
+        )
+
+    return MonteCarloScenario(**scenario_kwargs)
 
 
 def load_scenario(name: str, *, registry_path: Path | None = None) -> MonteCarloScenario:

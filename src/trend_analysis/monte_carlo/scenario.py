@@ -126,12 +126,13 @@ class MonteCarloScenario:
     enforced, while nested mappings are coerced and validated when present.
 
     Attributes:
-        name: Scenario identifier used for registry lookups.
+        name: Scenario identifier used for registry lookups (required, non-empty).
         description: Optional free-form description of the scenario.
-        version: Optional version string for scenario definitions.
-        base_config: Path to the base configuration file for defaults.
-        monte_carlo: Monte Carlo settings or a mapping of settings fields.
+        version: Optional version string for scenario definitions (non-empty when set).
+        base_config: Path to the base configuration file for defaults (required).
+        monte_carlo: Monte Carlo settings or a mapping of settings fields (required).
         return_model: Optional mapping describing the return model configuration.
+            When provided, it must be a mapping; explicit ``None`` is invalid.
         strategy_set: Optional mapping for curated/sampled strategy lists.
         folds: Optional mapping describing fold definitions and calibration.
         outputs: Optional mapping describing output locations and formats.
