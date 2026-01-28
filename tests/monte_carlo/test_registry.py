@@ -30,6 +30,23 @@ def test_list_scenarios_returns_entries_with_paths() -> None:
         assert isinstance(entry.tags, tuple)
 
 
+def test_list_scenarios_normalizes_tags(tmp_path: Path) -> None:
+    scenario_a = tmp_path / "alpha.yml"
+    scenario_a.write_text("{}", encoding="utf-8")
+
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n"
+        "  - name: alpha\n"
+        "    path: alpha.yml\n"
+        "    tags: [' Core ', 'Stress']\n",
+        encoding="utf-8",
+    )
+
+    scenarios = list_scenarios(registry_path=registry)
+    assert scenarios[0].tags == ("core", "stress")
+
+
 def test_list_scenarios_filters_by_tags(tmp_path: Path) -> None:
     scenario_a = tmp_path / "alpha.yml"
     scenario_b = tmp_path / "beta.yml"
