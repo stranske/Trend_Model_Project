@@ -191,12 +191,24 @@ def test_monte_carlo_settings_missing_required_fields_raise_clear_errors() -> No
         ),
         (
             "seed",
-            {"mode": "mixture", "n_paths": 10, "horizon_years": 1.0, "frequency": "M", "seed": -1},
+            {
+                "mode": "mixture",
+                "n_paths": 10,
+                "horizon_years": 1.0,
+                "frequency": "M",
+                "seed": -1,
+            },
             r"seed must be >= 0 \(got -1\)",
         ),
         (
             "jobs",
-            {"mode": "mixture", "n_paths": 10, "horizon_years": 1.0, "frequency": "M", "jobs": 0},
+            {
+                "mode": "mixture",
+                "n_paths": 10,
+                "horizon_years": 1.0,
+                "frequency": "M",
+                "jobs": 0,
+            },
             r"jobs must be >= 1 \(got 0\)",
         ),
     ],

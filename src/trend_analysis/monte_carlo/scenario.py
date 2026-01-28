@@ -115,7 +115,9 @@ class MonteCarloSettings:
         self.frequency = _require_non_empty_str(self.frequency, "frequency").upper()
         if self.frequency not in _ALLOWED_FREQUENCIES:
             allowed = ", ".join(sorted(_ALLOWED_FREQUENCIES))
-            raise ValueError(f"frequency must be one of: {allowed} (got {self.frequency!r})")
+            raise ValueError(
+                f"frequency must be one of: {allowed} (got {self.frequency!r})"
+            )
 
         if self.seed is not None:
             self.seed = _coerce_int(self.seed, "seed", minimum=0)
