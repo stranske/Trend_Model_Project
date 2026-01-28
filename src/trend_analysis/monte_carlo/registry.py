@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 import yaml
 
@@ -251,7 +251,7 @@ def _parse_scenario(
     if outputs_value is not None:
         outputs = _ensure_mapping(outputs_value, label="Scenario config 'outputs'")
 
-    scenario_kwargs = {
+    scenario_kwargs: dict[str, Any] = {
         "name": scenario_name,
         "description": description,
         "version": version,
