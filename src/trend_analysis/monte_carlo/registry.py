@@ -58,7 +58,7 @@ def _coerce_tags(value: object) -> tuple[str, ...]:
         return ()
     cleaned: list[str] = []
     for tag in values:
-        label = str(tag).strip()
+        label = str(tag).strip().lower()
         if label:
             cleaned.append(label)
     return tuple(cleaned)
