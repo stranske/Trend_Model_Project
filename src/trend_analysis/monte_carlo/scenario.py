@@ -119,7 +119,25 @@ class MonteCarloSettings:
 
 @dataclass
 class MonteCarloScenario:
-    """Resolved Monte Carlo scenario configuration."""
+    """Resolved Monte Carlo scenario configuration.
+
+    This dataclass represents the validated schema for a Monte Carlo scenario.
+    Required fields such as ``name``, ``base_config``, and ``monte_carlo`` are
+    enforced, while nested mappings are coerced and validated when present.
+
+    Attributes:
+        name: Scenario identifier used for registry lookups.
+        description: Optional free-form description of the scenario.
+        version: Optional version string for scenario definitions.
+        base_config: Path to the base configuration file for defaults.
+        monte_carlo: Monte Carlo settings or a mapping of settings fields.
+        return_model: Optional mapping describing the return model configuration.
+        strategy_set: Optional mapping for curated/sampled strategy lists.
+        folds: Optional mapping describing fold definitions and calibration.
+        outputs: Optional mapping describing output locations and formats.
+        path: Optional source path for the scenario definition file.
+        raw: Optional raw scenario payload for traceability.
+    """
 
     name: str | None = None
     description: str | None = None

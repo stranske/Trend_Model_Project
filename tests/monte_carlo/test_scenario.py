@@ -135,9 +135,66 @@ def test_monte_carlo_settings_missing_required_fields_raise_clear_errors() -> No
         MonteCarloSettings()
 
 
+@pytest.mark.parametrize(
+    ("field", "payload", "message"),
+    [
+        ("mode", {"mode": "invalid", "n_paths": 10, "horizon_years": 1.0, "frequency": "M"}, "mode must be one of"),
+        ("n_paths", {"mode": "mixture", "n_paths": 0, "horizon_years": 1.0, "frequency": "M"}, "n_paths must be >= 1"),
+        (
+            "horizon_years",
+            {"mode": "mixture", "n_paths": 10, "horizon_years": 0.0, "frequency": "M"},
+            "horizon_years must be > 0",
+        ),
+        (
+            "frequency",
+            {"mode": "mixture", "n_paths": 10, "horizon_years": 1.0, "frequency": "Z"},
+            "frequency must be one of",
+        ),
+        (
+            "seed",
+            {"mode": "mixture", "n_paths": 10, "horizon_years": 1.0, "frequency": "M", "seed": -1},
+            "seed must be >= 0",
+        ),
+        (
+            "jobs",
+            {"mode": "mixture", "n_paths": 10, "horizon_years": 1.0, "frequency": "M", "jobs": 0},
+            "jobs must be >= 1",
+        ),
+    ],
+)
+def test_monte_carlo_settings_invalid_fields_raise_clear_errors(
+    field: str, payload: dict[str, object], message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        MonteCarloSettings(**payload)
+
+
 def test_monte_carlo_scenario_missing_required_fields_raise_clear_errors() -> None:
     with pytest.raises(ValueError, match="name is required"):
         MonteCarloScenario()
+
+
+def test_monte_carlo_scenario_missing_base_config_raises_clear_error() -> None:
+    with pytest.raises(ValueError, match="base_config is required"):
+        MonteCarloScenario(
+            name="missing_base_config",
+            description="Missing base_config",
+            monte_carlo={
+                "mode": "mixture",
+                "n_paths": 10,
+                "horizon_years": 1.0,
+                "frequency": "M",
+            },
+        )
+
+
+def test_monte_carlo_scenario_missing_monte_carlo_raises_clear_error() -> None:
+    with pytest.raises(ValueError, match="monte_carlo is required"):
+        MonteCarloScenario(
+            name="missing_monte_carlo",
+            description="Missing monte_carlo",
+            base_config="config/defaults.yml",
+        )
 
 
 def test_monte_carlo_scenario_missing_mapping_fields_raise_clear_errors() -> None:
@@ -161,3 +218,36 @@ def test_monte_carlo_scenario_missing_mapping_fields_raise_clear_errors() -> Non
             folds={"enabled": False},
             outputs={"directory": "outputs/monte_carlo/demo"},
         )
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("return_model", "bootstrap", "return_model must be a mapping"),
+        ("strategy_set", ["trend_basic"], "strategy_set must be a mapping"),
+        ("folds", ["2020-01-01"], "folds must be a mapping"),
+        ("outputs", ["outputs/dir"], "outputs must be a mapping"),
+    ],
+)
+def test_monte_carlo_scenario_invalid_nested_configs_raise_clear_errors(
+    field: str, value: object, message: str
+) -> None:
+    payload = {
+        "name": "invalid_nested",
+        "description": "Invalid nested config",
+        "base_config": "config/defaults.yml",
+        "monte_carlo": {
+            "mode": "mixture",
+            "n_paths": 10,
+            "horizon_years": 1.0,
+            "frequency": "M",
+        },
+        "return_model": {"kind": "stationary_bootstrap"},
+        "strategy_set": {"curated": []},
+        "folds": {"enabled": False},
+        "outputs": {"directory": "outputs/monte_carlo/demo"},
+    }
+    payload[field] = value
+
+    with pytest.raises(ValueError, match=message):
+        MonteCarloScenario(**payload)
