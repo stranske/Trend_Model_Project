@@ -1,0 +1,275 @@
+version: 1
+issue: 4571
+base: phase-3
+branch: codex/issue-4571
+tasks:
+  - id: task-01
+    title: Create a valid example scenario file at `config/scenarios/monte_carlo/example.yml`
+      that adheres to the schema defined by `MonteCarloScenario` and `MonteCarloSettings`.
+    status: doing
+    started_at: '2026-01-28T14:28:30Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Implement complete validation logic in the `MonteCarloScenario` and `MonteCarloSettings`
+      dataclasses, ensuring that missing or invalid fields result in clear, informative
+      error messages.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Implement validation logic in the `MonteCarloScenario` dataclass. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Implement validation logic in the `MonteCarloSettings` dataclass. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Define scope for: Ensure error messages for missing or invalid fields
+      are clear (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Implement focused slice for: Ensure error messages for missing or invalid
+      fields are clear (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Validate focused slice for: Ensure error messages for missing or invalid
+      fields are clear (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'informative. (verify: formatter passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Update `src/trend_analysis/monte_carlo/__init__.py` to import and expose
+      the newly implemented `MonteCarloScenario` and `MonteCarloSettings` classes.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Add or update unit tests to explicitly test the loading and validation
+      of `config/scenarios/monte_carlo/example.yml`, including both successful loads
+      and error scenarios for invalid configurations.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Define scope for: Add unit tests to test successful loading of `config/scenarios/monte_carlo/example.yml`.
+      (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Implement focused slice for: Add unit tests to test successful loading
+      of `config/scenarios/monte_carlo/example.yml`. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Validate focused slice for: Add unit tests to test successful loading
+      of `config/scenarios/monte_carlo/example.yml`. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Define scope for: Add unit tests to test error scenarios for invalid configurations
+      in `config/scenarios/monte_carlo/example.yml`. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Implement focused slice for: Add unit tests to test error scenarios for
+      invalid configurations in `config/scenarios/monte_carlo/example.yml`. (verify:
+      tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Validate focused slice for: Add unit tests to test error scenarios for
+      invalid configurations in `config/scenarios/monte_carlo/example.yml`. (verify:
+      tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: A valid example scenario file exists at `config/scenarios/monte_carlo/example.yml`
+      and can be successfully loaded and validated by the application.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: The scenario file, including the new example file, must be parsed correctly;
+      any missing or invalid fields should trigger clear, specific error messages
+      during validation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: The `MonteCarloScenario` and `MonteCarloSettings` dataclasses must include
+      complete and updated docstrings that fully document the schema, including all
+      required fields and constraints.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Implement the `MonteCarloScenario` dataclass and `MonteCarloSettings` dataclass
+      with full validation logic and expose them in `src/trend_analysis/monte_carlo/__init__.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Unit tests explicitly test the loading and validation of `config/scenarios/monte_carlo/example.yml`,
+      including both successful loads and error scenarios for invalid configurations.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Create a valid example scenario file at `config/scenarios/monte_carlo/example.yml`
+      that adheres to the schema defined by `MonteCarloScenario` and `MonteCarloSettings`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: Implement complete validation logic in the `MonteCarloScenario` and `MonteCarloSettings`
+      dataclasses, ensuring that missing or invalid fields result in clear, informative
+      error messages.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: Update `src/trend_analysis/monte_carlo/__init__.py` to import and expose
+      the newly implemented `MonteCarloScenario` and `MonteCarloSettings` classes.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: Add or update unit tests to explicitly test the loading and validation
+      of `config/scenarios/monte_carlo/example.yml`, including both successful loads
+      and error scenarios for invalid configurations.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: A valid example scenario file exists at `config/scenarios/monte_carlo/example.yml`
+      and can be successfully loaded and validated by the application.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: The scenario file, including the new example file, must be parsed correctly;
+      any missing or invalid fields should trigger clear, specific error messages
+      during validation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: The `MonteCarloScenario` and `MonteCarloSettings` dataclasses must include
+      complete and updated docstrings that fully document the schema, including all
+      required fields and constraints.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: Implement the `MonteCarloScenario` dataclass and `MonteCarloSettings` dataclass
+      with full validation logic and expose them in `src/trend_analysis/monte_carlo/__init__.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: Unit tests explicitly test the loading and validation of `config/scenarios/monte_carlo/example.yml`,
+      including both successful loads and error scenarios for invalid configurations.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: Ensure to include a fully valid example file in the correct location (`config/scenarios/monte_carlo/example.yml`)
+      as part of the PR. (AGENT_LIMITATIONS prevent direct file creation or modification
+      in the repository. | Provide detailed instructions for creating the example
+      file to the repository maintainer or team.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: Unit tests explicitly test the loading and validation of `config/scenarios/monte_carlo/example.yml`,
+      including both successful loads and error scenarios for invalid configurations.
+      (AGENT_LIMITATIONS prevent direct modification of repository files, including
+      test files. | Provide a detailed test plan for the repository maintainer or
+      team to implement.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
