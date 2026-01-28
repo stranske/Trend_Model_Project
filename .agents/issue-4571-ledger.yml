@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Create a valid example scenario file at `config/scenarios/monte_carlo/example.yml`
       that adheres to the schema defined by `MonteCarloScenario` and `MonteCarloSettings`.
-    status: doing
+    status: done
     started_at: '2026-01-28T14:28:30Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-28T14:28:42Z'
+    commit: 8f19cc0994664c3c50ba59ac106f72358af5228f
     notes: []
   - id: task-02
     title: Implement complete validation logic in the `MonteCarloScenario` and `MonteCarloSettings`
