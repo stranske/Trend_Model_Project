@@ -143,7 +143,7 @@ def test_example_scenario_file_invalid_monte_carlo_raises_clear_error() -> None:
         payload = {**scenario_meta, **payload}
     payload["monte_carlo"]["n_paths"] = 0
 
-    with pytest.raises(ValueError, match="n_paths must be >= 1"):
+    with pytest.raises(ValueError, match="monte_carlo.n_paths must be >= 1"):
         MonteCarloScenario(**payload)
 
 

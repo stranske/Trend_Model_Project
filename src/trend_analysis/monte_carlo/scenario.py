@@ -69,17 +69,18 @@ class MonteCarloSettings:
     Use this dataclass directly or pass a mapping when building
     :class:`MonteCarloScenario`, which will coerce and validate fields.
 
-    This schema enforces required fields, permissible values, and numeric bounds
-    for the Monte Carlo simulation engine.
+    Required fields
+    ---------------
+    - ``mode``: Simulation mode, either ``two_layer`` or ``mixture``.
+    - ``n_paths``: Integer count of Monte Carlo paths (>= 1).
+    - ``horizon_years``: Forecast horizon in years (float, > 0).
+    - ``frequency``: Sampling frequency for generated paths. Allowed values are
+      ``D``, ``W``, ``M``, ``Q``, or ``Y``.
 
-    Attributes:
-        mode: Simulation mode, either ``two_layer`` or ``mixture`` (required).
-        n_paths: Number of simulation paths to generate (integer, >= 1).
-        horizon_years: Forecast horizon in years (float, > 0).
-        frequency: Sampling frequency for generated paths. Allowed values are
-            ``D``, ``W``, ``M``, ``Q``, or ``Y``.
-        seed: Optional random seed for reproducibility (integer, >= 0 when set).
-        jobs: Optional parallel job count (integer, >= 1 when set).
+    Optional fields
+    ---------------
+    - ``seed``: Random seed for reproducibility (integer, >= 0 when set).
+    - ``jobs``: Parallel job count for simulation execution (integer, >= 1 when set).
     """
 
     mode: str | None = None
@@ -125,19 +126,23 @@ class MonteCarloScenario:
     Required fields such as ``name``, ``base_config``, and ``monte_carlo`` are
     enforced, while nested mappings are coerced and validated when present.
 
-    Attributes:
-        name: Scenario identifier used for registry lookups (required, non-empty).
-        description: Optional free-form description of the scenario.
-        version: Optional version string for scenario definitions (non-empty when set).
-        base_config: Path to the base configuration file for defaults (required).
-        monte_carlo: Monte Carlo settings or a mapping of settings fields (required).
-        return_model: Optional mapping describing the return model configuration.
-            When provided, it must be a mapping; explicit ``None`` is invalid.
-        strategy_set: Optional mapping for curated/sampled strategy lists.
-        folds: Optional mapping describing fold definitions and calibration.
-        outputs: Optional mapping describing output locations and formats.
-        path: Optional source path for the scenario definition file.
-        raw: Optional raw scenario payload for traceability.
+    Required fields
+    ---------------
+    - ``name``: Scenario identifier used for registry lookups (non-empty string).
+    - ``base_config``: Path to the base configuration file for defaults.
+    - ``monte_carlo``: Monte Carlo settings or a mapping of settings fields.
+
+    Optional fields
+    ---------------
+    - ``description``: Free-form description of the scenario.
+    - ``version``: Version string for scenario definitions (non-empty when set).
+    - ``return_model``: Mapping describing the return model configuration. When
+      provided, it must be a mapping; explicit ``null`` is invalid.
+    - ``strategy_set``: Mapping for curated/sampled strategy lists.
+    - ``folds``: Mapping describing fold definitions and calibration.
+    - ``outputs``: Mapping describing output locations and formats.
+    - ``path``: Source path for the scenario definition file.
+    - ``raw``: Raw scenario payload for traceability (mapping when set).
     """
 
     name: str | None = None
@@ -170,7 +175,10 @@ class MonteCarloScenario:
             self.monte_carlo = monte_carlo_value
         else:
             monte_carlo_map = _require_mapping(monte_carlo_value, "monte_carlo")
-            self.monte_carlo = MonteCarloSettings(**monte_carlo_map)
+            try:
+                self.monte_carlo = MonteCarloSettings(**monte_carlo_map)
+            except ValueError as exc:
+                raise ValueError(_prefix_error("monte_carlo", str(exc))) from exc
 
         if self.return_model is _MISSING:
             self.return_model = None
@@ -193,3 +201,9 @@ def _coerce_optional_mapping(value: object, field: str) -> Mapping[str, Any] | N
     if value is _MISSING or value is None:
         return None
     return _require_mapping(value, field)
+
+
+def _prefix_error(prefix: str, message: str) -> str:
+    if message.startswith(f"{prefix}.") or message.startswith(f"{prefix} "):
+        return message
+    return f"{prefix}.{message}"
