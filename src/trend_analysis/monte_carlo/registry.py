@@ -108,9 +108,7 @@ def _is_within(path: Path, root: Path) -> bool:
     return True
 
 
-def _resolve_path(
-    value: str, *, base_dir: Path, search_dirs: Sequence[Path] | None = None
-) -> Path:
+def _resolve_path(value: str, *, base_dir: Path, search_dirs: Sequence[Path] | None = None) -> Path:
     raw = Path(value).expanduser()
     candidates: list[Path]
     if raw.is_absolute():
@@ -128,9 +126,7 @@ def _resolve_path(
                 raise IsADirectoryError(f"Path '{candidate}' must be a file")
             if candidate.suffix not in _SUPPORTED_SUFFIXES:
                 allowed = ", ".join(_SUPPORTED_SUFFIXES)
-                raise ValueError(
-                    f"Scenario config '{candidate}' must use one of: {allowed}"
-                )
+                raise ValueError(f"Scenario config '{candidate}' must use one of: {allowed}")
             return candidate
     raise FileNotFoundError(
         f"Could not locate '{value}'. Checked: {', '.join(str(c) for c in candidates)}"
@@ -222,9 +218,7 @@ def _extract_scenario_metadata(
     scenario_block = raw.get("scenario")
     scenario_map: Mapping[str, object] | None = None
     if scenario_block is not None:
-        scenario_map = _ensure_mapping(
-            scenario_block, label="Scenario config 'scenario'"
-        )
+        scenario_map = _ensure_mapping(scenario_block, label="Scenario config 'scenario'")
 
     top_level = {
         "name": raw.get("name"),
@@ -252,9 +246,7 @@ def _extract_scenario_metadata(
     if not scenario_name:
         raise ValueError("Scenario config must define scenario.name")
     if scenario_name != name:
-        raise ValueError(
-            f"Scenario name mismatch: registry '{name}' vs config '{scenario_name}'"
-        )
+        raise ValueError(f"Scenario name mismatch: registry '{name}' vs config '{scenario_name}'")
 
     description_value = merged.get("description")
     description = str(description_value) if description_value is not None else None
@@ -264,9 +256,7 @@ def _extract_scenario_metadata(
     if version_value is not None:
         version = str(version_value).strip()
         if not version:
-            raise ValueError(
-                "Scenario config must define scenario.version as a non-empty string"
-            )
+            raise ValueError("Scenario config must define scenario.version as a non-empty string")
 
     return scenario_name, description, version
 
@@ -286,9 +276,7 @@ def _parse_scenario(
     monte_carlo = raw.get("monte_carlo")
     if monte_carlo is None:
         raise ValueError("Scenario config must define monte_carlo")
-    monte_carlo_map = _ensure_mapping(
-        monte_carlo, label="Scenario config 'monte_carlo'"
-    )
+    monte_carlo_map = _ensure_mapping(monte_carlo, label="Scenario config 'monte_carlo'")
 
     strategy_set = None
     if "strategy_set" in raw:
@@ -333,9 +321,7 @@ def _parse_scenario(
     return MonteCarloScenario(**scenario_kwargs)
 
 
-def load_scenario(
-    name: str, *, registry_path: Path | None = None
-) -> MonteCarloScenario:
+def load_scenario(name: str, *, registry_path: Path | None = None) -> MonteCarloScenario:
     """Load and validate a scenario definition by name."""
 
     normalized = name.strip()

@@ -108,9 +108,7 @@ class MonteCarloSettings:
             raise ValueError(f"mode must be one of: {allowed}")
 
         self.n_paths = _coerce_int(self.n_paths, "n_paths", minimum=1)
-        self.horizon_years = _coerce_float(
-            self.horizon_years, "horizon_years", minimum=0.0
-        )
+        self.horizon_years = _coerce_float(self.horizon_years, "horizon_years", minimum=0.0)
         if self.horizon_years <= 0.0:
             raise ValueError("horizon_years must be > 0")
 
