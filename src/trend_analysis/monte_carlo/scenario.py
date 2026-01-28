@@ -82,10 +82,13 @@ class MonteCarloSettings:
     - ``seed``: Random seed for reproducibility (integer, >= 0 when set).
     - ``jobs``: Parallel job count for simulation execution (integer, >= 1 when set).
 
-    Normalization
-    -------------
-    - ``mode`` is normalized to lowercase.
-    - ``frequency`` is normalized to uppercase.
+    Validation and normalization
+    ----------------------------
+    - Required fields must be present and non-empty.
+    - ``mode`` is normalized to lowercase and must be in the allowed set.
+    - ``frequency`` is normalized to uppercase and must be in the allowed set.
+    - ``n_paths`` and ``jobs`` are coerced to integers.
+    - ``horizon_years`` is coerced to a float and must be > 0.
     """
 
     mode: str | None = None
@@ -102,7 +105,9 @@ class MonteCarloSettings:
             raise ValueError(f"mode must be one of: {allowed}")
 
         self.n_paths = _coerce_int(self.n_paths, "n_paths", minimum=1)
-        self.horizon_years = _coerce_float(self.horizon_years, "horizon_years", minimum=0.0)
+        self.horizon_years = _coerce_float(
+            self.horizon_years, "horizon_years", minimum=0.0
+        )
         if self.horizon_years <= 0.0:
             raise ValueError("horizon_years must be > 0")
 
@@ -143,15 +148,23 @@ class MonteCarloScenario:
     - ``description``: Free-form description of the scenario (string when set).
     - ``version``: Version string for scenario definitions (non-empty when set).
     - ``return_model``: Mapping describing the return model configuration. When
-      provided, it must be a mapping; explicit ``null`` is invalid.
+      supplied, it must be a mapping (explicit ``null`` is invalid).
     - ``strategy_set``: Mapping for curated/sampled strategy lists (mapping or
       omitted/``None``).
     - ``folds``: Mapping describing fold definitions and calibration (mapping or
       omitted/``None``).
     - ``outputs``: Mapping describing output locations and formats (mapping or
       omitted/``None``).
-    - ``path``: Source path for the scenario definition file.
+    - ``path``: Source path for the scenario definition file (``Path`` or string).
     - ``raw``: Raw scenario payload for traceability (mapping when set).
+
+    Validation and normalization
+    ----------------------------
+    - ``base_config`` is stored as a ``Path`` after validation.
+    - ``monte_carlo`` mappings are coerced into ``MonteCarloSettings`` with
+      nested validation errors prefixed (e.g., ``monte_carlo.n_paths``).
+    - Optional mappings must be provided as mappings when present.
+    - ``raw`` must be a mapping when provided.
     """
 
     name: str | None = None
