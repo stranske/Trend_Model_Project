@@ -138,8 +138,16 @@ def test_monte_carlo_settings_missing_required_fields_raise_clear_errors() -> No
 @pytest.mark.parametrize(
     ("field", "payload", "message"),
     [
-        ("mode", {"mode": "invalid", "n_paths": 10, "horizon_years": 1.0, "frequency": "M"}, "mode must be one of"),
-        ("n_paths", {"mode": "mixture", "n_paths": 0, "horizon_years": 1.0, "frequency": "M"}, "n_paths must be >= 1"),
+        (
+            "mode",
+            {"mode": "invalid", "n_paths": 10, "horizon_years": 1.0, "frequency": "M"},
+            "mode must be one of",
+        ),
+        (
+            "n_paths",
+            {"mode": "mixture", "n_paths": 0, "horizon_years": 1.0, "frequency": "M"},
+            "n_paths must be >= 1",
+        ),
         (
             "horizon_years",
             {"mode": "mixture", "n_paths": 10, "horizon_years": 0.0, "frequency": "M"},
