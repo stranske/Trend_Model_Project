@@ -71,16 +71,21 @@ class MonteCarloSettings:
 
     Required fields
     ---------------
-    - ``mode``: Simulation mode, either ``two_layer`` or ``mixture``.
+    - ``mode``: Simulation mode, either ``two_layer`` or ``mixture`` (case-insensitive).
     - ``n_paths``: Integer count of Monte Carlo paths (>= 1).
     - ``horizon_years``: Forecast horizon in years (float, > 0).
     - ``frequency``: Sampling frequency for generated paths. Allowed values are
-      ``D``, ``W``, ``M``, ``Q``, or ``Y``.
+      ``D``, ``W``, ``M``, ``Q``, or ``Y`` (case-insensitive).
 
     Optional fields
     ---------------
     - ``seed``: Random seed for reproducibility (integer, >= 0 when set).
     - ``jobs``: Parallel job count for simulation execution (integer, >= 1 when set).
+
+    Normalization
+    -------------
+    - ``mode`` is normalized to lowercase.
+    - ``frequency`` is normalized to uppercase.
     """
 
     mode: str | None = None
@@ -129,18 +134,22 @@ class MonteCarloScenario:
     Required fields
     ---------------
     - ``name``: Scenario identifier used for registry lookups (non-empty string).
-    - ``base_config``: Path to the base configuration file for defaults.
+    - ``base_config``: Path to the base configuration file for defaults
+      (string or ``Path``).
     - ``monte_carlo``: Monte Carlo settings or a mapping of settings fields.
 
     Optional fields
     ---------------
-    - ``description``: Free-form description of the scenario.
+    - ``description``: Free-form description of the scenario (string when set).
     - ``version``: Version string for scenario definitions (non-empty when set).
     - ``return_model``: Mapping describing the return model configuration. When
       provided, it must be a mapping; explicit ``null`` is invalid.
-    - ``strategy_set``: Mapping for curated/sampled strategy lists.
-    - ``folds``: Mapping describing fold definitions and calibration.
-    - ``outputs``: Mapping describing output locations and formats.
+    - ``strategy_set``: Mapping for curated/sampled strategy lists (mapping or
+      omitted/``None``).
+    - ``folds``: Mapping describing fold definitions and calibration (mapping or
+      omitted/``None``).
+    - ``outputs``: Mapping describing output locations and formats (mapping or
+      omitted/``None``).
     - ``path``: Source path for the scenario definition file.
     - ``raw``: Raw scenario payload for traceability (mapping when set).
     """

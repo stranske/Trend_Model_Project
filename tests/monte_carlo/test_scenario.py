@@ -147,6 +147,20 @@ def test_example_scenario_file_invalid_monte_carlo_raises_clear_error() -> None:
         MonteCarloScenario(**payload)
 
 
+def test_example_scenario_file_missing_base_config_raises_clear_error() -> None:
+    root = Path(__file__).resolve().parents[2]
+    scenario_path = root / "config" / "scenarios" / "monte_carlo" / "example.yml"
+
+    payload = yaml.safe_load(scenario_path.read_text())
+    if "scenario" in payload:
+        scenario_meta = payload.pop("scenario")
+        payload = {**scenario_meta, **payload}
+    payload.pop("base_config", None)
+
+    with pytest.raises(ValueError, match="base_config is required"):
+        MonteCarloScenario(**payload)
+
+
 def test_monte_carlo_settings_missing_required_fields_raise_clear_errors() -> None:
     with pytest.raises(ValueError, match="mode is required"):
         MonteCarloSettings()
