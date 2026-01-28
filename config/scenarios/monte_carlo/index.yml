@@ -8,3 +8,8 @@ scenarios:
     path: hf_macro_20y.yml
     description: "Global macro sleeve 20-year stress test"
     tags: [macro, hedge_fund, stress_test]
+
+  - name: example_scenario
+    path: example.yml
+    description: "Example Monte Carlo scenario configuration"
+    tags: [example, template]
