@@ -124,6 +124,9 @@ def test_example_scenario_file_loads_and_validates() -> None:
     scenario_path = root / "config" / "scenarios" / "monte_carlo" / "example.yml"
 
     payload = yaml.safe_load(scenario_path.read_text())
+    if "scenario" in payload:
+        scenario_meta = payload.pop("scenario")
+        payload = {**scenario_meta, **payload}
     scenario = MonteCarloScenario(**payload)
 
     assert scenario.name == "example_scenario"

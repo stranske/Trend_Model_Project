@@ -1,5 +1,7 @@
-name: example_scenario
-description: Example Monte Carlo scenario configuration.
+scenario:
+  name: example_scenario
+  description: Example Monte Carlo scenario configuration.
+  version: "1.0"
 base_config: config/defaults.yml
 monte_carlo:
   mode: mixture
