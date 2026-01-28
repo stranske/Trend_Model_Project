@@ -205,6 +205,35 @@ def test_load_scenario_supports_top_level_metadata(tmp_path: Path) -> None:
     assert scenario.return_model is not None
 
 
+def test_load_scenario_accepts_folds_mapping(tmp_path: Path) -> None:
+    base_config = tmp_path / "base.yml"
+    base_config.write_text("{}", encoding="utf-8")
+    scenario_path = tmp_path / "folds.yml"
+    scenario_path.write_text(
+        "scenario:\n"
+        "  name: folds\n"
+        "  version: '1'\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: mixture\n"
+        "  n_paths: 10\n"
+        "  horizon_years: 1\n"
+        "  frequency: M\n"
+        "folds:\n"
+        "  train_years: 5\n"
+        "  test_years: 2\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n" "  - name: folds\n" "    path: folds.yml\n",
+        encoding="utf-8",
+    )
+
+    scenario = load_scenario("folds", registry_path=registry)
+    assert scenario.folds == {"train_years": 5, "test_years": 2}
+
+
 def test_load_scenario_missing(tmp_path: Path) -> None:
     registry = tmp_path / "index.yml"
     registry.write_text("scenarios: []\n", encoding="utf-8")

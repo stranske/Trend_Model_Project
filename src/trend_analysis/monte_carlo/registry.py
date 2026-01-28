@@ -297,8 +297,6 @@ def _parse_scenario(
         scenario_kwargs["return_model"] = _ensure_mapping(
             raw.get("return_model"), label="Scenario config 'return_model'"
         )
-    if "folds" in raw:
-        scenario_kwargs["folds"] = folds
 
     return MonteCarloScenario(
         name=scenario_name,
@@ -307,6 +305,7 @@ def _parse_scenario(
         base_config=base_config,
         monte_carlo=monte_carlo_map,
         strategy_set=strategy_set,
+        folds=folds,
         outputs=outputs,
         path=source_path,
         raw=raw,
