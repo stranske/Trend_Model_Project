@@ -208,6 +208,20 @@ def test_monte_carlo_settings_invalid_fields_raise_clear_errors(
         MonteCarloSettings(**payload)
 
 
+@pytest.mark.parametrize(
+    "value",
+    [float("nan"), float("inf"), -float("inf"), "nan", "inf", "-inf"],
+)
+def test_monte_carlo_settings_rejects_non_finite_horizon_years(value: object) -> None:
+    with pytest.raises(ValueError, match="horizon_years must be a finite number"):
+        MonteCarloSettings(
+            mode="mixture",
+            n_paths=10,
+            horizon_years=value,
+            frequency="M",
+        )
+
+
 def test_monte_carlo_settings_coerces_individual_fields() -> None:
     settings = MonteCarloSettings(
         mode=" mixture ",

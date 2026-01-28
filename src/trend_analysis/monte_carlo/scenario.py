@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
@@ -50,6 +51,8 @@ def _coerce_float(value: Any, field: str, *, minimum: float | None = None) -> fl
         number = float(value)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{field} must be a number") from exc
+    if not math.isfinite(number):
+        raise ValueError(f"{field} must be a finite number")
     if minimum is not None and number < minimum:
         raise ValueError(f"{field} must be >= {minimum}")
     return number
