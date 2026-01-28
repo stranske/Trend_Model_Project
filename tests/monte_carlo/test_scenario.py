@@ -291,3 +291,41 @@ def test_monte_carlo_scenario_invalid_nested_configs_raise_clear_errors(
 
     with pytest.raises(ValueError, match=message):
         MonteCarloScenario(**payload)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("name", "", "name must be a non-empty string"),
+        ("name", 123, "name must be a string"),
+        ("base_config", " ", "base_config must be a non-empty string"),
+        ("base_config", 456, "base_config must be a string"),
+        ("version", "", "version must be a non-empty string"),
+        ("version", 789, "version must be a string"),
+        ("monte_carlo", "invalid", "monte_carlo must be a mapping"),
+        ("raw", "payload", "raw must be a mapping"),
+    ],
+)
+def test_monte_carlo_scenario_invalid_field_values_raise_clear_errors(
+    field: str, value: object, message: str
+) -> None:
+    payload = {
+        "name": "invalid_field_values",
+        "description": "Invalid field values",
+        "version": "v1",
+        "base_config": "config/defaults.yml",
+        "monte_carlo": {
+            "mode": "mixture",
+            "n_paths": 10,
+            "horizon_years": 1.0,
+            "frequency": "M",
+        },
+        "return_model": {"kind": "stationary_bootstrap"},
+        "strategy_set": {"curated": []},
+        "folds": {"enabled": False},
+        "outputs": {"directory": "outputs/monte_carlo/demo"},
+    }
+    payload[field] = value
+
+    with pytest.raises(ValueError, match=message):
+        MonteCarloScenario(**payload)
