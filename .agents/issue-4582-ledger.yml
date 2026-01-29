@@ -1,0 +1,296 @@
+version: 1
+issue: 4582
+base: phase-3
+branch: codex/issue-4582
+tasks:
+  - id: task-01
+    title: Add an integration test that updates `config/scenarios/monte_carlo/index.yml`
+      with a new scenario entry, then verifies that `list_scenarios` includes the
+      new scenario and `load_scenario` returns a validated MonteCarloScenario.
+    status: done
+    started_at: '2026-01-29T05:48:03Z'
+    finished_at: '2026-01-29T05:48:10Z'
+    commit: 19732b93997fe914cc72718b4c02c2e571ba3ca4
+    notes: []
+  - id: task-02
+    title: Create a unit test that loads the default repository registry file and
+      asserts that all scenario names are unique, thereby detecting any duplicate
+      names at load time.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Refactor and review the error messaging logic within `load_scenario` to
+      decouple error message content from the file system path. Modify the generation
+      of the error message to include a consistent registry identifier or substring
+      rather than the full resolved path.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Define scope for: Refactor the error messaging logic within `load_scenario`
+      to decouple error message content from the file system path. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Implement focused slice for: Refactor the error messaging logic within
+      `load_scenario` to decouple error message content from the file system path.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Validate focused slice for: Refactor the error messaging logic within
+      `load_scenario` to decouple error message content from the file system path.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Define scope for: Modify the error message generation to include a consistent
+      registry identifier or substring rather than the full resolved path. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Implement focused slice for: Modify the error message generation to include
+      a consistent registry identifier or substring rather than the full resolved
+      path. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Validate focused slice for: Modify the error message generation to include
+      a consistent registry identifier or substring rather than the full resolved
+      path. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Remove or relocate non-product files (`.agents/issue-4577-ledger.yml` and
+      `docs/keepalive/PR4578_Status.md`) to avoid increasing repository noise and
+      maintenance burden.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Define scope for: Remove non-product files `.agents/issue-4577-ledger.yml`
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Implement focused slice for: Remove non-product files `.agents/issue-4577-ledger.yml`
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Validate focused slice for: Remove non-product files `.agents/issue-4577-ledger.yml`
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: '`docs/keepalive/PR4578_Status.md`. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Define scope for: Relocate non-product files `.agents/issue-4577-ledger.yml`
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Implement focused slice for: Relocate non-product files `.agents/issue-4577-ledger.yml`
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Validate focused slice for: Relocate non-product files `.agents/issue-4577-ledger.yml`
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Define scope for: `docs/keepalive/PR4578_Status.md` to a non-production
+      directory. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Implement focused slice for: `docs/keepalive/PR4578_Status.md` to a non-production
+      directory. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Validate focused slice for: `docs/keepalive/PR4578_Status.md` to a non-production
+      directory. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: The integration test in `tests/integration/test_scenario_registration.py`
+      successfully verifies that a new scenario added to `config/scenarios/monte_carlo/index.yml`
+      appears in the output of `list_scenarios` and is loadable via `load_scenario`
+      as a validated MonteCarloScenario.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: The unit test in `tests/unit/test_registry_uniqueness.py` asserts that
+      all scenario names in the default repository registry file are unique, and the
+      test passes without errors.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: The error message generated by `load_scenario` when called with a non-existent
+      scenario name includes a stable registry substring and does not contain a full
+      resolved path.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: The files `.agents/issue-4577-ledger.yml` and `docs/keepalive/PR4578_Status.md`
+      are either removed or relocated to a non-production directory.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: Add an integration test that updates `config/scenarios/monte_carlo/index.yml`
+      with a new scenario entry, then verifies that `list_scenarios` includes the
+      new scenario and `load_scenario` returns a validated MonteCarloScenario.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: Create a unit test that loads the default repository registry file and
+      asserts that all scenario names are unique, thereby detecting any duplicate
+      names at load time.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: Refactor and review the error messaging logic within `load_scenario` to
+      decouple error message content from the file system path. Modify the generation
+      of the error message to include a consistent registry identifier or substring
+      rather than the full resolved path.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: Remove or relocate non-product files (`.agents/issue-4577-ledger.yml` and
+      `docs/keepalive/PR4578_Status.md`) to avoid increasing repository noise and
+      maintenance burden.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: The integration test in `tests/integration/test_scenario_registration.py`
+      successfully verifies that a new scenario added to `config/scenarios/monte_carlo/index.yml`
+      appears in the output of `list_scenarios` and is loadable via `load_scenario`
+      as a validated MonteCarloScenario.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: The unit test in `tests/unit/test_registry_uniqueness.py` asserts that
+      all scenario names in the default repository registry file are unique, and the
+      test passes without errors.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: The error message generated by `load_scenario` when called with a non-existent
+      scenario name includes a stable registry substring and does not contain a full
+      resolved path.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: The files `.agents/issue-4577-ledger.yml` and `docs/keepalive/PR4578_Status.md`
+      are either removed or relocated to a non-production directory.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: Remove or relocate non-product files (`.agents/issue-4577-ledger.yml` and
+      `docs/keepalive/PR4578_Status.md`) to avoid increasing repository noise and
+      maintenance burden. (Agents cannot make decisions about file removal or relocation
+      without explicit instructions or approval. | Provide explicit instructions on
+      whether to remove or relocate the files and specify the target directory for
+      relocation.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
