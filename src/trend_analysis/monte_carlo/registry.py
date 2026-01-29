@@ -74,12 +74,15 @@ def _load_registry(registry_path: Path | None = None) -> list[ScenarioRegistryEn
         raise ValueError("Scenario registry must define 'scenarios' as a list")
 
     scenarios: list[ScenarioRegistryEntry] = []
+    seen_names: set[str] = set()
     for entry in entries:
         if not isinstance(entry, Mapping):
             raise ValueError("Scenario registry entries must be mappings")
         name = str(entry.get("name") or "").strip()
         if not name:
             raise ValueError("Scenario registry entry missing 'name'")
+        if name in seen_names:
+            raise ValueError(f"Scenario registry entry '{name}' is duplicated")
         path_value = entry.get("path")
         if not path_value:
             raise ValueError(f"Scenario registry entry '{name}' missing 'path'")
@@ -96,6 +99,7 @@ def _load_registry(registry_path: Path | None = None) -> list[ScenarioRegistryEn
                 tags=_coerce_tags(entry.get("tags")),
             )
         )
+        seen_names.add(name)
 
     return scenarios
 

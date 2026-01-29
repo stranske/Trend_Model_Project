@@ -147,6 +147,23 @@ def test_list_scenarios_rejects_missing_name(tmp_path: Path) -> None:
         list_scenarios(registry_path=registry)
 
 
+def test_list_scenarios_rejects_duplicate_names(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "alpha.yml"
+    scenario_path.write_text("{}", encoding="utf-8")
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n"
+        "  - name: alpha\n"
+        "    path: alpha.yml\n"
+        "  - name: alpha\n"
+        "    path: alpha.yml\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="duplicated"):
+        list_scenarios(registry_path=registry)
+
+
 def test_load_scenario_returns_model() -> None:
     scenario = load_scenario("hf_equity_ls_10y")
     assert isinstance(scenario, MonteCarloScenario)
