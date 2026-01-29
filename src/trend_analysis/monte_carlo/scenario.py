@@ -74,16 +74,18 @@ class MonteCarloSettings:
 
     Required fields
     ---------------
-    - ``mode`` (str): Simulation mode, either ``two_layer`` or ``mixture`` (case-insensitive).
-    - ``n_paths`` (int): Integer count of Monte Carlo paths (>= 1).
-    - ``horizon_years`` (float): Forecast horizon in years (> 0).
+    - ``mode`` (str): Simulation mode. Allowed values are ``two_layer`` or ``mixture``
+      (case-insensitive). Stored lowercase after validation.
+    - ``n_paths`` (int): Number of Monte Carlo paths. Must be an integer >= 1.
+    - ``horizon_years`` (float): Forecast horizon in years. Must be finite and > 0.
     - ``frequency`` (str): Sampling frequency for generated paths. Allowed values are
-      ``D``, ``W``, ``M``, ``Q``, or ``Y`` (case-insensitive).
+      ``D``, ``W``, ``M``, ``Q``, or ``Y`` (case-insensitive). Stored uppercase after validation.
 
     Optional fields
     ---------------
-    - ``seed`` (int | None): Random seed for reproducibility (>= 0 when set).
-    - ``jobs`` (int | None): Parallel job count for simulation execution (>= 1 when set).
+    - ``seed`` (int | None): Random seed for reproducibility. Must be an integer >= 0 when set.
+    - ``jobs`` (int | None): Parallel job count for simulation execution. Must be an integer >= 1
+      when set.
 
     Validation and normalization
     ----------------------------
@@ -139,25 +141,29 @@ class MonteCarloScenario:
 
     Required fields
     ---------------
-    - ``name`` (str): Scenario identifier used for registry lookups (non-empty string).
-    - ``base_config`` (Path | str): Path to the base configuration file for defaults.
-    - ``monte_carlo`` (MonteCarloSettings | Mapping[str, Any]): Monte Carlo settings
-      or a mapping of settings fields.
+    - ``name`` (str): Scenario identifier used for registry lookups. Must be a non-empty string.
+    - ``base_config`` (Path | str): Path to the base configuration file for defaults. Must resolve
+      to a file; stored as ``Path`` after validation.
+    - ``monte_carlo`` (MonteCarloSettings | Mapping[str, Any]): Monte Carlo settings dataclass or
+      a mapping of settings fields. Mappings are coerced into ``MonteCarloSettings`` with nested
+      validation.
 
     Optional fields
     ---------------
-    - ``description`` (str | None): Free-form description of the scenario.
-    - ``version`` (str | None): Version string for scenario definitions (non-empty when set).
-    - ``return_model`` (Mapping[str, Any] | None): Mapping describing the return model
-      configuration. When supplied, it must be a mapping (explicit ``null`` is invalid).
-    - ``strategy_set`` (Mapping[str, Any] | None): Mapping for curated/sampled strategy
-      lists (mapping or omitted/``None``).
-    - ``folds`` (Mapping[str, Any] | None): Mapping describing fold definitions and
-      calibration (mapping or omitted/``None``).
-    - ``outputs`` (Mapping[str, Any] | None): Mapping describing output locations and
-      formats (mapping or omitted/``None``).
-    - ``path`` (Path | str | None): Source path for the scenario definition file.
-    - ``raw`` (Mapping[str, Any] | None): Raw scenario payload for traceability.
+    - ``description`` (str | None): Free-form scenario description. Coerced to string when set.
+    - ``version`` (str | None): Scenario definition version. Must be a non-empty string when set.
+    - ``return_model`` (Mapping[str, Any] | None): Return-model configuration mapping. Must be a
+      mapping when supplied; explicit ``null`` is invalid.
+    - ``strategy_set`` (Mapping[str, Any] | None): Curated/sampled strategy configuration mapping.
+      Must be a mapping when supplied; omitted/``None`` disables overrides.
+    - ``folds`` (Mapping[str, Any] | None): Fold definition/calibration mapping. Must be a mapping
+      when supplied; omitted/``None`` disables folds.
+    - ``outputs`` (Mapping[str, Any] | None): Output locations and formats mapping. Must be a
+      mapping when supplied; omitted/``None`` disables output overrides.
+    - ``path`` (Path | str | None): Source path for the scenario definition file. Stored as
+      ``Path`` when set.
+    - ``raw`` (Mapping[str, Any] | None): Raw scenario payload for traceability. Must be a mapping
+      when supplied.
 
     Validation and normalization
     ----------------------------
