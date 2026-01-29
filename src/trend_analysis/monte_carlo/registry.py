@@ -75,7 +75,8 @@ def _coerce_tags(value: object) -> tuple[str, ...]:
 def _load_registry(registry_path: Path | None = None) -> list[ScenarioRegistryEntry]:
     path = _resolve_registry_path(registry_path)
     if not path.exists():
-        raise FileNotFoundError(f"Scenario registry '{path}' does not exist")
+        registry_label = _registry_label(registry_path)
+        raise FileNotFoundError(f"Scenario registry '{registry_label}' does not exist")
     raw = _load_yaml(path)
     entries = raw.get("scenarios")
     if not isinstance(entries, list):
