@@ -291,11 +291,9 @@ def _parse_scenario(
     folds = None
     if "folds" in raw:
         folds_value = raw.get("folds")
-        folds = (
-            _ensure_mapping(folds_value, label="Scenario config 'folds'")
-            if folds_value is not None
-            else None
-        )
+        if folds_value is None:
+            raise ValueError("Scenario config 'folds' must be a mapping (null provided)")
+        folds = _ensure_mapping(folds_value, label="Scenario config 'folds'")
 
     scenario_kwargs: dict[str, Any] = {
         "name": scenario_name,
@@ -312,10 +310,10 @@ def _parse_scenario(
 
     if "return_model" in raw:
         return_model_value = raw.get("return_model")
-        scenario_kwargs["return_model"] = (
-            _ensure_mapping(return_model_value, label="Scenario config 'return_model'")
-            if return_model_value is not None
-            else None
+        if return_model_value is None:
+            raise ValueError("Scenario config 'return_model' must be a mapping (null provided)")
+        scenario_kwargs["return_model"] = _ensure_mapping(
+            return_model_value, label="Scenario config 'return_model'"
         )
 
     return MonteCarloScenario(**scenario_kwargs)

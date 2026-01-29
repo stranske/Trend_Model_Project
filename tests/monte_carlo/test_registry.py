@@ -242,6 +242,64 @@ def test_load_scenario_accepts_folds_mapping(tmp_path: Path) -> None:
     assert scenario.folds == {"train_years": 5, "test_years": 2}
 
 
+def test_load_scenario_rejects_null_folds_mapping(tmp_path: Path) -> None:
+    base_config = tmp_path / "base.yml"
+    base_config.write_text("{}", encoding="utf-8")
+    scenario_path = tmp_path / "null_folds.yml"
+    scenario_path.write_text(
+        "scenario:\n"
+        "  name: null_folds\n"
+        "  version: '1'\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: mixture\n"
+        "  n_paths: 10\n"
+        "  horizon_years: 1\n"
+        "  frequency: M\n"
+        "folds: null\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n" "  - name: null_folds\n" "    path: null_folds.yml\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError, match="Scenario config 'folds' must be a mapping \\(null provided\\)"
+    ):
+        load_scenario("null_folds", registry_path=registry)
+
+
+def test_load_scenario_rejects_null_return_model_mapping(tmp_path: Path) -> None:
+    base_config = tmp_path / "base.yml"
+    base_config.write_text("{}", encoding="utf-8")
+    scenario_path = tmp_path / "null_return_model.yml"
+    scenario_path.write_text(
+        "scenario:\n"
+        "  name: null_return_model\n"
+        "  version: '1'\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: mixture\n"
+        "  n_paths: 10\n"
+        "  horizon_years: 1\n"
+        "  frequency: M\n"
+        "return_model: null\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n" "  - name: null_return_model\n" "    path: null_return_model.yml\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError, match="Scenario config 'return_model' must be a mapping \\(null provided\\)"
+    ):
+        load_scenario("null_return_model", registry_path=registry)
+
+
 def test_load_scenario_missing(tmp_path: Path) -> None:
     registry = tmp_path / "index.yml"
     registry.write_text("scenarios: []\n", encoding="utf-8")
