@@ -5,10 +5,10 @@ branch: codex/issue-4159
 tasks:
   - id: task-01
     title: Create `PricePathModel` interface in `src/trend_analysis/monte_carlo/models/base.py`.
-    status: doing
+    status: done
     started_at: '2026-01-29T07:58:36Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-29T07:58:44Z'
+    commit: 9ae3d27944781afce1024d10296eb70ddd498e22
     notes: []
   - id: task-02
     title: Add shared utility helpers for price/return conversion, frequency normalization,
