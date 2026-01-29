@@ -304,7 +304,7 @@ def test_monte_carlo_scenario_missing_mapping_fields_raise_clear_errors() -> Non
         jobs=None,
     )
 
-    with pytest.raises(ValueError, match="return_model is required"):
+    with pytest.raises(ValueError, match="return_model must be a mapping \\(null provided\\)"):
         MonteCarloScenario(
             name="missing_mappings",
             description="Missing return_model mapping",
@@ -314,6 +314,27 @@ def test_monte_carlo_scenario_missing_mapping_fields_raise_clear_errors() -> Non
             strategy_set={"curated": []},
             folds={"enabled": False},
             outputs={"directory": "outputs/monte_carlo/demo"},
+        )
+
+
+def test_monte_carlo_scenario_rejects_null_folds_mapping() -> None:
+    settings = MonteCarloSettings(
+        mode="mixture",
+        n_paths=10,
+        horizon_years=1.0,
+        frequency="M",
+        seed=None,
+        jobs=None,
+    )
+
+    with pytest.raises(ValueError, match="folds must be a mapping \\(null provided\\)"):
+        MonteCarloScenario(
+            name="null_folds",
+            description="Null folds mapping",
+            base_config="config/defaults.yml",
+            monte_carlo=settings,
+            return_model={"kind": "stationary_bootstrap"},
+            folds=None,
         )
 
 

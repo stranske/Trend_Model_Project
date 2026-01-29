@@ -1,0 +1,448 @@
+version: 1
+issue: 4584
+base: phase-3
+branch: codex/issue-4584
+tasks:
+  - id: task-01
+    title: Add the file `config/scenarios/monte_carlo/example.yml` with a valid MonteCarlo
+      configuration that adheres to the schema of the MonteCarlo dataclasses.
+    status: done
+    started_at: '2026-01-29T07:43:00Z'
+    finished_at: '2026-01-29T07:43:09Z'
+    commit: b6ca8b1fc9eaa76e7f4fa564c3285144b2ac9b61
+    notes: []
+  - id: task-02
+    title: Modify `src/trend_analysis/monte_carlo/__init__.py` to import and export
+      `MonteCarloScenario` and `MonteCarloSettings`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Update all relevant scenario parsers to add explicit null validation checks
+      for 'return_model' and 'folds'. Ensure that when these fields are null, the
+      parser raises clear and specific error messages.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Define scope for: Update each relevant scenario parser to include explicit
+      null validation checks for ''return_model''. (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Implement focused slice for: Update each relevant scenario parser to include
+      explicit null validation checks for ''return_model''. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Validate focused slice for: Update each relevant scenario parser to include
+      explicit null validation checks for ''return_model''. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Define scope for: Update each relevant scenario parser to include explicit
+      null validation checks for ''folds''. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Implement focused slice for: Update each relevant scenario parser to include
+      explicit null validation checks for ''folds''. (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Validate focused slice for: Update each relevant scenario parser to include
+      explicit null validation checks for ''folds''. (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Define scope for: Ensure that error messages raised for null values are
+      clear (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Implement focused slice for: Ensure that error messages raised for null
+      values are clear (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Validate focused slice for: Ensure that error messages raised for null
+      values are clear (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'specific. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Enhance the `MonteCarloScenario` and `MonteCarloSettings` dataclasses by
+      revising their docstrings so that every field includes detailed documentation
+      on its type, valid values, and any constraints.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Define scope for: Revise the docstring for each field in `MonteCarloScenario`
+      to include type (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'valid values (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: '(verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Implement focused slice for: Revise the docstring for each field in `MonteCarloScenario`
+      to include type (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'valid values (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: '(verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'Validate focused slice for: Revise the docstring for each field in `MonteCarloScenario`
+      to include type (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'valid values (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: '(verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'constraints. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: 'Define scope for: Revise the docstring for each field in `MonteCarloSettings`
+      to include type (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: 'valid values (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: '(verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: 'Implement focused slice for: Revise the docstring for each field in `MonteCarloSettings`
+      to include type (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: 'valid values (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: '(verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: 'Validate focused slice for: Revise the docstring for each field in `MonteCarloSettings`
+      to include type (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: 'valid values (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: '(verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: 'constraints. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: Implement unit tests that cover both valid and invalid configurations for
+      the MonteCarlo scenario loader. The tests should include cases where explicit
+      null values for 'return_model' and 'folds' are provided, verifying that the
+      expected error messages are raised.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: Remove or isolate changes unrelated to the MonteCarlo scenario, like modifications
+      to GitHub Actions/token load balancer infrastructure and agent ledgers, from
+      this PR to simplify review and traceability.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: The file `config/scenarios/monte_carlo/example.yml` is present and its
+      content conforms to the MonteCarlo dataclass schema.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: The `src/trend_analysis/monte_carlo/__init__.py` file imports and exports
+      `MonteCarloScenario` and `MonteCarloSettings` dataclasses.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: All scenario parsers raise a clear error message when 'return_model' or
+      'folds' are null.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: Every field in the `MonteCarloScenario` and `MonteCarloSettings` dataclasses
+      has a detailed docstring.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: Unit tests cover both valid and invalid configurations for the MonteCarlo
+      scenario loader, including null cases for 'return_model' and 'folds'.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: The PR contains only changes related to the MonteCarlo scenario, with unrelated
+      changes removed or isolated.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: Add the file `config/scenarios/monte_carlo/example.yml` with a valid MonteCarlo
+      configuration that adheres to the schema of the MonteCarlo dataclasses.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: Modify `src/trend_analysis/monte_carlo/__init__.py` to import and export
+      `MonteCarloScenario` and `MonteCarloSettings`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: Update all relevant scenario parsers to add explicit null validation checks
+      for 'return_model' and 'folds'. Ensure that when these fields are null, the
+      parser raises clear and specific error messages.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: Enhance the `MonteCarloScenario` and `MonteCarloSettings` dataclasses by
+      revising their docstrings so that every field includes detailed documentation
+      on its type, valid values, and any constraints.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: Implement unit tests that cover both valid and invalid configurations for
+      the MonteCarlo scenario loader. The tests should include cases where explicit
+      null values for 'return_model' and 'folds' are provided, verifying that the
+      expected error messages are raised.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: Remove or isolate changes unrelated to the MonteCarlo scenario, like modifications
+      to GitHub Actions/token load balancer infrastructure and agent ledgers, from
+      this PR to simplify review and traceability.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: The file `config/scenarios/monte_carlo/example.yml` is present and its
+      content conforms to the MonteCarlo dataclass schema.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: The `src/trend_analysis/monte_carlo/__init__.py` file imports and exports
+      `MonteCarloScenario` and `MonteCarloSettings` dataclasses.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: All scenario parsers raise a clear error message when 'return_model' or
+      'folds' are null.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: Every field in the `MonteCarloScenario` and `MonteCarloSettings` dataclasses
+      has a detailed docstring.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: Unit tests cover both valid and invalid configurations for the MonteCarlo
+      scenario loader, including null cases for 'return_model' and 'folds'.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: The PR contains only changes related to the MonteCarlo scenario, with unrelated
+      changes removed or isolated.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: Remove or isolate changes unrelated to the MonteCarlo scenario, like modifications
+      to GitHub Actions/token load balancer infrastructure and agent ledgers, from
+      this PR to simplify review and traceability. (Agents cannot modify `.github/workflows/*.yml`
+      files or repository settings due to AGENT_LIMITATIONS. | Request manual intervention
+      from a human collaborator to isolate unrelated changes.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
