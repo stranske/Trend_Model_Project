@@ -11,6 +11,7 @@ from trend_analysis.monte_carlo.registry import (
     list_scenarios,
     load_scenario,
 )
+from utils.paths import repo_root
 
 
 def test_list_scenarios_basic() -> None:
@@ -385,9 +386,18 @@ def test_load_scenario_missing(tmp_path: Path) -> None:
     registry = tmp_path / "index.yml"
     registry.write_text("scenarios: []\n", encoding="utf-8")
 
-    pattern = re.escape(f"registry '{registry.resolve()}'")
+    pattern = re.escape("registry 'index.yml'")
     with pytest.raises(ValueError, match=pattern):
         load_scenario("missing", registry_path=registry)
+
+
+def test_load_scenario_missing_default_registry_uses_stable_label() -> None:
+    with pytest.raises(ValueError) as excinfo:
+        load_scenario("missing_default_registry")
+
+    message = str(excinfo.value)
+    assert "config/scenarios/monte_carlo/index.yml" in message
+    assert str(repo_root()) not in message
 
 
 def test_load_scenario_missing_registry(tmp_path: Path) -> None:
@@ -491,7 +501,7 @@ def test_get_scenario_path_missing(tmp_path: Path) -> None:
     registry = tmp_path / "index.yml"
     registry.write_text("scenarios: []\n", encoding="utf-8")
 
-    pattern = re.escape(f"registry '{registry.resolve()}'")
+    pattern = re.escape("registry 'index.yml'")
     with pytest.raises(ValueError, match=pattern):
         get_scenario_path("missing", registry_path=registry)
 

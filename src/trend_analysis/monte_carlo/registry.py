@@ -7,7 +7,7 @@ from typing import Any, Iterable, Mapping, Sequence
 import yaml
 
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario
-from utils.paths import proj_path
+from utils.paths import proj_path, repo_root
 
 __all__ = [
     "MonteCarloScenario",
@@ -38,6 +38,14 @@ def _ensure_mapping(value: object, *, label: str) -> Mapping[str, object]:
 def _resolve_registry_path(registry_path: Path | None) -> Path:
     resolved = registry_path or _REGISTRY_PATH
     return resolved.resolve()
+
+
+def _registry_label(registry_path: Path | None) -> str:
+    resolved = _resolve_registry_path(registry_path)
+    try:
+        return str(resolved.relative_to(repo_root()))
+    except ValueError:
+        return resolved.name or str(resolved)
 
 
 def _load_yaml(path: Path) -> Mapping[str, object]:
@@ -202,7 +210,7 @@ def _format_missing(
     *,
     registry_path: Path | None,
 ) -> str:
-    registry = _resolve_registry_path(registry_path)
+    registry = _registry_label(registry_path)
     available = ", ".join(sorted(entry.name for entry in scenarios))
     if available:
         return f"Unknown scenario '{name}' in registry '{registry}'. Available: {available}"
