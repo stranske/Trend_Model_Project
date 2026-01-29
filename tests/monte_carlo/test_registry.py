@@ -106,6 +106,28 @@ def test_list_scenarios_filters_by_tags_or_does_not_require_all(tmp_path: Path) 
     assert {entry.name for entry in filtered} == {"alpha", "beta", "gamma"}
 
 
+def test_list_scenarios_filters_by_tags_ignores_case_and_whitespace(tmp_path: Path) -> None:
+    scenario_a = tmp_path / "alpha.yml"
+    scenario_b = tmp_path / "beta.yml"
+    scenario_a.write_text("{}", encoding="utf-8")
+    scenario_b.write_text("{}", encoding="utf-8")
+
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n"
+        "  - name: alpha\n"
+        "    path: alpha.yml\n"
+        "    tags: [Core]\n"
+        "  - name: beta\n"
+        "    path: beta.yml\n"
+        "    tags: [stress]\n",
+        encoding="utf-8",
+    )
+
+    filtered = list_scenarios(tags=["  core  "], registry_path=registry)
+    assert [entry.name for entry in filtered] == ["alpha"]
+
+
 def test_list_scenarios_missing_registry(tmp_path: Path) -> None:
     registry = tmp_path / "missing.yml"
     with pytest.raises(FileNotFoundError, match="Scenario registry"):
