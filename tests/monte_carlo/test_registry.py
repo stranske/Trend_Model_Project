@@ -391,6 +391,18 @@ def test_load_scenario_missing(tmp_path: Path) -> None:
         load_scenario("missing", registry_path=registry)
 
 
+def test_load_scenario_missing_custom_registry_uses_basename(tmp_path: Path) -> None:
+    registry = tmp_path / "custom_registry.yml"
+    registry.write_text("scenarios: []\n", encoding="utf-8")
+
+    with pytest.raises(ValueError) as excinfo:
+        load_scenario("missing", registry_path=registry)
+
+    message = str(excinfo.value)
+    assert "registry 'custom_registry.yml'" in message
+    assert str(tmp_path) not in message
+
+
 def test_load_scenario_missing_default_registry_uses_stable_label() -> None:
     with pytest.raises(ValueError) as excinfo:
         load_scenario("missing_default_registry")
