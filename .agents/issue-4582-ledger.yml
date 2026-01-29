@@ -7,10 +7,10 @@ tasks:
     title: Add an integration test that updates `config/scenarios/monte_carlo/index.yml`
       with a new scenario entry, then verifies that `list_scenarios` includes the
       new scenario and `load_scenario` returns a validated MonteCarloScenario.
-    status: doing
+    status: done
     started_at: '2026-01-29T05:48:03Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-29T05:48:10Z'
+    commit: 19732b93997fe914cc72718b4c02c2e571ba3ca4
     notes: []
   - id: task-02
     title: Create a unit test that loads the default repository registry file and
