@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -96,12 +96,44 @@ class MonteCarloSettings:
     - ``horizon_years`` is coerced to a float and must be > 0.
     """
 
-    mode: str | None = None
-    n_paths: int | None = None
-    horizon_years: float | None = None
-    frequency: str | None = None
-    seed: int | None = None
-    jobs: int | None = None
+    mode: str | None = field(
+        default=None,
+        metadata={
+            "doc": (
+                "Simulation mode (str). Required; non-empty; "
+                "allowed values: two_layer or mixture (case-insensitive)."
+            )
+        },
+    )
+    n_paths: int | None = field(
+        default=None,
+        metadata={"doc": "Number of simulation paths (int). Required; integer >= 1."},
+    )
+    horizon_years: float | None = field(
+        default=None,
+        metadata={"doc": "Forecast horizon in years (float). Required; finite; > 0."},
+    )
+    frequency: str | None = field(
+        default=None,
+        metadata={
+            "doc": (
+                "Sampling frequency (str). Required; allowed values: "
+                "D, W, M, Q, Y (case-insensitive)."
+            )
+        },
+    )
+    seed: int | None = field(
+        default=None,
+        metadata={
+            "doc": "Random seed (int | None). Optional; integer >= 0 when set."
+        },
+    )
+    jobs: int | None = field(
+        default=None,
+        metadata={
+            "doc": "Parallel job count (int | None). Optional; integer >= 1 when set."
+        },
+    )
 
     def __post_init__(self) -> None:
         self.mode = _require_non_empty_str(self.mode, "mode").lower()
@@ -174,17 +206,88 @@ class MonteCarloScenario:
     - ``raw`` must be a mapping when provided.
     """
 
-    name: str | None = None
-    description: str | None = None
-    version: str | None = None
-    base_config: Path | str | None = None
-    monte_carlo: MonteCarloSettings | Mapping[str, Any] | None = None
-    return_model: Mapping[str, Any] | None | object = _MISSING
-    strategy_set: Mapping[str, Any] | None | object = _MISSING
-    folds: Mapping[str, Any] | None | object = _MISSING
-    outputs: Mapping[str, Any] | None | object = _MISSING
-    path: Path | str | None = None
-    raw: Mapping[str, Any] | None = None
+    name: str | None = field(
+        default=None,
+        metadata={"doc": "Scenario name (str). Required; non-empty string."},
+    )
+    description: str | None = field(
+        default=None,
+        metadata={
+            "doc": "Scenario description (str | None). Optional; coerced to str when set."
+        },
+    )
+    version: str | None = field(
+        default=None,
+        metadata={
+            "doc": "Scenario version (str | None). Optional; non-empty when set."
+        },
+    )
+    base_config: Path | str | None = field(
+        default=None,
+        metadata={
+            "doc": (
+                "Base configuration path (Path | str). Required; stored as Path after "
+                "validation."
+            )
+        },
+    )
+    monte_carlo: MonteCarloSettings | Mapping[str, Any] | None = field(
+        default=None,
+        metadata={
+            "doc": (
+                "Monte Carlo settings (MonteCarloSettings | Mapping). Required; mappings "
+                "coerced into MonteCarloSettings."
+            )
+        },
+    )
+    return_model: Mapping[str, Any] | None | object = field(
+        default=_MISSING,
+        metadata={
+            "doc": (
+                "Return-model settings (Mapping | None). Optional; mapping required if "
+                "provided; explicit null is invalid."
+            )
+        },
+    )
+    strategy_set: Mapping[str, Any] | None | object = field(
+        default=_MISSING,
+        metadata={
+            "doc": (
+                "Strategy-set overrides (Mapping | None). Optional; mapping required when "
+                "provided; null treated as None."
+            )
+        },
+    )
+    folds: Mapping[str, Any] | None | object = field(
+        default=_MISSING,
+        metadata={
+            "doc": (
+                "Fold configuration (Mapping | None). Optional; mapping required if "
+                "provided; explicit null is invalid."
+            )
+        },
+    )
+    outputs: Mapping[str, Any] | None | object = field(
+        default=_MISSING,
+        metadata={
+            "doc": (
+                "Outputs configuration (Mapping | None). Optional; mapping required when "
+                "provided; null treated as None."
+            )
+        },
+    )
+    path: Path | str | None = field(
+        default=None,
+        metadata={
+            "doc": "Source path (Path | str | None). Optional; stored as Path when set."
+        },
+    )
+    raw: Mapping[str, Any] | None = field(
+        default=None,
+        metadata={
+            "doc": "Raw scenario payload (Mapping | None). Optional; mapping required when set."
+        },
+    )
 
     def __post_init__(self) -> None:
         self.name = _require_non_empty_str(self.name, "name")
