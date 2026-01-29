@@ -13,3 +13,8 @@ scenarios:
     path: example.yml
     description: "Example Monte Carlo scenario configuration"
     tags: [example, template]
+
+  - name: credit_stress_15y
+    path: credit_stress_15y.yml
+    description: "Credit-focused Monte Carlo stress scenario over 15 years"
+    tags: [credit, hedge_fund, stress_test]
