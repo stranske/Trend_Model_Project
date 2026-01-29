@@ -10,7 +10,9 @@ from utils.paths import proj_path
 def test_registry_scenario_names_unique() -> None:
     registry_path = proj_path("config", "scenarios", "monte_carlo", "index.yml")
     payload = yaml.safe_load(registry_path.read_text(encoding="utf-8"))
+    assert isinstance(payload, dict), "Scenario registry must be a mapping"
     scenarios = payload.get("scenarios", [])
+    assert isinstance(scenarios, list), "Scenario registry 'scenarios' must be a list"
     names = [str(entry.get("name") or "").strip() for entry in scenarios]
 
     assert all(names), "Scenario registry contains empty names"
