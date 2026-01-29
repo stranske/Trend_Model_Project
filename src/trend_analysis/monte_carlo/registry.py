@@ -209,13 +209,14 @@ def _format_missing(
     name: str,
     scenarios: Sequence[ScenarioRegistryEntry],
     *,
-    registry_path: Path | None,
+    registry_label: str,
 ) -> str:
-    registry = _registry_label(registry_path)
     available = ", ".join(sorted(entry.name for entry in scenarios))
     if available:
-        return f"Unknown scenario '{name}' in registry '{registry}'. Available: {available}"
-    return f"Unknown scenario '{name}' in registry '{registry}'. No scenarios registered."
+        return f"Unknown scenario '{name}' in registry '{registry_label}'. Available: {available}"
+    return (
+        f"Unknown scenario '{name}' in registry '{registry_label}'. No scenarios registered."
+    )
 
 
 def get_scenario_path(name: str, *, registry_path: Path | None = None) -> Path:
@@ -225,10 +226,11 @@ def get_scenario_path(name: str, *, registry_path: Path | None = None) -> Path:
     if not normalized:
         raise ValueError("Scenario name is required")
     scenarios = _load_registry(registry_path)
+    registry_label = _registry_label(registry_path)
     for entry in scenarios:
         if entry.name == normalized:
             return entry.path
-    raise ValueError(_format_missing(normalized, scenarios, registry_path=registry_path))
+    raise ValueError(_format_missing(normalized, scenarios, registry_label=registry_label))
 
 
 def _extract_scenario_metadata(
@@ -345,9 +347,10 @@ def load_scenario(name: str, *, registry_path: Path | None = None) -> MonteCarlo
     if not normalized:
         raise ValueError("Scenario name is required")
     scenarios = _load_registry(registry_path)
+    registry_label = _registry_label(registry_path)
     entry = next((item for item in scenarios if item.name == normalized), None)
     if entry is None:
-        raise ValueError(_format_missing(normalized, scenarios, registry_path=registry_path))
+        raise ValueError(_format_missing(normalized, scenarios, registry_label=registry_label))
 
     raw = _load_yaml(entry.path)
     return _parse_scenario(normalized, raw, source_path=entry.path)
