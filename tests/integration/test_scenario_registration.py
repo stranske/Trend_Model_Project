@@ -23,7 +23,7 @@ def test_registry_includes_new_scenario_and_loads() -> None:
         "scenario:\n"
         f"  name: {scenario_name}\n"
         "  description: Integration test scenario.\n"
-        "  version: \"1.0\"\n"
+        '  version: "1.0"\n'
         "base_config: config/defaults.yml\n"
         "monte_carlo:\n"
         "  mode: two_layer\n"
