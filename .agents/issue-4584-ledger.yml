@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Add the file `config/scenarios/monte_carlo/example.yml` with a valid MonteCarlo
       configuration that adheres to the schema of the MonteCarlo dataclasses.
-    status: doing
+    status: done
     started_at: '2026-01-29T07:43:00Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-29T07:43:09Z'
+    commit: b6ca8b1fc9eaa76e7f4fa564c3285144b2ac9b61
     notes: []
   - id: task-02
     title: Modify `src/trend_analysis/monte_carlo/__init__.py` to import and export
