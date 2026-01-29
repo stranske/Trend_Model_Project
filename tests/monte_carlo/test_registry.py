@@ -167,6 +167,14 @@ def test_load_scenario_includes_optional_sections() -> None:
     assert scenario.folds["enabled"] is True
 
 
+def test_load_scenario_example_config_path() -> None:
+    scenario = load_scenario("example_scenario")
+    assert scenario.path is not None
+    assert scenario.path.name == "example.yml"
+    assert scenario.path.exists()
+    assert scenario.base_config.name == "defaults.yml"
+
+
 def test_load_scenario_rejects_invalid(tmp_path: Path) -> None:
     scenario_path = tmp_path / "broken.yml"
     scenario_path.write_text("monte_carlo: {}\n", encoding="utf-8")
