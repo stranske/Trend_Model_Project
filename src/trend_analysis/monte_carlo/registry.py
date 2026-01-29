@@ -214,9 +214,7 @@ def _format_missing(
     available = ", ".join(sorted(entry.name for entry in scenarios))
     if available:
         return f"Unknown scenario '{name}' in registry '{registry_label}'. Available: {available}"
-    return (
-        f"Unknown scenario '{name}' in registry '{registry_label}'. No scenarios registered."
-    )
+    return f"Unknown scenario '{name}' in registry '{registry_label}'. No scenarios registered."
 
 
 def get_scenario_path(name: str, *, registry_path: Path | None = None) -> Path:
