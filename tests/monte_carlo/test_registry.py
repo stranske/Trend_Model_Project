@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -318,7 +319,8 @@ def test_load_scenario_missing(tmp_path: Path) -> None:
     registry = tmp_path / "index.yml"
     registry.write_text("scenarios: []\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="Unknown scenario"):
+    pattern = re.escape(f"registry '{registry.resolve()}'")
+    with pytest.raises(ValueError, match=pattern):
         load_scenario("missing", registry_path=registry)
 
 
@@ -423,7 +425,8 @@ def test_get_scenario_path_missing(tmp_path: Path) -> None:
     registry = tmp_path / "index.yml"
     registry.write_text("scenarios: []\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="Unknown scenario"):
+    pattern = re.escape(f"registry '{registry.resolve()}'")
+    with pytest.raises(ValueError, match=pattern):
         get_scenario_path("missing", registry_path=registry)
 
 

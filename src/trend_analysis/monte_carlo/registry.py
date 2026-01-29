@@ -196,11 +196,17 @@ def list_scenarios(
     return filtered
 
 
-def _format_missing(name: str, scenarios: Sequence[ScenarioRegistryEntry]) -> str:
+def _format_missing(
+    name: str,
+    scenarios: Sequence[ScenarioRegistryEntry],
+    *,
+    registry_path: Path | None,
+) -> str:
+    registry = _resolve_registry_path(registry_path)
     available = ", ".join(sorted(entry.name for entry in scenarios))
     if available:
-        return f"Unknown scenario '{name}'. Available: {available}"
-    return f"Unknown scenario '{name}'. No scenarios registered."
+        return f"Unknown scenario '{name}' in registry '{registry}'. Available: {available}"
+    return f"Unknown scenario '{name}' in registry '{registry}'. No scenarios registered."
 
 
 def get_scenario_path(name: str, *, registry_path: Path | None = None) -> Path:
@@ -213,7 +219,7 @@ def get_scenario_path(name: str, *, registry_path: Path | None = None) -> Path:
     for entry in scenarios:
         if entry.name == normalized:
             return entry.path
-    raise ValueError(_format_missing(normalized, scenarios))
+    raise ValueError(_format_missing(normalized, scenarios, registry_path=registry_path))
 
 
 def _extract_scenario_metadata(
@@ -334,7 +340,7 @@ def load_scenario(name: str, *, registry_path: Path | None = None) -> MonteCarlo
     scenarios = _load_registry(registry_path)
     entry = next((item for item in scenarios if item.name == normalized), None)
     if entry is None:
-        raise ValueError(_format_missing(normalized, scenarios))
+        raise ValueError(_format_missing(normalized, scenarios, registry_path=registry_path))
 
     raw = _load_yaml(entry.path)
     return _parse_scenario(normalized, raw, source_path=entry.path)
