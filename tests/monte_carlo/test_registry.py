@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -106,6 +107,28 @@ def test_list_scenarios_filters_by_tags_or_does_not_require_all(tmp_path: Path) 
     assert {entry.name for entry in filtered} == {"alpha", "beta", "gamma"}
 
 
+def test_list_scenarios_filters_by_tags_ignores_case_and_whitespace(tmp_path: Path) -> None:
+    scenario_a = tmp_path / "alpha.yml"
+    scenario_b = tmp_path / "beta.yml"
+    scenario_a.write_text("{}", encoding="utf-8")
+    scenario_b.write_text("{}", encoding="utf-8")
+
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n"
+        "  - name: alpha\n"
+        "    path: alpha.yml\n"
+        "    tags: [Core]\n"
+        "  - name: beta\n"
+        "    path: beta.yml\n"
+        "    tags: [stress]\n",
+        encoding="utf-8",
+    )
+
+    filtered = list_scenarios(tags=["  core  "], registry_path=registry)
+    assert [entry.name for entry in filtered] == ["alpha"]
+
+
 def test_list_scenarios_missing_registry(tmp_path: Path) -> None:
     registry = tmp_path / "missing.yml"
     with pytest.raises(FileNotFoundError, match="Scenario registry"):
@@ -144,6 +167,23 @@ def test_list_scenarios_rejects_missing_name(tmp_path: Path) -> None:
     registry.write_text("scenarios:\n  - path: alpha.yml\n", encoding="utf-8")
 
     with pytest.raises(ValueError, match="missing 'name'"):
+        list_scenarios(registry_path=registry)
+
+
+def test_list_scenarios_rejects_duplicate_names(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "alpha.yml"
+    scenario_path.write_text("{}", encoding="utf-8")
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n"
+        "  - name: alpha\n"
+        "    path: alpha.yml\n"
+        "  - name: alpha\n"
+        "    path: alpha.yml\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="duplicated"):
         list_scenarios(registry_path=registry)
 
 
@@ -213,6 +253,39 @@ def test_load_scenario_supports_top_level_metadata(tmp_path: Path) -> None:
     assert scenario.return_model is not None
 
 
+def test_load_scenario_from_registry_entry_only(tmp_path: Path) -> None:
+    scenario_dir = tmp_path / "scenarios"
+    scenario_dir.mkdir()
+    base_config = scenario_dir / "base.yml"
+    base_config.write_text("{}", encoding="utf-8")
+    scenario_path = scenario_dir / "new.yml"
+    scenario_path.write_text(
+        "scenario:\n"
+        "  name: new\n"
+        "  version: '1'\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: mixture\n"
+        "  n_paths: 5\n"
+        "  horizon_years: 1\n"
+        "  frequency: M\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n" "  - name: new\n" "    path: scenarios/new.yml\n",
+        encoding="utf-8",
+    )
+
+    scenarios = {entry.name: entry for entry in list_scenarios(registry_path=registry)}
+    assert scenarios["new"].path == scenario_path.resolve()
+
+    loaded = load_scenario("new", registry_path=registry)
+    assert loaded.name == "new"
+    assert loaded.base_config == base_config.resolve()
+    assert loaded.path == scenario_path.resolve()
+
+
 def test_load_scenario_accepts_folds_mapping(tmp_path: Path) -> None:
     base_config = tmp_path / "base.yml"
     base_config.write_text("{}", encoding="utf-8")
@@ -246,7 +319,8 @@ def test_load_scenario_missing(tmp_path: Path) -> None:
     registry = tmp_path / "index.yml"
     registry.write_text("scenarios: []\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="Unknown scenario"):
+    pattern = re.escape(f"registry '{registry.resolve()}'")
+    with pytest.raises(ValueError, match=pattern):
         load_scenario("missing", registry_path=registry)
 
 
@@ -351,7 +425,8 @@ def test_get_scenario_path_missing(tmp_path: Path) -> None:
     registry = tmp_path / "index.yml"
     registry.write_text("scenarios: []\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="Unknown scenario"):
+    pattern = re.escape(f"registry '{registry.resolve()}'")
+    with pytest.raises(ValueError, match=pattern):
         get_scenario_path("missing", registry_path=registry)
 
 
