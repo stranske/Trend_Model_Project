@@ -157,7 +157,7 @@ class MonteCarloScenario:
     - ``strategy_set`` (Mapping[str, Any] | None): Curated/sampled strategy configuration mapping.
       Must be a mapping when supplied; omitted/``None`` disables overrides.
     - ``folds`` (Mapping[str, Any] | None): Fold definition/calibration mapping. Must be a mapping
-      when supplied; omitted/``None`` disables folds.
+      when supplied; explicit ``null`` is invalid.
     - ``outputs`` (Mapping[str, Any] | None): Output locations and formats mapping. Must be a
       mapping when supplied; omitted/``None`` disables output overrides.
     - ``path`` (Path | str | None): Source path for the scenario definition file. Stored as
@@ -212,12 +212,12 @@ class MonteCarloScenario:
         if self.return_model is _MISSING:
             self.return_model = None
         elif self.return_model is None:
-            raise ValueError("return_model is required")
+            raise ValueError("return_model must be a mapping (null provided)")
         else:
             self.return_model = _require_mapping(self.return_model, "return_model")
 
         self.strategy_set = _coerce_optional_mapping(self.strategy_set, "strategy_set")
-        self.folds = _coerce_optional_mapping(self.folds, "folds")
+        self.folds = _coerce_optional_mapping(self.folds, "folds", allow_null=False)
         self.outputs = _coerce_optional_mapping(self.outputs, "outputs")
 
         if self.path is not None and not isinstance(self.path, Path):
@@ -226,9 +226,15 @@ class MonteCarloScenario:
             self.raw = _require_mapping(self.raw, "raw")
 
 
-def _coerce_optional_mapping(value: object, field: str) -> Mapping[str, Any] | None:
-    if value is _MISSING or value is None:
+def _coerce_optional_mapping(
+    value: object, field: str, *, allow_null: bool = True
+) -> Mapping[str, Any] | None:
+    if value is _MISSING:
         return None
+    if value is None:
+        if allow_null:
+            return None
+        raise ValueError(f"{field} must be a mapping (null provided)")
     return _require_mapping(value, field)
 
 
