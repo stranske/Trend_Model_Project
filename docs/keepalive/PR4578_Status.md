@@ -40,3 +40,5 @@ Add a scenario registry system that allows Monte Carlo scenarios to be discovere
 - [x] `load_scenario("name")` returns a validated `MonteCarloScenario`.
 - [x] Missing scenarios produce clear error messages.
 - [x] Unit tests for `list_scenarios`, `load_scenario`, and `get_scenario_path` pass.
+
+Last verified: 2026-01-29 (pytest tests/monte_carlo/test_registry.py -m "not slow")

@@ -252,6 +252,39 @@ def test_load_scenario_supports_top_level_metadata(tmp_path: Path) -> None:
     assert scenario.return_model is not None
 
 
+def test_load_scenario_from_registry_entry_only(tmp_path: Path) -> None:
+    scenario_dir = tmp_path / "scenarios"
+    scenario_dir.mkdir()
+    base_config = scenario_dir / "base.yml"
+    base_config.write_text("{}", encoding="utf-8")
+    scenario_path = scenario_dir / "new.yml"
+    scenario_path.write_text(
+        "scenario:\n"
+        "  name: new\n"
+        "  version: '1'\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: mixture\n"
+        "  n_paths: 5\n"
+        "  horizon_years: 1\n"
+        "  frequency: M\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n" "  - name: new\n" "    path: scenarios/new.yml\n",
+        encoding="utf-8",
+    )
+
+    scenarios = {entry.name: entry for entry in list_scenarios(registry_path=registry)}
+    assert scenarios["new"].path == scenario_path.resolve()
+
+    loaded = load_scenario("new", registry_path=registry)
+    assert loaded.name == "new"
+    assert loaded.base_config == base_config.resolve()
+    assert loaded.path == scenario_path.resolve()
+
+
 def test_load_scenario_accepts_folds_mapping(tmp_path: Path) -> None:
     base_config = tmp_path / "base.yml"
     base_config.write_text("{}", encoding="utf-8")
