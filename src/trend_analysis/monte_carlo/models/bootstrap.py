@@ -27,6 +27,8 @@ def _normalize_frequency_code(freq: str | None) -> str:
     if not freq:
         return "M"
     code = str(freq).upper()
+    if code.startswith("Q"):
+        return "M"
     if code not in _SUPPORTED_FREQUENCIES:
         allowed = ", ".join(sorted(_SUPPORTED_FREQUENCIES))
         raise ValueError(f"Unsupported frequency '{code}'. Use {allowed}.")
