@@ -110,7 +110,10 @@ def test_block_length_distribution_matches_geometric_mean() -> None:
     empirical_cdf = (run_lengths_arr[:, None] <= k[None, :]).mean(axis=0)
     theoretical_cdf = 1.0 - (1.0 - p) ** k
     max_cdf_diff = float(np.max(np.abs(empirical_cdf - theoretical_cdf)))
-    assert max_cdf_diff < 0.06
+    # DKW inequality bound for goodness-of-fit against the geometric CDF.
+    alpha = 1.0e-3
+    dkw_threshold = float(np.sqrt(np.log(2.0 / alpha) / (2.0 * run_lengths_arr.size)))
+    assert max_cdf_diff < dkw_threshold
 
 
 def test_missingness_propagates_into_samples() -> None:
