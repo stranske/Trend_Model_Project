@@ -51,6 +51,26 @@ def test_monte_carlo_scenario_accepts_valid_config() -> None:
     assert scenario.return_model["kind"] == "stationary_bootstrap"
 
 
+def test_monte_carlo_scenario_normalizes_frequency_for_stationary_bootstrap() -> None:
+    settings = MonteCarloSettings(
+        mode="mixture",
+        n_paths=100,
+        horizon_years=5,
+        frequency="Q",
+    )
+
+    scenario = MonteCarloScenario(
+        name="demo_scenario",
+        base_config="config/defaults.yml",
+        monte_carlo=settings,
+        return_model={"kind": "stationary_bootstrap"},
+        outputs={"directory": "outputs/monte_carlo/demo"},
+    )
+
+    assert scenario.monte_carlo.frequency == "Q"
+    assert scenario.simulation_frequency() == "M"
+
+
 def test_monte_carlo_scenario_builds_nested_configs_from_mappings() -> None:
     scenario = MonteCarloScenario(
         name="nested_demo",
@@ -80,7 +100,8 @@ def test_monte_carlo_scenario_builds_nested_configs_from_mappings() -> None:
 
 
 def test_monte_carlo_scenario_validates_full_schema_from_yaml() -> None:
-    payload = yaml.safe_load("""
+    payload = yaml.safe_load(
+        """
 name: example_scenario
 description: Example schema payload for validation
 base_config: config/defaults.yml
@@ -106,7 +127,8 @@ folds:
 outputs:
   directory: outputs/monte_carlo/example
   format: parquet
-""")
+"""
+    )
 
     scenario = MonteCarloScenario(**payload)
 
@@ -305,7 +327,9 @@ def test_monte_carlo_scenario_missing_mapping_fields_raise_clear_errors() -> Non
         jobs=None,
     )
 
-    with pytest.raises(ValueError, match="return_model must be a mapping \\(null provided\\)"):
+    with pytest.raises(
+        ValueError, match="return_model must be a mapping \\(null provided\\)"
+    ):
         MonteCarloScenario(
             name="missing_mappings",
             description="Missing return_model mapping",

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import math
-from typing import Iterable
+from typing import Any, Iterable
 
 import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
 
 from trend_analysis.timefreq import MONTHLY_DATE_FREQ
 
@@ -14,23 +15,12 @@ from .base import (
     PricePathResult,
     apply_missingness_mask,
     log_returns_to_prices,
+    normalize_frequency_code,
     normalize_price_frequency,
     prices_to_log_returns,
 )
 
 __all__ = ["StationaryBootstrapModel"]
-
-_SUPPORTED_FREQUENCIES = {"D", "M"}
-
-
-def _normalize_frequency_code(freq: str | None) -> str:
-    if not freq:
-        return "M"
-    code = str(freq).upper()
-    if code not in _SUPPORTED_FREQUENCIES:
-        allowed = ", ".join(sorted(_SUPPORTED_FREQUENCIES))
-        raise ValueError(f"Unsupported frequency '{code}'. Use {allowed}.")
-    return code
 
 
 def _ensure_datetime_index(index: Iterable[object]) -> pd.DatetimeIndex:
@@ -105,7 +95,7 @@ def _stationary_bootstrap_indices(
     n_paths: int,
     mean_block_len: float,
     rng: np.random.Generator,
-) -> np.ndarray:
+) -> NDArray[np.int64]:
     if n_obs <= 0:
         raise ValueError("n_obs must be >= 1")
     if n_periods <= 0:
@@ -143,22 +133,24 @@ class StationaryBootstrapModel:
     ) -> None:
         self.mean_block_len = _coerce_mean_block_len(mean_block_len)
         self.calibration_window = _coerce_calibration_window(calibration_window)
-        self._frequency = _normalize_frequency_code(frequency) if frequency else None
+        self._frequency = normalize_frequency_code(frequency) if frequency else None
         self._prices: pd.DataFrame | None = None
         self._log_returns: pd.DataFrame | None = None
-        self._log_returns_values: np.ndarray | None = None
+        self._log_returns_values: NDArray[np.float64] | None = None
+        self._missingness_mask: pd.DataFrame | None = None
+        self._missingness_mask_values: NDArray[np.bool_[Any]] | None = None
         self._start_prices: pd.Series | None = None
 
     @property
     def frequency(self) -> str:
-        return _normalize_frequency_code(self._frequency)
+        return normalize_frequency_code(self._frequency)
 
     def fit(
         self, prices: pd.DataFrame, *, frequency: str | None = None
     ) -> "StationaryBootstrapModel":
         if prices.empty:
             raise ValueError("prices must not be empty")
-        target = _normalize_frequency_code(frequency or self._frequency)
+        target = normalize_frequency_code(frequency or self._frequency)
         normalized, _summary = normalize_price_frequency(prices, target)
         if self.calibration_window is not None:
             normalized = normalized.tail(self.calibration_window)
@@ -173,6 +165,8 @@ class StationaryBootstrapModel:
         self._prices = normalized
         self._log_returns = log_returns
         self._log_returns_values = log_returns.to_numpy()
+        self._missingness_mask = log_returns.isna()
+        self._missingness_mask_values = self._missingness_mask.to_numpy(dtype=bool)
         self._start_prices = _last_valid_prices(normalized)
         return self
 
@@ -189,6 +183,8 @@ class StationaryBootstrapModel:
             self._prices is None
             or self._log_returns is None
             or self._log_returns_values is None
+            or self._missingness_mask is None
+            or self._missingness_mask_values is None
             or self._start_prices is None
         ):
             raise RuntimeError("Model must be fitted before sampling")
@@ -197,7 +193,7 @@ class StationaryBootstrapModel:
         if n_paths <= 0:
             raise ValueError("n_paths must be >= 1")
 
-        freq = _normalize_frequency_code(frequency or self._frequency)
+        freq = normalize_frequency_code(frequency or self._frequency)
         index = _build_simulation_index(self._prices.index, n_periods, freq, start_date)
 
         data = self._log_returns_values
@@ -211,18 +207,26 @@ class StationaryBootstrapModel:
             rng=rng,
         )
         sampled = data[indices]
+        missingness = self._missingness_mask_values[indices]
         sampled = np.swapaxes(sampled, 0, 1)
+        missingness = np.swapaxes(missingness, 0, 1)
 
         columns = _build_multi_columns(self._log_returns.columns, n_paths)
         log_return_frame = pd.DataFrame(
             sampled.reshape(n_periods, n_paths * n_assets), index=index, columns=columns
         )
+        mask = pd.DataFrame(
+            missingness.reshape(n_periods, n_paths * n_assets),
+            index=index,
+            columns=columns,
+        )
+        log_return_frame = log_return_frame.mask(mask)
+        mask = mask | log_return_frame.isna()
 
         start_series = pd.Series(
             np.tile(self._start_prices.to_numpy(), n_paths), index=columns, dtype=float
         )
         prices = log_returns_to_prices(log_return_frame, start_series)
-        mask = log_return_frame.isna()
         prices = apply_missingness_mask(prices, mask)
 
         return PricePathResult(

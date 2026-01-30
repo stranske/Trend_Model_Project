@@ -1,0 +1,7 @@
+scenarios:
+  - name: integration_fixture_scenario
+    path: integration_fixture.yml
+    description: Integration fixture scenario.
+    tags:
+      - integration
+      - test
