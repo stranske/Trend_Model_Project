@@ -88,6 +88,64 @@ def test_missingness_propagates_into_samples() -> None:
     assert result.prices.isna().equals(result.missingness_mask)
 
 
+def test_missingness_preserves_contiguous_nan_segments() -> None:
+    index = pd.date_range("2024-02-01", periods=12, freq="D")
+    prices = pd.DataFrame(
+        {
+            "AssetA": np.linspace(100, 130, len(index)),
+            "AssetB": np.linspace(80, 95, len(index)),
+        },
+        index=index,
+    )
+    prices.loc[index[2:4], "AssetA"] = np.nan
+    prices.loc[index[6], "AssetA"] = np.nan
+    prices.loc[index[9:11], "AssetA"] = np.nan
+    prices.loc[index[1], "AssetB"] = np.nan
+    prices.loc[index[4:7], "AssetB"] = np.nan
+    prices.loc[index[10], "AssetB"] = np.nan
+
+    model = StationaryBootstrapModel(mean_block_len=5, frequency="D").fit(prices)
+    n_periods = 24
+    n_paths = 4
+    seed = 17
+    result = model.sample_prices(n_periods=n_periods, n_paths=n_paths, seed=seed)
+
+    historical = model._log_returns
+    assert historical is not None
+    n_obs, n_assets = historical.shape
+    indices = _stationary_bootstrap_indices(
+        n_obs=n_obs,
+        n_periods=n_periods,
+        n_paths=n_paths,
+        mean_block_len=model.mean_block_len,
+        rng=np.random.default_rng(seed),
+    )
+    expected_mask = historical.isna().to_numpy()[indices]
+    expected_mask = np.swapaxes(expected_mask, 0, 1)
+    expected_frame = pd.DataFrame(
+        expected_mask.reshape(n_periods, n_paths * n_assets),
+        index=result.log_returns.index,
+        columns=result.log_returns.columns,
+    )
+
+    pd.testing.assert_frame_equal(result.missingness_mask, expected_frame)
+
+    simulated_mask = result.missingness_mask
+    for path in range(n_paths):
+        path_indices = indices[path]
+        block_starts = [0]
+        for t in range(1, n_periods):
+            if path_indices[t] != (path_indices[t - 1] + 1) % n_obs:
+                block_starts.append(t)
+        block_starts.append(n_periods)
+        for start, end in zip(block_starts[:-1], block_starts[1:]):
+            block_idx = path_indices[start:end]
+            for asset_idx, asset in enumerate(historical.columns):
+                expected_slice = historical.isna().to_numpy()[block_idx, asset_idx]
+                series = simulated_mask[(path, asset)].iloc[start:end].to_numpy()
+                assert np.array_equal(series, expected_slice)
+
+
 def test_monthly_frequency_flow() -> None:
     index = pd.date_range("2023-01-31", periods=12, freq=MONTHLY_DATE_FREQ)
     prices = pd.DataFrame(
