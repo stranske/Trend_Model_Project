@@ -8,10 +8,10 @@ tasks:
       file `config/scenarios/monte_carlo/index.yml` by inserting a new scenario entry
       using a relative path. Then, verify that `list_scenarios` outputs the new scenario
       and that `load_scenario` can load it as a MonteCarloScenario.
-    status: doing
+    status: done
     started_at: '2026-01-30T12:56:37Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-30T12:56:46Z'
+    commit: 61ae060cf1dcb7da5fee2b4ef6a7633abdd4a168
     notes: []
   - id: task-02
     title: 'Define scope for: Modify `tests/integration/test_scenario_registration.py`
