@@ -7,10 +7,10 @@ tasks:
     title: Remove `.agents/issue-4160-ledger.yml` and `.agents/issue-4592-ledger.yml`
       files from the repository and ensure no new ledger files are added unless permitted
       by policy.
-    status: doing
+    status: done
     started_at: '2026-01-30T22:53:21Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-30T22:53:32Z'
+    commit: 3687594141391ba8ef0fec2099da8b83a600bce4
     notes: []
   - id: task-02
     title: 'Remove `.agents/issue-4160-ledger.yml` (verify: confirm completion in
