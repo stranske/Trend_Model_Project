@@ -6,7 +6,7 @@ import pytest
 
 from trend_analysis.monte_carlo.models.bootstrap import StationaryBootstrapModel
 
-pytestmark = [pytest.mark.performance, pytest.mark.serial]
+pytestmark = [pytest.mark.runtime, pytest.mark.serial]
 
 
 def _prices_from_log_returns(log_returns: np.ndarray, index: pd.DatetimeIndex) -> pd.DataFrame:
