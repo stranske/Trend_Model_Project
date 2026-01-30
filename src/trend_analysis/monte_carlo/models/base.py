@@ -108,9 +108,7 @@ def prices_to_log_returns(prices: pd.DataFrame) -> pd.DataFrame:
     return np.log(prices / prices.shift(1))
 
 
-def log_returns_to_prices(
-    log_returns: pd.DataFrame, start_prices: pd.Series
-) -> pd.DataFrame:
+def log_returns_to_prices(log_returns: pd.DataFrame, start_prices: pd.Series) -> pd.DataFrame:
     """Convert log returns into price levels.
 
     ``start_prices`` must be positive and aligned with ``log_returns`` columns.
@@ -157,9 +155,7 @@ def extract_missingness_mask(prices: pd.DataFrame) -> pd.DataFrame:
     return prices.isna()
 
 
-def build_missingness_mask(
-    mask: pd.DataFrame, index: pd.DatetimeIndex
-) -> pd.DataFrame:
+def build_missingness_mask(mask: pd.DataFrame, index: pd.DatetimeIndex) -> pd.DataFrame:
     """Project a historical missingness mask onto a new index."""
 
     if mask.empty:
