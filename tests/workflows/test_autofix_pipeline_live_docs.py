@@ -14,6 +14,7 @@ import scripts.fix_numpy_asserts as fix_numpy_asserts
 import scripts.mypy_autofix as mypy_autofix
 import scripts.mypy_return_autofix as mypy_return_autofix
 import scripts.update_autofix_expectations as update_autofix_expectations
+from tests.path_utils import is_relative_to
 
 
 def _run(
@@ -245,7 +246,7 @@ def summarise_payload(values: Iterable[int]) -> int:
     module = importlib.reload(module)
     assert module.__file__ is not None
     module_path = Path(module.__file__).resolve()
-    assert module_path.is_relative_to(repo_root)
+    assert is_relative_to(module_path, repo_root)
     assert module.EXPECTED_AUTOFIX_SELECTED_FUNDS == 2
 
     _run([sys.executable, "-m", "ruff", "check", *relative_targets], cwd=repo_root)
