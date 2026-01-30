@@ -318,6 +318,30 @@ class MonteCarloScenario:
         if self.raw is not None:
             self.raw = _require_mapping(self.raw, "raw")
 
+    def simulation_frequency(self) -> str:
+        """Return the normalized frequency used by the simulation engine."""
+        monte_carlo = self.monte_carlo
+        if not isinstance(monte_carlo, MonteCarloSettings):
+            raise TypeError("monte_carlo settings are not resolved")
+        if monte_carlo.frequency is None:
+            raise ValueError("monte_carlo.frequency is required")
+        return_model = _coerce_optional_mapping(self.return_model, "return_model")
+
+        if _is_stationary_bootstrap(return_model):
+            from trend_analysis.monte_carlo.models.base import normalize_frequency_code
+
+            return normalize_frequency_code(monte_carlo.frequency)
+        return monte_carlo.frequency
+
+
+def _is_stationary_bootstrap(return_model: Mapping[str, Any] | None) -> bool:
+    if not return_model:
+        return False
+    kind = return_model.get("kind")
+    if kind is None:
+        return False
+    return str(kind).lower() == "stationary_bootstrap"
+
 
 def _coerce_optional_mapping(
     value: object, field: str, *, allow_null: bool = True

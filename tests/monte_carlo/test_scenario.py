@@ -51,6 +51,26 @@ def test_monte_carlo_scenario_accepts_valid_config() -> None:
     assert scenario.return_model["kind"] == "stationary_bootstrap"
 
 
+def test_monte_carlo_scenario_normalizes_frequency_for_stationary_bootstrap() -> None:
+    settings = MonteCarloSettings(
+        mode="mixture",
+        n_paths=100,
+        horizon_years=5,
+        frequency="Q",
+    )
+
+    scenario = MonteCarloScenario(
+        name="demo_scenario",
+        base_config="config/defaults.yml",
+        monte_carlo=settings,
+        return_model={"kind": "stationary_bootstrap"},
+        outputs={"directory": "outputs/monte_carlo/demo"},
+    )
+
+    assert scenario.monte_carlo.frequency == "Q"
+    assert scenario.simulation_frequency() == "M"
+
+
 def test_monte_carlo_scenario_builds_nested_configs_from_mappings() -> None:
     scenario = MonteCarloScenario(
         name="nested_demo",

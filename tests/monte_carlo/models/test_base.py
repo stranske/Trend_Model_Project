@@ -53,6 +53,17 @@ def test_normalize_price_frequency_daily() -> None:
     assert len(normalized) > len(prices)
 
 
+def test_normalize_price_frequency_quarterly_maps_monthly() -> None:
+    index = pd.date_range("2024-01-01", periods=40, freq="D")
+    prices = _sample_prices(index)
+
+    normalized, summary = normalize_price_frequency(prices, "Q")
+
+    assert summary.code == "D"
+    assert normalized.index.is_month_end.all()
+    assert len(normalized) < len(prices)
+
+
 def test_missingness_mask_helpers() -> None:
     index = pd.date_range("2024-01-01", periods=3, freq="D")
     prices = _sample_prices(index)
@@ -91,6 +102,17 @@ def test_output_dates_frequency_monthly() -> None:
     model = BootstrapPricePathModel(prices, frequency="M")
     result = model.simulate(n_periods=3, n_paths=2, seed=5)
 
+    assert result.prices.index.is_month_end.all()
+
+
+def test_output_dates_frequency_quarterly_maps_monthly() -> None:
+    index = pd.date_range("2023-12-31", periods=6, freq=MONTHLY_DATE_FREQ)
+    prices = _sample_prices(index)
+
+    model = BootstrapPricePathModel(prices, frequency="Q")
+    result = model.simulate(n_periods=3, n_paths=1, seed=5)
+
+    assert result.frequency == "M"
     assert result.prices.index.is_month_end.all()
 
 
