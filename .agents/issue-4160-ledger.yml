@@ -5,10 +5,10 @@ branch: codex/issue-4160
 tasks:
   - id: task-01
     title: Create `StationaryBootstrapModel` class in `src/trend_analysis/monte_carlo/models/bootstrap.py`.
-    status: doing
+    status: done
     started_at: '2026-01-30T15:36:40Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-30T15:36:50Z'
+    commit: fdc18a88dc37528dee85033ae3cac7898ead5568
     notes: []
   - id: task-02
     title: Implement `fit` method to convert historical prices to log returns and
