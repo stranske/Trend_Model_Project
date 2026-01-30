@@ -10,8 +10,13 @@ import pandas as pd
 
 from trend_analysis.timefreq import MONTHLY_DATE_FREQ
 
-from .base import PricePathResult, apply_missingness_mask, log_returns_to_prices
-from .base import normalize_price_frequency, prices_to_log_returns
+from .base import (
+    PricePathResult,
+    apply_missingness_mask,
+    log_returns_to_prices,
+    normalize_price_frequency,
+    prices_to_log_returns,
+)
 
 __all__ = ["StationaryBootstrapModel"]
 
@@ -147,7 +152,9 @@ class StationaryBootstrapModel:
     def frequency(self) -> str:
         return _normalize_frequency_code(self._frequency)
 
-    def fit(self, prices: pd.DataFrame, *, frequency: str | None = None) -> "StationaryBootstrapModel":
+    def fit(
+        self, prices: pd.DataFrame, *, frequency: str | None = None
+    ) -> "StationaryBootstrapModel":
         if prices.empty:
             raise ValueError("prices must not be empty")
         target = _normalize_frequency_code(frequency or self._frequency)
