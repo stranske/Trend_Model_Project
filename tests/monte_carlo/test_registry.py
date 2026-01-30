@@ -11,6 +11,7 @@ from trend_analysis.monte_carlo.registry import (
     list_scenarios,
     load_scenario,
 )
+from trend_analysis.monte_carlo.scenario import MonteCarloSettings
 from utils.paths import repo_root
 
 
@@ -214,6 +215,18 @@ def test_load_scenario_example_config_path() -> None:
     assert scenario.path.name == "example.yml"
     assert scenario.path.exists()
     assert scenario.base_config.name == "defaults.yml"
+
+
+def test_example_scenario_conforms_to_schema() -> None:
+    scenario = load_scenario("example_scenario")
+    assert isinstance(scenario.monte_carlo, MonteCarloSettings)
+    assert scenario.monte_carlo.mode == "mixture"
+    assert scenario.monte_carlo.n_paths == 500
+    assert scenario.monte_carlo.horizon_years == 4.0
+    assert scenario.monte_carlo.frequency == "M"
+    assert scenario.return_model is not None
+    assert scenario.folds is not None
+    assert scenario.outputs is not None
 
 
 def test_load_scenario_rejects_invalid(tmp_path: Path) -> None:
