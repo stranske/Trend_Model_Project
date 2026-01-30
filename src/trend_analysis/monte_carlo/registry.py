@@ -236,6 +236,8 @@ def _extract_scenario_metadata(
 ) -> tuple[str, str | None, str | None]:
     scenario_block = raw.get("scenario")
     scenario_map: Mapping[str, object] | None = None
+    if "scenario" in raw and scenario_block is None:
+        raise ValueError("Scenario config 'scenario' must be a mapping (null provided)")
     if scenario_block is not None:
         scenario_map = _ensure_mapping(scenario_block, label="Scenario config 'scenario'")
 

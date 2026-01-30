@@ -382,6 +382,33 @@ def test_load_scenario_rejects_null_return_model_mapping(tmp_path: Path) -> None
         load_scenario("null_return_model", registry_path=registry)
 
 
+def test_load_scenario_rejects_null_scenario_block(tmp_path: Path) -> None:
+    base_config = tmp_path / "base.yml"
+    base_config.write_text("{}", encoding="utf-8")
+    scenario_path = tmp_path / "null_scenario.yml"
+    scenario_path.write_text(
+        "scenario: null\n"
+        "name: null_scenario\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: mixture\n"
+        "  n_paths: 10\n"
+        "  horizon_years: 1\n"
+        "  frequency: M\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n" "  - name: null_scenario\n" "    path: null_scenario.yml\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError, match="Scenario config 'scenario' must be a mapping \\(null provided\\)"
+    ):
+        load_scenario("null_scenario", registry_path=registry)
+
+
 def test_load_scenario_missing(tmp_path: Path) -> None:
     registry = tmp_path / "index.yml"
     registry.write_text("scenarios: []\n", encoding="utf-8")
