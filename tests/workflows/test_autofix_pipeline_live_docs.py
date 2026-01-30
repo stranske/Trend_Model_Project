@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.path_utils import is_relative_to
+
 import scripts.auto_type_hygiene as auto_type_hygiene
 import scripts.fix_cosmetic_aggregate as fix_cosmetic_aggregate
 import scripts.fix_numpy_asserts as fix_numpy_asserts
@@ -245,7 +247,7 @@ def summarise_payload(values: Iterable[int]) -> int:
     module = importlib.reload(module)
     assert module.__file__ is not None
     module_path = Path(module.__file__).resolve()
-    assert module_path.is_relative_to(repo_root)
+    assert is_relative_to(module_path, repo_root)
     assert module.EXPECTED_AUTOFIX_SELECTED_FUNDS == 2
 
     _run([sys.executable, "-m", "ruff", "check", *relative_targets], cwd=repo_root)

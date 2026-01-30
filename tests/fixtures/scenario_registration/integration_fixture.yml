@@ -1,0 +1,13 @@
+scenario:
+  name: integration_fixture_scenario
+  description: Integration fixture scenario.
+  version: "1.0"
+base_config: defaults.yml
+monte_carlo:
+  mode: two_layer
+  n_paths: 250
+  horizon_years: 3.0
+  frequency: Q
+outputs:
+  directory: outputs/monte_carlo/integration_fixture_scenario
+  format: parquet
