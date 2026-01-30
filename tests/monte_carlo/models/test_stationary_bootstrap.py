@@ -161,11 +161,29 @@ def test_missingness_preserves_per_asset_nan_rates() -> None:
     prices.loc[index[[8, 9, 14, 15, 20, 21, 22, 23]], "AssetC"] = np.nan
 
     model = StationaryBootstrapModel(mean_block_len=4, frequency="D").fit(prices)
-    result = model.sample_prices(n_periods=200, n_paths=20, seed=23)
+    n_periods = 200
+    n_paths = 20
+    seed = 23
+    result = model.sample_prices(n_periods=n_periods, n_paths=n_paths, seed=seed)
 
     historical = model._log_returns
     assert historical is not None
     historical_rates = historical.isna().mean()
+
+    n_obs, n_assets = historical.shape
+    indices = _stationary_bootstrap_indices(
+        n_obs=n_obs,
+        n_periods=n_periods,
+        n_paths=n_paths,
+        mean_block_len=model.mean_block_len,
+        rng=np.random.default_rng(seed),
+    )
+    expected_mask = historical.isna().to_numpy()[indices]
+    expected_mask = np.swapaxes(expected_mask, 0, 1)
+    expected_rates = {
+        asset: expected_mask[:, :, asset_idx].mean()
+        for asset_idx, asset in enumerate(historical.columns)
+    }
 
     simulated_mask = result.missingness_mask
     simulated_rates = {
@@ -175,6 +193,8 @@ def test_missingness_preserves_per_asset_nan_rates() -> None:
 
     for asset, hist_rate in historical_rates.items():
         sim_rate = simulated_rates[asset]
+        expected_rate = expected_rates[asset]
+        assert abs(sim_rate - expected_rate) < 1.0e-12
         assert abs(sim_rate - hist_rate) < 0.05
 
 
