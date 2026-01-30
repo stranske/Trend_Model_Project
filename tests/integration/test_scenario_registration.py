@@ -51,6 +51,8 @@ def test_registry_includes_new_scenario_and_loads(tmp_path: Path) -> None:
         }
     )
     registry_data["scenarios"] = scenarios
+    new_entry = next(entry for entry in scenarios if entry["name"] == scenario_name)
+    assert not Path(new_entry["path"]).is_absolute()
 
     try:
         registry_path.write_text(
