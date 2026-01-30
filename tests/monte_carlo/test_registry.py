@@ -21,6 +21,7 @@ def test_list_scenarios_basic() -> None:
     assert "hf_equity_ls_10y" in names
     assert "hf_macro_20y" in names
     assert "hf_diversified_5y" in names
+    assert "hf_credit_liquidity_7y" in names
     assert "example_scenario" in names
 
 
@@ -213,6 +214,21 @@ def test_load_scenario_diversified_projection() -> None:
     assert scenario.monte_carlo.frequency == "Q"
     assert scenario.outputs is not None
     assert scenario.outputs["directory"] == "outputs/monte_carlo/hf_diversified_5y"
+
+
+def test_load_scenario_credit_liquidity_projection() -> None:
+    scenario = load_scenario("hf_credit_liquidity_7y")
+    assert isinstance(scenario, MonteCarloScenario)
+    assert scenario.name == "hf_credit_liquidity_7y"
+    assert scenario.base_config.name == "defaults.yml"
+    assert scenario.monte_carlo.mode == "mixture"
+    assert scenario.monte_carlo.n_paths == 400
+    assert scenario.monte_carlo.horizon_years == 7.0
+    assert scenario.monte_carlo.frequency == "Q"
+    assert scenario.return_model is not None
+    assert scenario.return_model["kind"] == "stationary_bootstrap"
+    assert scenario.outputs is not None
+    assert scenario.outputs["directory"] == "outputs/monte_carlo/hf_credit_liquidity_7y"
 
 
 def test_load_scenario_includes_optional_sections() -> None:

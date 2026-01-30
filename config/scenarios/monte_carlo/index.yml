@@ -14,6 +14,11 @@ scenarios:
     description: "Diversified hedge fund sleeve 5-year projection"
     tags: [diversified, hedge_fund, medium_term]
 
+  - name: hf_credit_liquidity_7y
+    path: hf_credit_liquidity_7y.yml
+    description: "Credit liquidity sleeve 7-year projection"
+    tags: [credit, hedge_fund, medium_term]
+
   - name: example_scenario
     path: example.yml
     description: "Example Monte Carlo scenario configuration"
