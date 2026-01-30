@@ -146,6 +146,38 @@ def test_missingness_preserves_contiguous_nan_segments() -> None:
                 assert np.array_equal(series, expected_slice)
 
 
+def test_missingness_preserves_per_asset_nan_rates() -> None:
+    index = pd.date_range("2024-03-01", periods=30, freq="D")
+    prices = pd.DataFrame(
+        {
+            "AssetA": np.linspace(100, 135, len(index)),
+            "AssetB": np.linspace(80, 92, len(index)),
+            "AssetC": np.linspace(60, 75, len(index)),
+        },
+        index=index,
+    )
+    prices.loc[index[[2, 5, 6, 10, 11, 12]], "AssetA"] = np.nan
+    prices.loc[index[[1, 3, 4, 7, 18]], "AssetB"] = np.nan
+    prices.loc[index[[8, 9, 14, 15, 20, 21, 22, 23]], "AssetC"] = np.nan
+
+    model = StationaryBootstrapModel(mean_block_len=4, frequency="D").fit(prices)
+    result = model.sample_prices(n_periods=200, n_paths=20, seed=23)
+
+    historical = model._log_returns
+    assert historical is not None
+    historical_rates = historical.isna().mean()
+
+    simulated_mask = result.missingness_mask
+    simulated_rates = {
+        asset: simulated_mask.xs(asset, level=1, axis=1).to_numpy().mean()
+        for asset in historical.columns
+    }
+
+    for asset, hist_rate in historical_rates.items():
+        sim_rate = simulated_rates[asset]
+        assert abs(sim_rate - hist_rate) < 0.05
+
+
 def test_monthly_frequency_flow() -> None:
     index = pd.date_range("2023-01-31", periods=12, freq=MONTHLY_DATE_FREQ)
     prices = pd.DataFrame(
