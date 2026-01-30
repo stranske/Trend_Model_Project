@@ -15,6 +15,34 @@ def _prices_from_log_returns(
     return pd.DataFrame(prices, index=index, columns=columns)
 
 
+def _unique_log_returns(n: int, *, start: float = 0.001, step: float = 0.001) -> np.ndarray:
+    return start + step * np.arange(n)
+
+
+def _infer_indices_from_reference_asset(
+    *,
+    simulated: pd.DataFrame,
+    historical: pd.DataFrame,
+    reference_asset: str,
+    decimals: int = 12,
+) -> np.ndarray:
+    reference_history = historical[reference_asset].to_numpy()
+    if np.isnan(reference_history).any():
+        raise AssertionError("reference asset contains missing values")
+    rounded_reference = np.round(reference_history, decimals=decimals)
+    if len(np.unique(rounded_reference)) != len(rounded_reference):
+        raise AssertionError("reference asset values must be unique")
+    lookup = {value: idx for idx, value in enumerate(rounded_reference)}
+
+    reference_simulated = simulated.xs(reference_asset, level=1, axis=1).to_numpy()
+    rounded_simulated = np.round(reference_simulated, decimals=decimals)
+    indices = np.empty_like(rounded_simulated, dtype=int)
+    for i in range(rounded_simulated.shape[0]):
+        for j in range(rounded_simulated.shape[1]):
+            indices[i, j] = lookup[rounded_simulated[i, j]]
+    return indices
+
+
 def test_stationary_bootstrap_preserves_correlation() -> None:
     rng = np.random.default_rng(42)
     n_obs = 400
@@ -98,20 +126,15 @@ def test_missingness_propagates_into_samples() -> None:
 
 
 def test_missingness_preserves_contiguous_nan_segments() -> None:
-    index = pd.date_range("2024-02-01", periods=12, freq="D")
-    prices = pd.DataFrame(
-        {
-            "AssetA": np.linspace(100, 130, len(index)),
-            "AssetB": np.linspace(80, 95, len(index)),
-        },
-        index=index,
-    )
+    index = pd.date_range("2024-02-01", periods=14, freq="D")
+    n_obs = len(index)
+    reference_returns = np.concatenate([[0.0], _unique_log_returns(n_obs - 1)])
+    base_returns = np.full(n_obs, 0.002)
+    log_returns = np.column_stack([base_returns, reference_returns])
+    prices = _prices_from_log_returns(log_returns, index, ["AssetA", "AssetB"])
     prices.loc[index[2:4], "AssetA"] = np.nan
     prices.loc[index[6], "AssetA"] = np.nan
     prices.loc[index[9:11], "AssetA"] = np.nan
-    prices.loc[index[1], "AssetB"] = np.nan
-    prices.loc[index[4:7], "AssetB"] = np.nan
-    prices.loc[index[10], "AssetB"] = np.nan
 
     model = StationaryBootstrapModel(mean_block_len=5, frequency="D").fit(prices)
     n_periods = 24
@@ -121,53 +144,45 @@ def test_missingness_preserves_contiguous_nan_segments() -> None:
 
     historical = model._log_returns
     assert historical is not None
-    n_obs, n_assets = historical.shape
-    indices = _stationary_bootstrap_indices(
-        n_obs=n_obs,
-        n_periods=n_periods,
-        n_paths=n_paths,
-        mean_block_len=model.mean_block_len,
-        rng=np.random.default_rng(seed),
+    indices = _infer_indices_from_reference_asset(
+        simulated=result.log_returns,
+        historical=historical,
+        reference_asset="AssetB",
     )
-    expected_mask = historical.isna().to_numpy()[indices]
-    expected_mask = np.swapaxes(expected_mask, 0, 1)
-    expected_frame = pd.DataFrame(
-        expected_mask.reshape(n_periods, n_paths * n_assets),
-        index=result.log_returns.index,
-        columns=result.log_returns.columns,
-    )
+    expected_mask = historical["AssetA"].isna().to_numpy()[indices]
+    simulated_mask = result.missingness_mask.xs("AssetA", level=1, axis=1).to_numpy()
+    assert np.array_equal(simulated_mask, expected_mask)
 
-    pd.testing.assert_frame_equal(result.missingness_mask, expected_frame)
-
-    simulated_mask = result.missingness_mask
+    n_hist_obs = len(historical)
     for path in range(n_paths):
-        path_indices = indices[path]
+        path_indices = indices[:, path]
         block_starts = [0]
         for t in range(1, n_periods):
-            if path_indices[t] != (path_indices[t - 1] + 1) % n_obs:
+            if path_indices[t] != (path_indices[t - 1] + 1) % n_hist_obs:
                 block_starts.append(t)
         block_starts.append(n_periods)
         for start, end in zip(block_starts[:-1], block_starts[1:]):
             block_idx = path_indices[start:end]
-            for asset_idx, asset in enumerate(historical.columns):
-                expected_slice = historical.isna().to_numpy()[block_idx, asset_idx]
-                series = simulated_mask[(path, asset)].iloc[start:end].to_numpy()
-                assert np.array_equal(series, expected_slice)
+            expected_slice = historical["AssetA"].isna().to_numpy()[block_idx]
+            series = simulated_mask[start:end, path]
+            assert np.array_equal(series, expected_slice)
 
 
 def test_missingness_preserves_per_asset_nan_rates() -> None:
-    index = pd.date_range("2024-03-01", periods=30, freq="D")
-    prices = pd.DataFrame(
-        {
-            "AssetA": np.linspace(100, 135, len(index)),
-            "AssetB": np.linspace(80, 92, len(index)),
-            "AssetC": np.linspace(60, 75, len(index)),
-        },
-        index=index,
+    index = pd.date_range("2024-03-01", periods=36, freq="D")
+    n_obs = len(index)
+    reference_returns = np.concatenate([[0.0], _unique_log_returns(n_obs - 1, start=0.002)])
+    base_returns = np.full(n_obs, 0.001)
+    log_returns = np.column_stack(
+        [
+            base_returns,
+            base_returns * 1.2,
+            reference_returns,
+        ]
     )
+    prices = _prices_from_log_returns(log_returns, index, ["AssetA", "AssetB", "AssetRef"])
     prices.loc[index[[2, 5, 6, 10, 11, 12]], "AssetA"] = np.nan
-    prices.loc[index[[1, 3, 4, 7, 18]], "AssetB"] = np.nan
-    prices.loc[index[[8, 9, 14, 15, 20, 21, 22, 23]], "AssetC"] = np.nan
+    prices.loc[index[[1, 3, 4, 7, 18, 19]], "AssetB"] = np.nan
 
     model = StationaryBootstrapModel(mean_block_len=4, frequency="D").fit(prices)
     n_periods = 200
@@ -178,21 +193,14 @@ def test_missingness_preserves_per_asset_nan_rates() -> None:
     historical = model._log_returns
     assert historical is not None
     historical_rates = historical.isna().mean()
-
-    n_obs, n_assets = historical.shape
-    indices = _stationary_bootstrap_indices(
-        n_obs=n_obs,
-        n_periods=n_periods,
-        n_paths=n_paths,
-        mean_block_len=model.mean_block_len,
-        rng=np.random.default_rng(seed),
+    indices = _infer_indices_from_reference_asset(
+        simulated=result.log_returns,
+        historical=historical,
+        reference_asset="AssetRef",
     )
     expected_mask = historical.isna().to_numpy()[indices]
-    expected_mask = np.swapaxes(expected_mask, 0, 1)
-    expected_rates = {
-        asset: expected_mask[:, :, asset_idx].mean()
-        for asset_idx, asset in enumerate(historical.columns)
-    }
+    expected_rates = expected_mask.mean(axis=(0, 1))
+    expected_by_asset = dict(zip(historical.columns, expected_rates))
 
     simulated_mask = result.missingness_mask
     simulated_rates = {
@@ -202,7 +210,7 @@ def test_missingness_preserves_per_asset_nan_rates() -> None:
 
     for asset, hist_rate in historical_rates.items():
         sim_rate = simulated_rates[asset]
-        expected_rate = expected_rates[asset]
+        expected_rate = expected_by_asset[asset]
         assert abs(sim_rate - expected_rate) < 1.0e-12
         assert abs(sim_rate - hist_rate) < 0.05
 
