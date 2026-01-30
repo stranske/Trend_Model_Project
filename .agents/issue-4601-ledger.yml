@@ -1,0 +1,254 @@
+version: 1
+issue: 4601
+base: phase-3
+branch: codex/issue-4601
+tasks:
+  - id: task-01
+    title: Remove the file `.agents/issue-4592-ledger.yml` from the repository.
+    status: doing
+    started_at: '2026-01-30T20:37:27Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Modify the repository-level test in `tests/test_repository_ledger_files.py`
+      to assert that no files matching the glob pattern `.agents/issue-*-ledger.yml`
+      exist in the repository.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Refactor the integration test in `tests/integration/test_scenario_registration.py`
+      to limit copying to only the necessary test fixture files rather than iterating
+      over all registry entries.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Define scope for: Identify the necessary test fixture files required for
+      the integration test in `tests/integration/test_scenario_registration.py`. (verify:
+      tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Implement focused slice for: Identify the necessary test fixture files
+      required for the integration test in `tests/integration/test_scenario_registration.py`.
+      (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Validate focused slice for: Identify the necessary test fixture files
+      required for the integration test in `tests/integration/test_scenario_registration.py`.
+      (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Define scope for: Modify the integration test to copy only the identified
+      test fixture files instead of iterating over all registry entries. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Implement focused slice for: Modify the integration test to copy only
+      the identified test fixture files instead of iterating over all registry entries.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Validate focused slice for: Modify the integration test to copy only the
+      identified test fixture files instead of iterating over all registry entries.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Review the usage of `Path.is_relative_to` in the tests and add a compatibility
+      shim or alternative implementation if backward compatibility for Python versions
+      earlier than 3.9 is required.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Define scope for: Review the usage of `Path.is_relative_to` in the tests
+      to identify where compatibility issues may arise. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Implement focused slice for: Review the usage of `Path.is_relative_to`
+      in the tests to identify where compatibility issues may arise. (verify: tests
+      pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Validate focused slice for: Review the usage of `Path.is_relative_to`
+      in the tests to identify where compatibility issues may arise. (verify: tests
+      pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Define scope for: Implement a compatibility shim or alternative for `Path.is_relative_to`
+      to support Python versions earlier than 3.9. (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Implement focused slice for: Implement a compatibility shim or alternative
+      for `Path.is_relative_to` to support Python versions earlier than 3.9. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Validate focused slice for: Implement a compatibility shim or alternative
+      for `Path.is_relative_to` to support Python versions earlier than 3.9. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: The repository does not contain any files in the `.agents/` directory that
+      match the pattern `issue-*-ledger.yml`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: The file `.agents/issue-4592-ledger.yml` is removed from the repository.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: The integration test in `tests/integration/test_scenario_registration.py`
+      only copies necessary test fixture files and not all registry entries.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: The usage of `Path.is_relative_to` in tests is compatible with Python versions
+      earlier than 3.9.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Remove the file `.agents/issue-4592-ledger.yml` from the repository.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Modify the repository-level test in `tests/test_repository_ledger_files.py`
+      to assert that no files matching the glob pattern `.agents/issue-*-ledger.yml`
+      exist in the repository.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: Refactor the integration test in `tests/integration/test_scenario_registration.py`
+      to limit copying to only the necessary test fixture files rather than iterating
+      over all registry entries.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: Review the usage of `Path.is_relative_to` in the tests and add a compatibility
+      shim or alternative implementation if backward compatibility for Python versions
+      earlier than 3.9 is required.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: The repository does not contain any files in the `.agents/` directory that
+      match the pattern `issue-*-ledger.yml`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: The file `.agents/issue-4592-ledger.yml` is removed from the repository.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: The integration test in `tests/integration/test_scenario_registration.py`
+      only copies necessary test fixture files and not all registry entries.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: The usage of `Path.is_relative_to` in tests is compatible with Python versions
+      earlier than 3.9.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: Review the usage of `Path.is_relative_to` in the tests and add a compatibility
+      shim or alternative implementation if backward compatibility for Python versions
+      earlier than 3.9 is required. (The agent cannot make subjective design decisions,
+      such as determining the best compatibility shim or alternative implementation.
+      | Provide specific guidance or a pre-approved approach for implementing compatibility
+      for `Path.is_relative_to`.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
