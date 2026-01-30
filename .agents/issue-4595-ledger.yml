@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Add the file `config/scenarios/monte_carlo/example.yml` with properly formatted
       YAML content that matches the MonteCarlo dataclass schema.
-    status: doing
+    status: done
     started_at: '2026-01-30T16:27:01Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-30T16:27:11Z'
+    commit: a1f6e8e197f12f3b365650f82bfef5c4c1053c3a
     notes: []
   - id: task-02
     title: 'Create the file `config/scenarios/monte_carlo/example.yml`. (verify: config
