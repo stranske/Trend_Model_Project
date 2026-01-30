@@ -222,9 +222,7 @@ class MonteCarloScenario:
     )
     description: str | None = field(
         default=None,
-        metadata={
-            "doc": "Scenario description (str | None). Optional; coerced to str when set."
-        },
+        metadata={"doc": "Scenario description (str | None). Optional; coerced to str when set."},
     )
     version: str | None = field(
         default=None,
@@ -288,9 +286,7 @@ class MonteCarloScenario:
     )
     path: Path | str | None = field(
         default=None,
-        metadata={
-            "doc": "Source path (Path | str | None). Optional; stored as Path when set."
-        },
+        metadata={"doc": "Source path (Path | str | None). Optional; stored as Path when set."},
     )
     raw: Mapping[str, Any] | None = field(
         default=None,
