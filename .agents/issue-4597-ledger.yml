@@ -7,10 +7,10 @@ tasks:
     title: Implement frequency normalization in `src/trend_analysis/monte_carlo/models/bootstrap.py`
       to convert quarterly ('Q') frequency to monthly ('M') or daily ('D') format
       for the StationaryBootstrapModel.
-    status: doing
+    status: done
     started_at: '2026-01-30T17:45:01Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-30T17:45:11Z'
+    commit: 186f925465b63c142894871cfe7bca644ae98def
     notes: []
   - id: task-02
     title: 'Define scope for: Implement frequency normalization logic to convert ''Q''
