@@ -136,6 +136,8 @@ class StationaryBootstrapModel:
         self._prices: pd.DataFrame | None = None
         self._log_returns: pd.DataFrame | None = None
         self._log_returns_values: np.ndarray | None = None
+        self._missingness_mask: pd.DataFrame | None = None
+        self._missingness_mask_values: np.ndarray | None = None
         self._start_prices: pd.Series | None = None
 
     @property
@@ -162,6 +164,8 @@ class StationaryBootstrapModel:
         self._prices = normalized
         self._log_returns = log_returns
         self._log_returns_values = log_returns.to_numpy()
+        self._missingness_mask = log_returns.isna()
+        self._missingness_mask_values = self._missingness_mask.to_numpy(dtype=bool)
         self._start_prices = _last_valid_prices(normalized)
         return self
 
@@ -178,6 +182,8 @@ class StationaryBootstrapModel:
             self._prices is None
             or self._log_returns is None
             or self._log_returns_values is None
+            or self._missingness_mask is None
+            or self._missingness_mask_values is None
             or self._start_prices is None
         ):
             raise RuntimeError("Model must be fitted before sampling")
@@ -200,18 +206,26 @@ class StationaryBootstrapModel:
             rng=rng,
         )
         sampled = data[indices]
+        missingness = self._missingness_mask_values[indices]
         sampled = np.swapaxes(sampled, 0, 1)
+        missingness = np.swapaxes(missingness, 0, 1)
 
         columns = _build_multi_columns(self._log_returns.columns, n_paths)
         log_return_frame = pd.DataFrame(
             sampled.reshape(n_periods, n_paths * n_assets), index=index, columns=columns
         )
+        mask = pd.DataFrame(
+            missingness.reshape(n_periods, n_paths * n_assets),
+            index=index,
+            columns=columns,
+        )
+        log_return_frame = log_return_frame.mask(mask)
+        mask = mask | log_return_frame.isna()
 
         start_series = pd.Series(
             np.tile(self._start_prices.to_numpy(), n_paths), index=columns, dtype=float
         )
         prices = log_returns_to_prices(log_return_frame, start_series)
-        mask = log_return_frame.isna()
         prices = apply_missingness_mask(prices, mask)
 
         return PricePathResult(
