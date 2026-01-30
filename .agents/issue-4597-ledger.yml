@@ -15,114 +15,114 @@ tasks:
   - id: task-02
     title: 'Define scope for: Implement frequency normalization logic to convert ''Q''
       frequency to ''M'' or ''D'' formats. (verify: formatter passes)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-01-30T19:27:26Z'
+    finished_at: '2026-01-30T19:27:26Z'
     commit: ''
     notes: []
   - id: task-03
     title: 'Implement focused slice for: Implement frequency normalization logic to
       convert ''Q'' frequency to ''M'' or ''D'' formats. (verify: formatter passes)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-01-30T19:27:26Z'
+    finished_at: '2026-01-30T19:27:26Z'
     commit: ''
     notes: []
   - id: task-04
     title: 'Validate focused slice for: Implement frequency normalization logic to
       convert ''Q'' frequency to ''M'' or ''D'' formats. (verify: formatter passes)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-01-30T19:27:26Z'
+    finished_at: '2026-01-30T19:27:26Z'
     commit: ''
     notes: []
   - id: task-05
     title: 'Define scope for: Integrate the frequency normalization logic into the
       StationaryBootstrapModel. (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-01-30T19:27:26Z'
+    finished_at: '2026-01-30T19:27:26Z'
     commit: ''
     notes: []
   - id: task-06
     title: 'Implement focused slice for: Integrate the frequency normalization logic
       into the StationaryBootstrapModel. (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-01-30T19:27:26Z'
+    finished_at: '2026-01-30T19:27:26Z'
     commit: ''
     notes: []
   - id: task-07
     title: 'Validate focused slice for: Integrate the frequency normalization logic
       into the StationaryBootstrapModel. (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-01-30T19:27:26Z'
+    finished_at: '2026-01-30T19:27:26Z'
     commit: ''
     notes: []
   - id: task-08
     title: Enhance missingness propagation tests in `tests/monte_carlo/models/test_bootstrap.py`
       to verify that NaN structures match historical data patterns.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-01-30T19:27:26Z'
+    finished_at: '2026-01-30T19:27:26Z'
     commit: ''
     notes: []
   - id: task-09
     title: 'Define scope for: Enhance tests to verify that NaN structures match contiguous
       segments in historical data.'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-01-30T19:27:26Z'
+    finished_at: '2026-01-30T19:27:26Z'
     commit: ''
     notes: []
   - id: task-10
     title: 'Implement focused slice for: Enhance tests to verify that NaN structures
       match contiguous segments in historical data.'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-01-30T19:27:26Z'
+    finished_at: '2026-01-30T19:27:26Z'
     commit: ''
     notes: []
   - id: task-11
     title: 'Validate focused slice for: Enhance tests to verify that NaN structures
       match contiguous segments in historical data.'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-01-30T19:27:26Z'
+    finished_at: '2026-01-30T19:27:26Z'
     commit: ''
     notes: []
   - id: task-12
     title: 'Define scope for: Enhance tests to verify that NaN structures match per-asset
       missing frequencies in historical data.'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-01-30T19:27:26Z'
+    finished_at: '2026-01-30T19:27:26Z'
     commit: ''
     notes: []
   - id: task-13
     title: 'Implement focused slice for: Enhance tests to verify that NaN structures
       match per-asset missing frequencies in historical data.'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-01-30T19:27:26Z'
+    finished_at: '2026-01-30T19:27:26Z'
     commit: ''
     notes: []
   - id: task-14
     title: 'Validate focused slice for: Enhance tests to verify that NaN structures
       match per-asset missing frequencies in historical data.'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-01-30T19:27:26Z'
+    finished_at: '2026-01-30T19:27:26Z'
     commit: ''
     notes: []
   - id: task-15
     title: Modify block-length distribution tests in `tests/monte_carlo/models/test_bootstrap.py`
       to compare the empirical distribution of block lengths against the geometric(1/L)
       distribution.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-01-30T19:27:26Z'
+    finished_at: '2026-01-30T19:27:26Z'
     commit: ''
     notes: []
   - id: task-16
@@ -153,17 +153,17 @@ tasks:
   - id: task-19
     title: Enhance missingness propagation tests to verify that NaN structures match
       historical data patterns.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-01-30T19:27:26Z'
+    finished_at: '2026-01-30T19:27:26Z'
     commit: ''
     notes: []
   - id: task-20
     title: Modify block-length distribution tests to compare the empirical distribution
       of block lengths against the geometric(1/L) distribution.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-01-30T19:27:26Z'
+    finished_at: '2026-01-30T19:27:26Z'
     commit: ''
     notes: []
   - id: task-21
@@ -185,25 +185,25 @@ tasks:
   - id: task-23
     title: The StationaryBootstrapModel correctly normalizes 'Q' frequency inputs
       into 'M' or 'D' formats without runtime errors.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-01-30T19:27:26Z'
+    finished_at: '2026-01-30T19:27:26Z'
     commit: ''
     notes: []
   - id: task-24
     title: The simulated NaN positions in the bootstrap process match the structure
       of historical data, including contiguous segments and per-asset missing frequencies.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-01-30T19:27:26Z'
+    finished_at: '2026-01-30T19:27:26Z'
     commit: ''
     notes: []
   - id: task-25
     title: The empirical distribution of block lengths from the stationary bootstrap
       algorithm fits a geometric distribution with parameter 1/L.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-01-30T19:27:26Z'
+    finished_at: '2026-01-30T19:27:26Z'
     commit: ''
     notes: []
   - id: task-26
@@ -224,25 +224,25 @@ tasks:
   - id: task-28
     title: The StationaryBootstrapModel correctly normalizes 'Q' frequency inputs
       into 'M' or 'D' formats without runtime errors.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-01-30T19:27:26Z'
+    finished_at: '2026-01-30T19:27:26Z'
     commit: ''
     notes: []
   - id: task-29
     title: The simulated NaN positions in the bootstrap process match the structure
       of historical data, including contiguous segments and per-asset missing frequencies.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-01-30T19:27:26Z'
+    finished_at: '2026-01-30T19:27:26Z'
     commit: ''
     notes: []
   - id: task-30
     title: The empirical distribution of block lengths from the stationary bootstrap
       algorithm fits a geometric distribution with parameter 1/L.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-01-30T19:27:26Z'
+    finished_at: '2026-01-30T19:27:26Z'
     commit: ''
     notes: []
   - id: task-31
