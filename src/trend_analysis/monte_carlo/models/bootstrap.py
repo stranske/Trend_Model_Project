@@ -144,6 +144,18 @@ class StationaryBootstrapModel:
     def frequency(self) -> str:
         return normalize_frequency_code(self._frequency)
 
+    @property
+    def historical_log_returns(self) -> pd.DataFrame:
+        if self._log_returns is None:
+            raise RuntimeError("Model must be fitted before accessing historical log returns")
+        return self._log_returns.copy()
+
+    @property
+    def historical_missingness_mask(self) -> pd.DataFrame:
+        if self._missingness_mask is None:
+            raise RuntimeError("Model must be fitted before accessing missingness mask")
+        return self._missingness_mask.copy()
+
     def fit(
         self, prices: pd.DataFrame, *, frequency: str | None = None
     ) -> "StationaryBootstrapModel":
