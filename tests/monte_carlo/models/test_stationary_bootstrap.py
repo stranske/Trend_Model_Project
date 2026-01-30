@@ -100,10 +100,17 @@ def test_block_length_distribution_matches_geometric_mean() -> None:
     p = 1.0 / mean_block_len
     max_k = 20
     k = np.arange(1, max_k + 1)
+    counts = np.bincount(run_lengths_arr, minlength=max_k + 1)[1 : max_k + 1]
+    empirical_pmf = counts / counts.sum()
+    theoretical_pmf = p * (1.0 - p) ** (k - 1)
+    theoretical_pmf /= theoretical_pmf.sum()
+    max_pmf_diff = float(np.max(np.abs(empirical_pmf - theoretical_pmf)))
+    assert max_pmf_diff < 0.03
+
     empirical_cdf = (run_lengths_arr[:, None] <= k[None, :]).mean(axis=0)
     theoretical_cdf = 1.0 - (1.0 - p) ** k
-    max_diff = float(np.max(np.abs(empirical_cdf - theoretical_cdf)))
-    assert max_diff < 0.06
+    max_cdf_diff = float(np.max(np.abs(empirical_cdf - theoretical_cdf)))
+    assert max_cdf_diff < 0.06
 
 
 def test_missingness_propagates_into_samples() -> None:
