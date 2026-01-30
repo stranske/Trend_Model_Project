@@ -7,10 +7,10 @@ tasks:
     title: Modify the integration test in `tests/integration/test_scenario_registration.py`
       to create the new scenario file within the provided `tmp_path` or another designated
       temporary directory.
-    status: doing
+    status: done
     started_at: '2026-01-30T15:35:59Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-30T15:36:07Z'
+    commit: a8b2b0146a766eaa3df57ba917e54517258409ce
     notes: []
   - id: task-02
     title: 'Define scope for: Modify the integration test in `tests/integration/test_scenario_registration.py`
