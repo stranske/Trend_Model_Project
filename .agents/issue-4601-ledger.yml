@@ -5,10 +5,10 @@ branch: codex/issue-4601
 tasks:
   - id: task-01
     title: Remove the file `.agents/issue-4592-ledger.yml` from the repository.
-    status: doing
+    status: done
     started_at: '2026-01-30T20:37:27Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-30T20:37:36Z'
+    commit: 05475aaecf466be5cdfc79bc34c531216c603ded
     notes: []
   - id: task-02
     title: Modify the repository-level test in `tests/test_repository_ledger_files.py`
