@@ -2,7 +2,9 @@ scenario:
   name: example_scenario
   description: Example Monte Carlo scenario configuration.
   version: "1.0"
+
 base_config: config/defaults.yml
+
 monte_carlo:
   mode: mixture
   n_paths: 500
@@ -10,18 +12,22 @@ monte_carlo:
   frequency: M
   seed: 123
   jobs: 8
+
 return_model:
   kind: stationary_bootstrap
   params:
     block_size: 6
+
 strategy_set:
   curated:
     - trend_basic
   guards:
     max_turnover: 0.15
+
 folds:
   enabled: true
   n_folds: 3
+
 outputs:
   directory: outputs/monte_carlo/example
   format: parquet
