@@ -20,6 +20,7 @@ def test_list_scenarios_basic() -> None:
     names = {entry.name for entry in scenarios}
     assert "hf_equity_ls_10y" in names
     assert "hf_macro_20y" in names
+    assert "hf_diversified_5y" in names
     assert "example_scenario" in names
 
 
@@ -200,6 +201,18 @@ def test_load_scenario_returns_model() -> None:
     assert "curated" in scenario.strategy_set
     assert scenario.outputs is not None
     assert "directory" in scenario.outputs
+
+
+def test_load_scenario_diversified_projection() -> None:
+    scenario = load_scenario("hf_diversified_5y")
+    assert isinstance(scenario, MonteCarloScenario)
+    assert scenario.name == "hf_diversified_5y"
+    assert scenario.base_config.name == "defaults.yml"
+    assert scenario.monte_carlo.n_paths == 300
+    assert scenario.monte_carlo.horizon_years == 5.0
+    assert scenario.monte_carlo.frequency == "Q"
+    assert scenario.outputs is not None
+    assert scenario.outputs["directory"] == "outputs/monte_carlo/hf_diversified_5y"
 
 
 def test_load_scenario_includes_optional_sections() -> None:

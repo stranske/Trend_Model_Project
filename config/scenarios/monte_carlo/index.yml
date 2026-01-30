@@ -9,6 +9,11 @@ scenarios:
     description: "Global macro sleeve 20-year stress test"
     tags: [macro, hedge_fund, stress_test]
 
+  - name: hf_diversified_5y
+    path: hf_diversified_5y.yml
+    description: "Diversified hedge fund sleeve 5-year projection"
+    tags: [diversified, hedge_fund, medium_term]
+
   - name: example_scenario
     path: example.yml
     description: "Example Monte Carlo scenario configuration"
