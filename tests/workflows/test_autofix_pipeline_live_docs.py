@@ -8,14 +8,13 @@ from pathlib import Path
 
 import pytest
 
-from tests.path_utils import is_relative_to
-
 import scripts.auto_type_hygiene as auto_type_hygiene
 import scripts.fix_cosmetic_aggregate as fix_cosmetic_aggregate
 import scripts.fix_numpy_asserts as fix_numpy_asserts
 import scripts.mypy_autofix as mypy_autofix
 import scripts.mypy_return_autofix as mypy_return_autofix
 import scripts.update_autofix_expectations as update_autofix_expectations
+from tests.path_utils import is_relative_to
 
 
 def _run(
