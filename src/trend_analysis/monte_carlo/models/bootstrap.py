@@ -146,6 +146,7 @@ class StationaryBootstrapModel:
         self._frequency = _normalize_frequency_code(frequency) if frequency else None
         self._prices: pd.DataFrame | None = None
         self._log_returns: pd.DataFrame | None = None
+        self._log_returns_values: np.ndarray | None = None
         self._start_prices: pd.Series | None = None
 
     @property
@@ -171,6 +172,7 @@ class StationaryBootstrapModel:
         self._frequency = target
         self._prices = normalized
         self._log_returns = log_returns
+        self._log_returns_values = log_returns.to_numpy()
         self._start_prices = _last_valid_prices(normalized)
         return self
 
@@ -183,7 +185,12 @@ class StationaryBootstrapModel:
         frequency: str | None = None,
         seed: int | None = None,
     ) -> PricePathResult:
-        if self._prices is None or self._log_returns is None or self._start_prices is None:
+        if (
+            self._prices is None
+            or self._log_returns is None
+            or self._log_returns_values is None
+            or self._start_prices is None
+        ):
             raise RuntimeError("Model must be fitted before sampling")
         if n_periods <= 0:
             raise ValueError("n_periods must be >= 1")
@@ -193,7 +200,7 @@ class StationaryBootstrapModel:
         freq = _normalize_frequency_code(frequency or self._frequency)
         index = _build_simulation_index(self._prices.index, n_periods, freq, start_date)
 
-        data = self._log_returns.to_numpy()
+        data = self._log_returns_values
         n_obs, n_assets = data.shape
         rng = np.random.default_rng(seed)
         indices = _stationary_bootstrap_indices(
