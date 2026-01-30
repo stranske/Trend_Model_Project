@@ -20,6 +20,7 @@ def test_list_scenarios_basic() -> None:
     names = {entry.name for entry in scenarios}
     assert "hf_equity_ls_10y" in names
     assert "hf_macro_20y" in names
+    assert "example_scenario" in names
 
 
 def test_list_scenarios_returns_entries_with_paths() -> None:
