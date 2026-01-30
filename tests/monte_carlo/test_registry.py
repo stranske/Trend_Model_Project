@@ -11,6 +11,7 @@ from trend_analysis.monte_carlo.registry import (
     list_scenarios,
     load_scenario,
 )
+from trend_analysis.monte_carlo.scenario import MonteCarloSettings
 from utils.paths import repo_root
 
 
@@ -19,6 +20,7 @@ def test_list_scenarios_basic() -> None:
     names = {entry.name for entry in scenarios}
     assert "hf_equity_ls_10y" in names
     assert "hf_macro_20y" in names
+    assert "example_scenario" in names
 
 
 def test_list_scenarios_returns_entries_with_paths() -> None:
@@ -216,6 +218,18 @@ def test_load_scenario_example_config_path() -> None:
     assert scenario.base_config.name == "defaults.yml"
 
 
+def test_example_scenario_conforms_to_schema() -> None:
+    scenario = load_scenario("example_scenario")
+    assert isinstance(scenario.monte_carlo, MonteCarloSettings)
+    assert scenario.monte_carlo.mode == "mixture"
+    assert scenario.monte_carlo.n_paths == 500
+    assert scenario.monte_carlo.horizon_years == 4.0
+    assert scenario.monte_carlo.frequency == "M"
+    assert scenario.return_model is not None
+    assert scenario.folds is not None
+    assert scenario.outputs is not None
+
+
 def test_load_scenario_rejects_invalid(tmp_path: Path) -> None:
     scenario_path = tmp_path / "broken.yml"
     scenario_path.write_text("monte_carlo: {}\n", encoding="utf-8")
@@ -380,6 +394,33 @@ def test_load_scenario_rejects_null_return_model_mapping(tmp_path: Path) -> None
         ValueError, match="Scenario config 'return_model' must be a mapping \\(null provided\\)"
     ):
         load_scenario("null_return_model", registry_path=registry)
+
+
+def test_load_scenario_rejects_null_scenario_block(tmp_path: Path) -> None:
+    base_config = tmp_path / "base.yml"
+    base_config.write_text("{}", encoding="utf-8")
+    scenario_path = tmp_path / "null_scenario.yml"
+    scenario_path.write_text(
+        "scenario: null\n"
+        "name: null_scenario\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: mixture\n"
+        "  n_paths: 10\n"
+        "  horizon_years: 1\n"
+        "  frequency: M\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n" "  - name: null_scenario\n" "    path: null_scenario.yml\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError, match="Scenario config 'scenario' must be a mapping \\(null provided\\)"
+    ):
+        load_scenario("null_scenario", registry_path=registry)
 
 
 def test_load_scenario_missing(tmp_path: Path) -> None:
