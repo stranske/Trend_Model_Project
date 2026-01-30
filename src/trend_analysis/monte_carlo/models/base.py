@@ -18,6 +18,7 @@ __all__ = [
     "BootstrapPricePathModel",
     "prices_to_log_returns",
     "log_returns_to_prices",
+    "normalize_frequency_code",
     "normalize_price_frequency",
     "extract_missingness_mask",
     "build_missingness_mask",
@@ -86,7 +87,7 @@ def _ensure_datetime_index(index: Iterable[object]) -> pd.DatetimeIndex:
     return pd.DatetimeIndex(index)
 
 
-def _normalize_frequency_code(freq: str | None) -> str:
+def normalize_frequency_code(freq: str | None) -> str:
     if not freq:
         return "M"
     code = str(freq).upper()
@@ -96,6 +97,10 @@ def _normalize_frequency_code(freq: str | None) -> str:
         allowed = ", ".join(sorted(_SUPPORTED_FREQUENCIES))
         raise ValueError(f"Unsupported frequency '{code}'. Use {allowed}.")
     return code
+
+
+def _normalize_frequency_code(freq: str | None) -> str:
+    return normalize_frequency_code(freq)
 
 
 def prices_to_log_returns(prices: pd.DataFrame) -> pd.DataFrame:

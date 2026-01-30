@@ -121,3 +121,20 @@ def test_sample_prices_deterministic_with_seed() -> None:
 
     pd.testing.assert_frame_equal(first.log_returns, second.log_returns)
     pd.testing.assert_frame_equal(first.prices, second.prices)
+
+
+def test_quarterly_frequency_normalizes_to_monthly() -> None:
+    index = pd.date_range("2022-01-31", periods=12, freq=MONTHLY_DATE_FREQ)
+    prices = pd.DataFrame(
+        {
+            "AssetA": np.linspace(100, 112, len(index)),
+            "AssetB": np.linspace(80, 92, len(index)),
+        },
+        index=index,
+    )
+
+    model = StationaryBootstrapModel(mean_block_len=4, frequency="Q").fit(prices)
+    result = model.sample_prices(n_periods=3, n_paths=2, frequency="Q", seed=5)
+
+    assert model.frequency == "M"
+    assert result.frequency == "M"

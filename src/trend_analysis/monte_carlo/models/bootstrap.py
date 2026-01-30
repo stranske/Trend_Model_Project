@@ -15,25 +15,11 @@ from .base import (
     apply_missingness_mask,
     log_returns_to_prices,
     normalize_price_frequency,
+    normalize_frequency_code,
     prices_to_log_returns,
 )
 
 __all__ = ["StationaryBootstrapModel"]
-
-_SUPPORTED_FREQUENCIES = {"D", "M"}
-
-
-def _normalize_frequency_code(freq: str | None) -> str:
-    if not freq:
-        return "M"
-    code = str(freq).upper()
-    if code.startswith("Q"):
-        return "M"
-    if code not in _SUPPORTED_FREQUENCIES:
-        allowed = ", ".join(sorted(_SUPPORTED_FREQUENCIES))
-        raise ValueError(f"Unsupported frequency '{code}'. Use {allowed}.")
-    return code
-
 
 def _ensure_datetime_index(index: Iterable[object]) -> pd.DatetimeIndex:
     if isinstance(index, pd.DatetimeIndex):
@@ -145,7 +131,7 @@ class StationaryBootstrapModel:
     ) -> None:
         self.mean_block_len = _coerce_mean_block_len(mean_block_len)
         self.calibration_window = _coerce_calibration_window(calibration_window)
-        self._frequency = _normalize_frequency_code(frequency) if frequency else None
+        self._frequency = normalize_frequency_code(frequency) if frequency else None
         self._prices: pd.DataFrame | None = None
         self._log_returns: pd.DataFrame | None = None
         self._log_returns_values: np.ndarray | None = None
@@ -153,14 +139,14 @@ class StationaryBootstrapModel:
 
     @property
     def frequency(self) -> str:
-        return _normalize_frequency_code(self._frequency)
+        return normalize_frequency_code(self._frequency)
 
     def fit(
         self, prices: pd.DataFrame, *, frequency: str | None = None
     ) -> "StationaryBootstrapModel":
         if prices.empty:
             raise ValueError("prices must not be empty")
-        target = _normalize_frequency_code(frequency or self._frequency)
+        target = normalize_frequency_code(frequency or self._frequency)
         normalized, _summary = normalize_price_frequency(prices, target)
         if self.calibration_window is not None:
             normalized = normalized.tail(self.calibration_window)
@@ -199,7 +185,7 @@ class StationaryBootstrapModel:
         if n_paths <= 0:
             raise ValueError("n_paths must be >= 1")
 
-        freq = _normalize_frequency_code(frequency or self._frequency)
+        freq = normalize_frequency_code(frequency or self._frequency)
         index = _build_simulation_index(self._prices.index, n_periods, freq, start_date)
 
         data = self._log_returns_values
