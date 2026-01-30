@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import uuid
 from pathlib import Path
 
 import pytest
@@ -16,12 +17,13 @@ from utils.paths import proj_path
 
 @pytest.mark.integration
 def test_registry_includes_new_scenario_and_loads(tmp_path: Path) -> None:
-    scenario_name = f"integration_dynamic_scenario_{tmp_path.name}"
+    scenario_name = f"integration_dynamic_scenario_{tmp_path.name}_{uuid.uuid4().hex}"
     scenario_dir = tmp_path / "config" / "scenarios" / "monte_carlo"
     scenario_dir.mkdir(parents=True, exist_ok=True)
     registry_path = scenario_dir / "index.yml"
     scenario_file = scenario_dir / f"{scenario_name}.yml"
     source_registry_path = proj_path("config", "scenarios", "monte_carlo", "index.yml")
+    assert scenario_file.is_relative_to(tmp_path)
 
     scenario_payload = (
         "scenario:\n"
@@ -67,7 +69,10 @@ def test_registry_includes_new_scenario_and_loads(tmp_path: Path) -> None:
     )
     registry_data["scenarios"] = scenarios
     new_entry = next(entry for entry in scenarios if entry["name"] == scenario_name)
-    assert not Path(new_entry["path"]).is_absolute()
+    entry_path = Path(new_entry["path"])
+    assert not entry_path.is_absolute()
+    registry_root = registry_path.parent.resolve()
+    assert (registry_root / entry_path).resolve().is_relative_to(registry_root)
 
     registry_path.write_text(
         yaml.safe_dump(registry_data, sort_keys=False),
