@@ -223,16 +223,21 @@ def test_missingness_preserves_per_asset_nan_rates() -> None:
     expected_by_asset = dict(zip(historical.columns, expected_rates))
 
     simulated_mask = result.missingness_mask
+    simulated_values = simulated_mask.to_numpy().reshape(n_periods, n_paths, -1)
     simulated_rates = {
         asset: simulated_mask.xs(asset, level=1, axis=1).to_numpy().mean()
         for asset in historical.columns
     }
+    expected_rates_by_path = expected_mask.mean(axis=0)
+    simulated_rates_by_path = simulated_values.mean(axis=0)
 
     for asset, hist_rate in historical_rates.items():
         sim_rate = simulated_rates[asset]
         expected_rate = expected_by_asset[asset]
         assert abs(sim_rate - expected_rate) < 1.0e-12
         assert abs(sim_rate - hist_rate) < 0.05
+
+    assert np.allclose(simulated_rates_by_path, expected_rates_by_path, atol=1.0e-12)
 
 
 def test_monthly_frequency_flow() -> None:
