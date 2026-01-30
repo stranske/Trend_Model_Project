@@ -157,9 +157,7 @@ class MonteCarloSettings:
         self.frequency = _require_non_empty_str(self.frequency, "frequency").upper()
         if self.frequency not in _ALLOWED_FREQUENCIES:
             allowed = ", ".join(sorted(_ALLOWED_FREQUENCIES))
-            raise ValueError(
-                f"frequency must be one of: {allowed} (got {self.frequency!r})"
-            )
+            raise ValueError(f"frequency must be one of: {allowed} (got {self.frequency!r})")
 
         if self.seed is not None:
             self.seed = _coerce_int(self.seed, "seed", minimum=0)
@@ -224,9 +222,7 @@ class MonteCarloScenario:
     )
     description: str | None = field(
         default=None,
-        metadata={
-            "doc": "Scenario description (str | None). Optional; coerced to str when set."
-        },
+        metadata={"doc": "Scenario description (str | None). Optional; coerced to str when set."},
     )
     version: str | None = field(
         default=None,
@@ -290,9 +286,7 @@ class MonteCarloScenario:
     )
     path: Path | str | None = field(
         default=None,
-        metadata={
-            "doc": "Source path (Path | str | None). Optional; stored as Path when set."
-        },
+        metadata={"doc": "Source path (Path | str | None). Optional; stored as Path when set."},
     )
     raw: Mapping[str, Any] | None = field(
         default=None,

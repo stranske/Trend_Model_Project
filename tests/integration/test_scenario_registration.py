@@ -17,9 +17,7 @@ from trend_analysis.monte_carlo.registry import (
 @pytest.mark.integration
 def test_registry_includes_new_scenario_and_loads(tmp_path: Path) -> None:
     scenario_name = "integration_fixture_scenario"
-    fixtures_dir = (
-        Path(__file__).resolve().parents[1] / "fixtures" / "scenario_registration"
-    )
+    fixtures_dir = Path(__file__).resolve().parents[1] / "fixtures" / "scenario_registration"
     scenario_dir = tmp_path / "config" / "scenarios" / "monte_carlo"
     scenario_dir.mkdir(parents=True, exist_ok=True)
     fixture_files = ("index.yml", "integration_fixture.yml", "defaults.yml")
