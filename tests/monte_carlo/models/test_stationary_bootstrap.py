@@ -130,11 +130,19 @@ def test_missingness_preserves_contiguous_nan_segments() -> None:
     n_obs = len(index)
     reference_returns = np.concatenate([[0.0], _unique_log_returns(n_obs - 1)])
     base_returns = np.full(n_obs, 0.002)
-    log_returns = np.column_stack([base_returns, reference_returns])
-    prices = _prices_from_log_returns(log_returns, index, ["AssetA", "AssetB"])
+    log_returns = np.column_stack(
+        [
+            base_returns,
+            base_returns * 1.1,
+            reference_returns,
+        ]
+    )
+    prices = _prices_from_log_returns(log_returns, index, ["AssetA", "AssetB", "AssetRef"])
     prices.loc[index[2:4], "AssetA"] = np.nan
     prices.loc[index[6], "AssetA"] = np.nan
     prices.loc[index[9:11], "AssetA"] = np.nan
+    prices.loc[index[1:3], "AssetB"] = np.nan
+    prices.loc[index[7:9], "AssetB"] = np.nan
 
     model = StationaryBootstrapModel(mean_block_len=5, frequency="D").fit(prices)
     n_periods = 24
@@ -147,11 +155,15 @@ def test_missingness_preserves_contiguous_nan_segments() -> None:
     indices = _infer_indices_from_reference_asset(
         simulated=result.log_returns,
         historical=historical,
-        reference_asset="AssetB",
+        reference_asset="AssetRef",
     )
-    expected_mask = historical["AssetA"].isna().to_numpy()[indices]
-    simulated_mask = result.missingness_mask.xs("AssetA", level=1, axis=1).to_numpy()
-    assert np.array_equal(simulated_mask, expected_mask)
+    simulated_masks = {
+        asset: result.missingness_mask.xs(asset, level=1, axis=1).to_numpy()
+        for asset in ("AssetA", "AssetB")
+    }
+    for asset in ("AssetA", "AssetB"):
+        expected_mask = historical[asset].isna().to_numpy()[indices]
+        assert np.array_equal(simulated_masks[asset], expected_mask)
 
     n_hist_obs = len(historical)
     for path in range(n_paths):
@@ -163,9 +175,10 @@ def test_missingness_preserves_contiguous_nan_segments() -> None:
         block_starts.append(n_periods)
         for start, end in zip(block_starts[:-1], block_starts[1:]):
             block_idx = path_indices[start:end]
-            expected_slice = historical["AssetA"].isna().to_numpy()[block_idx]
-            series = simulated_mask[start:end, path]
-            assert np.array_equal(series, expected_slice)
+            for asset in ("AssetA", "AssetB"):
+                expected_slice = historical[asset].isna().to_numpy()[block_idx]
+                series = simulated_masks[asset][start:end, path]
+                assert np.array_equal(series, expected_slice)
 
 
 def test_missingness_preserves_per_asset_nan_rates() -> None:
