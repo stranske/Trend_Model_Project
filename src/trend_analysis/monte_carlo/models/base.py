@@ -90,6 +90,8 @@ def _normalize_frequency_code(freq: str | None) -> str:
     if not freq:
         return "M"
     code = str(freq).upper()
+    if code.startswith("Q"):
+        return "M"
     if code not in _SUPPORTED_FREQUENCIES:
         allowed = ", ".join(sorted(_SUPPORTED_FREQUENCIES))
         raise ValueError(f"Unsupported frequency '{code}'. Use {allowed}.")
@@ -108,7 +110,9 @@ def prices_to_log_returns(prices: pd.DataFrame) -> pd.DataFrame:
     return np.log(prices / prices.shift(1))
 
 
-def log_returns_to_prices(log_returns: pd.DataFrame, start_prices: pd.Series) -> pd.DataFrame:
+def log_returns_to_prices(
+    log_returns: pd.DataFrame, start_prices: pd.Series
+) -> pd.DataFrame:
     """Convert log returns into price levels.
 
     ``start_prices`` must be positive and aligned with ``log_returns`` columns.
