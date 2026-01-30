@@ -14,12 +14,13 @@ from .base import (
     PricePathResult,
     apply_missingness_mask,
     log_returns_to_prices,
-    normalize_price_frequency,
     normalize_frequency_code,
+    normalize_price_frequency,
     prices_to_log_returns,
 )
 
 __all__ = ["StationaryBootstrapModel"]
+
 
 def _ensure_datetime_index(index: Iterable[object]) -> pd.DatetimeIndex:
     if isinstance(index, pd.DatetimeIndex):
