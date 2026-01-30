@@ -10,12 +10,15 @@ from trend_analysis.monte_carlo.registry import (
     list_scenarios,
     load_scenario,
 )
+from utils.paths import proj_path
 
 
 @pytest.mark.integration
 def test_registry_includes_new_scenario_and_loads(tmp_path: Path) -> None:
-    scenario_name = "integration_dynamic_scenario"
-    scenario_file = tmp_path / "integration_dynamic_scenario.yml"
+    scenario_name = f"integration_dynamic_scenario_{tmp_path.name}"
+    scenario_dir = proj_path("config", "scenarios", "monte_carlo")
+    registry_path = scenario_dir / "index.yml"
+    scenario_file = scenario_dir / f"{scenario_name}.yml"
 
     scenario_payload = (
         "scenario:\n"
@@ -33,28 +36,40 @@ def test_registry_includes_new_scenario_and_loads(tmp_path: Path) -> None:
         "  format: parquet\n"
     )
 
+    original_registry = registry_path.read_text(encoding="utf-8")
     scenario_file.write_text(scenario_payload, encoding="utf-8")
-    payload = {
-        "scenarios": [
-            {
-                "name": scenario_name,
-                "path": scenario_file.as_posix(),
-                "description": "Integration test scenario.",
-                "tags": ["integration", "test"],
-            }
-        ]
-    }
-    temp_registry = tmp_path / "index.yml"
-    temp_registry.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
 
-    names = {entry.name for entry in list_scenarios(registry_path=temp_registry)}
-    assert scenario_name in names
+    registry_data = yaml.safe_load(original_registry) or {}
+    scenarios = registry_data.get("scenarios") or []
+    scenarios = [entry for entry in scenarios if entry.get("name") != scenario_name]
+    scenarios.append(
+        {
+            "name": scenario_name,
+            "path": scenario_file.name,
+            "description": "Integration test scenario.",
+            "tags": ["integration", "test"],
+        }
+    )
+    registry_data["scenarios"] = scenarios
 
-    scenario = load_scenario(scenario_name, registry_path=temp_registry)
-    assert isinstance(scenario, MonteCarloScenario)
-    assert scenario.name == scenario_name
-    assert scenario.base_config.name == "defaults.yml"
-    assert scenario.monte_carlo.mode == "two_layer"
-    assert scenario.monte_carlo.frequency == "Q"
-    assert scenario.outputs is not None
-    assert scenario.outputs["directory"] == f"outputs/monte_carlo/{scenario_name}"
+    try:
+        registry_path.write_text(
+            yaml.safe_dump(registry_data, sort_keys=False),
+            encoding="utf-8",
+        )
+
+        names = {entry.name for entry in list_scenarios(registry_path=registry_path)}
+        assert scenario_name in names
+
+        scenario = load_scenario(scenario_name, registry_path=registry_path)
+        assert isinstance(scenario, MonteCarloScenario)
+        assert scenario.name == scenario_name
+        assert scenario.base_config.name == "defaults.yml"
+        assert scenario.monte_carlo.mode == "two_layer"
+        assert scenario.monte_carlo.frequency == "Q"
+        assert scenario.outputs is not None
+        assert scenario.outputs["directory"] == f"outputs/monte_carlo/{scenario_name}"
+    finally:
+        registry_path.write_text(original_registry, encoding="utf-8")
+        if scenario_file.exists():
+            scenario_file.unlink()
