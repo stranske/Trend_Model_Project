@@ -1,0 +1,500 @@
+version: 1
+issue: 4588
+base: phase-3
+branch: codex/issue-4588
+tasks:
+  - id: task-01
+    title: Create `PricePathModel` interface in `src/trend_analysis/monte_carlo/models/base.py`.
+    status: doing
+    started_at: '2026-01-30T12:51:07Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Add shared utility helpers for price/return conversion, frequency normalization,
+      and missingness handling in `src/trend_analysis/monte_carlo/models/base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Define scope for: Add shared utility helpers for price/return conversion
+      in `src/trend_analysis/monte_carlo/models/base.py`. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Implement focused slice for: Add shared utility helpers for price/return
+      conversion in `src/trend_analysis/monte_carlo/models/base.py`. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Validate focused slice for: Add shared utility helpers for price/return
+      conversion in `src/trend_analysis/monte_carlo/models/base.py`. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Define scope for: Add shared utility helpers for frequency normalization
+      in `src/trend_analysis/monte_carlo/models/base.py`. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Implement focused slice for: Add shared utility helpers for frequency
+      normalization in `src/trend_analysis/monte_carlo/models/base.py`. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Validate focused slice for: Add shared utility helpers for frequency normalization
+      in `src/trend_analysis/monte_carlo/models/base.py`. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Define scope for: Add shared utility helpers for missingness handling
+      in `src/trend_analysis/monte_carlo/models/base.py`. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Implement focused slice for: Add shared utility helpers for missingness
+      handling in `src/trend_analysis/monte_carlo/models/base.py`. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Validate focused slice for: Add shared utility helpers for missingness
+      handling in `src/trend_analysis/monte_carlo/models/base.py`. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Implement `prices_to_log_returns()` in `src/trend_analysis/monte_carlo/models/base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Implement `log_returns_to_prices()` in `src/trend_analysis/monte_carlo/models/base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Implement frequency normalization hooks for monthly/daily conversion in
+      `src/trend_analysis/monte_carlo/models/base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Implement missingness mask extraction in `src/trend_analysis/monte_carlo/models/base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Implement propagation utilities for missingness handling in `src/trend_analysis/monte_carlo/models/base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Implement at least one concrete model that adheres to the `PricePathModel`
+      interface in `src/trend_analysis/monte_carlo/models/base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Write unit tests for `PricePathModel` interface and utilities in `tests/monte_carlo/models/test_base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Define scope for: Write unit tests for `PricePathModel` interface in `tests/monte_carlo/models/test_base.py`.
+      (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Implement focused slice for: Write unit tests for `PricePathModel` interface
+      in `tests/monte_carlo/models/test_base.py`. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'Validate focused slice for: Write unit tests for `PricePathModel` interface
+      in `tests/monte_carlo/models/test_base.py`. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'Define scope for: Write unit tests for utility functions in `tests/monte_carlo/models/test_base.py`.
+      (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: 'Implement focused slice for: Write unit tests for utility functions in
+      `tests/monte_carlo/models/test_base.py`. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'Validate focused slice for: Write unit tests for utility functions in
+      `tests/monte_carlo/models/test_base.py`. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: Write tests for output shape matching requested periods in `tests/monte_carlo/models/test_base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: Write tests for output dates having correct frequency in `tests/monte_carlo/models/test_base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: Write tests for ensuring prices are non-negative in `tests/monte_carlo/models/test_base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: Write tests for missingness mask propagation in `tests/monte_carlo/models/test_base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: Interface implemented with clear docstrings.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: At least one concrete model implements the interface (can be stub).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: 'Unit tests verify:'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: Output shape matches requested periods.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: Output dates are correct frequency.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: Prices are non-negative.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: Missingness mask is propagated correctly.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: Utility functions have comprehensive tests.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: 'Files created/modified:'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: '`src/trend_analysis/monte_carlo/models/__init__.py`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: '`src/trend_analysis/monte_carlo/models/base.py`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: '`tests/monte_carlo/models/test_base.py`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: Create `PricePathModel` interface in `src/trend_analysis/monte_carlo/models/base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: Add shared utility helpers for price/return conversion, frequency normalization,
+      and missingness handling in `src/trend_analysis/monte_carlo/models/base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: Implement `prices_to_log_returns()` in `src/trend_analysis/monte_carlo/models/base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: Implement `log_returns_to_prices()` in `src/trend_analysis/monte_carlo/models/base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: Implement frequency normalization hooks for monthly/daily conversion in
+      `src/trend_analysis/monte_carlo/models/base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: Implement missingness mask extraction in `src/trend_analysis/monte_carlo/models/base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: Implement propagation utilities for missingness handling in `src/trend_analysis/monte_carlo/models/base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: Implement at least one concrete model that adheres to the `PricePathModel`
+      interface in `src/trend_analysis/monte_carlo/models/base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: Write unit tests for `PricePathModel` interface and utilities in `tests/monte_carlo/models/test_base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: Write tests for output shape matching requested periods in `tests/monte_carlo/models/test_base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: Write tests for output dates having correct frequency in `tests/monte_carlo/models/test_base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: Write tests for ensuring prices are non-negative in `tests/monte_carlo/models/test_base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: Write tests for missingness mask propagation in `tests/monte_carlo/models/test_base.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: Interface implemented with clear docstrings.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: At least one concrete model implements the interface (can be stub).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-56
+    title: 'Unit tests verify:'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-57
+    title: Output shape matches requested periods.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-58
+    title: Output dates are correct frequency.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-59
+    title: Prices are non-negative.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-60
+    title: Missingness mask is propagated correctly.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-61
+    title: Utility functions have comprehensive tests.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-62
+    title: 'Files created/modified:'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-63
+    title: '`src/trend_analysis/monte_carlo/models/__init__.py`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-64
+    title: '`src/trend_analysis/monte_carlo/models/base.py`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-65
+    title: '`tests/monte_carlo/models/test_base.py`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-66
+    title: Cannot guarantee specific coverage percentages. (The agent cannot guarantee
+      specific test coverage percentages due to AGENT_LIMITATIONS. | Reframe the acceptance
+      criteria to focus on comprehensive test cases rather than specific coverage
+      percentages.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
