@@ -1,0 +1,214 @@
+version: 1
+issue: 4590
+base: phase-3
+branch: codex/issue-4590
+tasks:
+  - id: task-01
+    title: Modify `tests/integration/test_scenario_registration.py` to update the
+      file `config/scenarios/monte_carlo/index.yml` by inserting a new scenario entry
+      using a relative path. Then, verify that `list_scenarios` outputs the new scenario
+      and that `load_scenario` can load it as a MonteCarloScenario.
+    status: doing
+    started_at: '2026-01-30T12:56:37Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Define scope for: Modify `tests/integration/test_scenario_registration.py`
+      to update `config/scenarios/monte_carlo/index.yml` by inserting a new scenario
+      entry using a relative path. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Implement focused slice for: Modify `tests/integration/test_scenario_registration.py`
+      to update `config/scenarios/monte_carlo/index.yml` by inserting a new scenario
+      entry using a relative path. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Validate focused slice for: Modify `tests/integration/test_scenario_registration.py`
+      to update `config/scenarios/monte_carlo/index.yml` by inserting a new scenario
+      entry using a relative path. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Verify that `list_scenarios` outputs the new scenario.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Verify that `load_scenario` can load the new scenario as a MonteCarloScenario.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Remove or revert the addition of the file `.agents/issue-4582-ledger.yml`
+      from the repository to avoid extra repository noise and align with the original
+      criteria.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Adjust the integration test to ensure that the registry payload uses relative
+      paths (consistent with repository layout) rather than temporary absolute paths.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Define scope for: Review the integration test to identify where absolute
+      paths are used for the registry payload. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Implement focused slice for: Review the integration test to identify where
+      absolute paths are used for the registry payload. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Validate focused slice for: Review the integration test to identify where
+      absolute paths are used for the registry payload. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Define scope for: Update the integration test to replace absolute paths
+      with relative paths for the registry payload. (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Implement focused slice for: Update the integration test to replace absolute
+      paths with relative paths for the registry payload. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Validate focused slice for: Update the integration test to replace absolute
+      paths with relative paths for the registry payload. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: The integration test in `tests/integration/test_scenario_registration.py`
+      updates `config/scenarios/monte_carlo/index.yml` by adding a new scenario entry
+      using a relative path. The scenario must appear in the output of `list_scenarios`
+      and be loadable via `load_scenario` as a validated MonteCarloScenario.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: The file `.agents/issue-4582-ledger.yml` is removed from the repository.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: The integration test in `tests/integration/test_scenario_registration.py`
+      uses relative paths for the registry payload instead of absolute paths.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Modify `tests/integration/test_scenario_registration.py` to update the
+      file `config/scenarios/monte_carlo/index.yml` by inserting a new scenario entry
+      using a relative path. Then, verify that `list_scenarios` outputs the new scenario
+      and that `load_scenario` can load it as a MonteCarloScenario.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Remove or revert the addition of the file `.agents/issue-4582-ledger.yml`
+      from the repository to avoid extra repository noise and align with the original
+      criteria.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Adjust the integration test to ensure that the registry payload uses relative
+      paths (consistent with repository layout) rather than temporary absolute paths.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: The integration test in `tests/integration/test_scenario_registration.py`
+      updates `config/scenarios/monte_carlo/index.yml` by adding a new scenario entry
+      using a relative path. The scenario must appear in the output of `list_scenarios`
+      and be loadable via `load_scenario` as a validated MonteCarloScenario.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: The file `.agents/issue-4582-ledger.yml` is removed from the repository.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: The integration test in `tests/integration/test_scenario_registration.py`
+      uses relative paths for the registry payload instead of absolute paths.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'Remove or revert the addition of the file `.agents/issue-4582-ledger.yml`
+      from the repository to avoid extra repository noise and align with the original
+      criteria. (AGENT_LIMITATIONS: The agent cannot directly modify or delete files
+      in the repository. | Provide instructions for a human contributor to manually
+      remove the file or create a separate PR for this task.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
