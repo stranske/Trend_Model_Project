@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 import pytest
+import yaml
 
 from trend_analysis.monte_carlo.registry import (
     MonteCarloScenario,
@@ -13,7 +14,7 @@ from trend_analysis.monte_carlo.registry import (
     load_scenario,
 )
 from trend_analysis.monte_carlo.scenario import MonteCarloSettings
-from utils.paths import repo_root
+from utils.paths import proj_path, repo_root
 
 
 def test_list_scenarios_basic() -> None:
@@ -42,6 +43,15 @@ def test_list_scenarios_returns_entries_with_paths() -> None:
         assert entry.path.exists()
         assert entry.path.suffix == ".yml"
         assert isinstance(entry.tags, tuple)
+
+
+def test_list_scenarios_matches_registry() -> None:
+    registry_path = proj_path("config", "scenarios", "monte_carlo", "index.yml")
+    raw = yaml.safe_load(registry_path.read_text(encoding="utf-8"))
+    expected = {entry["name"] for entry in raw["scenarios"]}
+
+    scenarios = list_scenarios()
+    assert {entry.name for entry in scenarios} == expected
 
 
 def test_list_scenarios_normalizes_tags(tmp_path: Path) -> None:
@@ -227,6 +237,16 @@ def test_load_scenario_returns_model() -> None:
     assert "curated" in scenario.strategy_set
     assert scenario.outputs is not None
     assert "directory" in scenario.outputs
+
+
+def test_load_scenario_validates_types() -> None:
+    scenario = load_scenario("hf_equity_ls_10y")
+    assert isinstance(scenario.monte_carlo, MonteCarloSettings)
+    assert isinstance(scenario.base_config, Path)
+    assert scenario.base_config.exists()
+    assert scenario.path is not None
+    assert isinstance(scenario.path, Path)
+    assert scenario.path.exists()
 
 
 def test_load_scenario_diversified_projection() -> None:
@@ -538,6 +558,15 @@ def test_load_scenario_missing_default_registry_uses_stable_label() -> None:
     message = str(excinfo.value)
     assert "config/scenarios/monte_carlo/index.yml" in message
     assert str(repo_root()) not in message
+
+
+def test_load_scenario_missing_reports_unknown_name() -> None:
+    with pytest.raises(ValueError) as excinfo:
+        load_scenario("missing_registry_name")
+
+    message = str(excinfo.value)
+    assert "Unknown scenario 'missing_registry_name'" in message
+    assert "config/scenarios/monte_carlo/index.yml" in message
 
 
 def test_load_scenario_missing_registry(tmp_path: Path) -> None:
