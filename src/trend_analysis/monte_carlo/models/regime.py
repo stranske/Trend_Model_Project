@@ -311,8 +311,12 @@ class RegimeConditionedBootstrapModel:
         else:
             transition = self._transition.to_numpy(dtype=float)
             regimes = list(self._transition.index)
-            label_values = self._labels.to_numpy()
-            counts = np.array([(label_values == label).sum() for label in regimes], dtype=float)
+            if self._regime_buckets is None:
+                label_values = self._labels.to_numpy()
+                buckets = {idx: np.flatnonzero(label_values == label) for idx, label in enumerate(regimes)}
+            else:
+                buckets = {idx: self._regime_buckets.get(idx, np.array([], dtype=int)) for idx in range(len(regimes))}
+            counts = np.array([bucket.size for bucket in buckets.values()], dtype=float)
             total = counts.sum()
             if total <= 0:
                 initial_probs = np.full(len(regimes), 1.0 / len(regimes))
@@ -325,9 +329,6 @@ class RegimeConditionedBootstrapModel:
                 initial_probs=initial_probs,
                 rng=rng,
             )
-            buckets: dict[int, NDArray[np.int64]] = {}
-            for idx, label in enumerate(regimes):
-                buckets[idx] = np.flatnonzero(label_values == label)
             indices = _regime_conditioned_indices(
                 n_obs=n_obs,
                 n_periods=n_periods,
