@@ -197,6 +197,78 @@ def test_regime_conditioned_sampling_preserves_stress_behavior() -> None:
     assert stress_vol > calm_vol
 
 
+def test_regime_sampling_elevates_stress_correlation() -> None:
+    rng = np.random.default_rng(99)
+    n_obs = 160
+    calm_n = n_obs // 2
+    stress_n = n_obs - calm_n
+
+    def _correlated_returns(n: int, *, vol: float, corr: float) -> np.ndarray:
+        cov = np.array([[1.0, corr], [corr, 1.0]]) * (vol**2)
+        chol = np.linalg.cholesky(cov)
+        return rng.standard_normal((n, 2)) @ chol.T
+
+    calm_returns = _correlated_returns(calm_n, vol=0.003, corr=0.1)
+    stress_returns = _correlated_returns(stress_n, vol=0.018, corr=0.8)
+    asset_returns = np.vstack([calm_returns, stress_returns])
+
+    proxy_returns = np.concatenate(
+        [
+            rng.standard_normal(calm_n) * 0.002,
+            rng.standard_normal(stress_n) * 0.02,
+        ]
+    )
+    reference_returns = _unique_log_returns(n_obs, start=0.0004, step=0.00001)
+
+    log_returns = np.column_stack(
+        [
+            asset_returns,
+            reference_returns,
+            proxy_returns,
+        ]
+    )
+
+    index = pd.date_range("2019-01-01", periods=n_obs, freq="D")
+    prices = _prices_from_log_returns(log_returns, index, ["AssetA", "AssetB", "AssetRef", "Proxy"])
+
+    model = RegimeConditionedBootstrapModel(
+        mean_block_len=4,
+        frequency="D",
+        regime_proxy_column="Proxy",
+        threshold_percentile=70,
+        lookback=5,
+    ).fit(prices)
+    result = model.sample_prices(n_periods=100, n_paths=50, seed=7)
+
+    historical = np.log(prices / prices.shift(1)).dropna()
+    labels = (
+        RegimeLabeler(proxy_column="Proxy", threshold_percentile=70, lookback=5)
+        .fit(prices)
+        .get_labels()
+    )
+
+    indices = _infer_indices_from_reference_asset(
+        simulated=result.log_returns,
+        historical=historical,
+        reference_asset="AssetRef",
+    )
+    simulated_labels = labels.to_numpy()[indices]
+
+    a_returns = result.log_returns.xs("AssetA", level=1, axis=1).to_numpy()
+    b_returns = result.log_returns.xs("AssetB", level=1, axis=1).to_numpy()
+
+    stress_mask = simulated_labels == "stress"
+    calm_mask = simulated_labels == "calm"
+    assert stress_mask.any()
+    assert calm_mask.any()
+
+    stress_corr = float(np.corrcoef(a_returns[stress_mask], b_returns[stress_mask])[0, 1])
+    calm_corr = float(np.corrcoef(a_returns[calm_mask], b_returns[calm_mask])[0, 1])
+
+    assert stress_corr > calm_corr
+    assert stress_corr >= 0.7
+
+
 def test_regime_sampling_deterministic_with_seed() -> None:
     index = pd.date_range("2024-01-01", periods=30, freq="D")
     prices = pd.DataFrame(
