@@ -24,6 +24,7 @@ def test_example_config_validates_against_schema() -> None:
     scenario = MonteCarloScenario(**payload)
 
     assert scenario.name == "example_scenario"
+    assert scenario.description == "Example Monte Carlo scenario configuration."
     assert isinstance(scenario.monte_carlo, MonteCarloSettings)
     assert isinstance(scenario.monte_carlo.n_paths, int)
     assert scenario.monte_carlo.n_paths >= 1
@@ -33,7 +34,10 @@ def test_example_config_validates_against_schema() -> None:
     assert isinstance(scenario.base_config, Path)
     assert scenario.return_model is not None
     assert isinstance(scenario.return_model, Mapping)
+    assert scenario.return_model.get("kind") == "stationary_bootstrap"
     assert scenario.folds is not None
     assert isinstance(scenario.folds, Mapping)
+    assert scenario.folds.get("enabled") is True
     assert scenario.outputs is not None
     assert isinstance(scenario.outputs, Mapping)
+    assert scenario.outputs.get("format") == "parquet"
