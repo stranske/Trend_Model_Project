@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Create `StrategyVariant` class in `src/trend_analysis/monte_carlo/strategy/variant.py`
       with attributes `name`, `overrides`, and `tags`.
-    status: doing
+    status: done
     started_at: '2026-01-31T08:03:01Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-31T08:03:10Z'
+    commit: 9fb410efb03c08695f0b66204ce394fd303b9cea
     notes: []
   - id: task-02
     title: Implement `apply_to` method in `StrategyVariant` to deep merge `overrides`
