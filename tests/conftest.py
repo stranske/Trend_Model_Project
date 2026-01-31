@@ -49,6 +49,9 @@ def pytest_configure(config) -> None:  # noqa: ARG001
 
 # --- Ensure local ``src`` packages are importable ---------------------------------------
 ROOT = Path(__file__).resolve().parents[1]
+# Ensure repo root is importable for packages like "scripts".
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
