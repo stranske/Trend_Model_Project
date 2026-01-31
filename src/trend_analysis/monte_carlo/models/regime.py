@@ -135,6 +135,7 @@ def _simulate_regime_path(
     initial_probs: np.ndarray,
     rng: np.random.Generator,
 ) -> NDArray[np.int64]:
+    transition = _normalize_transition_matrix(transition)
     n_regimes = transition.shape[0]
     regimes = np.empty((n_paths, n_periods), dtype=int)
     regimes[:, 0] = rng.choice(n_regimes, size=n_paths, p=initial_probs)
@@ -143,6 +144,22 @@ def _simulate_regime_path(
             prev = regimes[path, t - 1]
             regimes[path, t] = rng.choice(n_regimes, p=transition[prev])
     return regimes
+
+
+def _normalize_transition_matrix(transition: np.ndarray) -> NDArray[np.float64]:
+    matrix = np.asarray(transition, dtype=float)
+    if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
+        raise ValueError("transition matrix must be square")
+    matrix = np.clip(matrix, 0.0, None)
+    normalized = matrix.copy()
+    row_sums = normalized.sum(axis=1)
+    for idx, row_sum in enumerate(row_sums):
+        if not np.isfinite(row_sum) or row_sum <= 0.0:
+            normalized[idx, :] = 0.0
+            normalized[idx, idx] = 1.0
+        else:
+            normalized[idx, :] = normalized[idx, :] / row_sum
+    return normalized
 
 
 def _regime_conditioned_indices(

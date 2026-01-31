@@ -6,6 +6,7 @@ from trend_analysis.monte_carlo.models.bootstrap import StationaryBootstrapModel
 from trend_analysis.monte_carlo.models.regime import (
     RegimeConditionedBootstrapModel,
     RegimeLabeler,
+    _normalize_transition_matrix,
 )
 
 
@@ -111,6 +112,15 @@ def test_transition_matrix_single_regime_defaults_to_self() -> None:
 
     assert matrix.shape == (1, 1)
     assert float(matrix.iloc[0, 0]) == pytest.approx(1.0)
+
+
+def test_normalize_transition_matrix_handles_empty_rows() -> None:
+    transition = np.array([[0.0, 0.0], [0.2, 0.2]])
+    normalized = _normalize_transition_matrix(transition)
+
+    assert normalized.shape == transition.shape
+    assert np.allclose(normalized.sum(axis=1), 1.0)
+    assert np.allclose(normalized[0], np.array([1.0, 0.0]))
 
 
 def test_regime_conditioned_sampling_preserves_stress_behavior() -> None:
