@@ -171,6 +171,12 @@ def test_regime_conditioned_sampling_preserves_stress_behavior() -> None:
     calm_corr = float(np.corrcoef(a_calm, b_calm)[0, 1])
     assert stress_corr > calm_corr
 
+    rolling_vol = pd.DataFrame(a_returns, index=result.log_returns.index).rolling(5).std(ddof=0).to_numpy()
+    vol_mask = ~np.isnan(rolling_vol)
+    stress_vol = float(np.nanmean(rolling_vol[stress_mask & vol_mask]))
+    calm_vol = float(np.nanmean(rolling_vol[calm_mask & vol_mask]))
+    assert stress_vol > calm_vol
+
 
 def test_regime_sampling_deterministic_with_seed() -> None:
     index = pd.date_range("2024-01-01", periods=30, freq="D")
