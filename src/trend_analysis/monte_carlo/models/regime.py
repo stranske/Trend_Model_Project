@@ -147,10 +147,10 @@ def _simulate_regime_path(
 
 
 def _normalize_transition_matrix(transition: np.ndarray) -> NDArray[np.float64]:
-    matrix = np.asarray(transition, dtype=float)
+    matrix = np.asarray(transition, dtype=np.float64)
     if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
         raise ValueError("transition matrix must be square")
-    matrix = np.clip(matrix, 0.0, None)
+    matrix = np.asarray(np.clip(matrix, 0.0, None), dtype=np.float64)
     normalized = matrix.copy()
     row_sums = normalized.sum(axis=1)
     for idx, row_sum in enumerate(row_sums):
