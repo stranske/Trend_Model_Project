@@ -13,3 +13,7 @@ def test_issue_ledger_files_are_absent() -> None:
         if not any(path.resolve().is_relative_to(root) for root in allowed_roots)
     ]
     assert not unexpected
+
+
+def test_issue_4595_ledger_file_is_absent() -> None:
+    assert not Path(".agents/issue-4595-ledger.yml").exists()
