@@ -460,9 +460,7 @@ def _coerce_strategy_set(
             variants.append(StrategyVariant(name=item))
             continue
         if isinstance(item, Mapping):
-            name = _require_non_empty_str(
-                item.get("name"), f"strategy_set.curated[{idx}].name"
-            )
+            name = _require_non_empty_str(item.get("name"), f"strategy_set.curated[{idx}].name")
             overrides = item.get("overrides", {})
             tags = _coerce_variant_tags(item.get("tags"))
             try:
