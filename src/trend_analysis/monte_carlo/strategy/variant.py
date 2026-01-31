@@ -141,7 +141,9 @@ class StrategyVariant:
         base = _ensure_mapping(base_config, "base_config")
         return _deep_merge_overrides(base, self.overrides, ())
 
-    def to_trend_config(self, base_config: Mapping[str, Any], *, base_path: Path | str) -> TrendConfig:
+    def to_trend_config(
+        self, base_config: Mapping[str, Any], *, base_path: Path | str
+    ) -> TrendConfig:
         """Return a validated TrendConfig derived from the merged configuration."""
 
         try:
