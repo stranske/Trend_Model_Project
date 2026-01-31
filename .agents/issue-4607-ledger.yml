@@ -5,10 +5,10 @@ branch: codex/issue-4607
 tasks:
   - id: task-01
     title: Remove the file .agents/issue-4595-ledger.yml from the repository.
-    status: doing
+    status: done
     started_at: '2026-01-31T05:47:12Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-31T05:47:19Z'
+    commit: ce281a7206ad907084c10cebbdd96a2c6dceabc1
     notes: []
   - id: task-02
     title: Update src/trend_analysis/monte_carlo/__init__.py to include explicit import
