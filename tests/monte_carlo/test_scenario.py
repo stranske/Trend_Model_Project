@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Mapping
 
 import pytest
 import yaml
@@ -152,6 +153,17 @@ def test_example_scenario_file_loads_and_validates() -> None:
     assert scenario.name == "example_scenario"
     assert isinstance(scenario.monte_carlo, MonteCarloSettings)
     assert scenario.monte_carlo.n_paths == 500
+    assert isinstance(scenario.monte_carlo.n_paths, int)
+    assert scenario.monte_carlo.n_paths >= 1
+    assert isinstance(scenario.monte_carlo.horizon_years, float)
+    assert scenario.monte_carlo.horizon_years > 0.0
+    assert scenario.monte_carlo.frequency == "M"
+    assert scenario.monte_carlo.frequency in {"D", "W", "M", "Q", "Y"}
+    assert isinstance(scenario.base_config, Path)
+    assert scenario.return_model is not None
+    assert isinstance(scenario.return_model, Mapping)
+    assert scenario.folds is not None
+    assert isinstance(scenario.folds, Mapping)
 
 
 def test_example_scenario_file_invalid_monte_carlo_raises_clear_error() -> None:
