@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from trend_analysis.monte_carlo.strategy import StrategyVariant
 from trend_analysis.config.model import validate_trend_config
+from trend_analysis.monte_carlo.strategy import StrategyVariant
 
 
 def _base_config(tmp_path: Path) -> dict[str, object]:
