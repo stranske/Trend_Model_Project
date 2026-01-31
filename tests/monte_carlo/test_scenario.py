@@ -150,6 +150,7 @@ def test_example_scenario_file_loads_and_validates() -> None:
     scenario = MonteCarloScenario(**payload)
 
     assert scenario.name == "example_scenario"
+    assert isinstance(scenario.monte_carlo, MonteCarloSettings)
     assert scenario.monte_carlo.n_paths == 500
 
 

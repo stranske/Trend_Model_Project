@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import math
-from typing import Iterable
+from typing import Any, Iterable
 
 import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
 
 from trend_analysis.timefreq import MONTHLY_DATE_FREQ
 
@@ -94,7 +95,7 @@ def _stationary_bootstrap_indices(
     n_paths: int,
     mean_block_len: float,
     rng: np.random.Generator,
-) -> np.ndarray:
+) -> NDArray[np.int64]:
     if n_obs <= 0:
         raise ValueError("n_obs must be >= 1")
     if n_periods <= 0:
@@ -135,9 +136,9 @@ class StationaryBootstrapModel:
         self._frequency = normalize_frequency_code(frequency) if frequency else None
         self._prices: pd.DataFrame | None = None
         self._log_returns: pd.DataFrame | None = None
-        self._log_returns_values: np.ndarray | None = None
+        self._log_returns_values: NDArray[np.float64] | None = None
         self._missingness_mask: pd.DataFrame | None = None
-        self._missingness_mask_values: np.ndarray | None = None
+        self._missingness_mask_values: NDArray[np.bool_[Any]] | None = None
         self._start_prices: pd.Series | None = None
 
     @property
