@@ -7,6 +7,7 @@ import pytest
 import yaml
 
 from trend_analysis.monte_carlo import MonteCarloScenario, MonteCarloSettings
+from trend_analysis.monte_carlo.strategy import StrategyVariant
 
 
 def _load_example_payload() -> dict:
@@ -107,6 +108,10 @@ def test_monte_carlo_scenario_builds_nested_configs_from_mappings() -> None:
     assert scenario.monte_carlo.frequency == "Q"
     assert scenario.return_model["params"]["block_size"] == 12
     assert scenario.strategy_set["guards"]["max_turnover"] == 0.2
+    curated = scenario.strategy_set["curated"]
+    assert isinstance(curated, list)
+    assert isinstance(curated[0], StrategyVariant)
+    assert curated[0].name == "trend_basic"
     assert scenario.folds["n_folds"] == 4
     assert scenario.outputs["format"] == "parquet"
 
@@ -147,8 +152,39 @@ outputs:
     assert scenario.monte_carlo.frequency == "M"
     assert scenario.return_model["params"]["block_size"] == 6
     assert scenario.strategy_set["guards"]["max_turnover"] == 0.15
+    curated = scenario.strategy_set["curated"]
+    assert isinstance(curated, list)
+    assert curated[0].name == "trend_basic"
     assert scenario.folds["n_folds"] == 3
     assert scenario.outputs["directory"] == "outputs/monte_carlo/example"
+
+
+def test_monte_carlo_scenario_coerces_curated_variants() -> None:
+    scenario = MonteCarloScenario(
+        name="curated_demo",
+        base_config="config/defaults.yml",
+        monte_carlo={
+            "mode": "two_layer",
+            "n_paths": 5,
+            "horizon_years": 1.0,
+            "frequency": "M",
+        },
+        strategy_set={
+            "curated": [
+                "trend_basic",
+                {
+                    "name": "Rank_12",
+                    "overrides": {"portfolio": {"rank": {"n": 12}}},
+                    "tags": ["fast"],
+                },
+            ]
+        },
+    )
+
+    curated = scenario.strategy_set["curated"]
+    assert [variant.name for variant in curated] == ["trend_basic", "Rank_12"]
+    assert curated[1].overrides["portfolio"]["rank"]["n"] == 12
+    assert curated[1].tags == ("fast",)
 
 
 def test_example_scenario_file_loads_and_validates() -> None:

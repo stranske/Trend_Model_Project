@@ -12,6 +12,7 @@ from trend_analysis.monte_carlo.registry import (
     load_scenario,
 )
 from trend_analysis.monte_carlo.scenario import MonteCarloSettings
+from trend_analysis.monte_carlo.strategy import StrategyVariant
 from utils.paths import repo_root
 
 
@@ -199,7 +200,9 @@ def test_load_scenario_returns_model() -> None:
     assert scenario.base_config.name == "defaults.yml"
     assert "mode" in scenario.monte_carlo
     assert scenario.strategy_set is not None
-    assert "curated" in scenario.strategy_set
+    curated = scenario.strategy_set["curated"]
+    assert isinstance(curated, list)
+    assert isinstance(curated[0], StrategyVariant)
     assert scenario.outputs is not None
     assert "directory" in scenario.outputs
 
