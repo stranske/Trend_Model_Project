@@ -217,18 +217,35 @@ def _format_missing(
     return f"Unknown scenario '{name}' in registry '{registry_label}'. No scenarios registered."
 
 
-def get_scenario_path(name: str, *, registry_path: Path | None = None) -> Path:
-    """Return the resolved path for a registered scenario name."""
+def get_scenario_path(
+    name: str | None = None,
+    *,
+    tags: Iterable[str] | None = None,
+    registry_path: Path | None = None,
+) -> Path | list[Path]:
+    """Return the resolved path(s) for a scenario name or tag filter."""
 
-    normalized = name.strip()
-    if not normalized:
+    normalized = (name or "").strip()
+    if normalized:
+        scenarios = _load_registry(registry_path)
+        registry_label = _registry_label(registry_path)
+        for entry in scenarios:
+            if entry.name == normalized:
+                return entry.path
+        raise ValueError(_format_missing(normalized, scenarios, registry_label=registry_label))
+
+    tag_set = {str(tag).strip().lower() for tag in tags or () if str(tag).strip()}
+    if not tag_set:
         raise ValueError("Scenario name is required")
-    scenarios = _load_registry(registry_path)
-    registry_label = _registry_label(registry_path)
-    for entry in scenarios:
-        if entry.name == normalized:
-            return entry.path
-    raise ValueError(_format_missing(normalized, scenarios, registry_label=registry_label))
+
+    scenarios = list_scenarios(tags=tag_set, registry_path=registry_path)
+    if not scenarios:
+        registry_label = _registry_label(registry_path)
+        tag_labels = ", ".join(sorted(tag_set))
+        raise ValueError(
+            f"No scenarios match tags [{tag_labels}] in registry '{registry_label}'"
+        )
+    return [entry.path for entry in scenarios]
 
 
 def _extract_scenario_metadata(

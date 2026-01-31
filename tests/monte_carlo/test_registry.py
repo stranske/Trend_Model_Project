@@ -632,6 +632,48 @@ def test_get_scenario_path_resolves_from_registry(tmp_path: Path) -> None:
     assert path == scenario_path.resolve()
 
 
+def test_get_scenario_path_filters_by_tags(tmp_path: Path) -> None:
+    alpha_path = tmp_path / "alpha.yml"
+    alpha_path.write_text("{}", encoding="utf-8")
+    beta_path = tmp_path / "beta.yml"
+    beta_path.write_text("{}", encoding="utf-8")
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n"
+        "  - name: alpha\n"
+        "    path: alpha.yml\n"
+        "    tags: [core, Stress]\n"
+        "  - name: beta\n"
+        "    path: beta.yml\n"
+        "    tags: [stress_test]\n",
+        encoding="utf-8",
+    )
+
+    paths = get_scenario_path(tags=["STRESS"], registry_path=registry)
+    assert paths == [alpha_path.resolve()]
+
+
+def test_get_scenario_path_filters_by_tags_mixed_case(tmp_path: Path) -> None:
+    alpha_path = tmp_path / "alpha.yml"
+    alpha_path.write_text("{}", encoding="utf-8")
+    beta_path = tmp_path / "beta.yml"
+    beta_path.write_text("{}", encoding="utf-8")
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n"
+        "  - name: alpha\n"
+        "    path: alpha.yml\n"
+        "    tags: [stress]\n"
+        "  - name: beta\n"
+        "    path: beta.yml\n"
+        "    tags: [Stress]\n",
+        encoding="utf-8",
+    )
+
+    paths = get_scenario_path(tags=["  StReSs  "], registry_path=registry)
+    assert paths == [alpha_path.resolve(), beta_path.resolve()]
+
+
 def test_get_scenario_path_requires_name() -> None:
     with pytest.raises(ValueError, match="Scenario name is required"):
         get_scenario_path("")
