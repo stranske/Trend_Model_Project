@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Create or ensure the existence of the file `config/scenarios/monte_carlo/index.yml`
       with sample scenario entries.
-    status: doing
+    status: done
     started_at: '2026-01-31T23:41:37Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-31T23:41:46Z'
+    commit: e651d73f1f7445b4ab4c077d0d43f29fc4540d33
     notes: []
   - id: task-02
     title: Implement and/or verify the `list_scenarios` function to support case-insensitive
