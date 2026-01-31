@@ -160,8 +160,8 @@ def test_missingness_preserves_contiguous_nan_segments() -> None:
     seed = 17
     result = model.sample_prices(n_periods=n_periods, n_paths=n_paths, seed=seed)
 
-    historical = model._log_returns
-    assert historical is not None
+    historical = model.historical_log_returns
+    historical_mask = model.historical_missingness_mask
     indices = _infer_indices_from_reference_asset(
         simulated=result.log_returns,
         historical=historical,
@@ -172,10 +172,10 @@ def test_missingness_preserves_contiguous_nan_segments() -> None:
         for asset in ("AssetA", "AssetB")
     }
     for asset in ("AssetA", "AssetB"):
-        expected_mask = historical[asset].isna().to_numpy()[indices]
+        expected_mask = historical_mask[asset].to_numpy()[indices]
         assert np.array_equal(simulated_masks[asset], expected_mask)
 
-    n_hist_obs = len(historical)
+    n_hist_obs = len(historical_mask)
     for path in range(n_paths):
         path_indices = indices[:, path]
         block_starts = [0]
@@ -186,7 +186,7 @@ def test_missingness_preserves_contiguous_nan_segments() -> None:
         for start, end in zip(block_starts[:-1], block_starts[1:]):
             block_idx = path_indices[start:end]
             for asset in ("AssetA", "AssetB"):
-                expected_slice = historical[asset].isna().to_numpy()[block_idx]
+                expected_slice = historical_mask[asset].to_numpy()[block_idx]
                 series = simulated_masks[asset][start:end, path]
                 assert np.array_equal(series, expected_slice)
 
@@ -213,23 +213,23 @@ def test_missingness_preserves_per_asset_nan_rates() -> None:
     seed = 23
     result = model.sample_prices(n_periods=n_periods, n_paths=n_paths, seed=seed)
 
-    historical = model._log_returns
-    assert historical is not None
-    historical_rates = historical.isna().mean()
+    historical = model.historical_log_returns
+    historical_mask = model.historical_missingness_mask
+    historical_rates = historical_mask.mean()
     indices = _infer_indices_from_reference_asset(
         simulated=result.log_returns,
         historical=historical,
         reference_asset="AssetRef",
     )
-    expected_mask = historical.isna().to_numpy()[indices]
+    expected_mask = historical_mask.to_numpy()[indices]
     expected_rates = expected_mask.mean(axis=(0, 1))
-    expected_by_asset = dict(zip(historical.columns, expected_rates))
+    expected_by_asset = dict(zip(historical_mask.columns, expected_rates))
 
     simulated_mask = result.missingness_mask
     simulated_values = simulated_mask.to_numpy().reshape(n_periods, n_paths, -1)
     simulated_rates = {
         asset: simulated_mask.xs(asset, level=1, axis=1).to_numpy().mean()
-        for asset in historical.columns
+        for asset in historical_mask.columns
     }
     expected_rates_by_path = expected_mask.mean(axis=0)
     simulated_rates_by_path = simulated_values.mean(axis=0)

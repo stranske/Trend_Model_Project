@@ -87,20 +87,24 @@ def _ensure_datetime_index(index: Iterable[object]) -> pd.DatetimeIndex:
     return pd.DatetimeIndex(index)
 
 
-def normalize_frequency_code(freq: str | None) -> str:
+def normalize_frequency_code(freq: str | None, *, quarterly: str = "M") -> str:
     if not freq:
         return "M"
     code = str(freq).upper()
     if code.startswith("Q"):
-        return "M"
+        target = str(quarterly).upper()
+        if target not in _SUPPORTED_FREQUENCIES:
+            allowed = ", ".join(sorted(_SUPPORTED_FREQUENCIES))
+            raise ValueError(f"Unsupported quarterly mapping '{target}'. Use {allowed}.")
+        return target
     if code not in _SUPPORTED_FREQUENCIES:
         allowed = ", ".join(sorted(_SUPPORTED_FREQUENCIES))
         raise ValueError(f"Unsupported frequency '{code}'. Use {allowed}.")
     return code
 
 
-def _normalize_frequency_code(freq: str | None) -> str:
-    return normalize_frequency_code(freq)
+def _normalize_frequency_code(freq: str | None, *, quarterly: str = "M") -> str:
+    return normalize_frequency_code(freq, quarterly=quarterly)
 
 
 def prices_to_log_returns(prices: pd.DataFrame) -> pd.DataFrame:

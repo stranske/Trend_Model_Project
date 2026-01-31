@@ -7,6 +7,7 @@ from trend_analysis.monte_carlo.models.base import (
     build_missingness_mask,
     extract_missingness_mask,
     log_returns_to_prices,
+    normalize_frequency_code,
     normalize_price_frequency,
     prices_to_log_returns,
 )
@@ -62,6 +63,14 @@ def test_normalize_price_frequency_quarterly_maps_monthly() -> None:
     assert summary.code == "D"
     assert normalized.index.is_month_end.all()
     assert len(normalized) < len(prices)
+
+
+def test_normalize_frequency_code_quarterly_defaults_monthly() -> None:
+    assert normalize_frequency_code("Q") == "M"
+
+
+def test_normalize_frequency_code_quarterly_maps_daily() -> None:
+    assert normalize_frequency_code("Q", quarterly="D") == "D"
 
 
 def test_missingness_mask_helpers() -> None:
