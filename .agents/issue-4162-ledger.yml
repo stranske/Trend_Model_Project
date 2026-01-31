@@ -1,0 +1,275 @@
+version: 1
+issue: 4162
+base: phase-3
+branch: codex/issue-4162
+tasks:
+  - id: task-01
+    title: Implement `RegimeLabeler` class with methods `fit`, `get_labels`, and `get_transition_matrix`
+      in `src/trend_analysis/monte_carlo/models/regime.py`.
+    status: doing
+    started_at: '2026-01-31T08:02:34Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Implement `fit` method for regime labeling. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Define scope for: Implement `get_labels` method for retrieving regime
+      labels. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Implement focused slice for: Implement `get_labels` method for retrieving
+      regime labels. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Validate focused slice for: Implement `get_labels` method for retrieving
+      regime labels. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Define scope for: Implement `get_transition_matrix` method for estimating
+      transition probabilities. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Implement focused slice for: Implement `get_transition_matrix` method
+      for estimating transition probabilities. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Validate focused slice for: Implement `get_transition_matrix` method for
+      estimating transition probabilities. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Implement transition matrix estimation logic in `RegimeLabeler`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Implement `RegimeConditionedBootstrapModel` class with `sample_prices`
+      method in `src/trend_analysis/monte_carlo/models/regime.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Add graceful fallback logic in `RegimeConditionedBootstrapModel` when the
+      proxy column is missing.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Write unit tests for regime labels, transition matrix, and regime behavior
+      in `tests/monte_carlo/models/test_regime.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Write unit tests for regime labeling logic. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Write unit tests for transition matrix estimation. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Write unit tests for regime behavior under different scenarios. (verify:
+      tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Write tests to ensure determinism and reproducibility of regime-conditioned
+      sampling in `tests/monte_carlo/models/test_regime.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Implement `RegimeLabeler` and transition matrix estimation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Implement regime-conditioned bootstrap model and sampling logic.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Add graceful fallback when proxy column is missing.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Add tests for labels, transition matrix, regime behavior, and determinism.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Regime labeler correctly identifies calm/stress periods based on proxy
+      volatility threshold.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Transition matrix rows sum to 1.0.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: Regime-conditioned paths exhibit higher volatility clustering in "stress"
+      regimes.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: Simulated stress periods demonstrate elevated correlation (sanity check).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: Regime simulation is reproducible given a fixed random seed.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: Model falls back gracefully when the proxy column is missing.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: Regime labeler correctly identifies calm/stress periods
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: Transition matrix rows sum to 1.0
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: Regime-conditioned paths show higher vol clustering in "stress" regime
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: Simulated stress periods have elevated correlation (sanity check)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: Regime simulation is reproducible given seed
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: Falls back gracefully if proxy column is missing
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: '## Files to Create/Modify'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: '`src/trend_analysis/monte_carlo/models/regime.py`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: '`tests/monte_carlo/models/test_regime.py`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: Use the provided YAML configuration structure for regime detection and
+      bootstrap sampling. (AGENT_LIMITATIONS prevent modifying `.github/workflows/*.yml`
+      or repository settings. | Ensure the YAML configuration is implemented in code
+      but avoid modifying protected files directly.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
