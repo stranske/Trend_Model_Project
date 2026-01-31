@@ -96,6 +96,19 @@ def test_transition_matrix_rows_sum_to_one() -> None:
     assert np.allclose(row_sums, 1.0)
 
 
+def test_transition_matrix_single_regime_defaults_to_self() -> None:
+    n_obs = 40
+    index = pd.date_range("2023-01-01", periods=n_obs, freq="D")
+    log_returns = np.column_stack([np.zeros(n_obs), np.zeros(n_obs)])
+    prices = _prices_from_log_returns(log_returns, index, ["AssetA", "Proxy"])
+
+    labeler = RegimeLabeler(proxy_column="Proxy", threshold_percentile=90, lookback=1).fit(prices)
+    matrix = labeler.get_transition_matrix()
+
+    assert matrix.shape == (1, 1)
+    assert float(matrix.iloc[0, 0]) == pytest.approx(1.0)
+
+
 def test_regime_conditioned_sampling_preserves_stress_behavior() -> None:
     rng = np.random.default_rng(12)
     n_obs = 200
