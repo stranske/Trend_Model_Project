@@ -80,6 +80,17 @@ def test_apply_to_type_mismatch_raises(tmp_path: Path) -> None:
         variant.apply_to(base)
 
 
+def test_apply_to_missing_top_level_path_raises(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="MissingTopLevel",
+        overrides={"missing": {"value": 1}},
+    )
+
+    with pytest.raises(ValueError, match="missing"):
+        variant.apply_to(base)
+
+
 def test_to_trend_config_reports_invalid_path(tmp_path: Path) -> None:
     base = _base_config(tmp_path)
     variant = StrategyVariant(
