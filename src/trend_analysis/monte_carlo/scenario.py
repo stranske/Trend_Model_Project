@@ -100,35 +100,47 @@ class MonteCarloSettings:
         default=None,
         metadata={
             "doc": (
-                "Simulation mode (str). Required; non-empty; "
-                "allowed values: two_layer or mixture (case-insensitive)."
+                "Simulation mode (str). Required; non-empty; allowed values: "
+                "two_layer or mixture (case-insensitive); stored lowercase."
             )
         },
     )
     n_paths: int | None = field(
         default=None,
-        metadata={"doc": "Number of simulation paths (int). Required; integer >= 1."},
+        metadata={
+            "doc": "Number of simulation paths (int). Required; integer >= 1; coerced from "
+            "integer-like input."
+        },
     )
     horizon_years: float | None = field(
         default=None,
-        metadata={"doc": "Forecast horizon in years (float). Required; finite; > 0."},
+        metadata={
+            "doc": "Forecast horizon in years (float). Required; finite; > 0; coerced from "
+            "numeric input."
+        },
     )
     frequency: str | None = field(
         default=None,
         metadata={
             "doc": (
                 "Sampling frequency (str). Required; allowed values: "
-                "D, W, M, Q, Y (case-insensitive)."
+                "D, W, M, Q, Y (case-insensitive); stored uppercase."
             )
         },
     )
     seed: int | None = field(
         default=None,
-        metadata={"doc": "Random seed (int | None). Optional; integer >= 0 when set."},
+        metadata={
+            "doc": "Random seed (int | None). Optional; integer >= 0 when set; coerced from "
+            "integer-like input."
+        },
     )
     jobs: int | None = field(
         default=None,
-        metadata={"doc": "Parallel job count (int | None). Optional; integer >= 1 when set."},
+        metadata={
+            "doc": "Parallel job count (int | None). Optional; integer >= 1 when set; coerced "
+            "from integer-like input."
+        },
     )
 
     def __post_init__(self) -> None:
@@ -204,7 +216,9 @@ class MonteCarloScenario:
 
     name: str | None = field(
         default=None,
-        metadata={"doc": "Scenario name (str). Required; non-empty string."},
+        metadata={
+            "doc": "Scenario name (str). Required; non-empty string; used for registry lookups."
+        },
     )
     description: str | None = field(
         default=None,
@@ -212,14 +226,16 @@ class MonteCarloScenario:
     )
     version: str | None = field(
         default=None,
-        metadata={"doc": "Scenario version (str | None). Optional; non-empty when set."},
+        metadata={
+            "doc": "Scenario version (str | None). Optional; non-empty when set; stored as str."
+        },
     )
     base_config: Path | str | None = field(
         default=None,
         metadata={
             "doc": (
-                "Base configuration path (Path | str). Required; stored as Path after "
-                "validation."
+                "Base configuration path (Path | str). Required; non-empty; stored as Path "
+                "after validation."
             )
         },
     )
@@ -228,7 +244,7 @@ class MonteCarloScenario:
         metadata={
             "doc": (
                 "Monte Carlo settings (MonteCarloSettings | Mapping). Required; mappings "
-                "coerced into MonteCarloSettings."
+                "coerced into MonteCarloSettings with nested validation."
             )
         },
     )
