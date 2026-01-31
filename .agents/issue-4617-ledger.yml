@@ -1,0 +1,184 @@
+version: 1
+issue: 4617
+base: phase-3
+branch: codex/issue-4617
+tasks:
+  - id: task-01
+    title: Remove the file `.agents/issue-4595-ledger.yml` from the repository completely.
+    status: doing
+    started_at: '2026-01-31T17:11:20Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Update `src/trend_analysis/monte_carlo/__init__.py` by adding explicit
+      import statements for `MonteCarloScenario` and `MonteCarloSettings` from their
+      respective modules, and include both in the `__all__` list.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Modify the MonteCarlo scenario parser to include null-checks for the `return_model`
+      and `folds` fields. When either field is null, the parser should raise a `ValueError`
+      with a descriptive message.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Create and add unit tests that attempt to parse a MonteCarlo configuration
+      where either `return_model` or `folds` is null. The tests must assert that a
+      `ValueError` is thrown with a clear, descriptive error message.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Develop a unit test that loads `config/scenarios/monte_carlo/example.yml`,
+      parses it, and verifies that the configuration adheres to the `MonteCarloScenario`
+      and `MonteCarloSettings` schema, including type and constraint validations.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Remove the file .agents/issue-4595-ledger.yml from the repository completely.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Update src/trend_analysis/monte_carlo/__init__.py by adding explicit import
+      statements for MonteCarloScenario and MonteCarloSettings from their respective
+      modules, and include both in the __all__ list.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Modify the MonteCarlo scenario parser to include null-checks for the 'return_model'
+      and 'folds' fields. When either field is null, the parser should raise a ValueError
+      with a descriptive message.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Create and add unit tests that attempt to parse a MonteCarlo configuration
+      where either 'return_model' or 'folds' is null. The tests must assert that a
+      ValueError is thrown with a clear, descriptive error message.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Develop a unit test that loads config/scenarios/monte_carlo/example.yml,
+      parses it, and verifies that the configuration adheres to the MonteCarloScenario
+      and MonteCarloSettings schema, including type and constraint validations.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: The file `.agents/issue-4595-ledger.yml` is completely removed from the
+      repository and does not exist in any branch associated with the current release.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: The `src/trend_analysis/monte_carlo/__init__.py` file contains explicit
+      import statements for `MonteCarloScenario` and `MonteCarloSettings`, and both
+      are included in the `__all__` list.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: The MonteCarlo scenario parser raises a `ValueError` with a descriptive
+      message when `return_model` or `folds` is null.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Unit tests verify that the MonteCarlo scenario parser raises `ValueError`
+      when `return_model` or `folds` is null, with appropriate error messages.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: A unit test reads the `config/scenarios/monte_carlo/example.yml` file,
+      parses it, and validates it against the `MonteCarloScenario` and `MonteCarloSettings`
+      schema, including type checks and constraint validations.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: The file .agents/issue-4595-ledger.yml is completely removed from the repository
+      and does not exist in any branch associated with the current release.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: The src/trend_analysis/monte_carlo/__init__.py file contains explicit import
+      statements for MonteCarloScenario and MonteCarloSettings, and both are included
+      in the __all__ list.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: The MonteCarlo scenario parser raises a ValueError with a descriptive message
+      when 'return_model' or 'folds' is null.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Unit tests verify that the MonteCarlo scenario parser raises ValueError
+      when 'return_model' or 'folds' is null, with appropriate error messages.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: A unit test reads the config/scenarios/monte_carlo/example.yml file, parses
+      it, and validates it against the MonteCarloScenario and MonteCarloSettings schema,
+      including type checks and constraint validations.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Remove the file `.agents/issue-4595-ledger.yml` from the repository completely.
+      (Agents cannot modify `.github/workflows/*.yml` or protected files. | Request
+      manual intervention from a repository administrator to remove the file.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
