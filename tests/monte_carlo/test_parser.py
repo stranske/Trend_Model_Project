@@ -42,7 +42,8 @@ def test_parser_rejects_null_return_model(tmp_path: Path) -> None:
     registry = _write_registry(tmp_path, name, f"{name}.yml")
 
     with pytest.raises(
-        ValueError, match=r"Scenario config 'return_model' must be a mapping \(null provided\)"
+        ValueError,
+        match=r"Scenario config 'return_model' must be a mapping \(null provided\)",
     ):
         load_scenario(name, registry_path=registry)
 
