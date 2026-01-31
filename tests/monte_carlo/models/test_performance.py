@@ -6,6 +6,8 @@ import pytest
 
 from trend_analysis.monte_carlo.models.bootstrap import StationaryBootstrapModel
 
+pytestmark = [pytest.mark.runtime, pytest.mark.serial]
+
 
 def _prices_from_log_returns(log_returns: np.ndarray, index: pd.DatetimeIndex) -> pd.DataFrame:
     prices = np.exp(np.cumsum(log_returns, axis=0)) * 100.0
@@ -13,8 +15,6 @@ def _prices_from_log_returns(log_returns: np.ndarray, index: pd.DatetimeIndex) -
     return pd.DataFrame(prices, index=index, columns=columns)
 
 
-@pytest.mark.runtime
-@pytest.mark.serial
 def test_stationary_bootstrap_generates_1000_paths_under_10s() -> None:
     rng = np.random.default_rng(42)
     n_obs = 240

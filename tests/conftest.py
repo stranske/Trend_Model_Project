@@ -91,6 +91,12 @@ def pytest_collection_modifyitems(config, items):
         if it.get_closest_marker("serial"):
             it.add_marker(pytest.mark.xdist_group("serial"))
 
+    # Performance tests are part of the runtime-critical suite even if they
+    # don't explicitly carry the runtime marker.
+    for it in items:
+        if it.get_closest_marker("performance") and not it.get_closest_marker("runtime"):
+            it.add_marker(pytest.mark.runtime)
+
     for it in items:
         markers = sorted({marker.name for marker in it.iter_markers()})
         if not markers:
