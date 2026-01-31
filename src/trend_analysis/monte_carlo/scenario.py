@@ -100,46 +100,62 @@ class MonteCarloSettings:
         default=None,
         metadata={
             "doc": (
-                "Simulation mode (str). Required; non-empty; allowed values: "
-                "two_layer or mixture (case-insensitive); stored lowercase."
+                "Purpose: Select the Monte Carlo simulation mode. "
+                "Type: str. "
+                "Constraints: required, non-empty, allowed values two_layer or mixture "
+                "(case-insensitive), stored lowercase."
             )
         },
     )
     n_paths: int | None = field(
         default=None,
         metadata={
-            "doc": "Number of simulation paths (int). Required; integer >= 1; coerced from "
-            "integer-like input."
+            "doc": (
+                "Purpose: Number of simulated paths to generate. "
+                "Type: int. "
+                "Constraints: required, integer >= 1, coerced from integer-like input."
+            )
         },
     )
     horizon_years: float | None = field(
         default=None,
         metadata={
-            "doc": "Forecast horizon in years (float). Required; finite; > 0; coerced from "
-            "numeric input."
+            "doc": (
+                "Purpose: Forecast horizon in years for each simulated path. "
+                "Type: float. "
+                "Constraints: required, finite, > 0, coerced from numeric input."
+            )
         },
     )
     frequency: str | None = field(
         default=None,
         metadata={
             "doc": (
-                "Sampling frequency (str). Required; allowed values: "
-                "D, W, M, Q, Y (case-insensitive); stored uppercase."
+                "Purpose: Sampling frequency for generated paths. "
+                "Type: str. "
+                "Constraints: required, allowed values D, W, M, Q, Y (case-insensitive), "
+                "stored uppercase."
             )
         },
     )
     seed: int | None = field(
         default=None,
         metadata={
-            "doc": "Random seed (int | None). Optional; integer >= 0 when set; coerced from "
-            "integer-like input."
+            "doc": (
+                "Purpose: Random seed for reproducible simulations. "
+                "Type: int | None. "
+                "Constraints: optional, integer >= 0 when set, coerced from integer-like input."
+            )
         },
     )
     jobs: int | None = field(
         default=None,
         metadata={
-            "doc": "Parallel job count (int | None). Optional; integer >= 1 when set; coerced "
-            "from integer-like input."
+            "doc": (
+                "Purpose: Parallel job count for simulation execution. "
+                "Type: int | None. "
+                "Constraints: optional, integer >= 1 when set, coerced from integer-like input."
+            )
         },
     )
 
@@ -217,25 +233,40 @@ class MonteCarloScenario:
     name: str | None = field(
         default=None,
         metadata={
-            "doc": "Scenario name (str). Required; non-empty string; used for registry lookups."
+            "doc": (
+                "Purpose: Scenario identifier used for registry lookups. "
+                "Type: str. "
+                "Constraints: required, non-empty."
+            )
         },
     )
     description: str | None = field(
         default=None,
-        metadata={"doc": "Scenario description (str | None). Optional; coerced to str when set."},
+        metadata={
+            "doc": (
+                "Purpose: Human-readable scenario description. "
+                "Type: str | None. "
+                "Constraints: optional, coerced to str when set."
+            )
+        },
     )
     version: str | None = field(
         default=None,
         metadata={
-            "doc": "Scenario version (str | None). Optional; non-empty when set; stored as str."
+            "doc": (
+                "Purpose: Scenario definition version tag. "
+                "Type: str | None. "
+                "Constraints: optional, non-empty when set."
+            )
         },
     )
     base_config: Path | str | None = field(
         default=None,
         metadata={
             "doc": (
-                "Base configuration path (Path | str). Required; non-empty; stored as Path "
-                "after validation."
+                "Purpose: Base configuration file path used for defaults. "
+                "Type: Path | str. "
+                "Constraints: required, non-empty, stored as Path after validation."
             )
         },
     )
@@ -243,8 +274,10 @@ class MonteCarloScenario:
         default=None,
         metadata={
             "doc": (
-                "Monte Carlo settings (MonteCarloSettings | Mapping). Required; mappings "
-                "coerced into MonteCarloSettings with nested validation."
+                "Purpose: Monte Carlo settings payload for path generation. "
+                "Type: MonteCarloSettings | Mapping[str, Any]. "
+                "Constraints: required; mappings coerced into MonteCarloSettings with nested "
+                "validation."
             )
         },
     )
@@ -252,8 +285,9 @@ class MonteCarloScenario:
         default=_MISSING,
         metadata={
             "doc": (
-                "Return-model settings (Mapping | None). Optional; mapping required if "
-                "provided; explicit null is invalid."
+                "Purpose: Return-model configuration for simulation inputs. "
+                "Type: Mapping[str, Any] | None. "
+                "Constraints: optional; mapping required if provided; explicit null is invalid."
             )
         },
     )
@@ -261,8 +295,9 @@ class MonteCarloScenario:
         default=_MISSING,
         metadata={
             "doc": (
-                "Strategy-set overrides (Mapping | None). Optional; mapping required when "
-                "provided; null treated as None."
+                "Purpose: Strategy-set overrides for curated/sampled strategies. "
+                "Type: Mapping[str, Any] | None. "
+                "Constraints: optional; mapping required when provided; null treated as None."
             )
         },
     )
@@ -270,8 +305,9 @@ class MonteCarloScenario:
         default=_MISSING,
         metadata={
             "doc": (
-                "Fold configuration (Mapping | None). Optional; mapping required if "
-                "provided; explicit null is invalid."
+                "Purpose: Fold definitions/calibration settings. "
+                "Type: Mapping[str, Any] | None. "
+                "Constraints: optional; mapping required if provided; explicit null is invalid."
             )
         },
     )
@@ -279,19 +315,30 @@ class MonteCarloScenario:
         default=_MISSING,
         metadata={
             "doc": (
-                "Outputs configuration (Mapping | None). Optional; mapping required when "
-                "provided; null treated as None."
+                "Purpose: Output locations and formats for scenario results. "
+                "Type: Mapping[str, Any] | None. "
+                "Constraints: optional; mapping required when provided; null treated as None."
             )
         },
     )
     path: Path | str | None = field(
         default=None,
-        metadata={"doc": "Source path (Path | str | None). Optional; stored as Path when set."},
+        metadata={
+            "doc": (
+                "Purpose: Source file path for the scenario definition. "
+                "Type: Path | str | None. "
+                "Constraints: optional; stored as Path when set."
+            )
+        },
     )
     raw: Mapping[str, Any] | None = field(
         default=None,
         metadata={
-            "doc": "Raw scenario payload (Mapping | None). Optional; mapping required when set."
+            "doc": (
+                "Purpose: Raw scenario payload retained for traceability. "
+                "Type: Mapping[str, Any] | None. "
+                "Constraints: optional; mapping required when set."
+            )
         },
     )
 
