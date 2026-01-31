@@ -313,9 +313,14 @@ class RegimeConditionedBootstrapModel:
             regimes = list(self._transition.index)
             if self._regime_buckets is None:
                 label_values = self._labels.to_numpy()
-                buckets = {idx: np.flatnonzero(label_values == label) for idx, label in enumerate(regimes)}
+                buckets = {
+                    idx: np.flatnonzero(label_values == label) for idx, label in enumerate(regimes)
+                }
             else:
-                buckets = {idx: self._regime_buckets.get(idx, np.array([], dtype=int)) for idx in range(len(regimes))}
+                buckets = {
+                    idx: self._regime_buckets.get(idx, np.array([], dtype=int))
+                    for idx in range(len(regimes))
+                }
             counts = np.array([bucket.size for bucket in buckets.values()], dtype=float)
             total = counts.sum()
             if total <= 0:
