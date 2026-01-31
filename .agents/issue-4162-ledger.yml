@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Implement `RegimeLabeler` class with methods `fit`, `get_labels`, and `get_transition_matrix`
       in `src/trend_analysis/monte_carlo/models/regime.py`.
-    status: doing
+    status: done
     started_at: '2026-01-31T08:02:34Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-31T08:02:41Z'
+    commit: b7196327035259aa40568b4026c61765d7e5b4d5
     notes: []
   - id: task-02
     title: 'Implement `fit` method for regime labeling. (verify: confirm completion
