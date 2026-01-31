@@ -219,7 +219,9 @@ class RegimeConditionedBootstrapModel:
     def frequency(self) -> str:
         return normalize_frequency_code(self._frequency)
 
-    def fit(self, prices: pd.DataFrame, *, frequency: str | None = None) -> "RegimeConditionedBootstrapModel":
+    def fit(
+        self, prices: pd.DataFrame, *, frequency: str | None = None
+    ) -> "RegimeConditionedBootstrapModel":
         if prices.empty:
             raise ValueError("prices must not be empty")
         target = normalize_frequency_code(frequency or self._frequency)

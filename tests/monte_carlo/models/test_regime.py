@@ -69,10 +69,12 @@ def test_regime_labeler_identifies_volatility_shift() -> None:
 def test_transition_matrix_rows_sum_to_one() -> None:
     rng = np.random.default_rng(4)
     n_obs = 80
-    proxy_returns = np.concatenate([
-        rng.standard_normal(n_obs // 2) * 0.001,
-        rng.standard_normal(n_obs // 2) * 0.02,
-    ])
+    proxy_returns = np.concatenate(
+        [
+            rng.standard_normal(n_obs // 2) * 0.001,
+            rng.standard_normal(n_obs // 2) * 0.02,
+        ]
+    )
     asset_returns = rng.standard_normal(n_obs) * 0.005
     log_returns = np.column_stack([asset_returns, proxy_returns])
 
@@ -101,22 +103,24 @@ def test_regime_conditioned_sampling_preserves_stress_behavior() -> None:
     stress_returns = _correlated_returns(stress_n, vol=0.02, corr=0.85)
     asset_returns = np.vstack([calm_returns, stress_returns])
 
-    proxy_returns = np.concatenate([
-        rng.standard_normal(calm_n) * 0.002,
-        rng.standard_normal(stress_n) * 0.02,
-    ])
+    proxy_returns = np.concatenate(
+        [
+            rng.standard_normal(calm_n) * 0.002,
+            rng.standard_normal(stress_n) * 0.02,
+        ]
+    )
     reference_returns = _unique_log_returns(n_obs, start=0.0005, step=0.00001)
 
-    log_returns = np.column_stack([
-        asset_returns,
-        reference_returns,
-        proxy_returns,
-    ])
+    log_returns = np.column_stack(
+        [
+            asset_returns,
+            reference_returns,
+            proxy_returns,
+        ]
+    )
 
     index = pd.date_range("2020-01-01", periods=n_obs, freq="D")
-    prices = _prices_from_log_returns(
-        log_returns, index, ["AssetA", "AssetB", "AssetRef", "Proxy"]
-    )
+    prices = _prices_from_log_returns(log_returns, index, ["AssetA", "AssetB", "AssetRef", "Proxy"])
 
     model = RegimeConditionedBootstrapModel(
         mean_block_len=4,
@@ -128,9 +132,11 @@ def test_regime_conditioned_sampling_preserves_stress_behavior() -> None:
     result = model.sample_prices(n_periods=120, n_paths=40, seed=21)
 
     historical = np.log(prices / prices.shift(1)).dropna()
-    labels = RegimeLabeler(
-        proxy_column="Proxy", threshold_percentile=70, lookback=5
-    ).fit(prices).get_labels()
+    labels = (
+        RegimeLabeler(proxy_column="Proxy", threshold_percentile=70, lookback=5)
+        .fit(prices)
+        .get_labels()
+    )
 
     indices = _infer_indices_from_reference_asset(
         simulated=result.log_returns,
