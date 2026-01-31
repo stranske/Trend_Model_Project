@@ -44,9 +44,15 @@ class RegimeLabeler:
         proxy = str(proxy_column).strip() if proxy_column is not None else ""
         if not proxy:
             raise ValueError("proxy_column must be provided")
+        threshold = float(threshold_percentile)
+        if not 0.0 <= threshold <= 100.0:
+            raise ValueError("threshold_percentile must be between 0 and 100")
+        lookback_value = int(lookback)
+        if lookback_value < 1:
+            raise ValueError("lookback must be >= 1")
         self.proxy_column = proxy
-        self.threshold_percentile = float(threshold_percentile)
-        self.lookback = int(lookback)
+        self.threshold_percentile = threshold
+        self.lookback = lookback_value
         self.calm_label = str(calm_label) or "calm"
         self.stress_label = str(stress_label) or "stress"
         self._labels: pd.Series | None = None

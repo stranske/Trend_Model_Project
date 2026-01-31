@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pytest
 
 from trend_analysis.monte_carlo.models.bootstrap import StationaryBootstrapModel
 from trend_analysis.monte_carlo.models.regime import (
@@ -64,6 +65,13 @@ def test_regime_labeler_identifies_volatility_shift() -> None:
 
     assert stress_share > calm_share + 0.2
     assert set(labels.unique()) == {"calm", "stress"}
+
+
+def test_regime_labeler_validates_inputs() -> None:
+    with pytest.raises(ValueError, match="threshold_percentile"):
+        RegimeLabeler(proxy_column="Proxy", threshold_percentile=120)
+    with pytest.raises(ValueError, match="lookback"):
+        RegimeLabeler(proxy_column="Proxy", lookback=0)
 
 
 def test_transition_matrix_rows_sum_to_one() -> None:
