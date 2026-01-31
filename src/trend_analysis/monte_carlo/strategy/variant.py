@@ -135,10 +135,13 @@ class StrategyVariant:
         object.__setattr__(self, "overrides", _ensure_mapping(overrides, "overrides"))
         object.__setattr__(self, "tags", _coerce_tags(self.tags))
 
-    def apply_to(self, base_config: Mapping[str, Any]) -> dict[str, Any]:
+    def apply_to(self, base_config: Mapping[str, Any] | TrendConfig) -> dict[str, Any]:
         """Return the base config with overrides applied via deep merge."""
 
-        base = _ensure_mapping(base_config, "base_config")
+        base: Mapping[str, Any] | TrendConfig = base_config
+        if isinstance(base, TrendConfig):
+            base = base.model_dump()
+        base = _ensure_mapping(base, "base_config")
         return _deep_merge_overrides(base, self.overrides, ())
 
     def to_trend_config(

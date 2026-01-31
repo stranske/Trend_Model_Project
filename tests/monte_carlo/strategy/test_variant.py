@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from trend_analysis.monte_carlo.strategy import StrategyVariant
+from trend_analysis.config.model import validate_trend_config
 
 
 def _base_config(tmp_path: Path) -> dict[str, object]:
@@ -55,6 +56,19 @@ def test_apply_to_nested_override(tmp_path: Path) -> None:
     assert merged["portfolio"]["rank"]["n"] == 12
     assert merged["portfolio"]["rank"]["metric"] == "Sharpe"
     assert base["portfolio"]["rank"]["n"] == 5
+
+
+def test_apply_to_accepts_trend_config(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    cfg = validate_trend_config(base, base_path=tmp_path)
+    variant = StrategyVariant(
+        name="Rank_6",
+        overrides={"portfolio": {"max_turnover": 0.4}},
+    )
+
+    merged = variant.apply_to(cfg)
+
+    assert merged["portfolio"]["max_turnover"] == 0.4
 
 
 def test_to_trend_config_validates_merge(tmp_path: Path) -> None:
