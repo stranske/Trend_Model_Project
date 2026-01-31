@@ -367,6 +367,39 @@ def test_load_scenario_accepts_folds_mapping(tmp_path: Path) -> None:
     assert scenario.folds == {"train_years": 5, "test_years": 2}
 
 
+def test_load_scenario_accepts_return_model_mapping(tmp_path: Path) -> None:
+    base_config = tmp_path / "base.yml"
+    base_config.write_text("{}", encoding="utf-8")
+    scenario_path = tmp_path / "return_model.yml"
+    scenario_path.write_text(
+        "scenario:\n"
+        "  name: return_model\n"
+        "  version: '1'\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: mixture\n"
+        "  n_paths: 10\n"
+        "  horizon_years: 1\n"
+        "  frequency: M\n"
+        "return_model:\n"
+        "  kind: stationary_bootstrap\n"
+        "  params:\n"
+        "    block_size: 4\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n" "  - name: return_model\n" "    path: return_model.yml\n",
+        encoding="utf-8",
+    )
+
+    scenario = load_scenario("return_model", registry_path=registry)
+    assert scenario.return_model == {
+        "kind": "stationary_bootstrap",
+        "params": {"block_size": 4},
+    }
+
+
 def test_load_scenario_rejects_null_folds_mapping(tmp_path: Path) -> None:
     base_config = tmp_path / "base.yml"
     base_config.write_text("{}", encoding="utf-8")
