@@ -7,6 +7,7 @@ import pytest
 
 from trend_analysis.monte_carlo.registry import (
     MonteCarloScenario,
+    ScenarioRegistryEntry,
     get_scenario_path,
     list_scenarios,
     load_scenario,
@@ -25,6 +26,13 @@ def test_list_scenarios_basic() -> None:
     assert "example_scenario" in names
 
 
+def test_list_scenarios_returns_registry_entries() -> None:
+    scenarios = list_scenarios()
+    assert scenarios
+    assert all(isinstance(entry, ScenarioRegistryEntry) for entry in scenarios)
+    assert all(entry.name for entry in scenarios)
+
+
 def test_list_scenarios_returns_entries_with_paths() -> None:
     scenarios = {entry.name: entry for entry in list_scenarios()}
     equity = scenarios["hf_equity_ls_10y"]
@@ -34,6 +42,23 @@ def test_list_scenarios_returns_entries_with_paths() -> None:
         assert entry.path.exists()
         assert entry.path.suffix == ".yml"
         assert isinstance(entry.tags, tuple)
+
+
+def test_list_scenarios_normalizes_tags(tmp_path: Path) -> None:
+    scenario_a = tmp_path / "alpha.yml"
+    scenario_a.write_text("{}", encoding="utf-8")
+
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n"
+        "  - name: alpha\n"
+        "    path: alpha.yml\n"
+        "    tags: [' Core ', 'Stress']\n",
+        encoding="utf-8",
+    )
+
+    scenarios = list_scenarios(registry_path=registry)
+    assert scenarios[0].tags == ("core", "stress")
 
 
 def test_list_scenarios_filters_by_tags(tmp_path: Path) -> None:
