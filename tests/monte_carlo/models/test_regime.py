@@ -45,25 +45,29 @@ def _infer_indices_from_reference_asset(
 
 
 def test_regime_labeler_identifies_volatility_shift() -> None:
-    rng = np.random.default_rng(8)
-    n_obs = 120
-    low_vol = rng.standard_normal(n_obs // 2) * 0.002
-    high_vol = rng.standard_normal(n_obs // 2) * 0.02
-    proxy_returns = np.concatenate([low_vol, high_vol])
-    asset_returns = rng.standard_normal(n_obs) * 0.005
+    n_obs = 40
+    calm_n = n_obs // 2
+    stress_n = n_obs - calm_n
+
+    calm_proxy = 0.001 * np.array([1, -1] * (calm_n // 2))
+    stress_proxy = 0.02 * np.array([1, -1] * (stress_n // 2))
+    proxy_returns = np.concatenate([calm_proxy, stress_proxy])
+
+    asset_returns = 0.003 * np.array([1, -1] * (n_obs // 2))
     log_returns = np.column_stack([asset_returns, proxy_returns])
 
     index = pd.date_range("2022-01-01", periods=n_obs, freq="D")
     prices = _prices_from_log_returns(log_returns, index, ["AssetA", "Proxy"])
 
-    labeler = RegimeLabeler(proxy_column="Proxy", threshold_percentile=70, lookback=5).fit(prices)
+    labeler = RegimeLabeler(proxy_column="Proxy", threshold_percentile=70, lookback=4).fit(prices)
     labels = labeler.get_labels()
 
     mid_point = labels.index[len(labels) // 2]
     calm_share = (labels[labels.index < mid_point] == "stress").mean()
     stress_share = (labels[labels.index >= mid_point] == "stress").mean()
 
-    assert stress_share > calm_share + 0.2
+    assert calm_share == 0.0
+    assert stress_share > 0.8
     assert set(labels.unique()) == {"calm", "stress"}
 
 
