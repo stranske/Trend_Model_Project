@@ -317,3 +317,30 @@ def test_regime_model_falls_back_without_proxy() -> None:
 
     pd.testing.assert_frame_equal(fallback.log_returns, stationary.log_returns)
     pd.testing.assert_frame_equal(fallback.prices, stationary.prices)
+
+
+def test_regime_model_falls_back_when_proxy_returns_missing() -> None:
+    index = pd.date_range("2024-03-01", periods=20, freq="D")
+    proxy_values = np.full(len(index), np.nan)
+    proxy_values[-1] = 200.0
+    prices = pd.DataFrame(
+        {
+            "AssetA": np.linspace(95, 105, len(index)),
+            "AssetB": np.linspace(70, 90, len(index)),
+            "Proxy": proxy_values,
+        },
+        index=index,
+    )
+
+    regime_model = RegimeConditionedBootstrapModel(
+        mean_block_len=3,
+        frequency="D",
+        regime_proxy_column="Proxy",
+    ).fit(prices)
+    fallback = regime_model.sample_prices(n_periods=8, n_paths=2, seed=5)
+
+    stationary_model = StationaryBootstrapModel(mean_block_len=3, frequency="D").fit(prices)
+    stationary = stationary_model.sample_prices(n_periods=8, n_paths=2, seed=5)
+
+    pd.testing.assert_frame_equal(fallback.log_returns, stationary.log_returns)
+    pd.testing.assert_frame_equal(fallback.prices, stationary.prices)

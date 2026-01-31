@@ -261,7 +261,7 @@ class RegimeConditionedBootstrapModel:
                 lookback=self.lookback,
             ).fit(normalized)
             labels = labeler.get_labels().reindex(log_returns.index).ffill().bfill()
-            if not labels.empty:
+            if not labels.empty and not labels.dropna().empty:
                 self._labels = labels
                 self._transition = labeler.get_transition_matrix()
                 self._regime_buckets = {}
