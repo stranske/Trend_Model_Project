@@ -242,9 +242,7 @@ def get_scenario_path(
     if not scenarios:
         registry_label = _registry_label(registry_path)
         tag_labels = ", ".join(sorted(tag_set))
-        raise ValueError(
-            f"No scenarios match tags [{tag_labels}] in registry '{registry_label}'"
-        )
+        raise ValueError(f"No scenarios match tags [{tag_labels}] in registry '{registry_label}'")
     return [entry.path for entry in scenarios]
 
 
