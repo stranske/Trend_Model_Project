@@ -1,14 +1,14 @@
 version: 1
-issue: 4569
+issue: 4577
 base: phase-3
-branch: codex/issue-4569
+branch: codex/issue-4577
 tasks:
   - id: task-01
     title: Create `config/scenarios/monte_carlo/index.yml` registry entries.
     status: done
-    started_at: '2026-01-28T14:12:23Z'
-    finished_at: '2026-01-28T14:12:31Z'
-    commit: de6fd563fd7f8ab46b274bccb2473eca7bcb2f89
+    started_at: '2026-01-29T04:08:48Z'
+    finished_at: '2026-01-29T04:08:56Z'
+    commit: 9561c4e10979a3b435449e9e3b9514b172f40972
     notes: []
   - id: task-02
     title: Implement `list_scenarios` function in `src/trend_analysis/monte_carlo/registry.py`
@@ -398,10 +398,9 @@ tasks:
     commit: ''
     notes: []
   - id: task-51
-    title: Adding a new scenario file only requires editing `config/scenarios/monte_carlo/index.yml`.
-      (The agent cannot modify `.yml` files in protected directories such as `.github/workflows/`.
-      | Ensure that this task is handled by a developer or provide a script for manual
-      execution.)
+    title: Create `config/scenarios/monte_carlo/index.yml` registry entries. (AGENT_LIMITATIONS
+      prevent the agent from modifying `.yml` files in protected directories. | Have
+      a human collaborator create or modify the `index.yml` file.)
     status: todo
     started_at: null
     finished_at: null

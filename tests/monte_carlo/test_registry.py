@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,8 @@ from trend_analysis.monte_carlo.registry import (
     list_scenarios,
     load_scenario,
 )
+from trend_analysis.monte_carlo.scenario import MonteCarloSettings
+from utils.paths import repo_root
 
 
 def test_list_scenarios_basic() -> None:
@@ -18,6 +21,9 @@ def test_list_scenarios_basic() -> None:
     names = {entry.name for entry in scenarios}
     assert "hf_equity_ls_10y" in names
     assert "hf_macro_20y" in names
+    assert "hf_diversified_5y" in names
+    assert "hf_credit_liquidity_7y" in names
+    assert "example_scenario" in names
 
 
 def test_list_scenarios_returns_registry_entries() -> None:
@@ -131,6 +137,28 @@ def test_list_scenarios_filters_by_tags_or_does_not_require_all(tmp_path: Path) 
     assert {entry.name for entry in filtered} == {"alpha", "beta", "gamma"}
 
 
+def test_list_scenarios_filters_by_tags_ignores_case_and_whitespace(tmp_path: Path) -> None:
+    scenario_a = tmp_path / "alpha.yml"
+    scenario_b = tmp_path / "beta.yml"
+    scenario_a.write_text("{}", encoding="utf-8")
+    scenario_b.write_text("{}", encoding="utf-8")
+
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n"
+        "  - name: alpha\n"
+        "    path: alpha.yml\n"
+        "    tags: [Core]\n"
+        "  - name: beta\n"
+        "    path: beta.yml\n"
+        "    tags: [stress]\n",
+        encoding="utf-8",
+    )
+
+    filtered = list_scenarios(tags=["  core  "], registry_path=registry)
+    assert [entry.name for entry in filtered] == ["alpha"]
+
+
 def test_list_scenarios_missing_registry(tmp_path: Path) -> None:
     registry = tmp_path / "missing.yml"
     with pytest.raises(FileNotFoundError, match="Scenario registry"):
@@ -172,6 +200,23 @@ def test_list_scenarios_rejects_missing_name(tmp_path: Path) -> None:
         list_scenarios(registry_path=registry)
 
 
+def test_list_scenarios_rejects_duplicate_names(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "alpha.yml"
+    scenario_path.write_text("{}", encoding="utf-8")
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n"
+        "  - name: alpha\n"
+        "    path: alpha.yml\n"
+        "  - name: alpha\n"
+        "    path: alpha.yml\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="duplicated"):
+        list_scenarios(registry_path=registry)
+
+
 def test_load_scenario_returns_model() -> None:
     scenario = load_scenario("hf_equity_ls_10y")
     assert isinstance(scenario, MonteCarloScenario)
@@ -184,12 +229,59 @@ def test_load_scenario_returns_model() -> None:
     assert "directory" in scenario.outputs
 
 
+def test_load_scenario_diversified_projection() -> None:
+    scenario = load_scenario("hf_diversified_5y")
+    assert isinstance(scenario, MonteCarloScenario)
+    assert scenario.name == "hf_diversified_5y"
+    assert scenario.base_config.name == "defaults.yml"
+    assert scenario.monte_carlo.n_paths == 300
+    assert scenario.monte_carlo.horizon_years == 5.0
+    assert scenario.monte_carlo.frequency == "Q"
+    assert scenario.outputs is not None
+    assert scenario.outputs["directory"] == "outputs/monte_carlo/hf_diversified_5y"
+
+
+def test_load_scenario_credit_liquidity_projection() -> None:
+    scenario = load_scenario("hf_credit_liquidity_7y")
+    assert isinstance(scenario, MonteCarloScenario)
+    assert scenario.name == "hf_credit_liquidity_7y"
+    assert scenario.base_config.name == "defaults.yml"
+    assert scenario.monte_carlo.mode == "mixture"
+    assert scenario.monte_carlo.n_paths == 400
+    assert scenario.monte_carlo.horizon_years == 7.0
+    assert scenario.monte_carlo.frequency == "Q"
+    assert scenario.return_model is not None
+    assert scenario.return_model["kind"] == "stationary_bootstrap"
+    assert scenario.outputs is not None
+    assert scenario.outputs["directory"] == "outputs/monte_carlo/hf_credit_liquidity_7y"
+
+
 def test_load_scenario_includes_optional_sections() -> None:
     scenario = load_scenario("example_scenario")
     assert scenario.return_model is not None
     assert scenario.return_model["kind"] == "stationary_bootstrap"
     assert scenario.folds is not None
     assert scenario.folds["enabled"] is True
+
+
+def test_load_scenario_example_config_path() -> None:
+    scenario = load_scenario("example_scenario")
+    assert scenario.path is not None
+    assert scenario.path.name == "example.yml"
+    assert scenario.path.exists()
+    assert scenario.base_config.name == "defaults.yml"
+
+
+def test_example_scenario_conforms_to_schema() -> None:
+    scenario = load_scenario("example_scenario")
+    assert isinstance(scenario.monte_carlo, MonteCarloSettings)
+    assert scenario.monte_carlo.mode == "mixture"
+    assert scenario.monte_carlo.n_paths == 500
+    assert scenario.monte_carlo.horizon_years == 4.0
+    assert scenario.monte_carlo.frequency == "M"
+    assert scenario.return_model is not None
+    assert scenario.folds is not None
+    assert scenario.outputs is not None
 
 
 def test_load_scenario_rejects_invalid(tmp_path: Path) -> None:
@@ -238,6 +330,39 @@ def test_load_scenario_supports_top_level_metadata(tmp_path: Path) -> None:
     assert scenario.return_model is not None
 
 
+def test_load_scenario_from_registry_entry_only(tmp_path: Path) -> None:
+    scenario_dir = tmp_path / "scenarios"
+    scenario_dir.mkdir()
+    base_config = scenario_dir / "base.yml"
+    base_config.write_text("{}", encoding="utf-8")
+    scenario_path = scenario_dir / "new.yml"
+    scenario_path.write_text(
+        "scenario:\n"
+        "  name: new\n"
+        "  version: '1'\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: mixture\n"
+        "  n_paths: 5\n"
+        "  horizon_years: 1\n"
+        "  frequency: M\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n" "  - name: new\n" "    path: scenarios/new.yml\n",
+        encoding="utf-8",
+    )
+
+    scenarios = {entry.name: entry for entry in list_scenarios(registry_path=registry)}
+    assert scenarios["new"].path == scenario_path.resolve()
+
+    loaded = load_scenario("new", registry_path=registry)
+    assert loaded.name == "new"
+    assert loaded.base_config == base_config.resolve()
+    assert loaded.path == scenario_path.resolve()
+
+
 def test_load_scenario_accepts_folds_mapping(tmp_path: Path) -> None:
     base_config = tmp_path / "base.yml"
     base_config.write_text("{}", encoding="utf-8")
@@ -267,12 +392,152 @@ def test_load_scenario_accepts_folds_mapping(tmp_path: Path) -> None:
     assert scenario.folds == {"train_years": 5, "test_years": 2}
 
 
+def test_load_scenario_accepts_return_model_mapping(tmp_path: Path) -> None:
+    base_config = tmp_path / "base.yml"
+    base_config.write_text("{}", encoding="utf-8")
+    scenario_path = tmp_path / "return_model.yml"
+    scenario_path.write_text(
+        "scenario:\n"
+        "  name: return_model\n"
+        "  version: '1'\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: mixture\n"
+        "  n_paths: 10\n"
+        "  horizon_years: 1\n"
+        "  frequency: M\n"
+        "return_model:\n"
+        "  kind: stationary_bootstrap\n"
+        "  params:\n"
+        "    block_size: 4\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n" "  - name: return_model\n" "    path: return_model.yml\n",
+        encoding="utf-8",
+    )
+
+    scenario = load_scenario("return_model", registry_path=registry)
+    assert scenario.return_model == {
+        "kind": "stationary_bootstrap",
+        "params": {"block_size": 4},
+    }
+
+
+def test_load_scenario_rejects_null_folds_mapping(tmp_path: Path) -> None:
+    base_config = tmp_path / "base.yml"
+    base_config.write_text("{}", encoding="utf-8")
+    scenario_path = tmp_path / "null_folds.yml"
+    scenario_path.write_text(
+        "scenario:\n"
+        "  name: null_folds\n"
+        "  version: '1'\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: mixture\n"
+        "  n_paths: 10\n"
+        "  horizon_years: 1\n"
+        "  frequency: M\n"
+        "folds: null\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n" "  - name: null_folds\n" "    path: null_folds.yml\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError, match="Scenario config 'folds' must be a mapping \\(null provided\\)"
+    ):
+        load_scenario("null_folds", registry_path=registry)
+
+
+def test_load_scenario_rejects_null_return_model_mapping(tmp_path: Path) -> None:
+    base_config = tmp_path / "base.yml"
+    base_config.write_text("{}", encoding="utf-8")
+    scenario_path = tmp_path / "null_return_model.yml"
+    scenario_path.write_text(
+        "scenario:\n"
+        "  name: null_return_model\n"
+        "  version: '1'\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: mixture\n"
+        "  n_paths: 10\n"
+        "  horizon_years: 1\n"
+        "  frequency: M\n"
+        "return_model: null\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n" "  - name: null_return_model\n" "    path: null_return_model.yml\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError, match="Scenario config 'return_model' must be a mapping \\(null provided\\)"
+    ):
+        load_scenario("null_return_model", registry_path=registry)
+
+
+def test_load_scenario_rejects_null_scenario_block(tmp_path: Path) -> None:
+    base_config = tmp_path / "base.yml"
+    base_config.write_text("{}", encoding="utf-8")
+    scenario_path = tmp_path / "null_scenario.yml"
+    scenario_path.write_text(
+        "scenario: null\n"
+        "name: null_scenario\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: mixture\n"
+        "  n_paths: 10\n"
+        "  horizon_years: 1\n"
+        "  frequency: M\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n" "  - name: null_scenario\n" "    path: null_scenario.yml\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError, match="Scenario config 'scenario' must be a mapping \\(null provided\\)"
+    ):
+        load_scenario("null_scenario", registry_path=registry)
+
+
 def test_load_scenario_missing(tmp_path: Path) -> None:
     registry = tmp_path / "index.yml"
     registry.write_text("scenarios: []\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="Unknown scenario"):
+    pattern = re.escape("registry 'index.yml'")
+    with pytest.raises(ValueError, match=pattern):
         load_scenario("missing", registry_path=registry)
+
+
+def test_load_scenario_missing_custom_registry_uses_basename(tmp_path: Path) -> None:
+    registry = tmp_path / "custom_registry.yml"
+    registry.write_text("scenarios: []\n", encoding="utf-8")
+
+    with pytest.raises(ValueError) as excinfo:
+        load_scenario("missing", registry_path=registry)
+
+    message = str(excinfo.value)
+    assert "registry 'custom_registry.yml'" in message
+    assert str(tmp_path) not in message
+
+
+def test_load_scenario_missing_default_registry_uses_stable_label() -> None:
+    with pytest.raises(ValueError) as excinfo:
+        load_scenario("missing_default_registry")
+
+    message = str(excinfo.value)
+    assert "config/scenarios/monte_carlo/index.yml" in message
+    assert str(repo_root()) not in message
 
 
 def test_load_scenario_missing_registry(tmp_path: Path) -> None:
@@ -376,7 +641,8 @@ def test_get_scenario_path_missing(tmp_path: Path) -> None:
     registry = tmp_path / "index.yml"
     registry.write_text("scenarios: []\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="Unknown scenario"):
+    pattern = re.escape("registry 'index.yml'")
+    with pytest.raises(ValueError, match=pattern):
         get_scenario_path("missing", registry_path=registry)
 
 

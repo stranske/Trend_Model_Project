@@ -11,6 +11,7 @@ permissions:
   contents: write
   pull-requests: write
   actions: write
+  models: read
 
 env:
   WRITE_TOKEN: >-
@@ -52,9 +53,18 @@ jobs:
         with:
           sparse-checkout: |
             .github/scripts/prompt_injection_guard.js
+            .github/actions/export-load-balancer-tokens
             .github/scripts/github-api-with-retry.js
+            .github/scripts/github-rate-limited-wrapper.js
+            .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
 
+      - name: Export load balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
+        with:
+          github_token: ${{ github.token }}
+          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
       - name: Security gate - prompt injection guard
         id: security_gate
         uses: actions/github-script@v8

@@ -7,7 +7,7 @@ from typing import Any, Iterable, Mapping, Sequence
 import yaml
 
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario
-from utils.paths import proj_path
+from utils.paths import proj_path, repo_root
 
 __all__ = [
     "MonteCarloScenario",
@@ -40,6 +40,14 @@ def _resolve_registry_path(registry_path: Path | None) -> Path:
     return resolved.resolve()
 
 
+def _registry_label(registry_path: Path | None) -> str:
+    resolved = _resolve_registry_path(registry_path)
+    try:
+        return str(resolved.relative_to(repo_root()))
+    except ValueError:
+        return resolved.name or str(resolved)
+
+
 def _load_yaml(path: Path) -> Mapping[str, object]:
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     if raw is None:
@@ -67,19 +75,23 @@ def _coerce_tags(value: object) -> tuple[str, ...]:
 def _load_registry(registry_path: Path | None = None) -> list[ScenarioRegistryEntry]:
     path = _resolve_registry_path(registry_path)
     if not path.exists():
-        raise FileNotFoundError(f"Scenario registry '{path}' does not exist")
+        registry_label = _registry_label(registry_path)
+        raise FileNotFoundError(f"Scenario registry '{registry_label}' does not exist")
     raw = _load_yaml(path)
     entries = raw.get("scenarios")
     if not isinstance(entries, list):
         raise ValueError("Scenario registry must define 'scenarios' as a list")
 
     scenarios: list[ScenarioRegistryEntry] = []
+    seen_names: set[str] = set()
     for entry in entries:
         if not isinstance(entry, Mapping):
             raise ValueError("Scenario registry entries must be mappings")
         name = str(entry.get("name") or "").strip()
         if not name:
             raise ValueError("Scenario registry entry missing 'name'")
+        if name in seen_names:
+            raise ValueError(f"Scenario registry entry '{name}' is duplicated")
         path_value = entry.get("path")
         if not path_value:
             raise ValueError(f"Scenario registry entry '{name}' missing 'path'")
@@ -96,6 +108,7 @@ def _load_registry(registry_path: Path | None = None) -> list[ScenarioRegistryEn
                 tags=_coerce_tags(entry.get("tags")),
             )
         )
+        seen_names.add(name)
 
     return scenarios
 
@@ -192,11 +205,16 @@ def list_scenarios(
     return filtered
 
 
-def _format_missing(name: str, scenarios: Sequence[ScenarioRegistryEntry]) -> str:
+def _format_missing(
+    name: str,
+    scenarios: Sequence[ScenarioRegistryEntry],
+    *,
+    registry_label: str,
+) -> str:
     available = ", ".join(sorted(entry.name for entry in scenarios))
     if available:
-        return f"Unknown scenario '{name}'. Available: {available}"
-    return f"Unknown scenario '{name}'. No scenarios registered."
+        return f"Unknown scenario '{name}' in registry '{registry_label}'. Available: {available}"
+    return f"Unknown scenario '{name}' in registry '{registry_label}'. No scenarios registered."
 
 
 def get_scenario_path(name: str, *, registry_path: Path | None = None) -> Path:
@@ -206,10 +224,11 @@ def get_scenario_path(name: str, *, registry_path: Path | None = None) -> Path:
     if not normalized:
         raise ValueError("Scenario name is required")
     scenarios = _load_registry(registry_path)
+    registry_label = _registry_label(registry_path)
     for entry in scenarios:
         if entry.name == normalized:
             return entry.path
-    raise ValueError(_format_missing(normalized, scenarios))
+    raise ValueError(_format_missing(normalized, scenarios, registry_label=registry_label))
 
 
 def _extract_scenario_metadata(
@@ -217,6 +236,8 @@ def _extract_scenario_metadata(
 ) -> tuple[str, str | None, str | None]:
     scenario_block = raw.get("scenario")
     scenario_map: Mapping[str, object] | None = None
+    if "scenario" in raw and scenario_block is None:
+        raise ValueError("Scenario config 'scenario' must be a mapping (null provided)")
     if scenario_block is not None:
         scenario_map = _ensure_mapping(scenario_block, label="Scenario config 'scenario'")
 
@@ -288,15 +309,6 @@ def _parse_scenario(
     if "outputs" in raw:
         outputs = _ensure_mapping(raw.get("outputs"), label="Scenario config 'outputs'")
 
-    folds = None
-    if "folds" in raw:
-        folds_value = raw.get("folds")
-        folds = (
-            _ensure_mapping(folds_value, label="Scenario config 'folds'")
-            if folds_value is not None
-            else None
-        )
-
     scenario_kwargs: dict[str, Any] = {
         "name": scenario_name,
         "description": description,
@@ -304,18 +316,23 @@ def _parse_scenario(
         "base_config": base_config,
         "monte_carlo": monte_carlo_map,
         "strategy_set": strategy_set,
-        "folds": folds,
         "outputs": outputs,
         "path": source_path,
         "raw": raw,
     }
 
+    if "folds" in raw:
+        folds_value = raw.get("folds")
+        if folds_value is None:
+            raise ValueError("Scenario config 'folds' must be a mapping (null provided)")
+        scenario_kwargs["folds"] = _ensure_mapping(folds_value, label="Scenario config 'folds'")
+
     if "return_model" in raw:
         return_model_value = raw.get("return_model")
-        scenario_kwargs["return_model"] = (
-            _ensure_mapping(return_model_value, label="Scenario config 'return_model'")
-            if return_model_value is not None
-            else None
+        if return_model_value is None:
+            raise ValueError("Scenario config 'return_model' must be a mapping (null provided)")
+        scenario_kwargs["return_model"] = _ensure_mapping(
+            return_model_value, label="Scenario config 'return_model'"
         )
 
     return MonteCarloScenario(**scenario_kwargs)
@@ -328,9 +345,10 @@ def load_scenario(name: str, *, registry_path: Path | None = None) -> MonteCarlo
     if not normalized:
         raise ValueError("Scenario name is required")
     scenarios = _load_registry(registry_path)
+    registry_label = _registry_label(registry_path)
     entry = next((item for item in scenarios if item.name == normalized), None)
     if entry is None:
-        raise ValueError(_format_missing(normalized, scenarios))
+        raise ValueError(_format_missing(normalized, scenarios, registry_label=registry_label))
 
     raw = _load_yaml(entry.path)
     return _parse_scenario(normalized, raw, source_path=entry.path)

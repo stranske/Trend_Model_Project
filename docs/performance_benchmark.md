@@ -28,6 +28,14 @@ mv perf_new.json perf/perf_baseline.json
 # Commit with message: chore(perf): update baseline after optimisation (#1158)
 ```
 
+## Monte Carlo Bootstrap Performance Test
+The stationary bootstrap performance guard (1000 paths over 120 periods) runs in
+the standard pytest suite. To execute it separately:
+
+```bash
+pytest tests/monte_carlo/models/test_performance.py -m "not slow"
+```
+
 ## Local Comparison
 ```bash
 python scripts/benchmark_performance.py --rows 1200 --cols 35 --runs 4 --output perf_current.json

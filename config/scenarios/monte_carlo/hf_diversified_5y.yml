@@ -1,0 +1,18 @@
+scenario:
+  name: hf_diversified_5y
+  description: "Diversified hedge fund sleeve 5-year projection"
+  version: "1.0"
+
+base_config: config/defaults.yml
+
+monte_carlo:
+  mode: two_layer
+  n_paths: 300
+  horizon_years: 5.0
+  frequency: Q
+  seed: 2025
+  jobs: 2
+
+outputs:
+  directory: outputs/monte_carlo/hf_diversified_5y
+  format: parquet

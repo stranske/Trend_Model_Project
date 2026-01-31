@@ -1,0 +1,15 @@
+scenario:
+  name: credit_stress_15y
+  description: Credit-focused Monte Carlo stress scenario over 15 years.
+  version: "1.0"
+base_config: config/defaults.yml
+monte_carlo:
+  mode: two_layer
+  n_paths: 750
+  horizon_years: 15.0
+  frequency: Q
+  seed: 77
+  jobs: 6
+outputs:
+  directory: outputs/monte_carlo/credit_stress_15y
+  format: parquet

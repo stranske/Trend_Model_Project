@@ -255,6 +255,28 @@ async function fetchPullRequestDiff({ github, core, owner, repo, pullNumber }) {
 async function resolvePullRequest({ github, context, core }) {
   const { owner, repo } = context.repo;
 
+  const envPrNumber = process.env.VERIFIER_PR_NUMBER;
+  if (envPrNumber) {
+    const prNumber = Number(envPrNumber);
+    if (Number.isFinite(prNumber) && prNumber > 0) {
+      try {
+        const { data: pr } = await github.rest.pulls.get({
+          owner,
+          repo,
+          pull_number: prNumber,
+        });
+        if (!pr || pr.merged !== true) {
+          return { pr: null, reason: `Pull request #${prNumber} is not merged; skipping verifier.` };
+        }
+        return { pr };
+      } catch (error) {
+        core?.warning?.(`Failed to resolve PR #${envPrNumber}: ${error.message}`);
+        return { pr: null, reason: `Unable to resolve pull request #${envPrNumber}.` };
+      }
+    }
+    core?.warning?.(`Invalid VERIFIER_PR_NUMBER: ${envPrNumber}`);
+  }
+
   // Handle pull_request and pull_request_target events (both have PR in payload)
   if (context.eventName === 'pull_request' || context.eventName === 'pull_request_target') {
     const pr = context.payload?.pull_request;
@@ -496,11 +518,26 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
   content.push('The CI results below are provided only to confirm which test suites ran, not for status evaluation.');
   content.push('');
   if (ciResults.length) {
-    content.push('| Workflow | Conclusion | Run |');
-    content.push('| --- | --- | --- |');
+    content.push('| Workflow | Conclusion | Run | Jobs (summary) |');
+    content.push('| --- | --- | --- | --- |');
     for (const result of ciResults) {
       const runLink = result.run_url ? `[run](${result.run_url})` : 'n/a';
-      content.push(`| ${result.workflow_name} | ${result.conclusion} | ${runLink} |`);
+      const jobsSummary = result.jobs_summary || {};
+      let jobsText = 'n/a';
+      if (jobsSummary.total) {
+        const counts = jobsSummary.conclusions || {};
+        const countParts = Object.entries(counts)
+          .filter(([, value]) => value)
+          .map(([key, value]) => `${key}: ${value}`);
+        const samples = Array.isArray(jobsSummary.samples)
+          ? jobsSummary.samples.map((job) => `${job.name} (${job.conclusion})`)
+          : [];
+        const sampleText = samples.length
+          ? `samples: ${samples.join('; ')}${jobsSummary.truncated ? '…' : ''}`
+          : '';
+        jobsText = [countParts.join(', '), sampleText].filter(Boolean).join('<br>');
+      }
+      content.push(`| ${result.workflow_name} | ${result.conclusion} | ${runLink} | ${jobsText} |`);
     }
   } else {
     content.push('_No CI workflow runs were found for the target commit._');
