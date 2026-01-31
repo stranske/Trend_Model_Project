@@ -67,6 +67,23 @@ def _require_mapping(value: Any, field: str) -> Mapping[str, Any]:
     return value
 
 
+def _coerce_variant_tags(value: object) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        values: list[object] = [value]
+    elif isinstance(value, (list, tuple)):
+        values = list(value)
+    else:
+        return ()
+    cleaned: list[str] = []
+    for tag in values:
+        label = str(tag).strip()
+        if label:
+            cleaned.append(label)
+    return tuple(cleaned)
+
+
 @dataclass
 class MonteCarloSettings:
     """Configuration settings for Monte Carlo path generation.
@@ -443,9 +460,11 @@ def _coerce_strategy_set(
             variants.append(StrategyVariant(name=item))
             continue
         if isinstance(item, Mapping):
-            name = item.get("name")
+            name = _require_non_empty_str(
+                item.get("name"), f"strategy_set.curated[{idx}].name"
+            )
             overrides = item.get("overrides", {})
-            tags = item.get("tags")
+            tags = _coerce_variant_tags(item.get("tags"))
             try:
                 variant = StrategyVariant(name=name, overrides=overrides, tags=tags)
             except ValueError as exc:
