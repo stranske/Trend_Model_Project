@@ -68,7 +68,7 @@ def _coerce_tags(value: object) -> tuple[str, ...]:
     for tag in values:
         if tag is None:
             continue
-        label = str(tag).strip().lower()
+        label = str(tag).strip().casefold()
         if label:
             cleaned.append(label)
     return tuple(cleaned)
@@ -343,13 +343,17 @@ def _parse_scenario(
     if "folds" in raw:
         folds_value = raw.get("folds")
         if folds_value is None:
-            raise ValueError("Scenario config 'folds' must be a mapping (null provided)")
+            raise ValueError(
+                f"Scenario '{scenario_name}' config 'folds' must be a mapping (null provided)"
+            )
         scenario_kwargs["folds"] = _ensure_mapping(folds_value, label="Scenario config 'folds'")
 
     if "return_model" in raw:
         return_model_value = raw.get("return_model")
         if return_model_value is None:
-            raise ValueError("Scenario config 'return_model' must be a mapping (null provided)")
+            raise ValueError(
+                f"Scenario '{scenario_name}' config 'return_model' must be a mapping (null provided)"
+            )
         scenario_kwargs["return_model"] = _ensure_mapping(
             return_model_value, label="Scenario config 'return_model'"
         )
@@ -370,4 +374,12 @@ def load_scenario(name: str, *, registry_path: Path | None = None) -> MonteCarlo
         raise ValueError(_format_missing(normalized, scenarios, registry_label=registry_label))
 
     raw = _load_yaml(entry.path)
+    if "folds" in raw and raw.get("folds") is None:
+        raise ValueError(
+            f"Scenario '{normalized}' config 'folds' must be a mapping (null provided)"
+        )
+    if "return_model" in raw and raw.get("return_model") is None:
+        raise ValueError(
+            f"Scenario '{normalized}' config 'return_model' must be a mapping (null provided)"
+        )
     return _parse_scenario(normalized, raw, source_path=entry.path)

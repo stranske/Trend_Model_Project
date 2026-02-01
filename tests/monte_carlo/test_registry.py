@@ -600,7 +600,7 @@ def test_load_scenario_rejects_null_folds_mapping(tmp_path: Path) -> None:
     )
 
     with pytest.raises(
-        ValueError, match="Scenario config 'folds' must be a mapping \\(null provided\\)"
+        ValueError, match="Scenario '.+' config 'folds' must be a mapping \\(null provided\\)"
     ):
         load_scenario("null_folds", registry_path=registry)
 
@@ -629,7 +629,8 @@ def test_load_scenario_rejects_null_return_model_mapping(tmp_path: Path) -> None
     )
 
     with pytest.raises(
-        ValueError, match="Scenario config 'return_model' must be a mapping \\(null provided\\)"
+        ValueError,
+        match="Scenario '.+' config 'return_model' must be a mapping \\(null provided\\)",
     ):
         load_scenario("null_return_model", registry_path=registry)
 
