@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 import pytest
+import yaml
 
 from trend_analysis.monte_carlo.registry import (
     MonteCarloScenario,
@@ -13,7 +14,7 @@ from trend_analysis.monte_carlo.registry import (
     load_scenario,
 )
 from trend_analysis.monte_carlo.scenario import MonteCarloSettings
-from utils.paths import repo_root
+from utils.paths import proj_path, repo_root
 
 
 def test_list_scenarios_basic() -> None:
@@ -42,6 +43,42 @@ def test_list_scenarios_returns_entries_with_paths() -> None:
         assert entry.path.exists()
         assert entry.path.suffix == ".yml"
         assert isinstance(entry.tags, tuple)
+
+
+def test_list_scenarios_matches_registry() -> None:
+    registry_path = proj_path("config", "scenarios", "monte_carlo", "index.yml")
+    raw = yaml.safe_load(registry_path.read_text(encoding="utf-8"))
+    expected = {entry["name"] for entry in raw["scenarios"]}
+
+    scenarios = list_scenarios()
+    assert {entry.name for entry in scenarios} == expected
+
+
+def test_list_scenarios_reflects_registry_updates(tmp_path: Path) -> None:
+    alpha_path = tmp_path / "alpha.yml"
+    beta_path = tmp_path / "beta.yml"
+    alpha_path.write_text("{}", encoding="utf-8")
+    beta_path.write_text("{}", encoding="utf-8")
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n" "  - name: alpha\n" "    path: alpha.yml\n",
+        encoding="utf-8",
+    )
+
+    scenarios = list_scenarios(registry_path=registry)
+    assert [entry.name for entry in scenarios] == ["alpha"]
+
+    registry.write_text(
+        "scenarios:\n"
+        "  - name: alpha\n"
+        "    path: alpha.yml\n"
+        "  - name: beta\n"
+        "    path: beta.yml\n",
+        encoding="utf-8",
+    )
+
+    scenarios = list_scenarios(registry_path=registry)
+    assert {entry.name for entry in scenarios} == {"alpha", "beta"}
 
 
 def test_list_scenarios_normalizes_tags(tmp_path: Path) -> None:
@@ -229,6 +266,16 @@ def test_load_scenario_returns_model() -> None:
     assert "directory" in scenario.outputs
 
 
+def test_load_scenario_validates_types() -> None:
+    scenario = load_scenario("hf_equity_ls_10y")
+    assert isinstance(scenario.monte_carlo, MonteCarloSettings)
+    assert isinstance(scenario.base_config, Path)
+    assert scenario.base_config.exists()
+    assert scenario.path is not None
+    assert isinstance(scenario.path, Path)
+    assert scenario.path.exists()
+
+
 def test_load_scenario_diversified_projection() -> None:
     scenario = load_scenario("hf_diversified_5y")
     assert isinstance(scenario, MonteCarloScenario)
@@ -361,6 +408,53 @@ def test_load_scenario_from_registry_entry_only(tmp_path: Path) -> None:
     assert loaded.name == "new"
     assert loaded.base_config == base_config.resolve()
     assert loaded.path == scenario_path.resolve()
+
+
+def test_load_scenario_discovers_registry_updates(tmp_path: Path) -> None:
+    base_config = tmp_path / "base.yml"
+    base_config.write_text("{}", encoding="utf-8")
+    alpha_path = tmp_path / "alpha.yml"
+    alpha_path.write_text(
+        "scenario:\n"
+        "  name: alpha\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: mixture\n"
+        "  n_paths: 3\n"
+        "  horizon_years: 1\n"
+        "  frequency: M\n",
+        encoding="utf-8",
+    )
+    beta_path = tmp_path / "beta.yml"
+    beta_path.write_text(
+        "scenario:\n"
+        "  name: beta\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: mixture\n"
+        "  n_paths: 4\n"
+        "  horizon_years: 1\n"
+        "  frequency: M\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n" "  - name: alpha\n" "    path: alpha.yml\n",
+        encoding="utf-8",
+    )
+
+    assert load_scenario("alpha", registry_path=registry).path == alpha_path.resolve()
+
+    registry.write_text(
+        "scenarios:\n"
+        "  - name: alpha\n"
+        "    path: alpha.yml\n"
+        "  - name: beta\n"
+        "    path: beta.yml\n",
+        encoding="utf-8",
+    )
+
+    assert load_scenario("beta", registry_path=registry).path == beta_path.resolve()
 
 
 def test_load_scenario_accepts_folds_mapping(tmp_path: Path) -> None:
@@ -540,6 +634,15 @@ def test_load_scenario_missing_default_registry_uses_stable_label() -> None:
     assert str(repo_root()) not in message
 
 
+def test_load_scenario_missing_reports_unknown_name() -> None:
+    with pytest.raises(ValueError) as excinfo:
+        load_scenario("missing_registry_name")
+
+    message = str(excinfo.value)
+    assert "Unknown scenario 'missing_registry_name'" in message
+    assert "config/scenarios/monte_carlo/index.yml" in message
+
+
 def test_load_scenario_missing_registry(tmp_path: Path) -> None:
     registry = tmp_path / "missing.yml"
     with pytest.raises(FileNotFoundError, match="Scenario registry"):
@@ -630,6 +733,48 @@ def test_get_scenario_path_resolves_from_registry(tmp_path: Path) -> None:
 
     path = get_scenario_path("alpha", registry_path=registry)
     assert path == scenario_path.resolve()
+
+
+def test_get_scenario_path_filters_by_tags(tmp_path: Path) -> None:
+    alpha_path = tmp_path / "alpha.yml"
+    alpha_path.write_text("{}", encoding="utf-8")
+    beta_path = tmp_path / "beta.yml"
+    beta_path.write_text("{}", encoding="utf-8")
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n"
+        "  - name: alpha\n"
+        "    path: alpha.yml\n"
+        "    tags: [core, Stress]\n"
+        "  - name: beta\n"
+        "    path: beta.yml\n"
+        "    tags: [stress_test]\n",
+        encoding="utf-8",
+    )
+
+    paths = get_scenario_path(tags=["STRESS"], registry_path=registry)
+    assert paths == [alpha_path.resolve()]
+
+
+def test_get_scenario_path_filters_by_tags_mixed_case(tmp_path: Path) -> None:
+    alpha_path = tmp_path / "alpha.yml"
+    alpha_path.write_text("{}", encoding="utf-8")
+    beta_path = tmp_path / "beta.yml"
+    beta_path.write_text("{}", encoding="utf-8")
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n"
+        "  - name: alpha\n"
+        "    path: alpha.yml\n"
+        "    tags: [stress]\n"
+        "  - name: beta\n"
+        "    path: beta.yml\n"
+        "    tags: [Stress]\n",
+        encoding="utf-8",
+    )
+
+    paths = get_scenario_path(tags=["  StReSs  "], registry_path=registry)
+    assert paths == [alpha_path.resolve(), beta_path.resolve()]
 
 
 def test_get_scenario_path_requires_name() -> None:

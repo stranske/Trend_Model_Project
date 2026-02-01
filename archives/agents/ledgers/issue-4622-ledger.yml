@@ -1,0 +1,245 @@
+version: 1
+issue: 4622
+base: phase-3
+branch: codex/issue-4622
+tasks:
+  - id: task-01
+    title: Create or ensure the existence of the file `config/scenarios/monte_carlo/index.yml`
+      with sample scenario entries.
+    status: done
+    started_at: '2026-01-31T23:41:37Z'
+    finished_at: '2026-01-31T23:41:46Z'
+    commit: e651d73f1f7445b4ab4c077d0d43f29fc4540d33
+    notes: []
+  - id: task-02
+    title: Implement and/or verify the `list_scenarios` function to support case-insensitive
+      filtering by tags, including normalizing query tags to lowercase before filtering.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Enhance the test suite by adding tests for `load_scenario` that:'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Verify that a valid scenario name returns a properly validated `MonteCarloScenario`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Confirm that a request for a non-existent scenario raises a clear, descriptive
+      error.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Add tests for `get_scenario_path` to ensure it correctly returns paths
+      based on both scenario names and tag filters, especially under mixed-case tag
+      queries.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Define scope for: Add tests for `get_scenario_path` to ensure it correctly
+      returns paths based on scenario names. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Implement focused slice for: Add tests for `get_scenario_path` to ensure
+      it correctly returns paths based on scenario names. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Validate focused slice for: Add tests for `get_scenario_path` to ensure
+      it correctly returns paths based on scenario names. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Define scope for: Add tests for `get_scenario_path` to ensure it correctly
+      returns paths based on tag filters (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Implement focused slice for: Add tests for `get_scenario_path` to ensure
+      it correctly returns paths based on tag filters (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Validate focused slice for: Add tests for `get_scenario_path` to ensure
+      it correctly returns paths based on tag filters (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'especially under mixed-case tag queries. (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: The `list_scenarios` function lists all scenario names as defined in `config/scenarios/monte_carlo/index.yml`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: The `list_scenarios` function allows filtering scenarios by tags in a case-insensitive
+      manner.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: New scenarios are auto-discovered solely by updating the `config/scenarios/monte_carlo/index.yml`
+      file without additional code changes.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Calling `load_scenario` with a valid scenario name returns a properly validated
+      `MonteCarloScenario`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Calling `load_scenario` with a non-existent scenario name raises a descriptive
+      error message.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: The `get_scenario_path` function returns correct paths based on scenario
+      names and tag filters, including mixed-case tag queries.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Create or ensure the existence of the file `config/scenarios/monte_carlo/index.yml`
+      with sample scenario entries.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Implement and/or verify the `list_scenarios` function to support case-insensitive
+      filtering by tags, including normalizing query tags to lowercase before filtering.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'Enhance the test suite by adding tests for `load_scenario` that:'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: Add tests for `get_scenario_path` to ensure it correctly returns paths
+      based on both scenario names and tag filters, especially under mixed-case tag
+      queries.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: The `list_scenarios` function lists all scenario names as defined in `config/scenarios/monte_carlo/index.yml`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: The `list_scenarios` function allows filtering scenarios by tags in a case-insensitive
+      manner.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: New scenarios are auto-discovered solely by updating the `config/scenarios/monte_carlo/index.yml`
+      file without additional code changes.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: Calling `load_scenario` with a valid scenario name returns a properly validated
+      `MonteCarloScenario`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: Calling `load_scenario` with a non-existent scenario name raises a descriptive
+      error message.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: The `get_scenario_path` function returns correct paths based on scenario
+      names and tag filters, including mixed-case tag queries.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: 'Ensure the `config/scenarios/monte_carlo/index.yml` file is created and
+      populated with sample scenarios to facilitate testing. (AGENT_LIMITATIONS: The
+      agent cannot create or modify files in `.github/workflows/*.yml` or other protected
+      areas. | Delegate this task to a human collaborator or ensure the file is created
+      manually before proceeding with other tasks.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
