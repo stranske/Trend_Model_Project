@@ -104,10 +104,7 @@ def test_list_scenarios_normalizes_string_tag(tmp_path: Path) -> None:
 
     registry = tmp_path / "index.yml"
     registry.write_text(
-        "scenarios:\n"
-        "  - name: alpha\n"
-        "    path: alpha.yml\n"
-        "    tags: Core\n",
+        "scenarios:\n" "  - name: alpha\n" "    path: alpha.yml\n" "    tags: Core\n",
         encoding="utf-8",
     )
 
