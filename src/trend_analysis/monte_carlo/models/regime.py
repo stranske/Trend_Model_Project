@@ -137,8 +137,17 @@ def _simulate_regime_path(
 ) -> NDArray[np.int64]:
     transition = _normalize_transition_matrix(transition)
     n_regimes = transition.shape[0]
+    initial = np.asarray(initial_probs, dtype=np.float64)
+    if initial.shape[0] != n_regimes:
+        raise ValueError("initial_probs must have the same length as transition matrix size")
+    initial = np.clip(initial, 0.0, None)
+    total = initial.sum()
+    if not np.isfinite(total) or total <= 0.0:
+        initial = np.full(n_regimes, 1.0 / n_regimes)
+    else:
+        initial = initial / total
     regimes = np.empty((n_paths, n_periods), dtype=int)
-    regimes[:, 0] = rng.choice(n_regimes, size=n_paths, p=initial_probs)
+    regimes[:, 0] = rng.choice(n_regimes, size=n_paths, p=initial)
     for t in range(1, n_periods):
         for path in range(n_paths):
             prev = regimes[path, t - 1]

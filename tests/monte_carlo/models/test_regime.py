@@ -7,6 +7,7 @@ from trend_analysis.monte_carlo.models.regime import (
     RegimeConditionedBootstrapModel,
     RegimeLabeler,
     _normalize_transition_matrix,
+    _simulate_regime_path,
 )
 
 
@@ -121,6 +122,22 @@ def test_normalize_transition_matrix_handles_empty_rows() -> None:
     assert normalized.shape == transition.shape
     assert np.allclose(normalized.sum(axis=1), 1.0)
     assert np.allclose(normalized[0], np.array([1.0, 0.0]))
+
+
+def test_simulate_regime_path_normalizes_initial_probs() -> None:
+    transition = np.array([[1.0, 0.0], [0.0, 1.0]])
+    rng = np.random.default_rng(1)
+
+    regimes = _simulate_regime_path(
+        n_periods=5,
+        n_paths=10,
+        transition=transition,
+        initial_probs=np.array([-1.0, 2.0]),
+        rng=rng,
+    )
+
+    assert regimes.shape == (10, 5)
+    assert np.all(regimes[:, 0] == 1)
 
 
 def test_regime_conditioned_sampling_preserves_stress_behavior() -> None:
