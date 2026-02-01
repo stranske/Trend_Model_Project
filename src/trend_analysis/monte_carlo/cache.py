@@ -20,9 +20,7 @@ class PathContext:
     def get_score_frame(self, rebalance_date: Hashable) -> pd.DataFrame | None:
         return self._score_frames.get(rebalance_date)
 
-    def set_score_frame(
-        self, rebalance_date: Hashable, score_frame: pd.DataFrame
-    ) -> None:
+    def set_score_frame(self, rebalance_date: Hashable, score_frame: pd.DataFrame) -> None:
         if not isinstance(score_frame, pd.DataFrame):
             raise TypeError("score_frame must be a pandas DataFrame")
         self._score_frames[rebalance_date] = score_frame
