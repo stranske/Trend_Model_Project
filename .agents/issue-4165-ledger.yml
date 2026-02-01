@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Create `config/scenarios/monte_carlo/strategies/hf_equity_curated.yml`
       with 12 curated strategies.
-    status: doing
+    status: done
     started_at: '2026-02-01T12:35:05Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-01T12:35:12Z'
+    commit: a87dc810c641f752f7d101f8b494b79dd41c5b84
     notes: []
   - id: task-02
     title: Add documentation for each strategy in `config/scenarios/monte_carlo/strategies/README.md`,
