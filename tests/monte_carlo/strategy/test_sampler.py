@@ -54,6 +54,11 @@ def test_parse_sampling_config_rejects_empty_segments() -> None:
         parse_sampling_config({"portfolio.": {"dist": "categorical", "values": [1]}})
 
 
+def test_parse_sampling_config_rejects_empty_mapping() -> None:
+    with pytest.raises(ValueError, match="must define at least one distribution"):
+        parse_sampling_config({})
+
+
 def test_sample_strategy_variants_reproducible_seed() -> None:
     sampling = {
         "portfolio.rank.n": {"dist": "categorical", "values": [8, 12]},
@@ -78,6 +83,19 @@ def test_sample_strategy_variants_constraints_rejects() -> None:
         return value == 8, "rank.n must be 8"
 
     variants = sample_strategy_variants(sampling, 1, seed=7, constraints=[constraint])
+
+    assert variants[0].overrides["portfolio"]["rank"]["n"] == 8
+
+
+def test_sample_strategy_variants_constraints_bool() -> None:
+    sampling = {
+        "portfolio.rank.n": {"dist": "categorical", "values": [8]},
+    }
+
+    def constraint(overrides: dict[str, object]) -> bool:
+        return overrides["portfolio"]["rank"]["n"] == 8
+
+    variants = sample_strategy_variants(sampling, 1, seed=5, constraints=[constraint])
 
     assert variants[0].overrides["portfolio"]["rank"]["n"] == 8
 
@@ -119,6 +137,17 @@ def test_sample_strategy_variants_unique_names() -> None:
 
     names = [variant.name for variant in variants]
     assert names == ["variant_001", "variant_002", "variant_003"]
+
+
+def test_sample_strategy_variants_respects_existing_names() -> None:
+    sampling = {"portfolio.rank.n": {"dist": "categorical", "values": [1, 2, 3]}}
+
+    variants = sample_strategy_variants(
+        sampling, 2, seed=1, name_prefix="variant", existing_names=["variant_001"]
+    )
+
+    names = [variant.name for variant in variants]
+    assert names == ["variant_002", "variant_003"]
 
 
 def test_sample_strategy_variants_n_exceeds_combinations() -> None:
