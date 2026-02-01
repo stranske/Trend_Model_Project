@@ -180,6 +180,7 @@ def test_example_scenario_file_loads_and_validates() -> None:
     assert scenario.outputs is not None
     assert isinstance(scenario.outputs, Mapping)
     assert scenario.outputs["format"] == "parquet"
+    assert isinstance(scenario.outputs.get("directory"), str)
 
 
 def test_example_scenario_file_invalid_monte_carlo_raises_clear_error() -> None:
