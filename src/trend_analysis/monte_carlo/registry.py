@@ -74,6 +74,17 @@ def _coerce_tags(value: object) -> tuple[str, ...]:
     return tuple(cleaned)
 
 
+def _optional_mapping(raw: Mapping[str, object], *, key: str, scenario_name: str) -> Mapping[str, object] | None:
+    if key not in raw:
+        return None
+    value = raw.get(key)
+    if value is None:
+        raise ValueError(
+            f"Scenario '{scenario_name}' config '{key}' must be a mapping (null provided)"
+        )
+    return _ensure_mapping(value, label=f"Scenario config '{key}'")
+
+
 def _load_registry(registry_path: Path | None = None) -> list[ScenarioRegistryEntry]:
     path = _resolve_registry_path(registry_path)
     if not path.exists():
@@ -340,23 +351,13 @@ def _parse_scenario(
         "raw": raw,
     }
 
-    if "folds" in raw:
-        folds_value = raw.get("folds")
-        if folds_value is None:
-            raise ValueError(
-                f"Scenario '{scenario_name}' config 'folds' must be a mapping (null provided)"
-            )
-        scenario_kwargs["folds"] = _ensure_mapping(folds_value, label="Scenario config 'folds'")
+    folds_value = _optional_mapping(raw, key="folds", scenario_name=scenario_name)
+    if folds_value is not None:
+        scenario_kwargs["folds"] = folds_value
 
-    if "return_model" in raw:
-        return_model_value = raw.get("return_model")
-        if return_model_value is None:
-            raise ValueError(
-                f"Scenario '{scenario_name}' config 'return_model' must be a mapping (null provided)"
-            )
-        scenario_kwargs["return_model"] = _ensure_mapping(
-            return_model_value, label="Scenario config 'return_model'"
-        )
+    return_model_value = _optional_mapping(raw, key="return_model", scenario_name=scenario_name)
+    if return_model_value is not None:
+        scenario_kwargs["return_model"] = return_model_value
 
     return MonteCarloScenario(**scenario_kwargs)
 
