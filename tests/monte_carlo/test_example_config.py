@@ -30,4 +30,6 @@ def test_example_config_validates_against_schema() -> None:
     assert scenario.folds.get("enabled") is True
     assert scenario.outputs is not None
     assert isinstance(scenario.outputs, Mapping)
+    assert isinstance(scenario.outputs.get("format"), str)
     assert scenario.outputs.get("format") == "parquet"
+    assert isinstance(scenario.outputs.get("directory"), str)
