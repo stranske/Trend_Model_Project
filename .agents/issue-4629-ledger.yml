@@ -1,0 +1,481 @@
+version: 1
+issue: 4629
+base: phase-3
+branch: codex/issue-4629
+tasks:
+  - id: task-01
+    title: Modify `src/trend_analysis/monte_carlo/__init__.py` to explicitly import
+      `MonteCarloScenario` and `MonteCarloSettings` and add them to the `__all__`
+      list.
+    status: doing
+    started_at: '2026-02-01T03:30:29Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Update the `load_scenario` function in the MonteCarlo scenario parser to
+      include null-checks for the 'return_model' and 'folds' parameters, raising a
+      `ValueError` with a descriptive error message if either is null.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Define scope for: Update the `load_scenario` function in the MonteCarlo
+      scenario parser to include null-checks for the ''return_model'' (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Implement focused slice for: Update the `load_scenario` function in the
+      MonteCarlo scenario parser to include null-checks for the ''return_model'' (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Validate focused slice for: Update the `load_scenario` function in the
+      MonteCarlo scenario parser to include null-checks for the ''return_model'' (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Define scope for: ''folds'' parameters (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Define scope for: raising a `ValueError` with a descriptive error message
+      if either is null. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Implement focused slice for: raising a `ValueError` with a descriptive
+      error message if either is null. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Validate focused slice for: raising a `ValueError` with a descriptive
+      error message if either is null. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Implement focused slice for: ''folds'' parameters (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Define scope for: raising a `ValueError` with a descriptive error message
+      if either is null. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Implement focused slice for: raising a `ValueError` with a descriptive
+      error message if either is null. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Validate focused slice for: raising a `ValueError` with a descriptive
+      error message if either is null. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Validate focused slice for: ''folds'' parameters (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Define scope for: raising a `ValueError` with a descriptive error message
+      if either is null. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Implement focused slice for: raising a `ValueError` with a descriptive
+      error message if either is null. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Validate focused slice for: raising a `ValueError` with a descriptive
+      error message if either is null. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Define scope for: Write unit tests to verify that the `load_scenario`
+      function raises a `ValueError` with a descriptive error message when ''return_model''
+      or ''folds'' is null.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Implement focused slice for: Write unit tests to verify that the `load_scenario`
+      function raises a `ValueError` with a descriptive error message when ''return_model''
+      or ''folds'' is null.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Validate focused slice for: Write unit tests to verify that the `load_scenario`
+      function raises a `ValueError` with a descriptive error message when ''return_model''
+      or ''folds'' is null.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Update the `_coerce_tags` function to reliably convert all tag values to
+      lowercase, whether provided as a single string or as elements within a list
+      of strings, and write unit tests to verify this behavior.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'Define scope for: Modify the `_coerce_tags` function to reliably convert
+      all tag values to lowercase (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: 'Implement focused slice for: Modify the `_coerce_tags` function to reliably
+      convert all tag values to lowercase (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'Validate focused slice for: Modify the `_coerce_tags` function to reliably
+      convert all tag values to lowercase (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: 'Define scope for: whether provided as a single string or as elements within
+      a list of strings. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: 'Implement focused slice for: whether provided as a single string or as
+      elements within a list of strings. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: 'Validate focused slice for: whether provided as a single string or as
+      elements within a list of strings. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: 'Define scope for: Write unit tests to verify that the `_coerce_tags` function
+      correctly converts all tag values to lowercase.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: 'Implement focused slice for: Write unit tests to verify that the `_coerce_tags`
+      function correctly converts all tag values to lowercase.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: 'Validate focused slice for: Write unit tests to verify that the `_coerce_tags`
+      function correctly converts all tag values to lowercase.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: Modify `src/trend_analysis/monte_carlo/__init__.py` to explicitly import
+      `MonteCarloScenario` and `MonteCarloSettings` and add them to the `__all__`
+      list.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: Update the `load_scenario` function in the MonteCarlo scenario parser to
+      include null-checks for the 'return_model' and 'folds' parameters, raising a
+      `ValueError` with a descriptive error message if either is null.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: 'Define scope for: Update the `load_scenario` function in the MonteCarlo
+      scenario parser to include null-checks for the ''return_model'' (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: 'Implement focused slice for: Update the `load_scenario` function in the
+      MonteCarlo scenario parser to include null-checks for the ''return_model'' (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: 'Validate focused slice for: Update the `load_scenario` function in the
+      MonteCarlo scenario parser to include null-checks for the ''return_model'' (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: 'Define scope for: ''folds'' parameters (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: 'Define scope for: raising a `ValueError` with a descriptive error message
+      if either is null. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: 'Implement focused slice for: raising a `ValueError` with a descriptive
+      error message if either is null. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: 'Validate focused slice for: raising a `ValueError` with a descriptive
+      error message if either is null. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: 'Implement focused slice for: ''folds'' parameters (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: 'Define scope for: raising a `ValueError` with a descriptive error message
+      if either is null. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: 'Implement focused slice for: raising a `ValueError` with a descriptive
+      error message if either is null. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: 'Validate focused slice for: raising a `ValueError` with a descriptive
+      error message if either is null. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: 'Validate focused slice for: ''folds'' parameters (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: 'Define scope for: raising a `ValueError` with a descriptive error message
+      if either is null. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: 'Implement focused slice for: raising a `ValueError` with a descriptive
+      error message if either is null. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: 'Validate focused slice for: raising a `ValueError` with a descriptive
+      error message if either is null. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: 'Define scope for: Write unit tests to verify that the `load_scenario`
+      function raises a `ValueError` with a descriptive error message when ''return_model''
+      or ''folds'' is null.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: 'Implement focused slice for: Write unit tests to verify that the `load_scenario`
+      function raises a `ValueError` with a descriptive error message when ''return_model''
+      or ''folds'' is null.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: 'Validate focused slice for: Write unit tests to verify that the `load_scenario`
+      function raises a `ValueError` with a descriptive error message when ''return_model''
+      or ''folds'' is null.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: Review and modify the `_coerce_tags` function to ensure it reliably lowercases
+      all tag values, regardless of whether a tag is provided as a string or within
+      a list of strings.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: The `src/trend_analysis/monte_carlo/__init__.py` file explicitly imports
+      `MonteCarloScenario` and `MonteCarloSettings` and includes both in the module's
+      `__all__` list.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: The `load_scenario` function in the MonteCarlo scenario parser raises a
+      `ValueError` with a descriptive message when 'return_model' or 'folds' is null.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: The `_coerce_tags` function converts all tags to lowercase, whether provided
+      as a single string or within a list of strings.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: The `src/trend_analysis/monte_carlo/__init__.py` file explicitly imports
+      `MonteCarloScenario` and `MonteCarloSettings` and includes both in the module's
+      `__all__` list.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-56
+    title: The `load_scenario` function in the MonteCarlo scenario parser raises a
+      `ValueError` with a descriptive message when 'return_model' or 'folds' is null.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-57
+    title: The `_coerce_tags` function converts all tags to lowercase, whether provided
+      as a single string or within a list of strings.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
