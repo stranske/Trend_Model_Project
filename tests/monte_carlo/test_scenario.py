@@ -170,8 +170,15 @@ def test_example_scenario_file_loads_and_validates() -> None:
     assert isinstance(scenario.base_config, Path)
     assert scenario.return_model is not None
     assert isinstance(scenario.return_model, Mapping)
+    assert isinstance(scenario.return_model.get("kind"), str)
+    assert scenario.return_model["kind"]
+    assert scenario.strategy_set is not None
+    assert isinstance(scenario.strategy_set, Mapping)
     assert scenario.folds is not None
     assert isinstance(scenario.folds, Mapping)
+    assert isinstance(scenario.folds.get("enabled"), bool)
+    assert scenario.outputs is not None
+    assert isinstance(scenario.outputs, Mapping)
     assert scenario.outputs["format"] == "parquet"
 
 
