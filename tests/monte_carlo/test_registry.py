@@ -9,6 +9,7 @@ import yaml
 from trend_analysis.monte_carlo.registry import (
     MonteCarloScenario,
     ScenarioRegistryEntry,
+    _coerce_tags,
     get_scenario_path,
     list_scenarios,
     load_scenario,
@@ -96,6 +97,26 @@ def test_list_scenarios_normalizes_tags(tmp_path: Path) -> None:
 
     scenarios = list_scenarios(registry_path=registry)
     assert scenarios[0].tags == ("core", "stress")
+
+
+def test_coerce_tags_lowercases_single_string() -> None:
+    assert _coerce_tags(" Core ") == ("core",)
+
+
+def test_coerce_tags_lowercases_list_values() -> None:
+    assert _coerce_tags(["Core", "Stress"]) == ("core", "stress")
+
+
+def test_coerce_tags_lowercases_tuple_values() -> None:
+    assert _coerce_tags(("Core", "Stress")) == ("core", "stress")
+
+
+def test_coerce_tags_skips_blank_list_values() -> None:
+    assert _coerce_tags(["Core", " ", "STRESS"]) == ("core", "stress")
+
+
+def test_coerce_tags_skips_none_values() -> None:
+    assert _coerce_tags(["Core", None, "STRESS"]) == ("core", "stress")
 
 
 def test_list_scenarios_normalizes_string_tag(tmp_path: Path) -> None:

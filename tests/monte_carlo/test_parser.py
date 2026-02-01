@@ -36,21 +36,47 @@ def _write_scenario(tmp_path: Path, name: str, extra_payload: str) -> Path:
     return scenario_path
 
 
-def test_parser_rejects_null_return_model(tmp_path: Path) -> None:
-    name = "null_return_model"
-    _write_scenario(tmp_path, name, "return_model: null\n")
+@pytest.mark.parametrize(
+    ("field", "payload"),
+    [
+        ("return_model", "return_model: null\n"),
+        ("folds", "folds: null\n"),
+    ],
+)
+def test_parser_rejects_null_optional_mappings(tmp_path: Path, field: str, payload: str) -> None:
+    name = f"null_{field}"
+    _write_scenario(tmp_path, name, payload)
     registry = _write_registry(tmp_path, name, f"{name}.yml")
 
     with pytest.raises(
         ValueError,
-        match=r"Scenario config 'return_model' must be a mapping \(null provided\)",
+        match=rf"Scenario config '{field}' must be a mapping \(null provided\)",
     ):
         load_scenario(name, registry_path=registry)
 
 
-def test_parser_rejects_null_folds(tmp_path: Path) -> None:
-    name = "null_folds"
-    _write_scenario(tmp_path, name, "folds: null\n")
+@pytest.mark.parametrize(
+    ("field", "payload"),
+    [
+        ("return_model", "return_model:\n"),
+        ("folds", "folds:\n"),
+    ],
+)
+def test_parser_rejects_empty_optional_mappings(tmp_path: Path, field: str, payload: str) -> None:
+    name = f"empty_{field}"
+    _write_scenario(tmp_path, name, payload)
+    registry = _write_registry(tmp_path, name, f"{name}.yml")
+
+    with pytest.raises(
+        ValueError,
+        match=rf"Scenario config '{field}' must be a mapping \(null provided\)",
+    ):
+        load_scenario(name, registry_path=registry)
+
+
+def test_parser_prefers_folds_error_when_both_null(tmp_path: Path) -> None:
+    name = "null_folds_and_return_model"
+    _write_scenario(tmp_path, name, "folds: null\nreturn_model: null\n")
     registry = _write_registry(tmp_path, name, f"{name}.yml")
 
     with pytest.raises(

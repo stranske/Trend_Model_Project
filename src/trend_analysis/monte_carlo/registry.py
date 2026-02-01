@@ -60,12 +60,14 @@ def _coerce_tags(value: object) -> tuple[str, ...]:
         return ()
     if isinstance(value, str):
         values = [value]
-    elif isinstance(value, Sequence):
+    elif isinstance(value, Sequence) and not isinstance(value, (bytes, bytearray)):
         values = list(value)
     else:
         return ()
     cleaned: list[str] = []
     for tag in values:
+        if tag is None:
+            continue
         label = str(tag).strip().lower()
         if label:
             cleaned.append(label)
