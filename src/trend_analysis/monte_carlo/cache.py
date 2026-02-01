@@ -98,13 +98,15 @@ class PathContextCache:
 
     def clear(self, path_id: Hashable | None = None) -> None:
         if path_id is None:
-            for context in self._contexts.values():
-                context.clear()
+            for ctx in self._contexts.values():
+                ctx.clear()
             self._contexts.clear()
             return
-        context = self._contexts.pop(path_id, None)
-        if context is not None:
-            context.clear()
+        context = self._contexts.get(path_id)
+        if context is None:
+            return
+        del self._contexts[path_id]
+        context.clear()
 
 
 __all__ = ["PathContext", "PathContextCache"]
