@@ -160,8 +160,7 @@ def evaluate_strategies_for_path(
         for name, strategy in strategies.items():
             columns = columns_by_strategy.get(name) if columns_by_strategy else None
             score_frames = {
-                date: cache_obj.select_score_frame(path_id, date, columns)
-                for date in dates
+                date: cache_obj.select_score_frame(path_id, date, columns) for date in dates
             }
             results[name] = strategy(score_frames)
     finally:
@@ -208,15 +207,11 @@ def evaluate_strategies_for_path(
             return path_evals, path_errors
 
         completed = 0
-        for path_id, path_eval, path_err in self._execute_paths(
-            path_seeds, _evaluate_path, jobs
-        ):
+        for path_id, path_eval, path_err in self._execute_paths(path_seeds, _evaluate_path, jobs):
             evaluations.extend(path_eval)
             errors.extend(path_err)
             completed += 1
-            self._emit_progress(
-                progress_callback, completed, total, path_id, "two_layer"
-            )
+            self._emit_progress(progress_callback, completed, total, path_id, "two_layer")
 
         return evaluations, errors
 
@@ -258,9 +253,7 @@ def evaluate_strategies_for_path(
                 return [], [self._error_record(path_id, strategy.name, exc)]
 
         completed = 0
-        for path_id, path_eval, path_err in self._execute_paths(
-            path_seeds, _evaluate_path, jobs
-        ):
+        for path_id, path_eval, path_err in self._execute_paths(path_seeds, _evaluate_path, jobs):
             evaluations.extend(path_eval)
             errors.extend(path_err)
             completed += 1
@@ -398,9 +391,7 @@ def evaluate_strategies_for_path(
         csv_path = data_cfg.get("csv_path")
         if csv_path:
             return self._load_history_from_path(Path(str(csv_path)))
-        raise ValueError(
-            "price_history must be provided or data.csv_path must be configured"
-        )
+        raise ValueError("price_history must be provided or data.csv_path must be configured")
 
     def _load_history_from_path(self, path: Path) -> pd.DataFrame:
         suffix = path.suffix.lower()
@@ -436,17 +427,11 @@ def evaluate_strategies_for_path(
         child_seeds = seq.spawn(2)
         path_rng = np.random.default_rng(child_seeds[0])
         strategy_rng = np.random.default_rng(child_seeds[1])
-        path_seeds = path_rng.integers(
-            0, 2**32 - 1, size=n_paths, dtype=np.uint32
-        ).tolist()
-        strategy_seeds = strategy_rng.integers(
-            0, 2**32 - 1, size=n_paths, dtype=np.uint32
-        ).tolist()
+        path_seeds = path_rng.integers(0, 2**32 - 1, size=n_paths, dtype=np.uint32).tolist()
+        strategy_seeds = strategy_rng.integers(0, 2**32 - 1, size=n_paths, dtype=np.uint32).tolist()
         return path_seeds, strategy_seeds
 
-    def _build_strategy_config(
-        self, strategy: StrategyVariant, seed: int | None
-    ) -> ConfigType:
+    def _build_strategy_config(self, strategy: StrategyVariant, seed: int | None) -> ConfigType:
         merged = strategy.apply_to(self._base_config)
         self._apply_strategy_guards(merged)
         if seed is not None:
@@ -478,9 +463,7 @@ def evaluate_strategies_for_path(
             stats_cfg = RiskStatsConfig(
                 metrics_to_run=metrics,
                 risk_free=float(config.metrics.get("rf_rate_annual", 0.0) or 0.0),
-                periods_per_year=int(
-                    periods_per_year_from_code(config.data.get("frequency"))
-                ),
+                periods_per_year=int(periods_per_year_from_code(config.data.get("frequency"))),
             )
             return single_period_run(
                 returns,
@@ -493,9 +476,7 @@ def evaluate_strategies_for_path(
             self._logger.debug("Failed to compute score frame: %s", exc)
             return pd.DataFrame()
 
-    def _extract_metrics(
-        self, metrics_df: pd.DataFrame
-    ) -> tuple[dict[str, float], str | None]:
+    def _extract_metrics(self, metrics_df: pd.DataFrame) -> tuple[dict[str, float], str | None]:
         if metrics_df is None or metrics_df.empty:
             return {}, None
         source = None
@@ -561,9 +542,7 @@ def evaluate_strategies_for_path(
             }
         )
 
-    def _log_path_error(
-        self, path_id: int, strategy_name: str | None, exc: Exception
-    ) -> None:
+    def _log_path_error(self, path_id: int, strategy_name: str | None, exc: Exception) -> None:
         label = f"path {path_id}"
         if strategy_name:
             label += f" strategy {strategy_name}"
@@ -620,9 +599,7 @@ def evaluate_strategies_for_path(
         rendered = template.format(scenario_name=self.scenario.name, timestamp=now)
         return Path(rendered)
 
-    def _coerce_base_config(
-        self, base_config: Mapping[str, Any] | None
-    ) -> dict[str, Any]:
+    def _coerce_base_config(self, base_config: Mapping[str, Any] | None) -> dict[str, Any]:
         if base_config is None:
             path = self._base_config_path()
             if not path.exists():
