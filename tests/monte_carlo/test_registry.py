@@ -54,6 +54,35 @@ def test_list_scenarios_matches_registry() -> None:
     assert {entry.name for entry in scenarios} == expected
 
 
+def test_list_scenarios_reflects_registry_updates(tmp_path: Path) -> None:
+    alpha_path = tmp_path / "alpha.yml"
+    beta_path = tmp_path / "beta.yml"
+    alpha_path.write_text("{}", encoding="utf-8")
+    beta_path.write_text("{}", encoding="utf-8")
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n"
+        "  - name: alpha\n"
+        "    path: alpha.yml\n",
+        encoding="utf-8",
+    )
+
+    scenarios = list_scenarios(registry_path=registry)
+    assert [entry.name for entry in scenarios] == ["alpha"]
+
+    registry.write_text(
+        "scenarios:\n"
+        "  - name: alpha\n"
+        "    path: alpha.yml\n"
+        "  - name: beta\n"
+        "    path: beta.yml\n",
+        encoding="utf-8",
+    )
+
+    scenarios = list_scenarios(registry_path=registry)
+    assert {entry.name for entry in scenarios} == {"alpha", "beta"}
+
+
 def test_list_scenarios_normalizes_tags(tmp_path: Path) -> None:
     scenario_a = tmp_path / "alpha.yml"
     scenario_a.write_text("{}", encoding="utf-8")
