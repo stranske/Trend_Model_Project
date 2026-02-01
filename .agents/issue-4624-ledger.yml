@@ -7,10 +7,10 @@ tasks:
     title: Modify `src/trend_analysis/monte_carlo/__init__.py` to add explicit import
       statements for `MonteCarloScenario` and `MonteCarloSettings` and include them
       in the `__all__` list.
-    status: doing
+    status: done
     started_at: '2026-02-01T01:03:33Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-01T01:03:41Z'
+    commit: 78fe06eaf51df15102f1f3c52bb998518dee8c9f
     notes: []
   - id: task-02
     title: 'Add explicit import statements for `MonteCarloScenario` (verify: confirm
