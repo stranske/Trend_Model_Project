@@ -1,0 +1,198 @@
+curated:
+  - name: Rank_8_Equal_TightTurnover
+    tags: [equity, hf, rank, concentrated, equal_weight, tight_turnover]
+    overrides:
+      portfolio:
+        selection_mode: rank
+        rank:
+          inclusion_approach: top_n
+          n: 8
+          score_by: sharpe_ratio
+          transform: raw
+        weighting_scheme: equal
+        max_turnover: 0.08
+        constraints:
+          max_weight: 0.20
+          max_active_positions: 8
+
+  - name: Rank_12_RiskParity_ModerateTurnover
+    tags: [equity, hf, rank, diversified, risk_parity, moderate_turnover]
+    overrides:
+      portfolio:
+        selection_mode: rank
+        rank:
+          inclusion_approach: top_n
+          n: 12
+          score_by: information_ratio
+          transform: raw
+        weighting_scheme: risk_parity
+        max_turnover: 0.15
+        constraints:
+          max_weight: 0.18
+          max_active_positions: 12
+
+  - name: Rank_16_HRP_LooseTurnover
+    tags: [equity, hf, rank, diversified, hrp, loose_turnover]
+    overrides:
+      portfolio:
+        selection_mode: rank
+        rank:
+          inclusion_approach: top_n
+          n: 16
+          score_by: annual_return
+          transform: raw
+        weighting_scheme: hrp
+        max_turnover: 0.25
+        constraints:
+          max_weight: 0.15
+
+  - name: TopPct_20_ScoreProp_TightTurnover
+    tags: [equity, hf, rank, top_pct, score_prop, tight_turnover]
+    overrides:
+      portfolio:
+        selection_mode: rank
+        rank:
+          inclusion_approach: top_pct
+          pct: 0.20
+          score_by: sharpe_ratio
+          transform: raw
+        weighting_scheme: equal
+        weighting:
+          name: score_prop
+          params:
+            column: Sharpe
+        max_turnover: 0.08
+        constraints:
+          max_weight: 0.12
+
+  - name: Threshold_ZScore_Bayes_ModerateTurnover
+    tags: [equity, hf, threshold, bayes, moderate_turnover]
+    overrides:
+      portfolio:
+        selection_mode: rank
+        rank:
+          inclusion_approach: threshold
+          threshold: 0.75
+          score_by: sharpe_ratio
+          transform: zscore
+        weighting_scheme: equal
+        weighting:
+          name: score_prop_bayes
+          params:
+            shrink_tau: 0.35
+            column: Sharpe
+        max_turnover: 0.15
+        constraints:
+          max_active_positions: 14
+
+  - name: Rank_10_AdaptiveBayes_ModerateTurnover
+    tags: [equity, hf, rank, adaptive_bayes, moderate_turnover]
+    overrides:
+      portfolio:
+        selection_mode: rank
+        rank:
+          inclusion_approach: top_n
+          n: 10
+          score_by: sharpe_ratio
+          transform: raw
+        weighting_scheme: equal
+        weighting:
+          name: adaptive_bayes
+          params:
+            half_life: 60
+            obs_sigma: 0.20
+            column: Sharpe
+        max_turnover: 0.18
+        constraints:
+          max_active_positions: 10
+
+  - name: Random_12_Equal_LooseTurnover
+    tags: [equity, hf, random, stress_test, equal_weight, loose_turnover]
+    overrides:
+      portfolio:
+        selection_mode: random
+        random_n: 12
+        weighting_scheme: equal
+        max_turnover: 0.30
+      vol_adjust:
+        enabled: false
+
+  - name: Manual_8_Equal_TightTurnover
+    tags: [equity, hf, manual, concentrated, equal_weight, tight_turnover]
+    overrides:
+      portfolio:
+        selection_mode: manual
+        manual_list:
+          - HF_EQ_Core_1
+          - HF_EQ_Core_2
+          - HF_EQ_Core_3
+          - HF_EQ_Core_4
+          - HF_EQ_Core_5
+          - HF_EQ_Core_6
+          - HF_EQ_Core_7
+          - HF_EQ_Core_8
+        weighting_scheme: equal
+        max_turnover: 0.10
+        constraints:
+          max_weight: 0.20
+          max_active_positions: 8
+
+  - name: Rank_20_ERC_LooseTurnover
+    tags: [equity, hf, rank, diversified, erc, loose_turnover]
+    overrides:
+      portfolio:
+        selection_mode: rank
+        rank:
+          inclusion_approach: top_n
+          n: 20
+          score_by: annual_return
+          transform: raw
+        weighting_scheme: erc
+        max_turnover: 0.30
+        constraints:
+          max_weight: 0.10
+
+  - name: Rank_14_RobustMV_TightTurnover
+    tags: [equity, hf, rank, robust_mv, tight_turnover, long_short]
+    overrides:
+      portfolio:
+        selection_mode: rank
+        rank:
+          inclusion_approach: top_n
+          n: 14
+          score_by: information_ratio
+          transform: raw
+        weighting_scheme: robust_mv
+        max_turnover: 0.10
+        leverage_cap: 1.6
+        constraints:
+          long_only: false
+          max_weight: 0.12
+
+  - name: Rank_12_RobustRiskParity_ModerateTurnover
+    tags: [equity, hf, rank, robust_risk_parity, moderate_turnover]
+    overrides:
+      portfolio:
+        selection_mode: rank
+        rank:
+          inclusion_approach: top_n
+          n: 12
+          score_by: sharpe_ratio
+          transform: raw
+        weighting_scheme: robust_risk_parity
+        max_turnover: 0.20
+        constraints:
+          max_weight: 0.15
+
+  - name: All_Equal_LowTurnover_LowVol
+    tags: [equity, hf, all, equal_weight, low_turnover, low_vol]
+    overrides:
+      portfolio:
+        selection_mode: all
+        weighting_scheme: equal
+        max_turnover: 0.05
+        constraints:
+          max_weight: 0.10
+      vol_adjust:
+        enabled: true
+        target_vol: 0.08
