@@ -22,7 +22,7 @@ scenarios:
   - name: example_scenario
     path: example.yml
     description: "Example Monte Carlo scenario configuration"
-    tags: [example, template]
+    tags: [example, sample, template]
 
   - name: credit_stress_15y
     path: credit_stress_15y.yml
