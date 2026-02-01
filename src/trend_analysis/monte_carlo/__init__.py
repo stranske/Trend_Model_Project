@@ -6,8 +6,7 @@ from .registry import (
     list_scenarios,
     load_scenario,
 )
-from .scenario import MonteCarloScenario
-from .scenario import MonteCarloSettings
+from .scenario import MonteCarloScenario, MonteCarloSettings
 
 __all__ = [
     "MonteCarloScenario",
