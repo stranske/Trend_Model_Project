@@ -807,10 +807,7 @@ def test_get_scenario_path_requires_name(tmp_path: Path) -> None:
     scenario_path.write_text("{}", encoding="utf-8")
     registry = tmp_path / "index.yml"
     registry.write_text(
-        "scenarios:\n"
-        "  - name: alpha\n"
-        "    path: alpha.yml\n"
-        "    tags: [core]\n",
+        "scenarios:\n" "  - name: alpha\n" "    path: alpha.yml\n" "    tags: [core]\n",
         encoding="utf-8",
     )
 
@@ -823,10 +820,7 @@ def test_get_scenario_path_reports_no_matching_tags(tmp_path: Path) -> None:
     scenario_path.write_text("{}", encoding="utf-8")
     registry = tmp_path / "index.yml"
     registry.write_text(
-        "scenarios:\n"
-        "  - name: alpha\n"
-        "    path: alpha.yml\n"
-        "    tags: [core]\n",
+        "scenarios:\n" "  - name: alpha\n" "    path: alpha.yml\n" "    tags: [core]\n",
         encoding="utf-8",
     )
 
