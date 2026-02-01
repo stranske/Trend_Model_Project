@@ -410,6 +410,53 @@ def test_load_scenario_from_registry_entry_only(tmp_path: Path) -> None:
     assert loaded.path == scenario_path.resolve()
 
 
+def test_load_scenario_discovers_registry_updates(tmp_path: Path) -> None:
+    base_config = tmp_path / "base.yml"
+    base_config.write_text("{}", encoding="utf-8")
+    alpha_path = tmp_path / "alpha.yml"
+    alpha_path.write_text(
+        "scenario:\n"
+        "  name: alpha\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: mixture\n"
+        "  n_paths: 3\n"
+        "  horizon_years: 1\n"
+        "  frequency: M\n",
+        encoding="utf-8",
+    )
+    beta_path = tmp_path / "beta.yml"
+    beta_path.write_text(
+        "scenario:\n"
+        "  name: beta\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: mixture\n"
+        "  n_paths: 4\n"
+        "  horizon_years: 1\n"
+        "  frequency: M\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n" "  - name: alpha\n" "    path: alpha.yml\n",
+        encoding="utf-8",
+    )
+
+    assert load_scenario("alpha", registry_path=registry).path == alpha_path.resolve()
+
+    registry.write_text(
+        "scenarios:\n"
+        "  - name: alpha\n"
+        "    path: alpha.yml\n"
+        "  - name: beta\n"
+        "    path: beta.yml\n",
+        encoding="utf-8",
+    )
+
+    assert load_scenario("beta", registry_path=registry).path == beta_path.resolve()
+
+
 def test_load_scenario_accepts_folds_mapping(tmp_path: Path) -> None:
     base_config = tmp_path / "base.yml"
     base_config.write_text("{}", encoding="utf-8")
