@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Implement distribution parsing for categorical, discrete, and uniform sampling
       in `src/trend_analysis/monte_carlo/strategy/sampler.py`.
-    status: doing
+    status: done
     started_at: '2026-02-01T09:16:59Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-01T09:17:09Z'
+    commit: 954f4bf03f12d1112c075557c5d6d973121e96c6
     notes: []
   - id: task-02
     title: 'Implement parsing for categorical distributions. (verify: confirm completion
