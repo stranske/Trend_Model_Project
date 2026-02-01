@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Add explicit cash weight handling in portfolio evaluation so weights sum
       to 1.0.
-    status: doing
+    status: done
     started_at: '2026-02-01T12:36:51Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-01T12:36:59Z'
+    commit: aef309d665a376b85e9e215d411d274b1c9a4563
     notes: []
   - id: task-02
     title: Implement risk-free source resolution (all supported modes) in `monte_carlo/config.py`.
