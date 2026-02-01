@@ -131,42 +131,6 @@ class MonteCarloRunner:
         self._maybe_export(results)
         return results
 
-
-def evaluate_strategies_for_path(
-    path_id: Hashable,
-    rebalance_dates: Iterable[Hashable],
-    compute_score_frame: ScoreFrameFn,
-    strategies: Mapping[str, StrategyFn],
-    *,
-    columns_by_strategy: Mapping[str, Sequence[str]] | None = None,
-    cache: PathContextCache | None = None,
-) -> dict[str, Any]:
-    """Evaluate strategies for a single path using cached score frames."""
-    cache_obj = cache or PathContextCache()
-    dates = list(rebalance_dates)
-    for date in dates:
-
-        def _compute_for_date(d: Hashable = date) -> pd.DataFrame:
-            return compute_score_frame(d)
-
-        cache_obj.get_or_compute_score_frame(
-            path_id,
-            date,
-            _compute_for_date,
-        )
-
-    results: dict[str, Any] = {}
-    try:
-        for name, strategy in strategies.items():
-            columns = columns_by_strategy.get(name) if columns_by_strategy else None
-            score_frames = {
-                date: cache_obj.select_score_frame(path_id, date, columns) for date in dates
-            }
-            results[name] = strategy(score_frames)
-    finally:
-        cache_obj.clear(path_id)
-    return results
-
     def _run_two_layer(
         self,
         *,
@@ -655,3 +619,39 @@ def evaluate_strategies_for_path(
         if isinstance(base_config, str):
             return Path(base_config)
         raise TypeError("base_config must be a path")
+
+
+def evaluate_strategies_for_path(
+    path_id: Hashable,
+    rebalance_dates: Iterable[Hashable],
+    compute_score_frame: ScoreFrameFn,
+    strategies: Mapping[str, StrategyFn],
+    *,
+    columns_by_strategy: Mapping[str, Sequence[str]] | None = None,
+    cache: PathContextCache | None = None,
+) -> dict[str, Any]:
+    """Evaluate strategies for a single path using cached score frames."""
+    cache_obj = cache or PathContextCache()
+    dates = list(rebalance_dates)
+    for date in dates:
+
+        def _compute_for_date(d: Hashable = date) -> pd.DataFrame:
+            return compute_score_frame(d)
+
+        cache_obj.get_or_compute_score_frame(
+            path_id,
+            date,
+            _compute_for_date,
+        )
+
+    results: dict[str, Any] = {}
+    try:
+        for name, strategy in strategies.items():
+            columns = columns_by_strategy.get(name) if columns_by_strategy else None
+            score_frames = {
+                date: cache_obj.select_score_frame(path_id, date, columns) for date in dates
+            }
+            results[name] = strategy(score_frames)
+    finally:
+        cache_obj.clear(path_id)
+    return results
