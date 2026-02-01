@@ -5,6 +5,7 @@ from trend_analysis.monte_carlo.models.bootstrap import (
     StationaryBootstrapModel,
     _stationary_bootstrap_indices,
 )
+from trend_analysis.monte_carlo.seed import SeedManager
 from trend_analysis.timefreq import MONTHLY_DATE_FREQ
 
 
@@ -241,6 +242,40 @@ def test_missingness_preserves_per_asset_nan_rates() -> None:
         assert abs(sim_rate - hist_rate) < 0.05
 
     assert np.allclose(simulated_rates_by_path, expected_rates_by_path, atol=1.0e-12)
+
+
+def test_stationary_bootstrap_uses_path_seed_streams() -> None:
+    n_obs = 20
+    index = pd.date_range("2024-04-01", periods=n_obs, freq="D")
+    log_returns = np.column_stack(
+        [
+            _unique_log_returns(n_obs, start=0.001, step=0.0002),
+            _unique_log_returns(n_obs, start=0.003, step=0.0003),
+        ]
+    )
+    prices = _prices_from_log_returns(log_returns, index, ["AssetA", "AssetB"])
+
+    model = StationaryBootstrapModel(mean_block_len=4, frequency="D").fit(prices)
+    n_periods = 8
+    n_paths = 3
+    seed = 303
+    result = model.sample_prices(n_periods=n_periods, n_paths=n_paths, seed=seed)
+
+    history = model.historical_log_returns
+    data = history.to_numpy()
+    path_id = 2
+    path_rng = SeedManager(seed).get_path_rng(path_id)
+    expected_idx = _stationary_bootstrap_indices(
+        n_obs=data.shape[0],
+        n_periods=n_periods,
+        n_paths=1,
+        mean_block_len=model.mean_block_len,
+        rng=path_rng,
+    )
+    expected = data[expected_idx[0]]
+
+    actual = result.log_returns.xs(path_id, level="path", axis=1).to_numpy()
+    assert np.allclose(actual, expected)
 
 
 def test_monthly_frequency_flow() -> None:
