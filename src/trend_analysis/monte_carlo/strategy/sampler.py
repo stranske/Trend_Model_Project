@@ -184,7 +184,8 @@ def _count_finite_combinations(distributions: Iterable[Distribution]) -> int | N
         values = dist.finite_values()
         if values is None:
             return None
-        sizes.append(len(values))
+        unique_values = {_freeze(value) for value in values}
+        sizes.append(len(unique_values))
     total = 1
     for size in sizes:
         total *= size

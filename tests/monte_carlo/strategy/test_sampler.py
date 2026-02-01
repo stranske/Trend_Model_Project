@@ -238,3 +238,13 @@ def test_sample_strategy_variants_n_exceeds_discrete_range_combinations() -> Non
 
     with pytest.raises(ValueError, match="exceeds available unique combinations"):
         sample_strategy_variants(sampling, 3, seed=9)
+
+
+def test_sample_strategy_variants_n_exceeds_combinations_with_duplicates() -> None:
+    sampling = {
+        "portfolio.rank.n": {"dist": "categorical", "values": [1, 1, 2]},
+        "portfolio.weighting_scheme": {"dist": "discrete", "values": ["equal"]},
+    }
+
+    with pytest.raises(ValueError, match="exceeds available unique combinations"):
+        sample_strategy_variants(sampling, 3, seed=11)
