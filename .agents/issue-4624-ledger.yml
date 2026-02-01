@@ -1,0 +1,274 @@
+version: 1
+issue: 4624
+base: phase-3
+branch: codex/issue-4624
+tasks:
+  - id: task-01
+    title: Modify `src/trend_analysis/monte_carlo/__init__.py` to add explicit import
+      statements for `MonteCarloScenario` and `MonteCarloSettings` and include them
+      in the `__all__` list.
+    status: doing
+    started_at: '2026-02-01T01:03:33Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Add explicit import statements for `MonteCarloScenario` (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Define scope for: `MonteCarloSettings` in `src/trend_analysis/monte_carlo/__init__.py`.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Implement focused slice for: `MonteCarloSettings` in `src/trend_analysis/monte_carlo/__init__.py`.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Validate focused slice for: `MonteCarloSettings` in `src/trend_analysis/monte_carlo/__init__.py`.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Define scope for: Update the `__all__` list in `src/trend_analysis/monte_carlo/__init__.py`
+      to include `MonteCarloScenario` (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Implement focused slice for: Update the `__all__` list in `src/trend_analysis/monte_carlo/__init__.py`
+      to include `MonteCarloScenario` (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Validate focused slice for: Update the `__all__` list in `src/trend_analysis/monte_carlo/__init__.py`
+      to include `MonteCarloScenario` (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: '`MonteCarloSettings`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Update the `load_scenario` function in the MonteCarlo scenario parser to
+      check if 'return_model' or 'folds' is null and raise a `ValueError` with a clear
+      message in that case.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Refactor the unit test for `config/scenarios/monte_carlo/example.yml` to
+      invoke the production parsing function (`load_scenario`) and ensure that the
+      test validates type checks and constraint validations.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Define scope for: Refactor the unit test for `config/scenarios/monte_carlo/example.yml`
+      to invoke the production parsing function (`load_scenario`). (verify: config
+      validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Implement focused slice for: Refactor the unit test for `config/scenarios/monte_carlo/example.yml`
+      to invoke the production parsing function (`load_scenario`). (verify: config
+      validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Validate focused slice for: Refactor the unit test for `config/scenarios/monte_carlo/example.yml`
+      to invoke the production parsing function (`load_scenario`). (verify: config
+      validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Define scope for: Ensure that the refactored test validates type checks
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Implement focused slice for: Ensure that the refactored test validates
+      type checks (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Validate focused slice for: Ensure that the refactored test validates
+      type checks (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'constraint validations. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Review and confirm the changes made in the `_coerce_tags` function regarding
+      lowercasing all tags to ensure alignment with product requirements.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: The `src/trend_analysis/monte_carlo/__init__.py` file contains explicit
+      import statements for `MonteCarloScenario` and `MonteCarloSettings`, and both
+      are included in the `__all__` list.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: The `load_scenario` function in the MonteCarlo scenario parser raises a
+      `ValueError` with a descriptive message when 'return_model' or 'folds' is null.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: The unit test for `config/scenarios/monte_carlo/example.yml` processes
+      the file through the `load_scenario` function and validates the resulting objects
+      against the expected schema.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: The `_coerce_tags` function lowercases all tags, and this behavior is confirmed
+      to align with product requirements.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: Modify `src/trend_analysis/monte_carlo/__init__.py` to add explicit import
+      statements for `MonteCarloScenario` and `MonteCarloSettings` and include them
+      in the `__all__` list.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: Update the `load_scenario` function in the MonteCarlo scenario parser to
+      check if 'return_model' or 'folds' is null and raise a `ValueError` with a clear
+      message in that case.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: Refactor the unit test for `config/scenarios/monte_carlo/example.yml` to
+      invoke the production parsing function (`load_scenario`) and ensure that the
+      test validates type checks and constraint validations.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: Review and confirm the changes made in the `_coerce_tags` function regarding
+      lowercasing all tags to ensure alignment with product requirements.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: The `src/trend_analysis/monte_carlo/__init__.py` file contains explicit
+      import statements for `MonteCarloScenario` and `MonteCarloSettings`, and both
+      are included in the `__all__` list.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: The `load_scenario` function in the MonteCarlo scenario parser raises a
+      `ValueError` with a descriptive message when 'return_model' or 'folds' is null.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: The unit test for `config/scenarios/monte_carlo/example.yml` processes
+      the file through the `load_scenario` function and validates the resulting objects
+      against the expected schema.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: The `_coerce_tags` function lowercases all tags, and this behavior is confirmed
+      to align with product requirements.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: Design the test to use the same code path as production, ideally by loading
+      and parsing the YAML configuration file. (The agent cannot design tests or make
+      subjective design decisions due to AGENT_LIMITATIONS. | Provide a detailed test
+      design or example for the agent to implement.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
