@@ -10,6 +10,7 @@ import pandas as pd
 from numpy.typing import NDArray
 
 from trend_analysis.monte_carlo.seed import SeedManager
+
 from .base import (
     PricePathResult,
     apply_missingness_mask,
