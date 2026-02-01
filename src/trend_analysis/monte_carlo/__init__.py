@@ -6,6 +6,8 @@ from .registry import (
     list_scenarios,
     load_scenario,
 )
+from .results import MonteCarloResults
+from .runner import MonteCarloRunner
 from .scenario import MonteCarloScenario, MonteCarloSettings
 
 __all__ = [
@@ -15,4 +17,6 @@ __all__ = [
     "get_scenario_path",
     "list_scenarios",
     "load_scenario",
+    "MonteCarloRunner",
+    "MonteCarloResults",
 ]
