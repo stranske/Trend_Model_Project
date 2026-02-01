@@ -7,10 +7,10 @@ tasks:
     title: Update `src/trend_analysis/monte_carlo/__init__.py` to include explicit
       import statements for `MonteCarloScenario` and `MonteCarloSettings` and add
       these classes to the module's `__all__` list.
-    status: doing
+    status: done
     started_at: '2026-02-01T07:08:28Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-01T07:08:35Z'
+    commit: 7c7b297fe4efa7233a9836d7e2901e79107ed643
     notes: []
   - id: task-02
     title: Modify the `_coerce_tags` function to ensure it converts all input tag
