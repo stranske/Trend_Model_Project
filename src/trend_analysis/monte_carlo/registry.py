@@ -68,7 +68,7 @@ def _coerce_tags(value: object) -> tuple[str, ...]:
     for tag in values:
         if tag is None:
             continue
-        label = str(tag).strip().lower()
+        label = str(tag).strip().casefold()
         if label:
             cleaned.append(label)
     return tuple(cleaned)
