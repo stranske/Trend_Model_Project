@@ -1,0 +1,306 @@
+version: 1
+issue: 4167
+base: phase-3
+branch: codex/issue-4167
+tasks:
+  - id: task-01
+    title: Implement `PathContext` class to cache score frames once per path in `src/trend_analysis/monte_carlo/cache.py`.
+    status: done
+    started_at: '2026-02-01T09:16:49Z'
+    finished_at: '2026-02-01T09:16:58Z'
+    commit: 79e68df19d70aaa7898f746e786869f1b39f43c8
+    notes: []
+  - id: task-02
+    title: 'Define the structure (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-03
+    title: 'attributes of the `PathContext` class. (verify: confirm completion in
+      repo)'
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-04
+    title: 'Define scope for: Implement the logic for caching score frames in the
+      `PathContext` class. (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-05
+    title: 'Implement focused slice for: Implement the logic for caching score frames
+      in the `PathContext` class. (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-06
+    title: 'Validate focused slice for: Implement the logic for caching score frames
+      in the `PathContext` class. (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-07
+    title: Create `PathContextCache` class to compute and store required metrics in
+      `src/trend_analysis/monte_carlo/cache.py`.
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-08
+    title: 'Define the structure (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-09
+    title: 'attributes of the `PathContextCache` class. (verify: confirm completion
+      in repo)'
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-10
+    title: 'Implement the logic for computing (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-11
+    title: 'storing required metrics in the `PathContextCache` class. (verify: confirm
+      completion in repo)'
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-12
+    title: Update `src/trend_analysis/monte_carlo/runner.py` to consume cached frames
+      for strategy evaluation.
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-13
+    title: Implement logic to clear cache after path completion to bound memory usage
+      in `src/trend_analysis/monte_carlo/cache.py`.
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-14
+    title: Write unit tests in `tests/monte_carlo/test_cache.py` to validate caching
+      behavior and result equivalence.
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-15
+    title: 'Write unit tests to validate caching behavior. (verify: tests pass)'
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-16
+    title: 'Write unit tests to validate result equivalence. (verify: tests pass)'
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-17
+    title: '## Performance Target'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Running 10 strategies should be **materially faster** than running 10
+      independent full analyses:'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Target: <2x the time of a single strategy (vs 10x without caching)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Metric computation is O(1) per path regardless of strategy count
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-21
+    title: Implement `PathContext` and cache to compute score frames once per path.
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-22
+    title: Update runner to consume cached frames for strategy evaluation.
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-23
+    title: Clear cache after path completion to bound memory use.
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-24
+    title: Add tests validating caching behavior and result equivalence.
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-25
+    title: Score frames are computed once per rebalance date per path.
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-26
+    title: Strategy evaluation uses cached frames without recomputing metrics.
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-27
+    title: Running 10 strategies is <2x the time of running 1 strategy on the same
+      path.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: Numerical results are unchanged compared to baseline full runs.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: Cache is cleared after path completion to ensure bounded memory usage.
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-30
+    title: Unit tests confirm caching behavior and correctness.
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-31
+    title: Score frames computed once per rebalance date per path
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-32
+    title: Strategy evaluation consumes cached frames, not recomputing
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-33
+    title: Running 10 strategies is <2x time of 1 strategy on same path
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: No change in numerical results vs baseline full runs
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: Memory usage bounded (clear cache after path completes)
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-36
+    title: Unit tests verify caching behavior and correctness
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-37
+    title: '## Files to Create/Modify'
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-38
+    title: '`src/trend_analysis/monte_carlo/cache.py`'
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-39
+    title: Modify `src/trend_analysis/monte_carlo/runner.py` to use cache
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-40
+    title: '`tests/monte_carlo/test_cache.py`'
+    status: done
+    started_at: '2026-02-01T09:44:55Z'
+    finished_at: '2026-02-01T09:44:55Z'
+    commit: d7544123
+    notes: []
+  - id: task-41
+    title: Cannot guarantee specific coverage percentages. (The agent cannot guarantee
+      specific test coverage percentages due to AGENT_LIMITATIONS. | Specify a general
+      goal for test coverage without requiring exact percentages.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []

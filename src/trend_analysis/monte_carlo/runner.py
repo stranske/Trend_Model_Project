@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import logging
 import math
+from collections.abc import Hashable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping, Sequence
+from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -30,6 +31,7 @@ from trend_analysis.pipeline import _resolve_sample_split
 from trend_analysis.risk import periods_per_year_from_code
 from trend_analysis.stages.selection import single_period_run
 
+from .cache import PathContextCache
 from .results import (
     MonteCarloPathError,
     MonteCarloResults,
@@ -39,7 +41,10 @@ from .results import (
     export_results,
 )
 
-__all__ = ["MonteCarloRunner"]
+ScoreFrameFn = Callable[[Hashable], pd.DataFrame]
+StrategyFn = Callable[[Mapping[Hashable, pd.DataFrame]], Any]
+
+__all__ = ["MonteCarloRunner", "evaluate_strategies_for_path"]
 
 
 @dataclass(frozen=True)
@@ -520,7 +525,10 @@ class MonteCarloRunner:
     def _execute_paths(
         self,
         path_seeds: Sequence[int | None],
-        fn: Callable[[int, int | None], tuple[list[StrategyEvaluation], list[MonteCarloPathError]]],
+        fn: Callable[
+            [int, int | None],
+            tuple[list[StrategyEvaluation], list[MonteCarloPathError]],
+        ],
         jobs: int,
     ) -> Iterable[tuple[int, list[StrategyEvaluation], list[MonteCarloPathError]]]:
         if jobs <= 1:
@@ -611,3 +619,39 @@ class MonteCarloRunner:
         if isinstance(base_config, str):
             return Path(base_config)
         raise TypeError("base_config must be a path")
+
+
+def evaluate_strategies_for_path(
+    path_id: Hashable,
+    rebalance_dates: Iterable[Hashable],
+    compute_score_frame: ScoreFrameFn,
+    strategies: Mapping[str, StrategyFn],
+    *,
+    columns_by_strategy: Mapping[str, Sequence[str]] | None = None,
+    cache: PathContextCache | None = None,
+) -> dict[str, Any]:
+    """Evaluate strategies for a single path using cached score frames."""
+    cache_obj = cache or PathContextCache()
+    dates = list(rebalance_dates)
+    for date in dates:
+
+        def _compute_for_date(d: Hashable = date) -> pd.DataFrame:
+            return compute_score_frame(d)
+
+        cache_obj.get_or_compute_score_frame(
+            path_id,
+            date,
+            _compute_for_date,
+        )
+
+    results: dict[str, Any] = {}
+    try:
+        for name, strategy in strategies.items():
+            columns = columns_by_strategy.get(name) if columns_by_strategy else None
+            score_frames = {
+                date: cache_obj.select_score_frame(path_id, date, columns) for date in dates
+            }
+            results[name] = strategy(score_frames)
+    finally:
+        cache_obj.clear(path_id)
+    return results
