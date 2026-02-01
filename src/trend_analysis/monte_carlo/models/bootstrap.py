@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
+from trend_analysis.monte_carlo.seed import SeedManager
 from trend_analysis.timefreq import MONTHLY_DATE_FREQ
 
 from .base import (
@@ -210,14 +211,28 @@ class StationaryBootstrapModel:
 
         data = self._log_returns_values
         n_obs, n_assets = data.shape
-        rng = np.random.default_rng(seed)
-        indices = _stationary_bootstrap_indices(
-            n_obs=n_obs,
-            n_periods=n_periods,
-            n_paths=n_paths,
-            mean_block_len=self.mean_block_len,
-            rng=rng,
-        )
+        if seed is None:
+            rng = np.random.default_rng(seed)
+            indices = _stationary_bootstrap_indices(
+                n_obs=n_obs,
+                n_periods=n_periods,
+                n_paths=n_paths,
+                mean_block_len=self.mean_block_len,
+                rng=rng,
+            )
+        else:
+            seed_manager = SeedManager(seed)
+            indices = np.empty((n_paths, n_periods), dtype=int)
+            for path_id in range(n_paths):
+                rng = seed_manager.get_path_rng(path_id)
+                path_indices = _stationary_bootstrap_indices(
+                    n_obs=n_obs,
+                    n_periods=n_periods,
+                    n_paths=1,
+                    mean_block_len=self.mean_block_len,
+                    rng=rng,
+                )
+                indices[path_id] = path_indices[0]
         sampled = data[indices]
         missingness = self._missingness_mask_values[indices]
         sampled = np.swapaxes(sampled, 0, 1)

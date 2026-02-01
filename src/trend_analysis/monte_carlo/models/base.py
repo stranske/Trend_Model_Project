@@ -9,6 +9,7 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
+from trend_analysis.monte_carlo.seed import SeedManager
 from trend_analysis.timefreq import MONTHLY_DATE_FREQ
 from trend_analysis.util.frequency import FrequencySummary, detect_frequency
 
@@ -231,13 +232,21 @@ class BootstrapPricePathModel(PricePathModel):
 
         history = self._log_returns.dropna(how="all")
         n_assets = self._prices.shape[1]
-        rng = np.random.default_rng(seed)
         if history.empty:
             sampled = np.zeros((n_periods, n_paths, n_assets))
         else:
             data = history.to_numpy()
-            idx = rng.integers(0, data.shape[0], size=(n_periods * n_paths))
-            sampled = data[idx].reshape(n_periods, n_paths, n_assets)
+            sampled = np.empty((n_periods, n_paths, n_assets))
+            if seed is None:
+                rng = np.random.default_rng(seed)
+                idx = rng.integers(0, data.shape[0], size=(n_periods * n_paths))
+                sampled = data[idx].reshape(n_periods, n_paths, n_assets)
+            else:
+                seed_manager = SeedManager(seed)
+                for path_id in range(n_paths):
+                    rng = seed_manager.get_path_rng(path_id)
+                    idx = rng.integers(0, data.shape[0], size=n_periods)
+                    sampled[:, path_id, :] = data[idx]
 
         columns = _build_multi_columns(self._prices.columns, n_paths)
         log_return_frame = pd.DataFrame(

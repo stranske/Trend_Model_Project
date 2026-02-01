@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
+from trend_analysis.monte_carlo.seed import SeedManager
 from .base import (
     PricePathResult,
     apply_missingness_mask,
@@ -324,51 +325,105 @@ class RegimeConditionedBootstrapModel:
 
         data = self._log_returns_values
         n_obs, n_assets = data.shape
-        rng = np.random.default_rng(seed)
-
-        if self._labels is None or self._transition is None or self._regime_buckets is None:
-            indices = _stationary_bootstrap_indices(
-                n_obs=n_obs,
-                n_periods=n_periods,
-                n_paths=n_paths,
-                mean_block_len=self.mean_block_len,
-                rng=rng,
-            )
+        if seed is None:
+            rng = np.random.default_rng(seed)
+            if self._labels is None or self._transition is None or self._regime_buckets is None:
+                indices = _stationary_bootstrap_indices(
+                    n_obs=n_obs,
+                    n_periods=n_periods,
+                    n_paths=n_paths,
+                    mean_block_len=self.mean_block_len,
+                    rng=rng,
+                )
+            else:
+                transition = self._transition.to_numpy(dtype=float)
+                regimes = list(self._transition.index)
+                if self._regime_buckets is None:
+                    label_values = self._labels.to_numpy()
+                    buckets = {
+                        idx: np.flatnonzero(label_values == label)
+                        for idx, label in enumerate(regimes)
+                    }
+                else:
+                    buckets = {
+                        idx: self._regime_buckets.get(idx, np.array([], dtype=int))
+                        for idx in range(len(regimes))
+                    }
+                counts = np.array([bucket.size for bucket in buckets.values()], dtype=float)
+                total = counts.sum()
+                if total <= 0:
+                    initial_probs = np.full(len(regimes), 1.0 / len(regimes))
+                else:
+                    initial_probs = counts / total
+                regime_path = _simulate_regime_path(
+                    n_periods=n_periods,
+                    n_paths=n_paths,
+                    transition=transition,
+                    initial_probs=initial_probs,
+                    rng=rng,
+                )
+                indices = _regime_conditioned_indices(
+                    n_obs=n_obs,
+                    n_periods=n_periods,
+                    n_paths=n_paths,
+                    mean_block_len=self.mean_block_len,
+                    regime_path=regime_path,
+                    regime_buckets=buckets,
+                    rng=rng,
+                )
         else:
-            transition = self._transition.to_numpy(dtype=float)
-            regimes = list(self._transition.index)
-            if self._regime_buckets is None:
-                label_values = self._labels.to_numpy()
-                buckets = {
-                    idx: np.flatnonzero(label_values == label) for idx, label in enumerate(regimes)
-                }
+            seed_manager = SeedManager(seed)
+            indices = np.empty((n_paths, n_periods), dtype=int)
+            if self._labels is None or self._transition is None or self._regime_buckets is None:
+                for path_id in range(n_paths):
+                    rng = seed_manager.get_path_rng(path_id)
+                    path_indices = _stationary_bootstrap_indices(
+                        n_obs=n_obs,
+                        n_periods=n_periods,
+                        n_paths=1,
+                        mean_block_len=self.mean_block_len,
+                        rng=rng,
+                    )
+                    indices[path_id] = path_indices[0]
             else:
-                buckets = {
-                    idx: self._regime_buckets.get(idx, np.array([], dtype=int))
-                    for idx in range(len(regimes))
-                }
-            counts = np.array([bucket.size for bucket in buckets.values()], dtype=float)
-            total = counts.sum()
-            if total <= 0:
-                initial_probs = np.full(len(regimes), 1.0 / len(regimes))
-            else:
-                initial_probs = counts / total
-            regime_path = _simulate_regime_path(
-                n_periods=n_periods,
-                n_paths=n_paths,
-                transition=transition,
-                initial_probs=initial_probs,
-                rng=rng,
-            )
-            indices = _regime_conditioned_indices(
-                n_obs=n_obs,
-                n_periods=n_periods,
-                n_paths=n_paths,
-                mean_block_len=self.mean_block_len,
-                regime_path=regime_path,
-                regime_buckets=buckets,
-                rng=rng,
-            )
+                transition = self._transition.to_numpy(dtype=float)
+                regimes = list(self._transition.index)
+                if self._regime_buckets is None:
+                    label_values = self._labels.to_numpy()
+                    buckets = {
+                        idx: np.flatnonzero(label_values == label)
+                        for idx, label in enumerate(regimes)
+                    }
+                else:
+                    buckets = {
+                        idx: self._regime_buckets.get(idx, np.array([], dtype=int))
+                        for idx in range(len(regimes))
+                    }
+                counts = np.array([bucket.size for bucket in buckets.values()], dtype=float)
+                total = counts.sum()
+                if total <= 0:
+                    initial_probs = np.full(len(regimes), 1.0 / len(regimes))
+                else:
+                    initial_probs = counts / total
+                for path_id in range(n_paths):
+                    rng = seed_manager.get_path_rng(path_id)
+                    regime_path = _simulate_regime_path(
+                        n_periods=n_periods,
+                        n_paths=1,
+                        transition=transition,
+                        initial_probs=initial_probs,
+                        rng=rng,
+                    )
+                    path_indices = _regime_conditioned_indices(
+                        n_obs=n_obs,
+                        n_periods=n_periods,
+                        n_paths=1,
+                        mean_block_len=self.mean_block_len,
+                        regime_path=regime_path,
+                        regime_buckets=buckets,
+                        rng=rng,
+                    )
+                    indices[path_id] = path_indices[0]
 
         sampled = data[indices]
         missingness = self._missingness_mask_values[indices]
