@@ -107,6 +107,10 @@ def test_coerce_tags_lowercases_list_values() -> None:
     assert _coerce_tags(["Core", "Stress"]) == ("core", "stress")
 
 
+def test_coerce_tags_lowercases_tuple_values() -> None:
+    assert _coerce_tags(("Core", "Stress")) == ("core", "stress")
+
+
 def test_coerce_tags_skips_blank_list_values() -> None:
     assert _coerce_tags(["Core", " ", "STRESS"]) == ("core", "stress")
 
