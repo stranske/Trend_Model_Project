@@ -68,7 +68,7 @@ def _coerce_tags(value: object) -> tuple[str, ...]:
     for tag in values:
         if tag is None:
             continue
-        label = str(tag).strip().casefold()
+        label = str(tag).strip().lower()
         if label:
             cleaned.append(label)
     return tuple(cleaned)
@@ -374,12 +374,4 @@ def load_scenario(name: str, *, registry_path: Path | None = None) -> MonteCarlo
         raise ValueError(_format_missing(normalized, scenarios, registry_label=registry_label))
 
     raw = _load_yaml(entry.path)
-    if "folds" in raw and raw.get("folds") is None:
-        raise ValueError(
-            f"Scenario '{normalized}' config 'folds' must be a mapping (null provided)"
-        )
-    if "return_model" in raw and raw.get("return_model") is None:
-        raise ValueError(
-            f"Scenario '{normalized}' config 'return_model' must be a mapping (null provided)"
-        )
     return _parse_scenario(normalized, raw, source_path=entry.path)
