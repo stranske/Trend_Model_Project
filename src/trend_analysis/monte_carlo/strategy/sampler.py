@@ -247,7 +247,11 @@ def sample_strategy_variants(
         frozen = _freeze(overrides)
         if frozen in seen_overrides:
             rejection_count += 1
-            logger.info("Rejected duplicate sampled config (attempt %s)", rejection_count)
+            logger.info(
+                "Rejected duplicate sampled config (attempt %s): overrides=%s",
+                rejection_count,
+                overrides,
+            )
         else:
             rejected = False
             for idx, constraint in enumerate(constraint_fns):
@@ -258,7 +262,12 @@ def sample_strategy_variants(
                     ok, reason = result
                 if not ok:
                     rejection_count += 1
-                    logger.info("Rejected sampled config (attempt %s): %s", rejection_count, reason)
+                    logger.info(
+                        "Rejected sampled config (attempt %s): %s; overrides=%s",
+                        rejection_count,
+                        reason,
+                        overrides,
+                    )
                     rejected = True
                     break
             if not rejected:

@@ -162,6 +162,7 @@ def test_sample_strategy_variants_rejection_logging(caplog: pytest.LogCaptureFix
     sample_strategy_variants(sampling, 1, seed=7, constraints=[constraint])
 
     assert "Rejected sampled config" in caplog.text
+    assert "overrides=" in caplog.text
 
 
 def test_sample_strategy_variants_max_rejection_attempts(caplog: pytest.LogCaptureFixture) -> None:
@@ -177,6 +178,7 @@ def test_sample_strategy_variants_max_rejection_attempts(caplog: pytest.LogCaptu
         )
 
     assert "Rejected sampled config" in caplog.text
+    assert "overrides=" in caplog.text
 
 
 def test_sample_strategy_variants_duplicate_rejection_logging(
@@ -189,6 +191,7 @@ def test_sample_strategy_variants_duplicate_rejection_logging(
         sample_strategy_variants(sampling, 2, seed=3, max_rejection_attempts=2)
 
     assert "Rejected duplicate sampled config" in caplog.text
+    assert "overrides=" in caplog.text
 
 
 def test_sample_strategy_variants_duplicate_rejection_allows_recovery() -> None:
