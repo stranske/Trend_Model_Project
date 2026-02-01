@@ -57,3 +57,14 @@ def test_parser_rejects_null_folds(tmp_path: Path) -> None:
         ValueError, match=r"Scenario config 'folds' must be a mapping \(null provided\)"
     ):
         load_scenario(name, registry_path=registry)
+
+
+def test_parser_prefers_folds_error_when_both_null(tmp_path: Path) -> None:
+    name = "null_folds_and_return_model"
+    _write_scenario(tmp_path, name, "folds: null\nreturn_model: null\n")
+    registry = _write_registry(tmp_path, name, f"{name}.yml")
+
+    with pytest.raises(
+        ValueError, match=r"Scenario config 'folds' must be a mapping \(null provided\)"
+    ):
+        load_scenario(name, registry_path=registry)
