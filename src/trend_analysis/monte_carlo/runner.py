@@ -25,6 +25,7 @@ from trend_analysis.monte_carlo.models import (
     StationaryBootstrapModel,
 )
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
+from trend_analysis.monte_carlo.seed import SeedManager
 from trend_analysis.monte_carlo.strategy import StrategyVariant
 from trend_analysis.pipeline import _resolve_sample_split
 from trend_analysis.risk import periods_per_year_from_code
@@ -40,6 +41,8 @@ from .results import (
 )
 
 __all__ = ["MonteCarloRunner"]
+
+_STRATEGY_SELECTION_SEED_TAG = "__strategy_selection__"
 
 
 @dataclass(frozen=True)
@@ -67,6 +70,8 @@ class MonteCarloRunner:
         self._base_config = self._coerce_base_config(base_config)
         self._price_history = price_history
         self._logger = logger or logging.getLogger("trend_analysis.monte_carlo")
+        self._seed_manager: SeedManager | None = None
+        self._seed_manager_init = False
 
     def run(
         self,
@@ -254,7 +259,8 @@ class MonteCarloRunner:
         strategy: StrategyVariant,
         context: _PathContext,
     ) -> StrategyEvaluation:
-        config = self._build_strategy_config(strategy, context.seed)
+        strategy_seed = self._strategy_seed(context.path_id, strategy.name)
+        config = self._build_strategy_config(strategy, strategy_seed)
         run_result = run_simulation(config, context.returns)
         metrics, source = self._extract_metrics(run_result.metrics)
         diagnostic = None
@@ -375,19 +381,18 @@ class MonteCarloRunner:
     def _build_seeds(self) -> tuple[list[int | None], list[int | None]]:
         settings = self._settings()
         n_paths = settings.n_paths
-        base_seed = settings.seed
         if n_paths is None:
             raise ValueError("monte_carlo.n_paths is required")
-        if base_seed is None:
+        seed_manager = self._get_seed_manager()
+        if seed_manager is None:
             path_seeds: list[int | None] = [None] * n_paths
             strategy_seeds: list[int | None] = [None] * n_paths
             return path_seeds, strategy_seeds
-        seq = np.random.SeedSequence(int(base_seed))
-        child_seeds = seq.spawn(2)
-        path_rng = np.random.default_rng(child_seeds[0])
-        strategy_rng = np.random.default_rng(child_seeds[1])
-        path_seeds = path_rng.integers(0, 2**32 - 1, size=n_paths, dtype=np.uint32).tolist()
-        strategy_seeds = strategy_rng.integers(0, 2**32 - 1, size=n_paths, dtype=np.uint32).tolist()
+        path_seeds = [seed_manager.get_path_seed(path_id) for path_id in range(n_paths)]
+        strategy_seeds = [
+            seed_manager.get_strategy_seed(path_id, _STRATEGY_SELECTION_SEED_TAG)
+            for path_id in range(n_paths)
+        ]
         return path_seeds, strategy_seeds
 
     def _build_strategy_config(self, strategy: StrategyVariant, seed: int | None) -> ConfigType:
@@ -611,3 +616,20 @@ class MonteCarloRunner:
         if isinstance(base_config, str):
             return Path(base_config)
         raise TypeError("base_config must be a path")
+
+    def _get_seed_manager(self) -> SeedManager | None:
+        if self._seed_manager_init:
+            return self._seed_manager
+        self._seed_manager_init = True
+        base_seed = self._settings().seed
+        if base_seed is None:
+            self._seed_manager = None
+        else:
+            self._seed_manager = SeedManager(int(base_seed))
+        return self._seed_manager
+
+    def _strategy_seed(self, path_id: int, strategy_name: str) -> int | None:
+        manager = self._get_seed_manager()
+        if manager is None:
+            return None
+        return manager.get_strategy_seed(path_id, strategy_name)
