@@ -68,12 +68,27 @@ def test_parse_uniform_distribution() -> None:
     assert dist.high == 0.2
 
 
+def test_discrete_distribution_sample_reproducible() -> None:
+    dist = DiscreteDistribution(values=(10, 20, 30))
+    rng = random.Random(4)
+
+    assert dist.sample(rng) == 10
+
+
 def test_uniform_distribution_sample_fixed_value() -> None:
     dist = UniformDistribution(low=0.2, high=0.2)
 
     value = dist.sample(random.Random(123))
 
     assert value == 0.2
+
+
+def test_uniform_distribution_sample_within_bounds() -> None:
+    dist = UniformDistribution(low=0.1, high=0.2)
+
+    value = dist.sample(random.Random(9))
+
+    assert 0.1 <= value <= 0.2
 
 
 def test_parse_sampling_config_rejects_empty_segments() -> None:
