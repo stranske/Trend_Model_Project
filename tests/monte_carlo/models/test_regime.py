@@ -7,6 +7,7 @@ from trend_analysis.monte_carlo.models.regime import (
     RegimeConditionedBootstrapModel,
     RegimeLabeler,
     _normalize_transition_matrix,
+    _regime_conditioned_indices,
     _simulate_regime_path,
 )
 
@@ -122,6 +123,30 @@ def test_normalize_transition_matrix_handles_empty_rows() -> None:
     assert normalized.shape == transition.shape
     assert np.allclose(normalized.sum(axis=1), 1.0)
     assert np.allclose(normalized[0], np.array([1.0, 0.0]))
+
+
+def test_regime_conditioned_indices_fallback_for_empty_bucket() -> None:
+    rng = np.random.default_rng(123)
+    n_obs = 5
+    n_periods = 6
+    n_paths = 2
+    regime_path = np.array([[1, 1, 1, 1, 1, 1], [0, 1, 0, 1, 0, 1]])
+    regime_buckets = {0: np.array([0, 2, 4]), 1: np.array([], dtype=int)}
+
+    indices = _regime_conditioned_indices(
+        n_obs=n_obs,
+        n_periods=n_periods,
+        n_paths=n_paths,
+        mean_block_len=2.0,
+        regime_path=regime_path,
+        regime_buckets=regime_buckets,
+        rng=rng,
+    )
+
+    assert indices.shape == (n_paths, n_periods)
+    assert indices.min() >= 0
+    assert indices.max() < n_obs
+    assert np.any(~np.isin(indices[0], regime_buckets[0]))
 
 
 def test_simulate_regime_path_normalizes_initial_probs() -> None:
