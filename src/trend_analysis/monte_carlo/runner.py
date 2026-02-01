@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime
 import logging
 import math
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
@@ -15,6 +15,11 @@ import pandas as pd
 from trend_analysis.api import run_simulation
 from trend_analysis.config.models import Config
 from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
+from trend_analysis.io.market_data import (
+    MarketDataMode,
+    load_market_data_csv,
+    load_market_data_parquet,
+)
 from trend_analysis.monte_carlo.models import (
     RegimeConditionedBootstrapModel,
     StationaryBootstrapModel,
@@ -24,11 +29,6 @@ from trend_analysis.monte_carlo.strategy import StrategyVariant
 from trend_analysis.pipeline import _resolve_sample_split
 from trend_analysis.risk import periods_per_year_from_code
 from trend_analysis.stages.selection import single_period_run
-from trend_analysis.io.market_data import (
-    MarketDataMode,
-    load_market_data_csv,
-    load_market_data_parquet,
-)
 
 from .results import (
     MonteCarloPathError,
@@ -139,7 +139,9 @@ class MonteCarloRunner:
         evaluations: list[StrategyEvaluation] = []
         errors: list[MonteCarloPathError] = []
 
-        def _evaluate_path(path_id: int, seed: int | None) -> tuple[list[StrategyEvaluation], list[MonteCarloPathError]]:
+        def _evaluate_path(
+            path_id: int, seed: int | None
+        ) -> tuple[list[StrategyEvaluation], list[MonteCarloPathError]]:
             try:
                 context = self._generate_path_context(
                     path_id=path_id,
@@ -163,9 +165,7 @@ class MonteCarloRunner:
             return path_evals, path_errors
 
         completed = 0
-        for path_id, path_eval, path_err in self._execute_paths(
-            path_seeds, _evaluate_path, jobs
-        ):
+        for path_id, path_eval, path_err in self._execute_paths(path_seeds, _evaluate_path, jobs):
             evaluations.extend(path_eval)
             errors.extend(path_err)
             completed += 1
@@ -188,7 +188,9 @@ class MonteCarloRunner:
         evaluations: list[StrategyEvaluation] = []
         errors: list[MonteCarloPathError] = []
 
-        def _evaluate_path(path_id: int, seed: int | None) -> tuple[list[StrategyEvaluation], list[MonteCarloPathError]]:
+        def _evaluate_path(
+            path_id: int, seed: int | None
+        ) -> tuple[list[StrategyEvaluation], list[MonteCarloPathError]]:
             strategy = self._sample_strategy(strategies, strategy_seeds[path_id])
             try:
                 context = self._generate_path_context(
@@ -209,9 +211,7 @@ class MonteCarloRunner:
                 return [], [self._error_record(path_id, strategy.name, exc)]
 
         completed = 0
-        for path_id, path_eval, path_err in self._execute_paths(
-            path_seeds, _evaluate_path, jobs
-        ):
+        for path_id, path_eval, path_err in self._execute_paths(path_seeds, _evaluate_path, jobs):
             evaluations.extend(path_eval)
             errors.extend(path_err)
             completed += 1
@@ -371,9 +371,7 @@ class MonteCarloRunner:
         path_rng = np.random.default_rng(child_seeds[0])
         strategy_rng = np.random.default_rng(child_seeds[1])
         path_seeds = path_rng.integers(0, 2**32 - 1, size=n_paths, dtype=np.uint32).tolist()
-        strategy_seeds = strategy_rng.integers(
-            0, 2**32 - 1, size=n_paths, dtype=np.uint32
-        ).tolist()
+        strategy_seeds = strategy_rng.integers(0, 2**32 - 1, size=n_paths, dtype=np.uint32).tolist()
         return path_seeds, strategy_seeds
 
     def _build_strategy_config(self, strategy: StrategyVariant, seed: int | None) -> Config:
