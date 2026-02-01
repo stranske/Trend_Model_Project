@@ -15,7 +15,9 @@ def test_path_seed_is_deterministic() -> None:
 def test_strategy_seed_is_deterministic() -> None:
     manager = SeedManager(42)
 
-    assert manager.get_strategy_seed(3, "trend_basic") == manager.get_strategy_seed(3, "trend_basic")
+    assert manager.get_strategy_seed(3, "trend_basic") == manager.get_strategy_seed(
+        3, "trend_basic"
+    )
     assert manager.get_strategy_seed(3, "trend_basic") == SeedManager(42).get_strategy_seed(
         3, "trend_basic"
     )
