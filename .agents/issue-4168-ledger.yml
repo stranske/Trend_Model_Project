@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Implement `SeedManager` class in `src/trend_analysis/monte_carlo/seed.py`
       for deterministic path and strategy RNG streams.
-    status: doing
+    status: done
     started_at: '2026-02-01T09:16:44Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-01T09:16:50Z'
+    commit: 84296ab2cea7f5aefade5e833b0637b1e170f2a6
     notes: []
   - id: task-02
     title: 'Define scope for: Create the `SeedManager` class structure in `src/trend_analysis/monte_carlo/seed.py`.
