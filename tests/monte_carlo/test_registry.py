@@ -816,6 +816,8 @@ def test_get_scenario_path_filters_by_tags_mixed_case(tmp_path: Path) -> None:
 def test_get_scenario_path_requires_name(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="Scenario name is required"):
         get_scenario_path("")
+    with pytest.raises(ValueError, match="Scenario name is required"):
+        get_scenario_path("", tags=[" ", "\t"])
 
     scenario_path = tmp_path / "alpha.yml"
     scenario_path.write_text("{}", encoding="utf-8")
