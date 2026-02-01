@@ -42,6 +42,24 @@ def test_parse_discrete_distribution_range() -> None:
     assert dist.values == (1, 2, 3)
 
 
+def test_parse_discrete_distribution_range_float_step() -> None:
+    dist = parse_distribution(
+        {"dist": "discrete", "low": 0.5, "high": 1.5, "step": 0.5},
+        path="sampling.weighting",
+    )
+
+    assert isinstance(dist, DiscreteDistribution)
+    assert dist.values == (0.5, 1.0, 1.5)
+
+
+def test_parse_discrete_distribution_invalid_step() -> None:
+    with pytest.raises(ValueError, match="step must be > 0"):
+        parse_distribution(
+            {"dist": "discrete", "low": 1, "high": 2, "step": 0},
+            path="sampling.weighting",
+        )
+
+
 def test_parse_uniform_distribution() -> None:
     dist = parse_distribution({"dist": "uniform", "low": 0.1, "high": 0.2}, path="sampling.tc")
 
