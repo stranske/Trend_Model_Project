@@ -202,7 +202,7 @@ def list_scenarios(
     for entry in scenarios:
         if _matches_any_tag(entry.tags, tag_set):
             filtered.append(entry)
-    return filtered
+    return sorted(filtered, key=lambda item: str(item.path))
 
 
 def _format_missing(
@@ -242,7 +242,9 @@ def get_scenario_path(
     if not scenarios:
         registry_label = _registry_label(registry_path)
         tag_labels = ", ".join(sorted(tag_set))
-        raise ValueError(f"No scenarios match tags [{tag_labels}] in registry '{registry_label}'")
+        raise ValueError(
+            f"No matching scenarios found for tags [{tag_labels}] in registry '{registry_label}'"
+        )
     return [entry.path for entry in scenarios]
 
 
