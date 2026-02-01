@@ -202,7 +202,7 @@ def list_scenarios(
     for entry in scenarios:
         if _matches_any_tag(entry.tags, tag_set):
             filtered.append(entry)
-    return sorted(filtered, key=lambda item: str(item.path))
+    return sorted(filtered, key=lambda item: str(item.path).casefold())
 
 
 def _format_missing(
