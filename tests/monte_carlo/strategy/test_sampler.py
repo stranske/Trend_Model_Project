@@ -184,6 +184,15 @@ def test_sample_strategy_variants_duplicate_rejection_logging(
     assert "Rejected duplicate sampled config" in caplog.text
 
 
+def test_sample_strategy_variants_duplicate_rejection_allows_recovery() -> None:
+    sampling = {"portfolio.rank.n": {"dist": "categorical", "values": [1, 2]}}
+
+    variants = sample_strategy_variants(sampling, 2, seed=1, max_rejection_attempts=5)
+
+    values = {variant.overrides["portfolio"]["rank"]["n"] for variant in variants}
+    assert values == {1, 2}
+
+
 def test_sample_strategy_variants_unique_names() -> None:
     sampling = {"portfolio.rank.n": {"dist": "categorical", "values": [1, 2, 3]}}
 
