@@ -61,9 +61,7 @@ def test_list_scenarios_reflects_registry_updates(tmp_path: Path) -> None:
     beta_path.write_text("{}", encoding="utf-8")
     registry = tmp_path / "index.yml"
     registry.write_text(
-        "scenarios:\n"
-        "  - name: alpha\n"
-        "    path: alpha.yml\n",
+        "scenarios:\n" "  - name: alpha\n" "    path: alpha.yml\n",
         encoding="utf-8",
     )
 
