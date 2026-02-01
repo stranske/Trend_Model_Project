@@ -43,9 +43,7 @@ def _write_scenario(tmp_path: Path, name: str, extra_payload: str) -> Path:
         ("folds", "folds: null\n"),
     ],
 )
-def test_parser_rejects_null_optional_mappings(
-    tmp_path: Path, field: str, payload: str
-) -> None:
+def test_parser_rejects_null_optional_mappings(tmp_path: Path, field: str, payload: str) -> None:
     name = f"null_{field}"
     _write_scenario(tmp_path, name, payload)
     registry = _write_registry(tmp_path, name, f"{name}.yml")
