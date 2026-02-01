@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 from trend_analysis.api import run_simulation
-from trend_analysis.config.models import Config
+from trend_analysis.config.models import Config, ConfigType
 from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
 from trend_analysis.io.market_data import (
     MarketDataMode,
@@ -24,7 +24,7 @@ from trend_analysis.monte_carlo.models import (
     RegimeConditionedBootstrapModel,
     StationaryBootstrapModel,
 )
-from trend_analysis.monte_carlo.scenario import MonteCarloScenario
+from trend_analysis.monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
 from trend_analysis.monte_carlo.strategy import StrategyVariant
 from trend_analysis.pipeline import _resolve_sample_split
 from trend_analysis.risk import periods_per_year_from_code
@@ -76,13 +76,14 @@ class MonteCarloRunner:
     ) -> MonteCarloResults:
         """Run the Monte Carlo simulation for the configured scenario."""
 
+        settings = self._settings()
         strategies = self._resolve_strategies()
         model = self._build_price_model()
         n_periods = self._compute_n_periods()
         path_seeds, strategy_seeds = self._build_seeds()
         worker_count = self._resolve_jobs(jobs)
 
-        mode = self.scenario.monte_carlo.mode
+        mode = settings.mode
         if mode == "two_layer":
             evaluations, errors = self._run_two_layer(
                 model=model,
@@ -110,9 +111,9 @@ class MonteCarloRunner:
         metadata = {
             "scenario": self.scenario.name,
             "mode": mode,
-            "n_paths": self.scenario.monte_carlo.n_paths,
+            "n_paths": settings.n_paths,
             "n_strategies": len(strategies),
-            "seed": self.scenario.monte_carlo.seed,
+            "seed": settings.seed,
         }
         results = MonteCarloResults(
             mode=mode,
@@ -273,13 +274,19 @@ class MonteCarloRunner:
         )
 
     def _compute_n_periods(self) -> int:
-        settings = self.scenario.monte_carlo
-        periods_per_year = periods_per_year_from_code(settings.frequency)
-        n_periods = int(math.ceil(settings.horizon_years * periods_per_year))
+        settings = self._settings()
+        frequency = settings.frequency
+        horizon_years = settings.horizon_years
+        if frequency is None:
+            raise ValueError("monte_carlo.frequency is required")
+        if horizon_years is None:
+            raise ValueError("monte_carlo.horizon_years is required")
+        periods_per_year = periods_per_year_from_code(frequency)
+        n_periods = int(math.ceil(float(horizon_years) * periods_per_year))
         return max(n_periods, 1)
 
     def _resolve_jobs(self, jobs: int | None) -> int:
-        requested = jobs if jobs is not None else self.scenario.monte_carlo.jobs
+        requested = jobs if jobs is not None else self._settings().jobs
         if requested is None:
             return 1
         try:
@@ -289,7 +296,7 @@ class MonteCarloRunner:
         return max(count, 1)
 
     def _resolve_strategies(self) -> list[StrategyVariant]:
-        strategy_set = self.scenario.strategy_set or {}
+        strategy_set = self._strategy_set()
         curated = strategy_set.get("curated")
         if isinstance(curated, list) and curated:
             variants: list[StrategyVariant] = []
@@ -303,10 +310,14 @@ class MonteCarloRunner:
         return [StrategyVariant(name="base")]
 
     def _build_price_model(self) -> Any:
-        model_spec = self.scenario.return_model or {}
+        model_spec_raw = self.scenario.return_model
+        model_spec: Mapping[str, Any] = (
+            model_spec_raw if isinstance(model_spec_raw, Mapping) else {}
+        )
         kind = str(model_spec.get("kind") or "stationary_bootstrap").lower()
         params = model_spec.get("params") or {}
         frequency = self.scenario.simulation_frequency()
+        model: Any
         if kind in {"stationary_bootstrap", "bootstrap"}:
             mean_block_len = params.get("mean_block_len", params.get("block_size", 6))
             calibration_window = params.get("calibration_window")
@@ -362,10 +373,15 @@ class MonteCarloRunner:
         return prices
 
     def _build_seeds(self) -> tuple[list[int | None], list[int | None]]:
-        n_paths = self.scenario.monte_carlo.n_paths
-        base_seed = self.scenario.monte_carlo.seed
+        settings = self._settings()
+        n_paths = settings.n_paths
+        base_seed = settings.seed
+        if n_paths is None:
+            raise ValueError("monte_carlo.n_paths is required")
         if base_seed is None:
-            return [None] * n_paths, [None] * n_paths
+            path_seeds: list[int | None] = [None] * n_paths
+            strategy_seeds: list[int | None] = [None] * n_paths
+            return path_seeds, strategy_seeds
         seq = np.random.SeedSequence(int(base_seed))
         child_seeds = seq.spawn(2)
         path_rng = np.random.default_rng(child_seeds[0])
@@ -374,7 +390,7 @@ class MonteCarloRunner:
         strategy_seeds = strategy_rng.integers(0, 2**32 - 1, size=n_paths, dtype=np.uint32).tolist()
         return path_seeds, strategy_seeds
 
-    def _build_strategy_config(self, strategy: StrategyVariant, seed: int | None) -> Config:
+    def _build_strategy_config(self, strategy: StrategyVariant, seed: int | None) -> ConfigType:
         merged = strategy.apply_to(self._base_config)
         self._apply_strategy_guards(merged)
         if seed is not None:
@@ -382,7 +398,7 @@ class MonteCarloRunner:
         return Config(**merged)
 
     def _apply_strategy_guards(self, merged: dict[str, Any]) -> None:
-        strategy_set = self.scenario.strategy_set or {}
+        strategy_set = self._strategy_set()
         guards = strategy_set.get("guards")
         if not isinstance(guards, Mapping):
             return
@@ -541,7 +557,7 @@ class MonteCarloRunner:
 
     def _coerce_base_config(self, base_config: Mapping[str, Any] | None) -> dict[str, Any]:
         if base_config is None:
-            path = Path(self.scenario.base_config)
+            path = self._base_config_path()
             if not path.exists():
                 raise FileNotFoundError(f"Base config not found: {path}")
             raw = path.read_text(encoding="utf-8")
@@ -575,3 +591,23 @@ class MonteCarloRunner:
         if "version" not in updated:
             updated["version"] = "0.1.0"
         return updated
+
+    def _settings(self) -> MonteCarloSettings:
+        settings = self.scenario.monte_carlo
+        if not isinstance(settings, MonteCarloSettings):
+            raise TypeError("monte_carlo settings are not resolved")
+        return settings
+
+    def _strategy_set(self) -> Mapping[str, Any]:
+        strategy_set = self.scenario.strategy_set
+        if isinstance(strategy_set, Mapping):
+            return strategy_set
+        return {}
+
+    def _base_config_path(self) -> Path:
+        base_config = self.scenario.base_config
+        if isinstance(base_config, Path):
+            return base_config
+        if isinstance(base_config, str):
+            return Path(base_config)
+        raise TypeError("base_config must be a path")
