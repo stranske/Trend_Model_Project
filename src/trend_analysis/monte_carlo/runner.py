@@ -26,10 +26,13 @@ def evaluate_strategies_for_path(
     cache_obj = cache or PathContextCache()
     dates = list(rebalance_dates)
     for date in dates:
+        def _compute_for_date(d: Hashable = date) -> pd.DataFrame:
+            return compute_score_frame(d)
+
         cache_obj.get_or_compute_score_frame(
             path_id,
             date,
-            lambda d=date: compute_score_frame(d),
+            _compute_for_date,
         )
 
     results: dict[str, Any] = {}
