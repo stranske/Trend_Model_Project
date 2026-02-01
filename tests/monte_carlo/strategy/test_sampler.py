@@ -139,6 +139,18 @@ def test_sample_strategy_variants_max_rejection_attempts(caplog: pytest.LogCaptu
     assert "Rejected sampled config" in caplog.text
 
 
+def test_sample_strategy_variants_duplicate_rejection_logging(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    sampling = {"portfolio.rank.n": {"dist": "uniform", "low": 1.0, "high": 1.0}}
+
+    caplog.set_level(logging.INFO, logger="trend_analysis.monte_carlo.strategy.sampler")
+    with pytest.raises(RuntimeError, match="max_rejection_attempts"):
+        sample_strategy_variants(sampling, 2, seed=3, max_rejection_attempts=2)
+
+    assert "Rejected duplicate sampled config" in caplog.text
+
+
 def test_sample_strategy_variants_unique_names() -> None:
     sampling = {"portfolio.rank.n": {"dist": "categorical", "values": [1, 2, 3]}}
 
