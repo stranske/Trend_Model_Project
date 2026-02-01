@@ -6,7 +6,11 @@ from typing import Mapping
 import pytest
 import yaml
 
-from trend_analysis.monte_carlo import MonteCarloScenario, MonteCarloSettings, load_scenario
+from trend_analysis.monte_carlo import (
+    MonteCarloScenario,
+    MonteCarloSettings,
+    load_scenario,
+)
 
 
 def _load_example_payload() -> dict:
