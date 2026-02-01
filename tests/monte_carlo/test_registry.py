@@ -630,9 +630,7 @@ def test_load_scenario_rejects_null_return_model_mapping(tmp_path: Path) -> None
     )
     registry = tmp_path / "index.yml"
     registry.write_text(
-        "scenarios:\n"
-        "  - name: null_return_model\n"
-        "    path: null_return_model.yml\n",
+        "scenarios:\n" "  - name: null_return_model\n" "    path: null_return_model.yml\n",
         encoding="utf-8",
     )
 
@@ -858,9 +856,7 @@ def test_get_scenario_path_requires_name(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    pattern = re.escape(
-        "No matching scenarios found for tags [missing] in registry 'index.yml'"
-    )
+    pattern = re.escape("No matching scenarios found for tags [missing] in registry 'index.yml'")
     with pytest.raises(ValueError, match=pattern):
         get_scenario_path("", tags=["missing"], registry_path=registry)
 
@@ -874,9 +870,7 @@ def test_get_scenario_path_reports_no_matching_tags(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    pattern = re.escape(
-        "No matching scenarios found for tags [missing] in registry 'index.yml'"
-    )
+    pattern = re.escape("No matching scenarios found for tags [missing] in registry 'index.yml'")
     with pytest.raises(ValueError, match=pattern):
         get_scenario_path(tags=["missing"], registry_path=registry)
 
