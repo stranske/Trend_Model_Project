@@ -113,6 +113,7 @@ class _Stats:
 @dataclass(slots=True)
 class _ComputationStage:
     weights_series: pd.Series
+    cash_weight: float
     risk_diagnostics: RiskDiagnostics
     weight_engine_fallback: dict[str, Any] | None
     weight_engine_diagnostics: dict[str, Any] | None
@@ -530,6 +531,18 @@ def _compute_weights_and_stats(
         .reindex(fund_cols)
         .fillna(0.0)
     )
+
+    cash_weight = 0.0
+    if long_only:
+        total_weight = float(weights_series.sum())
+        if not np.isfinite(total_weight):
+            total_weight = 0.0
+        if total_weight > 1.0 + 1e-10:
+            weights_series = weights_series / total_weight
+            total_weight = 1.0
+        cash_weight = 1.0 - total_weight
+        if abs(cash_weight) <= 1e-10 or cash_weight < 0.0:
+            cash_weight = 0.0
     scale_factors = risk_diagnostics.scale_factors.reindex(fund_cols).fillna(0.0)
 
     in_scaled = window.in_df[fund_cols].mul(scale_factors, axis=1) - monthly_cost
@@ -609,6 +622,7 @@ def _compute_weights_and_stats(
 
     return _ComputationStage(
         weights_series=weights_series,
+        cash_weight=cash_weight,
         risk_diagnostics=risk_diagnostics,
         weight_engine_fallback=weight_engine_fallback,
         weight_engine_diagnostics=weight_engine_diagnostics,
@@ -763,6 +777,7 @@ def _assemble_analysis_output(
             "out_user_stats_raw": computation.out_user_stats_raw,
             "ew_weights": computation.ew_weights,
             "fund_weights": computation.user_weights,
+            "cash_weight": computation.cash_weight,
             "benchmark_stats": benchmark_stats,
             "benchmark_ir": benchmark_ir,
             "score_frame": computation.score_frame,
