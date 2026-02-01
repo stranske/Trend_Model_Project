@@ -6,7 +6,11 @@ from typing import Mapping
 import pytest
 import yaml
 
-from trend_analysis.monte_carlo import MonteCarloScenario, MonteCarloSettings
+from trend_analysis.monte_carlo import (
+    MonteCarloScenario,
+    MonteCarloSettings,
+    load_scenario,
+)
 from trend_analysis.monte_carlo.strategy import StrategyVariant
 
 
@@ -117,7 +121,8 @@ def test_monte_carlo_scenario_builds_nested_configs_from_mappings() -> None:
 
 
 def test_monte_carlo_scenario_validates_full_schema_from_yaml() -> None:
-    payload = yaml.safe_load("""
+    payload = yaml.safe_load(
+        """
 name: example_scenario
 description: Example schema payload for validation
 base_config: config/defaults.yml
@@ -143,7 +148,8 @@ folds:
 outputs:
   directory: outputs/monte_carlo/example
   format: parquet
-""")
+"""
+    )
 
     scenario = MonteCarloScenario(**payload)
 
@@ -188,8 +194,7 @@ def test_monte_carlo_scenario_coerces_curated_variants() -> None:
 
 
 def test_example_scenario_file_loads_and_validates() -> None:
-    payload = _load_example_payload()
-    scenario = MonteCarloScenario(**payload)
+    scenario = load_scenario("example_scenario")
 
     assert scenario.name == "example_scenario"
     assert isinstance(scenario.monte_carlo, MonteCarloSettings)
@@ -203,9 +208,17 @@ def test_example_scenario_file_loads_and_validates() -> None:
     assert isinstance(scenario.base_config, Path)
     assert scenario.return_model is not None
     assert isinstance(scenario.return_model, Mapping)
+    assert isinstance(scenario.return_model.get("kind"), str)
+    assert scenario.return_model["kind"]
+    assert scenario.strategy_set is not None
+    assert isinstance(scenario.strategy_set, Mapping)
     assert scenario.folds is not None
     assert isinstance(scenario.folds, Mapping)
+    assert isinstance(scenario.folds.get("enabled"), bool)
+    assert scenario.outputs is not None
+    assert isinstance(scenario.outputs, Mapping)
     assert scenario.outputs["format"] == "parquet"
+    assert isinstance(scenario.outputs.get("directory"), str)
 
 
 def test_example_scenario_file_invalid_monte_carlo_raises_clear_error() -> None:
@@ -367,7 +380,9 @@ def test_monte_carlo_scenario_missing_mapping_fields_raise_clear_errors() -> Non
         jobs=None,
     )
 
-    with pytest.raises(ValueError, match="return_model must be a mapping \\(null provided\\)"):
+    with pytest.raises(
+        ValueError, match="return_model must be a mapping \\(null provided\\)"
+    ):
         MonteCarloScenario(
             name="missing_mappings",
             description="Missing return_model mapping",

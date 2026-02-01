@@ -60,16 +60,31 @@ def _coerce_tags(value: object) -> tuple[str, ...]:
         return ()
     if isinstance(value, str):
         values = [value]
-    elif isinstance(value, Sequence):
+    elif isinstance(value, Sequence) and not isinstance(value, (bytes, bytearray)):
         values = list(value)
     else:
         return ()
     cleaned: list[str] = []
     for tag in values:
-        label = str(tag).strip()
+        if tag is None:
+            continue
+        label = str(tag).strip().lower()
         if label:
             cleaned.append(label)
     return tuple(cleaned)
+
+
+def _optional_mapping(
+    raw: Mapping[str, object], *, key: str, scenario_name: str
+) -> Mapping[str, object] | None:
+    if key not in raw:
+        return None
+    value = raw.get(key)
+    if value is None:
+        raise ValueError(
+            f"Scenario '{scenario_name}' config '{key}' must be a mapping (null provided)"
+        )
+    return _ensure_mapping(value, label=f"Scenario config '{key}'")
 
 
 def _load_registry(registry_path: Path | None = None) -> list[ScenarioRegistryEntry]:
@@ -202,7 +217,7 @@ def list_scenarios(
     for entry in scenarios:
         if _matches_any_tag(entry.tags, tag_set):
             filtered.append(entry)
-    return filtered
+    return sorted(filtered, key=lambda item: str(item.path).casefold())
 
 
 def _format_missing(
@@ -217,18 +232,35 @@ def _format_missing(
     return f"Unknown scenario '{name}' in registry '{registry_label}'. No scenarios registered."
 
 
-def get_scenario_path(name: str, *, registry_path: Path | None = None) -> Path:
-    """Return the resolved path for a registered scenario name."""
+def get_scenario_path(
+    name: str | None = None,
+    *,
+    tags: Iterable[str] | None = None,
+    registry_path: Path | None = None,
+) -> Path | list[Path]:
+    """Return the resolved path(s) for a scenario name or tag filter."""
 
-    normalized = name.strip()
-    if not normalized:
+    normalized = (name or "").strip()
+    if normalized:
+        scenarios = _load_registry(registry_path)
+        registry_label = _registry_label(registry_path)
+        for entry in scenarios:
+            if entry.name == normalized:
+                return entry.path
+        raise ValueError(_format_missing(normalized, scenarios, registry_label=registry_label))
+
+    tag_set = {str(tag).strip().lower() for tag in tags or () if str(tag).strip()}
+    if not tag_set:
         raise ValueError("Scenario name is required")
-    scenarios = _load_registry(registry_path)
-    registry_label = _registry_label(registry_path)
-    for entry in scenarios:
-        if entry.name == normalized:
-            return entry.path
-    raise ValueError(_format_missing(normalized, scenarios, registry_label=registry_label))
+
+    scenarios = list_scenarios(tags=tag_set, registry_path=registry_path)
+    if not scenarios:
+        registry_label = _registry_label(registry_path)
+        tag_labels = ", ".join(sorted(tag_set))
+        raise ValueError(
+            f"No matching scenarios found for tags [{tag_labels}] in registry '{registry_label}'"
+        )
+    return [entry.path for entry in scenarios]
 
 
 def _extract_scenario_metadata(
@@ -321,19 +353,13 @@ def _parse_scenario(
         "raw": raw,
     }
 
-    if "folds" in raw:
-        folds_value = raw.get("folds")
-        if folds_value is None:
-            raise ValueError("Scenario config 'folds' must be a mapping (null provided)")
-        scenario_kwargs["folds"] = _ensure_mapping(folds_value, label="Scenario config 'folds'")
+    folds_value = _optional_mapping(raw, key="folds", scenario_name=scenario_name)
+    if folds_value is not None:
+        scenario_kwargs["folds"] = folds_value
 
-    if "return_model" in raw:
-        return_model_value = raw.get("return_model")
-        if return_model_value is None:
-            raise ValueError("Scenario config 'return_model' must be a mapping (null provided)")
-        scenario_kwargs["return_model"] = _ensure_mapping(
-            return_model_value, label="Scenario config 'return_model'"
-        )
+    return_model_value = _optional_mapping(raw, key="return_model", scenario_name=scenario_name)
+    if return_model_value is not None:
+        scenario_kwargs["return_model"] = return_model_value
 
     return MonteCarloScenario(**scenario_kwargs)
 

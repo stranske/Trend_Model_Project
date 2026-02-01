@@ -13,11 +13,14 @@ from .base import (
     prices_to_log_returns,
 )
 from .bootstrap import StationaryBootstrapModel
+from .regime import RegimeConditionedBootstrapModel, RegimeLabeler
 
 __all__ = [
     "BootstrapPricePathModel",
     "PricePathModel",
     "PricePathResult",
+    "RegimeConditionedBootstrapModel",
+    "RegimeLabeler",
     "StationaryBootstrapModel",
     "apply_missingness_mask",
     "build_missingness_mask",
