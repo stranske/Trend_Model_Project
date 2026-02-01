@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
 
+from trend_analysis.monte_carlo.strategy import StrategyVariant
+
 _ALLOWED_MODES = {"two_layer", "mixture"}
 _ALLOWED_FREQUENCIES = {"D", "W", "M", "Q", "Y"}
 _MISSING = object()
@@ -63,6 +65,23 @@ def _require_mapping(value: Any, field: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise ValueError(f"{field} must be a mapping")
     return value
+
+
+def _coerce_variant_tags(value: object) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        values: list[object] = [value]
+    elif isinstance(value, (list, tuple)):
+        values = list(value)
+    else:
+        return ()
+    cleaned: list[str] = []
+    for tag in values:
+        label = str(tag).strip()
+        if label:
+            cleaned.append(label)
+    return tuple(cleaned)
 
 
 @dataclass
@@ -373,6 +392,7 @@ class MonteCarloScenario:
             self.return_model = _require_mapping(self.return_model, "return_model")
 
         self.strategy_set = _coerce_optional_mapping(self.strategy_set, "strategy_set")
+        self.strategy_set = _coerce_strategy_set(self.strategy_set)
         self.folds = _coerce_optional_mapping(self.folds, "folds", allow_null=False)
         self.outputs = _coerce_optional_mapping(self.outputs, "outputs")
 
@@ -416,6 +436,44 @@ def _coerce_optional_mapping(
             return None
         raise ValueError(f"{field} must be a mapping (null provided)")
     return _require_mapping(value, field)
+
+
+def _coerce_strategy_set(
+    value: Mapping[str, Any] | None,
+) -> Mapping[str, Any] | None:
+    if value is None:
+        return None
+    curated = value.get("curated", _MISSING)
+    if curated is _MISSING:
+        return value
+    if curated is None:
+        raise ValueError("strategy_set.curated must be a list (null provided)")
+    if not isinstance(curated, list):
+        raise ValueError("strategy_set.curated must be a list")
+
+    variants: list[StrategyVariant] = []
+    for idx, item in enumerate(curated):
+        if isinstance(item, StrategyVariant):
+            variants.append(item)
+            continue
+        if isinstance(item, str):
+            variants.append(StrategyVariant(name=item))
+            continue
+        if isinstance(item, Mapping):
+            name = _require_non_empty_str(item.get("name"), f"strategy_set.curated[{idx}].name")
+            overrides = item.get("overrides", {})
+            tags = _coerce_variant_tags(item.get("tags"))
+            try:
+                variant = StrategyVariant(name=name, overrides=overrides, tags=tags)
+            except ValueError as exc:
+                raise ValueError(f"strategy_set.curated[{idx}] invalid: {exc}") from exc
+            variants.append(variant)
+            continue
+        raise ValueError(f"strategy_set.curated[{idx}] must be a mapping or string")
+
+    updated = dict(value)
+    updated["curated"] = variants
+    return updated
 
 
 def _prefix_error(prefix: str, message: str) -> str:
