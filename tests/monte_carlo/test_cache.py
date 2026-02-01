@@ -59,3 +59,56 @@ def test_cache_reuses_score_frames_across_strategies_and_clears() -> None:
     assert results["sharpe"]["2024-01-31"] == 3.0
     assert results["vol"]["2024-02-29"] == pytest.approx(0.3)
     assert not cache.has_path("path-42")
+
+
+def test_cache_computes_once_per_date_with_many_strategies() -> None:
+    cache = PathContextCache()
+    calls: list[str] = []
+
+    def compute_score_frame(date: str) -> pd.DataFrame:
+        calls.append(date)
+        return pd.DataFrame(
+            {
+                "Sharpe": [1.0, 2.0],
+                "Volatility": [0.1, 0.2],
+                "Return": [0.05, 0.07],
+            },
+            index=["A", "B"],
+        )
+
+    def make_strategy(column: str, idx: int) -> tuple[str, callable]:
+        def strategy(frames: dict[str, pd.DataFrame]) -> float:
+            return float(sum(frame[column].sum() for frame in frames.values()))
+
+        return f"{column}-strategy-{idx}", strategy
+
+    columns = [
+        "Sharpe",
+        "Volatility",
+        "Return",
+        "Sharpe",
+        "Volatility",
+        "Return",
+        "Sharpe",
+        "Volatility",
+        "Return",
+        "Sharpe",
+    ]
+    strategies = dict(
+        [make_strategy(column, idx) for idx, column in enumerate(columns, start=1)],
+    )
+    columns_by_strategy = {name: [name.split("-")[0]] for name in strategies}
+
+    rebalance_dates = ["2024-01-31", "2024-02-29", "2024-03-29"]
+    results = evaluate_strategies_for_path(
+        "path-99",
+        rebalance_dates,
+        compute_score_frame,
+        strategies,
+        columns_by_strategy=columns_by_strategy,
+        cache=cache,
+    )
+
+    assert calls == rebalance_dates
+    assert len(results) == 10
+    assert not cache.has_path("path-99")
