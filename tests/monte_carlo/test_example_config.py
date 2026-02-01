@@ -19,6 +19,7 @@ def test_example_config_validates_against_schema() -> None:
     assert scenario.monte_carlo.n_paths >= 1
     assert isinstance(scenario.monte_carlo.horizon_years, float)
     assert scenario.monte_carlo.horizon_years > 0.0
+    assert scenario.monte_carlo.mode in {"two_layer", "mixture"}
     assert scenario.monte_carlo.frequency in {"D", "W", "M", "Q", "Y"}
     assert isinstance(scenario.base_config, Path)
     assert scenario.return_model is not None
