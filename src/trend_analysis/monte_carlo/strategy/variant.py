@@ -145,7 +145,7 @@ class StrategyVariant:
         return _deep_merge_overrides(base, self.overrides, ())
 
     def to_trend_config(
-        self, base_config: Mapping[str, Any], *, base_path: Path | str
+        self, base_config: Mapping[str, Any] | TrendConfig, *, base_path: Path | str
     ) -> TrendConfig:
         """Return a validated TrendConfig derived from the merged configuration."""
 

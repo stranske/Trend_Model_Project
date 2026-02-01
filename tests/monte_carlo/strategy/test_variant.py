@@ -83,6 +83,19 @@ def test_to_trend_config_validates_merge(tmp_path: Path) -> None:
     assert cfg.portfolio.max_turnover == 0.35
 
 
+def test_to_trend_config_accepts_trend_config(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    base_cfg = validate_trend_config(base, base_path=tmp_path)
+    variant = StrategyVariant(
+        name="Rank_4",
+        overrides={"portfolio": {"max_turnover": 0.4}},
+    )
+
+    cfg = variant.to_trend_config(base_cfg, base_path=tmp_path)
+
+    assert cfg.portfolio.max_turnover == 0.4
+
+
 def test_apply_to_type_mismatch_raises(tmp_path: Path) -> None:
     base = _base_config(tmp_path)
     variant = StrategyVariant(
