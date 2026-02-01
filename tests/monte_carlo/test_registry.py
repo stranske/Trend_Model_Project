@@ -231,7 +231,9 @@ def test_list_scenarios_filters_by_tags_or_does_not_require_all(tmp_path: Path) 
     assert {entry.name for entry in filtered} == {"alpha", "beta", "gamma"}
 
 
-def test_list_scenarios_filters_by_tags_ignores_case_and_whitespace(tmp_path: Path) -> None:
+def test_list_scenarios_filters_by_tags_ignores_case_and_whitespace(
+    tmp_path: Path,
+) -> None:
     scenario_a = tmp_path / "alpha.yml"
     scenario_b = tmp_path / "beta.yml"
     scenario_a.write_text("{}", encoding="utf-8")
@@ -366,6 +368,60 @@ def test_load_scenario_includes_optional_sections() -> None:
     assert scenario.return_model["kind"] == "stationary_bootstrap"
     assert scenario.folds is not None
     assert scenario.folds["enabled"] is True
+
+
+def test_load_scenario_rejects_null_return_model(tmp_path: Path) -> None:
+    base_config = tmp_path / "base.yml"
+    base_config.write_text("{}", encoding="utf-8")
+    scenario_path = tmp_path / "null_return.yml"
+    scenario_path.write_text(
+        "scenario:\n"
+        "  name: null_return\n"
+        "  version: '1'\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: mixture\n"
+        "  n_paths: 5\n"
+        "  horizon_years: 1\n"
+        "  frequency: M\n"
+        "return_model: null\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n" "  - name: null_return\n" "    path: null_return.yml\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="return_model.*null provided"):
+        load_scenario("null_return", registry_path=registry)
+
+
+def test_load_scenario_rejects_null_folds(tmp_path: Path) -> None:
+    base_config = tmp_path / "base.yml"
+    base_config.write_text("{}", encoding="utf-8")
+    scenario_path = tmp_path / "null_folds.yml"
+    scenario_path.write_text(
+        "scenario:\n"
+        "  name: null_folds\n"
+        "  version: '1'\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: mixture\n"
+        "  n_paths: 5\n"
+        "  horizon_years: 1\n"
+        "  frequency: M\n"
+        "folds: null\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n" "  - name: null_folds\n" "    path: null_folds.yml\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="folds.*null provided"):
+        load_scenario("null_folds", registry_path=registry)
 
 
 def test_load_scenario_example_config_path() -> None:
@@ -600,7 +656,8 @@ def test_load_scenario_rejects_null_folds_mapping(tmp_path: Path) -> None:
     )
 
     with pytest.raises(
-        ValueError, match="Scenario '.+' config 'folds' must be a mapping \\(null provided\\)"
+        ValueError,
+        match="Scenario '.+' config 'folds' must be a mapping \\(null provided\\)",
     ):
         load_scenario("null_folds", registry_path=registry)
 
@@ -624,7 +681,9 @@ def test_load_scenario_rejects_null_return_model_mapping(tmp_path: Path) -> None
     )
     registry = tmp_path / "index.yml"
     registry.write_text(
-        "scenarios:\n" "  - name: null_return_model\n" "    path: null_return_model.yml\n",
+        "scenarios:\n"
+        "  - name: null_return_model\n"
+        "    path: null_return_model.yml\n",
         encoding="utf-8",
     )
 
@@ -657,7 +716,8 @@ def test_load_scenario_rejects_null_scenario_block(tmp_path: Path) -> None:
     )
 
     with pytest.raises(
-        ValueError, match="Scenario config 'scenario' must be a mapping \\(null provided\\)"
+        ValueError,
+        match="Scenario config 'scenario' must be a mapping \\(null provided\\)",
     ):
         load_scenario("null_scenario", registry_path=registry)
 
@@ -849,7 +909,9 @@ def test_get_scenario_path_requires_name(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    pattern = re.escape("No matching scenarios found for tags [missing] in registry 'index.yml'")
+    pattern = re.escape(
+        "No matching scenarios found for tags [missing] in registry 'index.yml'"
+    )
     with pytest.raises(ValueError, match=pattern):
         get_scenario_path("", tags=["missing"], registry_path=registry)
 
@@ -863,7 +925,9 @@ def test_get_scenario_path_reports_no_matching_tags(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    pattern = re.escape("No matching scenarios found for tags [missing] in registry 'index.yml'")
+    pattern = re.escape(
+        "No matching scenarios found for tags [missing] in registry 'index.yml'"
+    )
     with pytest.raises(ValueError, match=pattern):
         get_scenario_path(tags=["missing"], registry_path=registry)
 
