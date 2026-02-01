@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import random
 
 import pytest
 
@@ -47,6 +48,14 @@ def test_parse_uniform_distribution() -> None:
     assert isinstance(dist, UniformDistribution)
     assert dist.low == 0.1
     assert dist.high == 0.2
+
+
+def test_uniform_distribution_sample_fixed_value() -> None:
+    dist = UniformDistribution(low=0.2, high=0.2)
+
+    value = dist.sample(random.Random(123))
+
+    assert value == 0.2
 
 
 def test_parse_sampling_config_rejects_empty_segments() -> None:
