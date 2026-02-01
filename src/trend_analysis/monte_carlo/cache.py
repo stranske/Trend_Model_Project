@@ -59,4 +59,52 @@ class PathContext:
         self._score_frames.clear()
 
 
-__all__ = ["PathContext"]
+class PathContextCache:
+    """Manage cached score frames across Monte Carlo paths."""
+
+    def __init__(self) -> None:
+        self._contexts: dict[Hashable, PathContext] = {}
+
+    def get_context(self, path_id: Hashable) -> PathContext:
+        context = self._contexts.get(path_id)
+        if context is None:
+            context = PathContext(path_id=path_id)
+            self._contexts[path_id] = context
+        return context
+
+    def has_path(self, path_id: Hashable) -> bool:
+        return path_id in self._contexts
+
+    def path_ids(self) -> Iterable[Hashable]:
+        return self._contexts.keys()
+
+    def get_or_compute_score_frame(
+        self,
+        path_id: Hashable,
+        rebalance_date: Hashable,
+        compute_fn: Callable[[], pd.DataFrame],
+    ) -> pd.DataFrame:
+        context = self.get_context(path_id)
+        return context.get_or_compute(rebalance_date, compute_fn)
+
+    def select_score_frame(
+        self,
+        path_id: Hashable,
+        rebalance_date: Hashable,
+        columns: Sequence[str] | None,
+    ) -> pd.DataFrame:
+        context = self.get_context(path_id)
+        return context.select_columns(rebalance_date, columns)
+
+    def clear(self, path_id: Hashable | None = None) -> None:
+        if path_id is None:
+            for context in self._contexts.values():
+                context.clear()
+            self._contexts.clear()
+            return
+        context = self._contexts.pop(path_id, None)
+        if context is not None:
+            context.clear()
+
+
+__all__ = ["PathContext", "PathContextCache"]
