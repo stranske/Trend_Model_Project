@@ -6,7 +6,7 @@ from typing import Mapping
 import pytest
 import yaml
 
-from trend_analysis.monte_carlo import MonteCarloScenario, MonteCarloSettings
+from trend_analysis.monte_carlo import MonteCarloScenario, MonteCarloSettings, load_scenario
 
 
 def _load_example_payload() -> dict:
@@ -152,8 +152,7 @@ outputs:
 
 
 def test_example_scenario_file_loads_and_validates() -> None:
-    payload = _load_example_payload()
-    scenario = MonteCarloScenario(**payload)
+    scenario = load_scenario("example_scenario")
 
     assert scenario.name == "example_scenario"
     assert isinstance(scenario.monte_carlo, MonteCarloSettings)
