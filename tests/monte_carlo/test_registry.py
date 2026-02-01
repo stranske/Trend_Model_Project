@@ -115,6 +115,10 @@ def test_coerce_tags_skips_blank_list_values() -> None:
     assert _coerce_tags(["Core", " ", "STRESS"]) == ("core", "stress")
 
 
+def test_coerce_tags_skips_none_values() -> None:
+    assert _coerce_tags(["Core", None, "STRESS"]) == ("core", "stress")
+
+
 def test_list_scenarios_normalizes_string_tag(tmp_path: Path) -> None:
     scenario_a = tmp_path / "alpha.yml"
     scenario_a.write_text("{}", encoding="utf-8")
