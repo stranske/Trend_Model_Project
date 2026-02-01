@@ -63,3 +63,37 @@ def test_strategy_rngs_differ_across_strategies() -> None:
     values_b = rng_b.integers(0, 1000, size=10)
 
     assert not np.array_equal(values_a, values_b)
+
+
+def test_common_random_numbers_reduce_variance() -> None:
+    manager = SeedManager(2026)
+    n_paths = 200
+    horizon = 50
+    noise_scale = 0.1
+
+    common_diffs = []
+    independent_diffs = []
+
+    for path_id in range(n_paths):
+        path_rng = manager.get_path_rng(path_id)
+        base = path_rng.normal(size=horizon)
+        noise_a = manager.get_strategy_rng(path_id, "strategy_a").normal(size=horizon)
+        noise_b = manager.get_strategy_rng(path_id, "strategy_b").normal(size=horizon)
+
+        common_a = (base + noise_scale * noise_a).mean()
+        common_b = (base + noise_scale * noise_b).mean()
+        common_diffs.append(common_a - common_b)
+
+        path_rng_a = manager.get_path_rng(path_id * 2 + 1)
+        path_rng_b = manager.get_path_rng(path_id * 2 + 2)
+        base_a = path_rng_a.normal(size=horizon)
+        base_b = path_rng_b.normal(size=horizon)
+
+        independent_a = (base_a + noise_scale * noise_a).mean()
+        independent_b = (base_b + noise_scale * noise_b).mean()
+        independent_diffs.append(independent_a - independent_b)
+
+    common_variance = np.var(common_diffs)
+    independent_variance = np.var(independent_diffs)
+
+    assert common_variance < independent_variance * 0.75
