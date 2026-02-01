@@ -257,9 +257,7 @@ def sample_strategy_variants(
                     ok, reason = result
                 if not ok:
                     rejection_count += 1
-                    logger.info(
-                        "Rejected sampled config (attempt %s): %s", rejection_count, reason
-                    )
+                    logger.info("Rejected sampled config (attempt %s): %s", rejection_count, reason)
                     rejected = True
                     break
             if not rejected:

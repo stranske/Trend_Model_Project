@@ -64,9 +64,7 @@ def test_sample_strategy_variants_reproducible_seed() -> None:
     first = sample_strategy_variants(sampling, 3, seed=42)
     second = sample_strategy_variants(sampling, 3, seed=42)
 
-    assert [variant.overrides for variant in first] == [
-        variant.overrides for variant in second
-    ]
+    assert [variant.overrides for variant in first] == [variant.overrides for variant in second]
     assert [variant.name for variant in first] == [variant.name for variant in second]
 
 
