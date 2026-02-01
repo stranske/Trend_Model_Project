@@ -50,7 +50,7 @@ def test_parser_rejects_null_optional_mappings(tmp_path: Path, field: str, paylo
 
     with pytest.raises(
         ValueError,
-        match=rf"Scenario config '{field}' must be a mapping \(null provided\)",
+        match=rf"Scenario '.+' config '{field}' must be a mapping \(null provided\)",
     ):
         load_scenario(name, registry_path=registry)
 
@@ -69,7 +69,7 @@ def test_parser_rejects_empty_optional_mappings(tmp_path: Path, field: str, payl
 
     with pytest.raises(
         ValueError,
-        match=rf"Scenario config '{field}' must be a mapping \(null provided\)",
+        match=rf"Scenario '.+' config '{field}' must be a mapping \(null provided\)",
     ):
         load_scenario(name, registry_path=registry)
 
@@ -80,6 +80,6 @@ def test_parser_prefers_folds_error_when_both_null(tmp_path: Path) -> None:
     registry = _write_registry(tmp_path, name, f"{name}.yml")
 
     with pytest.raises(
-        ValueError, match=r"Scenario config 'folds' must be a mapping \(null provided\)"
+        ValueError, match=r"Scenario '.+' config 'folds' must be a mapping \(null provided\)"
     ):
         load_scenario(name, registry_path=registry)

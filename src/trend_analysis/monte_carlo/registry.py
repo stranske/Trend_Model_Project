@@ -343,13 +343,17 @@ def _parse_scenario(
     if "folds" in raw:
         folds_value = raw.get("folds")
         if folds_value is None:
-            raise ValueError("Scenario config 'folds' must be a mapping (null provided)")
+            raise ValueError(
+                f"Scenario '{scenario_name}' config 'folds' must be a mapping (null provided)"
+            )
         scenario_kwargs["folds"] = _ensure_mapping(folds_value, label="Scenario config 'folds'")
 
     if "return_model" in raw:
         return_model_value = raw.get("return_model")
         if return_model_value is None:
-            raise ValueError("Scenario config 'return_model' must be a mapping (null provided)")
+            raise ValueError(
+                f"Scenario '{scenario_name}' config 'return_model' must be a mapping (null provided)"
+            )
         scenario_kwargs["return_model"] = _ensure_mapping(
             return_model_value, label="Scenario config 'return_model'"
         )
