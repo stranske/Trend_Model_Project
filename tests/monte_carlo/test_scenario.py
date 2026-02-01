@@ -6,7 +6,11 @@ from typing import Mapping
 import pytest
 import yaml
 
-from trend_analysis.monte_carlo import MonteCarloScenario, MonteCarloSettings
+from trend_analysis.monte_carlo import (
+    MonteCarloScenario,
+    MonteCarloSettings,
+    load_scenario,
+)
 
 
 def _load_example_payload() -> dict:
@@ -152,8 +156,7 @@ outputs:
 
 
 def test_example_scenario_file_loads_and_validates() -> None:
-    payload = _load_example_payload()
-    scenario = MonteCarloScenario(**payload)
+    scenario = load_scenario("example_scenario")
 
     assert scenario.name == "example_scenario"
     assert isinstance(scenario.monte_carlo, MonteCarloSettings)
@@ -167,9 +170,17 @@ def test_example_scenario_file_loads_and_validates() -> None:
     assert isinstance(scenario.base_config, Path)
     assert scenario.return_model is not None
     assert isinstance(scenario.return_model, Mapping)
+    assert isinstance(scenario.return_model.get("kind"), str)
+    assert scenario.return_model["kind"]
+    assert scenario.strategy_set is not None
+    assert isinstance(scenario.strategy_set, Mapping)
     assert scenario.folds is not None
     assert isinstance(scenario.folds, Mapping)
+    assert isinstance(scenario.folds.get("enabled"), bool)
+    assert scenario.outputs is not None
+    assert isinstance(scenario.outputs, Mapping)
     assert scenario.outputs["format"] == "parquet"
+    assert isinstance(scenario.outputs.get("directory"), str)
 
 
 def test_example_scenario_file_invalid_monte_carlo_raises_clear_error() -> None:
