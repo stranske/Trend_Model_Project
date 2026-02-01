@@ -3,7 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Mapping
 
-from trend_analysis.monte_carlo import MonteCarloScenario, MonteCarloSettings, load_scenario
+from trend_analysis.monte_carlo import (
+    MonteCarloSettings,
+    load_scenario,
+)
 
 
 def test_example_config_validates_against_schema() -> None:
