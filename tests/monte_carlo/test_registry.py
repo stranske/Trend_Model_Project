@@ -811,7 +811,8 @@ def test_get_scenario_path_requires_name(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="No matching scenarios found"):
+    pattern = re.escape("No matching scenarios found for tags [missing] in registry 'index.yml'")
+    with pytest.raises(ValueError, match=pattern):
         get_scenario_path("", tags=["missing"], registry_path=registry)
 
 
@@ -824,7 +825,8 @@ def test_get_scenario_path_reports_no_matching_tags(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="No matching scenarios found"):
+    pattern = re.escape("No matching scenarios found for tags [missing] in registry 'index.yml'")
+    with pytest.raises(ValueError, match=pattern):
         get_scenario_path(tags=["missing"], registry_path=registry)
 
 
