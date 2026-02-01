@@ -74,7 +74,9 @@ def _coerce_tags(value: object) -> tuple[str, ...]:
     return tuple(cleaned)
 
 
-def _optional_mapping(raw: Mapping[str, object], *, key: str, scenario_name: str) -> Mapping[str, object] | None:
+def _optional_mapping(
+    raw: Mapping[str, object], *, key: str, scenario_name: str
+) -> Mapping[str, object] | None:
     if key not in raw:
         return None
     value = raw.get(key)
