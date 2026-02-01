@@ -82,7 +82,7 @@ def _section(config: ConfigType | Mapping[str, Any], key: str) -> Mapping[str, A
     if isinstance(config, Mapping):
         section = config.get(key, {})
     else:
-        section = getattr(config, key, {})  # type: ignore[assignment]
+        section = getattr(config, key, {})
     if not isinstance(section, Mapping):
         return {}
     return section
