@@ -5,10 +5,10 @@ branch: codex/issue-4167
 tasks:
   - id: task-01
     title: Implement `PathContext` class to cache score frames once per path in `src/trend_analysis/monte_carlo/cache.py`.
-    status: doing
+    status: done
     started_at: '2026-02-01T09:16:49Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-01T09:16:58Z'
+    commit: 79e68df19d70aaa7898f746e786869f1b39f43c8
     notes: []
   - id: task-02
     title: 'Define the structure (verify: confirm completion in repo)'
