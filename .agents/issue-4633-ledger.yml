@@ -1,0 +1,221 @@
+version: 1
+issue: 4633
+base: phase-3
+branch: codex/issue-4633
+tasks:
+  - id: task-01
+    title: Update `src/trend_analysis/monte_carlo/__init__.py` to include explicit
+      import statements for `MonteCarloScenario` and `MonteCarloSettings` and add
+      these classes to the module's `__all__` list.
+    status: doing
+    started_at: '2026-02-01T07:08:28Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Modify the `_coerce_tags` function to ensure it converts all input tag
+      strings to lowercase using the `.lower()` method, regardless of whether the
+      input is a single string or a list of strings.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Define scope for: Modify the `_coerce_tags` function to ensure it converts
+      single input tag strings to lowercase using the `.lower()` method. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Implement focused slice for: Modify the `_coerce_tags` function to ensure
+      it converts single input tag strings to lowercase using the `.lower()` method.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Validate focused slice for: Modify the `_coerce_tags` function to ensure
+      it converts single input tag strings to lowercase using the `.lower()` method.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Define scope for: Modify the `_coerce_tags` function to ensure it converts
+      all tag strings in a list to lowercase using the `.lower()` method. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Implement focused slice for: Modify the `_coerce_tags` function to ensure
+      it converts all tag strings in a list to lowercase using the `.lower()` method.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Validate focused slice for: Modify the `_coerce_tags` function to ensure
+      it converts all tag strings in a list to lowercase using the `.lower()` method.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Implement validation checks in the `load_scenario` function to raise a
+      `ValueError` with a descriptive message if 'return_model' or 'folds' is None,
+      ensuring the check is implemented in a single location.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Define scope for: Implement a validation check in the `load_scenario`
+      function to raise a `ValueError` with a descriptive message if ''return_model''
+      is None. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Implement focused slice for: Implement a validation check in the `load_scenario`
+      function to raise a `ValueError` with a descriptive message if ''return_model''
+      is None. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Validate focused slice for: Implement a validation check in the `load_scenario`
+      function to raise a `ValueError` with a descriptive message if ''return_model''
+      is None. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Define scope for: Implement a validation check in the `load_scenario`
+      function to raise a `ValueError` with a descriptive message if ''folds'' is
+      None. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Implement focused slice for: Implement a validation check in the `load_scenario`
+      function to raise a `ValueError` with a descriptive message if ''folds'' is
+      None. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Validate focused slice for: Implement a validation check in the `load_scenario`
+      function to raise a `ValueError` with a descriptive message if ''folds'' is
+      None. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: The file `src/trend_analysis/monte_carlo/__init__.py` contains explicit
+      import statements for both `MonteCarloScenario` and `MonteCarloSettings`, and
+      these classes are included in the module's `__all__` list.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: The `_coerce_tags` function converts all input tag strings to lowercase
+      using the `.lower()` method, regardless of whether the input is a single string
+      or a list of strings.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: The `load_scenario` function raises a `ValueError` with a descriptive message
+      if 'return_model' or 'folds' is None, with the check implemented in a single
+      location.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Update `src/trend_analysis/monte_carlo/__init__.py` to include explicit
+      import statements for `MonteCarloScenario` and `MonteCarloSettings` and add
+      these classes to the module's `__all__` list.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Modify the `_coerce_tags` function to ensure it converts all input tag
+      strings to lowercase using the `.lower()` method, regardless of whether the
+      input is a single string or a list of strings.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Implement validation checks in the `load_scenario` function to raise a
+      `ValueError` with a descriptive message if 'return_model' or 'folds' is None,
+      ensuring the check is implemented in a single location.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: The file `src/trend_analysis/monte_carlo/__init__.py` contains explicit
+      import statements for both `MonteCarloScenario` and `MonteCarloSettings`, and
+      these classes are included in the module's `__all__` list.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: The `_coerce_tags` function converts all input tag strings to lowercase
+      using the `.lower()` method, regardless of whether the input is a single string
+      or a list of strings.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: The `load_scenario` function raises a `ValueError` with a descriptive message
+      if 'return_model' or 'folds' is None, with the check implemented in a single
+      location.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
