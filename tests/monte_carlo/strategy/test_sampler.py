@@ -75,6 +75,13 @@ def test_discrete_distribution_sample_reproducible() -> None:
     assert dist.sample(rng) == 10
 
 
+def test_categorical_distribution_sample_reproducible() -> None:
+    dist = CategoricalDistribution(values=("alpha", "beta", "gamma"))
+    rng = random.Random(11)
+
+    assert dist.sample(rng) == "beta"
+
+
 def test_uniform_distribution_sample_fixed_value() -> None:
     dist = UniformDistribution(low=0.2, high=0.2)
 
@@ -221,3 +228,13 @@ def test_sample_strategy_variants_n_exceeds_combinations() -> None:
 
     with pytest.raises(ValueError, match="exceeds available unique combinations"):
         sample_strategy_variants(sampling, 3, seed=5)
+
+
+def test_sample_strategy_variants_n_exceeds_discrete_range_combinations() -> None:
+    sampling = {
+        "portfolio.rank.n": {"dist": "discrete", "low": 1, "high": 2, "step": 1},
+        "portfolio.weighting_scheme": {"dist": "categorical", "values": ["equal"]},
+    }
+
+    with pytest.raises(ValueError, match="exceeds available unique combinations"):
+        sample_strategy_variants(sampling, 3, seed=9)
