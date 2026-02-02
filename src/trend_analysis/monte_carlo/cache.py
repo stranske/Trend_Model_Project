@@ -107,6 +107,7 @@ class PathContextCache:
     ) -> None:
         context = self.get_context(path_id)
         for date in rebalance_dates:
+
             def _compute(score_date: _RebalanceDate = date) -> pd.DataFrame:
                 return compute_fn(score_date)
 
