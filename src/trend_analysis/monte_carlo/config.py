@@ -63,9 +63,7 @@ def resolve_risk_free_source(
         if risk_free_column:
             fallback_allowed = False
 
-    idx_list = [str(x) for x in indices_list] if indices_list else []
-    if not idx_list and isinstance(benchmarks, Mapping):
-        idx_list = [str(val) for val in benchmarks.values() if val is not None]
+    idx_list = _resolve_indices_list(returns, indices_list, benchmarks)
 
     date_col = str(data_settings.get("date_column") or "Date")
     rf_col, _fund_cols, source = _resolve_risk_free_column(
@@ -86,3 +84,35 @@ def _section(config: ConfigType | Mapping[str, Any], key: str) -> Mapping[str, A
     if not isinstance(section, Mapping):
         return {}
     return section
+
+
+def _resolve_indices_list(
+    returns: pd.DataFrame,
+    indices_list: Sequence[str] | None,
+    benchmarks: Mapping[str, Any] | Sequence[Any] | None,
+) -> list[str]:
+    col_lut = {str(c).strip().lower(): str(c) for c in returns.columns}
+    resolved: list[str] = []
+    seen: set[str] = set()
+
+    def _add_candidates(candidates: Sequence[Any]) -> None:
+        for raw in candidates:
+            key = str(raw).strip().lower()
+            col = col_lut.get(key)
+            if col and col not in seen:
+                seen.add(col)
+                resolved.append(col)
+
+    if indices_list:
+        _add_candidates(indices_list)
+
+    if benchmarks:
+        candidates: list[Any] = []
+        if isinstance(benchmarks, Mapping):
+            candidates.extend(list(benchmarks.values()))
+            candidates.extend(list(benchmarks.keys()))
+        elif isinstance(benchmarks, (list, tuple, set)):
+            candidates.extend(list(benchmarks))
+        _add_candidates(candidates)
+
+    return resolved
