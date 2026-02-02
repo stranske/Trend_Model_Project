@@ -114,6 +114,9 @@ curated:
         random_n: 12
         weighting_scheme: equal
         max_turnover: 0.30
+        constraints:
+          max_weight: 0.12
+          max_active_positions: 12
       vol_adjust:
         enabled: false
 
