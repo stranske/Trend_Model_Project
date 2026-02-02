@@ -201,6 +201,7 @@ def _compute_weights_and_stats(
     min_floor: float,
     stats_cfg: Any,
     weight_engine_params: Mapping[str, Any] | None,
+    risk_free_override: float | pd.Series | None = None,
 ) -> _ComputationStage:
     fund_cols = selection.fund_cols
 
@@ -573,8 +574,16 @@ def _compute_weights_and_stats(
     in_scaled = in_scaled.fillna(0.0)
     out_scaled = out_scaled.fillna(0.0)
 
-    rf_in = window.in_df[selection.rf_col]
-    rf_out = window.out_df[selection.rf_col]
+    if risk_free_override is None:
+        rf_in = window.in_df[selection.rf_col]
+        rf_out = window.out_df[selection.rf_col]
+    elif isinstance(risk_free_override, pd.Series):
+        rf_in = risk_free_override.reindex(window.in_df.index).fillna(0.0)
+        rf_out = risk_free_override.reindex(window.out_df.index).fillna(0.0)
+    else:
+        rf_val = float(risk_free_override)
+        rf_in = pd.Series(rf_val, index=window.in_df.index, name=selection.rf_col, dtype=float)
+        rf_out = pd.Series(rf_val, index=window.out_df.index, name=selection.rf_col, dtype=float)
 
     want_avg_corr = False
     try:

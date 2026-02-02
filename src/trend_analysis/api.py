@@ -33,6 +33,7 @@ from .pipeline import (
     _resolve_target_vol,
     _run_analysis_with_diagnostics,
 )
+from .risk import periods_per_year_from_code
 from .util.risk_free import resolve_risk_free_settings
 from .util.weights import normalize_weights
 from .weights.robust_config import weight_engine_params_from_robustness
@@ -445,11 +446,16 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
 
     split = config.sample_split
     metrics_list = config.metrics.get("registry")
-    # Use rf_rate_annual from config as fallback when override is enabled
-    rf_override_enabled = config.metrics.get("rf_override_enabled", False)
-    rf_rate_fallback = (
-        float(config.metrics.get("rf_rate_annual", 0.0)) if rf_override_enabled else 0.0
-    )
+    rf_override_enabled = bool(config.metrics.get("rf_override_enabled", False))
+    rf_rate_annual = float(config.metrics.get("rf_rate_annual", 0.0) or 0.0)
+    risk_free_override: float | None = None
+    rf_rate_fallback = 0.0
+    if rf_override_enabled:
+        frequency = str(data_settings.get("frequency") or "M")
+        periods_per_year = float(periods_per_year_from_code(frequency))
+        rf_rate_periodic = (1.0 + rf_rate_annual) ** (1.0 / periods_per_year) - 1.0
+        rf_rate_fallback = float(rf_rate_periodic)
+        risk_free_override = float(rf_rate_periodic)
     stats_cfg = None
     if metrics_list:
         from .core.rank_selection import RiskStatsConfig, canonical_metric_list
@@ -532,6 +538,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         regime_cfg=regime_cfg,
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
+        risk_free_override=risk_free_override,
         weight_engine_params=weight_engine_params,
     )
     diag_hint = cast(DiagnosticPayload | None, getattr(pipeline_output, "diagnostic", None))

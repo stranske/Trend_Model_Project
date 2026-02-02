@@ -54,6 +54,7 @@ def _run_analysis_with_diagnostics(
     risk_free_column: str | None = None,
     allow_risk_free_fallback: bool | None = False,
     weight_engine_params: Mapping[str, Any] | None = None,
+    risk_free_override: float | pd.Series | None = None,
 ) -> PipelineResult:
     preprocess_stage = preprocessing_stage._prepare_preprocess_stage(
         df,
@@ -114,6 +115,7 @@ def _run_analysis_with_diagnostics(
         stats_cfg=stats_cfg,
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
+        risk_free_override=risk_free_override,
     )
     if isinstance(selection_stage_result, PipelineResult):
         return selection_stage_result
@@ -138,6 +140,7 @@ def _run_analysis_with_diagnostics(
         min_floor=preprocess_stage.min_floor,
         stats_cfg=stats_cfg_obj,
         weight_engine_params=weight_engine_params,
+        risk_free_override=risk_free_override,
     )
 
     return portfolio_stage._assemble_analysis_output(
@@ -188,6 +191,7 @@ def _run_analysis(
     risk_free_column: str | None = None,
     allow_risk_free_fallback: bool | None = False,
     weight_engine_params: Mapping[str, Any] | None = None,
+    risk_free_override: float | pd.Series | None = None,
 ) -> AnalysisResult | None:
     """Backward-compatible wrapper returning raw payloads for tests."""
 
@@ -225,5 +229,6 @@ def _run_analysis(
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
         weight_engine_params=weight_engine_params,
+        risk_free_override=risk_free_override,
     )
     return result.unwrap()
