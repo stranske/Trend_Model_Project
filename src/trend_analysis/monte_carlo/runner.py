@@ -454,7 +454,9 @@ class MonteCarloRunner:
         try:
             max_rejection_attempts = int(max_rejection_attempts)
         except (TypeError, ValueError) as exc:
-            raise ValueError("strategy_set.sampled.max_rejection_attempts must be an integer") from exc
+            raise ValueError(
+                "strategy_set.sampled.max_rejection_attempts must be an integer"
+            ) from exc
         if max_rejection_attempts < 0:
             raise ValueError("strategy_set.sampled.max_rejection_attempts must be >= 0")
 
