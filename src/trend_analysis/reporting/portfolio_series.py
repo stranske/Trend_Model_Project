@@ -70,6 +70,9 @@ def _normalise_weights(weights: Mapping[str, float]) -> pd.Series:
 def _weighted_portfolio(
     out_df: pd.DataFrame | None,
     weights: Mapping[str, float] | None,
+    *,
+    cash_weight: float | None = None,
+    risk_free: pd.Series | None = None,
 ) -> pd.Series | None:
     if out_df is None or out_df.empty:
         return None
@@ -77,11 +80,19 @@ def _weighted_portfolio(
         series = _normalise_weights(weights)
         if not series.empty:
             aligned = series.reindex(out_df.columns, fill_value=0.0)
-            return out_df.mul(aligned, axis=1).sum(axis=1)
+            portfolio = out_df.mul(aligned, axis=1).sum(axis=1)
+            if isinstance(cash_weight, (int, float)) and isinstance(risk_free, pd.Series):
+                cash_series = risk_free.reindex(out_df.index).fillna(0.0)
+                portfolio = portfolio + cash_series * float(cash_weight)
+            return portfolio
     if not len(out_df.columns):
         return None
     equal_weight = pd.Series(1.0 / float(len(out_df.columns)), index=out_df.columns)
-    return out_df.mul(equal_weight, axis=1).sum(axis=1)
+    portfolio = out_df.mul(equal_weight, axis=1).sum(axis=1)
+    if isinstance(cash_weight, (int, float)) and isinstance(risk_free, pd.Series):
+        cash_series = risk_free.reindex(out_df.index).fillna(0.0)
+        portfolio = portfolio + cash_series * float(cash_weight)
+    return portfolio
 
 
 @overload
@@ -116,4 +127,9 @@ def select_primary_portfolio_series(
         if not isinstance(weights, Mapping):
             weights = None
 
-    return _weighted_portfolio(out_df, weights)
+    return _weighted_portfolio(
+        out_df,
+        weights,
+        cash_weight=res.get("cash_weight") if isinstance(res.get("cash_weight"), (int, float)) else None,
+        risk_free=res.get("risk_free_out_sample") if isinstance(res.get("risk_free_out_sample"), pd.Series) else None,
+    )

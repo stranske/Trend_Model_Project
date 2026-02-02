@@ -3698,16 +3698,23 @@ def run(
                 weights_by_date = weights_by_date.reindex(
                     columns=out_scaled.columns, fill_value=0.0
                 )
-                rebalance_returns = (out_scaled * weights_by_date).sum(axis=1)
-                res_dict["portfolio_user_weight"] = rebalance_returns
-                res_dict["weights_user_weight"] = rebalance_frame
-
                 if rf_override_enabled:
                     rf_out = pd.Series(float(rf_rate_periodic), index=out_scaled.index)
                 elif resolved_rf_col and resolved_rf_col in out_df.columns:
                     rf_out = out_df[resolved_rf_col].reindex(out_scaled.index)
                 else:
                     rf_out = pd.Series(0.0, index=out_scaled.index)
+
+                cash_weight_series = 1.0 - weights_by_date.sum(axis=1)
+                cash_weight_series = cash_weight_series.where(cash_weight_series > 1e-10, 0.0)
+                res_dict["cash_weight_series"] = cash_weight_series
+
+                rebalance_returns = (out_scaled * weights_by_date).sum(axis=1)
+                rebalance_returns = rebalance_returns + (
+                    rf_out.reindex(out_scaled.index).fillna(0.0) * cash_weight_series
+                )
+                res_dict["portfolio_user_weight"] = rebalance_returns
+                res_dict["weights_user_weight"] = rebalance_frame
 
                 res_dict["out_user_stats"] = _compute_stats(
                     pd.DataFrame({"user": rebalance_returns}), rf_out
@@ -3718,6 +3725,9 @@ def run(
                     weights_raw = rebalance_frame.reindex(out_raw.index).ffill().fillna(0.0)
                     weights_raw = weights_raw.reindex(columns=out_raw.columns, fill_value=0.0)
                     rebalance_raw = (out_raw * weights_raw).sum(axis=1)
+                    rebalance_raw = rebalance_raw + (
+                        rf_out.reindex(out_raw.index).fillna(0.0) * cash_weight_series
+                    )
                     res_dict["portfolio_user_weight_raw"] = rebalance_raw
                     res_dict["out_user_stats_raw"] = _compute_stats(
                         pd.DataFrame({"user": rebalance_raw}), rf_out

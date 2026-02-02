@@ -139,9 +139,21 @@ class _ComputationStage:
     effective_signal_spec: TrendSpec
 
 
-def calc_portfolio_returns(weights: NDArray[Any], returns_df: pd.DataFrame) -> pd.Series:
-    """Calculate weighted portfolio returns."""
-    return returns_df.mul(weights, axis=1).sum(axis=1)
+def calc_portfolio_returns(
+    weights: NDArray[Any],
+    returns_df: pd.DataFrame,
+    *,
+    cash_weight: float = 0.0,
+    cash_returns: pd.Series | None = None,
+) -> pd.Series:
+    """Calculate weighted portfolio returns (including optional cash)."""
+    portfolio = returns_df.mul(weights, axis=1).sum(axis=1)
+    if cash_weight:
+        if cash_returns is None:
+            raise ValueError("cash_returns must be provided when cash_weight is non-zero")
+        cash_series = cash_returns.reindex(portfolio.index).fillna(0.0)
+        portfolio = portfolio + cash_series * float(cash_weight)
+    return portfolio
 
 
 def _compute_stats(
@@ -612,9 +624,24 @@ def _compute_weights_and_stats(
     user_w = weights_series.to_numpy(dtype=float, copy=False)
     user_w_dict = {c: float(weights_series[c]) for c in fund_cols}
 
-    in_user = calc_portfolio_returns(user_w, in_scaled)
-    out_user = calc_portfolio_returns(user_w, out_scaled)
-    out_user_raw = calc_portfolio_returns(user_w, window.out_df[fund_cols])
+    in_user = calc_portfolio_returns(
+        user_w,
+        in_scaled,
+        cash_weight=cash_weight,
+        cash_returns=rf_in,
+    )
+    out_user = calc_portfolio_returns(
+        user_w,
+        out_scaled,
+        cash_weight=cash_weight,
+        cash_returns=rf_out,
+    )
+    out_user_raw = calc_portfolio_returns(
+        user_w,
+        window.out_df[fund_cols],
+        cash_weight=cash_weight,
+        cash_returns=rf_out,
+    )
 
     in_user_stats = _compute_stats(pd.DataFrame({"user": in_user}), rf_in)["user"]
     out_user_stats = _compute_stats(pd.DataFrame({"user": out_user}), rf_out)["user"]
@@ -679,9 +706,14 @@ def _assemble_analysis_output(
     out_user = calc_portfolio_returns(
         computation.weights_series.to_numpy(dtype=float, copy=False),
         computation.out_scaled,
+        cash_weight=computation.cash_weight,
+        cash_returns=computation.rf_out,
     )
     out_user_raw = calc_portfolio_returns(
-        computation.weights_series.to_numpy(dtype=float, copy=False), out_df[fund_cols]
+        computation.weights_series.to_numpy(dtype=float, copy=False),
+        out_df[fund_cols],
+        cash_weight=computation.cash_weight,
+        cash_returns=computation.rf_out,
     )
     out_ew = calc_portfolio_returns(
         np.repeat(1.0 / len(fund_cols), len(fund_cols)), computation.out_scaled
@@ -724,6 +756,12 @@ def _assemble_analysis_output(
         "User": out_user.astype(float, copy=False),
         "Equal-Weight": out_ew.astype(float, copy=False),
     }
+    cash_weight_series = pd.Series(
+        float(computation.cash_weight),
+        index=out_df.index,
+        name="cash_weight",
+        dtype=float,
+    )
     regime_payload = build_regime_payload(
         data=preprocess.df,
         out_index=out_df.index,
@@ -764,6 +802,8 @@ def _assemble_analysis_output(
             "selected_funds": fund_cols,
             "risk_free_column": rf_col,
             "risk_free_source": selection.rf_source,
+            "risk_free_in_sample": computation.rf_in,
+            "risk_free_out_sample": computation.rf_out,
             "in_sample_scaled": computation.in_scaled,
             "out_sample_scaled": computation.out_scaled,
             "in_sample_stats": computation.in_stats,
@@ -775,9 +815,14 @@ def _assemble_analysis_output(
             "in_user_stats": computation.in_user_stats,
             "out_user_stats": computation.out_user_stats,
             "out_user_stats_raw": computation.out_user_stats_raw,
+            "portfolio_user_weight": out_user,
+            "portfolio_equal_weight": out_ew,
+            "portfolio_user_weight_raw": out_user_raw,
+            "portfolio_equal_weight_raw": out_ew_raw,
             "ew_weights": computation.ew_weights,
             "fund_weights": computation.user_weights,
             "cash_weight": computation.cash_weight,
+            "cash_weight_series": cash_weight_series,
             "benchmark_stats": benchmark_stats,
             "benchmark_ir": benchmark_ir,
             "score_frame": computation.score_frame,

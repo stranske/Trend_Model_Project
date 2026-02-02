@@ -322,7 +322,17 @@ def _build_multi_period_portfolio(
         try:
             cols = list(out_df.columns)
             w = np.array([fund_weights.get(c, 0.0) for c in cols])
-            port_ret = calc_portfolio_returns(w, out_df)
+            cash_weight = res.get("cash_weight")
+            rf_out = res.get("risk_free_out_sample")
+            if isinstance(cash_weight, (int, float)) and isinstance(rf_out, pd.Series):
+                port_ret = calc_portfolio_returns(
+                    w,
+                    out_df,
+                    cash_weight=float(cash_weight),
+                    cash_returns=rf_out,
+                )
+            else:
+                port_ret = calc_portfolio_returns(w, out_df)
             out_series_list.append(port_ret)
         except Exception:
             continue
@@ -339,6 +349,10 @@ def _build_combined_portfolio_series(
     weights: Mapping[str, float] | None,
     in_df: pd.DataFrame | None,
     out_df: pd.DataFrame | None,
+    *,
+    cash_weight: float | None = None,
+    rf_in: pd.Series | None = None,
+    rf_out: pd.Series | None = None,
 ) -> pd.Series | None:
     """Build a combined in/out-sample portfolio series from weights."""
     if not isinstance(weights, Mapping) or not weights:
@@ -353,11 +367,27 @@ def _build_combined_portfolio_series(
     try:
         in_cols = list(in_df.columns)
         in_weights = np.array([weights.get(c, 0.0) for c in in_cols])
-        port_is = calc_portfolio_returns(in_weights, in_df)
+        if isinstance(cash_weight, (int, float)) and isinstance(rf_in, pd.Series):
+            port_is = calc_portfolio_returns(
+                in_weights,
+                in_df,
+                cash_weight=float(cash_weight),
+                cash_returns=rf_in,
+            )
+        else:
+            port_is = calc_portfolio_returns(in_weights, in_df)
 
         out_cols = list(out_df.columns)
         out_weights = np.array([weights.get(c, 0.0) for c in out_cols])
-        port_os = calc_portfolio_returns(out_weights, out_df)
+        if isinstance(cash_weight, (int, float)) and isinstance(rf_out, pd.Series):
+            port_os = calc_portfolio_returns(
+                out_weights,
+                out_df,
+                cash_weight=float(cash_weight),
+                cash_returns=rf_out,
+            )
+        else:
+            port_os = calc_portfolio_returns(out_weights, out_df)
     except Exception:
         return None
 
@@ -627,6 +657,9 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             ew_weights_map,
             in_scaled,
             out_scaled,
+            cash_weight=res_dict.get("cash_weight"),
+            rf_in=res_dict.get("risk_free_in_sample"),
+            rf_out=res_dict.get("risk_free_out_sample"),
         )
         if portfolio_series is not None:
             res_dict["portfolio_equal_weight_combined"] = portfolio_series
@@ -639,6 +672,9 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             fund_weights_map,
             in_scaled,
             out_scaled,
+            cash_weight=res_dict.get("cash_weight"),
+            rf_in=res_dict.get("risk_free_in_sample"),
+            rf_out=res_dict.get("risk_free_out_sample"),
         )
         if user_series is not None:
             res_dict["portfolio_user_weight_combined"] = user_series
