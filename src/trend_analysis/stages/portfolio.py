@@ -403,6 +403,11 @@ def _compute_weights_and_stats(
             index=fund_cols,
             dtype=float,
         )
+    target_total = None
+    if custom_weights_input and long_only:
+        base_total = float(base_series.clip(lower=0.0).sum())
+        if 0 < base_total < 1.0 - 1e-10:
+            target_total = base_total
 
     negative_assets = base_series[base_series < 0].index.tolist()
     if negative_assets:
@@ -544,6 +549,11 @@ def _compute_weights_and_stats(
         .reindex(fund_cols)
         .fillna(0.0)
     )
+
+    if target_total is not None:
+        raw_total = float(weights_series.sum())
+        if np.isfinite(raw_total) and raw_total > target_total + 1e-10 and raw_total > 0.0:
+            weights_series = weights_series * (target_total / raw_total)
 
     cash_weight = 0.0
     if long_only:

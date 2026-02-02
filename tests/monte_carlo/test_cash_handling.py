@@ -100,3 +100,44 @@ def test_cash_returns_use_override_rate(monkeypatch: pytest.MonkeyPatch) -> None
     portfolio_user = result.get("portfolio_user_weight")
     assert isinstance(portfolio_user, pd.Series)
     pd.testing.assert_series_equal(portfolio_user, expected)
+
+
+def test_underinvestment_preserves_cash_without_cash_policy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    df = _make_frame()
+    monkeypatch.setattr(
+        "trend_analysis.pipeline.compute_trend_signals",
+        lambda signal_inputs, *_args, **_kwargs: pd.DataFrame(
+            {"FundA": 0.0, "FundB": 0.0}, index=signal_inputs.index
+        ),
+    )
+
+    result = run_analysis(
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        target_vol=0.1,
+        monthly_cost=0.0,
+        custom_weights={"FundA": 80.0, "FundB": 10.0},
+        risk_free_column="RF",
+    )
+
+    assert result is not None
+    cash_weight = result.get("cash_weight")
+    assert cash_weight == pytest.approx(0.1)
+
+    fund_weights = result.get("fund_weights")
+    assert isinstance(fund_weights, dict)
+    assert sum(fund_weights.values()) == pytest.approx(0.9)
+
+    out_scaled = result["out_sample_scaled"]
+    rf_out = result["risk_free_out_sample"]
+    weights = np.array([fund_weights.get(c, 0.0) for c in out_scaled.columns])
+    expected = out_scaled.mul(weights, axis=1).sum(axis=1) + rf_out * cash_weight
+
+    portfolio_user = result.get("portfolio_user_weight")
+    assert isinstance(portfolio_user, pd.Series)
+    pd.testing.assert_series_equal(portfolio_user, expected)
