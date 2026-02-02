@@ -82,11 +82,12 @@ tasks:
   - id: task-11
     title: 'Define scope for: Test strategies against edge cases to ensure robustness.
       (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-02-02T03:53:24Z'
+    finished_at: '2026-02-02T03:53:24Z'
+    commit: 5f091bbd934bdb3e9d73c8bfd48f74b41c70c055
+    notes:
+      - Scope: missing curated key, non-list curated, invalid entry types, missing names, non-mapping overrides.
   - id: task-12
     title: 'Implement focused slice for: Test strategies against edge cases to ensure
       robustness. (verify: confirm completion in repo)'
