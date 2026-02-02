@@ -1475,6 +1475,8 @@ def combined_summary_result(
     ew_out_series: list[pd.Series] = []
     user_in_series: list[pd.Series] = []
     user_out_series: list[pd.Series] = []
+    rf_in_series: list[pd.Series] = []
+    rf_out_series: list[pd.Series] = []
     weight_sum: dict[str, float] = defaultdict(float)
     periods = 0
 
@@ -1487,12 +1489,43 @@ def combined_summary_result(
         user_w = [fund_map.get(c, 0.0) for c in in_df.columns]
         ew_in_series.append(calc_portfolio_returns(np.array(ew_w), in_df))
         ew_out_series.append(calc_portfolio_returns(np.array(ew_w), out_df))
-        user_in_series.append(calc_portfolio_returns(np.array(user_w), in_df))
+        cash_weight = res.get("cash_weight")
+        rf_in = res.get("risk_free_in_sample")
+        rf_out = res.get("risk_free_out_sample")
+        if isinstance(rf_in, pd.Series) and not rf_in.empty:
+            rf_in_series.append(rf_in.astype(float))
+        else:
+            rf_in_series.append(pd.Series(0.0, index=in_df.index))
+        if isinstance(rf_out, pd.Series) and not rf_out.empty:
+            rf_out_series.append(rf_out.astype(float))
+        else:
+            rf_out_series.append(pd.Series(0.0, index=out_df.index))
+        if isinstance(cash_weight, (int, float)) and isinstance(rf_in, pd.Series):
+            user_in_series.append(
+                calc_portfolio_returns(
+                    np.array(user_w),
+                    in_df,
+                    cash_weight=float(cash_weight),
+                    cash_returns=rf_in,
+                )
+            )
+        else:
+            user_in_series.append(calc_portfolio_returns(np.array(user_w), in_df))
         user_out = res.get("portfolio_user_weight")
         if isinstance(user_out, pd.Series) and not user_out.empty:
             user_out_series.append(user_out.astype(float))
         else:
-            user_out_series.append(calc_portfolio_returns(np.array(user_w), out_df))
+            if isinstance(cash_weight, (int, float)) and isinstance(rf_out, pd.Series):
+                user_out_series.append(
+                    calc_portfolio_returns(
+                        np.array(user_w),
+                        out_df,
+                        cash_weight=float(cash_weight),
+                        cash_returns=rf_out,
+                    )
+                )
+            else:
+                user_out_series.append(calc_portfolio_returns(np.array(user_w), out_df))
         for c in in_df.columns:
             fund_in[c].append(in_df[c])
             weight_sum[c] += fund_map.get(c, 0.0)
@@ -1502,6 +1535,10 @@ def combined_summary_result(
 
     rf_in = pd.Series(0.0, index=pd.concat(ew_in_series).index)
     rf_out = pd.Series(0.0, index=pd.concat(ew_out_series).index)
+    if rf_in_series:
+        rf_in = pd.concat(rf_in_series).reindex(rf_in.index).fillna(0.0)
+    if rf_out_series:
+        rf_out = pd.concat(rf_out_series).reindex(rf_out.index).fillna(0.0)
     in_ew_stats = _compute_stats(pd.DataFrame({"ew": pd.concat(ew_in_series)}), rf_in)["ew"]
     out_ew_stats = _compute_stats(pd.DataFrame({"ew": pd.concat(ew_out_series)}), rf_out)["ew"]
     in_user_stats = _compute_stats(pd.DataFrame({"user": pd.concat(user_in_series)}), rf_in)["user"]

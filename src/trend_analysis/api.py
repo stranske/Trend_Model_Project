@@ -33,6 +33,7 @@ from .pipeline import (
     _resolve_target_vol,
     _run_analysis_with_diagnostics,
 )
+from .risk import periods_per_year_from_code
 from .util.risk_free import resolve_risk_free_settings
 from .util.weights import normalize_weights
 from .weights.robust_config import weight_engine_params_from_robustness
@@ -322,7 +323,17 @@ def _build_multi_period_portfolio(
         try:
             cols = list(out_df.columns)
             w = np.array([fund_weights.get(c, 0.0) for c in cols])
-            port_ret = calc_portfolio_returns(w, out_df)
+            cash_weight = res.get("cash_weight")
+            rf_out = res.get("risk_free_out_sample")
+            if isinstance(cash_weight, (int, float)) and isinstance(rf_out, pd.Series):
+                port_ret = calc_portfolio_returns(
+                    w,
+                    out_df,
+                    cash_weight=float(cash_weight),
+                    cash_returns=rf_out,
+                )
+            else:
+                port_ret = calc_portfolio_returns(w, out_df)
             out_series_list.append(port_ret)
         except Exception:
             continue
@@ -339,6 +350,10 @@ def _build_combined_portfolio_series(
     weights: Mapping[str, float] | None,
     in_df: pd.DataFrame | None,
     out_df: pd.DataFrame | None,
+    *,
+    cash_weight: float | None = None,
+    rf_in: pd.Series | None = None,
+    rf_out: pd.Series | None = None,
 ) -> pd.Series | None:
     """Build a combined in/out-sample portfolio series from weights."""
     if not isinstance(weights, Mapping) or not weights:
@@ -353,11 +368,27 @@ def _build_combined_portfolio_series(
     try:
         in_cols = list(in_df.columns)
         in_weights = np.array([weights.get(c, 0.0) for c in in_cols])
-        port_is = calc_portfolio_returns(in_weights, in_df)
+        if isinstance(cash_weight, (int, float)) and isinstance(rf_in, pd.Series):
+            port_is = calc_portfolio_returns(
+                in_weights,
+                in_df,
+                cash_weight=float(cash_weight),
+                cash_returns=rf_in,
+            )
+        else:
+            port_is = calc_portfolio_returns(in_weights, in_df)
 
         out_cols = list(out_df.columns)
         out_weights = np.array([weights.get(c, 0.0) for c in out_cols])
-        port_os = calc_portfolio_returns(out_weights, out_df)
+        if isinstance(cash_weight, (int, float)) and isinstance(rf_out, pd.Series):
+            port_os = calc_portfolio_returns(
+                out_weights,
+                out_df,
+                cash_weight=float(cash_weight),
+                cash_returns=rf_out,
+            )
+        else:
+            port_os = calc_portfolio_returns(out_weights, out_df)
     except Exception:
         return None
 
@@ -415,11 +446,16 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
 
     split = config.sample_split
     metrics_list = config.metrics.get("registry")
-    # Use rf_rate_annual from config as fallback when override is enabled
-    rf_override_enabled = config.metrics.get("rf_override_enabled", False)
-    rf_rate_fallback = (
-        float(config.metrics.get("rf_rate_annual", 0.0)) if rf_override_enabled else 0.0
-    )
+    rf_override_enabled = bool(config.metrics.get("rf_override_enabled", False))
+    rf_rate_annual = float(config.metrics.get("rf_rate_annual", 0.0) or 0.0)
+    risk_free_override: float | None = None
+    rf_rate_fallback = 0.0
+    if rf_override_enabled:
+        frequency = str(data_settings.get("frequency") or "M")
+        periods_per_year = float(periods_per_year_from_code(frequency))
+        rf_rate_periodic = (1.0 + rf_rate_annual) ** (1.0 / periods_per_year) - 1.0
+        rf_rate_fallback = float(rf_rate_periodic)
+        risk_free_override = float(rf_rate_periodic)
     stats_cfg = None
     if metrics_list:
         from .core.rank_selection import RiskStatsConfig, canonical_metric_list
@@ -502,6 +538,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         regime_cfg=regime_cfg,
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
+        risk_free_override=risk_free_override,
         weight_engine_params=weight_engine_params,
     )
     diag_hint = cast(DiagnosticPayload | None, getattr(pipeline_output, "diagnostic", None))
@@ -627,6 +664,9 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             ew_weights_map,
             in_scaled,
             out_scaled,
+            cash_weight=res_dict.get("cash_weight"),
+            rf_in=res_dict.get("risk_free_in_sample"),
+            rf_out=res_dict.get("risk_free_out_sample"),
         )
         if portfolio_series is not None:
             res_dict["portfolio_equal_weight_combined"] = portfolio_series
@@ -639,6 +679,9 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             fund_weights_map,
             in_scaled,
             out_scaled,
+            cash_weight=res_dict.get("cash_weight"),
+            rf_in=res_dict.get("risk_free_in_sample"),
+            rf_out=res_dict.get("risk_free_out_sample"),
         )
         if user_series is not None:
             res_dict["portfolio_user_weight_combined"] = user_series

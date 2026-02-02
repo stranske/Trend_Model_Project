@@ -113,6 +113,7 @@ class _Stats:
 @dataclass(slots=True)
 class _ComputationStage:
     weights_series: pd.Series
+    cash_weight: float
     risk_diagnostics: RiskDiagnostics
     weight_engine_fallback: dict[str, Any] | None
     weight_engine_diagnostics: dict[str, Any] | None
@@ -138,9 +139,21 @@ class _ComputationStage:
     effective_signal_spec: TrendSpec
 
 
-def calc_portfolio_returns(weights: NDArray[Any], returns_df: pd.DataFrame) -> pd.Series:
-    """Calculate weighted portfolio returns."""
-    return returns_df.mul(weights, axis=1).sum(axis=1)
+def calc_portfolio_returns(
+    weights: NDArray[Any],
+    returns_df: pd.DataFrame,
+    *,
+    cash_weight: float = 0.0,
+    cash_returns: pd.Series | None = None,
+) -> pd.Series:
+    """Calculate weighted portfolio returns (including optional cash)."""
+    portfolio = returns_df.mul(weights, axis=1).sum(axis=1)
+    if cash_weight:
+        if cash_returns is None:
+            raise ValueError("cash_returns must be provided when cash_weight is non-zero")
+        cash_series = cash_returns.reindex(portfolio.index).fillna(0.0)
+        portfolio = portfolio + cash_series * float(cash_weight)
+    return portfolio
 
 
 def _compute_stats(
@@ -188,6 +201,7 @@ def _compute_weights_and_stats(
     min_floor: float,
     stats_cfg: Any,
     weight_engine_params: Mapping[str, Any] | None,
+    risk_free_override: float | pd.Series | None = None,
 ) -> _ComputationStage:
     fund_cols = selection.fund_cols
 
@@ -389,6 +403,11 @@ def _compute_weights_and_stats(
             index=fund_cols,
             dtype=float,
         )
+    target_total = None
+    if custom_weights_input and long_only:
+        base_total = float(base_series.clip(lower=0.0).sum())
+        if 0 < base_total < 1.0 - 1e-10:
+            target_total = base_total
 
     negative_assets = base_series[base_series < 0].index.tolist()
     if negative_assets:
@@ -530,6 +549,23 @@ def _compute_weights_and_stats(
         .reindex(fund_cols)
         .fillna(0.0)
     )
+
+    if target_total is not None:
+        raw_total = float(weights_series.sum())
+        if np.isfinite(raw_total) and raw_total > target_total + 1e-10 and raw_total > 0.0:
+            weights_series = weights_series * (target_total / raw_total)
+
+    cash_weight = 0.0
+    if long_only:
+        total_weight = float(weights_series.sum())
+        if not np.isfinite(total_weight):
+            total_weight = 0.0
+        if total_weight > 1.0 + 1e-10:
+            weights_series = weights_series / total_weight
+            total_weight = 1.0
+        cash_weight = 1.0 - total_weight
+        if abs(cash_weight) <= 1e-10 or cash_weight < 0.0:
+            cash_weight = 0.0
     scale_factors = risk_diagnostics.scale_factors.reindex(fund_cols).fillna(0.0)
 
     in_scaled = window.in_df[fund_cols].mul(scale_factors, axis=1) - monthly_cost
@@ -548,8 +584,16 @@ def _compute_weights_and_stats(
     in_scaled = in_scaled.fillna(0.0)
     out_scaled = out_scaled.fillna(0.0)
 
-    rf_in = window.in_df[selection.rf_col]
-    rf_out = window.out_df[selection.rf_col]
+    if risk_free_override is None:
+        rf_in = window.in_df[selection.rf_col]
+        rf_out = window.out_df[selection.rf_col]
+    elif isinstance(risk_free_override, pd.Series):
+        rf_in = risk_free_override.reindex(window.in_df.index).fillna(0.0)
+        rf_out = risk_free_override.reindex(window.out_df.index).fillna(0.0)
+    else:
+        rf_val = float(risk_free_override)
+        rf_in = pd.Series(rf_val, index=window.in_df.index, name=selection.rf_col, dtype=float)
+        rf_out = pd.Series(rf_val, index=window.out_df.index, name=selection.rf_col, dtype=float)
 
     want_avg_corr = False
     try:
@@ -599,9 +643,24 @@ def _compute_weights_and_stats(
     user_w = weights_series.to_numpy(dtype=float, copy=False)
     user_w_dict = {c: float(weights_series[c]) for c in fund_cols}
 
-    in_user = calc_portfolio_returns(user_w, in_scaled)
-    out_user = calc_portfolio_returns(user_w, out_scaled)
-    out_user_raw = calc_portfolio_returns(user_w, window.out_df[fund_cols])
+    in_user = calc_portfolio_returns(
+        user_w,
+        in_scaled,
+        cash_weight=cash_weight,
+        cash_returns=rf_in,
+    )
+    out_user = calc_portfolio_returns(
+        user_w,
+        out_scaled,
+        cash_weight=cash_weight,
+        cash_returns=rf_out,
+    )
+    out_user_raw = calc_portfolio_returns(
+        user_w,
+        window.out_df[fund_cols],
+        cash_weight=cash_weight,
+        cash_returns=rf_out,
+    )
 
     in_user_stats = _compute_stats(pd.DataFrame({"user": in_user}), rf_in)["user"]
     out_user_stats = _compute_stats(pd.DataFrame({"user": out_user}), rf_out)["user"]
@@ -609,6 +668,7 @@ def _compute_weights_and_stats(
 
     return _ComputationStage(
         weights_series=weights_series,
+        cash_weight=cash_weight,
         risk_diagnostics=risk_diagnostics,
         weight_engine_fallback=weight_engine_fallback,
         weight_engine_diagnostics=weight_engine_diagnostics,
@@ -665,9 +725,14 @@ def _assemble_analysis_output(
     out_user = calc_portfolio_returns(
         computation.weights_series.to_numpy(dtype=float, copy=False),
         computation.out_scaled,
+        cash_weight=computation.cash_weight,
+        cash_returns=computation.rf_out,
     )
     out_user_raw = calc_portfolio_returns(
-        computation.weights_series.to_numpy(dtype=float, copy=False), out_df[fund_cols]
+        computation.weights_series.to_numpy(dtype=float, copy=False),
+        out_df[fund_cols],
+        cash_weight=computation.cash_weight,
+        cash_returns=computation.rf_out,
     )
     out_ew = calc_portfolio_returns(
         np.repeat(1.0 / len(fund_cols), len(fund_cols)), computation.out_scaled
@@ -710,6 +775,12 @@ def _assemble_analysis_output(
         "User": out_user.astype(float, copy=False),
         "Equal-Weight": out_ew.astype(float, copy=False),
     }
+    cash_weight_series = pd.Series(
+        float(computation.cash_weight),
+        index=out_df.index,
+        name="cash_weight",
+        dtype=float,
+    )
     regime_payload = build_regime_payload(
         data=preprocess.df,
         out_index=out_df.index,
@@ -750,6 +821,8 @@ def _assemble_analysis_output(
             "selected_funds": fund_cols,
             "risk_free_column": rf_col,
             "risk_free_source": selection.rf_source,
+            "risk_free_in_sample": computation.rf_in,
+            "risk_free_out_sample": computation.rf_out,
             "in_sample_scaled": computation.in_scaled,
             "out_sample_scaled": computation.out_scaled,
             "in_sample_stats": computation.in_stats,
@@ -761,8 +834,14 @@ def _assemble_analysis_output(
             "in_user_stats": computation.in_user_stats,
             "out_user_stats": computation.out_user_stats,
             "out_user_stats_raw": computation.out_user_stats_raw,
+            "portfolio_user_weight": out_user,
+            "portfolio_equal_weight": out_ew,
+            "portfolio_user_weight_raw": out_user_raw,
+            "portfolio_equal_weight_raw": out_ew_raw,
             "ew_weights": computation.ew_weights,
             "fund_weights": computation.user_weights,
+            "cash_weight": computation.cash_weight,
+            "cash_weight_series": cash_weight_series,
             "benchmark_stats": benchmark_stats,
             "benchmark_ir": benchmark_ir,
             "score_frame": computation.score_frame,
