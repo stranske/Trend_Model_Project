@@ -89,7 +89,9 @@ class LognormalCostDistribution(CostDistribution):
     def sample(self, rng: np.random.Generator, size: int) -> np.ndarray:
         if size <= 0:
             return np.array([], dtype=float)
-        values = rng.lognormal(mean=float(self.mean), sigma=float(self.sigma), size=size)
+        values = rng.lognormal(
+            mean=float(self.mean), sigma=float(self.sigma), size=size
+        )
         return self._apply_clip(values)
 
 
@@ -163,8 +165,12 @@ class CostProcess:
                 regimes[str(label)] = _parse_regime_spec(spec, name=str(label))
 
         if not regimes:
-            fallback_spec = config.get("default") or config.get("distribution") or config
-            regimes[default_regime] = _parse_regime_spec(fallback_spec, name=default_regime)
+            fallback_spec = (
+                config.get("default") or config.get("distribution") or config
+            )
+            regimes[default_regime] = _parse_regime_spec(
+                fallback_spec, name=default_regime
+            )
 
         return cls(regimes, default_regime=default_regime)
 
@@ -197,7 +203,9 @@ class CostProcess:
             total_cost_drag=total_cost_drag,
         )
 
-    def _sample_cost_bps(self, regime_series: pd.Series, rng: np.random.Generator) -> pd.Series:
+    def _sample_cost_bps(
+        self, regime_series: pd.Series, rng: np.random.Generator
+    ) -> pd.Series:
         values = np.empty(len(regime_series), dtype=float)
         for label in pd.unique(regime_series):
             spec = self._select_spec(label)
@@ -255,7 +263,9 @@ def _coerce_regime_series(
     return pd.Series(values, index=index, dtype="string")
 
 
-def _coerce_turnover_series(turnover: pd.Series | float | None, index: pd.Index) -> pd.Series:
+def _coerce_turnover_series(
+    turnover: pd.Series | float | None, index: pd.Index
+) -> pd.Series:
     if turnover is None:
         return pd.Series(0.0, index=index, name="turnover")
     if isinstance(turnover, pd.Series):
@@ -283,7 +293,9 @@ def _parse_distribution(spec: Any, *, regime: str) -> CostDistribution:
 
     if kind == "fixed":
         value = _coerce_float(spec.get("value", spec.get("bps", 0.0)), "value")
-        return FixedCostDistribution(kind=kind, value=value, clip_min=clip_min, clip_max=clip_max)
+        return FixedCostDistribution(
+            kind=kind, value=value, clip_min=clip_min, clip_max=clip_max
+        )
 
     if kind == "normal":
         mean = _coerce_float(spec.get("mean", 0.0), "mean")

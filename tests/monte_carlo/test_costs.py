@@ -67,7 +67,9 @@ def test_cost_process_fixed_distribution_applies_slippage() -> None:
 def test_cost_process_normal_distribution_reasonable_mean() -> None:
     config = {
         "default_regime": "base",
-        "regimes": {"base": {"distribution": {"kind": "normal", "mean": 8.0, "std": 0.5}}},
+        "regimes": {
+            "base": {"distribution": {"kind": "normal", "mean": 8.0, "std": 0.5}}
+        },
     }
     process = CostProcess.from_config(config)
     assert process is not None
@@ -85,7 +87,9 @@ def test_cost_process_lognormal_stress_higher_mean_and_variance() -> None:
         "default_regime": "calm",
         "regimes": {
             "calm": {"distribution": {"kind": "lognormal", "mean": 1.0, "sigma": 0.1}},
-            "stress": {"distribution": {"kind": "lognormal", "mean": 1.3, "sigma": 0.4}},
+            "stress": {
+                "distribution": {"kind": "lognormal", "mean": 1.3, "sigma": 0.4}
+            },
         },
     }
     process = CostProcess.from_config(config)
@@ -140,7 +144,9 @@ def test_runner_integration_records_costs(monkeypatch: Any) -> None:
         metrics = pd.DataFrame({"annual_return": [0.1]}, index=["user_weight"])
         out_index = pd.date_range("2021-01-31", periods=3, freq="ME")
         details = {
-            "out_sample_scaled": pd.DataFrame({"A": [0.01, 0.02, 0.03]}, index=out_index),
+            "out_sample_scaled": pd.DataFrame(
+                {"A": [0.01, 0.02, 0.03]}, index=out_index
+            ),
             "regime_labels_out": pd.Series(
                 ["calm", "stress", "calm"], index=out_index, dtype="string"
             ),
