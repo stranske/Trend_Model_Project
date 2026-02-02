@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Create an integration-level test in `tests/monte_carlo/` verifying all
       strategies see identical prices for the same path seed (two-layer guarantee).
-    status: doing
+    status: done
     started_at: '2026-02-02T09:53:56Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-02T09:54:08Z'
+    commit: d2eec86a9108d3831181046aaf9a44a6c6ab57ab
     notes: []
   - id: task-02
     title: Add documentation in `docs/` stating the expected variance-reduction factor
