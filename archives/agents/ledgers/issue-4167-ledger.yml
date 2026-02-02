@@ -127,25 +127,25 @@ tasks:
     notes: []
   - id: task-17
     title: '## Performance Target'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-02T00:00:00Z'
+    finished_at: '2026-02-02T00:00:00Z'
+    commit: a8ad9537
     notes: []
   - id: task-18
     title: 'Running 10 strategies should be **materially faster** than running 10
       independent full analyses:'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-02T00:00:00Z'
+    finished_at: '2026-02-02T00:00:00Z'
+    commit: a8ad9537
     notes: []
   - id: task-19
     title: 'Target: <2x the time of a single strategy (vs 10x without caching)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-02T00:00:00Z'
+    finished_at: '2026-02-02T00:00:00Z'
+    commit: a8ad9537
     notes: []
   - id: task-20
     title: Metric computation is O(1) per path regardless of strategy count
@@ -199,17 +199,17 @@ tasks:
   - id: task-27
     title: Running 10 strategies is <2x the time of running 1 strategy on the same
       path.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-02T00:00:00Z'
+    finished_at: '2026-02-02T00:00:00Z'
+    commit: a8ad9537
     notes: []
   - id: task-28
     title: Numerical results are unchanged compared to baseline full runs.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-02T00:00:00Z'
+    finished_at: '2026-02-02T00:00:00Z'
+    commit: a8ad9537
     notes: []
   - id: task-29
     title: Cache is cleared after path completion to ensure bounded memory usage.
