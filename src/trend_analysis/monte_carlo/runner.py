@@ -25,6 +25,7 @@ from trend_analysis.monte_carlo.models import (
     StationaryBootstrapModel,
 )
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
+from trend_analysis.monte_carlo.seed import SeedManager
 from trend_analysis.monte_carlo.strategy import StrategyVariant
 from trend_analysis.pipeline import _resolve_sample_split
 from trend_analysis.risk import periods_per_year_from_code
@@ -40,6 +41,8 @@ from .results import (
 )
 
 __all__ = ["MonteCarloRunner"]
+
+_STRATEGY_SELECTION_SEED_TAG = "__strategy_selection__"
 
 
 @dataclass(frozen=True)
@@ -67,6 +70,8 @@ class MonteCarloRunner:
         self._base_config = self._coerce_base_config(base_config)
         self._price_history = price_history
         self._logger = logger or logging.getLogger("trend_analysis.monte_carlo")
+        self._seed_manager: SeedManager | None = None
+        self._seed_manager_init = False
 
     def run(
         self,
@@ -139,6 +144,31 @@ class MonteCarloRunner:
         total = len(path_seeds)
         evaluations: list[StrategyEvaluation] = []
         errors: list[MonteCarloPathError] = []
+        base_seed = self._settings().seed
+        seed_manager = SeedManager(base_seed) if base_seed is not None else None
+        seeds_match_base = False
+        if seed_manager is not None:
+            seeds_match_base = all(
+                seed == seed_manager.get_path_seed(path_id)
+                for path_id, seed in enumerate(path_seeds)
+                if seed is not None
+            )
+        shared_paths = seeds_match_base or all(seed is None for seed in path_seeds)
+
+        path_result = None
+        if shared_paths:
+            try:
+                path_result = model.sample_prices(
+                    n_periods=n_periods,
+                    n_paths=total,
+                    frequency=self.scenario.simulation_frequency(),
+                    seed=base_seed,
+                )
+            except Exception as exc:
+                for path_id in range(total):
+                    self._log_path_error(path_id, None, exc)
+                    errors.append(self._error_record(path_id, None, exc))
+                return evaluations, errors
 
         def _evaluate_path(
             path_id: int, seed: int | None
@@ -149,6 +179,8 @@ class MonteCarloRunner:
                     seed=seed,
                     model=model,
                     n_periods=n_periods,
+                    path_result=path_result,
+                    path_index=path_id,
                 )
             except Exception as exc:
                 self._log_path_error(path_id, None, exc)
@@ -185,9 +217,25 @@ class MonteCarloRunner:
         progress_callback: Callable[[Mapping[str, Any]], None] | None,
         jobs: int,
     ) -> tuple[list[StrategyEvaluation], list[MonteCarloPathError]]:
+        if len(strategy_seeds) != len(path_seeds):
+            raise ValueError("strategy_seeds must align with path_seeds")
         total = len(path_seeds)
         evaluations: list[StrategyEvaluation] = []
         errors: list[MonteCarloPathError] = []
+        base_seed = self._settings().seed
+
+        try:
+            path_result = model.sample_prices(
+                n_periods=n_periods,
+                n_paths=total,
+                frequency=self.scenario.simulation_frequency(),
+                seed=base_seed,
+            )
+        except Exception as exc:
+            for path_id in range(total):
+                self._log_path_error(path_id, None, exc)
+                errors.append(self._error_record(path_id, None, exc))
+            return evaluations, errors
 
         def _evaluate_path(
             path_id: int, seed: int | None
@@ -199,6 +247,8 @@ class MonteCarloRunner:
                     seed=seed,
                     model=model,
                     n_periods=n_periods,
+                    path_result=path_result,
+                    path_index=path_id,
                 )
             except Exception as exc:
                 self._log_path_error(path_id, None, exc)
@@ -227,15 +277,21 @@ class MonteCarloRunner:
         seed: int | None,
         model: Any,
         n_periods: int,
+        path_result: Any | None = None,
+        path_index: int = 0,
     ) -> _PathContext:
-        result = model.sample_prices(
-            n_periods=n_periods,
-            n_paths=1,
-            frequency=self.scenario.simulation_frequency(),
-            seed=seed,
-        )
-        prices = self._extract_path_frame(result.prices)
-        log_returns = self._extract_path_frame(result.log_returns)
+        if path_result is None:
+            result = model.sample_prices(
+                n_periods=n_periods,
+                n_paths=1,
+                frequency=self.scenario.simulation_frequency(),
+                seed=seed,
+            )
+            path_index = 0
+        else:
+            result = path_result
+        prices = self._extract_path_frame(result.prices, path_index)
+        log_returns = self._extract_path_frame(result.log_returns, path_index)
         returns = np.expm1(log_returns)
         returns_df = self._returns_with_date(returns)
         score_frame = self._compute_score_frame(returns_df)
@@ -254,9 +310,18 @@ class MonteCarloRunner:
         strategy: StrategyVariant,
         context: _PathContext,
     ) -> StrategyEvaluation:
-        config = self._build_strategy_config(strategy, context.seed)
+        strategy_seed = self._strategy_seed(context.path_id, strategy.name)
+        config = self._build_strategy_config(strategy, strategy_seed)
         run_result = run_simulation(config, context.returns)
         metrics, source = self._extract_metrics(run_result.metrics)
+        if (
+            not metrics
+            and isinstance(context.score_frame, pd.DataFrame)
+            and not context.score_frame.empty
+        ):
+            fallback = context.score_frame.mean(numeric_only=True)
+            metrics = {str(k): float(v) for k, v in fallback.items()}
+            source = "score_frame_mean"
         diagnostic = None
         if run_result.diagnostic is not None:
             diagnostic = {
@@ -375,19 +440,18 @@ class MonteCarloRunner:
     def _build_seeds(self) -> tuple[list[int | None], list[int | None]]:
         settings = self._settings()
         n_paths = settings.n_paths
-        base_seed = settings.seed
         if n_paths is None:
             raise ValueError("monte_carlo.n_paths is required")
-        if base_seed is None:
+        seed_manager = self._get_seed_manager()
+        if seed_manager is None:
             path_seeds: list[int | None] = [None] * n_paths
             strategy_seeds: list[int | None] = [None] * n_paths
             return path_seeds, strategy_seeds
-        seq = np.random.SeedSequence(int(base_seed))
-        child_seeds = seq.spawn(2)
-        path_rng = np.random.default_rng(child_seeds[0])
-        strategy_rng = np.random.default_rng(child_seeds[1])
-        path_seeds = path_rng.integers(0, 2**32 - 1, size=n_paths, dtype=np.uint32).tolist()
-        strategy_seeds = strategy_rng.integers(0, 2**32 - 1, size=n_paths, dtype=np.uint32).tolist()
+        path_seeds = [seed_manager.get_path_seed(path_id) for path_id in range(n_paths)]
+        strategy_seeds = [
+            seed_manager.get_strategy_seed(path_id, _STRATEGY_SELECTION_SEED_TAG)
+            for path_id in range(n_paths)
+        ]
         return path_seeds, strategy_seeds
 
     def _build_strategy_config(self, strategy: StrategyVariant, seed: int | None) -> ConfigType:
@@ -453,9 +517,9 @@ class MonteCarloRunner:
                 source = None
         return {str(k): float(v) for k, v in row.items()}, source
 
-    def _extract_path_frame(self, frame: pd.DataFrame) -> pd.DataFrame:
+    def _extract_path_frame(self, frame: pd.DataFrame, path_index: int = 0) -> pd.DataFrame:
         if isinstance(frame.columns, pd.MultiIndex) and "path" in frame.columns.names:
-            return frame.xs(0, level="path", axis=1)
+            return frame.xs(path_index, level="path", axis=1)
         return frame.copy()
 
     def _returns_with_date(self, returns: pd.DataFrame) -> pd.DataFrame:
@@ -525,7 +589,12 @@ class MonteCarloRunner:
     ) -> Iterable[tuple[int, list[StrategyEvaluation], list[MonteCarloPathError]]]:
         if jobs <= 1:
             for path_id, seed in enumerate(path_seeds):
-                yield (path_id, *fn(path_id, seed))
+                try:
+                    evals, errs = fn(path_id, seed)
+                except Exception as exc:
+                    self._log_path_error(path_id, None, exc)
+                    evals, errs = [], [self._error_record(path_id, None, exc)]
+                yield (path_id, evals, errs)
             return
 
         from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -537,7 +606,12 @@ class MonteCarloRunner:
             }
             for future in as_completed(futures):
                 path_id = futures[future]
-                yield (path_id, *future.result())
+                try:
+                    evals, errs = future.result()
+                except Exception as exc:
+                    self._log_path_error(path_id, None, exc)
+                    evals, errs = [], [self._error_record(path_id, None, exc)]
+                yield (path_id, evals, errs)
 
     def _maybe_export(self, results: MonteCarloResults) -> None:
         outputs = self.scenario.outputs or {}
@@ -611,3 +685,20 @@ class MonteCarloRunner:
         if isinstance(base_config, str):
             return Path(base_config)
         raise TypeError("base_config must be a path")
+
+    def _get_seed_manager(self) -> SeedManager | None:
+        if self._seed_manager_init:
+            return self._seed_manager
+        self._seed_manager_init = True
+        base_seed = self._settings().seed
+        if base_seed is None:
+            self._seed_manager = None
+        else:
+            self._seed_manager = SeedManager(int(base_seed))
+        return self._seed_manager
+
+    def _strategy_seed(self, path_id: int, strategy_name: str) -> int | None:
+        manager = self._get_seed_manager()
+        if manager is None:
+            return None
+        return manager.get_strategy_seed(path_id, strategy_name)

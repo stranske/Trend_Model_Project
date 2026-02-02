@@ -11,6 +11,7 @@ from trend_analysis.monte_carlo.models.base import (
     normalize_price_frequency,
     prices_to_log_returns,
 )
+from trend_analysis.monte_carlo.seed import SeedManager
 from trend_analysis.timefreq import MONTHLY_DATE_FREQ
 
 
@@ -150,3 +151,33 @@ def test_missingness_mask_propagation() -> None:
     assert mask.iloc[2, 1]
     assert result.prices.isna().iloc[0, 1]
     assert result.prices.isna().iloc[2, 1]
+
+
+def test_bootstrap_model_uses_path_seed_streams() -> None:
+    n_obs = 12
+    n_periods = 6
+    n_paths = 3
+    seed = 101
+    index = pd.date_range("2024-01-01", periods=n_obs, freq="D")
+    log_returns = np.column_stack(
+        [
+            0.001 + 0.0001 * np.arange(n_obs),
+            0.002 + 0.0001 * np.arange(n_obs),
+        ]
+    )
+    log_returns_frame = pd.DataFrame(log_returns, index=index, columns=["AssetA", "AssetB"])
+    start_prices = pd.Series([100.0, 80.0], index=["AssetA", "AssetB"], dtype=float)
+    prices = log_returns_to_prices(log_returns_frame, start_prices)
+
+    model = BootstrapPricePathModel(prices, frequency="D")
+    result = model.simulate(n_periods=n_periods, n_paths=n_paths, seed=seed)
+
+    history = prices_to_log_returns(prices).dropna(how="all")
+    data = history.to_numpy()
+    path_id = 1
+    path_rng = SeedManager(seed).get_path_rng(path_id)
+    expected_idx = path_rng.integers(0, data.shape[0], size=n_periods)
+    expected = data[expected_idx]
+
+    actual = result.log_returns.xs(path_id, level="path", axis=1).to_numpy()
+    assert np.allclose(actual, expected)

@@ -16,6 +16,32 @@ portfolio:
   random_seed: 42
 ```
 
+## Monte Carlo Seeding (Two-Layer Mode)
+
+Monte Carlo scenarios use deterministic path and strategy RNG streams derived from
+the scenario seed. The implementation lives in `trend_analysis.monte_carlo.seed`
+and follows this scheme:
+
+```python
+# Master seed from scenario
+master_seed = scenario.monte_carlo.seed
+
+# Per-path seed derivation
+def get_path_seed(master_seed: int, path_id: int) -> int:
+    return hash((master_seed, path_id)) & 0xFFFFFFFF
+
+# Per-strategy seed derivation (costs, overlays, etc.)
+def get_strategy_seed(master_seed: int, path_id: int, strategy_name: str) -> int:
+    return hash((master_seed, path_id, strategy_name)) & 0xFFFFFFFF
+```
+
+Each path RNG is created with `np.random.default_rng(get_path_seed(...))`. Strategy
+RNGs extend the path seed with the strategy name to keep strategy-specific draws
+independent while ensuring all strategies see identical simulated paths.
+
+**Note:** The scheme relies on Python's `hash` function. For stable cross-run
+results, set `PYTHONHASHSEED` before starting Python (see below).
+
 ## Hash Randomization and PYTHONHASHSEED
 
 Python uses hash randomization by default for security reasons, which can affect the ordering of dictionaries and sets. This can impact reproducibility in some scenarios.
