@@ -314,7 +314,11 @@ class MonteCarloRunner:
         config = self._build_strategy_config(strategy, strategy_seed)
         run_result = run_simulation(config, context.returns)
         metrics, source = self._extract_metrics(run_result.metrics)
-        if not metrics and isinstance(context.score_frame, pd.DataFrame) and not context.score_frame.empty:
+        if (
+            not metrics
+            and isinstance(context.score_frame, pd.DataFrame)
+            and not context.score_frame.empty
+        ):
             fallback = context.score_frame.mean(numeric_only=True)
             metrics = {str(k): float(v) for k, v in fallback.items()}
             source = "score_frame_mean"
