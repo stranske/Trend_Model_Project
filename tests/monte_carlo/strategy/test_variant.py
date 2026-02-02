@@ -149,6 +149,29 @@ def test_to_trend_config_allows_only_weighting_name_override(tmp_path: Path) -> 
     assert cfg.portfolio.max_turnover == 0.5
 
 
+def test_apply_to_allows_weighting_params_extension(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="ExtendParams",
+        overrides={
+            "portfolio": {
+                "weighting": {
+                    "params": {"column": "Sharpe", "half_life": 30, "obs_sigma": 0.15}
+                }
+            }
+        },
+    )
+
+    merged = variant.apply_to(base)
+
+    assert merged["portfolio"]["weighting"]["params"]["shrink_tau"] == 0.25
+    assert merged["portfolio"]["weighting"]["params"]["column"] == "Sharpe"
+    assert merged["portfolio"]["weighting"]["params"]["half_life"] == 30
+    assert merged["portfolio"]["weighting"]["params"]["obs_sigma"] == 0.15
+    assert "half_life" not in base["portfolio"]["weighting"]["params"]
+    assert "obs_sigma" not in base["portfolio"]["weighting"]["params"]
+
+
 def test_to_trend_config_rejects_invalid_weighting_scheme_type(tmp_path: Path) -> None:
     base = _base_config(tmp_path)
     variant = StrategyVariant(
