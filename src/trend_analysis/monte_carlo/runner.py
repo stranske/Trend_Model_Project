@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
+import random
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -29,6 +30,10 @@ from trend_analysis.monte_carlo.models import (
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
 from trend_analysis.monte_carlo.seed import SeedManager
 from trend_analysis.monte_carlo.strategy import StrategyVariant
+from trend_analysis.monte_carlo.strategy.sampler import (
+    parse_distribution,
+    sample_strategy_variants,
+)
 from trend_analysis.pipeline import _resolve_sample_split
 from trend_analysis.risk import periods_per_year_from_code
 from trend_analysis.stages.selection import single_period_run
@@ -46,6 +51,32 @@ from .results import (
 __all__ = ["MonteCarloRunner", "evaluate_strategies_for_path"]
 
 _STRATEGY_SELECTION_SEED_TAG = "__strategy_selection__"
+_TURNOVER_GUARD_PATH = "strategy_set.guards.max_turnover"
+
+
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _coerce_turnover_guard(value: Any) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{_TURNOVER_GUARD_PATH} must be numeric or a distribution mapping")
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"{_TURNOVER_GUARD_PATH} must be numeric or a distribution mapping"
+        ) from exc
+
+
+def _has_turnover_override(variant: StrategyVariant) -> bool:
+    overrides = variant.overrides
+    if not isinstance(overrides, Mapping):
+        return False
+    portfolio = overrides.get("portfolio")
+    if not isinstance(portfolio, Mapping):
+        return False
+    return "max_turnover" in portfolio
 
 
 @dataclass(frozen=True)
@@ -408,17 +439,77 @@ class MonteCarloRunner:
 
     def _resolve_strategies(self) -> list[StrategyVariant]:
         strategy_set = self._strategy_set()
+        variants: list[StrategyVariant] = []
         curated = strategy_set.get("curated")
         if isinstance(curated, list) and curated:
-            variants: list[StrategyVariant] = []
             for item in curated:
                 if isinstance(item, StrategyVariant):
                     variants.append(item)
                 elif isinstance(item, str):
                     variants.append(StrategyVariant(name=item))
-            if variants:
-                return variants
-        return [StrategyVariant(name="base")]
+        sampled = self._resolve_sampled_strategies(strategy_set, existing=variants)
+        if sampled:
+            variants.extend(sampled)
+        if not variants:
+            variants = [StrategyVariant(name="base")]
+        return variants
+
+    def _resolve_sampled_strategies(
+        self, strategy_set: Mapping[str, Any], *, existing: Sequence[StrategyVariant]
+    ) -> list[StrategyVariant]:
+        sampled = strategy_set.get("sampled")
+        if not isinstance(sampled, Mapping):
+            return []
+        enabled = sampled.get("enabled", True)
+        if isinstance(enabled, bool):
+            if not enabled:
+                return []
+        elif enabled is None:
+            return []
+        else:
+            raise ValueError("strategy_set.sampled.enabled must be a bool")
+
+        n_value = sampled.get("n_strategies")
+        if n_value is None:
+            raise ValueError("strategy_set.sampled.n_strategies is required")
+        try:
+            n_strategies = int(n_value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("strategy_set.sampled.n_strategies must be an integer") from exc
+        if n_strategies < 1:
+            raise ValueError("strategy_set.sampled.n_strategies must be >= 1")
+
+        sampling = sampled.get("sampling")
+        if not isinstance(sampling, Mapping):
+            raise ValueError("strategy_set.sampled.sampling must be a mapping")
+
+        name_prefix = sampled.get("name_prefix", "sampled")
+        seed = sampled.get("seed", self._settings().seed)
+        if seed is not None:
+            try:
+                seed = int(seed)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("strategy_set.sampled.seed must be an integer") from exc
+
+        max_rejection_attempts = sampled.get("max_rejection_attempts", 1000)
+        try:
+            max_rejection_attempts = int(max_rejection_attempts)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "strategy_set.sampled.max_rejection_attempts must be an integer"
+            ) from exc
+        if max_rejection_attempts < 0:
+            raise ValueError("strategy_set.sampled.max_rejection_attempts must be >= 0")
+
+        existing_names = [variant.name for variant in existing]
+        return sample_strategy_variants(
+            sampling,
+            n_strategies,
+            seed=seed,
+            max_rejection_attempts=max_rejection_attempts,
+            name_prefix=str(name_prefix),
+            existing_names=existing_names,
+        )
 
     def _build_price_model(self) -> Any:
         model_spec_raw = self.scenario.return_model
@@ -503,6 +594,7 @@ class MonteCarloRunner:
     def _build_strategy_config(self, strategy: StrategyVariant, seed: int | None) -> ConfigType:
         merged = strategy.apply_to(self._base_config)
         self._apply_strategy_guards(merged)
+        self._apply_turnover_guard_distribution(merged, strategy, seed)
         if seed is not None:
             merged["seed"] = int(seed)
         return Config(**merged)
@@ -516,7 +608,52 @@ class MonteCarloRunner:
         if not isinstance(portfolio, dict):
             return
         if "max_turnover" in guards:
-            portfolio["max_turnover"] = guards.get("max_turnover")
+            guard_value = guards.get("max_turnover")
+            if isinstance(guard_value, Mapping):
+                return
+            if guard_value is None:
+                return
+            portfolio["max_turnover"] = _coerce_turnover_guard(guard_value)
+
+    def _apply_turnover_guard_distribution(
+        self,
+        merged: dict[str, Any],
+        strategy: StrategyVariant,
+        seed: int | None,
+    ) -> None:
+        distribution = self._resolve_turnover_guard_distribution()
+        if distribution is None:
+            return
+        if _has_turnover_override(strategy):
+            return
+        portfolio = merged.setdefault("portfolio", {})
+        if not isinstance(portfolio, dict):
+            return
+        rng = random.Random(seed) if seed is not None else random.Random()
+        try:
+            value = float(distribution.sample(rng))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"{_TURNOVER_GUARD_PATH} distribution must sample numeric values"
+            ) from exc
+        portfolio["max_turnover"] = value
+
+    def _resolve_turnover_guard_distribution(self) -> Any:
+        strategy_set = self._strategy_set()
+        guards = strategy_set.get("guards")
+        if not isinstance(guards, Mapping):
+            return None
+        if "max_turnover" not in guards:
+            return None
+        guard_value = guards.get("max_turnover")
+        if isinstance(guard_value, Mapping):
+            return parse_distribution(guard_value, path=_TURNOVER_GUARD_PATH)
+        if guard_value is None:
+            return None
+        if _is_number(guard_value):
+            return None
+        _coerce_turnover_guard(guard_value)
+        return None
 
     def _compute_score_frame(self, returns: pd.DataFrame) -> pd.DataFrame:
         try:

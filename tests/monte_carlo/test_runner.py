@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from typing import Any
 
 import numpy as np
@@ -180,6 +181,158 @@ def test_run_deterministic_with_fixed_seed() -> None:
     first = _sorted_frame(runner.run(jobs=1).results_frame)
     second = _sorted_frame(runner.run(jobs=1).results_frame)
     pd.testing.assert_frame_equal(first, second)
+
+
+def test_resolve_strategies_includes_sampled_turnover_caps() -> None:
+    scenario = MonteCarloScenario(
+        name="mc_sampled",
+        base_config="config/defaults.yml",
+        monte_carlo={
+            "mode": "two_layer",
+            "n_paths": 3,
+            "horizon_years": 1.0,
+            "frequency": "M",
+            "seed": 99,
+        },
+        strategy_set={
+            "sampled": {
+                "enabled": True,
+                "n_strategies": 3,
+                "sampling": {
+                    "portfolio.max_turnover": {
+                        "dist": "uniform",
+                        "low": 0.05,
+                        "high": 0.10,
+                    }
+                },
+            }
+        },
+        return_model={"kind": "stationary_bootstrap", "params": {"block_size": 3}},
+    )
+    base_config = _base_config()
+    base_config["portfolio"]["max_turnover"] = 0.2
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=base_config,
+    )
+
+    strategies = runner._resolve_strategies()
+
+    assert len(strategies) == 3
+    for strategy in strategies:
+        assert strategy.name.startswith("sampled_")
+        turnover = strategy.overrides["portfolio"]["max_turnover"]
+        assert 0.05 <= turnover <= 0.10
+
+
+def test_guard_turnover_distribution_applies_per_strategy_seed() -> None:
+    scenario = MonteCarloScenario(
+        name="mc_guarded_turnover",
+        base_config="config/defaults.yml",
+        monte_carlo={
+            "mode": "two_layer",
+            "n_paths": 2,
+            "horizon_years": 1.0,
+            "frequency": "M",
+            "seed": 11,
+        },
+        strategy_set={
+            "curated": ["trend_basic"],
+            "guards": {
+                "max_turnover": {"dist": "discrete", "values": [0.05, 0.15]},
+            },
+        },
+        return_model={"kind": "stationary_bootstrap", "params": {"block_size": 3}},
+    )
+    base_config = _base_config()
+    base_config["portfolio"]["max_turnover"] = 0.2
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=base_config,
+    )
+
+    strategy = StrategyVariant(name="trend_basic")
+    seed_a = runner._strategy_seed(0, strategy.name)
+    seed_b = runner._strategy_seed(1, strategy.name)
+    config_a = runner._build_strategy_config(strategy, seed_a)
+    config_b = runner._build_strategy_config(strategy, seed_b)
+
+    rng_a = random.Random(seed_a)
+    rng_b = random.Random(seed_b)
+    expected_a = rng_a.choice([0.05, 0.15])
+    expected_b = rng_b.choice([0.05, 0.15])
+
+    assert config_a.portfolio["max_turnover"] == expected_a
+    assert config_b.portfolio["max_turnover"] == expected_b
+
+
+def test_guard_turnover_distribution_respects_strategy_override() -> None:
+    scenario = MonteCarloScenario(
+        name="mc_guarded_turnover_override",
+        base_config="config/defaults.yml",
+        monte_carlo={
+            "mode": "two_layer",
+            "n_paths": 1,
+            "horizon_years": 1.0,
+            "frequency": "M",
+            "seed": 5,
+        },
+        strategy_set={
+            "curated": ["trend_basic"],
+            "guards": {
+                "max_turnover": {"dist": "uniform", "low": 0.1, "high": 0.3},
+            },
+        },
+        return_model={"kind": "stationary_bootstrap", "params": {"block_size": 3}},
+    )
+    base_config = _base_config()
+    base_config["portfolio"]["max_turnover"] = 0.2
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=base_config,
+    )
+
+    strategy = StrategyVariant(
+        name="trend_basic",
+        overrides={"portfolio": {"max_turnover": 0.42}},
+    )
+    seed = runner._strategy_seed(0, strategy.name)
+    config = runner._build_strategy_config(strategy, seed)
+
+    assert config.portfolio["max_turnover"] == 0.42
+
+
+def test_guard_turnover_distribution_rejects_non_numeric_sample() -> None:
+    scenario = MonteCarloScenario(
+        name="mc_guarded_turnover_invalid",
+        base_config="config/defaults.yml",
+        monte_carlo={
+            "mode": "two_layer",
+            "n_paths": 1,
+            "horizon_years": 1.0,
+            "frequency": "M",
+            "seed": 21,
+        },
+        strategy_set={
+            "curated": ["trend_basic"],
+            "guards": {
+                "max_turnover": {"dist": "discrete", "values": ["invalid"]},
+            },
+        },
+        return_model={"kind": "stationary_bootstrap", "params": {"block_size": 3}},
+    )
+    base_config = _base_config()
+    base_config["portfolio"]["max_turnover"] = 0.2
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=base_config,
+    )
+
+    strategy = StrategyVariant(name="trend_basic")
+    seed = runner._strategy_seed(0, strategy.name)
+
+    with pytest.raises(ValueError, match="distribution must sample numeric values"):
+        runner._build_strategy_config(strategy, seed)
 
 
 def test_run_two_layer_deterministic() -> None:

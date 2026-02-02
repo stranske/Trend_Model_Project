@@ -456,6 +456,12 @@ def _coerce_strategy_set(
 ) -> Mapping[str, Any] | None:
     if value is None:
         return None
+    sampled = value.get("sampled", _MISSING)
+    if sampled is not _MISSING:
+        if sampled is None:
+            raise ValueError("strategy_set.sampled must be a mapping (null provided)")
+        if not isinstance(sampled, Mapping):
+            raise ValueError("strategy_set.sampled must be a mapping")
     curated = value.get("curated", _MISSING)
     if curated is _MISSING:
         return value
