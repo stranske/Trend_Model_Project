@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 from trend_analysis.reporting.portfolio_series import select_primary_portfolio_series
@@ -98,4 +99,24 @@ def test_select_primary_portfolio_series_scales_for_cash_weight() -> None:
     expected_weights = pd.Series({"A": 0.54, "B": 0.36})
     expected = out_sample_scaled.mul(expected_weights, axis=1).sum(axis=1)
     expected = expected + res["risk_free_out_sample"] * 0.1
+    pd.testing.assert_series_equal(selected, expected)
+
+
+def test_select_primary_portfolio_series_accepts_numpy_cash_weight() -> None:
+    out_sample_scaled = pd.DataFrame(
+        {"A": [0.1, 0.0], "B": [0.05, 0.02]},
+        index=pd.date_range("2024-01-31", periods=2, freq="M"),
+    )
+    res = {
+        "out_sample_scaled": out_sample_scaled,
+        "fund_weights": {"A": 0.6, "B": 0.4},
+        "cash_weight": np.float64(0.2),
+        "risk_free_out_sample": pd.Series([0.02, 0.01], index=out_sample_scaled.index),
+    }
+
+    selected = select_primary_portfolio_series(res)
+
+    expected_weights = pd.Series({"A": 0.48, "B": 0.32})
+    expected = out_sample_scaled.mul(expected_weights, axis=1).sum(axis=1)
+    expected = expected + res["risk_free_out_sample"] * 0.2
     pd.testing.assert_series_equal(selected, expected)

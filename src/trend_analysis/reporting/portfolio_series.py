@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import numbers
 from typing import Any, Literal, Mapping, Sequence, overload
 
 import pandas as pd
@@ -88,7 +89,7 @@ def _weighted_portfolio(
         return None
     if weights is not None:
         target_total = None
-        if isinstance(cash_weight, (int, float)):
+        if isinstance(cash_weight, numbers.Real):
             cash_value = float(cash_weight)
             if math.isfinite(cash_value) and 0 <= cash_value < 1:
                 target_total = 1.0 - cash_value
@@ -98,7 +99,7 @@ def _weighted_portfolio(
         if not series.empty:
             aligned = series.reindex(out_df.columns, fill_value=0.0)
             portfolio = out_df.mul(aligned, axis=1).sum(axis=1)
-            if isinstance(cash_weight, (int, float)) and isinstance(risk_free, pd.Series):
+            if isinstance(cash_weight, numbers.Real) and isinstance(risk_free, pd.Series):
                 cash_series = risk_free.reindex(out_df.index).fillna(0.0)
                 portfolio = portfolio + cash_series * float(cash_weight)
             return portfolio
@@ -106,7 +107,7 @@ def _weighted_portfolio(
         return None
     equal_weight = pd.Series(1.0 / float(len(out_df.columns)), index=out_df.columns)
     portfolio = out_df.mul(equal_weight, axis=1).sum(axis=1)
-    if isinstance(cash_weight, (int, float)) and isinstance(risk_free, pd.Series):
+    if isinstance(cash_weight, numbers.Real) and isinstance(risk_free, pd.Series):
         cash_series = risk_free.reindex(out_df.index).fillna(0.0)
         portfolio = portfolio + cash_series * float(cash_weight)
     return portfolio
@@ -148,7 +149,7 @@ def select_primary_portfolio_series(
         out_df,
         weights,
         cash_weight=(
-            res.get("cash_weight") if isinstance(res.get("cash_weight"), (int, float)) else None
+            res.get("cash_weight") if isinstance(res.get("cash_weight"), numbers.Real) else None
         ),
         risk_free=(
             res.get("risk_free_out_sample")
