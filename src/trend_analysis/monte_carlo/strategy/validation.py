@@ -50,6 +50,8 @@ def validate_strategy_pack(path: Path, *, base_config_path: Path | None = None) 
                 variant = StrategyVariant(name=entry)
             elif isinstance(entry, Mapping):
                 raw_name = entry.get("name")
+                if not isinstance(raw_name, str):
+                    raise ValueError("name must be a string")
                 variant = StrategyVariant(
                     name=raw_name,
                     overrides=entry.get("overrides", {}),
