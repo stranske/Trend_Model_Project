@@ -55,6 +55,16 @@ def _load_yaml(path: Path) -> Mapping[str, object]:
     return _ensure_mapping(raw, label=f"Scenario config '{path}'")
 
 
+def _load_strategy_pack(path: Path) -> list[object]:
+    payload = _load_yaml(path)
+    curated = payload.get("curated")
+    if curated is None:
+        raise ValueError(f"Strategy pack '{path}' must define 'curated'")
+    if not isinstance(curated, list):
+        raise ValueError(f"Strategy pack '{path}' must define 'curated' as a list")
+    return curated
+
+
 def _coerce_tags(value: object) -> tuple[str, ...]:
     if value is None:
         return ()
@@ -186,6 +196,37 @@ def _resolve_base_config(value: str, *, source_path: Path) -> Path:
 
     raise FileNotFoundError(
         f"Could not locate base_config '{value}'. Checked: {', '.join(str(c) for c in candidates)}"
+    )
+
+
+def _resolve_strategy_pack(value: str, *, source_path: Path) -> Path:
+    raw = Path(value).expanduser()
+    allowed_roots = [
+        source_path.parent.resolve(),
+        proj_path().resolve(),
+    ]
+
+    candidates: list[Path] = []
+    if raw.is_absolute():
+        candidate = raw.resolve()
+        if not any(_is_within(candidate, root) for root in allowed_roots):
+            allowed = ", ".join(str(root) for root in allowed_roots)
+            raise ValueError(f"strategy_set.curated_pack must resolve under: {allowed}")
+        candidates = [candidate]
+    else:
+        candidates = [(root / raw).resolve() for root in allowed_roots]
+
+    for candidate in candidates:
+        if candidate.exists():
+            if candidate.is_dir():
+                raise IsADirectoryError(f"Path '{candidate}' must be a file")
+            if candidate.suffix not in _SUPPORTED_SUFFIXES:
+                allowed = ", ".join(_SUPPORTED_SUFFIXES)
+                raise ValueError(f"Strategy pack '{candidate}' must use one of: {allowed}")
+            return candidate
+
+    raise FileNotFoundError(
+        f"Could not locate strategy_set.curated_pack '{value}'. Checked: {', '.join(str(c) for c in candidates)}"
     )
 
 
@@ -336,6 +377,24 @@ def _parse_scenario(
         strategy_set = _ensure_mapping(
             raw.get("strategy_set"), label="Scenario config 'strategy_set'"
         )
+        if "curated_pack" in strategy_set:
+            pack_value = strategy_set.get("curated_pack")
+            if not pack_value:
+                raise ValueError("strategy_set.curated_pack must be a non-empty string")
+            pack_path = _resolve_strategy_pack(str(pack_value), source_path=source_path)
+            curated_pack = _load_strategy_pack(pack_path)
+            merged = dict(strategy_set)
+            merged.pop("curated_pack", None)
+            if "curated" not in merged:
+                merged["curated"] = curated_pack
+            else:
+                curated_inline = merged.get("curated")
+                if curated_inline is None:
+                    raise ValueError("strategy_set.curated must be a list (null provided)")
+                if not isinstance(curated_inline, list):
+                    raise ValueError("strategy_set.curated must be a list")
+                merged["curated"] = [*curated_pack, *curated_inline]
+            strategy_set = merged
 
     outputs = None
     if "outputs" in raw:

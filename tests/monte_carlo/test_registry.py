@@ -447,6 +447,43 @@ def test_example_scenario_conforms_to_schema() -> None:
     assert scenario.outputs is not None
 
 
+def test_load_scenario_supports_curated_pack(tmp_path: Path) -> None:
+    scenario_dir = tmp_path / "scenarios"
+    scenario_dir.mkdir()
+    base_config = scenario_dir / "base.yml"
+    base_config.write_text("{}", encoding="utf-8")
+    pack_path = scenario_dir / "pack.yml"
+    pack_path.write_text(
+        "curated:\n  - Pack_One\n  - Pack_Two\n",
+        encoding="utf-8",
+    )
+    scenario_path = scenario_dir / "pack_scenario.yml"
+    scenario_path.write_text(
+        "scenario:\n"
+        "  name: pack_scenario\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: mixture\n"
+        "  n_paths: 2\n"
+        "  horizon_years: 1\n"
+        "  frequency: M\n"
+        "strategy_set:\n"
+        "  curated_pack: pack.yml\n"
+        "  curated:\n"
+        "    - Inline\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n  - name: pack_scenario\n    path: scenarios/pack_scenario.yml\n",
+        encoding="utf-8",
+    )
+
+    scenario = load_scenario("pack_scenario", registry_path=registry)
+    curated = scenario.strategy_set["curated"]
+    assert [variant.name for variant in curated] == ["Pack_One", "Pack_Two", "Inline"]
+
+
 def test_load_scenario_rejects_invalid(tmp_path: Path) -> None:
     scenario_path = tmp_path / "broken.yml"
     scenario_path.write_text("monte_carlo: {}\n", encoding="utf-8")

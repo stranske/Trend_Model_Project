@@ -19,10 +19,7 @@ return_model:
     block_size: 6
 
 strategy_set:
-  curated:
-    - trend_basic
-  guards:
-    max_turnover: 0.15
+  curated_pack: strategies/hf_equity_curated.yml
 
 folds:
   enabled: true

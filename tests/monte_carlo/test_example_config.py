@@ -7,6 +7,7 @@ from trend_analysis.monte_carlo import (
     MonteCarloSettings,
     load_scenario,
 )
+from trend_analysis.monte_carlo.strategy import StrategyVariant
 
 
 def test_example_config_validates_against_schema() -> None:
@@ -33,3 +34,26 @@ def test_example_config_validates_against_schema() -> None:
     assert isinstance(scenario.outputs.get("format"), str)
     assert scenario.outputs.get("format") == "parquet"
     assert isinstance(scenario.outputs.get("directory"), str)
+
+
+def test_example_config_includes_hf_equity_curated_pack() -> None:
+    scenario = load_scenario("example_scenario")
+
+    assert scenario.strategy_set is not None
+    curated = scenario.strategy_set.get("curated")
+    assert curated is not None
+    assert all(isinstance(variant, StrategyVariant) for variant in curated)
+    assert [variant.name for variant in curated] == [
+        "Rank_8_Equal_TightTurnover",
+        "Rank_12_RiskParity_ModerateTurnover",
+        "Rank_16_HRP_LooseTurnover",
+        "TopPct_20_ScoreProp_TightTurnover",
+        "Threshold_ZScore_Bayes_ModerateTurnover",
+        "Rank_10_AdaptiveBayes_ModerateTurnover",
+        "Random_12_Equal_LooseTurnover",
+        "Manual_8_Equal_TightTurnover",
+        "Rank_20_ERC_LooseTurnover",
+        "Rank_14_RobustMV_TightTurnover",
+        "Rank_12_RobustRiskParity_ModerateTurnover",
+        "All_Equal_LowTurnover_LowVol",
+    ]
