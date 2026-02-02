@@ -163,5 +163,15 @@ def test_runner_integration_records_costs(monkeypatch: Any) -> None:
     diag = results.evaluations[0].diagnostic
     assert diag is not None and "costs" in diag
     costs = diag["costs"]
-    assert isinstance(costs["transaction_costs"], pd.Series)
-    assert len(costs["transaction_costs"]) == 3
+    transaction_costs = costs["transaction_costs"]
+    assert isinstance(transaction_costs, pd.Series)
+    assert len(transaction_costs) == 3
+    assert costs["cost_bps"].tolist() == [4.0, 8.0, 4.0]
+    assert costs["slippage_multiplier"].tolist() == [1.0, 1.2, 1.0]
+    expected_costs = (
+        pd.Series([0.1, 0.2, 0.3], index=transaction_costs.index, name="turnover")
+        * (pd.Series([4.0, 8.0, 4.0], index=transaction_costs.index) / 10000.0)
+        * pd.Series([1.0, 1.2, 1.0], index=transaction_costs.index)
+    )
+    expected_costs.name = transaction_costs.name
+    pd.testing.assert_series_equal(transaction_costs, expected_costs)
