@@ -4,6 +4,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from trend_analysis.monte_carlo.results import MonteCarloPathError, build_results_frame
 from trend_analysis.monte_carlo.runner import MonteCarloRunner
@@ -202,6 +203,29 @@ def test_run_mixture_deterministic() -> None:
     frame1 = _sorted_frame(build_results_frame(evals1))
     frame2 = _sorted_frame(build_results_frame(evals2))
     pd.testing.assert_frame_equal(frame1, frame2)
+
+
+def test_run_mixture_requires_matching_seed_lengths() -> None:
+    scenario = _scenario("mixture")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+    model = runner._build_price_model()
+    n_periods = runner._compute_n_periods()
+    strategies = runner._resolve_strategies()
+
+    with pytest.raises(ValueError, match="strategy_seeds must align with path_seeds"):
+        runner._run_mixture(
+            model=model,
+            n_periods=n_periods,
+            strategies=strategies,
+            path_seeds=[101, 202],
+            strategy_seeds=[303],
+            progress_callback=None,
+            jobs=1,
+        )
 
 
 def test_execute_paths_handles_unexpected_failure() -> None:

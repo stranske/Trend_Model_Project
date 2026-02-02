@@ -190,6 +190,8 @@ class MonteCarloRunner:
         progress_callback: Callable[[Mapping[str, Any]], None] | None,
         jobs: int,
     ) -> tuple[list[StrategyEvaluation], list[MonteCarloPathError]]:
+        if len(strategy_seeds) != len(path_seeds):
+            raise ValueError("strategy_seeds must align with path_seeds")
         total = len(path_seeds)
         evaluations: list[StrategyEvaluation] = []
         errors: list[MonteCarloPathError] = []
