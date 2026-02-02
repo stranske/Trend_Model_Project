@@ -154,6 +154,20 @@ def test_run_two_layer_deterministic() -> None:
     pd.testing.assert_frame_equal(frame1, frame2)
 
 
+def test_run_two_layer_parallel_jobs_matches_serial() -> None:
+    scenario = _scenario("two_layer")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+
+    serial = _sorted_frame(runner.run(jobs=1).results_frame)
+    parallel = _sorted_frame(runner.run(jobs=2).results_frame)
+
+    pd.testing.assert_frame_equal(serial, parallel)
+
+
 def test_run_mixture_deterministic() -> None:
     scenario = _scenario("mixture")
     runner = MonteCarloRunner(
