@@ -108,6 +108,7 @@ def test_runner_mixture_samples_strategy_per_path() -> None:
 
     assert len(results.results_frame) == 5
     assert results.results_frame["strategy"].nunique() > 1
+    assert results.results_frame["path_id"].nunique() == 5
 
 
 def test_run_deterministic_with_fixed_seed() -> None:
