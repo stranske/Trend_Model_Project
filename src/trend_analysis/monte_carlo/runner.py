@@ -68,14 +68,22 @@ def evaluate_strategies_for_path(
     """Compute strategy results for a single path using cached score frames."""
     context_cache = cache or PathContextCache()
     results: dict[str, object] = {}
+    columns_lookup = columns_by_strategy or {}
     try:
         context_cache.compute_score_frames(path_id, rebalance_dates, compute_score_frame)
+        base_frames = {
+            date: context_cache.select_score_frame(path_id, date, None)
+            for date in rebalance_dates
+        }
         for name, strategy in strategies.items():
-            columns = columns_by_strategy.get(name) if columns_by_strategy else None
-            frames = {
-                date: context_cache.select_score_frame(path_id, date, columns)
-                for date in rebalance_dates
-            }
+            columns = columns_lookup.get(name)
+            if columns:
+                frames = {
+                    date: context_cache.select_score_frame(path_id, date, columns)
+                    for date in rebalance_dates
+                }
+            else:
+                frames = dict(base_frames)
             results[name] = strategy(frames)
     finally:
         context_cache.clear(path_id)
