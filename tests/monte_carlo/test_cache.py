@@ -233,6 +233,7 @@ def test_cached_results_match_naive_without_column_filter() -> None:
 
 
 @pytest.mark.performance
+@pytest.mark.runtime
 def test_cached_strategies_are_materially_faster() -> None:
     base_frame = pd.DataFrame(
         {
@@ -276,14 +277,14 @@ def test_cached_strategies_are_materially_faster() -> None:
     rebalance_dates = ["2024-01-31", "2024-02-29", "2024-03-29"]
 
     # Use a noticeable delay so compute cost dominates strategy overhead and
-    # timing assertions remain stable across machines.
+    # timing assertions remain stable across machines (30ms per frame).
     cached_calls: list[str] = []
     naive_calls: list[str] = []
     single_calls: list[str] = []
 
-    cached_compute = make_compute(0.02, cached_calls)
-    naive_compute = make_compute(0.02, naive_calls)
-    single_compute = make_compute(0.02, single_calls)
+    cached_compute = make_compute(0.03, cached_calls)
+    naive_compute = make_compute(0.03, naive_calls)
+    single_compute = make_compute(0.03, single_calls)
 
     start = time.perf_counter()
     evaluate_strategies_for_path(

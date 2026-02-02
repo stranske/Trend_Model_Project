@@ -50,4 +50,4 @@ Refactor multi-period evaluation so expensive per-window metric/score computatio
 - [x] `tests/monte_carlo/test_cache.py`
 
 ## Progress
-40/40 tasks complete (verified 2026-02-02 via `tests/monte_carlo/test_cache.py`)
+40/40 tasks complete (verified 2026-02-02 via `pytest tests/monte_carlo/test_cache.py -m "not slow"`)
