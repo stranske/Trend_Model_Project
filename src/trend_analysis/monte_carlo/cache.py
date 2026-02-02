@@ -95,6 +95,16 @@ class PathContextCache:
         context = self.get_context(path_id)
         return context.get_or_compute(rebalance_date, compute_fn)
 
+    def compute_score_frames(
+        self,
+        path_id: Hashable,
+        rebalance_dates: Iterable[Hashable],
+        compute_fn: Callable[[Hashable], pd.DataFrame],
+    ) -> None:
+        context = self.get_context(path_id)
+        for date in rebalance_dates:
+            context.get_or_compute(date, lambda d=date: compute_fn(d))
+
     def get_score_frame(
         self,
         path_id: Hashable,

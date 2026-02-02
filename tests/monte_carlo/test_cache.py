@@ -137,6 +137,22 @@ def test_cache_computes_once_per_date_with_many_strategies() -> None:
     assert not cache.has_path("path-99")
 
 
+def test_cache_compute_score_frames_prefills_once() -> None:
+    cache = PathContextCache()
+    calls: list[str] = []
+
+    def compute_score_frame(date: str) -> pd.DataFrame:
+        calls.append(date)
+        return pd.DataFrame({"Sharpe": [1.0]}, index=["A"])
+
+    rebalance_dates = ["2024-01-31", "2024-02-29"]
+    cache.compute_score_frames("path-prefill", rebalance_dates, compute_score_frame)
+    cache.compute_score_frames("path-prefill", ["2024-01-31"], compute_score_frame)
+
+    assert calls == rebalance_dates
+    assert cache.get_score_frame("path-prefill", "2024-02-29") is not None
+
+
 def test_cached_results_match_naive_evaluation() -> None:
     cache = PathContextCache()
 

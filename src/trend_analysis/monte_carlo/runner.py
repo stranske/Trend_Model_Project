@@ -69,16 +69,13 @@ def evaluate_strategies_for_path(
     context_cache = cache or PathContextCache()
     results: dict[str, object] = {}
     try:
+        context_cache.compute_score_frames(path_id, rebalance_dates, compute_score_frame)
         for name, strategy in strategies.items():
             columns = columns_by_strategy.get(name) if columns_by_strategy else None
-            frames: dict[str, pd.DataFrame] = {}
-            for date in rebalance_dates:
-
-                def _compute_score_frame(rebalance_date: str = date) -> pd.DataFrame:
-                    return compute_score_frame(rebalance_date)
-
-                context_cache.get_or_compute_score_frame(path_id, date, _compute_score_frame)
-                frames[date] = context_cache.select_score_frame(path_id, date, columns)
+            frames = {
+                date: context_cache.select_score_frame(path_id, date, columns)
+                for date in rebalance_dates
+            }
             results[name] = strategy(frames)
     finally:
         context_cache.clear(path_id)
