@@ -45,6 +45,7 @@ curated:
         max_turnover: 0.25
         constraints:
           max_weight: 0.15
+          max_active_positions: 16
 
   - name: TopPct_20_ScoreProp_TightTurnover
     tags: [equity, hf, rank, top_pct, score_prop, tight_turnover]
@@ -154,6 +155,7 @@ curated:
         max_turnover: 0.30
         constraints:
           max_weight: 0.10
+          max_active_positions: 20
 
   - name: Rank_14_RobustMV_TightTurnover
     tags: [equity, hf, rank, robust_mv, tight_turnover, long_short]
