@@ -44,6 +44,19 @@ def test_path_context_get_or_compute_caches_once() -> None:
     assert context.has_score_frame("2024-01-31")
 
 
+def test_path_context_select_columns_returns_copy() -> None:
+    context = PathContext(path_id="path-2")
+    frame = pd.DataFrame({"Sharpe": [1.0, 2.0], "Volatility": [0.1, 0.2]}, index=["A", "B"])
+    context.set_score_frame("2024-01-31", frame)
+
+    filtered = context.select_columns("2024-01-31", ["Sharpe"])
+    filtered.loc[:, "Sharpe"] = 99.0
+
+    cached = context.get_score_frame("2024-01-31")
+    assert cached is not None
+    assert cached["Sharpe"].iloc[0] == 1.0
+
+
 def test_cache_reuses_score_frames_across_strategies_and_clears() -> None:
     cache = PathContextCache()
     calls: list[str] = []
