@@ -133,6 +133,7 @@ def test_cache_computes_once_per_date_with_many_strategies() -> None:
     strategies = dict(
         [make_strategy(column, idx) for idx, column in enumerate(columns, start=1)],
     )
+    assert len(strategies) == 10
     columns_by_strategy = {name: [name.split("-")[0]] for name in strategies}
 
     rebalance_dates = ["2024-01-31", "2024-02-29", "2024-03-29"]
