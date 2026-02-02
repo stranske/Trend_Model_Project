@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import math
+import random
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -28,7 +30,7 @@ from trend_analysis.monte_carlo.models import (
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
 from trend_analysis.monte_carlo.seed import SeedManager
 from trend_analysis.monte_carlo.strategy import StrategyVariant
-from trend_analysis.monte_carlo.strategy.sampler import sample_strategy_variants
+from trend_analysis.monte_carlo.strategy.sampler import parse_distribution, sample_strategy_variants
 from trend_analysis.pipeline import _resolve_sample_split
 from trend_analysis.risk import periods_per_year_from_code
 from trend_analysis.stages.selection import single_period_run
@@ -46,6 +48,42 @@ from .results import (
 __all__ = ["MonteCarloRunner", "evaluate_strategies_for_path"]
 
 _STRATEGY_SELECTION_SEED_TAG = "__strategy_selection__"
+_TURNOVER_GUARD_PATH = "strategy_set.guards.max_turnover"
+
+
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _coerce_turnover_guard(value: Any) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{_TURNOVER_GUARD_PATH} must be numeric or a distribution mapping")
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{_TURNOVER_GUARD_PATH} must be numeric or a distribution mapping") from exc
+
+
+def _has_turnover_override(variant: StrategyVariant) -> bool:
+    overrides = variant.overrides
+    if not isinstance(overrides, Mapping):
+        return False
+    portfolio = overrides.get("portfolio")
+    if not isinstance(portfolio, Mapping):
+        return False
+    return "max_turnover" in portfolio
+
+
+def _with_turnover_override(variant: StrategyVariant, value: float) -> StrategyVariant:
+    overrides = deepcopy(dict(variant.overrides))
+    portfolio = overrides.get("portfolio")
+    if isinstance(portfolio, Mapping):
+        portfolio = deepcopy(dict(portfolio))
+    else:
+        portfolio = {}
+    portfolio["max_turnover"] = value
+    overrides["portfolio"] = portfolio
+    return StrategyVariant(name=variant.name, overrides=overrides, tags=variant.tags)
 
 
 @dataclass(frozen=True)
@@ -409,9 +447,9 @@ class MonteCarloRunner:
         sampled = self._resolve_sampled_strategies(strategy_set, existing=variants)
         if sampled:
             variants.extend(sampled)
-        if variants:
-            return variants
-        return [StrategyVariant(name="base")]
+        if not variants:
+            variants = [StrategyVariant(name="base")]
+        return self._apply_turnover_guard_distribution(variants)
 
     def _resolve_sampled_strategies(
         self, strategy_set: Mapping[str, Any], *, existing: Sequence[StrategyVariant]
@@ -566,7 +604,46 @@ class MonteCarloRunner:
         if not isinstance(portfolio, dict):
             return
         if "max_turnover" in guards:
-            portfolio["max_turnover"] = guards.get("max_turnover")
+            guard_value = guards.get("max_turnover")
+            if isinstance(guard_value, Mapping):
+                return
+            if guard_value is None:
+                return
+            portfolio["max_turnover"] = _coerce_turnover_guard(guard_value)
+
+    def _apply_turnover_guard_distribution(
+        self, variants: list[StrategyVariant]
+    ) -> list[StrategyVariant]:
+        distribution = self._resolve_turnover_guard_distribution()
+        if distribution is None:
+            return variants
+        seed = self._settings().seed
+        rng = random.Random(seed)
+        updated: list[StrategyVariant] = []
+        for variant in variants:
+            if _has_turnover_override(variant):
+                updated.append(variant)
+                continue
+            value = float(distribution.sample(rng))
+            updated.append(_with_turnover_override(variant, value))
+        return updated
+
+    def _resolve_turnover_guard_distribution(self) -> Any:
+        strategy_set = self._strategy_set()
+        guards = strategy_set.get("guards")
+        if not isinstance(guards, Mapping):
+            return None
+        if "max_turnover" not in guards:
+            return None
+        guard_value = guards.get("max_turnover")
+        if isinstance(guard_value, Mapping):
+            return parse_distribution(guard_value, path=_TURNOVER_GUARD_PATH)
+        if guard_value is None:
+            return None
+        if _is_number(guard_value):
+            return None
+        _coerce_turnover_guard(guard_value)
+        return None
 
     def _compute_score_frame(self, returns: pd.DataFrame) -> pd.DataFrame:
         try:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from typing import Any
 
 import numpy as np
@@ -185,6 +186,41 @@ def test_resolve_strategies_includes_sampled_turnover_caps() -> None:
         assert strategy.name.startswith("sampled_")
         turnover = strategy.overrides["portfolio"]["max_turnover"]
         assert 0.05 <= turnover <= 0.10
+
+
+def test_resolve_strategies_applies_guard_turnover_distribution() -> None:
+    scenario = MonteCarloScenario(
+        name="mc_guarded_turnover",
+        base_config="config/defaults.yml",
+        monte_carlo={
+            "mode": "two_layer",
+            "n_paths": 2,
+            "horizon_years": 1.0,
+            "frequency": "M",
+            "seed": 11,
+        },
+        strategy_set={
+            "curated": ["trend_basic", "trend_alt"],
+            "guards": {
+                "max_turnover": {"dist": "discrete", "values": [0.05, 0.15]},
+            },
+        },
+        return_model={"kind": "stationary_bootstrap", "params": {"block_size": 3}},
+    )
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+    )
+
+    strategies = runner._resolve_strategies()
+
+    rng = random.Random(11)
+    expected = [rng.choice([0.05, 0.15]) for _ in range(2)]
+    actual = [
+        strategy.overrides["portfolio"]["max_turnover"] for strategy in strategies
+    ]
+
+    assert actual == expected
 
 
 def test_run_two_layer_deterministic() -> None:
