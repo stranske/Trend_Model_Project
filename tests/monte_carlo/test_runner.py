@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+import trend_analysis.monte_carlo.runner as runner_module
+from trend_analysis.api import RunResult
 from trend_analysis.monte_carlo.results import MonteCarloPathError, build_results_frame
 from trend_analysis.monte_carlo.runner import MonteCarloRunner
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario
@@ -249,3 +251,44 @@ def test_execute_paths_handles_unexpected_failure() -> None:
     assert results[1][1] == []
     assert len(results[1][2]) == 1
     assert results[1][2][0].error_type == "RuntimeError"
+
+
+def test_evaluate_strategy_uses_score_frame_mean_when_metrics_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenario = _scenario("two_layer")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+
+    def _fake_run_simulation(config: Any, returns: pd.DataFrame) -> RunResult:
+        return RunResult(metrics=pd.DataFrame(), details={}, seed=0, environment={})
+
+    monkeypatch.setattr(runner_module, "run_simulation", _fake_run_simulation)
+
+    score_frame = pd.DataFrame(
+        {"metric_a": [1.0, 3.0], "metric_b": [2.0, 4.0]},
+        index=["AssetA", "AssetB"],
+    )
+    context = runner_module._PathContext(
+        path_id=0,
+        prices=pd.DataFrame({"AssetA": [1.0], "AssetB": [1.0]}),
+        returns=pd.DataFrame(
+            {
+                "Date": [pd.Timestamp("2020-01-31")],
+                "AssetA": [0.01],
+                "AssetB": [0.02],
+            }
+        ),
+        score_frame=score_frame,
+        path_hash="abc",
+        seed=11,
+    )
+
+    evaluation = runner._evaluate_strategy(StrategyVariant(name="StrategyA"), context)
+
+    assert evaluation.metric_source == "score_frame_mean"
+    assert evaluation.metrics["metric_a"] == pytest.approx(2.0)
+    assert evaluation.metrics["metric_b"] == pytest.approx(3.0)
