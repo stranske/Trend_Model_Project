@@ -130,6 +130,12 @@ def select_primary_portfolio_series(
     return _weighted_portfolio(
         out_df,
         weights,
-        cash_weight=res.get("cash_weight") if isinstance(res.get("cash_weight"), (int, float)) else None,
-        risk_free=res.get("risk_free_out_sample") if isinstance(res.get("risk_free_out_sample"), pd.Series) else None,
+        cash_weight=(
+            res.get("cash_weight") if isinstance(res.get("cash_weight"), (int, float)) else None
+        ),
+        risk_free=(
+            res.get("risk_free_out_sample")
+            if isinstance(res.get("risk_free_out_sample"), pd.Series)
+            else None
+        ),
     )
