@@ -73,6 +73,7 @@ def evaluate_strategies_for_path(
             columns = columns_by_strategy.get(name) if columns_by_strategy else None
             frames: dict[str, pd.DataFrame] = {}
             for date in rebalance_dates:
+
                 def _compute_score_frame(rebalance_date: str = date) -> pd.DataFrame:
                     return compute_score_frame(rebalance_date)
 
