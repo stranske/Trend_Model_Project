@@ -57,13 +57,23 @@ def _coerce_series(value: Any) -> pd.Series | None:
         return None
 
 
-def _normalise_weights(weights: Mapping[str, float]) -> pd.Series:
+def _normalise_weights(
+    weights: Mapping[str, float],
+    *,
+    target_total: float | None = None,
+) -> pd.Series:
     series = pd.Series({str(k): float(v) for k, v in weights.items()})
     series = series.replace([math.inf, -math.inf], math.nan).dropna()
     series = series[series.abs() > 0]
     total = float(series.sum())
+    if target_total is not None:
+        if not math.isfinite(target_total) or target_total < 0:
+            target_total = None
     if total:
-        series = series / total
+        if target_total is None:
+            series = series / total
+        else:
+            series = series * (target_total / total)
     return series
 
 
@@ -77,7 +87,14 @@ def _weighted_portfolio(
     if out_df is None or out_df.empty:
         return None
     if weights is not None:
-        series = _normalise_weights(weights)
+        target_total = None
+        if isinstance(cash_weight, (int, float)):
+            cash_value = float(cash_weight)
+            if math.isfinite(cash_value) and 0 <= cash_value < 1:
+                target_total = 1.0 - cash_value
+            elif math.isfinite(cash_value) and cash_value >= 1:
+                target_total = 0.0
+        series = _normalise_weights(weights, target_total=target_total)
         if not series.empty:
             aligned = series.reindex(out_df.columns, fill_value=0.0)
             portfolio = out_df.mul(aligned, axis=1).sum(axis=1)
