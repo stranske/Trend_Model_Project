@@ -364,7 +364,7 @@ class MonteCarloRunner:
             fallback = context.score_frame.mean(numeric_only=True)
             metrics = {str(k): float(v) for k, v in fallback.items()}
             source = "score_frame_mean"
-        diagnostic = None
+        diagnostic: dict[str, Any] | None = None
         if run_result.diagnostic is not None:
             diagnostic = {
                 "reason_code": run_result.diagnostic.reason_code,
@@ -648,9 +648,9 @@ class MonteCarloRunner:
                 return float(turnover)
             risk_diag = details.get("risk_diagnostics")
             if isinstance(risk_diag, Mapping):
-                value = risk_diag.get("turnover_value")
-                if isinstance(value, (float, int)):
-                    return float(value)
+                turnover_value = risk_diag.get("turnover_value")
+                if isinstance(turnover_value, (float, int)):
+                    return float(turnover_value)
         if isinstance(turnover, (float, int)):
             return float(turnover)
         return None
