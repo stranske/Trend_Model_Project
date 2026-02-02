@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Hashable, Iterable, Sequence
+from typing import TypeVar
 
 import pandas as pd
 
@@ -65,6 +66,9 @@ class PathContext:
         self._score_frames.clear()
 
 
+_RebalanceDate = TypeVar("_RebalanceDate", bound=Hashable)
+
+
 class PathContextCache:
     """Manage cached score frames across Monte Carlo paths."""
 
@@ -98,12 +102,15 @@ class PathContextCache:
     def compute_score_frames(
         self,
         path_id: Hashable,
-        rebalance_dates: Iterable[Hashable],
-        compute_fn: Callable[[Hashable], pd.DataFrame],
+        rebalance_dates: Iterable["_RebalanceDate"],
+        compute_fn: Callable[["_RebalanceDate"], pd.DataFrame],
     ) -> None:
         context = self.get_context(path_id)
         for date in rebalance_dates:
-            context.get_or_compute(date, lambda d=date: compute_fn(d))
+            def _compute(score_date: _RebalanceDate = date) -> pd.DataFrame:
+                return compute_fn(score_date)
+
+            context.get_or_compute(date, _compute)
 
     def get_score_frame(
         self,
