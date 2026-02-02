@@ -6,7 +6,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trend_analysis.monte_carlo.results import build_results_frame
+import trend_analysis.monte_carlo.runner as runner_module
+from trend_analysis.api import RunResult
+from trend_analysis.monte_carlo.results import MonteCarloPathError, build_results_frame
 from trend_analysis.monte_carlo.runner import MonteCarloRunner
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario
 from trend_analysis.monte_carlo.strategy import StrategyVariant
@@ -129,6 +131,7 @@ def test_runner_mixture_samples_strategy_per_path() -> None:
 
     assert len(results.results_frame) == 5
     assert results.results_frame["strategy"].nunique() > 1
+    assert results.results_frame["path_id"].nunique() == 5
 
 
 def test_run_deterministic_with_fixed_seed() -> None:
@@ -176,6 +179,20 @@ def test_run_two_layer_deterministic() -> None:
     frame1 = _sorted_frame(build_results_frame(evals1))
     frame2 = _sorted_frame(build_results_frame(evals2))
     pd.testing.assert_frame_equal(frame1, frame2)
+
+
+def test_run_two_layer_parallel_jobs_matches_serial() -> None:
+    scenario = _scenario("two_layer")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+
+    serial = _sorted_frame(runner.run(jobs=1).results_frame)
+    parallel = _sorted_frame(runner.run(jobs=2).results_frame)
+
+    pd.testing.assert_frame_equal(serial, parallel)
 
 
 def test_run_mixture_deterministic() -> None:
@@ -300,3 +317,92 @@ def test_score_frame_uses_fallback_rf_series(monkeypatch: pytest.MonkeyPatch) ->
     runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
     frame = runner._compute_score_frame(returns)
     assert not frame.empty
+
+
+def test_run_mixture_requires_matching_seed_lengths() -> None:
+    scenario = _scenario("mixture")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+    model = runner._build_price_model()
+    n_periods = runner._compute_n_periods()
+    strategies = runner._resolve_strategies()
+
+    with pytest.raises(ValueError, match="strategy_seeds must align with path_seeds"):
+        runner._run_mixture(
+            model=model,
+            n_periods=n_periods,
+            strategies=strategies,
+            path_seeds=[101, 202],
+            strategy_seeds=[303],
+            progress_callback=None,
+            jobs=1,
+        )
+
+
+def test_execute_paths_handles_unexpected_failure() -> None:
+    scenario = _scenario("two_layer")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+    path_seeds = [101, 202]
+
+    def _boom(
+        path_id: int, seed: int | None
+    ) -> tuple[list[Any], list[MonteCarloPathError]]:
+        if path_id == 1:
+            raise RuntimeError("boom")
+        return [], []
+
+    results = list(runner._execute_paths(path_seeds, _boom, jobs=1))
+
+    assert results[0][1] == []
+    assert results[0][2] == []
+    assert results[1][1] == []
+    assert len(results[1][2]) == 1
+    assert results[1][2][0].error_type == "RuntimeError"
+
+
+def test_evaluate_strategy_uses_score_frame_mean_when_metrics_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenario = _scenario("two_layer")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+
+    def _fake_run_simulation(config: Any, returns: pd.DataFrame) -> RunResult:
+        return RunResult(metrics=pd.DataFrame(), details={}, seed=0, environment={})
+
+    monkeypatch.setattr(runner_module, "run_simulation", _fake_run_simulation)
+
+    score_frame = pd.DataFrame(
+        {"metric_a": [1.0, 3.0], "metric_b": [2.0, 4.0]},
+        index=["AssetA", "AssetB"],
+    )
+    context = runner_module._PathContext(
+        path_id=0,
+        prices=pd.DataFrame({"AssetA": [1.0], "AssetB": [1.0]}),
+        returns=pd.DataFrame(
+            {
+                "Date": [pd.Timestamp("2020-01-31")],
+                "AssetA": [0.01],
+                "AssetB": [0.02],
+            }
+        ),
+        score_frame=score_frame,
+        path_hash="abc",
+        seed=11,
+    )
+
+    evaluation = runner._evaluate_strategy(StrategyVariant(name="StrategyA"), context)
+
+    assert evaluation.metric_source == "score_frame_mean"
+    assert evaluation.metrics["metric_a"] == pytest.approx(2.0)
+    assert evaluation.metrics["metric_b"] == pytest.approx(3.0)
