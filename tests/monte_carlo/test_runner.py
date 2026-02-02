@@ -174,9 +174,11 @@ def test_resolve_strategies_includes_sampled_turnover_caps() -> None:
         },
         return_model={"kind": "stationary_bootstrap", "params": {"block_size": 3}},
     )
+    base_config = _base_config()
+    base_config["portfolio"]["max_turnover"] = 0.2
     runner = MonteCarloRunner(
         scenario,
-        base_config=_base_config(),
+        base_config=base_config,
     )
 
     strategies = runner._resolve_strategies()
@@ -207,9 +209,11 @@ def test_guard_turnover_distribution_applies_per_strategy_seed() -> None:
         },
         return_model={"kind": "stationary_bootstrap", "params": {"block_size": 3}},
     )
+    base_config = _base_config()
+    base_config["portfolio"]["max_turnover"] = 0.2
     runner = MonteCarloRunner(
         scenario,
-        base_config=_base_config(),
+        base_config=base_config,
     )
 
     strategy = StrategyVariant(name="trend_basic")
@@ -225,6 +229,42 @@ def test_guard_turnover_distribution_applies_per_strategy_seed() -> None:
 
     assert config_a.portfolio["max_turnover"] == expected_a
     assert config_b.portfolio["max_turnover"] == expected_b
+
+
+def test_guard_turnover_distribution_respects_strategy_override() -> None:
+    scenario = MonteCarloScenario(
+        name="mc_guarded_turnover_override",
+        base_config="config/defaults.yml",
+        monte_carlo={
+            "mode": "two_layer",
+            "n_paths": 1,
+            "horizon_years": 1.0,
+            "frequency": "M",
+            "seed": 5,
+        },
+        strategy_set={
+            "curated": ["trend_basic"],
+            "guards": {
+                "max_turnover": {"dist": "uniform", "low": 0.1, "high": 0.3},
+            },
+        },
+        return_model={"kind": "stationary_bootstrap", "params": {"block_size": 3}},
+    )
+    base_config = _base_config()
+    base_config["portfolio"]["max_turnover"] = 0.2
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=base_config,
+    )
+
+    strategy = StrategyVariant(
+        name="trend_basic",
+        overrides={"portfolio": {"max_turnover": 0.42}},
+    )
+    seed = runner._strategy_seed(0, strategy.name)
+    config = runner._build_strategy_config(strategy, seed)
+
+    assert config.portfolio["max_turnover"] == 0.42
 
 
 def test_run_two_layer_deterministic() -> None:
