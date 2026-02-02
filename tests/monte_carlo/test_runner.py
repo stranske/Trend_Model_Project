@@ -119,6 +119,41 @@ def test_runner_two_layer_small_scenario() -> None:
     assert path_hashes.max() == 1
 
 
+def test_two_layer_strategies_share_path_prices(monkeypatch: pytest.MonkeyPatch) -> None:
+    scenario = _scenario("two_layer")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+
+    def _fake_run_simulation(*_args: Any, **_kwargs: Any) -> RunResult:
+        metrics = pd.DataFrame({"metric": [1.0]}, index=["equal_weight"])
+        return RunResult(metrics=metrics, details={}, seed=0, environment={})
+
+    monkeypatch.setattr(runner_module, "run_simulation", _fake_run_simulation)
+
+    seen_prices: dict[int, pd.DataFrame] = {}
+    original = runner._evaluate_strategy
+
+    def _wrapped(strategy: StrategyVariant, context: runner_module._PathContext) -> Any:
+        existing = seen_prices.get(context.path_id)
+        if existing is None:
+            seen_prices[context.path_id] = context.prices.copy()
+        else:
+            pd.testing.assert_frame_equal(existing, context.prices)
+        return original(strategy, context)
+
+    monkeypatch.setattr(runner, "_evaluate_strategy", _wrapped)
+
+    results = runner.run(jobs=1)
+
+    path_counts = results.results_frame["path_id"].value_counts()
+    assert path_counts.nunique() == 1
+    assert path_counts.iloc[0] == results.results_frame["strategy"].nunique()
+    assert len(seen_prices) == scenario.monte_carlo.n_paths
+
+
 def test_runner_mixture_samples_strategy_per_path() -> None:
     scenario = _scenario("mixture")
     runner = MonteCarloRunner(
