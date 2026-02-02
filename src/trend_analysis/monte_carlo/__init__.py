@@ -1,6 +1,7 @@
 """Monte Carlo scenario schema and helpers."""
 
 from .config import RiskFreeResolution, resolve_risk_free_source
+from .costs import CostProcess
 from .registry import (
     ScenarioRegistryEntry,
     get_scenario_path,
@@ -24,4 +25,5 @@ __all__ = [
     "resolve_risk_free_source",
     "MonteCarloRunner",
     "MonteCarloResults",
+    "CostProcess",
 ]
