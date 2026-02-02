@@ -147,6 +147,46 @@ def test_run_deterministic_with_fixed_seed() -> None:
     pd.testing.assert_frame_equal(first, second)
 
 
+def test_resolve_strategies_includes_sampled_turnover_caps() -> None:
+    scenario = MonteCarloScenario(
+        name="mc_sampled",
+        base_config="config/defaults.yml",
+        monte_carlo={
+            "mode": "two_layer",
+            "n_paths": 3,
+            "horizon_years": 1.0,
+            "frequency": "M",
+            "seed": 99,
+        },
+        strategy_set={
+            "sampled": {
+                "enabled": True,
+                "n_strategies": 3,
+                "sampling": {
+                    "portfolio.max_turnover": {
+                        "dist": "uniform",
+                        "low": 0.05,
+                        "high": 0.10,
+                    }
+                },
+            }
+        },
+        return_model={"kind": "stationary_bootstrap", "params": {"block_size": 3}},
+    )
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+    )
+
+    strategies = runner._resolve_strategies()
+
+    assert len(strategies) == 3
+    for strategy in strategies:
+        assert strategy.name.startswith("sampled_")
+        turnover = strategy.overrides["portfolio"]["max_turnover"]
+        assert 0.05 <= turnover <= 0.10
+
+
 def test_run_two_layer_deterministic() -> None:
     scenario = _scenario("two_layer")
     runner = MonteCarloRunner(

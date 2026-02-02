@@ -28,6 +28,7 @@ from trend_analysis.monte_carlo.models import (
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
 from trend_analysis.monte_carlo.seed import SeedManager
 from trend_analysis.monte_carlo.strategy import StrategyVariant
+from trend_analysis.monte_carlo.strategy.sampler import sample_strategy_variants
 from trend_analysis.pipeline import _resolve_sample_split
 from trend_analysis.risk import periods_per_year_from_code
 from trend_analysis.stages.selection import single_period_run
@@ -397,17 +398,75 @@ class MonteCarloRunner:
 
     def _resolve_strategies(self) -> list[StrategyVariant]:
         strategy_set = self._strategy_set()
+        variants: list[StrategyVariant] = []
         curated = strategy_set.get("curated")
         if isinstance(curated, list) and curated:
-            variants: list[StrategyVariant] = []
             for item in curated:
                 if isinstance(item, StrategyVariant):
                     variants.append(item)
                 elif isinstance(item, str):
                     variants.append(StrategyVariant(name=item))
-            if variants:
-                return variants
+        sampled = self._resolve_sampled_strategies(strategy_set, existing=variants)
+        if sampled:
+            variants.extend(sampled)
+        if variants:
+            return variants
         return [StrategyVariant(name="base")]
+
+    def _resolve_sampled_strategies(
+        self, strategy_set: Mapping[str, Any], *, existing: Sequence[StrategyVariant]
+    ) -> list[StrategyVariant]:
+        sampled = strategy_set.get("sampled")
+        if not isinstance(sampled, Mapping):
+            return []
+        enabled = sampled.get("enabled", True)
+        if isinstance(enabled, bool):
+            if not enabled:
+                return []
+        elif enabled is None:
+            return []
+        else:
+            raise ValueError("strategy_set.sampled.enabled must be a bool")
+
+        n_value = sampled.get("n_strategies")
+        if n_value is None:
+            raise ValueError("strategy_set.sampled.n_strategies is required")
+        try:
+            n_strategies = int(n_value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("strategy_set.sampled.n_strategies must be an integer") from exc
+        if n_strategies < 1:
+            raise ValueError("strategy_set.sampled.n_strategies must be >= 1")
+
+        sampling = sampled.get("sampling")
+        if not isinstance(sampling, Mapping):
+            raise ValueError("strategy_set.sampled.sampling must be a mapping")
+
+        name_prefix = sampled.get("name_prefix", "sampled")
+        seed = sampled.get("seed", self._settings().seed)
+        if seed is not None:
+            try:
+                seed = int(seed)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("strategy_set.sampled.seed must be an integer") from exc
+
+        max_rejection_attempts = sampled.get("max_rejection_attempts", 1000)
+        try:
+            max_rejection_attempts = int(max_rejection_attempts)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("strategy_set.sampled.max_rejection_attempts must be an integer") from exc
+        if max_rejection_attempts < 0:
+            raise ValueError("strategy_set.sampled.max_rejection_attempts must be >= 0")
+
+        existing_names = [variant.name for variant in existing]
+        return sample_strategy_variants(
+            sampling,
+            n_strategies,
+            seed=seed,
+            max_rejection_attempts=max_rejection_attempts,
+            name_prefix=str(name_prefix),
+            existing_names=existing_names,
+        )
 
     def _build_price_model(self) -> Any:
         model_spec_raw = self.scenario.return_model
