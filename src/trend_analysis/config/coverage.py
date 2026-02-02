@@ -58,17 +58,18 @@ class ConfigCoverageTracker:
     def format_report(self, report: ConfigCoverageReport | None = None) -> str:
         if report is None:
             report = self.generate_report()
-        lines = ["Config coverage report:"]
-        lines.append(f"  validated: {len(report.validated)}")
-        lines.append(f"  read: {len(report.read)}")
+        lines = ["Config Coverage Report", "======================"]
+        lines.append(f"Keys validated: {len(report.validated)}")
+        lines.append(f"Keys read: {len(report.read)}")
+        lines.append(f"Keys ignored: {len(report.ignored)}")
         if report.unread_validated:
-            lines.append("  validated-not-read:")
-            lines.extend(f"    - {item}" for item in sorted(report.unread_validated))
+            lines.append("Validated but not read:")
+            lines.extend(f"  - {item}" for item in sorted(report.unread_validated))
         if report.unvalidated_reads:
-            lines.append("  read-not-validated:")
-            lines.extend(f"    - {item}" for item in sorted(report.unvalidated_reads))
+            lines.append("Read but not validated:")
+            lines.extend(f"  - {item}" for item in sorted(report.unvalidated_reads))
         if not report.unread_validated and not report.unvalidated_reads:
-            lines.append("  mismatches: none")
+            lines.append("No ignored keys detected.")
         return "\n".join(lines)
 
 
