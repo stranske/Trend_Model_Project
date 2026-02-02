@@ -267,6 +267,39 @@ def test_guard_turnover_distribution_respects_strategy_override() -> None:
     assert config.portfolio["max_turnover"] == 0.42
 
 
+def test_guard_turnover_distribution_rejects_non_numeric_sample() -> None:
+    scenario = MonteCarloScenario(
+        name="mc_guarded_turnover_invalid",
+        base_config="config/defaults.yml",
+        monte_carlo={
+            "mode": "two_layer",
+            "n_paths": 1,
+            "horizon_years": 1.0,
+            "frequency": "M",
+            "seed": 21,
+        },
+        strategy_set={
+            "curated": ["trend_basic"],
+            "guards": {
+                "max_turnover": {"dist": "discrete", "values": ["invalid"]},
+            },
+        },
+        return_model={"kind": "stationary_bootstrap", "params": {"block_size": 3}},
+    )
+    base_config = _base_config()
+    base_config["portfolio"]["max_turnover"] = 0.2
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=base_config,
+    )
+
+    strategy = StrategyVariant(name="trend_basic")
+    seed = runner._strategy_seed(0, strategy.name)
+
+    with pytest.raises(ValueError, match="distribution must sample numeric values"):
+        runner._build_strategy_config(strategy, seed)
+
+
 def test_run_two_layer_deterministic() -> None:
     scenario = _scenario("two_layer")
     runner = MonteCarloRunner(
