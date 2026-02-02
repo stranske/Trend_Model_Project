@@ -1,0 +1,175 @@
+version: 1
+issue: 4654
+base: phase-3
+branch: codex/issue-4654
+tasks:
+  - id: task-01
+    title: Create an integration-level test in `tests/monte_carlo/` verifying all
+      strategies see identical prices for the same path seed (two-layer guarantee).
+    status: doing
+    started_at: '2026-02-02T09:53:56Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Add documentation in `docs/` stating the expected variance-reduction factor
+      and rationale.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Document the expected variance-reduction factor in `docs/`. (verify: docs
+      updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Define scope for: Provide the rationale for the variance-reduction factor
+      in `docs/`. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Implement focused slice for: Provide the rationale for the variance-reduction
+      factor in `docs/`. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Validate focused slice for: Provide the rationale for the variance-reduction
+      factor in `docs/`. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Update documentation in `docs/` to include empirical test results and observed
+      variance-reduction factor.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Update documentation in `docs/` to include empirical test results. (verify:
+      docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Verify
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'document the observed variance-reduction factor in `docs/`. (verify: docs
+      updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Add an integration-level test in `tests/monte_carlo/` verifying all strategies
+      see identical prices for the same path seed (two-layer guarantee).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Document the expected variance-reduction factor and rationale in design
+      docs (beyond tests).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Confirm variance reduction against test results and capture the observed
+      factor in docs.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Two-layer strategy runs produce identical price paths for the same path
+      seed across strategies.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Documentation in `docs/` includes the expected variance-reduction factor
+      and rationale.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Empirical test results are recorded in `docs/` and meet the documented
+      variance-reduction factor.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Two-layer strategy runs produce identical price paths for the same path
+      seed across strategies.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Documentation states the expected variance-reduction factor and rationale.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Empirical test results are recorded and meet the documented variance-reduction
+      factor.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Create an integration-level test in `tests/monte_carlo/` verifying all
+      strategies see identical prices for the same path seed (two-layer guarantee).
+      (AGENT_LIMITATIONS prevent the agent from writing or executing code directly.
+      | Provide detailed test requirements or pseudocode for developers to implement.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Update documentation in `docs/` to include empirical test results and observed
+      variance-reduction factor. (AGENT_LIMITATIONS prevent the agent from running
+      tests to generate empirical results. | Request developers to run the tests and
+      provide the results for documentation.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
