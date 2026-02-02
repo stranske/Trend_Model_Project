@@ -72,8 +72,7 @@ def evaluate_strategies_for_path(
     try:
         context_cache.compute_score_frames(path_id, rebalance_dates, compute_score_frame)
         base_frames = {
-            date: context_cache.select_score_frame(path_id, date, None)
-            for date in rebalance_dates
+            date: context_cache.select_score_frame(path_id, date, None) for date in rebalance_dates
         }
         for name, strategy in strategies.items():
             columns = columns_lookup.get(name)
