@@ -144,6 +144,20 @@ class MonteCarloRunner:
         total = len(path_seeds)
         evaluations: list[StrategyEvaluation] = []
         errors: list[MonteCarloPathError] = []
+        base_seed = self._settings().seed
+
+        try:
+            path_result = model.sample_prices(
+                n_periods=n_periods,
+                n_paths=total,
+                frequency=self.scenario.simulation_frequency(),
+                seed=base_seed,
+            )
+        except Exception as exc:
+            for path_id in range(total):
+                self._log_path_error(path_id, None, exc)
+                errors.append(self._error_record(path_id, None, exc))
+            return evaluations, errors
 
         def _evaluate_path(
             path_id: int, seed: int | None
@@ -154,6 +168,8 @@ class MonteCarloRunner:
                     seed=seed,
                     model=model,
                     n_periods=n_periods,
+                    path_result=path_result,
+                    path_index=path_id,
                 )
             except Exception as exc:
                 self._log_path_error(path_id, None, exc)
@@ -195,6 +211,20 @@ class MonteCarloRunner:
         total = len(path_seeds)
         evaluations: list[StrategyEvaluation] = []
         errors: list[MonteCarloPathError] = []
+        base_seed = self._settings().seed
+
+        try:
+            path_result = model.sample_prices(
+                n_periods=n_periods,
+                n_paths=total,
+                frequency=self.scenario.simulation_frequency(),
+                seed=base_seed,
+            )
+        except Exception as exc:
+            for path_id in range(total):
+                self._log_path_error(path_id, None, exc)
+                errors.append(self._error_record(path_id, None, exc))
+            return evaluations, errors
 
         def _evaluate_path(
             path_id: int, seed: int | None
@@ -206,6 +236,8 @@ class MonteCarloRunner:
                     seed=seed,
                     model=model,
                     n_periods=n_periods,
+                    path_result=path_result,
+                    path_index=path_id,
                 )
             except Exception as exc:
                 self._log_path_error(path_id, None, exc)
@@ -234,15 +266,21 @@ class MonteCarloRunner:
         seed: int | None,
         model: Any,
         n_periods: int,
+        path_result: Any | None = None,
+        path_index: int = 0,
     ) -> _PathContext:
-        result = model.sample_prices(
-            n_periods=n_periods,
-            n_paths=1,
-            frequency=self.scenario.simulation_frequency(),
-            seed=seed,
-        )
-        prices = self._extract_path_frame(result.prices)
-        log_returns = self._extract_path_frame(result.log_returns)
+        if path_result is None:
+            result = model.sample_prices(
+                n_periods=n_periods,
+                n_paths=1,
+                frequency=self.scenario.simulation_frequency(),
+                seed=seed,
+            )
+            path_index = 0
+        else:
+            result = path_result
+        prices = self._extract_path_frame(result.prices, path_index)
+        log_returns = self._extract_path_frame(result.log_returns, path_index)
         returns = np.expm1(log_returns)
         returns_df = self._returns_with_date(returns)
         score_frame = self._compute_score_frame(returns_df)
@@ -460,9 +498,9 @@ class MonteCarloRunner:
                 source = None
         return {str(k): float(v) for k, v in row.items()}, source
 
-    def _extract_path_frame(self, frame: pd.DataFrame) -> pd.DataFrame:
+    def _extract_path_frame(self, frame: pd.DataFrame, path_index: int = 0) -> pd.DataFrame:
         if isinstance(frame.columns, pd.MultiIndex) and "path" in frame.columns.names:
-            return frame.xs(0, level="path", axis=1)
+            return frame.xs(path_index, level="path", axis=1)
         return frame.copy()
 
     def _returns_with_date(self, returns: pd.DataFrame) -> pd.DataFrame:
