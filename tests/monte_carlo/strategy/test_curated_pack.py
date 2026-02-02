@@ -163,3 +163,37 @@ def test_hf_equity_curated_strategies_cover_major_axes() -> None:
     assert constraint_flags.issuperset(
         {"max_weight", "max_active_positions", "long_short", "vol_target"}
     )
+
+
+def test_hf_equity_curated_docs_cover_all_strategies() -> None:
+    strategy_path = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
+    payload = yaml.safe_load(strategy_path.read_text(encoding="utf-8"))
+    curated = payload.get("curated")
+    assert isinstance(curated, list)
+    assert len(curated) == 12
+    curated_names = {entry["name"] for entry in curated}
+
+    readme_path = Path("config/scenarios/monte_carlo/strategies/README.md")
+    readme_lines = readme_path.read_text(encoding="utf-8").splitlines()
+
+    table_rows: list[tuple[str, str, str]] = []
+    in_table = False
+    for line in readme_lines:
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            continue
+        columns = [column.strip() for column in stripped.strip("|").split("|")]
+        if columns[:3] == ["Strategy", "Intent", "Rationale"]:
+            in_table = True
+            continue
+        if not in_table or len(columns) < 3:
+            continue
+        if all(set(column) <= {"-"} for column in columns[:3]):
+            continue
+        strategy, intent, rationale = columns[:3]
+        if strategy and intent and rationale:
+            table_rows.append((strategy, intent, rationale))
+
+    documented_names = {row[0] for row in table_rows}
+    assert documented_names == curated_names
+    assert len(documented_names) == len(curated_names)

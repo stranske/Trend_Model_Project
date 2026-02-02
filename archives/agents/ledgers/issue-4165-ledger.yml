@@ -14,69 +14,69 @@ tasks:
   - id: task-02
     title: Add documentation for each strategy in `config/scenarios/monte_carlo/strategies/README.md`,
       including intent and rationale.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-03
     title: 'Document intent (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-04
     title: 'rationale for the first 6 strategies. (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-05
     title: 'Document intent (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-06
     title: 'rationale for the remaining strategies. (verify: confirm completion in
       repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-07
     title: Validate all strategies against the schema.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-08
     title: 'Define scope for: Validate strategies against the schema using automated
       tools. (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-09
     title: 'Implement focused slice for: Validate strategies against the schema using
       automated tools. (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-10
     title: 'Validate focused slice for: Validate strategies against the schema using
       automated tools. (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-11
@@ -91,177 +91,177 @@ tasks:
   - id: task-12
     title: 'Implement focused slice for: Test strategies against edge cases to ensure
       robustness. (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-13
     title: 'Validate focused slice for: Test strategies against edge cases to ensure
       robustness. (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-14
     title: Verify compatibility of strategies with other configurations.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-15
     title: Ensure strategies cover all major axes combinations (selection policy,
       holding count, weighting, turnover, constraints).
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-16
     title: 'Ensure strategies cover all selection policy combinations. (verify: confirm
       completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-17
     title: 'Ensure strategies cover all holding count combinations. (verify: confirm
       completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-18
     title: 'Ensure strategies cover all weighting combinations. (verify: confirm completion
       in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-19
     title: 'Ensure strategies cover all turnover combinations. (verify: confirm completion
       in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-20
     title: 'Ensure strategies cover all constraint combinations. (verify: confirm
       completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-21
     title: Include strategies in at least one example scenario.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-22
-    title: 'TODO: add task details'
-    status: todo
-    started_at: null
-    finished_at: null
+    title: 'Add automated check that README documents curated strategies.'
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-23
     title: Strategy pack included as scenario-ready YAML file.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-24
     title: Each strategy has documented intent and rationale.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-25
     title: Strategies cover all major axes combinations.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-26
     title: All strategies validate successfully against schema.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-27
     title: Included in at least one example scenario.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-28
     title: Strategy pack included as scenario-ready YAML file
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-29
     title: Each strategy has documented intent and rationale
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-30
     title: Strategies cover all major axes combinations
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-31
     title: All strategies validate successfully against schema
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-32
     title: Included in at least one example scenario
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-33
     title: '## Files to Create/Modify'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-34
     title: '`config/scenarios/monte_carlo/strategies/hf_equity_curated.yml`'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-35
     title: '`config/scenarios/monte_carlo/strategies/README.md` (documentation)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-36
@@ -269,9 +269,9 @@ tasks:
       cannot guarantee specific coverage percentages or ensure schema validation without
       external tools. | Provide detailed instructions or tools for schema validation
       to assist the agent.)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
   - id: task-37
@@ -279,8 +279,8 @@ tasks:
       The agent cannot make subjective design decisions or ensure inclusion in specific
       scenarios without guidance. | Specify the example scenario(s) where the strategies
       should be included.)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-02T05:26:14Z'
+    finished_at: '2026-02-02T05:26:14Z'
     commit: ''
     notes: []
