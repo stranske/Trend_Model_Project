@@ -197,3 +197,11 @@ def test_hf_equity_curated_docs_cover_all_strategies() -> None:
     documented_names = {row[0] for row in table_rows}
     assert documented_names == curated_names
     assert len(documented_names) == len(curated_names)
+
+
+def test_hf_equity_curated_pack_files_present() -> None:
+    strategy_path = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
+    readme_path = Path("config/scenarios/monte_carlo/strategies/README.md")
+
+    assert strategy_path.is_file()
+    assert readme_path.is_file()
