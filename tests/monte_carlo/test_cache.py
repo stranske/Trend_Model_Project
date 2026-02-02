@@ -195,6 +195,43 @@ def test_cached_results_match_naive_evaluation() -> None:
     assert not cache.has_path("path-compare")
 
 
+def test_cached_results_match_naive_without_column_filter() -> None:
+    cache = PathContextCache()
+
+    def compute_score_frame(date: str) -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "Sharpe": [1.0, 2.0],
+                "Volatility": [0.1, 0.2],
+                "Return": [0.05, 0.07],
+                "Noise": [0.9, 0.8],
+            },
+            index=["A", "B"],
+        )
+
+    def combined_strategy(frames: dict[str, pd.DataFrame]) -> float:
+        return float(sum(frame[["Sharpe", "Return"]].sum().sum() for frame in frames.values()))
+
+    rebalance_dates = ["2024-01-31", "2024-02-29", "2024-03-29"]
+    strategies = {"combined": combined_strategy}
+
+    cached_results = evaluate_strategies_for_path(
+        "path-compare-no-filter",
+        rebalance_dates,
+        compute_score_frame,
+        strategies,
+        cache=cache,
+    )
+    naive_results = _evaluate_strategies_naively(
+        rebalance_dates,
+        compute_score_frame,
+        strategies,
+    )
+
+    assert cached_results == naive_results
+    assert not cache.has_path("path-compare-no-filter")
+
+
 @pytest.mark.performance
 def test_cached_strategies_are_materially_faster() -> None:
     base_frame = pd.DataFrame(
