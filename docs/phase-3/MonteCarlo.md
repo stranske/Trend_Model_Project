@@ -44,6 +44,24 @@ A Monte Carlo simulation layer that enables:
 
 The two-layer mode uses **common random numbers**—the same generated price path is reused across all strategies—providing significant variance reduction for strategy comparisons.
 
+### Variance Reduction Expectations (CRN)
+
+**Expected factor (documented benchmark):** For the synthetic CRN test in `tests/monte_carlo/test_seed.py` (path seed 2026, `n_paths=200`, `horizon=50`, `noise_scale=0.1`), the expected variance ratio is approximately:
+
+```
+ratio ≈ noise_scale^2 / (1 + noise_scale^2) ≈ 0.0099
+```
+
+This implies an **expected variance-reduction factor of ~100x** (independent variance / common variance). The rationale: with common random numbers, the shared base path cancels when comparing strategy outputs, leaving only idiosyncratic noise; when paths are independent, both base and noise contribute to variance.
+
+**Empirical result (2026-02-02):** Running the benchmark with the parameters above yields:
+
+- Common variance ≈ `3.9086e-4`
+- Independent variance ≈ `3.8478e-2`
+- Observed ratio ≈ `0.01016` → **~98.4x reduction**
+
+This meets the documented expectation of ~100x reduction for the benchmark configuration.
+
 ---
 
 ## Goals and Non-Goals

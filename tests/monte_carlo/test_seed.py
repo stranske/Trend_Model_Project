@@ -130,5 +130,7 @@ def test_common_random_numbers_reduce_variance() -> None:
 
     common_variance = np.var(common_diffs)
     independent_variance = np.var(independent_diffs)
+    variance_ratio = common_variance / independent_variance
 
     assert common_variance < independent_variance * 0.75
+    assert variance_ratio < 0.05
