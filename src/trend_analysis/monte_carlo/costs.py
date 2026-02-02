@@ -197,9 +197,7 @@ class CostProcess:
             total_cost_drag=total_cost_drag,
         )
 
-    def _sample_cost_bps(
-        self, regime_series: pd.Series, rng: np.random.Generator
-    ) -> pd.Series:
+    def _sample_cost_bps(self, regime_series: pd.Series, rng: np.random.Generator) -> pd.Series:
         values = np.empty(len(regime_series), dtype=float)
         for label in pd.unique(regime_series):
             spec = self._select_spec(label)
@@ -270,7 +268,9 @@ def _parse_regime_spec(spec: Any, *, name: str) -> RegimeCostSpec:
         raise ValueError(f"regime '{name}' spec must be a mapping")
     dist_cfg = spec.get("distribution", spec)
     distribution = _parse_distribution(dist_cfg, regime=name)
-    slippage = _coerce_float(spec.get("slippage_multiplier", 1.0), "slippage_multiplier", minimum=0.0)
+    slippage = _coerce_float(
+        spec.get("slippage_multiplier", 1.0), "slippage_multiplier", minimum=0.0
+    )
     return RegimeCostSpec(distribution=distribution, slippage_multiplier=slippage)
 
 

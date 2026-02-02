@@ -21,11 +21,11 @@ from trend_analysis.io.market_data import (
     load_market_data_parquet,
 )
 from trend_analysis.monte_carlo.config import resolve_risk_free_source
+from trend_analysis.monte_carlo.costs import CostProcess, CostProcessOutput
 from trend_analysis.monte_carlo.models import (
     RegimeConditionedBootstrapModel,
     StationaryBootstrapModel,
 )
-from trend_analysis.monte_carlo.costs import CostProcess, CostProcessOutput
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
 from trend_analysis.monte_carlo.seed import SeedManager
 from trend_analysis.monte_carlo.strategy import StrategyVariant
@@ -606,9 +606,7 @@ class MonteCarloRunner:
             rng=rng,
         )
 
-    def _resolve_cost_index(
-        self, run_result: Any, context: _PathContext
-    ) -> pd.Index | None:
+    def _resolve_cost_index(self, run_result: Any, context: _PathContext) -> pd.Index | None:
         details = getattr(run_result, "details", None)
         if isinstance(details, Mapping):
             out_scaled = details.get("out_sample_scaled")
@@ -618,9 +616,7 @@ class MonteCarloRunner:
             return pd.DatetimeIndex(context.returns["Date"]).copy()
         return None
 
-    def _resolve_regime_labels(
-        self, run_result: Any, out_index: pd.Index
-    ) -> pd.Series | None:
+    def _resolve_regime_labels(self, run_result: Any, out_index: pd.Index) -> pd.Series | None:
         details = getattr(run_result, "details", None)
         if isinstance(details, Mapping):
             labels = details.get("regime_labels_out")
