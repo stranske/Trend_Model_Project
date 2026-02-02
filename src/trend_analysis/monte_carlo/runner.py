@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import math
 import random
-from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -77,18 +76,6 @@ def _has_turnover_override(variant: StrategyVariant) -> bool:
     if not isinstance(portfolio, Mapping):
         return False
     return "max_turnover" in portfolio
-
-
-def _with_turnover_override(variant: StrategyVariant, value: float) -> StrategyVariant:
-    overrides = deepcopy(dict(variant.overrides))
-    portfolio = overrides.get("portfolio")
-    if isinstance(portfolio, Mapping):
-        portfolio = deepcopy(dict(portfolio))
-    else:
-        portfolio = {}
-    portfolio["max_turnover"] = value
-    overrides["portfolio"] = portfolio
-    return StrategyVariant(name=variant.name, overrides=overrides, tags=variant.tags)
 
 
 @dataclass(frozen=True)
@@ -454,7 +441,7 @@ class MonteCarloRunner:
             variants.extend(sampled)
         if not variants:
             variants = [StrategyVariant(name="base")]
-        return self._apply_turnover_guard_distribution(variants)
+        return variants
 
     def _resolve_sampled_strategies(
         self, strategy_set: Mapping[str, Any], *, existing: Sequence[StrategyVariant]
@@ -596,6 +583,7 @@ class MonteCarloRunner:
     def _build_strategy_config(self, strategy: StrategyVariant, seed: int | None) -> ConfigType:
         merged = strategy.apply_to(self._base_config)
         self._apply_strategy_guards(merged)
+        self._apply_turnover_guard_distribution(merged, strategy, seed)
         if seed is not None:
             merged["seed"] = int(seed)
         return Config(**merged)
@@ -617,21 +605,27 @@ class MonteCarloRunner:
             portfolio["max_turnover"] = _coerce_turnover_guard(guard_value)
 
     def _apply_turnover_guard_distribution(
-        self, variants: list[StrategyVariant]
-    ) -> list[StrategyVariant]:
+        self,
+        merged: dict[str, Any],
+        strategy: StrategyVariant,
+        seed: int | None,
+    ) -> None:
         distribution = self._resolve_turnover_guard_distribution()
         if distribution is None:
-            return variants
-        seed = self._settings().seed
-        rng = random.Random(seed)
-        updated: list[StrategyVariant] = []
-        for variant in variants:
-            if _has_turnover_override(variant):
-                updated.append(variant)
-                continue
+            return
+        if _has_turnover_override(strategy):
+            return
+        portfolio = merged.setdefault("portfolio", {})
+        if not isinstance(portfolio, dict):
+            return
+        rng = random.Random(seed) if seed is not None else random.Random()
+        try:
             value = float(distribution.sample(rng))
-            updated.append(_with_turnover_override(variant, value))
-        return updated
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"{_TURNOVER_GUARD_PATH} distribution must sample numeric values"
+            ) from exc
+        portfolio["max_turnover"] = value
 
     def _resolve_turnover_guard_distribution(self) -> Any:
         strategy_set = self._strategy_set()

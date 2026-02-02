@@ -188,7 +188,7 @@ def test_resolve_strategies_includes_sampled_turnover_caps() -> None:
         assert 0.05 <= turnover <= 0.10
 
 
-def test_resolve_strategies_applies_guard_turnover_distribution() -> None:
+def test_guard_turnover_distribution_applies_per_strategy_seed() -> None:
     scenario = MonteCarloScenario(
         name="mc_guarded_turnover",
         base_config="config/defaults.yml",
@@ -200,7 +200,7 @@ def test_resolve_strategies_applies_guard_turnover_distribution() -> None:
             "seed": 11,
         },
         strategy_set={
-            "curated": ["trend_basic", "trend_alt"],
+            "curated": ["trend_basic"],
             "guards": {
                 "max_turnover": {"dist": "discrete", "values": [0.05, 0.15]},
             },
@@ -212,13 +212,19 @@ def test_resolve_strategies_applies_guard_turnover_distribution() -> None:
         base_config=_base_config(),
     )
 
-    strategies = runner._resolve_strategies()
+    strategy = StrategyVariant(name="trend_basic")
+    seed_a = runner._strategy_seed(0, strategy.name)
+    seed_b = runner._strategy_seed(1, strategy.name)
+    config_a = runner._build_strategy_config(strategy, seed_a)
+    config_b = runner._build_strategy_config(strategy, seed_b)
 
-    rng = random.Random(11)
-    expected = [rng.choice([0.05, 0.15]) for _ in range(2)]
-    actual = [strategy.overrides["portfolio"]["max_turnover"] for strategy in strategies]
+    rng_a = random.Random(seed_a)
+    rng_b = random.Random(seed_b)
+    expected_a = rng_a.choice([0.05, 0.15])
+    expected_b = rng_b.choice([0.05, 0.15])
 
-    assert actual == expected
+    assert config_a.portfolio["max_turnover"] == expected_a
+    assert config_b.portfolio["max_turnover"] == expected_b
 
 
 def test_run_two_layer_deterministic() -> None:
