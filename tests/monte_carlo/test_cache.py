@@ -291,14 +291,29 @@ def test_cached_strategies_are_materially_faster() -> None:
     rebalance_dates = ["2024-01-31", "2024-02-29", "2024-03-29"]
 
     # Use a noticeable delay so compute cost dominates strategy overhead and
-    # timing assertions remain stable across machines (30ms per frame).
+    # timing assertions remain stable across machines (40ms per frame).
+    delay = 0.04
     cached_calls: list[str] = []
     naive_calls: list[str] = []
     single_calls: list[str] = []
 
-    cached_compute = make_compute(0.03, cached_calls)
-    naive_compute = make_compute(0.03, naive_calls)
-    single_compute = make_compute(0.03, single_calls)
+    single_strategy_name = next(iter(strategies))
+    single_strategy = {single_strategy_name: strategies[single_strategy_name]}
+    single_columns = {single_strategy_name: columns_by_strategy[single_strategy_name]}
+
+    cached_compute = make_compute(delay, cached_calls)
+    naive_compute = make_compute(delay, naive_calls)
+    single_compute = make_compute(delay, single_calls)
+
+    # Warm up to avoid one-time overhead skewing the timing ratio assertions.
+    evaluate_strategies_for_path(
+        "path-perf-warmup",
+        rebalance_dates,
+        make_compute(0.0, []),
+        single_strategy,
+        columns_by_strategy=single_columns,
+        cache=PathContextCache(),
+    )
 
     start = time.perf_counter()
     evaluate_strategies_for_path(
@@ -310,10 +325,6 @@ def test_cached_strategies_are_materially_faster() -> None:
         cache=PathContextCache(),
     )
     cached_time = time.perf_counter() - start
-
-    single_strategy_name = next(iter(strategies))
-    single_strategy = {single_strategy_name: strategies[single_strategy_name]}
-    single_columns = {single_strategy_name: columns_by_strategy[single_strategy_name]}
 
     start = time.perf_counter()
     evaluate_strategies_for_path(
