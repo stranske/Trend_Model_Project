@@ -7,10 +7,10 @@ tasks:
     title: Create `MonteCarloRunner` class in `src/trend_analysis/monte_carlo/runner.py`
       with methods for `run`, `_run_two_layer`, `_run_mixture`, `_generate_path_context`,
       and `_evaluate_strategy`.
-    status: doing
+    status: done
     started_at: '2026-02-02T00:11:07Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-02T00:11:14Z'
+    commit: 68d77330a12c273eabaadc1da681bc54eb4f152d
     notes: []
   - id: task-02
     title: 'Define scope for: Create `MonteCarloRunner` class in `src/trend_analysis/monte_carlo/runner.py`.
