@@ -160,4 +160,6 @@ def test_hf_equity_curated_strategies_cover_major_axes() -> None:
         }
     )
     assert turnover_buckets == {"tight", "moderate", "loose"}
-    assert constraint_flags.issuperset({"max_weight", "max_active_positions", "long_short", "vol_target"})
+    assert constraint_flags.issuperset(
+        {"max_weight", "max_active_positions", "long_short", "vol_target"}
+    )
