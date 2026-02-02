@@ -49,6 +49,8 @@ def validate_strategy_pack(path: Path, *, base_config_path: Path | None = None) 
             if isinstance(entry, str):
                 variant = StrategyVariant(name=entry)
             elif isinstance(entry, Mapping):
+                if "name" not in entry:
+                    raise ValueError("name is required")
                 raw_name = entry.get("name")
                 if not isinstance(raw_name, str):
                     raise ValueError("name must be a string")
