@@ -20,6 +20,7 @@ from trend_analysis.io.market_data import (
     load_market_data_csv,
     load_market_data_parquet,
 )
+from trend_analysis.monte_carlo.config import resolve_risk_free_source
 from trend_analysis.monte_carlo.models import (
     RegimeConditionedBootstrapModel,
     StationaryBootstrapModel,
@@ -483,9 +484,30 @@ class MonteCarloRunner:
             if not metrics_raw:
                 metrics_raw = ["annual_return", "volatility", "sharpe_ratio"]
             metrics = canonical_metric_list(metrics_raw)
+            data_settings = config.data or {}
+            metrics_settings = config.metrics or {}
+            use_resolver = bool(metrics_settings.get("rf_override_enabled", False))
+            if data_settings.get("risk_free_column"):
+                use_resolver = True
+            if data_settings.get("allow_risk_free_fallback") is True:
+                use_resolver = True
+            risk_free_value: float | pd.Series | None = None
+            if use_resolver:
+                resolution = resolve_risk_free_source(returns, config)
+                risk_free_value = resolution.risk_free
+                if isinstance(risk_free_value, pd.Series):
+                    date_col = str(data_settings.get("date_column") or "Date")
+                    if date_col in returns.columns:
+                        risk_free_value = pd.Series(
+                            risk_free_value.to_numpy(),
+                            index=pd.to_datetime(returns[date_col].values),
+                            name=risk_free_value.name,
+                        )
             stats_cfg = RiskStatsConfig(
                 metrics_to_run=metrics,
-                risk_free=float(config.metrics.get("rf_rate_annual", 0.0) or 0.0),
+                risk_free=(
+                    float(risk_free_value) if isinstance(risk_free_value, (int, float)) else 0.0
+                ),
                 periods_per_year=int(periods_per_year_from_code(config.data.get("frequency"))),
             )
             return single_period_run(
@@ -493,7 +515,7 @@ class MonteCarloRunner:
                 split["in_start"],
                 split["in_end"],
                 stats_cfg=stats_cfg,
-                risk_free=stats_cfg.risk_free,
+                risk_free=risk_free_value,
             )
         except Exception as exc:
             self._logger.debug("Failed to compute score frame: %s", exc)
@@ -584,7 +606,10 @@ class MonteCarloRunner:
     def _execute_paths(
         self,
         path_seeds: Sequence[int | None],
-        fn: Callable[[int, int | None], tuple[list[StrategyEvaluation], list[MonteCarloPathError]]],
+        fn: Callable[
+            [int, int | None],
+            tuple[list[StrategyEvaluation], list[MonteCarloPathError]],
+        ],
         jobs: int,
     ) -> Iterable[tuple[int, list[StrategyEvaluation], list[MonteCarloPathError]]]:
         if jobs <= 1:

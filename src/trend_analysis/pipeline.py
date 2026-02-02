@@ -255,6 +255,7 @@ def run_analysis(
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
     allow_risk_free_fallback: bool | None = False,
+    risk_free_override: float | pd.Series | None = None,
     weight_engine_params: Mapping[str, Any] | None = None,
 ) -> PipelineResult:
     """Diagnostics-aware wrapper mirroring ``_run_analysis``."""
@@ -303,6 +304,7 @@ def run_analysis(
         weight_policy=weight_policy,
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
+        risk_free_override=risk_free_override,
         weight_engine_params=weight_engine_params,
     )
 

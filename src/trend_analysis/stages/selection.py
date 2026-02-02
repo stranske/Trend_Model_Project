@@ -41,7 +41,7 @@ class _SelectionStage:
     rf_col: str
     rf_source: str
     score_frame: pd.DataFrame
-    risk_free_override: pd.Series
+    risk_free_override: float | pd.Series
     indices_list: list[str]
     requested_indices: list[str]
     missing_indices: list[str]
@@ -348,6 +348,7 @@ def _select_universe(
     stats_cfg: RiskStatsConfig | None,
     risk_free_column: str | None,
     allow_risk_free_fallback: bool | None,
+    risk_free_override: float | pd.Series | None = None,
 ) -> _SelectionStage | PipelineResult:
     requested_indices = [str(idx) for idx in indices_list] if indices_list else []
     valid_indices: list[str] = []
@@ -392,6 +393,8 @@ def _select_universe(
         allow_risk_free_fallback=allow_risk_free_fallback,
         fallback_window=fallback_window,
     )
+    if risk_free_override is not None:
+        rf_source = "override"
 
     if selection_mode == "all" and custom_weights is not None:
         fund_cols = [c for c in fund_cols if c in custom_weights]
@@ -440,7 +443,10 @@ def _select_universe(
     if stats_cfg is None:
         stats_cfg = RiskStatsConfig(risk_free=0.0)
 
-    risk_free_override = window.in_df[rf_col]
+    if risk_free_override is None:
+        risk_free_override = window.in_df[rf_col]
+    elif isinstance(risk_free_override, pd.Series):
+        risk_free_override = risk_free_override.reindex(window.in_df.index).fillna(0.0)
 
     if selection_mode == "random" and len(fund_cols) > random_n:
         rng = np.random.default_rng(seed)

@@ -72,6 +72,29 @@ def _sorted_frame(frame: pd.DataFrame) -> pd.DataFrame:
     return frame.sort_values(["path_id", "strategy"]).reset_index(drop=True)
 
 
+def _returns_with_rf() -> pd.DataFrame:
+    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
+    return pd.DataFrame(
+        {
+            "Date": dates,
+            "A": [0.02, 0.01, 0.03, -0.01, 0.01, 0.02],
+            "B": [0.005, 0.004, 0.006, 0.004, 0.005, 0.004],
+            "RF": [0.002] * len(dates),
+        }
+    )
+
+
+def _returns_without_rf() -> pd.DataFrame:
+    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
+    return pd.DataFrame(
+        {
+            "Date": dates,
+            "A": [0.03, -0.02, 0.04, -0.01, 0.05, -0.02],
+            "B": [0.005, 0.005, 0.005, 0.005, 0.005, 0.005],
+        }
+    )
+
+
 def test_runner_two_layer_small_scenario() -> None:
     scenario = _scenario("two_layer")
     runner = MonteCarloRunner(
@@ -206,6 +229,94 @@ def test_run_mixture_deterministic() -> None:
     frame1 = _sorted_frame(build_results_frame(evals1))
     frame2 = _sorted_frame(build_results_frame(evals2))
     pd.testing.assert_frame_equal(frame1, frame2)
+
+
+def test_score_frame_uses_rf_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {
+        "registry": ["sharpe_ratio"],
+        "rf_override_enabled": True,
+        "rf_rate_annual": 0.12,
+    }
+    returns = _returns_with_rf()
+    expected = (1.0 + 0.12) ** (1.0 / 12.0) - 1.0
+
+    def _fake_single_period_run(*_args, **kwargs) -> pd.DataFrame:
+        assert kwargs["risk_free"] == pytest.approx(expected)
+        return pd.DataFrame({"sharpe_ratio": [1.0]}, index=["A"])
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.single_period_run",
+        _fake_single_period_run,
+    )
+
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+    frame = runner._compute_score_frame(returns)
+    assert not frame.empty
+
+
+def test_score_frame_uses_configured_rf_series(monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {"registry": ["sharpe_ratio"]}
+    cfg["data"] = {
+        "date_column": "Date",
+        "frequency": "M",
+        "risk_free_column": "RF",
+        "allow_risk_free_fallback": True,
+    }
+    returns = _returns_with_rf()
+    expected = pd.Series(
+        returns["RF"].to_numpy(),
+        index=pd.to_datetime(returns["Date"].values),
+        name="RF",
+    )
+
+    def _fake_single_period_run(*_args, **kwargs) -> pd.DataFrame:
+        rf = kwargs["risk_free"]
+        assert isinstance(rf, pd.Series)
+        pd.testing.assert_series_equal(rf, expected)
+        return pd.DataFrame({"sharpe_ratio": [1.0]}, index=["A"])
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.single_period_run",
+        _fake_single_period_run,
+    )
+
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+    frame = runner._compute_score_frame(returns)
+    assert not frame.empty
+
+
+def test_score_frame_uses_fallback_rf_series(monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {"registry": ["sharpe_ratio"]}
+    cfg["data"] = {
+        "date_column": "Date",
+        "frequency": "M",
+        "risk_free_column": None,
+        "allow_risk_free_fallback": True,
+    }
+    returns = _returns_without_rf()
+    expected = pd.Series(
+        returns["B"].to_numpy(),
+        index=pd.to_datetime(returns["Date"].values),
+        name="B",
+    )
+
+    def _fake_single_period_run(*_args, **kwargs) -> pd.DataFrame:
+        rf = kwargs["risk_free"]
+        assert isinstance(rf, pd.Series)
+        pd.testing.assert_series_equal(rf, expected)
+        return pd.DataFrame({"sharpe_ratio": [1.0]}, index=["A"])
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.single_period_run",
+        _fake_single_period_run,
+    )
+
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+    frame = runner._compute_score_frame(returns)
+    assert not frame.empty
 
 
 def test_run_mixture_requires_matching_seed_lengths() -> None:

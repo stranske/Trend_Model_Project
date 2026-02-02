@@ -170,6 +170,39 @@ def test_entry_points_resolve_risk_free_settings_consistently(
     assert multi_kwargs["allow_risk_free_fallback"] is expected_allow
 
 
+def test_run_simulation_passes_risk_free_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frame = _make_frame()
+    cfg = Config(
+        version="1",
+        data={"date_column": "Date", "frequency": "M"},
+        preprocessing={},
+        vol_adjust={"target_vol": 1.0},
+        sample_split={
+            "in_start": "2020-01",
+            "in_end": "2020-01",
+            "out_start": "2020-02",
+            "out_end": "2020-02",
+        },
+        portfolio={},
+        metrics={"rf_rate_annual": 0.12, "rf_override_enabled": True},
+        export={},
+        run={},
+    )
+    captured: dict[str, Any] = {}
+
+    def fake_single_run(*_args: Any, **kwargs: Any):
+        captured.update(kwargs)
+        return pipeline_failure(PipelineReasonCode.NO_FUNDS_SELECTED)
+
+    monkeypatch.setattr(api, "_run_analysis", fake_single_run)
+    api.run_simulation(cfg, frame)
+
+    expected = (1.0 + 0.12) ** (1.0 / 12.0) - 1.0
+    assert captured["risk_free_override"] == pytest.approx(expected)
+
+
 def test_missing_risk_free_requires_explicit_flag(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
