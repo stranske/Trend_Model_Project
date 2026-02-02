@@ -57,7 +57,7 @@ curated:
           pct: 0.20
           score_by: sharpe_ratio
           transform: raw
-        weighting_scheme: equal
+        weighting_scheme: custom
         weighting:
           name: score_prop
           params:
@@ -76,7 +76,7 @@ curated:
           threshold: 0.75
           score_by: sharpe_ratio
           transform: zscore
-        weighting_scheme: equal
+        weighting_scheme: custom
         weighting:
           name: score_prop_bayes
           params:
@@ -96,7 +96,7 @@ curated:
           n: 10
           score_by: sharpe_ratio
           transform: raw
-        weighting_scheme: equal
+        weighting_scheme: custom
         weighting:
           name: adaptive_bayes
           params:
