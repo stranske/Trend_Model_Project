@@ -9,7 +9,7 @@ from pathlib import Path
 from trend_analysis.monte_carlo.strategy.validation import validate_strategy_pack
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Validate a Monte Carlo strategy pack against config defaults."
     )
@@ -20,11 +20,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("config/defaults.yml"),
         help="Path to the base config defaults",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     errors = validate_strategy_pack(args.pack, base_config_path=args.base_config)
     if errors:
         print("Strategy pack validation failed:")
