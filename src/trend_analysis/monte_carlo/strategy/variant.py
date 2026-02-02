@@ -52,6 +52,11 @@ def _format_path(path: tuple[str, ...]) -> str:
     return ".".join(path)
 
 
+_FREEFORM_OVERRIDE_PATHS: set[tuple[str, ...]] = {
+    ("portfolio", "weighting", "params"),
+}
+
+
 def _deep_merge_overrides(
     base: Mapping[str, Any],
     overrides: Mapping[str, Any],
@@ -63,6 +68,9 @@ def _deep_merge_overrides(
         next_path = path + (key,)
         path_label = _format_path(next_path)
         if key not in merged:
+            if path in _FREEFORM_OVERRIDE_PATHS:
+                merged[key] = deepcopy(override_value)
+                continue
             raise ValueError(f"override path '{path_label}' does not exist in base config")
         base_value = merged[key]
         if isinstance(override_value, Mapping):

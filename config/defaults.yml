@@ -95,9 +95,6 @@ portfolio:
     name: score_prop_bayes
     params:
       shrink_tau: 0.25
-      column: Sharpe
-      half_life: 90
-      obs_sigma: 0.25
   constraints:
     long_only: true
     max_weight: 0.25

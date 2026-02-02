@@ -23,6 +23,8 @@ def _base_config(tmp_path: Path) -> dict[str, object]:
             "max_turnover": 0.5,
             "transaction_cost_bps": 10,
             "rank": {"n": 5, "metric": "Sharpe"},
+            "weighting_scheme": "equal",
+            "weighting": {"name": "equal", "params": {"column": "Sharpe", "shrink_tau": 0.25}},
         },
         "vol_adjust": {"target_vol": 0.1},
         "extra": {"list": [1, 2, 3]},
@@ -94,6 +96,100 @@ def test_to_trend_config_accepts_trend_config(tmp_path: Path) -> None:
     cfg = variant.to_trend_config(base_cfg, base_path=tmp_path)
 
     assert cfg.portfolio.max_turnover == 0.4
+
+
+def test_to_trend_config_accepts_weighting_scheme_and_name(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="Weighted",
+        overrides={
+            "portfolio": {
+                "weighting_scheme": "risk_parity",
+                "weighting": {"name": "score_prop_bayes", "params": {"column": "Sharpe"}},
+            }
+        },
+    )
+
+    merged = variant.apply_to(base)
+    assert merged["portfolio"]["weighting_scheme"] == "risk_parity"
+    assert merged["portfolio"]["weighting"]["name"] == "score_prop_bayes"
+    assert merged["portfolio"]["weighting"]["params"]["column"] == "Sharpe"
+
+    cfg = variant.to_trend_config(base, base_path=tmp_path)
+    assert cfg.portfolio.rebalance_calendar == "NYSE"
+
+
+def test_to_trend_config_allows_only_weighting_scheme_override(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="SchemeOnly",
+        overrides={"portfolio": {"weighting_scheme": "hrp"}},
+    )
+
+    merged = variant.apply_to(base)
+    assert merged["portfolio"]["weighting_scheme"] == "hrp"
+    assert merged["portfolio"]["weighting"]["name"] == "equal"
+
+    cfg = variant.to_trend_config(base, base_path=tmp_path)
+    assert cfg.portfolio.max_turnover == 0.5
+
+
+def test_to_trend_config_allows_only_weighting_name_override(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="NameOnly",
+        overrides={"portfolio": {"weighting": {"name": "score_prop"}}},
+    )
+
+    merged = variant.apply_to(base)
+    assert merged["portfolio"]["weighting_scheme"] == "equal"
+    assert merged["portfolio"]["weighting"]["name"] == "score_prop"
+
+    cfg = variant.to_trend_config(base, base_path=tmp_path)
+    assert cfg.portfolio.max_turnover == 0.5
+
+
+def test_apply_to_allows_weighting_params_extension(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="ExtendParams",
+        overrides={
+            "portfolio": {
+                "weighting": {"params": {"column": "Sharpe", "half_life": 30, "obs_sigma": 0.15}}
+            }
+        },
+    )
+
+    merged = variant.apply_to(base)
+
+    assert merged["portfolio"]["weighting"]["params"]["shrink_tau"] == 0.25
+    assert merged["portfolio"]["weighting"]["params"]["column"] == "Sharpe"
+    assert merged["portfolio"]["weighting"]["params"]["half_life"] == 30
+    assert merged["portfolio"]["weighting"]["params"]["obs_sigma"] == 0.15
+    assert "half_life" not in base["portfolio"]["weighting"]["params"]
+    assert "obs_sigma" not in base["portfolio"]["weighting"]["params"]
+
+
+def test_to_trend_config_rejects_invalid_weighting_scheme_type(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="BadScheme",
+        overrides={"portfolio": {"weighting_scheme": ["risk_parity"]}},
+    )
+
+    with pytest.raises(ValueError, match="portfolio.weighting_scheme"):
+        variant.to_trend_config(base, base_path=tmp_path)
+
+
+def test_to_trend_config_rejects_invalid_weighting_name_type(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="BadName",
+        overrides={"portfolio": {"weighting": {"name": None}}},
+    )
+
+    with pytest.raises(ValueError, match="portfolio.weighting.name"):
+        variant.to_trend_config(base, base_path=tmp_path)
 
 
 def test_apply_to_type_mismatch_raises(tmp_path: Path) -> None:
