@@ -32,6 +32,7 @@ from trend_analysis.pipeline import _resolve_sample_split
 from trend_analysis.risk import periods_per_year_from_code
 from trend_analysis.stages.selection import single_period_run
 
+from .cache import PathContextCache
 from .results import (
     MonteCarloPathError,
     MonteCarloResults,
@@ -41,7 +42,7 @@ from .results import (
     export_results,
 )
 
-__all__ = ["MonteCarloRunner"]
+__all__ = ["MonteCarloRunner", "evaluate_strategies_for_path"]
 
 _STRATEGY_SELECTION_SEED_TAG = "__strategy_selection__"
 
@@ -54,6 +55,39 @@ class _PathContext:
     score_frame: pd.DataFrame
     path_hash: str
     seed: int | None
+
+
+def evaluate_strategies_for_path(
+    path_id: str,
+    rebalance_dates: Sequence[str],
+    compute_score_frame: Callable[[str], pd.DataFrame],
+    strategies: Mapping[str, Callable[[dict[str, pd.DataFrame]], object]],
+    *,
+    columns_by_strategy: Mapping[str, Sequence[str]] | None = None,
+    cache: PathContextCache | None = None,
+) -> dict[str, object]:
+    """Compute strategy results for a single path using cached score frames."""
+    context_cache = cache or PathContextCache()
+    results: dict[str, object] = {}
+    columns_lookup = columns_by_strategy or {}
+    try:
+        context_cache.compute_score_frames(path_id, rebalance_dates, compute_score_frame)
+        base_frames = {
+            date: context_cache.select_score_frame(path_id, date, None) for date in rebalance_dates
+        }
+        for name, strategy in strategies.items():
+            columns = columns_lookup.get(name)
+            if columns:
+                frames = {
+                    date: context_cache.select_score_frame(path_id, date, columns)
+                    for date in rebalance_dates
+                }
+            else:
+                frames = dict(base_frames)
+            results[name] = strategy(frames)
+    finally:
+        context_cache.clear(path_id)
+    return results
 
 
 class MonteCarloRunner:
