@@ -30,7 +30,10 @@ from trend_analysis.monte_carlo.models import (
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
 from trend_analysis.monte_carlo.seed import SeedManager
 from trend_analysis.monte_carlo.strategy import StrategyVariant
-from trend_analysis.monte_carlo.strategy.sampler import parse_distribution, sample_strategy_variants
+from trend_analysis.monte_carlo.strategy.sampler import (
+    parse_distribution,
+    sample_strategy_variants,
+)
 from trend_analysis.pipeline import _resolve_sample_split
 from trend_analysis.risk import periods_per_year_from_code
 from trend_analysis.stages.selection import single_period_run
@@ -61,7 +64,9 @@ def _coerce_turnover_guard(value: Any) -> float:
     try:
         return float(value)
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"{_TURNOVER_GUARD_PATH} must be numeric or a distribution mapping") from exc
+        raise ValueError(
+            f"{_TURNOVER_GUARD_PATH} must be numeric or a distribution mapping"
+        ) from exc
 
 
 def _has_turnover_override(variant: StrategyVariant) -> bool:

@@ -216,9 +216,7 @@ def test_resolve_strategies_applies_guard_turnover_distribution() -> None:
 
     rng = random.Random(11)
     expected = [rng.choice([0.05, 0.15]) for _ in range(2)]
-    actual = [
-        strategy.overrides["portfolio"]["max_turnover"] for strategy in strategies
-    ]
+    actual = [strategy.overrides["portfolio"]["max_turnover"] for strategy in strategies]
 
     assert actual == expected
 
