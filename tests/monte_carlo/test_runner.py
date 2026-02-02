@@ -351,9 +351,7 @@ def test_execute_paths_handles_unexpected_failure() -> None:
     )
     path_seeds = [101, 202]
 
-    def _boom(
-        path_id: int, seed: int | None
-    ) -> tuple[list[Any], list[MonteCarloPathError]]:
+    def _boom(path_id: int, seed: int | None) -> tuple[list[Any], list[MonteCarloPathError]]:
         if path_id == 1:
             raise RuntimeError("boom")
         return [], []
