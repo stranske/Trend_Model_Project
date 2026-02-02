@@ -235,6 +235,8 @@ class MonteCarloScenario:
       when supplied; explicit ``null`` is invalid.
     - ``outputs`` (Mapping[str, Any] | None): Output locations and formats mapping. Must be a
       mapping when supplied; omitted/``None`` disables output overrides.
+    - ``costs`` (Mapping[str, Any] | None): Cost process configuration mapping. Must be a mapping
+      when supplied; omitted/``None`` disables regime-aware costs.
     - ``path`` (Path | str | None): Source path for the scenario definition file. Stored as
       ``Path`` when set.
     - ``raw`` (Mapping[str, Any] | None): Raw scenario payload for traceability. Must be a mapping
@@ -340,6 +342,16 @@ class MonteCarloScenario:
             )
         },
     )
+    costs: Mapping[str, Any] | None | object = field(
+        default=_MISSING,
+        metadata={
+            "doc": (
+                "Purpose: Cost-process settings for regime-aware transaction costs. "
+                "Type: Mapping[str, Any] | None. "
+                "Constraints: optional; mapping required when provided; null treated as None."
+            )
+        },
+    )
     path: Path | str | None = field(
         default=None,
         metadata={
@@ -395,6 +407,7 @@ class MonteCarloScenario:
         self.strategy_set = _coerce_strategy_set(self.strategy_set)
         self.folds = _coerce_optional_mapping(self.folds, "folds", allow_null=False)
         self.outputs = _coerce_optional_mapping(self.outputs, "outputs")
+        self.costs = _coerce_optional_mapping(self.costs, "costs")
 
         if self.path is not None and not isinstance(self.path, Path):
             self.path = Path(str(self.path))

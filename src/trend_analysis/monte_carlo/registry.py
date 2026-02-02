@@ -400,6 +400,10 @@ def _parse_scenario(
     if "outputs" in raw:
         outputs = _ensure_mapping(raw.get("outputs"), label="Scenario config 'outputs'")
 
+    costs = None
+    if "costs" in raw:
+        costs = _ensure_mapping(raw.get("costs"), label="Scenario config 'costs'")
+
     scenario_kwargs: dict[str, Any] = {
         "name": scenario_name,
         "description": description,
@@ -408,6 +412,7 @@ def _parse_scenario(
         "monte_carlo": monte_carlo_map,
         "strategy_set": strategy_set,
         "outputs": outputs,
+        "costs": costs,
         "path": source_path,
         "raw": raw,
     }

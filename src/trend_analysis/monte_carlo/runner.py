@@ -25,6 +25,7 @@ from trend_analysis.monte_carlo.models import (
     RegimeConditionedBootstrapModel,
     StationaryBootstrapModel,
 )
+from trend_analysis.monte_carlo.costs import CostProcess, CostProcessOutput
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
 from trend_analysis.monte_carlo.seed import SeedManager
 from trend_analysis.monte_carlo.strategy import StrategyVariant
@@ -107,6 +108,8 @@ class MonteCarloRunner:
         self._logger = logger or logging.getLogger("trend_analysis.monte_carlo")
         self._seed_manager: SeedManager | None = None
         self._seed_manager_init = False
+        self._cost_process: CostProcess | None = None
+        self._cost_process_init = False
 
     def run(
         self,
@@ -349,6 +352,10 @@ class MonteCarloRunner:
         config = self._build_strategy_config(strategy, strategy_seed)
         run_result = run_simulation(config, context.returns)
         metrics, source = self._extract_metrics(run_result.metrics)
+        cost_payload = self._maybe_sample_costs(run_result, context, strategy)
+        if cost_payload is not None:
+            metrics = dict(metrics)
+            metrics["total_cost_drag"] = float(cost_payload.total_cost_drag)
         if (
             not metrics
             and isinstance(context.score_frame, pd.DataFrame)
@@ -363,6 +370,10 @@ class MonteCarloRunner:
                 "reason_code": run_result.diagnostic.reason_code,
                 "message": run_result.diagnostic.message,
             }
+        if cost_payload is not None:
+            if diagnostic is None:
+                diagnostic = {}
+            diagnostic["costs"] = self._cost_payload_dict(cost_payload)
         return StrategyEvaluation(
             path_id=context.path_id,
             strategy_name=strategy.name,
@@ -573,6 +584,98 @@ class MonteCarloRunner:
                 source = None
         return {str(k): float(v) for k, v in row.items()}, source
 
+    def _maybe_sample_costs(
+        self,
+        run_result: Any,
+        context: _PathContext,
+        strategy: StrategyVariant,
+    ) -> CostProcessOutput | None:
+        cost_process = self._get_cost_process()
+        if cost_process is None:
+            return None
+        out_index = self._resolve_cost_index(run_result, context)
+        if out_index is None or len(out_index) == 0:
+            return None
+        regimes = self._resolve_regime_labels(run_result, out_index)
+        turnover = self._resolve_turnover_series(run_result, out_index)
+        rng = self._cost_rng(context.path_id, strategy.name)
+        return cost_process.sample(
+            regimes=regimes,
+            turnover=turnover,
+            index=out_index,
+            rng=rng,
+        )
+
+    def _resolve_cost_index(
+        self, run_result: Any, context: _PathContext
+    ) -> pd.Index | None:
+        details = getattr(run_result, "details", None)
+        if isinstance(details, Mapping):
+            out_scaled = details.get("out_sample_scaled")
+            if isinstance(out_scaled, pd.DataFrame):
+                return out_scaled.index
+        if isinstance(context.returns, pd.DataFrame) and "Date" in context.returns.columns:
+            return pd.DatetimeIndex(context.returns["Date"]).copy()
+        return None
+
+    def _resolve_regime_labels(
+        self, run_result: Any, out_index: pd.Index
+    ) -> pd.Series | None:
+        details = getattr(run_result, "details", None)
+        if isinstance(details, Mapping):
+            labels = details.get("regime_labels_out")
+            if isinstance(labels, pd.Series):
+                return labels.reindex(out_index)
+            labels = details.get("regime_labels")
+            if isinstance(labels, pd.Series):
+                return labels.reindex(out_index)
+        return None
+
+    def _resolve_turnover_series(
+        self, run_result: Any, out_index: pd.Index
+    ) -> pd.Series | float | None:
+        turnover = getattr(run_result, "turnover", None)
+        if isinstance(turnover, pd.Series):
+            if len(turnover) == 1 and len(out_index) > 1:
+                value = float(turnover.iloc[0])
+                return pd.Series(value, index=out_index, name=turnover.name or "turnover")
+            return turnover.reindex(out_index).fillna(0.0)
+        details = getattr(run_result, "details", None)
+        if isinstance(details, Mapping):
+            turnover = details.get("turnover")
+            if isinstance(turnover, pd.Series):
+                if len(turnover) == 1 and len(out_index) > 1:
+                    value = float(turnover.iloc[0])
+                    return pd.Series(value, index=out_index, name=turnover.name or "turnover")
+                return turnover.reindex(out_index).fillna(0.0)
+            if isinstance(turnover, (float, int)):
+                return float(turnover)
+            risk_diag = details.get("risk_diagnostics")
+            if isinstance(risk_diag, Mapping):
+                value = risk_diag.get("turnover_value")
+                if isinstance(value, (float, int)):
+                    return float(value)
+        if isinstance(turnover, (float, int)):
+            return float(turnover)
+        return None
+
+    def _cost_rng(self, path_id: int, strategy_name: str) -> np.random.Generator:
+        manager = self._get_seed_manager()
+        if manager is None:
+            return np.random.default_rng()
+        return manager.get_strategy_rng(path_id, strategy_name)
+
+    def _cost_payload_dict(self, payload: CostProcessOutput) -> Mapping[str, Any]:
+        return {
+            "regimes": payload.regimes,
+            "cost_bps": payload.cost_bps,
+            "slippage_multiplier": payload.slippage_multiplier,
+            "turnover": payload.turnover,
+            "transaction_costs": payload.transaction_costs,
+            "cost_drag": payload.cost_drag,
+            "total_cost_drag": payload.total_cost_drag,
+        }
+
     def _extract_path_frame(self, frame: pd.DataFrame, path_index: int = 0) -> pd.DataFrame:
         if isinstance(frame.columns, pd.MultiIndex) and "path" in frame.columns.names:
             return frame.xs(path_index, level="path", axis=1)
@@ -755,6 +858,17 @@ class MonteCarloRunner:
         else:
             self._seed_manager = SeedManager(int(base_seed))
         return self._seed_manager
+
+    def _get_cost_process(self) -> CostProcess | None:
+        if self._cost_process_init:
+            return self._cost_process
+        self._cost_process_init = True
+        config = getattr(self.scenario, "costs", None)
+        if isinstance(config, Mapping):
+            self._cost_process = CostProcess.from_config(config)
+        else:
+            self._cost_process = None
+        return self._cost_process
 
     def _strategy_seed(self, path_id: int, strategy_name: str) -> int | None:
         manager = self._get_seed_manager()
