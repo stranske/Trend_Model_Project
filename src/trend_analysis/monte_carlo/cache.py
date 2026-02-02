@@ -68,8 +68,10 @@ class PathContext:
 class PathContextCache:
     """Manage cached score frames across Monte Carlo paths."""
 
+    _contexts: dict[Hashable, PathContext]
+
     def __init__(self) -> None:
-        self._contexts: dict[Hashable, PathContext] = {}
+        self._contexts = {}
 
     def get_context(self, path_id: Hashable) -> PathContext:
         context = self._contexts.get(path_id)
@@ -92,6 +94,23 @@ class PathContextCache:
     ) -> pd.DataFrame:
         context = self.get_context(path_id)
         return context.get_or_compute(rebalance_date, compute_fn)
+
+    def get_score_frame(
+        self,
+        path_id: Hashable,
+        rebalance_date: Hashable,
+    ) -> pd.DataFrame | None:
+        context = self.get_context(path_id)
+        return context.get_score_frame(rebalance_date)
+
+    def set_score_frame(
+        self,
+        path_id: Hashable,
+        rebalance_date: Hashable,
+        score_frame: pd.DataFrame,
+    ) -> None:
+        context = self.get_context(path_id)
+        context.set_score_frame(rebalance_date, score_frame)
 
     def select_score_frame(
         self,
