@@ -10,6 +10,9 @@ import pandas as pd
 class PathContext:
     """Cache score frames for a single simulated path."""
 
+    path_id: Hashable | None
+    _score_frames: dict[Hashable, pd.DataFrame]
+
     def __init__(self, path_id: Hashable | None = None) -> None:
         self.path_id = path_id
         self._score_frames: dict[Hashable, pd.DataFrame] = {}
@@ -54,6 +57,9 @@ class PathContext:
 
     def dates(self) -> Iterable[Hashable]:
         return self._score_frames.keys()
+
+    def score_frame_count(self) -> int:
+        return len(self._score_frames)
 
     def clear(self) -> None:
         self._score_frames.clear()
