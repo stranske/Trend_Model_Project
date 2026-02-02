@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Extend scenario config parsing for fixed, sampled, and regime-conditional
       turnover caps.
-    status: doing
+    status: done
     started_at: '2026-02-02T10:03:08Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-02T10:03:16Z'
+    commit: 721eac3a4db2dd50e711669b77b236ab5ffe7414
     notes: []
   - id: task-02
     title: 'Extend scenario config parsing for fixed turnover caps. (verify: config
