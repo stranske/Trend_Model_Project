@@ -5,7 +5,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from trend_analysis.monte_carlo.results import build_results_frame
+from trend_analysis.monte_carlo.results import MonteCarloPathError, build_results_frame
 from trend_analysis.monte_carlo.runner import MonteCarloRunner
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario
 from trend_analysis.monte_carlo.strategy import StrategyVariant
@@ -188,3 +188,26 @@ def test_run_mixture_deterministic() -> None:
     frame1 = _sorted_frame(build_results_frame(evals1))
     frame2 = _sorted_frame(build_results_frame(evals2))
     pd.testing.assert_frame_equal(frame1, frame2)
+
+
+def test_execute_paths_handles_unexpected_failure() -> None:
+    scenario = _scenario("two_layer")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+    path_seeds = [101, 202]
+
+    def _boom(path_id: int, seed: int | None) -> tuple[list[Any], list[MonteCarloPathError]]:
+        if path_id == 1:
+            raise RuntimeError("boom")
+        return [], []
+
+    results = list(runner._execute_paths(path_seeds, _boom, jobs=1))
+
+    assert results[0][1] == []
+    assert results[0][2] == []
+    assert results[1][1] == []
+    assert len(results[1][2]) == 1
+    assert results[1][2][0].error_type == "RuntimeError"

@@ -530,7 +530,12 @@ class MonteCarloRunner:
     ) -> Iterable[tuple[int, list[StrategyEvaluation], list[MonteCarloPathError]]]:
         if jobs <= 1:
             for path_id, seed in enumerate(path_seeds):
-                yield (path_id, *fn(path_id, seed))
+                try:
+                    evals, errs = fn(path_id, seed)
+                except Exception as exc:
+                    self._log_path_error(path_id, None, exc)
+                    evals, errs = [], [self._error_record(path_id, None, exc)]
+                yield (path_id, evals, errs)
             return
 
         from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -542,7 +547,12 @@ class MonteCarloRunner:
             }
             for future in as_completed(futures):
                 path_id = futures[future]
-                yield (path_id, *future.result())
+                try:
+                    evals, errs = future.result()
+                except Exception as exc:
+                    self._log_path_error(path_id, None, exc)
+                    evals, errs = [], [self._error_record(path_id, None, exc)]
+                yield (path_id, evals, errs)
 
     def _maybe_export(self, results: MonteCarloResults) -> None:
         outputs = self.scenario.outputs or {}
