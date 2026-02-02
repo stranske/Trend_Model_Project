@@ -243,8 +243,9 @@ def test_cached_strategies_are_materially_faster() -> None:
         index=["A", "B"],
     )
 
-    def make_compute(delay: float):
+    def make_compute(delay: float, calls: list[str]):
         def compute_score_frame(date: str) -> pd.DataFrame:  # noqa: ARG001
+            calls.append(date)
             time.sleep(delay)
             return base_frame.copy()
 
@@ -276,9 +277,13 @@ def test_cached_strategies_are_materially_faster() -> None:
 
     # Use a noticeable delay so compute cost dominates strategy overhead and
     # timing assertions remain stable across machines.
-    cached_compute = make_compute(0.02)
-    naive_compute = make_compute(0.02)
-    single_compute = make_compute(0.02)
+    cached_calls: list[str] = []
+    naive_calls: list[str] = []
+    single_calls: list[str] = []
+
+    cached_compute = make_compute(0.02, cached_calls)
+    naive_compute = make_compute(0.02, naive_calls)
+    single_compute = make_compute(0.02, single_calls)
 
     start = time.perf_counter()
     evaluate_strategies_for_path(
@@ -315,5 +320,8 @@ def test_cached_strategies_are_materially_faster() -> None:
     )
     naive_time = time.perf_counter() - start
 
+    assert cached_calls == rebalance_dates
+    assert single_calls == rebalance_dates
+    assert len(naive_calls) == len(rebalance_dates) * len(strategies)
     assert cached_time < single_time * 2
     assert cached_time * 2 < naive_time
