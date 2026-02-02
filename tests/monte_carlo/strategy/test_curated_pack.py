@@ -56,3 +56,108 @@ def test_hf_equity_curated_strategies_compatible_with_strategy_guards() -> None:
             portfolio["max_turnover"] = guards["max_turnover"]
         validated = TrendConfig(**guarded)
         assert isinstance(validated, TrendConfig)
+
+
+def test_hf_equity_curated_strategies_cover_major_axes() -> None:
+    strategy_path = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
+    payload = yaml.safe_load(strategy_path.read_text(encoding="utf-8"))
+
+    curated = payload.get("curated")
+    assert isinstance(curated, list)
+    assert len(curated) == 12
+
+    selection_modes = set()
+    rank_inclusion = set()
+    holding_buckets = set()
+    weighting_schemes = set()
+    turnover_buckets = set()
+    constraint_flags = set()
+
+    for entry in curated:
+        overrides = entry.get("overrides", {})
+        portfolio = overrides.get("portfolio", {})
+        selection_mode = portfolio.get("selection_mode")
+        selection_modes.add(selection_mode)
+
+        if selection_mode == "rank":
+            rank = portfolio.get("rank", {})
+            rank_inclusion.add(rank.get("inclusion_approach"))
+            n = rank.get("n")
+            if isinstance(n, int):
+                if n <= 10:
+                    holding_buckets.add("small")
+                elif n <= 15:
+                    holding_buckets.add("mid")
+                else:
+                    holding_buckets.add("large")
+            if "pct" in rank:
+                holding_buckets.add("pct")
+            if "threshold" in rank:
+                holding_buckets.add("threshold")
+        elif selection_mode == "random":
+            n = portfolio.get("random_n")
+            if isinstance(n, int):
+                if n <= 10:
+                    holding_buckets.add("small")
+                elif n <= 15:
+                    holding_buckets.add("mid")
+                else:
+                    holding_buckets.add("large")
+        elif selection_mode == "manual":
+            manual_list = portfolio.get("manual_list", [])
+            if isinstance(manual_list, list):
+                count = len(manual_list)
+                if count <= 10:
+                    holding_buckets.add("small")
+                elif count <= 15:
+                    holding_buckets.add("mid")
+                else:
+                    holding_buckets.add("large")
+        elif selection_mode == "all":
+            holding_buckets.add("all")
+
+        weighting_schemes.add(portfolio.get("weighting_scheme"))
+        weighting = portfolio.get("weighting", {})
+        if isinstance(weighting, dict) and weighting.get("name"):
+            weighting_schemes.add(weighting.get("name"))
+
+        max_turnover = portfolio.get("max_turnover")
+        if isinstance(max_turnover, (int, float)):
+            if max_turnover <= 0.1:
+                turnover_buckets.add("tight")
+            elif max_turnover <= 0.2:
+                turnover_buckets.add("moderate")
+            else:
+                turnover_buckets.add("loose")
+
+        constraints = portfolio.get("constraints", {})
+        if isinstance(constraints, dict):
+            if "max_weight" in constraints:
+                constraint_flags.add("max_weight")
+            if "max_active_positions" in constraints:
+                constraint_flags.add("max_active_positions")
+            if constraints.get("long_only") is False:
+                constraint_flags.add("long_short")
+
+        vol_adjust = overrides.get("vol_adjust", {})
+        if isinstance(vol_adjust, dict) and vol_adjust.get("enabled") is True:
+            constraint_flags.add("vol_target")
+
+    assert selection_modes == {"rank", "random", "manual", "all"}
+    assert rank_inclusion == {"top_n", "top_pct", "threshold"}
+    assert holding_buckets.issuperset({"small", "mid", "large", "pct", "threshold", "all"})
+    assert weighting_schemes.issuperset(
+        {
+            "equal",
+            "risk_parity",
+            "hrp",
+            "erc",
+            "robust_mv",
+            "robust_risk_parity",
+            "score_prop",
+            "score_prop_bayes",
+            "adaptive_bayes",
+        }
+    )
+    assert turnover_buckets == {"tight", "moderate", "loose"}
+    assert constraint_flags.issuperset({"max_weight", "max_active_positions", "long_short", "vol_target"})
