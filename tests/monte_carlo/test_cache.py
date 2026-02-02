@@ -237,9 +237,11 @@ def test_cached_strategies_are_materially_faster() -> None:
     columns_by_strategy = {name: [name.split("-")[0]] for name in strategies}
     rebalance_dates = ["2024-01-31", "2024-02-29", "2024-03-29"]
 
-    cached_compute = make_compute(0.005)
-    naive_compute = make_compute(0.005)
-    single_compute = make_compute(0.005)
+    # Use a noticeable delay so compute cost dominates strategy overhead and
+    # timing assertions remain stable across machines.
+    cached_compute = make_compute(0.02)
+    naive_compute = make_compute(0.02)
+    single_compute = make_compute(0.02)
 
     start = time.perf_counter()
     evaluate_strategies_for_path(
