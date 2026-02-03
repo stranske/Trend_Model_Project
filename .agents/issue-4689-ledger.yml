@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Review and update export-related code to ensure fold_id columns are included
       in all relevant export points, including export.py if necessary.
-    status: doing
+    status: done
     started_at: '2026-02-03T06:58:11Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-03T06:58:19Z'
+    commit: d330ec9b16046d92859ab1aee8206c0f83a9a7c5
     notes: []
   - id: task-02
     title: 'Define scope for: Review export.py to identify all relevant export points
