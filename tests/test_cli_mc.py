@@ -47,6 +47,23 @@ def _write_prices(path: Path) -> None:
     path.write_text(payload + "\n", encoding="utf-8")
 
 
+def _write_registry(path: Path) -> None:
+    registry = """
+scenarios:
+  - name: alpha
+    description: Alpha scenario
+    tags: [alpha, core]
+    path: alpha.yml
+  - name: beta
+    description: Beta scenario
+    tags: [beta]
+    path: beta.yml
+"""
+    path.write_text(registry.strip() + "\n", encoding="utf-8")
+    for scenario in ("alpha.yml", "beta.yml"):
+        (path.parent / scenario).write_text("", encoding="utf-8")
+
+
 def test_mc_validate_success(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     scenario_path = tmp_path / "scenario.yml"
     _write_scenario(scenario_path)
@@ -234,3 +251,24 @@ def test_mc_run_dry_run_skips_execution(
     out = capsys.readouterr().out
     assert "Dry run complete" in out
     assert called["run"] is False
+
+
+def test_mc_list_registry_and_tags(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    registry_path = tmp_path / "index.yml"
+    _write_registry(registry_path)
+
+    rc = cli.main(["mc", "list", "--registry", str(registry_path), "--format", "json"])
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    payload = json.loads(out)
+    assert {entry["name"] for entry in payload} == {"alpha", "beta"}
+
+    rc = cli.main(
+        ["mc", "list", "--registry", str(registry_path), "--tags", "alpha", "--format", "json"]
+    )
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    payload = json.loads(out)
+    assert [entry["name"] for entry in payload] == ["alpha"]

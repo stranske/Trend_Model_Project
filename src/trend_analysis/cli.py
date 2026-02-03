@@ -932,6 +932,10 @@ def main(argv: list[str] | None = None) -> int:
         default="table",
         help="Output format",
     )
+    mc_list_p.add_argument(
+        "--registry",
+        help="Override the scenario registry path",
+    )
     mc_validate_p = mc_sub.add_parser("validate", help="Validate Monte Carlo scenarios")
     mc_validate_p.add_argument(
         "scenario",
@@ -1480,8 +1484,9 @@ def _handle_mc_command(args: argparse.Namespace) -> int:
     subcommand = getattr(args, "mc_command", None)
     if subcommand == "list":
         tags = _parse_mc_tags(getattr(args, "tags", None))
+        registry_path = _resolve_mc_registry_path(getattr(args, "registry", None))
         try:
-            registry_entries = list_scenarios(tags=tags)
+            registry_entries = list_scenarios(tags=tags, registry_path=registry_path)
         except Exception as exc:
             print(f"Failed to list Monte Carlo scenarios: {exc}", file=sys.stderr)
             return 2
