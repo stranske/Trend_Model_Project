@@ -3,7 +3,11 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from trend_analysis.monte_carlo.folds import FoldGenerator
+from trend_analysis.monte_carlo.folds import (
+    FoldGenerator,
+    _align_to_index,
+    _previous_in_index,
+)
 
 
 def test_explicit_mode_requires_fold_starts() -> None:
@@ -126,3 +130,66 @@ def test_count_spaced_mode_rejects_invalid_range() -> None:
 
     with pytest.raises(ValueError, match="fold start must be before fold end"):
         generator.generate(index)
+
+
+def test_align_to_index_exact_match() -> None:
+    index = pd.date_range("2020-01-31", periods=3, freq="ME")
+
+    assert _align_to_index(pd.Timestamp("2020-02-29"), index) == pd.Timestamp("2020-02-29")
+
+
+def test_align_to_index_before_first_returns_first() -> None:
+    index = pd.date_range("2020-01-31", periods=3, freq="ME")
+
+    assert _align_to_index(pd.Timestamp("2019-12-15"), index) == pd.Timestamp("2020-01-31")
+
+
+def test_align_to_index_between_returns_next() -> None:
+    index = pd.date_range("2020-01-31", periods=4, freq="ME")
+
+    assert _align_to_index(pd.Timestamp("2020-02-10"), index) == pd.Timestamp("2020-02-29")
+
+
+def test_align_to_index_after_last_returns_last() -> None:
+    index = pd.date_range("2020-01-31", periods=3, freq="ME")
+
+    assert _align_to_index(pd.Timestamp("2020-06-30"), index) == pd.Timestamp("2020-03-31")
+
+
+def test_align_to_index_empty_index_raises() -> None:
+    index = pd.DatetimeIndex([])
+
+    with pytest.raises(ValueError, match="history_index must contain at least one date"):
+        _align_to_index(pd.Timestamp("2020-01-31"), index)
+
+
+def test_previous_in_index_between_returns_previous() -> None:
+    index = pd.date_range("2020-01-31", periods=4, freq="ME")
+
+    assert _previous_in_index(pd.Timestamp("2020-02-10"), index) == pd.Timestamp("2020-01-31")
+
+
+def test_previous_in_index_exact_value_returns_previous() -> None:
+    index = pd.date_range("2020-01-31", periods=4, freq="ME")
+
+    assert _previous_in_index(pd.Timestamp("2020-03-31"), index) == pd.Timestamp("2020-02-29")
+
+
+def test_previous_in_index_after_last_returns_last() -> None:
+    index = pd.date_range("2020-01-31", periods=3, freq="ME")
+
+    assert _previous_in_index(pd.Timestamp("2020-12-31"), index) == pd.Timestamp("2020-03-31")
+
+
+def test_previous_in_index_at_start_raises() -> None:
+    index = pd.date_range("2020-01-31", periods=3, freq="ME")
+
+    with pytest.raises(ValueError, match="fold_start must be after the earliest history date"):
+        _previous_in_index(pd.Timestamp("2020-01-31"), index)
+
+
+def test_previous_in_index_empty_index_raises() -> None:
+    index = pd.DatetimeIndex([])
+
+    with pytest.raises(ValueError, match="history_index must contain at least one date"):
+        _previous_in_index(pd.Timestamp("2020-01-31"), index)
