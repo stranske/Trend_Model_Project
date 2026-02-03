@@ -666,6 +666,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Minimum number of test cases required (set to 0 to disable).",
     )
     parser.add_argument(
+        "--min-success-rate",
+        type=float,
+        default=0.95,
+        help="Minimum passing rate required (set to 0 to disable).",
+    )
+    parser.add_argument(
         "--mode",
         choices=("mock", "live"),
         default="mock",
@@ -712,6 +718,9 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
+    if args.min_success_rate < 0 or args.min_success_rate > 1:
+        print("Minimum success rate must be between 0 and 1.", file=sys.stderr)
+        return 1
 
     if args.mode == "live":
         try:
@@ -743,7 +752,18 @@ def main(argv: list[str] | None = None) -> int:
         f"Passed {report['passed']} ({report['success_rate'] * 100:.1f}%)."
     )
     print(_format_summary_table(results))
+    threshold_failed = (
+        args.min_success_rate and report["success_rate"] < args.min_success_rate
+    )
+    if threshold_failed:
+        print(
+            "Success rate below threshold: "
+            f"{report['success_rate'] * 100:.1f}% < {args.min_success_rate * 100:.1f}%.",
+            file=sys.stderr,
+        )
     failed = [result for result in results if not result.passed]
+    if threshold_failed:
+        return 3
     if failed:
         return 2
     return 0

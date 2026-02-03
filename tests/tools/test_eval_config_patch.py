@@ -432,3 +432,97 @@ def test_cli_min_cases_enforced(tmp_path: Path) -> None:
 
     assert exit_code == 1
     assert not report_path.exists()
+
+
+def test_cli_min_success_rate_enforced(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cases_file = tmp_path / "cases.yml"
+    cases_file.write_text(
+        textwrap.dedent("""
+            cases:
+              - id: case_one
+                instruction: "Set top_n to 9."
+                current_config:
+                  analysis:
+                    top_n: 8
+                expected_patch:
+                  operations: []
+                  risk_flags: []
+                  summary: "No changes."
+              - id: case_two
+                instruction: "Set top_n to 10."
+                current_config:
+                  analysis:
+                    top_n: 8
+                expected_patch:
+                  operations: []
+                  risk_flags: []
+                  summary: "No changes."
+            """).lstrip(),
+        encoding="utf-8",
+    )
+    report_path = tmp_path / "report.json"
+    results = iter(
+        [
+            EvalResult(case_id="case_one", passed=True, errors=[]),
+            EvalResult(case_id="case_two", passed=False, errors=["bad-output"]),
+        ]
+    )
+
+    def _fake_evaluate_prompt(case, chain, mode):
+        return next(results)
+
+    monkeypatch.setattr(eval_config_patch, "evaluate_prompt", _fake_evaluate_prompt)
+
+    exit_code = eval_config_patch.main(
+        [
+            "--cases",
+            str(cases_file),
+            "--min-cases",
+            "0",
+            "--min-success-rate",
+            "0.75",
+            "--report",
+            str(report_path),
+        ]
+    )
+
+    assert exit_code == 3
+    assert report_path.exists()
+
+
+def test_cli_min_success_rate_bounds_rejected(
+    tmp_path: Path,
+) -> None:
+    cases_file = tmp_path / "cases.yml"
+    cases_file.write_text(
+        textwrap.dedent("""
+            cases:
+              - id: case_one
+                instruction: "Set top_n to 9."
+                current_config:
+                  analysis:
+                    top_n: 8
+                expected_patch:
+                  operations: []
+                  risk_flags: []
+                  summary: "No changes."
+            """).lstrip(),
+        encoding="utf-8",
+    )
+    report_path = tmp_path / "report.json"
+
+    exit_code = eval_config_patch.main(
+        [
+            "--cases",
+            str(cases_file),
+            "--min-cases",
+            "0",
+            "--min-success-rate",
+            "1.5",
+            "--report",
+            str(report_path),
+        ]
+    )
+
+    assert exit_code == 1
+    assert not report_path.exists()
