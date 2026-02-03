@@ -303,6 +303,16 @@ def _build_policy_maps(
     policy: str | Mapping[str, str] | None,
     limit: int | Mapping[str, int | None] | None,
 ) -> tuple[Dict[str, str], str, Dict[str, Optional[int]], Optional[int]]:
+    """Normalize per-column missing-data policy and limit inputs.
+
+    Assumptions and limitations:
+    - Column names are treated as strings for policy/limit lookups, so callers
+      should provide overrides keyed by the string form of each column.
+    - The special "*" key represents the default policy/limit for all columns.
+    - Override mappings may include extra keys that do not match any column;
+      those entries are ignored during normalization.
+    """
+
     cols = [str(col) for col in columns]
     if isinstance(policy, Mapping):
         raw_policy = {str(k): v for k, v in policy.items()}
@@ -363,8 +373,9 @@ def apply_missing_policy(
     max_gaps: dict[str, int] = {}
 
     for column in frame.columns:
-        col_policy = policy_map[column]
-        col_limit = limit_map[column]
+        column_key = str(column)
+        col_policy = policy_map[column_key]
+        col_limit = limit_map[column_key]
         series = result[column]
         na_mask = series.isna()
         missing_total = int(na_mask.sum())

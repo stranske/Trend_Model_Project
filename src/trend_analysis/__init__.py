@@ -2,7 +2,9 @@
 
 import importlib
 import importlib.metadata
+import os
 import sys
+from pathlib import Path
 from types import ModuleType
 from typing import Any, cast
 
@@ -60,6 +62,20 @@ def _patch_dataclasses_module_guard() -> None:
 
 
 _patch_dataclasses_module_guard()
+
+
+def _ensure_matplotlib_config_dir() -> None:
+    if os.environ.get("MPLCONFIGDIR"):
+        return
+    config_dir = Path("/tmp/matplotlib")
+    try:
+        config_dir.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return
+    os.environ["MPLCONFIGDIR"] = str(config_dir)
+
+
+_ensure_matplotlib_config_dir()
 
 _MODULE_SELF = sys.modules[__name__]
 
