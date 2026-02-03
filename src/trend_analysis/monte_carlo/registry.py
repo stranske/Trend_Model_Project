@@ -147,7 +147,9 @@ def _is_within(path: Path, root: Path) -> bool:
     return True
 
 
-def _resolve_path(value: str, *, base_dir: Path, search_dirs: Sequence[Path] | None = None) -> Path:
+def _resolve_path(
+    value: str, *, base_dir: Path, search_dirs: Sequence[Path] | None = None
+) -> Path:
     raw = Path(value).expanduser()
     candidates: list[Path]
     if raw.is_absolute():
@@ -165,7 +167,9 @@ def _resolve_path(value: str, *, base_dir: Path, search_dirs: Sequence[Path] | N
                 raise IsADirectoryError(f"Path '{candidate}' must be a file")
             if candidate.suffix not in _SUPPORTED_SUFFIXES:
                 allowed = ", ".join(_SUPPORTED_SUFFIXES)
-                raise ValueError(f"Scenario config '{candidate}' must use one of: {allowed}")
+                raise ValueError(
+                    f"Scenario config '{candidate}' must use one of: {allowed}"
+                )
             return candidate
     raise FileNotFoundError(
         f"Could not locate '{value}'. Checked: {', '.join(str(c) for c in candidates)}"
@@ -223,7 +227,9 @@ def _resolve_strategy_pack(value: str, *, source_path: Path) -> Path:
                 raise IsADirectoryError(f"Path '{candidate}' must be a file")
             if candidate.suffix not in _SUPPORTED_SUFFIXES:
                 allowed = ", ".join(_SUPPORTED_SUFFIXES)
-                raise ValueError(f"Strategy pack '{candidate}' must use one of: {allowed}")
+                raise ValueError(
+                    f"Strategy pack '{candidate}' must use one of: {allowed}"
+                )
             return candidate
 
     raise FileNotFoundError(
@@ -289,7 +295,9 @@ def get_scenario_path(
         for entry in scenarios:
             if entry.name == normalized:
                 return entry.path
-        raise ValueError(_format_missing(normalized, scenarios, registry_label=registry_label))
+        raise ValueError(
+            _format_missing(normalized, scenarios, registry_label=registry_label)
+        )
 
     tag_set = {str(tag).strip().lower() for tag in tags or () if str(tag).strip()}
     if not tag_set:
@@ -313,7 +321,9 @@ def _extract_scenario_metadata(
     if "scenario" in raw and scenario_block is None:
         raise ValueError("Scenario config 'scenario' must be a mapping (null provided)")
     if scenario_block is not None:
-        scenario_map = _ensure_mapping(scenario_block, label="Scenario config 'scenario'")
+        scenario_map = _ensure_mapping(
+            scenario_block, label="Scenario config 'scenario'"
+        )
 
     top_level = {
         "name": raw.get("name"),
@@ -341,7 +351,9 @@ def _extract_scenario_metadata(
     if not scenario_name:
         raise ValueError("Scenario config must define scenario.name")
     if scenario_name != name:
-        raise ValueError(f"Scenario name mismatch: registry '{name}' vs config '{scenario_name}'")
+        raise ValueError(
+            f"Scenario name mismatch: registry '{name}' vs config '{scenario_name}'"
+        )
 
     description_value = merged.get("description")
     description = str(description_value) if description_value is not None else None
@@ -351,7 +363,9 @@ def _extract_scenario_metadata(
     if version_value is not None:
         version = str(version_value).strip()
         if not version:
-            raise ValueError("Scenario config must define scenario.version as a non-empty string")
+            raise ValueError(
+                "Scenario config must define scenario.version as a non-empty string"
+            )
 
     return scenario_name, description, version
 
@@ -371,7 +385,9 @@ def _parse_scenario(
     monte_carlo = raw.get("monte_carlo")
     if monte_carlo is None:
         raise ValueError("Scenario config must define monte_carlo")
-    monte_carlo_map = _ensure_mapping(monte_carlo, label="Scenario config 'monte_carlo'")
+    monte_carlo_map = _ensure_mapping(
+        monte_carlo, label="Scenario config 'monte_carlo'"
+    )
 
     strategy_set = None
     if "strategy_set" in raw:
@@ -391,7 +407,9 @@ def _parse_scenario(
             else:
                 curated_inline = merged.get("curated")
                 if curated_inline is None:
-                    raise ValueError("strategy_set.curated must be a list (null provided)")
+                    raise ValueError(
+                        "strategy_set.curated must be a list (null provided)"
+                    )
                 if not isinstance(curated_inline, list):
                     raise ValueError("strategy_set.curated must be a list")
                 merged["curated"] = [*curated_pack, *curated_inline]
@@ -422,14 +440,18 @@ def _parse_scenario(
     if folds_value is not None:
         scenario_kwargs["folds"] = folds_value
 
-    return_model_value = _optional_mapping(raw, key="return_model", scenario_name=scenario_name)
+    return_model_value = _optional_mapping(
+        raw, key="return_model", scenario_name=scenario_name
+    )
     if return_model_value is not None:
         scenario_kwargs["return_model"] = return_model_value
 
     return MonteCarloScenario(**scenario_kwargs)
 
 
-def load_scenario(name: str, *, registry_path: Path | None = None) -> MonteCarloScenario:
+def load_scenario(
+    name: str, *, registry_path: Path | None = None
+) -> MonteCarloScenario:
     """Load and validate a scenario definition by name."""
 
     normalized = name.strip()
@@ -439,7 +461,9 @@ def load_scenario(name: str, *, registry_path: Path | None = None) -> MonteCarlo
     registry_label = _registry_label(registry_path)
     entry = next((item for item in scenarios if item.name == normalized), None)
     if entry is None:
-        raise ValueError(_format_missing(normalized, scenarios, registry_label=registry_label))
+        raise ValueError(
+            _format_missing(normalized, scenarios, registry_label=registry_label)
+        )
 
     raw = _load_yaml(entry.path)
     return _parse_scenario(normalized, raw, source_path=entry.path)

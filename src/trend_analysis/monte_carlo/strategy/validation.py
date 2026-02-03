@@ -22,7 +22,9 @@ def _load_yaml_mapping(path: Path, label: str) -> Mapping[str, Any]:
     return payload
 
 
-def validate_strategy_pack(path: Path, *, base_config_path: Path | None = None) -> list[str]:
+def validate_strategy_pack(
+    path: Path, *, base_config_path: Path | None = None
+) -> list[str]:
     """Validate a strategy-pack YAML file against the base config schema.
 
     Returns a list of validation errors. An empty list indicates success.

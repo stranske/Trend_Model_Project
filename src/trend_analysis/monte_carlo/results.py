@@ -74,7 +74,9 @@ def build_results_frame(evaluations: Iterable[StrategyEvaluation]) -> pd.DataFra
     rows: list[dict[str, Any]] = []
     for evaluation in evaluations:
         row: dict[str, Any] = {
-            "fold_id": int(evaluation.fold_id) if evaluation.fold_id is not None else None,
+            "fold_id": (
+                int(evaluation.fold_id) if evaluation.fold_id is not None else None
+            ),
             "path_id": int(evaluation.path_id),
             "strategy": evaluation.strategy_name,
             "path_hash": evaluation.path_hash,

@@ -150,7 +150,9 @@ def test_runner_two_layer_small_scenario() -> None:
     assert path_hashes.max() == 1
 
 
-def test_two_layer_strategies_share_path_prices(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_two_layer_strategies_share_path_prices(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     scenario = _scenario("two_layer")
     runner = MonteCarloRunner(
         scenario,
@@ -230,11 +232,15 @@ def test_runner_uses_fold_calibration_window(monkeypatch: pytest.MonkeyPatch) ->
     )
     captured: list[pd.DataFrame] = []
 
-    def _fake_build_price_model(self: MonteCarloRunner, history_slice: pd.DataFrame) -> object:
+    def _fake_build_price_model(
+        self: MonteCarloRunner, history_slice: pd.DataFrame
+    ) -> object:
         captured.append(history_slice.copy())
         return object()
 
-    def _fake_run_mode(self: MonteCarloRunner, **_kwargs: Any) -> tuple[list[Any], list[Any]]:
+    def _fake_run_mode(
+        self: MonteCarloRunner, **_kwargs: Any
+    ) -> tuple[list[Any], list[Any]]:
         return [], []
 
     monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
@@ -261,11 +267,15 @@ def test_runner_respects_fold_enabled_flag(monkeypatch: pytest.MonkeyPatch) -> N
     captured: list[pd.DataFrame] = []
     seen_fold_ids: list[int | None] = []
 
-    def _fake_build_price_model(self: MonteCarloRunner, history_slice: pd.DataFrame) -> object:
+    def _fake_build_price_model(
+        self: MonteCarloRunner, history_slice: pd.DataFrame
+    ) -> object:
         captured.append(history_slice.copy())
         return object()
 
-    def _fake_run_mode(self: MonteCarloRunner, **kwargs: Any) -> tuple[list[Any], list[Any]]:
+    def _fake_run_mode(
+        self: MonteCarloRunner, **kwargs: Any
+    ) -> tuple[list[Any], list[Any]]:
         seen_fold_ids.append(kwargs.get("fold_id"))
         return [], []
 
@@ -280,7 +290,9 @@ def test_runner_respects_fold_enabled_flag(monkeypatch: pytest.MonkeyPatch) -> N
     assert captured[0].index.max() == history.index.max()
 
 
-def test_runner_builds_pooled_summary_when_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_runner_builds_pooled_summary_when_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     scenario = _scenario_with_folds(
         mode="two_layer",
         folds={"mode": "explicit", "fold_starts": ["2022-01-31"]},
@@ -293,10 +305,14 @@ def test_runner_builds_pooled_summary_when_enabled(monkeypatch: pytest.MonkeyPat
         price_history=history,
     )
 
-    def _fake_build_price_model(self: MonteCarloRunner, _history_slice: pd.DataFrame) -> object:
+    def _fake_build_price_model(
+        self: MonteCarloRunner, _history_slice: pd.DataFrame
+    ) -> object:
         return object()
 
-    def _fake_run_mode(self: MonteCarloRunner, **kwargs: Any) -> tuple[list[Any], list[Any]]:
+    def _fake_run_mode(
+        self: MonteCarloRunner, **kwargs: Any
+    ) -> tuple[list[Any], list[Any]]:
         fold_id = kwargs.get("fold_id")
         evaluation = StrategyEvaluation(
             fold_id=fold_id,
@@ -321,7 +337,9 @@ def test_runner_builds_pooled_summary_when_enabled(monkeypatch: pytest.MonkeyPat
     assert results.metadata.get("pooled_distributions") is True
 
 
-def test_runner_includes_fold_ids_in_results_frame(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_runner_includes_fold_ids_in_results_frame(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     scenario = _scenario_with_folds(
         mode="two_layer",
         folds={
@@ -336,7 +354,9 @@ def test_runner_includes_fold_ids_in_results_frame(monkeypatch: pytest.MonkeyPat
         price_history=_price_history(),
     )
 
-    def _fake_build_price_model(self: MonteCarloRunner, _history_slice: pd.DataFrame) -> object:
+    def _fake_build_price_model(
+        self: MonteCarloRunner, _history_slice: pd.DataFrame
+    ) -> object:
         return object()
 
     def _fake_run_mode(
@@ -720,7 +740,9 @@ def test_execute_paths_handles_unexpected_failure() -> None:
     )
     path_seeds = [101, 202]
 
-    def _boom(path_id: int, seed: int | None) -> tuple[list[Any], list[MonteCarloPathError]]:
+    def _boom(
+        path_id: int, seed: int | None
+    ) -> tuple[list[Any], list[MonteCarloPathError]]:
         if path_id == 1:
             raise RuntimeError("boom")
         return [], []

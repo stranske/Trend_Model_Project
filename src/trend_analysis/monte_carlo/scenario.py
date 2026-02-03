@@ -192,7 +192,9 @@ class MonteCarloSettings:
         self.frequency = _require_non_empty_str(self.frequency, "frequency").upper()
         if self.frequency not in _ALLOWED_FREQUENCIES:
             allowed = ", ".join(sorted(_ALLOWED_FREQUENCIES))
-            raise ValueError(f"frequency must be one of: {allowed} (got {self.frequency!r})")
+            raise ValueError(
+                f"frequency must be one of: {allowed} (got {self.frequency!r})"
+            )
 
         if self.seed is not None:
             self.seed = _coerce_int(self.seed, "seed", minimum=0)
@@ -489,11 +491,15 @@ def _coerce_strategy_set(
             variants.append(StrategyVariant(name=item, curated=True))
             continue
         if isinstance(item, Mapping):
-            name = _require_non_empty_str(item.get("name"), f"strategy_set.curated[{idx}].name")
+            name = _require_non_empty_str(
+                item.get("name"), f"strategy_set.curated[{idx}].name"
+            )
             overrides = item.get("overrides", {})
             tags = _coerce_variant_tags(item.get("tags"))
             try:
-                variant = StrategyVariant(name=name, overrides=overrides, tags=tags, curated=True)
+                variant = StrategyVariant(
+                    name=name, overrides=overrides, tags=tags, curated=True
+                )
             except ValueError as exc:
                 raise ValueError(f"strategy_set.curated[{idx}] invalid: {exc}") from exc
             variants.append(variant)

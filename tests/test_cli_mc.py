@@ -64,7 +64,9 @@ scenarios:
         (path.parent / scenario).write_text("", encoding="utf-8")
 
 
-def test_mc_validate_success(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_mc_validate_success(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     scenario_path = tmp_path / "scenario.yml"
     _write_scenario(scenario_path)
 
@@ -75,7 +77,9 @@ def test_mc_validate_success(tmp_path: Path, capsys: pytest.CaptureFixture[str])
     assert "mc_test" in out
 
 
-def test_mc_validate_invalid(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_mc_validate_invalid(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     scenario_path = tmp_path / "invalid.yml"
     scenario_path.write_text(
         """
@@ -97,7 +101,9 @@ monte_carlo:
     assert "base_config" in err
 
 
-def test_mc_run_overrides_and_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_mc_run_overrides_and_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     scenario_path = tmp_path / "scenario.yml"
     data_path = tmp_path / "prices.csv"
     output_dir = tmp_path / "bundle"
@@ -266,7 +272,9 @@ def test_mc_run_dry_run_skips_execution(
     assert called["run"] is False
 
 
-def test_mc_list_registry_and_tags(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_mc_list_registry_and_tags(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     registry_path = tmp_path / "index.yml"
     _write_registry(registry_path)
 
@@ -278,7 +286,16 @@ def test_mc_list_registry_and_tags(tmp_path: Path, capsys: pytest.CaptureFixture
     assert {entry["name"] for entry in payload} == {"alpha", "beta"}
 
     rc = cli.main(
-        ["mc", "list", "--registry", str(registry_path), "--tags", "alpha", "--format", "json"]
+        [
+            "mc",
+            "list",
+            "--registry",
+            str(registry_path),
+            "--tags",
+            "alpha",
+            "--format",
+            "json",
+        ]
     )
 
     assert rc == 0
@@ -343,7 +360,9 @@ def test_mc_list_registry_and_tags(tmp_path: Path, capsys: pytest.CaptureFixture
     assert {entry["name"] for entry in payload} == {"alpha", "beta"}
 
 
-def test_mc_list_table_output(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_mc_list_table_output(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     registry_path = tmp_path / "index.yml"
     _write_registry(registry_path)
 
