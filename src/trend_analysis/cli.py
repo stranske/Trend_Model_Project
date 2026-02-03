@@ -1046,7 +1046,7 @@ def main(argv: list[str] | None = None) -> int:
                         f"Unknown preset '{args.preset}'. Available presets: {available}",
                         file=sys.stderr,
                     )
-                    return 1
+                    return 2
                 _apply_trend_spec_preset(cfg, spec_preset)
             set_cache_enabled(not args.no_cache)
             if getattr(args, "preset", None):
@@ -1058,7 +1058,7 @@ def main(argv: list[str] | None = None) -> int:
                         f"Unknown preset '{args.preset}'. Available: {available}",
                         file=sys.stderr,
                     )
-                    return 1
+                    return 2
                 apply_trend_preset(cfg, portfolio_preset)
             cli_seed = args.seed
             env_seed = os.getenv("TREND_SEED")
