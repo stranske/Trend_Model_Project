@@ -119,7 +119,7 @@ def build_pooled_summary_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     """Aggregate results per strategy across all folds (pooled)."""
 
     if results_frame.empty:
-        return pd.DataFrame(columns=["scope", "strategy", "paths"])
+        return pd.DataFrame(columns=["scope", "strategy", "paths", "folds"])
 
     numeric_cols = results_frame.select_dtypes(include="number").columns.tolist()
     for col in ("fold_id", "path_id", "seed"):
@@ -129,6 +129,8 @@ def build_pooled_summary_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     grouped = results_frame.groupby("strategy", dropna=False)
     summary = grouped[numeric_cols].mean(numeric_only=True)
     summary["paths"] = grouped.size()
+    if "fold_id" in results_frame.columns:
+        summary["folds"] = grouped["fold_id"].nunique(dropna=False)
     pooled = summary.reset_index()
     pooled.insert(0, "scope", "pooled")
     return pooled

@@ -4,11 +4,13 @@ import pandas as pd
 
 from trend_analysis.monte_carlo.results import (
     RESULT_BASE_COLUMNS,
+    MonteCarloResults,
     StrategyEvaluation,
     build_cross_fold_summary_frame,
     build_pooled_summary_frame,
     build_results_frame,
     build_summary_frame,
+    export_results,
 )
 
 
@@ -81,6 +83,7 @@ def test_build_pooled_summary_frame_ignores_folds() -> None:
     assert pooled.loc[0, "strategy"] == "A"
     assert pooled.loc[0, "metric"] == 4.0
     assert pooled.loc[0, "paths"] == 4
+    assert pooled.loc[0, "folds"] == 2
 
 
 def test_build_cross_fold_summary_frame_reports_fold_stats() -> None:
@@ -101,3 +104,33 @@ def test_build_cross_fold_summary_frame_reports_fold_stats() -> None:
     assert cross_fold.loc[0, "metric_mean"] == 4.0
     assert cross_fold.loc[0, "metric_min"] == 2.0
     assert cross_fold.loc[0, "metric_max"] == 6.0
+
+
+def test_export_results_writes_pooled_summary(tmp_path) -> None:
+    frame = pd.DataFrame(
+        [
+            {"fold_id": 1, "path_id": 1, "strategy": "A", "metric": 1.0},
+            {"fold_id": 1, "path_id": 2, "strategy": "A", "metric": 3.0},
+            {"fold_id": 2, "path_id": 3, "strategy": "A", "metric": 5.0},
+        ]
+    )
+    summary = build_summary_frame(frame)
+    pooled = build_pooled_summary_frame(frame)
+    cross_fold = build_cross_fold_summary_frame(frame)
+    results = MonteCarloResults(
+        mode="two_layer",
+        evaluations=[],
+        errors=[],
+        results_frame=frame,
+        summary_frame=summary,
+        cross_fold_summary_frame=cross_fold,
+        pooled_summary_frame=pooled,
+        metadata={},
+    )
+
+    exported = export_results(results, tmp_path, formats=["csv"])
+
+    pooled_path = exported["pooled_summary_csv"]
+    assert pooled_path.exists()
+    pooled_frame = pd.read_csv(pooled_path)
+    assert pooled_frame.loc[0, "scope"] == "pooled"
