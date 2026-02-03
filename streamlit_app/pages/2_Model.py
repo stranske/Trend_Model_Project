@@ -463,6 +463,12 @@ def _hash_api_key(api_key: str | None) -> str | None:
     return hashlib.sha256(api_key.encode("utf-8")).hexdigest()
 
 
+def _hash_text(value: str | None) -> str | None:
+    if not value:
+        return None
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()[:12]
+
+
 def _serialize_extra(extra: Mapping[str, Any] | None) -> str:
     if not extra:
         return ""
@@ -507,6 +513,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     temperature = _resolve_llm_temperature()
     api_key_fingerprint = _hash_api_key(config.api_key)
     extra_payload = _serialize_extra(config.extra)
+    extra_payload_hash = _hash_text(extra_payload)
     resolved_model = config.model or _DEFAULT_CONFIG_CHAT_MODEL
     cache_key = {
         "provider": config.provider,
@@ -514,6 +521,9 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         "base_url": config.base_url,
         "organization": config.organization,
         "temperature": temperature,
+        "timeout": config.timeout,
+        "max_retries": config.max_retries,
+        "extra_payload_hash": extra_payload_hash,
     }
     chain = _cached_nl_chain(
         config.provider,
@@ -882,6 +892,16 @@ def _render_config_diff_preview(model_state: Mapping[str, Any] | None) -> None:
     diff_text = preview.get("diff")
     if not isinstance(diff_text, str):
         diff_text = diff_configs(dict(before), dict(after))
+
+    timings = preview.get("timings")
+    if isinstance(timings, Mapping):
+        chain_reused = "Yes" if timings.get("chain_reused") else "No"
+        st.caption(
+            "Preview timing — "
+            f"Chain reused: {chain_reused} | "
+            f"Chain build: {_format_seconds(timings.get('chain_build_seconds'))} | "
+            f"Run: {_format_seconds(timings.get('run_seconds'))}"
+        )
 
     tabs = st.tabs(["Unified diff", "Side-by-side"])
     with tabs[0]:
