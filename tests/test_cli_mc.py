@@ -228,6 +228,72 @@ def test_mc_run_shows_progress(
     assert "Progress: 1/1" in err
 
 
+def test_mc_run_uses_tqdm_instance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    scenario_path = tmp_path / "scenario.yml"
+    data_path = tmp_path / "prices.csv"
+    output_dir = tmp_path / "bundle"
+    _write_scenario(scenario_path)
+    _write_prices(data_path)
+
+    class _DummyTqdm:
+        def __init__(self) -> None:
+            self.total = 0
+            self.updated = 0
+            self.refreshed = 0
+            self.closed = 0
+
+        def update(self, value: int) -> None:
+            self.updated += value
+
+        def refresh(self) -> None:
+            self.refreshed += 1
+
+        def close(self) -> None:
+            self.closed += 1
+
+    dummy = _DummyTqdm()
+    dummy.total = 1
+    tqdm_module = ModuleType("tqdm")
+    tqdm_module.tqdm = dummy
+    monkeypatch.setitem(sys.modules, "tqdm", tqdm_module)
+
+    def _fake_run(self, progress_callback=None, jobs=None):  # type: ignore[no-untyped-def]
+        if progress_callback is not None:
+            progress_callback({"completed": 1, "total": 1})
+        results_frame = pd.DataFrame({"path_id": [1], "strategy": ["eq"]})
+        summary_frame = pd.DataFrame({"strategy": ["eq"], "paths": [1]})
+        return MonteCarloResults(
+            mode="two_layer",
+            evaluations=[],
+            errors=[],
+            results_frame=results_frame,
+            summary_frame=summary_frame,
+        )
+
+    monkeypatch.setattr(runner_module.MonteCarloRunner, "run", _fake_run)
+
+    rc = cli.main(
+        [
+            "mc",
+            "run",
+            "--scenario",
+            str(scenario_path),
+            "--data",
+            str(data_path),
+            "--out",
+            str(output_dir),
+        ]
+    )
+
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert "Progress: " not in err
+    assert dummy.updated == 1
+    assert dummy.closed == 1
+
+
 def test_mc_run_dry_run_skips_execution(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

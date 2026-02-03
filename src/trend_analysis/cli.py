@@ -1437,6 +1437,10 @@ def _write_mc_manifest(
     return manifest_path
 
 
+def _is_valid_tqdm_instance(candidate: Any) -> bool:
+    return all(hasattr(candidate, attr) for attr in ("update", "refresh", "close", "total"))
+
+
 def _build_mc_progress_callback(
     *,
     total: int,
@@ -1463,7 +1467,27 @@ def _build_mc_progress_callback(
 
         return _text_callback, lambda: None
 
-    bar = tqdm(total=total, unit="path", file=sys.stderr)
+    bar = None
+    if _is_valid_tqdm_instance(tqdm):
+        bar = tqdm
+    elif callable(tqdm):
+        try:
+            bar = tqdm(total=total, unit="path", file=sys.stderr)
+        except Exception:
+            bar = None
+    if bar is None or not _is_valid_tqdm_instance(bar):
+        state = {"last": -1}
+
+        def _text_callback(payload: Mapping[str, Any]) -> None:
+            completed = int(payload.get("completed", 0))
+            total_value = int(payload.get("total", total))
+            if completed == state["last"]:
+                return
+            state["last"] = completed
+            print(f"Progress: {completed}/{total_value}", file=sys.stderr)
+
+        return _text_callback, lambda: None
+
     state = {"completed": 0}
 
     def _callback(payload: Mapping[str, Any]) -> None:
