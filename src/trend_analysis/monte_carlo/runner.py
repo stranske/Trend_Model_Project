@@ -27,6 +27,7 @@ from trend_analysis.monte_carlo.models import (
     RegimeConditionedBootstrapModel,
     StationaryBootstrapModel,
 )
+from trend_analysis.monte_carlo.models.base import normalize_price_frequency
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
 from trend_analysis.monte_carlo.seed import SeedManager
 from trend_analysis.monte_carlo.strategy import StrategyVariant
@@ -176,7 +177,11 @@ class MonteCarloRunner:
         errors: list[MonteCarloPathError] = []
         if folds:
             for fold in folds:
-                model = self._build_price_model(self._slice_history(history, fold))
+                model = self._build_price_model(
+                    history,
+                    calibration_start=fold.calibration_start,
+                    calibration_end=fold.calibration_end,
+                )
                 fold_evals, fold_errors = self._run_mode(
                     mode=mode,
                     model=model,
@@ -598,7 +603,13 @@ class MonteCarloRunner:
             existing_names=existing_names,
         )
 
-    def _build_price_model(self, history: pd.DataFrame | None = None) -> Any:
+    def _build_price_model(
+        self,
+        history: pd.DataFrame | None = None,
+        *,
+        calibration_start: pd.Timestamp | None = None,
+        calibration_end: pd.Timestamp | None = None,
+    ) -> Any:
         model_spec_raw = self.scenario.return_model
         model_spec: Mapping[str, Any] = (
             model_spec_raw if isinstance(model_spec_raw, Mapping) else {}
@@ -630,6 +641,15 @@ class MonteCarloRunner:
             raise ValueError(f"Unsupported return model '{kind}'")
 
         resolved_history = history if history is not None else self._resolve_price_history()
+        if calibration_start is not None or calibration_end is not None:
+            normalized, _summary = normalize_price_frequency(resolved_history, frequency)
+            windowed = normalized.loc[calibration_start:calibration_end]
+            if windowed.empty:
+                raise ValueError(
+                    "fold calibration window produced no history data "
+                    f"({calibration_start} to {calibration_end})"
+                )
+            resolved_history = windowed
         return model.fit(resolved_history, frequency=frequency)
 
     def _resolve_folds(self, history: pd.DataFrame) -> list[Fold]:

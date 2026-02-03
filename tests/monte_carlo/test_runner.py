@@ -32,6 +32,19 @@ def _price_history() -> pd.DataFrame:
     return prices
 
 
+def _daily_price_history() -> pd.DataFrame:
+    dates = pd.date_range("2020-01-01", "2020-03-31", freq="D")
+    base = np.linspace(100.0, 115.0, len(dates))
+    prices = pd.DataFrame(
+        {
+            "AssetA": base,
+            "AssetB": base * 1.02,
+        },
+        index=dates,
+    )
+    return prices
+
+
 def _base_config() -> dict[str, Any]:
     return {
         "version": "0.1.0",
@@ -228,10 +241,22 @@ def test_runner_uses_fold_calibration_window(monkeypatch: pytest.MonkeyPatch) ->
         base_config=_base_config(),
         price_history=history,
     )
-    captured: list[pd.DataFrame] = []
+    captured: list[dict[str, Any]] = []
 
-    def _fake_build_price_model(self: MonteCarloRunner, history_slice: pd.DataFrame) -> object:
-        captured.append(history_slice.copy())
+    def _fake_build_price_model(
+        self: MonteCarloRunner,
+        history_slice: pd.DataFrame,
+        *,
+        calibration_start: pd.Timestamp | None = None,
+        calibration_end: pd.Timestamp | None = None,
+    ) -> object:
+        captured.append(
+            {
+                "history": history_slice.copy(),
+                "calibration_start": calibration_start,
+                "calibration_end": calibration_end,
+            }
+        )
         return object()
 
     def _fake_run_mode(self: MonteCarloRunner, **_kwargs: Any) -> tuple[list[Any], list[Any]]:
@@ -243,8 +268,47 @@ def test_runner_uses_fold_calibration_window(monkeypatch: pytest.MonkeyPatch) ->
     runner.run(jobs=1)
 
     assert len(captured) == 1
-    assert captured[0].index.min() == pd.Timestamp("2020-12-31")
-    assert captured[0].index.max() == pd.Timestamp("2021-12-31")
+    assert captured[0]["history"].index.min() == history.index.min()
+    assert captured[0]["history"].index.max() == history.index.max()
+    assert captured[0]["calibration_start"] == pd.Timestamp("2020-12-31")
+    assert captured[0]["calibration_end"] == pd.Timestamp("2021-12-31")
+
+
+def test_build_price_model_applies_calibration_window_after_normalization() -> None:
+    scenario = _scenario("two_layer")
+    history = _daily_price_history()
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=history,
+    )
+
+    model = runner._build_price_model(
+        history,
+        calibration_start=pd.Timestamp("2020-01-15"),
+        calibration_end=pd.Timestamp("2020-03-15"),
+    )
+
+    log_returns = model.historical_log_returns
+    assert log_returns.index.max() == pd.Timestamp("2020-02-29")
+    assert log_returns.index.min() == pd.Timestamp("2020-02-29")
+
+
+def test_build_price_model_rejects_empty_calibration_window() -> None:
+    scenario = _scenario("two_layer")
+    history = _daily_price_history()
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=history,
+    )
+
+    with pytest.raises(ValueError, match="fold calibration window produced no history data"):
+        runner._build_price_model(
+            history,
+            calibration_start=pd.Timestamp("2019-01-01"),
+            calibration_end=pd.Timestamp("2019-06-30"),
+        )
 
 
 def test_runner_respects_fold_enabled_flag(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -261,7 +325,13 @@ def test_runner_respects_fold_enabled_flag(monkeypatch: pytest.MonkeyPatch) -> N
     captured: list[pd.DataFrame] = []
     seen_fold_ids: list[int | None] = []
 
-    def _fake_build_price_model(self: MonteCarloRunner, history_slice: pd.DataFrame) -> object:
+    def _fake_build_price_model(
+        self: MonteCarloRunner,
+        history_slice: pd.DataFrame,
+        *,
+        calibration_start: pd.Timestamp | None = None,
+        calibration_end: pd.Timestamp | None = None,
+    ) -> object:
         captured.append(history_slice.copy())
         return object()
 
@@ -293,7 +363,13 @@ def test_runner_builds_pooled_summary_when_enabled(monkeypatch: pytest.MonkeyPat
         price_history=history,
     )
 
-    def _fake_build_price_model(self: MonteCarloRunner, _history_slice: pd.DataFrame) -> object:
+    def _fake_build_price_model(
+        self: MonteCarloRunner,
+        _history_slice: pd.DataFrame,
+        *,
+        calibration_start: pd.Timestamp | None = None,
+        calibration_end: pd.Timestamp | None = None,
+    ) -> object:
         return object()
 
     def _fake_run_mode(self: MonteCarloRunner, **kwargs: Any) -> tuple[list[Any], list[Any]]:
@@ -336,7 +412,13 @@ def test_runner_includes_fold_ids_in_results_frame(monkeypatch: pytest.MonkeyPat
         price_history=_price_history(),
     )
 
-    def _fake_build_price_model(self: MonteCarloRunner, _history_slice: pd.DataFrame) -> object:
+    def _fake_build_price_model(
+        self: MonteCarloRunner,
+        _history_slice: pd.DataFrame,
+        *,
+        calibration_start: pd.Timestamp | None = None,
+        calibration_end: pd.Timestamp | None = None,
+    ) -> object:
         return object()
 
     def _fake_run_mode(
