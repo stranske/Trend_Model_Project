@@ -658,15 +658,19 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     cached_chain_id = entries.get(signature)
     reused = cached_chain_id == id(chain)
     previous_signature = cache_state.get("last_signature")
+    settings_changed = bool(previous_signature and previous_signature != signature)
     cache_miss_reason = None
     if not reused:
-        if previous_signature and previous_signature != signature:
+        if settings_changed:
             cache_miss_reason = "settings_changed"
         else:
             cache_miss_reason = "first_build"
     entries[signature] = id(chain)
     cache_state["last_signature"] = signature
     cache_state["last_chain_id"] = id(chain)
+    if settings_changed:
+        st.session_state.pop("config_chat_preview", None)
+        st.session_state.pop("config_chat_last_instruction", None)
     st.session_state["config_chat_chain_key"] = cache_key
     st.session_state["config_chat_chain_signature"] = signature
     return chain, {
@@ -674,6 +678,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         "chain_cache_key": cache_key,
         "chain_cache_signature": signature,
         "chain_cache_miss_reason": cache_miss_reason,
+        "chain_settings_changed": settings_changed,
     }
 
 
