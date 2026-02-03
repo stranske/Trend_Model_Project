@@ -80,9 +80,7 @@ def test_missing_policy_overrides_accept_stringified_column_keys() -> None:
     policy = {"*": "drop", 1: "ffill", "unused": "zero"}
     limits = {"*": 0, 1: 1, "unused": 2}
 
-    validated = market_data.validate_market_data(
-        df, missing_policy=policy, missing_limit=limits
-    )
+    validated = market_data.validate_market_data(df, missing_policy=policy, missing_limit=limits)
 
     assert list(validated.columns) == ["1"]
     meta = validated.attrs["market_data"]
