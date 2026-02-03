@@ -5,10 +5,10 @@ branch: codex/issue-4156
 tasks:
   - id: task-01
     title: 'Create Monte Carlo scenario schema and loader as described in #4157.'
-    status: doing
+    status: done
     started_at: '2026-02-03T06:41:12Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-03T06:41:23Z'
+    commit: eb8ce72d5ad73028cd6894fdd17d75fed9b7bfa6
     notes: []
   - id: task-02
     title: 'Add scenario library registry and discovery functionality as described
