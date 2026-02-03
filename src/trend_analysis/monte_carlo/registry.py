@@ -15,6 +15,7 @@ __all__ = [
     "get_scenario_path",
     "list_scenarios",
     "load_scenario",
+    "load_scenario_from_path",
 ]
 
 _REGISTRY_PATH = proj_path("config", "scenarios", "monte_carlo", "index.yml")
@@ -442,3 +443,31 @@ def load_scenario(name: str, *, registry_path: Path | None = None) -> MonteCarlo
 
     raw = _load_yaml(entry.path)
     return _parse_scenario(normalized, raw, source_path=entry.path)
+
+
+def load_scenario_from_path(path: Path | str) -> MonteCarloScenario:
+    """Load and validate a scenario definition from a direct file path."""
+
+    resolved = Path(path).expanduser().resolve()
+    if not resolved.exists():
+        raise FileNotFoundError(f"Scenario config '{resolved}' does not exist")
+    if resolved.is_dir():
+        raise IsADirectoryError(f"Scenario config '{resolved}' must be a file")
+    if resolved.suffix not in _SUPPORTED_SUFFIXES:
+        allowed = ", ".join(_SUPPORTED_SUFFIXES)
+        raise ValueError(f"Scenario config '{resolved}' must use one of: {allowed}")
+
+    raw = _load_yaml(resolved)
+    scenario_block = raw.get("scenario")
+    name_value = None
+    if scenario_block is not None:
+        if not isinstance(scenario_block, Mapping):
+            raise ValueError("Scenario config 'scenario' must be a mapping")
+        name_value = scenario_block.get("name")
+    if name_value is None:
+        name_value = raw.get("name")
+    name = str(name_value or "").strip()
+    if not name:
+        raise ValueError("Scenario config must define scenario.name")
+
+    return _parse_scenario(name, raw, source_path=resolved)

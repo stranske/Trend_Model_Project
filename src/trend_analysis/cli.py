@@ -7,9 +7,10 @@ import platform
 import subprocess
 import sys
 from collections.abc import Mapping, Sequence
+from datetime import datetime, timezone
 from importlib import metadata
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Callable, cast
 
 import numpy as np
 import pandas as pd
@@ -32,9 +33,27 @@ from .config.ui_mapping import build_config_from_ui_state
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from .data import load_csv
 from .diagnostics import coerce_pipeline_result
-from .io.market_data import MarketDataValidationError
+from .io.market_data import (
+    MarketDataMode,
+    MarketDataValidationError,
+)
+from .io.market_data import (
+    load_market_data_csv as load_mc_market_data_csv,
+)
+from .io.market_data import (
+    load_market_data_parquet as load_mc_market_data_parquet,
+)
 from .io.ui_ingest import inspect_ui_date_issues, load_ui_dataset
 from .logging_setup import setup_logging
+from .monte_carlo.registry import (
+    ScenarioRegistryEntry,
+    list_scenarios,
+    load_scenario,
+    load_scenario_from_path,
+)
+from .monte_carlo.results import MonteCarloResults, export_results
+from .monte_carlo.runner import MonteCarloRunner
+from .monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
 from .perf.rolling_cache import set_cache_enabled
 from .presets import apply_trend_preset, get_trend_preset, list_preset_slugs
 from .reporting.portfolio_series import select_primary_portfolio_series
@@ -898,6 +917,73 @@ def main(argv: list[str] | None = None) -> int:
         help="Disable persistent caching for rolling computations",
     )
 
+    mc_p = sub.add_parser("mc", help="Monte Carlo scenario workflows")
+    mc_sub = mc_p.add_subparsers(dest="mc_command", required=True)
+    mc_list_p = mc_sub.add_parser("list", help="List registered Monte Carlo scenarios")
+    mc_list_p.add_argument(
+        "--tags",
+        action="append",
+        default=[],
+        help="Filter by scenario tags (comma-separated or repeatable)",
+    )
+    mc_list_p.add_argument(
+        "--format",
+        choices=("table", "json"),
+        default="table",
+        help="Output format",
+    )
+    mc_list_p.add_argument(
+        "--registry",
+        help="Override the scenario registry path",
+    )
+    mc_validate_p = mc_sub.add_parser("validate", help="Validate Monte Carlo scenarios")
+    mc_validate_p.add_argument(
+        "scenario",
+        nargs="?",
+        help="Scenario name or config path (defaults to all registered scenarios)",
+    )
+    mc_validate_p.add_argument(
+        "--tags",
+        action="append",
+        default=[],
+        help="Filter by scenario tags (comma-separated or repeatable)",
+    )
+    mc_validate_p.add_argument(
+        "--registry",
+        help="Override the scenario registry path",
+    )
+
+    mc_run_p = mc_sub.add_parser("run", help="Run Monte Carlo scenarios")
+    mc_run_p.add_argument("--scenario", required=True, help="Scenario name or config path")
+    mc_run_p.add_argument(
+        "--data",
+        help="CSV/Parquet path for price or returns history (overrides base config)",
+    )
+    mc_run_p.add_argument("--out", help="Output directory for the Monte Carlo bundle")
+    mc_run_p.add_argument(
+        "--formats",
+        action="append",
+        default=[],
+        help="Output formats (csv, json, parquet). Repeatable or comma-separated.",
+    )
+    mc_run_p.add_argument("--n-paths", type=int, help="Override number of Monte Carlo paths")
+    mc_run_p.add_argument("--jobs", type=int, help="Override parallel job count")
+    mc_run_p.add_argument("--seed", type=int, help="Override Monte Carlo seed")
+    mc_run_p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate scenario configuration without executing",
+    )
+    mc_run_p.add_argument(
+        "--no-progress",
+        action="store_true",
+        help="Disable progress bar output",
+    )
+    mc_run_p.add_argument(
+        "--registry",
+        help="Override the scenario registry path",
+    )
+
     # Handle --check flag before parsing subcommands
     # This allows --check to work without requiring a subcommand
     if argv is None:
@@ -1074,8 +1160,523 @@ def main(argv: list[str] | None = None) -> int:
             bundle=Path(args.bundle) if args.bundle else None,
         )
 
+    if args.command == "mc":
+        return _handle_mc_command(args)
+
     # This shouldn't be reached with required=True.
     return 0
+
+
+def _parse_mc_tags(raw_tags: Sequence[str] | None) -> list[str]:
+    if not raw_tags:
+        return []
+    tags: list[str] = []
+    for raw in raw_tags:
+        for tag in str(raw).split(","):
+            cleaned = tag.strip()
+            if cleaned:
+                tags.append(cleaned)
+    return tags
+
+
+def _format_mc_tag_label(tags: Sequence[str]) -> str:
+    if not tags:
+        return "-"
+    return ", ".join(sorted(dict.fromkeys(tag.strip() for tag in tags if tag.strip())))
+
+
+def _render_mc_table(entries: Sequence[ScenarioRegistryEntry]) -> str:
+    if not entries:
+        return "No Monte Carlo scenarios found."
+
+    rows = [
+        {
+            "Name": entry.name,
+            "Tags": _format_mc_tag_label(entry.tags),
+            "Description": entry.description or "",
+            "Path": str(entry.path),
+        }
+        for entry in entries
+    ]
+    columns = ["Name", "Tags", "Description", "Path"]
+    widths = {col: len(col) for col in columns}
+    for row in rows:
+        for col in columns:
+            widths[col] = max(widths[col], len(str(row.get(col, ""))))
+
+    header = "  ".join(col.ljust(widths[col]) for col in columns)
+    divider = "  ".join("-" * widths[col] for col in columns)
+    lines = [header, divider]
+    for row in rows:
+        lines.append("  ".join(str(row.get(col, "")).ljust(widths[col]) for col in columns))
+    return "\n".join(lines)
+
+
+def _resolve_mc_registry_path(raw: str | None) -> Path | None:
+    if not raw:
+        return None
+    return Path(raw).expanduser().resolve()
+
+
+def _load_mc_scenario_value(raw: str, *, registry_path: Path | None) -> MonteCarloScenario:
+    if not raw:
+        raise ValueError("Scenario name is required")
+    candidate = Path(raw).expanduser()
+    if candidate.exists():
+        return load_scenario_from_path(candidate)
+    if candidate.suffix.lower() in {".yml", ".yaml"}:
+        raise FileNotFoundError(f"Scenario config '{candidate}' does not exist")
+    return load_scenario(raw, registry_path=registry_path)
+
+
+def _parse_mc_formats(raw_formats: Sequence[str] | None) -> list[str]:
+    if not raw_formats:
+        return []
+    if isinstance(raw_formats, str):
+        items = [raw_formats]
+    else:
+        items = list(raw_formats)
+    formats: list[str] = []
+    for raw in items:
+        for chunk in str(raw).split(","):
+            cleaned = chunk.strip().lower()
+            if cleaned:
+                formats.append(cleaned)
+    return formats
+
+
+MC_OUTPUT_FORMATS = {"csv", "json", "parquet"}
+
+
+def _validate_mc_formats(
+    formats: Sequence[str] | str | None,
+    *,
+    label: str = "outputs.formats",
+) -> list[str]:
+    if formats is None:
+        return []
+    if isinstance(formats, str):
+        raw_list = _parse_mc_formats([formats])
+    else:
+        raw_list = _parse_mc_formats([str(item) for item in formats])
+    if not raw_list:
+        return []
+    invalid = sorted({fmt for fmt in raw_list if fmt not in MC_OUTPUT_FORMATS})
+    if not invalid:
+        return []
+    return [f"{label} contains unsupported values: {', '.join(invalid)}"]
+
+
+def _render_mc_output_dir(
+    template: str,
+    *,
+    scenario_name: str,
+    timestamp: str,
+) -> Path:
+    rendered = template.format(scenario_name=scenario_name, timestamp=timestamp)
+    return Path(rendered)
+
+
+def _require_mc_name(scenario: MonteCarloScenario) -> str:
+    name = scenario.name
+    if not name:
+        raise ValueError("Monte Carlo scenario is missing a name")
+    return name
+
+
+def _require_mc_base_config(scenario: MonteCarloScenario) -> Path:
+    base_config = scenario.base_config
+    if base_config is None:
+        raise ValueError("Monte Carlo scenario is missing base_config")
+    if isinstance(base_config, Path):
+        return base_config
+    return Path(str(base_config))
+
+
+def _require_mc_settings(scenario: MonteCarloScenario) -> MonteCarloSettings:
+    settings = scenario.monte_carlo
+    if not isinstance(settings, MonteCarloSettings):
+        raise ValueError("monte_carlo settings are not resolved")
+    return settings
+
+
+def _resolve_mc_output_dir(
+    scenario: MonteCarloScenario,
+    *,
+    override: str | None,
+    timestamp: str,
+) -> Path:
+    if override:
+        return Path(override)
+    outputs = scenario.outputs
+    if isinstance(outputs, Mapping):
+        directory = outputs.get("directory")
+        if directory:
+            return _render_mc_output_dir(
+                str(directory),
+                scenario_name=_require_mc_name(scenario),
+                timestamp=timestamp,
+            )
+    fallback = f"outputs/monte_carlo/{_require_mc_name(scenario)}/{timestamp}"
+    return Path(fallback)
+
+
+def _load_mc_price_history(path: Path) -> pd.DataFrame:
+    if path.suffix.lower() == ".parquet":
+        validated = load_mc_market_data_parquet(str(path))
+    else:
+        validated = load_mc_market_data_csv(str(path))
+    frame = validated.frame.copy()
+    if validated.metadata.mode == MarketDataMode.RETURNS:
+        if frame.empty:
+            raise ValueError("returns data must not be empty")
+        if (frame <= -1.0).any().any():
+            raise ValueError("returns contain values <= -1; cannot convert to prices")
+        return (1.0 + frame).cumprod() * 100.0
+    return frame
+
+
+def _validate_mc_scenario(scenario: MonteCarloScenario) -> list[str]:
+    errors: list[str] = []
+    runner: MonteCarloRunner | None = None
+    try:
+        runner = MonteCarloRunner(scenario)
+    except Exception as exc:
+        errors.append(f"base_config: {exc}")
+        return errors
+
+    base_config = runner._base_config
+    base_path = _require_mc_base_config(scenario).parent
+
+    return_model = scenario.return_model
+    if isinstance(return_model, Mapping):
+        kind = str(return_model.get("kind") or "stationary_bootstrap").lower()
+        allowed = {"stationary_bootstrap", "bootstrap", "regime_bootstrap", "regime_conditioned"}
+        if kind not in allowed:
+            errors.append(f"return_model.kind must be one of: {', '.join(sorted(allowed))}")
+
+    outputs = scenario.outputs
+    if isinstance(outputs, Mapping):
+        errors.extend(_validate_mc_formats(outputs.get("formats", outputs.get("format"))))
+
+    try:
+        strategies = runner._resolve_strategies()
+    except Exception as exc:
+        errors.append(f"strategy_set: {exc}")
+        return errors
+
+    for variant in strategies:
+        try:
+            variant.to_trend_config(base_config, base_path=base_path)
+        except ValueError as exc:
+            errors.append(str(exc))
+
+    return errors
+
+
+def _apply_mc_overrides(
+    scenario: MonteCarloScenario,
+    *,
+    n_paths: int | None,
+    jobs: int | None,
+    seed: int | None,
+) -> MonteCarloScenario:
+    settings = _require_mc_settings(scenario)
+    scenario.monte_carlo = MonteCarloSettings(
+        mode=settings.mode,
+        n_paths=n_paths if n_paths is not None else settings.n_paths,
+        horizon_years=settings.horizon_years,
+        frequency=settings.frequency,
+        seed=seed if seed is not None else settings.seed,
+        jobs=jobs if jobs is not None else settings.jobs,
+    )
+    return scenario
+
+
+def _write_mc_manifest(
+    output_dir: Path,
+    *,
+    scenario: MonteCarloScenario,
+    results: MonteCarloResults,
+    overrides: Mapping[str, Any],
+    exported_files: Mapping[str, Path],
+    data_path: Path | None,
+    jobs_used: int,
+) -> Path:
+    settings = _require_mc_settings(scenario)
+    scenario_name = _require_mc_name(scenario)
+    payload = {
+        "scenario": scenario_name,
+        "description": scenario.description,
+        "version": scenario.version,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "base_config": str(scenario.base_config),
+        "data_path": str(data_path) if data_path else None,
+        "settings": {
+            "mode": getattr(settings, "mode", None),
+            "n_paths": getattr(settings, "n_paths", None),
+            "horizon_years": getattr(settings, "horizon_years", None),
+            "frequency": getattr(settings, "frequency", None),
+            "seed": getattr(settings, "seed", None),
+            "jobs": jobs_used,
+        },
+        "overrides": dict(overrides),
+        "results": {
+            "rows": int(results.results_frame.shape[0]),
+            "summary_rows": int(results.summary_frame.shape[0]),
+            "errors": len(results.errors),
+        },
+        "outputs": {
+            "directory": str(output_dir),
+            "files": {key: str(path) for key, path in exported_files.items()},
+        },
+    }
+    output_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = output_dir / "manifest.json"
+    manifest_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return manifest_path
+
+
+def _build_mc_progress_callback(
+    *,
+    total: int,
+    enabled: bool,
+) -> tuple[Callable[[Mapping[str, Any]], None] | None, Callable[[], None]]:
+    if not enabled:
+        return None, lambda: None
+
+    try:
+        from tqdm import tqdm
+    except Exception:
+        tqdm = None
+
+    if tqdm is None:
+        state = {"last": -1}
+
+        def _text_callback(payload: Mapping[str, Any]) -> None:
+            completed = int(payload.get("completed", 0))
+            total_value = int(payload.get("total", total))
+            if completed == state["last"]:
+                return
+            state["last"] = completed
+            print(f"Progress: {completed}/{total_value}", file=sys.stderr)
+
+        return _text_callback, lambda: None
+
+    bar = tqdm(total=total, unit="path", file=sys.stderr)
+    state = {"completed": 0}
+
+    def _callback(payload: Mapping[str, Any]) -> None:
+        completed = int(payload.get("completed", 0))
+        total_value = int(payload.get("total", total))
+        if bar.total != total_value:
+            bar.total = total_value
+        delta = completed - state["completed"]
+        if delta > 0:
+            bar.update(delta)
+        else:
+            bar.refresh()
+        state["completed"] = completed
+
+    def _close() -> None:
+        bar.close()
+
+    return _callback, _close
+
+
+def _handle_mc_command(args: argparse.Namespace) -> int:
+    """Dispatch Monte Carlo CLI commands."""
+
+    subcommand = getattr(args, "mc_command", None)
+    if subcommand == "list":
+        tags = _parse_mc_tags(getattr(args, "tags", None))
+        registry_path = _resolve_mc_registry_path(getattr(args, "registry", None))
+        try:
+            registry_entries = list_scenarios(tags=tags, registry_path=registry_path)
+        except Exception as exc:
+            print(f"Failed to list Monte Carlo scenarios: {exc}", file=sys.stderr)
+            return 2
+        output_format = getattr(args, "format", "table")
+        if output_format == "json":
+            payload = [
+                {
+                    "name": entry.name,
+                    "description": entry.description,
+                    "tags": list(entry.tags),
+                    "path": str(entry.path),
+                }
+                for entry in registry_entries
+            ]
+            print(json.dumps(payload, indent=2))
+        else:
+            print(_render_mc_table(registry_entries))
+        return 0
+    if subcommand == "validate":
+        registry_path = _resolve_mc_registry_path(getattr(args, "registry", None))
+        tags = _parse_mc_tags(getattr(args, "tags", None))
+        scenario_arg = getattr(args, "scenario", None)
+        scenarios: list[MonteCarloScenario] = []
+        if scenario_arg:
+            try:
+                scenarios = [_load_mc_scenario_value(scenario_arg, registry_path=registry_path)]
+            except (ValueError, FileNotFoundError, IsADirectoryError) as exc:
+                print(f"Scenario validation failed: {exc}", file=sys.stderr)
+                return 1
+            except Exception as exc:
+                print(f"Scenario validation failed: {exc}", file=sys.stderr)
+                return 2
+        else:
+            try:
+                entries = list_scenarios(tags=tags, registry_path=registry_path)
+            except (ValueError, FileNotFoundError) as exc:
+                print(f"Scenario registry error: {exc}", file=sys.stderr)
+                return 1
+            except Exception as exc:
+                print(f"Scenario registry error: {exc}", file=sys.stderr)
+                return 2
+            for entry in entries:
+                try:
+                    scenarios.append(load_scenario(entry.name, registry_path=registry_path))
+                except (ValueError, FileNotFoundError, IsADirectoryError) as exc:
+                    print(f"Scenario '{entry.name}' failed to load: {exc}", file=sys.stderr)
+                    return 1
+                except Exception as exc:
+                    print(f"Scenario '{entry.name}' failed to load: {exc}", file=sys.stderr)
+                    return 2
+
+        failures = 0
+        for scenario in scenarios:
+            errors = _validate_mc_scenario(scenario)
+            if errors:
+                failures += 1
+                print(f"Scenario '{scenario.name}' failed validation:", file=sys.stderr)
+                for error in errors:
+                    print(f"- {error}", file=sys.stderr)
+            else:
+                print(f"Scenario '{scenario.name}': OK")
+        return 0 if failures == 0 else 1
+    if subcommand == "run":
+        registry_path = _resolve_mc_registry_path(getattr(args, "registry", None))
+        scenario_arg = getattr(args, "scenario", None) or ""
+        try:
+            scenario = _load_mc_scenario_value(scenario_arg, registry_path=registry_path)
+        except (ValueError, FileNotFoundError, IsADirectoryError) as exc:
+            print(f"Scenario run failed: {exc}", file=sys.stderr)
+            return 1
+        except Exception as exc:
+            print(f"Scenario run failed: {exc}", file=sys.stderr)
+            return 2
+
+        overrides = {
+            key: value
+            for key, value in {
+                "n_paths": getattr(args, "n_paths", None),
+                "jobs": getattr(args, "jobs", None),
+                "seed": getattr(args, "seed", None),
+            }.items()
+            if value is not None
+        }
+        try:
+            _apply_mc_overrides(
+                scenario,
+                n_paths=getattr(args, "n_paths", None),
+                jobs=getattr(args, "jobs", None),
+                seed=getattr(args, "seed", None),
+            )
+        except ValueError as exc:
+            print(f"Scenario run failed: {exc}", file=sys.stderr)
+            return 1
+
+        format_overrides = _parse_mc_formats(getattr(args, "formats", None))
+        validation_errors = _validate_mc_scenario(scenario)
+        validation_errors.extend(
+            _validate_mc_formats(format_overrides, label="format overrides")
+            if format_overrides
+            else []
+        )
+        if validation_errors:
+            print(f"Scenario '{scenario.name}' failed validation:", file=sys.stderr)
+            for error in validation_errors:
+                print(f"- {error}", file=sys.stderr)
+            return 1
+
+        if getattr(args, "dry_run", False):
+            print(f"Scenario '{scenario.name}' validated. Dry run complete.")
+            return 0
+
+        data_path = getattr(args, "data", None)
+        price_history = None
+        if data_path:
+            try:
+                price_history = _load_mc_price_history(Path(data_path))
+            except (MarketDataValidationError, ValueError) as exc:
+                print(f"Scenario run failed: {exc}", file=sys.stderr)
+                return 1
+
+        settings = _require_mc_settings(scenario)
+        total_paths = int(settings.n_paths) if settings.n_paths is not None else 0
+        progress_enabled = not getattr(args, "no_progress", False)
+        progress_cb, progress_close = _build_mc_progress_callback(
+            total=total_paths,
+            enabled=progress_enabled,
+        )
+
+        try:
+            runner = MonteCarloRunner(
+                scenario,
+                base_config=None,
+                price_history=price_history,
+            )
+            results = runner.run(
+                progress_callback=progress_cb,
+                jobs=getattr(args, "jobs", None),
+            )
+        except Exception as exc:
+            print(f"Scenario run failed: {exc}", file=sys.stderr)
+            return 2
+        finally:
+            progress_close()
+
+        timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        output_dir = _resolve_mc_output_dir(
+            scenario,
+            override=getattr(args, "out", None),
+            timestamp=timestamp,
+        )
+        outputs = scenario.outputs if isinstance(scenario.outputs, Mapping) else {}
+        output_formats = format_overrides or _parse_mc_formats(
+            outputs.get("formats", outputs.get("format", [])) if outputs else []
+        )
+        if not output_formats:
+            output_formats = ["csv"]
+
+        try:
+            exported = export_results(results, output_dir, formats=output_formats)
+        except Exception as exc:
+            print(f"Scenario run failed: {exc}", file=sys.stderr)
+            return 2
+
+        jobs_used = runner._resolve_jobs(getattr(args, "jobs", None))
+        _write_mc_manifest(
+            output_dir,
+            scenario=scenario,
+            results=results,
+            overrides=overrides,
+            exported_files=exported,
+            data_path=Path(data_path) if data_path else None,
+            jobs_used=jobs_used,
+        )
+
+        if results.errors:
+            print(
+                f"Monte Carlo run completed with {len(results.errors)} error(s).",
+                file=sys.stderr,
+            )
+        else:
+            print(f"Monte Carlo run completed. Output: {output_dir}")
+        return 0
+    print("Unknown Monte Carlo command.", file=sys.stderr)
+    return 2
 
 
 if __name__ == "__main__":  # pragma: no cover - manual invocation

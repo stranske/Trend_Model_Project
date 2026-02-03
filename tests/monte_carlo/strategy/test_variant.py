@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -98,8 +99,11 @@ def test_to_trend_config_accepts_trend_config(tmp_path: Path) -> None:
     assert cfg.portfolio.max_turnover == 0.4
 
 
-def test_to_trend_config_accepts_weighting_scheme_and_name(tmp_path: Path) -> None:
+def test_to_trend_config_accepts_weighting_scheme_and_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     base = _base_config(tmp_path)
+    base_snapshot = deepcopy(base)
     variant = StrategyVariant(
         name="Weighted",
         overrides={
@@ -110,13 +114,141 @@ def test_to_trend_config_accepts_weighting_scheme_and_name(tmp_path: Path) -> No
         },
     )
 
+    captured: dict[str, object] = {}
+    real_validate = validate_trend_config
+
+    def _wrapped(data: dict[str, object], *, base_path: Path) -> object:
+        captured.update(data)
+        return real_validate(data, base_path=base_path)
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.strategy.variant.validate_trend_config", _wrapped
+    )
+
     merged = variant.apply_to(base)
     assert merged["portfolio"]["weighting_scheme"] == "risk_parity"
     assert merged["portfolio"]["weighting"]["name"] == "score_prop_bayes"
     assert merged["portfolio"]["weighting"]["params"]["column"] == "Sharpe"
+    assert base["portfolio"]["weighting_scheme"] == "equal"
+    assert base["portfolio"]["weighting"]["name"] == "equal"
+    assert base["portfolio"]["weighting"]["params"]["column"] == "Sharpe"
 
     cfg = variant.to_trend_config(base, base_path=tmp_path)
     assert cfg.portfolio.rebalance_calendar == "NYSE"
+    assert base == base_snapshot
+    assert captured["portfolio"]["weighting_scheme"] == "risk_parity"
+    assert captured["portfolio"]["weighting"]["name"] == "score_prop_bayes"
+
+
+def test_to_trend_config_merges_weighting_scheme_name_and_params(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="WeightedParams",
+        overrides={
+            "portfolio": {
+                "weighting_scheme": "risk_parity",
+                "weighting": {
+                    "name": "score_prop_bayes",
+                    "params": {"column": "Return", "half_life": 12},
+                },
+            }
+        },
+    )
+
+    captured: dict[str, object] = {}
+    real_validate = validate_trend_config
+
+    def _wrapped(data: dict[str, object], *, base_path: Path) -> object:
+        captured.update(data)
+        return real_validate(data, base_path=base_path)
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.strategy.variant.validate_trend_config", _wrapped
+    )
+
+    cfg = variant.to_trend_config(base, base_path=tmp_path)
+
+    assert cfg.portfolio.rebalance_calendar == "NYSE"
+    assert captured["portfolio"]["weighting_scheme"] == "risk_parity"
+    assert captured["portfolio"]["weighting"]["name"] == "score_prop_bayes"
+    assert captured["portfolio"]["weighting"]["params"]["column"] == "Return"
+    assert captured["portfolio"]["weighting"]["params"]["half_life"] == 12
+    assert captured["portfolio"]["weighting"]["params"]["shrink_tau"] == 0.25
+    assert base["portfolio"]["weighting_scheme"] == "equal"
+    assert base["portfolio"]["weighting"]["name"] == "equal"
+
+
+def test_to_trend_config_preserves_weighting_params_when_scheme_and_name_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="SchemeAndNameNoParams",
+        overrides={
+            "portfolio": {
+                "weighting_scheme": "hrp",
+                "weighting": {"name": "score_prop"},
+            }
+        },
+    )
+
+    captured: dict[str, object] = {}
+    real_validate = validate_trend_config
+
+    def _wrapped(data: dict[str, object], *, base_path: Path) -> object:
+        captured.update(data)
+        return real_validate(data, base_path=base_path)
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.strategy.variant.validate_trend_config", _wrapped
+    )
+
+    cfg = variant.to_trend_config(base, base_path=tmp_path)
+
+    assert cfg.portfolio.rebalance_calendar == "NYSE"
+    assert captured["portfolio"]["weighting_scheme"] == "hrp"
+    assert captured["portfolio"]["weighting"]["name"] == "score_prop"
+    assert captured["portfolio"]["weighting"]["params"]["column"] == "Sharpe"
+    assert captured["portfolio"]["weighting"]["params"]["shrink_tau"] == 0.25
+    assert base["portfolio"]["weighting_scheme"] == "equal"
+    assert base["portfolio"]["weighting"]["name"] == "equal"
+
+
+def test_to_trend_config_applies_scheme_and_name_overrides(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="SchemeAndNameOverride",
+        overrides={
+            "portfolio": {
+                "weighting_scheme": "risk_parity",
+                "weighting": {"name": "score_prop", "params": {"column": "Return"}},
+            }
+        },
+    )
+
+    captured: dict[str, object] = {}
+    real_validate = validate_trend_config
+
+    def _wrapped(data: dict[str, object], *, base_path: Path) -> object:
+        captured.update(data)
+        return real_validate(data, base_path=base_path)
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.strategy.variant.validate_trend_config", _wrapped
+    )
+
+    cfg = variant.to_trend_config(base, base_path=tmp_path)
+
+    assert cfg.portfolio.rebalance_calendar == "NYSE"
+    assert captured["portfolio"]["weighting_scheme"] == "risk_parity"
+    assert captured["portfolio"]["weighting"]["name"] == "score_prop"
+    assert captured["portfolio"]["weighting"]["params"]["column"] == "Return"
+    assert base["portfolio"]["weighting_scheme"] == "equal"
+    assert base["portfolio"]["weighting"]["name"] == "equal"
 
 
 def test_to_trend_config_allows_only_weighting_scheme_override(tmp_path: Path) -> None:
@@ -158,6 +290,7 @@ def test_apply_to_allows_weighting_params_extension(tmp_path: Path) -> None:
                 "weighting": {"params": {"column": "Sharpe", "half_life": 30, "obs_sigma": 0.15}}
             }
         },
+        curated=True,
     )
 
     merged = variant.apply_to(base)
@@ -170,11 +303,77 @@ def test_apply_to_allows_weighting_params_extension(tmp_path: Path) -> None:
     assert "obs_sigma" not in base["portfolio"]["weighting"]["params"]
 
 
+def test_apply_to_allows_weighting_params_creation_for_curated(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    base["portfolio"]["weighting"].pop("params")
+    variant = StrategyVariant(
+        name="AddParams",
+        overrides={"portfolio": {"weighting": {"params": {"column": "Sharpe", "half_life": 30}}}},
+        curated=True,
+    )
+
+    merged = variant.apply_to(base)
+
+    assert merged["portfolio"]["weighting"]["params"]["column"] == "Sharpe"
+    assert merged["portfolio"]["weighting"]["params"]["half_life"] == 30
+    assert "params" not in base["portfolio"]["weighting"]
+
+
+def test_apply_to_rejects_weighting_params_extension_for_non_curated(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="ExtendParams",
+        overrides={
+            "portfolio": {"weighting": {"params": {"half_life": 30}}},
+        },
+    )
+
+    with pytest.raises(ValueError, match="portfolio.weighting.params.half_life"):
+        variant.apply_to(base)
+
+
+def test_apply_to_rejects_weighting_params_creation_for_non_curated(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    base["portfolio"]["weighting"].pop("params")
+    variant = StrategyVariant(
+        name="AddParams",
+        overrides={"portfolio": {"weighting": {"params": {"half_life": 30}}}},
+    )
+
+    with pytest.raises(ValueError, match="portfolio.weighting.params"):
+        variant.apply_to(base)
+
+
+def test_apply_to_curated_rejects_unknown_path_outside_freeform(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="CuratedInvalid",
+        overrides={
+            "portfolio": {"rank": {"unknown": 3}},
+        },
+        curated=True,
+    )
+
+    with pytest.raises(ValueError, match="portfolio.rank.unknown"):
+        variant.apply_to(base)
+
+
 def test_to_trend_config_rejects_invalid_weighting_scheme_type(tmp_path: Path) -> None:
     base = _base_config(tmp_path)
     variant = StrategyVariant(
         name="BadScheme",
         overrides={"portfolio": {"weighting_scheme": ["risk_parity"]}},
+    )
+
+    with pytest.raises(ValueError, match="portfolio.weighting_scheme"):
+        variant.to_trend_config(base, base_path=tmp_path)
+
+
+def test_to_trend_config_rejects_invalid_weighting_scheme_value(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="BadSchemeValue",
+        overrides={"portfolio": {"weighting_scheme": "not_a_scheme"}},
     )
 
     with pytest.raises(ValueError, match="portfolio.weighting_scheme"):
@@ -189,6 +388,17 @@ def test_to_trend_config_rejects_invalid_weighting_name_type(tmp_path: Path) -> 
     )
 
     with pytest.raises(ValueError, match="portfolio.weighting.name"):
+        variant.to_trend_config(base, base_path=tmp_path)
+
+
+def test_to_trend_config_error_includes_strategy_name(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="Broken",
+        overrides={"portfolio": {"max_turnover": "fast"}},
+    )
+
+    with pytest.raises(ValueError, match="Strategy 'Broken' overrides invalid"):
         variant.to_trend_config(base, base_path=tmp_path)
 
 

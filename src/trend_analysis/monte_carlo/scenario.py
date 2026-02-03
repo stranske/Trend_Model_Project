@@ -473,17 +473,27 @@ def _coerce_strategy_set(
     variants: list[StrategyVariant] = []
     for idx, item in enumerate(curated):
         if isinstance(item, StrategyVariant):
-            variants.append(item)
+            if item.curated:
+                variants.append(item)
+            else:
+                variants.append(
+                    StrategyVariant(
+                        name=item.name,
+                        overrides=item.overrides,
+                        tags=item.tags,
+                        curated=True,
+                    )
+                )
             continue
         if isinstance(item, str):
-            variants.append(StrategyVariant(name=item))
+            variants.append(StrategyVariant(name=item, curated=True))
             continue
         if isinstance(item, Mapping):
             name = _require_non_empty_str(item.get("name"), f"strategy_set.curated[{idx}].name")
             overrides = item.get("overrides", {})
             tags = _coerce_variant_tags(item.get("tags"))
             try:
-                variant = StrategyVariant(name=name, overrides=overrides, tags=tags)
+                variant = StrategyVariant(name=name, overrides=overrides, tags=tags, curated=True)
             except ValueError as exc:
                 raise ValueError(f"strategy_set.curated[{idx}] invalid: {exc}") from exc
             variants.append(variant)
