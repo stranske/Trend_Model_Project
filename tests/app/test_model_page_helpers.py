@@ -672,3 +672,27 @@ def test_render_config_diff_preview_no_preview_shows_info(
     model_module._render_config_diff_preview(model_state={"lookback_periods": 6})
 
     assert info_calls == ["No preview available yet. Send an instruction to generate a diff."]
+
+
+def test_record_preview_timing_stores_last_metrics(model_module: ModuleType) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    preview = {
+        "instruction": "Increase lookback",
+        "timings": {
+            "chain_cache_key": {"provider": "openai", "model": "gpt-4o-mini", "temperature": 0.0},
+            "chain_cache_signature": "abc123",
+            "chain_build_seconds": 0.05,
+            "chain_reused": True,
+            "run_seconds": 1.2,
+        },
+    }
+
+    model_module._record_preview_timing(preview, total_seconds=1.25)
+
+    metrics = stub.session_state.get(model_module._CONFIG_CHAIN_METRICS_KEY)
+    assert isinstance(metrics, dict)
+    assert metrics["cache_signature"] == "abc123"
+    assert metrics["chain_reused"] is True
+    assert metrics["total_seconds"] == 1.25

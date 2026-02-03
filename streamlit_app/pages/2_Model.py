@@ -63,6 +63,7 @@ _CONFIG_CHAIN_STATE_KEY = "config_chat_chain_state"
 _CONFIG_CHAT_SESSION_KEY = "config_chat_session_id"
 _DEFAULT_CONFIG_CHAT_MODEL = "gpt-4o-mini"
 _CONFIG_CHAIN_CACHE_VERSION = "v1"
+_CONFIG_CHAIN_METRICS_KEY = "config_chat_chain_metrics"
 
 
 def _get_chain_cache_state() -> dict[str, Any]:
@@ -173,6 +174,17 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
     history.append(entry)
     if len(history) > _MAX_CONFIG_PREVIEW_TIMINGS:
         del history[:-_MAX_CONFIG_PREVIEW_TIMINGS]
+    st.session_state[_CONFIG_CHAIN_METRICS_KEY] = {
+        "timestamp": entry.get("timestamp"),
+        "provider": provider,
+        "model": model,
+        "temperature": temperature,
+        "cache_signature": timings.get("chain_cache_signature"),
+        "chain_reused": timings.get("chain_reused"),
+        "chain_build_seconds": timings.get("chain_build_seconds"),
+        "run_seconds": timings.get("run_seconds"),
+        "total_seconds": total_seconds,
+    }
 
 
 def _format_seconds(value: Any) -> str:
@@ -216,6 +228,23 @@ def _render_preview_timing_history() -> None:
         st.info("No preview timing data yet.")
         return
     st.dataframe(rows, use_container_width=True, hide_index=True)
+
+
+def _render_last_preview_metrics() -> None:
+    metrics = st.session_state.get(_CONFIG_CHAIN_METRICS_KEY)
+    if not isinstance(metrics, Mapping):
+        return
+    cache_sig = metrics.get("cache_signature")
+    cache_label = str(cache_sig)[:8] if cache_sig else "—"
+    chain_reused = "Yes" if metrics.get("chain_reused") else "No"
+    st.caption(
+        "Last preview cache — "
+        f"Sig: {cache_label} | "
+        f"Chain reused: {chain_reused} | "
+        f"Build: {_format_seconds(metrics.get('chain_build_seconds'))} | "
+        f"Run: {_format_seconds(metrics.get('run_seconds'))} | "
+        f"Total: {_format_seconds(metrics.get('total_seconds'))}"
+    )
 
 
 def _format_percent(value: Any) -> str:
@@ -1026,6 +1055,7 @@ def _render_config_change_history() -> None:
 
 def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
     st.caption("Describe the configuration change you want to try.")
+    _render_last_preview_metrics()
     instruction = st.text_area(
         "Instruction",
         key="config_chat_instruction",
