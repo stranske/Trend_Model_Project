@@ -4,7 +4,15 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Generic, Mapping, Protocol, TypeGuard, TypeVar, runtime_checkable
+from typing import (
+    Any,
+    Generic,
+    Mapping,
+    Protocol,
+    TypeGuard,
+    TypeVar,
+    runtime_checkable,
+)
 
 try:  # pragma: no cover - optional instrumentation
     from trend_analysis.config.coverage import (

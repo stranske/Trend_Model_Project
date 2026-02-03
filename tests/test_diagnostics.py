@@ -2,7 +2,12 @@ from collections.abc import Mapping
 
 import pytest
 
-from trend.diagnostics import DiagnosticPayload, DiagnosticResult, RunPayloadResult, is_run_payload
+from trend.diagnostics import (
+    DiagnosticPayload,
+    DiagnosticResult,
+    RunPayloadResult,
+    is_run_payload,
+)
 from trend_analysis import diagnostics
 
 
