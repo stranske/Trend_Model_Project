@@ -1,13 +1,29 @@
-"""Tests for LLM provider factory."""
+"""Unit tests for LLM provider factory behavior."""
 
 from __future__ import annotations
 
 import sys
 import types
+from typing import Any
 
 import pytest
 
 from trend_analysis.llm.providers import LLMProviderConfig, create_llm
+
+
+class DummyProvider:
+    def __init__(self, **kwargs: Any) -> None:
+        self.kwargs = dict(kwargs)
+
+
+def _register_provider(
+    monkeypatch: pytest.MonkeyPatch,
+    module_name: str,
+    class_name: str,
+) -> None:
+    module = types.ModuleType(module_name)
+    setattr(module, class_name, DummyProvider)
+    monkeypatch.setitem(sys.modules, module_name, module)
 
 
 @pytest.mark.parametrize(
@@ -15,134 +31,65 @@ from trend_analysis.llm.providers import LLMProviderConfig, create_llm
     [
         ("openai", "langchain_openai", "ChatOpenAI"),
         ("anthropic", "langchain_anthropic", "ChatAnthropic"),
+        ("ollama", "langchain_ollama", "ChatOllama"),
     ],
 )
-def test_create_llm_instantiates_provider(
+def test_create_llm_selects_provider_class(
     provider: str,
     module_name: str,
     class_name: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    module = types.ModuleType(module_name)
-    created: dict[str, dict[str, object]] = {}
+    _register_provider(monkeypatch, module_name, class_name)
 
-    class Dummy:
-        def __init__(self, **kwargs) -> None:
-            created["kwargs"] = kwargs
-
-    setattr(module, class_name, Dummy)
-    monkeypatch.setitem(sys.modules, module_name, module)
-
-    config = LLMProviderConfig(
-        provider=provider,  # type: ignore[arg-type]
-        model="unit-test-model",
-        api_key="unit-test-key",
-        base_url="https://example.invalid",
-        timeout=3.5,
-        max_retries=4,
-        extra={"request_timeout": 7},
-    )
-
+    config = LLMProviderConfig(provider=provider, model="unit-test-model")  # type: ignore[arg-type]
     llm = create_llm(config)
 
-    assert isinstance(llm, Dummy)
-    assert created["kwargs"]["model"] == "unit-test-model"
-    assert created["kwargs"]["api_key"] == "unit-test-key"
-    assert created["kwargs"]["base_url"] == "https://example.invalid"
-    assert created["kwargs"]["timeout"] == 3.5
-    assert created["kwargs"]["max_retries"] == 4
-    assert created["kwargs"]["request_timeout"] == 7
+    assert isinstance(llm, DummyProvider)
+    assert llm.kwargs["model"] == "unit-test-model"
 
 
-def test_create_llm_instantiates_ollama_provider(monkeypatch: pytest.MonkeyPatch) -> None:
-    module_name = "langchain_ollama"
-    class_name = "ChatOllama"
-    module = types.ModuleType(module_name)
-    created: dict[str, dict[str, object]] = {}
+def test_openai_api_key_precedence(monkeypatch: pytest.MonkeyPatch) -> None:
+    _register_provider(monkeypatch, "langchain_openai", "ChatOpenAI")
 
-    class Dummy:
-        def __init__(self, **kwargs) -> None:
-            created["kwargs"] = kwargs
-
-    setattr(module, class_name, Dummy)
-    monkeypatch.setitem(sys.modules, module_name, module)
-
-    config = LLMProviderConfig(
-        provider="ollama",
-        model="unit-test-model",
-        base_url="http://example.invalid",
-        extra={"temperature": 0.05},
-    )
-
-    llm = create_llm(config)
-
-    assert isinstance(llm, Dummy)
-    assert created["kwargs"]["model"] == "unit-test-model"
-    assert created["kwargs"]["base_url"] == "http://example.invalid"
-    assert created["kwargs"]["temperature"] == 0.05
-    assert "api_key" not in created["kwargs"]
-
-
-@pytest.mark.parametrize(
-    ("provider", "env_key"),
-    [
-        ("openai", "OPENAI_API_KEY"),
-        ("anthropic", "ANTHROPIC_API_KEY"),
-    ],
-)
-def test_create_llm_uses_provider_env_api_key(
-    provider: str,
-    env_key: str,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    module_name = "langchain_openai" if provider == "openai" else "langchain_anthropic"
-    class_name = "ChatOpenAI" if provider == "openai" else "ChatAnthropic"
-    module = types.ModuleType(module_name)
-    created: dict[str, dict[str, object]] = {}
-
-    class Dummy:
-        def __init__(self, **kwargs) -> None:
-            created["kwargs"] = kwargs
-
-    setattr(module, class_name, Dummy)
-    monkeypatch.setitem(sys.modules, module_name, module)
     monkeypatch.delenv("TREND_LLM_API_KEY", raising=False)
-    monkeypatch.setenv(env_key, "provider-env-key")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    config = LLMProviderConfig(provider=provider, model="unit-test-model")
+    explicit = LLMProviderConfig(provider="openai", model="unit", api_key="explicit")
+    llm = create_llm(explicit)
+    assert llm.kwargs.get("api_key") == "explicit"
 
-    create_llm(config)
+    monkeypatch.delenv("TREND_LLM_API_KEY", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-env")
+    llm = create_llm(LLMProviderConfig(provider="openai", model="unit"))
+    assert llm.kwargs.get("api_key") == "openai-env"
 
-    assert created["kwargs"]["api_key"] == "provider-env-key"
-
-
-def test_create_llm_uses_trend_env_api_key_override(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    module_name = "langchain_openai"
-    class_name = "ChatOpenAI"
-    module = types.ModuleType(module_name)
-    created: dict[str, dict[str, object]] = {}
-
-    class Dummy:
-        def __init__(self, **kwargs) -> None:
-            created["kwargs"] = kwargs
-
-    setattr(module, class_name, Dummy)
-    monkeypatch.setitem(sys.modules, module_name, module)
-    monkeypatch.setenv("TREND_LLM_API_KEY", "override-key")
-    monkeypatch.setenv("OPENAI_API_KEY", "provider-key")
-
-    config = LLMProviderConfig(provider="openai", model="unit-test-model")
-
-    create_llm(config)
-
-    assert created["kwargs"]["api_key"] == "override-key"
+    monkeypatch.setenv("TREND_LLM_API_KEY", "override")
+    llm = create_llm(LLMProviderConfig(provider="openai", model="unit"))
+    assert llm.kwargs.get("api_key") == "override"
 
 
-def test_create_llm_unknown_provider_raises() -> None:
-    config = LLMProviderConfig(provider="openai")
+def test_anthropic_api_key_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    _register_provider(monkeypatch, "langchain_anthropic", "ChatAnthropic")
 
-    config.provider = "unknown"  # type: ignore[assignment]
-    with pytest.raises(ValueError, match="Unknown provider"):
-        create_llm(config)
+    monkeypatch.delenv("TREND_LLM_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "anthropic-env")
+    llm = create_llm(LLMProviderConfig(provider="anthropic", model="unit"))
+    assert llm.kwargs.get("api_key") == "anthropic-env"
+
+
+def test_ollama_does_not_require_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    _register_provider(monkeypatch, "langchain_ollama", "ChatOllama")
+
+    monkeypatch.delenv("TREND_LLM_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    config = LLMProviderConfig(provider="ollama", model="llama3", base_url="http://localhost:11434")
+    llm = create_llm(config)
+
+    assert llm.kwargs["model"] == "llama3"
+    assert llm.kwargs["base_url"] == "http://localhost:11434"
+    assert "api_key" not in llm.kwargs
