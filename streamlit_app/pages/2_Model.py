@@ -96,6 +96,7 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
         "timestamp": datetime.utcnow().isoformat(timespec="seconds") + "Z",
         "instruction": preview.get("instruction"),
         "chain_build_seconds": timings.get("chain_build_seconds"),
+        "chain_reused": timings.get("chain_reused"),
         "run_seconds": timings.get("run_seconds"),
         "total_seconds": total_seconds,
     }
@@ -134,6 +135,7 @@ def _render_preview_timing_history() -> None:
                 "Timestamp": str(entry.get("timestamp") or "Unknown time"),
                 "Instruction": str(entry.get("instruction") or "Preview"),
                 "Chain build": _format_seconds(entry.get("chain_build_seconds")),
+                "Chain reused": "Yes" if entry.get("chain_reused") else "No",
                 "Run": _format_seconds(entry.get("run_seconds")),
                 "Total": _format_seconds(entry.get("total_seconds")),
             }
@@ -468,17 +470,28 @@ def _cached_nl_chain(
         model=config.model,
     )
 
-
-def _build_nl_chain() -> ConfigPatchChain:
+def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     config = _resolve_llm_provider_config()
     temperature = _resolve_llm_temperature()
-    return _cached_nl_chain(
+    cache_key = (
         config.provider,
         config.model,
         config.base_url,
         config.organization,
         temperature,
     )
+    chain = _cached_nl_chain(
+        config.provider,
+        config.model,
+        config.base_url,
+        config.organization,
+        temperature,
+    )
+    chain_id = id(chain)
+    reused = st.session_state.get("config_chat_chain_id") == chain_id
+    st.session_state["config_chat_chain_id"] = chain_id
+    st.session_state["config_chat_chain_key"] = cache_key
+    return chain, {"chain_reused": reused, "chain_cache_key": cache_key}
 
 
 def _generate_config_preview(
@@ -486,7 +499,7 @@ def _generate_config_preview(
     instruction: str,
 ) -> dict[str, Any]:
     chain_start = monotonic()
-    chain = _build_nl_chain()
+    chain, chain_meta = _build_nl_chain()
     chain_build_seconds = monotonic() - chain_start
     run_start = monotonic()
     patch = chain.run(current_config=dict(model_state), instruction=instruction)
@@ -505,6 +518,7 @@ def _generate_config_preview(
         "patch": patch.model_dump(),
         "timings": {
             "chain_build_seconds": chain_build_seconds,
+            "chain_reused": chain_meta.get("chain_reused"),
             "run_seconds": run_seconds,
         },
     }
