@@ -196,3 +196,41 @@ def test_mc_run_shows_progress(
     assert rc == 0
     err = capsys.readouterr().err
     assert "Progress: 1/1" in err
+
+
+def test_mc_run_dry_run_skips_execution(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    scenario_path = tmp_path / "scenario.yml"
+    _write_scenario(scenario_path)
+
+    called = {"run": False}
+
+    def _run(self, progress_callback=None):  # type: ignore[no-untyped-def]
+        called["run"] = True
+        results_frame = pd.DataFrame({"path_id": [1], "strategy": ["eq"]})
+        summary_frame = pd.DataFrame({"strategy": ["eq"], "paths": [1]})
+        return MonteCarloResults(
+            mode="two_layer",
+            evaluations=[],
+            errors=[],
+            results_frame=results_frame,
+            summary_frame=summary_frame,
+        )
+
+    monkeypatch.setattr(runner_module.MonteCarloRunner, "run", _run)
+
+    rc = cli.main(
+        [
+            "mc",
+            "run",
+            "--scenario",
+            str(scenario_path),
+            "--dry-run",
+        ]
+    )
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Dry run complete" in out
+    assert called["run"] is False
