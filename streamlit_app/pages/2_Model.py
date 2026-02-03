@@ -110,6 +110,12 @@ def _get_config_chat_session_id() -> str:
     return session_id
 
 
+def _reset_config_chat_session_id() -> str:
+    session_id = uuid4().hex
+    st.session_state[_CONFIG_CHAT_SESSION_KEY] = session_id
+    return session_id
+
+
 def _chain_cache_signature(cache_key: Mapping[str, Any]) -> str:
     return json.dumps(dict(cache_key), sort_keys=True, default=str)
 
@@ -774,7 +780,6 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     extra_payload = _serialize_extra(config.extra)
     extra_payload_hash = _hash_text(extra_payload)
     resolved_model = _normalize_cache_str(config.model) or _DEFAULT_CONFIG_CHAT_MODEL
-    session_cache_key = _get_config_chat_session_id()
     cache_key = _build_chain_cache_key(
         provider=provider,
         model=resolved_model,
@@ -786,6 +791,22 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         extra_payload_hash=extra_payload_hash,
         api_key_fingerprint=api_key_fingerprint,
     )
+    cache_state = _get_chain_cache_state()
+    signature = _chain_cache_signature(cache_key)
+    previous_signature = cache_state.get("last_signature")
+    settings_changed = bool(previous_signature and previous_signature != signature)
+    previous_cache_key = cache_state.get("last_cache_key")
+    changed_fields = _cache_key_changes(previous_cache_key, cache_key, _CONFIG_CHAIN_LOG_FIELDS)
+    invalidation_fields = _cache_key_changes(
+        previous_cache_key,
+        cache_key,
+        _CONFIG_CHAIN_INVALIDATION_FIELDS,
+    )
+    if invalidation_fields:
+        _reset_config_chat_session_id()
+        st.session_state.pop("config_chat_preview", None)
+        st.session_state.pop("config_chat_last_instruction", None)
+    session_cache_key = _get_config_chat_session_id()
     chain = _cached_config_patch_chain(
         session_cache_key,
         _CONFIG_CHAIN_CACHE_VERSION,
@@ -799,20 +820,9 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         temperature,
         api_key_fingerprint,
     )
-    cache_state = _get_chain_cache_state()
-    signature = _chain_cache_signature(cache_key)
     entries = cache_state["entries"]
     cached_chain_id = entries.get(signature)
     reused = cached_chain_id == id(chain)
-    previous_signature = cache_state.get("last_signature")
-    settings_changed = bool(previous_signature and previous_signature != signature)
-    previous_cache_key = cache_state.get("last_cache_key")
-    changed_fields = _cache_key_changes(previous_cache_key, cache_key, _CONFIG_CHAIN_LOG_FIELDS)
-    invalidation_fields = _cache_key_changes(
-        previous_cache_key,
-        cache_key,
-        _CONFIG_CHAIN_INVALIDATION_FIELDS,
-    )
     cache_miss_reason = None
     if not reused:
         if settings_changed:
@@ -828,9 +838,6 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     cache_state["last_signature"] = signature
     cache_state["last_cache_key"] = cache_key
     cache_state["last_chain_id"] = id(chain)
-    if invalidation_fields:
-        st.session_state.pop("config_chat_preview", None)
-        st.session_state.pop("config_chat_last_instruction", None)
     st.session_state["config_chat_chain_key"] = cache_key
     st.session_state["config_chat_chain_signature"] = signature
     return chain, {
