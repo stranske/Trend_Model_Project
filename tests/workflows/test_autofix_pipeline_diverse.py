@@ -51,12 +51,10 @@ def test_autofix_pipeline_handles_diverse_errors(
     trend_pkg.mkdir(parents=True)
     tests_dir.mkdir()
     (repo_root / "pyproject.toml").write_text(
-        dedent(
-            """
+        dedent("""
             [tool.black]
             line-length = 88
-            """
-        ).lstrip(),
+            """).lstrip(),
         encoding="utf-8",
     )
     (sample_pkg / "__init__.py").write_text("", encoding="utf-8")
