@@ -61,7 +61,7 @@ comm==0.2.3
     # via ipywidgets
 contourpy==1.3.3
     # via matplotlib
-coverage==7.13.2
+coverage==7.13.3
     # via
     #   trend-model (pyproject.toml)
     #   pytest-cov
@@ -420,7 +420,7 @@ rpds-py==0.30.0
     # via
     #   jsonschema
     #   referencing
-ruff==0.14.14
+ruff==0.15.0
     # via trend-model (pyproject.toml)
 scipy==1.17.0
     # via trend-model (pyproject.toml)
