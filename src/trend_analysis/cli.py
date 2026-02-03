@@ -1453,8 +1453,11 @@ def _is_valid_tqdm_instance(candidate: Any) -> bool:
     total = getattr(candidate, "total")
     if total is None:
         return True
-    if isinstance(total, numbers.Number):
-        return total >= 0
+    if isinstance(total, numbers.Real):
+        try:
+            return float(total) >= 0
+        except (TypeError, ValueError):
+            return False
     return False
 
 
