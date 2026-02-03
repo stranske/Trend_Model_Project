@@ -14,15 +14,15 @@ on:
         required: true
         type: number
       force_retry:
+        description: 'Force retry even if gate is cancelled/deferred'
+        required: false
+        default: true
+        type: boolean
       base_ref:
         description: 'Base branch for conflict resolution'
         required: false
         default: ''
         type: string
-        description: 'Force retry even if gate is cancelled/deferred'
-        required: false
-        default: true
-        type: boolean
 
 permissions:
   contents: write
