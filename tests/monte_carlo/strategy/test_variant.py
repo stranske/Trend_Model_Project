@@ -209,6 +209,17 @@ def test_to_trend_config_rejects_invalid_weighting_name_type(tmp_path: Path) -> 
         variant.to_trend_config(base, base_path=tmp_path)
 
 
+def test_to_trend_config_error_includes_strategy_name(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="Broken",
+        overrides={"portfolio": {"max_turnover": "fast"}},
+    )
+
+    with pytest.raises(ValueError, match="Strategy 'Broken' overrides invalid"):
+        variant.to_trend_config(base, base_path=tmp_path)
+
+
 def test_apply_to_type_mismatch_raises(tmp_path: Path) -> None:
     base = _base_config(tmp_path)
     variant = StrategyVariant(
