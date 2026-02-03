@@ -368,3 +368,52 @@ cases:
           value: "M"
       risk_flags: []
       summary: "Set frequency to monthly."
+
+  - id: unknown_nested_key
+    instruction: "Set analysis.weighting.style to defensive."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations: []
+      risk_flags: []
+      summary: "Requested unknown key: analysis.weighting.style."
+
+  - id: unknown_constraint_key
+    instruction: "Set constraints.max_exposure to 0.5."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations: []
+      risk_flags: []
+      summary: "Requested unknown key: constraints.max_exposure."
+
+  - id: ambiguous_frequency_request
+    instruction: "Use a faster frequency."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations: []
+      risk_flags: []
+      summary: "Need clarification on requested frequency change."
+
+  - id: conflicting_constraint_instructions
+    instruction: "Remove max weight but keep the max weight constraint."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations: []
+      risk_flags: []
+      summary: "Conflicting instructions about max_weight."
+
+  - id: conflicting_set_remove
+    instruction: "Set max weight to 0.1 and then remove the max weight constraint."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations:
+        - op: remove
+          path: constraints.max_weight
+          value: null
+      risk_flags:
+        - REMOVES_CONSTRAINT
+      summary: "Remove max_weight constraint after conflicting instruction."
