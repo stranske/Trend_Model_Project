@@ -56,6 +56,16 @@ _FREEFORM_OVERRIDE_PATHS: set[tuple[str, ...]] = {
     ("portfolio", "weighting", "params"),
 }
 
+_ALLOWED_WEIGHTING_SCHEMES = {
+    "equal",
+    "risk_parity",
+    "hrp",
+    "erc",
+    "robust_mv",
+    "robust_risk_parity",
+    "custom",
+}
+
 
 def _deep_merge_overrides(
     base: Mapping[str, Any],
@@ -161,6 +171,20 @@ class StrategyVariant:
             merged = self.apply_to(base_config)
         except (TypeError, ValueError) as exc:
             raise ValueError(f"Strategy '{self.name}' overrides invalid: {exc}") from exc
+
+        portfolio = merged.get("portfolio")
+        if isinstance(portfolio, Mapping):
+            scheme = portfolio.get("weighting_scheme")
+            if isinstance(scheme, str) and scheme.strip():
+                scheme_value = scheme.strip().lower()
+                if scheme_value not in _ALLOWED_WEIGHTING_SCHEMES:
+                    allowed = ", ".join(sorted(_ALLOWED_WEIGHTING_SCHEMES))
+                    raise ValueError(
+                        "Strategy '{name}' config invalid: portfolio.weighting_scheme must be one of: {allowed}".format(
+                            name=self.name,
+                            allowed=allowed,
+                        )
+                    )
 
         resolved_base = base_path if isinstance(base_path, Path) else Path(str(base_path))
         try:
