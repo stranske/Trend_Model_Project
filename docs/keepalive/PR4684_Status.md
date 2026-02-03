@@ -4,7 +4,7 @@
 PR #4684 addressed issue #4683 but verification identified concerns (verdict: CONCERNS). This follow-up addresses the remaining gaps with improved task structure to ensure comprehensive coverage of fold-aware outputs and robust testing of fold modes.
 
 ## Progress
-15/37 tasks complete, 22 remaining.
+22/37 tasks complete, 15 remaining.
 
 ## Checklist Reconciliation
 Checklist reconciled on 2026-02-03 after reviewing commit b7222116 and running `pytest tests/monte_carlo/test_results.py -m "not slow"`. Export outputs are implemented in `src/trend_analysis/monte_carlo/results.py` (no standalone `export.py`), and the export points are results, summary, cross-fold summary, and pooled summary frames.
@@ -22,13 +22,13 @@ Additional fold-aware output tables live outside Monte Carlo exports in `src/tre
 - [x] Define scope for: Verify that fold_id columns are correctly included in all export points through unit tests.
 - [x] Implement focused slice for: Verify that fold_id columns are correctly included in all export points through unit tests.
 - [x] Validate focused slice for: Verify that fold_id columns are correctly included in all export points through unit tests.
-- [ ] Add unit tests for rolling and count_spaced fold modes to verify correct computation of fold windows and calibration dates, including edge cases.
-- [ ] Add unit tests for rolling fold mode to verify fold window
-- [ ] calibration date computations (verify: confirm completion in repo)
-- [ ] including edge cases. (verify: confirm completion in repo)
-- [ ] Add unit tests for count_spaced fold mode to verify fold window
-- [ ] calibration date computations (verify: confirm completion in repo)
-- [ ] including edge cases. (verify: confirm completion in repo)
+- [x] Add unit tests for rolling and count_spaced fold modes to verify correct computation of fold windows and calibration dates, including edge cases.
+- [x] Add unit tests for rolling fold mode to verify fold window
+- [x] calibration date computations (verify: confirm completion in repo)
+- [x] including edge cases. (verify: confirm completion in repo)
+- [x] Add unit tests for count_spaced fold mode to verify fold window
+- [x] calibration date computations (verify: confirm completion in repo)
+- [x] including edge cases. (verify: confirm completion in repo)
 - [x] Enhance unit tests for fold-aware outputs to verify that all exported result tables contain the fold_id column.
 - [x] Enhance existing unit tests for fold-aware outputs. (verify: tests pass)
 - [x] Define scope for: Add new tests specifically to verify that all exported result tables contain the fold_id column.
