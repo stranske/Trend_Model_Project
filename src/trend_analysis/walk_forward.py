@@ -270,6 +270,8 @@ def evaluate_parameter_grid(
             drawdown = max_drawdown(fold_returns)
             hit_rate = float(fold_returns.gt(0).mean()) if len(fold_returns) else np.nan
 
+            # Use `fold_id` as the canonical fold identifier going forward; the `fold` field is
+            # retained only for backward compatibility and should be considered deprecated.
             record = {
                 "fold_id": fold_idx,
                 "fold": fold_idx,

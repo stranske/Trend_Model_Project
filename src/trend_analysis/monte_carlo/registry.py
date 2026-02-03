@@ -20,6 +20,7 @@ __all__ = [
 
 _REGISTRY_PATH = proj_path("config", "scenarios", "monte_carlo", "index.yml")
 _SUPPORTED_SUFFIXES = (".yml", ".yaml")
+_MISSING = object()
 
 
 @dataclass(frozen=True)
@@ -405,6 +406,8 @@ def _parse_scenario(
     if "costs" in raw:
         costs = _ensure_mapping(raw.get("costs"), label="Scenario config 'costs'")
 
+    enable_fold_runs = raw.get("enable_fold_runs", _MISSING)
+
     scenario_kwargs: dict[str, Any] = {
         "name": scenario_name,
         "description": description,
@@ -417,6 +420,8 @@ def _parse_scenario(
         "path": source_path,
         "raw": raw,
     }
+    if enable_fold_runs is not _MISSING:
+        scenario_kwargs["enable_fold_runs"] = enable_fold_runs
 
     folds_value = _optional_mapping(raw, key="folds", scenario_name=scenario_name)
     if folds_value is not None:

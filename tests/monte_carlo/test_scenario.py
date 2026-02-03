@@ -68,6 +68,36 @@ def test_monte_carlo_scenario_accepts_valid_config() -> None:
     assert scenario.return_model["kind"] == "stationary_bootstrap"
 
 
+def test_monte_carlo_scenario_defaults_enable_fold_runs_true() -> None:
+    scenario = MonteCarloScenario(
+        name="enable_fold_runs_default",
+        base_config="config/defaults.yml",
+        monte_carlo={
+            "mode": "two_layer",
+            "n_paths": 10,
+            "horizon_years": 1.0,
+            "frequency": "M",
+        },
+    )
+
+    assert scenario.enable_fold_runs is True
+
+
+def test_monte_carlo_scenario_rejects_non_bool_enable_fold_runs() -> None:
+    with pytest.raises(ValueError, match="enable_fold_runs must be a boolean"):
+        MonteCarloScenario(
+            name="enable_fold_runs_invalid",
+            base_config="config/defaults.yml",
+            monte_carlo={
+                "mode": "two_layer",
+                "n_paths": 10,
+                "horizon_years": 1.0,
+                "frequency": "M",
+            },
+            enable_fold_runs="nope",  # type: ignore[arg-type]
+        )
+
+
 def test_monte_carlo_scenario_normalizes_frequency_for_stationary_bootstrap() -> None:
     settings = MonteCarloSettings(
         mode="mixture",

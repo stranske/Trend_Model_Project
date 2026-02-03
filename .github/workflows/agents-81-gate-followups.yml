@@ -18,11 +18,6 @@ on:
         required: false
         default: true
         type: boolean
-      base_ref:
-        description: 'Base branch for conflict resolution'
-        required: false
-        default: ''
-        type: string
 
 permissions:
   contents: write
@@ -313,7 +308,6 @@ jobs:
       pr_ref: ${{ needs.evaluate.outputs.pr_ref }}
       appendix: ${{ needs.evaluate.outputs.task_appendix }}
       iteration: ${{ needs.evaluate.outputs.iteration }}
-      base_ref: ${{ github.event.pull_request.base.ref || github.event.inputs.base_ref || '' }}
 
   # Placeholder for future Claude agent support
   # run-claude:

@@ -67,6 +67,12 @@ def _require_mapping(value: Any, field: str) -> Mapping[str, Any]:
     return value
 
 
+def _require_bool(value: Any, field: str) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError(f"{field} must be a boolean")
+    return value
+
+
 def _coerce_variant_tags(value: object) -> tuple[str, ...]:
     if value is None:
         return ()
@@ -233,6 +239,8 @@ class MonteCarloScenario:
       Must be a mapping when supplied; omitted/``None`` disables overrides.
     - ``folds`` (Mapping[str, Any] | None): Fold definition/calibration mapping. Must be a mapping
       when supplied; explicit ``null`` is invalid.
+    - ``enable_fold_runs`` (bool): Flag that controls whether fold generation/execution is active.
+      Defaults to ``True``; set ``False`` to skip all fold-related logic.
     - ``outputs`` (Mapping[str, Any] | None): Output locations and formats mapping. Must be a
       mapping when supplied; omitted/``None`` disables output overrides.
     - ``costs`` (Mapping[str, Any] | None): Cost process configuration mapping. Must be a mapping
@@ -332,6 +340,16 @@ class MonteCarloScenario:
             )
         },
     )
+    enable_fold_runs: bool = field(
+        default=True,
+        metadata={
+            "doc": (
+                "Purpose: Toggle fold generation/execution for Monte Carlo scenarios. "
+                "Type: bool. "
+                "Constraints: optional; must be boolean when set; default True."
+            )
+        },
+    )
     outputs: Mapping[str, Any] | None | object = field(
         default=_MISSING,
         metadata={
@@ -406,6 +424,7 @@ class MonteCarloScenario:
         self.strategy_set = _coerce_optional_mapping(self.strategy_set, "strategy_set")
         self.strategy_set = _coerce_strategy_set(self.strategy_set)
         self.folds = _coerce_optional_mapping(self.folds, "folds", allow_null=False)
+        self.enable_fold_runs = _require_bool(self.enable_fold_runs, "enable_fold_runs")
         self.outputs = _coerce_optional_mapping(self.outputs, "outputs")
         self.costs = _coerce_optional_mapping(self.costs, "costs")
 
