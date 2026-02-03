@@ -459,6 +459,7 @@ class MonteCarloRunner:
         log_returns = self._extract_path_frame(result.log_returns, path_index)
         returns = np.expm1(log_returns)
         returns_df = self._returns_with_date(returns)
+        returns_df = self._apply_cash_handling(returns_df)
         score_frame = self._compute_score_frame(returns_df)
         path_hash = self._hash_frame(prices)
         return _PathContext(
@@ -936,6 +937,48 @@ class MonteCarloRunner:
         out = returns.copy()
         out.insert(0, "Date", pd.to_datetime(returns.index, errors="coerce"))
         return out.reset_index(drop=True)
+
+    def _apply_cash_handling(self, returns: pd.DataFrame) -> pd.DataFrame:
+        data_cfg = self._base_config.get("data", {})
+        metrics_cfg = self._base_config.get("metrics", {})
+        if not isinstance(data_cfg, Mapping):
+            data_cfg = {}
+        if not isinstance(metrics_cfg, Mapping):
+            metrics_cfg = {}
+
+        rf_col = data_cfg.get("risk_free_column")
+        if isinstance(rf_col, str):
+            rf_col = rf_col.strip()
+        elif rf_col is None:
+            rf_col = ""
+        else:
+            rf_col = ""
+
+        if not rf_col:
+            rf_col = "CASH"
+            updated_data = dict(data_cfg)
+            updated_data["risk_free_column"] = rf_col
+            if "allow_risk_free_fallback" not in updated_data:
+                updated_data["allow_risk_free_fallback"] = False
+            updated_base = dict(self._base_config)
+            updated_base["data"] = updated_data
+            self._base_config = updated_base
+
+        if rf_col in returns.columns:
+            return returns
+
+        rf_rate_periodic = self._risk_free_periodic_rate(data_cfg, metrics_cfg)
+        enriched = returns.copy()
+        enriched[rf_col] = float(rf_rate_periodic)
+        return enriched
+
+    def _risk_free_periodic_rate(
+        self, data_cfg: Mapping[str, Any], metrics_cfg: Mapping[str, Any]
+    ) -> float:
+        rf_rate_annual = float(metrics_cfg.get("rf_rate_annual", 0.0) or 0.0)
+        frequency = data_cfg.get("frequency") or self.scenario.simulation_frequency()
+        periods_per_year = float(periods_per_year_from_code(str(frequency)))
+        return (1.0 + rf_rate_annual) ** (1.0 / periods_per_year) - 1.0
 
     def _hash_frame(self, frame: pd.DataFrame) -> str:
         if frame.empty:

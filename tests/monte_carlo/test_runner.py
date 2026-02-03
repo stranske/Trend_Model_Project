@@ -772,6 +772,26 @@ def test_score_frame_uses_fallback_rf_series(monkeypatch: pytest.MonkeyPatch) ->
     assert not frame.empty
 
 
+def test_runner_injects_cash_column_when_missing() -> None:
+    cfg = _base_config()
+    cfg["data"] = {
+        "date_column": "Date",
+        "frequency": "M",
+        "allow_risk_free_fallback": False,
+        "risk_free_column": None,
+    }
+    cfg["metrics"] = {"registry": ["annual_return"], "rf_rate_annual": 0.12}
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+    returns = _returns_without_rf()
+
+    enriched = runner._apply_cash_handling(returns)
+
+    expected = (1.0 + 0.12) ** (1.0 / 12.0) - 1.0
+    assert "CASH" in enriched.columns
+    assert np.allclose(enriched["CASH"].values, expected)
+    assert runner._base_config["data"]["risk_free_column"] == "CASH"
+
+
 def test_run_mixture_requires_matching_seed_lengths() -> None:
     scenario = _scenario("mixture")
     runner = MonteCarloRunner(
