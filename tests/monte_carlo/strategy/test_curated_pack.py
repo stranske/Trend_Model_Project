@@ -9,16 +9,53 @@ from trend_analysis.config.model import TrendConfig
 from trend_analysis.monte_carlo.strategy import StrategyVariant
 
 
+def _load_strategy_pack(path: Path) -> list[dict[str, object]]:
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    curated = payload.get("curated")
+    assert isinstance(curated, list)
+    return curated
+
+
+def _load_readme_tables() -> dict[str, list[tuple[str, str, str]]]:
+    readme_path = Path("config/scenarios/monte_carlo/strategies/README.md")
+    readme_lines = readme_path.read_text(encoding="utf-8").splitlines()
+
+    tables: dict[str, list[tuple[str, str, str]]] = {}
+    current_section: str | None = None
+    in_table = False
+
+    for line in readme_lines:
+        stripped = line.strip()
+        if stripped.startswith("## "):
+            current_section = stripped[3:].strip()
+            in_table = False
+            continue
+        if not stripped.startswith("|"):
+            continue
+        columns = [column.strip() for column in stripped.strip("|").split("|")]
+        if columns[:3] == ["Strategy", "Intent", "Rationale"]:
+            if current_section:
+                tables[current_section] = []
+                in_table = True
+            continue
+        if not in_table or current_section is None or len(columns) < 3:
+            continue
+        if all(set(column) <= {"-"} for column in columns[:3]):
+            continue
+        strategy, intent, rationale = columns[:3]
+        if strategy and intent and rationale:
+            tables[current_section].append((strategy, intent, rationale))
+
+    return tables
+
+
 def test_hf_equity_curated_strategies_validate_against_schema() -> None:
     base_path = Path("config/defaults.yml")
     base_config = yaml.safe_load(base_path.read_text(encoding="utf-8"))
     baseline = deepcopy(base_config)
 
     strategy_path = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
-    payload = yaml.safe_load(strategy_path.read_text(encoding="utf-8"))
-
-    curated = payload.get("curated")
-    assert isinstance(curated, list)
+    curated = _load_strategy_pack(strategy_path)
     assert len(curated) == 12
 
     for entry in curated:
@@ -37,10 +74,7 @@ def test_hf_equity_curated_strategies_compatible_with_strategy_guards() -> None:
     base_config = yaml.safe_load(base_path.read_text(encoding="utf-8"))
 
     strategy_path = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
-    payload = yaml.safe_load(strategy_path.read_text(encoding="utf-8"))
-
-    curated = payload.get("curated")
-    assert isinstance(curated, list)
+    curated = _load_strategy_pack(strategy_path)
     assert len(curated) == 12
 
     guards = {"max_turnover": 0.12}
@@ -62,10 +96,7 @@ def test_hf_equity_curated_strategies_compatible_with_strategy_guards() -> None:
 
 def test_hf_equity_curated_strategies_cover_major_axes() -> None:
     strategy_path = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
-    payload = yaml.safe_load(strategy_path.read_text(encoding="utf-8"))
-
-    curated = payload.get("curated")
-    assert isinstance(curated, list)
+    curated = _load_strategy_pack(strategy_path)
     assert len(curated) == 12
 
     selection_modes = set()
@@ -169,41 +200,55 @@ def test_hf_equity_curated_strategies_cover_major_axes() -> None:
 
 def test_hf_equity_curated_docs_cover_all_strategies() -> None:
     strategy_path = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
-    payload = yaml.safe_load(strategy_path.read_text(encoding="utf-8"))
-    curated = payload.get("curated")
-    assert isinstance(curated, list)
+    curated = _load_strategy_pack(strategy_path)
     assert len(curated) == 12
     curated_names = {entry["name"] for entry in curated}
 
-    readme_path = Path("config/scenarios/monte_carlo/strategies/README.md")
-    readme_lines = readme_path.read_text(encoding="utf-8").splitlines()
-
-    table_rows: list[tuple[str, str, str]] = []
-    in_table = False
-    for line in readme_lines:
-        stripped = line.strip()
-        if not stripped.startswith("|"):
-            continue
-        columns = [column.strip() for column in stripped.strip("|").split("|")]
-        if columns[:3] == ["Strategy", "Intent", "Rationale"]:
-            in_table = True
-            continue
-        if not in_table or len(columns) < 3:
-            continue
-        if all(set(column) <= {"-"} for column in columns[:3]):
-            continue
-        strategy, intent, rationale = columns[:3]
-        if strategy and intent and rationale:
-            table_rows.append((strategy, intent, rationale))
-
-    documented_names = {row[0] for row in table_rows}
+    tables = _load_readme_tables()
+    section = "HF Equity Curated (hf_equity_curated.yml)"
+    documented_names = {row[0] for row in tables.get(section, [])}
     assert documented_names == curated_names
     assert len(documented_names) == len(curated_names)
 
 
 def test_hf_equity_curated_pack_files_present() -> None:
     strategy_path = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
+    macro_path = Path("config/scenarios/monte_carlo/strategies/hf_macro_curated.yml")
     readme_path = Path("config/scenarios/monte_carlo/strategies/README.md")
 
     assert strategy_path.is_file()
+    assert macro_path.is_file()
     assert readme_path.is_file()
+
+
+def test_hf_macro_curated_strategies_validate_against_schema() -> None:
+    base_path = Path("config/defaults.yml")
+    base_config = yaml.safe_load(base_path.read_text(encoding="utf-8"))
+    baseline = deepcopy(base_config)
+
+    strategy_path = Path("config/scenarios/monte_carlo/strategies/hf_macro_curated.yml")
+    curated = _load_strategy_pack(strategy_path)
+    assert len(curated) == 10
+
+    for entry in curated:
+        variant = StrategyVariant(
+            name=entry["name"],
+            overrides=entry.get("overrides", {}),
+            tags=entry.get("tags", ()),
+        )
+        validated = variant.to_trend_config(base_config, base_path=base_path.parent)
+        assert isinstance(validated, TrendConfig)
+        assert base_config == baseline
+
+
+def test_hf_macro_curated_docs_cover_all_strategies() -> None:
+    strategy_path = Path("config/scenarios/monte_carlo/strategies/hf_macro_curated.yml")
+    curated = _load_strategy_pack(strategy_path)
+    assert len(curated) == 10
+    curated_names = {entry["name"] for entry in curated}
+
+    tables = _load_readme_tables()
+    section = "HF Macro Curated (hf_macro_curated.yml)"
+    documented_names = {row[0] for row in tables.get(section, [])}
+    assert documented_names == curated_names
+    assert len(documented_names) == len(curated_names)

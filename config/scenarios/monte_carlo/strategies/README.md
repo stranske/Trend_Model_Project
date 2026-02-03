@@ -18,3 +18,18 @@ This directory contains curated strategy packs intended for Monte Carlo scenario
 | Rank_14_RobustMV_TightTurnover | Top-N selection using robust mean-variance with tight turnover. | Targets risk-adjusted optimization while controlling trading activity. |
 | Rank_12_RobustRiskParity_ModerateTurnover | Top-N selection using robust risk parity with moderate turnover. | Provides risk-balanced weights with added robustness to estimation noise. |
 | All_Equal_LowTurnover_LowVol | Full-universe equal weight with low turnover and vol targeting. | Serves as a defensive baseline that limits trading and targets lower volatility. |
+
+## HF Macro Curated (hf_macro_curated.yml)
+
+| Strategy | Intent | Rationale |
+| --- | --- | --- |
+| Macro_Rank_6_Equal_TightTurnover | Concentrated macro sleeve with equal weights and tight turnover. | Keeps exposure focused on the strongest signals while limiting churn. |
+| Macro_TopPct_25_RiskParity_ModerateTurnover | Top-quartile macro selection with risk parity weights. | Balances risk across the highest conviction set with moderate turnover. |
+| Macro_Threshold_ZScore_HRP_ModerateTurnover | Threshold-based macro sleeve using HRP weighting. | Filters for signal strength while relying on HRP for stability. |
+| Macro_Rank_10_ERC_LooseTurnover | Broader top-N macro selection with ERC weighting. | Adds diversification while allowing higher refresh rates. |
+| Macro_Rank_12_RobustMV_TightTurnover | Robust mean-variance macro sleeve with tight turnover. | Uses robust optimization while capping trading activity. |
+| Macro_Rank_8_RobustRiskParity_ModerateTurnover | Top-N macro selection with robust risk parity. | Controls risk balance with moderate turnover. |
+| Macro_Threshold_BayesScoreProp_ModerateTurnover | Threshold selection with Bayesian score-proportional weights. | Smooths weights while enforcing signal quality. |
+| Macro_Random_8_Equal_LooseTurnover | Randomized macro baseline with equal weights. | Provides a stress-test/control strategy for selection bias. |
+| Macro_Manual_6_Equal_TightTurnover | Manual macro core list with equal weights and tight turnover. | Represents a discretionary core macro book with stable holdings. |
+| Macro_All_Equal_LowTurnover_LowVol | Full-universe macro sleeve with low turnover and vol targeting. | Defensive baseline that limits trading and volatility. |

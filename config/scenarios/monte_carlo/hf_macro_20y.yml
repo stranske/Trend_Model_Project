@@ -14,16 +14,7 @@ monte_carlo:
   jobs: 1
 
 strategy_set:
-  curated:
-    - name: ThresholdHold_Bayes_ModerateTurnover
-      overrides:
-        portfolio:
-          selection_mode: rank
-          rank:
-            inclusion_approach: threshold
-            threshold: 0.3
-          weighting_scheme: shrinkage
-          max_turnover: 0.18
+  curated_pack: strategies/hf_macro_curated.yml
 
 outputs:
   directory: outputs/monte_carlo/{scenario_name}/{timestamp}

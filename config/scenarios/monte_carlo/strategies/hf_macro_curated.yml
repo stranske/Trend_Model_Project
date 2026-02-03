@@ -1,0 +1,163 @@
+curated:
+  - name: Macro_Rank_6_Equal_TightTurnover
+    tags: [macro, hf, rank, concentrated, equal_weight, tight_turnover]
+    overrides:
+      portfolio:
+        selection_mode: rank
+        rank:
+          inclusion_approach: top_n
+          n: 6
+          score_by: sharpe_ratio
+          transform: raw
+        weighting_scheme: equal
+        max_turnover: 0.08
+        constraints:
+          max_weight: 0.25
+          max_active_positions: 6
+
+  - name: Macro_TopPct_25_RiskParity_ModerateTurnover
+    tags: [macro, hf, rank, top_pct, risk_parity, moderate_turnover]
+    overrides:
+      portfolio:
+        selection_mode: rank
+        rank:
+          inclusion_approach: top_pct
+          pct: 0.25
+          score_by: information_ratio
+          transform: raw
+        weighting_scheme: risk_parity
+        max_turnover: 0.15
+        constraints:
+          max_weight: 0.20
+          max_active_positions: 12
+
+  - name: Macro_Threshold_ZScore_HRP_ModerateTurnover
+    tags: [macro, hf, threshold, hrp, moderate_turnover]
+    overrides:
+      portfolio:
+        selection_mode: rank
+        rank:
+          inclusion_approach: threshold
+          threshold: 0.6
+          score_by: sharpe_ratio
+          transform: zscore
+        weighting_scheme: hrp
+        max_turnover: 0.18
+        constraints:
+          max_weight: 0.20
+          max_active_positions: 10
+
+  - name: Macro_Rank_10_ERC_LooseTurnover
+    tags: [macro, hf, rank, erc, diversified, loose_turnover]
+    overrides:
+      portfolio:
+        selection_mode: rank
+        rank:
+          inclusion_approach: top_n
+          n: 10
+          score_by: annual_return
+          transform: raw
+        weighting_scheme: erc
+        max_turnover: 0.25
+        constraints:
+          max_weight: 0.15
+          max_active_positions: 10
+
+  - name: Macro_Rank_12_RobustMV_TightTurnover
+    tags: [macro, hf, rank, robust_mv, tight_turnover, long_short]
+    overrides:
+      portfolio:
+        selection_mode: rank
+        rank:
+          inclusion_approach: top_n
+          n: 12
+          score_by: information_ratio
+          transform: raw
+        weighting_scheme: robust_mv
+        max_turnover: 0.10
+        leverage_cap: 1.4
+        constraints:
+          long_only: false
+          max_weight: 0.15
+          max_active_positions: 12
+
+  - name: Macro_Rank_8_RobustRiskParity_ModerateTurnover
+    tags: [macro, hf, rank, robust_risk_parity, moderate_turnover]
+    overrides:
+      portfolio:
+        selection_mode: rank
+        rank:
+          inclusion_approach: top_n
+          n: 8
+          score_by: sharpe_ratio
+          transform: raw
+        weighting_scheme: robust_risk_parity
+        max_turnover: 0.16
+        constraints:
+          max_weight: 0.18
+          max_active_positions: 8
+
+  - name: Macro_Threshold_BayesScoreProp_ModerateTurnover
+    tags: [macro, hf, threshold, score_prop_bayes, moderate_turnover]
+    overrides:
+      portfolio:
+        selection_mode: rank
+        rank:
+          inclusion_approach: threshold
+          threshold: 0.4
+          score_by: sharpe_ratio
+          transform: raw
+        weighting_scheme: custom
+        weighting:
+          name: score_prop_bayes
+          params:
+            shrink_tau: 0.30
+            column: Sharpe
+        max_turnover: 0.18
+        constraints:
+          max_active_positions: 10
+
+  - name: Macro_Random_8_Equal_LooseTurnover
+    tags: [macro, hf, random, stress_test, equal_weight, loose_turnover]
+    overrides:
+      portfolio:
+        selection_mode: random
+        random_n: 8
+        weighting_scheme: equal
+        max_turnover: 0.28
+        constraints:
+          max_weight: 0.20
+          max_active_positions: 8
+      vol_adjust:
+        enabled: false
+
+  - name: Macro_Manual_6_Equal_TightTurnover
+    tags: [macro, hf, manual, concentrated, equal_weight, tight_turnover]
+    overrides:
+      portfolio:
+        selection_mode: manual
+        manual_list:
+          - HF_Macro_Core_1
+          - HF_Macro_Core_2
+          - HF_Macro_Core_3
+          - HF_Macro_Core_4
+          - HF_Macro_Core_5
+          - HF_Macro_Core_6
+        weighting_scheme: equal
+        max_turnover: 0.10
+        constraints:
+          max_weight: 0.25
+          max_active_positions: 6
+
+  - name: Macro_All_Equal_LowTurnover_LowVol
+    tags: [macro, hf, all, equal_weight, low_turnover, low_vol]
+    overrides:
+      portfolio:
+        selection_mode: all
+        weighting_scheme: equal
+        max_turnover: 0.05
+        constraints:
+          max_weight: 0.12
+      vol_adjust:
+        enabled: true
+        target_vol: 0.07
