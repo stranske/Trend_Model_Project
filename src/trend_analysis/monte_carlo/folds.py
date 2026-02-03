@@ -182,9 +182,7 @@ class FoldGenerator:
         spaced = pd.date_range(start=start, end=end, periods=self.n_folds)
         return _dedupe_sorted(list(spaced))
 
-    def _build_fold(
-        self, fold_id: int, raw_start: pd.Timestamp, index: pd.DatetimeIndex
-    ) -> Fold:
+    def _build_fold(self, fold_id: int, raw_start: pd.Timestamp, index: pd.DatetimeIndex) -> Fold:
         forecast_start = _align_to_index(raw_start, index)
         calibration_end = _previous_in_index(forecast_start, index)
         calibration_start = _resolve_calibration_start(
