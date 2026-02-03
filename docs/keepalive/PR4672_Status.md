@@ -3,6 +3,9 @@
 ## Scope
 Not provided.
 
+## Checklist Reconciliation
+Checklist reconciled on 2026-02-03.
+
 ## Tasks
 - [x] Add `trend mc` command group and subcommands in `src/trend_analysis/cli.py`.
 - [x] Define scope for: Add `trend mc list` subcommand in `src/trend_analysis/cli.py`. (verify: confirm completion in repo)
