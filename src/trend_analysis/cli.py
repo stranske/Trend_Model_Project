@@ -35,6 +35,7 @@ from .diagnostics import coerce_pipeline_result
 from .io.market_data import MarketDataValidationError
 from .io.ui_ingest import inspect_ui_date_issues, load_ui_dataset
 from .logging_setup import setup_logging
+from .monte_carlo.registry import ScenarioRegistryEntry, list_scenarios
 from .perf.rolling_cache import set_cache_enabled
 from .presets import apply_trend_preset, get_trend_preset, list_preset_slugs
 from .reporting.portfolio_series import select_primary_portfolio_series
@@ -900,7 +901,19 @@ def main(argv: list[str] | None = None) -> int:
 
     mc_p = sub.add_parser("mc", help="Monte Carlo scenario workflows")
     mc_sub = mc_p.add_subparsers(dest="mc_command", required=True)
-    mc_sub.add_parser("list", help="List registered Monte Carlo scenarios")
+    mc_list_p = mc_sub.add_parser("list", help="List registered Monte Carlo scenarios")
+    mc_list_p.add_argument(
+        "--tags",
+        action="append",
+        default=[],
+        help="Filter by scenario tags (comma-separated or repeatable)",
+    )
+    mc_list_p.add_argument(
+        "--format",
+        choices=("table", "json"),
+        default="table",
+        help="Output format",
+    )
     mc_sub.add_parser("validate", help="Validate Monte Carlo scenarios")
     mc_sub.add_parser("run", help="Run Monte Carlo scenarios")
 
@@ -1087,14 +1100,78 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _handle_mc_command(args: argparse.Namespace) -> int:
-    """Dispatch Monte Carlo CLI commands.
+def _parse_mc_tags(raw_tags: Sequence[str] | None) -> list[str]:
+    if not raw_tags:
+        return []
+    tags: list[str] = []
+    for raw in raw_tags:
+        for tag in str(raw).split(","):
+            cleaned = tag.strip()
+            if cleaned:
+                tags.append(cleaned)
+    return tags
 
-    Placeholder until full scenario commands are implemented.
-    """
+
+def _format_mc_tag_label(tags: Sequence[str]) -> str:
+    if not tags:
+        return "-"
+    return ", ".join(sorted(dict.fromkeys(tag.strip() for tag in tags if tag.strip())))
+
+
+def _render_mc_table(entries: Sequence[ScenarioRegistryEntry]) -> str:
+    if not entries:
+        return "No Monte Carlo scenarios found."
+
+    rows = [
+        {
+            "Name": entry.name,
+            "Tags": _format_mc_tag_label(entry.tags),
+            "Description": entry.description or "",
+            "Path": str(entry.path),
+        }
+        for entry in entries
+    ]
+    columns = ["Name", "Tags", "Description", "Path"]
+    widths = {col: len(col) for col in columns}
+    for row in rows:
+        for col in columns:
+            widths[col] = max(widths[col], len(str(row.get(col, ""))))
+
+    header = "  ".join(col.ljust(widths[col]) for col in columns)
+    divider = "  ".join("-" * widths[col] for col in columns)
+    lines = [header, divider]
+    for row in rows:
+        lines.append("  ".join(str(row.get(col, "")).ljust(widths[col]) for col in columns))
+    return "\n".join(lines)
+
+
+def _handle_mc_command(args: argparse.Namespace) -> int:
+    """Dispatch Monte Carlo CLI commands."""
 
     subcommand = getattr(args, "mc_command", None)
-    if subcommand in {"list", "validate", "run"}:
+    if subcommand == "list":
+        tags = _parse_mc_tags(getattr(args, "tags", None))
+        try:
+            scenarios = list_scenarios(tags=tags)
+        except Exception as exc:
+            print(f"Failed to list Monte Carlo scenarios: {exc}", file=sys.stderr)
+            return 2
+        output_format = getattr(args, "format", "table")
+        if output_format == "json":
+            payload = [
+                {
+                    "name": entry.name,
+                    "description": entry.description,
+                    "tags": list(entry.tags),
+                    "path": str(entry.path),
+                }
+                for entry in scenarios
+            ]
+            print(json.dumps(payload, indent=2))
+        else:
+            print(_render_mc_table(scenarios))
+        return 0
+    if subcommand in {"validate", "run"}:
         print(
             "Monte Carlo CLI commands are not yet implemented in trend-model.",
             file=sys.stderr,
