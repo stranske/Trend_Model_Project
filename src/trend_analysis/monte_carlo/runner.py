@@ -39,6 +39,7 @@ from trend_analysis.risk import periods_per_year_from_code
 from trend_analysis.stages.selection import single_period_run
 
 from .cache import PathContextCache
+from .folds import Fold, FoldGenerator
 from .results import (
     MonteCarloPathError,
     MonteCarloResults,
@@ -87,6 +88,7 @@ class _PathContext:
     score_frame: pd.DataFrame
     path_hash: str
     seed: int | None
+    fold_id: int | None = None
 
 
 def evaluate_strategies_for_path(
@@ -152,23 +154,35 @@ class MonteCarloRunner:
 
         settings = self._settings()
         strategies = self._resolve_strategies()
-        model = self._build_price_model()
+        history = self._resolve_price_history()
+        folds = self._resolve_folds(history)
         n_periods = self._compute_n_periods()
         path_seeds, strategy_seeds = self._build_seeds()
         worker_count = self._resolve_jobs(jobs)
 
         mode = settings.mode
-        if mode == "two_layer":
-            evaluations, errors = self._run_two_layer(
-                model=model,
-                n_periods=n_periods,
-                strategies=strategies,
-                path_seeds=path_seeds,
-                progress_callback=progress_callback,
-                jobs=worker_count,
-            )
-        elif mode == "mixture":
-            evaluations, errors = self._run_mixture(
+        evaluations: list[StrategyEvaluation] = []
+        errors: list[MonteCarloPathError] = []
+        if folds:
+            for fold in folds:
+                model = self._build_price_model(self._slice_history(history, fold))
+                fold_evals, fold_errors = self._run_mode(
+                    mode=mode,
+                    model=model,
+                    n_periods=n_periods,
+                    strategies=strategies,
+                    path_seeds=path_seeds,
+                    strategy_seeds=strategy_seeds,
+                    progress_callback=progress_callback,
+                    jobs=worker_count,
+                    fold_id=fold.fold_id,
+                )
+                evaluations.extend(fold_evals)
+                errors.extend(fold_errors)
+        else:
+            model = self._build_price_model(history)
+            evaluations, errors = self._run_mode(
+                mode=mode,
                 model=model,
                 n_periods=n_periods,
                 strategies=strategies,
@@ -176,9 +190,8 @@ class MonteCarloRunner:
                 strategy_seeds=strategy_seeds,
                 progress_callback=progress_callback,
                 jobs=worker_count,
+                fold_id=None,
             )
-        else:
-            raise ValueError(f"Unsupported Monte Carlo mode '{mode}'")
 
         results_frame = build_results_frame(evaluations)
         summary_frame = build_summary_frame(results_frame)
@@ -189,6 +202,9 @@ class MonteCarloRunner:
             "n_strategies": len(strategies),
             "seed": settings.seed,
         }
+        if folds:
+            metadata["n_folds"] = len(folds)
+            metadata["folds"] = [fold.as_dict() for fold in folds]
         results = MonteCarloResults(
             mode=mode,
             evaluations=evaluations,
@@ -200,6 +216,42 @@ class MonteCarloRunner:
         self._maybe_export(results)
         return results
 
+    def _run_mode(
+        self,
+        *,
+        mode: str,
+        model: Any,
+        n_periods: int,
+        strategies: Sequence[StrategyVariant],
+        path_seeds: Sequence[int | None],
+        strategy_seeds: Sequence[int | None],
+        progress_callback: Callable[[Mapping[str, Any]], None] | None,
+        jobs: int,
+        fold_id: int | None,
+    ) -> tuple[list[StrategyEvaluation], list[MonteCarloPathError]]:
+        if mode == "two_layer":
+            return self._run_two_layer(
+                model=model,
+                n_periods=n_periods,
+                strategies=strategies,
+                path_seeds=path_seeds,
+                progress_callback=progress_callback,
+                jobs=jobs,
+                fold_id=fold_id,
+            )
+        if mode == "mixture":
+            return self._run_mixture(
+                model=model,
+                n_periods=n_periods,
+                strategies=strategies,
+                path_seeds=path_seeds,
+                strategy_seeds=strategy_seeds,
+                progress_callback=progress_callback,
+                jobs=jobs,
+                fold_id=fold_id,
+            )
+        raise ValueError(f"Unsupported Monte Carlo mode '{mode}'")
+
     def _run_two_layer(
         self,
         *,
@@ -209,6 +261,7 @@ class MonteCarloRunner:
         path_seeds: Sequence[int | None],
         progress_callback: Callable[[Mapping[str, Any]], None] | None,
         jobs: int,
+        fold_id: int | None = None,
     ) -> tuple[list[StrategyEvaluation], list[MonteCarloPathError]]:
         total = len(path_seeds)
         evaluations: list[StrategyEvaluation] = []
@@ -236,7 +289,7 @@ class MonteCarloRunner:
             except Exception as exc:
                 for path_id in range(total):
                     self._log_path_error(path_id, None, exc)
-                    errors.append(self._error_record(path_id, None, exc))
+                    errors.append(self._error_record(path_id, None, exc, fold_id=fold_id))
                 return evaluations, errors
 
         def _evaluate_path(
@@ -250,10 +303,11 @@ class MonteCarloRunner:
                     n_periods=n_periods,
                     path_result=path_result,
                     path_index=path_id,
+                    fold_id=fold_id,
                 )
             except Exception as exc:
                 self._log_path_error(path_id, None, exc)
-                return [], [self._error_record(path_id, None, exc)]
+                return [], [self._error_record(path_id, None, exc, fold_id=fold_id)]
 
             path_evals: list[StrategyEvaluation] = []
             path_errors: list[MonteCarloPathError] = []
@@ -263,7 +317,9 @@ class MonteCarloRunner:
                     path_evals.append(evaluation)
                 except Exception as exc:
                     self._log_path_error(path_id, strategy.name, exc)
-                    path_errors.append(self._error_record(path_id, strategy.name, exc))
+                    path_errors.append(
+                        self._error_record(path_id, strategy.name, exc, fold_id=fold_id)
+                    )
             return path_evals, path_errors
 
         completed = 0
@@ -285,6 +341,7 @@ class MonteCarloRunner:
         strategy_seeds: Sequence[int | None],
         progress_callback: Callable[[Mapping[str, Any]], None] | None,
         jobs: int,
+        fold_id: int | None = None,
     ) -> tuple[list[StrategyEvaluation], list[MonteCarloPathError]]:
         if len(strategy_seeds) != len(path_seeds):
             raise ValueError("strategy_seeds must align with path_seeds")
@@ -303,7 +360,7 @@ class MonteCarloRunner:
         except Exception as exc:
             for path_id in range(total):
                 self._log_path_error(path_id, None, exc)
-                errors.append(self._error_record(path_id, None, exc))
+                errors.append(self._error_record(path_id, None, exc, fold_id=fold_id))
             return evaluations, errors
 
         def _evaluate_path(
@@ -318,17 +375,18 @@ class MonteCarloRunner:
                     n_periods=n_periods,
                     path_result=path_result,
                     path_index=path_id,
+                    fold_id=fold_id,
                 )
             except Exception as exc:
                 self._log_path_error(path_id, None, exc)
-                return [], [self._error_record(path_id, None, exc)]
+                return [], [self._error_record(path_id, None, exc, fold_id=fold_id)]
 
             try:
                 evaluation = self._evaluate_strategy(strategy, context)
                 return [evaluation], []
             except Exception as exc:
                 self._log_path_error(path_id, strategy.name, exc)
-                return [], [self._error_record(path_id, strategy.name, exc)]
+                return [], [self._error_record(path_id, strategy.name, exc, fold_id=fold_id)]
 
         completed = 0
         for path_id, path_eval, path_err in self._execute_paths(path_seeds, _evaluate_path, jobs):
@@ -348,6 +406,7 @@ class MonteCarloRunner:
         n_periods: int,
         path_result: Any | None = None,
         path_index: int = 0,
+        fold_id: int | None,
     ) -> _PathContext:
         if path_result is None:
             result = model.sample_prices(
@@ -366,6 +425,7 @@ class MonteCarloRunner:
         score_frame = self._compute_score_frame(returns_df)
         path_hash = self._hash_frame(prices)
         return _PathContext(
+            fold_id=fold_id,
             path_id=path_id,
             prices=prices,
             returns=returns_df,
@@ -406,6 +466,7 @@ class MonteCarloRunner:
                 diagnostic = {}
             diagnostic["costs"] = self._cost_payload_dict(cost_payload)
         return StrategyEvaluation(
+            fold_id=context.fold_id,
             path_id=context.path_id,
             strategy_name=strategy.name,
             metrics=metrics,
@@ -511,7 +572,7 @@ class MonteCarloRunner:
             existing_names=existing_names,
         )
 
-    def _build_price_model(self) -> Any:
+    def _build_price_model(self, history: pd.DataFrame | None = None) -> Any:
         model_spec_raw = self.scenario.return_model
         model_spec: Mapping[str, Any] = (
             model_spec_raw if isinstance(model_spec_raw, Mapping) else {}
@@ -542,8 +603,23 @@ class MonteCarloRunner:
         else:
             raise ValueError(f"Unsupported return model '{kind}'")
 
-        history = self._resolve_price_history()
-        return model.fit(history, frequency=frequency)
+        resolved_history = history if history is not None else self._resolve_price_history()
+        return model.fit(resolved_history, frequency=frequency)
+
+    def _resolve_folds(self, history: pd.DataFrame) -> list[Fold]:
+        generator = FoldGenerator.from_config(self.scenario.folds)
+        if generator is None:
+            return []
+        return generator.generate(history.index)
+
+    def _slice_history(self, history: pd.DataFrame, fold: Fold) -> pd.DataFrame:
+        sliced = history.loc[fold.calibration_start : fold.calibration_end]
+        if sliced.empty:
+            raise ValueError(
+                "fold calibration window produced no history data "
+                f"({fold.calibration_start} to {fold.calibration_end})"
+            )
+        return sliced
 
     def _resolve_price_history(self) -> pd.DataFrame:
         if self._price_history is not None:
@@ -864,9 +940,15 @@ class MonteCarloRunner:
         self._logger.exception("Monte Carlo evaluation failed for %s: %s", label, exc)
 
     def _error_record(
-        self, path_id: int, strategy_name: str | None, exc: Exception
+        self,
+        path_id: int,
+        strategy_name: str | None,
+        exc: Exception,
+        *,
+        fold_id: int | None = None,
     ) -> MonteCarloPathError:
         return MonteCarloPathError(
+            fold_id=fold_id,
             path_id=path_id,
             strategy_name=strategy_name,
             error_type=type(exc).__name__,

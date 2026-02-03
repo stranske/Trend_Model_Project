@@ -22,6 +22,7 @@ __all__ = [
 class StrategyEvaluation:
     """Single strategy evaluation for one Monte Carlo path."""
 
+    fold_id: int | None
     path_id: int
     strategy_name: str
     metrics: Mapping[str, float]
@@ -35,6 +36,7 @@ class StrategyEvaluation:
 class MonteCarloPathError:
     """Error record for a failed path evaluation."""
 
+    fold_id: int | None
     path_id: int
     strategy_name: str | None
     error_type: str
@@ -59,6 +61,7 @@ def build_results_frame(evaluations: Iterable[StrategyEvaluation]) -> pd.DataFra
     rows: list[dict[str, Any]] = []
     for evaluation in evaluations:
         row: dict[str, Any] = {
+            "fold_id": int(evaluation.fold_id) if evaluation.fold_id is not None else None,
             "path_id": int(evaluation.path_id),
             "strategy": evaluation.strategy_name,
             "path_hash": evaluation.path_hash,
@@ -76,11 +79,16 @@ def build_summary_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     if results_frame.empty:
         return pd.DataFrame()
     numeric_cols = results_frame.select_dtypes(include="number").columns.tolist()
+    if "fold_id" in numeric_cols:
+        numeric_cols.remove("fold_id")
     if "path_id" in numeric_cols:
         numeric_cols.remove("path_id")
     if "seed" in numeric_cols:
         numeric_cols.remove("seed")
-    grouped = results_frame.groupby("strategy", dropna=False)
+    if "fold_id" in results_frame.columns:
+        grouped = results_frame.groupby(["fold_id", "strategy"], dropna=False)
+    else:
+        grouped = results_frame.groupby("strategy", dropna=False)
     summary = grouped[numeric_cols].mean(numeric_only=True)
     summary["paths"] = grouped.size()
     return summary.reset_index()
