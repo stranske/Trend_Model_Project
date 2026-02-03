@@ -441,6 +441,12 @@ def _resolve_llm_temperature() -> float:
         return 0.0
 
 
+def _hash_api_key(api_key: str | None) -> str | None:
+    if not api_key:
+        return None
+    return hashlib.sha256(api_key.encode("utf-8")).hexdigest()
+
+
 @st.cache_resource(show_spinner=False)
 def _cached_nl_chain(
     provider: str,
@@ -448,6 +454,7 @@ def _cached_nl_chain(
     base_url: str | None,
     organization: str | None,
     temperature: float,
+    _api_key_fingerprint: str | None,
 ) -> ConfigPatchChain:
     base_config = _resolve_llm_provider_config()
     config = LLMProviderConfig(
@@ -474,6 +481,7 @@ def _cached_nl_chain(
 def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     config = _resolve_llm_provider_config()
     temperature = _resolve_llm_temperature()
+    api_key_fingerprint = _hash_api_key(config.api_key)
     cache_key = (
         config.provider,
         config.model,
@@ -487,6 +495,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         config.base_url,
         config.organization,
         temperature,
+        api_key_fingerprint,
     )
     chain_id = id(chain)
     reused = st.session_state.get("config_chat_chain_id") == chain_id
