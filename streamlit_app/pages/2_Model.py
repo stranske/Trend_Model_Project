@@ -567,6 +567,13 @@ def _normalize_cache_str(value: str | None) -> str | None:
     return stripped or None
 
 
+def _normalize_temperature(value: float) -> float:
+    try:
+        return round(float(value), 4)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 @st.cache_resource(show_spinner=False)
 def _cached_nl_chain(
     _session_cache_key: str,
@@ -604,16 +611,17 @@ def _cached_nl_chain(
 
 def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     config = _resolve_llm_provider_config()
-    temperature = _resolve_llm_temperature()
+    provider = _normalize_cache_str(config.provider) or "openai"
+    temperature = _normalize_temperature(_resolve_llm_temperature())
     base_url = _normalize_cache_str(config.base_url)
     organization = _normalize_cache_str(config.organization)
     api_key_fingerprint = _hash_api_key(config.api_key)
     extra_payload = _serialize_extra(config.extra)
     extra_payload_hash = _hash_text(extra_payload)
-    resolved_model = config.model or _DEFAULT_CONFIG_CHAT_MODEL
+    resolved_model = _normalize_cache_str(config.model) or _DEFAULT_CONFIG_CHAT_MODEL
     session_cache_key = _get_config_chat_session_id()
     cache_key = _build_chain_cache_key(
-        provider=config.provider,
+        provider=provider,
         model=resolved_model,
         base_url=base_url,
         organization=organization,
@@ -626,7 +634,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     chain = _cached_nl_chain(
         session_cache_key,
         _CONFIG_CHAIN_CACHE_VERSION,
-        config.provider,
+        provider,
         resolved_model,
         base_url,
         organization,
