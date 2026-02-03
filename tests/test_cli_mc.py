@@ -165,7 +165,7 @@ def test_mc_run_shows_progress(
 
     monkeypatch.setitem(sys.modules, "tqdm", ModuleType("tqdm"))
 
-    def _fake_run(self, progress_callback=None):  # type: ignore[no-untyped-def]
+    def _fake_run(self, progress_callback=None, jobs=None):  # type: ignore[no-untyped-def]
         if progress_callback is not None:
             progress_callback({"completed": 1, "total": 1})
         results_frame = pd.DataFrame({"path_id": [1], "strategy": ["eq"]})

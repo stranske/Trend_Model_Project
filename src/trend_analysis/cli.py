@@ -1610,7 +1610,10 @@ def _handle_mc_command(args: argparse.Namespace) -> int:
                 base_config=None,
                 price_history=price_history,
             )
-            results = runner.run(progress_callback=progress_cb)
+            results = runner.run(
+                progress_callback=progress_cb,
+                jobs=getattr(args, "jobs", None),
+            )
         except Exception as exc:
             print(f"Scenario run failed: {exc}", file=sys.stderr)
             return 2
