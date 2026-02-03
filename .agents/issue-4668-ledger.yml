@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Create validation logic to ensure each strategy in the `hf_equity_curated.yml`
       file adheres to the schema without modifying global defaults.
-    status: doing
+    status: done
     started_at: '2026-02-03T01:36:15Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-03T01:36:23Z'
+    commit: 0d70f938fa530f01f22b29426fe3064a3e63b63e
     notes: []
   - id: task-02
     title: 'Define scope for: Create validation logic to ensure each strategy in the
