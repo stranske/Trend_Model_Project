@@ -41,7 +41,14 @@ def read_secret(key: str) -> str | None:
         if getter is None:
             return None
         return getter(key)
-    except (KeyError, FileNotFoundError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
+    except (
+        KeyError,
+        FileNotFoundError,
+        RuntimeError,
+        ValueError,
+        TypeError,
+        AttributeError,
+    ) as exc:
         logger.debug("Unable to read Streamlit secret %s: %s", key, exc)
         return None
 
