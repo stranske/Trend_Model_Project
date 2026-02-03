@@ -1,201 +1,203 @@
-Issue 1: Explain Results metric catalog should include turnover + cost diagnostics
+1. [Streamlit NL] Cache LLM + ConfigPatchChain instances to reduce config-chat latency
+labels: [agent:codex, enhancement]
 ## Why
 
-The Explain Results Q&A flow treats metrics like "turnover" as a known request keyword, but the metric catalog currently does not include turnover/cost diagnostics. This causes unnecessary "requested data is unavailable" refusals for questions about turnover or transaction costs, even when the underlying analysis output contains those values.
+The Streamlit config chat constructs a new LLM client and chain during preview generation, which adds latency and variability across calls. Caching chain construction per session should improve UX.
 
 ## Scope
 
-Extend the metric catalog extraction used by Explain Results to include scalar turnover and transaction cost metrics from `risk_diagnostics` (and multi-period turnover series when present). Ensure these metrics are available for citation and "missing metric" detection.
+Cache creation of the LLM client and ConfigPatchChain used by `streamlit_app/pages/2_Model.py` while preserving env override behavior.
 
 ## Non-Goals
 
-Do not change how turnover or transaction costs are computed in the pipeline.
-Do not add new analytics or risk models.
-Do not loosen citation requirements for numeric claims.
+This does not change the ConfigPatch schema or patch semantics.
+This does not store API keys in session state.
 
 ## Tasks
 
-- [x] Add extraction of `risk_diagnostics` scalar fields in `src/trend_analysis/llm/result_metrics.py` (support dicts and objects with attributes).
-- [x] Include turnover fields (e.g., `turnover`, `turnover_value`) in the metric catalog with source `[from risk_diagnostics]`.
-- [x] Include transaction cost fields (e.g., `transaction_cost`, `cost`, `per_trade_bps`, `half_spread_bps`) in the metric catalog when present.
-- [x] When `details["turnover"]` is present as a `pd.Series` (multi-period), add scalar summaries under deterministic paths (e.g., `turnover.latest`, `turnover.mean`) with an explicit source label.
-- [x] Update metric synonyms / keyword mapping so "turnover" and "transaction cost" are treated as available when entries exist.
-- [x] Update `tests/test_result_metric_extraction.py` to validate new entries are extracted and formatted with correct `[from ...]` sources.
-- [x] Update `tests/test_result_validation.py` to ensure `detect_unavailable_metric_requests()` does not flag turnover when turnover entries exist.
+- [ ] Refactor `_build_nl_chain` in `streamlit_app/pages/2_Model.py` to use a cache mechanism appropriate for Streamlit (st.cache_resource or equivalent), keyed by provider/model/temperature.
+- [ ] Ensure cache invalidation occurs when relevant settings change (provider, model, base_url, org, temperature).
+- [ ] Add lightweight timing instrumentation for preview generation to verify chain reuse.
 
 ## Acceptance Criteria
 
-- [x] `extract_metric_catalog()` returns at least one turnover entry when turnover is present in `risk_diagnostics` or `details["turnover"]`.
-- [x] `extract_metric_catalog()` returns at least one transaction cost entry when cost fields exist in `risk_diagnostics`.
-- [x] `format_metric_catalog()` renders these entries with explicit `[from <source>]` annotations.
-- [x] `detect_unavailable_metric_requests("Report turnover", entries)` returns no missing turnover keyword when turnover entries exist.
-- [x] All unit tests pass.
+- [ ] Repeated Preview operations in the same session reuse the cached chain (measurable via instrumentation/logging).
+- [ ] Changing provider/model settings results in a new cached instance (no stale reuse).
+- [ ] Existing config chat behavior remains correct (preview/apply/run still works).
+
+## Implementation Notes
+
+Primary file:
+`streamlit_app/pages/2_Model.py`
+
+
+2. [Streamlit] Add Results Explain panel using ResultSummaryChain (traceable, disclaimer-safe)
+labels: [agent:codex, enhancement]
+## Why
+
+The repo already includes ResultSummaryChain for generating safe explanations of results. Exposing it in the Streamlit Results view adds real user-facing capability: interpret outputs and answer targeted questions without leaving the app.
+
+## Scope
+
+Add an Explain Results UI section that uses ResultSummaryChain to answer user questions about the current analysis output, shows trace URL when available, and enforces existing result disclaimer behavior.
+
+## Non-Goals
+
+This does not add new analytics metrics.
+This does not enable tool access beyond the existing analysis outputs.
+
+## Tasks
+
+- [ ] Add a Results-page UI component that accepts a question and calls ResultSummaryChain with the current analysis output and metric catalog.
+- [ ] Display returned explanation text and show LangSmith trace URL when available.
+- [ ] Ensure existing disclaimer behavior is preserved for all generated explanations.
+
+## Acceptance Criteria
+
+- [ ] The Results page can answer user questions using ResultSummaryChain for an existing analysis run.
+- [ ] The displayed output always includes the configured disclaimer behavior.
+- [ ] When tracing is enabled, the UI surfaces the trace URL for the operation.
+
+## Implementation Notes
+
+Likely touch points:
+`src/trend_analysis/llm/chain.py`
+`src/trend_analysis/llm/result_validation.py`
+Results page file under `streamlit_app/pages/`
+
+
+3. [UX/Debug] Add NL operation log viewer + replay hook for config chat operations
+labels: [agent:codex, enhancement]
+## Why
+
+The repo already writes structured NL logs and has replay tooling. Exposing these in the UI improves debuggability and makes NL behavior auditable (what prompt, what output, what patch).
+
+## Scope
+
+Add a lightweight Streamlit viewer for recent NLOperationLog entries and a replay action using existing replay utilities.
+
+## Non-Goals
+
+This does not expose secrets or raw environment variables.
+This does not require LangSmith to be enabled.
+
+## Tasks
+
+- [ ] Implement a Streamlit UI view (new page or expander) that lists recent NL operations (timestamp, operation, duration, model, trace_url).
+- [ ] Allow selecting an entry and displaying its prompt, raw output, parsed patch, and diff summary.
+- [ ] Add a safe replay action using replay_nl_entry, with clear labeling that outputs may differ across time/models.
+
+## Acceptance Criteria
+
+- [ ] The UI renders recent NL log entries without errors and without exposing secrets.
+- [ ] Selecting an entry shows stored prompt/output and parsed patch details.
+- [ ] Replay runs successfully when provider credentials are available and surfaces the replay diff.
 
 ## Implementation Notes
 
 Primary files:
-- `src/trend_analysis/llm/result_metrics.py`
-- `tests/test_result_metric_extraction.py`
-- `tests/test_result_validation.py`
+`src/trend_analysis/llm/nl_logging.py`
+`src/trend_analysis/llm/replay.py`
+Streamlit location: add a new page under `streamlit_app/pages/` or a sidebar tool panel.
 
-Suggested labels: `agent:codex`, `status:ready`.
 
-Issue 2: Cap Explain Results prompt size with a deterministic compact metric catalog
+4. [LLM] Add provider/model selection UI for Streamlit (OpenAI/Anthropic/Ollama), session-scoped overrides
+labels: [agent:codex, enhancement]
 ## Why
 
-The current Explain Results prompt can become extremely large because it includes per-fund metrics across multiple sections (and weights) without any cap. With larger universes, this risks token-limit failures, slow responses, and reduced answer quality.
+The LLM stack supports multiple providers, but the Streamlit UI relies on environment variables only. A session-scoped UI selector increases usability and makes upcoming Anthropic adoption smoother.
 
 ## Scope
 
-Introduce a deterministic, configurable compaction step for the metric catalog used by Explain Results (Streamlit + CLI). Keep the output useful by prioritizing portfolio-level stats and top holdings, while keeping catalog size bounded.
+Add a Streamlit sidebar panel to choose provider/model (without storing keys), show which env vars are expected, and support session-scoped overrides.
 
 ## Non-Goals
 
-Do not change the underlying analysis results payload.
-Do not remove the ability to cite metrics.
-Do not introduce non-deterministic sampling in catalog selection.
+This does not add secret entry fields into the UI.
+This does not persist choices beyond the Streamlit session unless explicitly saved by the user.
 
 ## Tasks
 
-- [x] Add `compact_metric_catalog(...)` helper in `src/trend_analysis/llm/result_metrics.py` that selects a bounded subset of `MetricEntry` objects.
-- [x] Implement deterministic selection rules:
-- [x] Always include `_SINGLE_STATS_SECTIONS` entries (e.g., `out_user_stats`, `out_ew_stats`, etc.).
-- [x] Always include benchmark IR entries (if present).
-- [x] Include top-N weights from `fund_weights` (and `ew_weights` if `fund_weights` absent), sorted by absolute weight.
-- [x] Include per-fund stats only for funds in the selected top-N weights set (and optionally funds explicitly mentioned in the user questions).
-- [x] Add configuration knobs (env vars) for caps, e.g. `TREND_EXPLAIN_MAX_FUNDS`, `TREND_EXPLAIN_MAX_WEIGHTS`, `TREND_EXPLAIN_MAX_ENTRIES`.
-- [x] Update `streamlit_app/components/explain_results.py` to use the compacted catalog before calling `format_metric_catalog(...)`.
-- [x] Update `src/trend/cli.py` Explain Results flow to use the same compaction logic (shared helper).
-- [x] Add tests that create a synthetic result with many funds and assert the formatted catalog line count stays within bounds and includes top-weight funds.
+- [ ] Add a sidebar selector for provider and model with clear session-only override semantics.
+- [ ] Update provider resolution logic to prefer session overrides over env defaults.
+- [ ] Add a provider status display showing which provider is active and whether required env vars are present.
 
 ## Acceptance Criteria
 
-- [x] Explain Results metric catalog size is bounded by `TREND_EXPLAIN_MAX_ENTRIES` (or default cap) for large universes.
-- [x] The compact catalog still contains portfolio-level stats and top holdings weights.
-- [x] Citations remain valid and discrepancy logging still works.
-- [x] All unit tests pass.
+- [ ] Users can switch provider/model within a session and config chat uses the selected provider.
+- [ ] The UI never stores or displays API keys.
+- [ ] When provider env vars are missing, the UI shows a clear non-blocking warning.
 
 ## Implementation Notes
 
 Primary files:
-- `src/trend_analysis/llm/result_metrics.py`
-- `streamlit_app/components/explain_results.py`
-- `src/trend/cli.py`
-- Add or extend tests under `tests/` (new test file acceptable).
+`streamlit_app/pages/2_Model.py`
+`src/trend_analysis/llm/providers.py`
 
-Suggested labels: `agent:codex`, `status:ready`.
 
-Issue 3: Reduce discrepancy-log noise by ignoring date-like numbers in result validation
+5. [LLM] Optional structured-output mode for ConfigPatchChain (reduce parse retries and ambiguity)
+labels: [agent:codex, enhancement]
 ## Why
 
-The discrepancy logger currently flags all uncited numbers, including dates/years (e.g., "2023-01 to 2024-12"). This creates excessive false positives in the discrepancy log, making the log harder to trust and less actionable.
+ConfigPatchChain parses free-form model output into a ConfigPatch with retries. Adding an optional structured-output path (where supported) should reduce retries and improve determinism.
 
 ## Scope
 
-Update result validation so date-like numbers (years and YYYY-MM / YYYY-MM-DD components) are not treated as uncited metric claims. Preserve strict validation for actual numeric performance claims.
+Implement an optional structured-output mode in ConfigPatchChain invocation that requests strictly valid JSON for ConfigPatch and uses a single repair retry on validation failure.
 
 ## Non-Goals
 
-Do not weaken validation for real metric claims (returns, Sharpe, drawdown, etc.).
-Do not remove the requirement that at least one cited metric value is present.
+This does not change the patch schema.
+This does not require all providers to support structured output (fallback remains supported).
 
 ## Tasks
 
-- [x] Add a helper in `src/trend_analysis/llm/result_validation.py` to detect date-like numeric spans (e.g., numbers that appear within YYYY-MM or YYYY-MM-DD patterns).
-- [x] Update `validate_result_claims()` so date-like numbers do not generate `uncited_value` issues.
-- [x] Add unit tests in `tests/test_result_validation.py` to confirm that a date range (e.g., "2023-01 to 2024-12") does not produce `uncited_value` issues.
-- [x] Add unit tests to confirm that non-date uncited metric values (e.g., "CAGR was 8%.") are still flagged when missing citations.
+- [ ] Add a structured-output execution path in ConfigPatchChain._invoke_llm that prefers strict JSON output when supported by the provider/client.
+- [ ] Implement a single repair retry that includes validation error details when structured parsing fails.
+- [ ] Add tests covering: valid structured output, malformed JSON output that repairs successfully, and fallback behavior when structured output is unavailable.
 
 ## Acceptance Criteria
 
-- [x] Date-like numbers inside common date formats do not produce `uncited_value` issues.
-- [x] Actual metric numbers still produce `uncited_value` issues when uncited.
-- [x] Existing hallucination detection behavior remains intact.
-- [x] All unit tests pass.
+- [ ] Structured-output mode produces valid ConfigPatch objects with fewer retries (test-covered via deterministic fixtures).
+- [ ] On malformed outputs, exactly one repair retry is performed.
+- [ ] Fallback parsing behavior still works for providers that cannot do structured output.
 
 ## Implementation Notes
 
-Primary files:
-- `src/trend_analysis/llm/result_validation.py`
-- `tests/test_result_validation.py`
+Primary file:
+`src/trend_analysis/llm/chain.py`
 
-Suggested labels: `agent:codex`, `status:ready`.
 
-Issue 4: Wire Explain Results into Streamlit Results page
+6. [New capability] What-if batch runner - generate and compare multiple config variants from one instruction
+labels: [agent:codex, enhancement]
 ## Why
 
-The Explain Results component exists (`streamlit_app/components/explain_results.py`) and is imported by the Results page, but it is not actually rendered from `streamlit_app/pages/3_Results.py`. Users therefore cannot access Explain Results from the UI.
+Config chat is great for single edits, but real decision-making often involves comparing a few plausible variants (conservative/baseline/aggressive). Automating variant generation and comparison extends the app’s practical capacity.
 
 ## Scope
 
-Render the Explain Results component on the Streamlit Results page for completed runs, using a stable `run_key` for caching.
+Add a What-if (3 variants) feature that takes one instruction, generates up to 3 config variants (via patches), runs analysis for each, and shows a comparison table with an optional export.
 
 ## Non-Goals
 
-Do not redesign the Results page layout.
-Do not change the Explain Results chain behavior beyond UI integration.
+This does not run large hyperparameter searches.
+This does not change the underlying analytics engine.
 
 ## Tasks
 
-- [ ] Identify the section in `streamlit_app/pages/3_Results.py` where a completed analysis result is rendered.
-- [ ] Compute a stable `run_key` for the current run (reuse existing helpers such as `_current_run_key(...)` where appropriate).
-- [ ] Call `streamlit_app.components.explain_results.render_explain_results(result, run_key=run_key)` for completed runs.
-- [ ] Ensure the UI path gracefully handles missing `details` payloads (component already supports this).
-- [ ] Add a lightweight test that asserts the Results page contains a call site for `render_explain_results` (e.g., file-content assertion) to prevent regressions.
+- [ ] Implement a helper that generates N=3 config patches from one instruction with explicit variant labels.
+- [ ] Apply patches to a base config and run analysis for each variant with clear progress UI.
+- [ ] Display a comparison table of key metrics and provide a download option for the comparison output.
 
 ## Acceptance Criteria
 
-- [ ] The Streamlit Results page displays an "Explain Results" section for completed runs.
-- [ ] Clicking the Explain Results button generates output or a clear error message when LLM configuration is missing.
-- [ ] Cached results are reused for the same `run_key`.
-- [ ] All unit tests pass.
+- [ ] The UI generates three labeled variants and successfully runs analysis for each.
+- [ ] The comparison view shows consistent, clearly labeled metrics per variant.
+- [ ] The feature enforces sane limits (N fixed/capped; clear errors for missing data).
 
 ## Implementation Notes
 
-Primary files:
-- `streamlit_app/pages/3_Results.py`
-- `streamlit_app/components/explain_results.py`
-
-Suggested labels: `agent:codex`, `status:ready`.
-
-Issue 5: Export Explain Results output as reproducibility artifacts (CLI + Streamlit download)
-## Why
-
-Explain Results outputs are currently ephemeral (printed/rendered only). Persisting explanation artifacts enables reproducibility, sharing, and auditability (especially since the system emphasizes grounding, discrepancy logs, and disclaimers).
-
-## Scope
-
-Add artifact writing support for Explain Results in the CLI and add download buttons in Streamlit once an explanation is generated. Artifacts should include both the final text and a structured JSON payload (claim issues, trace URL, metric count).
-
-## Non-Goals
-
-Do not change existing analysis artifact naming for metrics/details.
-Do not require LLM availability in CI.
-
-## Tasks
-
-- [ ] Add `--output` (directory or file prefix) option to the `trend explain` subcommand in `src/trend/cli.py`.
-- [ ] Implement writing:
-- [ ] `explanation_<run-id>.txt` containing the final rendered text (including discrepancy log + disclaimer).
-- [ ] `explanation_<run-id>.json` containing `{ run_id, created_at, text, metric_count, trace_url, claim_issues }`.
-- [ ] Add a helper to serialize `ResultClaimIssue` objects into JSON-friendly dicts.
-- [ ] Update `streamlit_app/components/explain_results.py` to show download buttons for:
-- [ ] Explanation text (TXT)
-- [ ] Structured JSON (claim issues, trace URL, metric count)
-- [ ] Add unit tests for the serializer helper and artifact path generation (no live LLM required).
-
-## Acceptance Criteria
-
-- [ ] `trend explain --details <path> --output <dir>` writes both TXT and JSON explanation artifacts.
-- [ ] Streamlit Explain Results section provides download buttons after an explanation is generated.
-- [ ] JSON artifact includes claim issues and trace URL when available.
-- [ ] All unit tests pass.
-
-## Implementation Notes
-
-Primary files:
-- `src/trend/cli.py`
-- `streamlit_app/components/explain_results.py`
-- Add a new test module under `tests/` for artifact serialization if needed.
-
-Suggested labels: `agent:codex`, `status:ready`.
+Likely touch points:
+`streamlit_app/pages/2_Model.py`
+`streamlit_app/components/analysis_runner.py`
+`src/trend_analysis/llm/chain.py`
