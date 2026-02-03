@@ -64,6 +64,7 @@ _CONFIG_CHAT_SESSION_KEY = "config_chat_session_id"
 _DEFAULT_CONFIG_CHAT_MODEL = "gpt-4o-mini"
 _CONFIG_CHAIN_CACHE_VERSION = "v1"
 _CONFIG_CHAIN_METRICS_KEY = "config_chat_chain_metrics"
+_CONFIG_CHAIN_STATS_KEY = "config_chat_chain_stats"
 _CONFIG_CHAIN_LOG_FIELDS = ("provider", "model", "base_url", "organization", "temperature")
 
 
@@ -204,6 +205,27 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
     }
 
 
+def _record_chain_cache_stats(
+    chain_meta: Mapping[str, Any],
+    chain_build_seconds: float,
+) -> None:
+    stats = st.session_state.get(_CONFIG_CHAIN_STATS_KEY)
+    if not isinstance(stats, Mapping):
+        stats = {"hits": 0, "misses": 0}
+    stats = dict(stats)
+    reused = bool(chain_meta.get("chain_reused"))
+    if reused:
+        stats["hits"] = int(stats.get("hits", 0)) + 1
+    else:
+        stats["misses"] = int(stats.get("misses", 0)) + 1
+    stats["last_build_seconds"] = chain_build_seconds
+    stats["last_reused"] = reused
+    stats["last_miss_reason"] = chain_meta.get("chain_cache_miss_reason")
+    stats["last_signature"] = chain_meta.get("chain_cache_signature")
+    stats["timestamp"] = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    st.session_state[_CONFIG_CHAIN_STATS_KEY] = stats
+
+
 def _format_seconds(value: Any) -> str:
     if value is None:
         return "—"
@@ -267,6 +289,18 @@ def _render_last_preview_metrics() -> None:
         f"Build: {_format_seconds(metrics.get('chain_build_seconds'))} | "
         f"Run: {_format_seconds(metrics.get('run_seconds'))} | "
         f"Total: {_format_seconds(metrics.get('total_seconds'))}"
+    )
+    stats = st.session_state.get(_CONFIG_CHAIN_STATS_KEY)
+    if not isinstance(stats, Mapping):
+        return
+    hits = int(stats.get("hits", 0))
+    misses = int(stats.get("misses", 0))
+    total = hits + misses
+    hit_rate = f"{(hits / total) * 100:.0f}%" if total else "—"
+    st.caption(
+        "Cache stats — "
+        f"Hits: {hits} | Misses: {misses} | Hit rate: {hit_rate} | "
+        f"Last build: {_format_seconds(stats.get('last_build_seconds'))}"
     )
 
 
@@ -711,6 +745,7 @@ def _generate_config_preview(
     chain_start = monotonic()
     chain, chain_meta = _build_nl_chain()
     chain_build_seconds = monotonic() - chain_start
+    _record_chain_cache_stats(chain_meta, chain_build_seconds)
     run_start = monotonic()
     patch = chain.run(current_config=dict(model_state), instruction=instruction)
     run_seconds = monotonic() - run_start
