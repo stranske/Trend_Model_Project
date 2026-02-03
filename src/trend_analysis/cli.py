@@ -1245,7 +1245,14 @@ def _parse_mc_formats(raw_formats: Sequence[str] | None) -> list[str]:
     return formats
 
 
-def _validate_mc_formats(formats: Sequence[str] | str | None) -> list[str]:
+MC_OUTPUT_FORMATS = {"csv", "json", "parquet"}
+
+
+def _validate_mc_formats(
+    formats: Sequence[str] | str | None,
+    *,
+    label: str = "outputs.formats",
+) -> list[str]:
     if formats is None:
         return []
     if isinstance(formats, str):
@@ -1254,11 +1261,10 @@ def _validate_mc_formats(formats: Sequence[str] | str | None) -> list[str]:
         raw_list = _parse_mc_formats([str(item) for item in formats])
     if not raw_list:
         return []
-    allowed = {"csv", "json", "parquet"}
-    invalid = sorted({fmt for fmt in raw_list if fmt not in allowed})
+    invalid = sorted({fmt for fmt in raw_list if fmt not in MC_OUTPUT_FORMATS})
     if not invalid:
         return []
-    return [f"outputs.formats contains unsupported values: {', '.join(invalid)}"]
+    return [f"{label} contains unsupported values: {', '.join(invalid)}"]
 
 
 def _render_mc_output_dir(
@@ -1581,7 +1587,11 @@ def _handle_mc_command(args: argparse.Namespace) -> int:
             print(f"Scenario run failed: {exc}", file=sys.stderr)
             return 1
 
+        format_overrides = _parse_mc_formats(getattr(args, "formats", None))
         validation_errors = _validate_mc_scenario(scenario)
+        validation_errors.extend(
+            _validate_mc_formats(format_overrides, label="format overrides") if format_overrides else []
+        )
         if validation_errors:
             print(f"Scenario '{scenario.name}' failed validation:", file=sys.stderr)
             for error in validation_errors:
@@ -1631,7 +1641,6 @@ def _handle_mc_command(args: argparse.Namespace) -> int:
             override=getattr(args, "out", None),
             timestamp=timestamp,
         )
-        format_overrides = _parse_mc_formats(getattr(args, "formats", None))
         outputs = scenario.outputs if isinstance(scenario.outputs, Mapping) else {}
         output_formats = format_overrides or _parse_mc_formats(
             outputs.get("formats", outputs.get("format", [])) if outputs else []

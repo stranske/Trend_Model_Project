@@ -171,6 +171,19 @@ def test_mc_run_runtime_error_exit_code(
     assert "boom" in err
 
 
+def test_mc_run_rejects_invalid_format_overrides(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    scenario_path = tmp_path / "scenario.yml"
+    _write_scenario(scenario_path)
+
+    rc = cli.main(["mc", "run", "--scenario", str(scenario_path), "--formats", "xml"])
+
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "format overrides contains unsupported values: xml" in err
+
+
 def test_mc_run_shows_progress(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
