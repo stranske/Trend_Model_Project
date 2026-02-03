@@ -7,6 +7,7 @@ import hashlib
 import html
 import json
 import os
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import date, datetime
@@ -76,6 +77,7 @@ _CONFIG_CHAIN_LOG_FIELDS = (
     "extra_payload_hash",
     "api_key_fingerprint",
 )
+_LOGGER = logging.getLogger(__name__)
 _CONFIG_CHAIN_INVALIDATION_FIELDS = (
     "provider",
     "model",
@@ -232,6 +234,19 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
         "run_seconds": timings.get("run_seconds"),
         "total_seconds": total_seconds,
     }
+    _LOGGER.info(
+        "Config chat preview: provider=%s model=%s temp=%s reused=%s build_s=%s run_s=%s total_s=%s "
+        "cache_miss=%s invalidated_by=%s",
+        provider,
+        model,
+        temperature,
+        entry.get("chain_reused"),
+        entry.get("chain_build_seconds"),
+        entry.get("run_seconds"),
+        total_seconds,
+        entry.get("cache_miss_reason"),
+        invalidation_fields,
+    )
 
 
 def _record_chain_cache_stats(
