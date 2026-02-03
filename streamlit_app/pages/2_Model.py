@@ -599,8 +599,8 @@ def _normalize_temperature(value: float) -> float:
 
 @st.cache_resource(show_spinner=False)
 def _cached_nl_chain(
-    _session_cache_key: str,
-    _cache_version: str,
+    session_cache_key: str,
+    cache_version: str,
     provider: str,
     model: str,
     base_url: str | None,
@@ -609,8 +609,9 @@ def _cached_nl_chain(
     max_retries: int | None,
     extra_payload: str,
     temperature: float,
-    _api_key_fingerprint: str | None,
+    api_key_fingerprint: str | None,
 ) -> ConfigPatchChain:
+    del session_cache_key, cache_version, api_key_fingerprint
     config = LLMProviderConfig(
         provider=provider,
         model=model,
