@@ -79,13 +79,14 @@ def validate_strategy_pack(path: Path, *, base_config_path: Path | None = None) 
             continue
 
         base_snapshot = deepcopy(base_config)
+        base_working = deepcopy(base_config)
         try:
-            merged = variant.apply_to(base_config)
+            merged = variant.apply_to(base_working)
         except (TypeError, ValueError) as exc:
             errors.append(f"strategy_pack.curated[{idx}] invalid: {exc}")
             continue
 
-        if base_config != base_snapshot:
+        if base_working != base_snapshot:
             errors.append(
                 "strategy_pack.curated[{idx}] invalid: base_config mutated during validation".format(
                     idx=idx

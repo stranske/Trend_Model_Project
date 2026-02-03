@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
 import yaml
 
+from trend_analysis.monte_carlo.strategy import validation as validation_module
 from trend_analysis.monte_carlo.strategy.validation import validate_strategy_pack
 
 
@@ -48,6 +50,40 @@ def test_validate_strategy_pack_reports_base_config_mutation(
     errors = validate_strategy_pack(pack_path, base_config_path=base_path)
 
     assert any("base_config mutated during validation" in error for error in errors)
+
+
+def test_validate_strategy_pack_does_not_mutate_base_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base_config = {
+        "portfolio": {
+            "max_turnover": 0.5,
+            "weighting_scheme": "equal",
+            "weighting": {"name": "equal", "params": {}},
+        }
+    }
+    base_snapshot = deepcopy(base_config)
+    payload = {"curated": [{"name": "Mutate", "overrides": {}}]}
+
+    def _load_yaml_mapping(_: Path, label: str) -> dict[str, object]:
+        if label == "base_config":
+            return base_config
+        return payload
+
+    def _mutating_apply(self, base_cfg: dict[str, object]) -> dict[str, object]:
+        base_cfg["portfolio"]["max_turnover"] = 0.9  # type: ignore[index]
+        return base_cfg
+
+    monkeypatch.setattr(validation_module, "_load_yaml_mapping", _load_yaml_mapping)
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.strategy.validation.StrategyVariant.apply_to",
+        _mutating_apply,
+    )
+
+    errors = validate_strategy_pack(tmp_path / "pack.yml", base_config_path=tmp_path / "base.yml")
+
+    assert any("base_config mutated during validation" in error for error in errors)
+    assert base_config == base_snapshot
 
 
 def test_validate_strategy_pack_rejects_non_list_curated(tmp_path: Path) -> None:
