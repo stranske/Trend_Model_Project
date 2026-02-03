@@ -59,3 +59,24 @@ def test_validate_strategy_pack_rejects_non_mapping_overrides(tmp_path: Path) ->
     errors = validate_strategy_pack(pack_path)
 
     assert errors == ["strategy_pack.curated[0] invalid: overrides must be a mapping"]
+
+
+def test_validate_strategy_pack_rejects_invalid_weighting_scheme(tmp_path: Path) -> None:
+    pack_path = tmp_path / "invalid_weighting.yml"
+    pack_path.write_text(
+        yaml.safe_dump(
+            {
+                "curated": [
+                    {
+                        "name": "BadWeighting",
+                        "overrides": {"portfolio": {"weighting_scheme": "not_a_scheme"}},
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    errors = validate_strategy_pack(pack_path)
+
+    assert any("portfolio.weighting_scheme" in error for error in errors)
