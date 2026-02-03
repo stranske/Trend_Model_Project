@@ -12,6 +12,7 @@ from copy import deepcopy
 from datetime import date, datetime
 from time import monotonic, sleep
 from typing import Any, Mapping
+from uuid import uuid4
 
 import streamlit as st
 import yaml
@@ -59,6 +60,7 @@ _MAX_CONFIG_HISTORY = 20
 _CONFIG_PREVIEW_TIMINGS_KEY = "config_chat_preview_timings"
 _MAX_CONFIG_PREVIEW_TIMINGS = 20
 _CONFIG_CHAIN_STATE_KEY = "config_chat_chain_state"
+_CONFIG_CHAT_SESSION_KEY = "config_chat_session_id"
 _DEFAULT_CONFIG_CHAT_MODEL = "gpt-4o-mini"
 
 
@@ -71,6 +73,14 @@ def _get_chain_cache_state() -> dict[str, Any]:
     if not isinstance(entries, dict):
         state["entries"] = {}
     return state
+
+
+def _get_config_chat_session_id() -> str:
+    session_id = st.session_state.get(_CONFIG_CHAT_SESSION_KEY)
+    if not session_id:
+        session_id = uuid4().hex
+        st.session_state[_CONFIG_CHAT_SESSION_KEY] = session_id
+    return session_id
 
 
 def _chain_cache_signature(cache_key: Mapping[str, Any]) -> str:
@@ -492,6 +502,7 @@ def _serialize_extra(extra: Mapping[str, Any] | None) -> str:
 
 @st.cache_resource(show_spinner=False)
 def _cached_nl_chain(
+    _session_cache_key: str,
     provider: str,
     model: str,
     base_url: str | None,
@@ -530,6 +541,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     extra_payload = _serialize_extra(config.extra)
     extra_payload_hash = _hash_text(extra_payload)
     resolved_model = config.model or _DEFAULT_CONFIG_CHAT_MODEL
+    session_cache_key = _get_config_chat_session_id()
     cache_key = {
         "provider": config.provider,
         "model": resolved_model,
@@ -542,6 +554,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         "api_key_fingerprint": api_key_fingerprint,
     }
     chain = _cached_nl_chain(
+        session_cache_key,
         config.provider,
         resolved_model,
         config.base_url,
