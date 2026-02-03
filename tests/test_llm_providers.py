@@ -1,4 +1,4 @@
-"""Unit tests for LLM provider factory behavior."""
+"""Tests for LLM provider factory."""
 
 from __future__ import annotations
 
@@ -20,10 +20,11 @@ def _register_provider(
     monkeypatch: pytest.MonkeyPatch,
     module_name: str,
     class_name: str,
-) -> None:
+) -> DummyProvider:
     module = types.ModuleType(module_name)
     setattr(module, class_name, DummyProvider)
     monkeypatch.setitem(sys.modules, module_name, module)
+    return DummyProvider
 
 
 @pytest.mark.parametrize(
@@ -31,10 +32,9 @@ def _register_provider(
     [
         ("openai", "langchain_openai", "ChatOpenAI"),
         ("anthropic", "langchain_anthropic", "ChatAnthropic"),
-        ("ollama", "langchain_ollama", "ChatOllama"),
     ],
 )
-def test_create_llm_selects_provider_class(
+def test_create_llm_instantiates_provider(
     provider: str,
     module_name: str,
     class_name: str,
@@ -42,54 +42,103 @@ def test_create_llm_selects_provider_class(
 ) -> None:
     _register_provider(monkeypatch, module_name, class_name)
 
-    config = LLMProviderConfig(provider=provider, model="unit-test-model")  # type: ignore[arg-type]
+    config = LLMProviderConfig(
+        provider=provider,  # type: ignore[arg-type]
+        model="unit-test-model",
+        api_key="unit-test-key",
+        base_url="https://example.invalid",
+        timeout=3.5,
+        max_retries=4,
+        extra={"request_timeout": 7},
+    )
+
     llm = create_llm(config)
 
     assert isinstance(llm, DummyProvider)
     assert llm.kwargs["model"] == "unit-test-model"
+    assert llm.kwargs["api_key"] == "unit-test-key"
+    assert llm.kwargs["base_url"] == "https://example.invalid"
+    assert llm.kwargs["timeout"] == 3.5
+    assert llm.kwargs["max_retries"] == 4
+    assert llm.kwargs["request_timeout"] == 7
 
 
-def test_openai_api_key_precedence(monkeypatch: pytest.MonkeyPatch) -> None:
-    _register_provider(monkeypatch, "langchain_openai", "ChatOpenAI")
-
-    monkeypatch.delenv("TREND_LLM_API_KEY", raising=False)
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-
-    explicit = LLMProviderConfig(provider="openai", model="unit", api_key="explicit")
-    llm = create_llm(explicit)
-    assert llm.kwargs.get("api_key") == "explicit"
-
-    monkeypatch.delenv("TREND_LLM_API_KEY", raising=False)
-    monkeypatch.setenv("OPENAI_API_KEY", "openai-env")
-    llm = create_llm(LLMProviderConfig(provider="openai", model="unit"))
-    assert llm.kwargs.get("api_key") == "openai-env"
-
-    monkeypatch.setenv("TREND_LLM_API_KEY", "override")
-    llm = create_llm(LLMProviderConfig(provider="openai", model="unit"))
-    assert llm.kwargs.get("api_key") == "override"
-
-
-def test_anthropic_api_key_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    _register_provider(monkeypatch, "langchain_anthropic", "ChatAnthropic")
-
-    monkeypatch.delenv("TREND_LLM_API_KEY", raising=False)
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "anthropic-env")
-    llm = create_llm(LLMProviderConfig(provider="anthropic", model="unit"))
-    assert llm.kwargs.get("api_key") == "anthropic-env"
-
-
-def test_ollama_does_not_require_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_create_llm_instantiates_ollama_provider(monkeypatch: pytest.MonkeyPatch) -> None:
     _register_provider(monkeypatch, "langchain_ollama", "ChatOllama")
 
-    monkeypatch.delenv("TREND_LLM_API_KEY", raising=False)
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    config = LLMProviderConfig(
+        provider="ollama",
+        model="unit-test-model",
+        base_url="http://example.invalid",
+        extra={"temperature": 0.05},
+    )
 
-    config = LLMProviderConfig(provider="ollama", model="llama3", base_url="http://localhost:11434")
     llm = create_llm(config)
 
-    assert llm.kwargs["model"] == "llama3"
-    assert llm.kwargs["base_url"] == "http://localhost:11434"
+    assert isinstance(llm, DummyProvider)
+    assert llm.kwargs["model"] == "unit-test-model"
+    assert llm.kwargs["base_url"] == "http://example.invalid"
+    assert llm.kwargs["temperature"] == 0.05
     assert "api_key" not in llm.kwargs
+
+
+@pytest.mark.parametrize(
+    ("provider", "env_key"),
+    [
+        ("openai", "OPENAI_API_KEY"),
+        ("anthropic", "ANTHROPIC_API_KEY"),
+    ],
+)
+def test_create_llm_uses_provider_env_api_key(
+    provider: str,
+    env_key: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module_name = "langchain_openai" if provider == "openai" else "langchain_anthropic"
+    class_name = "ChatOpenAI" if provider == "openai" else "ChatAnthropic"
+    _register_provider(monkeypatch, module_name, class_name)
+
+    monkeypatch.delenv("TREND_LLM_API_KEY", raising=False)
+    monkeypatch.setenv(env_key, "provider-env-key")
+
+    config = LLMProviderConfig(provider=provider, model="unit-test-model")
+
+    llm = create_llm(config)
+
+    assert llm.kwargs["api_key"] == "provider-env-key"
+
+
+def test_create_llm_uses_trend_env_api_key_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _register_provider(monkeypatch, "langchain_openai", "ChatOpenAI")
+
+    monkeypatch.setenv("TREND_LLM_API_KEY", "override-key")
+    monkeypatch.setenv("OPENAI_API_KEY", "provider-key")
+
+    config = LLMProviderConfig(provider="openai", model="unit-test-model")
+
+    llm = create_llm(config)
+
+    assert llm.kwargs["api_key"] == "override-key"
+
+
+def test_create_llm_prefers_explicit_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    _register_provider(monkeypatch, "langchain_openai", "ChatOpenAI")
+
+    monkeypatch.setenv("TREND_LLM_API_KEY", "override-key")
+    monkeypatch.setenv("OPENAI_API_KEY", "provider-key")
+
+    config = LLMProviderConfig(provider="openai", model="unit-test-model", api_key="explicit")
+
+    llm = create_llm(config)
+
+    assert llm.kwargs["api_key"] == "explicit"
+
+
+def test_create_llm_unknown_provider_raises() -> None:
+    config = LLMProviderConfig(provider="openai")
+
+    config.provider = "unknown"  # type: ignore[assignment]
+    with pytest.raises(ValueError, match="Unknown provider"):
+        create_llm(config)
