@@ -80,6 +80,8 @@ def test_build_pooled_summary_frame_ignores_folds() -> None:
     pooled = build_pooled_summary_frame(frame)
 
     assert pooled.loc[0, "scope"] == "pooled"
+    assert "fold_id" in pooled.columns
+    assert pd.isna(pooled.loc[0, "fold_id"])
     assert pooled.loc[0, "strategy"] == "A"
     assert pooled.loc[0, "metric"] == 4.0
     assert pooled.loc[0, "paths"] == 4
@@ -99,6 +101,8 @@ def test_build_cross_fold_summary_frame_reports_fold_stats() -> None:
     cross_fold = build_cross_fold_summary_frame(frame)
 
     assert cross_fold.loc[0, "scope"] == "cross_fold"
+    assert "fold_id" in cross_fold.columns
+    assert pd.isna(cross_fold.loc[0, "fold_id"])
     assert cross_fold.loc[0, "strategy"] == "A"
     assert cross_fold.loc[0, "folds"] == 2
     assert cross_fold.loc[0, "metric_mean"] == 4.0
@@ -134,6 +138,8 @@ def test_export_results_writes_pooled_summary(tmp_path) -> None:
     assert pooled_path.exists()
     pooled_frame = pd.read_csv(pooled_path)
     assert pooled_frame.loc[0, "scope"] == "pooled"
+    assert "fold_id" in pooled_frame.columns
+    assert pd.isna(pooled_frame.loc[0, "fold_id"])
 
 
 def test_export_results_skips_pooled_summary_when_missing(tmp_path) -> None:

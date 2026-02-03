@@ -119,7 +119,7 @@ def build_pooled_summary_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     """Aggregate results per strategy across all folds (pooled)."""
 
     if results_frame.empty:
-        return pd.DataFrame(columns=["scope", "strategy", "paths", "folds"])
+        return pd.DataFrame(columns=["scope", "fold_id", "strategy", "paths", "folds"])
 
     numeric_cols = results_frame.select_dtypes(include="number").columns.tolist()
     for col in ("fold_id", "path_id", "seed"):
@@ -133,6 +133,7 @@ def build_pooled_summary_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
         summary["folds"] = grouped["fold_id"].nunique(dropna=False)
     pooled = summary.reset_index()
     pooled.insert(0, "scope", "pooled")
+    pooled.insert(1, "fold_id", None)
     return pooled
 
 
@@ -140,11 +141,11 @@ def build_cross_fold_summary_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     """Summarize fold-level results for cross-fold comparison."""
 
     if results_frame.empty or "fold_id" not in results_frame.columns:
-        return pd.DataFrame(columns=["scope", "strategy", "folds"])
+        return pd.DataFrame(columns=["scope", "fold_id", "strategy", "folds"])
 
     fold_summary = build_summary_frame(results_frame)
     if fold_summary.empty:
-        return pd.DataFrame(columns=["scope", "strategy", "folds"])
+        return pd.DataFrame(columns=["scope", "fold_id", "strategy", "folds"])
 
     numeric_cols = fold_summary.select_dtypes(include="number").columns.tolist()
     if "fold_id" in numeric_cols:
@@ -156,6 +157,7 @@ def build_cross_fold_summary_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     stats["folds"] = grouped.size()
     cross_fold = stats.reset_index()
     cross_fold.insert(0, "scope", "cross_fold")
+    cross_fold.insert(1, "fold_id", None)
     return cross_fold
 
 
