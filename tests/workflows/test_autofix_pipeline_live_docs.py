@@ -213,7 +213,6 @@ def summarise_payload(values: Iterable[int]) -> int:
             (0,),
         ),
         ([sys.executable, "-m", "isort", *relative_targets], (0,)),
-        ([sys.executable, "-m", "black", *relative_targets], (0,)),
         (
             [
                 sys.executable,
@@ -229,6 +228,8 @@ def summarise_payload(values: Iterable[int]) -> int:
     ]
     for command, ok_codes in formatting_commands:
         _run(command, cwd=repo_root, ok_exit_codes=ok_codes)
+    for target in relative_targets:
+        _run([sys.executable, "-m", "black", target], cwd=repo_root)
 
     auto_type_hygiene.main()
     fix_cosmetic_aggregate.main()
@@ -241,6 +242,8 @@ def summarise_payload(values: Iterable[int]) -> int:
 
     for command, ok_codes in formatting_commands:
         _run(command, cwd=repo_root, ok_exit_codes=ok_codes)
+    for target in relative_targets:
+        _run([sys.executable, "-m", "black", target], cwd=repo_root)
 
     module = importlib.import_module("tests.test_autofix_repo_regressions")
     module = importlib.reload(module)
@@ -250,7 +253,8 @@ def summarise_payload(values: Iterable[int]) -> int:
     assert module.EXPECTED_AUTOFIX_SELECTED_FUNDS == 2
 
     _run([sys.executable, "-m", "ruff", "check", *relative_targets], cwd=repo_root)
-    _run([sys.executable, "-m", "black", "--check", *relative_targets], cwd=repo_root)
+    for target in relative_targets:
+        _run([sys.executable, "-m", "black", "--check", target], cwd=repo_root)
     _run(
         [
             sys.executable,
