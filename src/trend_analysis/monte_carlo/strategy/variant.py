@@ -65,6 +65,25 @@ _FREEFORM_OVERRIDE_PATHS: set[tuple[str, ...]] = {
 }
 
 
+def _validate_weighting_config(config: Mapping[str, Any]) -> None:
+    portfolio = config.get("portfolio")
+    if not isinstance(portfolio, Mapping):
+        return
+
+    if "weighting_scheme" in portfolio:
+        _require_non_empty_str(portfolio.get("weighting_scheme"), "portfolio.weighting_scheme")
+
+    if "weighting" not in portfolio:
+        return
+    weighting = portfolio.get("weighting")
+    if weighting is None:
+        return
+    if not isinstance(weighting, Mapping):
+        raise ValueError("portfolio.weighting must be a mapping")
+    if "name" in weighting:
+        _require_non_empty_str(weighting.get("name"), "portfolio.weighting.name")
+
+
 def _deep_merge_overrides(
     base: Mapping[str, Any],
     overrides: Mapping[str, Any],
@@ -181,6 +200,7 @@ class StrategyVariant:
 
         try:
             merged = self.apply_to(base_config)
+            _validate_weighting_config(merged)
         except (TypeError, ValueError) as exc:
             raise ValueError(f"Strategy '{self.name}' overrides invalid: {exc}") from exc
 
