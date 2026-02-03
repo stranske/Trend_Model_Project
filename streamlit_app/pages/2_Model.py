@@ -1157,12 +1157,21 @@ def _render_config_diff_preview(model_state: Mapping[str, Any] | None) -> None:
     timings = preview.get("timings")
     if isinstance(timings, Mapping):
         chain_reused = "Yes" if timings.get("chain_reused") else "No"
+        cache_miss_reason = timings.get("chain_cache_miss_reason")
+        cache_miss_label = f" | Cache miss: {cache_miss_reason}" if cache_miss_reason else ""
+        invalidation_fields = timings.get("chain_cache_invalidation_fields")
+        invalidation_label = (
+            f" | Invalidated by: {', '.join(invalidation_fields)}"
+            if isinstance(invalidation_fields, list) and invalidation_fields
+            else ""
+        )
         st.caption(
             "Preview timing — "
             f"Chain reused: {chain_reused} | "
             f"Chain build: {_format_seconds(timings.get('chain_build_seconds'))} | "
             f"Run: {_format_seconds(timings.get('run_seconds'))} | "
             f"Total: {_format_seconds(timings.get('total_seconds'))}"
+            f"{cache_miss_label}{invalidation_label}"
         )
 
     tabs = st.tabs(["Unified diff", "Side-by-side"])
