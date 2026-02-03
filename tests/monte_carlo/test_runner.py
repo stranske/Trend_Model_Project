@@ -330,6 +330,7 @@ def test_runner_respects_enable_fold_runs_flag(monkeypatch: pytest.MonkeyPatch) 
         price_history=history,
     )
     captured: list[pd.DataFrame] = []
+    captured_calibration: list[tuple[pd.Timestamp | None, pd.Timestamp | None]] = []
     seen_fold_ids: list[int | None] = []
 
     def _fake_build_price_model(
@@ -340,6 +341,7 @@ def test_runner_respects_enable_fold_runs_flag(monkeypatch: pytest.MonkeyPatch) 
         calibration_end: pd.Timestamp | None = None,
     ) -> object:
         captured.append(history_slice.copy())
+        captured_calibration.append((calibration_start, calibration_end))
         return object()
 
     def _fake_run_mode(self: MonteCarloRunner, **kwargs: Any) -> tuple[list[Any], list[Any]]:
@@ -363,6 +365,7 @@ def test_runner_respects_enable_fold_runs_flag(monkeypatch: pytest.MonkeyPatch) 
     assert len(captured) == 1
     assert captured[0].index.min() == history.index.min()
     assert captured[0].index.max() == history.index.max()
+    assert captured_calibration == [(None, None)]
 
 
 def test_runner_builds_pooled_summary_when_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
