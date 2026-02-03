@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
+from types import ModuleType
 
 import pandas as pd
 import pytest
 
 import trend_analysis.monte_carlo.runner as runner_module
+from trend_analysis.monte_carlo.results import MonteCarloResults
 from trend_analysis import cli
 from trend_analysis.api import RunResult
 
@@ -149,3 +152,47 @@ def test_mc_run_runtime_error_exit_code(
     assert rc == 2
     err = capsys.readouterr().err
     assert "boom" in err
+
+
+def test_mc_run_shows_progress(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    scenario_path = tmp_path / "scenario.yml"
+    data_path = tmp_path / "prices.csv"
+    output_dir = tmp_path / "bundle"
+    _write_scenario(scenario_path)
+    _write_prices(data_path)
+
+    monkeypatch.setitem(sys.modules, "tqdm", ModuleType("tqdm"))
+
+    def _fake_run(self, progress_callback=None):  # type: ignore[no-untyped-def]
+        if progress_callback is not None:
+            progress_callback({"completed": 1, "total": 1})
+        results_frame = pd.DataFrame({"path_id": [1], "strategy": ["eq"]})
+        summary_frame = pd.DataFrame({"strategy": ["eq"], "paths": [1]})
+        return MonteCarloResults(
+            mode="two_layer",
+            evaluations=[],
+            errors=[],
+            results_frame=results_frame,
+            summary_frame=summary_frame,
+        )
+
+    monkeypatch.setattr(runner_module.MonteCarloRunner, "run", _fake_run)
+
+    rc = cli.main(
+        [
+            "mc",
+            "run",
+            "--scenario",
+            str(scenario_path),
+            "--data",
+            str(data_path),
+            "--out",
+            str(output_dir),
+        ]
+    )
+
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert "Progress: 1/1" in err
