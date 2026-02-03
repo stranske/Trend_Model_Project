@@ -80,6 +80,7 @@ def test_build_pooled_summary_frame_ignores_folds() -> None:
     pooled = build_pooled_summary_frame(frame)
 
     assert pooled.loc[0, "scope"] == "pooled"
+    assert pooled.loc[0, "pooled_scope"] == "summary"
     assert "fold_id" in pooled.columns
     assert pd.isna(pooled.loc[0, "fold_id"])
     assert pooled.loc[0, "strategy"] == "A"
@@ -153,6 +154,7 @@ def test_export_results_writes_pooled_summary(tmp_path) -> None:
     assert pooled_path.exists()
     pooled_frame = pd.read_csv(pooled_path)
     assert pooled_frame.loc[0, "scope"] == "pooled"
+    assert pooled_frame.loc[0, "pooled_scope"] == "summary"
     assert "fold_id" in pooled_frame.columns
     assert pd.isna(pooled_frame.loc[0, "fold_id"])
 
