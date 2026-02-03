@@ -9,7 +9,11 @@ import pytest
 
 import trend_analysis.monte_carlo.runner as runner_module
 from trend_analysis.api import RunResult
-from trend_analysis.monte_carlo.results import MonteCarloPathError, build_results_frame
+from trend_analysis.monte_carlo.results import (
+    MonteCarloPathError,
+    StrategyEvaluation,
+    build_results_frame,
+)
 from trend_analysis.monte_carlo.runner import MonteCarloRunner
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario
 from trend_analysis.monte_carlo.strategy import StrategyVariant
@@ -66,6 +70,30 @@ def _scenario(mode: str) -> MonteCarloScenario:
         },
         strategy_set={"curated": strategies},
         return_model={"kind": "stationary_bootstrap", "params": {"block_size": 3}},
+    )
+
+
+def _scenario_with_folds(
+    *,
+    mode: str,
+    folds: dict[str, Any],
+    strategies: list[StrategyVariant] | None = None,
+) -> MonteCarloScenario:
+    curated = strategies or [StrategyVariant(name="StrategyA")]
+    return MonteCarloScenario(
+        name="mc_test_folds",
+        base_config="config/defaults.yml",
+        monte_carlo={
+            "mode": mode,
+            "n_paths": 2,
+            "horizon_years": 1.0,
+            "frequency": "M",
+            "seed": 123,
+            "jobs": 1,
+        },
+        strategy_set={"curated": curated},
+        return_model={"kind": "stationary_bootstrap", "params": {"block_size": 3}},
+        folds=folds,
     )
 
 
@@ -181,6 +209,116 @@ def test_run_deterministic_with_fixed_seed() -> None:
     first = _sorted_frame(runner.run(jobs=1).results_frame)
     second = _sorted_frame(runner.run(jobs=1).results_frame)
     pd.testing.assert_frame_equal(first, second)
+
+
+def test_runner_uses_fold_calibration_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    scenario = _scenario_with_folds(
+        mode="two_layer",
+        folds={
+            "mode": "explicit",
+            "fold_starts": ["2022-01-31"],
+            "calibration_lookback_years": 1.0,
+        },
+    )
+    history = _price_history()
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=history,
+    )
+    captured: list[pd.DataFrame] = []
+
+    def _fake_build_price_model(self: MonteCarloRunner, history_slice: pd.DataFrame) -> object:
+        captured.append(history_slice.copy())
+        return object()
+
+    def _fake_run_mode(self: MonteCarloRunner, **_kwargs: Any) -> tuple[list[Any], list[Any]]:
+        return [], []
+
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
+    monkeypatch.setattr(MonteCarloRunner, "_run_mode", _fake_run_mode)
+
+    runner.run(jobs=1)
+
+    assert len(captured) == 1
+    assert captured[0].index.min() == pd.Timestamp("2020-12-31")
+    assert captured[0].index.max() == pd.Timestamp("2021-12-31")
+
+
+def test_runner_respects_fold_enabled_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    scenario = _scenario_with_folds(
+        mode="two_layer",
+        folds={"enabled": False, "mode": "explicit", "fold_starts": ["2022-01-31"]},
+    )
+    history = _price_history()
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=history,
+    )
+    captured: list[pd.DataFrame] = []
+    seen_fold_ids: list[int | None] = []
+
+    def _fake_build_price_model(self: MonteCarloRunner, history_slice: pd.DataFrame) -> object:
+        captured.append(history_slice.copy())
+        return object()
+
+    def _fake_run_mode(self: MonteCarloRunner, **kwargs: Any) -> tuple[list[Any], list[Any]]:
+        seen_fold_ids.append(kwargs.get("fold_id"))
+        return [], []
+
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
+    monkeypatch.setattr(MonteCarloRunner, "_run_mode", _fake_run_mode)
+
+    runner.run(jobs=1)
+
+    assert seen_fold_ids == [None]
+    assert len(captured) == 1
+    assert captured[0].index.min() == history.index.min()
+    assert captured[0].index.max() == history.index.max()
+
+
+def test_runner_includes_fold_ids_in_results_frame(monkeypatch: pytest.MonkeyPatch) -> None:
+    scenario = _scenario_with_folds(
+        mode="two_layer",
+        folds={
+            "mode": "explicit",
+            "fold_starts": ["2022-01-31", "2023-01-31"],
+            "calibration_lookback_years": 1.0,
+        },
+    )
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+
+    def _fake_build_price_model(self: MonteCarloRunner, _history_slice: pd.DataFrame) -> object:
+        return object()
+
+    def _fake_run_mode(
+        self: MonteCarloRunner,
+        *,
+        fold_id: int | None,
+        **_kwargs: Any,
+    ) -> tuple[list[StrategyEvaluation], list[Any]]:
+        evaluation = StrategyEvaluation(
+            fold_id=fold_id,
+            path_id=0,
+            strategy_name="StrategyA",
+            metrics={"metric": 1.0},
+            metric_source="unit_test",
+            path_hash=f"hash-{fold_id}",
+            seed=123,
+        )
+        return [evaluation], []
+
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
+    monkeypatch.setattr(MonteCarloRunner, "_run_mode", _fake_run_mode)
+
+    results = runner.run(jobs=1)
+
+    assert results.results_frame["fold_id"].dropna().tolist() == [1, 2]
 
 
 def test_resolve_strategies_includes_sampled_turnover_caps() -> None:
