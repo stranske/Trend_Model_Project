@@ -124,6 +124,9 @@ def test_cli_generates_outputs(tmp_path: Path):
 
     folds_df = pd.read_csv(folds_path)
     assert {"oos_sharpe", "turnover", "cost_drag"}.issubset(folds_df.columns)
+    assert "fold_id" in folds_df.columns
 
     summary_df = pd.read_csv(summary_path)
+    assert "fold_id" in summary_df.columns
+    assert summary_df["fold_id"].isna().all()
     assert summary_df.loc[0, "folds"] == 2

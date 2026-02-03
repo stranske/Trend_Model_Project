@@ -203,6 +203,7 @@ def walk_forward(
             drawdown = float("nan")
 
         record = {
+            "fold_id": fold_idx,
             "fold": fold_idx,
             "train_start": train_idx[0],
             "train_end": train_idx[-1],
@@ -247,6 +248,7 @@ def walk_forward(
             }
         ]
     )
+    summary.insert(0, "fold_id", None)
     return Report(folds=folds_df, summary=summary, oos_returns=combined)
 
 
