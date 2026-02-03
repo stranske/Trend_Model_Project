@@ -1267,6 +1267,29 @@ def _render_mc_output_dir(
     return Path(rendered)
 
 
+def _require_mc_name(scenario: MonteCarloScenario) -> str:
+    name = scenario.name
+    if not name:
+        raise ValueError("Monte Carlo scenario is missing a name")
+    return name
+
+
+def _require_mc_base_config(scenario: MonteCarloScenario) -> Path:
+    base_config = scenario.base_config
+    if base_config is None:
+        raise ValueError("Monte Carlo scenario is missing base_config")
+    if isinstance(base_config, Path):
+        return base_config
+    return Path(str(base_config))
+
+
+def _require_mc_settings(scenario: MonteCarloScenario) -> MonteCarloSettings:
+    settings = scenario.monte_carlo
+    if not isinstance(settings, MonteCarloSettings):
+        raise ValueError("monte_carlo settings are not resolved")
+    return settings
+
+
 def _resolve_mc_output_dir(
     scenario: MonteCarloScenario,
     *,
@@ -1281,10 +1304,10 @@ def _resolve_mc_output_dir(
         if directory:
             return _render_mc_output_dir(
                 str(directory),
-                scenario_name=scenario.name,
+                scenario_name=_require_mc_name(scenario),
                 timestamp=timestamp,
             )
-    fallback = f"outputs/monte_carlo/{scenario.name}/{timestamp}"
+    fallback = f"outputs/monte_carlo/{_require_mc_name(scenario)}/{timestamp}"
     return Path(fallback)
 
 
@@ -1313,7 +1336,7 @@ def _validate_mc_scenario(scenario: MonteCarloScenario) -> list[str]:
         return errors
 
     base_config = runner._base_config
-    base_path = Path(scenario.base_config).parent
+    base_path = _require_mc_base_config(scenario).parent
 
     return_model = scenario.return_model
     if isinstance(return_model, Mapping):
@@ -1348,18 +1371,15 @@ def _apply_mc_overrides(
     jobs: int | None,
     seed: int | None,
 ) -> MonteCarloScenario:
-    settings = scenario.monte_carlo
-    if not isinstance(settings, MonteCarloSettings):
-        raise ValueError("monte_carlo settings are not resolved")
-    payload = {
-        "mode": settings.mode,
-        "n_paths": n_paths if n_paths is not None else settings.n_paths,
-        "horizon_years": settings.horizon_years,
-        "frequency": settings.frequency,
-        "seed": seed if seed is not None else settings.seed,
-        "jobs": jobs if jobs is not None else settings.jobs,
-    }
-    scenario.monte_carlo = MonteCarloSettings(**payload)
+    settings = _require_mc_settings(scenario)
+    scenario.monte_carlo = MonteCarloSettings(
+        mode=settings.mode,
+        n_paths=n_paths if n_paths is not None else settings.n_paths,
+        horizon_years=settings.horizon_years,
+        frequency=settings.frequency,
+        seed=seed if seed is not None else settings.seed,
+        jobs=jobs if jobs is not None else settings.jobs,
+    )
     return scenario
 
 
@@ -1373,9 +1393,10 @@ def _write_mc_manifest(
     data_path: Path | None,
     jobs_used: int,
 ) -> Path:
-    settings = scenario.monte_carlo
+    settings = _require_mc_settings(scenario)
+    scenario_name = _require_mc_name(scenario)
     payload = {
-        "scenario": scenario.name,
+        "scenario": scenario_name,
         "description": scenario.description,
         "version": scenario.version,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -1422,7 +1443,7 @@ def _build_mc_progress_callback(
     if tqdm is None:
         state = {"last": -1}
 
-        def _callback(payload: Mapping[str, Any]) -> None:
+        def _text_callback(payload: Mapping[str, Any]) -> None:
             completed = int(payload.get("completed", 0))
             total_value = int(payload.get("total", total))
             if completed == state["last"]:
@@ -1430,7 +1451,7 @@ def _build_mc_progress_callback(
             state["last"] = completed
             print(f"Progress: {completed}/{total_value}", file=sys.stderr)
 
-        return _callback, lambda: None
+        return _text_callback, lambda: None
 
     bar = tqdm(total=total, unit="path", file=sys.stderr)
     state = {"completed": 0}
@@ -1460,7 +1481,7 @@ def _handle_mc_command(args: argparse.Namespace) -> int:
     if subcommand == "list":
         tags = _parse_mc_tags(getattr(args, "tags", None))
         try:
-            scenarios = list_scenarios(tags=tags)
+            registry_entries = list_scenarios(tags=tags)
         except Exception as exc:
             print(f"Failed to list Monte Carlo scenarios: {exc}", file=sys.stderr)
             return 2
@@ -1473,11 +1494,11 @@ def _handle_mc_command(args: argparse.Namespace) -> int:
                     "tags": list(entry.tags),
                     "path": str(entry.path),
                 }
-                for entry in scenarios
+                for entry in registry_entries
             ]
             print(json.dumps(payload, indent=2))
         else:
-            print(_render_mc_table(scenarios))
+            print(_render_mc_table(registry_entries))
         return 0
     if subcommand == "validate":
         registry_path = _resolve_mc_registry_path(getattr(args, "registry", None))
@@ -1575,8 +1596,8 @@ def _handle_mc_command(args: argparse.Namespace) -> int:
                 print(f"Scenario run failed: {exc}", file=sys.stderr)
                 return 1
 
-        settings = scenario.monte_carlo
-        total_paths = int(settings.n_paths) if settings else 0
+        settings = _require_mc_settings(scenario)
+        total_paths = int(settings.n_paths) if settings.n_paths is not None else 0
         progress_enabled = not getattr(args, "no_progress", False)
         progress_cb, progress_close = _build_mc_progress_callback(
             total=total_paths,
