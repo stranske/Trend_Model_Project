@@ -205,6 +205,7 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
         "cache_signature": timings.get("chain_cache_signature"),
         "cache_miss_reason": timings.get("chain_cache_miss_reason"),
         "cache_invalidation_fields": invalidation_fields,
+        "cache_settings_changed": timings.get("chain_settings_changed"),
         "chain_build_seconds": timings.get("chain_build_seconds"),
         "chain_reused": timings.get("chain_reused"),
         "run_seconds": timings.get("run_seconds"),
@@ -225,6 +226,7 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
         "cache_signature": timings.get("chain_cache_signature"),
         "cache_miss_reason": timings.get("chain_cache_miss_reason"),
         "cache_invalidation_fields": invalidation_fields,
+        "cache_settings_changed": timings.get("chain_settings_changed"),
         "chain_reused": timings.get("chain_reused"),
         "chain_build_seconds": timings.get("chain_build_seconds"),
         "run_seconds": timings.get("run_seconds"),
@@ -283,6 +285,10 @@ def _render_preview_timing_history() -> None:
         invalidation_label = (
             ", ".join(invalidation_fields) if isinstance(invalidation_fields, list) else "—"
         )
+        settings_changed = entry.get("cache_settings_changed")
+        settings_changed_label = (
+            "Yes" if settings_changed is True else "No" if settings_changed is False else "—"
+        )
         rows.append(
             {
                 "Timestamp": str(entry.get("timestamp") or "Unknown time"),
@@ -290,6 +296,7 @@ def _render_preview_timing_history() -> None:
                 "Provider": str(entry.get("provider") or "default"),
                 "Model": str(entry.get("model") or "default"),
                 "Temp": _format_value(entry.get("temperature")),
+                "Settings changed": settings_changed_label,
                 "Cache sig": cache_sig_label,
                 "Cache miss": cache_reason_label,
                 "Cache invalidated by": invalidation_label,
@@ -318,12 +325,17 @@ def _render_last_preview_metrics() -> None:
     invalidation_label = (
         ", ".join(invalidation_fields) if isinstance(invalidation_fields, list) else "—"
     )
+    settings_changed = metrics.get("cache_settings_changed")
+    settings_changed_label = (
+        "Yes" if settings_changed is True else "No" if settings_changed is False else "—"
+    )
     st.caption(
         "Last preview cache — "
         f"Sig: {cache_label} | "
         f"Chain reused: {chain_reused} | "
         f"Cache miss: {cache_miss_label} | "
         f"Invalidated by: {invalidation_label} | "
+        f"Settings changed: {settings_changed_label} | "
         f"Build: {_format_seconds(metrics.get('chain_build_seconds'))} | "
         f"Run: {_format_seconds(metrics.get('run_seconds'))} | "
         f"Total: {_format_seconds(metrics.get('total_seconds'))}"
@@ -846,6 +858,7 @@ def _generate_config_preview(
             "chain_cache_signature": chain_meta.get("chain_cache_signature"),
             "chain_cache_miss_reason": chain_meta.get("chain_cache_miss_reason"),
             "chain_cache_invalidation_fields": chain_meta.get("chain_cache_invalidation_fields"),
+            "chain_settings_changed": chain_meta.get("chain_settings_changed"),
             "run_seconds": run_seconds,
         },
     }
@@ -1171,6 +1184,10 @@ def _render_config_diff_preview(model_state: Mapping[str, Any] | None) -> None:
         chain_reused = "Yes" if timings.get("chain_reused") else "No"
         cache_signature = timings.get("chain_cache_signature")
         cache_signature_label = str(cache_signature)[:8] if cache_signature else "—"
+        settings_changed = timings.get("chain_settings_changed")
+        settings_changed_label = (
+            "Yes" if settings_changed is True else "No" if settings_changed is False else "—"
+        )
         cache_miss_reason = timings.get("chain_cache_miss_reason")
         cache_miss_label = f" | Cache miss: {cache_miss_reason}" if cache_miss_reason else ""
         invalidation_fields = timings.get("chain_cache_invalidation_fields")
@@ -1183,6 +1200,7 @@ def _render_config_diff_preview(model_state: Mapping[str, Any] | None) -> None:
             "Preview timing — "
             f"Chain reused: {chain_reused} | "
             f"Cache sig: {cache_signature_label} | "
+            f"Settings changed: {settings_changed_label} | "
             f"Chain build: {_format_seconds(timings.get('chain_build_seconds'))} | "
             f"Run: {_format_seconds(timings.get('run_seconds'))} | "
             f"Total: {_format_seconds(timings.get('total_seconds'))}"
