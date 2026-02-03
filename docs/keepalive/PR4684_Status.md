@@ -8,6 +8,7 @@ PR #4684 addressed issue #4683 but verification identified concerns (verdict: CO
 
 ## Checklist Reconciliation
 Checklist reconciled on 2026-02-03 after reviewing commit b7222116 and running `pytest tests/monte_carlo/test_results.py -m "not slow"`. Export outputs are implemented in `src/trend_analysis/monte_carlo/results.py` (no standalone `export.py`), and the export points are results, summary, cross-fold summary, and pooled summary frames.
+Additional fold-aware output tables live outside Monte Carlo exports in `src/trend_analysis/walk_forward.py` (folds/summary CSVs) and `analysis/cv.py` (cv_folds/cv_summary CSVs). These should include a `fold_id` column while keeping existing `fold`/`folds` fields for compatibility. Validated updates on 2026-02-03 with `pytest tests/test_walk_forward_grid.py tests/test_walk_forward_helpers_additional.py tests/test_walk_forward_settings.py tests/test_cv.py -m "not slow"`.
 
 ## Tasks
 - [x] Review and update export-related code to ensure fold_id columns are included in all relevant export points, including export.py if necessary.
@@ -15,9 +16,9 @@ Checklist reconciled on 2026-02-03 after reviewing commit b7222116 and running `
 - [x] Implement focused slice for: Review export.py to identify all relevant export points requiring fold_id columns. (verify: confirm completion in repo)
 - [x] Validate focused slice for: Review export.py to identify all relevant export points requiring fold_id columns. (verify: confirm completion in repo)
 - [x] Update export.py (verify: confirm completion in repo)
-- [ ] Define scope for: other relevant files to include fold_id columns. (verify: confirm completion in repo)
-- [ ] Implement focused slice for: other relevant files to include fold_id columns. (verify: confirm completion in repo)
-- [ ] Validate focused slice for: other relevant files to include fold_id columns. (verify: confirm completion in repo)
+- [x] Define scope for: other relevant files to include fold_id columns. (verify: confirm completion in repo)
+- [x] Implement focused slice for: other relevant files to include fold_id columns. (verify: confirm completion in repo)
+- [x] Validate focused slice for: other relevant files to include fold_id columns. (verify: confirm completion in repo)
 - [x] Define scope for: Verify that fold_id columns are correctly included in all export points through unit tests.
 - [x] Implement focused slice for: Verify that fold_id columns are correctly included in all export points through unit tests.
 - [x] Validate focused slice for: Verify that fold_id columns are correctly included in all export points through unit tests.

@@ -271,6 +271,7 @@ def evaluate_parameter_grid(
             hit_rate = float(fold_returns.gt(0).mean()) if len(fold_returns) else np.nan
 
             record = {
+                "fold_id": fold_idx,
                 "fold": fold_idx,
                 "train_start": train_idx[0],
                 "train_end": train_idx[-1],
@@ -311,6 +312,7 @@ def evaluate_parameter_grid(
             "turnover": "mean_turnover",
         }
     )
+    summary.insert(0, "fold_id", None)
     return folds_df, summary
 
 
