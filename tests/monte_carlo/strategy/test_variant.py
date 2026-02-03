@@ -127,6 +127,9 @@ def test_to_trend_config_accepts_weighting_scheme_and_name(
     assert merged["portfolio"]["weighting_scheme"] == "risk_parity"
     assert merged["portfolio"]["weighting"]["name"] == "score_prop_bayes"
     assert merged["portfolio"]["weighting"]["params"]["column"] == "Sharpe"
+    assert base["portfolio"]["weighting_scheme"] == "equal"
+    assert base["portfolio"]["weighting"]["name"] == "equal"
+    assert base["portfolio"]["weighting"]["params"]["column"] == "Sharpe"
 
     cfg = variant.to_trend_config(base, base_path=tmp_path)
     assert cfg.portfolio.rebalance_calendar == "NYSE"
