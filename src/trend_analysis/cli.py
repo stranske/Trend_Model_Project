@@ -36,7 +36,11 @@ from .diagnostics import coerce_pipeline_result
 from .io.market_data import (
     MarketDataMode,
     MarketDataValidationError,
+)
+from .io.market_data import (
     load_market_data_csv as load_mc_market_data_csv,
+)
+from .io.market_data import (
     load_market_data_parquet as load_mc_market_data_parquet,
 )
 from .io.ui_ingest import inspect_ui_date_issues, load_ui_dataset
@@ -1482,9 +1486,7 @@ def _handle_mc_command(args: argparse.Namespace) -> int:
         scenarios: list[MonteCarloScenario] = []
         if scenario_arg:
             try:
-                scenarios = [
-                    _load_mc_scenario_value(scenario_arg, registry_path=registry_path)
-                ]
+                scenarios = [_load_mc_scenario_value(scenario_arg, registry_path=registry_path)]
             except (ValueError, FileNotFoundError, IsADirectoryError) as exc:
                 print(f"Scenario validation failed: {exc}", file=sys.stderr)
                 return 1

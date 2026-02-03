@@ -6,9 +6,9 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+import trend_analysis.monte_carlo.runner as runner_module
 from trend_analysis import cli
 from trend_analysis.api import RunResult
-import trend_analysis.monte_carlo.runner as runner_module
 
 
 def _write_scenario(path: Path, *, name: str = "mc_test", extra: str = "") -> None:
@@ -66,8 +66,7 @@ monte_carlo:
   n_paths: 1
   horizon_years: 1.0
   frequency: M
-""".strip()
-        + "\n",
+""".strip() + "\n",
         encoding="utf-8",
     )
 
