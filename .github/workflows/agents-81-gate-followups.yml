@@ -14,6 +14,11 @@ on:
         required: true
         type: number
       force_retry:
+      base_ref:
+        description: 'Base branch for conflict resolution'
+        required: false
+        default: ''
+        type: string
         description: 'Force retry even if gate is cancelled/deferred'
         required: false
         default: true
@@ -308,6 +313,7 @@ jobs:
       pr_ref: ${{ needs.evaluate.outputs.pr_ref }}
       appendix: ${{ needs.evaluate.outputs.task_appendix }}
       iteration: ${{ needs.evaluate.outputs.iteration }}
+      base_ref: ${{ github.event.pull_request.base.ref || github.event.inputs.base_ref || '' }}
 
   # Placeholder for future Claude agent support
   # run-claude:
