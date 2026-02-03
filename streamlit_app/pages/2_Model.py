@@ -64,6 +64,7 @@ _CONFIG_CHAT_SESSION_KEY = "config_chat_session_id"
 _DEFAULT_CONFIG_CHAT_MODEL = "gpt-4o-mini"
 _CONFIG_CHAIN_CACHE_VERSION = "v1"
 _CONFIG_CHAIN_METRICS_KEY = "config_chat_chain_metrics"
+_CONFIG_CHAIN_LOG_FIELDS = ("provider", "model", "base_url", "organization", "temperature")
 
 
 def _get_chain_cache_state() -> dict[str, Any]:
@@ -113,6 +114,20 @@ def _build_chain_cache_key(
         "extra_payload_hash": extra_payload_hash,
         "api_key_fingerprint": api_key_fingerprint,
     }
+
+
+def _cache_key_changes(
+    previous: Mapping[str, Any] | None,
+    current: Mapping[str, Any],
+    fields: tuple[str, ...],
+) -> list[str]:
+    if not isinstance(previous, Mapping):
+        return []
+    changed = []
+    for field in fields:
+        if previous.get(field) != current.get(field):
+            changed.append(field)
+    return changed
 
 
 def _get_config_change_history() -> list[dict[str, Any]]:
@@ -659,14 +674,20 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     reused = cached_chain_id == id(chain)
     previous_signature = cache_state.get("last_signature")
     settings_changed = bool(previous_signature and previous_signature != signature)
+    previous_cache_key = cache_state.get("last_cache_key")
+    changed_fields = _cache_key_changes(previous_cache_key, cache_key, _CONFIG_CHAIN_LOG_FIELDS)
     cache_miss_reason = None
     if not reused:
         if settings_changed:
-            cache_miss_reason = "settings_changed"
+            if changed_fields:
+                cache_miss_reason = f"settings_changed: {', '.join(changed_fields)}"
+            else:
+                cache_miss_reason = "settings_changed"
         else:
             cache_miss_reason = "first_build"
     entries[signature] = id(chain)
     cache_state["last_signature"] = signature
+    cache_state["last_cache_key"] = cache_key
     cache_state["last_chain_id"] = id(chain)
     if settings_changed:
         st.session_state.pop("config_chat_preview", None)
