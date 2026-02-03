@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence, SupportsFloat, SupportsIndex, SupportsInt, cast
 
 import pandas as pd
 
@@ -227,7 +227,7 @@ def _coerce_optional_int(value: object, field: str, *, minimum: int | None = Non
     if isinstance(value, bool):
         raise ValueError(f"{field} must be an integer")
     try:
-        number = int(value)
+        number = int(cast(SupportsInt | SupportsIndex | str | bytes | bytearray, value))
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{field} must be an integer") from exc
     if minimum is not None and number < minimum:
@@ -243,7 +243,7 @@ def _coerce_optional_float(
     if isinstance(value, bool):
         raise ValueError(f"{field} must be a number")
     try:
-        number = float(value)
+        number = float(cast(SupportsFloat | SupportsIndex | str | bytes | bytearray, value))
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{field} must be a number") from exc
     if minimum is not None and number < minimum:
