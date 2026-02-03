@@ -20,7 +20,9 @@ def _load_module(monkeypatch: pytest.MonkeyPatch):
     return importlib.reload(importlib.import_module("streamlit_app.components.nl_operation_viewer"))
 
 
-def test_sanitize_prompt_variables_redacts_sensitive_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_sanitize_prompt_variables_redacts_sensitive_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     module = _load_module(monkeypatch)
     payload = {
         "api_key": "sk-test-key-1234567890",

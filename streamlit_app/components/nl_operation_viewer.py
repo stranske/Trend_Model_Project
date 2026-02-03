@@ -11,7 +11,7 @@ from typing import Any, Iterable
 import streamlit as st
 
 from trend_analysis.llm.nl_logging import NLOperationLog
-from trend_analysis.llm.replay import replay_nl_entry, render_prompt
+from trend_analysis.llm.replay import render_prompt, replay_nl_entry
 from trend_analysis.logging import iter_jsonl
 
 _LOG_FILE_GLOB = "nl_ops_*.jsonl"
@@ -36,7 +36,9 @@ def _list_log_files(base_dir: Path) -> list[Path]:
     return sorted(base_dir.glob(_LOG_FILE_GLOB), reverse=True)
 
 
-def _load_log_entries(path: Path, limit: int = _DEFAULT_MAX_ENTRIES) -> list[tuple[int, NLOperationLog]]:
+def _load_log_entries(
+    path: Path, limit: int = _DEFAULT_MAX_ENTRIES
+) -> list[tuple[int, NLOperationLog]]:
     entries: list[tuple[int, NLOperationLog]] = []
     for index, payload in enumerate(iter_jsonl(path), start=1):
         try:
@@ -68,7 +70,11 @@ def _sanitize_prompt_variables(payload: dict[str, Any]) -> dict[str, Any]:
             sanitized[key] = _sanitize_prompt_variables(value)
         elif isinstance(value, list):
             sanitized[key] = [
-                "[REDACTED]" if isinstance(item, str) and any(t in key.lower() for t in _REDACT_KEYS) else item
+                (
+                    "[REDACTED]"
+                    if isinstance(item, str) and any(t in key.lower() for t in _REDACT_KEYS)
+                    else item
+                )
                 for item in value
             ]
         elif isinstance(value, str):
@@ -218,7 +224,9 @@ def render_nl_operation_viewer(
     st.caption(f"Request ID: {entry.request_id}")
     if entry.error:
         st.warning(f"Error: {entry.error}")
-    st.caption(f"Operation: {entry.operation} | Model: {entry.model_name} | Duration: {_format_duration(entry)}")
+    st.caption(
+        f"Operation: {entry.operation} | Model: {entry.model_name} | Duration: {_format_duration(entry)}"
+    )
     if entry.trace_url:
         st.caption(f"Trace URL: {entry.trace_url}")
 

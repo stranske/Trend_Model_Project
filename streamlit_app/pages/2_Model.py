@@ -18,13 +18,12 @@ import streamlit as st
 import yaml
 
 from streamlit_app import state as app_state
-from streamlit_app.components import analysis_runner
+from streamlit_app.components import analysis_runner, nl_operation_viewer
 from streamlit_app.components.progress_eta import (
     estimate_eta_seconds,
     progress_ratio_and_remaining,
     update_eta_seconds,
 )
-from streamlit_app.components import nl_operation_viewer
 from trend_analysis.config.patch import apply_config_patch, diff_configs
 from trend_analysis.llm import (
     ConfigPatchChain,
