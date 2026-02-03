@@ -671,10 +671,9 @@ def _cached_llm_client(
     timeout: float | None,
     max_retries: int | None,
     extra_payload: str,
-    temperature: float,
     api_key_fingerprint: str | None,
 ) -> Any:
-    del session_cache_key, cache_version, temperature, api_key_fingerprint
+    del session_cache_key, cache_version, api_key_fingerprint
     config = LLMProviderConfig(
         provider=provider,
         model=model,
@@ -712,7 +711,6 @@ def _cached_config_patch_chain(
         timeout,
         max_retries,
         extra_payload,
-        temperature,
         api_key_fingerprint,
     )
     schema = load_compact_schema()
