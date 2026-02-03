@@ -293,9 +293,7 @@ def test_apply_to_allows_weighting_params_extension(tmp_path: Path) -> None:
         name="ExtendParams",
         overrides={
             "portfolio": {
-                "weighting": {
-                    "params": {"column": "Sharpe", "half_life": 30, "obs_sigma": 0.15}
-                }
+                "weighting": {"params": {"column": "Sharpe", "half_life": 30, "obs_sigma": 0.15}}
             }
         },
         curated=True,
@@ -316,11 +314,7 @@ def test_apply_to_allows_weighting_params_creation_for_curated(tmp_path: Path) -
     base["portfolio"]["weighting"].pop("params")
     variant = StrategyVariant(
         name="AddParams",
-        overrides={
-            "portfolio": {
-                "weighting": {"params": {"column": "Sharpe", "half_life": 30}}
-            }
-        },
+        overrides={"portfolio": {"weighting": {"params": {"column": "Sharpe", "half_life": 30}}}},
         curated=True,
     )
 

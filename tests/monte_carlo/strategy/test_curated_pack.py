@@ -14,9 +14,7 @@ def test_hf_equity_curated_strategies_validate_against_schema() -> None:
     base_config = yaml.safe_load(base_path.read_text(encoding="utf-8"))
     baseline = deepcopy(base_config)
 
-    strategy_path = Path(
-        "config/scenarios/monte_carlo/strategies/hf_equity_curated.yml"
-    )
+    strategy_path = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
     payload = yaml.safe_load(strategy_path.read_text(encoding="utf-8"))
 
     curated = payload.get("curated")
@@ -40,9 +38,7 @@ def test_hf_equity_curated_strategies_do_not_mutate_defaults() -> None:
     base_config = yaml.safe_load(base_path.read_text(encoding="utf-8"))
     base_snapshot = deepcopy(base_config)
 
-    strategy_path = Path(
-        "config/scenarios/monte_carlo/strategies/hf_equity_curated.yml"
-    )
+    strategy_path = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
     payload = yaml.safe_load(strategy_path.read_text(encoding="utf-8"))
 
     curated = payload.get("curated")
@@ -64,9 +60,7 @@ def test_hf_equity_curated_strategies_compatible_with_strategy_guards() -> None:
     base_path = Path("config/defaults.yml")
     base_config = yaml.safe_load(base_path.read_text(encoding="utf-8"))
 
-    strategy_path = Path(
-        "config/scenarios/monte_carlo/strategies/hf_equity_curated.yml"
-    )
+    strategy_path = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
     payload = yaml.safe_load(strategy_path.read_text(encoding="utf-8"))
 
     curated = payload.get("curated")
@@ -92,9 +86,7 @@ def test_hf_equity_curated_strategies_compatible_with_strategy_guards() -> None:
 
 
 def test_hf_equity_curated_strategies_cover_major_axes() -> None:
-    strategy_path = Path(
-        "config/scenarios/monte_carlo/strategies/hf_equity_curated.yml"
-    )
+    strategy_path = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
     payload = yaml.safe_load(strategy_path.read_text(encoding="utf-8"))
 
     curated = payload.get("curated")
@@ -180,9 +172,7 @@ def test_hf_equity_curated_strategies_cover_major_axes() -> None:
 
     assert selection_modes == {"rank", "random", "manual", "all"}
     assert rank_inclusion == {"top_n", "top_pct", "threshold"}
-    assert holding_buckets.issuperset(
-        {"small", "mid", "large", "pct", "threshold", "all"}
-    )
+    assert holding_buckets.issuperset({"small", "mid", "large", "pct", "threshold", "all"})
     assert weighting_schemes.issuperset(
         {
             "equal",
@@ -203,9 +193,7 @@ def test_hf_equity_curated_strategies_cover_major_axes() -> None:
 
 
 def test_hf_equity_curated_docs_cover_all_strategies() -> None:
-    strategy_path = Path(
-        "config/scenarios/monte_carlo/strategies/hf_equity_curated.yml"
-    )
+    strategy_path = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
     payload = yaml.safe_load(strategy_path.read_text(encoding="utf-8"))
     curated = payload.get("curated")
     assert isinstance(curated, list)
@@ -239,9 +227,7 @@ def test_hf_equity_curated_docs_cover_all_strategies() -> None:
 
 
 def test_hf_equity_curated_pack_files_present() -> None:
-    strategy_path = Path(
-        "config/scenarios/monte_carlo/strategies/hf_equity_curated.yml"
-    )
+    strategy_path = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
     readme_path = Path("config/scenarios/monte_carlo/strategies/README.md")
 
     assert strategy_path.is_file()

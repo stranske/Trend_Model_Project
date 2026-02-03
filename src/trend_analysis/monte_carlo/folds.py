@@ -49,9 +49,7 @@ class Fold:
             "calibration_start": self.calibration_start.isoformat(),
             "calibration_end": self.calibration_end.isoformat(),
             "forecast_start": self.forecast_start.isoformat(),
-            "forecast_end": (
-                self.forecast_end.isoformat() if self.forecast_end else None
-            ),
+            "forecast_end": (self.forecast_end.isoformat() if self.forecast_end else None),
             "label": self.label,
         }
 
@@ -193,9 +191,7 @@ class FoldGenerator:
         spaced = pd.date_range(start=start, end=end, periods=self.n_folds)
         return _dedupe_sorted(list(spaced))
 
-    def _build_fold(
-        self, fold_id: int, raw_start: pd.Timestamp, index: pd.DatetimeIndex
-    ) -> Fold:
+    def _build_fold(self, fold_id: int, raw_start: pd.Timestamp, index: pd.DatetimeIndex) -> Fold:
         forecast_start = _align_to_index(raw_start, index)
         calibration_end = _previous_in_index(forecast_start, index)
         calibration_start = _resolve_calibration_start(
@@ -234,9 +230,7 @@ def _coerce_optional_sequence(value: object) -> Sequence[object] | None:
     return [value]
 
 
-def _coerce_optional_int(
-    value: object, field: str, *, minimum: int | None = None
-) -> int | None:
+def _coerce_optional_int(value: object, field: str, *, minimum: int | None = None) -> int | None:
     if value is None:
         return None
     if isinstance(value, bool):
@@ -258,9 +252,7 @@ def _coerce_optional_float(
     if isinstance(value, bool):
         raise ValueError(f"{field} must be a number")
     try:
-        number = float(
-            cast(SupportsFloat | SupportsIndex | str | bytes | bytearray, value)
-        )
+        number = float(cast(SupportsFloat | SupportsIndex | str | bytes | bytearray, value))
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{field} must be a number") from exc
     if minimum is not None and number < minimum:

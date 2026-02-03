@@ -110,9 +110,7 @@ def _maybe_validate_config(
             payload = dict(cfg)
         elif hasattr(cfg, "model_dump"):
             try:
-                payload = cfg.model_dump(
-                    exclude_none=True, exclude_unset=True, mode="json"
-                )
+                payload = cfg.model_dump(exclude_none=True, exclude_unset=True, mode="json")
             except TypeError:
                 try:
                     payload = cfg.model_dump(exclude_none=True, exclude_unset=True)
@@ -155,11 +153,7 @@ def _maybe_track_config_coverage(config_path: Path, input_path: str) -> bool:
         return True
 
     data_section = dict(payload.get("data") or {})
-    if (
-        input_path
-        and not data_section.get("csv_path")
-        and not data_section.get("managers_glob")
-    ):
+    if input_path and not data_section.get("csv_path") and not data_section.get("managers_glob"):
         data_section["csv_path"] = input_path
         payload = dict(payload)
         payload["data"] = data_section
@@ -223,9 +217,7 @@ def _apply_trend_spec_preset(cfg: Any, preset: TrendSpecPreset) -> None:
         object.__setattr__(cfg, "trend_spec_preset", preset.name)
 
 
-def _log_step(
-    run_id: str, event: str, message: str, level: str = "INFO", **fields: Any
-) -> None:
+def _log_step(run_id: str, event: str, message: str, level: str = "INFO", **fields: Any) -> None:
     """Internal indirection for structured logging.
 
     Tests monkeypatch this symbol directly (`_log_step`) rather than the public
@@ -279,9 +271,7 @@ def _extract_cache_stats(payload: object) -> dict[str, int] | None:
     return found[-1] if found else None
 
 
-def _apply_universe_mask(
-    df: pd.DataFrame, mask: pd.DataFrame, *, date_column: str
-) -> pd.DataFrame:
+def _apply_universe_mask(df: pd.DataFrame, mask: pd.DataFrame, *, date_column: str) -> pd.DataFrame:
     """Apply a time-varying membership mask to returns data."""
 
     if mask.empty:
@@ -291,9 +281,7 @@ def _apply_universe_mask(
     try:
         date_col = lookup[date_column.lower()]
     except KeyError as exc:  # pragma: no cover - defensive guard
-        raise KeyError(
-            f"Date column '{date_column}' is missing from the returns data"
-        ) from exc
+        raise KeyError(f"Date column '{date_column}' is missing from the returns data") from exc
 
     working[date_col] = pd.to_datetime(working[date_col])
     working = working.set_index(date_col)
@@ -308,16 +296,12 @@ def _apply_universe_mask(
         )
 
     masked = working.copy()
-    masked.loc[:, aligned_mask.columns] = masked.loc[:, aligned_mask.columns].where(
-        aligned_mask
-    )
+    masked.loc[:, aligned_mask.columns] = masked.loc[:, aligned_mask.columns].where(aligned_mask)
     masked.reset_index(inplace=True)
     return masked
 
 
-def _attach_universe_paths(
-    cfg: Any, spec: NamedUniverse, *, csv_path: str | None
-) -> None:
+def _attach_universe_paths(cfg: Any, spec: NamedUniverse, *, csv_path: str | None) -> None:
     """Persist the selected universe paths onto ``cfg.data`` when possible."""
 
     membership_value = str(spec.membership_path)
@@ -348,9 +332,7 @@ def _attach_universe_paths(
         setattr(data_section, "universe_membership_path", membership_value)
     except Exception:
         try:
-            object.__setattr__(
-                data_section, "universe_membership_path", membership_value
-            )
+            object.__setattr__(data_section, "universe_membership_path", membership_value)
         except Exception:
             data_section = None
 
@@ -429,9 +411,7 @@ def check_environment(lock_path: Path | None = None) -> int:
     return 0
 
 
-def maybe_log_step(
-    enabled: bool, run_id: str, event: str, message: str, **fields: Any
-) -> None:
+def maybe_log_step(enabled: bool, run_id: str, event: str, message: str, **fields: Any) -> None:
     """Log a structured step when ``enabled`` is True."""
     if enabled:
         _log_step(run_id, event, message, **fields)
@@ -670,9 +650,7 @@ def _execute_analysis_run(
             if isinstance(bench_map, dict) and bench_map:
                 first_bench = next(iter(bench_map.values()))
                 setattr(run_result, "benchmark", first_bench)
-            weights_user = (
-                res.get("weights_user_weight") if isinstance(res, dict) else None
-            )
+            weights_user = res.get("weights_user_weight") if isinstance(res, dict) else None
             if weights_user is not None:
                 setattr(run_result, "weights", weights_user)
     else:  # pragma: no cover - legacy fallback
@@ -766,9 +744,7 @@ def _execute_analysis_run(
             formats=target_formats,
         )
         data_keys = list(data.keys())
-        artifact_paths = _resolve_artifact_paths(
-            out_dir_path, filename, data_keys, fmt_list
-        )
+        artifact_paths = _resolve_artifact_paths(out_dir_path, filename, data_keys, fmt_list)
         maybe_log_step(
             structured_log,
             run_id,
@@ -800,9 +776,7 @@ def _execute_analysis_run(
                     summary_text=text,
                 )
             except Exception as exc:  # pragma: no cover - defensive guard
-                logging.getLogger(__name__).warning(
-                    "Failed to write run artifacts: %s", exc
-                )
+                logging.getLogger(__name__).warning("Failed to write run artifacts: %s", exc)
             else:
                 maybe_log_step(
                     structured_log,
@@ -853,9 +827,7 @@ def main(argv: list[str] | None = None) -> int:
     """Entry point for the ``trend-model`` command."""
 
     parser = argparse.ArgumentParser(prog="trend-model")
-    parser.add_argument(
-        "--check", action="store_true", help="Print environment info and exit"
-    )
+    parser.add_argument("--check", action="store_true", help="Print environment info and exit")
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("gui", help="Launch Streamlit interface")
@@ -863,9 +835,7 @@ def main(argv: list[str] | None = None) -> int:
     run_p = sub.add_parser("run", help="Run analysis pipeline")
     run_p.add_argument("-c", "--config", required=True, help="Path to YAML config")
     run_p.add_argument("-i", "--input", required=True, help="Path to returns CSV")
-    run_p.add_argument(
-        "--seed", type=int, help="Override random seed (takes precedence)"
-    )
+    run_p.add_argument("--seed", type=int, help="Override random seed (takes precedence)")
     run_p.add_argument(
         "--bundle",
         nargs="?",
@@ -914,9 +884,7 @@ def main(argv: list[str] | None = None) -> int:
         "run-ui",
         help="Deprecated: use 'run' with Streamlit JSON params",
     )
-    run_ui_p.add_argument(
-        "--params", required=True, help="Path to Streamlit JSON params"
-    )
+    run_ui_p.add_argument("--params", required=True, help="Path to Streamlit JSON params")
     run_ui_p.add_argument("--data", required=True, help="Path to returns CSV or Excel")
     run_ui_p.add_argument(
         "--auto-fix-dates",
@@ -986,9 +954,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     mc_run_p = mc_sub.add_parser("run", help="Run Monte Carlo scenarios")
-    mc_run_p.add_argument(
-        "--scenario", required=True, help="Scenario name or config path"
-    )
+    mc_run_p.add_argument("--scenario", required=True, help="Scenario name or config path")
     mc_run_p.add_argument(
         "--data",
         help="CSV/Parquet path for price or returns history (overrides base config)",
@@ -1000,9 +966,7 @@ def main(argv: list[str] | None = None) -> int:
         default=[],
         help="Output formats (csv, json, parquet). Repeatable or comma-separated.",
     )
-    mc_run_p.add_argument(
-        "--n-paths", type=int, help="Override number of Monte Carlo paths"
-    )
+    mc_run_p.add_argument("--n-paths", type=int, help="Override number of Monte Carlo paths")
     mc_run_p.add_argument("--jobs", type=int, help="Override parallel job count")
     mc_run_p.add_argument("--seed", type=int, help="Override Monte Carlo seed")
     mc_run_p.add_argument(
@@ -1162,9 +1126,7 @@ def main(argv: list[str] | None = None) -> int:
             universe_spec: NamedUniverse | None = None
             if getattr(args, "universe", None):
                 mask, universe_spec = load_universe(args.universe, prices=df)
-                df = _apply_universe_mask(
-                    df, mask, date_column=universe_spec.date_column
-                )
+                df = _apply_universe_mask(df, mask, date_column=universe_spec.date_column)
             if universe_spec is not None:
                 _attach_universe_paths(cfg, universe_spec, csv_path=args.input)
             return _execute_analysis_run(
@@ -1246,9 +1208,7 @@ def _render_mc_table(entries: Sequence[ScenarioRegistryEntry]) -> str:
     divider = "  ".join("-" * widths[col] for col in columns)
     lines = [header, divider]
     for row in rows:
-        lines.append(
-            "  ".join(str(row.get(col, "")).ljust(widths[col]) for col in columns)
-        )
+        lines.append("  ".join(str(row.get(col, "")).ljust(widths[col]) for col in columns))
     return "\n".join(lines)
 
 
@@ -1258,9 +1218,7 @@ def _resolve_mc_registry_path(raw: str | None) -> Path | None:
     return Path(raw).expanduser().resolve()
 
 
-def _load_mc_scenario_value(
-    raw: str, *, registry_path: Path | None
-) -> MonteCarloScenario:
+def _load_mc_scenario_value(raw: str, *, registry_path: Path | None) -> MonteCarloScenario:
     if not raw:
         raise ValueError("Scenario name is required")
     candidate = Path(raw).expanduser()
@@ -1400,15 +1358,11 @@ def _validate_mc_scenario(scenario: MonteCarloScenario) -> list[str]:
             "regime_conditioned",
         }
         if kind not in allowed:
-            errors.append(
-                f"return_model.kind must be one of: {', '.join(sorted(allowed))}"
-            )
+            errors.append(f"return_model.kind must be one of: {', '.join(sorted(allowed))}")
 
     outputs = scenario.outputs
     if isinstance(outputs, Mapping):
-        errors.extend(
-            _validate_mc_formats(outputs.get("formats", outputs.get("format")))
-        )
+        errors.extend(_validate_mc_formats(outputs.get("formats", outputs.get("format"))))
 
     try:
         strategies = runner._resolve_strategies()
@@ -1569,9 +1523,7 @@ def _handle_mc_command(args: argparse.Namespace) -> int:
         scenarios: list[MonteCarloScenario] = []
         if scenario_arg:
             try:
-                scenarios = [
-                    _load_mc_scenario_value(scenario_arg, registry_path=registry_path)
-                ]
+                scenarios = [_load_mc_scenario_value(scenario_arg, registry_path=registry_path)]
             except (ValueError, FileNotFoundError, IsADirectoryError) as exc:
                 print(f"Scenario validation failed: {exc}", file=sys.stderr)
                 return 1
@@ -1589,9 +1541,7 @@ def _handle_mc_command(args: argparse.Namespace) -> int:
                 return 2
             for entry in entries:
                 try:
-                    scenarios.append(
-                        load_scenario(entry.name, registry_path=registry_path)
-                    )
+                    scenarios.append(load_scenario(entry.name, registry_path=registry_path))
                 except (ValueError, FileNotFoundError, IsADirectoryError) as exc:
                     print(
                         f"Scenario '{entry.name}' failed to load: {exc}",
@@ -1620,9 +1570,7 @@ def _handle_mc_command(args: argparse.Namespace) -> int:
         registry_path = _resolve_mc_registry_path(getattr(args, "registry", None))
         scenario_arg = getattr(args, "scenario", None) or ""
         try:
-            scenario = _load_mc_scenario_value(
-                scenario_arg, registry_path=registry_path
-            )
+            scenario = _load_mc_scenario_value(scenario_arg, registry_path=registry_path)
         except (ValueError, FileNotFoundError, IsADirectoryError) as exc:
             print(f"Scenario run failed: {exc}", file=sys.stderr)
             return 1

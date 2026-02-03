@@ -87,9 +87,7 @@ def _validate_weighting_config(config: Mapping[str, Any]) -> None:
         return
 
     if "weighting_scheme" in portfolio:
-        _require_non_empty_str(
-            portfolio.get("weighting_scheme"), "portfolio.weighting_scheme"
-        )
+        _require_non_empty_str(portfolio.get("weighting_scheme"), "portfolio.weighting_scheme")
 
     if "weighting" not in portfolio:
         return
@@ -146,9 +144,7 @@ def _deep_merge_overrides(
             ):
                 merged[key] = deepcopy(override_value)
                 continue
-            raise ValueError(
-                f"override path '{path_label}' does not exist in base config"
-            )
+            raise ValueError(f"override path '{path_label}' does not exist in base config")
         base_value = merged[key]
         if isinstance(override_value, Mapping):
             if not isinstance(base_value, Mapping):
@@ -199,9 +195,7 @@ def _deep_merge_overrides(
                         kind=type(override_value).__name__,
                     )
                 )
-        elif base_value is not None and not isinstance(
-            override_value, type(base_value)
-        ):
+        elif base_value is not None and not isinstance(override_value, type(base_value)):
             raise TypeError(
                 "override path '{path}' expects {expected}, got {actual}".format(
                     path=path_label,
@@ -237,9 +231,7 @@ class StrategyVariant:
         if isinstance(base, TrendConfig):
             base = base.model_dump()
         base = _ensure_mapping(base, "base_config")
-        allow_weighting_params_extension = _allow_weighting_params_extension(
-            self.overrides
-        )
+        allow_weighting_params_extension = _allow_weighting_params_extension(self.overrides)
         return _deep_merge_overrides(
             base,
             self.overrides,
@@ -257,9 +249,7 @@ class StrategyVariant:
             merged = self.apply_to(base_config)
             _validate_weighting_config(merged)
         except (TypeError, ValueError) as exc:
-            raise ValueError(
-                f"Strategy '{self.name}' overrides invalid: {exc}"
-            ) from exc
+            raise ValueError(f"Strategy '{self.name}' overrides invalid: {exc}") from exc
 
         portfolio = merged.get("portfolio")
         if isinstance(portfolio, Mapping):
@@ -275,9 +265,7 @@ class StrategyVariant:
                         )
                     )
 
-        resolved_base = (
-            base_path if isinstance(base_path, Path) else Path(str(base_path))
-        )
+        resolved_base = base_path if isinstance(base_path, Path) else Path(str(base_path))
         try:
             return validate_trend_config(merged, base_path=resolved_base)
         except ValueError as exc:
