@@ -1,0 +1,283 @@
+version: 1
+issue: 4669
+base: phase-3
+branch: codex/issue-4669
+tasks:
+  - id: task-01
+    title: Update an example scenario configuration file to reference and include
+      the `hf_equity_curated.yml` file.
+    status: doing
+    started_at: '2026-02-03T01:36:56Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Modify the `variant._deep_merge_overrides` function to conditionally apply
+      the freeform override exception for `('portfolio', 'weighting', 'params')` only
+      when handling curated strategies.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Define scope for: Update the `variant._deep_merge_overrides` function
+      to support conditional application of the freeform override exception. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Implement focused slice for: Update the `variant._deep_merge_overrides`
+      function to support conditional application of the freeform override exception.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Validate focused slice for: Update the `variant._deep_merge_overrides`
+      function to support conditional application of the freeform override exception.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Implement logic to identify curated strategies (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Define scope for: apply the freeform override exception only for them.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Implement focused slice for: apply the freeform override exception only
+      for them. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Validate focused slice for: apply the freeform override exception only
+      for them. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Add unit tests that load `hf_equity_curated.yml`, validate each strategy
+      against the schema, and confirm that the global defaults remain unaffected.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Add unit tests to load `hf_equity_curated.yml` (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'validate each strategy against the schema. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Define scope for: Add unit tests to confirm that global defaults remain
+      unaffected when `hf_equity_curated.yml` is loaded. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Implement focused slice for: Add unit tests to confirm that global defaults
+      remain unaffected when `hf_equity_curated.yml` is loaded. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Validate focused slice for: Add unit tests to confirm that global defaults
+      remain unaffected when `hf_equity_curated.yml` is loaded. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Implement and add test cases for `StrategyVariant.to_trend_config`. These
+      tests should include scenarios where both `portfolio.weighting_scheme` and `portfolio.weighting.name`
+      are provided.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Implement the `StrategyVariant.to_trend_config` function. (verify: config
+      validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Define scope for: Add test cases for `StrategyVariant.to_trend_config`
+      to verify correct application of weighting methods.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Implement focused slice for: Add test cases for `StrategyVariant.to_trend_config`
+      to verify correct application of weighting methods.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Validate focused slice for: Add test cases for `StrategyVariant.to_trend_config`
+      to verify correct application of weighting methods.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: The `hf_equity_curated.yml` file is referenced in the `config/scenarios/example_scenario.yml`
+      file, and executing this scenario loads and applies the curated strategies without
+      modifying global defaults.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: The `variant._deep_merge_overrides` function applies the freeform override
+      exception for `('portfolio', 'weighting', 'params')` only when handling curated
+      strategies.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: Unit tests load `hf_equity_curated.yml`, validate each strategy against
+      the schema, and confirm that global defaults remain unaffected.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: Test cases for `StrategyVariant.to_trend_config` verify the correct application
+      of weighting methods when both `portfolio.weighting_scheme` and `portfolio.weighting.name`
+      are provided, and ensure no unintended global modifications.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: Update an example scenario configuration file to reference and include
+      the `hf_equity_curated.yml` file.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: Modify the `variant._deep_merge_overrides` function to conditionally apply
+      the freeform override exception for `('portfolio', 'weighting', 'params')` only
+      when handling curated strategies.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: Add unit tests that load `hf_equity_curated.yml`, validate each strategy
+      against the schema, and confirm that the global defaults remain unaffected.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: Implement and add test cases for `StrategyVariant.to_trend_config`. These
+      tests should include scenarios where both `portfolio.weighting_scheme` and `portfolio.weighting.name`
+      are provided.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: The `hf_equity_curated.yml` file is referenced in the `config/scenarios/example_scenario.yml`
+      file, and executing this scenario loads and applies the curated strategies without
+      modifying global defaults.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: The `variant._deep_merge_overrides` function applies the freeform override
+      exception for `('portfolio', 'weighting', 'params')` only when handling curated
+      strategies.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: Unit tests load `hf_equity_curated.yml`, validate each strategy against
+      the schema, and confirm that global defaults remain unaffected.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: Test cases for `StrategyVariant.to_trend_config` verify the correct application
+      of weighting methods when both `portfolio.weighting_scheme` and `portfolio.weighting.name`
+      are provided, and ensure no unintended global modifications.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: 'Update an example scenario configuration file to reference and include
+      the `hf_equity_curated.yml` file. (AGENT_LIMITATIONS: The agent cannot modify
+      `.github/workflows/*.yml` or other protected files. | Provide instructions for
+      a human collaborator to update the configuration file.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
