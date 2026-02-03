@@ -17,6 +17,15 @@ __all__ = [
     "export_results",
 ]
 
+RESULT_BASE_COLUMNS = (
+    "fold_id",
+    "path_id",
+    "strategy",
+    "path_hash",
+    "seed",
+    "metric_source",
+)
+
 
 @dataclass(frozen=True)
 class StrategyEvaluation:
@@ -70,14 +79,22 @@ def build_results_frame(evaluations: Iterable[StrategyEvaluation]) -> pd.DataFra
         }
         row.update({str(k): float(v) for k, v in evaluation.metrics.items()})
         rows.append(row)
-    return pd.DataFrame(rows)
+    if not rows:
+        return pd.DataFrame(columns=list(RESULT_BASE_COLUMNS))
+    frame = pd.DataFrame(rows)
+    base_cols = [col for col in RESULT_BASE_COLUMNS if col in frame.columns]
+    other_cols = [col for col in frame.columns if col not in base_cols]
+    return frame[base_cols + other_cols]
 
 
 def build_summary_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     """Aggregate results per strategy."""
 
     if results_frame.empty:
-        return pd.DataFrame()
+        base_cols = ["strategy", "paths"]
+        if "fold_id" in results_frame.columns:
+            base_cols = ["fold_id", "strategy", "paths"]
+        return pd.DataFrame(columns=base_cols)
     numeric_cols = results_frame.select_dtypes(include="number").columns.tolist()
     if "fold_id" in numeric_cols:
         numeric_cols.remove("fold_id")
