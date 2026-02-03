@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+import trend_analysis.monte_carlo.folds as folds_module
 import trend_analysis.monte_carlo.runner as runner_module
 from trend_analysis.api import RunResult
 from trend_analysis.monte_carlo.results import (
@@ -92,8 +93,12 @@ def _scenario_with_folds(
     folds: dict[str, Any],
     strategies: list[StrategyVariant] | None = None,
     outputs: dict[str, Any] | None = None,
+    enable_fold_runs: bool | None = None,
 ) -> MonteCarloScenario:
     curated = strategies or [StrategyVariant(name="StrategyA")]
+    extra: dict[str, Any] = {}
+    if enable_fold_runs is not None:
+        extra["enable_fold_runs"] = enable_fold_runs
     return MonteCarloScenario(
         name="mc_test_folds",
         base_config="config/defaults.yml",
@@ -109,6 +114,7 @@ def _scenario_with_folds(
         return_model={"kind": "stationary_bootstrap", "params": {"block_size": 3}},
         folds=folds,
         outputs=outputs,
+        **extra,
     )
 
 
@@ -311,10 +317,11 @@ def test_build_price_model_rejects_empty_calibration_window() -> None:
         )
 
 
-def test_runner_respects_fold_enabled_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_runner_respects_enable_fold_runs_flag(monkeypatch: pytest.MonkeyPatch) -> None:
     scenario = _scenario_with_folds(
         mode="two_layer",
-        folds={"enabled": False, "mode": "explicit", "fold_starts": ["2022-01-31"]},
+        folds={"enabled": True, "mode": "explicit", "fold_starts": ["2022-01-31"]},
+        enable_fold_runs=False,
     )
     history = _price_history()
     runner = MonteCarloRunner(
@@ -339,6 +346,14 @@ def test_runner_respects_fold_enabled_flag(monkeypatch: pytest.MonkeyPatch) -> N
         seen_fold_ids.append(kwargs.get("fold_id"))
         return [], []
 
+    def _raise_from_config(cls: type[folds_module.FoldGenerator], _config: Any) -> Any:
+        raise AssertionError("FoldGenerator.from_config should not be called when disabled")
+
+    monkeypatch.setattr(
+        folds_module.FoldGenerator,
+        "from_config",
+        classmethod(_raise_from_config),
+    )
     monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
     monkeypatch.setattr(MonteCarloRunner, "_run_mode", _fake_run_mode)
 

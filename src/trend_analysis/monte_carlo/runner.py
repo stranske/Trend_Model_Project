@@ -653,6 +653,8 @@ class MonteCarloRunner:
         return model.fit(resolved_history, frequency=frequency)
 
     def _resolve_folds(self, history: pd.DataFrame) -> list[Fold]:
+        if not self.scenario.enable_fold_runs:
+            return []
         folds_config = cast(Mapping[str, Any] | None, self.scenario.folds)
         generator = FoldGenerator.from_config(folds_config)
         if generator is None:
