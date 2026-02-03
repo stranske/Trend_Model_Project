@@ -24,6 +24,7 @@ from streamlit_app.components.progress_eta import (
     progress_ratio_and_remaining,
     update_eta_seconds,
 )
+from streamlit_app.components import nl_operation_viewer
 from trend_analysis.config.patch import apply_config_patch, diff_configs
 from trend_analysis.llm import (
     ConfigPatchChain,
@@ -1174,6 +1175,9 @@ def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
     st.markdown("---")
     with st.expander("Preview timing log", expanded=False):
         _render_preview_timing_history()
+    st.markdown("---")
+    with st.expander("NL operation log", expanded=False):
+        nl_operation_viewer.render_nl_operation_viewer()
 
 
 def render_config_chat_panel(
