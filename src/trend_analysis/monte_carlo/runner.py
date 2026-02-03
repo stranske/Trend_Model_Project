@@ -223,13 +223,9 @@ class MonteCarloRunner:
                 outputs.get("pooled_distributions"),
                 "outputs.pooled_distributions",
             )
-        cross_fold_summary_frame = (
-            build_cross_fold_summary_frame(results_frame) if folds else None
-        )
+        cross_fold_summary_frame = build_cross_fold_summary_frame(results_frame) if folds else None
         pooled_summary_frame = (
-            build_pooled_summary_frame(results_frame)
-            if folds and pooled_distributions
-            else None
+            build_pooled_summary_frame(results_frame) if folds and pooled_distributions else None
         )
         if folds:
             metadata["pooled_distributions"] = pooled_distributions
