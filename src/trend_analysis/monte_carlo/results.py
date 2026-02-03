@@ -155,7 +155,7 @@ def build_cross_fold_summary_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
         numeric_cols.remove("fold_id")
 
     grouped = fold_summary.groupby("strategy", dropna=False)
-    stats = grouped[numeric_cols].agg(["mean", "std", "min", "max"])
+    stats = grouped[numeric_cols].agg(["mean", "std", "min", "max", "median"])
     stats.columns = [f"{col}_{stat}" for col, stat in stats.columns]
     stats["folds"] = grouped.size()
     cross_fold = stats.reset_index()
