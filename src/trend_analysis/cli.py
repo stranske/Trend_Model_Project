@@ -898,6 +898,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Disable persistent caching for rolling computations",
     )
 
+    mc_p = sub.add_parser("mc", help="Monte Carlo scenario workflows")
+    mc_sub = mc_p.add_subparsers(dest="mc_command", required=True)
+    mc_sub.add_parser("list", help="List registered Monte Carlo scenarios")
+    mc_sub.add_parser("validate", help="Validate Monte Carlo scenarios")
+    mc_sub.add_parser("run", help="Run Monte Carlo scenarios")
+
     # Handle --check flag before parsing subcommands
     # This allows --check to work without requiring a subcommand
     if argv is None:
@@ -1074,8 +1080,28 @@ def main(argv: list[str] | None = None) -> int:
             bundle=Path(args.bundle) if args.bundle else None,
         )
 
+    if args.command == "mc":
+        return _handle_mc_command(args)
+
     # This shouldn't be reached with required=True.
     return 0
+
+
+def _handle_mc_command(args: argparse.Namespace) -> int:
+    """Dispatch Monte Carlo CLI commands.
+
+    Placeholder until full scenario commands are implemented.
+    """
+
+    subcommand = getattr(args, "mc_command", None)
+    if subcommand in {"list", "validate", "run"}:
+        print(
+            "Monte Carlo CLI commands are not yet implemented in trend-model.",
+            file=sys.stderr,
+        )
+        return 2
+    print("Unknown Monte Carlo command.", file=sys.stderr)
+    return 2
 
 
 if __name__ == "__main__":  # pragma: no cover - manual invocation
