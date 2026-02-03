@@ -262,6 +262,13 @@ def test_run_from_config_emits_expected_outputs(
     assert (run_dir / "summary.csv").is_file()
     assert (run_dir / "summary.jsonl").is_file()
 
+    folds_df = pd.read_csv(run_dir / "folds.csv")
+    assert "fold_id" in folds_df.columns
+
+    summary_df = pd.read_csv(run_dir / "summary.csv")
+    assert "fold_id" in summary_df.columns
+    assert summary_df["fold_id"].isna().all()
+
 
 def test_maybe_render_heatmap_emits_png(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     class DummyAxes:
