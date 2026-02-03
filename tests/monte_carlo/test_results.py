@@ -92,10 +92,12 @@ def test_build_pooled_summary_frame_ignores_folds() -> None:
 def test_build_cross_fold_summary_frame_reports_fold_stats() -> None:
     frame = pd.DataFrame(
         [
-            {"fold_id": 1, "path_id": 1, "strategy": "A", "metric": 1.0},
-            {"fold_id": 1, "path_id": 2, "strategy": "A", "metric": 3.0},
-            {"fold_id": 2, "path_id": 3, "strategy": "A", "metric": 5.0},
-            {"fold_id": 2, "path_id": 4, "strategy": "A", "metric": 7.0},
+            {"fold_id": 1, "path_id": 1, "strategy": "A", "metric": 1.0, "metric2": 2.0},
+            {"fold_id": 1, "path_id": 2, "strategy": "A", "metric": 3.0, "metric2": 6.0},
+            {"fold_id": 2, "path_id": 3, "strategy": "A", "metric": 5.0, "metric2": 10.0},
+            {"fold_id": 2, "path_id": 4, "strategy": "A", "metric": 7.0, "metric2": 14.0},
+            {"fold_id": 3, "path_id": 5, "strategy": "A", "metric": 9.0, "metric2": 18.0},
+            {"fold_id": 3, "path_id": 6, "strategy": "A", "metric": 11.0, "metric2": 22.0},
         ]
     )
 
@@ -105,10 +107,22 @@ def test_build_cross_fold_summary_frame_reports_fold_stats() -> None:
     assert "fold_id" in cross_fold.columns
     assert pd.isna(cross_fold.loc[0, "fold_id"])
     assert cross_fold.loc[0, "strategy"] == "A"
-    assert cross_fold.loc[0, "folds"] == 2
-    assert cross_fold.loc[0, "metric_mean"] == 4.0
+    assert cross_fold.loc[0, "folds"] == 3
+    assert cross_fold.loc[0, "metric_mean"] == 6.0
+    assert cross_fold.loc[0, "metric_std"] == 4.0
     assert cross_fold.loc[0, "metric_min"] == 2.0
-    assert cross_fold.loc[0, "metric_max"] == 6.0
+    assert cross_fold.loc[0, "metric_max"] == 10.0
+    assert cross_fold.loc[0, "metric_median"] == 6.0
+    assert cross_fold.loc[0, "metric2_mean"] == 12.0
+    assert cross_fold.loc[0, "metric2_std"] == 8.0
+    assert cross_fold.loc[0, "metric2_min"] == 4.0
+    assert cross_fold.loc[0, "metric2_max"] == 20.0
+    assert cross_fold.loc[0, "metric2_median"] == 12.0
+    assert cross_fold.loc[0, "paths_mean"] == 2.0
+    assert cross_fold.loc[0, "paths_std"] == 0.0
+    assert cross_fold.loc[0, "paths_min"] == 2.0
+    assert cross_fold.loc[0, "paths_max"] == 2.0
+    assert cross_fold.loc[0, "paths_median"] == 2.0
 
 
 def test_export_results_writes_pooled_summary(tmp_path) -> None:
