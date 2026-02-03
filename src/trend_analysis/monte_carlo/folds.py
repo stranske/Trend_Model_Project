@@ -3,7 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping, Sequence, SupportsFloat, SupportsIndex, SupportsInt, cast
+from typing import (
+    Any,
+    Iterable,
+    Mapping,
+    Sequence,
+    SupportsFloat,
+    SupportsIndex,
+    SupportsInt,
+    cast,
+)
 
 import pandas as pd
 
