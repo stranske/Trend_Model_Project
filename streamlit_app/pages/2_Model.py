@@ -462,25 +462,33 @@ def _hash_api_key(api_key: str | None) -> str | None:
     return hashlib.sha256(api_key.encode("utf-8")).hexdigest()
 
 
+def _serialize_extra(extra: Mapping[str, Any] | None) -> str:
+    if not extra:
+        return ""
+    return json.dumps(dict(extra), sort_keys=True, default=str)
+
+
 @st.cache_resource(show_spinner=False)
 def _cached_nl_chain(
     provider: str,
     model: str | None,
     base_url: str | None,
     organization: str | None,
+    timeout: float | None,
+    max_retries: int | None,
+    extra_payload: str,
     temperature: float,
     _api_key_fingerprint: str | None,
 ) -> ConfigPatchChain:
-    base_config = _resolve_llm_provider_config()
     config = LLMProviderConfig(
         provider=provider,
-        model=model or base_config.model,
-        api_key=base_config.api_key,
+        model=model or "gpt-4o-mini",
+        api_key=_resolve_llm_provider_config().api_key,
         base_url=base_url,
         organization=organization,
-        timeout=base_config.timeout,
-        max_retries=base_config.max_retries,
-        extra=base_config.extra,
+        timeout=timeout,
+        max_retries=max_retries,
+        extra=json.loads(extra_payload) if extra_payload else {},
     )
     llm = create_llm(config)
     schema = load_compact_schema()
@@ -497,6 +505,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     config = _resolve_llm_provider_config()
     temperature = _resolve_llm_temperature()
     api_key_fingerprint = _hash_api_key(config.api_key)
+    extra_payload = _serialize_extra(config.extra)
     cache_key = {
         "provider": config.provider,
         "model": config.model,
@@ -509,6 +518,9 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         config.model,
         config.base_url,
         config.organization,
+        config.timeout,
+        config.max_retries,
+        extra_payload,
         temperature,
         api_key_fingerprint,
     )
