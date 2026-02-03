@@ -1,0 +1,295 @@
+version: 1
+issue: 4673
+base: phase-3
+branch: codex/issue-4673
+tasks:
+  - id: task-01
+    title: Modify the progress bar implementation and tests to simulate a valid tqdm
+      instance. Add a test case where a dummy tqdm.tqdm object is provided and verify
+      that its interface is used to display progress.
+    status: doing
+    started_at: '2026-02-03T03:54:56Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Define scope for: Implement changes to the progress bar to support a valid
+      tqdm instance. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Implement focused slice for: Implement changes to the progress bar to
+      support a valid tqdm instance. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Validate focused slice for: Implement changes to the progress bar to support
+      a valid tqdm instance. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Define scope for: Add a test case to simulate a dummy tqdm.tqdm object
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Implement focused slice for: Add a test case to simulate a dummy tqdm.tqdm
+      object (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Validate focused slice for: Add a test case to simulate a dummy tqdm.tqdm
+      object (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: verify its interface is used.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Update the timestamp generation in the 'mc run' command to use datetime.now(timezone.utc)
+      instead of datetime.utcnow().
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Review and adjust the exit-code mapping logic for subcommands to ensure
+      configuration or validation errors return an exit code of 1, and runtime errors
+      return 2.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Define scope for: Review the current exit-code mapping logic for subcommands.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Implement focused slice for: Review the current exit-code mapping logic
+      for subcommands. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Validate focused slice for: Review the current exit-code mapping logic
+      for subcommands. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Define scope for: Adjust the exit-code mapping logic to align with the
+      specified criteria. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Implement focused slice for: Adjust the exit-code mapping logic to align
+      with the specified criteria. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Validate focused slice for: Adjust the exit-code mapping logic to align
+      with the specified criteria. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Refactor or document the _validate_mc_scenario function to reduce reliance
+      on private runner attributes and methods.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Review the market-data override conversion logic to verify its correctness
+      and document the assumptions and limitations.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'When executing a scenario (mc run), if a valid tqdm.tqdm instance is provided,
+      the progress output uses the tqdm progress bar. If no valid instance is available,
+      the fallback text output (''Progress: X/Y'') is used.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: The run manifest in the written bundle includes all used parameters (n_paths,
+      jobs, seed) and uses timezone-aware timestamps with datetime.now(timezone.utc).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: The CLI returns exit code 0 for success, 1 for validation or configuration
+      errors, and 2 for runtime errors, with no inconsistencies across subcommands.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: The _validate_mc_scenario function is refactored or documented to avoid
+      reliance on private runner attributes and methods.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: The market-data override conversion logic is verified for correctness and
+      documented with assumptions and limitations.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: Modify the progress bar implementation and tests to simulate a valid tqdm
+      instance. Add a test case where a dummy tqdm.tqdm object is provided and verify
+      that its interface is used to display progress.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: Update the timestamp generation in the 'mc run' command to use datetime.now(timezone.utc)
+      instead of datetime.utcnow().
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: Review and adjust the exit-code mapping logic for subcommands to ensure
+      configuration or validation errors return an exit code of 1, and runtime errors
+      return 2.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: Refactor or document the _validate_mc_scenario function to reduce reliance
+      on private runner attributes and methods.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: Review the market-data override conversion logic to verify its correctness
+      and document the assumptions and limitations.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: 'When executing a scenario (mc run), if a valid tqdm.tqdm instance is provided,
+      the progress output uses the tqdm progress bar. If no valid instance is available,
+      the fallback text output (''Progress: X/Y'') is used.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: The run manifest in the written bundle includes all used parameters (n_paths,
+      jobs, seed) and uses timezone-aware timestamps with datetime.now(timezone.utc).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: The CLI returns exit code 0 for success, 1 for validation or configuration
+      errors, and 2 for runtime errors, with no inconsistencies across subcommands.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: The _validate_mc_scenario function is refactored or documented to avoid
+      reliance on private runner attributes and methods.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: The market-data override conversion logic is verified for correctness and
+      documented with assumptions and limitations.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: Update the timestamp generation in the 'mc run' command to use datetime.now(timezone.utc)
+      instead of datetime.utcnow(). (The agent cannot guarantee specific coverage
+      percentages or retry CI pipelines, which may be necessary to verify this change.
+      | Ensure manual verification of timestamp changes in CI pipelines or add explicit
+      test cases for timezone-aware timestamps.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: Refactor or document the _validate_mc_scenario function to reduce reliance
+      on private runner attributes and methods. (Refactoring private methods may require
+      subjective design decisions, which the agent cannot make. | Provide clear guidelines
+      or examples for refactoring to minimize reliance on private attributes.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
