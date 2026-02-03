@@ -310,6 +310,17 @@ def test_to_trend_config_rejects_invalid_weighting_scheme_type(tmp_path: Path) -
         variant.to_trend_config(base, base_path=tmp_path)
 
 
+def test_to_trend_config_rejects_invalid_weighting_scheme_value(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="BadSchemeValue",
+        overrides={"portfolio": {"weighting_scheme": "not_a_scheme"}},
+    )
+
+    with pytest.raises(ValueError, match="portfolio.weighting_scheme"):
+        variant.to_trend_config(base, base_path=tmp_path)
+
+
 def test_to_trend_config_rejects_invalid_weighting_name_type(tmp_path: Path) -> None:
     base = _base_config(tmp_path)
     variant = StrategyVariant(
