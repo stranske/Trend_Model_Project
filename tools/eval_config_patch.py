@@ -752,9 +752,7 @@ def main(argv: list[str] | None = None) -> int:
         f"Passed {report['passed']} ({report['success_rate'] * 100:.1f}%)."
     )
     print(_format_summary_table(results))
-    threshold_failed = (
-        args.min_success_rate and report["success_rate"] < args.min_success_rate
-    )
+    threshold_failed = args.min_success_rate and report["success_rate"] < args.min_success_rate
     if threshold_failed:
         print(
             "Success rate below threshold: "
