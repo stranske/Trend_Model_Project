@@ -44,6 +44,8 @@ from .results import (
     MonteCarloPathError,
     MonteCarloResults,
     StrategyEvaluation,
+    build_cross_fold_summary_frame,
+    build_pooled_summary_frame,
     build_results_frame,
     build_summary_frame,
     export_results,
@@ -57,6 +59,14 @@ _TURNOVER_GUARD_PATH = "strategy_set.guards.max_turnover"
 
 def _is_number(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _coerce_optional_bool(value: Any, field: str) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    raise ValueError(f"{field} must be a boolean")
 
 
 def _coerce_turnover_guard(value: Any) -> float:
@@ -206,12 +216,31 @@ class MonteCarloRunner:
         if folds:
             metadata["n_folds"] = len(folds)
             metadata["folds"] = [fold.as_dict() for fold in folds]
+        outputs = self.scenario.outputs or {}
+        pooled_distributions = False
+        if isinstance(outputs, Mapping):
+            pooled_distributions = _coerce_optional_bool(
+                outputs.get("pooled_distributions"),
+                "outputs.pooled_distributions",
+            )
+        cross_fold_summary_frame = (
+            build_cross_fold_summary_frame(results_frame) if folds else None
+        )
+        pooled_summary_frame = (
+            build_pooled_summary_frame(results_frame)
+            if folds and pooled_distributions
+            else None
+        )
+        if folds:
+            metadata["pooled_distributions"] = pooled_distributions
         results = MonteCarloResults(
             mode=mode,
             evaluations=evaluations,
             errors=errors,
             results_frame=results_frame,
             summary_frame=summary_frame,
+            cross_fold_summary_frame=cross_fold_summary_frame,
+            pooled_summary_frame=pooled_summary_frame,
             metadata=metadata,
         )
         self._maybe_export(results)

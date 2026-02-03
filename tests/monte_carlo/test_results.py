@@ -5,6 +5,8 @@ import pandas as pd
 from trend_analysis.monte_carlo.results import (
     RESULT_BASE_COLUMNS,
     StrategyEvaluation,
+    build_cross_fold_summary_frame,
+    build_pooled_summary_frame,
     build_results_frame,
     build_summary_frame,
 )
@@ -61,3 +63,41 @@ def test_build_summary_frame_empty_includes_fold_id_if_present() -> None:
 
     assert list(summary.columns) == ["fold_id", "strategy", "paths"]
     assert summary.empty
+
+
+def test_build_pooled_summary_frame_ignores_folds() -> None:
+    frame = pd.DataFrame(
+        [
+            {"fold_id": 1, "path_id": 1, "strategy": "A", "metric": 1.0},
+            {"fold_id": 1, "path_id": 2, "strategy": "A", "metric": 3.0},
+            {"fold_id": 2, "path_id": 3, "strategy": "A", "metric": 5.0},
+            {"fold_id": 2, "path_id": 4, "strategy": "A", "metric": 7.0},
+        ]
+    )
+
+    pooled = build_pooled_summary_frame(frame)
+
+    assert pooled.loc[0, "scope"] == "pooled"
+    assert pooled.loc[0, "strategy"] == "A"
+    assert pooled.loc[0, "metric"] == 4.0
+    assert pooled.loc[0, "paths"] == 4
+
+
+def test_build_cross_fold_summary_frame_reports_fold_stats() -> None:
+    frame = pd.DataFrame(
+        [
+            {"fold_id": 1, "path_id": 1, "strategy": "A", "metric": 1.0},
+            {"fold_id": 1, "path_id": 2, "strategy": "A", "metric": 3.0},
+            {"fold_id": 2, "path_id": 3, "strategy": "A", "metric": 5.0},
+            {"fold_id": 2, "path_id": 4, "strategy": "A", "metric": 7.0},
+        ]
+    )
+
+    cross_fold = build_cross_fold_summary_frame(frame)
+
+    assert cross_fold.loc[0, "scope"] == "cross_fold"
+    assert cross_fold.loc[0, "strategy"] == "A"
+    assert cross_fold.loc[0, "folds"] == 2
+    assert cross_fold.loc[0, "metric_mean"] == 4.0
+    assert cross_fold.loc[0, "metric_min"] == 2.0
+    assert cross_fold.loc[0, "metric_max"] == 6.0

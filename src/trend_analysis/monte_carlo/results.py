@@ -12,6 +12,8 @@ __all__ = [
     "MonteCarloPathError",
     "MonteCarloResults",
     "StrategyEvaluation",
+    "build_cross_fold_summary_frame",
+    "build_pooled_summary_frame",
     "build_results_frame",
     "build_summary_frame",
     "export_results",
@@ -61,6 +63,8 @@ class MonteCarloResults:
     errors: Sequence[MonteCarloPathError]
     results_frame: pd.DataFrame
     summary_frame: pd.DataFrame
+    cross_fold_summary_frame: pd.DataFrame | None = None
+    pooled_summary_frame: pd.DataFrame | None = None
     metadata: Mapping[str, Any] | None = None
 
 
@@ -111,6 +115,48 @@ def build_summary_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     return summary.reset_index()
 
 
+def build_pooled_summary_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate results per strategy across all folds (pooled)."""
+
+    if results_frame.empty:
+        return pd.DataFrame(columns=["scope", "strategy", "paths"])
+
+    numeric_cols = results_frame.select_dtypes(include="number").columns.tolist()
+    for col in ("fold_id", "path_id", "seed"):
+        if col in numeric_cols:
+            numeric_cols.remove(col)
+
+    grouped = results_frame.groupby("strategy", dropna=False)
+    summary = grouped[numeric_cols].mean(numeric_only=True)
+    summary["paths"] = grouped.size()
+    pooled = summary.reset_index()
+    pooled.insert(0, "scope", "pooled")
+    return pooled
+
+
+def build_cross_fold_summary_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
+    """Summarize fold-level results for cross-fold comparison."""
+
+    if results_frame.empty or "fold_id" not in results_frame.columns:
+        return pd.DataFrame(columns=["scope", "strategy", "folds"])
+
+    fold_summary = build_summary_frame(results_frame)
+    if fold_summary.empty:
+        return pd.DataFrame(columns=["scope", "strategy", "folds"])
+
+    numeric_cols = fold_summary.select_dtypes(include="number").columns.tolist()
+    if "fold_id" in numeric_cols:
+        numeric_cols.remove("fold_id")
+
+    grouped = fold_summary.groupby("strategy", dropna=False)
+    stats = grouped[numeric_cols].agg(["mean", "std", "min", "max"])
+    stats.columns = [f"{col}_{stat}" for col, stat in stats.columns]
+    stats["folds"] = grouped.size()
+    cross_fold = stats.reset_index()
+    cross_fold.insert(0, "scope", "cross_fold")
+    return cross_fold
+
+
 def export_results(
     results: MonteCarloResults,
     output_dir: Path | str,
@@ -139,6 +185,14 @@ def export_results(
         summary_path = out_dir / f"summary.{ext}"
         _export_frame(results.results_frame, results_path, ext)
         _export_frame(results.summary_frame, summary_path, ext)
+        if results.cross_fold_summary_frame is not None:
+            cross_path = out_dir / f"cross_fold_summary.{ext}"
+            _export_frame(results.cross_fold_summary_frame, cross_path, ext)
+            exported[f"cross_fold_summary_{ext}"] = cross_path
+        if results.pooled_summary_frame is not None:
+            pooled_path = out_dir / f"pooled_summary.{ext}"
+            _export_frame(results.pooled_summary_frame, pooled_path, ext)
+            exported[f"pooled_summary_{ext}"] = pooled_path
         exported[f"results_{ext}"] = results_path
         exported[f"summary_{ext}"] = summary_path
     return exported
