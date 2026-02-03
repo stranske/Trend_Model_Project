@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -102,6 +103,7 @@ def test_to_trend_config_accepts_weighting_scheme_and_name(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     base = _base_config(tmp_path)
+    base_snapshot = deepcopy(base)
     variant = StrategyVariant(
         name="Weighted",
         overrides={
@@ -133,6 +135,7 @@ def test_to_trend_config_accepts_weighting_scheme_and_name(
 
     cfg = variant.to_trend_config(base, base_path=tmp_path)
     assert cfg.portfolio.rebalance_calendar == "NYSE"
+    assert base == base_snapshot
     assert captured["portfolio"]["weighting_scheme"] == "risk_parity"
     assert captured["portfolio"]["weighting"]["name"] == "score_prop_bayes"
 
@@ -287,6 +290,7 @@ def test_apply_to_allows_weighting_params_extension(tmp_path: Path) -> None:
                 "weighting": {"params": {"column": "Sharpe", "half_life": 30, "obs_sigma": 0.15}}
             }
         },
+        curated=True,
     )
 
     merged = variant.apply_to(base)
@@ -297,6 +301,61 @@ def test_apply_to_allows_weighting_params_extension(tmp_path: Path) -> None:
     assert merged["portfolio"]["weighting"]["params"]["obs_sigma"] == 0.15
     assert "half_life" not in base["portfolio"]["weighting"]["params"]
     assert "obs_sigma" not in base["portfolio"]["weighting"]["params"]
+
+
+def test_apply_to_allows_weighting_params_creation_for_curated(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    base["portfolio"]["weighting"].pop("params")
+    variant = StrategyVariant(
+        name="AddParams",
+        overrides={"portfolio": {"weighting": {"params": {"column": "Sharpe", "half_life": 30}}}},
+        curated=True,
+    )
+
+    merged = variant.apply_to(base)
+
+    assert merged["portfolio"]["weighting"]["params"]["column"] == "Sharpe"
+    assert merged["portfolio"]["weighting"]["params"]["half_life"] == 30
+    assert "params" not in base["portfolio"]["weighting"]
+
+
+def test_apply_to_rejects_weighting_params_extension_for_non_curated(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="ExtendParams",
+        overrides={
+            "portfolio": {"weighting": {"params": {"half_life": 30}}},
+        },
+    )
+
+    with pytest.raises(ValueError, match="portfolio.weighting.params.half_life"):
+        variant.apply_to(base)
+
+
+def test_apply_to_rejects_weighting_params_creation_for_non_curated(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    base["portfolio"]["weighting"].pop("params")
+    variant = StrategyVariant(
+        name="AddParams",
+        overrides={"portfolio": {"weighting": {"params": {"half_life": 30}}}},
+    )
+
+    with pytest.raises(ValueError, match="portfolio.weighting.params"):
+        variant.apply_to(base)
+
+
+def test_apply_to_curated_rejects_unknown_path_outside_freeform(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="CuratedInvalid",
+        overrides={
+            "portfolio": {"rank": {"unknown": 3}},
+        },
+        curated=True,
+    )
+
+    with pytest.raises(ValueError, match="portfolio.rank.unknown"):
+        variant.apply_to(base)
 
 
 def test_to_trend_config_rejects_invalid_weighting_scheme_type(tmp_path: Path) -> None:
@@ -329,6 +388,17 @@ def test_to_trend_config_rejects_invalid_weighting_name_type(tmp_path: Path) -> 
     )
 
     with pytest.raises(ValueError, match="portfolio.weighting.name"):
+        variant.to_trend_config(base, base_path=tmp_path)
+
+
+def test_to_trend_config_error_includes_strategy_name(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="Broken",
+        overrides={"portfolio": {"max_turnover": "fast"}},
+    )
+
+    with pytest.raises(ValueError, match="Strategy 'Broken' overrides invalid"):
         variant.to_trend_config(base, base_path=tmp_path)
 
 
