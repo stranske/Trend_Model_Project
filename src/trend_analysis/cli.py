@@ -1590,7 +1590,9 @@ def _handle_mc_command(args: argparse.Namespace) -> int:
         format_overrides = _parse_mc_formats(getattr(args, "formats", None))
         validation_errors = _validate_mc_scenario(scenario)
         validation_errors.extend(
-            _validate_mc_formats(format_overrides, label="format overrides") if format_overrides else []
+            _validate_mc_formats(format_overrides, label="format overrides")
+            if format_overrides
+            else []
         )
         if validation_errors:
             print(f"Scenario '{scenario.name}' failed validation:", file=sys.stderr)
