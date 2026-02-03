@@ -24,6 +24,7 @@ BASE_CONFIG: dict[str, Any] = {
         "top_n": 8,
         "target_vol": 0.10,
         "frequency": "D",
+        "tags": [],
     },
     "constraints": {"max_weight": 0.2},
 }
@@ -41,6 +42,7 @@ BASE_SCHEMA: dict[str, Any] = {
                 "top_n": {"type": "integer"},
                 "target_vol": {"type": "number"},
                 "frequency": {"type": "string"},
+                "tags": {"type": "array", "items": {"type": "string"}},
             },
         },
         "constraints": {

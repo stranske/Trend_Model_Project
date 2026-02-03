@@ -5,6 +5,7 @@ base_config: &base_config
     top_n: 8
     target_vol: 0.10
     frequency: "D"
+    tags: []
   constraints:
     max_weight: 0.2
 
@@ -25,6 +26,10 @@ base_schema: &base_schema
           type: number
         frequency:
           type: string
+        tags:
+          type: array
+          items:
+            type: string
     constraints:
       type: object
       properties:
@@ -146,3 +151,220 @@ cases:
       operations: []
       risk_flags: []
       summary: "Unknown key 'analysis.weighting.sheme'; did you mean 'analysis.weighting.scheme'?"
+
+  - id: json_pointer_path
+    instruction: "Use cap weighted scheme."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations:
+        - op: set
+          path: /analysis/weighting/scheme
+          value: cap_weighted
+      risk_flags: []
+      summary: "Set weighting scheme to cap_weighted."
+
+  - id: code_fenced_response
+    instruction: "Set top_n to 10."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    llm_response: |-
+      ```json
+      {"operations":[{"op":"set","path":"analysis.top_n","value":10}],"risk_flags":[],"summary":"Set top_n to 10."}
+      ```
+    expected_patch:
+      operations:
+        - op: set
+          path: analysis.top_n
+          value: 10
+      risk_flags: []
+      summary: "Set top_n to 10."
+
+  - id: merge_constraints
+    instruction: "Set max weight to 10% and add min weight 2%."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations:
+        - op: merge
+          path: constraints
+          value:
+            max_weight: 0.1
+            min_weight: 0.02
+      risk_flags:
+        - BROAD_SCOPE
+      summary: "Merge constraint updates for max_weight and min_weight."
+
+  - id: append_tag
+    instruction: "Tag this config as momentum."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations:
+        - op: append
+          path: analysis.tags
+          value: momentum
+      risk_flags: []
+      summary: "Append tag 'momentum' to analysis.tags."
+
+  - id: invalid_value_request
+    instruction: "Set top_n to -5."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations: []
+      risk_flags: []
+      summary: "Rejected invalid top_n value; requested value is out of range."
+
+  - id: retry_invalid_json_then_success
+    instruction: "Set top_n to 9."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    retries: 1
+    llm_responses:
+      - not-json
+      - '{"operations":[{"op":"set","path":"analysis.top_n","value":9}],"risk_flags":[],"summary":"Set top_n to 9."}'
+    expected_log_count: 1
+    expected_log_fragments:
+      - "ConfigPatch parse attempt 1/2 failed"
+    expected_patch:
+      operations:
+        - op: set
+          path: analysis.top_n
+          value: 9
+      risk_flags: []
+      summary: "Set top_n to 9."
+
+  - id: retry_validation_error_then_success
+    instruction: "Set target_vol to 0.12."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    retries: 1
+    llm_responses:
+      - '{"operations":[{"op":"set","path":"analysis.target_vol","value":0.12}],"risk_flags":[]}'
+      - '{"operations":[{"op":"set","path":"analysis.target_vol","value":0.12}],"risk_flags":[],"summary":"Set target_vol to 0.12."}'
+    expected_log_count: 1
+    expected_log_fragments:
+      - "ConfigPatch parse attempt 1/2 failed"
+    expected_patch:
+      operations:
+        - op: set
+          path: analysis.target_vol
+          value: 0.12
+      risk_flags: []
+      summary: "Set target_vol to 0.12."
+
+  - id: retry_invalid_path_then_success
+    instruction: "Set top_n to 14."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    retries: 1
+    llm_responses:
+      - '{"operations":[{"op":"set","path":"analysis..top_n","value":14}],"risk_flags":[],"summary":"Set top_n to 14."}'
+      - '{"operations":[{"op":"set","path":"analysis.top_n","value":14}],"risk_flags":[],"summary":"Set top_n to 14."}'
+    expected_log_count: 1
+    expected_log_fragments:
+      - "ConfigPatch parse attempt 1/2 failed"
+    expected_patch:
+      operations:
+        - op: set
+          path: analysis.top_n
+          value: 14
+      risk_flags: []
+      summary: "Set top_n to 14."
+
+  - id: retry_exhausted_invalid_json
+    instruction: "Set frequency to weekly."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    retries: 1
+    llm_responses:
+      - "{bad-json"
+      - "{still-bad-json"
+    expected_error_contains: "Failed to parse ConfigPatch after 2 attempts"
+    expected_log_count: 2
+    expected_log_fragments:
+      - "ConfigPatch parse attempt 1/2 failed"
+      - "ConfigPatch parse attempt 2/2 failed"
+
+  - id: retry_exhausted_validation_error
+    instruction: "Use monthly frequency."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    retries: 2
+    llm_responses:
+      - '{"operations":[{"op":"set","path":"analysis.frequency","value":"M"}],"risk_flags":[]}'
+      - '{"operations":[{"op":"set","path":"analysis.frequency","value":"M"}],"risk_flags":[]}'
+      - '{"operations":[{"op":"set","path":"analysis.frequency","value":"M"}],"risk_flags":[]}'
+    expected_error_contains: "Failed to parse ConfigPatch after 3 attempts"
+    expected_log_count: 3
+    expected_log_fragments:
+      - "ConfigPatch parse attempt 1/3 failed"
+      - "ConfigPatch parse attempt 2/3 failed"
+      - "ConfigPatch parse attempt 3/3 failed"
+
+  - id: success_merge_analysis_settings
+    instruction: "Set frequency to weekly and top_n to 6."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations:
+        - op: merge
+          path: analysis
+          value:
+            frequency: W
+            top_n: 6
+      risk_flags:
+        - BROAD_SCOPE
+      summary: "Merge frequency and top_n updates into analysis."
+
+  - id: success_remove_constraint_json_pointer
+    instruction: "Remove the max weight constraint."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations:
+        - op: remove
+          path: /constraints/max_weight
+          value: null
+      risk_flags: []
+      summary: "Remove max_weight constraint."
+
+  - id: success_set_with_rationale
+    instruction: "Switch to cap weighted scheme."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations:
+        - op: set
+          path: analysis.weighting.scheme
+          value: cap_weighted
+      risk_flags: []
+      summary: "Set weighting scheme to cap_weighted."
+
+  - id: success_append_two_tags
+    instruction: "Tag with momentum and quality."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations:
+        - op: append
+          path: analysis.tags
+          value: momentum
+        - op: append
+          path: analysis.tags
+          value: quality
+      risk_flags: []
+      summary: "Append momentum and quality tags to analysis.tags."
+
+  - id: success_set_frequency_json_pointer
+    instruction: "Use monthly frequency."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations:
+        - op: set
+          path: /analysis/frequency
+          value: "M"
+      risk_flags: []
+      summary: "Set frequency to monthly."
