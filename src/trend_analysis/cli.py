@@ -1345,7 +1345,7 @@ def _validate_mc_scenario(scenario: MonteCarloScenario) -> list[str]:
         errors.append(f"base_config: {exc}")
         return errors
 
-    base_config = runner._base_config
+    base_config = runner.base_config
     base_path = _require_mc_base_config(scenario).parent
 
     return_model = scenario.return_model
@@ -1360,7 +1360,7 @@ def _validate_mc_scenario(scenario: MonteCarloScenario) -> list[str]:
         errors.extend(_validate_mc_formats(outputs.get("formats", outputs.get("format"))))
 
     try:
-        strategies = runner._resolve_strategies()
+        strategies = runner.resolve_strategies()
     except Exception as exc:
         errors.append(f"strategy_set: {exc}")
         return errors

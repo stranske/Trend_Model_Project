@@ -68,6 +68,28 @@ def test_apply_missing_policy_ffill_drops_all_nan_columns() -> None:
     assert summary["dropped"] == ["A"]
 
 
+def test_missing_policy_overrides_accept_stringified_column_keys() -> None:
+    dates = pd.date_range("2024-01-31", periods=3, freq="ME")
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "1": [0.01, None, 0.02],
+            "FundB": [0.02, None, 0.018],
+        }
+    )
+    policy = {"*": "drop", 1: "ffill", "unused": "zero"}
+    limits = {"*": 0, 1: 1, "unused": 2}
+
+    validated = market_data.validate_market_data(
+        df, missing_policy=policy, missing_limit=limits
+    )
+
+    assert list(validated.columns) == ["1"]
+    meta = validated.attrs["market_data"]
+    assert meta["missing_policy_overrides"] == {"1": "ffill"}
+    assert meta["missing_policy_limits"]["1"] == 1
+
+
 def test_apply_missing_policy_unknown_strategy(monkeypatch: pytest.MonkeyPatch) -> None:
     frame = pd.DataFrame({"A": [1.0, pd.NA]})
 
