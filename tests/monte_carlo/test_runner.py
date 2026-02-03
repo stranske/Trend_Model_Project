@@ -599,6 +599,91 @@ def test_run_mixture_deterministic() -> None:
     pd.testing.assert_frame_equal(frame1, frame2)
 
 
+def test_run_mixture_uses_path_seeds_when_not_shared(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenario = _scenario("mixture")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+
+    class _FakeModel:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, Any]] = []
+
+        def sample_prices(
+            self,
+            *,
+            n_periods: int,
+            n_paths: int,
+            frequency: str,
+            seed: int | None,
+        ) -> Any:
+            self.calls.append(
+                {
+                    "n_periods": n_periods,
+                    "n_paths": n_paths,
+                    "frequency": frequency,
+                    "seed": seed,
+                }
+            )
+            index = pd.date_range("2020-01-31", periods=n_periods, freq="M")
+            columns = pd.MultiIndex.from_product(
+                [["AssetA"], range(n_paths)],
+                names=["asset", "path"],
+            )
+            prices = pd.DataFrame(
+                np.full((n_periods, n_paths), 100.0),
+                index=index,
+                columns=columns,
+            )
+            log_returns = pd.DataFrame(
+                np.zeros((n_periods, n_paths)),
+                index=index,
+                columns=columns,
+            )
+            return type("Result", (), {"prices": prices, "log_returns": log_returns})()
+
+    fake_model = _FakeModel()
+    n_periods = runner._compute_n_periods()
+    strategies = runner._resolve_strategies()
+    path_seeds = [101, 202, 303, 404, 505]
+    strategy_seeds = [11, 12, 13, 14, 15]
+
+    def _fake_eval(
+        strategy: StrategyVariant,
+        context: runner_module._PathContext,
+    ) -> StrategyEvaluation:
+        return StrategyEvaluation(
+            fold_id=None,
+            path_id=context.path_id,
+            strategy_name=strategy.name,
+            metrics={"metric": 1.0},
+            metric_source="unit_test",
+            path_hash=context.path_hash,
+            seed=context.seed,
+        )
+
+    monkeypatch.setattr(runner, "_evaluate_strategy", _fake_eval)
+    monkeypatch.setattr(runner, "_compute_score_frame", lambda _returns: pd.DataFrame())
+
+    runner._run_mixture(
+        model=fake_model,
+        n_periods=n_periods,
+        strategies=strategies,
+        path_seeds=path_seeds,
+        strategy_seeds=strategy_seeds,
+        progress_callback=None,
+        jobs=1,
+    )
+
+    assert len(fake_model.calls) == len(path_seeds)
+    assert [call["seed"] for call in fake_model.calls] == path_seeds
+    assert all(call["n_paths"] == 1 for call in fake_model.calls)
+
+
 def test_score_frame_uses_rf_override(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = _base_config()
     cfg["metrics"] = {
