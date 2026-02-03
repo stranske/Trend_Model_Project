@@ -500,6 +500,13 @@ def _serialize_extra(extra: Mapping[str, Any] | None) -> str:
     return json.dumps(dict(extra), sort_keys=True, default=str)
 
 
+def _normalize_cache_str(value: str | None) -> str | None:
+    if value is None:
+        return None
+    stripped = value.strip()
+    return stripped or None
+
+
 @st.cache_resource(show_spinner=False)
 def _cached_nl_chain(
     _session_cache_key: str,
@@ -537,6 +544,8 @@ def _cached_nl_chain(
 def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     config = _resolve_llm_provider_config()
     temperature = _resolve_llm_temperature()
+    base_url = _normalize_cache_str(config.base_url)
+    organization = _normalize_cache_str(config.organization)
     api_key_fingerprint = _hash_api_key(config.api_key)
     extra_payload = _serialize_extra(config.extra)
     extra_payload_hash = _hash_text(extra_payload)
@@ -545,8 +554,8 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     cache_key = {
         "provider": config.provider,
         "model": resolved_model,
-        "base_url": config.base_url,
-        "organization": config.organization,
+        "base_url": base_url,
+        "organization": organization,
         "temperature": temperature,
         "timeout": config.timeout,
         "max_retries": config.max_retries,
@@ -557,8 +566,8 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         session_cache_key,
         config.provider,
         resolved_model,
-        config.base_url,
-        config.organization,
+        base_url,
+        organization,
         config.timeout,
         config.max_retries,
         extra_payload,
