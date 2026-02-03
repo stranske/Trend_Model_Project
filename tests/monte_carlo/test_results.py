@@ -47,9 +47,7 @@ def test_build_summary_frame_groups_by_fold_id() -> None:
         ]
     )
 
-    summary = build_summary_frame(frame).sort_values(["fold_id", "strategy"]).reset_index(
-        drop=True
-    )
+    summary = build_summary_frame(frame).sort_values(["fold_id", "strategy"]).reset_index(drop=True)
 
     assert list(summary.columns[:2]) == ["fold_id", "strategy"]
     assert summary.loc[0, "paths"] == 2
