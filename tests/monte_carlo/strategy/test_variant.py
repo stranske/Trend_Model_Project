@@ -187,6 +187,20 @@ def test_apply_to_rejects_weighting_params_extension_for_non_curated(tmp_path: P
         variant.apply_to(base)
 
 
+def test_apply_to_curated_rejects_unknown_path_outside_freeform(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="CuratedInvalid",
+        overrides={
+            "portfolio": {"rank": {"unknown": 3}},
+        },
+        curated=True,
+    )
+
+    with pytest.raises(ValueError, match="portfolio.rank.unknown"):
+        variant.apply_to(base)
+
+
 def test_to_trend_config_rejects_invalid_weighting_scheme_type(tmp_path: Path) -> None:
     base = _base_config(tmp_path)
     variant = StrategyVariant(
