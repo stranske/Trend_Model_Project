@@ -47,7 +47,10 @@ BASE_SCHEMA: dict[str, Any] = {
         },
         "constraints": {
             "type": "object",
-            "properties": {"max_weight": {"type": "number"}},
+            "properties": {
+                "max_weight": {"type": "number"},
+                "min_weight": {"type": "number"},
+            },
         },
     },
 }

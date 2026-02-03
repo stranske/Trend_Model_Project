@@ -35,6 +35,8 @@ base_schema: &base_schema
       properties:
         max_weight:
           type: number
+        min_weight:
+          type: number
 
 cases:
   - id: risk_parity_weighting
