@@ -9,9 +9,9 @@ import pandas as pd
 import pytest
 
 import trend_analysis.monte_carlo.runner as runner_module
-from trend_analysis.monte_carlo.results import MonteCarloResults
 from trend_analysis import cli
 from trend_analysis.api import RunResult
+from trend_analysis.monte_carlo.results import MonteCarloResults
 
 
 def _write_scenario(path: Path, *, name: str = "mc_test", extra: str = "") -> None:
