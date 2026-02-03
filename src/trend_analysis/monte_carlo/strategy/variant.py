@@ -48,6 +48,14 @@ def _is_number(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
+def _coerce_bool(value: Any, field_name: str) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    raise ValueError(f"{field_name} must be a bool")
+
+
 def _format_path(path: tuple[str, ...]) -> str:
     return ".".join(path)
 
@@ -67,10 +75,50 @@ _ALLOWED_WEIGHTING_SCHEMES = {
 }
 
 
+def _allows_freeform_override(path: tuple[str, ...], key: str) -> bool:
+    if path in _FREEFORM_OVERRIDE_PATHS:
+        return True
+    return path == ("portfolio", "weighting") and key == "params"
+
+
+def _validate_weighting_config(config: Mapping[str, Any]) -> None:
+    portfolio = config.get("portfolio")
+    if not isinstance(portfolio, Mapping):
+        return
+
+    if "weighting_scheme" in portfolio:
+        _require_non_empty_str(portfolio.get("weighting_scheme"), "portfolio.weighting_scheme")
+
+    if "weighting" not in portfolio:
+        return
+    weighting = portfolio.get("weighting")
+    if weighting is None:
+        return
+    if not isinstance(weighting, Mapping):
+        raise ValueError("portfolio.weighting must be a mapping")
+    if "name" in weighting:
+        _require_non_empty_str(weighting.get("name"), "portfolio.weighting.name")
+
+
+def _allow_weighting_params_extension(overrides: Mapping[str, Any]) -> bool:
+    portfolio = overrides.get("portfolio")
+    if not isinstance(portfolio, Mapping):
+        return False
+    if "weighting_scheme" not in portfolio:
+        return False
+    weighting = portfolio.get("weighting")
+    if not isinstance(weighting, Mapping):
+        return False
+    return "name" in weighting
+
+
 def _deep_merge_overrides(
     base: Mapping[str, Any],
     overrides: Mapping[str, Any],
     path: tuple[str, ...],
+    *,
+    allow_freeform_overrides: bool,
+    allow_weighting_params_extension: bool,
 ) -> dict[str, Any]:
     merged: dict[str, Any] = deepcopy(dict(base))
     for raw_key, override_value in overrides.items():
@@ -78,7 +126,18 @@ def _deep_merge_overrides(
         next_path = path + (key,)
         path_label = _format_path(next_path)
         if key not in merged:
-            if path in _FREEFORM_OVERRIDE_PATHS:
+            if allow_freeform_overrides and _allows_freeform_override(path, key):
+                if path == ("portfolio", "weighting") and key == "params":
+                    if not isinstance(override_value, Mapping):
+                        raise TypeError(
+                            "override path '{path}' expects mapping, got {kind}".format(
+                                path=path_label,
+                                kind=type(override_value).__name__,
+                            )
+                        )
+                merged[key] = deepcopy(override_value)
+                continue
+            if allow_weighting_params_extension and path == ("portfolio", "weighting", "params"):
                 merged[key] = deepcopy(override_value)
                 continue
             raise ValueError(f"override path '{path_label}' does not exist in base config")
@@ -91,7 +150,13 @@ def _deep_merge_overrides(
                         kind=type(base_value).__name__,
                     )
                 )
-            merged[key] = _deep_merge_overrides(base_value, override_value, next_path)
+            merged[key] = _deep_merge_overrides(
+                base_value,
+                override_value,
+                next_path,
+                allow_freeform_overrides=allow_freeform_overrides,
+                allow_weighting_params_extension=allow_weighting_params_extension,
+            )
             continue
 
         if isinstance(base_value, Mapping):
@@ -146,12 +211,14 @@ class StrategyVariant:
     name: str
     overrides: Mapping[str, Any] = field(default_factory=dict)
     tags: tuple[str, ...] = field(default_factory=tuple)
+    curated: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "name", _require_non_empty_str(self.name, "name"))
         overrides = self.overrides or {}
         object.__setattr__(self, "overrides", _ensure_mapping(overrides, "overrides"))
         object.__setattr__(self, "tags", _coerce_tags(self.tags))
+        object.__setattr__(self, "curated", _coerce_bool(self.curated, "curated"))
 
     def apply_to(self, base_config: Mapping[str, Any] | TrendConfig) -> dict[str, Any]:
         """Return the base config with overrides applied via deep merge."""
@@ -160,7 +227,14 @@ class StrategyVariant:
         if isinstance(base, TrendConfig):
             base = base.model_dump()
         base = _ensure_mapping(base, "base_config")
-        return _deep_merge_overrides(base, self.overrides, ())
+        allow_weighting_params_extension = _allow_weighting_params_extension(self.overrides)
+        return _deep_merge_overrides(
+            base,
+            self.overrides,
+            (),
+            allow_freeform_overrides=self.curated,
+            allow_weighting_params_extension=allow_weighting_params_extension,
+        )
 
     def to_trend_config(
         self, base_config: Mapping[str, Any] | TrendConfig, *, base_path: Path | str
@@ -169,6 +243,7 @@ class StrategyVariant:
 
         try:
             merged = self.apply_to(base_config)
+            _validate_weighting_config(merged)
         except (TypeError, ValueError) as exc:
             raise ValueError(f"Strategy '{self.name}' overrides invalid: {exc}") from exc
 

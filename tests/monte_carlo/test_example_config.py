@@ -57,3 +57,12 @@ def test_example_config_includes_hf_equity_curated_pack() -> None:
         "Rank_12_RobustRiskParity_ModerateTurnover",
         "All_Equal_LowTurnover_LowVol",
     ]
+
+
+def test_example_config_marks_curated_variants() -> None:
+    scenario = load_scenario("example_scenario")
+
+    assert scenario.strategy_set is not None
+    curated = scenario.strategy_set.get("curated")
+    assert curated is not None
+    assert all(variant.curated for variant in curated)
