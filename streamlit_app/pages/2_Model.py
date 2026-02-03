@@ -598,34 +598,7 @@ def _normalize_temperature(value: float) -> float:
 
 
 @st.cache_resource(show_spinner=False)
-def _cached_llm_client(
-    session_cache_key: str,
-    cache_version: str,
-    provider: str,
-    model: str,
-    base_url: str | None,
-    organization: str | None,
-    timeout: float | None,
-    max_retries: int | None,
-    extra_payload: str,
-    api_key_fingerprint: str | None,
-) -> Any:
-    del session_cache_key, cache_version, api_key_fingerprint
-    config = LLMProviderConfig(
-        provider=provider,
-        model=model,
-        api_key=_resolve_llm_provider_config().api_key,
-        base_url=base_url,
-        organization=organization,
-        timeout=timeout,
-        max_retries=max_retries,
-        extra=json.loads(extra_payload) if extra_payload else {},
-    )
-    return create_llm(config)
-
-
-@st.cache_resource(show_spinner=False)
-def _cached_nl_chain(
+def _cached_config_patch_chain(
     session_cache_key: str,
     cache_version: str,
     provider: str,
@@ -638,19 +611,18 @@ def _cached_nl_chain(
     temperature: float,
     api_key_fingerprint: str | None,
 ) -> ConfigPatchChain:
-    llm = _cached_llm_client(
-        session_cache_key,
-        cache_version,
-        provider,
-        model,
-        base_url,
-        organization,
-        timeout,
-        max_retries,
-        extra_payload,
-        api_key_fingerprint,
+    del session_cache_key, cache_version, api_key_fingerprint
+    config = LLMProviderConfig(
+        provider=provider,
+        model=model,
+        api_key=_resolve_llm_provider_config().api_key,
+        base_url=base_url,
+        organization=organization,
+        timeout=timeout,
+        max_retries=max_retries,
+        extra=json.loads(extra_payload) if extra_payload else {},
     )
-    del session_cache_key, cache_version
+    llm = create_llm(config)
     schema = load_compact_schema()
     return ConfigPatchChain.from_env(
         llm=llm,
@@ -683,7 +655,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         extra_payload_hash=extra_payload_hash,
         api_key_fingerprint=api_key_fingerprint,
     )
-    chain = _cached_nl_chain(
+    chain = _cached_config_patch_chain(
         session_cache_key,
         _CONFIG_CHAIN_CACHE_VERSION,
         provider,
