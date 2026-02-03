@@ -247,6 +247,21 @@ class MonteCarloRunner:
         self._maybe_export(results)
         return results
 
+    @property
+    def base_config(self) -> Mapping[str, Any]:
+        """Return the resolved base configuration used by the runner.
+
+        This is intended for validation and diagnostics; treat the returned
+        mapping as read-only to avoid mutating the runner's internal state.
+        """
+
+        return self._base_config
+
+    def resolve_strategies(self) -> list[StrategyVariant]:
+        """Return the resolved strategy variants for the scenario."""
+
+        return self._resolve_strategies()
+
     def _run_mode(
         self,
         *,

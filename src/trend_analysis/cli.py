@@ -498,7 +498,7 @@ def _run_from_ui_payload(
         payload, model_state = _load_ui_payload(params_path)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
-        return 2
+        return 1
 
     if "risk_free_column" not in model_state:
         rf_column = payload.get("selected_risk_free")
@@ -530,7 +530,7 @@ def _run_from_ui_payload(
                     "Date corrections require confirmation. Re-run with --yes to approve.",
                     file=sys.stderr,
                 )
-                return 2
+                return 1
             prompt = (
                 f"Apply {len(issues.corrections)} date correction(s) and "
                 f"drop {issues.total_droppable_rows} row(s)? [y/N]: "
@@ -538,7 +538,7 @@ def _run_from_ui_payload(
             response = input(prompt).strip().lower()
             if response not in {"y", "yes"}:
                 print("Cancelled date corrections.")
-                return 2
+                return 1
 
     try:
         returns, meta, summary = load_ui_dataset(
@@ -1092,7 +1092,7 @@ def main(argv: list[str] | None = None) -> int:
                             "Date corrections require confirmation. Re-run with --yes to approve.",
                             file=sys.stderr,
                         )
-                        return 2
+                        return 1
                     prompt = (
                         f"Apply {len(issues.corrections)} date correction(s) and "
                         f"drop {issues.total_droppable_rows} row(s)? [y/N]: "
@@ -1100,7 +1100,7 @@ def main(argv: list[str] | None = None) -> int:
                     response = input(prompt).strip().lower()
                     if response not in {"y", "yes"}:
                         print("Cancelled date corrections.")
-                        return 2
+                        return 1
 
             try:
                 loaded_frame, _, summary = load_ui_dataset(
@@ -1345,7 +1345,7 @@ def _validate_mc_scenario(scenario: MonteCarloScenario) -> list[str]:
         errors.append(f"base_config: {exc}")
         return errors
 
-    base_config = runner._base_config
+    base_config = runner.base_config
     base_path = _require_mc_base_config(scenario).parent
 
     return_model = scenario.return_model
@@ -1365,7 +1365,7 @@ def _validate_mc_scenario(scenario: MonteCarloScenario) -> list[str]:
         errors.extend(_validate_mc_formats(outputs.get("formats", outputs.get("format"))))
 
     try:
-        strategies = runner._resolve_strategies()
+        strategies = runner.resolve_strategies()
     except Exception as exc:
         errors.append(f"strategy_set: {exc}")
         return errors
@@ -1442,6 +1442,10 @@ def _write_mc_manifest(
     return manifest_path
 
 
+def _is_valid_tqdm_instance(candidate: Any) -> bool:
+    return all(hasattr(candidate, attr) for attr in ("update", "refresh", "close", "total"))
+
+
 def _build_mc_progress_callback(
     *,
     total: int,
@@ -1468,7 +1472,27 @@ def _build_mc_progress_callback(
 
         return _text_callback, lambda: None
 
-    bar = tqdm(total=total, unit="path", file=sys.stderr)
+    bar = None
+    if _is_valid_tqdm_instance(tqdm):
+        bar = tqdm
+    elif callable(tqdm):
+        try:
+            bar = tqdm(total=total, unit="path", file=sys.stderr)
+        except Exception:
+            bar = None
+    if bar is None or not _is_valid_tqdm_instance(bar):
+        state = {"last": -1}
+
+        def _text_callback(payload: Mapping[str, Any]) -> None:
+            completed = int(payload.get("completed", 0))
+            total_value = int(payload.get("total", total))
+            if completed == state["last"]:
+                return
+            state["last"] = completed
+            print(f"Progress: {completed}/{total_value}", file=sys.stderr)
+
+        return _text_callback, lambda: None
+
     state = {"completed": 0}
 
     def _callback(payload: Mapping[str, Any]) -> None:
@@ -1498,6 +1522,9 @@ def _handle_mc_command(args: argparse.Namespace) -> int:
         registry_path = _resolve_mc_registry_path(getattr(args, "registry", None))
         try:
             registry_entries = list_scenarios(tags=tags, registry_path=registry_path)
+        except (ValueError, FileNotFoundError, IsADirectoryError) as exc:
+            print(f"Failed to list Monte Carlo scenarios: {exc}", file=sys.stderr)
+            return 1
         except Exception as exc:
             print(f"Failed to list Monte Carlo scenarios: {exc}", file=sys.stderr)
             return 2
@@ -1648,7 +1675,7 @@ def _handle_mc_command(args: argparse.Namespace) -> int:
         finally:
             progress_close()
 
-        timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         output_dir = _resolve_mc_output_dir(
             scenario,
             override=getattr(args, "out", None),
