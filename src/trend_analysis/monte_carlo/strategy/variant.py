@@ -48,6 +48,14 @@ def _is_number(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
+def _coerce_bool(value: Any, field_name: str) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    raise ValueError(f"{field_name} must be a bool")
+
+
 def _format_path(path: tuple[str, ...]) -> str:
     return ".".join(path)
 
@@ -61,6 +69,8 @@ def _deep_merge_overrides(
     base: Mapping[str, Any],
     overrides: Mapping[str, Any],
     path: tuple[str, ...],
+    *,
+    allow_freeform_overrides: bool,
 ) -> dict[str, Any]:
     merged: dict[str, Any] = deepcopy(dict(base))
     for raw_key, override_value in overrides.items():
@@ -68,7 +78,7 @@ def _deep_merge_overrides(
         next_path = path + (key,)
         path_label = _format_path(next_path)
         if key not in merged:
-            if path in _FREEFORM_OVERRIDE_PATHS:
+            if allow_freeform_overrides and path in _FREEFORM_OVERRIDE_PATHS:
                 merged[key] = deepcopy(override_value)
                 continue
             raise ValueError(f"override path '{path_label}' does not exist in base config")
@@ -81,7 +91,12 @@ def _deep_merge_overrides(
                         kind=type(base_value).__name__,
                     )
                 )
-            merged[key] = _deep_merge_overrides(base_value, override_value, next_path)
+            merged[key] = _deep_merge_overrides(
+                base_value,
+                override_value,
+                next_path,
+                allow_freeform_overrides=allow_freeform_overrides,
+            )
             continue
 
         if isinstance(base_value, Mapping):
@@ -136,12 +151,14 @@ class StrategyVariant:
     name: str
     overrides: Mapping[str, Any] = field(default_factory=dict)
     tags: tuple[str, ...] = field(default_factory=tuple)
+    curated: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "name", _require_non_empty_str(self.name, "name"))
         overrides = self.overrides or {}
         object.__setattr__(self, "overrides", _ensure_mapping(overrides, "overrides"))
         object.__setattr__(self, "tags", _coerce_tags(self.tags))
+        object.__setattr__(self, "curated", _coerce_bool(self.curated, "curated"))
 
     def apply_to(self, base_config: Mapping[str, Any] | TrendConfig) -> dict[str, Any]:
         """Return the base config with overrides applied via deep merge."""
@@ -150,7 +167,12 @@ class StrategyVariant:
         if isinstance(base, TrendConfig):
             base = base.model_dump()
         base = _ensure_mapping(base, "base_config")
-        return _deep_merge_overrides(base, self.overrides, ())
+        return _deep_merge_overrides(
+            base,
+            self.overrides,
+            (),
+            allow_freeform_overrides=self.curated,
+        )
 
     def to_trend_config(
         self, base_config: Mapping[str, Any] | TrendConfig, *, base_path: Path | str

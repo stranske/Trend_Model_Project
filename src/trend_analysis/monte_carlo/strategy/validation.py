@@ -47,7 +47,7 @@ def validate_strategy_pack(path: Path, *, base_config_path: Path | None = None) 
     for idx, entry in enumerate(curated):
         try:
             if isinstance(entry, str):
-                variant = StrategyVariant(name=entry)
+                variant = StrategyVariant(name=entry, curated=True)
             elif isinstance(entry, Mapping):
                 if "name" not in entry:
                     raise ValueError("name is required")
@@ -58,6 +58,7 @@ def validate_strategy_pack(path: Path, *, base_config_path: Path | None = None) 
                     name=raw_name,
                     overrides=entry.get("overrides", {}),
                     tags=entry.get("tags", ()),
+                    curated=True,
                 )
             else:
                 raise ValueError("entry must be a mapping or string")

@@ -158,6 +158,7 @@ def test_apply_to_allows_weighting_params_extension(tmp_path: Path) -> None:
                 "weighting": {"params": {"column": "Sharpe", "half_life": 30, "obs_sigma": 0.15}}
             }
         },
+        curated=True,
     )
 
     merged = variant.apply_to(base)
@@ -168,6 +169,19 @@ def test_apply_to_allows_weighting_params_extension(tmp_path: Path) -> None:
     assert merged["portfolio"]["weighting"]["params"]["obs_sigma"] == 0.15
     assert "half_life" not in base["portfolio"]["weighting"]["params"]
     assert "obs_sigma" not in base["portfolio"]["weighting"]["params"]
+
+
+def test_apply_to_rejects_weighting_params_extension_for_non_curated(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="ExtendParams",
+        overrides={
+            "portfolio": {"weighting": {"params": {"half_life": 30}}},
+        },
+    )
+
+    with pytest.raises(ValueError, match="portfolio.weighting.params.half_life"):
+        variant.apply_to(base)
 
 
 def test_to_trend_config_rejects_invalid_weighting_scheme_type(tmp_path: Path) -> None:
