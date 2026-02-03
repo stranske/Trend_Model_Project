@@ -598,6 +598,33 @@ def _normalize_temperature(value: float) -> float:
 
 
 @st.cache_resource(show_spinner=False)
+def _cached_llm_client(
+    session_cache_key: str,
+    cache_version: str,
+    provider: str,
+    model: str,
+    base_url: str | None,
+    organization: str | None,
+    timeout: float | None,
+    max_retries: int | None,
+    extra_payload: str,
+    api_key_fingerprint: str | None,
+) -> Any:
+    del session_cache_key, cache_version, api_key_fingerprint
+    config = LLMProviderConfig(
+        provider=provider,
+        model=model,
+        api_key=_resolve_llm_provider_config().api_key,
+        base_url=base_url,
+        organization=organization,
+        timeout=timeout,
+        max_retries=max_retries,
+        extra=json.loads(extra_payload) if extra_payload else {},
+    )
+    return create_llm(config)
+
+
+@st.cache_resource(show_spinner=False)
 def _cached_nl_chain(
     session_cache_key: str,
     cache_version: str,
@@ -611,25 +638,26 @@ def _cached_nl_chain(
     temperature: float,
     api_key_fingerprint: str | None,
 ) -> ConfigPatchChain:
-    del session_cache_key, cache_version, api_key_fingerprint
-    config = LLMProviderConfig(
-        provider=provider,
-        model=model,
-        api_key=_resolve_llm_provider_config().api_key,
-        base_url=base_url,
-        organization=organization,
-        timeout=timeout,
-        max_retries=max_retries,
-        extra=json.loads(extra_payload) if extra_payload else {},
+    llm = _cached_llm_client(
+        session_cache_key,
+        cache_version,
+        provider,
+        model,
+        base_url,
+        organization,
+        timeout,
+        max_retries,
+        extra_payload,
+        api_key_fingerprint,
     )
-    llm = create_llm(config)
+    del session_cache_key, cache_version
     schema = load_compact_schema()
     return ConfigPatchChain.from_env(
         llm=llm,
         schema=schema,
         prompt_builder=build_config_patch_prompt,
         temperature=temperature,
-        model=config.model,
+        model=model,
     )
 
 
