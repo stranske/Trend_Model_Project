@@ -134,6 +134,21 @@ def test_export_results_writes_pooled_summary(tmp_path) -> None:
 
     exported = export_results(results, tmp_path, formats=["csv"])
 
+    results_path = exported["results_csv"]
+    results_frame = pd.read_csv(results_path)
+    assert "fold_id" in results_frame.columns
+    assert set(results_frame["fold_id"].tolist()) == {1, 2}
+
+    summary_path = exported["summary_csv"]
+    summary_frame = pd.read_csv(summary_path)
+    assert "fold_id" in summary_frame.columns
+    assert set(summary_frame["fold_id"].tolist()) == {1, 2}
+
+    cross_path = exported["cross_fold_summary_csv"]
+    cross_frame = pd.read_csv(cross_path)
+    assert "fold_id" in cross_frame.columns
+    assert pd.isna(cross_frame.loc[0, "fold_id"])
+
     pooled_path = exported["pooled_summary_csv"]
     assert pooled_path.exists()
     pooled_frame = pd.read_csv(pooled_path)
