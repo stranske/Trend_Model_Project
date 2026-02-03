@@ -12,6 +12,7 @@ from numpy.typing import NDArray
 from trend_analysis.monte_carlo.seed import SeedManager
 
 from .base import (
+    PricePathModel,
     PricePathResult,
     apply_missingness_mask,
     log_returns_to_prices,
@@ -220,7 +221,7 @@ def _regime_conditioned_indices(
     return indices
 
 
-class RegimeConditionedBootstrapModel:
+class RegimeConditionedBootstrapModel(PricePathModel):
     """Bootstrap log returns conditioned on a simulated regime path."""
 
     def __init__(
@@ -455,4 +456,21 @@ class RegimeConditionedBootstrapModel:
             missingness_mask=mask,
             frequency=freq,
             start_date=index[0],
+        )
+
+    def simulate(
+        self,
+        *,
+        n_periods: int,
+        n_paths: int,
+        start_date: pd.Timestamp | None = None,
+        frequency: str | None = None,
+        seed: int | None = None,
+    ) -> PricePathResult:
+        return self.sample_prices(
+            n_periods=n_periods,
+            n_paths=n_paths,
+            start_date=start_date,
+            frequency=frequency,
+            seed=seed,
         )

@@ -13,6 +13,7 @@ from trend_analysis.monte_carlo.seed import SeedManager
 from trend_analysis.timefreq import MONTHLY_DATE_FREQ
 
 from .base import (
+    PricePathModel,
     PricePathResult,
     apply_missingness_mask,
     log_returns_to_prices,
@@ -122,7 +123,7 @@ def _stationary_bootstrap_indices(
     return indices
 
 
-class StationaryBootstrapModel:
+class StationaryBootstrapModel(PricePathModel):
     """Generate returns with a multivariate stationary bootstrap."""
 
     def __init__(
@@ -262,4 +263,21 @@ class StationaryBootstrapModel:
             missingness_mask=mask,
             frequency=freq,
             start_date=index[0],
+        )
+
+    def simulate(
+        self,
+        *,
+        n_periods: int,
+        n_paths: int,
+        start_date: pd.Timestamp | None = None,
+        frequency: str | None = None,
+        seed: int | None = None,
+    ) -> PricePathResult:
+        return self.sample_prices(
+            n_periods=n_periods,
+            n_paths=n_paths,
+            start_date=start_date,
+            frequency=frequency,
+            seed=seed,
         )

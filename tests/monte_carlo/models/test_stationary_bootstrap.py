@@ -70,6 +70,24 @@ def test_stationary_bootstrap_preserves_correlation() -> None:
     assert abs(sim_corr - hist_corr) < 0.15
 
 
+def test_stationary_bootstrap_simulate_matches_sample_prices() -> None:
+    index = pd.date_range("2024-01-01", periods=12, freq="D")
+    log_returns = np.column_stack(
+        [
+            _unique_log_returns(len(index), start=0.001, step=0.0002),
+            _unique_log_returns(len(index), start=0.002, step=0.0003),
+        ]
+    )
+    prices = _prices_from_log_returns(log_returns, index, ["AssetA", "AssetB"])
+
+    model = StationaryBootstrapModel(mean_block_len=4, frequency="D").fit(prices)
+    result = model.sample_prices(n_periods=5, n_paths=2, seed=13)
+    simulated = model.simulate(n_periods=5, n_paths=2, seed=13)
+
+    assert result.log_returns.equals(simulated.log_returns)
+    assert result.prices.equals(simulated.prices)
+
+
 def test_block_length_distribution_matches_geometric_mean() -> None:
     rng = np.random.default_rng(7)
     mean_block_len = 5.0
