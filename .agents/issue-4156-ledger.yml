@@ -1,0 +1,323 @@
+version: 1
+issue: 4156
+base: phase-3
+branch: codex/issue-4156
+tasks:
+  - id: task-01
+    title: 'Create Monte Carlo scenario schema and loader as described in #4157.'
+    status: doing
+    started_at: '2026-02-03T06:41:12Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Add scenario library registry and discovery functionality as described
+      in #4158.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Define price-path model interface and shared utilities as described in
+      #4159.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Implement multivariate stationary bootstrap price model as described in
+      #4160.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Implement regime labeling and regime-conditioned bootstrap as described
+      in #4162.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Create strategy variant representation and config override application
+      as described in #4163.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Implement sampled strategy generator (Tier 2) as described in #4164.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Provide initial curated strategy packs for hedge fund sleeves as described
+      in #4165.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Implement MonteCarloRunner with two-layer and mixture modes as described
+      in #4166.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Implement MonteCarloRunner with two-layer mode. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Implement MonteCarloRunner with mixture mode. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Add path-context caching to compute score frames once per path as described
+      in #4167.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Implement common random numbers support across strategies as described
+      in #4168.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Add explicit cash handling in simulation and risk-free accrual as described
+      in #4169.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Implement regime-dependent stochastic transaction cost process as described
+      in #4170.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Allow turnover constraints to be varied under Monte Carlo as described
+      in #4171.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Add fold/vintage support to Monte Carlo scenarios as described in #4172.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Implement Monte Carlo aggregation outputs (distributions over existing
+      metrics) as described in #4173.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Add CLI commands for Monte Carlo scenarios as described in #4174.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Define scope for: Define CLI command structure for Monte Carlo scenarios.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'Implement focused slice for: Define CLI command structure for Monte Carlo
+      scenarios. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'Validate focused slice for: Define CLI command structure for Monte Carlo
+      scenarios. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: 'Implement CLI commands for Monte Carlo scenarios. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'Test CLI commands for Monte Carlo scenarios. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: 'Create Streamlit Monte Carlo tab with scenario runner and summary plots
+      as described in #4175.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: 'Design the Streamlit Monte Carlo tab UI. (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: 'Implement the scenario runner functionality in Streamlit. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: 'Implement summary plots in Streamlit. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: 'TODO: add task details'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: Scenarios are runnable from CLI using `trend mc run --scenario ...`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: Scenarios are runnable from Streamlit with progress feedback.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: Output bundles contain distribution summaries in parquet/CSV format with
+      a JSON manifest.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: Two-layer mode demonstrates variance reduction compared to independent
+      runs.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: Documentation is complete with examples.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: Scenarios runnable from CLI (`trend mc run --scenario ...`)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: Scenarios runnable from Streamlit with progress feedback
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: Output bundles contain distribution summaries (parquet/CSV + JSON manifest)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: Two-layer mode demonstrates variance reduction vs independent runs
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: Documentation complete with examples
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: 'Add CLI commands for Monte Carlo scenarios as described in #4174. (AGENT_LIMITATIONS:
+      Cannot modify .github/workflows/*.yml or repository settings, which may be required
+      for CLI integration. | Assign this task to a team member with access to repository
+      settings.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: 'Provide initial curated strategy packs for hedge fund sleeves as described
+      in #4165. (AGENT_LIMITATIONS: Cannot make subjective design decisions, which
+      may be required to define the strategy packs. | Provide detailed specifications
+      or assign to a domain expert.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
