@@ -1,0 +1,235 @@
+version: 1
+issue: 4668
+base: phase-3
+branch: codex/issue-4668
+tasks:
+  - id: task-01
+    title: Create validation logic to ensure each strategy in the `hf_equity_curated.yml`
+      file adheres to the schema without modifying global defaults.
+    status: doing
+    started_at: '2026-02-03T01:36:15Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Define scope for: Create validation logic to ensure each strategy in the
+      `hf_equity_curated.yml` file adheres to the schema. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Implement focused slice for: Create validation logic to ensure each strategy
+      in the `hf_equity_curated.yml` file adheres to the schema. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Validate focused slice for: Create validation logic to ensure each strategy
+      in the `hf_equity_curated.yml` file adheres to the schema. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Define scope for: Verify that the validation logic does not cause unintended
+      modifications to global defaults.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Implement focused slice for: Verify that the validation logic does not
+      cause unintended modifications to global defaults.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Validate focused slice for: Verify that the validation logic does not
+      cause unintended modifications to global defaults.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Write test cases for `StrategyVariant.to_trend_config` to verify correct
+      application of weighting methods when both `portfolio.weighting_scheme` and
+      `portfolio.weighting.name` are provided.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Write test cases for `StrategyVariant.to_trend_config`. (verify: config
+      validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Define scope for: Verify that the test cases confirm the correct application
+      of weighting methods when both `portfolio.weighting_scheme`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Implement focused slice for: Verify that the test cases confirm the correct
+      application of weighting methods when both `portfolio.weighting_scheme`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Validate focused slice for: Verify that the test cases confirm the correct
+      application of weighting methods when both `portfolio.weighting_scheme`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: '`portfolio.weighting.name` are provided. (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: <!-- New tasks to address unmet acceptance criteria -->
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Each strategy in the `hf_equity_curated.yml` file validates successfully
+      against the schema without causing any unintended modifications to global defaults.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Test cases for `StrategyVariant.to_trend_config` verify the correct application
+      of weighting methods when both `portfolio.weighting_scheme` and `portfolio.weighting.name`
+      are provided.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Each strategy in the `hf_equity_curated.yml` file validates successfully
+      against the schema without causing any unintended modifications to global defaults.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Test cases for `StrategyVariant.to_trend_config` verify the correct application
+      of weighting methods when both `portfolio.weighting_scheme` and `portfolio.weighting.name`
+      are provided.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Each strategy in the `hf_equity_curated.yml` file validates successfully
+      against the schema without causing any unintended modifications to global defaults.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Test cases for `StrategyVariant.to_trend_config` verify the correct application
+      of weighting methods when both `portfolio.weighting_scheme` and `portfolio.weighting.name`
+      are provided.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: <!-- Criteria verified as unmet by verifier -->
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Each strategy in the `hf_equity_curated.yml` file validates successfully
+      against the schema without causing any unintended modifications to global defaults.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: Test cases for `StrategyVariant.to_trend_config` verify the correct application
+      of weighting methods when both `portfolio.weighting_scheme` and `portfolio.weighting.name`
+      are provided.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: Each strategy in the `hf_equity_curated.yml` file validates successfully
+      against the schema without causing any unintended modifications to global defaults.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: Test cases for `StrategyVariant.to_trend_config` verify the correct application
+      of weighting methods when both `portfolio.weighting_scheme` and `portfolio.weighting.name`
+      are provided.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: Create validation logic to ensure each strategy in the `hf_equity_curated.yml`
+      file adheres to the schema without modifying global defaults. (The agent cannot
+      modify `.github/workflows/*.yml` files, which may be required for schema validation.
+      | Provide detailed instructions for a human collaborator to implement the validation
+      logic.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: Write test cases for `StrategyVariant.to_trend_config` to verify correct
+      application of weighting methods when both `portfolio.weighting_scheme` and
+      `portfolio.weighting.name` are provided. (The agent cannot guarantee specific
+      coverage percentages or make subjective design decisions about test case implementation.
+      | Provide a detailed test plan for a human collaborator to implement and verify
+      the test cases.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
