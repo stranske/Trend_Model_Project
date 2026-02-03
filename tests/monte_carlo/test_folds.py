@@ -169,6 +169,19 @@ def test_align_to_index_with_duplicates_skips_to_next_unique() -> None:
     assert _align_to_index(pd.Timestamp("2020-03-01"), index) == pd.Timestamp("2020-03-31")
 
 
+def test_align_to_index_with_duplicates_exact_match_returns_value() -> None:
+    index = pd.DatetimeIndex(
+        [
+            "2020-01-31",
+            "2020-02-29",
+            "2020-02-29",
+            "2020-03-31",
+        ]
+    )
+
+    assert _align_to_index(pd.Timestamp("2020-02-29"), index) == pd.Timestamp("2020-02-29")
+
+
 def test_align_to_index_empty_index_raises() -> None:
     index = pd.DatetimeIndex([])
 
@@ -186,6 +199,19 @@ def test_previous_in_index_exact_value_returns_previous() -> None:
     index = pd.date_range("2020-01-31", periods=4, freq="ME")
 
     assert _previous_in_index(pd.Timestamp("2020-03-31"), index) == pd.Timestamp("2020-02-29")
+
+
+def test_previous_in_index_with_duplicates_between_returns_duplicate() -> None:
+    index = pd.DatetimeIndex(
+        [
+            "2020-01-31",
+            "2020-02-29",
+            "2020-02-29",
+            "2020-03-31",
+        ]
+    )
+
+    assert _previous_in_index(pd.Timestamp("2020-03-01"), index) == pd.Timestamp("2020-02-29")
 
 
 def test_previous_in_index_after_last_returns_last() -> None:
