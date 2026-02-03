@@ -162,6 +162,7 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
         "model": model,
         "temperature": temperature,
         "cache_signature": timings.get("chain_cache_signature"),
+        "cache_miss_reason": timings.get("chain_cache_miss_reason"),
         "chain_build_seconds": timings.get("chain_build_seconds"),
         "chain_reused": timings.get("chain_reused"),
         "run_seconds": timings.get("run_seconds"),
@@ -180,6 +181,7 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
         "model": model,
         "temperature": temperature,
         "cache_signature": timings.get("chain_cache_signature"),
+        "cache_miss_reason": timings.get("chain_cache_miss_reason"),
         "chain_reused": timings.get("chain_reused"),
         "chain_build_seconds": timings.get("chain_build_seconds"),
         "run_seconds": timings.get("run_seconds"),
@@ -210,6 +212,8 @@ def _render_preview_timing_history() -> None:
             continue
         cache_sig = entry.get("cache_signature")
         cache_sig_label = str(cache_sig)[:8] if cache_sig else "—"
+        cache_reason = entry.get("cache_miss_reason")
+        cache_reason_label = str(cache_reason) if cache_reason else "—"
         rows.append(
             {
                 "Timestamp": str(entry.get("timestamp") or "Unknown time"),
@@ -218,6 +222,7 @@ def _render_preview_timing_history() -> None:
                 "Model": str(entry.get("model") or "default"),
                 "Temp": _format_value(entry.get("temperature")),
                 "Cache sig": cache_sig_label,
+                "Cache miss": cache_reason_label,
                 "Chain build": _format_seconds(entry.get("chain_build_seconds")),
                 "Chain reused": "Yes" if entry.get("chain_reused") else "No",
                 "Run": _format_seconds(entry.get("run_seconds")),
@@ -237,10 +242,13 @@ def _render_last_preview_metrics() -> None:
     cache_sig = metrics.get("cache_signature")
     cache_label = str(cache_sig)[:8] if cache_sig else "—"
     chain_reused = "Yes" if metrics.get("chain_reused") else "No"
+    cache_miss = metrics.get("cache_miss_reason")
+    cache_miss_label = str(cache_miss) if cache_miss else "—"
     st.caption(
         "Last preview cache — "
         f"Sig: {cache_label} | "
         f"Chain reused: {chain_reused} | "
+        f"Cache miss: {cache_miss_label} | "
         f"Build: {_format_seconds(metrics.get('chain_build_seconds'))} | "
         f"Run: {_format_seconds(metrics.get('run_seconds'))} | "
         f"Total: {_format_seconds(metrics.get('total_seconds'))}"
@@ -649,6 +657,13 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     entries = cache_state["entries"]
     cached_chain_id = entries.get(signature)
     reused = cached_chain_id == id(chain)
+    previous_signature = cache_state.get("last_signature")
+    cache_miss_reason = None
+    if not reused:
+        if previous_signature and previous_signature != signature:
+            cache_miss_reason = "settings_changed"
+        else:
+            cache_miss_reason = "first_build"
     entries[signature] = id(chain)
     cache_state["last_signature"] = signature
     cache_state["last_chain_id"] = id(chain)
@@ -658,6 +673,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         "chain_reused": reused,
         "chain_cache_key": cache_key,
         "chain_cache_signature": signature,
+        "chain_cache_miss_reason": cache_miss_reason,
     }
 
 
