@@ -423,9 +423,7 @@ def _parse_scenario(
     if folds_value is not None:
         scenario_kwargs["folds"] = folds_value
 
-    return_model_value = _optional_mapping(
-        raw, key="return_model", scenario_name=scenario_name
-    )
+    return_model_value = _optional_mapping(raw, key="return_model", scenario_name=scenario_name)
     if return_model_value is not None:
         scenario_kwargs["return_model"] = return_model_value
 
