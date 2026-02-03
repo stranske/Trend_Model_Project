@@ -417,3 +417,48 @@ cases:
       risk_flags:
         - REMOVES_CONSTRAINT
       summary: "Remove max_weight constraint after conflicting instruction."
+
+  - id: unknown_top_level_key
+    instruction: "Enable risk_mode aggressive."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations: []
+      risk_flags: []
+      summary: "Requested unknown key: risk_mode."
+
+  - id: ambiguous_top_n_range
+    instruction: "Set top_n between 5 and 10."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations: []
+      risk_flags: []
+      summary: "Need clarification on top_n range."
+
+  - id: conflicting_frequency_remove_set
+    instruction: "Remove frequency setting but set frequency to weekly."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations: []
+      risk_flags: []
+      summary: "Conflicting instructions about frequency."
+
+  - id: ambiguous_hold_steady
+    instruction: "Keep the current configuration unchanged."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations: []
+      risk_flags: []
+      summary: "No changes requested."
+
+  - id: unknown_analysis_param
+    instruction: "Set analysis.volatility_cap to 0.2."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations: []
+      risk_flags: []
+      summary: "Requested unknown key: analysis.volatility_cap."
