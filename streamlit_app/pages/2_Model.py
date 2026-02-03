@@ -6,8 +6,8 @@ import difflib
 import hashlib
 import html
 import json
-import os
 import logging
+import os
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import date, datetime
