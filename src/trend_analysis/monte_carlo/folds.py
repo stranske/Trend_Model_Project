@@ -49,7 +49,7 @@ class Fold:
             "calibration_start": self.calibration_start.isoformat(),
             "calibration_end": self.calibration_end.isoformat(),
             "forecast_start": self.forecast_start.isoformat(),
-            "forecast_end": self.forecast_end.isoformat() if self.forecast_end else None,
+            "forecast_end": (self.forecast_end.isoformat() if self.forecast_end else None),
             "label": self.label,
         }
 

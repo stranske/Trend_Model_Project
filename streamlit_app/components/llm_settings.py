@@ -34,8 +34,21 @@ def sanitize_api_key(value: str | None) -> str | None:
 
 def read_secret(key: str) -> str | None:
     try:
-        return st.secrets.get(key)
-    except (KeyError, FileNotFoundError, RuntimeError, ValueError) as exc:
+        secrets = getattr(st, "secrets", None)
+        if secrets is None:
+            return None
+        getter = getattr(secrets, "get", None)
+        if getter is None:
+            return None
+        return getter(key)
+    except (
+        KeyError,
+        FileNotFoundError,
+        RuntimeError,
+        ValueError,
+        TypeError,
+        AttributeError,
+    ) as exc:
         logger.debug("Unable to read Streamlit secret %s: %s", key, exc)
         return None
 

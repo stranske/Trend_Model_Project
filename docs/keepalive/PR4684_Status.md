@@ -34,11 +34,11 @@ Additional fold-aware output tables live outside Monte Carlo exports in `src/tre
 - [x] Define scope for: Add new tests specifically to verify that all exported result tables contain the fold_id column.
 - [x] Implement focused slice for: Add new tests specifically to verify that all exported result tables contain the fold_id column.
 - [x] Validate focused slice for: Add new tests specifically to verify that all exported result tables contain the fold_id column.
-- [ ] Implement additional unit tests for FoldGenerator._align_to_index and FoldGenerator._previous_in_index to cover edge cases.
+- [x] Implement additional unit tests for FoldGenerator._align_to_index and FoldGenerator._previous_in_index to cover edge cases.
 - [x] Implement unit tests for FoldGenerator._align_to_index (verify: tests pass)
-- [ ] including edge cases. (verify: confirm completion in repo)
+- [x] including edge cases. (verify: confirm completion in repo)
 - [x] Implement unit tests for FoldGenerator._previous_in_index (verify: tests pass)
-- [ ] including edge cases. (verify: confirm completion in repo)
+- [x] including edge cases. (verify: confirm completion in repo)
 - [ ] Clarify and update implementation regarding pooled output to determine if full distribution artifacts are needed, and update tests accordingly.
 - [ ] Add or enhance tests to verify that the scenario configuration flag properly enables and disables fold runs.
 

@@ -230,7 +230,7 @@ def test_main_run_with_config_coverage_prints_report(monkeypatch, tmp_path, caps
 
     captured = capsys.readouterr()
     assert rc == 0
-    assert "Config coverage report:" in captured.out
+    assert "Config Coverage Report" in captured.out
     from trend_analysis.config.coverage import get_config_coverage_tracker
 
     assert get_config_coverage_tracker() is None

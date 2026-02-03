@@ -238,11 +238,38 @@ class ConfigPatchChain:
             # Filter out operations with unknown keys
             if unknown_keys:
                 unknown_paths = {normalize_patch_path(entry.path) for entry in unknown_keys}
-                filtered_ops = [
-                    operation
-                    for operation in patch.operations
-                    if normalize_patch_path(operation.path) not in unknown_paths
-                ]
+
+                def _filter_merge_value(
+                    value: Any,
+                    base_path: str,
+                ) -> Any:
+                    if not isinstance(value, dict):
+                        return value
+                    filtered: dict[str, Any] = {}
+                    for key, child in value.items():
+                        if not isinstance(key, str):
+                            filtered[key] = child
+                            continue
+                        child_path = f"{base_path}.{key}" if base_path else key
+                        if child_path in unknown_paths:
+                            continue
+                        filtered_child = _filter_merge_value(child, child_path)
+                        if isinstance(filtered_child, dict) and not filtered_child:
+                            continue
+                        filtered[key] = filtered_child
+                    return filtered
+
+                filtered_ops = []
+                for operation in patch.operations:
+                    op_path = normalize_patch_path(operation.path)
+                    if op_path in unknown_paths:
+                        continue
+                    if operation.op == "merge":
+                        filtered_value = _filter_merge_value(operation.value, op_path)
+                        if isinstance(filtered_value, dict) and not filtered_value:
+                            continue
+                        operation.value = filtered_value
+                    filtered_ops.append(operation)
                 if len(filtered_ops) != len(patch.operations):
                     patch.operations = filtered_ops
 

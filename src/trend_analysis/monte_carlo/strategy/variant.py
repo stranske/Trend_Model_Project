@@ -137,7 +137,11 @@ def _deep_merge_overrides(
                         )
                 merged[key] = deepcopy(override_value)
                 continue
-            if allow_weighting_params_extension and path == ("portfolio", "weighting", "params"):
+            if allow_weighting_params_extension and path == (
+                "portfolio",
+                "weighting",
+                "params",
+            ):
                 merged[key] = deepcopy(override_value)
                 continue
             raise ValueError(f"override path '{path_label}' does not exist in base config")

@@ -80,6 +80,12 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     stub.empty = lambda: Placeholder()
 
     monkeypatch.setitem(sys.modules, "streamlit", stub)
+    runtime_module = ModuleType("streamlit.runtime")
+    uploaded_module = ModuleType("streamlit.runtime.uploaded_file_manager")
+    uploaded_module.UploadedFile = object
+    runtime_module.uploaded_file_manager = uploaded_module
+    monkeypatch.setitem(sys.modules, "streamlit.runtime", runtime_module)
+    monkeypatch.setitem(sys.modules, "streamlit.runtime.uploaded_file_manager", uploaded_module)
 
     stub.clear_calls = 0
 
@@ -672,3 +678,141 @@ def test_render_config_diff_preview_no_preview_shows_info(
     model_module._render_config_diff_preview(model_state={"lookback_periods": 6})
 
     assert info_calls == ["No preview available yet. Send an instruction to generate a diff."]
+
+
+def test_record_preview_timing_stores_last_metrics(model_module: ModuleType) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    preview = {
+        "instruction": "Increase lookback",
+        "timings": {
+            "chain_cache_key": {"provider": "openai", "model": "gpt-4o-mini", "temperature": 0.0},
+            "chain_cache_signature": "abc123",
+            "chain_build_seconds": 0.05,
+            "chain_reused": True,
+            "run_seconds": 1.2,
+        },
+    }
+
+    model_module._record_preview_timing(preview, total_seconds=1.25)
+
+    metrics = stub.session_state.get(model_module._CONFIG_CHAIN_METRICS_KEY)
+    assert isinstance(metrics, dict)
+    assert metrics["cache_signature"] == "abc123"
+    assert metrics["chain_reused"] is True
+    assert metrics["total_seconds"] == 1.25
+
+
+def test_build_nl_chain_reuses_cached_chain(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    chain_obj = object()
+    calls: list[dict[str, object]] = []
+
+    def fake_cached_config_patch_chain(
+        session_cache_key: str,
+        cache_version: str,
+        provider: str,
+        model: str,
+        api_key: str | None,
+        base_url: str | None,
+        organization: str | None,
+        timeout: float | None,
+        max_retries: int | None,
+        extra_payload: str,
+        temperature: float,
+        api_key_fingerprint: str | None,
+    ) -> object:
+        calls.append(
+            {
+                "provider": provider,
+                "model": model,
+                "api_key": api_key,
+                "temperature": temperature,
+            }
+        )
+        return chain_obj
+
+    monkeypatch.setattr(
+        model_module,
+        "_resolve_llm_provider_config",
+        lambda: model_module.LLMProviderConfig(
+            provider="openai",
+            model="gpt-4o-mini",
+            api_key="sk-test",
+        ),
+    )
+    monkeypatch.setattr(model_module, "_resolve_llm_temperature", lambda: 0.1)
+    monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
+
+    chain_first, meta_first = model_module._build_nl_chain()
+    chain_second, meta_second = model_module._build_nl_chain()
+
+    assert chain_first is chain_obj
+    assert chain_second is chain_obj
+    assert meta_first["chain_reused"] is False
+    assert meta_second["chain_reused"] is True
+    assert meta_second["chain_cache_miss_reason"] is None
+    assert calls[0]["api_key"] == "sk-test"
+
+
+def test_build_nl_chain_invalidation_on_model_change(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+    stub.session_state["config_chat_preview"] = {"after": {"lookback_periods": 6}}
+    stub.session_state["config_chat_last_instruction"] = "Increase lookback"
+
+    configs = iter(
+        [
+            model_module.LLMProviderConfig(
+                provider="openai",
+                model="gpt-4o-mini",
+                api_key="sk-test",
+            ),
+            model_module.LLMProviderConfig(
+                provider="openai",
+                model="gpt-4o",
+                api_key="sk-test",
+            ),
+        ]
+    )
+
+    monkeypatch.setattr(model_module, "_resolve_llm_provider_config", lambda: next(configs))
+    monkeypatch.setattr(model_module, "_resolve_llm_temperature", lambda: 0.0)
+
+    chain_one = object()
+    chain_two = object()
+    call_count = {"value": 0}
+
+    def fake_cached_config_patch_chain(
+        session_cache_key: str,
+        cache_version: str,
+        provider: str,
+        model: str,
+        api_key: str | None,
+        base_url: str | None,
+        organization: str | None,
+        timeout: float | None,
+        max_retries: int | None,
+        extra_payload: str,
+        temperature: float,
+        api_key_fingerprint: str | None,
+    ) -> object:
+        call_count["value"] += 1
+        return chain_one if call_count["value"] == 1 else chain_two
+
+    monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
+
+    _, meta_first = model_module._build_nl_chain()
+    _, meta_second = model_module._build_nl_chain()
+
+    assert meta_first["chain_reused"] is False
+    assert "model" in (meta_second["chain_cache_invalidation_fields"] or [])
+    assert "config_chat_preview" not in stub.session_state
+    assert "config_chat_last_instruction" not in stub.session_state

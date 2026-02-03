@@ -1351,7 +1351,12 @@ def _validate_mc_scenario(scenario: MonteCarloScenario) -> list[str]:
     return_model = scenario.return_model
     if isinstance(return_model, Mapping):
         kind = str(return_model.get("kind") or "stationary_bootstrap").lower()
-        allowed = {"stationary_bootstrap", "bootstrap", "regime_bootstrap", "regime_conditioned"}
+        allowed = {
+            "stationary_bootstrap",
+            "bootstrap",
+            "regime_bootstrap",
+            "regime_conditioned",
+        }
         if kind not in allowed:
             errors.append(f"return_model.kind must be one of: {', '.join(sorted(allowed))}")
 
@@ -1565,10 +1570,16 @@ def _handle_mc_command(args: argparse.Namespace) -> int:
                 try:
                     scenarios.append(load_scenario(entry.name, registry_path=registry_path))
                 except (ValueError, FileNotFoundError, IsADirectoryError) as exc:
-                    print(f"Scenario '{entry.name}' failed to load: {exc}", file=sys.stderr)
+                    print(
+                        f"Scenario '{entry.name}' failed to load: {exc}",
+                        file=sys.stderr,
+                    )
                     return 1
                 except Exception as exc:
-                    print(f"Scenario '{entry.name}' failed to load: {exc}", file=sys.stderr)
+                    print(
+                        f"Scenario '{entry.name}' failed to load: {exc}",
+                        file=sys.stderr,
+                    )
                     return 2
 
         failures = 0

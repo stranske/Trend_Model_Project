@@ -195,6 +195,45 @@ def test_config_patch_chain_filters_unknown_keys_from_mixed_ops() -> None:
     assert "analysis.turbo_mode" in patch.summary
 
 
+def test_config_patch_chain_filters_unknown_keys_from_merge() -> None:
+    def _respond(_prompt_value, **_kwargs) -> str:
+        payload = {
+            "operations": [
+                {
+                    "op": "merge",
+                    "path": "constraints",
+                    "value": {"max_weight": 0.2, "min_weight": 0.05},
+                }
+            ],
+            "risk_flags": [],
+            "summary": "Update constraint bounds.",
+        }
+        return json.dumps(payload)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={
+            "type": "object",
+            "properties": {
+                "constraints": {"type": "object", "properties": {"max_weight": {"type": "number"}}}
+            },
+        },
+    )
+
+    patch = chain.run(
+        current_config={"constraints": {"max_weight": 0.2}},
+        instruction="Set max weight to 0.2 and min weight to 0.05.",
+    )
+
+    assert patch.needs_review is True
+    assert len(patch.operations) == 1
+    assert patch.operations[0].op == "merge"
+    assert patch.operations[0].value == {"max_weight": 0.2}
+    assert "constraints.min_weight" in patch.summary
+
+
 def test_config_patch_chain_unknown_keys_raise() -> None:
     def _respond(prompt_value, **_kwargs) -> str:
         _ = prompt_value.to_messages()

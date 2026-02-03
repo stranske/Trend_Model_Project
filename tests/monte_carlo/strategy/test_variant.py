@@ -25,7 +25,10 @@ def _base_config(tmp_path: Path) -> dict[str, object]:
             "transaction_cost_bps": 10,
             "rank": {"n": 5, "metric": "Sharpe"},
             "weighting_scheme": "equal",
-            "weighting": {"name": "equal", "params": {"column": "Sharpe", "shrink_tau": 0.25}},
+            "weighting": {
+                "name": "equal",
+                "params": {"column": "Sharpe", "shrink_tau": 0.25},
+            },
         },
         "vol_adjust": {"target_vol": 0.1},
         "extra": {"list": [1, 2, 3]},
@@ -109,7 +112,10 @@ def test_to_trend_config_accepts_weighting_scheme_and_name(
         overrides={
             "portfolio": {
                 "weighting_scheme": "risk_parity",
-                "weighting": {"name": "score_prop_bayes", "params": {"column": "Sharpe"}},
+                "weighting": {
+                    "name": "score_prop_bayes",
+                    "params": {"column": "Sharpe"},
+                },
             }
         },
     )
@@ -319,7 +325,9 @@ def test_apply_to_allows_weighting_params_creation_for_curated(tmp_path: Path) -
     assert "params" not in base["portfolio"]["weighting"]
 
 
-def test_apply_to_rejects_weighting_params_extension_for_non_curated(tmp_path: Path) -> None:
+def test_apply_to_rejects_weighting_params_extension_for_non_curated(
+    tmp_path: Path,
+) -> None:
     base = _base_config(tmp_path)
     variant = StrategyVariant(
         name="ExtendParams",
@@ -332,7 +340,9 @@ def test_apply_to_rejects_weighting_params_extension_for_non_curated(tmp_path: P
         variant.apply_to(base)
 
 
-def test_apply_to_rejects_weighting_params_creation_for_non_curated(tmp_path: Path) -> None:
+def test_apply_to_rejects_weighting_params_creation_for_non_curated(
+    tmp_path: Path,
+) -> None:
     base = _base_config(tmp_path)
     base["portfolio"]["weighting"].pop("params")
     variant = StrategyVariant(

@@ -6,18 +6,20 @@ import difflib
 import hashlib
 import html
 import json
+import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import date, datetime
 from time import monotonic, sleep
 from typing import Any, Mapping
+from uuid import uuid4
 
 import streamlit as st
 import yaml
 
 from streamlit_app import state as app_state
-from streamlit_app.components import analysis_runner
+from streamlit_app.components import analysis_runner, nl_operation_viewer
 from streamlit_app.components.progress_eta import (
     estimate_eta_seconds,
     progress_ratio_and_remaining,
@@ -56,6 +58,106 @@ WEIGHTING_SCHEMES = [
 # Config chat panel helpers
 _CONFIG_HISTORY_KEY = "config_chat_history"
 _MAX_CONFIG_HISTORY = 20
+_CONFIG_PREVIEW_TIMINGS_KEY = "config_chat_preview_timings"
+_MAX_CONFIG_PREVIEW_TIMINGS = 20
+_CONFIG_CHAIN_STATE_KEY = "config_chat_chain_state"
+_CONFIG_CHAT_SESSION_KEY = "config_chat_session_id"
+_DEFAULT_CONFIG_CHAT_MODEL = "gpt-4o-mini"
+_CONFIG_CHAIN_CACHE_VERSION = "v1"
+_CONFIG_CHAIN_METRICS_KEY = "config_chat_chain_metrics"
+_CONFIG_CHAIN_STATS_KEY = "config_chat_chain_stats"
+_CONFIG_CHAIN_LOG_FIELDS = (
+    "provider",
+    "model",
+    "base_url",
+    "organization",
+    "temperature",
+    "timeout",
+    "max_retries",
+    "extra_payload_hash",
+    "api_key_fingerprint",
+)
+_LOGGER = logging.getLogger(__name__)
+_CONFIG_CHAIN_INVALIDATION_FIELDS = (
+    "provider",
+    "model",
+    "base_url",
+    "organization",
+    "temperature",
+    "timeout",
+    "max_retries",
+    "extra_payload_hash",
+    "api_key_fingerprint",
+)
+
+
+def _get_chain_cache_state() -> dict[str, Any]:
+    state = st.session_state.get(_CONFIG_CHAIN_STATE_KEY)
+    if not isinstance(state, dict):
+        state = {"entries": {}}
+        st.session_state[_CONFIG_CHAIN_STATE_KEY] = state
+    entries = state.get("entries")
+    if not isinstance(entries, dict):
+        state["entries"] = {}
+    return state
+
+
+def _get_config_chat_session_id() -> str:
+    session_id = st.session_state.get(_CONFIG_CHAT_SESSION_KEY)
+    if not session_id:
+        session_id = uuid4().hex
+        st.session_state[_CONFIG_CHAT_SESSION_KEY] = session_id
+    return session_id
+
+
+def _reset_config_chat_session_id() -> str:
+    session_id = uuid4().hex
+    st.session_state[_CONFIG_CHAT_SESSION_KEY] = session_id
+    return session_id
+
+
+def _chain_cache_signature(cache_key: Mapping[str, Any]) -> str:
+    return json.dumps(dict(cache_key), sort_keys=True, default=str)
+
+
+def _build_chain_cache_key(
+    *,
+    provider: str,
+    model: str,
+    base_url: str | None,
+    organization: str | None,
+    temperature: float,
+    timeout: float | None,
+    max_retries: int | None,
+    extra_payload_hash: str | None,
+    api_key_fingerprint: str | None,
+) -> dict[str, Any]:
+    return {
+        "cache_version": _CONFIG_CHAIN_CACHE_VERSION,
+        "provider": provider,
+        "model": model,
+        "base_url": base_url,
+        "organization": organization,
+        "temperature": temperature,
+        "timeout": timeout,
+        "max_retries": max_retries,
+        "extra_payload_hash": extra_payload_hash,
+        "api_key_fingerprint": api_key_fingerprint,
+    }
+
+
+def _cache_key_changes(
+    previous: Mapping[str, Any] | None,
+    current: Mapping[str, Any],
+    fields: tuple[str, ...],
+) -> list[str]:
+    if not isinstance(previous, Mapping):
+        return []
+    changed = []
+    for field in fields:
+        if previous.get(field) != current.get(field):
+            changed.append(field)
+    return changed
 
 
 def _get_config_change_history() -> list[dict[str, Any]]:
@@ -84,6 +186,198 @@ def _record_config_change(preview: Mapping[str, Any]) -> None:
     history.append(entry)
     if len(history) > _MAX_CONFIG_HISTORY:
         del history[:-_MAX_CONFIG_HISTORY]
+
+
+def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> None:
+    timings = preview.get("timings")
+    if not isinstance(timings, Mapping):
+        return
+    chain_key = timings.get("chain_cache_key")
+    provider = None
+    model = None
+    temperature = None
+    invalidation_fields: list[str] | None = None
+    if isinstance(chain_key, Mapping):
+        provider = chain_key.get("provider")
+        model = chain_key.get("model")
+        temperature = chain_key.get("temperature")
+    invalidation_fields_raw = timings.get("chain_cache_invalidation_fields")
+    if isinstance(invalidation_fields_raw, list):
+        invalidation_fields = [str(field) for field in invalidation_fields_raw]
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "instruction": preview.get("instruction"),
+        "provider": provider,
+        "model": model,
+        "temperature": temperature,
+        "cache_signature": timings.get("chain_cache_signature"),
+        "cache_miss_reason": timings.get("chain_cache_miss_reason"),
+        "cache_invalidation_fields": invalidation_fields,
+        "cache_settings_changed": timings.get("chain_settings_changed"),
+        "chain_build_seconds": timings.get("chain_build_seconds"),
+        "chain_reused": timings.get("chain_reused"),
+        "run_seconds": timings.get("run_seconds"),
+        "total_seconds": total_seconds,
+    }
+    history = st.session_state.get(_CONFIG_PREVIEW_TIMINGS_KEY)
+    if not isinstance(history, list):
+        history = []
+        st.session_state[_CONFIG_PREVIEW_TIMINGS_KEY] = history
+    history.append(entry)
+    if len(history) > _MAX_CONFIG_PREVIEW_TIMINGS:
+        del history[:-_MAX_CONFIG_PREVIEW_TIMINGS]
+    st.session_state[_CONFIG_CHAIN_METRICS_KEY] = {
+        "timestamp": entry.get("timestamp"),
+        "provider": provider,
+        "model": model,
+        "temperature": temperature,
+        "cache_signature": timings.get("chain_cache_signature"),
+        "cache_miss_reason": timings.get("chain_cache_miss_reason"),
+        "cache_invalidation_fields": invalidation_fields,
+        "cache_settings_changed": timings.get("chain_settings_changed"),
+        "chain_reused": timings.get("chain_reused"),
+        "chain_build_seconds": timings.get("chain_build_seconds"),
+        "run_seconds": timings.get("run_seconds"),
+        "total_seconds": total_seconds,
+    }
+    _LOGGER.info(
+        "Config chat preview: provider=%s model=%s temp=%s reused=%s build_s=%s run_s=%s total_s=%s "
+        "cache_miss=%s invalidated_by=%s",
+        provider,
+        model,
+        temperature,
+        entry.get("chain_reused"),
+        entry.get("chain_build_seconds"),
+        entry.get("run_seconds"),
+        total_seconds,
+        entry.get("cache_miss_reason"),
+        invalidation_fields,
+    )
+
+
+def _record_chain_cache_stats(
+    chain_meta: Mapping[str, Any],
+    chain_build_seconds: float,
+) -> None:
+    stats = st.session_state.get(_CONFIG_CHAIN_STATS_KEY)
+    if not isinstance(stats, Mapping):
+        stats = {"hits": 0, "misses": 0}
+    stats = dict(stats)
+    reused = bool(chain_meta.get("chain_reused"))
+    if reused:
+        stats["hits"] = int(stats.get("hits", 0)) + 1
+    else:
+        stats["misses"] = int(stats.get("misses", 0)) + 1
+    stats["last_build_seconds"] = chain_build_seconds
+    stats["last_reused"] = reused
+    stats["last_miss_reason"] = chain_meta.get("chain_cache_miss_reason")
+    stats["last_invalidation_fields"] = chain_meta.get("chain_cache_invalidation_fields")
+    stats["last_signature"] = chain_meta.get("chain_cache_signature")
+    stats["timestamp"] = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    st.session_state[_CONFIG_CHAIN_STATS_KEY] = stats
+
+
+def _format_seconds(value: Any) -> str:
+    if value is None:
+        return "—"
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return "—"
+    return f"{numeric:.2f}s"
+
+
+def _render_preview_timing_history() -> None:
+    st.markdown("**Preview timings**")
+    history = st.session_state.get(_CONFIG_PREVIEW_TIMINGS_KEY)
+    if not isinstance(history, list) or not history:
+        st.info("No preview timing data yet.")
+        return
+
+    rows: list[dict[str, str]] = []
+    for entry in reversed(history):
+        if not isinstance(entry, Mapping):
+            continue
+        cache_sig = entry.get("cache_signature")
+        cache_sig_label = str(cache_sig)[:8] if cache_sig else "—"
+        cache_reason = entry.get("cache_miss_reason")
+        cache_reason_label = str(cache_reason) if cache_reason else "—"
+        invalidation_fields = entry.get("cache_invalidation_fields")
+        invalidation_label = (
+            ", ".join(invalidation_fields) if isinstance(invalidation_fields, list) else "—"
+        )
+        settings_changed = entry.get("cache_settings_changed")
+        settings_changed_label = (
+            "Yes" if settings_changed is True else "No" if settings_changed is False else "—"
+        )
+        rows.append(
+            {
+                "Timestamp": str(entry.get("timestamp") or "Unknown time"),
+                "Instruction": str(entry.get("instruction") or "Preview"),
+                "Provider": str(entry.get("provider") or "default"),
+                "Model": str(entry.get("model") or "default"),
+                "Temp": _format_value(entry.get("temperature")),
+                "Settings changed": settings_changed_label,
+                "Cache sig": cache_sig_label,
+                "Cache miss": cache_reason_label,
+                "Cache invalidated by": invalidation_label,
+                "Chain build": _format_seconds(entry.get("chain_build_seconds")),
+                "Chain reused": "Yes" if entry.get("chain_reused") else "No",
+                "Run": _format_seconds(entry.get("run_seconds")),
+                "Total": _format_seconds(entry.get("total_seconds")),
+            }
+        )
+    if not rows:
+        st.info("No preview timing data yet.")
+        return
+    st.dataframe(rows, use_container_width=True, hide_index=True)
+
+
+def _render_last_preview_metrics() -> None:
+    metrics = st.session_state.get(_CONFIG_CHAIN_METRICS_KEY)
+    if not isinstance(metrics, Mapping):
+        return
+    cache_sig = metrics.get("cache_signature")
+    cache_label = str(cache_sig)[:8] if cache_sig else "—"
+    chain_reused = "Yes" if metrics.get("chain_reused") else "No"
+    cache_miss = metrics.get("cache_miss_reason")
+    cache_miss_label = str(cache_miss) if cache_miss else "—"
+    invalidation_fields = metrics.get("cache_invalidation_fields")
+    invalidation_label = (
+        ", ".join(invalidation_fields) if isinstance(invalidation_fields, list) else "—"
+    )
+    settings_changed = metrics.get("cache_settings_changed")
+    settings_changed_label = (
+        "Yes" if settings_changed is True else "No" if settings_changed is False else "—"
+    )
+    st.caption(
+        "Last preview cache — "
+        f"Sig: {cache_label} | "
+        f"Chain reused: {chain_reused} | "
+        f"Cache miss: {cache_miss_label} | "
+        f"Invalidated by: {invalidation_label} | "
+        f"Settings changed: {settings_changed_label} | "
+        f"Build: {_format_seconds(metrics.get('chain_build_seconds'))} | "
+        f"Run: {_format_seconds(metrics.get('run_seconds'))} | "
+        f"Total: {_format_seconds(metrics.get('total_seconds'))}"
+    )
+    stats = st.session_state.get(_CONFIG_CHAIN_STATS_KEY)
+    if not isinstance(stats, Mapping):
+        return
+    hits = int(stats.get("hits", 0))
+    misses = int(stats.get("misses", 0))
+    total = hits + misses
+    hit_rate = f"{(hits / total) * 100:.0f}%" if total else "—"
+    last_invalidation = stats.get("last_invalidation_fields")
+    last_invalidation_label = (
+        ", ".join(last_invalidation) if isinstance(last_invalidation, list) else "—"
+    )
+    st.caption(
+        "Cache stats — "
+        f"Hits: {hits} | Misses: {misses} | Hit rate: {hit_rate} | "
+        f"Last build: {_format_seconds(stats.get('last_build_seconds'))} | "
+        f"Last invalidation: {last_invalidation_label}"
+    )
 
 
 def _format_percent(value: Any) -> str:
@@ -371,23 +665,206 @@ def _resolve_llm_provider_config() -> LLMProviderConfig:
     return LLMProviderConfig(**kwargs)
 
 
-def _build_nl_chain() -> ConfigPatchChain:
-    config = _resolve_llm_provider_config()
-    llm = create_llm(config)
+def _resolve_llm_temperature() -> float:
+    raw = os.environ.get("TREND_LLM_TEMPERATURE")
+    if raw is None:
+        return 0.0
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _hash_api_key(api_key: str | None) -> str | None:
+    if not api_key:
+        return None
+    return hashlib.sha256(api_key.encode("utf-8")).hexdigest()
+
+
+def _hash_text(value: str | None) -> str | None:
+    if not value:
+        return None
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()[:12]
+
+
+def _serialize_extra(extra: Mapping[str, Any] | None) -> str:
+    if not extra:
+        return ""
+    return json.dumps(dict(extra), sort_keys=True, default=str)
+
+
+def _normalize_cache_str(value: str | None) -> str | None:
+    if value is None:
+        return None
+    stripped = value.strip()
+    return stripped or None
+
+
+def _normalize_temperature(value: float) -> float:
+    try:
+        return round(float(value), 4)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+@st.cache_resource(show_spinner=False)
+def _cached_llm_client(
+    session_cache_key: str,
+    cache_version: str,
+    provider: str,
+    model: str,
+    api_key: str | None,
+    base_url: str | None,
+    organization: str | None,
+    timeout: float | None,
+    max_retries: int | None,
+    extra_payload: str,
+    api_key_fingerprint: str | None,
+) -> Any:
+    del session_cache_key, cache_version, api_key_fingerprint
+    config = LLMProviderConfig(
+        provider=provider,
+        model=model,
+        api_key=api_key,
+        base_url=base_url,
+        organization=organization,
+        timeout=timeout,
+        max_retries=max_retries,
+        extra=json.loads(extra_payload) if extra_payload else {},
+    )
+    return create_llm(config)
+
+
+@st.cache_resource(show_spinner=False)
+def _cached_config_patch_chain(
+    session_cache_key: str,
+    cache_version: str,
+    provider: str,
+    model: str,
+    api_key: str | None,
+    base_url: str | None,
+    organization: str | None,
+    timeout: float | None,
+    max_retries: int | None,
+    extra_payload: str,
+    temperature: float,
+    api_key_fingerprint: str | None,
+) -> ConfigPatchChain:
+    llm = _cached_llm_client(
+        session_cache_key,
+        cache_version,
+        provider,
+        model,
+        api_key,
+        base_url,
+        organization,
+        timeout,
+        max_retries,
+        extra_payload,
+        api_key_fingerprint,
+    )
     schema = load_compact_schema()
     return ConfigPatchChain.from_env(
         llm=llm,
         schema=schema,
         prompt_builder=build_config_patch_prompt,
+        temperature=temperature,
+        model=model,
     )
+
+
+def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
+    config = _resolve_llm_provider_config()
+    provider = _normalize_cache_str(config.provider) or "openai"
+    temperature = _normalize_temperature(_resolve_llm_temperature())
+    base_url = _normalize_cache_str(config.base_url)
+    organization = _normalize_cache_str(config.organization)
+    api_key_fingerprint = _hash_api_key(config.api_key)
+    extra_payload = _serialize_extra(config.extra)
+    extra_payload_hash = _hash_text(extra_payload)
+    resolved_model = _normalize_cache_str(config.model) or _DEFAULT_CONFIG_CHAT_MODEL
+    cache_key = _build_chain_cache_key(
+        provider=provider,
+        model=resolved_model,
+        base_url=base_url,
+        organization=organization,
+        temperature=temperature,
+        timeout=config.timeout,
+        max_retries=config.max_retries,
+        extra_payload_hash=extra_payload_hash,
+        api_key_fingerprint=api_key_fingerprint,
+    )
+    cache_state = _get_chain_cache_state()
+    signature = _chain_cache_signature(cache_key)
+    previous_signature = cache_state.get("last_signature")
+    settings_changed = bool(previous_signature and previous_signature != signature)
+    previous_cache_key = cache_state.get("last_cache_key")
+    changed_fields = _cache_key_changes(previous_cache_key, cache_key, _CONFIG_CHAIN_LOG_FIELDS)
+    invalidation_fields = _cache_key_changes(
+        previous_cache_key,
+        cache_key,
+        _CONFIG_CHAIN_INVALIDATION_FIELDS,
+    )
+    if invalidation_fields:
+        _reset_config_chat_session_id()
+        st.session_state.pop("config_chat_preview", None)
+        st.session_state.pop("config_chat_last_instruction", None)
+    session_cache_key = _get_config_chat_session_id()
+    chain = _cached_config_patch_chain(
+        session_cache_key,
+        _CONFIG_CHAIN_CACHE_VERSION,
+        provider,
+        resolved_model,
+        config.api_key,
+        base_url,
+        organization,
+        config.timeout,
+        config.max_retries,
+        extra_payload,
+        temperature,
+        api_key_fingerprint,
+    )
+    entries = cache_state["entries"]
+    cached_chain_id = entries.get(signature)
+    reused = cached_chain_id == id(chain)
+    cache_miss_reason = None
+    if not reused:
+        if settings_changed:
+            if invalidation_fields:
+                cache_miss_reason = f"settings_changed: {', '.join(invalidation_fields)}"
+            elif changed_fields:
+                cache_miss_reason = f"settings_changed: {', '.join(changed_fields)}"
+            else:
+                cache_miss_reason = "settings_changed"
+        else:
+            cache_miss_reason = "first_build"
+    entries[signature] = id(chain)
+    cache_state["last_signature"] = signature
+    cache_state["last_cache_key"] = cache_key
+    cache_state["last_chain_id"] = id(chain)
+    st.session_state["config_chat_chain_key"] = cache_key
+    st.session_state["config_chat_chain_signature"] = signature
+    return chain, {
+        "chain_reused": reused,
+        "chain_cache_key": cache_key,
+        "chain_cache_signature": signature,
+        "chain_cache_miss_reason": cache_miss_reason,
+        "chain_cache_invalidation_fields": invalidation_fields,
+        "chain_settings_changed": settings_changed,
+    }
 
 
 def _generate_config_preview(
     model_state: Mapping[str, Any],
     instruction: str,
 ) -> dict[str, Any]:
-    chain = _build_nl_chain()
+    chain_start = monotonic()
+    chain, chain_meta = _build_nl_chain()
+    chain_build_seconds = monotonic() - chain_start
+    _record_chain_cache_stats(chain_meta, chain_build_seconds)
+    run_start = monotonic()
     patch = chain.run(current_config=dict(model_state), instruction=instruction)
+    run_seconds = monotonic() - run_start
     before = deepcopy(dict(model_state))
     after = apply_config_patch(before, patch)
     diff_text = diff_configs(before, after)
@@ -400,6 +877,16 @@ def _generate_config_preview(
         "risk_flags": [flag.value for flag in patch.risk_flags],
         "needs_review": patch.needs_review,
         "patch": patch.model_dump(),
+        "timings": {
+            "chain_build_seconds": chain_build_seconds,
+            "chain_reused": chain_meta.get("chain_reused"),
+            "chain_cache_key": chain_meta.get("chain_cache_key"),
+            "chain_cache_signature": chain_meta.get("chain_cache_signature"),
+            "chain_cache_miss_reason": chain_meta.get("chain_cache_miss_reason"),
+            "chain_cache_invalidation_fields": chain_meta.get("chain_cache_invalidation_fields"),
+            "chain_settings_changed": chain_meta.get("chain_settings_changed"),
+            "run_seconds": run_seconds,
+        },
     }
 
 
@@ -438,7 +925,12 @@ def _generate_preview_with_progress(
     _record_llm_seconds(duration)
     progress_bar.progress(1.0, text="Preview ready.")
     progress_slot.empty()
-    return future.result()
+    result = future.result()
+    timings = result.get("timings")
+    if isinstance(timings, Mapping):
+        timings["total_seconds"] = duration
+    _record_preview_timing(result, duration)
+    return result
 
 
 def _current_run_key(model_state: dict[str, Any], benchmark: str | None) -> str:
@@ -713,6 +1205,34 @@ def _render_config_diff_preview(model_state: Mapping[str, Any] | None) -> None:
     if not isinstance(diff_text, str):
         diff_text = diff_configs(dict(before), dict(after))
 
+    timings = preview.get("timings")
+    if isinstance(timings, Mapping):
+        chain_reused = "Yes" if timings.get("chain_reused") else "No"
+        cache_signature = timings.get("chain_cache_signature")
+        cache_signature_label = str(cache_signature)[:8] if cache_signature else "—"
+        settings_changed = timings.get("chain_settings_changed")
+        settings_changed_label = (
+            "Yes" if settings_changed is True else "No" if settings_changed is False else "—"
+        )
+        cache_miss_reason = timings.get("chain_cache_miss_reason")
+        cache_miss_label = f" | Cache miss: {cache_miss_reason}" if cache_miss_reason else ""
+        invalidation_fields = timings.get("chain_cache_invalidation_fields")
+        invalidation_label = (
+            f" | Invalidated by: {', '.join(invalidation_fields)}"
+            if isinstance(invalidation_fields, list) and invalidation_fields
+            else ""
+        )
+        st.caption(
+            "Preview timing — "
+            f"Chain reused: {chain_reused} | "
+            f"Cache sig: {cache_signature_label} | "
+            f"Settings changed: {settings_changed_label} | "
+            f"Chain build: {_format_seconds(timings.get('chain_build_seconds'))} | "
+            f"Run: {_format_seconds(timings.get('run_seconds'))} | "
+            f"Total: {_format_seconds(timings.get('total_seconds'))}"
+            f"{cache_miss_label}{invalidation_label}"
+        )
+
     tabs = st.tabs(["Unified diff", "Side-by-side"])
     with tabs[0]:
         _render_unified_diff(diff_text)
@@ -757,6 +1277,7 @@ def _render_config_change_history() -> None:
 
 def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
     st.caption("Describe the configuration change you want to try.")
+    _render_last_preview_metrics()
     instruction = st.text_area(
         "Instruction",
         key="config_chat_instruction",
@@ -842,6 +1363,12 @@ def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
     _render_config_diff_preview(model_state)
     st.markdown("---")
     _render_config_change_history()
+    st.markdown("---")
+    with st.expander("Preview timing log", expanded=False):
+        _render_preview_timing_history()
+    st.markdown("---")
+    with st.expander("NL operation log", expanded=False):
+        nl_operation_viewer.render_nl_operation_viewer()
 
 
 def render_config_chat_panel(

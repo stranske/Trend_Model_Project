@@ -27,12 +27,12 @@ Complete the remaining acceptance criteria from #4185:
 ## Tasks
 
 ### Eval Harness & Testing
-- [ ] Create eval harness script at `tools/eval_config_patch.py`:
-  - [ ] Load test cases from JSON/YAML
-  - [ ] Run ConfigPatchChain for each test case
-  - [ ] Validate output structure and correctness
-  - [ ] Calculate success rate metrics
-  - [ ] Generate evaluation report
+- [x] Create eval harness script at `tools/eval_config_patch.py`:
+  - [x] Load test cases from JSON/YAML
+  - [x] Run ConfigPatchChain for each test case
+  - [x] Validate output structure and correctness
+  - [x] Calculate success rate metrics
+  - [x] Generate evaluation report
 
 - [ ] Define test cases in `tools/eval_test_cases.yml`:
   - [ ] "Use risk parity weighting" → set analysis.weighting.scheme = "risk_parity"

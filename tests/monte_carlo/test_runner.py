@@ -169,7 +169,9 @@ def test_runner_two_layer_small_scenario() -> None:
     assert path_hashes.max() == 1
 
 
-def test_two_layer_strategies_share_path_prices(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_two_layer_strategies_share_path_prices(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     scenario = _scenario("two_layer")
     runner = MonteCarloRunner(
         scenario,
@@ -368,7 +370,9 @@ def test_runner_respects_enable_fold_runs_flag(monkeypatch: pytest.MonkeyPatch) 
     assert captured_calibration == [(None, None)]
 
 
-def test_runner_builds_pooled_summary_when_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_runner_builds_pooled_summary_when_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     scenario = _scenario_with_folds(
         mode="two_layer",
         folds={"mode": "explicit", "fold_starts": ["2022-01-31"]},
@@ -415,7 +419,9 @@ def test_runner_builds_pooled_summary_when_enabled(monkeypatch: pytest.MonkeyPat
     assert results.metadata.get("pooled_distributions") is True
 
 
-def test_runner_includes_fold_ids_in_results_frame(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_runner_includes_fold_ids_in_results_frame(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     scenario = _scenario_with_folds(
         mode="two_layer",
         folds={

@@ -2,7 +2,12 @@ from collections.abc import Mapping
 
 import pytest
 
-from trend.diagnostics import DiagnosticPayload, DiagnosticResult
+from trend.diagnostics import (
+    DiagnosticPayload,
+    DiagnosticResult,
+    RunPayloadResult,
+    is_run_payload,
+)
 from trend_analysis import diagnostics
 
 
@@ -232,3 +237,24 @@ def test_coerce_pipeline_result_handles_wrapper_with_none_payload_and_no_diagnos
 
     assert payload is None
     assert diagnostic is None
+
+
+def test_is_run_payload_accepts_run_payload_result():
+    payload = RunPayloadResult(value={"alpha": 1}, diagnostic=None, metadata={"source": "unit"})
+
+    assert is_run_payload(payload)
+
+
+def test_is_run_payload_rejects_missing_metadata():
+    diag_result = DiagnosticResult(value={"alpha": 1}, diagnostic=None)
+
+    assert not is_run_payload(diag_result)
+
+
+def test_is_run_payload_rejects_invalid_diagnostic():
+    class InvalidPayload:
+        value = {"alpha": 1}
+        diagnostic = object()
+        metadata = None
+
+    assert not is_run_payload(InvalidPayload())

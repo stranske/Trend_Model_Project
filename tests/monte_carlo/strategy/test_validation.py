@@ -160,7 +160,9 @@ def test_validate_strategy_pack_rejects_mapping_tags(tmp_path: Path) -> None:
     ]
 
 
-def test_validate_strategy_pack_rejects_invalid_weighting_scheme(tmp_path: Path) -> None:
+def test_validate_strategy_pack_rejects_invalid_weighting_scheme(
+    tmp_path: Path,
+) -> None:
     pack_path = tmp_path / "invalid_weighting.yml"
     pack_path.write_text(
         yaml.safe_dump(

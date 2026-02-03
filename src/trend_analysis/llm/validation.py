@@ -42,15 +42,33 @@ def validate_patch_keys(
 
     candidates = _collect_schema_paths(schema)
     unknown: list[UnknownKey] = []
+    seen: set[str] = set()
     for operation in operations:
         segments = _parse_path_segments(operation.path)
         dotpath = _format_dotpath(segments)
         if not _path_exists(schema, segments):
             suggestion = _suggest_path(dotpath, candidates)
-            unknown.append(UnknownKey(path=dotpath, suggestion=suggestion))
+            if dotpath not in seen:
+                unknown.append(UnknownKey(path=dotpath, suggestion=suggestion))
+                seen.add(dotpath)
             continue
         if _has_dynamic_segments(segments):
-            unknown.append(UnknownKey(path=dotpath))
+            if dotpath not in seen:
+                unknown.append(UnknownKey(path=dotpath))
+                seen.add(dotpath)
+            continue
+        if operation.op == "merge" and isinstance(operation.value, dict):
+            for sub_segments in _iter_merge_paths(segments, operation.value):
+                sub_path = _format_dotpath(sub_segments)
+                if _path_exists(schema, sub_segments):
+                    if _has_dynamic_segments(sub_segments) and sub_path not in seen:
+                        unknown.append(UnknownKey(path=sub_path))
+                        seen.add(sub_path)
+                    continue
+                suggestion = _suggest_path(sub_path, candidates)
+                if sub_path not in seen:
+                    unknown.append(UnknownKey(path=sub_path, suggestion=suggestion))
+                    seen.add(sub_path)
     return unknown
 
 
@@ -121,6 +139,19 @@ def _format_dotpath(segments: list[_Segment]) -> str:
             assert isinstance(segment, str)
             parts.append(segment)
     return ".".join(parts)
+
+
+def _iter_merge_paths(
+    base_segments: list[_Segment],
+    value: dict[str, Any],
+) -> Iterable[list[_Segment]]:
+    for key, child in value.items():
+        if not isinstance(key, str):
+            continue
+        next_segments = [*base_segments, key]
+        yield next_segments
+        if isinstance(child, dict):
+            yield from _iter_merge_paths(next_segments, child)
 
 
 def _has_dynamic_segments(segments: list[_Segment]) -> bool:

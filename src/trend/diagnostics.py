@@ -4,7 +4,15 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Generic, Mapping, TypeVar
+from typing import (
+    Any,
+    Generic,
+    Mapping,
+    Protocol,
+    TypeGuard,
+    TypeVar,
+    runtime_checkable,
+)
 
 try:  # pragma: no cover - optional instrumentation
     from trend_analysis.config.coverage import (
@@ -22,6 +30,24 @@ except Exception:  # pragma: no cover - defensive fallback
 T = TypeVar("T")
 
 
+@runtime_checkable
+class RunPayload(Protocol[T]):
+    """Canonical run payload contract for pipeline entry points."""
+
+    value: T | None
+    diagnostic: "DiagnosticPayload | None"
+    metadata: Mapping[str, object] | None
+
+
+@dataclass(slots=True)
+class RunPayloadResult(Generic[T]):
+    """Lightweight RunPayload carrier for simple use cases."""
+
+    value: T | None
+    diagnostic: "DiagnosticPayload | None" = None
+    metadata: Mapping[str, object] | None = None
+
+
 @dataclass(slots=True)
 class DiagnosticPayload:
     """Structured context for early exits and skipped work."""
@@ -29,6 +55,23 @@ class DiagnosticPayload:
     reason_code: str
     message: str
     context: Mapping[str, object] | None = None
+
+
+def is_run_payload(obj: object) -> TypeGuard[RunPayload[Any]]:
+    """Return True when ``obj`` matches the RunPayload contract."""
+
+    try:
+        diagnostic = getattr(obj, "diagnostic")
+        metadata = getattr(obj, "metadata")
+        getattr(obj, "value")
+    except Exception:
+        return False
+
+    if diagnostic is not None and not isinstance(diagnostic, DiagnosticPayload):
+        return False
+    if metadata is not None and not isinstance(metadata, Mapping):
+        return False
+    return True
 
 
 @dataclass(slots=True)

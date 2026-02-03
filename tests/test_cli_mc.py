@@ -344,7 +344,16 @@ def test_mc_list_registry_and_tags(tmp_path: Path, capsys: pytest.CaptureFixture
     assert {entry["name"] for entry in payload} == {"alpha", "beta"}
 
     rc = cli.main(
-        ["mc", "list", "--registry", str(registry_path), "--tags", "alpha", "--format", "json"]
+        [
+            "mc",
+            "list",
+            "--registry",
+            str(registry_path),
+            "--tags",
+            "alpha",
+            "--format",
+            "json",
+        ]
     )
 
     assert rc == 0
