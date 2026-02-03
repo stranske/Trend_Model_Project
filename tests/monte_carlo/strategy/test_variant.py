@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -100,6 +101,7 @@ def test_to_trend_config_accepts_trend_config(tmp_path: Path) -> None:
 
 def test_to_trend_config_accepts_weighting_scheme_and_name(tmp_path: Path) -> None:
     base = _base_config(tmp_path)
+    base_snapshot = deepcopy(base)
     variant = StrategyVariant(
         name="Weighted",
         overrides={
@@ -117,6 +119,7 @@ def test_to_trend_config_accepts_weighting_scheme_and_name(tmp_path: Path) -> No
 
     cfg = variant.to_trend_config(base, base_path=tmp_path)
     assert cfg.portfolio.rebalance_calendar == "NYSE"
+    assert base == base_snapshot
 
 
 def test_to_trend_config_allows_only_weighting_scheme_override(tmp_path: Path) -> None:
