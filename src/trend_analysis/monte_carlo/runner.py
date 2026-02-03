@@ -8,7 +8,7 @@ import random
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping, Sequence, cast
 
 import numpy as np
 import pandas as pd
@@ -161,6 +161,7 @@ class MonteCarloRunner:
         worker_count = self._resolve_jobs(jobs)
 
         mode = settings.mode
+        assert mode is not None
         evaluations: list[StrategyEvaluation] = []
         errors: list[MonteCarloPathError] = []
         if folds:
@@ -195,7 +196,7 @@ class MonteCarloRunner:
 
         results_frame = build_results_frame(evaluations)
         summary_frame = build_summary_frame(results_frame)
-        metadata = {
+        metadata: dict[str, Any] = {
             "scenario": self.scenario.name,
             "mode": mode,
             "n_paths": settings.n_paths,
@@ -607,7 +608,8 @@ class MonteCarloRunner:
         return model.fit(resolved_history, frequency=frequency)
 
     def _resolve_folds(self, history: pd.DataFrame) -> list[Fold]:
-        generator = FoldGenerator.from_config(self.scenario.folds)
+        folds_config = cast(Mapping[str, Any] | None, self.scenario.folds)
+        generator = FoldGenerator.from_config(folds_config)
         if generator is None:
             return []
         return generator.generate(history.index)
