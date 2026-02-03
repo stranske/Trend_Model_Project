@@ -61,6 +61,32 @@ def test_validate_strategy_pack_rejects_non_mapping_overrides(tmp_path: Path) ->
     assert errors == ["strategy_pack.curated[0] invalid: overrides must be a mapping"]
 
 
+def test_validate_strategy_pack_rejects_unsupported_keys(tmp_path: Path) -> None:
+    pack_path = tmp_path / "invalid_keys.yml"
+    pack_path.write_text(
+        yaml.safe_dump({"curated": [{"name": "BadKeys", "extra": 123}]}),
+        encoding="utf-8",
+    )
+
+    errors = validate_strategy_pack(pack_path)
+
+    assert errors == ["strategy_pack.curated[0] invalid: unsupported keys: extra"]
+
+
+def test_validate_strategy_pack_rejects_mapping_tags(tmp_path: Path) -> None:
+    pack_path = tmp_path / "invalid_tags.yml"
+    pack_path.write_text(
+        yaml.safe_dump({"curated": [{"name": "BadTags", "tags": {"bad": True}}]}),
+        encoding="utf-8",
+    )
+
+    errors = validate_strategy_pack(pack_path)
+
+    assert errors == [
+        "strategy_pack.curated[0] invalid: tags must be a string or sequence of strings"
+    ]
+
+
 def test_validate_strategy_pack_rejects_invalid_weighting_scheme(tmp_path: Path) -> None:
     pack_path = tmp_path / "invalid_weighting.yml"
     pack_path.write_text(

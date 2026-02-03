@@ -13,6 +13,9 @@ from trend_analysis.config.schema_validation import load_schema, validate_config
 from trend_analysis.monte_carlo.strategy.variant import StrategyVariant
 
 
+_ALLOWED_ENTRY_KEYS = {"name", "overrides", "tags"}
+
+
 def _load_yaml_mapping(path: Path, label: str) -> Mapping[str, Any]:
     payload = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(payload, Mapping):
@@ -55,6 +58,13 @@ def validate_strategy_pack(path: Path, *, base_config_path: Path | None = None) 
             elif isinstance(entry, Mapping):
                 if "name" not in entry:
                     raise ValueError("name is required")
+                extra_keys = set(entry.keys()) - _ALLOWED_ENTRY_KEYS
+                if extra_keys:
+                    extra_label = ", ".join(sorted(str(key) for key in extra_keys))
+                    raise ValueError(f"unsupported keys: {extra_label}")
+                raw_tags = entry.get("tags", ())
+                if isinstance(raw_tags, Mapping):
+                    raise ValueError("tags must be a string or sequence of strings")
                 raw_name = entry.get("name")
                 if not isinstance(raw_name, str):
                     raise ValueError("name must be a string")
