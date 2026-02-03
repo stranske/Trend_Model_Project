@@ -62,6 +62,7 @@ _MAX_CONFIG_PREVIEW_TIMINGS = 20
 _CONFIG_CHAIN_STATE_KEY = "config_chat_chain_state"
 _CONFIG_CHAT_SESSION_KEY = "config_chat_session_id"
 _DEFAULT_CONFIG_CHAT_MODEL = "gpt-4o-mini"
+_CONFIG_CHAIN_CACHE_VERSION = "v1"
 
 
 def _get_chain_cache_state() -> dict[str, Any]:
@@ -85,6 +86,32 @@ def _get_config_chat_session_id() -> str:
 
 def _chain_cache_signature(cache_key: Mapping[str, Any]) -> str:
     return json.dumps(dict(cache_key), sort_keys=True, default=str)
+
+
+def _build_chain_cache_key(
+    *,
+    provider: str,
+    model: str,
+    base_url: str | None,
+    organization: str | None,
+    temperature: float,
+    timeout: float | None,
+    max_retries: int | None,
+    extra_payload_hash: str | None,
+    api_key_fingerprint: str | None,
+) -> dict[str, Any]:
+    return {
+        "cache_version": _CONFIG_CHAIN_CACHE_VERSION,
+        "provider": provider,
+        "model": model,
+        "base_url": base_url,
+        "organization": organization,
+        "temperature": temperature,
+        "timeout": timeout,
+        "max_retries": max_retries,
+        "extra_payload_hash": extra_payload_hash,
+        "api_key_fingerprint": api_key_fingerprint,
+    }
 
 
 def _get_config_change_history() -> list[dict[str, Any]]:
@@ -133,6 +160,7 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
         "provider": provider,
         "model": model,
         "temperature": temperature,
+        "cache_signature": timings.get("chain_cache_signature"),
         "chain_build_seconds": timings.get("chain_build_seconds"),
         "chain_reused": timings.get("chain_reused"),
         "run_seconds": timings.get("run_seconds"),
@@ -168,6 +196,8 @@ def _render_preview_timing_history() -> None:
     for entry in reversed(history):
         if not isinstance(entry, Mapping):
             continue
+        cache_sig = entry.get("cache_signature")
+        cache_sig_label = str(cache_sig)[:8] if cache_sig else "—"
         rows.append(
             {
                 "Timestamp": str(entry.get("timestamp") or "Unknown time"),
@@ -175,6 +205,7 @@ def _render_preview_timing_history() -> None:
                 "Provider": str(entry.get("provider") or "default"),
                 "Model": str(entry.get("model") or "default"),
                 "Temp": _format_value(entry.get("temperature")),
+                "Cache sig": cache_sig_label,
                 "Chain build": _format_seconds(entry.get("chain_build_seconds")),
                 "Chain reused": "Yes" if entry.get("chain_reused") else "No",
                 "Run": _format_seconds(entry.get("run_seconds")),
@@ -510,6 +541,7 @@ def _normalize_cache_str(value: str | None) -> str | None:
 @st.cache_resource(show_spinner=False)
 def _cached_nl_chain(
     _session_cache_key: str,
+    _cache_version: str,
     provider: str,
     model: str,
     base_url: str | None,
@@ -551,19 +583,20 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     extra_payload_hash = _hash_text(extra_payload)
     resolved_model = config.model or _DEFAULT_CONFIG_CHAT_MODEL
     session_cache_key = _get_config_chat_session_id()
-    cache_key = {
-        "provider": config.provider,
-        "model": resolved_model,
-        "base_url": base_url,
-        "organization": organization,
-        "temperature": temperature,
-        "timeout": config.timeout,
-        "max_retries": config.max_retries,
-        "extra_payload_hash": extra_payload_hash,
-        "api_key_fingerprint": api_key_fingerprint,
-    }
+    cache_key = _build_chain_cache_key(
+        provider=config.provider,
+        model=resolved_model,
+        base_url=base_url,
+        organization=organization,
+        temperature=temperature,
+        timeout=config.timeout,
+        max_retries=config.max_retries,
+        extra_payload_hash=extra_payload_hash,
+        api_key_fingerprint=api_key_fingerprint,
+    )
     chain = _cached_nl_chain(
         session_cache_key,
+        _CONFIG_CHAIN_CACHE_VERSION,
         config.provider,
         resolved_model,
         base_url,
@@ -583,7 +616,12 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     cache_state["last_signature"] = signature
     cache_state["last_chain_id"] = id(chain)
     st.session_state["config_chat_chain_key"] = cache_key
-    return chain, {"chain_reused": reused, "chain_cache_key": cache_key}
+    st.session_state["config_chat_chain_signature"] = signature
+    return chain, {
+        "chain_reused": reused,
+        "chain_cache_key": cache_key,
+        "chain_cache_signature": signature,
+    }
 
 
 def _generate_config_preview(
@@ -612,6 +650,7 @@ def _generate_config_preview(
             "chain_build_seconds": chain_build_seconds,
             "chain_reused": chain_meta.get("chain_reused"),
             "chain_cache_key": chain_meta.get("chain_cache_key"),
+            "chain_cache_signature": chain_meta.get("chain_cache_signature"),
             "run_seconds": run_seconds,
         },
     }
