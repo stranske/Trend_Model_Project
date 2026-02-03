@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Generic, Mapping, TypeVar
+from typing import Generic, Mapping, Protocol, TypeVar, runtime_checkable
 
 try:  # pragma: no cover - optional instrumentation
     from trend_analysis.config.coverage import (
@@ -20,6 +20,24 @@ except Exception:  # pragma: no cover - defensive fallback
 
 
 T = TypeVar("T")
+
+
+@runtime_checkable
+class RunPayload(Protocol[T]):
+    """Canonical run payload contract for pipeline entry points."""
+
+    value: T | None
+    diagnostic: "DiagnosticPayload | None"
+    metadata: Mapping[str, object] | None
+
+
+@dataclass(slots=True)
+class RunPayloadResult(Generic[T]):
+    """Lightweight RunPayload carrier for simple use cases."""
+
+    value: T | None
+    diagnostic: "DiagnosticPayload | None" = None
+    metadata: Mapping[str, object] | None = None
 
 
 @dataclass(slots=True)
