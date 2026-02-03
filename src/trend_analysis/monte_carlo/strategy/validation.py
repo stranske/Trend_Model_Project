@@ -12,7 +12,6 @@ from trend_analysis.config.model import TrendConfig, validate_trend_config
 from trend_analysis.config.schema_validation import load_schema, validate_config_data
 from trend_analysis.monte_carlo.strategy.variant import StrategyVariant
 
-
 _ALLOWED_ENTRY_KEYS = {"name", "overrides", "tags"}
 
 
