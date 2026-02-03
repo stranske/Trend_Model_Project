@@ -975,10 +975,17 @@ class MonteCarloRunner:
     def _risk_free_periodic_rate(
         self, data_cfg: Mapping[str, Any], metrics_cfg: Mapping[str, Any]
     ) -> float:
-        rf_rate_annual = float(metrics_cfg.get("rf_rate_annual", 0.0) or 0.0)
+        rf_rate_raw = metrics_cfg.get("rf_rate_annual", 0.0)
+        rf_rate_typed = cast(float | int | str | None, rf_rate_raw)
+        try:
+            rf_rate_annual = float(rf_rate_typed or 0.0)
+        except (TypeError, ValueError):
+            rf_rate_annual = 0.0
+
         frequency = data_cfg.get("frequency") or self.scenario.simulation_frequency()
-        periods_per_year = float(periods_per_year_from_code(str(frequency)))
-        return (1.0 + rf_rate_annual) ** (1.0 / periods_per_year) - 1.0
+        periods_per_year = periods_per_year_from_code(str(frequency))
+        result = (1.0 + rf_rate_annual) ** (1.0 / periods_per_year) - 1.0
+        return cast(float, result)
 
     def _hash_frame(self, frame: pd.DataFrame) -> str:
         if frame.empty:
