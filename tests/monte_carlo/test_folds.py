@@ -3,7 +3,11 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from trend_analysis.monte_carlo.folds import FoldGenerator, _align_to_index, _previous_in_index
+from trend_analysis.monte_carlo.folds import (
+    FoldGenerator,
+    _align_to_index,
+    _previous_in_index,
+)
 
 
 def test_explicit_mode_requires_fold_starts() -> None:
