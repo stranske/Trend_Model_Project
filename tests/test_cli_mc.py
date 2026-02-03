@@ -285,3 +285,22 @@ def test_mc_list_registry_and_tags(tmp_path: Path, capsys: pytest.CaptureFixture
     out = capsys.readouterr().out
     payload = json.loads(out)
     assert [entry["name"] for entry in payload] == ["alpha"]
+
+
+def test_mc_list_table_output(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    registry_path = tmp_path / "index.yml"
+    _write_registry(registry_path)
+
+    rc = cli.main(["mc", "list", "--registry", str(registry_path)])
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    lines = out.strip().splitlines()
+    assert lines
+    header = lines[0]
+    assert "Name" in header
+    assert "Tags" in header
+    assert "Description" in header
+    assert "Path" in header
+    assert "alpha" in out
+    assert "beta" in out
