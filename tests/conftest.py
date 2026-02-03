@@ -135,9 +135,30 @@ def pytest_ignore_collect(collection_path: Path, config):  # noqa: ARG001
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:  # noqa: ARG001
+    if (
+        exitstatus == 5
+        and session.testscollected == 0
+        and not _module_available("streamlit")
+        and _targets_app_tests(session.config)
+    ):
+        session.exitstatus = 0
+        return
     recorder = get_recorder()
     if not recorder.has_entries():
         return
     output_path = Path("ci/autofix/diagnostics.json")
     recorder.flush(output_path)
     setattr(session.config, "autofix_diagnostics_path", str(output_path))
+
+
+def _targets_app_tests(config: pytest.Config) -> bool:
+    app_dir = (ROOT / "tests" / "app").resolve()
+    for arg in config.args:
+        if not arg or arg.startswith("-"):
+            continue
+        candidate = Path(arg)
+        if not candidate.is_absolute():
+            candidate = (ROOT / candidate).resolve()
+        if candidate == app_dir or app_dir in candidate.parents:
+            return True
+    return False
