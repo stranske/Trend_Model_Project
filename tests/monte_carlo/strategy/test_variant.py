@@ -174,6 +174,22 @@ def test_apply_to_allows_weighting_params_extension(tmp_path: Path) -> None:
     assert "obs_sigma" not in base["portfolio"]["weighting"]["params"]
 
 
+def test_apply_to_allows_weighting_params_creation_for_curated(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    base["portfolio"]["weighting"].pop("params")
+    variant = StrategyVariant(
+        name="AddParams",
+        overrides={"portfolio": {"weighting": {"params": {"column": "Sharpe", "half_life": 30}}}},
+        curated=True,
+    )
+
+    merged = variant.apply_to(base)
+
+    assert merged["portfolio"]["weighting"]["params"]["column"] == "Sharpe"
+    assert merged["portfolio"]["weighting"]["params"]["half_life"] == 30
+    assert "params" not in base["portfolio"]["weighting"]
+
+
 def test_apply_to_rejects_weighting_params_extension_for_non_curated(tmp_path: Path) -> None:
     base = _base_config(tmp_path)
     variant = StrategyVariant(
@@ -184,6 +200,18 @@ def test_apply_to_rejects_weighting_params_extension_for_non_curated(tmp_path: P
     )
 
     with pytest.raises(ValueError, match="portfolio.weighting.params.half_life"):
+        variant.apply_to(base)
+
+
+def test_apply_to_rejects_weighting_params_creation_for_non_curated(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    base["portfolio"]["weighting"].pop("params")
+    variant = StrategyVariant(
+        name="AddParams",
+        overrides={"portfolio": {"weighting": {"params": {"half_life": 30}}}},
+    )
+
+    with pytest.raises(ValueError, match="portfolio.weighting.params"):
         variant.apply_to(base)
 
 

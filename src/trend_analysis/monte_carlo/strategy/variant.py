@@ -65,6 +65,12 @@ _FREEFORM_OVERRIDE_PATHS: set[tuple[str, ...]] = {
 }
 
 
+def _allows_freeform_override(path: tuple[str, ...], key: str) -> bool:
+    if path in _FREEFORM_OVERRIDE_PATHS:
+        return True
+    return path == ("portfolio", "weighting") and key == "params"
+
+
 def _validate_weighting_config(config: Mapping[str, Any]) -> None:
     portfolio = config.get("portfolio")
     if not isinstance(portfolio, Mapping):
@@ -97,7 +103,15 @@ def _deep_merge_overrides(
         next_path = path + (key,)
         path_label = _format_path(next_path)
         if key not in merged:
-            if allow_freeform_overrides and path in _FREEFORM_OVERRIDE_PATHS:
+            if allow_freeform_overrides and _allows_freeform_override(path, key):
+                if path == ("portfolio", "weighting") and key == "params":
+                    if not isinstance(override_value, Mapping):
+                        raise TypeError(
+                            "override path '{path}' expects mapping, got {kind}".format(
+                                path=path_label,
+                                kind=type(override_value).__name__,
+                            )
+                        )
                 merged[key] = deepcopy(override_value)
                 continue
             raise ValueError(f"override path '{path_label}' does not exist in base config")
