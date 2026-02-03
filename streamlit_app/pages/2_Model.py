@@ -58,15 +58,7 @@ _CONFIG_HISTORY_KEY = "config_chat_history"
 _MAX_CONFIG_HISTORY = 20
 _CONFIG_PREVIEW_TIMINGS_KEY = "config_chat_preview_timings"
 _MAX_CONFIG_PREVIEW_TIMINGS = 20
-_CONFIG_CHAIN_CACHE_KEY = "config_chat_chain_cache"
-
-
-def _get_chain_cache_entry() -> dict[str, Any]:
-    cache = st.session_state.get(_CONFIG_CHAIN_CACHE_KEY)
-    if not isinstance(cache, dict):
-        cache = {}
-        st.session_state[_CONFIG_CHAIN_CACHE_KEY] = cache
-    return cache
+_CONFIG_CHAIN_STATE_KEY = "config_chat_chain_state"
 
 
 def _get_config_change_history() -> list[dict[str, Any]]:
@@ -511,25 +503,25 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         "base_url": config.base_url,
         "organization": config.organization,
         "temperature": temperature,
-        "api_key_fingerprint": api_key_fingerprint,
     }
-    cache_entry = _get_chain_cache_entry()
-    cached_chain = cache_entry.get("chain")
-    cached_key = cache_entry.get("key")
-    reused = cached_key == cache_key and isinstance(cached_chain, ConfigPatchChain)
-    if reused:
-        chain = cached_chain
-    else:
-        chain = _cached_nl_chain(
-            config.provider,
-            config.model,
-            config.base_url,
-            config.organization,
-            temperature,
-            api_key_fingerprint,
-        )
-        cache_entry["key"] = cache_key
-        cache_entry["chain"] = chain
+    chain = _cached_nl_chain(
+        config.provider,
+        config.model,
+        config.base_url,
+        config.organization,
+        temperature,
+        api_key_fingerprint,
+    )
+    chain_state = st.session_state.get(_CONFIG_CHAIN_STATE_KEY)
+    if not isinstance(chain_state, dict):
+        chain_state = {}
+    last_key = chain_state.get("key")
+    last_chain_id = chain_state.get("chain_id")
+    reused = last_key == cache_key and last_chain_id == id(chain)
+    st.session_state[_CONFIG_CHAIN_STATE_KEY] = {
+        "key": cache_key,
+        "chain_id": id(chain),
+    }
     st.session_state["config_chat_chain_key"] = cache_key
     return chain, {"chain_reused": reused, "chain_cache_key": cache_key}
 
