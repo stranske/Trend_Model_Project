@@ -340,3 +340,15 @@ def test_mc_list_table_output(tmp_path: Path, capsys: pytest.CaptureFixture[str]
     assert "Path" in header
     assert "alpha" in out
     assert "beta" in out
+
+
+def test_mc_list_missing_registry_returns_error(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    missing_registry = tmp_path / "missing.yml"
+
+    rc = cli.main(["mc", "list", "--registry", str(missing_registry)])
+
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "Failed to list Monte Carlo scenarios" in err

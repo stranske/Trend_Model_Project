@@ -4,7 +4,7 @@
 Not provided.
 
 ## Checklist Reconciliation
-Checklist reconciled on 2026-02-03 (tag-filtering tests updated).
+Checklist reconciled on 2026-02-03 (tag-filtering + missing-registry list tests updated).
 
 ## Tasks
 - [x] Add `trend mc` command group and subcommands in `src/trend_analysis/cli.py`.
