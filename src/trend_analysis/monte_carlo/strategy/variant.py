@@ -100,12 +100,25 @@ def _validate_weighting_config(config: Mapping[str, Any]) -> None:
         _require_non_empty_str(weighting.get("name"), "portfolio.weighting.name")
 
 
+def _allow_weighting_params_extension(overrides: Mapping[str, Any]) -> bool:
+    portfolio = overrides.get("portfolio")
+    if not isinstance(portfolio, Mapping):
+        return False
+    if "weighting_scheme" not in portfolio:
+        return False
+    weighting = portfolio.get("weighting")
+    if not isinstance(weighting, Mapping):
+        return False
+    return "name" in weighting
+
+
 def _deep_merge_overrides(
     base: Mapping[str, Any],
     overrides: Mapping[str, Any],
     path: tuple[str, ...],
     *,
     allow_freeform_overrides: bool,
+    allow_weighting_params_extension: bool,
 ) -> dict[str, Any]:
     merged: dict[str, Any] = deepcopy(dict(base))
     for raw_key, override_value in overrides.items():
@@ -124,6 +137,9 @@ def _deep_merge_overrides(
                         )
                 merged[key] = deepcopy(override_value)
                 continue
+            if allow_weighting_params_extension and path == ("portfolio", "weighting", "params"):
+                merged[key] = deepcopy(override_value)
+                continue
             raise ValueError(f"override path '{path_label}' does not exist in base config")
         base_value = merged[key]
         if isinstance(override_value, Mapping):
@@ -139,6 +155,7 @@ def _deep_merge_overrides(
                 override_value,
                 next_path,
                 allow_freeform_overrides=allow_freeform_overrides,
+                allow_weighting_params_extension=allow_weighting_params_extension,
             )
             continue
 
@@ -210,11 +227,13 @@ class StrategyVariant:
         if isinstance(base, TrendConfig):
             base = base.model_dump()
         base = _ensure_mapping(base, "base_config")
+        allow_weighting_params_extension = _allow_weighting_params_extension(self.overrides)
         return _deep_merge_overrides(
             base,
             self.overrides,
             (),
             allow_freeform_overrides=self.curated,
+            allow_weighting_params_extension=allow_weighting_params_extension,
         )
 
     def to_trend_config(
