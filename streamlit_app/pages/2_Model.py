@@ -56,6 +56,8 @@ WEIGHTING_SCHEMES = [
 # Config chat panel helpers
 _CONFIG_HISTORY_KEY = "config_chat_history"
 _MAX_CONFIG_HISTORY = 20
+_CONFIG_PREVIEW_TIMINGS_KEY = "config_chat_preview_timings"
+_MAX_CONFIG_PREVIEW_TIMINGS = 20
 
 
 def _get_config_change_history() -> list[dict[str, Any]]:
@@ -84,6 +86,26 @@ def _record_config_change(preview: Mapping[str, Any]) -> None:
     history.append(entry)
     if len(history) > _MAX_CONFIG_HISTORY:
         del history[:-_MAX_CONFIG_HISTORY]
+
+
+def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> None:
+    timings = preview.get("timings")
+    if not isinstance(timings, Mapping):
+        return
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "instruction": preview.get("instruction"),
+        "chain_build_seconds": timings.get("chain_build_seconds"),
+        "run_seconds": timings.get("run_seconds"),
+        "total_seconds": total_seconds,
+    }
+    history = st.session_state.get(_CONFIG_PREVIEW_TIMINGS_KEY)
+    if not isinstance(history, list):
+        history = []
+        st.session_state[_CONFIG_PREVIEW_TIMINGS_KEY] = history
+    history.append(entry)
+    if len(history) > _MAX_CONFIG_PREVIEW_TIMINGS:
+        del history[:-_MAX_CONFIG_PREVIEW_TIMINGS]
 
 
 def _format_percent(value: Any) -> str:
@@ -371,14 +393,55 @@ def _resolve_llm_provider_config() -> LLMProviderConfig:
     return LLMProviderConfig(**kwargs)
 
 
-def _build_nl_chain() -> ConfigPatchChain:
-    config = _resolve_llm_provider_config()
+def _resolve_llm_temperature() -> float:
+    raw = os.environ.get("TREND_LLM_TEMPERATURE")
+    if raw is None:
+        return 0.0
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+@st.cache_resource(show_spinner=False)
+def _cached_nl_chain(
+    provider: str,
+    model: str | None,
+    base_url: str | None,
+    organization: str | None,
+    temperature: float,
+) -> ConfigPatchChain:
+    base_config = _resolve_llm_provider_config()
+    config = LLMProviderConfig(
+        provider=provider,
+        model=model or base_config.model,
+        api_key=base_config.api_key,
+        base_url=base_url,
+        organization=organization,
+        timeout=base_config.timeout,
+        max_retries=base_config.max_retries,
+        extra=base_config.extra,
+    )
     llm = create_llm(config)
     schema = load_compact_schema()
     return ConfigPatchChain.from_env(
         llm=llm,
         schema=schema,
         prompt_builder=build_config_patch_prompt,
+        temperature=temperature,
+        model=config.model,
+    )
+
+
+def _build_nl_chain() -> ConfigPatchChain:
+    config = _resolve_llm_provider_config()
+    temperature = _resolve_llm_temperature()
+    return _cached_nl_chain(
+        config.provider,
+        config.model,
+        config.base_url,
+        config.organization,
+        temperature,
     )
 
 
@@ -386,8 +449,12 @@ def _generate_config_preview(
     model_state: Mapping[str, Any],
     instruction: str,
 ) -> dict[str, Any]:
+    chain_start = monotonic()
     chain = _build_nl_chain()
+    chain_build_seconds = monotonic() - chain_start
+    run_start = monotonic()
     patch = chain.run(current_config=dict(model_state), instruction=instruction)
+    run_seconds = monotonic() - run_start
     before = deepcopy(dict(model_state))
     after = apply_config_patch(before, patch)
     diff_text = diff_configs(before, after)
@@ -400,6 +467,10 @@ def _generate_config_preview(
         "risk_flags": [flag.value for flag in patch.risk_flags],
         "needs_review": patch.needs_review,
         "patch": patch.model_dump(),
+        "timings": {
+            "chain_build_seconds": chain_build_seconds,
+            "run_seconds": run_seconds,
+        },
     }
 
 
@@ -438,7 +509,9 @@ def _generate_preview_with_progress(
     _record_llm_seconds(duration)
     progress_bar.progress(1.0, text="Preview ready.")
     progress_slot.empty()
-    return future.result()
+    result = future.result()
+    _record_preview_timing(result, duration)
+    return result
 
 
 def _current_run_key(model_state: dict[str, Any], benchmark: str | None) -> str:
