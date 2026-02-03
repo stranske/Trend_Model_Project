@@ -92,9 +92,20 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
     timings = preview.get("timings")
     if not isinstance(timings, Mapping):
         return
+    chain_key = timings.get("chain_cache_key")
+    provider = None
+    model = None
+    temperature = None
+    if isinstance(chain_key, Mapping):
+        provider = chain_key.get("provider")
+        model = chain_key.get("model")
+        temperature = chain_key.get("temperature")
     entry = {
         "timestamp": datetime.utcnow().isoformat(timespec="seconds") + "Z",
         "instruction": preview.get("instruction"),
+        "provider": provider,
+        "model": model,
+        "temperature": temperature,
         "chain_build_seconds": timings.get("chain_build_seconds"),
         "chain_reused": timings.get("chain_reused"),
         "run_seconds": timings.get("run_seconds"),
@@ -134,6 +145,9 @@ def _render_preview_timing_history() -> None:
             {
                 "Timestamp": str(entry.get("timestamp") or "Unknown time"),
                 "Instruction": str(entry.get("instruction") or "Preview"),
+                "Provider": str(entry.get("provider") or "default"),
+                "Model": str(entry.get("model") or "default"),
+                "Temp": _format_value(entry.get("temperature")),
                 "Chain build": _format_seconds(entry.get("chain_build_seconds")),
                 "Chain reused": "Yes" if entry.get("chain_reused") else "No",
                 "Run": _format_seconds(entry.get("run_seconds")),
@@ -482,13 +496,13 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     config = _resolve_llm_provider_config()
     temperature = _resolve_llm_temperature()
     api_key_fingerprint = _hash_api_key(config.api_key)
-    cache_key = (
-        config.provider,
-        config.model,
-        config.base_url,
-        config.organization,
-        temperature,
-    )
+    cache_key = {
+        "provider": config.provider,
+        "model": config.model,
+        "base_url": config.base_url,
+        "organization": config.organization,
+        "temperature": temperature,
+    }
     chain = _cached_nl_chain(
         config.provider,
         config.model,
@@ -529,6 +543,7 @@ def _generate_config_preview(
         "timings": {
             "chain_build_seconds": chain_build_seconds,
             "chain_reused": chain_meta.get("chain_reused"),
+            "chain_cache_key": chain_meta.get("chain_cache_key"),
             "run_seconds": run_seconds,
         },
     }
