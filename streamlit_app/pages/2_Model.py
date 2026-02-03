@@ -704,6 +704,7 @@ def _generate_config_preview(
             "chain_reused": chain_meta.get("chain_reused"),
             "chain_cache_key": chain_meta.get("chain_cache_key"),
             "chain_cache_signature": chain_meta.get("chain_cache_signature"),
+            "chain_cache_miss_reason": chain_meta.get("chain_cache_miss_reason"),
             "run_seconds": run_seconds,
         },
     }
