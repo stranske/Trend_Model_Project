@@ -5,10 +5,10 @@ branch: codex/issue-4174
 tasks:
   - id: task-01
     title: Add `trend mc` command group and subcommands in `src/trend_analysis/cli.py`.
-    status: doing
+    status: done
     started_at: '2026-02-03T01:38:39Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-03T01:38:48Z'
+    commit: f178975eaa1cfe605f2c6dfb8a7bd9e77ac5d0de
     notes: []
   - id: task-02
     title: 'Define scope for: Add `trend mc list` subcommand in `src/trend_analysis/cli.py`.
