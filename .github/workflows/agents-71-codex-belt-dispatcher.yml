@@ -191,6 +191,7 @@ jobs:
           sparse-checkout: |
             .github/actions/setup-api-client
             .github/scripts/github-api-with-retry.js
+            .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
 
       - name: Resolve candidate issue
@@ -199,7 +200,12 @@ jobs:
         with:
           github-token: ${{ env.GH_DISPATCH_TOKEN }}
           script: |
-            const { withRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              task: 'codex-belt-dispatcher-pick',
+            });
             const forced = '${{ inputs.force_issue }}';
             const { owner, repo } = context.repo;
 
@@ -215,7 +221,7 @@ jobs:
             }
 
             if (!issueNumber) {
-              const { data: issues } = await withRetry(() => github.rest.issues.listForRepo({
+              const { data: issues } = await withRetry((client) => client.rest.issues.listForRepo({
                 owner,
                 repo,
                 state: 'open',
@@ -249,7 +255,7 @@ jobs:
               ]
             ]);
 
-            const { data: repoInfo } = await withRetry(() => github.rest.repos.get({ owner, repo }));
+            const { data: repoInfo } = await withRetry((client) => client.rest.repos.get({ owner, repo }));
             const base = repoInfo.default_branch;
             if (!base) {
               core.setFailed('Repository default branch not available');
@@ -300,25 +306,30 @@ jobs:
         with:
           github-token: ${{ env.GH_DISPATCH_TOKEN }}
           script: |
-            const { withRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              task: 'codex-belt-dispatcher-transition',
+            });
             const issue = Number('${{ steps.pick.outputs.issue }}');
             if (!issue) { return; }
             const { owner, repo } = context.repo;
             const branch = '${{ steps.pick.outputs.branch }}';
             try {
-              await withRetry(() => github.rest.issues.removeLabel({ owner, repo, issue_number: issue, name: 'status:ready' }));
+              await withRetry((client) => client.rest.issues.removeLabel({ owner, repo, issue_number: issue, name: 'status:ready' }));
             } catch (error) {
               if (error.status !== 404) {
                 core.warning(`Failed to remove status:ready: ${error.message}`);
               }
             }
             try {
-              await withRetry(() => github.rest.issues.addLabels({ owner, repo, issue_number: issue, labels: ['status:in-progress'] }));
+              await withRetry((client) => client.rest.issues.addLabels({ owner, repo, issue_number: issue, labels: ['status:in-progress'] }));
             } catch (error) {
               core.warning(`Failed to add status:in-progress: ${error.message}`);
             }
             try {
-              await withRetry(() => github.rest.issues.createComment({
+              await withRetry((client) => client.rest.issues.createComment({
                 owner,
                 repo,
                 issue_number: issue,
