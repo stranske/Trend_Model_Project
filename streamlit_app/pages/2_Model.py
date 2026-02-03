@@ -470,6 +470,7 @@ def _cached_nl_chain(
         model=config.model,
     )
 
+
 def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     config = _resolve_llm_provider_config()
     temperature = _resolve_llm_temperature()
