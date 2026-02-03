@@ -74,7 +74,7 @@ def test_main_run_reports_unknown_presets(monkeypatch, preset_missing: str, caps
     )
 
     captured = capsys.readouterr()
-    assert rc == 2
+    assert rc == 1
     assert "Unknown preset" in captured.err
 
 

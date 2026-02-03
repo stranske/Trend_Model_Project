@@ -435,7 +435,7 @@ def test_mc_list_missing_registry_returns_error(
 
     rc = cli.main(["mc", "list", "--registry", str(missing_registry)])
 
-    assert rc == 2
+    assert rc == 1
     err = capsys.readouterr().err
     assert "Failed to list Monte Carlo scenarios" in err
 

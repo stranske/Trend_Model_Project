@@ -498,7 +498,7 @@ def _run_from_ui_payload(
         payload, model_state = _load_ui_payload(params_path)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
-        return 2
+        return 1
 
     if "risk_free_column" not in model_state:
         rf_column = payload.get("selected_risk_free")
@@ -530,7 +530,7 @@ def _run_from_ui_payload(
                     "Date corrections require confirmation. Re-run with --yes to approve.",
                     file=sys.stderr,
                 )
-                return 2
+                return 1
             prompt = (
                 f"Apply {len(issues.corrections)} date correction(s) and "
                 f"drop {issues.total_droppable_rows} row(s)? [y/N]: "
@@ -538,7 +538,7 @@ def _run_from_ui_payload(
             response = input(prompt).strip().lower()
             if response not in {"y", "yes"}:
                 print("Cancelled date corrections.")
-                return 2
+                return 1
 
     try:
         returns, meta, summary = load_ui_dataset(
@@ -1046,7 +1046,7 @@ def main(argv: list[str] | None = None) -> int:
                         f"Unknown preset '{args.preset}'. Available presets: {available}",
                         file=sys.stderr,
                     )
-                    return 2
+                    return 1
                 _apply_trend_spec_preset(cfg, spec_preset)
             set_cache_enabled(not args.no_cache)
             if getattr(args, "preset", None):
@@ -1058,7 +1058,7 @@ def main(argv: list[str] | None = None) -> int:
                         f"Unknown preset '{args.preset}'. Available: {available}",
                         file=sys.stderr,
                     )
-                    return 2
+                    return 1
                 apply_trend_preset(cfg, portfolio_preset)
             cli_seed = args.seed
             env_seed = os.getenv("TREND_SEED")
@@ -1092,7 +1092,7 @@ def main(argv: list[str] | None = None) -> int:
                             "Date corrections require confirmation. Re-run with --yes to approve.",
                             file=sys.stderr,
                         )
-                        return 2
+                        return 1
                     prompt = (
                         f"Apply {len(issues.corrections)} date correction(s) and "
                         f"drop {issues.total_droppable_rows} row(s)? [y/N]: "
@@ -1100,7 +1100,7 @@ def main(argv: list[str] | None = None) -> int:
                     response = input(prompt).strip().lower()
                     if response not in {"y", "yes"}:
                         print("Cancelled date corrections.")
-                        return 2
+                        return 1
 
             try:
                 loaded_frame, _, summary = load_ui_dataset(
@@ -1517,6 +1517,9 @@ def _handle_mc_command(args: argparse.Namespace) -> int:
         registry_path = _resolve_mc_registry_path(getattr(args, "registry", None))
         try:
             registry_entries = list_scenarios(tags=tags, registry_path=registry_path)
+        except (ValueError, FileNotFoundError, IsADirectoryError) as exc:
+            print(f"Failed to list Monte Carlo scenarios: {exc}", file=sys.stderr)
+            return 1
         except Exception as exc:
             print(f"Failed to list Monte Carlo scenarios: {exc}", file=sys.stderr)
             return 2
@@ -1661,7 +1664,7 @@ def _handle_mc_command(args: argparse.Namespace) -> int:
         finally:
             progress_close()
 
-        timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         output_dir = _resolve_mc_output_dir(
             scenario,
             override=getattr(args, "out", None),
