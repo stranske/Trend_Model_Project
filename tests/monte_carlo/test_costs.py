@@ -103,6 +103,28 @@ def test_cost_process_lognormal_stress_higher_mean_and_variance() -> None:
     assert stress.var() > calm.var()
 
 
+def test_cost_process_regime_stochastic_config_parsing() -> None:
+    config = {
+        "kind": "regime_stochastic",
+        "default_regime": "calm",
+        "calm": {"trade_cost_bps": {"dist": "lognormal", "mean": 1.0, "sigma": 0.2}},
+        "stress": {
+            "trade_cost_bps": {"dist": "lognormal", "mean": 1.4, "sigma": 0.3},
+            "slippage_multiplier": 1.5,
+        },
+    }
+    process = CostProcess.from_config(config)
+    assert process is not None
+
+    rng = np.random.default_rng(7)
+    regimes = pd.Series(["calm"] * 2000 + ["stress"] * 2000)
+    output = process.sample(regimes=regimes, turnover=0.1, index=None, rng=rng)
+
+    calm = output.cost_bps[regimes == "calm"]
+    stress = output.cost_bps[regimes == "stress"]
+    assert stress.mean() > calm.mean()
+
+
 def test_runner_integration_records_costs(monkeypatch: Any) -> None:
     costs_cfg = {
         "default_regime": "calm",

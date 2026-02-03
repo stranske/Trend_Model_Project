@@ -154,6 +154,12 @@ class CostProcess:
         if "enabled" in config and not bool(config.get("enabled")):
             return None
 
+        kind = config.get("kind")
+        if kind is not None:
+            kind_label = str(kind).strip().lower()
+            if kind_label and kind_label not in {"regime_stochastic", "regime"}:
+                raise ValueError(f"Unsupported cost process kind '{kind}'")
+
         default_regime = str(config.get("default_regime") or "calm").strip() or "calm"
         regimes_cfg = config.get("regimes")
         regimes: dict[str, RegimeCostSpec] = {}
@@ -161,12 +167,21 @@ class CostProcess:
         if isinstance(regimes_cfg, Mapping):
             for label, spec in regimes_cfg.items():
                 regimes[str(label)] = _parse_regime_spec(spec, name=str(label))
+        else:
+            for label, spec in _extract_regime_blocks(config):
+                regimes[label] = _parse_regime_spec(spec, name=label)
 
         if not regimes:
-            fallback_spec = config.get("default") or config.get("distribution") or config
+            fallback_spec = (
+                config.get("default")
+                or config.get("distribution")
+                or config.get("trade_cost_bps")
+                or config
+            )
             regimes[default_regime] = _parse_regime_spec(fallback_spec, name=default_regime)
 
-        return cls(regimes, default_regime=default_regime)
+        allow_unknown = bool(config.get("allow_unknown", True))
+        return cls(regimes, default_regime=default_regime, allow_unknown=allow_unknown)
 
     def sample(
         self,
@@ -263,10 +278,34 @@ def _coerce_turnover_series(turnover: pd.Series | float | None, index: pd.Index)
     return pd.Series(float(turnover), index=index, name="turnover")
 
 
+def _extract_regime_blocks(config: Mapping[str, Any]) -> list[tuple[str, Mapping[str, Any]]]:
+    regimes: list[tuple[str, Mapping[str, Any]]] = []
+    reserved = {
+        "enabled",
+        "kind",
+        "default_regime",
+        "regimes",
+        "default",
+        "distribution",
+        "trade_cost_bps",
+        "allow_unknown",
+    }
+    for key, value in config.items():
+        label = str(key)
+        if label in reserved:
+            continue
+        if isinstance(value, Mapping):
+            regimes.append((label, value))
+    return regimes
+
+
 def _parse_regime_spec(spec: Any, *, name: str) -> RegimeCostSpec:
     if not isinstance(spec, Mapping):
         raise ValueError(f"regime '{name}' spec must be a mapping")
-    dist_cfg = spec.get("distribution", spec)
+    if "trade_cost_bps" in spec:
+        dist_cfg = spec.get("trade_cost_bps")
+    else:
+        dist_cfg = spec.get("distribution", spec)
     distribution = _parse_distribution(dist_cfg, regime=name)
     slippage = _coerce_float(
         spec.get("slippage_multiplier", 1.0), "slippage_multiplier", minimum=0.0
@@ -275,9 +314,12 @@ def _parse_regime_spec(spec: Any, *, name: str) -> RegimeCostSpec:
 
 
 def _parse_distribution(spec: Any, *, regime: str) -> CostDistribution:
+    if isinstance(spec, (float, int)):
+        return FixedCostDistribution(kind="fixed", value=_coerce_float(spec, "value"))
     if not isinstance(spec, Mapping):
         raise ValueError(f"distribution for regime '{regime}' must be a mapping")
-    kind = str(spec.get("kind") or "fixed").strip().lower()
+    kind_raw = spec.get("kind") or spec.get("dist") or "fixed"
+    kind = str(kind_raw).strip().lower()
     clip_min = _coerce_optional_float(spec.get("clip_min"), "clip_min")
     clip_max = _coerce_optional_float(spec.get("clip_max"), "clip_max")
 
