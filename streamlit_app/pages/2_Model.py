@@ -59,6 +59,7 @@ _MAX_CONFIG_HISTORY = 20
 _CONFIG_PREVIEW_TIMINGS_KEY = "config_chat_preview_timings"
 _MAX_CONFIG_PREVIEW_TIMINGS = 20
 _CONFIG_CHAIN_STATE_KEY = "config_chat_chain_state"
+_DEFAULT_CONFIG_CHAT_MODEL = "gpt-4o-mini"
 
 
 def _get_config_change_history() -> list[dict[str, Any]]:
@@ -471,7 +472,7 @@ def _serialize_extra(extra: Mapping[str, Any] | None) -> str:
 @st.cache_resource(show_spinner=False)
 def _cached_nl_chain(
     provider: str,
-    model: str | None,
+    model: str,
     base_url: str | None,
     organization: str | None,
     timeout: float | None,
@@ -482,7 +483,7 @@ def _cached_nl_chain(
 ) -> ConfigPatchChain:
     config = LLMProviderConfig(
         provider=provider,
-        model=model or "gpt-4o-mini",
+        model=model,
         api_key=_resolve_llm_provider_config().api_key,
         base_url=base_url,
         organization=organization,
@@ -506,16 +507,17 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     temperature = _resolve_llm_temperature()
     api_key_fingerprint = _hash_api_key(config.api_key)
     extra_payload = _serialize_extra(config.extra)
+    resolved_model = config.model or _DEFAULT_CONFIG_CHAT_MODEL
     cache_key = {
         "provider": config.provider,
-        "model": config.model,
+        "model": resolved_model,
         "base_url": config.base_url,
         "organization": config.organization,
         "temperature": temperature,
     }
     chain = _cached_nl_chain(
         config.provider,
-        config.model,
+        resolved_model,
         config.base_url,
         config.organization,
         config.timeout,
