@@ -1169,6 +1169,8 @@ def _render_config_diff_preview(model_state: Mapping[str, Any] | None) -> None:
     timings = preview.get("timings")
     if isinstance(timings, Mapping):
         chain_reused = "Yes" if timings.get("chain_reused") else "No"
+        cache_signature = timings.get("chain_cache_signature")
+        cache_signature_label = str(cache_signature)[:8] if cache_signature else "—"
         cache_miss_reason = timings.get("chain_cache_miss_reason")
         cache_miss_label = f" | Cache miss: {cache_miss_reason}" if cache_miss_reason else ""
         invalidation_fields = timings.get("chain_cache_invalidation_fields")
@@ -1180,6 +1182,7 @@ def _render_config_diff_preview(model_state: Mapping[str, Any] | None) -> None:
         st.caption(
             "Preview timing — "
             f"Chain reused: {chain_reused} | "
+            f"Cache sig: {cache_signature_label} | "
             f"Chain build: {_format_seconds(timings.get('chain_build_seconds'))} | "
             f"Run: {_format_seconds(timings.get('run_seconds'))} | "
             f"Total: {_format_seconds(timings.get('total_seconds'))}"
