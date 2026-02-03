@@ -80,6 +80,9 @@ def test_build_pooled_summary_frame_ignores_folds() -> None:
     pooled = build_pooled_summary_frame(frame)
 
     assert pooled.loc[0, "scope"] == "pooled"
+    assert pooled.loc[0, "pooled_scope"] == "summary"
+    assert "fold_id" in pooled.columns
+    assert pd.isna(pooled.loc[0, "fold_id"])
     assert pooled.loc[0, "strategy"] == "A"
     assert pooled.loc[0, "metric"] == 4.0
     assert pooled.loc[0, "paths"] == 4
@@ -99,6 +102,8 @@ def test_build_cross_fold_summary_frame_reports_fold_stats() -> None:
     cross_fold = build_cross_fold_summary_frame(frame)
 
     assert cross_fold.loc[0, "scope"] == "cross_fold"
+    assert "fold_id" in cross_fold.columns
+    assert pd.isna(cross_fold.loc[0, "fold_id"])
     assert cross_fold.loc[0, "strategy"] == "A"
     assert cross_fold.loc[0, "folds"] == 2
     assert cross_fold.loc[0, "metric_mean"] == 4.0
@@ -130,10 +135,28 @@ def test_export_results_writes_pooled_summary(tmp_path) -> None:
 
     exported = export_results(results, tmp_path, formats=["csv"])
 
+    results_path = exported["results_csv"]
+    results_frame = pd.read_csv(results_path)
+    assert "fold_id" in results_frame.columns
+    assert set(results_frame["fold_id"].tolist()) == {1, 2}
+
+    summary_path = exported["summary_csv"]
+    summary_frame = pd.read_csv(summary_path)
+    assert "fold_id" in summary_frame.columns
+    assert set(summary_frame["fold_id"].tolist()) == {1, 2}
+
+    cross_path = exported["cross_fold_summary_csv"]
+    cross_frame = pd.read_csv(cross_path)
+    assert "fold_id" in cross_frame.columns
+    assert pd.isna(cross_frame.loc[0, "fold_id"])
+
     pooled_path = exported["pooled_summary_csv"]
     assert pooled_path.exists()
     pooled_frame = pd.read_csv(pooled_path)
     assert pooled_frame.loc[0, "scope"] == "pooled"
+    assert pooled_frame.loc[0, "pooled_scope"] == "summary"
+    assert "fold_id" in pooled_frame.columns
+    assert pd.isna(pooled_frame.loc[0, "fold_id"])
 
 
 def test_export_results_skips_pooled_summary_when_missing(tmp_path) -> None:

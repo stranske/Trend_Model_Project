@@ -316,6 +316,7 @@ def test_runner_builds_pooled_summary_when_enabled(monkeypatch: pytest.MonkeyPat
 
     assert results.pooled_summary_frame is not None
     assert results.pooled_summary_frame.loc[0, "scope"] == "pooled"
+    assert results.pooled_summary_frame.loc[0, "pooled_scope"] == "summary"
     assert results.cross_fold_summary_frame is not None
     assert results.metadata.get("pooled_distributions") is True
 
