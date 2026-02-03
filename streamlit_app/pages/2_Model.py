@@ -108,6 +108,42 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
         del history[:-_MAX_CONFIG_PREVIEW_TIMINGS]
 
 
+def _format_seconds(value: Any) -> str:
+    if value is None:
+        return "—"
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return "—"
+    return f"{numeric:.2f}s"
+
+
+def _render_preview_timing_history() -> None:
+    st.markdown("**Preview timings**")
+    history = st.session_state.get(_CONFIG_PREVIEW_TIMINGS_KEY)
+    if not isinstance(history, list) or not history:
+        st.info("No preview timing data yet.")
+        return
+
+    rows: list[dict[str, str]] = []
+    for entry in reversed(history):
+        if not isinstance(entry, Mapping):
+            continue
+        rows.append(
+            {
+                "Timestamp": str(entry.get("timestamp") or "Unknown time"),
+                "Instruction": str(entry.get("instruction") or "Preview"),
+                "Chain build": _format_seconds(entry.get("chain_build_seconds")),
+                "Run": _format_seconds(entry.get("run_seconds")),
+                "Total": _format_seconds(entry.get("total_seconds")),
+            }
+        )
+    if not rows:
+        st.info("No preview timing data yet.")
+        return
+    st.dataframe(rows, use_container_width=True, hide_index=True)
+
+
 def _format_percent(value: Any) -> str:
     if value is None:
         return "—"
@@ -915,6 +951,9 @@ def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
     _render_config_diff_preview(model_state)
     st.markdown("---")
     _render_config_change_history()
+    st.markdown("---")
+    with st.expander("Preview timing log", expanded=False):
+        _render_preview_timing_history()
 
 
 def render_config_chat_panel(
