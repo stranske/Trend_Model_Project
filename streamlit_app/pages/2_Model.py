@@ -62,6 +62,21 @@ _CONFIG_CHAIN_STATE_KEY = "config_chat_chain_state"
 _DEFAULT_CONFIG_CHAT_MODEL = "gpt-4o-mini"
 
 
+def _get_chain_cache_state() -> dict[str, Any]:
+    state = st.session_state.get(_CONFIG_CHAIN_STATE_KEY)
+    if not isinstance(state, dict):
+        state = {"entries": {}}
+        st.session_state[_CONFIG_CHAIN_STATE_KEY] = state
+    entries = state.get("entries")
+    if not isinstance(entries, dict):
+        state["entries"] = {}
+    return state
+
+
+def _chain_cache_signature(cache_key: Mapping[str, Any]) -> str:
+    return json.dumps(dict(cache_key), sort_keys=True, default=str)
+
+
 def _get_config_change_history() -> list[dict[str, Any]]:
     history = st.session_state.get(_CONFIG_HISTORY_KEY)
     if not isinstance(history, list):
@@ -524,6 +539,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         "timeout": config.timeout,
         "max_retries": config.max_retries,
         "extra_payload_hash": extra_payload_hash,
+        "api_key_fingerprint": api_key_fingerprint,
     }
     chain = _cached_nl_chain(
         config.provider,
@@ -536,16 +552,14 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         temperature,
         api_key_fingerprint,
     )
-    chain_state = st.session_state.get(_CONFIG_CHAIN_STATE_KEY)
-    if not isinstance(chain_state, dict):
-        chain_state = {}
-    last_key = chain_state.get("key")
-    last_chain_id = chain_state.get("chain_id")
-    reused = last_key == cache_key and last_chain_id == id(chain)
-    st.session_state[_CONFIG_CHAIN_STATE_KEY] = {
-        "key": cache_key,
-        "chain_id": id(chain),
-    }
+    cache_state = _get_chain_cache_state()
+    signature = _chain_cache_signature(cache_key)
+    entries = cache_state["entries"]
+    cached_chain_id = entries.get(signature)
+    reused = cached_chain_id == id(chain)
+    entries[signature] = id(chain)
+    cache_state["last_signature"] = signature
+    cache_state["last_chain_id"] = id(chain)
     st.session_state["config_chat_chain_key"] = cache_key
     return chain, {"chain_reused": reused, "chain_cache_key": cache_key}
 
@@ -617,6 +631,9 @@ def _generate_preview_with_progress(
     progress_bar.progress(1.0, text="Preview ready.")
     progress_slot.empty()
     result = future.result()
+    timings = result.get("timings")
+    if isinstance(timings, Mapping):
+        timings["total_seconds"] = duration
     _record_preview_timing(result, duration)
     return result
 
@@ -900,7 +917,8 @@ def _render_config_diff_preview(model_state: Mapping[str, Any] | None) -> None:
             "Preview timing — "
             f"Chain reused: {chain_reused} | "
             f"Chain build: {_format_seconds(timings.get('chain_build_seconds'))} | "
-            f"Run: {_format_seconds(timings.get('run_seconds'))}"
+            f"Run: {_format_seconds(timings.get('run_seconds'))} | "
+            f"Total: {_format_seconds(timings.get('total_seconds'))}"
         )
 
     tabs = st.tabs(["Unified diff", "Side-by-side"])
