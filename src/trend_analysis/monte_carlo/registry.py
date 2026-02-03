@@ -86,12 +86,18 @@ def _coerce_tags(value: object) -> tuple[str, ...]:
 
 
 def _optional_mapping(
-    raw: Mapping[str, object], *, key: str, scenario_name: str
+    raw: Mapping[str, object],
+    *,
+    key: str,
+    scenario_name: str,
+    allow_null: bool = False,
 ) -> Mapping[str, object] | None:
     if key not in raw:
         return None
     value = raw.get(key)
     if value is None:
+        if allow_null:
+            return None
         raise ValueError(
             f"Scenario '{scenario_name}' config '{key}' must be a mapping (null provided)"
         )
@@ -373,11 +379,10 @@ def _parse_scenario(
         raise ValueError("Scenario config must define monte_carlo")
     monte_carlo_map = _ensure_mapping(monte_carlo, label="Scenario config 'monte_carlo'")
 
-    strategy_set = None
-    if "strategy_set" in raw:
-        strategy_set = _ensure_mapping(
-            raw.get("strategy_set"), label="Scenario config 'strategy_set'"
-        )
+    strategy_set = _optional_mapping(
+        raw, key="strategy_set", scenario_name=scenario_name, allow_null=True
+    )
+    if strategy_set is not None:
         if "curated_pack" in strategy_set:
             pack_value = strategy_set.get("curated_pack")
             if not pack_value:
@@ -397,13 +402,9 @@ def _parse_scenario(
                 merged["curated"] = [*curated_pack, *curated_inline]
             strategy_set = merged
 
-    outputs = None
-    if "outputs" in raw:
-        outputs = _ensure_mapping(raw.get("outputs"), label="Scenario config 'outputs'")
+    outputs = _optional_mapping(raw, key="outputs", scenario_name=scenario_name, allow_null=True)
 
-    costs = None
-    if "costs" in raw:
-        costs = _ensure_mapping(raw.get("costs"), label="Scenario config 'costs'")
+    costs = _optional_mapping(raw, key="costs", scenario_name=scenario_name, allow_null=True)
 
     scenario_kwargs: dict[str, Any] = {
         "name": scenario_name,
@@ -422,7 +423,9 @@ def _parse_scenario(
     if folds_value is not None:
         scenario_kwargs["folds"] = folds_value
 
-    return_model_value = _optional_mapping(raw, key="return_model", scenario_name=scenario_name)
+    return_model_value = _optional_mapping(
+        raw, key="return_model", scenario_name=scenario_name
+    )
     if return_model_value is not None:
         scenario_kwargs["return_model"] = return_model_value
 
