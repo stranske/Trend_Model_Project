@@ -65,13 +65,27 @@ _DEFAULT_CONFIG_CHAT_MODEL = "gpt-4o-mini"
 _CONFIG_CHAIN_CACHE_VERSION = "v1"
 _CONFIG_CHAIN_METRICS_KEY = "config_chat_chain_metrics"
 _CONFIG_CHAIN_STATS_KEY = "config_chat_chain_stats"
-_CONFIG_CHAIN_LOG_FIELDS = ("provider", "model", "base_url", "organization", "temperature")
+_CONFIG_CHAIN_LOG_FIELDS = (
+    "provider",
+    "model",
+    "base_url",
+    "organization",
+    "temperature",
+    "timeout",
+    "max_retries",
+    "extra_payload_hash",
+    "api_key_fingerprint",
+)
 _CONFIG_CHAIN_INVALIDATION_FIELDS = (
     "provider",
     "model",
     "base_url",
     "organization",
     "temperature",
+    "timeout",
+    "max_retries",
+    "extra_payload_hash",
+    "api_key_fingerprint",
 )
 
 
