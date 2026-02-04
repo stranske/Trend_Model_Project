@@ -217,6 +217,8 @@ def test_export_results_writes_pooled_summary(tmp_path) -> None:
     assert pooled_frame.loc[0, "pooled_scope"] == "summary"
     assert "fold_id" in pooled_frame.columns
     assert pd.isna(pooled_frame.loc[0, "fold_id"])
+    assert pooled_frame.loc[0, "paths"] == 3
+    assert pooled_frame.loc[0, "folds"] == 2
 
 
 def test_export_results_skips_pooled_summary_when_missing(tmp_path) -> None:
