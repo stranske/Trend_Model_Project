@@ -124,6 +124,29 @@ def test_build_breach_frame_handles_lower_and_upper_thresholds() -> None:
     assert metric2_prob == pytest.approx(1.0 / 3.0)
 
 
+def test_build_breach_frame_applies_default_thresholds_to_all_metrics() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    breach = build_breach_frame(path_frame, [4.0])
+
+    assert list(breach.columns) == list(breach_frame_schema())
+    assert len(breach) == 2
+    assert set(breach["direction"].unique()) == {"lower"}
+    metric_prob = breach.loc[breach["metric"] == "metric", "breach_probability"].iloc[0]
+    metric2_prob = breach.loc[breach["metric"] == "metric2", "breach_probability"].iloc[0]
+    assert metric_prob == pytest.approx(2.0 / 3.0)
+    assert metric2_prob == pytest.approx(2.0 / 3.0)
+
+
+def test_build_breach_frame_skips_non_finite_thresholds() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    breach = build_breach_frame(path_frame, {"metric": [float("nan"), 2.5]})
+
+    assert len(breach) == 1
+    assert breach.loc[0, "threshold"] == pytest.approx(2.5)
+
+
 def test_build_expected_shortfall_frame_computes_tail_mean() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 

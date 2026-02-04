@@ -347,6 +347,9 @@ def _coerce_breach_specs(
         return []
     if isinstance(breach_spec, (list, tuple)):
         default_thresholds = [float(value) for value in breach_spec]
+        default_thresholds = [value for value in default_thresholds if np.isfinite(value)]
+        if not default_thresholds:
+            return []
         return [(metric, default_thresholds, "lower") for metric in metrics]
     if not isinstance(breach_spec, Mapping):
         return []
@@ -369,6 +372,9 @@ def _coerce_breach_specs(
             thresholds = [float(value) for value in raw]
         else:
             thresholds = [float(raw)]
+        thresholds = [value for value in thresholds if np.isfinite(value)]
+        if not thresholds:
+            continue
         if direction not in {"lower", "upper"}:
             raise ValueError(f"Unsupported breach direction '{direction}'")
         specs.append((metric_name, thresholds, direction))
