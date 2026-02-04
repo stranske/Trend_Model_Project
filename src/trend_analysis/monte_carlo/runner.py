@@ -51,6 +51,8 @@ from .results import (
     build_summary_frame,
     export_results,
 )
+from .aggregator import aggregate_monte_carlo_results
+from .export import export_aggregation_results
 
 __all__ = ["MonteCarloRunner", "evaluate_strategies_for_path"]
 
@@ -1064,6 +1066,24 @@ class MonteCarloRunner:
         output_dir = self._resolve_output_dir(str(directory))
         formats = outputs.get("formats", outputs.get("format"))
         export_results(results, output_dir, formats=formats)
+        aggregation_config = outputs.get("aggregation", outputs.get("aggregations"))
+        quantiles = None
+        breach_spec = None
+        expected_shortfall_spec = None
+        if isinstance(aggregation_config, Mapping):
+            quantiles = aggregation_config.get("quantiles")
+            breach_spec = aggregation_config.get("breach")
+            expected_shortfall_spec = aggregation_config.get("expected_shortfall")
+        quantiles = outputs.get("quantiles", quantiles)
+        breach_spec = outputs.get("breach", breach_spec)
+        expected_shortfall_spec = outputs.get("expected_shortfall", expected_shortfall_spec)
+        aggregation = aggregate_monte_carlo_results(
+            results.results_frame,
+            quantiles=quantiles,
+            breach_spec=breach_spec,
+            expected_shortfall_spec=expected_shortfall_spec,
+        )
+        export_aggregation_results(aggregation, output_dir, formats=formats)
 
     def _resolve_output_dir(self, template: str) -> Path:
         now = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
