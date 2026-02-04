@@ -80,6 +80,22 @@ def test_build_path_frame_excludes_path_and_fold_from_metrics() -> None:
     assert list(path_frame.columns).count("fold") == 1
 
 
+def test_build_path_frame_excludes_numeric_strategy_from_metrics() -> None:
+    results_frame = pd.DataFrame(
+        [
+            {"fold_id": 0, "path_id": 10, "strategy": 1, "metric": 1.0},
+            {"fold_id": 0, "path_id": 11, "strategy": 1, "metric": 2.0},
+        ]
+    )
+
+    path_frame = build_path_frame(results_frame)
+    quantiles = build_quantiles_frame(path_frame, [0.5])
+
+    assert list(path_frame.columns).count("strategy") == 1
+    assert "metric" in path_frame.columns
+    assert set(quantiles["metric"]) == {"metric"}
+
+
 def test_build_path_frame_preserves_metric_schema_on_empty_input() -> None:
     results_frame = pd.DataFrame(
         {
