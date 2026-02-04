@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from typing import Mapping
 
+from .. import configure_matplotlib_config_dir
+
+configure_matplotlib_config_dir()
+
 import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.figure import Figure

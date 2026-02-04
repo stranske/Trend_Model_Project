@@ -63,19 +63,51 @@ def _patch_dataclasses_module_guard() -> None:
 
 _patch_dataclasses_module_guard()
 
+_MPLCONFIGDIR_ENV = "MPLCONFIGDIR"
+_TREND_MPLCONFIGDIR_ENV = "TREND_MPLCONFIGDIR"
+_TREND_MPLCONFIGDIR_MODE_ENV = "TREND_MPLCONFIGDIR_MODE"
+_DEFAULT_MPLCONFIGDIR = Path("/tmp/matplotlib")
 
-def _ensure_matplotlib_config_dir() -> None:
-    if os.environ.get("MPLCONFIGDIR"):
-        return
-    config_dir = Path("/tmp/matplotlib")
+
+def configure_matplotlib_config_dir(
+    config_dir: str | Path | None = None,
+    *,
+    mode: str | None = None,
+) -> Path | None:
+    """Optionally set ``MPLCONFIGDIR`` for matplotlib.
+
+    Configuration is driven by (in priority order):
+    - ``config_dir`` argument
+    - ``TREND_MPLCONFIGDIR`` environment variable
+    - fallback to ``/tmp/matplotlib`` when mode is ``auto`` (default)
+
+    The ``TREND_MPLCONFIGDIR_MODE`` environment variable (or ``mode`` argument)
+    can disable this behavior when set to ``off``/``false``/``0``. The function
+    returns the configured path, or ``None`` if no change was made.
+    """
+
+    existing = os.environ.get(_MPLCONFIGDIR_ENV)
+    if existing:
+        return Path(existing)
+
+    resolved_mode = (mode or os.environ.get(_TREND_MPLCONFIGDIR_MODE_ENV, "auto")).strip().lower()
+    if resolved_mode in {"off", "false", "0", "disable"}:
+        return None
+
+    resolved_dir = config_dir or os.environ.get(_TREND_MPLCONFIGDIR_ENV)
+    if resolved_dir is None:
+        if resolved_mode not in {"auto", "default"}:
+            return None
+        resolved_dir = _DEFAULT_MPLCONFIGDIR
+
+    config_path = Path(resolved_dir)
     try:
-        config_dir.mkdir(parents=True, exist_ok=True)
+        config_path.mkdir(parents=True, exist_ok=True)
     except OSError:
-        return
-    os.environ["MPLCONFIGDIR"] = str(config_dir)
+        return None
 
-
-_ensure_matplotlib_config_dir()
+    os.environ[_MPLCONFIGDIR_ENV] = str(config_path)
+    return config_path
 
 _MODULE_SELF = sys.modules[__name__]
 

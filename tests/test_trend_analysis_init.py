@@ -1,6 +1,7 @@
 """Coverage-focused tests for ``trend_analysis.__init__`` internals."""
 
 import importlib
+import os
 import sys
 from types import ModuleType
 
@@ -106,3 +107,47 @@ def test_spec_proxy_triggers_registration(monkeypatch):
 
     assert proxy.name == "trend_analysis"
     assert sys.modules["trend_analysis"] is ta
+
+
+def test_configure_matplotlib_config_dir_sets_env(monkeypatch, tmp_path):
+    import trend_analysis as ta
+
+    target = tmp_path / "mpl_config"
+    monkeypatch.delenv("MPLCONFIGDIR", raising=False)
+    monkeypatch.delenv("TREND_MPLCONFIGDIR_MODE", raising=False)
+    monkeypatch.setenv("TREND_MPLCONFIGDIR", str(target))
+
+    result = ta.configure_matplotlib_config_dir()
+
+    assert result == target
+    assert os.environ["MPLCONFIGDIR"] == str(target)
+    assert target.exists()
+
+
+def test_configure_matplotlib_config_dir_respects_off_mode(monkeypatch, tmp_path):
+    import trend_analysis as ta
+
+    target = tmp_path / "mpl_disabled"
+    monkeypatch.delenv("MPLCONFIGDIR", raising=False)
+    monkeypatch.setenv("TREND_MPLCONFIGDIR_MODE", "off")
+    monkeypatch.setenv("TREND_MPLCONFIGDIR", str(target))
+
+    result = ta.configure_matplotlib_config_dir()
+
+    assert result is None
+    assert "MPLCONFIGDIR" not in os.environ
+    assert not target.exists()
+
+
+def test_configure_matplotlib_config_dir_keeps_existing(monkeypatch, tmp_path):
+    import trend_analysis as ta
+
+    existing = tmp_path / "existing"
+    existing.mkdir()
+    monkeypatch.setenv("MPLCONFIGDIR", str(existing))
+    monkeypatch.setenv("TREND_MPLCONFIGDIR", str(tmp_path / "ignored"))
+
+    result = ta.configure_matplotlib_config_dir()
+
+    assert result == existing
+    assert os.environ["MPLCONFIGDIR"] == str(existing)
