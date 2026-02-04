@@ -39,6 +39,35 @@ def test_sanitize_prompt_variables_redacts_sensitive_fields(
     assert sanitized["safe"] == "hello"
 
 
+def test_sanitize_prompt_variables_redacts_sensitive_lists(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module(monkeypatch)
+    payload = {
+        "headers": [
+            "Authorization: Bearer sk-test-1234567890abcdef1234567890",
+            "x-api-key: my-key",
+        ],
+        "items": [{"token": "top-secret"}, "plain text"],
+    }
+
+    sanitized = module._sanitize_prompt_variables(payload)
+
+    assert "[REDACTED]" in sanitized["headers"][0]
+    assert "[REDACTED]" in sanitized["headers"][1]
+    assert sanitized["items"][0]["token"] == "[REDACTED]"
+    assert sanitized["items"][1] == "plain text"
+
+
+def test_redact_url_strips_query(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = _load_module(monkeypatch)
+    url = "https://example.com/path?token=secret#frag"
+
+    redacted = module._redact_url(url)
+
+    assert redacted == "https://example.com/path"
+
+
 def test_load_log_entries_respects_limit(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     module = _load_module(monkeypatch)
     log_path = tmp_path / "nl_ops_2026-02-03.jsonl"
