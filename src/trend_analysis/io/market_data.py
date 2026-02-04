@@ -313,22 +313,31 @@ def _build_policy_maps(
       those entries are ignored during normalization.
     """
 
+    # Normalize column identifiers up front so override conversion is consistent.
+    # This ensures integer column labels (e.g., 1) match overrides keyed by "1".
     cols = [str(col) for col in columns]
     if isinstance(policy, Mapping):
+        # Convert override keys to strings and pull the "*" default. Any override
+        # entry that doesn't match a column name is ignored when we build the
+        # per-column policy map.
         raw_policy = {str(k): v for k, v in policy.items()}
         default_policy = _normalise_policy_value(raw_policy.get("*"))
         policy_map = {
             col: _normalise_policy_value(raw_policy.get(col, default_policy)) for col in cols
         }
     else:
+        # Scalar input applies to every column, so the policy map is uniform.
         default_policy = _normalise_policy_value(policy)
         policy_map = {col: default_policy for col in cols}
 
     if isinstance(limit, Mapping):
+        # Apply the same conversion rules as policy overrides, but coerce limits
+        # to integers (or None) while honoring the "*" default.
         raw_limit = {str(k): v for k, v in limit.items()}
         default_limit = _coerce_limit_value(raw_limit.get("*"))
         limit_map = {col: _coerce_limit_value(raw_limit.get(col, default_limit)) for col in cols}
     else:
+        # Scalar limit applies to every column when no mapping is provided.
         default_limit = _coerce_limit_value(limit)
         limit_map = {col: default_limit for col in cols}
 

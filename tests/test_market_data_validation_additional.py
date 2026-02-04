@@ -88,6 +88,32 @@ def test_missing_policy_overrides_accept_stringified_column_keys() -> None:
     assert meta["missing_policy_limits"]["1"] == 1
 
 
+def test_build_policy_maps_stringifies_keys_and_applies_defaults() -> None:
+    columns = [1, "FundB", "FundC"]
+    policy = {"*": "drop", 1: "ffill", "FundC": "zero", "unused": "ffill"}
+    limits = {"*": "2", 1: "0", "FundC": None, "unused": 3}
+
+    policy_map, default_policy, limit_map, default_limit = market_data._build_policy_maps(
+        columns, policy, limits
+    )
+
+    assert default_policy == "drop"
+    assert policy_map == {"1": "ffill", "FundB": "drop", "FundC": "zero"}
+    assert default_limit == 2
+    assert limit_map == {"1": 0, "FundB": 2, "FundC": None}
+
+
+def test_build_policy_maps_scalar_values_apply_to_all_columns() -> None:
+    policy_map, default_policy, limit_map, default_limit = market_data._build_policy_maps(
+        ["A", "B"], "ffill", 1
+    )
+
+    assert default_policy == "ffill"
+    assert policy_map == {"A": "ffill", "B": "ffill"}
+    assert default_limit == 1
+    assert limit_map == {"A": 1, "B": 1}
+
+
 def test_apply_missing_policy_unknown_strategy(monkeypatch: pytest.MonkeyPatch) -> None:
     frame = pd.DataFrame({"A": [1.0, pd.NA]})
 
