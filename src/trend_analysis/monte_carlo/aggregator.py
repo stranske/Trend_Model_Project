@@ -268,7 +268,9 @@ def build_expected_shortfall_frame(
 
 
 def _metric_columns(results_frame: pd.DataFrame) -> list[str]:
-    numeric_cols = results_frame.select_dtypes(include="number").columns.tolist()
+    numeric_cols = [
+        str(col) for col in results_frame.select_dtypes(include="number").columns.tolist()
+    ]
     for col in ("fold_id", "path_id", "seed"):
         if col in numeric_cols:
             numeric_cols.remove(col)
@@ -276,7 +278,9 @@ def _metric_columns(results_frame: pd.DataFrame) -> list[str]:
 
 
 def _path_metric_columns(path_frame: pd.DataFrame) -> list[str]:
-    numeric_cols = path_frame.select_dtypes(include="number").columns.tolist()
+    numeric_cols = [
+        str(col) for col in path_frame.select_dtypes(include="number").columns.tolist()
+    ]
     for col in ("path", "fold"):
         if col in numeric_cols:
             numeric_cols.remove(col)
@@ -320,8 +324,8 @@ def _coerce_breach_specs(
     if breach_spec is None:
         return []
     if isinstance(breach_spec, (list, tuple)):
-        thresholds = [float(value) for value in breach_spec]
-        return [(metric, thresholds, "lower") for metric in metrics]
+        default_thresholds = [float(value) for value in breach_spec]
+        return [(metric, default_thresholds, "lower") for metric in metrics]
     if not isinstance(breach_spec, Mapping):
         return []
 
@@ -364,8 +368,9 @@ def _coerce_shortfall_specs(
         alpha = 0.05
         tail = "lower"
         if isinstance(raw, Mapping):
-            if raw.get("alpha") is not None:
-                alpha = float(raw.get("alpha"))
+            raw_alpha = raw.get("alpha")
+            if raw_alpha is not None:
+                alpha = float(raw_alpha)
             tail = str(raw.get("tail", raw.get("direction", tail))).lower()
         else:
             alpha = float(raw)
