@@ -1,0 +1,371 @@
+"""Distribution aggregation helpers for Monte Carlo results."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Iterable, Mapping, Sequence
+
+import numpy as np
+import pandas as pd
+
+__all__ = [
+    "AGGREGATION_PATH_COLUMNS",
+    "BREACH_COLUMNS",
+    "EXPECTED_SHORTFALL_COLUMNS",
+    "QUANTILE_COLUMNS",
+    "MonteCarloAggregationResults",
+    "aggregate_monte_carlo_results",
+    "build_breach_frame",
+    "build_expected_shortfall_frame",
+    "build_path_frame",
+    "build_quantiles_frame",
+]
+
+AGGREGATION_PATH_COLUMNS = (
+    "strategy",
+    "path",
+    "fold",
+)
+
+QUANTILE_COLUMNS = (
+    "strategy",
+    "fold",
+    "metric",
+    "quantile",
+    "value",
+    "paths",
+)
+
+BREACH_COLUMNS = (
+    "strategy",
+    "fold",
+    "metric",
+    "threshold",
+    "direction",
+    "breach_probability",
+    "paths",
+)
+
+EXPECTED_SHORTFALL_COLUMNS = (
+    "strategy",
+    "fold",
+    "metric",
+    "tail",
+    "alpha",
+    "threshold",
+    "expected_shortfall",
+    "paths",
+)
+
+_DEFAULT_QUANTILES = (0.05, 0.5, 0.95)
+
+
+@dataclass(frozen=True)
+class MonteCarloAggregationResults:
+    """Container for aggregated Monte Carlo distributions."""
+
+    path_frame: pd.DataFrame
+    quantiles_frame: pd.DataFrame
+    breach_frame: pd.DataFrame
+    expected_shortfall_frame: pd.DataFrame
+
+
+def aggregate_monte_carlo_results(
+    results_frame: pd.DataFrame,
+    *,
+    quantiles: Sequence[float] | None = None,
+    breach_spec: Mapping[str, Any] | Sequence[float] | None = None,
+    expected_shortfall_spec: Mapping[str, Any] | None = None,
+) -> MonteCarloAggregationResults:
+    """Compute distribution summaries for Monte Carlo results."""
+
+    path_frame = build_path_frame(results_frame)
+    quantiles_frame = build_quantiles_frame(path_frame, quantiles)
+    breach_frame = build_breach_frame(path_frame, breach_spec)
+    expected_shortfall_frame = build_expected_shortfall_frame(
+        path_frame, expected_shortfall_spec
+    )
+    return MonteCarloAggregationResults(
+        path_frame=path_frame,
+        quantiles_frame=quantiles_frame,
+        breach_frame=breach_frame,
+        expected_shortfall_frame=expected_shortfall_frame,
+    )
+
+
+def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
+    """Return per-path metrics with strategy/path/fold identifiers."""
+
+    if results_frame.empty:
+        return pd.DataFrame(columns=list(AGGREGATION_PATH_COLUMNS))
+
+    metric_cols = _metric_columns(results_frame)
+    data: dict[str, Any] = {
+        "strategy": results_frame.get("strategy"),
+        "path": _coerce_column(results_frame, ("path", "path_id")),
+        "fold": _coerce_column(results_frame, ("fold", "fold_id"), default=None),
+    }
+    frame = pd.DataFrame(data)
+    if metric_cols:
+        frame = pd.concat([frame, results_frame[metric_cols].reset_index(drop=True)], axis=1)
+    return frame
+
+
+def build_quantiles_frame(
+    path_frame: pd.DataFrame,
+    quantiles: Sequence[float] | None,
+) -> pd.DataFrame:
+    """Compute quantile summaries per strategy and fold."""
+
+    quantile_list = _coerce_quantiles(quantiles)
+    metric_cols = _path_metric_columns(path_frame)
+    if path_frame.empty or not metric_cols:
+        return pd.DataFrame(columns=list(QUANTILE_COLUMNS))
+
+    grouped = path_frame.groupby(["strategy", "fold"], dropna=False)
+    rows: list[dict[str, Any]] = []
+    for (strategy, fold), group in grouped:
+        for metric in metric_cols:
+            values = group[metric].to_numpy(dtype=float)
+            values = values[np.isfinite(values)]
+            if values.size == 0:
+                for q in quantile_list:
+                    rows.append(
+                        {
+                            "strategy": strategy,
+                            "fold": fold,
+                            "metric": metric,
+                            "quantile": q,
+                            "value": np.nan,
+                            "paths": 0,
+                        }
+                    )
+                continue
+            for q in quantile_list:
+                rows.append(
+                    {
+                        "strategy": strategy,
+                        "fold": fold,
+                        "metric": metric,
+                        "quantile": q,
+                        "value": float(np.nanquantile(values, q)),
+                        "paths": int(values.size),
+                    }
+                )
+    return pd.DataFrame(rows, columns=list(QUANTILE_COLUMNS))
+
+
+def build_breach_frame(
+    path_frame: pd.DataFrame,
+    breach_spec: Mapping[str, Any] | Sequence[float] | None,
+) -> pd.DataFrame:
+    """Compute breach probabilities for configured thresholds."""
+
+    metric_cols = _path_metric_columns(path_frame)
+    if path_frame.empty or not metric_cols:
+        return pd.DataFrame(columns=list(BREACH_COLUMNS))
+
+    specs = _coerce_breach_specs(breach_spec, metric_cols)
+    if not specs:
+        return pd.DataFrame(columns=list(BREACH_COLUMNS))
+
+    grouped = path_frame.groupby(["strategy", "fold"], dropna=False)
+    rows: list[dict[str, Any]] = []
+    for (strategy, fold), group in grouped:
+        for metric, thresholds, direction in specs:
+            if metric not in group.columns:
+                continue
+            values = group[metric].to_numpy(dtype=float)
+            values = values[np.isfinite(values)]
+            total = int(values.size)
+            for threshold in thresholds:
+                if total == 0:
+                    prob = np.nan
+                elif direction == "upper":
+                    prob = float(np.mean(values >= threshold))
+                else:
+                    prob = float(np.mean(values <= threshold))
+                rows.append(
+                    {
+                        "strategy": strategy,
+                        "fold": fold,
+                        "metric": metric,
+                        "threshold": float(threshold),
+                        "direction": direction,
+                        "breach_probability": prob,
+                        "paths": total,
+                    }
+                )
+    return pd.DataFrame(rows, columns=list(BREACH_COLUMNS))
+
+
+def build_expected_shortfall_frame(
+    path_frame: pd.DataFrame,
+    expected_shortfall_spec: Mapping[str, Any] | None,
+) -> pd.DataFrame:
+    """Compute expected shortfall (tail mean) for configured metrics."""
+
+    metric_cols = _path_metric_columns(path_frame)
+    if path_frame.empty or not metric_cols:
+        return pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS))
+
+    specs = _coerce_shortfall_specs(expected_shortfall_spec, metric_cols)
+    if not specs:
+        return pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS))
+
+    grouped = path_frame.groupby(["strategy", "fold"], dropna=False)
+    rows: list[dict[str, Any]] = []
+    for (strategy, fold), group in grouped:
+        for metric, alpha, tail in specs:
+            if metric not in group.columns:
+                continue
+            values = group[metric].to_numpy(dtype=float)
+            values = values[np.isfinite(values)]
+            total = int(values.size)
+            if total == 0:
+                rows.append(
+                    {
+                        "strategy": strategy,
+                        "fold": fold,
+                        "metric": metric,
+                        "tail": tail,
+                        "alpha": float(alpha),
+                        "threshold": np.nan,
+                        "expected_shortfall": np.nan,
+                        "paths": 0,
+                    }
+                )
+                continue
+            if tail == "upper":
+                threshold = float(np.nanquantile(values, 1.0 - alpha))
+                tail_values = values[values >= threshold]
+            else:
+                threshold = float(np.nanquantile(values, alpha))
+                tail_values = values[values <= threshold]
+            expected_shortfall = float(np.mean(tail_values)) if tail_values.size else np.nan
+            rows.append(
+                {
+                    "strategy": strategy,
+                    "fold": fold,
+                    "metric": metric,
+                    "tail": tail,
+                    "alpha": float(alpha),
+                    "threshold": threshold,
+                    "expected_shortfall": expected_shortfall,
+                    "paths": total,
+                }
+            )
+    return pd.DataFrame(rows, columns=list(EXPECTED_SHORTFALL_COLUMNS))
+
+
+def _metric_columns(results_frame: pd.DataFrame) -> list[str]:
+    numeric_cols = results_frame.select_dtypes(include="number").columns.tolist()
+    for col in ("fold_id", "path_id", "seed"):
+        if col in numeric_cols:
+            numeric_cols.remove(col)
+    return numeric_cols
+
+
+def _path_metric_columns(path_frame: pd.DataFrame) -> list[str]:
+    numeric_cols = path_frame.select_dtypes(include="number").columns.tolist()
+    for col in ("path", "fold"):
+        if col in numeric_cols:
+            numeric_cols.remove(col)
+    return numeric_cols
+
+
+def _coerce_column(
+    frame: pd.DataFrame,
+    candidates: Iterable[str],
+    *,
+    default: Any | None = None,
+) -> pd.Series:
+    for col in candidates:
+        if col in frame.columns:
+            return frame[col]
+    return pd.Series([default] * len(frame))
+
+
+def _coerce_quantiles(quantiles: Sequence[float] | None) -> list[float]:
+    if quantiles is None:
+        values = list(_DEFAULT_QUANTILES)
+    else:
+        values = list(quantiles)
+    cleaned: list[float] = []
+    for value in values:
+        if value is None:
+            continue
+        q = float(value)
+        if q < 0.0 or q > 1.0:
+            raise ValueError("Quantiles must be between 0 and 1")
+        cleaned.append(q)
+    if not cleaned:
+        cleaned = list(_DEFAULT_QUANTILES)
+    return cleaned
+
+
+def _coerce_breach_specs(
+    breach_spec: Mapping[str, Any] | Sequence[float] | None,
+    metrics: Sequence[str],
+) -> list[tuple[str, list[float], str]]:
+    if breach_spec is None:
+        return []
+    if isinstance(breach_spec, (list, tuple)):
+        thresholds = [float(value) for value in breach_spec]
+        return [(metric, thresholds, "lower") for metric in metrics]
+    if not isinstance(breach_spec, Mapping):
+        return []
+
+    specs: list[tuple[str, list[float], str]] = []
+    for metric, raw in breach_spec.items():
+        metric_name = str(metric)
+        thresholds: list[float] = []
+        direction = "lower"
+        if isinstance(raw, Mapping):
+            raw_thresholds = raw.get("thresholds", raw.get("threshold"))
+            if raw_thresholds is None:
+                raw_thresholds = []
+            if isinstance(raw_thresholds, (list, tuple)):
+                thresholds = [float(value) for value in raw_thresholds]
+            else:
+                thresholds = [float(raw_thresholds)]
+            direction = str(raw.get("direction", "lower")).lower()
+        elif isinstance(raw, (list, tuple)):
+            thresholds = [float(value) for value in raw]
+        else:
+            thresholds = [float(raw)]
+        if direction not in {"lower", "upper"}:
+            raise ValueError(f"Unsupported breach direction '{direction}'")
+        specs.append((metric_name, thresholds, direction))
+    return specs
+
+
+def _coerce_shortfall_specs(
+    shortfall_spec: Mapping[str, Any] | None,
+    metrics: Sequence[str],
+) -> list[tuple[str, float, str]]:
+    if shortfall_spec is None:
+        return []
+    if not isinstance(shortfall_spec, Mapping):
+        return []
+
+    specs: list[tuple[str, float, str]] = []
+    for metric, raw in shortfall_spec.items():
+        metric_name = str(metric)
+        alpha = 0.05
+        tail = "lower"
+        if isinstance(raw, Mapping):
+            if raw.get("alpha") is not None:
+                alpha = float(raw.get("alpha"))
+            tail = str(raw.get("tail", raw.get("direction", tail))).lower()
+        else:
+            alpha = float(raw)
+        if tail not in {"lower", "upper"}:
+            raise ValueError(f"Unsupported shortfall tail '{tail}'")
+        if alpha <= 0.0 or alpha >= 1.0:
+            raise ValueError("Expected shortfall alpha must be between 0 and 1")
+        specs.append((metric_name, alpha, tail))
+
+    if not specs and metrics:
+        specs = [(metric, 0.05, "lower") for metric in metrics]
+    return specs
