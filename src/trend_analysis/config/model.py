@@ -441,7 +441,10 @@ class PortfolioSettings(BaseModel):
     def _validate_turnover_cap(cls, value: Any) -> float | None:
         if value in (None, "", "null"):
             return None
-        return cls._validate_turnover(value)
+        validated = cls._validate_turnover(value)
+        if isinstance(validated, dict):
+            raise ValueError("portfolio.turnover_cap must be numeric.")
+        return validated
 
     @field_validator("transaction_cost_bps", mode="before")
     @classmethod
