@@ -530,9 +530,12 @@ def test_runner_builds_pooled_summary_when_enabled(
     assert results.pooled_summary_frame is not None
     assert results.pooled_summary_frame.loc[0, "scope"] == "pooled"
     assert results.pooled_summary_frame.loc[0, "pooled_scope"] == "summary"
+    assert results.pooled_distribution_frame is not None
+    assert results.pooled_distribution_frame.loc[0, "scope"] == "pooled"
+    assert results.pooled_distribution_frame.loc[0, "pooled_scope"] == "distribution"
     assert results.cross_fold_summary_frame is not None
     assert results.metadata.get("pooled_distributions") is True
-    assert results.metadata.get("pooled_scope") == "summary"
+    assert results.metadata.get("pooled_scope") == "distribution"
 
 
 def test_runner_builds_cross_fold_summary_without_pooled_distributions(
@@ -651,6 +654,8 @@ def test_runner_cross_fold_summary_stats_include_pooled_labels(
     assert pooled.loc[0, "scope"] == "pooled"
     assert pooled.loc[0, "pooled_scope"] == "summary"
     assert results.metadata.get("pooled_distributions") is True
+    assert results.pooled_distribution_frame is not None
+    assert results.pooled_distribution_frame.loc[0, "pooled_scope"] == "distribution"
 
 
 def test_runner_pooled_summary_includes_fold_count_when_enabled(
@@ -700,6 +705,7 @@ def test_runner_pooled_summary_includes_fold_count_when_enabled(
     assert pooled.loc[0, "pooled_scope"] == "summary"
     assert pooled.loc[0, "folds"] == 2
     assert results.metadata.get("pooled_distributions") is True
+    assert results.pooled_distribution_frame is not None
 
 
 def test_runner_exports_pooled_summary_when_enabled(
@@ -754,6 +760,12 @@ def test_runner_exports_pooled_summary_when_enabled(
     pooled_frame = pd.read_csv(pooled_path)
     assert pooled_frame.loc[0, "scope"] == "pooled"
     assert pooled_frame.loc[0, "pooled_scope"] == "summary"
+
+    pooled_dist_path = output_dir / "pooled_distributions.csv"
+    assert pooled_dist_path.exists()
+    pooled_dist = pd.read_csv(pooled_dist_path)
+    assert pooled_dist.loc[0, "scope"] == "pooled"
+    assert pooled_dist.loc[0, "pooled_scope"] == "distribution"
 
 
 def test_runner_includes_fold_ids_in_results_frame(

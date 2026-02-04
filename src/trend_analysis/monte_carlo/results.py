@@ -13,6 +13,7 @@ __all__ = [
     "MonteCarloResults",
     "StrategyEvaluation",
     "build_cross_fold_summary_frame",
+    "build_pooled_distribution_frame",
     "build_pooled_summary_frame",
     "build_results_frame",
     "build_summary_frame",
@@ -68,6 +69,7 @@ class MonteCarloResults:
     summary_frame: pd.DataFrame
     cross_fold_summary_frame: pd.DataFrame | None = None
     pooled_summary_frame: pd.DataFrame | None = None
+    pooled_distribution_frame: pd.DataFrame | None = None
     metadata: Mapping[str, Any] | None = None
 
 
@@ -159,6 +161,17 @@ def build_pooled_summary_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     return pooled
 
 
+def build_pooled_distribution_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
+    """Return a pooled distribution table across all folds."""
+
+    if results_frame.empty:
+        return pd.DataFrame(columns=["scope", "pooled_scope", *RESULT_BASE_COLUMNS])
+    pooled = results_frame.copy()
+    pooled.insert(0, "scope", "pooled")
+    pooled.insert(1, "pooled_scope", "distribution")
+    return pooled
+
+
 def build_cross_fold_summary_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     """Summarize fold-level results for cross-fold comparison."""
 
@@ -219,6 +232,10 @@ def export_results(
             pooled_path = out_dir / f"pooled_summary.{ext}"
             _export_frame(results.pooled_summary_frame, pooled_path, ext)
             exported[f"pooled_summary_{ext}"] = pooled_path
+        if results.pooled_distribution_frame is not None:
+            pooled_path = out_dir / f"pooled_distributions.{ext}"
+            _export_frame(results.pooled_distribution_frame, pooled_path, ext)
+            exported[f"pooled_distributions_{ext}"] = pooled_path
         exported[f"results_{ext}"] = results_path
         exported[f"summary_{ext}"] = summary_path
     return exported

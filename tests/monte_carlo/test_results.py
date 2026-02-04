@@ -7,6 +7,7 @@ from trend_analysis.monte_carlo.results import (
     MonteCarloResults,
     StrategyEvaluation,
     build_cross_fold_summary_frame,
+    build_pooled_distribution_frame,
     build_pooled_summary_frame,
     build_results_frame,
     build_summary_frame,
@@ -126,6 +127,41 @@ def test_build_pooled_summary_frame_empty_returns_columns() -> None:
     assert pooled.empty
 
 
+def test_build_pooled_distribution_frame_includes_labels() -> None:
+    frame = pd.DataFrame(
+        [
+            {
+                "fold_id": 1,
+                "fold_label": "2020-01",
+                "path_id": 1,
+                "strategy": "A",
+                "metric": 1.0,
+            },
+            {
+                "fold_id": 2,
+                "fold_label": "2020-02",
+                "path_id": 2,
+                "strategy": "A",
+                "metric": 2.0,
+            },
+        ]
+    )
+
+    pooled = build_pooled_distribution_frame(frame)
+
+    assert pooled.loc[0, "scope"] == "pooled"
+    assert pooled.loc[0, "pooled_scope"] == "distribution"
+    assert pooled.loc[0, "fold_id"] == 1
+    assert pooled.loc[0, "fold_label"] == "2020-01"
+
+
+def test_build_pooled_distribution_frame_empty_returns_columns() -> None:
+    pooled = build_pooled_distribution_frame(pd.DataFrame())
+
+    assert list(pooled.columns) == ["scope", "pooled_scope", *RESULT_BASE_COLUMNS]
+    assert pooled.empty
+
+
 def test_build_cross_fold_summary_frame_reports_fold_stats() -> None:
     frame = pd.DataFrame(
         [
@@ -205,6 +241,7 @@ def test_export_results_writes_pooled_summary(tmp_path) -> None:
     )
     summary = build_summary_frame(frame)
     pooled = build_pooled_summary_frame(frame)
+    pooled_distribution = build_pooled_distribution_frame(frame)
     cross_fold = build_cross_fold_summary_frame(frame)
     results = MonteCarloResults(
         mode="two_layer",
@@ -214,6 +251,7 @@ def test_export_results_writes_pooled_summary(tmp_path) -> None:
         summary_frame=summary,
         cross_fold_summary_frame=cross_fold,
         pooled_summary_frame=pooled,
+        pooled_distribution_frame=pooled_distribution,
         metadata={},
     )
 
@@ -251,6 +289,13 @@ def test_export_results_writes_pooled_summary(tmp_path) -> None:
     assert pooled_frame.loc[0, "paths"] == 3
     assert pooled_frame.loc[0, "folds"] == 2
 
+    pooled_dist_path = exported["pooled_distributions_csv"]
+    assert pooled_dist_path.exists()
+    pooled_dist = pd.read_csv(pooled_dist_path)
+    assert pooled_dist.loc[0, "scope"] == "pooled"
+    assert pooled_dist.loc[0, "pooled_scope"] == "distribution"
+    assert "fold_id" in pooled_dist.columns
+
 
 def test_export_results_skips_pooled_summary_when_missing(tmp_path) -> None:
     frame = pd.DataFrame(
@@ -269,9 +314,11 @@ def test_export_results_skips_pooled_summary_when_missing(tmp_path) -> None:
         summary_frame=summary,
         cross_fold_summary_frame=cross_fold,
         pooled_summary_frame=None,
+        pooled_distribution_frame=None,
         metadata={},
     )
 
     exported = export_results(results, tmp_path, formats=["csv"])
 
     assert "pooled_summary_csv" not in exported
+    assert "pooled_distributions_csv" not in exported

@@ -46,6 +46,7 @@ from .results import (
     MonteCarloResults,
     StrategyEvaluation,
     build_cross_fold_summary_frame,
+    build_pooled_distribution_frame,
     build_pooled_summary_frame,
     build_results_frame,
     build_summary_frame,
@@ -235,9 +236,12 @@ class MonteCarloRunner:
         pooled_summary_frame = (
             build_pooled_summary_frame(results_frame) if folds and pooled_distributions else None
         )
+        pooled_distribution_frame = (
+            build_pooled_distribution_frame(results_frame) if folds and pooled_distributions else None
+        )
         if folds:
             metadata["pooled_distributions"] = pooled_distributions
-            metadata["pooled_scope"] = "summary" if pooled_distributions else "none"
+            metadata["pooled_scope"] = "distribution" if pooled_distributions else "none"
         results = MonteCarloResults(
             mode=mode,
             evaluations=evaluations,
@@ -246,6 +250,7 @@ class MonteCarloRunner:
             summary_frame=summary_frame,
             cross_fold_summary_frame=cross_fold_summary_frame,
             pooled_summary_frame=pooled_summary_frame,
+            pooled_distribution_frame=pooled_distribution_frame,
             metadata=metadata,
         )
         self._maybe_export(results)
