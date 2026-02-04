@@ -147,6 +147,25 @@ def test_build_breach_frame_skips_non_finite_thresholds() -> None:
     assert breach.loc[0, "threshold"] == pytest.approx(2.5)
 
 
+def test_build_breach_frame_ignores_non_finite_metric_values() -> None:
+    path_frame = build_path_frame(
+        pd.DataFrame(
+            [
+                {"strategy": "A", "path": 1, "fold": 0, "metric": 1.0},
+                {"strategy": "A", "path": 2, "fold": 0, "metric": float("nan")},
+                {"strategy": "A", "path": 3, "fold": 0, "metric": float("inf")},
+                {"strategy": "A", "path": 4, "fold": 0, "metric": float("-inf")},
+                {"strategy": "A", "path": 5, "fold": 0, "metric": 2.0},
+            ]
+        )
+    )
+
+    breach = build_breach_frame(path_frame, {"metric": {"thresholds": [1.5], "direction": "lower"}})
+
+    assert breach.loc[0, "paths"] == 2
+    assert breach.loc[0, "breach_probability"] == pytest.approx(0.5)
+
+
 def test_build_expected_shortfall_frame_computes_tail_mean() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 
