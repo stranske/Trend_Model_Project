@@ -278,9 +278,7 @@ def _metric_columns(results_frame: pd.DataFrame) -> list[str]:
 
 
 def _path_metric_columns(path_frame: pd.DataFrame) -> list[str]:
-    numeric_cols = [
-        str(col) for col in path_frame.select_dtypes(include="number").columns.tolist()
-    ]
+    numeric_cols = [str(col) for col in path_frame.select_dtypes(include="number").columns.tolist()]
     for col in ("path", "fold"):
         if col in numeric_cols:
             numeric_cols.remove(col)
