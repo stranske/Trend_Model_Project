@@ -196,3 +196,44 @@ def test_export_results_skips_pooled_summary_when_missing(tmp_path) -> None:
     exported = export_results(results, tmp_path, formats=["csv"])
 
     assert "pooled_summary_csv" not in exported
+
+
+def test_export_results_writes_diagnostics_frame(tmp_path) -> None:
+    frame = pd.DataFrame(
+        [
+            {"path_id": 1, "strategy": "A", "metric": 1.0},
+        ]
+    )
+    summary = build_summary_frame(frame)
+    diagnostics_frame = pd.DataFrame(
+        [
+            {
+                "fold_id": None,
+                "path_id": 1,
+                "strategy": "A",
+                "path_hash": "hash",
+                "seed": 7,
+                "period": pd.Timestamp("2021-01-31"),
+                "turnover": 0.2,
+                "turnover_cap_binding": True,
+            }
+        ]
+    )
+    results = MonteCarloResults(
+        mode="two_layer",
+        evaluations=[],
+        errors=[],
+        results_frame=frame,
+        summary_frame=summary,
+        diagnostics_frame=diagnostics_frame,
+        metadata={},
+    )
+
+    exported = export_results(results, tmp_path, formats=["csv"])
+
+    diagnostics_path = exported["diagnostics_csv"]
+    diagnostics = pd.read_csv(
+        diagnostics_path, true_values=["True"], false_values=["False"]
+    )
+    assert "turnover_cap_binding" in diagnostics.columns
+    assert diagnostics.loc[0, "turnover_cap_binding"] == True

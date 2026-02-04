@@ -261,6 +261,10 @@ def export_results(
         summary_path = out_dir / f"summary.{ext}"
         _export_frame(results.results_frame, results_path, ext)
         _export_frame(results.summary_frame, summary_path, ext)
+        if results.diagnostics_frame is not None:
+            diagnostics_path = out_dir / f"diagnostics.{ext}"
+            _export_frame(results.diagnostics_frame, diagnostics_path, ext)
+            exported[f"diagnostics_{ext}"] = diagnostics_path
         if results.cross_fold_summary_frame is not None:
             cross_path = out_dir / f"cross_fold_summary.{ext}"
             _export_frame(results.cross_fold_summary_frame, cross_path, ext)
