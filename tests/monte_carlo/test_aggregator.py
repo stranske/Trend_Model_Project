@@ -20,9 +20,27 @@ from trend_analysis.monte_carlo.export import export_aggregation_results
 def _sample_results_frame() -> pd.DataFrame:
     return pd.DataFrame(
         [
-            {"fold_id": 1, "path_id": 1, "strategy": "A", "metric": 1.0, "metric2": 2.0},
-            {"fold_id": 1, "path_id": 2, "strategy": "A", "metric": 3.0, "metric2": 4.0},
-            {"fold_id": 1, "path_id": 3, "strategy": "A", "metric": 5.0, "metric2": 6.0},
+            {
+                "fold_id": 1,
+                "path_id": 1,
+                "strategy": "A",
+                "metric": 1.0,
+                "metric2": 2.0,
+            },
+            {
+                "fold_id": 1,
+                "path_id": 2,
+                "strategy": "A",
+                "metric": 3.0,
+                "metric2": 4.0,
+            },
+            {
+                "fold_id": 1,
+                "path_id": 3,
+                "strategy": "A",
+                "metric": 5.0,
+                "metric2": 6.0,
+            },
         ]
     )
 
@@ -83,7 +101,9 @@ def test_build_breach_frame_handles_lower_and_upper_thresholds() -> None:
 
     assert list(breach.columns) == list(BREACH_COLUMNS)
     metric_prob = breach.loc[breach["metric"] == "metric", "breach_probability"].iloc[0]
-    metric2_prob = breach.loc[breach["metric"] == "metric2", "breach_probability"].iloc[0]
+    metric2_prob = breach.loc[breach["metric"] == "metric2", "breach_probability"].iloc[
+        0
+    ]
     assert metric_prob == pytest.approx(1.0 / 3.0)
     assert metric2_prob == pytest.approx(1.0 / 3.0)
 
@@ -100,8 +120,12 @@ def test_build_expected_shortfall_frame_computes_tail_mean() -> None:
     )
 
     assert list(shortfall.columns) == list(EXPECTED_SHORTFALL_COLUMNS)
-    metric_es = shortfall.loc[shortfall["metric"] == "metric", "expected_shortfall"].iloc[0]
-    metric2_es = shortfall.loc[shortfall["metric"] == "metric2", "expected_shortfall"].iloc[0]
+    metric_es = shortfall.loc[
+        shortfall["metric"] == "metric", "expected_shortfall"
+    ].iloc[0]
+    metric2_es = shortfall.loc[
+        shortfall["metric"] == "metric2", "expected_shortfall"
+    ].iloc[0]
     assert metric_es == pytest.approx(2.0)
     assert metric2_es == pytest.approx(5.0)
 

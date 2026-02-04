@@ -86,7 +86,9 @@ def aggregate_monte_carlo_results(
     path_frame = build_path_frame(results_frame)
     quantiles_frame = build_quantiles_frame(path_frame, quantiles)
     breach_frame = build_breach_frame(path_frame, breach_spec)
-    expected_shortfall_frame = build_expected_shortfall_frame(path_frame, expected_shortfall_spec)
+    expected_shortfall_frame = build_expected_shortfall_frame(
+        path_frame, expected_shortfall_spec
+    )
     return MonteCarloAggregationResults(
         path_frame=path_frame,
         quantiles_frame=quantiles_frame,
@@ -109,7 +111,9 @@ def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     }
     frame = pd.DataFrame(data)
     if metric_cols:
-        frame = pd.concat([frame, results_frame[metric_cols].reset_index(drop=True)], axis=1)
+        frame = pd.concat(
+            [frame, results_frame[metric_cols].reset_index(drop=True)], axis=1
+        )
     schema = path_frame_schema(results_frame)
     if schema:
         return frame[list(schema)]
@@ -272,7 +276,9 @@ def build_expected_shortfall_frame(
             else:
                 threshold = float(np.nanquantile(values, alpha))
                 tail_values = values[values <= threshold]
-            expected_shortfall = float(np.mean(tail_values)) if tail_values.size else np.nan
+            expected_shortfall = (
+                float(np.mean(tail_values)) if tail_values.size else np.nan
+            )
             rows.append(
                 {
                     "strategy": strategy,
@@ -290,7 +296,8 @@ def build_expected_shortfall_frame(
 
 def _metric_columns(results_frame: pd.DataFrame) -> list[str]:
     numeric_cols = [
-        str(col) for col in results_frame.select_dtypes(include="number").columns.tolist()
+        str(col)
+        for col in results_frame.select_dtypes(include="number").columns.tolist()
     ]
     for col in ("fold_id", "path_id", "seed", "fold", "path"):
         if col in numeric_cols:
@@ -299,7 +306,9 @@ def _metric_columns(results_frame: pd.DataFrame) -> list[str]:
 
 
 def _path_metric_columns(path_frame: pd.DataFrame) -> list[str]:
-    numeric_cols = [str(col) for col in path_frame.select_dtypes(include="number").columns.tolist()]
+    numeric_cols = [
+        str(col) for col in path_frame.select_dtypes(include="number").columns.tolist()
+    ]
     for col in ("path", "fold"):
         if col in numeric_cols:
             numeric_cols.remove(col)
