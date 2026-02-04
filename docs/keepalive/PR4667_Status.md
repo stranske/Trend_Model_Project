@@ -7,7 +7,7 @@ PR #4667 aimed to resolve issue #4666 but failed to meet the acceptance criteria
 7/7 tasks complete, 0 remaining.
 
 ## Checklist Reconciliation
-Checklist reconciled on 2026-02-04 after reviewing recent commits and running `pytest tests/monte_carlo/test_runner_turnover_diagnostics.py -m "not slow"` plus `pytest tests/app/test_nl_operation_viewer_component.py -m "not slow"` following the latest redaction updates.
+Checklist reconciled on 2026-02-04 after reviewing recent commits and running `pytest tests/monte_carlo/test_runner_turnover_diagnostics.py -m "not slow"` and `pytest tests/test_config_turnover_validation.py -m "not slow"`.
 
 ## Tasks
 - [x] Update the configuration schema/model to add and validate a new 'max_turnover' field that accepts regime-based turnover cap values.
