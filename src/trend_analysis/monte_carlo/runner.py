@@ -47,6 +47,7 @@ from .results import (
     MonteCarloResults,
     StrategyEvaluation,
     build_cross_fold_summary_frame,
+    build_diagnostics_frame,
     build_pooled_summary_frame,
     build_results_frame,
     build_summary_frame,
@@ -212,6 +213,7 @@ class MonteCarloRunner:
 
         results_frame = build_results_frame(evaluations)
         summary_frame = build_summary_frame(results_frame)
+        diagnostics_frame = build_diagnostics_frame(evaluations)
         metadata: dict[str, Any] = {
             "scenario": self.scenario.name,
             "mode": mode,
@@ -241,6 +243,7 @@ class MonteCarloRunner:
             errors=errors,
             results_frame=results_frame,
             summary_frame=summary_frame,
+            diagnostics_frame=diagnostics_frame,
             cross_fold_summary_frame=cross_fold_summary_frame,
             pooled_summary_frame=pooled_summary_frame,
             metadata=metadata,

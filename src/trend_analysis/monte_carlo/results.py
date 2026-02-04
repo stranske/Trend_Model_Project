@@ -6,12 +6,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+import numpy as np
 import pandas as pd
 
 __all__ = [
     "MonteCarloPathError",
     "MonteCarloResults",
     "StrategyEvaluation",
+    "build_diagnostics_frame",
     "build_cross_fold_summary_frame",
     "build_pooled_summary_frame",
     "build_results_frame",
@@ -26,6 +28,17 @@ RESULT_BASE_COLUMNS = (
     "path_hash",
     "seed",
     "metric_source",
+)
+
+DIAGNOSTIC_COLUMNS = (
+    "fold_id",
+    "path_id",
+    "strategy",
+    "path_hash",
+    "seed",
+    "period",
+    "turnover",
+    "turnover_cap_binding",
 )
 
 
@@ -63,6 +76,7 @@ class MonteCarloResults:
     errors: Sequence[MonteCarloPathError]
     results_frame: pd.DataFrame
     summary_frame: pd.DataFrame
+    diagnostics_frame: pd.DataFrame | None = None
     cross_fold_summary_frame: pd.DataFrame | None = None
     pooled_summary_frame: pd.DataFrame | None = None
     metadata: Mapping[str, Any] | None = None
@@ -87,6 +101,61 @@ def build_results_frame(evaluations: Iterable[StrategyEvaluation]) -> pd.DataFra
         return pd.DataFrame(columns=list(RESULT_BASE_COLUMNS))
     frame = pd.DataFrame(rows)
     base_cols = [col for col in RESULT_BASE_COLUMNS if col in frame.columns]
+    other_cols = [col for col in frame.columns if col not in base_cols]
+    return frame[base_cols + other_cols]
+
+
+def build_diagnostics_frame(evaluations: Iterable[StrategyEvaluation]) -> pd.DataFrame:
+    """Return a per-period diagnostics table for evaluations with turnover caps."""
+
+    rows: list[dict[str, Any]] = []
+    for evaluation in evaluations:
+        diagnostic = evaluation.diagnostic or {}
+        turnover = diagnostic.get("turnover")
+        binding = diagnostic.get("turnover_cap_binding")
+        if not isinstance(turnover, pd.Series) and not isinstance(binding, pd.Series):
+            continue
+        index = None
+        if isinstance(turnover, pd.Series):
+            index = turnover.index
+        if isinstance(binding, pd.Series):
+            index = binding.index if index is None else index
+        if index is None:
+            continue
+        turnover_series = None
+        if isinstance(turnover, pd.Series):
+            turnover_series = turnover.reindex(index)
+        elif isinstance(turnover, (float, int)):
+            turnover_series = pd.Series(float(turnover), index=index, name="turnover")
+        binding_series = None
+        if isinstance(binding, pd.Series):
+            binding_series = binding.reindex(index)
+        elif isinstance(binding, (bool, np.bool_)):
+            binding_series = pd.Series(bool(binding), index=index, name="turnover_cap_binding")
+        for period in index:
+            row: dict[str, Any] = {
+                "fold_id": (int(evaluation.fold_id) if evaluation.fold_id is not None else None),
+                "path_id": int(evaluation.path_id),
+                "strategy": evaluation.strategy_name,
+                "path_hash": evaluation.path_hash,
+                "seed": evaluation.seed,
+                "period": period,
+                "turnover": (
+                    float(turnover_series.loc[period])
+                    if turnover_series is not None and pd.notna(turnover_series.loc[period])
+                    else None
+                ),
+                "turnover_cap_binding": (
+                    bool(binding_series.loc[period])
+                    if binding_series is not None and pd.notna(binding_series.loc[period])
+                    else None
+                ),
+            }
+            rows.append(row)
+    if not rows:
+        return pd.DataFrame(columns=list(DIAGNOSTIC_COLUMNS))
+    frame = pd.DataFrame(rows)
+    base_cols = [col for col in DIAGNOSTIC_COLUMNS if col in frame.columns]
     other_cols = [col for col in frame.columns if col not in base_cols]
     return frame[base_cols + other_cols]
 

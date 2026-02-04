@@ -4,6 +4,7 @@ import pandas as pd
 import pandas.testing as pdt
 
 from trend_analysis.api import RunResult
+from trend_analysis.monte_carlo.results import StrategyEvaluation
 from trend_analysis.monte_carlo.runner import MonteCarloRunner, _PathContext
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario
 from trend_analysis.monte_carlo.strategy import StrategyVariant
@@ -89,3 +90,49 @@ def test_runner_records_turnover_and_binding(monkeypatch) -> None:
         name="turnover_cap_binding",
     )
     pdt.assert_series_equal(diagnostic["turnover_cap_binding"], expected_binding)
+
+
+def test_results_include_turnover_binding_diagnostics(monkeypatch) -> None:
+    dates = pd.date_range("2021-01-31", periods=2, freq="ME")
+    turnover = pd.Series([0.1, 0.25], index=dates, name="turnover")
+    binding = pd.Series([False, True], index=dates, name="turnover_cap_binding")
+    evaluation = StrategyEvaluation(
+        fold_id=None,
+        path_id=0,
+        strategy_name="base",
+        metrics={"cagr": 0.1},
+        metric_source="metrics",
+        path_hash="hash",
+        seed=123,
+        diagnostic={"turnover": turnover, "turnover_cap_binding": binding},
+    )
+
+    def _fake_run_mode(*_args, **_kwargs):
+        return [evaluation], []
+
+    def _fake_build_price_model(*_args, **_kwargs):
+        return object()
+
+    monkeypatch.setattr(MonteCarloRunner, "_run_mode", _fake_run_mode)
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
+
+    history = pd.DataFrame({"Asset": [100.0, 101.0]}, index=dates)
+    runner = MonteCarloRunner(_scenario(), base_config=_base_config(), price_history=history)
+    results = runner.run()
+
+    diagnostics = results.diagnostics_frame
+    assert diagnostics is not None
+
+    expected = pd.DataFrame(
+        {
+            "fold_id": [None, None],
+            "path_id": [0, 0],
+            "strategy": ["base", "base"],
+            "path_hash": ["hash", "hash"],
+            "seed": [123, 123],
+            "period": list(dates),
+            "turnover": [0.1, 0.25],
+            "turnover_cap_binding": [False, True],
+        }
+    )
+    pdt.assert_frame_equal(diagnostics.reset_index(drop=True), expected)
