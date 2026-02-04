@@ -20,6 +20,7 @@ __all__ = [
     "build_path_frame",
     "build_quantiles_frame",
     "path_frame_schema",
+    "quantiles_frame_schema",
 ]
 
 AGGREGATION_PATH_COLUMNS = (
@@ -118,6 +119,12 @@ def path_frame_schema(results_frame: pd.DataFrame) -> tuple[str, ...]:
 
     metric_cols = _metric_columns(results_frame)
     return tuple(AGGREGATION_PATH_COLUMNS) + tuple(metric_cols)
+
+
+def quantiles_frame_schema() -> tuple[str, ...]:
+    """Return the schema (column order) for the quantiles aggregation frame."""
+
+    return tuple(QUANTILE_COLUMNS)
 
 
 def build_quantiles_frame(
