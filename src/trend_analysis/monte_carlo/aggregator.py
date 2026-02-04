@@ -19,6 +19,8 @@ __all__ = [
     "build_expected_shortfall_frame",
     "build_path_frame",
     "build_quantiles_frame",
+    "breach_frame_schema",
+    "expected_shortfall_frame_schema",
     "path_frame_schema",
     "quantiles_frame_schema",
 ]
@@ -127,6 +129,18 @@ def quantiles_frame_schema() -> tuple[str, ...]:
     return tuple(QUANTILE_COLUMNS)
 
 
+def breach_frame_schema() -> tuple[str, ...]:
+    """Return the schema (column order) for the breach probability frame."""
+
+    return tuple(BREACH_COLUMNS)
+
+
+def expected_shortfall_frame_schema() -> tuple[str, ...]:
+    """Return the schema (column order) for the expected shortfall frame."""
+
+    return tuple(EXPECTED_SHORTFALL_COLUMNS)
+
+
 def build_quantiles_frame(
     path_frame: pd.DataFrame,
     quantiles: Sequence[float] | None,
@@ -212,7 +226,7 @@ def build_breach_frame(
                         "paths": total,
                     }
                 )
-    return pd.DataFrame(rows, columns=list(BREACH_COLUMNS))
+    return pd.DataFrame(rows, columns=list(breach_frame_schema()))
 
 
 def build_expected_shortfall_frame(
@@ -271,7 +285,7 @@ def build_expected_shortfall_frame(
                     "paths": total,
                 }
             )
-    return pd.DataFrame(rows, columns=list(EXPECTED_SHORTFALL_COLUMNS))
+    return pd.DataFrame(rows, columns=list(expected_shortfall_frame_schema()))
 
 
 def _metric_columns(results_frame: pd.DataFrame) -> list[str]:
