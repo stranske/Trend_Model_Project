@@ -193,7 +193,7 @@ def build_quantiles_frame(
         return pd.DataFrame(columns=list(schema))
 
     grouped = path_frame.groupby(["strategy", "fold"], dropna=False)
-    rows: list[dict[str, Any]] = []
+    rows: list[QuantilesAggregationRow] = []
     for (strategy, fold), group in grouped:
         for metric in metric_cols:
             values = group[metric].to_numpy(dtype=float)
@@ -241,7 +241,7 @@ def build_breach_frame(
         return pd.DataFrame(columns=list(schema))
 
     grouped = path_frame.groupby(["strategy", "fold"], dropna=False)
-    rows: list[dict[str, Any]] = []
+    rows: list[BreachAggregationRow] = []
     for (strategy, fold), group in grouped:
         for metric, thresholds, direction in specs:
             if metric not in group.columns:
@@ -286,7 +286,7 @@ def build_expected_shortfall_frame(
         return pd.DataFrame(columns=list(schema))
 
     grouped = path_frame.groupby(["strategy", "fold"], dropna=False)
-    rows: list[dict[str, Any]] = []
+    rows: list[ExpectedShortfallAggregationRow] = []
     for (strategy, fold), group in grouped:
         for metric, alpha, tail in specs:
             if metric not in group.columns:
