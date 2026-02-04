@@ -11,11 +11,11 @@ import pytest
 
 pytest.importorskip("langchain_core")
 
-from langchain_core.runnables import RunnableLambda
+from langchain_core.runnables import RunnableLambda  # noqa: E402
 
-from trend_analysis.llm.chain import ConfigPatchChain
-from trend_analysis.llm.prompts import build_config_patch_prompt
-from trend_analysis.llm.providers import LLMProviderConfig, create_llm
+from trend_analysis.llm.chain import ConfigPatchChain  # noqa: E402
+from trend_analysis.llm.prompts import build_config_patch_prompt  # noqa: E402
+from trend_analysis.llm.providers import LLMProviderConfig, create_llm  # noqa: E402
 
 
 class _Message:

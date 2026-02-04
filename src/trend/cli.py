@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Protocol, cast
+from typing import Any, Callable, Iterable, Mapping, Protocol, cast
 
 import numpy as np
 import pandas as pd
@@ -87,10 +87,6 @@ from trend_model.spec import ensure_run_spec
 from utils.paths import proj_path
 
 LegacyExtractCacheStats = Callable[[object], dict[str, int] | None]
-
-if TYPE_CHECKING:
-    from trend_analysis.llm.nl_logging import NLOperationLog
-    from trend_analysis.llm.replay import ReplayResult
 
 
 class LegacyMaybeLogStep(Protocol):

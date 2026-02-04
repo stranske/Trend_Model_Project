@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Mapping, cast
+from typing import Any, Mapping, cast
 
 import pandas as pd
 
@@ -10,9 +10,6 @@ from trend.diagnostics import DiagnosticResult
 
 from .diagnostics import PipelineResult, coerce_pipeline_result
 from .util.risk_free import resolve_risk_free_settings
-
-if TYPE_CHECKING:
-    from .diagnostics import PipelineResult
 
 logger = logging.getLogger("trend_analysis.pipeline")
 
