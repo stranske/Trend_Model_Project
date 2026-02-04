@@ -142,6 +142,24 @@ def test_count_spaced_mode_shifts_start_for_lookback() -> None:
     assert folds[0].calibration_start == pd.Timestamp("2020-01-31")
 
 
+def test_count_spaced_mode_single_fold_respects_lookback() -> None:
+    index = pd.date_range("2020-01-31", periods=36, freq="ME")
+    generator = FoldGenerator(
+        mode="count_spaced",
+        start="2020-01-31",
+        end="2022-12-31",
+        n_folds=1,
+        calibration_lookback_years=1.0,
+    )
+
+    folds = generator.generate(index)
+
+    assert len(folds) == 1
+    assert folds[0].forecast_start == pd.Timestamp("2021-01-31")
+    assert folds[0].calibration_end == pd.Timestamp("2020-12-31")
+    assert folds[0].calibration_start == pd.Timestamp("2020-01-31")
+
+
 def test_count_spaced_mode_rejects_invalid_range() -> None:
     index = pd.date_range("2020-01-31", periods=6, freq="ME")
     generator = FoldGenerator(
