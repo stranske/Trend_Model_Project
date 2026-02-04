@@ -14,8 +14,8 @@ import numpy as np
 import pandas as pd
 
 from trend_analysis.api import run_simulation
-from trend_analysis.constants import NUMERICAL_TOLERANCE_HIGH
 from trend_analysis.config.models import Config, ConfigType
+from trend_analysis.constants import NUMERICAL_TOLERANCE_HIGH
 from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
 from trend_analysis.io.market_data import (
     MarketDataMode,
@@ -961,7 +961,9 @@ class MonteCarloRunner:
         max_turnover: object | None,
     ) -> tuple[pd.Series | None, pd.Series | None]:
         out_index = self._resolve_cost_index(run_result, context)
-        regimes = self._resolve_regime_labels(run_result, out_index) if out_index is not None else None
+        regimes = (
+            self._resolve_regime_labels(run_result, out_index) if out_index is not None else None
+        )
         turnover_raw = self._resolve_turnover_series(run_result, out_index)
         turnover_series = self._coerce_turnover_series(turnover_raw, out_index)
         cap_series = self._resolve_turnover_cap_series(max_turnover, regimes, out_index)
