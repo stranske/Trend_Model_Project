@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Define aggregation result schema for per-path, quantiles, breach, and expected
       shortfall tables in `src/trend_analysis/monte_carlo/aggregator.py`.
-    status: doing
+    status: done
     started_at: '2026-02-04T20:19:56Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-04T20:20:06Z'
+    commit: 6e0f2a59dbf53b7435e937a2c300e1fb550ee935
     notes: []
   - id: task-02
     title: 'Define schema for per-path aggregation results. (verify: confirm completion
