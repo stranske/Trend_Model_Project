@@ -138,6 +138,17 @@ def _redact_entry_for_replay(entry: NLOperationLog) -> NLOperationLog:
     )
 
 
+def _prepare_replay_entry(entry: NLOperationLog) -> tuple[NLOperationLog, bool]:
+    redacted_entry = _redact_entry_for_replay(entry)
+    original_prompt = entry.prompt_template or ""
+    original_vars = entry.prompt_variables or {}
+    redacted = (
+        (redacted_entry.prompt_template or "") != original_prompt
+        or (redacted_entry.prompt_variables or {}) != original_vars
+    )
+    return redacted_entry, redacted
+
+
 def _entry_has_sensitive_prompt(entry: NLOperationLog) -> bool:
     if _redact_text(entry.prompt_template or "") != (entry.prompt_template or ""):
         return True
@@ -210,18 +221,13 @@ def _render_patch_summary(entry: NLOperationLog) -> None:
 def _render_replay(entry: NLOperationLog) -> None:
     st.markdown("**Replay**")
     st.caption("Replays may differ across time, models, or provider settings.")
-    has_sensitive = _entry_has_sensitive_prompt(entry)
-    if has_sensitive:
+    replay_entry, redacted = _prepare_replay_entry(entry)
+    if redacted or _entry_has_sensitive_prompt(entry):
         st.warning(
             "Sensitive data detected in the prompt. Replay will use a redacted prompt to prevent leakage."
         )
-        redact_prompt = True
     else:
-        redact_prompt = st.checkbox(
-            "Redact sensitive data in replay prompt (recommended)",
-            value=True,
-            key="nl_replay_redact_prompt",
-        )
+        st.caption("Replay uses redacted prompt variables to prevent leakage.")
     provider = st.selectbox("Provider", ["openai", "anthropic", "ollama"], key="nl_replay_provider")
     model = st.text_input("Model (optional)", value=entry.model_name or "", key="nl_replay_model")
     temperature = st.slider(
@@ -237,7 +243,6 @@ def _render_replay(entry: NLOperationLog) -> None:
         return
     with st.spinner("Replaying entry..."):
         try:
-            replay_entry = _redact_entry_for_replay(entry) if redact_prompt else entry
             replay_result = replay_nl_entry(
                 replay_entry,
                 provider=provider,
