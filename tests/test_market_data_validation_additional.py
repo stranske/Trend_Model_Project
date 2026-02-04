@@ -88,6 +88,44 @@ def test_missing_policy_overrides_accept_stringified_column_keys() -> None:
     assert meta["missing_policy_limits"]["1"] == 1
 
 
+def test_missing_policy_overrides_filter_defaults_and_stringify_limits() -> None:
+    dates = pd.date_range("2024-01-31", periods=3, freq="ME")
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            1: [0.01, None, 0.02],
+            "FundB": [0.02, 0.018, 0.019],
+        }
+    )
+    policy = {"*": "drop", 1: "ffill", "FundB": "drop"}
+    limits = {"*": "2", 1: "0"}
+
+    validated = market_data.validate_market_data(df, missing_policy=policy, missing_limit=limits)
+
+    meta = validated.attrs["market_data"]
+    # Only overrides that differ from the default should be captured.
+    assert meta["missing_policy_overrides"] == {"1": "ffill"}
+    # Limit mappings should be fully expanded and string-keyed.
+    assert meta["missing_policy_limits"] == {"1": 0, "FundB": 2}
+
+
+def test_missing_policy_overrides_empty_when_uniform_policy() -> None:
+    dates = pd.date_range("2024-01-31", periods=3, freq="ME")
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "FundA": [0.01, None, 0.02],
+            "FundB": [0.02, 0.018, 0.019],
+        }
+    )
+
+    validated = market_data.validate_market_data(df, missing_policy="ffill", missing_limit=1)
+
+    meta = validated.attrs["market_data"]
+    assert meta["missing_policy_overrides"] == {}
+    assert meta["missing_policy_limits"] == {"FundA": 1, "FundB": 1}
+
+
 def test_build_policy_maps_stringifies_keys_and_applies_defaults() -> None:
     columns = [1, "FundB", "FundC"]
     policy = {"*": "drop", 1: "ffill", "FundC": "zero", "unused": "ffill"}

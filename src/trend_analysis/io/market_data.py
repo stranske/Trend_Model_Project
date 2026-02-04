@@ -320,6 +320,10 @@ def _build_policy_maps(
         # Convert override keys to strings and pull the "*" default. Any override
         # entry that doesn't match a column name is ignored when we build the
         # per-column policy map.
+        #
+        # Why string coercion? Configuration often uses JSON/YAML where numeric
+        # column labels can be loaded as ints. Converting everything to strings
+        # ensures "1" in the data matches an override specified as 1.
         raw_policy = {str(k): v for k, v in policy.items()}
         default_policy = _normalise_policy_value(raw_policy.get("*"))
         policy_map = {
@@ -332,7 +336,8 @@ def _build_policy_maps(
 
     if isinstance(limit, Mapping):
         # Apply the same conversion rules as policy overrides, but coerce limits
-        # to integers (or None) while honoring the "*" default.
+        # to integers (or None) while honoring the "*" default. This keeps the
+        # per-column map fully expanded (no "*" entries) for downstream metadata.
         raw_limit = {str(k): v for k, v in limit.items()}
         default_limit = _coerce_limit_value(raw_limit.get("*"))
         limit_map = {col: _coerce_limit_value(raw_limit.get(col, default_limit)) for col in cols}
@@ -473,7 +478,7 @@ def _summarise_missing_policy(info: Mapping[str, Any]) -> str:
             count = 0
         filled_chunks.append(f"{column} ({method}: {count})")
 
-    dropped = list(info.get("dropped", []))
+    dropped = [str(item) for item in info.get("dropped", [])]
 
     parts = [f"policy={policy}", limit_text]
     if overrides:
@@ -871,7 +876,7 @@ def validate_market_data(
     )
 
     if policy_frame.empty:
-        dropped = policy_info.get("dropped", [])
+        dropped = [str(item) for item in policy_info.get("dropped", [])]
         detail = f" (dropped columns: {', '.join(dropped)})" if dropped else ""
         issues = [
             "Missing-data policy removed every column. "
@@ -905,6 +910,9 @@ def validate_market_data(
         symbols=list(policy_frame.columns),
         missing_policy=policy_info.get("policy", _DEFAULT_MISSING_POLICY),
         missing_policy_limit=policy_info.get("limit"),
+        # Record only per-column policies that differ from the default so the
+        # metadata reflects explicit user overrides (instead of a full expansion).
+        # Keys are already normalized to strings by _build_policy_maps.
         missing_policy_overrides={
             column: value
             for column, value in policy_info.get("policy_map", {}).items()
@@ -912,7 +920,7 @@ def validate_market_data(
         },
         missing_policy_limits=policy_info.get("limit_map", {}),
         missing_policy_filled=policy_info.get("filled", {}),
-        missing_policy_dropped=list(policy_info.get("dropped", [])),
+        missing_policy_dropped=[str(item) for item in policy_info.get("dropped", [])],
         missing_policy_summary=_summarise_missing_policy(policy_info),
     )
 
