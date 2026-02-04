@@ -92,7 +92,14 @@ def test_build_pooled_summary_frame_ignores_folds() -> None:
 def test_build_pooled_summary_frame_empty_returns_columns() -> None:
     pooled = build_pooled_summary_frame(pd.DataFrame())
 
-    assert list(pooled.columns) == ["scope", "pooled_scope", "fold_id", "strategy", "paths", "folds"]
+    assert list(pooled.columns) == [
+        "scope",
+        "pooled_scope",
+        "fold_id",
+        "strategy",
+        "paths",
+        "folds",
+    ]
     assert pooled.empty
 
 
