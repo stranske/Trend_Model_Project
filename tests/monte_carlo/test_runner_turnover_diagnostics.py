@@ -10,7 +10,7 @@ from trend_analysis.monte_carlo.scenario import MonteCarloScenario
 from trend_analysis.monte_carlo.strategy import StrategyVariant
 
 
-def _base_config(max_turnover: float | None = None) -> dict[str, object]:
+def _base_config(max_turnover: object | None = None) -> dict[str, object]:
     portfolio: dict[str, object] = {}
     if max_turnover is not None:
         portfolio["max_turnover"] = max_turnover
@@ -86,6 +86,56 @@ def test_runner_records_turnover_and_binding(monkeypatch) -> None:
     pdt.assert_series_equal(diagnostic["turnover"], turnover)
     expected_binding = pd.Series(
         [False, True],
+        index=dates,
+        name="turnover_cap_binding",
+    )
+    pdt.assert_series_equal(diagnostic["turnover_cap_binding"], expected_binding)
+
+
+def test_runner_resolves_regime_turnover_caps(monkeypatch) -> None:
+    dates = pd.date_range("2021-01-31", periods=3, freq="ME")
+    returns = pd.DataFrame({"Date": dates, "Asset": [0.01, 0.02, 0.03]})
+    turnover = pd.Series([0.1, 0.08, 0.2], index=dates, name="turnover")
+    regimes = pd.Series(["risk_on", "risk_off", "unknown"], index=dates, name="regime")
+    out_scaled = pd.DataFrame({"Asset": [0.01, 0.02, 0.03]}, index=dates)
+    metrics = pd.DataFrame({"cagr": [0.1]}, index=["user_weight"])
+    run_result = RunResult(
+        metrics=metrics,
+        details={"out_sample_scaled": out_scaled, "regime_labels_out": regimes},
+        seed=0,
+        environment={},
+        turnover=turnover,
+    )
+    captured: dict[str, object] = {}
+
+    def _fake_run_simulation(config, *_args, **_kwargs):
+        captured["max_turnover"] = config.portfolio.get("max_turnover")
+        return run_result
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.run_simulation",
+        _fake_run_simulation,
+    )
+
+    runner = MonteCarloRunner(
+        _scenario(),
+        base_config=_base_config(max_turnover={"risk_on": 0.15, "risk_off": 0.05}),
+    )
+    context = _PathContext(
+        path_id=0,
+        prices=pd.DataFrame(),
+        returns=returns,
+        score_frame=pd.DataFrame(),
+        path_hash="hash",
+        seed=123,
+    )
+
+    evaluation = runner._evaluate_strategy(StrategyVariant(name="base"), context)
+    diagnostic = evaluation.diagnostic or {}
+
+    assert captured["max_turnover"] == {"risk_on": 0.15, "risk_off": 0.05}
+    expected_binding = pd.Series(
+        [False, True, False],
         index=dates,
         name="turnover_cap_binding",
     )
