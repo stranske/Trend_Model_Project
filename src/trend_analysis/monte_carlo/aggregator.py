@@ -425,7 +425,7 @@ def _coerce_shortfall_specs(
     metrics: Sequence[str],
 ) -> list[tuple[str, float, str]]:
     if shortfall_spec is None:
-        return []
+        return [(metric, 0.05, "lower") for metric in metrics]
     if not isinstance(shortfall_spec, Mapping):
         return []
 

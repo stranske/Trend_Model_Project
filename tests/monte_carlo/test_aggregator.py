@@ -206,6 +206,16 @@ def test_build_expected_shortfall_frame_computes_tail_mean() -> None:
     assert metric2_es == pytest.approx(5.0)
 
 
+def test_build_expected_shortfall_defaults_to_all_metrics() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    shortfall = build_expected_shortfall_frame(path_frame, None)
+
+    assert set(shortfall["metric"]) == {"metric", "metric2"}
+    assert set(shortfall["tail"]) == {"lower"}
+    assert shortfall["alpha"].tolist() == pytest.approx([0.05, 0.05])
+
+
 def test_schema_helpers_match_column_constants() -> None:
     assert quantiles_frame_schema() == QUANTILE_COLUMNS
     assert breach_frame_schema() == BREACH_COLUMNS
