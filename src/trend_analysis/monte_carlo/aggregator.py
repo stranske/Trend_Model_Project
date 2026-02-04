@@ -19,6 +19,7 @@ __all__ = [
     "build_expected_shortfall_frame",
     "build_path_frame",
     "build_quantiles_frame",
+    "path_frame_schema",
 ]
 
 AGGREGATION_PATH_COLUMNS = (
@@ -106,7 +107,17 @@ def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     frame = pd.DataFrame(data)
     if metric_cols:
         frame = pd.concat([frame, results_frame[metric_cols].reset_index(drop=True)], axis=1)
+    schema = path_frame_schema(results_frame)
+    if schema:
+        return frame[list(schema)]
     return frame
+
+
+def path_frame_schema(results_frame: pd.DataFrame) -> tuple[str, ...]:
+    """Return the schema (column order) for the per-path aggregation frame."""
+
+    metric_cols = _metric_columns(results_frame)
+    return tuple(AGGREGATION_PATH_COLUMNS) + tuple(metric_cols)
 
 
 def build_quantiles_frame(
