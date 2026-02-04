@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import TYPE_CHECKING, Mapping
+from typing import TYPE_CHECKING, Mapping, Protocol, cast
 
 import pandas as pd
 
@@ -11,11 +11,16 @@ from .. import configure_matplotlib_config_dir
 from ..metrics import rolling as rolling_metrics
 
 if TYPE_CHECKING:
+    from matplotlib.axes import Axes
     from matplotlib.figure import Figure
+
+    class _Pyplot(Protocol):
+        def subplots(self, *args: object, **kwargs: object) -> tuple[Figure, Axes]:
+            ...
 
 
 @lru_cache(maxsize=1)
-def _load_matplotlib() -> tuple[object, type["Figure"]]:
+def _load_matplotlib() -> tuple["_Pyplot", type["Figure"]]:
     """Configure matplotlib and return pyplot + Figure class."""
 
     configure_matplotlib_config_dir()
@@ -23,7 +28,7 @@ def _load_matplotlib() -> tuple[object, type["Figure"]]:
     import matplotlib.pyplot as plt
     from matplotlib.figure import Figure
 
-    return plt, Figure
+    return cast("_Pyplot", plt), Figure
 
 
 def _weights_to_frame(
