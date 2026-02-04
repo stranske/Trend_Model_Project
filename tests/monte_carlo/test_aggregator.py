@@ -9,10 +9,13 @@ from trend_analysis.monte_carlo.aggregator import (
     EXPECTED_SHORTFALL_COLUMNS,
     QUANTILE_COLUMNS,
     MonteCarloAggregationResults,
+    breach_frame_schema,
     build_breach_frame,
     build_expected_shortfall_frame,
     build_path_frame,
     build_quantiles_frame,
+    expected_shortfall_frame_schema,
+    quantiles_frame_schema,
 )
 from trend_analysis.monte_carlo.export import export_aggregation_results
 
@@ -81,7 +84,7 @@ def test_build_quantiles_frame_reports_requested_quantiles() -> None:
 
     quantiles = build_quantiles_frame(path_frame, [0.5])
 
-    assert list(quantiles.columns) == list(QUANTILE_COLUMNS)
+    assert list(quantiles.columns) == list(quantiles_frame_schema())
     assert quantiles.loc[0, "quantile"] == pytest.approx(0.5)
     assert quantiles.loc[0, "metric"] == "metric"
     assert quantiles.loc[0, "value"] == pytest.approx(3.0)
@@ -99,7 +102,7 @@ def test_build_breach_frame_handles_lower_and_upper_thresholds() -> None:
         },
     )
 
-    assert list(breach.columns) == list(BREACH_COLUMNS)
+    assert list(breach.columns) == list(breach_frame_schema())
     metric_prob = breach.loc[breach["metric"] == "metric", "breach_probability"].iloc[0]
     metric2_prob = breach.loc[breach["metric"] == "metric2", "breach_probability"].iloc[0]
     assert metric_prob == pytest.approx(1.0 / 3.0)
@@ -117,11 +120,17 @@ def test_build_expected_shortfall_frame_computes_tail_mean() -> None:
         },
     )
 
-    assert list(shortfall.columns) == list(EXPECTED_SHORTFALL_COLUMNS)
+    assert list(shortfall.columns) == list(expected_shortfall_frame_schema())
     metric_es = shortfall.loc[shortfall["metric"] == "metric", "expected_shortfall"].iloc[0]
     metric2_es = shortfall.loc[shortfall["metric"] == "metric2", "expected_shortfall"].iloc[0]
     assert metric_es == pytest.approx(2.0)
     assert metric2_es == pytest.approx(5.0)
+
+
+def test_schema_helpers_match_column_constants() -> None:
+    assert quantiles_frame_schema() == QUANTILE_COLUMNS
+    assert breach_frame_schema() == BREACH_COLUMNS
+    assert expected_shortfall_frame_schema() == EXPECTED_SHORTFALL_COLUMNS
 
 
 def test_export_aggregation_results_writes_csv(tmp_path) -> None:

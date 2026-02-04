@@ -149,8 +149,9 @@ def build_quantiles_frame(
 
     quantile_list = _coerce_quantiles(quantiles)
     metric_cols = _path_metric_columns(path_frame)
+    schema = quantiles_frame_schema()
     if path_frame.empty or not metric_cols:
-        return pd.DataFrame(columns=list(QUANTILE_COLUMNS))
+        return pd.DataFrame(columns=list(schema))
 
     grouped = path_frame.groupby(["strategy", "fold"], dropna=False)
     rows: list[dict[str, Any]] = []
@@ -182,7 +183,7 @@ def build_quantiles_frame(
                         "paths": int(values.size),
                     }
                 )
-    return pd.DataFrame(rows, columns=list(QUANTILE_COLUMNS))
+    return pd.DataFrame(rows, columns=list(schema))
 
 
 def build_breach_frame(
@@ -192,12 +193,13 @@ def build_breach_frame(
     """Compute breach probabilities for configured thresholds."""
 
     metric_cols = _path_metric_columns(path_frame)
+    schema = breach_frame_schema()
     if path_frame.empty or not metric_cols:
-        return pd.DataFrame(columns=list(BREACH_COLUMNS))
+        return pd.DataFrame(columns=list(schema))
 
     specs = _coerce_breach_specs(breach_spec, metric_cols)
     if not specs:
-        return pd.DataFrame(columns=list(BREACH_COLUMNS))
+        return pd.DataFrame(columns=list(schema))
 
     grouped = path_frame.groupby(["strategy", "fold"], dropna=False)
     rows: list[dict[str, Any]] = []
@@ -226,7 +228,7 @@ def build_breach_frame(
                         "paths": total,
                     }
                 )
-    return pd.DataFrame(rows, columns=list(breach_frame_schema()))
+    return pd.DataFrame(rows, columns=list(schema))
 
 
 def build_expected_shortfall_frame(
@@ -236,12 +238,13 @@ def build_expected_shortfall_frame(
     """Compute expected shortfall (tail mean) for configured metrics."""
 
     metric_cols = _path_metric_columns(path_frame)
+    schema = expected_shortfall_frame_schema()
     if path_frame.empty or not metric_cols:
-        return pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS))
+        return pd.DataFrame(columns=list(schema))
 
     specs = _coerce_shortfall_specs(expected_shortfall_spec, metric_cols)
     if not specs:
-        return pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS))
+        return pd.DataFrame(columns=list(schema))
 
     grouped = path_frame.groupby(["strategy", "fold"], dropna=False)
     rows: list[dict[str, Any]] = []
@@ -285,7 +288,7 @@ def build_expected_shortfall_frame(
                     "paths": total,
                 }
             )
-    return pd.DataFrame(rows, columns=list(expected_shortfall_frame_schema()))
+    return pd.DataFrame(rows, columns=list(schema))
 
 
 def _metric_columns(results_frame: pd.DataFrame) -> list[str]:
