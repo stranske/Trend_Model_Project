@@ -142,10 +142,9 @@ def _prepare_replay_entry(entry: NLOperationLog) -> tuple[NLOperationLog, bool]:
     redacted_entry = _redact_entry_for_replay(entry)
     original_prompt = entry.prompt_template or ""
     original_vars = entry.prompt_variables or {}
-    redacted = (
-        (redacted_entry.prompt_template or "") != original_prompt
-        or (redacted_entry.prompt_variables or {}) != original_vars
-    )
+    redacted = (redacted_entry.prompt_template or "") != original_prompt or (
+        redacted_entry.prompt_variables or {}
+    ) != original_vars
     return redacted_entry, redacted
 
 
