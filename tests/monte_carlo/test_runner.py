@@ -419,6 +419,62 @@ def test_runner_builds_pooled_summary_when_enabled(
     assert results.metadata.get("pooled_distributions") is True
 
 
+def test_runner_builds_cross_fold_summary_without_pooled_distributions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenario = _scenario_with_folds(
+        mode="two_layer",
+        folds={"mode": "explicit", "fold_starts": ["2022-01-31", "2023-01-31"]},
+    )
+    history = _price_history()
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=history,
+    )
+    seen_fold_ids: list[int] = []
+
+    def _fake_build_price_model(
+        self: MonteCarloRunner,
+        _history_slice: pd.DataFrame,
+        *,
+        calibration_start: pd.Timestamp | None = None,
+        calibration_end: pd.Timestamp | None = None,
+    ) -> object:
+        return object()
+
+    def _fake_run_mode(self: MonteCarloRunner, **kwargs: Any) -> tuple[list[Any], list[Any]]:
+        fold_id = int(kwargs.get("fold_id") or 0)
+        seen_fold_ids.append(fold_id)
+        evaluation = StrategyEvaluation(
+            fold_id=fold_id,
+            path_id=0,
+            strategy_name="StrategyA",
+            metrics={"metric": 1.0 + (fold_id * 2.0)},
+            metric_source="unit_test",
+            path_hash=f"hash-{fold_id}",
+            seed=0,
+        )
+        return [evaluation], []
+
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
+    monkeypatch.setattr(MonteCarloRunner, "_run_mode", _fake_run_mode)
+
+    results = runner.run(jobs=1)
+
+    assert results.pooled_summary_frame is None
+    cross_fold = results.cross_fold_summary_frame
+    assert cross_fold is not None
+    assert cross_fold.loc[0, "scope"] == "cross_fold"
+    assert pd.isna(cross_fold.loc[0, "fold_id"])
+    assert cross_fold.loc[0, "folds"] == 2
+    metric_values = [1.0 + (fold_id * 2.0) for fold_id in seen_fold_ids]
+    assert cross_fold.loc[0, "metric_mean"] == pytest.approx(float(np.mean(metric_values)))
+    assert cross_fold.loc[0, "metric_min"] == pytest.approx(float(np.min(metric_values)))
+    assert cross_fold.loc[0, "metric_max"] == pytest.approx(float(np.max(metric_values)))
+    assert cross_fold.loc[0, "metric_median"] == pytest.approx(float(np.median(metric_values)))
+
+
 def test_runner_includes_fold_ids_in_results_frame(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

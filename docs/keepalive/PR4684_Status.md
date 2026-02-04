@@ -4,11 +4,12 @@
 PR #4684 addressed issue #4683 but verification identified concerns (verdict: CONCERNS). This follow-up addresses the remaining gaps with improved task structure to ensure comprehensive coverage of fold-aware outputs and robust testing of fold modes.
 
 ## Progress
-22/37 tasks complete, 15 remaining.
+23/37 tasks complete, 14 remaining.
 
 ## Checklist Reconciliation
 Checklist reconciled on 2026-02-03 after reviewing commit b7222116 and running `pytest tests/monte_carlo/test_results.py -m "not slow"`. Export outputs are implemented in `src/trend_analysis/monte_carlo/results.py` (no standalone `export.py`), and the export points are results, summary, cross-fold summary, and pooled summary frames.
 Checklist refreshed on 2026-02-04 after reviewing commit b85001fa and running `pytest tests/monte_carlo/test_results.py -m "not slow"`. Added coverage for fold_id handling in results frames and validated cross-fold summary export labeling.
+Checklist refreshed on 2026-02-04 after running `pytest tests/monte_carlo/test_runner.py -m "not slow"`. Added coverage for cross-fold summary generation without pooled distributions and verified fold run enablement tests.
 Additional fold-aware output tables live outside Monte Carlo exports in `src/trend_analysis/walk_forward.py` (folds/summary CSVs) and `analysis/cv.py` (cv_folds/cv_summary CSVs). These should include a `fold_id` column while keeping existing `fold`/`folds` fields for compatibility. Validated updates on 2026-02-03 with `pytest tests/test_walk_forward_grid.py tests/test_walk_forward_helpers_additional.py tests/test_walk_forward_settings.py tests/test_cv.py -m "not slow"`.
 
 ## Tasks
@@ -41,10 +42,10 @@ Additional fold-aware output tables live outside Monte Carlo exports in `src/tre
 - [x] Implement unit tests for FoldGenerator._previous_in_index (verify: tests pass)
 - [x] including edge cases. (verify: confirm completion in repo)
 - [ ] Clarify and update implementation regarding pooled output to determine if full distribution artifacts are needed, and update tests accordingly.
-- [ ] Add or enhance tests to verify that the scenario configuration flag properly enables and disables fold runs.
+- [x] Add or enhance tests to verify that the scenario configuration flag properly enables and disables fold runs.
 
 ## Acceptance Criteria
-- [ ] The scenario configuration includes a flag that enables or disables fold runs, and when disabled, no fold-related code paths are executed.
+- [x] The scenario configuration includes a flag that enables or disables fold runs, and when disabled, no fold-related code paths are executed.
 - [ ] Explicit, rolling, and count_spaced fold modes are fully functional and covered by unit tests that verify expected fold start, calibration, and window calculations.
 - [ ] For each fold, the calibration window is correctly calculated and applied for return model fitting, with unit tests checking both typical and edge-case scenarios.
 - [x] Every result table that is part of fold-aware output includes a fold_id column.
