@@ -15,8 +15,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
     class _Pyplot(Protocol):
-        def subplots(self, *args: object, **kwargs: object) -> tuple[Figure, Axes]:
-            ...
+        def subplots(self, *args: object, **kwargs: object) -> tuple[Figure, Axes]: ...
 
 
 @lru_cache(maxsize=1)
