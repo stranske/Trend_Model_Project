@@ -70,6 +70,7 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     stub.form_submit_button = lambda *_args, **_kwargs: False
     stub.button = lambda *_args, **_kwargs: False
     stub.download_button = _noop
+    stub.dataframe = _noop
     stub.tabs = lambda labels: [Context() for _ in labels]
     stub.columns = lambda n: [Context() for _ in range(n)]
     stub.selectbox = lambda _label, options, index=0, **_kwargs: options[index]
