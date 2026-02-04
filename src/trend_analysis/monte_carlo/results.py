@@ -54,6 +54,7 @@ class MonteCarloPathError:
     strategy_name: str | None
     error_type: str
     message: str
+    fold_label: str | None = None
 
 
 @dataclass(frozen=True)

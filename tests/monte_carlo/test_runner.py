@@ -462,6 +462,29 @@ def test_runner_respects_enable_fold_runs_flag(monkeypatch: pytest.MonkeyPatch) 
     assert captured_calibration == [(None, None)]
 
 
+def test_runner_errors_include_fold_label(monkeypatch: pytest.MonkeyPatch) -> None:
+    scenario = _scenario_with_folds(
+        mode="two_layer",
+        folds={"mode": "explicit", "fold_starts": ["2022-01-31"]},
+    )
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+
+    def _boom(*_args: Any, **_kwargs: Any) -> Any:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(runner, "_generate_path_context", _boom)
+
+    results = runner.run(jobs=1)
+
+    assert results.errors
+    assert {error.fold_id for error in results.errors} == {1}
+    assert {error.fold_label for error in results.errors} == {"2022-01"}
+
+
 def test_runner_builds_pooled_summary_when_enabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
