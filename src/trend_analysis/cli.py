@@ -1443,7 +1443,73 @@ def _write_mc_manifest(
 
 
 def _is_valid_tqdm_instance(candidate: Any) -> bool:
-    return all(hasattr(candidate, attr) for attr in ("update", "refresh", "close", "total"))
+    if candidate is None:
+        return False
+    for attr in ("update", "refresh", "close"):
+        if not callable(getattr(candidate, attr, None)):
+            return False
+    if not hasattr(candidate, "total"):
+        return False
+    total = getattr(candidate, "total")
+    if total is None:
+        return True
+    if isinstance(total, numbers.Real):
+        try:
+            return float(total) >= 0
+        except (TypeError, ValueError):
+            return False
+    return False
+
+
+def _configure_tqdm_instance(
+    candidate: Any,
+    *,
+    total: int,
+) -> tuple[Any, bool]:
+    expected: dict[str, Any] = {"total": total, "unit": "path", "file": sys.stderr}
+    mismatches: dict[str, Any] = {}
+
+    for attr, expected_value in expected.items():
+        if not hasattr(candidate, attr):
+            continue
+        current_value = getattr(candidate, attr)
+        if current_value != expected_value:
+            mismatches[attr] = expected_value
+
+    if not mismatches:
+        return candidate, True
+
+    for attr, expected_value in mismatches.items():
+        try:
+            setattr(candidate, attr, expected_value)
+        except Exception:
+            continue
+
+    remaining = []
+    for attr, expected_value in mismatches.items():
+        if not hasattr(candidate, attr):
+            continue
+        if getattr(candidate, attr) != expected_value:
+            remaining.append(attr)
+
+    if not remaining:
+        return candidate, True
+
+    try:
+        replacement = type(candidate)(total=total, unit="path", file=sys.stderr)
+    except Exception:
+        logging.getLogger(__name__).warning(
+            "Provided tqdm instance could not be reconfigured; falling back to text progress."
+        )
+        return candidate, False
+
+    if _is_valid_tqdm_instance(replacement):
+        return replacement, True
+
+    logging.getLogger(__name__).warning(
+        "Provided tqdm instance could not be reconfigured; falling back to text progress."
+    )
+    return candidate, False
 
 
 def _build_mc_progress_callback(
@@ -1474,7 +1540,9 @@ def _build_mc_progress_callback(
 
     bar = None
     if _is_valid_tqdm_instance(tqdm):
-        bar = tqdm
+        bar, configured = _configure_tqdm_instance(tqdm, total=total)
+        if not configured:
+            bar = None
     elif callable(tqdm):
         try:
             bar = tqdm(total=total, unit="path", file=sys.stderr)
