@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import pytest
 import pandas as pd
+import pytest
 
 from trend_analysis.monte_carlo.aggregator import (
     AGGREGATION_PATH_COLUMNS,

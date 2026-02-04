@@ -82,9 +82,7 @@ def aggregate_monte_carlo_results(
     path_frame = build_path_frame(results_frame)
     quantiles_frame = build_quantiles_frame(path_frame, quantiles)
     breach_frame = build_breach_frame(path_frame, breach_spec)
-    expected_shortfall_frame = build_expected_shortfall_frame(
-        path_frame, expected_shortfall_spec
-    )
+    expected_shortfall_frame = build_expected_shortfall_frame(path_frame, expected_shortfall_spec)
     return MonteCarloAggregationResults(
         path_frame=path_frame,
         quantiles_frame=quantiles_frame,
