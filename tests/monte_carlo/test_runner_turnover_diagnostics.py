@@ -329,3 +329,48 @@ def test_build_diagnostics_frame_includes_binding_without_turnover() -> None:
         }
     )
     pdt.assert_frame_equal(diagnostics.reset_index(drop=True), expected)
+
+
+def test_build_diagnostics_frame_includes_binding_for_multiple_paths() -> None:
+    dates = pd.date_range("2023-01-31", periods=2, freq="ME")
+    turnover_a = pd.Series([0.05, 0.1], index=dates, name="turnover")
+    turnover_b = pd.Series([0.2, 0.3], index=dates, name="turnover")
+    evaluation_a = StrategyEvaluation(
+        fold_id=None,
+        path_id=0,
+        strategy_name="base",
+        metrics={"cagr": 0.1},
+        metric_source="metrics",
+        path_hash="hash-a",
+        seed=5,
+        diagnostic={"turnover": turnover_a, "turnover_cap_binding": False},
+    )
+    evaluation_b = StrategyEvaluation(
+        fold_id=None,
+        path_id=1,
+        strategy_name="alt",
+        metrics={"cagr": 0.2},
+        metric_source="metrics",
+        path_hash="hash-b",
+        seed=6,
+        diagnostic={
+            "turnover": turnover_b,
+            "turnover_cap_binding": pd.Series([True, False], index=dates),
+        },
+    )
+
+    diagnostics = build_diagnostics_frame([evaluation_a, evaluation_b])
+
+    expected = pd.DataFrame(
+        {
+            "fold_id": [None, None, None, None],
+            "path_id": [0, 0, 1, 1],
+            "strategy": ["base", "base", "alt", "alt"],
+            "path_hash": ["hash-a", "hash-a", "hash-b", "hash-b"],
+            "seed": [5, 5, 6, 6],
+            "period": list(dates) + list(dates),
+            "turnover": [0.05, 0.1, 0.2, 0.3],
+            "turnover_cap_binding": [False, False, True, False],
+        }
+    )
+    pdt.assert_frame_equal(diagnostics.reset_index(drop=True), expected)
