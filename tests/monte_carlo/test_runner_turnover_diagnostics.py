@@ -220,3 +220,34 @@ def test_build_diagnostics_frame_expands_binding_indicator() -> None:
         }
     )
     pdt.assert_frame_equal(diagnostics.reset_index(drop=True), expected)
+
+
+def test_build_diagnostics_frame_includes_binding_without_turnover() -> None:
+    dates = pd.date_range("2022-01-31", periods=2, freq="ME")
+    binding = pd.Series([True, False], index=dates, name="turnover_cap_binding")
+    evaluation = StrategyEvaluation(
+        fold_id=None,
+        path_id=2,
+        strategy_name="base",
+        metrics={"cagr": 0.1},
+        metric_source="metrics",
+        path_hash="hash",
+        seed=11,
+        diagnostic={"turnover_cap_binding": binding},
+    )
+
+    diagnostics = build_diagnostics_frame([evaluation])
+
+    expected = pd.DataFrame(
+        {
+            "fold_id": [None, None],
+            "path_id": [2, 2],
+            "strategy": ["base", "base"],
+            "path_hash": ["hash", "hash"],
+            "seed": [11, 11],
+            "period": list(dates),
+            "turnover": [None, None],
+            "turnover_cap_binding": [True, False],
+        }
+    )
+    pdt.assert_frame_equal(diagnostics.reset_index(drop=True), expected)
