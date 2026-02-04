@@ -283,6 +283,97 @@ def test_runner_uses_fold_calibration_window(monkeypatch: pytest.MonkeyPatch) ->
     assert captured[0]["calibration_end"] == pd.Timestamp("2021-12-31")
 
 
+def test_runner_uses_rolling_fold_calibration_windows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenario = _scenario_with_folds(
+        mode="two_layer",
+        folds={
+            "mode": "rolling",
+            "start": "2021-03-15",
+            "end": "2021-09-30",
+            "step_months": 3,
+            "calibration_lookback_years": 1.0,
+        },
+    )
+    history = _price_history()
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=history,
+    )
+    captured: list[tuple[pd.Timestamp | None, pd.Timestamp | None]] = []
+
+    def _fake_build_price_model(
+        self: MonteCarloRunner,
+        _history_slice: pd.DataFrame,
+        *,
+        calibration_start: pd.Timestamp | None = None,
+        calibration_end: pd.Timestamp | None = None,
+    ) -> object:
+        captured.append((calibration_start, calibration_end))
+        return object()
+
+    def _fake_run_mode(self: MonteCarloRunner, **_kwargs: Any) -> tuple[list[Any], list[Any]]:
+        return [], []
+
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
+    monkeypatch.setattr(MonteCarloRunner, "_run_mode", _fake_run_mode)
+
+    runner.run(jobs=1)
+
+    assert captured == [
+        (pd.Timestamp("2020-02-29"), pd.Timestamp("2021-02-28")),
+        (pd.Timestamp("2020-05-31"), pd.Timestamp("2021-05-31")),
+        (pd.Timestamp("2020-08-31"), pd.Timestamp("2021-08-31")),
+    ]
+
+
+def test_runner_uses_count_spaced_fold_calibration_windows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenario = _scenario_with_folds(
+        mode="two_layer",
+        folds={
+            "mode": "count_spaced",
+            "start": "2021-01-31",
+            "end": "2021-12-31",
+            "n_folds": 2,
+            "calibration_lookback_years": 1.0,
+        },
+    )
+    history = _price_history()
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=history,
+    )
+    captured: list[tuple[pd.Timestamp | None, pd.Timestamp | None]] = []
+
+    def _fake_build_price_model(
+        self: MonteCarloRunner,
+        _history_slice: pd.DataFrame,
+        *,
+        calibration_start: pd.Timestamp | None = None,
+        calibration_end: pd.Timestamp | None = None,
+    ) -> object:
+        captured.append((calibration_start, calibration_end))
+        return object()
+
+    def _fake_run_mode(self: MonteCarloRunner, **_kwargs: Any) -> tuple[list[Any], list[Any]]:
+        return [], []
+
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
+    monkeypatch.setattr(MonteCarloRunner, "_run_mode", _fake_run_mode)
+
+    runner.run(jobs=1)
+
+    assert captured == [
+        (pd.Timestamp("2020-01-31"), pd.Timestamp("2020-12-31")),
+        (pd.Timestamp("2020-11-30"), pd.Timestamp("2021-11-30")),
+    ]
+
+
 def test_build_price_model_applies_calibration_window_after_normalization() -> None:
     scenario = _scenario("two_layer")
     history = _daily_price_history()

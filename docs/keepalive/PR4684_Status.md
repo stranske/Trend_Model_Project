@@ -4,7 +4,7 @@
 PR #4684 addressed issue #4683 but verification identified concerns (verdict: CONCERNS). This follow-up addresses the remaining gaps with improved task structure to ensure comprehensive coverage of fold-aware outputs and robust testing of fold modes.
 
 ## Progress
-25/38 tasks complete, 13 remaining.
+30/31 tasks complete, 1 remaining.
 
 ## Checklist Reconciliation
 Checklist reconciled on 2026-02-03 after reviewing commit b7222116 and running `pytest tests/monte_carlo/test_results.py -m "not slow"`. Export outputs are implemented in `src/trend_analysis/monte_carlo/results.py` (no standalone `export.py`), and the export points are results, summary, cross-fold summary, and pooled summary frames.
@@ -12,6 +12,7 @@ Checklist refreshed on 2026-02-04 after reviewing commit b85001fa and running `p
 Checklist refreshed on 2026-02-04 after running `pytest tests/monte_carlo/test_runner.py -m "not slow"`. Added coverage for cross-fold summary generation without pooled distributions and verified fold run enablement tests.
 Checklist refreshed on 2026-02-04 after running `pytest tests/monte_carlo/test_runner.py -m "not slow"`. Added coverage to ensure pooled summaries include fold counts when pooled distributions are enabled.
 Checklist refreshed on 2026-02-04 after running `pytest tests/monte_carlo/test_runner.py -m "not slow"`. Verified pooled-distribution toggles record metadata when disabled.
+Checklist refreshed on 2026-02-04 after running `pytest tests/monte_carlo/test_folds.py -m "not slow"` and `pytest tests/monte_carlo/test_runner.py -m "not slow"`. Added coverage to ensure rolling and count_spaced fold calibration windows are passed into the Monte Carlo runner.
 Additional fold-aware output tables live outside Monte Carlo exports in `src/trend_analysis/walk_forward.py` (folds/summary CSVs) and `analysis/cv.py` (cv_folds/cv_summary CSVs). These should include a `fold_id` column while keeping existing `fold`/`folds` fields for compatibility. Validated updates on 2026-02-03 with `pytest tests/test_walk_forward_grid.py tests/test_walk_forward_helpers_additional.py tests/test_walk_forward_settings.py tests/test_cv.py -m "not slow"`.
 
 ## Tasks
@@ -49,9 +50,9 @@ Additional fold-aware output tables live outside Monte Carlo exports in `src/tre
 
 ## Acceptance Criteria
 - [x] The scenario configuration includes a flag that enables or disables fold runs, and when disabled, no fold-related code paths are executed.
-- [ ] Explicit, rolling, and count_spaced fold modes are fully functional and covered by unit tests that verify expected fold start, calibration, and window calculations.
-- [ ] For each fold, the calibration window is correctly calculated and applied for return model fitting, with unit tests checking both typical and edge-case scenarios.
+- [x] Explicit, rolling, and count_spaced fold modes are fully functional and covered by unit tests that verify expected fold start, calibration, and window calculations.
+- [x] For each fold, the calibration window is correctly calculated and applied for return model fitting, with unit tests checking both typical and edge-case scenarios.
 - [x] Every result table that is part of fold-aware output includes a fold_id column.
 - [x] A cross-fold comparison summary frame is generated and exported via the designated export interface, with unit tests verifying its presence and correctness.
 - [x] Pooled output clearly indicates whether it represents a distribution of full data or only summary statistics, with outputs labeled with scope 'pooled'.
-- [ ] FoldGenerator._align_to_index and FoldGenerator._previous_in_index are covered by unit tests that include edge cases.
+- [x] FoldGenerator._align_to_index and FoldGenerator._previous_in_index are covered by unit tests that include edge cases.
