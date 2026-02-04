@@ -464,6 +464,7 @@ def test_runner_builds_cross_fold_summary_without_pooled_distributions(
     results = runner.run(jobs=1)
 
     assert results.pooled_summary_frame is None
+    assert results.metadata.get("pooled_distributions") is False
     cross_fold = results.cross_fold_summary_frame
     assert cross_fold is not None
     assert cross_fold.loc[0, "scope"] == "cross_fold"

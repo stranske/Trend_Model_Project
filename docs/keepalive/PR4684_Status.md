@@ -4,13 +4,14 @@
 PR #4684 addressed issue #4683 but verification identified concerns (verdict: CONCERNS). This follow-up addresses the remaining gaps with improved task structure to ensure comprehensive coverage of fold-aware outputs and robust testing of fold modes.
 
 ## Progress
-24/38 tasks complete, 14 remaining.
+25/38 tasks complete, 13 remaining.
 
 ## Checklist Reconciliation
 Checklist reconciled on 2026-02-03 after reviewing commit b7222116 and running `pytest tests/monte_carlo/test_results.py -m "not slow"`. Export outputs are implemented in `src/trend_analysis/monte_carlo/results.py` (no standalone `export.py`), and the export points are results, summary, cross-fold summary, and pooled summary frames.
 Checklist refreshed on 2026-02-04 after reviewing commit b85001fa and running `pytest tests/monte_carlo/test_results.py -m "not slow"`. Added coverage for fold_id handling in results frames and validated cross-fold summary export labeling.
 Checklist refreshed on 2026-02-04 after running `pytest tests/monte_carlo/test_runner.py -m "not slow"`. Added coverage for cross-fold summary generation without pooled distributions and verified fold run enablement tests.
 Checklist refreshed on 2026-02-04 after running `pytest tests/monte_carlo/test_runner.py -m "not slow"`. Added coverage to ensure pooled summaries include fold counts when pooled distributions are enabled.
+Checklist refreshed on 2026-02-04 after running `pytest tests/monte_carlo/test_runner.py -m "not slow"`. Verified pooled-distribution toggles record metadata when disabled.
 Additional fold-aware output tables live outside Monte Carlo exports in `src/trend_analysis/walk_forward.py` (folds/summary CSVs) and `analysis/cv.py` (cv_folds/cv_summary CSVs). These should include a `fold_id` column while keeping existing `fold`/`folds` fields for compatibility. Validated updates on 2026-02-03 with `pytest tests/test_walk_forward_grid.py tests/test_walk_forward_helpers_additional.py tests/test_walk_forward_settings.py tests/test_cv.py -m "not slow"`.
 
 ## Tasks
