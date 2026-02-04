@@ -8,7 +8,7 @@ import random
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping, Sequence, cast
+from typing import Any, Callable, Iterable, Mapping, Sequence, SupportsFloat, cast
 
 import numpy as np
 import pandas as pd
@@ -974,7 +974,7 @@ class MonteCarloRunner:
         return turnover_series, binding
 
     def _coerce_turnover_series(
-        self, turnover: pd.Series | float | None, out_index: pd.Index | None
+        self, turnover: pd.Series | SupportsFloat | None, out_index: pd.Index | None
     ) -> pd.Series | None:
         if turnover is None:
             return None
@@ -984,7 +984,8 @@ class MonteCarloRunner:
             return turnover.reindex(out_index).fillna(0.0)
         if out_index is None:
             return None
-        return pd.Series(float(turnover), index=out_index, name="turnover")
+        value = cast(SupportsFloat, turnover)
+        return pd.Series(float(value), index=out_index, name="turnover")
 
     def _resolve_turnover_cap_series(
         self,
@@ -1011,7 +1012,7 @@ class MonteCarloRunner:
             caps = labels.map(lambda label: mapping.get(str(label)) if label else np.nan)
             return pd.Series(caps, index=out_index, name="turnover_cap")
         try:
-            cap = float(max_turnover)
+            cap = float(cast(SupportsFloat, max_turnover))
         except (TypeError, ValueError):
             return None
         if out_index is None:
