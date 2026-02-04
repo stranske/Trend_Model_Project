@@ -4,7 +4,7 @@
 PR #4684 addressed issue #4683 but verification identified concerns (verdict: CONCERNS). This follow-up addresses the remaining gaps with improved task structure to ensure comprehensive coverage of fold-aware outputs and robust testing of fold modes.
 
 ## Progress
-30/31 tasks complete, 1 remaining.
+31/31 tasks complete, 0 remaining.
 
 ## Checklist Reconciliation
 Checklist reconciled on 2026-02-03 after reviewing commit b7222116 and running `pytest tests/monte_carlo/test_results.py -m "not slow"`. Export outputs are implemented in `src/trend_analysis/monte_carlo/results.py` (no standalone `export.py`), and the export points are results, summary, cross-fold summary, and pooled summary frames.
@@ -14,6 +14,7 @@ Checklist refreshed on 2026-02-04 after running `pytest tests/monte_carlo/test_r
 Checklist refreshed on 2026-02-04 after running `pytest tests/monte_carlo/test_runner.py -m "not slow"`. Verified pooled-distribution toggles record metadata when disabled.
 Checklist refreshed on 2026-02-04 after running `pytest tests/monte_carlo/test_folds.py -m "not slow"` and `pytest tests/monte_carlo/test_runner.py -m "not slow"`. Added coverage to ensure rolling and count_spaced fold calibration windows are passed into the Monte Carlo runner.
 Checklist refreshed on 2026-02-04 after running `pytest tests/monte_carlo/test_runner.py -m "not slow"`. Added pooled scope metadata to clarify pooled summary outputs.
+Checklist refreshed on 2026-02-04 after running `pytest tests/monte_carlo/test_results.py -m "not slow"`. Added cross-fold summary coverage for per-strategy fold counts.
 Additional fold-aware output tables live outside Monte Carlo exports in `src/trend_analysis/walk_forward.py` (folds/summary CSVs) and `analysis/cv.py` (cv_folds/cv_summary CSVs). These should include a `fold_id` column while keeping existing `fold`/`folds` fields for compatibility. Validated updates on 2026-02-03 with `pytest tests/test_walk_forward_grid.py tests/test_walk_forward_helpers_additional.py tests/test_walk_forward_settings.py tests/test_cv.py -m "not slow"`.
 
 ## Tasks

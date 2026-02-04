@@ -156,6 +156,25 @@ def test_build_cross_fold_summary_frame_reports_fold_stats() -> None:
     assert cross_fold.loc[0, "paths_median"] == 2.0
 
 
+def test_build_cross_fold_summary_frame_counts_folds_per_strategy() -> None:
+    frame = pd.DataFrame(
+        [
+            {"fold_id": 1, "path_id": 1, "strategy": "A", "metric": 1.0},
+            {"fold_id": 2, "path_id": 2, "strategy": "A", "metric": 2.0},
+            {"fold_id": 2, "path_id": 3, "strategy": "B", "metric": 3.0},
+        ]
+    )
+
+    cross_fold = build_cross_fold_summary_frame(frame).sort_values("strategy").reset_index(
+        drop=True
+    )
+
+    assert cross_fold.loc[0, "strategy"] == "A"
+    assert cross_fold.loc[0, "folds"] == 2
+    assert cross_fold.loc[1, "strategy"] == "B"
+    assert cross_fold.loc[1, "folds"] == 1
+
+
 def test_build_cross_fold_summary_frame_empty_without_fold_id() -> None:
     frame = pd.DataFrame(
         [
