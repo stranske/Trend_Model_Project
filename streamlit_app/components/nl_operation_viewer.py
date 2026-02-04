@@ -144,7 +144,6 @@ def _entry_has_sensitive_prompt(entry: NLOperationLog) -> bool:
     return _contains_sensitive(entry.prompt_variables or {})
 
 
-
 def _format_timestamp(entry: NLOperationLog) -> str:
     timestamp = entry.timestamp
     try:
