@@ -41,6 +41,23 @@ def test_build_results_frame_empty_has_base_columns() -> None:
     assert frame.empty
 
 
+def test_build_results_frame_missing_fold_id_keeps_column() -> None:
+    evaluation = StrategyEvaluation(
+        fold_id=None,
+        path_id=9,
+        strategy_name="StrategyB",
+        metrics={"alpha": 2.5},
+        metric_source="unit_test",
+        path_hash="hash-2",
+        seed=456,
+    )
+
+    frame = build_results_frame([evaluation])
+
+    assert "fold_id" in frame.columns
+    assert pd.isna(frame.loc[0, "fold_id"])
+
+
 def test_build_summary_frame_groups_by_fold_id() -> None:
     frame = pd.DataFrame(
         [
@@ -189,6 +206,7 @@ def test_export_results_writes_pooled_summary(tmp_path) -> None:
 
     cross_path = exported["cross_fold_summary_csv"]
     cross_frame = pd.read_csv(cross_path)
+    assert cross_frame.loc[0, "scope"] == "cross_fold"
     assert "fold_id" in cross_frame.columns
     assert pd.isna(cross_frame.loc[0, "fold_id"])
 

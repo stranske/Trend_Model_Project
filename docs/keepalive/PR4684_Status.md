@@ -8,6 +8,7 @@ PR #4684 addressed issue #4683 but verification identified concerns (verdict: CO
 
 ## Checklist Reconciliation
 Checklist reconciled on 2026-02-03 after reviewing commit b7222116 and running `pytest tests/monte_carlo/test_results.py -m "not slow"`. Export outputs are implemented in `src/trend_analysis/monte_carlo/results.py` (no standalone `export.py`), and the export points are results, summary, cross-fold summary, and pooled summary frames.
+Checklist refreshed on 2026-02-04 after reviewing commit b85001fa and running `pytest tests/monte_carlo/test_results.py -m "not slow"`. Added coverage for fold_id handling in results frames and validated cross-fold summary export labeling.
 Additional fold-aware output tables live outside Monte Carlo exports in `src/trend_analysis/walk_forward.py` (folds/summary CSVs) and `analysis/cv.py` (cv_folds/cv_summary CSVs). These should include a `fold_id` column while keeping existing `fold`/`folds` fields for compatibility. Validated updates on 2026-02-03 with `pytest tests/test_walk_forward_grid.py tests/test_walk_forward_helpers_additional.py tests/test_walk_forward_settings.py tests/test_cv.py -m "not slow"`.
 
 ## Tasks
@@ -46,7 +47,7 @@ Additional fold-aware output tables live outside Monte Carlo exports in `src/tre
 - [ ] The scenario configuration includes a flag that enables or disables fold runs, and when disabled, no fold-related code paths are executed.
 - [ ] Explicit, rolling, and count_spaced fold modes are fully functional and covered by unit tests that verify expected fold start, calibration, and window calculations.
 - [ ] For each fold, the calibration window is correctly calculated and applied for return model fitting, with unit tests checking both typical and edge-case scenarios.
-- [ ] Every result table that is part of fold-aware output includes a fold_id column.
-- [ ] A cross-fold comparison summary frame is generated and exported via the designated export interface, with unit tests verifying its presence and correctness.
-- [ ] Pooled output clearly indicates whether it represents a distribution of full data or only summary statistics, with outputs labeled with scope 'pooled'.
+- [x] Every result table that is part of fold-aware output includes a fold_id column.
+- [x] A cross-fold comparison summary frame is generated and exported via the designated export interface, with unit tests verifying its presence and correctness.
+- [x] Pooled output clearly indicates whether it represents a distribution of full data or only summary statistics, with outputs labeled with scope 'pooled'.
 - [ ] FoldGenerator._align_to_index and FoldGenerator._previous_in_index are covered by unit tests that include edge cases.
