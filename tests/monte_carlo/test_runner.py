@@ -535,6 +535,55 @@ def test_runner_cross_fold_summary_stats_include_pooled_labels(
     assert results.metadata.get("pooled_distributions") is True
 
 
+def test_runner_pooled_summary_includes_fold_count_when_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenario = _scenario_with_folds(
+        mode="two_layer",
+        folds={"mode": "explicit", "fold_starts": ["2022-01-31", "2023-01-31"]},
+        outputs={"pooled_distributions": True},
+    )
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+
+    def _fake_build_price_model(
+        self: MonteCarloRunner,
+        _history_slice: pd.DataFrame,
+        *,
+        calibration_start: pd.Timestamp | None = None,
+        calibration_end: pd.Timestamp | None = None,
+    ) -> object:
+        return object()
+
+    def _fake_run_mode(self: MonteCarloRunner, **kwargs: Any) -> tuple[list[Any], list[Any]]:
+        fold_id = int(kwargs.get("fold_id") or 0)
+        evaluation = StrategyEvaluation(
+            fold_id=fold_id,
+            path_id=0,
+            strategy_name="StrategyA",
+            metrics={"metric": 5.0 + fold_id},
+            metric_source="unit_test",
+            path_hash=f"hash-{fold_id}",
+            seed=0,
+        )
+        return [evaluation], []
+
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
+    monkeypatch.setattr(MonteCarloRunner, "_run_mode", _fake_run_mode)
+
+    results = runner.run(jobs=1)
+
+    pooled = results.pooled_summary_frame
+    assert pooled is not None
+    assert pooled.loc[0, "scope"] == "pooled"
+    assert pooled.loc[0, "pooled_scope"] == "summary"
+    assert pooled.loc[0, "folds"] == 2
+    assert results.metadata.get("pooled_distributions") is True
+
+
 def test_runner_includes_fold_ids_in_results_frame(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
