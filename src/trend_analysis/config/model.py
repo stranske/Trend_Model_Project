@@ -349,7 +349,7 @@ class PortfolioSettings(BaseModel):
 
     rebalance_calendar: str
     rebalance_freq: str | None = Field(default=None)
-    max_turnover: float
+    max_turnover: float | dict[str, float]
     transaction_cost_bps: float
     lambda_tc: float = Field(default=0.0)
     min_tenure_n: int = Field(
@@ -399,7 +399,31 @@ class PortfolioSettings(BaseModel):
 
     @field_validator("max_turnover", mode="before")
     @classmethod
-    def _validate_turnover(cls, value: Any) -> float:
+    def _validate_turnover(cls, value: Any) -> float | dict[str, float]:
+        if isinstance(value, Mapping):
+            cleaned: dict[str, float] = {}
+            for regime, raw in value.items():
+                if not isinstance(regime, str) or not regime.strip():
+                    raise ValueError(
+                        "portfolio.max_turnover regime keys must be non-empty strings."
+                    )
+                if isinstance(raw, bool):
+                    raise ValueError("portfolio.max_turnover values must be numeric.")
+                try:
+                    turnover = float(raw)
+                except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
+                    raise ValueError("portfolio.max_turnover values must be numeric.") from exc
+                if turnover < 0:
+                    raise ValueError("portfolio.max_turnover values cannot be negative.")
+                if turnover > 1:
+                    raise ValueError(
+                        "portfolio.max_turnover values must be between 0 and 1.0 inclusive "
+                        "to cap per-period turnover."
+                    )
+                cleaned[regime.strip()] = turnover
+            return cleaned
+        if isinstance(value, bool):
+            raise ValueError("portfolio.max_turnover must be numeric.")
         try:
             turnover = float(value)
         except (TypeError, ValueError) as exc:  # pragma: no cover - defensive

@@ -33,7 +33,7 @@ _TYPE_OVERRIDES: dict[str, list[str] | str] = {
     "portfolio.manual_list": ["array"],
     "portfolio.rank.pct": ["number", "null"],
     "portfolio.rank.threshold": ["number", "null"],
-    "portfolio.max_turnover": ["number", "null"],
+    "portfolio.max_turnover": ["number", "object", "null"],
     "output": ["object", "null"],
     "multi_period": ["object", "null"],
     "jobs": ["integer", "null"],
@@ -82,6 +82,7 @@ _FREEFORM_MAPS: dict[str, dict[str, Any]] = {
     "portfolio.constraints.group_caps": {"type": "number"},
     "portfolio.rank.blended_weights": {"type": "number"},
     "portfolio.custom_weights": {"type": "number"},
+    "portfolio.max_turnover": {"type": "number", "minimum": 0, "maximum": 2},
     "portfolio.selector.params": {
         "type": ["number", "string", "boolean", "array", "object", "null"]
     },
@@ -539,6 +540,10 @@ def build_schema(
         return schema
 
     schema["type"] = _infer_schema_type(path_key, value, samples.get(path_key))
+    if path_key in _FREEFORM_MAPS and "object" in (
+        schema["type"] if isinstance(schema["type"], list) else [schema["type"]]
+    ):
+        schema["additionalProperties"] = _FREEFORM_MAPS[path_key]
     schema["default"] = value
     return _apply_constraints(schema, path_key, model_overrides)
 
