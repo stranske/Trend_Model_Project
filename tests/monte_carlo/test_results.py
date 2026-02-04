@@ -89,6 +89,13 @@ def test_build_pooled_summary_frame_ignores_folds() -> None:
     assert pooled.loc[0, "folds"] == 2
 
 
+def test_build_pooled_summary_frame_empty_returns_columns() -> None:
+    pooled = build_pooled_summary_frame(pd.DataFrame())
+
+    assert list(pooled.columns) == ["scope", "pooled_scope", "fold_id", "strategy", "paths", "folds"]
+    assert pooled.empty
+
+
 def test_build_cross_fold_summary_frame_reports_fold_stats() -> None:
     frame = pd.DataFrame(
         [
@@ -123,6 +130,20 @@ def test_build_cross_fold_summary_frame_reports_fold_stats() -> None:
     assert cross_fold.loc[0, "paths_min"] == 2.0
     assert cross_fold.loc[0, "paths_max"] == 2.0
     assert cross_fold.loc[0, "paths_median"] == 2.0
+
+
+def test_build_cross_fold_summary_frame_empty_without_fold_id() -> None:
+    frame = pd.DataFrame(
+        [
+            {"path_id": 1, "strategy": "A", "metric": 1.0},
+            {"path_id": 2, "strategy": "A", "metric": 2.0},
+        ]
+    )
+
+    cross_fold = build_cross_fold_summary_frame(frame)
+
+    assert list(cross_fold.columns) == ["scope", "fold_id", "strategy", "folds"]
+    assert cross_fold.empty
 
 
 def test_export_results_writes_pooled_summary(tmp_path) -> None:

@@ -10,6 +10,29 @@ from trend_analysis.monte_carlo.folds import (
 )
 
 
+def test_from_config_returns_none_when_disabled() -> None:
+    generator = FoldGenerator.from_config({"enabled": False, "mode": "explicit"})
+
+    assert generator is None
+
+
+def test_generate_sorts_and_drops_timezone_from_index() -> None:
+    index = pd.DatetimeIndex(
+        [
+            "2021-03-31",
+            "2021-01-31",
+            "2021-02-28",
+        ]
+    ).tz_localize("UTC")
+    generator = FoldGenerator(mode="count_spaced", start="2021-02-15", n_folds=1)
+
+    folds = generator.generate(index)
+
+    assert folds[0].forecast_start == pd.Timestamp("2021-02-28")
+    assert folds[0].calibration_end == pd.Timestamp("2021-01-31")
+    assert folds[0].calibration_start == pd.Timestamp("2021-01-31")
+
+
 def test_explicit_mode_requires_fold_starts() -> None:
     index = pd.date_range("2020-01-31", periods=6, freq="ME")
 
