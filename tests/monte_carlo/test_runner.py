@@ -763,10 +763,12 @@ def test_runner_includes_fold_ids_in_results_frame(
         self: MonteCarloRunner,
         *,
         fold_id: int | None,
+        fold_label: str | None,
         **_kwargs: Any,
     ) -> tuple[list[StrategyEvaluation], list[Any]]:
         evaluation = StrategyEvaluation(
             fold_id=fold_id,
+            fold_label=fold_label,
             path_id=0,
             strategy_name="StrategyA",
             metrics={"metric": 1.0},
@@ -782,6 +784,7 @@ def test_runner_includes_fold_ids_in_results_frame(
     results = runner.run(jobs=1)
 
     assert results.results_frame["fold_id"].dropna().tolist() == [1, 2]
+    assert results.results_frame["fold_label"].dropna().tolist() == ["2022-01", "2023-01"]
 
 
 def test_resolve_strategies_includes_sampled_turnover_caps() -> None:

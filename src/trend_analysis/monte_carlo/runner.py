@@ -100,6 +100,7 @@ class _PathContext:
     path_hash: str
     seed: int | None
     fold_id: int | None = None
+    fold_label: str | None = None
 
 
 def evaluate_strategies_for_path(
@@ -192,6 +193,7 @@ class MonteCarloRunner:
                     progress_callback=progress_callback,
                     jobs=worker_count,
                     fold_id=fold.fold_id,
+                    fold_label=fold.label,
                 )
                 evaluations.extend(fold_evals)
                 errors.extend(fold_errors)
@@ -207,6 +209,7 @@ class MonteCarloRunner:
                 progress_callback=progress_callback,
                 jobs=worker_count,
                 fold_id=None,
+                fold_label=None,
             )
 
         results_frame = build_results_frame(evaluations)
@@ -275,6 +278,7 @@ class MonteCarloRunner:
         progress_callback: Callable[[Mapping[str, Any]], None] | None,
         jobs: int,
         fold_id: int | None,
+        fold_label: str | None,
     ) -> tuple[list[StrategyEvaluation], list[MonteCarloPathError]]:
         if mode == "two_layer":
             return self._run_two_layer(
@@ -285,6 +289,7 @@ class MonteCarloRunner:
                 progress_callback=progress_callback,
                 jobs=jobs,
                 fold_id=fold_id,
+                fold_label=fold_label,
             )
         if mode == "mixture":
             return self._run_mixture(
@@ -296,6 +301,7 @@ class MonteCarloRunner:
                 progress_callback=progress_callback,
                 jobs=jobs,
                 fold_id=fold_id,
+                fold_label=fold_label,
             )
         raise ValueError(f"Unsupported Monte Carlo mode '{mode}'")
 
@@ -309,6 +315,7 @@ class MonteCarloRunner:
         progress_callback: Callable[[Mapping[str, Any]], None] | None,
         jobs: int,
         fold_id: int | None = None,
+        fold_label: str | None = None,
     ) -> tuple[list[StrategyEvaluation], list[MonteCarloPathError]]:
         total = len(path_seeds)
         evaluations: list[StrategyEvaluation] = []
@@ -351,6 +358,7 @@ class MonteCarloRunner:
                     path_result=path_result,
                     path_index=path_id,
                     fold_id=fold_id,
+                    fold_label=fold_label,
                 )
             except Exception as exc:
                 self._log_path_error(path_id, None, exc)
@@ -389,6 +397,7 @@ class MonteCarloRunner:
         progress_callback: Callable[[Mapping[str, Any]], None] | None,
         jobs: int,
         fold_id: int | None = None,
+        fold_label: str | None = None,
     ) -> tuple[list[StrategyEvaluation], list[MonteCarloPathError]]:
         if len(strategy_seeds) != len(path_seeds):
             raise ValueError("strategy_seeds must align with path_seeds")
@@ -423,6 +432,7 @@ class MonteCarloRunner:
                     path_result=path_result,
                     path_index=path_id,
                     fold_id=fold_id,
+                    fold_label=fold_label,
                 )
             except Exception as exc:
                 self._log_path_error(path_id, None, exc)
@@ -454,6 +464,7 @@ class MonteCarloRunner:
         path_result: Any | None = None,
         path_index: int = 0,
         fold_id: int | None,
+        fold_label: str | None,
     ) -> _PathContext:
         if path_result is None:
             result = model.sample_prices(
@@ -473,6 +484,7 @@ class MonteCarloRunner:
         path_hash = self._hash_frame(prices)
         return _PathContext(
             fold_id=fold_id,
+            fold_label=fold_label,
             path_id=path_id,
             prices=prices,
             returns=returns_df,
@@ -514,6 +526,7 @@ class MonteCarloRunner:
             diagnostic["costs"] = self._cost_payload_dict(cost_payload)
         return StrategyEvaluation(
             fold_id=context.fold_id,
+            fold_label=context.fold_label,
             path_id=context.path_id,
             strategy_name=strategy.name,
             metrics=metrics,

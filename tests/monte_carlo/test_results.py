@@ -17,6 +17,7 @@ from trend_analysis.monte_carlo.results import (
 def test_build_results_frame_includes_fold_id_and_base_columns() -> None:
     evaluation = StrategyEvaluation(
         fold_id=2,
+        fold_label="2020-02",
         path_id=7,
         strategy_name="StrategyA",
         metrics={"alpha": 1.5, "beta": 0.8},
@@ -30,6 +31,7 @@ def test_build_results_frame_includes_fold_id_and_base_columns() -> None:
     assert "fold_id" in frame.columns
     assert list(frame.columns[: len(RESULT_BASE_COLUMNS)]) == list(RESULT_BASE_COLUMNS)
     assert frame.loc[0, "fold_id"] == 2
+    assert frame.loc[0, "fold_label"] == "2020-02"
     assert frame.loc[0, "path_id"] == 7
     assert frame.loc[0, "strategy"] == "StrategyA"
 
@@ -56,21 +58,22 @@ def test_build_results_frame_missing_fold_id_keeps_column() -> None:
 
     assert "fold_id" in frame.columns
     assert pd.isna(frame.loc[0, "fold_id"])
+    assert pd.isna(frame.loc[0, "fold_label"])
 
 
 def test_build_summary_frame_groups_by_fold_id() -> None:
     frame = pd.DataFrame(
         [
-            {"fold_id": 1, "path_id": 1, "strategy": "A", "metric": 1.0},
-            {"fold_id": 1, "path_id": 2, "strategy": "A", "metric": 3.0},
-            {"fold_id": 2, "path_id": 3, "strategy": "A", "metric": 2.0},
-            {"fold_id": 2, "path_id": 4, "strategy": "B", "metric": 4.0},
+            {"fold_id": 1, "fold_label": "2020-01", "path_id": 1, "strategy": "A", "metric": 1.0},
+            {"fold_id": 1, "fold_label": "2020-01", "path_id": 2, "strategy": "A", "metric": 3.0},
+            {"fold_id": 2, "fold_label": "2020-02", "path_id": 3, "strategy": "A", "metric": 2.0},
+            {"fold_id": 2, "fold_label": "2020-02", "path_id": 4, "strategy": "B", "metric": 4.0},
         ]
     )
 
     summary = build_summary_frame(frame).sort_values(["fold_id", "strategy"]).reset_index(drop=True)
 
-    assert list(summary.columns[:2]) == ["fold_id", "strategy"]
+    assert list(summary.columns[:3]) == ["fold_id", "fold_label", "strategy"]
     assert summary.loc[0, "paths"] == 2
     assert summary.loc[0, "metric"] == 2.0
 
@@ -80,17 +83,17 @@ def test_build_summary_frame_empty_includes_fold_id_if_present() -> None:
 
     summary = build_summary_frame(frame)
 
-    assert list(summary.columns) == ["fold_id", "strategy", "paths"]
+    assert list(summary.columns) == ["fold_id", "fold_label", "strategy", "paths"]
     assert summary.empty
 
 
 def test_build_pooled_summary_frame_ignores_folds() -> None:
     frame = pd.DataFrame(
         [
-            {"fold_id": 1, "path_id": 1, "strategy": "A", "metric": 1.0},
-            {"fold_id": 1, "path_id": 2, "strategy": "A", "metric": 3.0},
-            {"fold_id": 2, "path_id": 3, "strategy": "A", "metric": 5.0},
-            {"fold_id": 2, "path_id": 4, "strategy": "A", "metric": 7.0},
+            {"fold_id": 1, "fold_label": "2020-01", "path_id": 1, "strategy": "A", "metric": 1.0},
+            {"fold_id": 1, "fold_label": "2020-01", "path_id": 2, "strategy": "A", "metric": 3.0},
+            {"fold_id": 2, "fold_label": "2020-02", "path_id": 3, "strategy": "A", "metric": 5.0},
+            {"fold_id": 2, "fold_label": "2020-02", "path_id": 4, "strategy": "A", "metric": 7.0},
         ]
     )
 
@@ -100,6 +103,8 @@ def test_build_pooled_summary_frame_ignores_folds() -> None:
     assert pooled.loc[0, "pooled_scope"] == "summary"
     assert "fold_id" in pooled.columns
     assert pd.isna(pooled.loc[0, "fold_id"])
+    assert "fold_label" in pooled.columns
+    assert pd.isna(pooled.loc[0, "fold_label"])
     assert pooled.loc[0, "strategy"] == "A"
     assert pooled.loc[0, "metric"] == 4.0
     assert pooled.loc[0, "paths"] == 4
@@ -113,6 +118,7 @@ def test_build_pooled_summary_frame_empty_returns_columns() -> None:
         "scope",
         "pooled_scope",
         "fold_id",
+        "fold_label",
         "strategy",
         "paths",
         "folds",
@@ -192,9 +198,9 @@ def test_build_cross_fold_summary_frame_empty_without_fold_id() -> None:
 def test_export_results_writes_pooled_summary(tmp_path) -> None:
     frame = pd.DataFrame(
         [
-            {"fold_id": 1, "path_id": 1, "strategy": "A", "metric": 1.0},
-            {"fold_id": 1, "path_id": 2, "strategy": "A", "metric": 3.0},
-            {"fold_id": 2, "path_id": 3, "strategy": "A", "metric": 5.0},
+            {"fold_id": 1, "fold_label": "2020-01", "path_id": 1, "strategy": "A", "metric": 1.0},
+            {"fold_id": 1, "fold_label": "2020-01", "path_id": 2, "strategy": "A", "metric": 3.0},
+            {"fold_id": 2, "fold_label": "2020-02", "path_id": 3, "strategy": "A", "metric": 5.0},
         ]
     )
     summary = build_summary_frame(frame)
@@ -216,12 +222,16 @@ def test_export_results_writes_pooled_summary(tmp_path) -> None:
     results_path = exported["results_csv"]
     results_frame = pd.read_csv(results_path)
     assert "fold_id" in results_frame.columns
+    assert "fold_label" in results_frame.columns
     assert set(results_frame["fold_id"].tolist()) == {1, 2}
+    assert set(results_frame["fold_label"].tolist()) == {"2020-01", "2020-02"}
 
     summary_path = exported["summary_csv"]
     summary_frame = pd.read_csv(summary_path)
     assert "fold_id" in summary_frame.columns
+    assert "fold_label" in summary_frame.columns
     assert set(summary_frame["fold_id"].tolist()) == {1, 2}
+    assert set(summary_frame["fold_label"].tolist()) == {"2020-01", "2020-02"}
 
     cross_path = exported["cross_fold_summary_csv"]
     cross_frame = pd.read_csv(cross_path)
@@ -236,6 +246,8 @@ def test_export_results_writes_pooled_summary(tmp_path) -> None:
     assert pooled_frame.loc[0, "pooled_scope"] == "summary"
     assert "fold_id" in pooled_frame.columns
     assert pd.isna(pooled_frame.loc[0, "fold_id"])
+    assert "fold_label" in pooled_frame.columns
+    assert pd.isna(pooled_frame.loc[0, "fold_label"])
     assert pooled_frame.loc[0, "paths"] == 3
     assert pooled_frame.loc[0, "folds"] == 2
 
