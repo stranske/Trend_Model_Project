@@ -9,6 +9,7 @@ from trend_analysis.monte_carlo.aggregator import (
     EXPECTED_SHORTFALL_COLUMNS,
     QUANTILE_COLUMNS,
     MonteCarloAggregationResults,
+    aggregate_monte_carlo_results,
     breach_frame_schema,
     build_breach_frame,
     build_expected_shortfall_frame,
@@ -104,6 +105,27 @@ def test_build_quantiles_frame_reports_requested_quantiles() -> None:
     assert quantiles.loc[0, "metric"] == "metric"
     assert quantiles.loc[0, "value"] == pytest.approx(3.0)
     assert quantiles.loc[0, "paths"] == 3
+
+
+def test_aggregate_monte_carlo_results_respects_quantile_config() -> None:
+    results_frame = _sample_results_frame()
+
+    aggregation = aggregate_monte_carlo_results(
+        results_frame,
+        quantiles=[0.25, 0.75],
+        breach_spec={"metric": [2.5]},
+        expected_shortfall_spec={"metric": 0.5},
+    )
+
+    assert list(aggregation.path_frame.columns) == list(AGGREGATION_PATH_COLUMNS) + [
+        "metric",
+        "metric2",
+    ]
+    quantile_values = sorted(aggregation.quantiles_frame["quantile"].unique())
+    assert quantile_values == pytest.approx([0.25, 0.75])
+    assert len(aggregation.quantiles_frame) == 4
+    assert not aggregation.breach_frame.empty
+    assert not aggregation.expected_shortfall_frame.empty
 
 
 def test_build_breach_frame_handles_lower_and_upper_thresholds() -> None:
