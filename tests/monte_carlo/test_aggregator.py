@@ -101,9 +101,7 @@ def test_build_breach_frame_handles_lower_and_upper_thresholds() -> None:
 
     assert list(breach.columns) == list(BREACH_COLUMNS)
     metric_prob = breach.loc[breach["metric"] == "metric", "breach_probability"].iloc[0]
-    metric2_prob = breach.loc[breach["metric"] == "metric2", "breach_probability"].iloc[
-        0
-    ]
+    metric2_prob = breach.loc[breach["metric"] == "metric2", "breach_probability"].iloc[0]
     assert metric_prob == pytest.approx(1.0 / 3.0)
     assert metric2_prob == pytest.approx(1.0 / 3.0)
 
@@ -120,12 +118,8 @@ def test_build_expected_shortfall_frame_computes_tail_mean() -> None:
     )
 
     assert list(shortfall.columns) == list(EXPECTED_SHORTFALL_COLUMNS)
-    metric_es = shortfall.loc[
-        shortfall["metric"] == "metric", "expected_shortfall"
-    ].iloc[0]
-    metric2_es = shortfall.loc[
-        shortfall["metric"] == "metric2", "expected_shortfall"
-    ].iloc[0]
+    metric_es = shortfall.loc[shortfall["metric"] == "metric", "expected_shortfall"].iloc[0]
+    metric2_es = shortfall.loc[shortfall["metric"] == "metric2", "expected_shortfall"].iloc[0]
     assert metric_es == pytest.approx(2.0)
     assert metric2_es == pytest.approx(5.0)
 
