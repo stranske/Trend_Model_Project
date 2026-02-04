@@ -367,9 +367,7 @@ class MonteCarloRunner:
             except Exception as exc:
                 self._log_path_error(path_id, None, exc)
                 return [], [
-                    self._error_record(
-                        path_id, None, exc, fold_id=fold_id, fold_label=fold_label
-                    )
+                    self._error_record(path_id, None, exc, fold_id=fold_id, fold_label=fold_label)
                 ]
 
             path_evals: list[StrategyEvaluation] = []
@@ -431,9 +429,7 @@ class MonteCarloRunner:
             for path_id in range(total):
                 self._log_path_error(path_id, None, exc)
                 errors.append(
-                    self._error_record(
-                        path_id, None, exc, fold_id=fold_id, fold_label=fold_label
-                    )
+                    self._error_record(path_id, None, exc, fold_id=fold_id, fold_label=fold_label)
                 )
             return evaluations, errors
 
@@ -455,9 +451,7 @@ class MonteCarloRunner:
             except Exception as exc:
                 self._log_path_error(path_id, None, exc)
                 return [], [
-                    self._error_record(
-                        path_id, None, exc, fold_id=fold_id, fold_label=fold_label
-                    )
+                    self._error_record(path_id, None, exc, fold_id=fold_id, fold_label=fold_label)
                 ]
 
             try:
