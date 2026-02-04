@@ -165,8 +165,8 @@ def test_build_cross_fold_summary_frame_counts_folds_per_strategy() -> None:
         ]
     )
 
-    cross_fold = build_cross_fold_summary_frame(frame).sort_values("strategy").reset_index(
-        drop=True
+    cross_fold = (
+        build_cross_fold_summary_frame(frame).sort_values("strategy").reset_index(drop=True)
     )
 
     assert cross_fold.loc[0, "strategy"] == "A"
