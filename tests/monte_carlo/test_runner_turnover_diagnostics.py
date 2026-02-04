@@ -4,7 +4,7 @@ import pandas as pd
 import pandas.testing as pdt
 
 from trend_analysis.api import RunResult
-from trend_analysis.monte_carlo.results import StrategyEvaluation
+from trend_analysis.monte_carlo.results import StrategyEvaluation, build_diagnostics_frame
 from trend_analysis.monte_carlo.runner import MonteCarloRunner, _PathContext
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario
 from trend_analysis.monte_carlo.strategy import StrategyVariant
@@ -183,6 +183,37 @@ def test_results_include_turnover_binding_diagnostics(monkeypatch) -> None:
             "period": list(dates),
             "turnover": [0.1, 0.25],
             "turnover_cap_binding": [False, True],
+        }
+    )
+    pdt.assert_frame_equal(diagnostics.reset_index(drop=True), expected)
+
+
+def test_build_diagnostics_frame_expands_binding_indicator() -> None:
+    dates = pd.date_range("2021-01-31", periods=3, freq="ME")
+    turnover = pd.Series([0.05, 0.2, 0.1], index=dates, name="turnover")
+    evaluation = StrategyEvaluation(
+        fold_id=None,
+        path_id=1,
+        strategy_name="base",
+        metrics={"cagr": 0.1},
+        metric_source="metrics",
+        path_hash="hash",
+        seed=7,
+        diagnostic={"turnover": turnover, "turnover_cap_binding": True},
+    )
+
+    diagnostics = build_diagnostics_frame([evaluation])
+
+    expected = pd.DataFrame(
+        {
+            "fold_id": [None, None, None],
+            "path_id": [1, 1, 1],
+            "strategy": ["base", "base", "base"],
+            "path_hash": ["hash", "hash", "hash"],
+            "seed": [7, 7, 7],
+            "period": list(dates),
+            "turnover": [0.05, 0.2, 0.1],
+            "turnover_cap_binding": [True, True, True],
         }
     )
     pdt.assert_frame_equal(diagnostics.reset_index(drop=True), expected)
