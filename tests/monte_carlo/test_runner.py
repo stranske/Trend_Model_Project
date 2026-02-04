@@ -509,6 +509,7 @@ def test_runner_builds_pooled_summary_when_enabled(
     assert results.pooled_summary_frame.loc[0, "pooled_scope"] == "summary"
     assert results.cross_fold_summary_frame is not None
     assert results.metadata.get("pooled_distributions") is True
+    assert results.metadata.get("pooled_scope") == "summary"
 
 
 def test_runner_builds_cross_fold_summary_without_pooled_distributions(
@@ -556,6 +557,7 @@ def test_runner_builds_cross_fold_summary_without_pooled_distributions(
 
     assert results.pooled_summary_frame is None
     assert results.metadata.get("pooled_distributions") is False
+    assert results.metadata.get("pooled_scope") == "none"
     cross_fold = results.cross_fold_summary_frame
     assert cross_fold is not None
     assert cross_fold.loc[0, "scope"] == "cross_fold"

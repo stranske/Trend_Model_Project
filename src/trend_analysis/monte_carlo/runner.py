@@ -234,6 +234,7 @@ class MonteCarloRunner:
         )
         if folds:
             metadata["pooled_distributions"] = pooled_distributions
+            metadata["pooled_scope"] = "summary" if pooled_distributions else "none"
         results = MonteCarloResults(
             mode=mode,
             evaluations=evaluations,

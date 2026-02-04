@@ -13,6 +13,7 @@ Checklist refreshed on 2026-02-04 after running `pytest tests/monte_carlo/test_r
 Checklist refreshed on 2026-02-04 after running `pytest tests/monte_carlo/test_runner.py -m "not slow"`. Added coverage to ensure pooled summaries include fold counts when pooled distributions are enabled.
 Checklist refreshed on 2026-02-04 after running `pytest tests/monte_carlo/test_runner.py -m "not slow"`. Verified pooled-distribution toggles record metadata when disabled.
 Checklist refreshed on 2026-02-04 after running `pytest tests/monte_carlo/test_folds.py -m "not slow"` and `pytest tests/monte_carlo/test_runner.py -m "not slow"`. Added coverage to ensure rolling and count_spaced fold calibration windows are passed into the Monte Carlo runner.
+Checklist refreshed on 2026-02-04 after running `pytest tests/monte_carlo/test_runner.py -m "not slow"`. Added pooled scope metadata to clarify pooled summary outputs.
 Additional fold-aware output tables live outside Monte Carlo exports in `src/trend_analysis/walk_forward.py` (folds/summary CSVs) and `analysis/cv.py` (cv_folds/cv_summary CSVs). These should include a `fold_id` column while keeping existing `fold`/`folds` fields for compatibility. Validated updates on 2026-02-03 with `pytest tests/test_walk_forward_grid.py tests/test_walk_forward_helpers_additional.py tests/test_walk_forward_settings.py tests/test_cv.py -m "not slow"`.
 
 ## Tasks
@@ -45,7 +46,7 @@ Additional fold-aware output tables live outside Monte Carlo exports in `src/tre
 - [x] Implement unit tests for FoldGenerator._previous_in_index (verify: tests pass)
 - [x] including edge cases. (verify: confirm completion in repo)
 - [x] Write unit tests to verify optional pooled distributions are included.
-- [ ] Clarify and update implementation regarding pooled output to determine if full distribution artifacts are needed, and update tests accordingly.
+- [x] Clarify and update implementation regarding pooled output to determine if full distribution artifacts are needed, and update tests accordingly.
 - [x] Add or enhance tests to verify that the scenario configuration flag properly enables and disables fold runs.
 
 ## Acceptance Criteria
