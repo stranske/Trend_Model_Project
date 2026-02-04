@@ -237,6 +237,38 @@ def test_results_include_turnover_binding_diagnostics(monkeypatch) -> None:
     pdt.assert_frame_equal(diagnostics.reset_index(drop=True), expected)
 
 
+def test_results_expose_turnover_series_on_evaluations(monkeypatch) -> None:
+    dates = pd.date_range("2021-01-31", periods=2, freq="ME")
+    turnover = pd.Series([0.12, 0.18], index=dates, name="turnover")
+    evaluation = StrategyEvaluation(
+        fold_id=None,
+        path_id=0,
+        strategy_name="base",
+        metrics={"cagr": 0.1},
+        metric_source="metrics",
+        path_hash="hash",
+        seed=123,
+        diagnostic={"turnover": turnover},
+    )
+
+    def _fake_run_mode(*_args, **_kwargs):
+        return [evaluation], []
+
+    def _fake_build_price_model(*_args, **_kwargs):
+        return object()
+
+    monkeypatch.setattr(MonteCarloRunner, "_run_mode", _fake_run_mode)
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
+
+    history = pd.DataFrame({"Asset": [100.0, 101.0]}, index=dates)
+    runner = MonteCarloRunner(_scenario(), base_config=_base_config(), price_history=history)
+    results = runner.run()
+
+    assert results.evaluations
+    diagnostic = results.evaluations[0].diagnostic or {}
+    pdt.assert_series_equal(diagnostic["turnover"], turnover)
+
+
 def test_build_diagnostics_frame_expands_binding_indicator() -> None:
     dates = pd.date_range("2021-01-31", periods=3, freq="ME")
     turnover = pd.Series([0.05, 0.2, 0.1], index=dates, name="turnover")

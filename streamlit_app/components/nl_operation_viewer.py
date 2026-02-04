@@ -11,6 +11,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import streamlit as st
 
+from trend_analysis.config.patch import ConfigPatch
 from trend_analysis.llm.nl_logging import NLOperationLog
 from trend_analysis.llm.replay import render_prompt, replay_nl_entry
 from trend_analysis.logging import iter_jsonl
@@ -154,6 +155,31 @@ def _entry_has_sensitive_prompt(entry: NLOperationLog) -> bool:
     return _contains_sensitive(entry.prompt_variables or {})
 
 
+def _render_prompt_for_display(entry: NLOperationLog) -> str:
+    safe_entry = _redact_entry_for_replay(entry)
+    return _redact_text(render_prompt(safe_entry))
+
+
+def _sanitize_patch_payload(patch: ConfigPatch) -> dict[str, Any]:
+    payload = patch.model_dump()
+    summary = payload.get("summary")
+    if isinstance(summary, str):
+        payload["summary"] = "[REDACTED]" if _is_sensitive_key(summary) else _redact_text(summary)
+    operations = []
+    for operation in payload.get("operations", []):
+        if not isinstance(operation, dict):
+            operations.append(operation)
+            continue
+        path = str(operation.get("path") or "")
+        safe_operation = dict(operation)
+        safe_operation["path"] = _redact_text(path)
+        if "value" in safe_operation:
+            safe_operation["value"] = _sanitize_value(operation.get("value"), key=path or None)
+        operations.append(safe_operation)
+    payload["operations"] = operations
+    return _sanitize_value(payload)
+
+
 def _format_timestamp(entry: NLOperationLog) -> str:
     timestamp = entry.timestamp
     try:
@@ -203,18 +229,25 @@ def _render_patch_summary(entry: NLOperationLog) -> None:
     if patch is None:
         st.info("No parsed patch recorded for this entry.")
         return
+    safe_payload = _sanitize_patch_payload(patch)
     st.markdown("**Patch summary**")
-    st.caption(patch.summary)
-    if patch.risk_flags:
-        st.caption("Risk flags: " + ", ".join(flag.value for flag in patch.risk_flags))
-    st.caption("Needs review: " + ("Yes" if patch.needs_review else "No"))
-    operations = [
-        f"{op.op} {op.path} -> {json.dumps(op.value, default=str)}" for op in patch.operations
-    ]
+    summary = safe_payload.get("summary", "")
+    st.caption(summary)
+    risk_flags = safe_payload.get("risk_flags") or []
+    if risk_flags:
+        st.caption("Risk flags: " + ", ".join(str(flag) for flag in risk_flags))
+    st.caption("Needs review: " + ("Yes" if safe_payload.get("needs_review") else "No"))
+    operations = []
+    for op in safe_payload.get("operations", []):
+        if not isinstance(op, dict):
+            continue
+        operations.append(
+            f"{op.get('op')} {op.get('path')} -> {json.dumps(op.get('value'), default=str)}"
+        )
     if operations:
         st.code("\n".join(operations), language="text")
     st.markdown("**Patch payload**")
-    st.code(json.dumps(patch.model_dump(), indent=2, sort_keys=True), language="json")
+    st.code(json.dumps(safe_payload, indent=2, sort_keys=True), language="json")
 
 
 def _render_replay(entry: NLOperationLog) -> None:
@@ -300,14 +333,14 @@ def render_nl_operation_viewer(
     st.markdown("**Entry details**")
     st.caption(f"Request ID: {entry.request_id}")
     if entry.error:
-        st.warning(f"Error: {entry.error}")
+        st.warning(f"Error: {_redact_text(entry.error)}")
     st.caption(
         f"Operation: {entry.operation} | Model: {entry.model_name} | Duration: {_format_duration(entry)}"
     )
     if entry.trace_url:
         st.caption(f"Trace URL: {_redact_url(entry.trace_url)}")
 
-    prompt = _redact_text(render_prompt(entry))
+    prompt = _render_prompt_for_display(entry)
     st.markdown("**Rendered prompt**")
     st.code(prompt, language="text")
 

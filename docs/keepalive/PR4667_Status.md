@@ -8,8 +8,7 @@ PR #4667 aimed to resolve issue #4666 but failed to meet the acceptance criteria
 
 ## Checklist Reconciliation
 Checklist reconciled on 2026-02-04 after reviewing recent commits and running
-`pytest tests/test_config_schema_generation.py -m "not slow"`,
-`pytest tests/monte_carlo/test_runner_turnover_diagnostics.py -m "not slow"`, and
+`pytest tests/monte_carlo/test_runner_turnover_diagnostics.py -m "not slow"` and
 `pytest tests/app/test_nl_operation_viewer_component.py -m "not slow"`.
 
 ## Tasks

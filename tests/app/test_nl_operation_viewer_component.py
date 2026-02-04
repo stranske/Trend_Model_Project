@@ -10,6 +10,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from trend_analysis.config.patch import ConfigPatch, PatchOperation
 from trend_analysis.llm.nl_logging import NLOperationLog
 
 
@@ -113,6 +114,36 @@ def test_prepare_replay_entry_no_redaction_when_safe(monkeypatch: pytest.MonkeyP
     assert redacted is False
     assert redacted_entry.prompt_template == "Hello"
     assert redacted_entry.prompt_variables == {"user": "test"}
+
+
+def test_render_prompt_for_display_redacts_by_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = _load_module(monkeypatch)
+    entry = _make_entry(
+        prompt_template="Password: {password}",
+        prompt_variables={"password": "hunter2"},
+    )
+
+    rendered = module._render_prompt_for_display(entry)
+
+    assert "hunter2" not in rendered
+    assert "[REDACTED]" in rendered
+
+
+def test_sanitize_patch_payload_redacts_sensitive_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module(monkeypatch)
+    patch = ConfigPatch(
+        summary="Set api key to sk-test-secret",
+        operations=[
+            PatchOperation(op="set", path="credentials.api_key", value="hunter2"),
+        ],
+    )
+
+    payload = module._sanitize_patch_payload(patch)
+
+    assert "[REDACTED]" in payload["summary"]
+    assert payload["operations"][0]["value"] == "[REDACTED]"
 
 
 def test_load_log_entries_respects_limit(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
