@@ -79,6 +79,21 @@ def test_build_path_frame_excludes_path_and_fold_from_metrics() -> None:
     assert list(path_frame.columns).count("fold") == 1
 
 
+def test_build_path_frame_preserves_metric_schema_on_empty_input() -> None:
+    results_frame = pd.DataFrame(
+        {
+            "strategy": pd.Series(dtype=str),
+            "path": pd.Series(dtype=int),
+            "fold": pd.Series(dtype=int),
+            "metric": pd.Series(dtype=float),
+        }
+    )
+
+    path_frame = build_path_frame(results_frame)
+
+    assert list(path_frame.columns) == list(AGGREGATION_PATH_COLUMNS) + ["metric"]
+
+
 def test_build_quantiles_frame_reports_requested_quantiles() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 

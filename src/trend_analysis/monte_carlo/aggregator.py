@@ -98,10 +98,10 @@ def aggregate_monte_carlo_results(
 def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     """Return per-path metrics with strategy/path/fold identifiers."""
 
-    if results_frame.empty:
-        return pd.DataFrame(columns=list(AGGREGATION_PATH_COLUMNS))
-
     metric_cols = _metric_columns(results_frame)
+    if results_frame.empty:
+        return pd.DataFrame(columns=list(path_frame_schema(results_frame)))
+
     data: dict[str, Any] = {
         "strategy": results_frame.get("strategy"),
         "path": _coerce_column(results_frame, ("path", "path_id")),
