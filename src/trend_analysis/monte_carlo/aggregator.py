@@ -146,9 +146,12 @@ def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
         "path": _coerce_column(results_frame, ("path", "path_id")),
         "fold": _coerce_column(results_frame, ("fold", "fold_id"), default=None),
     }
-    frame = pd.DataFrame(data)
+    frame = pd.DataFrame(data).reset_index(drop=True)
     if metric_cols:
-        frame = pd.concat([frame, results_frame[metric_cols].reset_index(drop=True)], axis=1)
+        frame = pd.concat(
+            [frame, results_frame[metric_cols].reset_index(drop=True)],
+            axis=1,
+        )
     schema = path_frame_schema(results_frame)
     if schema:
         return frame[list(schema)]
@@ -357,7 +360,7 @@ def _coerce_column(
     for col in candidates:
         if col in frame.columns:
             return frame[col]
-    return pd.Series([default] * len(frame))
+    return pd.Series([default] * len(frame), index=frame.index)
 
 
 def _coerce_quantiles(quantiles: Sequence[float] | None) -> list[float]:
