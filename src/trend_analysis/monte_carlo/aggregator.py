@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -13,7 +13,10 @@ __all__ = [
     "BREACH_COLUMNS",
     "EXPECTED_SHORTFALL_COLUMNS",
     "QUANTILE_COLUMNS",
+    "BreachAggregationRow",
     "MonteCarloAggregationResults",
+    "ExpectedShortfallAggregationRow",
+    "QuantilesAggregationRow",
     "aggregate_monte_carlo_results",
     "build_breach_frame",
     "build_expected_shortfall_frame",
@@ -62,6 +65,42 @@ EXPECTED_SHORTFALL_COLUMNS = (
 )
 
 _DEFAULT_QUANTILES = (0.05, 0.5, 0.95)
+
+
+class QuantilesAggregationRow(TypedDict):
+    """Schema for a single quantiles aggregation row."""
+
+    strategy: Any
+    fold: Any
+    metric: str
+    quantile: float
+    value: float
+    paths: int
+
+
+class BreachAggregationRow(TypedDict):
+    """Schema for a single breach probability aggregation row."""
+
+    strategy: Any
+    fold: Any
+    metric: str
+    threshold: float
+    direction: str
+    breach_probability: float
+    paths: int
+
+
+class ExpectedShortfallAggregationRow(TypedDict):
+    """Schema for a single expected shortfall aggregation row."""
+
+    strategy: Any
+    fold: Any
+    metric: str
+    tail: str
+    alpha: float
+    threshold: float
+    expected_shortfall: float
+    paths: int
 
 
 @dataclass(frozen=True)
