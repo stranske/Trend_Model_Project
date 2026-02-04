@@ -109,6 +109,7 @@ def configure_matplotlib_config_dir(
     os.environ[_MPLCONFIGDIR_ENV] = str(config_path)
     return config_path
 
+
 _MODULE_SELF = sys.modules[__name__]
 
 
