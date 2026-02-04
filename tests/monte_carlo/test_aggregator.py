@@ -107,6 +107,25 @@ def test_build_quantiles_frame_reports_requested_quantiles() -> None:
     assert quantiles.loc[0, "paths"] == 3
 
 
+def test_build_quantiles_frame_ignores_non_finite_values() -> None:
+    path_frame = build_path_frame(
+        pd.DataFrame(
+            [
+                {"strategy": "A", "path": 1, "fold": 0, "metric": 1.0},
+                {"strategy": "A", "path": 2, "fold": 0, "metric": float("nan")},
+                {"strategy": "A", "path": 3, "fold": 0, "metric": float("inf")},
+                {"strategy": "A", "path": 4, "fold": 0, "metric": float("-inf")},
+                {"strategy": "A", "path": 5, "fold": 0, "metric": 3.0},
+            ]
+        )
+    )
+
+    quantiles = build_quantiles_frame(path_frame, [0.5])
+
+    assert quantiles.loc[0, "value"] == pytest.approx(2.0)
+    assert quantiles.loc[0, "paths"] == 2
+
+
 def test_aggregate_monte_carlo_results_respects_quantile_config() -> None:
     results_frame = _sample_results_frame()
 
