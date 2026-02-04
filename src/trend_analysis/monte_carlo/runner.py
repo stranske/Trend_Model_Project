@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 
 from trend_analysis.api import run_simulation
+from trend_analysis.constants import NUMERICAL_TOLERANCE_HIGH
 from trend_analysis.config.models import Config, ConfigType
 from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
 from trend_analysis.io.market_data import (
@@ -507,6 +508,22 @@ class MonteCarloRunner:
                 "reason_code": run_result.diagnostic.reason_code,
                 "message": run_result.diagnostic.message,
             }
+        portfolio_cfg = getattr(config, "portfolio", {})
+        max_turnover = None
+        if isinstance(portfolio_cfg, Mapping):
+            max_turnover = portfolio_cfg.get("max_turnover")
+        turnover_series, binding = self._resolve_turnover_diagnostics(
+            run_result,
+            context,
+            max_turnover=max_turnover,
+        )
+        if turnover_series is not None or binding is not None:
+            if diagnostic is None:
+                diagnostic = {}
+            if turnover_series is not None:
+                diagnostic["turnover"] = turnover_series
+            if binding is not None:
+                diagnostic["turnover_cap_binding"] = binding
         if cost_payload is not None:
             if diagnostic is None:
                 diagnostic = {}
@@ -905,10 +922,12 @@ class MonteCarloRunner:
         return None
 
     def _resolve_turnover_series(
-        self, run_result: Any, out_index: pd.Index
+        self, run_result: Any, out_index: pd.Index | None
     ) -> pd.Series | float | None:
         turnover = getattr(run_result, "turnover", None)
         if isinstance(turnover, pd.Series):
+            if out_index is None:
+                return turnover
             if len(turnover) == 1 and len(out_index) > 1:
                 value = float(turnover.iloc[0])
                 return pd.Series(value, index=out_index, name=turnover.name or "turnover")
@@ -917,6 +936,8 @@ class MonteCarloRunner:
         if isinstance(details, Mapping):
             turnover = details.get("turnover")
             if isinstance(turnover, pd.Series):
+                if out_index is None:
+                    return turnover
                 if len(turnover) == 1 and len(out_index) > 1:
                     value = float(turnover.iloc[0])
                     return pd.Series(value, index=out_index, name=turnover.name or "turnover")
@@ -931,6 +952,83 @@ class MonteCarloRunner:
         if isinstance(turnover, (float, int)):
             return float(turnover)
         return None
+
+    def _resolve_turnover_diagnostics(
+        self,
+        run_result: Any,
+        context: _PathContext,
+        *,
+        max_turnover: object | None,
+    ) -> tuple[pd.Series | None, pd.Series | None]:
+        out_index = self._resolve_cost_index(run_result, context)
+        regimes = self._resolve_regime_labels(run_result, out_index) if out_index is not None else None
+        turnover_raw = self._resolve_turnover_series(run_result, out_index)
+        turnover_series = self._coerce_turnover_series(turnover_raw, out_index)
+        cap_series = self._resolve_turnover_cap_series(max_turnover, regimes, out_index)
+        binding = self._turnover_cap_binding_indicator(turnover_series, cap_series)
+        return turnover_series, binding
+
+    def _coerce_turnover_series(
+        self, turnover: pd.Series | float | None, out_index: pd.Index | None
+    ) -> pd.Series | None:
+        if turnover is None:
+            return None
+        if isinstance(turnover, pd.Series):
+            if out_index is None:
+                return turnover
+            return turnover.reindex(out_index).fillna(0.0)
+        if out_index is None:
+            return None
+        return pd.Series(float(turnover), index=out_index, name="turnover")
+
+    def _resolve_turnover_cap_series(
+        self,
+        max_turnover: object | None,
+        regimes: pd.Series | None,
+        out_index: pd.Index | None,
+    ) -> pd.Series | float | None:
+        if max_turnover is None:
+            return None
+        if isinstance(max_turnover, Mapping):
+            if out_index is None:
+                return None
+            if regimes is None:
+                return pd.Series(np.nan, index=out_index, name="turnover_cap")
+            mapping = {}
+            for key, value in max_turnover.items():
+                if key is None:
+                    continue
+                try:
+                    mapping[str(key)] = float(value)
+                except (TypeError, ValueError):
+                    continue
+            labels = regimes.reindex(out_index).astype("string")
+            caps = labels.map(lambda label: mapping.get(str(label)) if label else np.nan)
+            return pd.Series(caps, index=out_index, name="turnover_cap")
+        try:
+            cap = float(max_turnover)
+        except (TypeError, ValueError):
+            return None
+        if out_index is None:
+            return cap
+        return pd.Series(cap, index=out_index, name="turnover_cap")
+
+    def _turnover_cap_binding_indicator(
+        self,
+        turnover: pd.Series | None,
+        cap: pd.Series | float | None,
+    ) -> pd.Series | None:
+        if turnover is None or cap is None:
+            return None
+        if isinstance(cap, pd.Series):
+            aligned_cap = cap.reindex(turnover.index)
+            valid_cap = aligned_cap.where(aligned_cap > 0)
+            binding = turnover >= (valid_cap - NUMERICAL_TOLERANCE_HIGH)
+            return binding.fillna(False).astype(bool).rename("turnover_cap_binding")
+        if cap <= 0:
+            return pd.Series(False, index=turnover.index, name="turnover_cap_binding")
+        binding = turnover >= (cap - NUMERICAL_TOLERANCE_HIGH)
+        return binding.astype(bool).rename("turnover_cap_binding")
 
     def _cost_rng(self, path_id: int, strategy_name: str) -> np.random.Generator:
         manager = self._get_seed_manager()
