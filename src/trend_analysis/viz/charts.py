@@ -5,10 +5,9 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import TYPE_CHECKING, Mapping
 
-from .. import configure_matplotlib_config_dir
-
 import pandas as pd
 
+from .. import configure_matplotlib_config_dir
 from ..metrics import rolling as rolling_metrics
 
 if TYPE_CHECKING:
