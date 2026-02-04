@@ -292,7 +292,7 @@ def _metric_columns(results_frame: pd.DataFrame) -> list[str]:
     numeric_cols = [
         str(col) for col in results_frame.select_dtypes(include="number").columns.tolist()
     ]
-    for col in ("fold_id", "path_id", "seed"):
+    for col in ("fold_id", "path_id", "seed", "fold", "path"):
         if col in numeric_cols:
             numeric_cols.remove(col)
     return numeric_cols

@@ -41,6 +41,23 @@ def test_build_path_frame_schema_and_values() -> None:
     assert path_frame.loc[0, "metric"] == pytest.approx(1.0)
 
 
+def test_build_path_frame_excludes_path_and_fold_from_metrics() -> None:
+    results_frame = pd.DataFrame(
+        [
+            {"fold": 0, "path": 10, "strategy": "A", "metric": 1.0},
+            {"fold": 0, "path": 11, "strategy": "A", "metric": 2.0},
+        ]
+    )
+
+    path_frame = build_path_frame(results_frame)
+
+    assert "metric" in path_frame.columns
+    assert "path" in path_frame.columns
+    assert "fold" in path_frame.columns
+    assert list(path_frame.columns).count("path") == 1
+    assert list(path_frame.columns).count("fold") == 1
+
+
 def test_build_quantiles_frame_reports_requested_quantiles() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 
