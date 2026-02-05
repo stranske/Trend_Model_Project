@@ -173,6 +173,13 @@ jobs:
                 return;
               }
 
+              const hasAutofixLabel = pr.labels.some(l => l.name === 'autofix:bot-comments');
+              if (!hasAutofixLabel) {
+                console.log(`PR #${prNumber} missing autofix:bot-comments label, skipping`);
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
               shouldRun = true;
               console.log(`Gate completion trigger for agent PR #${prNumber}`);
             }
@@ -189,6 +196,7 @@ jobs:
     with:
       pr_number: ${{ needs.resolve.outputs.pr_number }}
       dry_run: ${{ inputs.dry_run == true }}
+      bot_authors: 'Copilot,copilot[bot],coderabbitai[bot]'
     secrets:
       service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
       gh_app_id: ${{ secrets.GH_APP_ID }}
