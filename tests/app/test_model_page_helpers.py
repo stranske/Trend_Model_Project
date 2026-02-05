@@ -716,24 +716,17 @@ def test_build_nl_chain_reuses_cached_chain(
 
     def fake_cached_config_patch_chain(
         session_cache_key: str,
-        cache_version: str,
-        provider: str,
-        model: str,
+        chain_cache_key: dict[str, object],
+        llm_cache_key: dict[str, object],
         api_key: str | None,
-        base_url: str | None,
-        organization: str | None,
-        timeout: float | None,
-        max_retries: int | None,
         extra_payload: str,
-        temperature: float,
-        api_key_fingerprint: str | None,
     ) -> object:
         calls.append(
             {
-                "provider": provider,
-                "model": model,
+                "provider": chain_cache_key.get("provider"),
+                "model": chain_cache_key.get("model"),
                 "api_key": api_key,
-                "temperature": temperature,
+                "temperature": chain_cache_key.get("temperature"),
             }
         )
         return chain_obj
@@ -793,17 +786,10 @@ def test_build_nl_chain_invalidation_on_model_change(
 
     def fake_cached_config_patch_chain(
         session_cache_key: str,
-        cache_version: str,
-        provider: str,
-        model: str,
+        chain_cache_key: dict[str, object],
+        llm_cache_key: dict[str, object],
         api_key: str | None,
-        base_url: str | None,
-        organization: str | None,
-        timeout: float | None,
-        max_retries: int | None,
         extra_payload: str,
-        temperature: float,
-        api_key_fingerprint: str | None,
     ) -> object:
         call_count["value"] += 1
         return chain_one if call_count["value"] == 1 else chain_two

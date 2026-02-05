@@ -146,6 +146,30 @@ def _build_chain_cache_key(
     }
 
 
+def _build_llm_cache_key(
+    *,
+    provider: str,
+    model: str,
+    base_url: str | None,
+    organization: str | None,
+    timeout: float | None,
+    max_retries: int | None,
+    extra_payload_hash: str | None,
+    api_key_fingerprint: str | None,
+) -> dict[str, Any]:
+    return {
+        "cache_version": _CONFIG_CHAIN_CACHE_VERSION,
+        "provider": provider,
+        "model": model,
+        "base_url": base_url,
+        "organization": organization,
+        "timeout": timeout,
+        "max_retries": max_retries,
+        "extra_payload_hash": extra_payload_hash,
+        "api_key_fingerprint": api_key_fingerprint,
+    }
+
+
 def _cache_key_changes(
     previous: Mapping[str, Any] | None,
     current: Mapping[str, Any],
@@ -710,26 +734,19 @@ def _normalize_temperature(value: float) -> float:
 @st.cache_resource(show_spinner=False)
 def _cached_llm_client(
     session_cache_key: str,
-    cache_version: str,
-    provider: str,
-    model: str,
+    cache_key: Mapping[str, Any],
     api_key: str | None,
-    base_url: str | None,
-    organization: str | None,
-    timeout: float | None,
-    max_retries: int | None,
     extra_payload: str,
-    api_key_fingerprint: str | None,
 ) -> Any:
-    del session_cache_key, cache_version, api_key_fingerprint
+    del session_cache_key
     config = LLMProviderConfig(
-        provider=provider,
-        model=model,
+        provider=str(cache_key.get("provider")),
+        model=str(cache_key.get("model")),
         api_key=api_key,
-        base_url=base_url,
-        organization=organization,
-        timeout=timeout,
-        max_retries=max_retries,
+        base_url=cache_key.get("base_url"),
+        organization=cache_key.get("organization"),
+        timeout=cache_key.get("timeout"),
+        max_retries=cache_key.get("max_retries"),
         extra=json.loads(extra_payload) if extra_payload else {},
     )
     return create_llm(config)
@@ -738,38 +755,24 @@ def _cached_llm_client(
 @st.cache_resource(show_spinner=False)
 def _cached_config_patch_chain(
     session_cache_key: str,
-    cache_version: str,
-    provider: str,
-    model: str,
+    chain_cache_key: Mapping[str, Any],
+    llm_cache_key: Mapping[str, Any],
     api_key: str | None,
-    base_url: str | None,
-    organization: str | None,
-    timeout: float | None,
-    max_retries: int | None,
     extra_payload: str,
-    temperature: float,
-    api_key_fingerprint: str | None,
 ) -> ConfigPatchChain:
     llm = _cached_llm_client(
         session_cache_key,
-        cache_version,
-        provider,
-        model,
+        llm_cache_key,
         api_key,
-        base_url,
-        organization,
-        timeout,
-        max_retries,
         extra_payload,
-        api_key_fingerprint,
     )
     schema = load_compact_schema()
     return ConfigPatchChain.from_env(
         llm=llm,
         schema=schema,
         prompt_builder=build_config_patch_prompt,
-        temperature=temperature,
-        model=model,
+        temperature=float(chain_cache_key.get("temperature") or 0.0),
+        model=str(chain_cache_key.get("model")),
     )
 
 
@@ -783,6 +786,16 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     extra_payload = _serialize_extra(config.extra)
     extra_payload_hash = _hash_text(extra_payload)
     resolved_model = _normalize_cache_str(config.model) or _DEFAULT_CONFIG_CHAT_MODEL
+    llm_cache_key = _build_llm_cache_key(
+        provider=provider,
+        model=resolved_model,
+        base_url=base_url,
+        organization=organization,
+        timeout=config.timeout,
+        max_retries=config.max_retries,
+        extra_payload_hash=extra_payload_hash,
+        api_key_fingerprint=api_key_fingerprint,
+    )
     cache_key = _build_chain_cache_key(
         provider=provider,
         model=resolved_model,
@@ -812,17 +825,10 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     session_cache_key = _get_config_chat_session_id()
     chain = _cached_config_patch_chain(
         session_cache_key,
-        _CONFIG_CHAIN_CACHE_VERSION,
-        provider,
-        resolved_model,
+        cache_key,
+        llm_cache_key,
         config.api_key,
-        base_url,
-        organization,
-        config.timeout,
-        config.max_retries,
         extra_payload,
-        temperature,
-        api_key_fingerprint,
     )
     entries = cache_state["entries"]
     cached_chain_id = entries.get(signature)
