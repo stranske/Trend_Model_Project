@@ -8,6 +8,8 @@ from typing import Any, Iterable, Literal, Mapping, Sequence, TypedDict, cast
 import numpy as np
 import pandas as pd
 
+from .results import RESULT_BASE_COLUMNS
+
 __all__ = [
     "AGGREGATION_PATH_COLUMNS",
     "AggregationFrameSchemas",
@@ -380,18 +382,8 @@ def build_expected_shortfall_frame(
 
 
 def _metric_columns(results_frame: pd.DataFrame) -> list[str]:
-    excluded = {
-        "fold_id",
-        "fold_label",
-        "path_id",
-        "path_hash",
-        "seed",
-        "metric_source",
-        "fold",
-        "path",
-        "strategy",
-        "strategy_name",
-    }
+    excluded = set(RESULT_BASE_COLUMNS)
+    excluded.update({"fold", "path", "strategy_name"})
     metric_cols: list[str] = []
     for col in results_frame.columns:
         name = str(col)
@@ -404,15 +396,8 @@ def _metric_columns(results_frame: pd.DataFrame) -> list[str]:
 
 
 def _path_metric_columns(path_frame: pd.DataFrame) -> list[str]:
-    excluded = {
-        "path",
-        "fold",
-        "strategy",
-        "fold_label",
-        "path_hash",
-        "metric_source",
-        "strategy_name",
-    }
+    excluded = set(RESULT_BASE_COLUMNS)
+    excluded.update({"path", "fold", "strategy_name"})
     metric_cols: list[str] = []
     for col in path_frame.columns:
         name = str(col)
