@@ -948,7 +948,7 @@ def _cached_config_patch_chain(
     )
 
 
-def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
+def _build_chain_cache_context() -> dict[str, Any]:
     config = _resolve_llm_provider_config()
     provider = _normalize_cache_str(config.provider) or "openai"
     temperature = _normalize_temperature(_resolve_llm_temperature())
@@ -975,6 +975,30 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         organization=organization,
         temperature=temperature,
     )
+    return {
+        "provider": provider,
+        "temperature": temperature,
+        "base_url": base_url,
+        "organization": organization,
+        "resolved_model": resolved_model,
+        "api_key_fingerprint": api_key_fingerprint,
+        "extra_payload": extra_payload,
+        "llm_cache_key": llm_cache_key,
+        "cache_key": cache_key,
+    }
+
+
+def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
+    context = _build_chain_cache_context()
+    provider = context["provider"]
+    temperature = context["temperature"]
+    base_url = context["base_url"]
+    organization = context["organization"]
+    resolved_model = context["resolved_model"]
+    api_key_fingerprint = context["api_key_fingerprint"]
+    extra_payload = context["extra_payload"]
+    llm_cache_key = context["llm_cache_key"]
+    cache_key = context["cache_key"]
     cache_state = _get_chain_cache_state()
     signature = _chain_cache_signature(cache_key)
     resource_signature = _chain_resource_signature(cache_key, llm_cache_key)
@@ -1482,6 +1506,19 @@ def _render_config_change_history() -> None:
 def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
     st.caption("Describe the configuration change you want to try.")
     _render_last_preview_metrics()
+    try:
+        cache_context = _build_chain_cache_context()
+    except Exception as exc:
+        st.caption(f"Cache key unavailable: {exc}")
+    else:
+        cache_key = cache_context.get("cache_key")
+        cache_summary = _chain_cache_summary(cache_key) if isinstance(cache_key, Mapping) else "—"
+        cache_signature = (
+            _chain_cache_signature(cache_key)[:8]
+            if isinstance(cache_key, Mapping)
+            else "—"
+        )
+        st.caption(f"Current cache key: {cache_summary} | Sig: {cache_signature}")
     instruction = st.text_area(
         "Instruction",
         key="config_chat_instruction",
