@@ -1014,6 +1014,7 @@ def _build_chain_cache_context() -> dict[str, Any]:
         "base_url": base_url,
         "organization": organization,
         "resolved_model": resolved_model,
+        "api_key": config.api_key,
         "api_key_fingerprint": api_key_fingerprint,
         "extra_payload": extra_payload,
         "llm_cache_key": llm_cache_key,
@@ -1028,6 +1029,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     base_url = context["base_url"]
     organization = context["organization"]
     resolved_model = context["resolved_model"]
+    api_key = context["api_key"]
     api_key_fingerprint = context["api_key_fingerprint"]
     extra_payload = context["extra_payload"]
     llm_cache_key = context["llm_cache_key"]
@@ -1063,7 +1065,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     session_cache_key = (
         _reset_config_chat_session_id() if session_reset else _get_config_chat_session_id()
     )
-    api_key_secret = _ApiKeySecret(config.api_key, api_key_fingerprint)
+    api_key_secret = _ApiKeySecret(api_key, api_key_fingerprint)
     chain = _cached_config_patch_chain(
         session_cache_key,
         cache_key,

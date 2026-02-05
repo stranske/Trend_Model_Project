@@ -276,6 +276,34 @@ def test_build_nl_chain_invalidates_on_model_change(
     assert "config_chat_last_instruction" not in stub.session_state
 
 
+def test_build_nl_chain_passes_api_key_to_cache(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+    captured: dict[str, object] = {}
+
+    def fake_cached_config_patch_chain(
+        _session_cache_key,
+        _chain_cache_key,
+        _llm_cache_key,
+        api_key_secret,
+        _extra_payload,
+    ):
+        captured["api_key_secret"] = api_key_secret
+        return object()
+
+    monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key-123")
+
+    model_module._build_nl_chain()
+
+    secret = captured.get("api_key_secret")
+    assert secret is not None
+    assert secret.value == "test-key-123"
+    assert secret.fingerprint == model_module._hash_api_key("test-key-123")
+
+
 def test_build_nl_chain_invalidates_on_base_url_change(
     monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
 ) -> None:
