@@ -214,6 +214,17 @@ def test_build_quantiles_frame_reports_requested_quantiles() -> None:
     assert quantiles.loc[0, "paths"] == 3
 
 
+def test_build_quantiles_frame_defaults_quantiles_when_none_or_empty() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    default_quantiles = build_quantiles_frame(path_frame, None)
+    empty_quantiles = build_quantiles_frame(path_frame, [])
+
+    expected = [0.05, 0.5, 0.95]
+    assert sorted(default_quantiles["quantile"].unique()) == pytest.approx(expected)
+    assert sorted(empty_quantiles["quantile"].unique()) == pytest.approx(expected)
+
+
 def test_build_quantiles_frame_reports_all_metrics() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 
