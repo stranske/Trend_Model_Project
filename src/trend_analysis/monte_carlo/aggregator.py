@@ -12,8 +12,11 @@ __all__ = [
     "AGGREGATION_PATH_COLUMNS",
     "AggregationFrameSchemas",
     "BREACH_COLUMNS",
+    "BREACH_FRAME_SCHEMA",
     "EXPECTED_SHORTFALL_COLUMNS",
+    "EXPECTED_SHORTFALL_FRAME_SCHEMA",
     "QUANTILE_COLUMNS",
+    "QUANTILES_FRAME_SCHEMA",
     "aggregation_frame_schemas",
     "BreachAggregationRow",
     "MonteCarloAggregationResults",
@@ -98,6 +101,7 @@ QUANTILE_COLUMNS = (
     "value",
     "paths",
 )
+QUANTILES_FRAME_SCHEMA = tuple(QUANTILE_COLUMNS)
 
 BREACH_COLUMNS = (
     "strategy",
@@ -108,6 +112,7 @@ BREACH_COLUMNS = (
     "breach_probability",
     "paths",
 )
+BREACH_FRAME_SCHEMA = tuple(BREACH_COLUMNS)
 
 EXPECTED_SHORTFALL_COLUMNS = (
     "strategy",
@@ -119,6 +124,7 @@ EXPECTED_SHORTFALL_COLUMNS = (
     "expected_shortfall",
     "paths",
 )
+EXPECTED_SHORTFALL_FRAME_SCHEMA = tuple(EXPECTED_SHORTFALL_COLUMNS)
 
 
 @dataclass(frozen=True)
@@ -197,19 +203,19 @@ def path_frame_schema(results_frame: pd.DataFrame) -> PathFrameSchema:
 def quantiles_frame_schema() -> QuantilesFrameSchema:
     """Return the schema (column order) for the quantiles aggregation frame."""
 
-    return tuple(QUANTILE_COLUMNS)
+    return QUANTILES_FRAME_SCHEMA
 
 
 def breach_frame_schema() -> BreachFrameSchema:
     """Return the schema (column order) for the breach probability frame."""
 
-    return tuple(BREACH_COLUMNS)
+    return BREACH_FRAME_SCHEMA
 
 
 def expected_shortfall_frame_schema() -> ExpectedShortfallFrameSchema:
     """Return the schema (column order) for the expected shortfall frame."""
 
-    return tuple(EXPECTED_SHORTFALL_COLUMNS)
+    return EXPECTED_SHORTFALL_FRAME_SCHEMA
 
 
 def build_quantiles_frame(
