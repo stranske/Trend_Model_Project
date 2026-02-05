@@ -1024,11 +1024,6 @@ def _build_chain_cache_context() -> dict[str, Any]:
 
 def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     context = _build_chain_cache_context()
-    provider = context["provider"]
-    temperature = context["temperature"]
-    base_url = context["base_url"]
-    organization = context["organization"]
-    resolved_model = context["resolved_model"]
     api_key = context["api_key"]
     api_key_fingerprint = context["api_key_fingerprint"]
     extra_payload = context["extra_payload"]
