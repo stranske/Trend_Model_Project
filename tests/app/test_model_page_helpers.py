@@ -908,7 +908,7 @@ def test_build_nl_chain_reuses_cached_chain(
         session_cache_key: str,
         chain_cache_key: dict[str, object],
         llm_cache_key: dict[str, object],
-        api_key: str | None,
+        api_key: object,
         extra_payload: str,
     ) -> object:
         calls.append(
@@ -941,7 +941,9 @@ def test_build_nl_chain_reuses_cached_chain(
     assert meta_first["chain_reused"] is False
     assert meta_second["chain_reused"] is True
     assert meta_second["chain_cache_miss_reason"] is None
-    assert calls[0]["api_key"] == "sk-test"
+    api_key_secret = calls[0]["api_key"]
+    assert isinstance(api_key_secret, model_module._ApiKeySecret)
+    assert api_key_secret.value == "sk-test"
 
 
 def test_build_nl_chain_invalidation_on_model_change(
