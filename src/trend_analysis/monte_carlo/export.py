@@ -204,9 +204,9 @@ def _reorder_schema_frame(frame: pd.DataFrame, schema: Sequence[str]) -> pd.Data
 
 def _build_summary_quantiles_frame(quantiles_frame: pd.DataFrame) -> pd.DataFrame:
     fold_col = None
-    if "fold_id" in quantiles_frame.columns:
+    if "fold_id" in quantiles_frame.columns and quantiles_frame["fold_id"].notna().any():
         fold_col = "fold_id"
-    elif "fold" in quantiles_frame.columns:
+    elif "fold" in quantiles_frame.columns and quantiles_frame["fold"].notna().any():
         fold_col = "fold"
 
     if quantiles_frame.empty:

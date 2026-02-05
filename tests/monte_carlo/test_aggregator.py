@@ -1927,6 +1927,33 @@ def test_export_summary_quantiles_columns_for_single_digit_fractional_quantiles(
     assert list(summary_quantiles.columns) == ["strategy", "fold_id", "metric", "q7_5", "q50"]
 
 
+def test_export_summary_quantiles_uses_fold_when_fold_id_missing(tmp_path) -> None:
+    quantiles_frame = pd.DataFrame(
+        [
+            {
+                "strategy": "A",
+                "fold": 2,
+                "metric": "metric",
+                "quantile": 0.5,
+                "value": 1.5,
+                "paths": 3,
+            }
+        ]
+    )
+    aggregation = MonteCarloAggregationResults(
+        path_frame=pd.DataFrame(columns=list(AGGREGATION_PATH_COLUMNS)),
+        quantiles_frame=quantiles_frame,
+        breach_frame=pd.DataFrame(columns=list(BREACH_COLUMNS)),
+        expected_shortfall_frame=pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS)),
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+    summary_quantiles = pd.read_csv(exported["summary_quantiles_csv"])
+
+    assert list(summary_quantiles.columns) == ["strategy", "fold", "metric", "q50"]
+    assert summary_quantiles.loc[0, "fold"] == 2
+
+
 def test_export_summary_quantiles_drops_nan_quantiles(tmp_path) -> None:
     quantiles_frame = pd.DataFrame(
         [
