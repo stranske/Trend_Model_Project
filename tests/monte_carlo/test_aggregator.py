@@ -441,6 +441,20 @@ def test_build_breach_frame_ignores_non_finite_metric_values() -> None:
     assert breach.loc[0, "breach_probability"] == pytest.approx(0.5)
 
 
+def test_build_breach_frame_ignores_non_numeric_metrics() -> None:
+    results_frame = pd.DataFrame(
+        [
+            {"strategy": "A", "path": 1, "fold": 0, "metric": 1.0, "note": "x"},
+            {"strategy": "A", "path": 2, "fold": 0, "metric": 2.0, "note": "y"},
+        ]
+    )
+    path_frame = build_path_frame(results_frame)
+
+    breach = build_breach_frame(path_frame, [1.5])
+
+    assert set(breach["metric"]) == {"metric"}
+
+
 def test_build_expected_shortfall_frame_computes_tail_mean() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 
@@ -537,6 +551,20 @@ def test_build_expected_shortfall_ignores_non_finite_values() -> None:
 
     assert shortfall.loc[0, "paths"] == 2
     assert shortfall.loc[0, "expected_shortfall"] == pytest.approx(1.0)
+
+
+def test_build_expected_shortfall_ignores_non_numeric_metrics() -> None:
+    results_frame = pd.DataFrame(
+        [
+            {"strategy": "A", "path": 1, "fold": 0, "metric": 1.0, "note": "x"},
+            {"strategy": "A", "path": 2, "fold": 0, "metric": 2.0, "note": "y"},
+        ]
+    )
+    path_frame = build_path_frame(results_frame)
+
+    shortfall = build_expected_shortfall_frame(path_frame, None)
+
+    assert set(shortfall["metric"]) == {"metric"}
 
 
 def test_build_expected_shortfall_rejects_non_finite_alpha() -> None:
