@@ -344,16 +344,35 @@ if _HAS_PYDANTIC:
             # Max turnover cap (fraction of portfolio; 1.0 = effectively uncapped)
             if "max_turnover" in v:
                 raw = v["max_turnover"]
-                try:
-                    mt = float(raw)
-                except Exception as exc:  # pragma: no cover - defensive
-                    raise ValueError("max_turnover must be numeric") from exc
-                if mt < 0:
-                    raise ValueError("max_turnover must be >= 0")
-                # Allow values >1.0 (full liquidation + rebuild = 2.0 theoretical upper)
-                if mt > 2.0:
-                    raise ValueError("max_turnover must be <= 2.0")
-                v["max_turnover"] = mt
+                if isinstance(raw, Mapping):
+                    cleaned: dict[str, float] = {}
+                    for regime, cap in raw.items():
+                        if not isinstance(regime, str) or not regime.strip():
+                            raise ValueError("max_turnover regime keys must be non-empty strings")
+                        if isinstance(cap, bool):
+                            raise ValueError("max_turnover values must be numeric")
+                        try:
+                            mt = float(cap)
+                        except Exception as exc:  # pragma: no cover - defensive
+                            raise ValueError("max_turnover values must be numeric") from exc
+                        if mt < 0:
+                            raise ValueError("max_turnover values must be >= 0")
+                        # Allow values >1.0 (full liquidation + rebuild = 2.0 theoretical upper)
+                        if mt > 2.0:
+                            raise ValueError("max_turnover values must be <= 2.0")
+                        cleaned[regime.strip()] = mt
+                    v["max_turnover"] = cleaned
+                else:
+                    try:
+                        mt = float(raw)
+                    except Exception as exc:  # pragma: no cover - defensive
+                        raise ValueError("max_turnover must be numeric") from exc
+                    if mt < 0:
+                        raise ValueError("max_turnover must be >= 0")
+                    # Allow values >1.0 (full liquidation + rebuild = 2.0 theoretical upper)
+                    if mt > 2.0:
+                        raise ValueError("max_turnover must be <= 2.0")
+                    v["max_turnover"] = mt
             if "lambda_tc" in v:
                 raw = v["lambda_tc"]
                 try:

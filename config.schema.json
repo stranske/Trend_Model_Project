@@ -1441,12 +1441,18 @@
             "minimum": 0
           },
           "default": 1.0,
-          "description": "optional turnover cap (1.0 = no cap)",
+          "description": "optional turnover cap (1.0 = no cap) or mapping of regime names to caps",
           "maximum": 2,
           "minimum": 0,
           "nl_editable": true,
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2
+          },
           "type": [
             "number",
+            "object",
             "null"
           ]
         },
