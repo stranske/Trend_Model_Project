@@ -112,6 +112,20 @@ def test_build_path_frame_preserves_metric_schema_on_empty_input() -> None:
     assert list(path_frame.columns) == list(AGGREGATION_PATH_COLUMNS) + ["metric"]
 
 
+def test_build_path_frame_includes_numeric_string_metrics() -> None:
+    results_frame = pd.DataFrame(
+        [
+            {"strategy": "A", "path": 1, "fold": 0, "metric": "1.5", "note": "x"},
+            {"strategy": "A", "path": 2, "fold": 0, "metric": "2.5", "note": "y"},
+        ]
+    )
+
+    path_frame = build_path_frame(results_frame)
+
+    assert "metric" in path_frame.columns
+    assert "note" not in path_frame.columns
+
+
 def test_build_path_frame_fills_missing_strategy() -> None:
     results_frame = pd.DataFrame(
         [
