@@ -166,21 +166,14 @@ def _build_summary_quantiles_frame(quantiles_frame: pd.DataFrame) -> pd.DataFram
         id_cols.append("fold")
     id_cols.append("metric")
 
-    quantile_order = (
-        frame[["quantile", "quantile_label"]]
-        .drop_duplicates()
-        .sort_values("quantile")
-    )
+    quantile_order = frame[["quantile", "quantile_label"]].drop_duplicates().sort_values("quantile")
     quantile_cols = quantile_order["quantile_label"].tolist()
-    summary = (
-        frame.pivot_table(
-            index=id_cols,
-            columns="quantile_label",
-            values="value",
-            aggfunc="first",
-        )
-        .reset_index()
-    )
+    summary = frame.pivot_table(
+        index=id_cols,
+        columns="quantile_label",
+        values="value",
+        aggfunc="first",
+    ).reset_index()
     return summary[id_cols + quantile_cols]
 
 
