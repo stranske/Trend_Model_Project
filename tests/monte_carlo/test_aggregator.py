@@ -670,6 +670,15 @@ def test_aggregate_monte_carlo_results_respects_quantile_config() -> None:
     assert not aggregation.expected_shortfall_frame.empty
 
 
+def test_aggregate_monte_carlo_results_accepts_percent_string_quantiles() -> None:
+    results_frame = _sample_results_frame()
+
+    aggregation = aggregate_monte_carlo_results(results_frame, quantiles="25%, 75%")
+
+    quantile_values = sorted(aggregation.quantiles_frame["quantile"].unique())
+    assert quantile_values == pytest.approx([0.25, 0.75])
+
+
 def test_aggregate_monte_carlo_results_reports_expected_shortfall_values() -> None:
     results_frame = _sample_results_frame()
 
