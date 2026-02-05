@@ -4,7 +4,7 @@
 Implement the aggregator that computes distribution summaries over simulated outcomes.
 
 ## Checklist Reconciliation
-Checklist reconciled on 2026-02-05 after adding percent-string and empty-string quantile coverage and verifying per-strategy path exports with `pytest tests/monte_carlo/test_aggregator.py -m "not slow"`. Re-verified on 2026-02-05 after adding summary-quantile column coverage.
+Checklist reconciled on 2026-02-05 after adding percent-string and empty-string quantile coverage and verifying per-strategy path exports with `pytest tests/monte_carlo/test_aggregator.py -m "not slow"`. Re-verified on 2026-02-05 after adding summary-quantile column coverage. Re-verified on 2026-02-05 after adding all-non-finite expected shortfall coverage.
 
 ## Tasks
 - [x] Define aggregation result schema for per-path, quantiles, breach, and expected shortfall tables in `src/trend_analysis/monte_carlo/aggregator.py`.

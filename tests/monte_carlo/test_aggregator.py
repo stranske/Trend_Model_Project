@@ -1087,6 +1087,24 @@ def test_build_expected_shortfall_ignores_non_finite_values() -> None:
     assert shortfall.loc[0, "expected_shortfall"] == pytest.approx(1.0)
 
 
+def test_build_expected_shortfall_handles_all_non_finite_values() -> None:
+    path_frame = build_path_frame(
+        pd.DataFrame(
+            [
+                {"strategy": "A", "path": 1, "fold": 0, "metric": float("nan")},
+                {"strategy": "A", "path": 2, "fold": 0, "metric": float("inf")},
+                {"strategy": "A", "path": 3, "fold": 0, "metric": float("-inf")},
+            ]
+        )
+    )
+
+    shortfall = build_expected_shortfall_frame(path_frame, {"metric": {"alpha": 0.5}})
+
+    assert shortfall.loc[0, "paths"] == 0
+    assert pd.isna(shortfall.loc[0, "threshold"])
+    assert pd.isna(shortfall.loc[0, "expected_shortfall"])
+
+
 def test_build_expected_shortfall_ignores_non_numeric_metrics() -> None:
     results_frame = pd.DataFrame(
         [
