@@ -2015,6 +2015,22 @@ def test_export_summary_quantiles_drops_nan_quantiles(tmp_path) -> None:
     assert list(summary_quantiles.columns) == ["strategy", "fold_id", "metric"]
 
 
+def test_export_summary_quantiles_empty_preserves_fold_id_column(tmp_path) -> None:
+    quantiles_frame = pd.DataFrame(columns=list(QUANTILE_COLUMNS))
+    aggregation = MonteCarloAggregationResults(
+        path_frame=pd.DataFrame(columns=list(AGGREGATION_PATH_COLUMNS)),
+        quantiles_frame=quantiles_frame,
+        breach_frame=pd.DataFrame(columns=list(BREACH_COLUMNS)),
+        expected_shortfall_frame=pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS)),
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+    summary_quantiles = pd.read_csv(exported["summary_quantiles_csv"])
+
+    assert summary_quantiles.empty
+    assert list(summary_quantiles.columns) == ["strategy", "fold_id", "metric"]
+
+
 def test_export_aggregation_results_reorders_empty_frames(tmp_path) -> None:
     path_frame = pd.DataFrame(columns=["metric", "fold_id", "path_id", "strategy"])
     quantiles_frame = pd.DataFrame(columns=list(QUANTILE_COLUMNS)[::-1])
