@@ -145,6 +145,23 @@ def test_build_path_frame_fills_missing_strategy() -> None:
     assert path_frame["strategy"].isna().all()
 
 
+def test_build_path_frame_fills_missing_path_and_fold() -> None:
+    results_frame = pd.DataFrame(
+        [
+            {"strategy": "A", "metric": 1.0},
+            {"strategy": "A", "metric": 2.0},
+        ]
+    )
+
+    path_frame = build_path_frame(results_frame)
+
+    assert list(path_frame.columns[: len(AGGREGATION_PATH_COLUMNS)]) == list(
+        AGGREGATION_PATH_COLUMNS
+    )
+    assert path_frame["path"].isna().all()
+    assert path_frame["fold"].isna().all()
+
+
 def test_path_frame_schema_includes_numeric_metrics_only() -> None:
     results_frame = pd.DataFrame(
         [
