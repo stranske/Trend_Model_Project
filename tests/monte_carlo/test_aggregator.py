@@ -201,6 +201,15 @@ def test_build_quantiles_frame_skips_non_finite_quantiles() -> None:
     assert sorted(quantiles["quantile"].unique()) == pytest.approx([0.5])
 
 
+def test_build_quantiles_frame_empty_input_preserves_schema() -> None:
+    path_frame = pd.DataFrame(columns=list(AGGREGATION_PATH_COLUMNS))
+
+    quantiles = build_quantiles_frame(path_frame, [0.5])
+
+    assert quantiles.empty
+    assert list(quantiles.columns) == list(quantiles_frame_schema())
+
+
 def test_aggregate_monte_carlo_results_respects_quantile_config() -> None:
     results_frame = _sample_results_frame()
 
@@ -360,6 +369,15 @@ def test_build_expected_shortfall_rejects_non_finite_alpha() -> None:
 
     with pytest.raises(ValueError, match="Expected shortfall alpha must be between 0 and 1"):
         build_expected_shortfall_frame(path_frame, {"metric": {"alpha": float("nan")}})
+
+
+def test_build_expected_shortfall_empty_input_preserves_schema() -> None:
+    path_frame = pd.DataFrame(columns=list(AGGREGATION_PATH_COLUMNS))
+
+    shortfall = build_expected_shortfall_frame(path_frame, None)
+
+    assert shortfall.empty
+    assert list(shortfall.columns) == list(expected_shortfall_frame_schema())
 
 
 def test_schema_helpers_match_column_constants() -> None:
