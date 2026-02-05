@@ -422,6 +422,21 @@ def test_build_quantiles_frame_empty_input_preserves_schema() -> None:
     assert list(quantiles.columns) == list(quantiles_frame_schema())
 
 
+def test_summary_frames_fill_missing_path_columns() -> None:
+    path_frame = pd.DataFrame({"metric": [1.0, 2.0]})
+
+    quantiles = build_quantiles_frame(path_frame, [0.5])
+    breach = build_breach_frame(path_frame, {"metric": [1.5]})
+    shortfall = build_expected_shortfall_frame(path_frame, {"metric": 0.5})
+
+    assert quantiles["strategy"].isna().all()
+    assert quantiles["fold"].isna().all()
+    assert breach["strategy"].isna().all()
+    assert breach["fold"].isna().all()
+    assert shortfall["strategy"].isna().all()
+    assert shortfall["fold"].isna().all()
+
+
 def test_build_breach_and_expected_shortfall_support_upper_tail() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 

@@ -229,6 +229,7 @@ def build_quantiles_frame(
 ) -> pd.DataFrame:
     """Compute quantile summaries per strategy and fold."""
 
+    path_frame = _ensure_path_columns(path_frame)
     quantile_list = _coerce_quantiles(quantiles)
     metric_cols = _path_metric_columns(path_frame)
     schema = quantiles_frame_schema()
@@ -275,6 +276,7 @@ def build_breach_frame(
 ) -> pd.DataFrame:
     """Compute breach probabilities for configured thresholds."""
 
+    path_frame = _ensure_path_columns(path_frame)
     metric_cols = _path_metric_columns(path_frame)
     schema = breach_frame_schema()
     if path_frame.empty or not metric_cols:
@@ -321,6 +323,7 @@ def build_expected_shortfall_frame(
 ) -> pd.DataFrame:
     """Compute expected shortfall (tail mean) for configured metrics."""
 
+    path_frame = _ensure_path_columns(path_frame)
     metric_cols = _path_metric_columns(path_frame)
     schema = expected_shortfall_frame_schema()
     if path_frame.empty or not metric_cols:
@@ -456,6 +459,16 @@ def _is_numeric_like(series: pd.Series) -> bool:
 def _numeric_values(series: pd.Series) -> np.ndarray:
     numeric = pd.to_numeric(series, errors="coerce")
     return cast(np.ndarray, numeric.to_numpy(dtype=float))
+
+
+def _ensure_path_columns(path_frame: pd.DataFrame) -> pd.DataFrame:
+    missing_cols = [col for col in AGGREGATION_PATH_COLUMNS if col not in path_frame.columns]
+    if not missing_cols:
+        return path_frame
+    frame = path_frame.copy()
+    for col in missing_cols:
+        frame[col] = pd.NA
+    return frame
 
 
 def _sort_frame(frame: pd.DataFrame, sort_columns: Sequence[str]) -> pd.DataFrame:
