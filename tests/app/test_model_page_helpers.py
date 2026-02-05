@@ -269,7 +269,7 @@ def test_build_nl_chain_invalidates_on_model_change(
     _chain, meta = model_module._build_nl_chain()
 
     session_id_after = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
-    assert session_id_before != session_id_after
+    assert session_id_before == session_id_after
     assert meta["chain_cache_invalidation_fields"] == ["model"]
     assert "config_chat_preview" not in stub.session_state
     assert "config_chat_last_instruction" not in stub.session_state

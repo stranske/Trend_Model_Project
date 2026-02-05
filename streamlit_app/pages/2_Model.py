@@ -932,12 +932,9 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         _CONFIG_CHAIN_INVALIDATION_FIELDS,
     )
     if invalidation_fields:
-        _reset_config_chat_session_id()
         st.session_state.pop("config_chat_preview", None)
         st.session_state.pop("config_chat_last_instruction", None)
-        cache_state["entries"] = {}
-        cache_state["last_signature"] = None
-        cache_state["last_cache_key"] = None
+        cache_state["last_invalidation_fields"] = list(invalidation_fields)
     session_cache_key = _get_config_chat_session_id()
     chain = _cached_config_patch_chain(
         session_cache_key,
