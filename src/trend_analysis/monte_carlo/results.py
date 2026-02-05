@@ -228,9 +228,7 @@ def _metric_columns(frame: pd.DataFrame, *, include_paths: bool = False) -> list
 def _coerce_metric_frame(frame: pd.DataFrame, metric_cols: list[str]) -> pd.DataFrame:
     if not metric_cols:
         return frame
-    numeric_cols = [
-        col for col in metric_cols if not pd.api.types.is_numeric_dtype(frame[col])
-    ]
+    numeric_cols = [col for col in metric_cols if not pd.api.types.is_numeric_dtype(frame[col])]
     if not numeric_cols:
         return frame
     updated = frame.copy()
