@@ -201,6 +201,13 @@ def test_build_quantiles_frame_skips_non_finite_quantiles() -> None:
     assert sorted(quantiles["quantile"].unique()) == pytest.approx([0.5])
 
 
+def test_build_quantiles_frame_rejects_out_of_bounds_quantile() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    with pytest.raises(ValueError, match="Quantiles must be between 0 and 1"):
+        build_quantiles_frame(path_frame, [-0.1])
+
+
 def test_build_quantiles_frame_empty_input_preserves_schema() -> None:
     path_frame = pd.DataFrame(columns=list(AGGREGATION_PATH_COLUMNS))
 
