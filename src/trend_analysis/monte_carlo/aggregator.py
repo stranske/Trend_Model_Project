@@ -93,7 +93,15 @@ def _typed_dict_columns(schema: type[Any]) -> tuple[str, ...]:
 
 QUANTILE_COLUMNS = _typed_dict_columns(QuantilesAggregationRow)
 
-BREACH_COLUMNS = _typed_dict_columns(BreachAggregationRow)
+BREACH_COLUMNS = (
+    "strategy",
+    "fold",
+    "metric",
+    "threshold",
+    "direction",
+    "breach_probability",
+    "paths",
+)
 
 EXPECTED_SHORTFALL_COLUMNS = _typed_dict_columns(ExpectedShortfallAggregationRow)
 
