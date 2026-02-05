@@ -1590,6 +1590,40 @@ def test_export_aggregation_results_writes_csv(tmp_path) -> None:
     assert exported["expected_shortfall_csv"].exists()
 
 
+def test_export_aggregation_results_prefers_strategy_name_for_numeric_strategy(
+    tmp_path,
+) -> None:
+    path_frame = pd.DataFrame(
+        [
+            {
+                "strategy": 1,
+                "strategy_name": "Alpha",
+                "path": 1,
+                "fold": 0,
+                "metric": 1.0,
+            }
+        ]
+    )
+    quantiles = pd.DataFrame(columns=list(QUANTILE_COLUMNS))
+    breach = pd.DataFrame(columns=list(BREACH_COLUMNS))
+    shortfall = pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS))
+    aggregation = MonteCarloAggregationResults(
+        path_frame=path_frame,
+        quantiles_frame=quantiles,
+        breach_frame=breach,
+        expected_shortfall_frame=shortfall,
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+
+    path_summary = pd.read_csv(exported["path_summary_csv"])
+    assert list(path_summary.columns[: len(AGGREGATION_PATH_COLUMNS)]) == list(
+        AGGREGATION_PATH_COLUMNS
+    )
+    assert "strategy_name" not in path_summary.columns
+    assert path_summary.loc[0, "strategy"] == "Alpha"
+
+
 def test_export_aggregation_results_defaults_to_csv_when_parquet_unavailable(
     tmp_path, monkeypatch
 ) -> None:
