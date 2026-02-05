@@ -263,6 +263,15 @@ def test_build_breach_frame_skips_non_finite_thresholds() -> None:
     assert breach.loc[0, "threshold"] == pytest.approx(2.5)
 
 
+def test_build_breach_frame_ignores_unknown_metrics() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    breach = build_breach_frame(path_frame, {"unknown_metric": [1.0]})
+
+    assert breach.empty
+    assert list(breach.columns) == list(breach_frame_schema())
+
+
 def test_build_breach_frame_ignores_non_finite_metric_values() -> None:
     path_frame = build_path_frame(
         pd.DataFrame(
