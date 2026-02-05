@@ -274,13 +274,9 @@ def test_runner_expands_scalar_turnover_from_date_index(monkeypatch) -> None:
     )
     expected_binding.index.name = "Date"
     pdt.assert_series_equal(diagnostic["turnover"], expected_turnover, check_freq=False)
-    pdt.assert_series_equal(
-        diagnostic["turnover_cap_binding"], expected_binding, check_freq=False
-    )
+    pdt.assert_series_equal(diagnostic["turnover_cap_binding"], expected_binding, check_freq=False)
     pdt.assert_series_equal(evaluation.turnover, expected_turnover, check_freq=False)
-    pdt.assert_series_equal(
-        evaluation.turnover_cap_binding, expected_binding, check_freq=False
-    )
+    pdt.assert_series_equal(evaluation.turnover_cap_binding, expected_binding, check_freq=False)
 
 
 def test_results_include_turnover_binding_diagnostics(monkeypatch) -> None:
