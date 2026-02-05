@@ -669,9 +669,7 @@ def _apply_config_wrapper(wrapper: Mapping[str, Any]) -> None:
 def _resolve_llm_provider_config() -> LLMProviderConfig:
     overrides = _resolve_llm_session_overrides()
     provider_override = overrides.get("provider")
-    provider_name = (
-        provider_override or os.environ.get("TREND_LLM_PROVIDER") or "openai"
-    ).lower()
+    provider_name = (provider_override or os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
     supported = {"openai", "anthropic", "ollama"}
     if provider_name not in supported:
         raise ValueError(
@@ -768,9 +766,7 @@ def _llm_api_key_available(provider: str) -> bool:
 
 def _render_llm_session_overrides_panel() -> None:
     with st.expander("LLM Settings (Session Only)", expanded=False):
-        st.caption(
-            "Overrides apply only to this session and do not store or display API keys."
-        )
+        st.caption("Overrides apply only to this session and do not store or display API keys.")
         provider_options = [None, "openai", "anthropic", "ollama"]
         provider_labels = {
             None: "Use env default",
@@ -813,8 +809,7 @@ def _render_llm_session_overrides_panel() -> None:
             return
         hints = ", ".join(_llm_env_var_hints(resolved_provider))
         st.warning(
-            f"Active provider: {resolved_provider}. No API key detected. "
-            f"Set one of: {hints}."
+            f"Active provider: {resolved_provider}. No API key detected. " f"Set one of: {hints}."
         )
 
 
