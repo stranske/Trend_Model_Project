@@ -100,13 +100,24 @@ def _coerce_formats(formats: Sequence[str] | str | None) -> list[str]:
             continue
         seen.add(label)
         deduped.append(label)
-    return deduped
+    return _filter_unsupported_formats(deduped)
 
 
 def _default_formats() -> list[str]:
     if _supports_parquet():
         return ["csv", "parquet"]
     return ["csv"]
+
+
+def _filter_unsupported_formats(formats: list[str]) -> list[str]:
+    if "parquet" not in formats:
+        return formats
+    if _supports_parquet():
+        return formats
+    supported = [fmt for fmt in formats if fmt != "parquet"]
+    if supported:
+        return supported
+    raise ValueError("Parquet export requested but no parquet engine is available.")
 
 
 def _supports_parquet() -> bool:
