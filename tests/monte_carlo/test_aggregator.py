@@ -760,6 +760,30 @@ def test_export_aggregation_results_reorders_empty_frames(tmp_path) -> None:
     assert list(shortfall.columns) == list(EXPECTED_SHORTFALL_COLUMNS)
 
 
+def test_export_aggregation_results_adds_missing_schema_columns(tmp_path) -> None:
+    path_frame = pd.DataFrame(columns=list(AGGREGATION_PATH_COLUMNS))
+    quantiles_frame = pd.DataFrame([{"strategy": "A", "metric": "metric"}])
+    breach_frame = pd.DataFrame([{"strategy": "A"}])
+    shortfall_frame = pd.DataFrame([{"metric": "metric"}])
+
+    aggregation = MonteCarloAggregationResults(
+        path_frame=path_frame,
+        quantiles_frame=quantiles_frame,
+        breach_frame=breach_frame,
+        expected_shortfall_frame=shortfall_frame,
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+
+    quantiles = pd.read_csv(exported["quantiles_csv"])
+    breach = pd.read_csv(exported["breach_probabilities_csv"])
+    shortfall = pd.read_csv(exported["expected_shortfall_csv"])
+
+    assert list(quantiles.columns) == list(QUANTILE_COLUMNS)
+    assert list(breach.columns) == list(BREACH_COLUMNS)
+    assert list(shortfall.columns) == list(EXPECTED_SHORTFALL_COLUMNS)
+
+
 def test_export_aggregation_results_supports_parquet(tmp_path) -> None:
     pytest.importorskip("pyarrow")
 

@@ -113,6 +113,11 @@ def _reorder_path_frame(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def _reorder_schema_frame(frame: pd.DataFrame, schema: Sequence[str]) -> pd.DataFrame:
+    missing_cols = [col for col in schema if col not in frame.columns]
+    if missing_cols:
+        frame = frame.copy()
+        for col in missing_cols:
+            frame[col] = pd.NA
     schema_cols = [col for col in schema if col in frame.columns]
     extra_cols = [col for col in frame.columns if col not in schema_cols]
     return frame[schema_cols + extra_cols]
