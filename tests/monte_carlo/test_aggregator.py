@@ -403,6 +403,20 @@ def test_build_expected_shortfall_reports_thresholds() -> None:
     assert metric2_threshold == pytest.approx(4.0)
 
 
+def test_build_expected_shortfall_accepts_direction_alias() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    shortfall = build_expected_shortfall_frame(
+        path_frame,
+        {"metric": {"alpha": 0.5, "direction": "upper"}},
+    )
+
+    metric_row = shortfall.loc[shortfall["metric"] == "metric"].iloc[0]
+    assert metric_row["tail"] == "upper"
+    assert metric_row["threshold"] == pytest.approx(3.0)
+    assert metric_row["expected_shortfall"] == pytest.approx(4.0)
+
+
 def test_build_expected_shortfall_defaults_to_all_metrics() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 
