@@ -1513,6 +1513,8 @@ def test_export_aggregation_results_defaults_to_csv_and_parquet_when_available(
 
 def test_export_aggregation_results_path_summary_columns(tmp_path) -> None:
     results_frame = _sample_results_frame()
+    results_frame["paths"] = 99
+    results_frame["folds"] = 3
 
     aggregation = aggregate_monte_carlo_results(
         results_frame,

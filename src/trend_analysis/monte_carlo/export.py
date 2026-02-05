@@ -160,7 +160,7 @@ def _reorder_path_frame(frame: pd.DataFrame) -> pd.DataFrame:
         frame = frame.copy()
         frame["fold"] = frame["fold_id"]
     base_cols = list(AGGREGATION_PATH_COLUMNS)
-    excluded = {"path_id", "fold_id", "strategy_name"}
+    excluded = {"path_id", "fold_id", "strategy_name", "paths", "folds"}
     metric_cols = [col for col in frame.columns if col not in base_cols and col not in excluded]
     return frame[base_cols + metric_cols]
 
