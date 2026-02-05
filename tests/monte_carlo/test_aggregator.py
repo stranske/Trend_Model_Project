@@ -286,6 +286,18 @@ def test_build_breach_frame_rejects_invalid_direction() -> None:
         )
 
 
+def test_build_breach_frame_defaults_direction_when_none() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    breach = build_breach_frame(
+        path_frame,
+        {"metric": {"thresholds": [2.5], "direction": None}},
+    )
+
+    assert breach.loc[0, "direction"] == "lower"
+    assert breach.loc[0, "breach_probability"] == pytest.approx(1.0 / 3.0)
+
+
 def test_aggregate_monte_carlo_results_respects_quantile_config() -> None:
     results_frame = _sample_results_frame()
 
@@ -520,6 +532,20 @@ def test_build_expected_shortfall_accepts_direction_alias() -> None:
     assert metric_row["tail"] == "upper"
     assert metric_row["threshold"] == pytest.approx(3.0)
     assert metric_row["expected_shortfall"] == pytest.approx(4.0)
+
+
+def test_build_expected_shortfall_defaults_tail_when_none() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    shortfall = build_expected_shortfall_frame(
+        path_frame,
+        {"metric": {"alpha": 0.5, "tail": None}},
+    )
+
+    metric_row = shortfall.loc[shortfall["metric"] == "metric"].iloc[0]
+    assert metric_row["tail"] == "lower"
+    assert metric_row["threshold"] == pytest.approx(3.0)
+    assert metric_row["expected_shortfall"] == pytest.approx(2.0)
 
 
 def test_build_expected_shortfall_defaults_to_all_metrics() -> None:

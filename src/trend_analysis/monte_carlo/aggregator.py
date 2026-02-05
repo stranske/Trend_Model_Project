@@ -476,7 +476,10 @@ def _coerce_breach_specs(
             else:
                 if raw_thresholds is not None:
                     thresholds = [float(raw_thresholds)]
-            direction_value = str(raw.get("direction", "lower")).lower()
+            raw_direction = raw.get("direction", "lower")
+            if raw_direction is None:
+                raw_direction = "lower"
+            direction_value = str(raw_direction).lower()
             if direction_value not in {"lower", "upper"}:
                 raise ValueError(f"Unsupported breach direction '{direction_value}'")
             direction = cast(_Direction, direction_value)
@@ -512,7 +515,10 @@ def _coerce_shortfall_specs(
             raw_alpha = raw.get("alpha")
             if raw_alpha is not None:
                 alpha = float(raw_alpha)
-            tail_value = str(raw.get("tail", raw.get("direction", tail))).lower()
+            raw_tail = raw.get("tail", raw.get("direction", tail))
+            if raw_tail is None:
+                raw_tail = tail
+            tail_value = str(raw_tail).lower()
             if tail_value not in {"lower", "upper"}:
                 raise ValueError(f"Unsupported shortfall tail '{tail_value}'")
             tail = cast(_Tail, tail_value)
