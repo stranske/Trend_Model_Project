@@ -970,6 +970,15 @@ def test_build_breach_frame_empty_threshold_list_preserves_schema() -> None:
     assert list(breach.columns) == list(breach_frame_schema())
 
 
+def test_build_breach_frame_none_spec_preserves_schema() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    breach = build_breach_frame(path_frame, None)
+
+    assert breach.empty
+    assert list(breach.columns) == list(breach_frame_schema())
+
+
 def test_build_breach_frame_ignores_unknown_metrics() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 
