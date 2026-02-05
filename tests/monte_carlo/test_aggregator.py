@@ -478,6 +478,39 @@ def test_build_breach_frame_defaults_direction_when_none() -> None:
     assert breach.loc[0, "breach_probability"] == pytest.approx(1.0 / 3.0)
 
 
+def test_build_breach_frame_supports_default_threshold_mapping() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    breach = build_breach_frame(
+        path_frame,
+        {"thresholds": [2.5], "direction": "upper"},
+    )
+
+    assert set(breach["metric"]) == {"metric", "metric2"}
+    assert set(breach["direction"]) == {"upper"}
+    metric_prob = breach.loc[breach["metric"] == "metric", "breach_probability"].iloc[0]
+    metric2_prob = breach.loc[breach["metric"] == "metric2", "breach_probability"].iloc[0]
+    assert metric_prob == pytest.approx(2.0 / 3.0)
+    assert metric2_prob == pytest.approx(2.0 / 3.0)
+
+
+def test_build_breach_frame_supports_default_key() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    breach = build_breach_frame(
+        path_frame,
+        {
+            "metric": {"thresholds": [2.5], "direction": "lower"},
+            "default": {"thresholds": [4.0], "direction": "lower"},
+        },
+    )
+
+    metric_prob = breach.loc[breach["metric"] == "metric", "breach_probability"].iloc[0]
+    metric2_prob = breach.loc[breach["metric"] == "metric2", "breach_probability"].iloc[0]
+    assert metric_prob == pytest.approx(1.0 / 3.0)
+    assert metric2_prob == pytest.approx(2.0 / 3.0)
+
+
 def test_aggregate_monte_carlo_results_respects_quantile_config() -> None:
     results_frame = _sample_results_frame()
 

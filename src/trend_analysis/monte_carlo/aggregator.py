@@ -513,6 +513,44 @@ def _coerce_breach_specs(
             return None
         return threshold
 
+    def _parse_breach_mapping(raw: Mapping[str, Any]) -> tuple[list[float], _Direction]:
+        thresholds: list[float] = []
+        direction: _Direction = "lower"
+        raw_thresholds = raw.get("thresholds", raw.get("threshold"))
+        if raw_thresholds is None:
+            raw_thresholds = []
+        if isinstance(raw_thresholds, (list, tuple)):
+            thresholds = [
+                threshold
+                for value in raw_thresholds
+                if (threshold := _coerce_threshold(value)) is not None
+            ]
+        else:
+            threshold = _coerce_threshold(raw_thresholds)
+            if threshold is not None:
+                thresholds = [threshold]
+        raw_direction = raw.get("direction", "lower")
+        if raw_direction is None:
+            raw_direction = "lower"
+        direction_value = str(raw_direction).lower()
+        if direction_value not in {"lower", "upper"}:
+            raise ValueError(f"Unsupported breach direction '{direction_value}'")
+        direction = cast(_Direction, direction_value)
+        return _dedupe(thresholds), direction
+
+    def _parse_breach_spec(raw: Any) -> tuple[list[float], _Direction]:
+        if isinstance(raw, Mapping):
+            return _parse_breach_mapping(raw)
+        if isinstance(raw, (list, tuple)):
+            thresholds = [
+                threshold for value in raw if (threshold := _coerce_threshold(value)) is not None
+            ]
+            return _dedupe(thresholds), "lower"
+        threshold = _coerce_threshold(raw)
+        if threshold is not None:
+            return [threshold], "lower"
+        return [], "lower"
+
     if breach_spec is None:
         return []
     if isinstance(breach_spec, (list, tuple)):
@@ -529,43 +567,32 @@ def _coerce_breach_specs(
         return []
 
     specs: list[tuple[str, list[float], _Direction]] = []
+    default_raw: Any | None = None
+    default_keys = {"thresholds", "threshold", "direction"}
+    metrics_set = set(metrics)
+    if "default" in breach_spec and "default" not in metrics_set:
+        default_raw = breach_spec.get("default")
+    elif default_keys.intersection(breach_spec.keys()) and not default_keys.intersection(metrics_set):
+        default_raw = {key: breach_spec[key] for key in default_keys if key in breach_spec}
+
     for metric, raw in breach_spec.items():
-        metric_name = str(metric)
-        thresholds: list[float] = []
-        direction: _Direction = "lower"
-        if isinstance(raw, Mapping):
-            raw_thresholds = raw.get("thresholds", raw.get("threshold"))
-            if raw_thresholds is None:
-                raw_thresholds = []
-            if isinstance(raw_thresholds, (list, tuple)):
-                thresholds = [
-                    threshold
-                    for value in raw_thresholds
-                    if (threshold := _coerce_threshold(value)) is not None
-                ]
-            else:
-                threshold = _coerce_threshold(raw_thresholds)
-                if threshold is not None:
-                    thresholds = [threshold]
-            raw_direction = raw.get("direction", "lower")
-            if raw_direction is None:
-                raw_direction = "lower"
-            direction_value = str(raw_direction).lower()
-            if direction_value not in {"lower", "upper"}:
-                raise ValueError(f"Unsupported breach direction '{direction_value}'")
-            direction = cast(_Direction, direction_value)
-        elif isinstance(raw, (list, tuple)):
-            thresholds = [
-                threshold for value in raw if (threshold := _coerce_threshold(value)) is not None
-            ]
-        else:
-            threshold = _coerce_threshold(raw)
-            if threshold is not None:
-                thresholds = [threshold]
-        thresholds = _dedupe(thresholds)
-        if not thresholds:
+        if metric == "default" and default_raw is not None and "default" not in metrics_set:
             continue
-        specs.append((metric_name, thresholds, direction))
+        if metric in default_keys and default_raw is not None and metric not in metrics_set:
+            continue
+        metric_name = str(metric)
+        thresholds, direction = _parse_breach_spec(raw)
+        if thresholds:
+            specs.append((metric_name, thresholds, direction))
+
+    if default_raw is not None:
+        default_thresholds, default_direction = _parse_breach_spec(default_raw)
+        if default_thresholds:
+            covered = {metric for metric, _, _ in specs}
+            for metric in metrics:
+                if metric in covered:
+                    continue
+                specs.append((metric, default_thresholds, default_direction))
     return specs
 
 
