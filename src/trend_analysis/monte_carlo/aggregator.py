@@ -182,7 +182,7 @@ def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame(columns=list(path_frame_schema(results_frame)))
 
     data: dict[str, Any] = {
-        "strategy": _coerce_column(results_frame, ("strategy", "strategy_name"), default=None),
+        "strategy": _select_strategy_column(results_frame),
         "path": _coerce_column(results_frame, ("path", "path_id")),
         "fold": _coerce_column(results_frame, ("fold", "fold_id"), default=None),
     }
@@ -431,6 +431,16 @@ def _coerce_column(
         if col in frame.columns:
             return frame[col]
     return pd.Series([default] * len(frame), index=frame.index)
+
+
+def _select_strategy_column(frame: pd.DataFrame) -> pd.Series:
+    if "strategy" in frame.columns and "strategy_name" in frame.columns:
+        strategy = frame["strategy"]
+        strategy_name = frame["strategy_name"]
+        if _is_numeric_like(strategy) and not _is_numeric_like(strategy_name):
+            return strategy_name
+        return strategy
+    return _coerce_column(frame, ("strategy", "strategy_name"), default=None)
 
 
 def _is_numeric_like(series: pd.Series) -> bool:

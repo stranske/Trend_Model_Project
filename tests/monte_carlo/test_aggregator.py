@@ -204,6 +204,35 @@ def test_build_path_frame_uses_strategy_name_column() -> None:
     assert path_frame.loc[0, "metric"] == pytest.approx(1.0)
 
 
+def test_build_path_frame_prefers_strategy_name_for_numeric_strategy() -> None:
+    results_frame = pd.DataFrame(
+        [
+            {
+                "fold_id": 0,
+                "path_id": 10,
+                "strategy": 1,
+                "strategy_name": "Alpha",
+                "metric": 1.0,
+            },
+            {
+                "fold_id": 0,
+                "path_id": 11,
+                "strategy": 1,
+                "strategy_name": "Alpha",
+                "metric": 2.0,
+            },
+        ]
+    )
+
+    path_frame = build_path_frame(results_frame)
+
+    assert list(path_frame.columns[: len(AGGREGATION_PATH_COLUMNS)]) == list(
+        AGGREGATION_PATH_COLUMNS
+    )
+    assert path_frame.loc[0, "strategy"] == "Alpha"
+    assert path_frame.loc[0, "metric"] == pytest.approx(1.0)
+
+
 def test_build_path_frame_fills_missing_path_and_fold() -> None:
     results_frame = pd.DataFrame(
         [
