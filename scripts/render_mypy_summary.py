@@ -65,7 +65,9 @@ def main(argv: list[str] | None = None) -> int:
 if __name__ == "__main__":  # pragma: no cover
     setup_script_logging: Callable[..., Path | None] | None
     try:
-        from trend_analysis.script_logging import setup_script_logging as _setup_script_logging
+        from trend_analysis.script_logging import (
+            setup_script_logging as _setup_script_logging,
+        )
     except ModuleNotFoundError:
         setup_script_logging = None
     else:
