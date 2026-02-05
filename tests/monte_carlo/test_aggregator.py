@@ -121,6 +121,26 @@ def test_build_path_frame_excludes_seed_and_ids_from_metrics() -> None:
     assert "path_id" not in path_frame.columns
 
 
+def test_build_path_frame_excludes_metadata_columns_from_metrics() -> None:
+    results_frame = pd.DataFrame(
+        [
+            {
+                "strategy": "A",
+                "fold_id": 1,
+                "path_id": 10,
+                "fold_label": "1",
+                "path_hash": "2",
+                "metric_source": "3",
+                "metric": 1.0,
+            }
+        ]
+    )
+
+    path_frame = build_path_frame(results_frame)
+
+    assert list(path_frame.columns) == list(AGGREGATION_PATH_COLUMNS) + ["metric"]
+
+
 def test_build_path_frame_preserves_metric_schema_on_empty_input() -> None:
     results_frame = pd.DataFrame(
         {
