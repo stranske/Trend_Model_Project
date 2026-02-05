@@ -572,7 +572,9 @@ def _coerce_breach_specs(
     metrics_set = set(metrics)
     if "default" in breach_spec and "default" not in metrics_set:
         default_raw = breach_spec.get("default")
-    elif default_keys.intersection(breach_spec.keys()) and not default_keys.intersection(metrics_set):
+    elif default_keys.intersection(breach_spec.keys()) and not default_keys.intersection(
+        metrics_set
+    ):
         default_raw = {key: breach_spec[key] for key in default_keys if key in breach_spec}
 
     for metric, raw in breach_spec.items():
