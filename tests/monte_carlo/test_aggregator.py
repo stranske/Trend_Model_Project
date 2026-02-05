@@ -1856,6 +1856,27 @@ def test_export_aggregation_results_writes_parquet(tmp_path) -> None:
     assert list(path_summary.columns) == list(AGGREGATION_PATH_COLUMNS) + ["metric", "metric2"]
 
 
+def test_export_aggregation_results_per_strategy_path_matches_path_summary_parquet(
+    tmp_path,
+) -> None:
+    if not export_module._supports_parquet():
+        pytest.skip("Parquet engine not available")
+
+    results_frame = _sample_results_frame()
+    aggregation = aggregate_monte_carlo_results(
+        results_frame,
+        quantiles=[0.5],
+        breach_spec={"metric": [2.5]},
+        expected_shortfall_spec={"metric": 0.5},
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["parquet"])
+    path_summary = pd.read_parquet(exported["path_summary_parquet"])
+    per_strategy_path = pd.read_parquet(exported["per_strategy_path_parquet"])
+
+    pd.testing.assert_frame_equal(path_summary, per_strategy_path)
+
+
 def test_export_aggregation_results_path_summary_schema(tmp_path) -> None:
     results_frame = _sample_results_frame()
 
