@@ -13,6 +13,7 @@ __all__ = [
     "MonteCarloResults",
     "StrategyEvaluation",
     "build_cross_fold_summary_frame",
+    "build_pooled_distribution_frame",
     "build_pooled_summary_frame",
     "build_results_frame",
     "build_summary_frame",
@@ -21,6 +22,7 @@ __all__ = [
 
 RESULT_BASE_COLUMNS = (
     "fold_id",
+    "fold_label",
     "path_id",
     "strategy",
     "path_hash",
@@ -39,6 +41,7 @@ class StrategyEvaluation:
     metrics: Mapping[str, float]
     metric_source: str | None
     path_hash: str
+    fold_label: str | None = None
     seed: int | None = None
     diagnostic: Mapping[str, Any] | None = None
 
@@ -52,6 +55,7 @@ class MonteCarloPathError:
     strategy_name: str | None
     error_type: str
     message: str
+    fold_label: str | None = None
 
 
 @dataclass(frozen=True)
@@ -65,6 +69,7 @@ class MonteCarloResults:
     summary_frame: pd.DataFrame
     cross_fold_summary_frame: pd.DataFrame | None = None
     pooled_summary_frame: pd.DataFrame | None = None
+    pooled_distribution_frame: pd.DataFrame | None = None
     metadata: Mapping[str, Any] | None = None
 
 
@@ -75,6 +80,7 @@ def build_results_frame(evaluations: Iterable[StrategyEvaluation]) -> pd.DataFra
     for evaluation in evaluations:
         row: dict[str, Any] = {
             "fold_id": (int(evaluation.fold_id) if evaluation.fold_id is not None else None),
+            "fold_label": evaluation.fold_label,
             "path_id": int(evaluation.path_id),
             "strategy": evaluation.strategy_name,
             "path_hash": evaluation.path_hash,
@@ -94,10 +100,16 @@ def build_results_frame(evaluations: Iterable[StrategyEvaluation]) -> pd.DataFra
 def build_summary_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     """Aggregate results per strategy."""
 
+    fold_group_cols: list[str] = []
+    if "fold_id" in results_frame.columns:
+        fold_group_cols.append("fold_id")
+        if "fold_label" in results_frame.columns:
+            fold_group_cols.append("fold_label")
+
     if results_frame.empty:
         base_cols = ["strategy", "paths"]
-        if "fold_id" in results_frame.columns:
-            base_cols = ["fold_id", "strategy", "paths"]
+        if fold_group_cols:
+            base_cols = [*fold_group_cols, "strategy", "paths"]
         return pd.DataFrame(columns=base_cols)
     numeric_cols = results_frame.select_dtypes(include="number").columns.tolist()
     if "fold_id" in numeric_cols:
@@ -106,8 +118,8 @@ def build_summary_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
         numeric_cols.remove("path_id")
     if "seed" in numeric_cols:
         numeric_cols.remove("seed")
-    if "fold_id" in results_frame.columns:
-        grouped = results_frame.groupby(["fold_id", "strategy"], dropna=False)
+    if fold_group_cols:
+        grouped = results_frame.groupby([*fold_group_cols, "strategy"], dropna=False)
     else:
         grouped = results_frame.groupby("strategy", dropna=False)
     summary = grouped[numeric_cols].mean(numeric_only=True)
@@ -120,7 +132,15 @@ def build_pooled_summary_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
 
     if results_frame.empty:
         return pd.DataFrame(
-            columns=["scope", "pooled_scope", "fold_id", "strategy", "paths", "folds"]
+            columns=[
+                "scope",
+                "pooled_scope",
+                "fold_id",
+                "fold_label",
+                "strategy",
+                "paths",
+                "folds",
+            ]
         )
 
     numeric_cols = results_frame.select_dtypes(include="number").columns.tolist()
@@ -137,6 +157,18 @@ def build_pooled_summary_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     pooled.insert(0, "scope", "pooled")
     pooled.insert(1, "pooled_scope", "summary")
     pooled.insert(2, "fold_id", None)
+    pooled.insert(3, "fold_label", None)
+    return pooled
+
+
+def build_pooled_distribution_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
+    """Return a pooled distribution table across all folds."""
+
+    if results_frame.empty:
+        return pd.DataFrame(columns=["scope", "pooled_scope", *RESULT_BASE_COLUMNS])
+    pooled = results_frame.copy()
+    pooled.insert(0, "scope", "pooled")
+    pooled.insert(1, "pooled_scope", "distribution")
     return pooled
 
 
@@ -200,6 +232,10 @@ def export_results(
             pooled_path = out_dir / f"pooled_summary.{ext}"
             _export_frame(results.pooled_summary_frame, pooled_path, ext)
             exported[f"pooled_summary_{ext}"] = pooled_path
+        if results.pooled_distribution_frame is not None:
+            pooled_path = out_dir / f"pooled_distributions.{ext}"
+            _export_frame(results.pooled_distribution_frame, pooled_path, ext)
+            exported[f"pooled_distributions_{ext}"] = pooled_path
         exported[f"results_{ext}"] = results_path
         exported[f"summary_{ext}"] = summary_path
     return exported
