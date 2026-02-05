@@ -22,8 +22,8 @@ from trend_analysis.monte_carlo.aggregator import (
     path_frame_schema,
     quantiles_frame_schema,
 )
-from trend_analysis.monte_carlo.results import build_summary_frame
 from trend_analysis.monte_carlo.export import export_aggregation_results
+from trend_analysis.monte_carlo.results import build_summary_frame
 
 
 def _sample_results_frame() -> pd.DataFrame:
