@@ -5,8 +5,8 @@ import runpy
 import sys
 from types import SimpleNamespace
 
-import pytest
 import httpx
+import pytest
 
 from trend_analysis import api_server
 from trend_analysis.api_server import app
@@ -393,7 +393,9 @@ async def test_api_guard_blocks_risky_changes_across_endpoints(
     ],
 )
 @pytest.mark.anyio
-async def test_api_guard_allows_confirmed_risky_changes_across_endpoints(client, endpoint, patch_payload):
+async def test_api_guard_allows_confirmed_risky_changes_across_endpoints(
+    client, endpoint, patch_payload
+):
     config = {
         "analysis": {"top_n": 10},
         "portfolio": {"max_turnover": 1.0},
