@@ -51,6 +51,7 @@ def export_aggregation_results(
         ext = fmt.lower()
         path_path = out_dir / f"path_summary.{ext}"
         per_strategy_path = out_dir / f"per_strategy_stats.{ext}"
+        per_strategy_path_alias = out_dir / f"per_strategy_path.{ext}"
         quantiles_path = out_dir / f"quantiles.{ext}"
         summary_quantiles_path = out_dir / f"summary_quantiles.{ext}"
         breach_path = out_dir / f"breach_probabilities.{ext}"
@@ -58,6 +59,7 @@ def export_aggregation_results(
 
         _export_frame(path_frame, path_path, ext)
         _export_frame(path_frame, per_strategy_path, ext)
+        _export_frame(path_frame, per_strategy_path_alias, ext)
         _export_frame(quantiles_frame, quantiles_path, ext)
         _export_frame(quantiles_frame, summary_quantiles_path, ext)
         _export_frame(breach_frame, breach_path, ext)
@@ -65,6 +67,7 @@ def export_aggregation_results(
 
         exported[f"path_summary_{ext}"] = path_path
         exported[f"per_strategy_stats_{ext}"] = per_strategy_path
+        exported[f"per_strategy_path_{ext}"] = per_strategy_path_alias
         exported[f"quantiles_{ext}"] = quantiles_path
         exported[f"summary_quantiles_{ext}"] = summary_quantiles_path
         exported[f"breach_probabilities_{ext}"] = breach_path

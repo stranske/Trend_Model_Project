@@ -1102,6 +1102,7 @@ def test_export_aggregation_results_writes_csv(tmp_path) -> None:
 
     assert exported["path_summary_csv"].exists()
     assert exported["per_strategy_stats_csv"].exists()
+    assert exported["per_strategy_path_csv"].exists()
     assert exported["quantiles_csv"].exists()
     assert exported["summary_quantiles_csv"].exists()
     assert exported["breach_probabilities_csv"].exists()
@@ -1126,6 +1127,7 @@ def test_export_aggregation_results_writes_parquet(tmp_path) -> None:
 
     assert exported["path_summary_parquet"].exists()
     assert exported["per_strategy_stats_parquet"].exists()
+    assert exported["per_strategy_path_parquet"].exists()
     assert exported["quantiles_parquet"].exists()
     assert exported["summary_quantiles_parquet"].exists()
     assert exported["breach_probabilities_parquet"].exists()
@@ -1303,12 +1305,14 @@ def test_export_aggregation_results_supports_csv_and_parquet(tmp_path) -> None:
 
     assert exported["path_summary_csv"].exists()
     assert exported["per_strategy_stats_csv"].exists()
+    assert exported["per_strategy_path_csv"].exists()
     assert exported["quantiles_csv"].exists()
     assert exported["summary_quantiles_csv"].exists()
     assert exported["breach_probabilities_csv"].exists()
     assert exported["expected_shortfall_csv"].exists()
     assert exported["path_summary_parquet"].exists()
     assert exported["per_strategy_stats_parquet"].exists()
+    assert exported["per_strategy_path_parquet"].exists()
     assert exported["quantiles_parquet"].exists()
     assert exported["summary_quantiles_parquet"].exists()
     assert exported["breach_probabilities_parquet"].exists()
@@ -1363,6 +1367,6 @@ def test_export_aggregation_results_dedupes_formats(tmp_path, monkeypatch) -> No
         formats=["csv", "CSV", "csv", "parquet", "parquet"],
     )
 
-    assert len(calls) == 12
+    assert len(calls) == 14
     assert exported["path_summary_csv"].exists()
     assert exported["path_summary_parquet"].exists()
