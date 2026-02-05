@@ -54,6 +54,8 @@ class StrategyEvaluation:
     path_hash: str
     seed: int | None = None
     diagnostic: Mapping[str, Any] | None = None
+    turnover: pd.Series | None = None
+    turnover_cap_binding: pd.Series | None = None
 
 
 @dataclass(frozen=True)
@@ -112,7 +114,11 @@ def build_diagnostics_frame(evaluations: Iterable[StrategyEvaluation]) -> pd.Dat
     for evaluation in evaluations:
         diagnostic = evaluation.diagnostic or {}
         turnover = diagnostic.get("turnover")
+        if turnover is None:
+            turnover = evaluation.turnover
         binding = diagnostic.get("turnover_cap_binding")
+        if binding is None:
+            binding = evaluation.turnover_cap_binding
         if not isinstance(turnover, pd.Series) and not isinstance(binding, pd.Series):
             continue
         index = None

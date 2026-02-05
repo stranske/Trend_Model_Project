@@ -93,6 +93,8 @@ def test_runner_records_turnover_and_binding(monkeypatch) -> None:
         name="turnover_cap_binding",
     )
     pdt.assert_series_equal(diagnostic["turnover_cap_binding"], expected_binding)
+    pdt.assert_series_equal(evaluation.turnover, turnover)
+    pdt.assert_series_equal(evaluation.turnover_cap_binding, expected_binding)
 
 
 def test_runner_resolves_regime_turnover_caps(monkeypatch) -> None:
@@ -581,6 +583,39 @@ def test_build_diagnostics_frame_includes_binding_for_multiple_paths() -> None:
             "period": list(dates) + list(dates),
             "turnover": [0.05, 0.1, 0.2, 0.3],
             "turnover_cap_binding": [False, False, True, False],
+        }
+    )
+    pdt.assert_frame_equal(diagnostics.reset_index(drop=True), expected)
+
+
+def test_build_diagnostics_frame_uses_evaluation_fields() -> None:
+    dates = pd.date_range("2024-06-30", periods=2, freq="ME")
+    turnover = pd.Series([0.07, 0.09], index=dates, name="turnover")
+    binding = pd.Series([False, True], index=dates, name="turnover_cap_binding")
+    evaluation = StrategyEvaluation(
+        fold_id=None,
+        path_id=9,
+        strategy_name="base",
+        metrics={"cagr": 0.1},
+        metric_source="metrics",
+        path_hash="hash",
+        seed=19,
+        turnover=turnover,
+        turnover_cap_binding=binding,
+    )
+
+    diagnostics = build_diagnostics_frame([evaluation])
+
+    expected = pd.DataFrame(
+        {
+            "fold_id": [None, None],
+            "path_id": [9, 9],
+            "strategy": ["base", "base"],
+            "path_hash": ["hash", "hash"],
+            "seed": [19, 19],
+            "period": list(dates),
+            "turnover": [0.07, 0.09],
+            "turnover_cap_binding": [False, True],
         }
     )
     pdt.assert_frame_equal(diagnostics.reset_index(drop=True), expected)

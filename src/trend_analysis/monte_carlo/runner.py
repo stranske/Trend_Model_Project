@@ -540,6 +540,8 @@ class MonteCarloRunner:
             path_hash=context.path_hash,
             seed=context.seed,
             diagnostic=diagnostic,
+            turnover=turnover_series,
+            turnover_cap_binding=binding,
         )
 
     def _compute_n_periods(self) -> int:
