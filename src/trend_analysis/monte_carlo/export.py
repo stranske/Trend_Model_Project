@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Sequence
 
+import numpy as np
 import pandas as pd
 
 from .aggregator import (
@@ -42,6 +43,7 @@ def export_aggregation_results(
     exported: dict[str, Path] = {}
     path_frame = _reorder_path_frame(results.path_frame)
     quantiles_frame = _reorder_schema_frame(results.quantiles_frame, QUANTILE_COLUMNS)
+    summary_quantiles_frame = _build_summary_quantiles_frame(quantiles_frame)
     breach_frame = _reorder_schema_frame(results.breach_frame, BREACH_COLUMNS)
     shortfall_frame = _reorder_schema_frame(
         results.expected_shortfall_frame,
@@ -61,7 +63,7 @@ def export_aggregation_results(
         _export_frame(path_frame, per_strategy_path, ext)
         _export_frame(path_frame, per_strategy_path_alias, ext)
         _export_frame(quantiles_frame, quantiles_path, ext)
-        _export_frame(quantiles_frame, summary_quantiles_path, ext)
+        _export_frame(summary_quantiles_frame, summary_quantiles_path, ext)
         _export_frame(breach_frame, breach_path, ext)
         _export_frame(shortfall_frame, shortfall_path, ext)
 
@@ -130,3 +132,68 @@ def _reorder_schema_frame(frame: pd.DataFrame, schema: Sequence[str]) -> pd.Data
     schema_cols = [col for col in schema if col in frame.columns]
     extra_cols = [col for col in frame.columns if col not in schema_cols]
     return frame[schema_cols + extra_cols]
+
+
+def _build_summary_quantiles_frame(quantiles_frame: pd.DataFrame) -> pd.DataFrame:
+    if quantiles_frame.empty:
+        base_cols = ["strategy", "metric"]
+        if "fold" in quantiles_frame.columns:
+            base_cols.insert(1, "fold")
+        return pd.DataFrame(columns=base_cols)
+
+    frame = quantiles_frame.copy()
+    if "strategy" not in frame.columns:
+        frame["strategy"] = pd.NA
+    if "metric" not in frame.columns:
+        frame["metric"] = pd.NA
+    if "quantile" not in frame.columns:
+        frame["quantile"] = pd.NA
+    if "value" not in frame.columns:
+        frame["value"] = pd.NA
+
+    frame["quantile"] = pd.to_numeric(frame["quantile"], errors="coerce")
+    frame["value"] = pd.to_numeric(frame["value"], errors="coerce")
+    frame = frame.dropna(subset=["quantile"])
+    if frame.empty:
+        base_cols = ["strategy", "metric"]
+        if "fold" in quantiles_frame.columns:
+            base_cols.insert(1, "fold")
+        return pd.DataFrame(columns=base_cols)
+
+    frame["quantile_label"] = frame["quantile"].apply(_format_quantile_label)
+    id_cols = ["strategy"]
+    if "fold" in frame.columns:
+        id_cols.append("fold")
+    id_cols.append("metric")
+
+    quantile_order = (
+        frame[["quantile", "quantile_label"]]
+        .drop_duplicates()
+        .sort_values("quantile")
+    )
+    quantile_cols = quantile_order["quantile_label"].tolist()
+    summary = (
+        frame.pivot_table(
+            index=id_cols,
+            columns="quantile_label",
+            values="value",
+            aggfunc="first",
+        )
+        .reset_index()
+    )
+    return summary[id_cols + quantile_cols]
+
+
+def _format_quantile_label(quantile: float) -> str:
+    percent = quantile * 100.0
+    if not np.isfinite(percent):
+        return "qnan"
+    rounded = round(percent)
+    if np.isclose(percent, rounded, atol=1e-8):
+        value = int(rounded)
+        if value < 10:
+            return f"q{value:02d}"
+        return f"q{value}"
+    text = f"{percent:.6f}".rstrip("0").rstrip(".")
+    text = text.replace(".", "_")
+    return f"q{text}"

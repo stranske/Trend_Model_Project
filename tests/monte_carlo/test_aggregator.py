@@ -1261,10 +1261,12 @@ def test_export_aggregation_results_summary_schemas(tmp_path) -> None:
 
     exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
     quantiles = pd.read_csv(exported["quantiles_csv"])
+    summary_quantiles = pd.read_csv(exported["summary_quantiles_csv"])
     breach = pd.read_csv(exported["breach_probabilities_csv"])
     shortfall = pd.read_csv(exported["expected_shortfall_csv"])
 
     assert list(quantiles.columns) == list(quantiles_frame_schema())
+    assert list(summary_quantiles.columns) == ["strategy", "fold", "metric", "q50"]
     assert list(breach.columns) == list(breach_frame_schema())
     assert list(shortfall.columns) == list(expected_shortfall_frame_schema())
 
