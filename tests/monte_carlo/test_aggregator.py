@@ -140,6 +140,37 @@ def test_build_path_frame_excludes_paths_and_folds_from_metrics() -> None:
     assert list(path_frame.columns) == list(AGGREGATION_PATH_COLUMNS) + ["metric"]
 
 
+def test_summary_frames_ignore_paths_and_folds_columns() -> None:
+    path_frame = pd.DataFrame(
+        [
+            {
+                "strategy": "A",
+                "fold_id": 1,
+                "path_id": 10,
+                "metric": 1.0,
+                "paths": 5,
+                "folds": 2,
+            },
+            {
+                "strategy": "A",
+                "fold_id": 1,
+                "path_id": 11,
+                "metric": 3.0,
+                "paths": 5,
+                "folds": 2,
+            },
+        ]
+    )
+
+    quantiles = build_quantiles_frame(path_frame, [0.5])
+    breach = build_breach_frame(path_frame, {"metric": [2.0]})
+    shortfall = build_expected_shortfall_frame(path_frame, {"metric": 0.5})
+
+    assert set(quantiles["metric"]) == {"metric"}
+    assert set(breach["metric"]) == {"metric"}
+    assert set(shortfall["metric"]) == {"metric"}
+
+
 def test_build_path_frame_excludes_metadata_columns_from_metrics() -> None:
     results_frame = pd.DataFrame(
         [
