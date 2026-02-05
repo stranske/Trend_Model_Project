@@ -464,11 +464,23 @@ def _coerce_breach_specs(
     breach_spec: Mapping[str, Any] | Sequence[float] | None,
     metrics: Sequence[str],
 ) -> list[tuple[str, list[float], _Direction]]:
+    def _coerce_threshold(value: Any) -> float | None:
+        if value is None:
+            return None
+        try:
+            threshold = float(value)
+        except (TypeError, ValueError):
+            return None
+        if not np.isfinite(threshold):
+            return None
+        return threshold
+
     if breach_spec is None:
         return []
     if isinstance(breach_spec, (list, tuple)):
-        default_thresholds = [float(value) for value in breach_spec if value is not None]
-        default_thresholds = [value for value in default_thresholds if np.isfinite(value)]
+        default_thresholds = [
+            threshold for value in breach_spec if (threshold := _coerce_threshold(value)) is not None
+        ]
         if not default_thresholds:
             return []
         return [(metric, default_thresholds, "lower") for metric in metrics]
@@ -485,10 +497,15 @@ def _coerce_breach_specs(
             if raw_thresholds is None:
                 raw_thresholds = []
             if isinstance(raw_thresholds, (list, tuple)):
-                thresholds = [float(value) for value in raw_thresholds if value is not None]
+                thresholds = [
+                    threshold
+                    for value in raw_thresholds
+                    if (threshold := _coerce_threshold(value)) is not None
+                ]
             else:
-                if raw_thresholds is not None:
-                    thresholds = [float(raw_thresholds)]
+                threshold = _coerce_threshold(raw_thresholds)
+                if threshold is not None:
+                    thresholds = [threshold]
             raw_direction = raw.get("direction", "lower")
             if raw_direction is None:
                 raw_direction = "lower"
@@ -497,11 +514,13 @@ def _coerce_breach_specs(
                 raise ValueError(f"Unsupported breach direction '{direction_value}'")
             direction = cast(_Direction, direction_value)
         elif isinstance(raw, (list, tuple)):
-            thresholds = [float(value) for value in raw if value is not None]
+            thresholds = [
+                threshold for value in raw if (threshold := _coerce_threshold(value)) is not None
+            ]
         else:
-            if raw is not None:
-                thresholds = [float(raw)]
-        thresholds = [value for value in thresholds if np.isfinite(value)]
+            threshold = _coerce_threshold(raw)
+            if threshold is not None:
+                thresholds = [threshold]
         if not thresholds:
             continue
         specs.append((metric_name, thresholds, direction))
