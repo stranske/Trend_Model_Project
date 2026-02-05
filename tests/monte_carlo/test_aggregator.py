@@ -461,6 +461,32 @@ def test_path_frame_schema_includes_numeric_metrics_only() -> None:
     assert schema == tuple(AGGREGATION_PATH_COLUMNS) + ("metric", "metric_str")
 
 
+def test_path_frame_schema_excludes_boolean_metrics() -> None:
+    results_frame = pd.DataFrame(
+        [
+            {
+                "strategy": "A",
+                "path": 1,
+                "fold": 0,
+                "metric": 1.0,
+                "flag": True,
+            },
+            {
+                "strategy": "A",
+                "path": 2,
+                "fold": 0,
+                "metric": 2.0,
+                "flag": False,
+            },
+        ]
+    )
+
+    schema = path_frame_schema(results_frame)
+
+    assert "metric" in schema
+    assert "flag" not in schema
+
+
 def test_build_path_frame_sorts_mixed_strategy_types() -> None:
     results_frame = pd.DataFrame(
         [
