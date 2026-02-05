@@ -437,7 +437,14 @@ def _coerce_quantiles(quantiles: Sequence[float] | None) -> list[float]:
         cleaned.append(q)
     if not cleaned:
         cleaned = list(_DEFAULT_QUANTILES)
-    return cleaned
+    deduped: list[float] = []
+    seen: set[float] = set()
+    for value in cleaned:
+        if value in seen:
+            continue
+        seen.add(value)
+        deduped.append(value)
+    return deduped
 
 
 def _coerce_breach_specs(
