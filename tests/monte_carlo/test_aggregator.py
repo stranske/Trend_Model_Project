@@ -170,6 +170,26 @@ def test_build_quantiles_frame_reports_all_metrics() -> None:
     assert set(metric2_rows["paths"]) == {3}
 
 
+def test_build_quantiles_frame_reports_metric_a_and_b() -> None:
+    path_frame = build_path_frame(
+        pd.DataFrame(
+            [
+                {"strategy": "A", "fold": 0, "path": 1, "metric_a": 1.0, "metric_b": 2.0},
+                {"strategy": "A", "fold": 0, "path": 2, "metric_a": 3.0, "metric_b": 4.0},
+                {"strategy": "A", "fold": 0, "path": 3, "metric_a": 5.0, "metric_b": 6.0},
+            ]
+        )
+    )
+
+    quantiles = build_quantiles_frame(path_frame, [0.5])
+
+    assert set(quantiles["metric"]) == {"metric_a", "metric_b"}
+    metric_a_value = quantiles.loc[quantiles["metric"] == "metric_a", "value"].iloc[0]
+    metric_b_value = quantiles.loc[quantiles["metric"] == "metric_b", "value"].iloc[0]
+    assert metric_a_value == pytest.approx(3.0)
+    assert metric_b_value == pytest.approx(4.0)
+
+
 def test_build_quantiles_frame_groups_by_strategy_and_fold() -> None:
     path_frame = build_path_frame(
         pd.DataFrame(
