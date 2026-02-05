@@ -335,6 +335,15 @@ def test_build_quantiles_frame_reports_requested_quantiles() -> None:
     assert quantiles.loc[0, "paths"] == 3
 
 
+def test_build_quantiles_frame_coerces_quantile_and_paths_types() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    quantiles = build_quantiles_frame(path_frame, [0.5])
+
+    assert pd.api.types.is_numeric_dtype(quantiles["quantile"])
+    assert pd.api.types.is_integer_dtype(quantiles["paths"])
+
+
 def test_build_quantiles_frame_defaults_quantiles_when_none_or_empty() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 

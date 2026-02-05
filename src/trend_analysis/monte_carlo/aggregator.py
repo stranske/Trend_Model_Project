@@ -264,6 +264,8 @@ def build_quantiles_frame(
     )
     frame = quantiles_long.merge(counts_long, on=["strategy", "fold", "metric"], how="left")
     frame = frame[list(schema)]
+    frame["quantile"] = pd.to_numeric(frame["quantile"], errors="coerce")
+    frame["paths"] = pd.to_numeric(frame["paths"], errors="coerce").fillna(0).astype(int)
     return _sort_frame(frame, ("strategy", "fold", "metric", "quantile"))
 
 
