@@ -503,6 +503,16 @@ def test_build_expected_shortfall_frame_computes_tail_mean() -> None:
     assert metric2_es == pytest.approx(5.0)
 
 
+def test_build_expected_shortfall_frame_rejects_invalid_alpha() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    with pytest.raises(ValueError, match="Expected shortfall alpha must be between 0 and 1"):
+        build_expected_shortfall_frame(
+            path_frame,
+            {"metric": {"alpha": 1.5, "tail": "lower"}},
+        )
+
+
 def test_build_expected_shortfall_reports_thresholds() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 

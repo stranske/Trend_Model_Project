@@ -515,6 +515,8 @@ def _coerce_shortfall_specs(
             raw_alpha = raw.get("alpha")
             if raw_alpha is not None:
                 alpha = float(raw_alpha)
+                if not np.isfinite(alpha) or alpha < 0.0 or alpha > 1.0:
+                    raise ValueError("Expected shortfall alpha must be between 0 and 1")
             raw_tail = raw.get("tail", raw.get("direction", tail))
             if raw_tail is None:
                 raw_tail = tail
