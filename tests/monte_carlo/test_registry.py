@@ -430,7 +430,7 @@ def test_load_scenario_rejects_null_folds(tmp_path: Path) -> None:
 def test_load_scenario_example_config_path() -> None:
     scenario = load_scenario("example_scenario")
     assert scenario.path is not None
-    assert scenario.path.name == "example.yml"
+    assert scenario.path.name == "example_scenario.yml"
     assert scenario.path.exists()
     assert scenario.base_config.name == "defaults.yml"
 

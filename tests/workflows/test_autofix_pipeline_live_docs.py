@@ -199,6 +199,8 @@ def summarise_payload(values: Iterable[int]) -> int:
         str(return_probe.relative_to(repo_root)),
     ]
 
+    # Black can spin up multiprocessing for multiple files; force single-worker
+    # mode to keep the integration test stable in sandboxed environments.
     formatting_commands: list[tuple[list[str], tuple[int, ...]]] = [
         (
             [
@@ -213,7 +215,7 @@ def summarise_payload(values: Iterable[int]) -> int:
             (0,),
         ),
         ([sys.executable, "-m", "isort", *relative_targets], (0,)),
-        ([sys.executable, "-m", "black", *relative_targets], (0,)),
+        ([sys.executable, "-m", "black", "--workers", "1", *relative_targets], (0,)),
         (
             [
                 sys.executable,
@@ -250,7 +252,18 @@ def summarise_payload(values: Iterable[int]) -> int:
     assert module.EXPECTED_AUTOFIX_SELECTED_FUNDS == 2
 
     _run([sys.executable, "-m", "ruff", "check", *relative_targets], cwd=repo_root)
-    _run([sys.executable, "-m", "black", "--check", *relative_targets], cwd=repo_root)
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "black",
+            "--workers",
+            "1",
+            "--check",
+            *relative_targets,
+        ],
+        cwd=repo_root,
+    )
     _run(
         [
             sys.executable,

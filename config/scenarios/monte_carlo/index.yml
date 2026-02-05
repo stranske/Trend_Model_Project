@@ -20,7 +20,7 @@ scenarios:
     tags: [credit, hedge_fund, medium_term]
 
   - name: example_scenario
-    path: example.yml
+    path: ../example_scenario.yml
     description: "Example Monte Carlo scenario configuration"
     tags: [example, sample, template]
 
