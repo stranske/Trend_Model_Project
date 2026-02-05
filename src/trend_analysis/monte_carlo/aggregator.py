@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping, Sequence, TypedDict
+from typing import Any, Iterable, Literal, Mapping, Sequence, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -85,7 +85,7 @@ class BreachAggregationRow(TypedDict):
     fold: Any
     metric: str
     threshold: float
-    direction: str
+    direction: Literal["lower", "upper"]
     breach_probability: float
     paths: int
 
@@ -96,7 +96,7 @@ class ExpectedShortfallAggregationRow(TypedDict):
     strategy: Any
     fold: Any
     metric: str
-    tail: str
+    tail: Literal["lower", "upper"]
     alpha: float
     threshold: float
     expected_shortfall: float
