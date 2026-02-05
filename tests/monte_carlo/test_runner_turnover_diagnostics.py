@@ -232,6 +232,57 @@ def test_runner_expands_turnover_series_across_periods(monkeypatch) -> None:
     pdt.assert_series_equal(diagnostic["turnover"], expected_turnover)
 
 
+def test_runner_expands_scalar_turnover_from_date_index(monkeypatch) -> None:
+    dates = pd.date_range("2021-05-31", periods=3, freq="ME")
+    returns = pd.DataFrame({"Date": dates, "Asset": [0.01, 0.02, 0.03]})
+    metrics = pd.DataFrame({"cagr": [0.1]}, index=["user_weight"])
+    run_result = RunResult(
+        metrics=metrics,
+        details={},
+        seed=0,
+        environment={},
+        turnover=0.2,
+    )
+
+    def _fake_run_simulation(*_args, **_kwargs):
+        return run_result
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.run_simulation",
+        _fake_run_simulation,
+    )
+
+    runner = MonteCarloRunner(_scenario(), base_config=_base_config(max_turnover=0.15))
+    context = _PathContext(
+        path_id=2,
+        prices=pd.DataFrame(),
+        returns=returns,
+        score_frame=pd.DataFrame(),
+        path_hash="hash",
+        seed=999,
+    )
+
+    evaluation = runner._evaluate_strategy(StrategyVariant(name="base"), context)
+    diagnostic = evaluation.diagnostic or {}
+
+    expected_turnover = pd.Series([0.2, 0.2, 0.2], index=dates, name="turnover")
+    expected_turnover.index.name = "Date"
+    expected_binding = pd.Series(
+        [True, True, True],
+        index=dates,
+        name="turnover_cap_binding",
+    )
+    expected_binding.index.name = "Date"
+    pdt.assert_series_equal(diagnostic["turnover"], expected_turnover, check_freq=False)
+    pdt.assert_series_equal(
+        diagnostic["turnover_cap_binding"], expected_binding, check_freq=False
+    )
+    pdt.assert_series_equal(evaluation.turnover, expected_turnover, check_freq=False)
+    pdt.assert_series_equal(
+        evaluation.turnover_cap_binding, expected_binding, check_freq=False
+    )
+
+
 def test_results_include_turnover_binding_diagnostics(monkeypatch) -> None:
     dates = pd.date_range("2021-01-31", periods=2, freq="ME")
     turnover = pd.Series([0.1, 0.25], index=dates, name="turnover")

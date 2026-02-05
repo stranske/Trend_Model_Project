@@ -929,14 +929,15 @@ class MonteCarloRunner:
     def _resolve_turnover_series(
         self, run_result: Any, out_index: pd.Index | None
     ) -> pd.Series | float | None:
-        turnover = getattr(run_result, "turnover", None)
-        if isinstance(turnover, pd.Series):
+        turnover_attr = getattr(run_result, "turnover", None)
+        if isinstance(turnover_attr, pd.Series):
             if out_index is None:
-                return turnover
-            if len(turnover) == 1 and len(out_index) > 1:
-                value = float(turnover.iloc[0])
-                return pd.Series(value, index=out_index, name=turnover.name or "turnover")
-            return turnover.reindex(out_index).fillna(0.0)
+                return turnover_attr
+            if len(turnover_attr) == 1 and len(out_index) > 1:
+                value = float(turnover_attr.iloc[0])
+                return pd.Series(value, index=out_index, name=turnover_attr.name or "turnover")
+            return turnover_attr.reindex(out_index).fillna(0.0)
+        turnover_value = turnover_attr if isinstance(turnover_attr, (float, int)) else None
         details = getattr(run_result, "details", None)
         if isinstance(details, Mapping):
             turnover = details.get("turnover")
@@ -954,8 +955,8 @@ class MonteCarloRunner:
                 turnover_value = risk_diag.get("turnover_value")
                 if isinstance(turnover_value, (float, int)):
                     return float(turnover_value)
-        if isinstance(turnover, (float, int)):
-            return float(turnover)
+        if isinstance(turnover_value, (float, int)):
+            return float(turnover_value)
         return None
 
     def _resolve_turnover_diagnostics(
