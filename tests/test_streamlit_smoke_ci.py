@@ -1,12 +1,12 @@
 """CI smoke test for Streamlit app with headless run testing."""
 
 import os
+import shutil
 import signal
 import socket
 import subprocess
 import sys
 import time
-import shutil
 from pathlib import Path
 from typing import Optional
 
