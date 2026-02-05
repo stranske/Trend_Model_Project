@@ -374,6 +374,7 @@ def test_build_quantiles_frame_coerces_quantile_and_paths_types() -> None:
     quantiles = build_quantiles_frame(path_frame, [0.5])
 
     assert pd.api.types.is_numeric_dtype(quantiles["quantile"])
+    assert pd.api.types.is_numeric_dtype(quantiles["value"])
     assert pd.api.types.is_integer_dtype(quantiles["paths"])
 
 
