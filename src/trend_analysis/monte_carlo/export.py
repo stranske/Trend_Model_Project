@@ -93,7 +93,12 @@ def _export_frame(frame: pd.DataFrame, path: Path, fmt: str) -> None:
 
 
 def _reorder_path_frame(frame: pd.DataFrame) -> pd.DataFrame:
-    base_cols = [col for col in AGGREGATION_PATH_COLUMNS if col in frame.columns]
+    missing_cols = [col for col in AGGREGATION_PATH_COLUMNS if col not in frame.columns]
+    if missing_cols:
+        frame = frame.copy()
+        for col in missing_cols:
+            frame[col] = pd.NA
+    base_cols = list(AGGREGATION_PATH_COLUMNS)
     metric_cols = [col for col in frame.columns if col not in base_cols]
     return frame[base_cols + metric_cols]
 
