@@ -127,6 +127,20 @@ def _chain_cache_signature(cache_key: Mapping[str, Any]) -> str:
     return json.dumps(dict(cache_key), sort_keys=True, default=str)
 
 
+def _chain_cache_summary(cache_key: Mapping[str, Any]) -> str:
+    provider = cache_key.get("provider") or "default"
+    model = cache_key.get("model") or "default"
+    temperature = cache_key.get("temperature")
+    base_url = cache_key.get("base_url")
+    organization = cache_key.get("organization")
+    summary = f"{provider}:{model}@{_format_value(temperature)}"
+    if base_url:
+        summary = f"{summary} | base_url={base_url}"
+    if organization:
+        summary = f"{summary} | org={organization}"
+    return summary
+
+
 def _build_chain_cache_key(
     *,
     provider: str,
@@ -242,6 +256,7 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
         "model": model,
         "temperature": temperature,
         "cache_signature": timings.get("chain_cache_signature"),
+        "cache_summary": timings.get("chain_cache_summary"),
         "cache_miss_reason": timings.get("chain_cache_miss_reason"),
         "cache_invalidation_fields": invalidation_fields,
         "cache_settings_changed": timings.get("chain_settings_changed"),
@@ -263,6 +278,7 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
         "model": model,
         "temperature": temperature,
         "cache_signature": timings.get("chain_cache_signature"),
+        "cache_summary": timings.get("chain_cache_summary"),
         "cache_miss_reason": timings.get("chain_cache_miss_reason"),
         "cache_invalidation_fields": invalidation_fields,
         "cache_settings_changed": timings.get("chain_settings_changed"),
@@ -331,6 +347,7 @@ def _render_preview_timing_history() -> None:
             continue
         cache_sig = entry.get("cache_signature")
         cache_sig_label = str(cache_sig)[:8] if cache_sig else "—"
+        cache_summary = entry.get("cache_summary") or "—"
         cache_reason = entry.get("cache_miss_reason")
         cache_reason_label = str(cache_reason) if cache_reason else "—"
         invalidation_fields = entry.get("cache_invalidation_fields")
@@ -349,6 +366,7 @@ def _render_preview_timing_history() -> None:
                 "Model": str(entry.get("model") or "default"),
                 "Temp": _format_value(entry.get("temperature")),
                 "Settings changed": settings_changed_label,
+                "Cache key": str(cache_summary),
                 "Cache sig": cache_sig_label,
                 "Cache miss": cache_reason_label,
                 "Cache invalidated by": invalidation_label,
@@ -370,6 +388,7 @@ def _render_last_preview_metrics() -> None:
         return
     cache_sig = metrics.get("cache_signature")
     cache_label = str(cache_sig)[:8] if cache_sig else "—"
+    cache_summary = metrics.get("cache_summary") or "—"
     chain_reused = "Yes" if metrics.get("chain_reused") else "No"
     cache_miss = metrics.get("cache_miss_reason")
     cache_miss_label = str(cache_miss) if cache_miss else "—"
@@ -383,6 +402,7 @@ def _render_last_preview_metrics() -> None:
     )
     st.caption(
         "Last preview cache — "
+        f"Key: {cache_summary} | "
         f"Sig: {cache_label} | "
         f"Chain reused: {chain_reused} | "
         f"Cache miss: {cache_miss_label} | "
@@ -911,6 +931,9 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         _reset_config_chat_session_id()
         st.session_state.pop("config_chat_preview", None)
         st.session_state.pop("config_chat_last_instruction", None)
+        cache_state["entries"] = {}
+        cache_state["last_signature"] = None
+        cache_state["last_cache_key"] = None
     session_cache_key = _get_config_chat_session_id()
     chain = _cached_config_patch_chain(
         session_cache_key,
@@ -943,6 +966,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         "chain_reused": reused,
         "chain_cache_key": cache_key,
         "chain_cache_signature": signature,
+        "chain_cache_summary": _chain_cache_summary(cache_key),
         "chain_cache_miss_reason": cache_miss_reason,
         "chain_cache_invalidation_fields": invalidation_fields,
         "chain_settings_changed": settings_changed,
@@ -977,6 +1001,7 @@ def _generate_config_preview(
             "chain_reused": chain_meta.get("chain_reused"),
             "chain_cache_key": chain_meta.get("chain_cache_key"),
             "chain_cache_signature": chain_meta.get("chain_cache_signature"),
+            "chain_cache_summary": chain_meta.get("chain_cache_summary"),
             "chain_cache_miss_reason": chain_meta.get("chain_cache_miss_reason"),
             "chain_cache_invalidation_fields": chain_meta.get("chain_cache_invalidation_fields"),
             "chain_settings_changed": chain_meta.get("chain_settings_changed"),
