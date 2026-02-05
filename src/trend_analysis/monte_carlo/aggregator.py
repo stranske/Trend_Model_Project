@@ -190,10 +190,8 @@ def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     }
     frame = pd.DataFrame(data).reset_index(drop=True)
     if metric_cols:
-        frame = pd.concat(
-            [frame, results_frame[metric_cols].reset_index(drop=True)],
-            axis=1,
-        )
+        metrics_frame = results_frame[metric_cols].apply(pd.to_numeric, errors="coerce")
+        frame = pd.concat([frame, metrics_frame.reset_index(drop=True)], axis=1)
     schema = path_frame_schema(results_frame)
     if schema:
         frame = frame[list(schema)]

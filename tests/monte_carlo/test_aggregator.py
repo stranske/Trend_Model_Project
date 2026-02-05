@@ -170,6 +170,20 @@ def test_build_path_frame_includes_numeric_string_metrics() -> None:
     assert "note" not in path_frame.columns
 
 
+def test_build_path_frame_coerces_string_metrics_to_numeric() -> None:
+    results_frame = pd.DataFrame(
+        [
+            {"strategy": "A", "path": 1, "fold": 0, "metric": "1.5"},
+            {"strategy": "A", "path": 2, "fold": 0, "metric": "2.5"},
+        ]
+    )
+
+    path_frame = build_path_frame(results_frame)
+
+    assert pd.api.types.is_numeric_dtype(path_frame["metric"])
+    assert path_frame.loc[0, "metric"] == pytest.approx(1.5)
+
+
 def test_build_path_frame_fills_missing_strategy() -> None:
     results_frame = pd.DataFrame(
         [
