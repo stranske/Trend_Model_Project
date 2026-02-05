@@ -196,8 +196,8 @@ def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
         )
     schema = path_frame_schema(results_frame)
     if schema:
-        return frame[list(schema)]
-    return frame
+        frame = frame[list(schema)]
+    return _sort_frame(frame, ("strategy", "fold", "path"))
 
 
 def path_frame_schema(results_frame: pd.DataFrame) -> PathFrameSchema:
