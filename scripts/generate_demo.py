@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import math
 import os
 import random
 from pathlib import Path
 
 import pandas as pd
-import math
 
 try:
     import numpy as np
