@@ -464,6 +464,42 @@ def test_build_nl_chain_invalidates_on_temperature_change(
     assert "config_chat_last_instruction" not in stub.session_state
 
 
+def test_record_preview_timing_tracks_chain_reuse(model_module: ModuleType) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    preview = {
+        "instruction": "Increase lookback",
+        "timings": {
+            "chain_cache_key": {"provider": "openai", "model": "gpt-4o-mini", "temperature": 0.2},
+            "chain_cache_signature": "sig-123",
+            "chain_resource_signature": "rsig-456",
+            "chain_cache_summary": "openai:gpt-4o-mini@0.2",
+            "chain_cache_miss_reason": None,
+            "chain_cache_invalidation_fields": [],
+            "chain_settings_changed": False,
+            "chain_llm_changed_fields": [],
+            "chain_cache_session_reset": False,
+            "chain_build_seconds": 1.2,
+            "chain_reused": True,
+            "run_seconds": 2.3,
+        },
+    }
+
+    model_module._record_preview_timing(preview, total_seconds=3.4)
+
+    history = stub.session_state.get(model_module._CONFIG_PREVIEW_TIMINGS_KEY)
+    assert isinstance(history, list)
+    assert len(history) == 1
+    entry = history[0]
+    assert entry["chain_reused"] is True
+    assert entry["total_seconds"] == pytest.approx(3.4)
+
+    metrics = stub.session_state.get(model_module._CONFIG_CHAIN_METRICS_KEY)
+    assert isinstance(metrics, dict)
+    assert metrics["chain_reused"] is True
+
+
 def test_side_by_side_diff_renders_yaml(model_module: ModuleType) -> None:
     stub = model_module.st
     languages: list[str | None] = []
