@@ -807,6 +807,38 @@ def test_aggregate_monte_carlo_results_accepts_percent_string_quantiles() -> Non
     assert quantile_values == pytest.approx([0.25, 0.75])
 
 
+def test_aggregate_monte_carlo_results_uses_strategy_name_and_ids() -> None:
+    results_frame = pd.DataFrame(
+        [
+            {
+                "fold_id": 2,
+                "path_id": 10,
+                "strategy": 1,
+                "strategy_name": "Alpha",
+                "metric": 1.0,
+            },
+            {
+                "fold_id": 2,
+                "path_id": 11,
+                "strategy": 1,
+                "strategy_name": "Alpha",
+                "metric": 3.0,
+            },
+        ]
+    )
+
+    aggregation = aggregate_monte_carlo_results(results_frame, quantiles=[0.5])
+
+    assert list(aggregation.path_frame.columns[: len(AGGREGATION_PATH_COLUMNS)]) == list(
+        AGGREGATION_PATH_COLUMNS
+    )
+    assert aggregation.path_frame.loc[0, "strategy"] == "Alpha"
+    assert aggregation.path_frame.loc[0, "path"] == 10
+    assert aggregation.path_frame.loc[0, "fold"] == 2
+    quantile_row = aggregation.quantiles_frame.loc[aggregation.quantiles_frame["metric"] == "metric"]
+    assert quantile_row["value"].iloc[0] == pytest.approx(2.0)
+
+
 def test_aggregate_monte_carlo_results_reports_expected_shortfall_values() -> None:
     results_frame = _sample_results_frame()
 
