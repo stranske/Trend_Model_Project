@@ -187,15 +187,15 @@ def test_build_quantiles_frame_groups_by_strategy_and_fold() -> None:
     quantiles = build_quantiles_frame(path_frame, [0.5])
 
     assert len(quantiles) == 3
-    assert quantiles.loc[
-        (quantiles["strategy"] == "A") & (quantiles["fold"] == 0), "value"
-    ].iloc[0] == pytest.approx(2.0)
-    assert quantiles.loc[
-        (quantiles["strategy"] == "A") & (quantiles["fold"] == 1), "value"
-    ].iloc[0] == pytest.approx(3.0)
-    assert quantiles.loc[
-        (quantiles["strategy"] == "B") & (quantiles["fold"] == 0), "value"
-    ].iloc[0] == pytest.approx(11.0)
+    assert quantiles.loc[(quantiles["strategy"] == "A") & (quantiles["fold"] == 0), "value"].iloc[
+        0
+    ] == pytest.approx(2.0)
+    assert quantiles.loc[(quantiles["strategy"] == "A") & (quantiles["fold"] == 1), "value"].iloc[
+        0
+    ] == pytest.approx(3.0)
+    assert quantiles.loc[(quantiles["strategy"] == "B") & (quantiles["fold"] == 0), "value"].iloc[
+        0
+    ] == pytest.approx(11.0)
 
 
 def test_build_quantiles_frame_ignores_non_finite_values() -> None:
