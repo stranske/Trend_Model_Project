@@ -1514,9 +1514,7 @@ def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
         cache_key = cache_context.get("cache_key")
         cache_summary = _chain_cache_summary(cache_key) if isinstance(cache_key, Mapping) else "—"
         cache_signature = (
-            _chain_cache_signature(cache_key)[:8]
-            if isinstance(cache_key, Mapping)
-            else "—"
+            _chain_cache_signature(cache_key)[:8] if isinstance(cache_key, Mapping) else "—"
         )
         st.caption(f"Current cache key: {cache_summary} | Sig: {cache_signature}")
     instruction = st.text_area(
