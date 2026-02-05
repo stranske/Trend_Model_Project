@@ -831,6 +831,9 @@ def _maybe_reset_config_chat_cache(snapshot: Mapping[str, Any]) -> None:
     st.session_state[_LLM_OVERRIDE_SNAPSHOT_KEY] = normalized
     st.session_state.pop("config_chat_preview", None)
     st.session_state.pop("config_chat_last_instruction", None)
+    st.session_state.pop(_CONFIG_CHAIN_STATE_KEY, None)
+    st.session_state.pop(_CONFIG_CHAIN_METRICS_KEY, None)
+    st.session_state.pop(_CONFIG_CHAIN_STATS_KEY, None)
     _reset_config_chat_session_id()
     _LOGGER.info(
         "Config chat cache reset due to settings change: %s -> %s",
