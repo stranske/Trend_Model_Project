@@ -8,6 +8,7 @@ from trend_analysis.monte_carlo.aggregator import (
     AGGREGATION_PATH_COLUMNS,
     BREACH_COLUMNS,
     EXPECTED_SHORTFALL_COLUMNS,
+    PATH_COLUMNS,
     QUANTILE_COLUMNS,
     MonteCarloAggregationResults,
     aggregate_monte_carlo_results,
@@ -723,6 +724,7 @@ def test_build_expected_shortfall_empty_input_preserves_schema() -> None:
 
 
 def test_schema_helpers_match_column_constants() -> None:
+    assert PATH_COLUMNS == AGGREGATION_PATH_COLUMNS
     assert quantiles_frame_schema() == QUANTILE_COLUMNS
     assert breach_frame_schema() == BREACH_COLUMNS
     assert expected_shortfall_frame_schema() == EXPECTED_SHORTFALL_COLUMNS

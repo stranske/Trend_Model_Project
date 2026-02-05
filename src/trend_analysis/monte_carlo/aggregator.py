@@ -13,6 +13,7 @@ __all__ = [
     "AggregationFrameSchemas",
     "BREACH_COLUMNS",
     "EXPECTED_SHORTFALL_COLUMNS",
+    "PATH_COLUMNS",
     "QUANTILE_COLUMNS",
     "aggregation_frame_schemas",
     "BreachAggregationRow",
@@ -39,11 +40,12 @@ QuantilesFrameSchema = tuple[str, ...]
 BreachFrameSchema = tuple[str, ...]
 ExpectedShortfallFrameSchema = tuple[str, ...]
 
-AGGREGATION_PATH_COLUMNS = (
+PATH_COLUMNS = (
     "strategy",
     "path",
     "fold",
 )
+AGGREGATION_PATH_COLUMNS = PATH_COLUMNS
 
 
 class QuantilesAggregationRow(TypedDict):
