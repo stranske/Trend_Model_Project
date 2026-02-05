@@ -481,6 +481,32 @@ def test_export_aggregation_results_summary_schemas(tmp_path) -> None:
     assert list(shortfall.columns) == list(expected_shortfall_frame_schema())
 
 
+def test_export_aggregation_results_reorders_empty_frames(tmp_path) -> None:
+    path_frame = pd.DataFrame(columns=["metric", "fold", "path", "strategy"])
+    quantiles_frame = pd.DataFrame(columns=list(QUANTILE_COLUMNS)[::-1])
+    breach_frame = pd.DataFrame(columns=list(BREACH_COLUMNS)[::-1])
+    shortfall_frame = pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS)[::-1])
+
+    aggregation = MonteCarloAggregationResults(
+        path_frame=path_frame,
+        quantiles_frame=quantiles_frame,
+        breach_frame=breach_frame,
+        expected_shortfall_frame=shortfall_frame,
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+
+    path_summary = pd.read_csv(exported["path_summary_csv"])
+    quantiles = pd.read_csv(exported["quantiles_csv"])
+    breach = pd.read_csv(exported["breach_probabilities_csv"])
+    shortfall = pd.read_csv(exported["expected_shortfall_csv"])
+
+    assert list(path_summary.columns) == list(AGGREGATION_PATH_COLUMNS) + ["metric"]
+    assert list(quantiles.columns) == list(QUANTILE_COLUMNS)
+    assert list(breach.columns) == list(BREACH_COLUMNS)
+    assert list(shortfall.columns) == list(EXPECTED_SHORTFALL_COLUMNS)
+
+
 def test_export_aggregation_results_supports_parquet(tmp_path) -> None:
     pytest.importorskip("pyarrow")
 

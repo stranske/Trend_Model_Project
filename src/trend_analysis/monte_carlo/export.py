@@ -93,16 +93,12 @@ def _export_frame(frame: pd.DataFrame, path: Path, fmt: str) -> None:
 
 
 def _reorder_path_frame(frame: pd.DataFrame) -> pd.DataFrame:
-    if frame.empty:
-        return frame
     base_cols = [col for col in AGGREGATION_PATH_COLUMNS if col in frame.columns]
     metric_cols = [col for col in frame.columns if col not in base_cols]
     return frame[base_cols + metric_cols]
 
 
 def _reorder_schema_frame(frame: pd.DataFrame, schema: Sequence[str]) -> pd.DataFrame:
-    if frame.empty:
-        return frame
     schema_cols = [col for col in schema if col in frame.columns]
     extra_cols = [col for col in frame.columns if col not in schema_cols]
     return frame[schema_cols + extra_cols]
