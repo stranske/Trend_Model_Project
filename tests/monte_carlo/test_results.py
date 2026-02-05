@@ -262,6 +262,29 @@ def test_build_diagnostics_frame_uses_evaluation_fields() -> None:
     assert diagnostics["turnover_cap_binding"].tolist() == [False, True]
 
 
+def test_build_diagnostics_frame_includes_evaluation_binding_without_turnover() -> None:
+    dates = pd.date_range("2022-03-31", periods=2, freq="ME")
+    binding = pd.Series([True, False], index=dates, name="turnover_cap_binding")
+
+    evaluation = StrategyEvaluation(
+        fold_id=None,
+        path_id=5,
+        strategy_name="demo",
+        metrics={},
+        metric_source=None,
+        path_hash="hash",
+        seed=11,
+        diagnostic=None,
+        turnover=None,
+        turnover_cap_binding=binding,
+    )
+
+    diagnostics = build_diagnostics_frame([evaluation])
+
+    assert diagnostics["turnover"].tolist() == [None, None]
+    assert diagnostics["turnover_cap_binding"].tolist() == [True, False]
+
+
 def test_build_diagnostics_frame_expands_scalar_binding() -> None:
     dates = pd.date_range("2022-06-30", periods=3, freq="ME")
     turnover = pd.Series([0.05, 0.06, 0.07], index=dates, name="turnover")
