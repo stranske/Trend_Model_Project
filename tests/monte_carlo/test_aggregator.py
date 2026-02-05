@@ -111,6 +111,22 @@ def test_build_path_frame_preserves_metric_schema_on_empty_input() -> None:
     assert list(path_frame.columns) == list(AGGREGATION_PATH_COLUMNS) + ["metric"]
 
 
+def test_build_path_frame_fills_missing_strategy() -> None:
+    results_frame = pd.DataFrame(
+        [
+            {"fold": 0, "path": 10, "metric": 1.0},
+            {"fold": 0, "path": 11, "metric": 2.0},
+        ]
+    )
+
+    path_frame = build_path_frame(results_frame)
+
+    assert list(path_frame.columns[: len(AGGREGATION_PATH_COLUMNS)]) == list(
+        AGGREGATION_PATH_COLUMNS
+    )
+    assert path_frame["strategy"].isna().all()
+
+
 def test_build_quantiles_frame_reports_requested_quantiles() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 
