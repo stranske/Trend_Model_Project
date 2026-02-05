@@ -7,6 +7,7 @@ from trend_analysis.monte_carlo.results import (
     MonteCarloResults,
     StrategyEvaluation,
     build_cross_fold_summary_frame,
+    build_diagnostics_frame,
     build_pooled_summary_frame,
     build_results_frame,
     build_summary_frame,
@@ -235,3 +236,27 @@ def test_export_results_writes_diagnostics_frame(tmp_path) -> None:
     diagnostics = pd.read_csv(diagnostics_path, true_values=["True"], false_values=["False"])
     assert "turnover_cap_binding" in diagnostics.columns
     assert diagnostics.loc[0, "turnover_cap_binding"]
+
+
+def test_build_diagnostics_frame_uses_evaluation_fields() -> None:
+    dates = pd.date_range("2022-01-31", periods=2, freq="ME")
+    turnover = pd.Series([0.12, 0.08], index=dates, name="turnover")
+    binding = pd.Series([False, True], index=dates, name="turnover_cap_binding")
+
+    evaluation = StrategyEvaluation(
+        fold_id=None,
+        path_id=3,
+        strategy_name="demo",
+        metrics={},
+        metric_source=None,
+        path_hash="hash",
+        seed=42,
+        diagnostic=None,
+        turnover=turnover,
+        turnover_cap_binding=binding,
+    )
+
+    diagnostics = build_diagnostics_frame([evaluation])
+
+    assert diagnostics["turnover"].tolist() == [0.12, 0.08]
+    assert diagnostics["turnover_cap_binding"].tolist() == [False, True]
