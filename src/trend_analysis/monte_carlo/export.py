@@ -34,7 +34,8 @@ def export_aggregation_results(
     output_dir:
         Directory to write output files.
     formats:
-        Iterable of formats (csv, parquet). Defaults to ("csv",).
+        Iterable of formats (csv, parquet). Defaults to ("csv", "parquet") when
+        parquet support is available, otherwise ("csv",).
     """
 
     out_dir = Path(output_dir)
@@ -79,7 +80,7 @@ def export_aggregation_results(
 
 def _coerce_formats(formats: Sequence[str] | str | None) -> list[str]:
     if formats is None:
-        return ["csv"]
+        return _default_formats()
     if isinstance(formats, str):
         items = formats.split(",")
     else:
@@ -91,7 +92,7 @@ def _coerce_formats(formats: Sequence[str] | str | None) -> list[str]:
             continue
         cleaned.append(label)
     if not cleaned:
-        return ["csv"]
+        return _default_formats()
     deduped: list[str] = []
     seen: set[str] = set()
     for label in cleaned:
@@ -100,6 +101,24 @@ def _coerce_formats(formats: Sequence[str] | str | None) -> list[str]:
         seen.add(label)
         deduped.append(label)
     return deduped
+
+
+def _default_formats() -> list[str]:
+    if _supports_parquet():
+        return ["csv", "parquet"]
+    return ["csv"]
+
+
+def _supports_parquet() -> bool:
+    return any(_module_available(module) for module in ("pyarrow", "fastparquet"))
+
+
+def _module_available(module_name: str) -> bool:
+    try:
+        __import__(module_name)
+    except Exception:
+        return False
+    return True
 
 
 def _export_frame(frame: pd.DataFrame, path: Path, fmt: str) -> None:

@@ -1213,6 +1213,46 @@ def test_export_aggregation_results_writes_csv(tmp_path) -> None:
     assert exported["expected_shortfall_csv"].exists()
 
 
+def test_export_aggregation_results_defaults_to_csv_when_parquet_unavailable(
+    tmp_path, monkeypatch
+) -> None:
+    results_frame = _sample_results_frame()
+    aggregation = aggregate_monte_carlo_results(
+        results_frame,
+        quantiles=[0.5],
+        breach_spec={"metric": [2.5]},
+        expected_shortfall_spec={"metric": 0.5},
+    )
+
+    monkeypatch.setattr(export_module, "_supports_parquet", lambda: False)
+    exported = export_aggregation_results(aggregation, tmp_path)
+
+    assert exported["path_summary_csv"].exists()
+    assert exported["breach_probabilities_csv"].exists()
+    assert "path_summary_parquet" not in exported
+    assert "breach_probabilities_parquet" not in exported
+
+
+def test_export_aggregation_results_defaults_to_csv_and_parquet_when_available(
+    tmp_path,
+) -> None:
+    if not export_module._supports_parquet():
+        pytest.skip("Parquet engine not available")
+
+    results_frame = _sample_results_frame()
+    aggregation = aggregate_monte_carlo_results(
+        results_frame,
+        quantiles=[0.5],
+        breach_spec={"metric": [2.5]},
+        expected_shortfall_spec={"metric": 0.5},
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path)
+
+    assert exported["path_summary_csv"].exists()
+    assert exported["path_summary_parquet"].exists()
+
+
 def test_export_aggregation_results_path_summary_columns(tmp_path) -> None:
     results_frame = _sample_results_frame()
 
