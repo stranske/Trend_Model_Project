@@ -44,8 +44,8 @@ ExpectedShortfallFrameSchema = tuple[str, ...]
 
 PATH_COLUMNS = (
     "strategy",
-    "path",
-    "fold",
+    "path_id",
+    "fold_id",
 )
 AGGREGATION_PATH_COLUMNS = PATH_COLUMNS
 
@@ -65,8 +65,8 @@ class PathAggregationRow(TypedDict, total=False):
     """Schema for a single per-path aggregation row."""
 
     strategy: Any
-    path: Any
-    fold: Any
+    path_id: Any
+    fold_id: Any
 
 
 class BreachAggregationRow(TypedDict):
@@ -105,7 +105,7 @@ class AggregationFrameSchemas(TypedDict):
 
 QUANTILE_COLUMNS = (
     "strategy",
-    "fold",
+    "fold_id",
     "metric",
     "quantile",
     "value",
@@ -114,7 +114,7 @@ QUANTILE_COLUMNS = (
 
 BREACH_COLUMNS = (
     "strategy",
-    "fold",
+    "fold_id",
     "metric",
     "threshold",
     "direction",
@@ -124,7 +124,7 @@ BREACH_COLUMNS = (
 
 EXPECTED_SHORTFALL_COLUMNS = (
     "strategy",
-    "fold",
+    "fold_id",
     "metric",
     "tail",
     "alpha",
@@ -177,7 +177,7 @@ def aggregation_frame_schemas(results_frame: pd.DataFrame) -> AggregationFrameSc
 
 
 def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
-    """Return per-path metrics with strategy/path/fold identifiers."""
+    """Return per-path metrics with strategy/path_id/fold_id identifiers."""
 
     metric_cols = _metric_columns(results_frame)
     if results_frame.empty:
@@ -185,8 +185,10 @@ def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
 
     data: dict[str, Any] = {
         "strategy": _select_strategy_column(results_frame),
-        "path": _coerce_column(results_frame, ("path", "path_id", "path_hash")),
-        "fold": _coerce_column(results_frame, ("fold", "fold_id", "fold_label"), default=None),
+        "path_id": _coerce_column(results_frame, ("path_id", "path", "path_hash")),
+        "fold_id": _coerce_column(
+            results_frame, ("fold_id", "fold", "fold_label"), default=None
+        ),
     }
     frame = pd.DataFrame(data).reset_index(drop=True)
     if metric_cols:
@@ -195,7 +197,7 @@ def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     schema = path_frame_schema(results_frame)
     if schema:
         frame = frame[list(schema)]
-    return _sort_frame(frame, ("strategy", "fold", "path"))
+    return _sort_frame(frame, ("strategy", "fold_id", "path_id"))
 
 
 def path_frame_schema(results_frame: pd.DataFrame) -> PathFrameSchema:
@@ -227,7 +229,7 @@ def build_quantiles_frame(
     path_frame: pd.DataFrame,
     quantiles: Sequence[float] | float | int | str | None,
 ) -> pd.DataFrame:
-    """Compute quantile summaries per strategy and fold."""
+    """Compute quantile summaries per strategy and fold_id."""
 
     path_frame = _ensure_path_columns(path_frame)
     quantile_list = _coerce_quantiles(quantiles)
@@ -240,13 +242,15 @@ def build_quantiles_frame(
     finite_mask = np.isfinite(numeric.to_numpy(dtype=float))
     finite_frame = pd.DataFrame(finite_mask, columns=metric_cols, index=numeric.index)
     numeric = numeric.where(finite_frame)
-    group_keys = [path_frame["strategy"], path_frame["fold"]]
+    group_keys = [path_frame["strategy"], path_frame["fold_id"]]
     counts = finite_frame.groupby(group_keys, dropna=False).sum().astype(int)
     quantiles_frame = numeric.groupby(group_keys, dropna=False).quantile(quantile_list)
     quantiles_frame = quantiles_frame.reset_index()
     if "quantile" not in quantiles_frame.columns:
         candidate_cols = [
-            col for col in quantiles_frame.columns if col not in {"strategy", "fold", *metric_cols}
+            col
+            for col in quantiles_frame.columns
+            if col not in {"strategy", "fold_id", *metric_cols}
         ]
         if len(candidate_cols) == 1:
             quantiles_frame = quantiles_frame.rename(columns={candidate_cols[0]: "quantile"})
@@ -255,18 +259,18 @@ def build_quantiles_frame(
         else:
             raise KeyError("Quantile column missing after aggregation.")
     quantiles_long = quantiles_frame.melt(
-        id_vars=["strategy", "fold", "quantile"],
+        id_vars=["strategy", "fold_id", "quantile"],
         value_vars=metric_cols,
         var_name="metric",
         value_name="value",
     )
     counts_long = counts.reset_index().melt(
-        id_vars=["strategy", "fold"],
+        id_vars=["strategy", "fold_id"],
         value_vars=metric_cols,
         var_name="metric",
         value_name="paths",
     )
-    merge_keys = ["strategy", "fold"]
+    merge_keys = ["strategy", "fold_id"]
     sentinel = object()
     quantiles_long = _fill_missing_merge_keys(quantiles_long, merge_keys, sentinel)
     counts_long = _fill_missing_merge_keys(counts_long, merge_keys, sentinel)
@@ -278,14 +282,14 @@ def build_quantiles_frame(
     frame["quantile"] = pd.to_numeric(frame["quantile"], errors="coerce")
     frame["value"] = pd.to_numeric(frame["value"], errors="coerce")
     frame["paths"] = pd.to_numeric(frame["paths"], errors="coerce").fillna(0).astype(int)
-    return _sort_frame(frame, ("strategy", "fold", "metric", "quantile"))
+    return _sort_frame(frame, ("strategy", "fold_id", "metric", "quantile"))
 
 
 def build_breach_frame(
     path_frame: pd.DataFrame,
     breach_spec: Mapping[str, Any] | Sequence[float] | None,
 ) -> pd.DataFrame:
-    """Compute breach probabilities for configured thresholds."""
+    """Compute breach probabilities for configured thresholds per fold_id."""
 
     path_frame = _ensure_path_columns(path_frame)
     metric_cols = _path_metric_columns(path_frame)
@@ -297,7 +301,7 @@ def build_breach_frame(
     if not specs:
         return pd.DataFrame(columns=list(schema))
 
-    grouped = path_frame.groupby(["strategy", "fold"], dropna=False)
+    grouped = path_frame.groupby(["strategy", "fold_id"], dropna=False)
     rows: list[BreachAggregationRow] = []
     # Loop per metric/threshold spec to avoid large intermediate frames for mixed directions.
     for (strategy, fold), group in grouped:
@@ -317,7 +321,7 @@ def build_breach_frame(
                 rows.append(
                     {
                         "strategy": strategy,
-                        "fold": fold,
+                        "fold_id": fold,
                         "metric": metric,
                         "threshold": float(threshold),
                         "direction": direction,
@@ -330,14 +334,14 @@ def build_breach_frame(
         frame["threshold"] = pd.to_numeric(frame["threshold"], errors="coerce")
         frame["breach_probability"] = pd.to_numeric(frame["breach_probability"], errors="coerce")
         frame["paths"] = pd.to_numeric(frame["paths"], errors="coerce").fillna(0).astype(int)
-    return _sort_frame(frame, ("strategy", "fold", "metric", "threshold", "direction"))
+    return _sort_frame(frame, ("strategy", "fold_id", "metric", "threshold", "direction"))
 
 
 def build_expected_shortfall_frame(
     path_frame: pd.DataFrame,
     expected_shortfall_spec: Mapping[str, Any] | float | int | None,
 ) -> pd.DataFrame:
-    """Compute expected shortfall (tail mean) for configured metrics."""
+    """Compute expected shortfall (tail mean) for configured metrics per fold_id."""
 
     path_frame = _ensure_path_columns(path_frame)
     metric_cols = _path_metric_columns(path_frame)
@@ -349,7 +353,7 @@ def build_expected_shortfall_frame(
     if not specs:
         return pd.DataFrame(columns=list(schema))
 
-    grouped = path_frame.groupby(["strategy", "fold"], dropna=False)
+    grouped = path_frame.groupby(["strategy", "fold_id"], dropna=False)
     rows: list[ExpectedShortfallAggregationRow] = []
     # Loop per metric/tail spec to keep per-tail thresholds explicit and readable.
     for (strategy, fold), group in grouped:
@@ -363,7 +367,7 @@ def build_expected_shortfall_frame(
                 rows.append(
                     {
                         "strategy": strategy,
-                        "fold": fold,
+                        "fold_id": fold,
                         "metric": metric,
                         "tail": tail,
                         "alpha": float(alpha),
@@ -383,12 +387,12 @@ def build_expected_shortfall_frame(
             rows.append(
                 {
                     "strategy": strategy,
-                    "fold": fold,
-                    "metric": metric,
-                    "tail": tail,
-                    "alpha": float(alpha),
-                    "threshold": threshold,
-                    "expected_shortfall": expected_shortfall,
+                        "fold_id": fold,
+                        "metric": metric,
+                        "tail": tail,
+                        "alpha": float(alpha),
+                        "threshold": threshold,
+                        "expected_shortfall": expected_shortfall,
                     "paths": total,
                 }
             )
@@ -398,7 +402,7 @@ def build_expected_shortfall_frame(
         frame["threshold"] = pd.to_numeric(frame["threshold"], errors="coerce")
         frame["expected_shortfall"] = pd.to_numeric(frame["expected_shortfall"], errors="coerce")
         frame["paths"] = pd.to_numeric(frame["paths"], errors="coerce").fillna(0).astype(int)
-    return _sort_frame(frame, ("strategy", "fold", "metric", "tail", "alpha"))
+    return _sort_frame(frame, ("strategy", "fold_id", "metric", "tail", "alpha"))
 
 
 def _metric_columns(results_frame: pd.DataFrame) -> list[str]:
@@ -479,6 +483,19 @@ def _ensure_path_columns(path_frame: pd.DataFrame) -> pd.DataFrame:
     if not missing_cols:
         return path_frame
     frame = path_frame.copy()
+    if "path_id" in missing_cols:
+        for candidate in ("path", "path_hash"):
+            if candidate in frame.columns:
+                frame["path_id"] = frame[candidate]
+                missing_cols.remove("path_id")
+                break
+    if "fold_id" in missing_cols:
+        if "fold" in frame.columns:
+            frame["fold_id"] = frame["fold"]
+            missing_cols.remove("fold_id")
+        elif "fold_label" in frame.columns:
+            frame["fold_id"] = frame["fold_label"]
+            missing_cols.remove("fold_id")
     for col in missing_cols:
         frame[col] = pd.NA
     return frame

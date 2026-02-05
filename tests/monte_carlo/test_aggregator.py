@@ -62,8 +62,8 @@ def test_build_path_frame_schema_and_values() -> None:
         AGGREGATION_PATH_COLUMNS
     )
     assert path_frame.loc[0, "strategy"] == "A"
-    assert path_frame.loc[0, "path"] == 1
-    assert path_frame.loc[0, "fold"] == 1
+    assert path_frame.loc[0, "path_id"] == 1
+    assert path_frame.loc[0, "fold_id"] == 1
     assert path_frame.loc[0, "metric"] == pytest.approx(1.0)
 
 
@@ -78,10 +78,10 @@ def test_build_path_frame_excludes_path_and_fold_from_metrics() -> None:
     path_frame = build_path_frame(results_frame)
 
     assert "metric" in path_frame.columns
-    assert "path" in path_frame.columns
-    assert "fold" in path_frame.columns
-    assert list(path_frame.columns).count("path") == 1
-    assert list(path_frame.columns).count("fold") == 1
+    assert "path_id" in path_frame.columns
+    assert "fold_id" in path_frame.columns
+    assert list(path_frame.columns).count("path_id") == 1
+    assert list(path_frame.columns).count("fold_id") == 1
 
 
 def test_build_path_frame_excludes_numeric_strategy_from_metrics() -> None:
@@ -117,8 +117,8 @@ def test_build_path_frame_excludes_seed_and_ids_from_metrics() -> None:
 
     assert list(path_frame.columns) == list(AGGREGATION_PATH_COLUMNS) + ["metric"]
     assert "seed" not in path_frame.columns
-    assert "fold_id" not in path_frame.columns
-    assert "path_id" not in path_frame.columns
+    assert "fold_id" in path_frame.columns
+    assert "path_id" in path_frame.columns
 
 
 def test_build_path_frame_excludes_paths_and_folds_from_metrics() -> None:
@@ -352,8 +352,8 @@ def test_build_path_frame_fills_missing_path_and_fold() -> None:
     assert list(path_frame.columns[: len(AGGREGATION_PATH_COLUMNS)]) == list(
         AGGREGATION_PATH_COLUMNS
     )
-    assert path_frame["path"].isna().all()
-    assert path_frame["fold"].isna().all()
+    assert path_frame["path_id"].isna().all()
+    assert path_frame["fold_id"].isna().all()
 
 
 def test_build_path_frame_uses_fold_label_when_fold_id_missing() -> None:
@@ -366,7 +366,7 @@ def test_build_path_frame_uses_fold_label_when_fold_id_missing() -> None:
 
     path_frame = build_path_frame(results_frame)
 
-    assert path_frame.loc[0, "fold"] == "Fold-1"
+    assert path_frame.loc[0, "fold_id"] == "Fold-1"
 
 
 def test_build_path_frame_uses_path_hash_when_path_id_missing() -> None:
@@ -379,7 +379,7 @@ def test_build_path_frame_uses_path_hash_when_path_id_missing() -> None:
 
     path_frame = build_path_frame(results_frame)
 
-    assert path_frame.loc[0, "path"] == "hash-1"
+    assert path_frame.loc[0, "path_id"] == "hash-1"
 
 
 def test_path_frame_schema_includes_numeric_metrics_only() -> None:
@@ -412,7 +412,7 @@ def test_build_path_frame_sorts_mixed_strategy_types() -> None:
     path_frame = build_path_frame(results_frame)
 
     assert list(path_frame["strategy"]) == [1, "A"]
-    assert list(path_frame["path"]) == [1, 2]
+    assert list(path_frame["path_id"]) == [1, 2]
 
 
 def test_build_quantiles_frame_reports_requested_quantiles() -> None:
@@ -510,15 +510,15 @@ def test_build_quantiles_frame_groups_by_strategy_and_fold() -> None:
     quantiles = build_quantiles_frame(path_frame, [0.5])
 
     assert len(quantiles) == 3
-    assert quantiles.loc[(quantiles["strategy"] == "A") & (quantiles["fold"] == 0), "value"].iloc[
-        0
-    ] == pytest.approx(2.0)
-    assert quantiles.loc[(quantiles["strategy"] == "A") & (quantiles["fold"] == 1), "value"].iloc[
-        0
-    ] == pytest.approx(3.0)
-    assert quantiles.loc[(quantiles["strategy"] == "B") & (quantiles["fold"] == 0), "value"].iloc[
-        0
-    ] == pytest.approx(11.0)
+    assert quantiles.loc[
+        (quantiles["strategy"] == "A") & (quantiles["fold_id"] == 0), "value"
+    ].iloc[0] == pytest.approx(2.0)
+    assert quantiles.loc[
+        (quantiles["strategy"] == "A") & (quantiles["fold_id"] == 1), "value"
+    ].iloc[0] == pytest.approx(3.0)
+    assert quantiles.loc[
+        (quantiles["strategy"] == "B") & (quantiles["fold_id"] == 0), "value"
+    ].iloc[0] == pytest.approx(11.0)
 
 
 def test_build_quantiles_frame_ignores_non_finite_values() -> None:
@@ -689,11 +689,11 @@ def test_summary_frames_fill_missing_path_columns() -> None:
     shortfall = build_expected_shortfall_frame(path_frame, {"metric": 0.5})
 
     assert quantiles["strategy"].isna().all()
-    assert quantiles["fold"].isna().all()
+    assert quantiles["fold_id"].isna().all()
     assert breach["strategy"].isna().all()
-    assert breach["fold"].isna().all()
+    assert breach["fold_id"].isna().all()
     assert shortfall["strategy"].isna().all()
-    assert shortfall["fold"].isna().all()
+    assert shortfall["fold_id"].isna().all()
 
 
 def test_build_quantiles_frame_counts_paths_with_missing_strategy_fold() -> None:
@@ -847,8 +847,8 @@ def test_aggregate_monte_carlo_results_uses_strategy_name_and_ids() -> None:
         AGGREGATION_PATH_COLUMNS
     )
     assert aggregation.path_frame.loc[0, "strategy"] == "Alpha"
-    assert aggregation.path_frame.loc[0, "path"] == 10
-    assert aggregation.path_frame.loc[0, "fold"] == 2
+    assert aggregation.path_frame.loc[0, "path_id"] == 10
+    assert aggregation.path_frame.loc[0, "fold_id"] == 2
     quantile_row = aggregation.quantiles_frame.loc[
         aggregation.quantiles_frame["metric"] == "metric"
     ]
@@ -960,16 +960,16 @@ def test_build_breach_frame_groups_by_strategy_and_fold() -> None:
     for _, row in breach.iterrows():
         assert row["paths"] == 2
     assert breach.loc[
-        (breach["strategy"] == "A") & (breach["fold"] == 0), "breach_probability"
+        (breach["strategy"] == "A") & (breach["fold_id"] == 0), "breach_probability"
     ].iloc[0] == pytest.approx(0.5)
     assert breach.loc[
-        (breach["strategy"] == "A") & (breach["fold"] == 1), "breach_probability"
+        (breach["strategy"] == "A") & (breach["fold_id"] == 1), "breach_probability"
     ].iloc[0] == pytest.approx(0.5)
     assert breach.loc[
-        (breach["strategy"] == "B") & (breach["fold"] == 0), "breach_probability"
+        (breach["strategy"] == "B") & (breach["fold_id"] == 0), "breach_probability"
     ].iloc[0] == pytest.approx(1.0)
     assert breach.loc[
-        (breach["strategy"] == "B") & (breach["fold"] == 1), "breach_probability"
+        (breach["strategy"] == "B") & (breach["fold_id"] == 1), "breach_probability"
     ].iloc[0] == pytest.approx(0.0)
 
 
@@ -1635,7 +1635,7 @@ def test_export_aggregation_results_summary_schemas(tmp_path) -> None:
     shortfall = pd.read_csv(exported["expected_shortfall_csv"])
 
     assert list(quantiles.columns) == list(quantiles_frame_schema())
-    assert list(summary_quantiles.columns) == ["strategy", "fold", "metric", "q50"]
+    assert list(summary_quantiles.columns) == ["strategy", "fold_id", "metric", "q50"]
     assert list(breach.columns) == list(breach_frame_schema())
     assert list(shortfall.columns) == list(expected_shortfall_frame_schema())
 
@@ -1653,7 +1653,14 @@ def test_export_summary_quantiles_columns_for_multiple_quantiles(tmp_path) -> No
     exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
     summary_quantiles = pd.read_csv(exported["summary_quantiles_csv"])
 
-    assert list(summary_quantiles.columns) == ["strategy", "fold", "metric", "q05", "q50", "q95"]
+    assert list(summary_quantiles.columns) == [
+        "strategy",
+        "fold_id",
+        "metric",
+        "q05",
+        "q50",
+        "q95",
+    ]
 
 
 def test_export_summary_quantiles_columns_for_fractional_quantiles(tmp_path) -> None:
@@ -1669,7 +1676,7 @@ def test_export_summary_quantiles_columns_for_fractional_quantiles(tmp_path) -> 
     exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
     summary_quantiles = pd.read_csv(exported["summary_quantiles_csv"])
 
-    assert list(summary_quantiles.columns) == ["strategy", "fold", "metric", "q12_5", "q50"]
+    assert list(summary_quantiles.columns) == ["strategy", "fold_id", "metric", "q12_5", "q50"]
 
 
 def test_export_summary_quantiles_drops_nan_quantiles(tmp_path) -> None:
@@ -1677,7 +1684,7 @@ def test_export_summary_quantiles_drops_nan_quantiles(tmp_path) -> None:
         [
             {
                 "strategy": "A",
-                "fold": 0,
+                "fold_id": 0,
                 "metric": "metric",
                 "quantile": float("nan"),
                 "value": 1.0,
@@ -1697,11 +1704,11 @@ def test_export_summary_quantiles_drops_nan_quantiles(tmp_path) -> None:
     summary_quantiles = pd.read_csv(exported["summary_quantiles_csv"])
 
     assert summary_quantiles.empty
-    assert list(summary_quantiles.columns) == ["strategy", "fold", "metric"]
+    assert list(summary_quantiles.columns) == ["strategy", "fold_id", "metric"]
 
 
 def test_export_aggregation_results_reorders_empty_frames(tmp_path) -> None:
-    path_frame = pd.DataFrame(columns=["metric", "fold", "path", "strategy"])
+    path_frame = pd.DataFrame(columns=["metric", "fold_id", "path_id", "strategy"])
     quantiles_frame = pd.DataFrame(columns=list(QUANTILE_COLUMNS)[::-1])
     breach_frame = pd.DataFrame(columns=list(BREACH_COLUMNS)[::-1])
     shortfall_frame = pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS)[::-1])

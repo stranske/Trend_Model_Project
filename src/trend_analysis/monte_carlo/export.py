@@ -154,10 +154,16 @@ def _reorder_schema_frame(frame: pd.DataFrame, schema: Sequence[str]) -> pd.Data
 
 
 def _build_summary_quantiles_frame(quantiles_frame: pd.DataFrame) -> pd.DataFrame:
+    fold_col = None
+    if "fold_id" in quantiles_frame.columns:
+        fold_col = "fold_id"
+    elif "fold" in quantiles_frame.columns:
+        fold_col = "fold"
+
     if quantiles_frame.empty:
         base_cols = ["strategy", "metric"]
-        if "fold" in quantiles_frame.columns:
-            base_cols.insert(1, "fold")
+        if fold_col:
+            base_cols.insert(1, fold_col)
         return pd.DataFrame(columns=base_cols)
 
     frame = quantiles_frame.copy()
@@ -175,14 +181,14 @@ def _build_summary_quantiles_frame(quantiles_frame: pd.DataFrame) -> pd.DataFram
     frame = frame.dropna(subset=["quantile"])
     if frame.empty:
         base_cols = ["strategy", "metric"]
-        if "fold" in quantiles_frame.columns:
-            base_cols.insert(1, "fold")
+        if fold_col:
+            base_cols.insert(1, fold_col)
         return pd.DataFrame(columns=base_cols)
 
     frame["quantile_label"] = frame["quantile"].apply(_format_quantile_label)
     id_cols = ["strategy"]
-    if "fold" in frame.columns:
-        id_cols.append("fold")
+    if fold_col and fold_col in frame.columns:
+        id_cols.append(fold_col)
     id_cols.append("metric")
 
     quantile_order = frame[["quantile", "quantile_label"]].drop_duplicates().sort_values("quantile")
