@@ -10,6 +10,7 @@ from trend_analysis.monte_carlo.aggregator import (
     QUANTILE_COLUMNS,
     MonteCarloAggregationResults,
     aggregate_monte_carlo_results,
+    aggregation_frame_schemas,
     breach_frame_schema,
     build_breach_frame,
     build_expected_shortfall_frame,
@@ -331,6 +332,17 @@ def test_schema_helpers_match_column_constants() -> None:
     assert quantiles_frame_schema() == QUANTILE_COLUMNS
     assert breach_frame_schema() == BREACH_COLUMNS
     assert expected_shortfall_frame_schema() == EXPECTED_SHORTFALL_COLUMNS
+
+
+def test_aggregation_frame_schemas_reports_all_outputs() -> None:
+    results_frame = _sample_results_frame()
+
+    schemas = aggregation_frame_schemas(results_frame)
+
+    assert schemas["path"] == tuple(AGGREGATION_PATH_COLUMNS) + ("metric", "metric2")
+    assert schemas["quantiles"] == QUANTILE_COLUMNS
+    assert schemas["breach"] == BREACH_COLUMNS
+    assert schemas["expected_shortfall"] == EXPECTED_SHORTFALL_COLUMNS
 
 
 def test_export_aggregation_results_writes_csv(tmp_path) -> None:

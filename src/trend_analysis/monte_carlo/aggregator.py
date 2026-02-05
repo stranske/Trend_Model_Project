@@ -10,9 +10,11 @@ import pandas as pd
 
 __all__ = [
     "AGGREGATION_PATH_COLUMNS",
+    "AggregationFrameSchemas",
     "BREACH_COLUMNS",
     "EXPECTED_SHORTFALL_COLUMNS",
     "QUANTILE_COLUMNS",
+    "aggregation_frame_schemas",
     "BreachAggregationRow",
     "MonteCarloAggregationResults",
     "ExpectedShortfallAggregationRow",
@@ -75,6 +77,15 @@ class ExpectedShortfallAggregationRow(TypedDict):
     paths: int
 
 
+class AggregationFrameSchemas(TypedDict):
+    """Schema definitions for all aggregation outputs."""
+
+    path: tuple[str, ...]
+    quantiles: tuple[str, ...]
+    breach: tuple[str, ...]
+    expected_shortfall: tuple[str, ...]
+
+
 def _typed_dict_columns(schema: type[TypedDict]) -> tuple[str, ...]:
     return tuple(schema.__annotations__.keys())
 
@@ -115,6 +126,17 @@ def aggregate_monte_carlo_results(
         breach_frame=breach_frame,
         expected_shortfall_frame=expected_shortfall_frame,
     )
+
+
+def aggregation_frame_schemas(results_frame: pd.DataFrame) -> AggregationFrameSchemas:
+    """Return column schemas for each aggregation output frame."""
+
+    return {
+        "path": path_frame_schema(results_frame),
+        "quantiles": quantiles_frame_schema(),
+        "breach": breach_frame_schema(),
+        "expected_shortfall": expected_shortfall_frame_schema(),
+    }
 
 
 def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
