@@ -339,6 +339,38 @@ def test_build_diagnostics_frame_expands_binding_indicator() -> None:
     pdt.assert_frame_equal(diagnostics.reset_index(drop=True), expected)
 
 
+def test_build_diagnostics_frame_preserves_fold_id_and_binding() -> None:
+    dates = pd.date_range("2021-03-31", periods=2, freq="ME")
+    turnover = pd.Series([0.08, 0.12], index=dates, name="turnover")
+    binding = pd.Series([True, False], index=dates, name="turnover_cap_binding")
+    evaluation = StrategyEvaluation(
+        fold_id=1,
+        path_id=7,
+        strategy_name="base",
+        metrics={"cagr": 0.1},
+        metric_source="metrics",
+        path_hash="hash",
+        seed=21,
+        diagnostic={"turnover": turnover, "turnover_cap_binding": binding},
+    )
+
+    diagnostics = build_diagnostics_frame([evaluation])
+
+    expected = pd.DataFrame(
+        {
+            "fold_id": [1, 1],
+            "path_id": [7, 7],
+            "strategy": ["base", "base"],
+            "path_hash": ["hash", "hash"],
+            "seed": [21, 21],
+            "period": list(dates),
+            "turnover": [0.08, 0.12],
+            "turnover_cap_binding": [True, False],
+        }
+    )
+    pdt.assert_frame_equal(diagnostics.reset_index(drop=True), expected)
+
+
 def test_build_diagnostics_frame_includes_binding_without_turnover() -> None:
     dates = pd.date_range("2022-01-31", periods=2, freq="ME")
     binding = pd.Series([True, False], index=dates, name="turnover_cap_binding")
