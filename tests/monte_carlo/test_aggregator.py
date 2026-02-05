@@ -250,6 +250,32 @@ def test_build_path_frame_fills_missing_path_and_fold() -> None:
     assert path_frame["fold"].isna().all()
 
 
+def test_build_path_frame_uses_fold_label_when_fold_id_missing() -> None:
+    results_frame = pd.DataFrame(
+        [
+            {"strategy": "A", "path_id": 10, "fold_label": "Fold-1", "metric": 1.0},
+            {"strategy": "A", "path_id": 11, "fold_label": "Fold-1", "metric": 2.0},
+        ]
+    )
+
+    path_frame = build_path_frame(results_frame)
+
+    assert path_frame.loc[0, "fold"] == "Fold-1"
+
+
+def test_build_path_frame_uses_path_hash_when_path_id_missing() -> None:
+    results_frame = pd.DataFrame(
+        [
+            {"strategy": "A", "fold_id": 1, "path_hash": "hash-1", "metric": 1.0},
+            {"strategy": "A", "fold_id": 1, "path_hash": "hash-2", "metric": 2.0},
+        ]
+    )
+
+    path_frame = build_path_frame(results_frame)
+
+    assert path_frame.loc[0, "path"] == "hash-1"
+
+
 def test_path_frame_schema_includes_numeric_metrics_only() -> None:
     results_frame = pd.DataFrame(
         [

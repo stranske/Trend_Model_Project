@@ -185,8 +185,8 @@ def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
 
     data: dict[str, Any] = {
         "strategy": _select_strategy_column(results_frame),
-        "path": _coerce_column(results_frame, ("path", "path_id")),
-        "fold": _coerce_column(results_frame, ("fold", "fold_id"), default=None),
+        "path": _coerce_column(results_frame, ("path", "path_id", "path_hash")),
+        "fold": _coerce_column(results_frame, ("fold", "fold_id", "fold_label"), default=None),
     }
     frame = pd.DataFrame(data).reset_index(drop=True)
     if metric_cols:
