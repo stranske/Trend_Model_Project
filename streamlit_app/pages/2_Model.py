@@ -92,6 +92,7 @@ _CONFIG_CHAIN_INVALIDATION_FIELDS = (
     "extra_payload_hash",
     "api_key_fingerprint",
 )
+_CONFIG_CHAIN_RESET_FIELDS = _CONFIG_CHAIN_INVALIDATION_FIELDS
 _LLM_PROVIDER_OVERRIDE_KEY = "llm_provider_override"
 _LLM_MODEL_OVERRIDE_KEY = "llm_model_override"
 _LLM_BASE_URL_OVERRIDE_KEY = "llm_base_url_override"
@@ -260,6 +261,7 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
         "cache_miss_reason": timings.get("chain_cache_miss_reason"),
         "cache_invalidation_fields": invalidation_fields,
         "cache_settings_changed": timings.get("chain_settings_changed"),
+        "cache_session_reset": timings.get("chain_cache_session_reset"),
         "chain_build_seconds": timings.get("chain_build_seconds"),
         "chain_reused": timings.get("chain_reused"),
         "run_seconds": timings.get("run_seconds"),
@@ -282,6 +284,7 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
         "cache_miss_reason": timings.get("chain_cache_miss_reason"),
         "cache_invalidation_fields": invalidation_fields,
         "cache_settings_changed": timings.get("chain_settings_changed"),
+        "cache_session_reset": timings.get("chain_cache_session_reset"),
         "chain_reused": timings.get("chain_reused"),
         "chain_build_seconds": timings.get("chain_build_seconds"),
         "run_seconds": timings.get("run_seconds"),
@@ -358,6 +361,8 @@ def _render_preview_timing_history() -> None:
         settings_changed_label = (
             "Yes" if settings_changed is True else "No" if settings_changed is False else "—"
         )
+        cache_reset = entry.get("cache_session_reset")
+        cache_reset_label = "Yes" if cache_reset else "No"
         rows.append(
             {
                 "Timestamp": str(entry.get("timestamp") or "Unknown time"),
@@ -366,6 +371,7 @@ def _render_preview_timing_history() -> None:
                 "Model": str(entry.get("model") or "default"),
                 "Temp": _format_value(entry.get("temperature")),
                 "Settings changed": settings_changed_label,
+                "Session cache reset": cache_reset_label,
                 "Cache key": str(cache_summary),
                 "Cache sig": cache_sig_label,
                 "Cache miss": cache_reason_label,
@@ -400,6 +406,8 @@ def _render_last_preview_metrics() -> None:
     settings_changed_label = (
         "Yes" if settings_changed is True else "No" if settings_changed is False else "—"
     )
+    cache_reset = metrics.get("cache_session_reset")
+    cache_reset_label = "Yes" if cache_reset else "No"
     st.caption(
         "Last preview cache — "
         f"Key: {cache_summary} | "
@@ -408,6 +416,7 @@ def _render_last_preview_metrics() -> None:
         f"Cache miss: {cache_miss_label} | "
         f"Invalidated by: {invalidation_label} | "
         f"Settings changed: {settings_changed_label} | "
+        f"Session reset: {cache_reset_label} | "
         f"Build: {_format_seconds(metrics.get('chain_build_seconds'))} | "
         f"Run: {_format_seconds(metrics.get('run_seconds'))} | "
         f"Total: {_format_seconds(metrics.get('total_seconds'))}"
@@ -931,11 +940,17 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         cache_key,
         _CONFIG_CHAIN_INVALIDATION_FIELDS,
     )
+    session_reset = False
     if invalidation_fields:
         st.session_state.pop("config_chat_preview", None)
         st.session_state.pop("config_chat_last_instruction", None)
         cache_state["last_invalidation_fields"] = list(invalidation_fields)
-    session_cache_key = _get_config_chat_session_id()
+        session_reset = True
+    session_cache_key = (
+        _reset_config_chat_session_id()
+        if session_reset
+        else _get_config_chat_session_id()
+    )
     chain = _cached_config_patch_chain(
         session_cache_key,
         cache_key,
@@ -971,6 +986,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         "chain_cache_miss_reason": cache_miss_reason,
         "chain_cache_invalidation_fields": invalidation_fields,
         "chain_settings_changed": settings_changed,
+        "chain_cache_session_reset": session_reset,
     }
 
 
@@ -1006,6 +1022,7 @@ def _generate_config_preview(
             "chain_cache_miss_reason": chain_meta.get("chain_cache_miss_reason"),
             "chain_cache_invalidation_fields": chain_meta.get("chain_cache_invalidation_fields"),
             "chain_settings_changed": chain_meta.get("chain_settings_changed"),
+            "chain_cache_session_reset": chain_meta.get("chain_cache_session_reset"),
             "run_seconds": run_seconds,
         },
     }
