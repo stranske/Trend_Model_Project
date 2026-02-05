@@ -370,6 +370,37 @@ def test_build_diagnostics_frame_includes_binding_without_turnover() -> None:
     pdt.assert_frame_equal(diagnostics.reset_index(drop=True), expected)
 
 
+def test_build_diagnostics_frame_includes_turnover_without_binding() -> None:
+    dates = pd.date_range("2022-06-30", periods=2, freq="ME")
+    turnover = pd.Series([0.11, 0.09], index=dates, name="turnover")
+    evaluation = StrategyEvaluation(
+        fold_id=None,
+        path_id=4,
+        strategy_name="base",
+        metrics={"cagr": 0.1},
+        metric_source="metrics",
+        path_hash="hash",
+        seed=17,
+        diagnostic={"turnover": turnover},
+    )
+
+    diagnostics = build_diagnostics_frame([evaluation])
+
+    expected = pd.DataFrame(
+        {
+            "fold_id": [None, None],
+            "path_id": [4, 4],
+            "strategy": ["base", "base"],
+            "path_hash": ["hash", "hash"],
+            "seed": [17, 17],
+            "period": list(dates),
+            "turnover": [0.11, 0.09],
+            "turnover_cap_binding": [None, None],
+        }
+    )
+    pdt.assert_frame_equal(diagnostics.reset_index(drop=True), expected)
+
+
 def test_build_diagnostics_frame_includes_binding_for_multiple_paths() -> None:
     dates = pd.date_range("2023-01-31", periods=2, freq="ME")
     turnover_a = pd.Series([0.05, 0.1], index=dates, name="turnover")

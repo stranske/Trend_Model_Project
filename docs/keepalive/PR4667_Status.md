@@ -16,6 +16,8 @@ Additional verification on 2026-02-04 after extending diagnostics coverage:
 Checklist reconciled on 2026-02-05 after adding turnover-period coverage and running
 `pytest tests/monte_carlo/test_runner_turnover_diagnostics.py -m "not slow"` and
 `pytest tests/app/test_nl_operation_viewer_component.py -m "not slow"`.
+Checklist reconciled on 2026-02-05 after adding turnover-only diagnostics coverage and running
+`pytest tests/monte_carlo/test_runner_turnover_diagnostics.py -m "not slow"`.
 
 ## Tasks
 - [x] Update the configuration schema/model to add and validate a new 'max_turnover' field that accepts regime-based turnover cap values.
