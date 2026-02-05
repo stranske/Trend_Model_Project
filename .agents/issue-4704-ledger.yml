@@ -1,0 +1,364 @@
+version: 1
+issue: 4704
+base: phase-3
+branch: codex/issue-4704
+tasks:
+  - id: task-01
+    title: Implement regime-conditional turnover caps (calm vs stress periods) in
+      the Monte Carlo simulation logic.
+    status: doing
+    started_at: '2026-02-05T17:31:01Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Define (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Define scope for: document the syntax for regime-conditional turnover
+      caps. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Implement focused slice for: document the syntax for regime-conditional
+      turnover caps. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Validate focused slice for: document the syntax for regime-conditional
+      turnover caps. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Define scope for: Integrate regime-conditional turnover caps into the
+      Monte Carlo simulation logic. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Implement focused slice for: Integrate regime-conditional turnover caps
+      into the Monte Carlo simulation logic. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Validate focused slice for: Integrate regime-conditional turnover caps
+      into the Monte Carlo simulation logic. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Define scope for: Ensure compatibility of regime-conditional turnover
+      caps with existing features. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Implement focused slice for: Ensure compatibility of regime-conditional
+      turnover caps with existing features. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Validate focused slice for: Ensure compatibility of regime-conditional
+      turnover caps with existing features. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Add cap-binding diagnostics to the Monte Carlo output files.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Update `WORKFLOW_OUTPUTS.md` to document regime-conditional turnover cap
+      syntax.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Write unit tests to verify regime-conditional turnover caps functionality.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Define scope for: Write unit tests for regime-conditional turnover caps
+      during calm periods. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Implement focused slice for: Write unit tests for regime-conditional turnover
+      caps during calm periods. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Validate focused slice for: Write unit tests for regime-conditional turnover
+      caps during calm periods. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Define scope for: Write unit tests for regime-conditional turnover caps
+      during stress periods. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Implement focused slice for: Write unit tests for regime-conditional turnover
+      caps during stress periods. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Validate focused slice for: Write unit tests for regime-conditional turnover
+      caps during stress periods. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'Write unit tests for edge cases (e.g. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'missing or invalid configuration). (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: Write unit tests to confirm turnover tracking is accurate.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'Write unit tests for turnover tracking during calm periods. (verify: tests
+      pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: 'Write unit tests for turnover tracking during stress periods. (verify:
+      tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: 'Define scope for: Write unit tests for turnover tracking with varying
+      turnover cap values. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: 'Implement focused slice for: Write unit tests for turnover tracking with
+      varying turnover cap values. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: 'Validate focused slice for: Write unit tests for turnover tracking with
+      varying turnover cap values. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: Write unit tests to ensure cap-binding diagnostics are included in outputs.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: <!-- Incomplete tasks from original issue -->
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: Implement regime-conditional turnover caps (calm vs stress periods)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: Include cap-binding diagnostics in Monte Carlo outputs
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: 'Scenario config supports regime-conditional turnover caps with syntax:
+      `max_turnover: {calm: 0.15, stress: 0.08}`.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: Runner records realized turnover for each period and strategy path.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: Output includes an indicator when turnover caps were binding.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: Unit tests verify regime-conditional caps work correctly.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: Unit tests verify turnover tracking is accurate.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: Unit tests verify cap-binding diagnostics are present.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: <!-- Criteria verified as unmet by verifier -->
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: 'Scenario config supports regime-conditional turnover caps with syntax:
+      `max_turnover: {calm: 0.15, stress: 0.08}`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: Runner records realized turnover for each period and strategy path
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: Output includes indicator when turnover caps were binding
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: Unit tests verify regime-conditional caps work correctly
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: Unit tests verify turnover tracking is accurate
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: Unit tests verify cap-binding diagnostics are present
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: Update `WORKFLOW_OUTPUTS.md` to document regime-conditional turnover cap
+      syntax. (AGENT_LIMITATIONS prevent modifying documentation files directly. |
+      Provide the required documentation content as a comment or separate file for
+      manual integration.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: Add cap-binding diagnostics to the Monte Carlo output files. (AGENT_LIMITATIONS
+      prevent modifying `.github/workflows/*.yml` or repository settings, which may
+      be required for output file changes. | Provide implementation details or pseudocode
+      for manual integration by maintainers.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
