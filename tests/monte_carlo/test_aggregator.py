@@ -257,6 +257,30 @@ def test_aggregate_monte_carlo_results_respects_quantile_config() -> None:
     assert not aggregation.expected_shortfall_frame.empty
 
 
+def test_aggregate_monte_carlo_results_empty_input_preserves_schemas() -> None:
+    results_frame = pd.DataFrame(
+        {
+            "strategy": pd.Series(dtype=str),
+            "path": pd.Series(dtype=int),
+            "fold": pd.Series(dtype=int),
+            "metric": pd.Series(dtype=float),
+        }
+    )
+
+    aggregation = aggregate_monte_carlo_results(results_frame, quantiles=[0.5])
+
+    assert aggregation.path_frame.empty
+    assert list(aggregation.path_frame.columns) == list(AGGREGATION_PATH_COLUMNS) + ["metric"]
+    assert aggregation.quantiles_frame.empty
+    assert list(aggregation.quantiles_frame.columns) == list(quantiles_frame_schema())
+    assert aggregation.breach_frame.empty
+    assert list(aggregation.breach_frame.columns) == list(breach_frame_schema())
+    assert aggregation.expected_shortfall_frame.empty
+    assert list(aggregation.expected_shortfall_frame.columns) == list(
+        expected_shortfall_frame_schema()
+    )
+
+
 def test_build_breach_frame_handles_lower_and_upper_thresholds() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 
