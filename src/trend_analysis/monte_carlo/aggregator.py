@@ -33,6 +33,10 @@ __all__ = [
 _DEFAULT_QUANTILES = (0.05, 0.5, 0.95)
 _Direction = Literal["lower", "upper"]
 _Tail = Literal["lower", "upper"]
+PathFrameSchema = tuple[str, ...]
+QuantilesFrameSchema = tuple[str, ...]
+BreachFrameSchema = tuple[str, ...]
+ExpectedShortfallFrameSchema = tuple[str, ...]
 
 AGGREGATION_PATH_COLUMNS = (
     "strategy",
@@ -80,10 +84,10 @@ class ExpectedShortfallAggregationRow(TypedDict):
 class AggregationFrameSchemas(TypedDict):
     """Schema definitions for all aggregation outputs."""
 
-    path: tuple[str, ...]
-    quantiles: tuple[str, ...]
-    breach: tuple[str, ...]
-    expected_shortfall: tuple[str, ...]
+    path: PathFrameSchema
+    quantiles: QuantilesFrameSchema
+    breach: BreachFrameSchema
+    expected_shortfall: ExpectedShortfallFrameSchema
 
 
 QUANTILE_COLUMNS = (
@@ -183,26 +187,26 @@ def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     return frame
 
 
-def path_frame_schema(results_frame: pd.DataFrame) -> tuple[str, ...]:
+def path_frame_schema(results_frame: pd.DataFrame) -> PathFrameSchema:
     """Return the schema (column order) for the per-path aggregation frame."""
 
     metric_cols = _metric_columns(results_frame)
     return tuple(AGGREGATION_PATH_COLUMNS) + tuple(metric_cols)
 
 
-def quantiles_frame_schema() -> tuple[str, ...]:
+def quantiles_frame_schema() -> QuantilesFrameSchema:
     """Return the schema (column order) for the quantiles aggregation frame."""
 
     return tuple(QUANTILE_COLUMNS)
 
 
-def breach_frame_schema() -> tuple[str, ...]:
+def breach_frame_schema() -> BreachFrameSchema:
     """Return the schema (column order) for the breach probability frame."""
 
     return tuple(BREACH_COLUMNS)
 
 
-def expected_shortfall_frame_schema() -> tuple[str, ...]:
+def expected_shortfall_frame_schema() -> ExpectedShortfallFrameSchema:
     """Return the schema (column order) for the expected shortfall frame."""
 
     return tuple(EXPECTED_SHORTFALL_COLUMNS)
