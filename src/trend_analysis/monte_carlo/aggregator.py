@@ -86,12 +86,14 @@ class AggregationFrameSchemas(TypedDict):
     expected_shortfall: tuple[str, ...]
 
 
-def _typed_dict_columns(schema: type[Any]) -> tuple[str, ...]:
-    annotations = cast(Mapping[str, Any], getattr(schema, "__annotations__", {}))
-    return tuple(annotations.keys())
-
-
-QUANTILE_COLUMNS = _typed_dict_columns(QuantilesAggregationRow)
+QUANTILE_COLUMNS = (
+    "strategy",
+    "fold",
+    "metric",
+    "quantile",
+    "value",
+    "paths",
+)
 
 BREACH_COLUMNS = (
     "strategy",
@@ -103,7 +105,16 @@ BREACH_COLUMNS = (
     "paths",
 )
 
-EXPECTED_SHORTFALL_COLUMNS = _typed_dict_columns(ExpectedShortfallAggregationRow)
+EXPECTED_SHORTFALL_COLUMNS = (
+    "strategy",
+    "fold",
+    "metric",
+    "tail",
+    "alpha",
+    "threshold",
+    "expected_shortfall",
+    "paths",
+)
 
 
 @dataclass(frozen=True)
