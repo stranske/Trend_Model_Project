@@ -236,6 +236,16 @@ def test_build_breach_and_expected_shortfall_support_upper_tail() -> None:
     assert shortfall.loc[0, "expected_shortfall"] == pytest.approx(4.0)
 
 
+def test_build_breach_frame_rejects_invalid_direction() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    with pytest.raises(ValueError, match="Unsupported breach direction"):
+        build_breach_frame(
+            path_frame,
+            {"metric": {"thresholds": [1.0], "direction": "sideways"}},
+        )
+
+
 def test_aggregate_monte_carlo_results_respects_quantile_config() -> None:
     results_frame = _sample_results_frame()
 
