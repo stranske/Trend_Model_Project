@@ -438,7 +438,7 @@ def _coerce_breach_specs(
     if breach_spec is None:
         return []
     if isinstance(breach_spec, (list, tuple)):
-        default_thresholds = [float(value) for value in breach_spec]
+        default_thresholds = [float(value) for value in breach_spec if value is not None]
         default_thresholds = [value for value in default_thresholds if np.isfinite(value)]
         if not default_thresholds:
             return []
@@ -456,17 +456,19 @@ def _coerce_breach_specs(
             if raw_thresholds is None:
                 raw_thresholds = []
             if isinstance(raw_thresholds, (list, tuple)):
-                thresholds = [float(value) for value in raw_thresholds]
+                thresholds = [float(value) for value in raw_thresholds if value is not None]
             else:
-                thresholds = [float(raw_thresholds)]
+                if raw_thresholds is not None:
+                    thresholds = [float(raw_thresholds)]
             direction_value = str(raw.get("direction", "lower")).lower()
             if direction_value not in {"lower", "upper"}:
                 raise ValueError(f"Unsupported breach direction '{direction_value}'")
             direction = cast(_Direction, direction_value)
         elif isinstance(raw, (list, tuple)):
-            thresholds = [float(value) for value in raw]
+            thresholds = [float(value) for value in raw if value is not None]
         else:
-            thresholds = [float(raw)]
+            if raw is not None:
+                thresholds = [float(raw)]
         thresholds = [value for value in thresholds if np.isfinite(value)]
         if not thresholds:
             continue

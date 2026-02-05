@@ -361,6 +361,25 @@ def test_build_breach_frame_skips_non_finite_thresholds() -> None:
     assert breach.loc[0, "threshold"] == pytest.approx(2.5)
 
 
+def test_build_breach_frame_skips_none_thresholds() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    breach = build_breach_frame(path_frame, {"metric": [None, 2.5]})
+
+    assert len(breach) == 1
+    assert breach.loc[0, "threshold"] == pytest.approx(2.5)
+
+
+def test_build_breach_frame_skips_none_default_thresholds() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    breach = build_breach_frame(path_frame, [None, 4.0])
+
+    assert len(breach) == 2
+    assert breach["threshold"].nunique() == 1
+    assert breach["threshold"].iloc[0] == pytest.approx(4.0)
+
+
 def test_build_breach_frame_empty_threshold_list_preserves_schema() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 
