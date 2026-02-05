@@ -685,14 +685,33 @@ def _coerce_shortfall_specs(
     shortfall_spec: Mapping[str, Any] | float | int | None,
     metrics: Sequence[str],
 ) -> list[tuple[str, float, _Tail]]:
+    def _coerce_alpha(value: Any) -> float | None:
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise TypeError("Expected shortfall alpha must be numeric values or mappings.")
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return None
+            if raw.endswith("%"):
+                raw = raw[:-1].strip()
+                if not raw:
+                    return None
+                return float(raw) / 100.0
+            return float(raw)
+        return float(value)
+
     if shortfall_spec is None:
         return [(metric, 0.05, "lower") for metric in metrics]
     if isinstance(shortfall_spec, bool):
         raise TypeError("Expected shortfall alpha must be numeric values or mappings.")
     if not isinstance(shortfall_spec, Mapping):
         try:
-            alpha = float(shortfall_spec)
+            alpha = _coerce_alpha(shortfall_spec)
         except (TypeError, ValueError):
+            return []
+        if alpha is None:
             return []
         if not np.isfinite(alpha):
             raise ValueError("Expected shortfall alpha must be between 0 and 1")
@@ -712,9 +731,9 @@ def _coerce_shortfall_specs(
         if isinstance(raw, Mapping):
             raw_alpha = raw.get("alpha")
             if raw_alpha is not None:
-                if isinstance(raw_alpha, bool):
-                    raise TypeError("Expected shortfall alpha must be numeric values or mappings.")
-                alpha = float(raw_alpha)
+                alpha = _coerce_alpha(raw_alpha)
+                if alpha is None:
+                    return None
             raw_tail = raw.get("tail", raw.get("direction", tail))
             if raw_tail is None:
                 raw_tail = tail
@@ -723,7 +742,9 @@ def _coerce_shortfall_specs(
                 raise ValueError(f"Unsupported shortfall tail '{tail_value}'")
             tail = cast(_Tail, tail_value)
         else:
-            alpha = float(raw)
+            alpha = _coerce_alpha(raw)
+            if alpha is None:
+                return None
         if not np.isfinite(alpha):
             raise ValueError("Expected shortfall alpha must be between 0 and 1")
         if alpha <= 0.0 or alpha >= 1.0:

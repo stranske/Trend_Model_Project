@@ -1231,6 +1231,26 @@ def test_build_expected_shortfall_accepts_scalar_alpha() -> None:
     assert shortfall["alpha"].tolist() == pytest.approx([0.2, 0.2])
 
 
+def test_build_expected_shortfall_accepts_percent_alpha_string() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    shortfall = build_expected_shortfall_frame(path_frame, "50%")
+
+    assert set(shortfall["metric"]) == {"metric", "metric2"}
+    assert set(shortfall["tail"]) == {"lower"}
+    assert shortfall["alpha"].tolist() == pytest.approx([0.5, 0.5])
+
+
+def test_build_expected_shortfall_accepts_percent_alpha_mapping() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    shortfall = build_expected_shortfall_frame(path_frame, {"metric": {"alpha": "50%"}})
+
+    assert set(shortfall["metric"]) == {"metric"}
+    assert shortfall.loc[0, "alpha"] == pytest.approx(0.5)
+    assert shortfall.loc[0, "expected_shortfall"] == pytest.approx(2.0)
+
+
 def test_build_expected_shortfall_defaults_when_spec_empty() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 
