@@ -941,6 +941,30 @@ def test_export_aggregation_results_writes_csv(tmp_path) -> None:
     assert exported["expected_shortfall_csv"].exists()
 
 
+def test_export_aggregation_results_writes_parquet(tmp_path) -> None:
+    results_frame = _sample_results_frame()
+    path_frame = build_path_frame(results_frame)
+    quantiles = build_quantiles_frame(path_frame, [0.5])
+    breach = build_breach_frame(path_frame, {"metric": [2.5]})
+    shortfall = build_expected_shortfall_frame(path_frame, {"metric": 0.5})
+
+    aggregation = MonteCarloAggregationResults(
+        path_frame=path_frame,
+        quantiles_frame=quantiles,
+        breach_frame=breach,
+        expected_shortfall_frame=shortfall,
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["parquet"])
+
+    assert exported["path_summary_parquet"].exists()
+    assert exported["quantiles_parquet"].exists()
+    assert exported["breach_probabilities_parquet"].exists()
+    assert exported["expected_shortfall_parquet"].exists()
+    path_summary = pd.read_parquet(exported["path_summary_parquet"])
+    assert list(path_summary.columns) == list(AGGREGATION_PATH_COLUMNS) + ["metric", "metric2"]
+
+
 def test_export_aggregation_results_path_summary_schema(tmp_path) -> None:
     results_frame = _sample_results_frame()
 
