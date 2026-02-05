@@ -542,6 +542,26 @@ def test_build_quantiles_frame_accepts_percent_string_quantiles() -> None:
     assert metric_row["value"] == pytest.approx(3.0)
 
 
+def test_build_quantiles_frame_skips_invalid_string_quantiles() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    quantiles = build_quantiles_frame(path_frame, "nope, 50%, ???")
+
+    assert sorted(quantiles["quantile"].unique()) == pytest.approx([0.5])
+    metric_row = quantiles.loc[
+        (quantiles["metric"] == "metric") & (quantiles["quantile"] == 0.5)
+    ].iloc[0]
+    assert metric_row["value"] == pytest.approx(3.0)
+
+
+def test_build_quantiles_frame_defaults_when_all_quantiles_invalid() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    quantiles = build_quantiles_frame(path_frame, "nope, ???")
+
+    assert sorted(quantiles["quantile"].unique()) == pytest.approx([0.05, 0.5, 0.95])
+
+
 def test_build_quantiles_frame_defaults_on_empty_string_quantiles() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 

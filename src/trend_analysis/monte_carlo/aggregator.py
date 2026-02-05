@@ -582,11 +582,20 @@ def _coerce_quantiles(quantiles: Sequence[float] | float | int | str | None) -> 
                 raw = raw[:-1].strip()
                 if not raw:
                     continue
-                q = float(raw) / 100.0
+                try:
+                    q = float(raw) / 100.0
+                except ValueError:
+                    continue
             else:
-                q = float(raw)
+                try:
+                    q = float(raw)
+                except ValueError:
+                    continue
         else:
-            q = float(value)
+            try:
+                q = float(value)
+            except (TypeError, ValueError):
+                continue
         if not np.isfinite(q):
             continue
         if q < 0.0 or q > 1.0:
