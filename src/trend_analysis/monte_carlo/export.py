@@ -151,10 +151,15 @@ def _reorder_path_frame(frame: pd.DataFrame) -> pd.DataFrame:
             frame[col] = pd.NA
     if "strategy_name" in frame.columns:
         frame = frame.copy()
-        frame["strategy"] = frame["strategy"].where(
-            frame["strategy"].notna(),
-            frame["strategy_name"],
-        )
+        if "strategy" not in frame.columns:
+            frame["strategy"] = frame["strategy_name"]
+        else:
+            strategy = frame["strategy"]
+            strategy_name = frame["strategy_name"]
+            if _is_numeric_like(strategy) and not _is_numeric_like(strategy_name):
+                frame["strategy"] = strategy_name
+            else:
+                frame["strategy"] = strategy.where(strategy.notna(), strategy_name)
     if "path" in frame.columns:
         if "path_id" in frame.columns:
             frame = frame.copy()
@@ -189,6 +194,23 @@ def _reorder_path_frame(frame: pd.DataFrame) -> pd.DataFrame:
     excluded.update({"path_id", "fold_id", "strategy_name", "paths", "folds"})
     metric_cols = [col for col in frame.columns if col not in base_cols and col not in excluded]
     return frame[base_cols + metric_cols]
+
+
+def _is_numeric_like(series: pd.Series) -> bool:
+    if pd.api.types.is_bool_dtype(series):
+        return False
+    if pd.api.types.is_numeric_dtype(series):
+        return True
+    if pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series):
+        non_null = series.dropna()
+        if (
+            not non_null.empty
+            and non_null.map(lambda value: isinstance(value, (bool, np.bool_))).all()
+        ):
+            return False
+        coerced = pd.to_numeric(series, errors="coerce")
+        return bool(np.isfinite(coerced.to_numpy(dtype=float)).any())
+    return False
 
 
 def _reorder_schema_frame(frame: pd.DataFrame, schema: Sequence[str]) -> pd.DataFrame:
