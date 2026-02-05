@@ -2334,6 +2334,39 @@ def test_export_aggregation_results_supports_csv_and_parquet(tmp_path) -> None:
     assert exported["expected_shortfall_parquet"].exists()
 
 
+def test_export_aggregation_results_exports_both_formats_without_parquet_dependency(
+    tmp_path, monkeypatch
+) -> None:
+    results_frame = _sample_results_frame()
+    aggregation = aggregate_monte_carlo_results(
+        results_frame,
+        quantiles=[0.5],
+        breach_spec={"metric": [2.5]},
+        expected_shortfall_spec={"metric": 0.5},
+    )
+
+    monkeypatch.setattr(export_module, "_supports_parquet", lambda: True)
+
+    calls: list[str] = []
+
+    def _fake_export_frame(frame: pd.DataFrame, path: export_module.Path, fmt: str) -> None:
+        calls.append(fmt)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()
+
+    monkeypatch.setattr(export_module, "_export_frame", _fake_export_frame)
+
+    exported = export_aggregation_results(
+        aggregation,
+        tmp_path,
+        formats=["csv", "parquet"],
+    )
+
+    assert len(calls) == 14
+    assert set(calls) == {"csv", "parquet"}
+    assert all(path.exists() for path in exported.values())
+
+
 def test_export_aggregation_results_supports_comma_separated_formats(tmp_path) -> None:
     pytest.importorskip("pyarrow")
 
