@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable
 
 
 def _load_entries(path: Path) -> Iterable[dict[str, object]]:
@@ -63,10 +63,13 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":  # pragma: no cover
+    setup_script_logging: Callable[..., Path | None] | None
     try:
-        from trend_analysis.script_logging import setup_script_logging
+        from trend_analysis.script_logging import setup_script_logging as _setup_script_logging
     except ModuleNotFoundError:
         setup_script_logging = None
+    else:
+        setup_script_logging = _setup_script_logging
 
     if setup_script_logging is not None:
         setup_script_logging(module_file=__file__)
