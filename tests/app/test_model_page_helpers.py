@@ -206,7 +206,7 @@ def test_render_config_chat_panel_stores_instruction(model_module: ModuleType) -
     assert stub.session_state.get("config_chat_last_instruction") == "Increase lookback to 24"
 
 
-def test_build_nl_chain_reuses_cached_chain(
+def test_build_nl_chain_reuses_cached_chain_with_provider_config(
     monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
 ) -> None:
     stub = model_module.st
