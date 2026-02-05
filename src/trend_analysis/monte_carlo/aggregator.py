@@ -28,45 +28,15 @@ __all__ = [
     "quantiles_frame_schema",
 ]
 
+_DEFAULT_QUANTILES = (0.05, 0.5, 0.95)
+_Direction = Literal["lower", "upper"]
+_Tail = Literal["lower", "upper"]
+
 AGGREGATION_PATH_COLUMNS = (
     "strategy",
     "path",
     "fold",
 )
-
-QUANTILE_COLUMNS = (
-    "strategy",
-    "fold",
-    "metric",
-    "quantile",
-    "value",
-    "paths",
-)
-
-BREACH_COLUMNS = (
-    "strategy",
-    "fold",
-    "metric",
-    "threshold",
-    "direction",
-    "breach_probability",
-    "paths",
-)
-
-EXPECTED_SHORTFALL_COLUMNS = (
-    "strategy",
-    "fold",
-    "metric",
-    "tail",
-    "alpha",
-    "threshold",
-    "expected_shortfall",
-    "paths",
-)
-
-_DEFAULT_QUANTILES = (0.05, 0.5, 0.95)
-_Direction = Literal["lower", "upper"]
-_Tail = Literal["lower", "upper"]
 
 
 class QuantilesAggregationRow(TypedDict):
@@ -103,6 +73,17 @@ class ExpectedShortfallAggregationRow(TypedDict):
     threshold: float
     expected_shortfall: float
     paths: int
+
+
+def _typed_dict_columns(schema: type[TypedDict]) -> tuple[str, ...]:
+    return tuple(schema.__annotations__.keys())
+
+
+QUANTILE_COLUMNS = _typed_dict_columns(QuantilesAggregationRow)
+
+BREACH_COLUMNS = _typed_dict_columns(BreachAggregationRow)
+
+EXPECTED_SHORTFALL_COLUMNS = _typed_dict_columns(ExpectedShortfallAggregationRow)
 
 
 @dataclass(frozen=True)
