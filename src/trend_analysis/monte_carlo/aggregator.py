@@ -458,7 +458,10 @@ def _is_numeric_like(series: pd.Series) -> bool:
         return True
     if pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series):
         non_null = series.dropna()
-        if not non_null.empty and non_null.map(lambda value: isinstance(value, (bool, np.bool_))).all():
+        if (
+            not non_null.empty
+            and non_null.map(lambda value: isinstance(value, (bool, np.bool_))).all()
+        ):
             return False
         coerced = pd.to_numeric(series, errors="coerce")
         values = cast(np.ndarray, coerced.to_numpy(dtype=float))
