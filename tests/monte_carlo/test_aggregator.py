@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+import trend_analysis.monte_carlo.export as export_module
 from trend_analysis.monte_carlo.aggregator import (
     AGGREGATION_PATH_COLUMNS,
     BREACH_COLUMNS,
@@ -762,3 +763,35 @@ def test_export_aggregation_results_supports_csv_and_parquet(tmp_path) -> None:
     assert exported["quantiles_parquet"].exists()
     assert exported["breach_probabilities_parquet"].exists()
     assert exported["expected_shortfall_parquet"].exists()
+
+
+def test_export_aggregation_results_dedupes_formats(tmp_path, monkeypatch) -> None:
+    pytest.importorskip("pyarrow")
+
+    results_frame = _sample_results_frame()
+    aggregation = aggregate_monte_carlo_results(
+        results_frame,
+        quantiles=[0.5],
+        breach_spec={"metric": [2.5]},
+        expected_shortfall_spec={"metric": 0.5},
+    )
+
+    calls: list[str] = []
+
+    original_export = export_module._export_frame
+
+    def _spy_export_frame(frame: pd.DataFrame, path: export_module.Path, fmt: str) -> None:
+        calls.append(fmt)
+        original_export(frame, path, fmt)
+
+    monkeypatch.setattr(export_module, "_export_frame", _spy_export_frame)
+
+    exported = export_module.export_aggregation_results(
+        aggregation,
+        tmp_path,
+        formats=["csv", "CSV", "csv", "parquet", "parquet"],
+    )
+
+    assert len(calls) == 8
+    assert exported["path_summary_csv"].exists()
+    assert exported["path_summary_parquet"].exists()

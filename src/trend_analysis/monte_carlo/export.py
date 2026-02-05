@@ -79,7 +79,16 @@ def _coerce_formats(formats: Sequence[str] | str | None) -> list[str]:
         if not label:
             continue
         cleaned.append(label)
-    return cleaned or ["csv"]
+    if not cleaned:
+        return ["csv"]
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for label in cleaned:
+        if label in seen:
+            continue
+        seen.add(label)
+        deduped.append(label)
+    return deduped
 
 
 def _export_frame(frame: pd.DataFrame, path: Path, fmt: str) -> None:
