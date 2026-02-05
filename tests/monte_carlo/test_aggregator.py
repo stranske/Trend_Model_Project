@@ -267,6 +267,25 @@ def test_build_expected_shortfall_defaults_to_all_metrics() -> None:
     assert shortfall["alpha"].tolist() == pytest.approx([0.05, 0.05])
 
 
+def test_build_expected_shortfall_ignores_non_finite_values() -> None:
+    path_frame = build_path_frame(
+        pd.DataFrame(
+            [
+                {"strategy": "A", "path": 1, "fold": 0, "metric": 1.0},
+                {"strategy": "A", "path": 2, "fold": 0, "metric": float("nan")},
+                {"strategy": "A", "path": 3, "fold": 0, "metric": float("inf")},
+                {"strategy": "A", "path": 4, "fold": 0, "metric": float("-inf")},
+                {"strategy": "A", "path": 5, "fold": 0, "metric": 5.0},
+            ]
+        )
+    )
+
+    shortfall = build_expected_shortfall_frame(path_frame, {"metric": {"alpha": 0.5}})
+
+    assert shortfall.loc[0, "paths"] == 2
+    assert shortfall.loc[0, "expected_shortfall"] == pytest.approx(1.0)
+
+
 def test_schema_helpers_match_column_constants() -> None:
     assert quantiles_frame_schema() == QUANTILE_COLUMNS
     assert breach_frame_schema() == BREACH_COLUMNS
