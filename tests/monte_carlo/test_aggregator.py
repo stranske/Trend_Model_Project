@@ -1632,6 +1632,22 @@ def test_export_aggregation_results_per_strategy_path_matches_path_summary(tmp_p
     pd.testing.assert_frame_equal(per_strategy_path, path_summary)
 
 
+def test_export_aggregation_results_per_strategy_stats_matches_path_summary(tmp_path) -> None:
+    aggregation = aggregate_monte_carlo_results(
+        _sample_results_frame(),
+        quantiles=[0.5],
+        breach_spec={"metric": [2.5]},
+        expected_shortfall_spec={"metric": 0.5},
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+
+    path_summary = pd.read_csv(exported["path_summary_csv"])
+    per_strategy_stats = pd.read_csv(exported["per_strategy_stats_csv"])
+
+    pd.testing.assert_frame_equal(per_strategy_stats, path_summary)
+
+
 def test_export_aggregation_results_prefers_strategy_name_for_numeric_strategy(
     tmp_path,
 ) -> None:
