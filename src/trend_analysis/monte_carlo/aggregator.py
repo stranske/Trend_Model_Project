@@ -573,6 +573,8 @@ def _coerce_breach_specs(
     def _coerce_threshold(value: Any) -> float | None:
         if value is None:
             return None
+        if isinstance(value, bool):
+            raise TypeError("Breach thresholds must be numeric values or sequences of numerics.")
         try:
             threshold = float(value)
         except (TypeError, ValueError):
@@ -621,6 +623,8 @@ def _coerce_breach_specs(
 
     if breach_spec is None:
         return []
+    if isinstance(breach_spec, bool):
+        raise TypeError("Breach thresholds must be numeric values or sequences of numerics.")
     if isinstance(breach_spec, (list, tuple)):
         default_thresholds = [
             threshold

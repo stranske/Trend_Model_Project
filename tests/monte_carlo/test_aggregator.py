@@ -218,6 +218,18 @@ def test_build_breach_frame_coerces_numeric_columns() -> None:
     assert pd.api.types.is_integer_dtype(breach_frame["paths"])
 
 
+def test_build_breach_frame_rejects_boolean_thresholds() -> None:
+    path_frame = pd.DataFrame(
+        [
+            {"strategy": "A", "fold": 0, "path": 1, "metric": 1.0},
+            {"strategy": "A", "fold": 0, "path": 2, "metric": 2.0},
+        ]
+    )
+
+    with pytest.raises(TypeError, match="Breach thresholds must be numeric values"):
+        build_breach_frame(path_frame, True)
+
+
 def test_build_expected_shortfall_frame_coerces_numeric_columns() -> None:
     path_frame = pd.DataFrame(
         [
