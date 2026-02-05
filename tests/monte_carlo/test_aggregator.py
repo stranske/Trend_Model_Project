@@ -307,6 +307,24 @@ def test_aggregate_monte_carlo_results_respects_quantile_config() -> None:
     assert not aggregation.expected_shortfall_frame.empty
 
 
+def test_aggregate_monte_carlo_results_reports_expected_shortfall_values() -> None:
+    results_frame = _sample_results_frame()
+
+    aggregation = aggregate_monte_carlo_results(
+        results_frame,
+        quantiles=[0.5],
+        breach_spec={"metric": [2.5]},
+        expected_shortfall_spec={"metric": {"alpha": 0.5, "tail": "lower"}},
+    )
+
+    shortfall_row = aggregation.expected_shortfall_frame.loc[
+        aggregation.expected_shortfall_frame["metric"] == "metric"
+    ].iloc[0]
+
+    assert shortfall_row["threshold"] == pytest.approx(3.0)
+    assert shortfall_row["expected_shortfall"] == pytest.approx(2.0)
+
+
 def test_aggregate_monte_carlo_results_empty_input_preserves_schemas() -> None:
     results_frame = pd.DataFrame(
         {
