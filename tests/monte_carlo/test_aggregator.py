@@ -325,6 +325,19 @@ def test_build_breach_frame_handles_lower_and_upper_thresholds() -> None:
     assert metric2_prob == pytest.approx(1.0 / 3.0)
 
 
+def test_build_breach_frame_accepts_threshold_key() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    breach = build_breach_frame(
+        path_frame,
+        {"metric": {"threshold": 2.5, "direction": "upper"}},
+    )
+
+    assert breach.loc[0, "threshold"] == pytest.approx(2.5)
+    assert breach.loc[0, "direction"] == "upper"
+    assert breach.loc[0, "breach_probability"] == pytest.approx(2.0 / 3.0)
+
+
 def test_build_breach_frame_applies_default_thresholds_to_all_metrics() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 
