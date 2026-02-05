@@ -314,6 +314,10 @@ def build_breach_frame(
                     }
                 )
     frame = pd.DataFrame(rows, columns=list(schema))
+    if not frame.empty:
+        frame["threshold"] = pd.to_numeric(frame["threshold"], errors="coerce")
+        frame["breach_probability"] = pd.to_numeric(frame["breach_probability"], errors="coerce")
+        frame["paths"] = pd.to_numeric(frame["paths"], errors="coerce").fillna(0).astype(int)
     return _sort_frame(frame, ("strategy", "fold", "metric", "threshold", "direction"))
 
 
@@ -377,6 +381,11 @@ def build_expected_shortfall_frame(
                 }
             )
     frame = pd.DataFrame(rows, columns=list(schema))
+    if not frame.empty:
+        frame["alpha"] = pd.to_numeric(frame["alpha"], errors="coerce")
+        frame["threshold"] = pd.to_numeric(frame["threshold"], errors="coerce")
+        frame["expected_shortfall"] = pd.to_numeric(frame["expected_shortfall"], errors="coerce")
+        frame["paths"] = pd.to_numeric(frame["paths"], errors="coerce").fillna(0).astype(int)
     return _sort_frame(frame, ("strategy", "fold", "metric", "tail", "alpha"))
 
 

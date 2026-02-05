@@ -184,6 +184,39 @@ def test_build_path_frame_coerces_string_metrics_to_numeric() -> None:
     assert path_frame.loc[0, "metric"] == pytest.approx(1.5)
 
 
+def test_build_breach_frame_coerces_numeric_columns() -> None:
+    path_frame = pd.DataFrame(
+        [
+            {"strategy": "A", "fold": 0, "path": 1, "metric": "1.0"},
+            {"strategy": "A", "fold": 0, "path": 2, "metric": "2.0"},
+        ]
+    )
+
+    breach_frame = build_breach_frame(path_frame, ["1.5"])
+
+    assert pd.api.types.is_numeric_dtype(breach_frame["threshold"])
+    assert pd.api.types.is_float_dtype(breach_frame["breach_probability"])
+    assert pd.api.types.is_integer_dtype(breach_frame["paths"])
+
+
+def test_build_expected_shortfall_frame_coerces_numeric_columns() -> None:
+    path_frame = pd.DataFrame(
+        [
+            {"strategy": "A", "fold": 0, "path": 1, "metric": "1.0"},
+            {"strategy": "A", "fold": 0, "path": 2, "metric": "3.0"},
+        ]
+    )
+
+    shortfall_frame = build_expected_shortfall_frame(
+        path_frame, {"metric": {"alpha": "0.5", "tail": "upper"}}
+    )
+
+    assert pd.api.types.is_numeric_dtype(shortfall_frame["alpha"])
+    assert pd.api.types.is_numeric_dtype(shortfall_frame["threshold"])
+    assert pd.api.types.is_numeric_dtype(shortfall_frame["expected_shortfall"])
+    assert pd.api.types.is_integer_dtype(shortfall_frame["paths"])
+
+
 def test_build_path_frame_fills_missing_strategy() -> None:
     results_frame = pd.DataFrame(
         [
