@@ -186,9 +186,7 @@ def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     data: dict[str, Any] = {
         "strategy": _select_strategy_column(results_frame),
         "path_id": _coerce_column(results_frame, ("path_id", "path", "path_hash")),
-        "fold_id": _coerce_column(
-            results_frame, ("fold_id", "fold", "fold_label"), default=None
-        ),
+        "fold_id": _coerce_column(results_frame, ("fold_id", "fold", "fold_label"), default=None),
     }
     frame = pd.DataFrame(data).reset_index(drop=True)
     if metric_cols:
@@ -387,12 +385,12 @@ def build_expected_shortfall_frame(
             rows.append(
                 {
                     "strategy": strategy,
-                        "fold_id": fold,
-                        "metric": metric,
-                        "tail": tail,
-                        "alpha": float(alpha),
-                        "threshold": threshold,
-                        "expected_shortfall": expected_shortfall,
+                    "fold_id": fold,
+                    "metric": metric,
+                    "tail": tail,
+                    "alpha": float(alpha),
+                    "threshold": threshold,
+                    "expected_shortfall": expected_shortfall,
                     "paths": total,
                 }
             )
