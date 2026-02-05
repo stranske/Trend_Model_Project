@@ -1178,6 +1178,27 @@ def test_export_aggregation_results_writes_csv(tmp_path) -> None:
     assert exported["expected_shortfall_csv"].exists()
 
 
+def test_export_aggregation_results_per_strategy_aliases_path_summary(tmp_path) -> None:
+    results_frame = _sample_results_frame()
+
+    aggregation = aggregate_monte_carlo_results(
+        results_frame,
+        quantiles=[0.5],
+        breach_spec={"metric": [2.5]},
+        expected_shortfall_spec={"metric": 0.5},
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+    path_summary = pd.read_csv(exported["path_summary_csv"])
+    per_strategy_path = pd.read_csv(exported["per_strategy_path_csv"])
+    per_strategy_stats = pd.read_csv(exported["per_strategy_stats_csv"])
+
+    assert list(per_strategy_path.columns) == list(path_summary.columns)
+    assert list(per_strategy_stats.columns) == list(path_summary.columns)
+    assert len(per_strategy_path) == len(path_summary)
+    assert len(per_strategy_stats) == len(path_summary)
+
+
 def test_export_aggregation_results_writes_parquet(tmp_path) -> None:
     results_frame = _sample_results_frame()
     path_frame = build_path_frame(results_frame)
