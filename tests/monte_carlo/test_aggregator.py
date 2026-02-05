@@ -158,6 +158,15 @@ def test_build_quantiles_frame_ignores_non_finite_values() -> None:
     assert quantiles.loc[0, "paths"] == 2
 
 
+def test_build_quantiles_frame_skips_non_finite_quantiles() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    quantiles = build_quantiles_frame(path_frame, [float("nan"), 0.5])
+
+    assert len(quantiles) == 2
+    assert sorted(quantiles["quantile"].unique()) == pytest.approx([0.5])
+
+
 def test_aggregate_monte_carlo_results_respects_quantile_config() -> None:
     results_frame = _sample_results_frame()
 

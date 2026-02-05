@@ -373,6 +373,8 @@ def _coerce_quantiles(quantiles: Sequence[float] | None) -> list[float]:
         if value is None:
             continue
         q = float(value)
+        if not np.isfinite(q):
+            continue
         if q < 0.0 or q > 1.0:
             raise ValueError("Quantiles must be between 0 and 1")
         cleaned.append(q)
