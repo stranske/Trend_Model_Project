@@ -332,6 +332,16 @@ def test_build_quantiles_frame_defaults_quantiles_when_none_or_empty() -> None:
     assert sorted(empty_quantiles["quantile"].unique()) == pytest.approx(expected)
 
 
+def test_build_quantiles_frame_accepts_scalar_quantile() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    quantiles = build_quantiles_frame(path_frame, 0.5)
+
+    assert sorted(quantiles["quantile"].unique()) == pytest.approx([0.5])
+    metric_row = quantiles.loc[quantiles["metric"] == "metric"].iloc[0]
+    assert metric_row["value"] == pytest.approx(3.0)
+
+
 def test_build_quantiles_frame_reports_all_metrics() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 

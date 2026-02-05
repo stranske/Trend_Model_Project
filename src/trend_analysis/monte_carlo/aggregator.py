@@ -147,7 +147,7 @@ class MonteCarloAggregationResults:
 def aggregate_monte_carlo_results(
     results_frame: pd.DataFrame,
     *,
-    quantiles: Sequence[float] | None = None,
+    quantiles: Sequence[float] | float | int | str | None = None,
     breach_spec: Mapping[str, Any] | Sequence[float] | None = None,
     expected_shortfall_spec: Mapping[str, Any] | float | int | None = None,
 ) -> MonteCarloAggregationResults:
@@ -227,7 +227,7 @@ def expected_shortfall_frame_schema() -> ExpectedShortfallFrameSchema:
 
 def build_quantiles_frame(
     path_frame: pd.DataFrame,
-    quantiles: Sequence[float] | None,
+    quantiles: Sequence[float] | float | int | str | None,
 ) -> pd.DataFrame:
     """Compute quantile summaries per strategy and fold."""
 
@@ -468,9 +468,15 @@ def _sort_frame(frame: pd.DataFrame, sort_columns: Sequence[str]) -> pd.DataFram
         ).reset_index(drop=True)
 
 
-def _coerce_quantiles(quantiles: Sequence[float] | None) -> list[float]:
+def _coerce_quantiles(quantiles: Sequence[float] | float | int | str | None) -> list[float]:
     if quantiles is None:
-        values = list(_DEFAULT_QUANTILES)
+        values: list[Any] = list(_DEFAULT_QUANTILES)
+    elif isinstance(quantiles, str):
+        values = [item.strip() for item in quantiles.split(",") if item.strip()]
+    elif isinstance(quantiles, (int, float, np.integer, np.floating)) and not isinstance(
+        quantiles, bool
+    ):
+        values = [quantiles]
     else:
         values = list(quantiles)
     cleaned: list[float] = []
