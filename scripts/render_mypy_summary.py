@@ -63,7 +63,11 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":  # pragma: no cover
-    from trend_analysis.script_logging import setup_script_logging
+    try:
+        from trend_analysis.script_logging import setup_script_logging
+    except ModuleNotFoundError:
+        setup_script_logging = None
 
-    setup_script_logging(module_file=__file__)
+    if setup_script_logging is not None:
+        setup_script_logging(module_file=__file__)
     raise SystemExit(main())
