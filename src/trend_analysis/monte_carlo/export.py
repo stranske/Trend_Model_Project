@@ -7,7 +7,13 @@ from typing import Sequence
 
 import pandas as pd
 
-from .aggregator import MonteCarloAggregationResults
+from .aggregator import (
+    AGGREGATION_PATH_COLUMNS,
+    BREACH_COLUMNS,
+    EXPECTED_SHORTFALL_COLUMNS,
+    QUANTILE_COLUMNS,
+    MonteCarloAggregationResults,
+)
 
 __all__ = ["export_aggregation_results"]
 
@@ -34,6 +40,13 @@ def export_aggregation_results(
     out_dir.mkdir(parents=True, exist_ok=True)
     fmt_list = _coerce_formats(formats)
     exported: dict[str, Path] = {}
+    path_frame = _reorder_path_frame(results.path_frame)
+    quantiles_frame = _reorder_schema_frame(results.quantiles_frame, QUANTILE_COLUMNS)
+    breach_frame = _reorder_schema_frame(results.breach_frame, BREACH_COLUMNS)
+    shortfall_frame = _reorder_schema_frame(
+        results.expected_shortfall_frame,
+        EXPECTED_SHORTFALL_COLUMNS,
+    )
     for fmt in fmt_list:
         ext = fmt.lower()
         path_path = out_dir / f"path_summary.{ext}"
@@ -41,10 +54,10 @@ def export_aggregation_results(
         breach_path = out_dir / f"breach_probabilities.{ext}"
         shortfall_path = out_dir / f"expected_shortfall.{ext}"
 
-        _export_frame(results.path_frame, path_path, ext)
-        _export_frame(results.quantiles_frame, quantiles_path, ext)
-        _export_frame(results.breach_frame, breach_path, ext)
-        _export_frame(results.expected_shortfall_frame, shortfall_path, ext)
+        _export_frame(path_frame, path_path, ext)
+        _export_frame(quantiles_frame, quantiles_path, ext)
+        _export_frame(breach_frame, breach_path, ext)
+        _export_frame(shortfall_frame, shortfall_path, ext)
 
         exported[f"path_summary_{ext}"] = path_path
         exported[f"quantiles_{ext}"] = quantiles_path
@@ -77,3 +90,19 @@ def _export_frame(frame: pd.DataFrame, path: Path, fmt: str) -> None:
         frame.to_parquet(path, index=False)
         return
     raise ValueError(f"Unsupported export format '{fmt}'")
+
+
+def _reorder_path_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    if frame.empty:
+        return frame
+    base_cols = [col for col in AGGREGATION_PATH_COLUMNS if col in frame.columns]
+    metric_cols = [col for col in frame.columns if col not in base_cols]
+    return frame[base_cols + metric_cols]
+
+
+def _reorder_schema_frame(frame: pd.DataFrame, schema: Sequence[str]) -> pd.DataFrame:
+    if frame.empty:
+        return frame
+    schema_cols = [col for col in schema if col in frame.columns]
+    extra_cols = [col for col in frame.columns if col not in schema_cols]
+    return frame[schema_cols + extra_cols]
