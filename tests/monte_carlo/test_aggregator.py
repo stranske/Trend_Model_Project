@@ -217,6 +217,25 @@ def test_build_quantiles_frame_empty_input_preserves_schema() -> None:
     assert list(quantiles.columns) == list(quantiles_frame_schema())
 
 
+def test_build_breach_and_expected_shortfall_support_upper_tail() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    breach = build_breach_frame(
+        path_frame,
+        {"metric": {"thresholds": [2.5], "direction": "upper"}},
+    )
+    shortfall = build_expected_shortfall_frame(
+        path_frame,
+        {"metric": {"alpha": 0.5, "tail": "upper"}},
+    )
+
+    assert breach.loc[0, "direction"] == "upper"
+    assert breach.loc[0, "breach_probability"] == pytest.approx(2.0 / 3.0)
+    assert shortfall.loc[0, "tail"] == "upper"
+    assert shortfall.loc[0, "threshold"] == pytest.approx(3.0)
+    assert shortfall.loc[0, "expected_shortfall"] == pytest.approx(4.0)
+
+
 def test_aggregate_monte_carlo_results_respects_quantile_config() -> None:
     results_frame = _sample_results_frame()
 
