@@ -19,6 +19,7 @@ from trend_analysis.monte_carlo.aggregator import (
     build_path_frame,
     build_quantiles_frame,
     expected_shortfall_frame_schema,
+    path_frame_schema,
     quantiles_frame_schema,
 )
 from trend_analysis.monte_carlo.export import export_aggregation_results
@@ -142,6 +143,25 @@ def test_build_path_frame_fills_missing_strategy() -> None:
         AGGREGATION_PATH_COLUMNS
     )
     assert path_frame["strategy"].isna().all()
+
+
+def test_path_frame_schema_includes_numeric_metrics_only() -> None:
+    results_frame = pd.DataFrame(
+        [
+            {
+                "strategy": "A",
+                "path": 1,
+                "fold": 0,
+                "metric": 1.0,
+                "metric_str": "2.0",
+                "note": "x",
+            }
+        ]
+    )
+
+    schema = path_frame_schema(results_frame)
+
+    assert schema == tuple(AGGREGATION_PATH_COLUMNS) + ("metric", "metric_str")
 
 
 def test_build_quantiles_frame_reports_requested_quantiles() -> None:
