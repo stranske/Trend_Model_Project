@@ -401,13 +401,14 @@ def _is_numeric_like(series: pd.Series) -> bool:
         return True
     if pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series):
         coerced = pd.to_numeric(series, errors="coerce")
-        return np.isfinite(coerced.to_numpy(dtype=float)).any()
+        values = cast(np.ndarray, coerced.to_numpy(dtype=float))
+        return bool(np.isfinite(values).any())
     return False
 
 
 def _numeric_values(series: pd.Series) -> np.ndarray:
     numeric = pd.to_numeric(series, errors="coerce")
-    return numeric.to_numpy(dtype=float)
+    return cast(np.ndarray, numeric.to_numpy(dtype=float))
 
 
 def _coerce_quantiles(quantiles: Sequence[float] | None) -> list[float]:
