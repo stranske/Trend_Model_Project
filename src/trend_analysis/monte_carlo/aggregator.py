@@ -250,6 +250,10 @@ def build_quantiles_frame(
         ]
         if len(candidate_cols) == 1:
             quantiles_frame = quantiles_frame.rename(columns={candidate_cols[0]: "quantile"})
+        elif len(quantile_list) == 1:
+            quantiles_frame["quantile"] = quantile_list[0]
+        else:
+            raise KeyError("Quantile column missing after aggregation.")
     quantiles_long = quantiles_frame.melt(
         id_vars=["strategy", "fold", "quantile"],
         value_vars=metric_cols,
