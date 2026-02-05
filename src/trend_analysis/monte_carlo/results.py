@@ -186,18 +186,18 @@ def build_summary_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
         if fold_group_cols:
             base_cols = [*fold_group_cols, "strategy", "paths"]
         return pd.DataFrame(columns=base_cols)
-    numeric_cols = results_frame.select_dtypes(include="number").columns.tolist()
-    if "fold_id" in numeric_cols:
-        numeric_cols.remove("fold_id")
-    if "path_id" in numeric_cols:
-        numeric_cols.remove("path_id")
-    if "seed" in numeric_cols:
-        numeric_cols.remove("seed")
+    metric_cols = _metric_columns(results_frame)
     if fold_group_cols:
-        grouped = results_frame.groupby([*fold_group_cols, "strategy"], dropna=False)
+        grouped = _coerce_metric_frame(results_frame, metric_cols).groupby(
+            [*fold_group_cols, "strategy"],
+            dropna=False,
+        )
     else:
-        grouped = results_frame.groupby("strategy", dropna=False)
-    summary = grouped[numeric_cols].mean(numeric_only=True)
+        grouped = _coerce_metric_frame(results_frame, metric_cols).groupby(
+            "strategy",
+            dropna=False,
+        )
+    summary = grouped[metric_cols].mean(numeric_only=True)
     summary["paths"] = grouped.size()
     return summary.reset_index()
 
@@ -218,13 +218,13 @@ def build_pooled_summary_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
             ]
         )
 
-    numeric_cols = results_frame.select_dtypes(include="number").columns.tolist()
-    for col in ("fold_id", "path_id", "seed"):
-        if col in numeric_cols:
-            numeric_cols.remove(col)
+    metric_cols = _metric_columns(results_frame)
 
-    grouped = results_frame.groupby("strategy", dropna=False)
-    summary = grouped[numeric_cols].mean(numeric_only=True)
+    grouped = _coerce_metric_frame(results_frame, metric_cols).groupby(
+        "strategy",
+        dropna=False,
+    )
+    summary = grouped[metric_cols].mean(numeric_only=True)
     summary["paths"] = grouped.size()
     if "fold_id" in results_frame.columns:
         summary["folds"] = grouped["fold_id"].nunique(dropna=False)
@@ -257,18 +257,57 @@ def build_cross_fold_summary_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     if fold_summary.empty:
         return pd.DataFrame(columns=["scope", "fold_id", "strategy", "folds"])
 
-    numeric_cols = fold_summary.select_dtypes(include="number").columns.tolist()
-    if "fold_id" in numeric_cols:
-        numeric_cols.remove("fold_id")
-
-    grouped = fold_summary.groupby("strategy", dropna=False)
-    stats = grouped[numeric_cols].agg(["mean", "std", "min", "max", "median"])
+    metric_cols = _metric_columns(fold_summary, include_paths=True)
+    grouped = _coerce_metric_frame(fold_summary, metric_cols).groupby(
+        "strategy",
+        dropna=False,
+    )
+    stats = grouped[metric_cols].agg(["mean", "std", "min", "max", "median"])
     stats.columns = [f"{col}_{stat}" for col, stat in stats.columns]
     stats["folds"] = grouped.size()
     cross_fold = stats.reset_index()
     cross_fold.insert(0, "scope", "cross_fold")
     cross_fold.insert(1, "fold_id", None)
     return cross_fold
+
+
+def _metric_columns(frame: pd.DataFrame, *, include_paths: bool = False) -> list[str]:
+    excluded = set(RESULT_BASE_COLUMNS)
+    excluded.add("folds")
+    if not include_paths:
+        excluded.add("paths")
+    metric_cols: list[str] = []
+    for col in frame.columns:
+        if col in excluded:
+            continue
+        series = frame[col]
+        if pd.api.types.is_bool_dtype(series):
+            continue
+        if pd.api.types.is_numeric_dtype(series):
+            metric_cols.append(col)
+            continue
+        if pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series):
+            non_null = series.dropna()
+            if non_null.empty:
+                continue
+            if non_null.map(lambda value: isinstance(value, (bool, np.bool_))).all():
+                continue
+            coerced = pd.to_numeric(series, errors="coerce")
+            values = coerced.to_numpy(dtype=float)
+            if np.isfinite(values).any():
+                metric_cols.append(col)
+    return metric_cols
+
+
+def _coerce_metric_frame(frame: pd.DataFrame, metric_cols: list[str]) -> pd.DataFrame:
+    if not metric_cols:
+        return frame
+    numeric_cols = [col for col in metric_cols if not pd.api.types.is_numeric_dtype(frame[col])]
+    if not numeric_cols:
+        return frame
+    updated = frame.copy()
+    updated[numeric_cols] = updated[numeric_cols].apply(pd.to_numeric, errors="coerce")
+    return updated
 
 
 def export_results(
@@ -324,7 +363,7 @@ def _coerce_formats(formats: Sequence[str] | str | None) -> list[str]:
     if formats is None:
         return ["csv"]
     if isinstance(formats, str):
-        items = [formats]
+        items = formats.split(",")
     else:
         items = list(formats)
     cleaned: list[str] = []
