@@ -149,7 +149,7 @@ def aggregate_monte_carlo_results(
     *,
     quantiles: Sequence[float] | None = None,
     breach_spec: Mapping[str, Any] | Sequence[float] | None = None,
-    expected_shortfall_spec: Mapping[str, Any] | None = None,
+    expected_shortfall_spec: Mapping[str, Any] | float | int | None = None,
 ) -> MonteCarloAggregationResults:
     """Compute distribution summaries for Monte Carlo results."""
 
@@ -319,7 +319,7 @@ def build_breach_frame(
 
 def build_expected_shortfall_frame(
     path_frame: pd.DataFrame,
-    expected_shortfall_spec: Mapping[str, Any] | None,
+    expected_shortfall_spec: Mapping[str, Any] | float | int | None,
 ) -> pd.DataFrame:
     """Compute expected shortfall (tail mean) for configured metrics."""
 
@@ -609,13 +609,21 @@ def _coerce_breach_specs(
 
 
 def _coerce_shortfall_specs(
-    shortfall_spec: Mapping[str, Any] | None,
+    shortfall_spec: Mapping[str, Any] | float | int | None,
     metrics: Sequence[str],
 ) -> list[tuple[str, float, _Tail]]:
     if shortfall_spec is None:
         return [(metric, 0.05, "lower") for metric in metrics]
     if not isinstance(shortfall_spec, Mapping):
-        return []
+        try:
+            alpha = float(shortfall_spec)
+        except (TypeError, ValueError):
+            return []
+        if not np.isfinite(alpha):
+            raise ValueError("Expected shortfall alpha must be between 0 and 1")
+        if alpha <= 0.0 or alpha >= 1.0:
+            raise ValueError("Expected shortfall alpha must be between 0 and 1")
+        return [(metric, alpha, "lower") for metric in metrics]
 
     specs: list[tuple[str, float, _Tail]] = []
     for metric, raw in shortfall_spec.items():

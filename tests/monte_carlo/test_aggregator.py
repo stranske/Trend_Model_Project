@@ -889,6 +889,16 @@ def test_build_expected_shortfall_defaults_to_all_metrics() -> None:
     assert shortfall["alpha"].tolist() == pytest.approx([0.05, 0.05])
 
 
+def test_build_expected_shortfall_accepts_scalar_alpha() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    shortfall = build_expected_shortfall_frame(path_frame, 0.2)
+
+    assert set(shortfall["metric"]) == {"metric", "metric2"}
+    assert set(shortfall["tail"]) == {"lower"}
+    assert shortfall["alpha"].tolist() == pytest.approx([0.2, 0.2])
+
+
 def test_build_expected_shortfall_defaults_when_spec_empty() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 
@@ -947,6 +957,13 @@ def test_build_expected_shortfall_rejects_non_finite_alpha() -> None:
 
     with pytest.raises(ValueError, match="Expected shortfall alpha must be between 0 and 1"):
         build_expected_shortfall_frame(path_frame, {"metric": {"alpha": float("nan")}})
+
+
+def test_build_expected_shortfall_rejects_scalar_alpha_out_of_range() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    with pytest.raises(ValueError, match="Expected shortfall alpha must be between 0 and 1"):
+        build_expected_shortfall_frame(path_frame, 0.0)
 
 
 def test_build_expected_shortfall_rejects_alpha_at_bounds() -> None:
