@@ -91,7 +91,14 @@ def _typed_dict_columns(schema: type[Any]) -> tuple[str, ...]:
     return tuple(annotations.keys())
 
 
-QUANTILE_COLUMNS = _typed_dict_columns(QuantilesAggregationRow)
+QUANTILE_COLUMNS = (
+    "strategy",
+    "fold",
+    "metric",
+    "quantile",
+    "value",
+    "paths",
+)
 
 BREACH_COLUMNS = _typed_dict_columns(BreachAggregationRow)
 
