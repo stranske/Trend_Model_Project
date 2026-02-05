@@ -86,8 +86,9 @@ class AggregationFrameSchemas(TypedDict):
     expected_shortfall: tuple[str, ...]
 
 
-def _typed_dict_columns(schema: type[TypedDict]) -> tuple[str, ...]:
-    return tuple(schema.__annotations__.keys())
+def _typed_dict_columns(schema: type[Any]) -> tuple[str, ...]:
+    annotations = cast(Mapping[str, Any], getattr(schema, "__annotations__", {}))
+    return tuple(annotations.keys())
 
 
 QUANTILE_COLUMNS = _typed_dict_columns(QuantilesAggregationRow)
