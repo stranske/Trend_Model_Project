@@ -28,7 +28,10 @@ _PATTERNS: tuple[InjectionMatch, ...] = (
     ),
     InjectionMatch(
         reason="system_prompt_exfil",
-        pattern=r"\b(reveal|show|print|display|expose)\b.*\b(system[-\s]?prompt|developer[-\s]?message|hidden instructions?)\b",
+        pattern=(
+            r"\b(reveal|show|print|display|expose)\b.*"
+            r"\b(system[-\s]?prompt|developer[-\s]?message|hidden instructions?)\b"
+        ),
     ),
     InjectionMatch(
         reason="system_prompt_reference",

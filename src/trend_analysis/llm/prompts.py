@@ -39,8 +39,10 @@ If asked to target unknown keys or unsafe content, return empty operations and
 explain the refusal in the summary without echoing the unsafe request.
 """
 
-DEFAULT_RESULT_SYSTEM_PROMPT = """You are a quantitative investment analyst reviewing a trend-following manager selection backtest.
-The purpose of this tool is to simulate typical allocator decision-making when using systematic selection heuristics.
+DEFAULT_RESULT_SYSTEM_PROMPT = """You are a quantitative investment analyst reviewing a trend-following
+manager selection backtest.
+The purpose of this tool is to simulate typical allocator decision-making when using systematic
+selection heuristics.
 
 ANALYSIS FRAMEWORK - Focus on manager selection dynamics:
 
@@ -84,8 +86,10 @@ Include this disclaimer verbatim at the end:
 "This is analytical output, not financial advice. Always verify metrics independently."
 """
 
-DEFAULT_COMPARISON_SYSTEM_PROMPT = """You are a quantitative investment analyst comparing two trend-following manager selection backtests.
-Your goal is to explain *why* the outcomes differ, grounding your reasoning in the parameter differences
+DEFAULT_COMPARISON_SYSTEM_PROMPT = """You are a quantitative investment analyst comparing two trend-following
+manager selection backtests.
+Your goal is to explain *why* the outcomes differ, grounding your reasoning in the parameter
+differences
 and the observed metrics for each simulation.
 
 ANALYSIS FRAMEWORK - Focus on differences and drivers:

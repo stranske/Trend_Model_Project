@@ -12,6 +12,7 @@ import trend_analysis.monte_carlo.runner as runner_module
 from trend_analysis.api import RunResult
 from trend_analysis.monte_carlo.results import (
     MonteCarloPathError,
+    MonteCarloResults,
     StrategyEvaluation,
     build_results_frame,
 )
@@ -204,6 +205,90 @@ def test_two_layer_strategies_share_path_prices(
     assert path_counts.nunique() == 1
     assert path_counts.iloc[0] == results.results_frame["strategy"].nunique()
     assert len(seen_prices) == scenario.monte_carlo.n_paths
+
+
+def test_runner_exports_aggregation_outputs(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    scenario = MonteCarloScenario(
+        name="mc_export",
+        base_config="config/defaults.yml",
+        monte_carlo={
+            "mode": "two_layer",
+            "n_paths": 1,
+            "horizon_years": 1.0,
+            "frequency": "M",
+            "seed": 42,
+            "jobs": 1,
+        },
+        strategy_set={"curated": [StrategyVariant(name="StrategyA")]},
+        return_model={"kind": "stationary_bootstrap", "params": {"block_size": 3}},
+        outputs={
+            "directory": str(tmp_path / "mc_out"),
+            "format": "csv",
+            "aggregation": {
+                "quantiles": [0.1, 0.9],
+                "breach": {"metric": [1.5]},
+                "expected_shortfall": {"metric": 0.2},
+            },
+        },
+    )
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+    results_frame = pd.DataFrame(
+        [
+            {
+                "fold_id": 0,
+                "path_id": 0,
+                "strategy": "StrategyA",
+                "metric": 1.0,
+            },
+            {
+                "fold_id": 0,
+                "path_id": 1,
+                "strategy": "StrategyA",
+                "metric": 2.0,
+            },
+        ]
+    )
+    results = MonteCarloResults(
+        mode="two_layer",
+        evaluations=[],
+        errors=[],
+        results_frame=results_frame,
+        summary_frame=pd.DataFrame(),
+    )
+
+    captured: dict[str, Any] = {}
+
+    def _fake_export_results(
+        _results: Any, output_dir: Any, *, formats: Any = None
+    ) -> dict[str, Any]:
+        captured["results_output_dir"] = output_dir
+        captured["results_formats"] = formats
+        return {}
+
+    def _fake_export_aggregation(
+        aggregation: Any, output_dir: Any, *, formats: Any = None
+    ) -> dict[str, Any]:
+        captured["aggregation"] = aggregation
+        captured["aggregation_output_dir"] = output_dir
+        captured["aggregation_formats"] = formats
+        return {}
+
+    monkeypatch.setattr(runner_module, "export_results", _fake_export_results)
+    monkeypatch.setattr(runner_module, "export_aggregation_results", _fake_export_aggregation)
+
+    runner._maybe_export(results)
+
+    assert captured["results_output_dir"] == captured["aggregation_output_dir"]
+    assert captured["results_formats"] == captured["aggregation_formats"]
+    aggregation = captured["aggregation"]
+    assert {"strategy", "path", "fold"}.issubset(set(aggregation.path_frame.columns))
+    assert sorted(aggregation.quantiles_frame["quantile"].unique()) == pytest.approx([0.1, 0.9])
+    assert not aggregation.breach_frame.empty
+    assert not aggregation.expected_shortfall_frame.empty
 
 
 def test_runner_mixture_samples_strategy_per_path() -> None:
