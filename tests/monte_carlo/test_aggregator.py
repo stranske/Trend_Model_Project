@@ -582,6 +582,18 @@ def test_build_breach_and_expected_shortfall_support_upper_tail() -> None:
     assert shortfall.loc[0, "expected_shortfall"] == pytest.approx(4.0)
 
 
+def test_build_breach_frame_accepts_tail_alias() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    breach = build_breach_frame(
+        path_frame,
+        {"metric": {"thresholds": [2.5], "tail": "upper"}},
+    )
+
+    assert breach.loc[0, "direction"] == "upper"
+    assert breach.loc[0, "breach_probability"] == pytest.approx(2.0 / 3.0)
+
+
 def test_build_breach_frame_rejects_invalid_direction() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 

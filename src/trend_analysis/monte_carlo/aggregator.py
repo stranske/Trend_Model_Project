@@ -568,7 +568,7 @@ def _coerce_breach_specs(
             threshold = _coerce_threshold(raw_thresholds)
             if threshold is not None:
                 thresholds = [threshold]
-        raw_direction = raw.get("direction", "lower")
+        raw_direction = raw.get("direction", raw.get("tail", "lower"))
         if raw_direction is None:
             raw_direction = "lower"
         direction_value = str(raw_direction).lower()
