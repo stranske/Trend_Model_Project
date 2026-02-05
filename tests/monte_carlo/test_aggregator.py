@@ -22,6 +22,7 @@ from trend_analysis.monte_carlo.aggregator import (
     path_frame_schema,
     quantiles_frame_schema,
 )
+from trend_analysis.monte_carlo.results import build_summary_frame
 from trend_analysis.monte_carlo.export import export_aggregation_results
 
 
@@ -182,6 +183,20 @@ def test_summary_frames_ignore_paths_and_folds_columns() -> None:
     assert set(quantiles["metric"]) == {"metric"}
     assert set(breach["metric"]) == {"metric"}
     assert set(shortfall["metric"]) == {"metric"}
+
+
+def test_path_frame_metrics_match_summary_metrics() -> None:
+    results_frame = _sample_results_frame()
+    results_frame["note"] = ["x", "y", "z"]
+
+    path_frame = build_path_frame(results_frame)
+    summary_frame = build_summary_frame(results_frame)
+
+    excluded = {"fold_id", "fold_label", "strategy", "paths"}
+    summary_metrics = [col for col in summary_frame.columns if col not in excluded]
+    path_metrics = [col for col in path_frame.columns if col not in PATH_COLUMNS]
+
+    assert set(path_metrics) == set(summary_metrics)
 
 
 def test_build_path_frame_excludes_metadata_columns_from_metrics() -> None:
