@@ -224,7 +224,7 @@ def build_quantiles_frame(
     rows: list[QuantilesAggregationRow] = []
     for (strategy, fold), group in grouped:
         for metric in metric_cols:
-            values = group[metric].to_numpy(dtype=float)
+            values = _numeric_values(group[metric])
             values = values[np.isfinite(values)]
             if values.size == 0:
                 for q in quantile_list:
@@ -274,7 +274,7 @@ def build_breach_frame(
         for metric, thresholds, direction in specs:
             if metric not in group.columns:
                 continue
-            values = group[metric].to_numpy(dtype=float)
+            values = _numeric_values(group[metric])
             values = values[np.isfinite(values)]
             total = int(values.size)
             for threshold in thresholds:
@@ -319,7 +319,7 @@ def build_expected_shortfall_frame(
         for metric, alpha, tail in specs:
             if metric not in group.columns:
                 continue
-            values = group[metric].to_numpy(dtype=float)
+            values = _numeric_values(group[metric])
             values = values[np.isfinite(values)]
             total = int(values.size)
             if total == 0:
@@ -359,21 +359,29 @@ def build_expected_shortfall_frame(
 
 
 def _metric_columns(results_frame: pd.DataFrame) -> list[str]:
-    numeric_cols = [
-        str(col) for col in results_frame.select_dtypes(include="number").columns.tolist()
-    ]
-    for col in ("fold_id", "path_id", "seed", "fold", "path", "strategy"):
-        if col in numeric_cols:
-            numeric_cols.remove(col)
-    return numeric_cols
+    excluded = {"fold_id", "path_id", "seed", "fold", "path", "strategy"}
+    metric_cols: list[str] = []
+    for col in results_frame.columns:
+        name = str(col)
+        if name in excluded:
+            continue
+        series = results_frame[col]
+        if _is_numeric_like(series):
+            metric_cols.append(name)
+    return metric_cols
 
 
 def _path_metric_columns(path_frame: pd.DataFrame) -> list[str]:
-    numeric_cols = [str(col) for col in path_frame.select_dtypes(include="number").columns.tolist()]
-    for col in ("path", "fold", "strategy"):
-        if col in numeric_cols:
-            numeric_cols.remove(col)
-    return numeric_cols
+    excluded = {"path", "fold", "strategy"}
+    metric_cols: list[str] = []
+    for col in path_frame.columns:
+        name = str(col)
+        if name in excluded:
+            continue
+        series = path_frame[col]
+        if _is_numeric_like(series):
+            metric_cols.append(name)
+    return metric_cols
 
 
 def _coerce_column(
@@ -386,6 +394,20 @@ def _coerce_column(
         if col in frame.columns:
             return frame[col]
     return pd.Series([default] * len(frame), index=frame.index)
+
+
+def _is_numeric_like(series: pd.Series) -> bool:
+    if pd.api.types.is_numeric_dtype(series):
+        return True
+    if pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series):
+        coerced = pd.to_numeric(series, errors="coerce")
+        return np.isfinite(coerced.to_numpy(dtype=float)).any()
+    return False
+
+
+def _numeric_values(series: pd.Series) -> np.ndarray:
+    numeric = pd.to_numeric(series, errors="coerce")
+    return numeric.to_numpy(dtype=float)
 
 
 def _coerce_quantiles(quantiles: Sequence[float] | None) -> list[float]:

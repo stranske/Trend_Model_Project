@@ -174,6 +174,24 @@ def test_build_quantiles_frame_ignores_non_finite_values() -> None:
     assert quantiles.loc[0, "paths"] == 2
 
 
+def test_build_quantiles_frame_handles_string_metrics() -> None:
+    path_frame = build_path_frame(
+        pd.DataFrame(
+            [
+                {"strategy": "A", "path": 1, "fold": 0, "metric": "1.0"},
+                {"strategy": "A", "path": 2, "fold": 0, "metric": "3.0"},
+                {"strategy": "A", "path": 3, "fold": 0, "metric": "5.0"},
+            ]
+        )
+    )
+
+    quantiles = build_quantiles_frame(path_frame, [0.5])
+
+    metric_row = quantiles.loc[quantiles["metric"] == "metric"].iloc[0]
+    assert metric_row["value"] == pytest.approx(3.0)
+    assert metric_row["paths"] == 3
+
+
 def test_build_quantiles_frame_skips_non_finite_quantiles() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 
