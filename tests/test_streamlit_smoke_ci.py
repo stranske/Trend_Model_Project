@@ -6,6 +6,7 @@ import socket
 import subprocess
 import sys
 import time
+import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -137,12 +138,15 @@ class StreamlitAppManager:
             "false",
         ]
 
-        self.process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            preexec_fn=os.setsid,  # Create new process group for clean shutdown
-        )
+        try:
+            self.process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                preexec_fn=os.setsid,  # Create new process group for clean shutdown
+            )
+        except FileNotFoundError:
+            pytest.skip("Streamlit CLI not available in this environment")
 
         # Wait for app to start
         startup_timeout = int(os.getenv("STREAMLIT_STARTUP_TIMEOUT", "60"))
@@ -227,6 +231,9 @@ def _find_open_port() -> int:
 @pytest.fixture(scope="function")
 def streamlit_app():
     """Start and stop Streamlit app for testing."""
+    if shutil.which("streamlit") is None:
+        pytest.skip("Streamlit CLI not available in this environment")
+
     # Find the main streamlit app file
     app_paths = [
         Path(__file__).parent.parent / "streamlit_app" / "app.py",
