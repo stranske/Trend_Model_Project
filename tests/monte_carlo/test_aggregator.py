@@ -413,6 +413,16 @@ def test_build_expected_shortfall_defaults_to_all_metrics() -> None:
     assert shortfall["alpha"].tolist() == pytest.approx([0.05, 0.05])
 
 
+def test_build_expected_shortfall_defaults_when_spec_empty() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    shortfall = build_expected_shortfall_frame(path_frame, {})
+
+    assert set(shortfall["metric"]) == {"metric", "metric2"}
+    assert set(shortfall["tail"]) == {"lower"}
+    assert shortfall["alpha"].tolist() == pytest.approx([0.05, 0.05])
+
+
 def test_build_expected_shortfall_ignores_non_finite_values() -> None:
     path_frame = build_path_frame(
         pd.DataFrame(
