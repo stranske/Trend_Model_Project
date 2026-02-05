@@ -1642,6 +1642,24 @@ def test_export_aggregation_results_defaults_to_csv_and_parquet_when_available(
     assert exported["path_summary_parquet"].exists()
 
 
+def test_export_aggregation_results_defaults_when_formats_blank(tmp_path) -> None:
+    if not export_module._supports_parquet():
+        pytest.skip("Parquet engine not available")
+
+    results_frame = _sample_results_frame()
+    aggregation = aggregate_monte_carlo_results(
+        results_frame,
+        quantiles=[0.5],
+        breach_spec={"metric": [2.5]},
+        expected_shortfall_spec={"metric": 0.5},
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=" , ")
+
+    assert exported["path_summary_csv"].exists()
+    assert exported["path_summary_parquet"].exists()
+
+
 def test_export_aggregation_results_path_summary_columns(tmp_path) -> None:
     results_frame = _sample_results_frame()
     results_frame["paths"] = 99

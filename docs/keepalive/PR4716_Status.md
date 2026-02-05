@@ -27,6 +27,8 @@ Implement the aggregator that computes distribution summaries over simulated out
 - [x] Add unit tests for aggregation correctness (quantiles, breach, ES).
 
 ## Acceptance Criteria
+- [x] All original acceptance criteria satisfied.
+- [x] Verify the original acceptance criteria are now met.
 - [x] Per-strategy-path table written with columns: strategy, path, fold, metrics.
 - [x] Summary quantiles table written with configurable quantiles.
 - [x] Breach probability table written for configured thresholds.
@@ -47,4 +49,4 @@ Implement the aggregator that computes distribution summaries over simulated out
 - [x] `tests/monte_carlo/test_aggregator.py`
 
 ## Progress
-39/39 tasks complete (re-verified 2026-02-05 via `pytest tests/monte_carlo/test_aggregator.py -m "not slow"`; added fold-column summary quantile coverage).
+40/40 tasks complete (re-verified 2026-02-05 via `pytest tests/monte_carlo/test_aggregator.py -m "not slow"`; added blank-format export default coverage).
