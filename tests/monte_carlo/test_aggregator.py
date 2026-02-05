@@ -186,6 +186,24 @@ def test_build_path_frame_fills_missing_strategy() -> None:
     assert path_frame["strategy"].isna().all()
 
 
+def test_build_path_frame_uses_strategy_name_column() -> None:
+    results_frame = pd.DataFrame(
+        [
+            {"fold_id": 0, "path_id": 10, "strategy_name": "A", "metric": 1.0},
+            {"fold_id": 0, "path_id": 11, "strategy_name": "A", "metric": 2.0},
+        ]
+    )
+
+    path_frame = build_path_frame(results_frame)
+
+    assert list(path_frame.columns[: len(AGGREGATION_PATH_COLUMNS)]) == list(
+        AGGREGATION_PATH_COLUMNS
+    )
+    assert "strategy_name" not in path_frame.columns
+    assert path_frame.loc[0, "strategy"] == "A"
+    assert path_frame.loc[0, "metric"] == pytest.approx(1.0)
+
+
 def test_build_path_frame_fills_missing_path_and_fold() -> None:
     results_frame = pd.DataFrame(
         [

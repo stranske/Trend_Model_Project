@@ -182,7 +182,7 @@ def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame(columns=list(path_frame_schema(results_frame)))
 
     data: dict[str, Any] = {
-        "strategy": _coerce_column(results_frame, ("strategy",), default=None),
+        "strategy": _coerce_column(results_frame, ("strategy", "strategy_name"), default=None),
         "path": _coerce_column(results_frame, ("path", "path_id")),
         "fold": _coerce_column(results_frame, ("fold", "fold_id"), default=None),
     }
@@ -387,6 +387,7 @@ def _metric_columns(results_frame: pd.DataFrame) -> list[str]:
         "fold",
         "path",
         "strategy",
+        "strategy_name",
     }
     metric_cols: list[str] = []
     for col in results_frame.columns:
@@ -407,6 +408,7 @@ def _path_metric_columns(path_frame: pd.DataFrame) -> list[str]:
         "fold_label",
         "path_hash",
         "metric_source",
+        "strategy_name",
     }
     metric_cols: list[str] = []
     for col in path_frame.columns:
