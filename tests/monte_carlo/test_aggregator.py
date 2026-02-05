@@ -889,6 +889,40 @@ def test_build_expected_shortfall_defaults_to_all_metrics() -> None:
     assert shortfall["alpha"].tolist() == pytest.approx([0.05, 0.05])
 
 
+def test_build_expected_shortfall_supports_default_mapping() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    shortfall = build_expected_shortfall_frame(
+        path_frame,
+        {"default": {"alpha": 0.5, "tail": "upper"}},
+    )
+
+    assert set(shortfall["metric"]) == {"metric", "metric2"}
+    assert set(shortfall["tail"]) == {"upper"}
+    assert shortfall["alpha"].tolist() == pytest.approx([0.5, 0.5])
+    metric_es = shortfall.loc[shortfall["metric"] == "metric", "expected_shortfall"].iloc[0]
+    metric2_es = shortfall.loc[shortfall["metric"] == "metric2", "expected_shortfall"].iloc[0]
+    assert metric_es == pytest.approx(4.0)
+    assert metric2_es == pytest.approx(5.0)
+
+
+def test_build_expected_shortfall_supports_top_level_defaults() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    shortfall = build_expected_shortfall_frame(
+        path_frame,
+        {"alpha": 0.5, "tail": "upper"},
+    )
+
+    assert set(shortfall["metric"]) == {"metric", "metric2"}
+    assert set(shortfall["tail"]) == {"upper"}
+    assert shortfall["alpha"].tolist() == pytest.approx([0.5, 0.5])
+    metric_es = shortfall.loc[shortfall["metric"] == "metric", "expected_shortfall"].iloc[0]
+    metric2_es = shortfall.loc[shortfall["metric"] == "metric2", "expected_shortfall"].iloc[0]
+    assert metric_es == pytest.approx(4.0)
+    assert metric2_es == pytest.approx(5.0)
+
+
 def test_build_expected_shortfall_accepts_scalar_alpha() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 

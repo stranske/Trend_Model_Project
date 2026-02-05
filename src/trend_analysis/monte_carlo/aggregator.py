@@ -626,18 +626,16 @@ def _coerce_shortfall_specs(
         return [(metric, alpha, "lower") for metric in metrics]
 
     specs: list[tuple[str, float, _Tail]] = []
-    for metric, raw in shortfall_spec.items():
+
+    def _parse_shortfall_spec(raw: Any) -> tuple[float, _Tail] | None:
         if raw is None:
-            continue
-        metric_name = str(metric)
+            return None
         alpha = 0.05
         tail: _Tail = "lower"
         if isinstance(raw, Mapping):
             raw_alpha = raw.get("alpha")
             if raw_alpha is not None:
                 alpha = float(raw_alpha)
-                if not np.isfinite(alpha) or alpha < 0.0 or alpha > 1.0:
-                    raise ValueError("Expected shortfall alpha must be between 0 and 1")
             raw_tail = raw.get("tail", raw.get("direction", tail))
             if raw_tail is None:
                 raw_tail = tail
@@ -651,7 +649,39 @@ def _coerce_shortfall_specs(
             raise ValueError("Expected shortfall alpha must be between 0 and 1")
         if alpha <= 0.0 or alpha >= 1.0:
             raise ValueError("Expected shortfall alpha must be between 0 and 1")
+        return alpha, tail
+
+    default_raw: Any | None = None
+    default_keys = {"alpha", "tail", "direction"}
+    metrics_set = set(metrics)
+    if "default" in shortfall_spec and "default" not in metrics_set:
+        default_raw = shortfall_spec.get("default")
+    elif default_keys.intersection(shortfall_spec.keys()) and not default_keys.intersection(
+        metrics_set
+    ):
+        default_raw = {key: shortfall_spec[key] for key in default_keys if key in shortfall_spec}
+
+    for metric, raw in shortfall_spec.items():
+        if metric == "default" and default_raw is not None and "default" not in metrics_set:
+            continue
+        if metric in default_keys and default_raw is not None and metric not in metrics_set:
+            continue
+        parsed = _parse_shortfall_spec(raw)
+        if parsed is None:
+            continue
+        metric_name = str(metric)
+        alpha, tail = parsed
         specs.append((metric_name, alpha, tail))
+
+    if default_raw is not None:
+        parsed_default = _parse_shortfall_spec(default_raw)
+        if parsed_default is not None:
+            default_alpha, default_tail = parsed_default
+            covered = {metric for metric, _, _ in specs}
+            for metric in metrics:
+                if metric in covered:
+                    continue
+                specs.append((metric, default_alpha, default_tail))
 
     if not specs and metrics:
         specs = [(metric, 0.05, "lower") for metric in metrics]
