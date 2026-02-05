@@ -276,6 +276,56 @@ def test_results_include_turnover_binding_diagnostics(monkeypatch) -> None:
     pdt.assert_frame_equal(diagnostics.reset_index(drop=True), expected)
 
 
+def test_runner_diagnostics_frame_reports_binding(monkeypatch) -> None:
+    dates = pd.date_range("2021-04-30", periods=2, freq="ME")
+    returns = pd.DataFrame({"Date": dates, "Asset": [0.01, 0.02]})
+    turnover = pd.Series([0.1, 0.3], index=dates, name="turnover")
+    out_scaled = pd.DataFrame({"Asset": [0.01, 0.02]}, index=dates)
+    metrics = pd.DataFrame({"cagr": [0.1]}, index=["user_weight"])
+    run_result = RunResult(
+        metrics=metrics,
+        details={"out_sample_scaled": out_scaled},
+        seed=0,
+        environment={},
+        turnover=turnover,
+    )
+
+    def _fake_run_simulation(*_args, **_kwargs):
+        return run_result
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.run_simulation",
+        _fake_run_simulation,
+    )
+
+    runner = MonteCarloRunner(_scenario(), base_config=_base_config(max_turnover=0.2))
+    context = _PathContext(
+        path_id=0,
+        prices=pd.DataFrame(),
+        returns=returns,
+        score_frame=pd.DataFrame(),
+        path_hash="hash",
+        seed=123,
+    )
+
+    evaluation = runner._evaluate_strategy(StrategyVariant(name="base"), context)
+    diagnostics = build_diagnostics_frame([evaluation]).reset_index(drop=True)
+
+    expected = pd.DataFrame(
+        {
+            "fold_id": [None, None],
+            "path_id": [0, 0],
+            "strategy": ["base", "base"],
+            "path_hash": ["hash", "hash"],
+            "seed": [123, 123],
+            "period": list(dates),
+            "turnover": [0.1, 0.3],
+            "turnover_cap_binding": [False, True],
+        }
+    )
+    pdt.assert_frame_equal(diagnostics, expected)
+
+
 def test_results_include_binding_for_multiple_paths(monkeypatch) -> None:
     dates = pd.date_range("2021-02-28", periods=2, freq="ME")
     turnover_a = pd.Series([0.05, 0.15], index=dates, name="turnover")
