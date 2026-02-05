@@ -248,9 +248,7 @@ def build_quantiles_frame(
     quantiles_frame = quantiles_frame.reset_index()
     if "quantile" not in quantiles_frame.columns:
         candidate_cols = [
-            col
-            for col in quantiles_frame.columns
-            if col not in {"strategy", "fold", *metric_cols}
+            col for col in quantiles_frame.columns if col not in {"strategy", "fold", *metric_cols}
         ]
         if len(candidate_cols) == 1:
             quantiles_frame = quantiles_frame.rename(columns={candidate_cols[0]: "quantile"})
