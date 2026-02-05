@@ -859,6 +859,26 @@ def test_aggregate_monte_carlo_results_reports_expected_shortfall_values() -> No
     assert shortfall_row["expected_shortfall"] == pytest.approx(2.0)
 
 
+def test_aggregate_monte_carlo_results_reports_breach_probabilities() -> None:
+    results_frame = _sample_results_frame()
+
+    aggregation = aggregate_monte_carlo_results(
+        results_frame,
+        quantiles=[0.5],
+        breach_spec={"metric": {"thresholds": [2.5], "direction": "lower"}},
+        expected_shortfall_spec={"metric": 0.5},
+    )
+
+    breach_row = aggregation.breach_frame.loc[
+        aggregation.breach_frame["metric"] == "metric"
+    ].iloc[0]
+
+    assert breach_row["threshold"] == pytest.approx(2.5)
+    assert breach_row["direction"] == "lower"
+    assert breach_row["breach_probability"] == pytest.approx(1.0 / 3.0)
+    assert breach_row["paths"] == 3
+
+
 def test_aggregate_monte_carlo_results_empty_input_preserves_schemas() -> None:
     results_frame = pd.DataFrame(
         {
