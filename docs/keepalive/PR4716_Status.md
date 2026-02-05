@@ -49,4 +49,4 @@ Implement the aggregator that computes distribution summaries over simulated out
 - [x] `tests/monte_carlo/test_aggregator.py`
 
 ## Progress
-40/40 tasks complete (re-verified 2026-02-05 via `pytest tests/monte_carlo/test_aggregator.py -m "not slow"`; added export coverage when parquet dependencies are unavailable).
+40/40 tasks complete (re-verified 2026-02-05 via `pytest tests/monte_carlo/test_aggregator.py -m "not slow"`; added summary-quantiles fold preference coverage and ensured export paths still pass without parquet).
