@@ -617,6 +617,15 @@ def test_build_breach_frame_skips_none_default_thresholds() -> None:
     assert breach["threshold"].iloc[0] == pytest.approx(4.0)
 
 
+def test_build_breach_frame_dedupes_thresholds() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    breach = build_breach_frame(path_frame, {"metric": [2.5, 2.5, 3.5, 2.5]})
+
+    assert len(breach) == 2
+    assert breach["threshold"].tolist() == pytest.approx([2.5, 3.5])
+
+
 def test_build_breach_frame_empty_threshold_list_preserves_schema() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 

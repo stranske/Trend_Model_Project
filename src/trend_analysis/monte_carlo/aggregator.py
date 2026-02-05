@@ -485,6 +485,16 @@ def _coerce_breach_specs(
     breach_spec: Mapping[str, Any] | Sequence[float] | None,
     metrics: Sequence[str],
 ) -> list[tuple[str, list[float], _Direction]]:
+    def _dedupe(values: list[float]) -> list[float]:
+        deduped: list[float] = []
+        seen: set[float] = set()
+        for item in values:
+            if item in seen:
+                continue
+            seen.add(item)
+            deduped.append(item)
+        return deduped
+
     def _coerce_threshold(value: Any) -> float | None:
         if value is None:
             return None
@@ -504,6 +514,7 @@ def _coerce_breach_specs(
             for value in breach_spec
             if (threshold := _coerce_threshold(value)) is not None
         ]
+        default_thresholds = _dedupe(default_thresholds)
         if not default_thresholds:
             return []
         return [(metric, default_thresholds, "lower") for metric in metrics]
@@ -544,6 +555,7 @@ def _coerce_breach_specs(
             threshold = _coerce_threshold(raw)
             if threshold is not None:
                 thresholds = [threshold]
+        thresholds = _dedupe(thresholds)
         if not thresholds:
             continue
         specs.append((metric_name, thresholds, direction))
