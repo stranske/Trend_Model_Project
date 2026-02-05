@@ -204,13 +204,21 @@ def _reorder_schema_frame(frame: pd.DataFrame, schema: Sequence[str]) -> pd.Data
 
 def _build_summary_quantiles_frame(quantiles_frame: pd.DataFrame) -> pd.DataFrame:
     fold_col = None
-    if "fold_id" in quantiles_frame.columns and (
+    has_fold_id = "fold_id" in quantiles_frame.columns
+    has_fold = "fold" in quantiles_frame.columns
+    fold_id_has_values = has_fold_id and (
         quantiles_frame.empty or quantiles_frame["fold_id"].notna().any()
-    ):
-        fold_col = "fold_id"
-    elif "fold" in quantiles_frame.columns and (
+    )
+    fold_has_values = has_fold and (
         quantiles_frame.empty or quantiles_frame["fold"].notna().any()
-    ):
+    )
+    if fold_id_has_values:
+        fold_col = "fold_id"
+    elif fold_has_values:
+        fold_col = "fold"
+    elif has_fold_id:
+        fold_col = "fold_id"
+    elif has_fold:
         fold_col = "fold"
 
     if quantiles_frame.empty:
@@ -251,6 +259,7 @@ def _build_summary_quantiles_frame(quantiles_frame: pd.DataFrame) -> pd.DataFram
         columns="quantile_label",
         values="value",
         aggfunc="first",
+        dropna=False,
     ).reset_index()
     return summary[id_cols + quantile_cols]
 

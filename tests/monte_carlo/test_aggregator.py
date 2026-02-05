@@ -2044,6 +2044,35 @@ def test_export_summary_quantiles_prefers_fold_when_fold_id_all_nan(tmp_path) ->
     assert summary_quantiles.loc[0, "fold"] == 7
 
 
+def test_export_summary_quantiles_keeps_nan_fold_id_when_no_fold(tmp_path) -> None:
+    quantiles_frame = pd.DataFrame(
+        [
+            {
+                "strategy": "A",
+                "fold_id": np.nan,
+                "metric": "metric",
+                "quantile": 0.5,
+                "value": 1.5,
+                "paths": 3,
+            }
+        ]
+    )
+    aggregation = MonteCarloAggregationResults(
+        path_frame=pd.DataFrame(columns=list(AGGREGATION_PATH_COLUMNS)),
+        quantiles_frame=quantiles_frame,
+        breach_frame=pd.DataFrame(columns=list(BREACH_COLUMNS)),
+        expected_shortfall_frame=pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS)),
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+    summary_quantiles = pd.read_csv(exported["summary_quantiles_csv"])
+
+    assert list(summary_quantiles.columns) == ["strategy", "fold_id", "metric", "q50"]
+    assert len(summary_quantiles) == 1
+    assert pd.isna(summary_quantiles.loc[0, "fold_id"])
+    assert summary_quantiles.loc[0, "q50"] == 1.5
+
+
 def test_export_summary_quantiles_drops_nan_quantiles(tmp_path) -> None:
     quantiles_frame = pd.DataFrame(
         [
