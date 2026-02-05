@@ -1217,6 +1217,16 @@ def test_build_expected_shortfall_rejects_non_finite_alpha() -> None:
         build_expected_shortfall_frame(path_frame, {"metric": {"alpha": float("nan")}})
 
 
+def test_build_expected_shortfall_rejects_boolean_alpha() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    with pytest.raises(TypeError, match="Expected shortfall alpha must be numeric values"):
+        build_expected_shortfall_frame(path_frame, True)
+
+    with pytest.raises(TypeError, match="Expected shortfall alpha must be numeric values"):
+        build_expected_shortfall_frame(path_frame, {"metric": {"alpha": True}})
+
+
 def test_build_expected_shortfall_rejects_scalar_alpha_out_of_range() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 

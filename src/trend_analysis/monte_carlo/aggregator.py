@@ -679,6 +679,8 @@ def _coerce_shortfall_specs(
 ) -> list[tuple[str, float, _Tail]]:
     if shortfall_spec is None:
         return [(metric, 0.05, "lower") for metric in metrics]
+    if isinstance(shortfall_spec, bool):
+        raise TypeError("Expected shortfall alpha must be numeric values or mappings.")
     if not isinstance(shortfall_spec, Mapping):
         try:
             alpha = float(shortfall_spec)
@@ -695,11 +697,15 @@ def _coerce_shortfall_specs(
     def _parse_shortfall_spec(raw: Any) -> tuple[float, _Tail] | None:
         if raw is None:
             return None
+        if isinstance(raw, bool):
+            raise TypeError("Expected shortfall alpha must be numeric values or mappings.")
         alpha = 0.05
         tail: _Tail = "lower"
         if isinstance(raw, Mapping):
             raw_alpha = raw.get("alpha")
             if raw_alpha is not None:
+                if isinstance(raw_alpha, bool):
+                    raise TypeError("Expected shortfall alpha must be numeric values or mappings.")
                 alpha = float(raw_alpha)
             raw_tail = raw.get("tail", raw.get("direction", tail))
             if raw_tail is None:
