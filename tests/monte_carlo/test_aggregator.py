@@ -592,6 +592,15 @@ def test_summary_frames_fill_missing_path_columns() -> None:
     assert shortfall["fold"].isna().all()
 
 
+def test_build_quantiles_frame_counts_paths_with_missing_strategy_fold() -> None:
+    path_frame = pd.DataFrame({"metric": [1.0, 2.0, 3.0]})
+
+    quantiles = build_quantiles_frame(path_frame, [0.5])
+
+    assert quantiles.loc[0, "paths"] == 3
+    assert quantiles.loc[0, "value"] == pytest.approx(2.0)
+
+
 def test_build_breach_and_expected_shortfall_support_upper_tail() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 

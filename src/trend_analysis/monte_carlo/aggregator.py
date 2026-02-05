@@ -266,7 +266,14 @@ def build_quantiles_frame(
         var_name="metric",
         value_name="paths",
     )
-    frame = quantiles_long.merge(counts_long, on=["strategy", "fold", "metric"], how="left")
+    merge_keys = ["strategy", "fold"]
+    sentinel = object()
+    quantiles_long = _fill_missing_merge_keys(quantiles_long, merge_keys, sentinel)
+    counts_long = _fill_missing_merge_keys(counts_long, merge_keys, sentinel)
+    frame = quantiles_long.merge(counts_long, on=[*merge_keys, "metric"], how="left")
+    for col in merge_keys:
+        if col in frame.columns:
+            frame[col] = frame[col].where(frame[col] != sentinel, pd.NA)
     frame = frame[list(schema)]
     frame["quantile"] = pd.to_numeric(frame["quantile"], errors="coerce")
     frame["value"] = pd.to_numeric(frame["value"], errors="coerce")
@@ -467,6 +474,24 @@ def _ensure_path_columns(path_frame: pd.DataFrame) -> pd.DataFrame:
     for col in missing_cols:
         frame[col] = pd.NA
     return frame
+
+
+def _fill_missing_merge_keys(
+    frame: pd.DataFrame,
+    columns: Sequence[str],
+    sentinel: object,
+) -> pd.DataFrame:
+    updated = frame
+    for col in columns:
+        if col not in frame.columns:
+            continue
+        series = updated[col]
+        if not series.isna().any():
+            continue
+        if updated is frame:
+            updated = frame.copy()
+        updated[col] = series.astype("object").where(series.notna(), sentinel)
+    return updated
 
 
 def _sort_frame(frame: pd.DataFrame, sort_columns: Sequence[str]) -> pd.DataFrame:
