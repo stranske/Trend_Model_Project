@@ -9,9 +9,9 @@ import pandas as pd
 
 from .aggregator import (
     AGGREGATION_PATH_COLUMNS,
-    BREACH_COLUMNS,
-    EXPECTED_SHORTFALL_COLUMNS,
-    QUANTILE_COLUMNS,
+    BREACH_FRAME_SCHEMA,
+    EXPECTED_SHORTFALL_FRAME_SCHEMA,
+    QUANTILES_FRAME_SCHEMA,
     MonteCarloAggregationResults,
 )
 
@@ -41,11 +41,11 @@ def export_aggregation_results(
     fmt_list = _coerce_formats(formats)
     exported: dict[str, Path] = {}
     path_frame = _reorder_path_frame(results.path_frame)
-    quantiles_frame = _reorder_schema_frame(results.quantiles_frame, QUANTILE_COLUMNS)
-    breach_frame = _reorder_schema_frame(results.breach_frame, BREACH_COLUMNS)
+    quantiles_frame = _reorder_schema_frame(results.quantiles_frame, QUANTILES_FRAME_SCHEMA)
+    breach_frame = _reorder_schema_frame(results.breach_frame, BREACH_FRAME_SCHEMA)
     shortfall_frame = _reorder_schema_frame(
         results.expected_shortfall_frame,
-        EXPECTED_SHORTFALL_COLUMNS,
+        EXPECTED_SHORTFALL_FRAME_SCHEMA,
     )
     for fmt in fmt_list:
         ext = fmt.lower()
