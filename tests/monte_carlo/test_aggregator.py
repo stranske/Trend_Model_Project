@@ -170,6 +170,34 @@ def test_build_quantiles_frame_reports_all_metrics() -> None:
     assert set(metric2_rows["paths"]) == {3}
 
 
+def test_build_quantiles_frame_groups_by_strategy_and_fold() -> None:
+    path_frame = build_path_frame(
+        pd.DataFrame(
+            [
+                {"strategy": "A", "fold": 0, "path": 1, "metric": 1.0},
+                {"strategy": "A", "fold": 0, "path": 2, "metric": 3.0},
+                {"strategy": "A", "fold": 1, "path": 3, "metric": 2.0},
+                {"strategy": "A", "fold": 1, "path": 4, "metric": 4.0},
+                {"strategy": "B", "fold": 0, "path": 5, "metric": 10.0},
+                {"strategy": "B", "fold": 0, "path": 6, "metric": 12.0},
+            ]
+        )
+    )
+
+    quantiles = build_quantiles_frame(path_frame, [0.5])
+
+    assert len(quantiles) == 3
+    assert quantiles.loc[
+        (quantiles["strategy"] == "A") & (quantiles["fold"] == 0), "value"
+    ].iloc[0] == pytest.approx(2.0)
+    assert quantiles.loc[
+        (quantiles["strategy"] == "A") & (quantiles["fold"] == 1), "value"
+    ].iloc[0] == pytest.approx(3.0)
+    assert quantiles.loc[
+        (quantiles["strategy"] == "B") & (quantiles["fold"] == 0), "value"
+    ].iloc[0] == pytest.approx(11.0)
+
+
 def test_build_quantiles_frame_ignores_non_finite_values() -> None:
     path_frame = build_path_frame(
         pd.DataFrame(
