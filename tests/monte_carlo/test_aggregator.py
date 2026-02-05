@@ -450,6 +450,13 @@ def test_build_quantiles_frame_rejects_out_of_bounds_quantile() -> None:
         build_quantiles_frame(path_frame, [-0.1])
 
 
+def test_build_quantiles_frame_rejects_bool_in_sequence() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    with pytest.raises(TypeError, match="Quantiles must be numeric values"):
+        build_quantiles_frame(path_frame, [True, 0.5])
+
+
 def test_build_quantiles_frame_defaults_when_quantiles_empty() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 

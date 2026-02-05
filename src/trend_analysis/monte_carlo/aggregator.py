@@ -485,6 +485,8 @@ def _coerce_quantiles(quantiles: Sequence[float] | float | int | str | None) -> 
     for value in values:
         if value is None:
             continue
+        if isinstance(value, bool):
+            raise TypeError("Quantiles must be numeric values or a sequence of numerics.")
         if isinstance(value, str):
             raw = value.strip()
             if not raw:
