@@ -39,3 +39,18 @@ def test_schema_validation_flags_unknown_keys() -> None:
     errors = validate_config_data({"unknown_key": 1}, schema)
     assert errors
     assert any("unknown_key" in error for error in errors)
+
+
+def test_schema_validation_accepts_regime_turnover_caps() -> None:
+    schema = generate_schema()
+    payload = {"portfolio": {"max_turnover": {"risk_on": 0.2, "risk_off": 0.1}}}
+    errors = validate_config_data(payload, schema)
+    assert errors == []
+
+
+def test_schema_validation_rejects_invalid_regime_turnover_caps() -> None:
+    schema = generate_schema()
+    payload = {"portfolio": {"max_turnover": {"risk_on": "fast"}}}
+    errors = validate_config_data(payload, schema)
+    assert errors
+    assert any("max_turnover" in error for error in errors)

@@ -50,6 +50,27 @@ def test_max_turnover_invalid(cap):
         Config(**cfg_dict)
 
 
+def test_max_turnover_regime_mapping_valid():
+    cfg_dict = make_cfg({"portfolio": {"max_turnover": {"risk_on": 0.2, "risk_off": 0.1}}})
+    cfg = Config(**cfg_dict)
+    assert cfg.portfolio["max_turnover"] == {"risk_on": 0.2, "risk_off": 0.1}
+
+
+@pytest.mark.parametrize(
+    "mapping",
+    [
+        {"": 0.1},
+        {"risk_on": "fast"},
+        {"risk_off": -0.1},
+        {"risk_on": 2.5},
+    ],
+)
+def test_max_turnover_regime_mapping_invalid(mapping):
+    cfg_dict = make_cfg({"portfolio": {"max_turnover": mapping}})
+    with pytest.raises(Exception):
+        Config(**cfg_dict)
+
+
 def test_string_coercion():
     cfg_dict = make_cfg({"portfolio": {"transaction_cost_bps": "15", "max_turnover": "0.75"}})
     cfg = Config(**cfg_dict)

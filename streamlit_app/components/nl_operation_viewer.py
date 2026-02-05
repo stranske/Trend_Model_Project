@@ -7,19 +7,42 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
+from urllib.parse import urlsplit, urlunsplit
 
 import streamlit as st
 
+from trend_analysis.config.patch import ConfigPatch
 from trend_analysis.llm.nl_logging import NLOperationLog
 from trend_analysis.llm.replay import render_prompt, replay_nl_entry
 from trend_analysis.logging import iter_jsonl
 
 _LOG_FILE_GLOB = "nl_ops_*.jsonl"
 _DEFAULT_MAX_ENTRIES = 200
-_REDACT_KEYS = ("key", "token", "secret", "password")
+_REDACT_KEYS = (
+    "key",
+    "token",
+    "secret",
+    "password",
+    "credential",
+    "api_key",
+    "apikey",
+    "access_key",
+    "authorization",
+    "bearer",
+    "session",
+    "cookie",
+)
 _REDACT_TEXT_PATTERNS = [
+    re.compile(
+        r"-----BEGIN [A-Z ]+ PRIVATE KEY-----.*?-----END [A-Z ]+ PRIVATE KEY-----",
+        re.DOTALL,
+    ),
     re.compile(r"sk-[A-Za-z0-9]{20,}"),
-    re.compile(r"(?i)(api_key|token|secret|password)\s*[:=]\s*\S+"),
+    re.compile(r"sk-ant-[A-Za-z0-9-]{20,}"),
+    re.compile(r"(?i)bearer\s+[A-Za-z0-9\-._~+/]+=*"),
+    re.compile(r"(?i)(api[-_]?key|token|secret|password|authorization)\s*[:=]\s*\S+"),
+    re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"),
+    re.compile(r"(AKIA|ASIA)[0-9A-Z]{16}"),
 ]
 
 
@@ -60,28 +83,101 @@ def _redact_text(text: str | None) -> str:
     return redacted
 
 
+def _is_sensitive_key(key: str) -> bool:
+    lowered = key.lower()
+    return any(token in lowered for token in _REDACT_KEYS)
+
+
+def _sanitize_value(value: Any, *, key: str | None = None) -> Any:
+    if key and _is_sensitive_key(key):
+        return "[REDACTED]"
+    if isinstance(value, dict):
+        return {str(k): _sanitize_value(v, key=str(k)) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_sanitize_value(item) for item in value]
+    if isinstance(value, str):
+        return _redact_text(value)
+    return value
+
+
 def _sanitize_prompt_variables(payload: dict[str, Any]) -> dict[str, Any]:
-    sanitized: dict[str, Any] = {}
-    for key, value in payload.items():
-        if any(token in key.lower() for token in _REDACT_KEYS):
-            sanitized[key] = "[REDACTED]"
+    return _sanitize_value(payload)
+
+
+def _contains_sensitive(value: Any, *, key: str | None = None) -> bool:
+    if key and _is_sensitive_key(key):
+        return True
+    if isinstance(value, dict):
+        return any(_contains_sensitive(v, key=str(k)) for k, v in value.items())
+    if isinstance(value, list):
+        return any(_contains_sensitive(item) for item in value)
+    if isinstance(value, str):
+        return _redact_text(value) != value
+    return False
+
+
+def _redact_url(url: str | None) -> str | None:
+    if not url:
+        return None
+    redacted = _redact_text(url)
+    try:
+        parts = urlsplit(redacted)
+    except ValueError:
+        return redacted
+    if not parts.scheme or not parts.netloc:
+        return redacted
+    netloc = parts.netloc.split("@", 1)[-1]
+    return urlunsplit((parts.scheme, netloc, parts.path, "", ""))
+
+
+def _redact_entry_for_replay(entry: NLOperationLog) -> NLOperationLog:
+    return entry.model_copy(
+        update={
+            "prompt_template": _redact_text(entry.prompt_template or ""),
+            "prompt_variables": _sanitize_prompt_variables(entry.prompt_variables or {}),
+        }
+    )
+
+
+def _prepare_replay_entry(entry: NLOperationLog) -> tuple[NLOperationLog, bool]:
+    redacted_entry = _redact_entry_for_replay(entry)
+    original_prompt = entry.prompt_template or ""
+    original_vars = entry.prompt_variables or {}
+    redacted = (redacted_entry.prompt_template or "") != original_prompt or (
+        redacted_entry.prompt_variables or {}
+    ) != original_vars
+    return redacted_entry, redacted
+
+
+def _entry_has_sensitive_prompt(entry: NLOperationLog) -> bool:
+    if _redact_text(entry.prompt_template or "") != (entry.prompt_template or ""):
+        return True
+    return _contains_sensitive(entry.prompt_variables or {})
+
+
+def _render_prompt_for_display(entry: NLOperationLog) -> str:
+    safe_entry = _redact_entry_for_replay(entry)
+    return _redact_text(render_prompt(safe_entry))
+
+
+def _sanitize_patch_payload(patch: ConfigPatch) -> dict[str, Any]:
+    payload = patch.model_dump()
+    summary = payload.get("summary")
+    if isinstance(summary, str):
+        payload["summary"] = "[REDACTED]" if _is_sensitive_key(summary) else _redact_text(summary)
+    operations = []
+    for operation in payload.get("operations", []):
+        if not isinstance(operation, dict):
+            operations.append(operation)
             continue
-        if isinstance(value, dict):
-            sanitized[key] = _sanitize_prompt_variables(value)
-        elif isinstance(value, list):
-            sanitized[key] = [
-                (
-                    "[REDACTED]"
-                    if isinstance(item, str) and any(t in key.lower() for t in _REDACT_KEYS)
-                    else item
-                )
-                for item in value
-            ]
-        elif isinstance(value, str):
-            sanitized[key] = _redact_text(value)
-        else:
-            sanitized[key] = value
-    return sanitized
+        path = str(operation.get("path") or "")
+        safe_operation = dict(operation)
+        safe_operation["path"] = _redact_text(path)
+        if "value" in safe_operation:
+            safe_operation["value"] = _sanitize_value(operation.get("value"), key=path or None)
+        operations.append(safe_operation)
+    payload["operations"] = operations
+    return _sanitize_value(payload)
 
 
 def _format_timestamp(entry: NLOperationLog) -> str:
@@ -121,7 +217,7 @@ def _render_entry_table(choices: list[_LogChoice]) -> None:
                 "Operation": str(entry.operation),
                 "Model": str(entry.model_name or "unknown"),
                 "Duration": _format_duration(entry),
-                "Trace URL": str(entry.trace_url or "—"),
+                "Trace URL": str(_redact_url(entry.trace_url) or "—"),
             }
         )
     if rows:
@@ -133,23 +229,37 @@ def _render_patch_summary(entry: NLOperationLog) -> None:
     if patch is None:
         st.info("No parsed patch recorded for this entry.")
         return
+    safe_payload = _sanitize_patch_payload(patch)
     st.markdown("**Patch summary**")
-    st.caption(patch.summary)
-    if patch.risk_flags:
-        st.caption("Risk flags: " + ", ".join(flag.value for flag in patch.risk_flags))
-    st.caption("Needs review: " + ("Yes" if patch.needs_review else "No"))
-    operations = [
-        f"{op.op} {op.path} -> {json.dumps(op.value, default=str)}" for op in patch.operations
-    ]
+    summary = safe_payload.get("summary", "")
+    st.caption(summary)
+    risk_flags = safe_payload.get("risk_flags") or []
+    if risk_flags:
+        st.caption("Risk flags: " + ", ".join(str(flag) for flag in risk_flags))
+    st.caption("Needs review: " + ("Yes" if safe_payload.get("needs_review") else "No"))
+    operations = []
+    for op in safe_payload.get("operations", []):
+        if not isinstance(op, dict):
+            continue
+        operations.append(
+            f"{op.get('op')} {op.get('path')} -> {json.dumps(op.get('value'), default=str)}"
+        )
     if operations:
         st.code("\n".join(operations), language="text")
     st.markdown("**Patch payload**")
-    st.code(json.dumps(patch.model_dump(), indent=2, sort_keys=True), language="json")
+    st.code(json.dumps(safe_payload, indent=2, sort_keys=True), language="json")
 
 
 def _render_replay(entry: NLOperationLog) -> None:
     st.markdown("**Replay**")
     st.caption("Replays may differ across time, models, or provider settings.")
+    replay_entry, redacted = _prepare_replay_entry(entry)
+    if redacted or _entry_has_sensitive_prompt(entry):
+        st.warning(
+            "Sensitive data detected in the prompt. Replay will use a redacted prompt to prevent leakage."
+        )
+    else:
+        st.caption("Replay uses redacted prompt variables to prevent leakage.")
     provider = st.selectbox("Provider", ["openai", "anthropic", "ollama"], key="nl_replay_provider")
     model = st.text_input("Model (optional)", value=entry.model_name or "", key="nl_replay_model")
     temperature = st.slider(
@@ -166,7 +276,7 @@ def _render_replay(entry: NLOperationLog) -> None:
     with st.spinner("Replaying entry..."):
         try:
             replay_result = replay_nl_entry(
-                entry,
+                replay_entry,
                 provider=provider,
                 model=model or None,
                 temperature=temperature,
@@ -179,7 +289,7 @@ def _render_replay(entry: NLOperationLog) -> None:
     st.markdown("**Replay output**")
     st.code(_redact_text(replay_result.output), language="text")
     if replay_result.trace_url:
-        st.caption(f"Trace URL: {replay_result.trace_url}")
+        st.caption(f"Trace URL: {_redact_url(replay_result.trace_url)}")
     if replay_result.diff:
         st.markdown("**Diff vs recorded output**")
         st.code(_redact_text(replay_result.diff), language="diff")
@@ -223,14 +333,14 @@ def render_nl_operation_viewer(
     st.markdown("**Entry details**")
     st.caption(f"Request ID: {entry.request_id}")
     if entry.error:
-        st.warning(f"Error: {entry.error}")
+        st.warning(f"Error: {_redact_text(entry.error)}")
     st.caption(
         f"Operation: {entry.operation} | Model: {entry.model_name} | Duration: {_format_duration(entry)}"
     )
     if entry.trace_url:
-        st.caption(f"Trace URL: {entry.trace_url}")
+        st.caption(f"Trace URL: {_redact_url(entry.trace_url)}")
 
-    prompt = _redact_text(render_prompt(entry))
+    prompt = _render_prompt_for_display(entry)
     st.markdown("**Rendered prompt**")
     st.code(prompt, language="text")
 
