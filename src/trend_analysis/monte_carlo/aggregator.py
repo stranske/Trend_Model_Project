@@ -480,7 +480,7 @@ def _coerce_quantiles(quantiles: Sequence[float] | float | int | str | None) -> 
     elif isinstance(quantiles, bool):
         raise TypeError("Quantiles must be numeric values or a sequence of numerics.")
     else:
-        values = list(cast(Sequence[float], quantiles))
+        values = list(quantiles)
     cleaned: list[float] = []
     for value in values:
         if value is None:
