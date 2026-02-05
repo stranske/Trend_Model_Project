@@ -483,7 +483,19 @@ def _coerce_quantiles(quantiles: Sequence[float] | float | int | str | None) -> 
     for value in values:
         if value is None:
             continue
-        q = float(value)
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                continue
+            if raw.endswith("%"):
+                raw = raw[:-1].strip()
+                if not raw:
+                    continue
+                q = float(raw) / 100.0
+            else:
+                q = float(raw)
+        else:
+            q = float(value)
         if not np.isfinite(q):
             continue
         if q < 0.0 or q > 1.0:
