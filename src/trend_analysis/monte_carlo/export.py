@@ -70,7 +70,7 @@ def _coerce_formats(formats: Sequence[str] | str | None) -> list[str]:
     if formats is None:
         return ["csv"]
     if isinstance(formats, str):
-        items = [formats]
+        items = formats.split(",")
     else:
         items = list(formats)
     cleaned: list[str] = []

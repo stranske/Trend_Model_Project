@@ -1027,6 +1027,27 @@ def test_export_aggregation_results_supports_csv_and_parquet(tmp_path) -> None:
     assert exported["expected_shortfall_parquet"].exists()
 
 
+def test_export_aggregation_results_supports_comma_separated_formats(tmp_path) -> None:
+    pytest.importorskip("pyarrow")
+
+    results_frame = _sample_results_frame()
+    aggregation = aggregate_monte_carlo_results(
+        results_frame,
+        quantiles=[0.5],
+        breach_spec={"metric": [2.5]},
+        expected_shortfall_spec={"metric": 0.5},
+    )
+
+    exported = export_aggregation_results(
+        aggregation,
+        tmp_path,
+        formats="csv, parquet",
+    )
+
+    assert exported["path_summary_csv"].exists()
+    assert exported["path_summary_parquet"].exists()
+
+
 def test_export_aggregation_results_dedupes_formats(tmp_path, monkeypatch) -> None:
     pytest.importorskip("pyarrow")
 
