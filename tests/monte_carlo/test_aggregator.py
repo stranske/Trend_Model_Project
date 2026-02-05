@@ -1734,6 +1734,50 @@ def test_export_aggregation_results_uses_strategy_name(tmp_path) -> None:
     assert path_summary.loc[0, "strategy"] == "Alpha"
 
 
+def test_export_aggregation_results_uses_path_hash(tmp_path) -> None:
+    path_frame = pd.DataFrame(
+        {"strategy": ["Alpha"], "fold": [0], "path_hash": ["hash-1"], "metric": [1.0]}
+    )
+    quantiles_frame = pd.DataFrame(columns=list(QUANTILE_COLUMNS))
+    breach_frame = pd.DataFrame(columns=list(BREACH_COLUMNS))
+    shortfall_frame = pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS))
+
+    aggregation = MonteCarloAggregationResults(
+        path_frame=path_frame,
+        quantiles_frame=quantiles_frame,
+        breach_frame=breach_frame,
+        expected_shortfall_frame=shortfall_frame,
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+    path_summary = pd.read_csv(exported["path_summary_csv"])
+
+    assert "path_hash" not in path_summary.columns
+    assert path_summary.loc[0, "path"] == "hash-1"
+
+
+def test_export_aggregation_results_uses_fold_label(tmp_path) -> None:
+    path_frame = pd.DataFrame(
+        {"strategy": ["Alpha"], "path": [1], "fold_label": ["Fold-1"], "metric": [1.0]}
+    )
+    quantiles_frame = pd.DataFrame(columns=list(QUANTILE_COLUMNS))
+    breach_frame = pd.DataFrame(columns=list(BREACH_COLUMNS))
+    shortfall_frame = pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS))
+
+    aggregation = MonteCarloAggregationResults(
+        path_frame=path_frame,
+        quantiles_frame=quantiles_frame,
+        breach_frame=breach_frame,
+        expected_shortfall_frame=shortfall_frame,
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+    path_summary = pd.read_csv(exported["path_summary_csv"])
+
+    assert "fold_label" not in path_summary.columns
+    assert path_summary.loc[0, "fold"] == "Fold-1"
+
+
 def test_export_aggregation_results_summary_schemas(tmp_path) -> None:
     results_frame = _sample_results_frame()
 

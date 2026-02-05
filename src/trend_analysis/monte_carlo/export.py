@@ -15,6 +15,7 @@ from .aggregator import (
     QUANTILE_COLUMNS,
     MonteCarloAggregationResults,
 )
+from .results import RESULT_BASE_COLUMNS
 
 __all__ = ["export_aggregation_results"]
 
@@ -154,14 +155,21 @@ def _reorder_path_frame(frame: pd.DataFrame) -> pd.DataFrame:
             frame["strategy"].notna(),
             frame["strategy_name"],
         )
-    if "path" in frame.columns and "path_id" in frame.columns:
-        frame = frame.copy()
-        frame["path"] = frame["path"].where(frame["path"].notna(), frame["path_id"])
-    elif "path" in frame.columns and "path_id" not in frame.columns:
-        pass
+    if "path" in frame.columns:
+        if "path_id" in frame.columns:
+            frame = frame.copy()
+            frame["path"] = frame["path"].where(frame["path"].notna(), frame["path_id"])
+        if "path_hash" in frame.columns:
+            frame = frame.copy()
+            frame["path"] = frame["path"].where(frame["path"].notna(), frame["path_hash"])
     elif "path_id" in frame.columns:
         frame = frame.copy()
         frame["path"] = frame["path_id"]
+        if "path_hash" in frame.columns:
+            frame["path"] = frame["path"].where(frame["path"].notna(), frame["path_hash"])
+    elif "path_hash" in frame.columns:
+        frame = frame.copy()
+        frame["path"] = frame["path_hash"]
     if "fold" in frame.columns and "fold_id" in frame.columns:
         frame = frame.copy()
         frame["fold"] = frame["fold"].where(frame["fold"].notna(), frame["fold_id"])
@@ -170,8 +178,15 @@ def _reorder_path_frame(frame: pd.DataFrame) -> pd.DataFrame:
     elif "fold_id" in frame.columns:
         frame = frame.copy()
         frame["fold"] = frame["fold_id"]
+    if "fold" in frame.columns and "fold_label" in frame.columns:
+        frame = frame.copy()
+        frame["fold"] = frame["fold"].where(frame["fold"].notna(), frame["fold_label"])
+    elif "fold" not in frame.columns and "fold_label" in frame.columns:
+        frame = frame.copy()
+        frame["fold"] = frame["fold_label"]
     base_cols = list(AGGREGATION_PATH_COLUMNS)
-    excluded = {"path_id", "fold_id", "strategy_name", "paths", "folds"}
+    excluded = set(RESULT_BASE_COLUMNS)
+    excluded.update({"path_id", "fold_id", "strategy_name", "paths", "folds"})
     metric_cols = [col for col in frame.columns if col not in base_cols and col not in excluded]
     return frame[base_cols + metric_cols]
 
