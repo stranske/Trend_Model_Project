@@ -118,6 +118,10 @@ def build_summary_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
         numeric_cols.remove("path_id")
     if "seed" in numeric_cols:
         numeric_cols.remove("seed")
+    if "paths" in numeric_cols:
+        numeric_cols.remove("paths")
+    if "folds" in numeric_cols:
+        numeric_cols.remove("folds")
     if fold_group_cols:
         grouped = results_frame.groupby([*fold_group_cols, "strategy"], dropna=False)
     else:

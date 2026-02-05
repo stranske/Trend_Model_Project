@@ -88,6 +88,37 @@ def test_build_summary_frame_empty_includes_fold_id_if_present() -> None:
     assert summary.empty
 
 
+def test_build_summary_frame_excludes_paths_and_folds_columns() -> None:
+    frame = pd.DataFrame(
+        [
+            {
+                "fold_id": 1,
+                "fold_label": "2020-01",
+                "path_id": 1,
+                "strategy": "A",
+                "metric": 1.0,
+                "paths": 99,
+                "folds": 7,
+            },
+            {
+                "fold_id": 1,
+                "fold_label": "2020-01",
+                "path_id": 2,
+                "strategy": "A",
+                "metric": 3.0,
+                "paths": 99,
+                "folds": 7,
+            },
+        ]
+    )
+
+    summary = build_summary_frame(frame)
+
+    assert "folds" not in summary.columns
+    assert summary.loc[0, "paths"] == 2
+    assert summary.loc[0, "metric"] == 2.0
+
+
 def test_build_pooled_summary_frame_ignores_folds() -> None:
     frame = pd.DataFrame(
         [
