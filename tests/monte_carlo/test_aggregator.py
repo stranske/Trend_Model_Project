@@ -216,6 +216,14 @@ def test_build_quantiles_frame_defaults_when_quantiles_empty() -> None:
     assert sorted(quantiles["quantile"].unique()) == pytest.approx([0.05, 0.5, 0.95])
 
 
+def test_build_quantiles_frame_defaults_when_quantiles_none() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    quantiles = build_quantiles_frame(path_frame, None)
+
+    assert sorted(quantiles["quantile"].unique()) == pytest.approx([0.05, 0.5, 0.95])
+
+
 def test_build_quantiles_frame_empty_input_preserves_schema() -> None:
     path_frame = pd.DataFrame(columns=list(AGGREGATION_PATH_COLUMNS))
 
