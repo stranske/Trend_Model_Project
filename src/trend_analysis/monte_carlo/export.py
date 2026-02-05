@@ -209,9 +209,7 @@ def _build_summary_quantiles_frame(quantiles_frame: pd.DataFrame) -> pd.DataFram
     fold_id_has_values = has_fold_id and (
         quantiles_frame.empty or quantiles_frame["fold_id"].notna().any()
     )
-    fold_has_values = has_fold and (
-        quantiles_frame.empty or quantiles_frame["fold"].notna().any()
-    )
+    fold_has_values = has_fold and (quantiles_frame.empty or quantiles_frame["fold"].notna().any())
     if fold_id_has_values:
         fold_col = "fold_id"
     elif fold_has_values:
