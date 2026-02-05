@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import random
 from pathlib import Path
 from typing import Any
@@ -483,6 +484,31 @@ def test_runner_errors_include_fold_label(monkeypatch: pytest.MonkeyPatch) -> No
     assert results.errors
     assert {error.fold_id for error in results.errors} == {1}
     assert {error.fold_label for error in results.errors} == {"2022-01"}
+
+
+def test_runner_logs_fold_context_for_errors(caplog: pytest.LogCaptureFixture) -> None:
+    scenario = _scenario(mode="two_layer")
+    logger = logging.getLogger("trend_analysis.monte_carlo")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+        logger=logger,
+    )
+
+    with caplog.at_level(logging.ERROR, logger="trend_analysis.monte_carlo"):
+        runner._log_path_error(
+            3,
+            "StrategyA",
+            RuntimeError("boom"),
+            fold_id=2,
+            fold_label="2022-01",
+        )
+
+    assert any(
+        "fold 2 (2022-01) path 3 strategy StrategyA" in record.message
+        for record in caplog.records
+    )
 
 
 def test_runner_builds_pooled_summary_when_enabled(

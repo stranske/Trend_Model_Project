@@ -354,7 +354,9 @@ class MonteCarloRunner:
                 )
             except Exception as exc:
                 for path_id in range(total):
-                    self._log_path_error(path_id, None, exc)
+                    self._log_path_error(
+                        path_id, None, exc, fold_id=fold_id, fold_label=fold_label
+                    )
                     errors.append(
                         self._error_record(
                             path_id, None, exc, fold_id=fold_id, fold_label=fold_label
@@ -377,7 +379,7 @@ class MonteCarloRunner:
                     fold_label=fold_label,
                 )
             except Exception as exc:
-                self._log_path_error(path_id, None, exc)
+                self._log_path_error(path_id, None, exc, fold_id=fold_id, fold_label=fold_label)
                 return [], [
                     self._error_record(path_id, None, exc, fold_id=fold_id, fold_label=fold_label)
                 ]
@@ -389,7 +391,13 @@ class MonteCarloRunner:
                     evaluation = self._evaluate_strategy(strategy, context)
                     path_evals.append(evaluation)
                 except Exception as exc:
-                    self._log_path_error(path_id, strategy.name, exc)
+                    self._log_path_error(
+                        path_id,
+                        strategy.name,
+                        exc,
+                        fold_id=fold_id,
+                        fold_label=fold_label,
+                    )
                     path_errors.append(
                         self._error_record(
                             path_id,
@@ -439,7 +447,7 @@ class MonteCarloRunner:
             )
         except Exception as exc:
             for path_id in range(total):
-                self._log_path_error(path_id, None, exc)
+                self._log_path_error(path_id, None, exc, fold_id=fold_id, fold_label=fold_label)
                 errors.append(
                     self._error_record(path_id, None, exc, fold_id=fold_id, fold_label=fold_label)
                 )
@@ -461,7 +469,7 @@ class MonteCarloRunner:
                     fold_label=fold_label,
                 )
             except Exception as exc:
-                self._log_path_error(path_id, None, exc)
+                self._log_path_error(path_id, None, exc, fold_id=fold_id, fold_label=fold_label)
                 return [], [
                     self._error_record(path_id, None, exc, fold_id=fold_id, fold_label=fold_label)
                 ]
@@ -470,7 +478,13 @@ class MonteCarloRunner:
                 evaluation = self._evaluate_strategy(strategy, context)
                 return [evaluation], []
             except Exception as exc:
-                self._log_path_error(path_id, strategy.name, exc)
+                self._log_path_error(
+                    path_id,
+                    strategy.name,
+                    exc,
+                    fold_id=fold_id,
+                    fold_label=fold_label,
+                )
                 return [], [
                     self._error_record(
                         path_id,
@@ -1047,8 +1061,23 @@ class MonteCarloRunner:
             }
         )
 
-    def _log_path_error(self, path_id: int, strategy_name: str | None, exc: Exception) -> None:
+    def _log_path_error(
+        self,
+        path_id: int,
+        strategy_name: str | None,
+        exc: Exception,
+        *,
+        fold_id: int | None = None,
+        fold_label: str | None = None,
+    ) -> None:
         label = f"path {path_id}"
+        if fold_id is not None or fold_label:
+            if fold_id is not None and fold_label:
+                label = f"fold {fold_id} ({fold_label}) {label}"
+            elif fold_id is not None:
+                label = f"fold {fold_id} {label}"
+            else:
+                label = f"fold {fold_label} {label}"
         if strategy_name:
             label += f" strategy {strategy_name}"
         self._logger.exception("Monte Carlo evaluation failed for %s: %s", label, exc)
