@@ -10,6 +10,7 @@ import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
+from dataclasses import dataclass
 from datetime import date, datetime
 from time import monotonic, sleep
 from typing import Any, Mapping
@@ -869,19 +870,35 @@ def _hash_cache_key(value: Mapping[str, Any]) -> str:
     return _chain_cache_signature(value)
 
 
+@dataclass(frozen=True, slots=True)
+class _ApiKeySecret:
+    value: str | None
+    fingerprint: str | None
+
+
+def _hash_api_key_secret(secret: _ApiKeySecret) -> str:
+    if secret.fingerprint:
+        return secret.fingerprint
+    return "no-key"
+
+
 @st.cache_resource(show_spinner=False)
 def _cached_compact_schema() -> dict[str, Any]:
     return load_compact_schema()
 
 
-@st.cache_resource(show_spinner=False, hash_funcs={dict: _hash_cache_key})
+@st.cache_resource(
+    show_spinner=False,
+    hash_funcs={dict: _hash_cache_key, _ApiKeySecret: _hash_api_key_secret},
+)
 def _cached_llm_client(
     session_cache_key: str,
     cache_key: Mapping[str, Any],
-    api_key: str | None,
+    api_key_secret: _ApiKeySecret | None,
     extra_payload: str,
 ) -> Any:
     del session_cache_key
+    api_key = api_key_secret.value if api_key_secret is not None else None
     config = LLMProviderConfig(
         provider=str(cache_key.get("provider")),
         model=str(cache_key.get("model")),
@@ -895,18 +912,21 @@ def _cached_llm_client(
     return create_llm(config)
 
 
-@st.cache_resource(show_spinner=False, hash_funcs={dict: _hash_cache_key})
+@st.cache_resource(
+    show_spinner=False,
+    hash_funcs={dict: _hash_cache_key, _ApiKeySecret: _hash_api_key_secret},
+)
 def _cached_config_patch_chain(
     session_cache_key: str,
     chain_cache_key: Mapping[str, Any],
     llm_cache_key: Mapping[str, Any],
-    api_key: str | None,
+    api_key_secret: _ApiKeySecret | None,
     extra_payload: str,
 ) -> ConfigPatchChain:
     llm = _cached_llm_client(
         session_cache_key,
         llm_cache_key,
-        api_key,
+        api_key_secret,
         extra_payload,
     )
     schema = _cached_compact_schema()
@@ -977,11 +997,12 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     session_cache_key = (
         _reset_config_chat_session_id() if session_reset else _get_config_chat_session_id()
     )
+    api_key_secret = _ApiKeySecret(config.api_key, api_key_fingerprint)
     chain = _cached_config_patch_chain(
         session_cache_key,
         cache_key,
         llm_cache_key,
-        config.api_key,
+        api_key_secret,
         extra_payload,
     )
     entries = cache_state["entries"]
