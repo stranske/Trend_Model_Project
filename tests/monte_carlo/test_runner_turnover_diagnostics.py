@@ -97,6 +97,77 @@ def test_runner_records_turnover_and_binding(monkeypatch) -> None:
     pdt.assert_series_equal(evaluation.turnover_cap_binding, expected_binding)
 
 
+def test_runner_records_turnover_per_path(monkeypatch) -> None:
+    dates = pd.date_range("2021-01-31", periods=2, freq="ME")
+
+    def _fake_generate_path_context(
+        self,
+        *,
+        path_id: int,
+        fold_id: int | None = None,
+        **_kwargs,
+    ) -> _PathContext:
+        if path_id == 0:
+            values = [0.01, 0.02]
+        else:
+            values = [0.03, 0.04]
+        returns = pd.DataFrame({"Date": dates, "Asset": values})
+        return _PathContext(
+            fold_id=fold_id,
+            path_id=path_id,
+            prices=pd.DataFrame(),
+            returns=returns,
+            score_frame=pd.DataFrame(),
+            path_hash=f"hash-{path_id}",
+            seed=path_id,
+        )
+
+    def _fake_run_simulation(*_args, **_kwargs):
+        returns = _kwargs.get("returns")
+        if returns is None and len(_args) > 1:
+            returns = _args[1]
+        series = pd.Series(
+            returns["Asset"].to_numpy(),
+            index=pd.to_datetime(returns["Date"].values),
+            name="turnover",
+        )
+        out_scaled = pd.DataFrame({"Asset": returns["Asset"].to_numpy()}, index=series.index)
+        metrics = pd.DataFrame({"cagr": [0.1]}, index=["user_weight"])
+        return RunResult(
+            metrics=metrics,
+            details={"out_sample_scaled": out_scaled},
+            seed=0,
+            environment={},
+            turnover=series,
+        )
+
+    monkeypatch.setattr(MonteCarloRunner, "_generate_path_context", _fake_generate_path_context)
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.run_simulation",
+        _fake_run_simulation,
+    )
+
+    runner = MonteCarloRunner(_scenario(), base_config=_base_config(max_turnover=1.0))
+    strategies = [StrategyVariant(name="base")]
+    evaluations, errors = runner._run_two_layer(
+        model=object(),
+        n_periods=2,
+        strategies=strategies,
+        path_seeds=[1, 2],
+        progress_callback=None,
+        jobs=1,
+        fold_id=None,
+    )
+
+    assert not errors
+    assert len(evaluations) == 2
+    evaluation_by_path = {evaluation.path_id: evaluation for evaluation in evaluations}
+    expected_a = pd.Series([0.01, 0.02], index=dates, name="turnover")
+    expected_b = pd.Series([0.03, 0.04], index=dates, name="turnover")
+    pdt.assert_series_equal(evaluation_by_path[0].turnover, expected_a, check_freq=False)
+    pdt.assert_series_equal(evaluation_by_path[1].turnover, expected_b, check_freq=False)
+
+
 def test_runner_resolves_regime_turnover_caps(monkeypatch) -> None:
     dates = pd.date_range("2021-01-31", periods=3, freq="ME")
     returns = pd.DataFrame({"Date": dates, "Asset": [0.01, 0.02, 0.03]})
