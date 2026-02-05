@@ -1622,6 +1622,21 @@ def test_export_aggregation_results_rejects_parquet_only_when_unavailable(
         export_aggregation_results(aggregation, tmp_path, formats=["parquet"])
 
 
+def test_export_aggregation_results_rejects_unknown_format(tmp_path) -> None:
+    results_frame = _sample_results_frame()
+    aggregation = aggregate_monte_carlo_results(
+        results_frame,
+        quantiles=[0.5],
+        breach_spec={"metric": [2.5]},
+        expected_shortfall_spec={"metric": 0.5},
+    )
+
+    with pytest.raises(ValueError, match="Unsupported export format"):
+        export_aggregation_results(aggregation, tmp_path, formats=["csv", "json"])
+
+    assert (tmp_path / "path_summary.csv").exists()
+
+
 def test_export_aggregation_results_defaults_to_csv_and_parquet_when_available(
     tmp_path,
 ) -> None:
