@@ -379,6 +379,48 @@ def test_build_breach_frame_handles_lower_and_upper_thresholds() -> None:
     assert metric2_prob == pytest.approx(1.0 / 3.0)
 
 
+def test_build_breach_frame_groups_by_strategy_and_fold() -> None:
+    path_frame = build_path_frame(
+        pd.DataFrame(
+            [
+                {"strategy": "A", "fold": 0, "path": 1, "metric": 1.0},
+                {"strategy": "A", "fold": 0, "path": 2, "metric": 3.0},
+                {"strategy": "A", "fold": 1, "path": 3, "metric": 2.0},
+                {"strategy": "A", "fold": 1, "path": 4, "metric": 4.0},
+                {"strategy": "B", "fold": 0, "path": 5, "metric": 0.0},
+                {"strategy": "B", "fold": 0, "path": 6, "metric": 2.0},
+                {"strategy": "B", "fold": 1, "path": 7, "metric": 5.0},
+                {"strategy": "B", "fold": 1, "path": 8, "metric": 6.0},
+            ]
+        )
+    )
+
+    breach = build_breach_frame(
+        path_frame,
+        {"metric": {"thresholds": [2.0], "direction": "lower"}},
+    )
+
+    assert len(breach) == 4
+    for (_, row) in breach.iterrows():
+        assert row["paths"] == 2
+    assert (
+        breach.loc[(breach["strategy"] == "A") & (breach["fold"] == 0), "breach_probability"].iloc[0]
+        == pytest.approx(0.5)
+    )
+    assert (
+        breach.loc[(breach["strategy"] == "A") & (breach["fold"] == 1), "breach_probability"].iloc[0]
+        == pytest.approx(0.5)
+    )
+    assert (
+        breach.loc[(breach["strategy"] == "B") & (breach["fold"] == 0), "breach_probability"].iloc[0]
+        == pytest.approx(1.0)
+    )
+    assert (
+        breach.loc[(breach["strategy"] == "B") & (breach["fold"] == 1), "breach_probability"].iloc[0]
+        == pytest.approx(0.0)
+    )
+
+
 def test_build_breach_frame_accepts_threshold_key() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 
