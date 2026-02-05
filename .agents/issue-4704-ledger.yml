@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Implement regime-conditional turnover caps (calm vs stress periods) in
       the Monte Carlo simulation logic.
-    status: doing
+    status: done
     started_at: '2026-02-05T17:31:01Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-05T17:31:10Z'
+    commit: 7b282ce2467f4bacaee58ba3d13cc29064e0e1bf
     notes: []
   - id: task-02
     title: 'Define (verify: confirm completion in repo)'
