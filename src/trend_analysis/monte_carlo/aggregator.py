@@ -479,7 +479,9 @@ def _coerce_breach_specs(
         return []
     if isinstance(breach_spec, (list, tuple)):
         default_thresholds = [
-            threshold for value in breach_spec if (threshold := _coerce_threshold(value)) is not None
+            threshold
+            for value in breach_spec
+            if (threshold := _coerce_threshold(value)) is not None
         ]
         if not default_thresholds:
             return []
