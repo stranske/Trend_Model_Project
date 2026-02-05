@@ -278,6 +278,7 @@ class ConfigPatchChain:
                     retries=max(1, self.retries + 1),
                     logger=logger,
                 )
+            assert patch is not None  # appease mypy; patch is set unless an exception is raised
             schema = self._schema_for_validation(allowed_schema, instruction)
             unknown_keys = flag_unknown_keys(patch, schema, logger=logger)
 
