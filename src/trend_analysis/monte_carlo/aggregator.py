@@ -449,6 +449,8 @@ def _select_strategy_column(frame: pd.DataFrame) -> pd.Series:
         strategy_name = frame["strategy_name"]
         if _is_numeric_like(strategy) and not _is_numeric_like(strategy_name):
             return strategy_name
+        if strategy.isna().any():
+            return strategy.where(strategy.notna(), strategy_name)
         return strategy
     return _coerce_column(frame, ("strategy", "strategy_name"), default=None)
 
