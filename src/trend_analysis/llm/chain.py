@@ -249,6 +249,7 @@ class ConfigPatchChain:
                                 f"{total_attempts} attempts: {format_retry_error(exc)}"
                             ) from exc
             else:
+
                 def _response_provider(attempt: int, last_error: Exception | None) -> str:
                     nonlocal response_text, trace_url
                     prompt = (
