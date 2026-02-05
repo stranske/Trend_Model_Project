@@ -869,9 +869,9 @@ def test_aggregate_monte_carlo_results_reports_breach_probabilities() -> None:
         expected_shortfall_spec={"metric": 0.5},
     )
 
-    breach_row = aggregation.breach_frame.loc[
-        aggregation.breach_frame["metric"] == "metric"
-    ].iloc[0]
+    breach_row = aggregation.breach_frame.loc[aggregation.breach_frame["metric"] == "metric"].iloc[
+        0
+    ]
 
     assert breach_row["threshold"] == pytest.approx(2.5)
     assert breach_row["direction"] == "lower"
