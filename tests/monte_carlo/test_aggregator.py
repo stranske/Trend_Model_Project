@@ -266,6 +266,23 @@ def test_build_expected_shortfall_frame_computes_tail_mean() -> None:
     assert metric2_es == pytest.approx(5.0)
 
 
+def test_build_expected_shortfall_reports_thresholds() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    shortfall = build_expected_shortfall_frame(
+        path_frame,
+        {
+            "metric": {"alpha": 0.5, "tail": "lower"},
+            "metric2": {"alpha": 0.5, "tail": "upper"},
+        },
+    )
+
+    metric_threshold = shortfall.loc[shortfall["metric"] == "metric", "threshold"].iloc[0]
+    metric2_threshold = shortfall.loc[shortfall["metric"] == "metric2", "threshold"].iloc[0]
+    assert metric_threshold == pytest.approx(3.0)
+    assert metric2_threshold == pytest.approx(4.0)
+
+
 def test_build_expected_shortfall_defaults_to_all_metrics() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 
