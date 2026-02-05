@@ -486,6 +486,18 @@ def test_build_quantiles_frame_reports_requested_quantiles() -> None:
     assert quantiles.loc[0, "paths"] == 3
 
 
+def test_build_quantiles_frame_computes_quantiles_for_all_metrics() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    quantiles = build_quantiles_frame(path_frame, [0.5])
+
+    metric_rows = quantiles.set_index("metric")
+    assert metric_rows.loc["metric", "value"] == pytest.approx(3.0)
+    assert metric_rows.loc["metric2", "value"] == pytest.approx(4.0)
+    assert metric_rows.loc["metric", "paths"] == 3
+    assert metric_rows.loc["metric2", "paths"] == 3
+
+
 def test_build_quantiles_frame_coerces_quantile_and_paths_types() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 
