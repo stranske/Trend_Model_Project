@@ -139,6 +139,21 @@ def test_build_quantiles_frame_reports_requested_quantiles() -> None:
     assert quantiles.loc[0, "paths"] == 3
 
 
+def test_build_quantiles_frame_reports_all_metrics() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    quantiles = build_quantiles_frame(path_frame, [0.25, 0.75])
+
+    assert set(quantiles["metric"]) == {"metric", "metric2"}
+    assert sorted(quantiles["quantile"].unique()) == pytest.approx([0.25, 0.75])
+    metric_rows = quantiles[quantiles["metric"] == "metric"]
+    metric2_rows = quantiles[quantiles["metric"] == "metric2"]
+    assert len(metric_rows) == 2
+    assert len(metric2_rows) == 2
+    assert set(metric_rows["paths"]) == {3}
+    assert set(metric2_rows["paths"]) == {3}
+
+
 def test_build_quantiles_frame_ignores_non_finite_values() -> None:
     path_frame = build_path_frame(
         pd.DataFrame(
