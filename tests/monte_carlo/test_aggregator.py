@@ -401,24 +401,20 @@ def test_build_breach_frame_groups_by_strategy_and_fold() -> None:
     )
 
     assert len(breach) == 4
-    for (_, row) in breach.iterrows():
+    for _, row in breach.iterrows():
         assert row["paths"] == 2
-    assert (
-        breach.loc[(breach["strategy"] == "A") & (breach["fold"] == 0), "breach_probability"].iloc[0]
-        == pytest.approx(0.5)
-    )
-    assert (
-        breach.loc[(breach["strategy"] == "A") & (breach["fold"] == 1), "breach_probability"].iloc[0]
-        == pytest.approx(0.5)
-    )
-    assert (
-        breach.loc[(breach["strategy"] == "B") & (breach["fold"] == 0), "breach_probability"].iloc[0]
-        == pytest.approx(1.0)
-    )
-    assert (
-        breach.loc[(breach["strategy"] == "B") & (breach["fold"] == 1), "breach_probability"].iloc[0]
-        == pytest.approx(0.0)
-    )
+    assert breach.loc[
+        (breach["strategy"] == "A") & (breach["fold"] == 0), "breach_probability"
+    ].iloc[0] == pytest.approx(0.5)
+    assert breach.loc[
+        (breach["strategy"] == "A") & (breach["fold"] == 1), "breach_probability"
+    ].iloc[0] == pytest.approx(0.5)
+    assert breach.loc[
+        (breach["strategy"] == "B") & (breach["fold"] == 0), "breach_probability"
+    ].iloc[0] == pytest.approx(1.0)
+    assert breach.loc[
+        (breach["strategy"] == "B") & (breach["fold"] == 1), "breach_probability"
+    ].iloc[0] == pytest.approx(0.0)
 
 
 def test_build_breach_frame_accepts_threshold_key() -> None:
