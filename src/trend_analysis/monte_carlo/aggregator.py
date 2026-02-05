@@ -54,7 +54,7 @@ class QuantilesAggregationRow(TypedDict):
     """Schema for a single quantiles aggregation row."""
 
     strategy: Any
-    fold: Any
+    fold_id: Any
     metric: str
     quantile: float
     value: float
@@ -73,7 +73,7 @@ class BreachAggregationRow(TypedDict):
     """Schema for a single breach probability aggregation row."""
 
     strategy: Any
-    fold: Any
+    fold_id: Any
     metric: str
     threshold: float
     direction: Literal["lower", "upper"]
@@ -85,7 +85,7 @@ class ExpectedShortfallAggregationRow(TypedDict):
     """Schema for a single expected shortfall aggregation row."""
 
     strategy: Any
-    fold: Any
+    fold_id: Any
     metric: str
     tail: Literal["lower", "upper"]
     alpha: float
