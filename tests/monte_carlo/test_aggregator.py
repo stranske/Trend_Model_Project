@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -460,6 +461,32 @@ def test_path_frame_schema_includes_numeric_metrics_only() -> None:
     assert schema == tuple(AGGREGATION_PATH_COLUMNS) + ("metric", "metric_str")
 
 
+def test_path_frame_schema_excludes_boolean_metrics() -> None:
+    results_frame = pd.DataFrame(
+        [
+            {
+                "strategy": "A",
+                "path": 1,
+                "fold": 0,
+                "metric": 1.0,
+                "flag": True,
+            },
+            {
+                "strategy": "A",
+                "path": 2,
+                "fold": 0,
+                "metric": 2.0,
+                "flag": False,
+            },
+        ]
+    )
+
+    schema = path_frame_schema(results_frame)
+
+    assert "metric" in schema
+    assert "flag" not in schema
+
+
 def test_build_path_frame_sorts_mixed_strategy_types() -> None:
     results_frame = pd.DataFrame(
         [
@@ -541,6 +568,26 @@ def test_build_quantiles_frame_accepts_percent_string_quantiles() -> None:
     assert metric_row["value"] == pytest.approx(3.0)
 
 
+def test_build_quantiles_frame_skips_invalid_string_quantiles() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    quantiles = build_quantiles_frame(path_frame, "nope, 50%, ???")
+
+    assert sorted(quantiles["quantile"].unique()) == pytest.approx([0.5])
+    metric_row = quantiles.loc[
+        (quantiles["metric"] == "metric") & (quantiles["quantile"] == 0.5)
+    ].iloc[0]
+    assert metric_row["value"] == pytest.approx(3.0)
+
+
+def test_build_quantiles_frame_defaults_when_all_quantiles_invalid() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    quantiles = build_quantiles_frame(path_frame, "nope, ???")
+
+    assert sorted(quantiles["quantile"].unique()) == pytest.approx([0.05, 0.5, 0.95])
+
+
 def test_build_quantiles_frame_defaults_on_empty_string_quantiles() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 
@@ -562,6 +609,26 @@ def test_build_quantiles_frame_reports_all_metrics() -> None:
     assert len(metric2_rows) == 2
     assert set(metric_rows["paths"]) == {3}
     assert set(metric2_rows["paths"]) == {3}
+
+
+def test_build_quantiles_frame_reports_metric_a_and_b() -> None:
+    path_frame = build_path_frame(
+        pd.DataFrame(
+            [
+                {"strategy": "A", "fold": 0, "path": 1, "metric_a": 1.0, "metric_b": 2.0},
+                {"strategy": "A", "fold": 0, "path": 2, "metric_a": 3.0, "metric_b": 4.0},
+                {"strategy": "A", "fold": 0, "path": 3, "metric_a": 5.0, "metric_b": 6.0},
+            ]
+        )
+    )
+
+    quantiles = build_quantiles_frame(path_frame, [0.5])
+
+    assert set(quantiles["metric"]) == {"metric_a", "metric_b"}
+    metric_a_value = quantiles.loc[quantiles["metric"] == "metric_a", "value"].iloc[0]
+    metric_b_value = quantiles.loc[quantiles["metric"] == "metric_b", "value"].iloc[0]
+    assert metric_a_value == pytest.approx(3.0)
+    assert metric_b_value == pytest.approx(4.0)
 
 
 def test_build_quantiles_frame_groups_by_strategy_and_fold() -> None:
@@ -767,6 +834,20 @@ def test_summary_frames_fill_missing_path_columns() -> None:
     assert shortfall["fold_id"].isna().all()
 
 
+def test_build_quantiles_frame_derives_fold_id_from_fold() -> None:
+    path_frame = pd.DataFrame(
+        [
+            {"strategy": "A", "path": 1, "fold": 0, "metric": 1.0},
+            {"strategy": "A", "path": 2, "fold": 0, "metric": 2.0},
+        ]
+    )
+
+    quantiles = build_quantiles_frame(path_frame, [0.5])
+
+    assert set(quantiles["fold_id"]) == {0}
+    assert quantiles.loc[0, "value"] == pytest.approx(1.5)
+
+
 def test_build_quantiles_frame_counts_paths_with_missing_strategy_fold() -> None:
     path_frame = pd.DataFrame({"metric": [1.0, 2.0, 3.0]})
 
@@ -942,6 +1023,30 @@ def test_aggregate_monte_carlo_results_reports_expected_shortfall_values() -> No
 
     assert shortfall_row["threshold"] == pytest.approx(3.0)
     assert shortfall_row["expected_shortfall"] == pytest.approx(2.0)
+
+
+def test_aggregate_monte_carlo_results_reports_metric_a_and_b_quantiles() -> None:
+    results_frame = pd.DataFrame(
+        [
+            {"strategy": "A", "fold": 0, "path": 1, "metric_a": 1.0, "metric_b": 2.0},
+            {"strategy": "A", "fold": 0, "path": 2, "metric_a": 3.0, "metric_b": 4.0},
+            {"strategy": "A", "fold": 0, "path": 3, "metric_a": 5.0, "metric_b": 6.0},
+        ]
+    )
+
+    aggregation = aggregate_monte_carlo_results(results_frame, quantiles=[0.5])
+
+    assert set(aggregation.quantiles_frame["metric"]) == {"metric_a", "metric_b"}
+    metric_a_value = aggregation.quantiles_frame.loc[
+        aggregation.quantiles_frame["metric"] == "metric_a",
+        "value",
+    ].iloc[0]
+    metric_b_value = aggregation.quantiles_frame.loc[
+        aggregation.quantiles_frame["metric"] == "metric_b",
+        "value",
+    ].iloc[0]
+    assert metric_a_value == pytest.approx(3.0)
+    assert metric_b_value == pytest.approx(4.0)
 
 
 def test_aggregate_monte_carlo_results_reports_breach_probabilities() -> None:
@@ -1511,6 +1616,72 @@ def test_export_aggregation_results_writes_csv(tmp_path) -> None:
     assert exported["expected_shortfall_csv"].exists()
 
 
+def test_export_aggregation_results_per_strategy_path_matches_path_summary(tmp_path) -> None:
+    aggregation = aggregate_monte_carlo_results(
+        _sample_results_frame(),
+        quantiles=[0.5],
+        breach_spec={"metric": [2.5]},
+        expected_shortfall_spec={"metric": 0.5},
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+
+    path_summary = pd.read_csv(exported["path_summary_csv"])
+    per_strategy_path = pd.read_csv(exported["per_strategy_path_csv"])
+
+    pd.testing.assert_frame_equal(per_strategy_path, path_summary)
+
+
+def test_export_aggregation_results_per_strategy_stats_matches_path_summary(tmp_path) -> None:
+    aggregation = aggregate_monte_carlo_results(
+        _sample_results_frame(),
+        quantiles=[0.5],
+        breach_spec={"metric": [2.5]},
+        expected_shortfall_spec={"metric": 0.5},
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+
+    path_summary = pd.read_csv(exported["path_summary_csv"])
+    per_strategy_stats = pd.read_csv(exported["per_strategy_stats_csv"])
+
+    pd.testing.assert_frame_equal(per_strategy_stats, path_summary)
+
+
+def test_export_aggregation_results_prefers_strategy_name_for_numeric_strategy(
+    tmp_path,
+) -> None:
+    path_frame = pd.DataFrame(
+        [
+            {
+                "strategy": 1,
+                "strategy_name": "Alpha",
+                "path": 1,
+                "fold": 0,
+                "metric": 1.0,
+            }
+        ]
+    )
+    quantiles = pd.DataFrame(columns=list(QUANTILE_COLUMNS))
+    breach = pd.DataFrame(columns=list(BREACH_COLUMNS))
+    shortfall = pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS))
+    aggregation = MonteCarloAggregationResults(
+        path_frame=path_frame,
+        quantiles_frame=quantiles,
+        breach_frame=breach,
+        expected_shortfall_frame=shortfall,
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+
+    path_summary = pd.read_csv(exported["path_summary_csv"])
+    assert list(path_summary.columns[: len(AGGREGATION_PATH_COLUMNS)]) == list(
+        AGGREGATION_PATH_COLUMNS
+    )
+    assert "strategy_name" not in path_summary.columns
+    assert path_summary.loc[0, "strategy"] == "Alpha"
+
+
 def test_export_aggregation_results_defaults_to_csv_when_parquet_unavailable(
     tmp_path, monkeypatch
 ) -> None:
@@ -1564,6 +1735,21 @@ def test_export_aggregation_results_rejects_parquet_only_when_unavailable(
         export_aggregation_results(aggregation, tmp_path, formats=["parquet"])
 
 
+def test_export_aggregation_results_rejects_unknown_format(tmp_path) -> None:
+    results_frame = _sample_results_frame()
+    aggregation = aggregate_monte_carlo_results(
+        results_frame,
+        quantiles=[0.5],
+        breach_spec={"metric": [2.5]},
+        expected_shortfall_spec={"metric": 0.5},
+    )
+
+    with pytest.raises(ValueError, match="Unsupported export format"):
+        export_aggregation_results(aggregation, tmp_path, formats=["csv", "json"])
+
+    assert (tmp_path / "path_summary.csv").exists()
+
+
 def test_export_aggregation_results_defaults_to_csv_and_parquet_when_available(
     tmp_path,
 ) -> None:
@@ -1579,6 +1765,24 @@ def test_export_aggregation_results_defaults_to_csv_and_parquet_when_available(
     )
 
     exported = export_aggregation_results(aggregation, tmp_path)
+
+    assert exported["path_summary_csv"].exists()
+    assert exported["path_summary_parquet"].exists()
+
+
+def test_export_aggregation_results_defaults_when_formats_blank(tmp_path) -> None:
+    if not export_module._supports_parquet():
+        pytest.skip("Parquet engine not available")
+
+    results_frame = _sample_results_frame()
+    aggregation = aggregate_monte_carlo_results(
+        results_frame,
+        quantiles=[0.5],
+        breach_spec={"metric": [2.5]},
+        expected_shortfall_spec={"metric": 0.5},
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=" , ")
 
     assert exported["path_summary_csv"].exists()
     assert exported["path_summary_parquet"].exists()
@@ -1668,6 +1872,27 @@ def test_export_aggregation_results_writes_parquet(tmp_path) -> None:
     assert list(path_summary.columns) == list(AGGREGATION_PATH_COLUMNS) + ["metric", "metric2"]
 
 
+def test_export_aggregation_results_per_strategy_path_matches_path_summary_parquet(
+    tmp_path,
+) -> None:
+    if not export_module._supports_parquet():
+        pytest.skip("Parquet engine not available")
+
+    results_frame = _sample_results_frame()
+    aggregation = aggregate_monte_carlo_results(
+        results_frame,
+        quantiles=[0.5],
+        breach_spec={"metric": [2.5]},
+        expected_shortfall_spec={"metric": 0.5},
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["parquet"])
+    path_summary = pd.read_parquet(exported["path_summary_parquet"])
+    per_strategy_path = pd.read_parquet(exported["per_strategy_path_parquet"])
+
+    pd.testing.assert_frame_equal(path_summary, per_strategy_path)
+
+
 def test_export_aggregation_results_path_summary_schema(tmp_path) -> None:
     results_frame = _sample_results_frame()
 
@@ -1727,6 +1952,64 @@ def test_export_aggregation_results_adds_missing_path_columns(tmp_path) -> None:
 def test_export_aggregation_results_uses_strategy_name(tmp_path) -> None:
     path_frame = pd.DataFrame(
         {"strategy_name": ["Alpha"], "path": [1], "fold": [0], "metric": [1.0]}
+    )
+    quantiles_frame = pd.DataFrame(columns=list(QUANTILE_COLUMNS))
+    breach_frame = pd.DataFrame(columns=list(BREACH_COLUMNS))
+    shortfall_frame = pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS))
+
+    aggregation = MonteCarloAggregationResults(
+        path_frame=path_frame,
+        quantiles_frame=quantiles_frame,
+        breach_frame=breach_frame,
+        expected_shortfall_frame=shortfall_frame,
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+    path_summary = pd.read_csv(exported["path_summary_csv"])
+
+    assert "strategy_name" not in path_summary.columns
+    assert path_summary.loc[0, "strategy"] == "Alpha"
+
+
+def test_export_aggregation_results_prefers_strategy_name_when_strategy_missing(tmp_path) -> None:
+    path_frame = pd.DataFrame(
+        {
+            "strategy": [pd.NA],
+            "strategy_name": ["Alpha"],
+            "path": [1],
+            "fold": [0],
+            "metric": [1.0],
+        }
+    )
+    quantiles_frame = pd.DataFrame(columns=list(QUANTILE_COLUMNS))
+    breach_frame = pd.DataFrame(columns=list(BREACH_COLUMNS))
+    shortfall_frame = pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS))
+
+    aggregation = MonteCarloAggregationResults(
+        path_frame=path_frame,
+        quantiles_frame=quantiles_frame,
+        breach_frame=breach_frame,
+        expected_shortfall_frame=shortfall_frame,
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+    path_summary = pd.read_csv(exported["path_summary_csv"])
+
+    assert "strategy_name" not in path_summary.columns
+    assert path_summary.loc[0, "strategy"] == "Alpha"
+
+
+def test_export_aggregation_results_prefers_strategy_name_over_numeric_strategy(
+    tmp_path,
+) -> None:
+    path_frame = pd.DataFrame(
+        {
+            "strategy": [1],
+            "strategy_name": ["Alpha"],
+            "path": [1],
+            "fold": [0],
+            "metric": [1.0],
+        }
     )
     quantiles_frame = pd.DataFrame(columns=list(QUANTILE_COLUMNS))
     breach_frame = pd.DataFrame(columns=list(BREACH_COLUMNS))
@@ -1851,6 +2134,136 @@ def test_export_summary_quantiles_columns_for_fractional_quantiles(tmp_path) -> 
     assert list(summary_quantiles.columns) == ["strategy", "fold_id", "metric", "q12_5", "q50"]
 
 
+def test_export_summary_quantiles_columns_for_single_digit_fractional_quantiles(
+    tmp_path,
+) -> None:
+    results_frame = _sample_results_frame()
+
+    aggregation = aggregate_monte_carlo_results(
+        results_frame,
+        quantiles=[0.075, 0.5],
+        breach_spec={"metric": [2.5]},
+        expected_shortfall_spec={"metric": 0.5},
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+    summary_quantiles = pd.read_csv(exported["summary_quantiles_csv"])
+
+    assert list(summary_quantiles.columns) == ["strategy", "fold_id", "metric", "q7_5", "q50"]
+
+
+def test_export_summary_quantiles_uses_fold_when_fold_id_missing(tmp_path) -> None:
+    quantiles_frame = pd.DataFrame(
+        [
+            {
+                "strategy": "A",
+                "fold": 2,
+                "metric": "metric",
+                "quantile": 0.5,
+                "value": 1.5,
+                "paths": 3,
+            }
+        ]
+    )
+    aggregation = MonteCarloAggregationResults(
+        path_frame=pd.DataFrame(columns=list(AGGREGATION_PATH_COLUMNS)),
+        quantiles_frame=quantiles_frame,
+        breach_frame=pd.DataFrame(columns=list(BREACH_COLUMNS)),
+        expected_shortfall_frame=pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS)),
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+    summary_quantiles = pd.read_csv(exported["summary_quantiles_csv"])
+
+    assert list(summary_quantiles.columns) == ["strategy", "fold", "metric", "q50"]
+    assert summary_quantiles.loc[0, "fold"] == 2
+
+
+def test_export_summary_quantiles_prefers_fold_when_fold_id_all_nan(tmp_path) -> None:
+    quantiles_frame = pd.DataFrame(
+        [
+            {
+                "strategy": "A",
+                "fold_id": np.nan,
+                "fold": 7,
+                "metric": "metric",
+                "quantile": 0.5,
+                "value": 1.5,
+                "paths": 3,
+            }
+        ]
+    )
+    aggregation = MonteCarloAggregationResults(
+        path_frame=pd.DataFrame(columns=list(AGGREGATION_PATH_COLUMNS)),
+        quantiles_frame=quantiles_frame,
+        breach_frame=pd.DataFrame(columns=list(BREACH_COLUMNS)),
+        expected_shortfall_frame=pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS)),
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+    summary_quantiles = pd.read_csv(exported["summary_quantiles_csv"])
+
+    assert list(summary_quantiles.columns) == ["strategy", "fold", "metric", "q50"]
+    assert summary_quantiles.loc[0, "fold"] == 7
+
+
+def test_export_summary_quantiles_prefers_fold_id_when_populated(tmp_path) -> None:
+    quantiles_frame = pd.DataFrame(
+        [
+            {
+                "strategy": "A",
+                "fold_id": 3,
+                "fold": 9,
+                "metric": "metric",
+                "quantile": 0.5,
+                "value": 1.5,
+                "paths": 3,
+            }
+        ]
+    )
+    aggregation = MonteCarloAggregationResults(
+        path_frame=pd.DataFrame(columns=list(AGGREGATION_PATH_COLUMNS)),
+        quantiles_frame=quantiles_frame,
+        breach_frame=pd.DataFrame(columns=list(BREACH_COLUMNS)),
+        expected_shortfall_frame=pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS)),
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+    summary_quantiles = pd.read_csv(exported["summary_quantiles_csv"])
+
+    assert list(summary_quantiles.columns) == ["strategy", "fold_id", "metric", "q50"]
+    assert summary_quantiles.loc[0, "fold_id"] == 3
+
+
+def test_export_summary_quantiles_keeps_nan_fold_id_when_no_fold(tmp_path) -> None:
+    quantiles_frame = pd.DataFrame(
+        [
+            {
+                "strategy": "A",
+                "fold_id": np.nan,
+                "metric": "metric",
+                "quantile": 0.5,
+                "value": 1.5,
+                "paths": 3,
+            }
+        ]
+    )
+    aggregation = MonteCarloAggregationResults(
+        path_frame=pd.DataFrame(columns=list(AGGREGATION_PATH_COLUMNS)),
+        quantiles_frame=quantiles_frame,
+        breach_frame=pd.DataFrame(columns=list(BREACH_COLUMNS)),
+        expected_shortfall_frame=pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS)),
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+    summary_quantiles = pd.read_csv(exported["summary_quantiles_csv"])
+
+    assert list(summary_quantiles.columns) == ["strategy", "fold_id", "metric", "q50"]
+    assert len(summary_quantiles) == 1
+    assert pd.isna(summary_quantiles.loc[0, "fold_id"])
+    assert summary_quantiles.loc[0, "q50"] == 1.5
+
+
 def test_export_summary_quantiles_drops_nan_quantiles(tmp_path) -> None:
     quantiles_frame = pd.DataFrame(
         [
@@ -1865,6 +2278,22 @@ def test_export_summary_quantiles_drops_nan_quantiles(tmp_path) -> None:
         ],
         columns=list(QUANTILE_COLUMNS),
     )
+    aggregation = MonteCarloAggregationResults(
+        path_frame=pd.DataFrame(columns=list(AGGREGATION_PATH_COLUMNS)),
+        quantiles_frame=quantiles_frame,
+        breach_frame=pd.DataFrame(columns=list(BREACH_COLUMNS)),
+        expected_shortfall_frame=pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS)),
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+    summary_quantiles = pd.read_csv(exported["summary_quantiles_csv"])
+
+    assert summary_quantiles.empty
+    assert list(summary_quantiles.columns) == ["strategy", "fold_id", "metric"]
+
+
+def test_export_summary_quantiles_empty_preserves_fold_id_column(tmp_path) -> None:
+    quantiles_frame = pd.DataFrame(columns=list(QUANTILE_COLUMNS))
     aggregation = MonteCarloAggregationResults(
         path_frame=pd.DataFrame(columns=list(AGGREGATION_PATH_COLUMNS)),
         quantiles_frame=quantiles_frame,
@@ -1984,6 +2413,39 @@ def test_export_aggregation_results_supports_csv_and_parquet(tmp_path) -> None:
     assert exported["summary_quantiles_parquet"].exists()
     assert exported["breach_probabilities_parquet"].exists()
     assert exported["expected_shortfall_parquet"].exists()
+
+
+def test_export_aggregation_results_exports_both_formats_without_parquet_dependency(
+    tmp_path, monkeypatch
+) -> None:
+    results_frame = _sample_results_frame()
+    aggregation = aggregate_monte_carlo_results(
+        results_frame,
+        quantiles=[0.5],
+        breach_spec={"metric": [2.5]},
+        expected_shortfall_spec={"metric": 0.5},
+    )
+
+    monkeypatch.setattr(export_module, "_supports_parquet", lambda: True)
+
+    calls: list[str] = []
+
+    def _fake_export_frame(frame: pd.DataFrame, path: export_module.Path, fmt: str) -> None:
+        calls.append(fmt)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()
+
+    monkeypatch.setattr(export_module, "_export_frame", _fake_export_frame)
+
+    exported = export_aggregation_results(
+        aggregation,
+        tmp_path,
+        formats=["csv", "parquet"],
+    )
+
+    assert len(calls) == 14
+    assert set(calls) == {"csv", "parquet"}
+    assert all(path.exists() for path in exported.values())
 
 
 def test_export_aggregation_results_supports_comma_separated_formats(tmp_path) -> None:

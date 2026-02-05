@@ -10,9 +10,9 @@ import pandas as pd
 
 from .aggregator import (
     AGGREGATION_PATH_COLUMNS,
-    BREACH_COLUMNS,
-    EXPECTED_SHORTFALL_COLUMNS,
-    QUANTILE_COLUMNS,
+    BREACH_FRAME_SCHEMA,
+    EXPECTED_SHORTFALL_FRAME_SCHEMA,
+    QUANTILES_FRAME_SCHEMA,
     MonteCarloAggregationResults,
 )
 from .results import RESULT_BASE_COLUMNS
@@ -44,12 +44,12 @@ def export_aggregation_results(
     fmt_list = _coerce_formats(formats)
     exported: dict[str, Path] = {}
     path_frame = _reorder_path_frame(results.path_frame)
-    quantiles_frame = _reorder_schema_frame(results.quantiles_frame, QUANTILE_COLUMNS)
+    quantiles_frame = _reorder_schema_frame(results.quantiles_frame, QUANTILES_FRAME_SCHEMA)
+    breach_frame = _reorder_schema_frame(results.breach_frame, BREACH_FRAME_SCHEMA)
     summary_quantiles_frame = _build_summary_quantiles_frame(quantiles_frame)
-    breach_frame = _reorder_schema_frame(results.breach_frame, BREACH_COLUMNS)
     shortfall_frame = _reorder_schema_frame(
         results.expected_shortfall_frame,
-        EXPECTED_SHORTFALL_COLUMNS,
+        EXPECTED_SHORTFALL_FRAME_SCHEMA,
     )
     for fmt in fmt_list:
         ext = fmt.lower()
@@ -151,10 +151,15 @@ def _reorder_path_frame(frame: pd.DataFrame) -> pd.DataFrame:
             frame[col] = pd.NA
     if "strategy_name" in frame.columns:
         frame = frame.copy()
-        frame["strategy"] = frame["strategy"].where(
-            frame["strategy"].notna(),
-            frame["strategy_name"],
-        )
+        if "strategy" not in frame.columns:
+            frame["strategy"] = frame["strategy_name"]
+        else:
+            strategy = frame["strategy"]
+            strategy_name = frame["strategy_name"]
+            if _is_numeric_like(strategy) and not _is_numeric_like(strategy_name):
+                frame["strategy"] = strategy_name
+            else:
+                frame["strategy"] = strategy.where(strategy.notna(), strategy_name)
     if "path" in frame.columns:
         if "path_id" in frame.columns:
             frame = frame.copy()
@@ -191,6 +196,23 @@ def _reorder_path_frame(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[base_cols + metric_cols]
 
 
+def _is_numeric_like(series: pd.Series) -> bool:
+    if pd.api.types.is_bool_dtype(series):
+        return False
+    if pd.api.types.is_numeric_dtype(series):
+        return True
+    if pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series):
+        non_null = series.dropna()
+        if (
+            not non_null.empty
+            and non_null.map(lambda value: isinstance(value, (bool, np.bool_))).all()
+        ):
+            return False
+        coerced = pd.to_numeric(series, errors="coerce")
+        return bool(np.isfinite(coerced.to_numpy(dtype=float)).any())
+    return False
+
+
 def _reorder_schema_frame(frame: pd.DataFrame, schema: Sequence[str]) -> pd.DataFrame:
     missing_cols = [col for col in schema if col not in frame.columns]
     if missing_cols:
@@ -204,9 +226,19 @@ def _reorder_schema_frame(frame: pd.DataFrame, schema: Sequence[str]) -> pd.Data
 
 def _build_summary_quantiles_frame(quantiles_frame: pd.DataFrame) -> pd.DataFrame:
     fold_col = None
-    if "fold_id" in quantiles_frame.columns:
+    has_fold_id = "fold_id" in quantiles_frame.columns
+    has_fold = "fold" in quantiles_frame.columns
+    fold_id_has_values = has_fold_id and (
+        quantiles_frame.empty or quantiles_frame["fold_id"].notna().any()
+    )
+    fold_has_values = has_fold and (quantiles_frame.empty or quantiles_frame["fold"].notna().any())
+    if fold_id_has_values:
         fold_col = "fold_id"
-    elif "fold" in quantiles_frame.columns:
+    elif fold_has_values:
+        fold_col = "fold"
+    elif has_fold_id:
+        fold_col = "fold_id"
+    elif has_fold:
         fold_col = "fold"
 
     if quantiles_frame.empty:
@@ -247,6 +279,7 @@ def _build_summary_quantiles_frame(quantiles_frame: pd.DataFrame) -> pd.DataFram
         columns="quantile_label",
         values="value",
         aggfunc="first",
+        dropna=False,
     ).reset_index()
     return summary[id_cols + quantile_cols]
 
