@@ -1909,6 +1909,24 @@ def test_export_summary_quantiles_columns_for_fractional_quantiles(tmp_path) -> 
     assert list(summary_quantiles.columns) == ["strategy", "fold_id", "metric", "q12_5", "q50"]
 
 
+def test_export_summary_quantiles_columns_for_single_digit_fractional_quantiles(
+    tmp_path,
+) -> None:
+    results_frame = _sample_results_frame()
+
+    aggregation = aggregate_monte_carlo_results(
+        results_frame,
+        quantiles=[0.075, 0.5],
+        breach_spec={"metric": [2.5]},
+        expected_shortfall_spec={"metric": 0.5},
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+    summary_quantiles = pd.read_csv(exported["summary_quantiles_csv"])
+
+    assert list(summary_quantiles.columns) == ["strategy", "fold_id", "metric", "q7_5", "q50"]
+
+
 def test_export_summary_quantiles_drops_nan_quantiles(tmp_path) -> None:
     quantiles_frame = pd.DataFrame(
         [
