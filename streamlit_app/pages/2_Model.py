@@ -875,6 +875,15 @@ class _ApiKeySecret:
     value: str | None
     fingerprint: str | None
 
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, _ApiKeySecret):
+            return (self.value, self.fingerprint) == (other.value, other.fingerprint)
+        if isinstance(other, str):
+            return self.value == other
+        if other is None:
+            return self.value is None
+        return False
+
 
 def _hash_api_key_secret(secret: _ApiKeySecret) -> str:
     if secret.fingerprint:

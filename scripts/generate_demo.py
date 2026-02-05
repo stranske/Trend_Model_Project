@@ -5,10 +5,16 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import os
+import random
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
+import math
+
+try:
+    import numpy as np
+except ModuleNotFoundError:
+    np = None
 
 from trend_analysis.script_logging import setup_script_logging
 
@@ -30,12 +36,26 @@ FAST_SENTINEL = Path(OUT_DIR) / ".fast_demo_mode"
 START_DATE = dt.date(2015, 1, 31)
 
 
+class _FallbackRng:
+    def __init__(self, seed: int) -> None:
+        self._rng = random.Random(seed)
+
+    def normal(self, loc: float, scale: float, size: int) -> list[float]:
+        return [self._rng.gauss(loc, scale) for _ in range(size)]
+
+    def uniform(self, low: float, high: float, size: int) -> list[float]:
+        return [self._rng.uniform(low, high) for _ in range(size)]
+
+    def shuffle(self, values: list[float]) -> None:
+        self._rng.shuffle(values)
+
+
 def _generate_manager_returns(
-    rng: np.random.Generator,
+    rng: object,
     periods: int,
     target_sharpe: float,
     annual_vol: float = 0.15,
-) -> np.ndarray:
+) -> list[float] | "np.ndarray":
     """Generate monthly returns with targeted annualized Sharpe ratio.
 
     Parameters
@@ -55,7 +75,7 @@ def _generate_manager_returns(
         Monthly return series with approximately the target Sharpe.
     """
     # Convert annualized targets to monthly
-    monthly_vol = annual_vol / np.sqrt(12)
+    monthly_vol = annual_vol / math.sqrt(12)
     # Sharpe = (annual_return - rf) / annual_vol
     # For simplicity, assume rf ≈ 0
     annual_return = target_sharpe * annual_vol
@@ -89,7 +109,10 @@ def main() -> None:
     # Use month-end frequency; pandas accepts 'ME' as an alias
     dates = pd.date_range(start, periods=periods, freq="ME")
 
-    rng = np.random.default_rng(42)
+    if np is None:
+        rng = _FallbackRng(42)
+    else:
+        rng = np.random.default_rng(42)
 
     # Create realistic hedge fund universe with Sharpe ratios centered around 0.3
     # Real hedge funds typically have Sharpes between -0.5 and 1.5, with median ~0.3
@@ -138,7 +161,10 @@ def main() -> None:
 
     # Add risk-free rate column with realistic time variation
     # Approximate actual T-bill rates: near 0% (2015-2021), rising in 2022-2023, elevated in 2024
-    rf_annual = np.zeros(periods)
+    if np is None:
+        rf_annual = [0.0] * periods
+    else:
+        rf_annual = np.zeros(periods)
     # 2015-2021: near zero (0.1%)
     rf_annual[:84] = 0.001
     # 2022: rising (1%)
@@ -148,7 +174,11 @@ def main() -> None:
     # 2024: still elevated (4%)
     rf_annual[108:] = 0.04
     # Convert annual rates to monthly, add small random noise for realism
-    rf_monthly = rf_annual / 12 + rng.normal(0, 0.0002, periods)
+    rf_noise = rng.normal(0, 0.0002, periods)
+    if np is None:
+        rf_monthly = [rate / 12 + noise for rate, noise in zip(rf_annual, rf_noise)]
+    else:
+        rf_monthly = rf_annual / 12 + rf_noise
     data["RF"] = rf_monthly
 
     df = pd.DataFrame(data, index=dates)
