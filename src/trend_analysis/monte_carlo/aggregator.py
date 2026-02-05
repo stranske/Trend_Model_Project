@@ -583,10 +583,28 @@ def _coerce_breach_specs(
             return None
         if isinstance(value, bool):
             raise TypeError("Breach thresholds must be numeric values or sequences of numerics.")
-        try:
-            threshold = float(value)
-        except (TypeError, ValueError):
-            return None
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return None
+            if raw.endswith("%"):
+                raw = raw[:-1].strip()
+                if not raw:
+                    return None
+                try:
+                    threshold = float(raw) / 100.0
+                except ValueError:
+                    return None
+            else:
+                try:
+                    threshold = float(raw)
+                except ValueError:
+                    return None
+        else:
+            try:
+                threshold = float(value)
+            except (TypeError, ValueError):
+                return None
         if not np.isfinite(threshold):
             return None
         return threshold

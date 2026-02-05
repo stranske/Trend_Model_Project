@@ -244,6 +244,20 @@ def test_build_breach_frame_rejects_boolean_thresholds() -> None:
         build_breach_frame(path_frame, True)
 
 
+def test_build_breach_frame_accepts_percent_thresholds() -> None:
+    path_frame = pd.DataFrame(
+        [
+            {"strategy": "A", "fold": 0, "path": 1, "metric": 0.01},
+            {"strategy": "A", "fold": 0, "path": 2, "metric": 0.10},
+        ]
+    )
+
+    breach_frame = build_breach_frame(path_frame, ["5%"])
+
+    assert breach_frame.loc[0, "threshold"] == pytest.approx(0.05)
+    assert breach_frame.loc[0, "breach_probability"] == pytest.approx(0.5)
+
+
 def test_build_expected_shortfall_frame_coerces_numeric_columns() -> None:
     path_frame = pd.DataFrame(
         [
