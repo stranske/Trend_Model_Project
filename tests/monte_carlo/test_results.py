@@ -234,4 +234,4 @@ def test_export_results_writes_diagnostics_frame(tmp_path) -> None:
     diagnostics_path = exported["diagnostics_csv"]
     diagnostics = pd.read_csv(diagnostics_path, true_values=["True"], false_values=["False"])
     assert "turnover_cap_binding" in diagnostics.columns
-    assert diagnostics.loc[0, "turnover_cap_binding"] == True
+    assert diagnostics.loc[0, "turnover_cap_binding"]
