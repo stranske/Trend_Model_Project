@@ -91,6 +91,7 @@ _LLM_PROVIDER_OVERRIDE_KEY = "llm_provider_override"
 _LLM_MODEL_OVERRIDE_KEY = "llm_model_override"
 _LLM_BASE_URL_OVERRIDE_KEY = "llm_base_url_override"
 _LLM_ORG_OVERRIDE_KEY = "llm_org_override"
+_LLM_OVERRIDE_SNAPSHOT_KEY = "llm_override_snapshot"
 
 
 def _get_chain_cache_state() -> dict[str, Any]:
@@ -795,6 +796,37 @@ def _resolve_llm_session_overrides() -> dict[str, str | None]:
     }
 
 
+def _current_chain_settings_snapshot() -> dict[str, Any]:
+    overrides = _resolve_llm_session_overrides()
+    return {
+        "provider": overrides.get("provider"),
+        "model": overrides.get("model"),
+        "base_url": overrides.get("base_url"),
+        "organization": overrides.get("organization"),
+        "temperature": _normalize_temperature(_resolve_llm_temperature()),
+    }
+
+
+def _maybe_reset_config_chat_cache(snapshot: Mapping[str, Any]) -> None:
+    previous = st.session_state.get(_LLM_OVERRIDE_SNAPSHOT_KEY)
+    normalized = dict(snapshot)
+    if not isinstance(previous, Mapping):
+        st.session_state[_LLM_OVERRIDE_SNAPSHOT_KEY] = normalized
+        return
+    previous_normalized = {key: previous.get(key) for key in normalized}
+    if previous_normalized == normalized:
+        return
+    st.session_state[_LLM_OVERRIDE_SNAPSHOT_KEY] = normalized
+    st.session_state.pop("config_chat_preview", None)
+    st.session_state.pop("config_chat_last_instruction", None)
+    _reset_config_chat_session_id()
+    _LOGGER.info(
+        "Config chat cache reset due to settings change: %s -> %s",
+        previous_normalized,
+        normalized,
+    )
+
+
 def _llm_env_var_hints(provider: str) -> list[str]:
     hints = ["TS_STREAMLIT_API_KEY", "TREND_LLM_API_KEY"]
     if provider == "openai":
@@ -846,6 +878,7 @@ def _render_llm_session_overrides_panel() -> None:
             key=_LLM_ORG_OVERRIDE_KEY,
             help="Overrides TREND_LLM_ORG for this session only.",
         )
+        _maybe_reset_config_chat_cache(_current_chain_settings_snapshot())
         resolved_provider = _resolve_llm_provider_config().provider
         if resolved_provider == "ollama":
             st.caption("Active provider: Ollama (no API key required).")
