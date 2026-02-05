@@ -131,7 +131,9 @@ def test_runner_records_turnover_per_path(monkeypatch) -> None:
             index=pd.to_datetime(returns["Date"].values),
             name="turnover",
         )
-        out_scaled = pd.DataFrame({"Asset": returns["Asset"].to_numpy()}, index=series.index)
+        out_scaled = pd.DataFrame(
+            {"Asset": returns["Asset"].to_numpy()}, index=series.index
+        )
         metrics = pd.DataFrame({"cagr": [0.1]}, index=["user_weight"])
         return RunResult(
             metrics=metrics,
@@ -141,7 +143,9 @@ def test_runner_records_turnover_per_path(monkeypatch) -> None:
             turnover=series,
         )
 
-    monkeypatch.setattr(MonteCarloRunner, "_generate_path_context", _fake_generate_path_context)
+    monkeypatch.setattr(
+        MonteCarloRunner, "_generate_path_context", _fake_generate_path_context
+    )
     monkeypatch.setattr(
         "trend_analysis.monte_carlo.runner.run_simulation",
         _fake_run_simulation,
@@ -164,8 +168,12 @@ def test_runner_records_turnover_per_path(monkeypatch) -> None:
     evaluation_by_path = {evaluation.path_id: evaluation for evaluation in evaluations}
     expected_a = pd.Series([0.01, 0.02], index=dates, name="turnover")
     expected_b = pd.Series([0.03, 0.04], index=dates, name="turnover")
-    pdt.assert_series_equal(evaluation_by_path[0].turnover, expected_a, check_freq=False)
-    pdt.assert_series_equal(evaluation_by_path[1].turnover, expected_b, check_freq=False)
+    pdt.assert_series_equal(
+        evaluation_by_path[0].turnover, expected_a, check_freq=False
+    )
+    pdt.assert_series_equal(
+        evaluation_by_path[1].turnover, expected_b, check_freq=False
+    )
 
 
 def test_runner_resolves_regime_turnover_caps(monkeypatch) -> None:
@@ -345,9 +353,13 @@ def test_runner_expands_scalar_turnover_from_date_index(monkeypatch) -> None:
     )
     expected_binding.index.name = "Date"
     pdt.assert_series_equal(diagnostic["turnover"], expected_turnover, check_freq=False)
-    pdt.assert_series_equal(diagnostic["turnover_cap_binding"], expected_binding, check_freq=False)
+    pdt.assert_series_equal(
+        diagnostic["turnover_cap_binding"], expected_binding, check_freq=False
+    )
     pdt.assert_series_equal(evaluation.turnover, expected_turnover, check_freq=False)
-    pdt.assert_series_equal(evaluation.turnover_cap_binding, expected_binding, check_freq=False)
+    pdt.assert_series_equal(
+        evaluation.turnover_cap_binding, expected_binding, check_freq=False
+    )
 
 
 def test_results_include_turnover_binding_diagnostics(monkeypatch) -> None:
@@ -375,7 +387,9 @@ def test_results_include_turnover_binding_diagnostics(monkeypatch) -> None:
     monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
 
     history = pd.DataFrame({"Asset": [100.0, 101.0]}, index=dates)
-    runner = MonteCarloRunner(_scenario(), base_config=_base_config(), price_history=history)
+    runner = MonteCarloRunner(
+        _scenario(), base_config=_base_config(), price_history=history
+    )
     results = runner.run()
 
     diagnostics = results.diagnostics_frame
@@ -483,7 +497,9 @@ def test_results_include_binding_for_multiple_paths(monkeypatch) -> None:
     monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
 
     history = pd.DataFrame({"Asset": [100.0, 101.0]}, index=dates)
-    runner = MonteCarloRunner(_scenario(), base_config=_base_config(), price_history=history)
+    runner = MonteCarloRunner(
+        _scenario(), base_config=_base_config(), price_history=history
+    )
     results = runner.run()
 
     diagnostics = results.diagnostics_frame
@@ -528,7 +544,9 @@ def test_results_expose_turnover_series_on_evaluations(monkeypatch) -> None:
     monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
 
     history = pd.DataFrame({"Asset": [100.0, 101.0]}, index=dates)
-    runner = MonteCarloRunner(_scenario(), base_config=_base_config(), price_history=history)
+    runner = MonteCarloRunner(
+        _scenario(), base_config=_base_config(), price_history=history
+    )
     results = runner.run()
 
     assert results.evaluations
@@ -739,7 +757,9 @@ def test_build_diagnostics_frame_uses_evaluation_fields() -> None:
     pdt.assert_frame_equal(diagnostics.reset_index(drop=True), expected)
 
 
-def test_build_diagnostics_frame_uses_evaluation_binding_with_diagnostic_turnover() -> None:
+def test_build_diagnostics_frame_uses_evaluation_binding_with_diagnostic_turnover() -> (
+    None
+):
     dates = pd.date_range("2024-09-30", periods=2, freq="ME")
     turnover = pd.Series([0.12, 0.18], index=dates, name="turnover")
     binding = pd.Series([True, False], index=dates, name="turnover_cap_binding")
