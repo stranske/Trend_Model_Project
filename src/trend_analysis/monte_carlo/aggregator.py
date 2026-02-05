@@ -477,6 +477,8 @@ def _coerce_quantiles(quantiles: Sequence[float] | float | int | str | None) -> 
         quantiles, bool
     ):
         values = [quantiles]
+    elif isinstance(quantiles, bool):
+        raise TypeError("Quantiles must be numeric values or a sequence of numerics.")
     else:
         values = list(quantiles)
     cleaned: list[float] = []
