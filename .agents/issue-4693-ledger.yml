@@ -7,10 +7,10 @@ tasks:
     title: Update the `config/scenarios/example_scenario.yml` file to reference the
       `hf_equity_curated.yml` file, ensuring that executing this scenario loads and
       applies the curated strategies without modifying global defaults.
-    status: doing
+    status: done
     started_at: '2026-02-05T06:00:47Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-05T06:00:55Z'
+    commit: b922923c6ecc0f3033061d5cd4766c37a69172b7
     notes: []
   - id: task-02
     title: Write unit tests to load `hf_equity_curated.yml`, validate each strategy
