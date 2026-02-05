@@ -506,6 +506,24 @@ def test_aggregation_frame_schemas_reports_all_outputs() -> None:
     assert schemas["expected_shortfall"] == EXPECTED_SHORTFALL_COLUMNS
 
 
+def test_aggregation_frame_schemas_empty_input_includes_metric_columns() -> None:
+    results_frame = pd.DataFrame(
+        {
+            "strategy": pd.Series(dtype=str),
+            "path": pd.Series(dtype=int),
+            "fold": pd.Series(dtype=int),
+            "metric": pd.Series(dtype=float),
+        }
+    )
+
+    schemas = aggregation_frame_schemas(results_frame)
+
+    assert schemas["path"] == tuple(AGGREGATION_PATH_COLUMNS) + ("metric",)
+    assert schemas["quantiles"] == QUANTILE_COLUMNS
+    assert schemas["breach"] == BREACH_COLUMNS
+    assert schemas["expected_shortfall"] == EXPECTED_SHORTFALL_COLUMNS
+
+
 def test_export_aggregation_results_writes_csv(tmp_path) -> None:
     results_frame = _sample_results_frame()
     path_frame = build_path_frame(results_frame)
