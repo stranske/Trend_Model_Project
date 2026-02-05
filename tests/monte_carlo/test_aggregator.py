@@ -1504,9 +1504,7 @@ def test_export_aggregation_results_defaults_to_csv_when_parquet_unavailable(
     assert "breach_probabilities_parquet" not in exported
 
 
-def test_export_aggregation_results_drops_parquet_when_unavailable(
-    tmp_path, monkeypatch
-) -> None:
+def test_export_aggregation_results_drops_parquet_when_unavailable(tmp_path, monkeypatch) -> None:
     results_frame = _sample_results_frame()
     aggregation = aggregate_monte_carlo_results(
         results_frame,
