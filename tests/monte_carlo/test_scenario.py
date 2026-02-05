@@ -16,7 +16,7 @@ from trend_analysis.monte_carlo.strategy import StrategyVariant
 
 def _load_example_payload() -> dict:
     root = Path(__file__).resolve().parents[2]
-    scenario_path = root / "config" / "scenarios" / "monte_carlo" / "example.yml"
+    scenario_path = root / "config" / "scenarios" / "example_scenario.yml"
 
     payload = yaml.safe_load(scenario_path.read_text())
     if "scenario" in payload:
