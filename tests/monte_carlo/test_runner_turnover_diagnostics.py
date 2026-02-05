@@ -276,6 +276,64 @@ def test_results_include_turnover_binding_diagnostics(monkeypatch) -> None:
     pdt.assert_frame_equal(diagnostics.reset_index(drop=True), expected)
 
 
+def test_results_include_binding_for_multiple_paths(monkeypatch) -> None:
+    dates = pd.date_range("2021-02-28", periods=2, freq="ME")
+    turnover_a = pd.Series([0.05, 0.15], index=dates, name="turnover")
+    binding_a = pd.Series([False, True], index=dates, name="turnover_cap_binding")
+    turnover_b = pd.Series([0.08, 0.04], index=dates, name="turnover")
+    binding_b = pd.Series([True, False], index=dates, name="turnover_cap_binding")
+    evaluation_a = StrategyEvaluation(
+        fold_id=None,
+        path_id=0,
+        strategy_name="base",
+        metrics={"cagr": 0.1},
+        metric_source="metrics",
+        path_hash="hash-a",
+        seed=123,
+        diagnostic={"turnover": turnover_a, "turnover_cap_binding": binding_a},
+    )
+    evaluation_b = StrategyEvaluation(
+        fold_id=None,
+        path_id=1,
+        strategy_name="alt",
+        metrics={"cagr": 0.2},
+        metric_source="metrics",
+        path_hash="hash-b",
+        seed=321,
+        diagnostic={"turnover": turnover_b, "turnover_cap_binding": binding_b},
+    )
+
+    def _fake_run_mode(*_args, **_kwargs):
+        return [evaluation_a, evaluation_b], []
+
+    def _fake_build_price_model(*_args, **_kwargs):
+        return object()
+
+    monkeypatch.setattr(MonteCarloRunner, "_run_mode", _fake_run_mode)
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
+
+    history = pd.DataFrame({"Asset": [100.0, 101.0]}, index=dates)
+    runner = MonteCarloRunner(_scenario(), base_config=_base_config(), price_history=history)
+    results = runner.run()
+
+    diagnostics = results.diagnostics_frame
+    assert diagnostics is not None
+
+    expected = pd.DataFrame(
+        {
+            "fold_id": [None, None, None, None],
+            "path_id": [0, 0, 1, 1],
+            "strategy": ["base", "base", "alt", "alt"],
+            "path_hash": ["hash-a", "hash-a", "hash-b", "hash-b"],
+            "seed": [123, 123, 321, 321],
+            "period": list(dates) + list(dates),
+            "turnover": [0.05, 0.15, 0.08, 0.04],
+            "turnover_cap_binding": [False, True, True, False],
+        }
+    )
+    pdt.assert_frame_equal(diagnostics.reset_index(drop=True), expected)
+
+
 def test_results_expose_turnover_series_on_evaluations(monkeypatch) -> None:
     dates = pd.date_range("2021-01-31", periods=2, freq="ME")
     turnover = pd.Series([0.12, 0.18], index=dates, name="turnover")
