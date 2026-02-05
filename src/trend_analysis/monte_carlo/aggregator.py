@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterable, Literal, Mapping, Sequence, TypedDict
+from typing import Any, Iterable, Literal, Mapping, Sequence, TypedDict, cast
 
 import numpy as np
 import pandas as pd
@@ -65,6 +65,8 @@ EXPECTED_SHORTFALL_COLUMNS = (
 )
 
 _DEFAULT_QUANTILES = (0.05, 0.5, 0.95)
+_Direction = Literal["lower", "upper"]
+_Tail = Literal["lower", "upper"]
 
 
 class QuantilesAggregationRow(TypedDict):
@@ -386,7 +388,7 @@ def _coerce_quantiles(quantiles: Sequence[float] | None) -> list[float]:
 def _coerce_breach_specs(
     breach_spec: Mapping[str, Any] | Sequence[float] | None,
     metrics: Sequence[str],
-) -> list[tuple[str, list[float], str]]:
+) -> list[tuple[str, list[float], _Direction]]:
     if breach_spec is None:
         return []
     if isinstance(breach_spec, (list, tuple)):
@@ -398,11 +400,11 @@ def _coerce_breach_specs(
     if not isinstance(breach_spec, Mapping):
         return []
 
-    specs: list[tuple[str, list[float], str]] = []
+    specs: list[tuple[str, list[float], _Direction]] = []
     for metric, raw in breach_spec.items():
         metric_name = str(metric)
         thresholds: list[float] = []
-        direction = "lower"
+        direction: _Direction = "lower"
         if isinstance(raw, Mapping):
             raw_thresholds = raw.get("thresholds", raw.get("threshold"))
             if raw_thresholds is None:
@@ -411,7 +413,10 @@ def _coerce_breach_specs(
                 thresholds = [float(value) for value in raw_thresholds]
             else:
                 thresholds = [float(raw_thresholds)]
-            direction = str(raw.get("direction", "lower")).lower()
+            direction_value = str(raw.get("direction", "lower")).lower()
+            if direction_value not in {"lower", "upper"}:
+                raise ValueError(f"Unsupported breach direction '{direction_value}'")
+            direction = cast(_Direction, direction_value)
         elif isinstance(raw, (list, tuple)):
             thresholds = [float(value) for value in raw]
         else:
@@ -419,8 +424,6 @@ def _coerce_breach_specs(
         thresholds = [value for value in thresholds if np.isfinite(value)]
         if not thresholds:
             continue
-        if direction not in {"lower", "upper"}:
-            raise ValueError(f"Unsupported breach direction '{direction}'")
         specs.append((metric_name, thresholds, direction))
     return specs
 
@@ -428,26 +431,27 @@ def _coerce_breach_specs(
 def _coerce_shortfall_specs(
     shortfall_spec: Mapping[str, Any] | None,
     metrics: Sequence[str],
-) -> list[tuple[str, float, str]]:
+) -> list[tuple[str, float, _Tail]]:
     if shortfall_spec is None:
         return [(metric, 0.05, "lower") for metric in metrics]
     if not isinstance(shortfall_spec, Mapping):
         return []
 
-    specs: list[tuple[str, float, str]] = []
+    specs: list[tuple[str, float, _Tail]] = []
     for metric, raw in shortfall_spec.items():
         metric_name = str(metric)
         alpha = 0.05
-        tail = "lower"
+        tail: _Tail = "lower"
         if isinstance(raw, Mapping):
             raw_alpha = raw.get("alpha")
             if raw_alpha is not None:
                 alpha = float(raw_alpha)
-            tail = str(raw.get("tail", raw.get("direction", tail))).lower()
+            tail_value = str(raw.get("tail", raw.get("direction", tail))).lower()
+            if tail_value not in {"lower", "upper"}:
+                raise ValueError(f"Unsupported shortfall tail '{tail_value}'")
+            tail = cast(_Tail, tail_value)
         else:
             alpha = float(raw)
-        if tail not in {"lower", "upper"}:
-            raise ValueError(f"Unsupported shortfall tail '{tail}'")
         if alpha <= 0.0 or alpha >= 1.0:
             raise ValueError("Expected shortfall alpha must be between 0 and 1")
         specs.append((metric_name, alpha, tail))
