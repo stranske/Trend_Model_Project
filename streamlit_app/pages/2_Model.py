@@ -23,6 +23,7 @@ from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner, nl_operation_viewer
 from streamlit_app.components.llm_settings import (
     default_api_key as _default_api_key,
+    sanitize_api_key as _sanitize_api_key,
 )
 from streamlit_app.components.progress_eta import (
     estimate_eta_seconds,
@@ -735,13 +736,13 @@ def _resolve_llm_provider_config() -> LLMProviderConfig:
             f"Unknown LLM provider '{provider_name}'. "
             f"Expected one of: {', '.join(sorted(supported))}."
         )
-    api_key = os.environ.get("TS_STREAMLIT_API_KEY")
+    api_key = _sanitize_api_key(os.environ.get("TS_STREAMLIT_API_KEY"))
     if not api_key:
-        api_key = os.environ.get("OPENAI_API_KEY")
+        api_key = _sanitize_api_key(os.environ.get("OPENAI_API_KEY"))
     if not api_key:
-        api_key = os.environ.get("TREND_LLM_API_KEY")
+        api_key = _sanitize_api_key(os.environ.get("TREND_LLM_API_KEY"))
     if not api_key and provider_name == "anthropic":
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        api_key = _sanitize_api_key(os.environ.get("ANTHROPIC_API_KEY"))
     model = overrides.get("model") or os.environ.get("TREND_LLM_MODEL")
     base_url = overrides.get("base_url") or os.environ.get("TREND_LLM_BASE_URL")
     organization = overrides.get("organization") or os.environ.get("TREND_LLM_ORG")
