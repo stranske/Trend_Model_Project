@@ -840,7 +840,11 @@ def _normalize_temperature(value: float) -> float:
         return 0.0
 
 
-@st.cache_resource(show_spinner=False)
+def _hash_cache_key(value: Mapping[str, Any]) -> str:
+    return _chain_cache_signature(value)
+
+
+@st.cache_resource(show_spinner=False, hash_funcs={dict: _hash_cache_key})
 def _cached_llm_client(
     session_cache_key: str,
     cache_key: Mapping[str, Any],
@@ -861,7 +865,7 @@ def _cached_llm_client(
     return create_llm(config)
 
 
-@st.cache_resource(show_spinner=False)
+@st.cache_resource(show_spinner=False, hash_funcs={dict: _hash_cache_key})
 def _cached_config_patch_chain(
     session_cache_key: str,
     chain_cache_key: Mapping[str, Any],
