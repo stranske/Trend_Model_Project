@@ -307,3 +307,27 @@ def test_build_diagnostics_frame_expands_scalar_binding() -> None:
 
     assert diagnostics["turnover"].tolist() == [0.05, 0.06, 0.07]
     assert diagnostics["turnover_cap_binding"].tolist() == [True, True, True]
+
+
+def test_build_diagnostics_frame_uses_evaluation_binding_when_missing_in_diagnostic() -> None:
+    dates = pd.date_range("2022-08-31", periods=2, freq="ME")
+    turnover = pd.Series([0.11, 0.09], index=dates, name="turnover")
+    binding = pd.Series([True, False], index=dates, name="turnover_cap_binding")
+
+    evaluation = StrategyEvaluation(
+        fold_id=None,
+        path_id=6,
+        strategy_name="demo",
+        metrics={},
+        metric_source=None,
+        path_hash="hash",
+        seed=3,
+        diagnostic={"turnover": turnover},
+        turnover=None,
+        turnover_cap_binding=binding,
+    )
+
+    diagnostics = build_diagnostics_frame([evaluation])
+
+    assert diagnostics["turnover"].tolist() == [0.11, 0.09]
+    assert diagnostics["turnover_cap_binding"].tolist() == [True, False]
