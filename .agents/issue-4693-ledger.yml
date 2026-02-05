@@ -1,0 +1,257 @@
+version: 1
+issue: 4693
+base: phase-3
+branch: codex/issue-4693
+tasks:
+  - id: task-01
+    title: Update the `config/scenarios/example_scenario.yml` file to reference the
+      `hf_equity_curated.yml` file, ensuring that executing this scenario loads and
+      applies the curated strategies without modifying global defaults.
+    status: doing
+    started_at: '2026-02-05T06:00:47Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Write unit tests to load `hf_equity_curated.yml`, validate each strategy
+      against the schema, and confirm that global defaults remain unaffected.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Write unit tests to load `hf_equity_curated.yml`. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Define scope for: Write unit tests to validate each strategy in `hf_equity_curated.yml`
+      against the schema. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Implement focused slice for: Write unit tests to validate each strategy
+      in `hf_equity_curated.yml` against the schema. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Validate focused slice for: Write unit tests to validate each strategy
+      in `hf_equity_curated.yml` against the schema. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Define scope for: Write unit tests to confirm that global defaults remain
+      unaffected when loading `hf_equity_curated.yml`. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Implement focused slice for: Write unit tests to confirm that global defaults
+      remain unaffected when loading `hf_equity_curated.yml`. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Validate focused slice for: Write unit tests to confirm that global defaults
+      remain unaffected when loading `hf_equity_curated.yml`. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Add test cases for `StrategyVariant.to_trend_config` to verify the correct
+      application of weighting methods when both `portfolio.weighting_scheme` and
+      `portfolio.weighting.name` are provided, ensuring no unintended global modifications.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Define scope for: Add test cases for `StrategyVariant.to_trend_config`
+      to verify the correct application of weighting methods when both `portfolio.weighting_scheme`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Implement focused slice for: Add test cases for `StrategyVariant.to_trend_config`
+      to verify the correct application of weighting methods when both `portfolio.weighting_scheme`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Validate focused slice for: Add test cases for `StrategyVariant.to_trend_config`
+      to verify the correct application of weighting methods when both `portfolio.weighting_scheme`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: '`portfolio.weighting.name` are provided. (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Define scope for: Add test cases for `StrategyVariant.to_trend_config`
+      to ensure no unintended global modifications occur. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Implement focused slice for: Add test cases for `StrategyVariant.to_trend_config`
+      to ensure no unintended global modifications occur. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Validate focused slice for: Add test cases for `StrategyVariant.to_trend_config`
+      to ensure no unintended global modifications occur. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: <!-- New tasks to address unmet acceptance criteria -->
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: The `hf_equity_curated.yml` file is referenced in the `config/scenarios/example_scenario.yml`
+      file, and executing this scenario loads and applies the curated strategies without
+      modifying global defaults.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Unit tests load `hf_equity_curated.yml`, validate each strategy against
+      the schema, and confirm that global defaults remain unaffected.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Test cases for `StrategyVariant.to_trend_config` verify the correct application
+      of weighting methods when both `portfolio.weighting_scheme` and `portfolio.weighting.name`
+      are provided, and ensure no unintended global modifications.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: The `hf_equity_curated.yml` file is referenced in the `config/scenarios/example_scenario.yml`
+      file, and executing this scenario loads and applies the curated strategies without
+      modifying global defaults.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: Unit tests load `hf_equity_curated.yml`, validate each strategy against
+      the schema, and confirm that global defaults remain unaffected.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: Test cases for `StrategyVariant.to_trend_config` verify the correct application
+      of weighting methods when both `portfolio.weighting_scheme` and `portfolio.weighting.name`
+      are provided, and ensure no unintended global modifications.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: <!-- Criteria verified as unmet by verifier -->
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: The `hf_equity_curated.yml` file is referenced in the `config/scenarios/example_scenario.yml`
+      file, and executing this scenario loads and applies the curated strategies without
+      modifying global defaults.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: Unit tests load `hf_equity_curated.yml`, validate each strategy against
+      the schema, and confirm that global defaults remain unaffected.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: Test cases for `StrategyVariant.to_trend_config` verify the correct application
+      of weighting methods when both `portfolio.weighting_scheme` and `portfolio.weighting.name`
+      are provided, and ensure no unintended global modifications.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: Write unit tests to load `hf_equity_curated.yml`, validate each strategy
+      against the schema, and confirm that global defaults remain unaffected. (The
+      agent cannot guarantee specific coverage percentages or validate schema compliance
+      due to AGENT_LIMITATIONS. | Provide detailed instructions or examples for schema
+      validation and global default checks to assist the agent.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: Add test cases for `StrategyVariant.to_trend_config` to verify the correct
+      application of weighting methods when both `portfolio.weighting_scheme` and
+      `portfolio.weighting.name` are provided, ensuring no unintended global modifications.
+      (The agent cannot guarantee specific test coverage or ensure no unintended global
+      modifications due to AGENT_LIMITATIONS. | Provide a clear description of the
+      expected behavior and edge cases for the agent to implement.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
