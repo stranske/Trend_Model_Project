@@ -151,9 +151,7 @@ class StreamlitAppManager:
             if self.process.poll() is not None:
                 stdout, stderr = self._drain_process_output()
                 if "PermissionError" in stderr and "socket" in stderr:
-                    pytest.skip(
-                        "Streamlit server cannot bind sockets in this environment"
-                    )
+                    pytest.skip("Streamlit server cannot bind sockets in this environment")
                 raise RuntimeError(
                     "Streamlit process exited early "
                     f"(code={self.process.returncode}).\n"
@@ -211,9 +209,7 @@ class StreamlitAppManager:
             stdout_bytes, stderr_bytes = self.process.communicate(timeout=2)
         except subprocess.TimeoutExpired:
             return "", ""
-        return stdout_bytes.decode(errors="replace"), stderr_bytes.decode(
-            errors="replace"
-        )
+        return stdout_bytes.decode(errors="replace"), stderr_bytes.decode(errors="replace")
 
 
 def _find_open_port() -> int:
@@ -309,9 +305,7 @@ def test_streamlit_app_run_page_exists():
 
 def test_error_handling_components():
     """Test that error handling components exist in the Results page."""
-    run_page_path = (
-        Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
-    )
+    run_page_path = Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
 
     if not run_page_path.exists():
         pytest.skip("Results page not found for testing")
@@ -328,9 +322,7 @@ def test_error_handling_components():
 
 def test_progress_reporting_components():
     """Test that progress/result rendering components exist in the Results page."""
-    run_page_path = (
-        Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
-    )
+    run_page_path = Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
 
     if not run_page_path.exists():
         pytest.skip("Results page not found for testing")
@@ -353,10 +345,7 @@ def test_end_to_end_analysis_simulation(demo_data, demo_config):
     # Step 1: Validate demo data
     assert not demo_data.empty
     assert "Date" in demo_data.columns
-    print(
-        "✅ Demo data validated: "
-        f"{len(demo_data)} rows, {len(demo_data.columns)} columns"
-    )
+    print("✅ Demo data validated: " f"{len(demo_data)} rows, {len(demo_data.columns)} columns")
 
     # Step 2: Run analysis
     try:
@@ -390,9 +379,7 @@ def test_end_to_end_analysis_simulation(demo_data, demo_config):
 
 def test_run_page_imports_successfully():
     """Test that the Results page can be imported without errors."""
-    run_page_path = (
-        Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
-    )
+    run_page_path = Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
 
     if not run_page_path.exists():
         pytest.skip("Results page not found for import testing")
