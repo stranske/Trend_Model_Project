@@ -29,6 +29,8 @@ Checklist reconciled on 2026-02-05 after recording turnover evaluation fields an
 `pytest tests/app/test_nl_operation_viewer_component.py -m "not slow"`.
 Checklist reconciled on 2026-02-05 after fixing scalar turnover capture and running
 `pytest tests/monte_carlo/test_runner_turnover_diagnostics.py -m "not slow"`.
+Checklist reconciled on 2026-02-05 after adding evaluation-field diagnostics coverage and running
+`pytest tests/monte_carlo/test_runner_turnover_diagnostics.py -m "not slow"`.
 
 ## Tasks
 - [x] Update the configuration schema/model to add and validate a new 'max_turnover' field that accepts regime-based turnover cap values.
