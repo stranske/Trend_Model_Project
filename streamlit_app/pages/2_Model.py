@@ -87,11 +87,8 @@ _CONFIG_CHAIN_INVALIDATION_FIELDS = (
     "base_url",
     "organization",
     "temperature",
-    "timeout",
-    "max_retries",
-    "extra_payload_hash",
-    "api_key_fingerprint",
 )
+_CONFIG_CHAIN_REBUILD_FIELDS = _CONFIG_CHAIN_INVALIDATION_FIELDS
 _CONFIG_CHAIN_RESET_FIELDS = _CONFIG_CHAIN_INVALIDATION_FIELDS
 _LLM_PROVIDER_OVERRIDE_KEY = "llm_provider_override"
 _LLM_MODEL_OVERRIDE_KEY = "llm_model_override"
@@ -853,6 +850,11 @@ def _hash_cache_key(value: Mapping[str, Any]) -> str:
     return _chain_cache_signature(value)
 
 
+@st.cache_resource(show_spinner=False)
+def _cached_compact_schema() -> dict[str, Any]:
+    return load_compact_schema()
+
+
 @st.cache_resource(show_spinner=False, hash_funcs={dict: _hash_cache_key})
 def _cached_llm_client(
     session_cache_key: str,
@@ -888,7 +890,7 @@ def _cached_config_patch_chain(
         api_key,
         extra_payload,
     )
-    schema = load_compact_schema()
+    schema = _cached_compact_schema()
     return ConfigPatchChain.from_env(
         llm=llm,
         schema=schema,
@@ -938,7 +940,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     invalidation_fields = _cache_key_changes(
         previous_cache_key,
         cache_key,
-        _CONFIG_CHAIN_INVALIDATION_FIELDS,
+        _CONFIG_CHAIN_REBUILD_FIELDS,
     )
     session_reset = False
     if invalidation_fields:
