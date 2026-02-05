@@ -2,10 +2,12 @@
 
 import os
 import signal
+import socket
 import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Optional
 
 import pandas as pd
 import pytest
@@ -114,9 +116,9 @@ def test_api_run_simulation_smoke(demo_data, demo_config):
 class StreamlitAppManager:
     """Manager for Streamlit app testing."""
 
-    def __init__(self, app_path, port=8501):
+    def __init__(self, app_path, port: Optional[int] = None):
         self.app_path = app_path
-        self.port = port
+        self.port = port if port is not None else _find_open_port()
         self.process = None
 
     def start(self):
@@ -143,10 +145,23 @@ class StreamlitAppManager:
         )
 
         # Wait for app to start
-        max_attempts = 30
-        for i in range(max_attempts):
+        startup_timeout = int(os.getenv("STREAMLIT_STARTUP_TIMEOUT", "60"))
+        deadline = time.monotonic() + startup_timeout
+        while time.monotonic() < deadline:
+            if self.process.poll() is not None:
+                stdout, stderr = self._drain_process_output()
+                if "PermissionError" in stderr and "socket" in stderr:
+                    pytest.skip(
+                        "Streamlit server cannot bind sockets in this environment"
+                    )
+                raise RuntimeError(
+                    "Streamlit process exited early "
+                    f"(code={self.process.returncode}).\n"
+                    f"stdout:\n{stdout}\n"
+                    f"stderr:\n{stderr}"
+                )
             try:
-                response = requests.get(f"http://localhost:{self.port}", timeout=5)
+                response = requests.get(f"http://localhost:{self.port}", timeout=2)
                 if response.status_code == 200:
                     print(f"✅ Streamlit app started on port {self.port}")
                     return True
@@ -157,7 +172,12 @@ class StreamlitAppManager:
         # If we get here, startup failed
         if self.process:
             self.stop()
-        raise RuntimeError(f"Failed to start Streamlit app after {max_attempts} seconds")
+        stdout, stderr = self._drain_process_output()
+        raise RuntimeError(
+            f"Failed to start Streamlit app after {startup_timeout} seconds.\n"
+            f"stdout:\n{stdout}\n"
+            f"stderr:\n{stderr}"
+        )
 
     def stop(self):
         """Stop the Streamlit app."""
@@ -182,6 +202,30 @@ class StreamlitAppManager:
             return response.status_code == 200
         except requests.exceptions.RequestException:
             return False
+
+    def _drain_process_output(self) -> tuple[str, str]:
+        """Capture any available process output for diagnostics."""
+        if not self.process:
+            return "", ""
+        try:
+            stdout_bytes, stderr_bytes = self.process.communicate(timeout=2)
+        except subprocess.TimeoutExpired:
+            return "", ""
+        return stdout_bytes.decode(errors="replace"), stderr_bytes.decode(
+            errors="replace"
+        )
+
+
+def _find_open_port() -> int:
+    """Find an available localhost port."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("", 0))
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            return int(sock.getsockname()[1])
+    except OSError:
+        # Fallback for restricted environments that block socket creation.
+        return 8501
 
 
 @pytest.fixture(scope="function")
@@ -265,7 +309,9 @@ def test_streamlit_app_run_page_exists():
 
 def test_error_handling_components():
     """Test that error handling components exist in the Results page."""
-    run_page_path = Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
+    run_page_path = (
+        Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
+    )
 
     if not run_page_path.exists():
         pytest.skip("Results page not found for testing")
@@ -282,7 +328,9 @@ def test_error_handling_components():
 
 def test_progress_reporting_components():
     """Test that progress/result rendering components exist in the Results page."""
-    run_page_path = Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
+    run_page_path = (
+        Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
+    )
 
     if not run_page_path.exists():
         pytest.skip("Results page not found for testing")
@@ -305,7 +353,10 @@ def test_end_to_end_analysis_simulation(demo_data, demo_config):
     # Step 1: Validate demo data
     assert not demo_data.empty
     assert "Date" in demo_data.columns
-    print("✅ Demo data validated: " f"{len(demo_data)} rows, {len(demo_data.columns)} columns")
+    print(
+        "✅ Demo data validated: "
+        f"{len(demo_data)} rows, {len(demo_data.columns)} columns"
+    )
 
     # Step 2: Run analysis
     try:
@@ -339,7 +390,9 @@ def test_end_to_end_analysis_simulation(demo_data, demo_config):
 
 def test_run_page_imports_successfully():
     """Test that the Results page can be imported without errors."""
-    run_page_path = Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
+    run_page_path = (
+        Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
+    )
 
     if not run_page_path.exists():
         pytest.skip("Results page not found for import testing")
