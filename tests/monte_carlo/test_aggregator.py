@@ -521,6 +521,36 @@ def test_build_quantiles_frame_reports_zero_paths_for_all_non_finite_metric() ->
     assert pd.isna(metric2_row["value"])
 
 
+def test_build_quantiles_frame_all_non_finite_metrics_report_zero_paths() -> None:
+    path_frame = build_path_frame(
+        pd.DataFrame(
+            [
+                {
+                    "strategy": "A",
+                    "path": 1,
+                    "fold": 0,
+                    "metric": float("nan"),
+                    "metric2": float("inf"),
+                },
+                {
+                    "strategy": "A",
+                    "path": 2,
+                    "fold": 0,
+                    "metric": float("-inf"),
+                    "metric2": float("nan"),
+                },
+            ]
+        )
+    )
+
+    quantiles = build_quantiles_frame(path_frame, [0.5])
+
+    assert set(quantiles["metric"]) == {"metric", "metric2"}
+    assert quantiles["paths"].nunique() == 1
+    assert quantiles["paths"].iloc[0] == 0
+    assert quantiles["value"].isna().all()
+
+
 def test_build_quantiles_frame_handles_string_metrics() -> None:
     path_frame = build_path_frame(
         pd.DataFrame(
