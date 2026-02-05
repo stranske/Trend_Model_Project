@@ -628,6 +628,16 @@ def test_build_expected_shortfall_rejects_non_finite_alpha() -> None:
         build_expected_shortfall_frame(path_frame, {"metric": {"alpha": float("nan")}})
 
 
+def test_build_expected_shortfall_rejects_alpha_at_bounds() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    with pytest.raises(ValueError, match="Expected shortfall alpha must be between 0 and 1"):
+        build_expected_shortfall_frame(path_frame, {"metric": {"alpha": 0.0}})
+
+    with pytest.raises(ValueError, match="Expected shortfall alpha must be between 0 and 1"):
+        build_expected_shortfall_frame(path_frame, {"metric": {"alpha": 1.0}})
+
+
 def test_build_expected_shortfall_empty_input_preserves_schema() -> None:
     path_frame = pd.DataFrame(columns=list(AGGREGATION_PATH_COLUMNS))
 
