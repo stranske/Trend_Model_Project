@@ -506,8 +506,7 @@ def test_runner_logs_fold_context_for_errors(caplog: pytest.LogCaptureFixture) -
         )
 
     assert any(
-        "fold 2 (2022-01) path 3 strategy StrategyA" in record.message
-        for record in caplog.records
+        "fold 2 (2022-01) path 3 strategy StrategyA" in record.message for record in caplog.records
     )
 
 
