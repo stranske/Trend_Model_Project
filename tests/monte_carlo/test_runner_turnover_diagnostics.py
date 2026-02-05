@@ -191,6 +191,45 @@ def test_runner_uses_risk_diagnostics_turnover_value(monkeypatch) -> None:
     pdt.assert_series_equal(diagnostic["turnover_cap_binding"], expected_binding)
 
 
+def test_runner_expands_turnover_series_across_periods(monkeypatch) -> None:
+    dates = pd.date_range("2021-01-31", periods=3, freq="ME")
+    returns = pd.DataFrame({"Date": dates, "Asset": [0.01, 0.02, 0.03]})
+    turnover = pd.Series([0.12], index=[dates[0]], name="turnover")
+    out_scaled = pd.DataFrame({"Asset": [0.01, 0.02, 0.03]}, index=dates)
+    metrics = pd.DataFrame({"cagr": [0.1]}, index=["user_weight"])
+    run_result = RunResult(
+        metrics=metrics,
+        details={"out_sample_scaled": out_scaled},
+        seed=0,
+        environment={},
+        turnover=turnover,
+    )
+
+    def _fake_run_simulation(*_args, **_kwargs):
+        return run_result
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.run_simulation",
+        _fake_run_simulation,
+    )
+
+    runner = MonteCarloRunner(_scenario(), base_config=_base_config(max_turnover=0.2))
+    context = _PathContext(
+        path_id=1,
+        prices=pd.DataFrame(),
+        returns=returns,
+        score_frame=pd.DataFrame(),
+        path_hash="hash",
+        seed=321,
+    )
+
+    evaluation = runner._evaluate_strategy(StrategyVariant(name="base"), context)
+    diagnostic = evaluation.diagnostic or {}
+
+    expected_turnover = pd.Series([0.12, 0.12, 0.12], index=dates, name="turnover")
+    pdt.assert_series_equal(diagnostic["turnover"], expected_turnover)
+
+
 def test_results_include_turnover_binding_diagnostics(monkeypatch) -> None:
     dates = pd.date_range("2021-01-31", periods=2, freq="ME")
     turnover = pd.Series([0.1, 0.25], index=dates, name="turnover")
