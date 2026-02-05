@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import logging
 import random
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -12,6 +14,7 @@ import trend_analysis.monte_carlo.runner as runner_module
 from trend_analysis.api import RunResult
 from trend_analysis.monte_carlo.results import (
     MonteCarloPathError,
+    MonteCarloResults,
     StrategyEvaluation,
     build_results_frame,
 )
@@ -206,6 +209,90 @@ def test_two_layer_strategies_share_path_prices(
     assert len(seen_prices) == scenario.monte_carlo.n_paths
 
 
+def test_runner_exports_aggregation_outputs(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    scenario = MonteCarloScenario(
+        name="mc_export",
+        base_config="config/defaults.yml",
+        monte_carlo={
+            "mode": "two_layer",
+            "n_paths": 1,
+            "horizon_years": 1.0,
+            "frequency": "M",
+            "seed": 42,
+            "jobs": 1,
+        },
+        strategy_set={"curated": [StrategyVariant(name="StrategyA")]},
+        return_model={"kind": "stationary_bootstrap", "params": {"block_size": 3}},
+        outputs={
+            "directory": str(tmp_path / "mc_out"),
+            "format": "csv",
+            "aggregation": {
+                "quantiles": [0.1, 0.9],
+                "breach": {"metric": [1.5]},
+                "expected_shortfall": {"metric": 0.2},
+            },
+        },
+    )
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+    results_frame = pd.DataFrame(
+        [
+            {
+                "fold_id": 0,
+                "path_id": 0,
+                "strategy": "StrategyA",
+                "metric": 1.0,
+            },
+            {
+                "fold_id": 0,
+                "path_id": 1,
+                "strategy": "StrategyA",
+                "metric": 2.0,
+            },
+        ]
+    )
+    results = MonteCarloResults(
+        mode="two_layer",
+        evaluations=[],
+        errors=[],
+        results_frame=results_frame,
+        summary_frame=pd.DataFrame(),
+    )
+
+    captured: dict[str, Any] = {}
+
+    def _fake_export_results(
+        _results: Any, output_dir: Any, *, formats: Any = None
+    ) -> dict[str, Any]:
+        captured["results_output_dir"] = output_dir
+        captured["results_formats"] = formats
+        return {}
+
+    def _fake_export_aggregation(
+        aggregation: Any, output_dir: Any, *, formats: Any = None
+    ) -> dict[str, Any]:
+        captured["aggregation"] = aggregation
+        captured["aggregation_output_dir"] = output_dir
+        captured["aggregation_formats"] = formats
+        return {}
+
+    monkeypatch.setattr(runner_module, "export_results", _fake_export_results)
+    monkeypatch.setattr(runner_module, "export_aggregation_results", _fake_export_aggregation)
+
+    runner._maybe_export(results)
+
+    assert captured["results_output_dir"] == captured["aggregation_output_dir"]
+    assert captured["results_formats"] == captured["aggregation_formats"]
+    aggregation = captured["aggregation"]
+    assert {"strategy", "path", "fold"}.issubset(set(aggregation.path_frame.columns))
+    assert sorted(aggregation.quantiles_frame["quantile"].unique()) == pytest.approx([0.1, 0.9])
+    assert not aggregation.breach_frame.empty
+    assert not aggregation.expected_shortfall_frame.empty
+
+
 def test_runner_mixture_samples_strategy_per_path() -> None:
     scenario = _scenario("mixture")
     runner = MonteCarloRunner(
@@ -280,6 +367,97 @@ def test_runner_uses_fold_calibration_window(monkeypatch: pytest.MonkeyPatch) ->
     assert captured[0]["history"].index.max() == history.index.max()
     assert captured[0]["calibration_start"] == pd.Timestamp("2020-12-31")
     assert captured[0]["calibration_end"] == pd.Timestamp("2021-12-31")
+
+
+def test_runner_uses_rolling_fold_calibration_windows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenario = _scenario_with_folds(
+        mode="two_layer",
+        folds={
+            "mode": "rolling",
+            "start": "2021-03-15",
+            "end": "2021-09-30",
+            "step_months": 3,
+            "calibration_lookback_years": 1.0,
+        },
+    )
+    history = _price_history()
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=history,
+    )
+    captured: list[tuple[pd.Timestamp | None, pd.Timestamp | None]] = []
+
+    def _fake_build_price_model(
+        self: MonteCarloRunner,
+        _history_slice: pd.DataFrame,
+        *,
+        calibration_start: pd.Timestamp | None = None,
+        calibration_end: pd.Timestamp | None = None,
+    ) -> object:
+        captured.append((calibration_start, calibration_end))
+        return object()
+
+    def _fake_run_mode(self: MonteCarloRunner, **_kwargs: Any) -> tuple[list[Any], list[Any]]:
+        return [], []
+
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
+    monkeypatch.setattr(MonteCarloRunner, "_run_mode", _fake_run_mode)
+
+    runner.run(jobs=1)
+
+    assert captured == [
+        (pd.Timestamp("2020-02-29"), pd.Timestamp("2021-02-28")),
+        (pd.Timestamp("2020-05-31"), pd.Timestamp("2021-05-31")),
+        (pd.Timestamp("2020-08-31"), pd.Timestamp("2021-08-31")),
+    ]
+
+
+def test_runner_uses_count_spaced_fold_calibration_windows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenario = _scenario_with_folds(
+        mode="two_layer",
+        folds={
+            "mode": "count_spaced",
+            "start": "2021-01-31",
+            "end": "2021-12-31",
+            "n_folds": 2,
+            "calibration_lookback_years": 1.0,
+        },
+    )
+    history = _price_history()
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=history,
+    )
+    captured: list[tuple[pd.Timestamp | None, pd.Timestamp | None]] = []
+
+    def _fake_build_price_model(
+        self: MonteCarloRunner,
+        _history_slice: pd.DataFrame,
+        *,
+        calibration_start: pd.Timestamp | None = None,
+        calibration_end: pd.Timestamp | None = None,
+    ) -> object:
+        captured.append((calibration_start, calibration_end))
+        return object()
+
+    def _fake_run_mode(self: MonteCarloRunner, **_kwargs: Any) -> tuple[list[Any], list[Any]]:
+        return [], []
+
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
+    monkeypatch.setattr(MonteCarloRunner, "_run_mode", _fake_run_mode)
+
+    runner.run(jobs=1)
+
+    assert captured == [
+        (pd.Timestamp("2020-01-31"), pd.Timestamp("2020-12-31")),
+        (pd.Timestamp("2020-11-30"), pd.Timestamp("2021-11-30")),
+    ]
 
 
 def test_build_price_model_applies_calibration_window_after_normalization() -> None:
@@ -370,6 +548,53 @@ def test_runner_respects_enable_fold_runs_flag(monkeypatch: pytest.MonkeyPatch) 
     assert captured_calibration == [(None, None)]
 
 
+def test_runner_errors_include_fold_label(monkeypatch: pytest.MonkeyPatch) -> None:
+    scenario = _scenario_with_folds(
+        mode="two_layer",
+        folds={"mode": "explicit", "fold_starts": ["2022-01-31"]},
+    )
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+
+    def _boom(*_args: Any, **_kwargs: Any) -> Any:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(runner, "_generate_path_context", _boom)
+
+    results = runner.run(jobs=1)
+
+    assert results.errors
+    assert {error.fold_id for error in results.errors} == {1}
+    assert {error.fold_label for error in results.errors} == {"2022-01"}
+
+
+def test_runner_logs_fold_context_for_errors(caplog: pytest.LogCaptureFixture) -> None:
+    scenario = _scenario(mode="two_layer")
+    logger = logging.getLogger("trend_analysis.monte_carlo")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+        logger=logger,
+    )
+
+    with caplog.at_level(logging.ERROR, logger="trend_analysis.monte_carlo"):
+        runner._log_path_error(
+            3,
+            "StrategyA",
+            RuntimeError("boom"),
+            fold_id=2,
+            fold_label="2022-01",
+        )
+
+    assert any(
+        "fold 2 (2022-01) path 3 strategy StrategyA" in record.message for record in caplog.records
+    )
+
+
 def test_runner_builds_pooled_summary_when_enabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -415,8 +640,244 @@ def test_runner_builds_pooled_summary_when_enabled(
     assert results.pooled_summary_frame is not None
     assert results.pooled_summary_frame.loc[0, "scope"] == "pooled"
     assert results.pooled_summary_frame.loc[0, "pooled_scope"] == "summary"
+    assert results.pooled_distribution_frame is not None
+    assert results.pooled_distribution_frame.loc[0, "scope"] == "pooled"
+    assert results.pooled_distribution_frame.loc[0, "pooled_scope"] == "distribution"
     assert results.cross_fold_summary_frame is not None
     assert results.metadata.get("pooled_distributions") is True
+    assert results.metadata.get("pooled_scope") == "summary+distribution"
+    assert results.metadata.get("pooled_outputs") == ["summary", "distribution"]
+
+
+def test_runner_builds_cross_fold_summary_without_pooled_distributions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenario = _scenario_with_folds(
+        mode="two_layer",
+        folds={"mode": "explicit", "fold_starts": ["2022-01-31", "2023-01-31"]},
+    )
+    history = _price_history()
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=history,
+    )
+    seen_fold_ids: list[int] = []
+
+    def _fake_build_price_model(
+        self: MonteCarloRunner,
+        _history_slice: pd.DataFrame,
+        *,
+        calibration_start: pd.Timestamp | None = None,
+        calibration_end: pd.Timestamp | None = None,
+    ) -> object:
+        return object()
+
+    def _fake_run_mode(self: MonteCarloRunner, **kwargs: Any) -> tuple[list[Any], list[Any]]:
+        fold_id = int(kwargs.get("fold_id") or 0)
+        seen_fold_ids.append(fold_id)
+        evaluation = StrategyEvaluation(
+            fold_id=fold_id,
+            path_id=0,
+            strategy_name="StrategyA",
+            metrics={"metric": 1.0 + (fold_id * 2.0)},
+            metric_source="unit_test",
+            path_hash=f"hash-{fold_id}",
+            seed=0,
+        )
+        return [evaluation], []
+
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
+    monkeypatch.setattr(MonteCarloRunner, "_run_mode", _fake_run_mode)
+
+    results = runner.run(jobs=1)
+
+    assert results.pooled_summary_frame is None
+    assert results.metadata.get("pooled_distributions") is False
+    assert results.metadata.get("pooled_scope") == "none"
+    assert results.metadata.get("pooled_outputs") == []
+    cross_fold = results.cross_fold_summary_frame
+    assert cross_fold is not None
+    assert cross_fold.loc[0, "scope"] == "cross_fold"
+    assert pd.isna(cross_fold.loc[0, "fold_id"])
+    assert cross_fold.loc[0, "folds"] == 2
+    metric_values = [1.0 + (fold_id * 2.0) for fold_id in seen_fold_ids]
+    assert cross_fold.loc[0, "metric_mean"] == pytest.approx(float(np.mean(metric_values)))
+    assert cross_fold.loc[0, "metric_min"] == pytest.approx(float(np.min(metric_values)))
+    assert cross_fold.loc[0, "metric_max"] == pytest.approx(float(np.max(metric_values)))
+    assert cross_fold.loc[0, "metric_median"] == pytest.approx(float(np.median(metric_values)))
+
+
+def test_runner_cross_fold_summary_stats_include_pooled_labels(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenario = _scenario_with_folds(
+        mode="two_layer",
+        folds={"mode": "explicit", "fold_starts": ["2022-01-31", "2023-01-31"]},
+        outputs={"pooled_distributions": True},
+    )
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+    seen_fold_ids: list[int] = []
+
+    def _fake_build_price_model(
+        self: MonteCarloRunner,
+        _history_slice: pd.DataFrame,
+        *,
+        calibration_start: pd.Timestamp | None = None,
+        calibration_end: pd.Timestamp | None = None,
+    ) -> object:
+        return object()
+
+    def _fake_run_mode(self: MonteCarloRunner, **kwargs: Any) -> tuple[list[Any], list[Any]]:
+        fold_id = int(kwargs.get("fold_id") or 0)
+        seen_fold_ids.append(fold_id)
+        evaluation = StrategyEvaluation(
+            fold_id=fold_id,
+            path_id=0,
+            strategy_name="StrategyA",
+            metrics={"metric": 10.0 + fold_id},
+            metric_source="unit_test",
+            path_hash=f"hash-{fold_id}",
+            seed=0,
+        )
+        return [evaluation], []
+
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
+    monkeypatch.setattr(MonteCarloRunner, "_run_mode", _fake_run_mode)
+
+    results = runner.run(jobs=1)
+
+    cross_fold = results.cross_fold_summary_frame
+    assert cross_fold is not None
+    assert cross_fold.loc[0, "scope"] == "cross_fold"
+    assert cross_fold.loc[0, "folds"] == 2
+    metric_values = [10.0 + fold_id for fold_id in seen_fold_ids]
+    assert cross_fold.loc[0, "metric_mean"] == pytest.approx(float(np.mean(metric_values)))
+    assert cross_fold.loc[0, "metric_min"] == pytest.approx(float(np.min(metric_values)))
+    assert cross_fold.loc[0, "metric_max"] == pytest.approx(float(np.max(metric_values)))
+    assert cross_fold.loc[0, "metric_median"] == pytest.approx(float(np.median(metric_values)))
+
+    pooled = results.pooled_summary_frame
+    assert pooled is not None
+    assert pooled.loc[0, "scope"] == "pooled"
+    assert pooled.loc[0, "pooled_scope"] == "summary"
+    assert results.metadata.get("pooled_distributions") is True
+    assert results.pooled_distribution_frame is not None
+    assert results.pooled_distribution_frame.loc[0, "pooled_scope"] == "distribution"
+
+
+def test_runner_pooled_summary_includes_fold_count_when_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenario = _scenario_with_folds(
+        mode="two_layer",
+        folds={"mode": "explicit", "fold_starts": ["2022-01-31", "2023-01-31"]},
+        outputs={"pooled_distributions": True},
+    )
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+
+    def _fake_build_price_model(
+        self: MonteCarloRunner,
+        _history_slice: pd.DataFrame,
+        *,
+        calibration_start: pd.Timestamp | None = None,
+        calibration_end: pd.Timestamp | None = None,
+    ) -> object:
+        return object()
+
+    def _fake_run_mode(self: MonteCarloRunner, **kwargs: Any) -> tuple[list[Any], list[Any]]:
+        fold_id = int(kwargs.get("fold_id") or 0)
+        evaluation = StrategyEvaluation(
+            fold_id=fold_id,
+            path_id=0,
+            strategy_name="StrategyA",
+            metrics={"metric": 5.0 + fold_id},
+            metric_source="unit_test",
+            path_hash=f"hash-{fold_id}",
+            seed=0,
+        )
+        return [evaluation], []
+
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
+    monkeypatch.setattr(MonteCarloRunner, "_run_mode", _fake_run_mode)
+
+    results = runner.run(jobs=1)
+
+    pooled = results.pooled_summary_frame
+    assert pooled is not None
+    assert pooled.loc[0, "scope"] == "pooled"
+    assert pooled.loc[0, "pooled_scope"] == "summary"
+    assert pooled.loc[0, "folds"] == 2
+    assert results.metadata.get("pooled_distributions") is True
+    assert results.pooled_distribution_frame is not None
+
+
+def test_runner_exports_pooled_summary_when_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path / "mc_outputs"
+    scenario = _scenario_with_folds(
+        mode="two_layer",
+        folds={"mode": "explicit", "fold_starts": ["2022-01-31"]},
+        outputs={
+            "directory": str(output_dir),
+            "formats": ["csv"],
+            "pooled_distributions": True,
+        },
+    )
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+
+    def _fake_build_price_model(
+        self: MonteCarloRunner,
+        _history_slice: pd.DataFrame,
+        *,
+        calibration_start: pd.Timestamp | None = None,
+        calibration_end: pd.Timestamp | None = None,
+    ) -> object:
+        return object()
+
+    def _fake_run_mode(self: MonteCarloRunner, **kwargs: Any) -> tuple[list[Any], list[Any]]:
+        fold_id = kwargs.get("fold_id")
+        evaluation = StrategyEvaluation(
+            fold_id=fold_id,
+            path_id=0,
+            strategy_name="StrategyA",
+            metrics={"metric": 1.0},
+            metric_source="unit_test",
+            path_hash="hash",
+            seed=0,
+        )
+        return [evaluation], []
+
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
+    monkeypatch.setattr(MonteCarloRunner, "_run_mode", _fake_run_mode)
+
+    runner.run(jobs=1)
+
+    pooled_path = output_dir / "pooled_summary.csv"
+    assert pooled_path.exists()
+    pooled_frame = pd.read_csv(pooled_path)
+    assert pooled_frame.loc[0, "scope"] == "pooled"
+    assert pooled_frame.loc[0, "pooled_scope"] == "summary"
+
+    pooled_dist_path = output_dir / "pooled_distributions.csv"
+    assert pooled_dist_path.exists()
+    pooled_dist = pd.read_csv(pooled_dist_path)
+    assert pooled_dist.loc[0, "scope"] == "pooled"
+    assert pooled_dist.loc[0, "pooled_scope"] == "distribution"
 
 
 def test_runner_includes_fold_ids_in_results_frame(
@@ -449,10 +910,12 @@ def test_runner_includes_fold_ids_in_results_frame(
         self: MonteCarloRunner,
         *,
         fold_id: int | None,
+        fold_label: str | None,
         **_kwargs: Any,
     ) -> tuple[list[StrategyEvaluation], list[Any]]:
         evaluation = StrategyEvaluation(
             fold_id=fold_id,
+            fold_label=fold_label,
             path_id=0,
             strategy_name="StrategyA",
             metrics={"metric": 1.0},
@@ -468,6 +931,7 @@ def test_runner_includes_fold_ids_in_results_frame(
     results = runner.run(jobs=1)
 
     assert results.results_frame["fold_id"].dropna().tolist() == [1, 2]
+    assert results.results_frame["fold_label"].dropna().tolist() == ["2022-01", "2023-01"]
 
 
 def test_resolve_strategies_includes_sampled_turnover_caps() -> None:

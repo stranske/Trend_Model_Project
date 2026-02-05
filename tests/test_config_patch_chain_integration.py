@@ -10,7 +10,7 @@ import yaml
 
 pytest.importorskip("langchain_core")
 
-from tools import prompt_evaluator
+from tools import prompt_evaluator  # noqa: E402
 
 _EVAL_CASES_PATH = Path("tools/eval_test_cases.yml")
 

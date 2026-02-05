@@ -10,12 +10,12 @@ import pytest
 
 pytest.importorskip("langchain_core")
 
-import jsonschema
-from langchain_core.runnables import RunnableLambda
+import jsonschema  # noqa: E402
+from langchain_core.runnables import RunnableLambda  # noqa: E402
 
-from trend_analysis.config.patch import ConfigPatch
-from trend_analysis.llm.chain import ConfigPatchChain
-from trend_analysis.llm.prompts import build_config_patch_prompt
+from trend_analysis.config.patch import ConfigPatch  # noqa: E402
+from trend_analysis.llm.chain import ConfigPatchChain  # noqa: E402
+from trend_analysis.llm.prompts import build_config_patch_prompt  # noqa: E402
 
 
 def test_config_patch_chain_run_parses_patch() -> None:

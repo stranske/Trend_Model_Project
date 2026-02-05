@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
 
@@ -12,6 +13,7 @@ import trend_analysis.monte_carlo.runner as runner_module
 from trend_analysis import cli
 from trend_analysis.api import RunResult
 from trend_analysis.monte_carlo.results import MonteCarloResults
+from trend_analysis.monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
 
 
 def _write_scenario(path: Path, *, name: str = "mc_test", extra: str = "") -> None:
@@ -184,6 +186,66 @@ def test_mc_run_rejects_invalid_format_overrides(
     assert "format overrides contains unsupported values: xml" in err
 
 
+def test_mc_manifest_includes_required_keys_and_uses_utc_timestamp(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = MonteCarloSettings(
+        mode="two_layer",
+        n_paths=5,
+        horizon_years=1.0,
+        frequency="M",
+        seed=12,
+        jobs=2,
+    )
+    scenario = MonteCarloScenario(
+        name="alpha",
+        description="Alpha scenario",
+        version="1.0",
+        base_config=tmp_path / "config.yml",
+        monte_carlo=settings,
+    )
+    results_frame = pd.DataFrame({"path_id": [1], "strategy": ["eq"]})
+    summary_frame = pd.DataFrame({"strategy": ["eq"], "paths": [1]})
+    results = MonteCarloResults(
+        mode="two_layer",
+        evaluations=[],
+        errors=[],
+        results_frame=results_frame,
+        summary_frame=summary_frame,
+    )
+
+    captured: dict[str, object] = {}
+    fixed_time = datetime(2024, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            captured["tz"] = tz
+            return fixed_time if tz is not None else fixed_time.replace(tzinfo=None)
+
+    monkeypatch.setattr(cli, "datetime", FixedDateTime)
+
+    output_dir = tmp_path / "manifest"
+    manifest_path = cli._write_mc_manifest(
+        output_dir,
+        scenario=scenario,
+        results=results,
+        overrides={},
+        exported_files={},
+        data_path=None,
+        jobs_used=4,
+    )
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    settings_payload = manifest["settings"]
+    assert {"n_paths", "jobs", "seed"} <= set(settings_payload)
+    assert settings_payload["n_paths"] == 5
+    assert settings_payload["seed"] == 12
+    assert settings_payload["jobs"] == 4
+    assert captured["tz"] is timezone.utc
+    assert manifest["created_at"] == fixed_time.isoformat()
+
+
 def test_mc_run_shows_progress(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -290,6 +352,89 @@ def test_mc_run_uses_tqdm_instance(
     assert rc == 0
     err = capsys.readouterr().err
     assert "Progress: " not in err
+    assert dummy.updated == 1
+    assert dummy.closed == 1
+
+
+def test_is_valid_tqdm_instance_requires_callable_methods() -> None:
+    class _DummyTqdm:
+        def __init__(self) -> None:
+            self.total = 1
+            self.update = 1
+
+        def refresh(self) -> None:
+            return None
+
+        def close(self) -> None:
+            return None
+
+    assert cli._is_valid_tqdm_instance(_DummyTqdm()) is False
+
+
+def test_mc_run_reconfigures_tqdm_instance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    scenario_path = tmp_path / "scenario.yml"
+    data_path = tmp_path / "prices.csv"
+    output_dir = tmp_path / "bundle"
+    _write_scenario(scenario_path)
+    _write_prices(data_path)
+
+    class _DummyTqdm:
+        def __init__(self) -> None:
+            self.total = 0
+            self.unit = "items"
+            self.updated = 0
+            self.refreshed = 0
+            self.closed = 0
+
+        def update(self, value: int) -> None:
+            self.updated += value
+
+        def refresh(self) -> None:
+            self.refreshed += 1
+
+        def close(self) -> None:
+            self.closed += 1
+
+    dummy = _DummyTqdm()
+    tqdm_module = ModuleType("tqdm")
+    tqdm_module.tqdm = dummy
+    monkeypatch.setitem(sys.modules, "tqdm", tqdm_module)
+
+    def _fake_run(self, progress_callback=None, jobs=None):  # type: ignore[no-untyped-def]
+        if progress_callback is not None:
+            progress_callback({"completed": 1, "total": 1})
+        results_frame = pd.DataFrame({"path_id": [1], "strategy": ["eq"]})
+        summary_frame = pd.DataFrame({"strategy": ["eq"], "paths": [1]})
+        return MonteCarloResults(
+            mode="two_layer",
+            evaluations=[],
+            errors=[],
+            results_frame=results_frame,
+            summary_frame=summary_frame,
+        )
+
+    monkeypatch.setattr(runner_module.MonteCarloRunner, "run", _fake_run)
+
+    rc = cli.main(
+        [
+            "mc",
+            "run",
+            "--scenario",
+            str(scenario_path),
+            "--data",
+            str(data_path),
+            "--out",
+            str(output_dir),
+        ]
+    )
+
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert "Progress: " not in err
+    assert dummy.total == 1
+    assert dummy.unit == "path"
     assert dummy.updated == 1
     assert dummy.closed == 1
 

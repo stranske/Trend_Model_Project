@@ -2,13 +2,32 @@
 
 from __future__ import annotations
 
-from typing import Mapping
+from functools import lru_cache
+from typing import TYPE_CHECKING, Mapping, Protocol, cast
 
-import matplotlib.pyplot as plt
 import pandas as pd
-from matplotlib.figure import Figure
 
+from .. import configure_matplotlib_config_dir
 from ..metrics import rolling as rolling_metrics
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
+
+    class _Pyplot(Protocol):
+        def subplots(self, *args: object, **kwargs: object) -> tuple[Figure, Axes]: ...
+
+
+@lru_cache(maxsize=1)
+def _load_matplotlib() -> tuple["_Pyplot", type["Figure"]]:
+    """Configure matplotlib and return pyplot + Figure class."""
+
+    configure_matplotlib_config_dir()
+
+    import matplotlib.pyplot as plt
+    from matplotlib.figure import Figure
+
+    return cast("_Pyplot", plt), Figure
 
 
 def _weights_to_frame(
@@ -38,6 +57,7 @@ def equity_curve(returns: pd.Series) -> tuple[Figure, pd.DataFrame]:
     if returns.empty:
         raise ValueError("returns cannot be empty")
 
+    plt, _ = _load_matplotlib()
     eq_series: pd.Series = (1.0 + returns.fillna(0.0)).cumprod()
     curve: pd.DataFrame = eq_series.to_frame("equity")
     fig, ax = plt.subplots()
@@ -53,6 +73,7 @@ def drawdown_curve(returns: pd.Series) -> tuple[Figure, pd.DataFrame]:
     if returns.empty:
         raise ValueError("returns cannot be empty")
 
+    plt, _ = _load_matplotlib()
     curve: pd.Series = (1.0 + returns.fillna(0.0)).cumprod()
     dd: pd.Series = curve / curve.cummax() - 1.0
     dd_df = dd.to_frame("drawdown")
@@ -72,6 +93,7 @@ def rolling_information_ratio(
     if returns.empty:
         raise ValueError("returns cannot be empty")
 
+    plt, _ = _load_matplotlib()
     ir_series: pd.Series = rolling_metrics.rolling_information_ratio(returns, benchmark, window)
     ir_df: pd.DataFrame = ir_series.to_frame("rolling_ir")
     fig, ax = plt.subplots()
@@ -87,6 +109,7 @@ def turnover_series(
     """Compute turnover figure and DataFrame from weights history."""
 
     w_df = _weights_to_frame(weights)
+    plt, _ = _load_matplotlib()
     to = w_df.diff().abs().sum(axis=1).to_frame("turnover")
     fig, ax = plt.subplots()
     to.plot(ax=ax)
@@ -101,6 +124,7 @@ def weights_heatmap(
     """Return heatmap figure and DataFrame of portfolio weights."""
 
     w_df = _weights_to_frame(weights)
+    plt, _ = _load_matplotlib()
     fig, ax = plt.subplots()
     cax = ax.imshow(w_df.T.values, aspect="auto", interpolation="none", origin="lower")
     ax.set_yticks(range(len(w_df.columns)))

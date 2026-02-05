@@ -8,15 +8,15 @@ import pytest
 
 pytest.importorskip("langchain_core")
 
-from langchain_core.runnables import RunnableLambda
+from langchain_core.runnables import RunnableLambda  # noqa: E402
 
-from trend_analysis.llm.chain import ConfigPatchChain
-from trend_analysis.llm.injection import (
+from trend_analysis.llm.chain import ConfigPatchChain  # noqa: E402
+from trend_analysis.llm.injection import (  # noqa: E402
     DEFAULT_BLOCK_SUMMARY,
     detect_prompt_injection,
     detect_prompt_injection_payload,
 )
-from trend_analysis.llm.prompts import build_config_patch_prompt
+from trend_analysis.llm.prompts import build_config_patch_prompt  # noqa: E402
 
 
 @pytest.mark.parametrize(
