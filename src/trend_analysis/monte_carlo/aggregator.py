@@ -498,6 +498,8 @@ def _coerce_shortfall_specs(
             tail = cast(_Tail, tail_value)
         else:
             alpha = float(raw)
+        if not np.isfinite(alpha):
+            raise ValueError("Expected shortfall alpha must be between 0 and 1")
         if alpha <= 0.0 or alpha >= 1.0:
             raise ValueError("Expected shortfall alpha must be between 0 and 1")
         specs.append((metric_name, alpha, tail))

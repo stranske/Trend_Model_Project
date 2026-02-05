@@ -346,6 +346,13 @@ def test_build_expected_shortfall_ignores_non_finite_values() -> None:
     assert shortfall.loc[0, "expected_shortfall"] == pytest.approx(1.0)
 
 
+def test_build_expected_shortfall_rejects_non_finite_alpha() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    with pytest.raises(ValueError, match="Expected shortfall alpha must be between 0 and 1"):
+        build_expected_shortfall_frame(path_frame, {"metric": {"alpha": float("nan")}})
+
+
 def test_schema_helpers_match_column_constants() -> None:
     assert quantiles_frame_schema() == QUANTILE_COLUMNS
     assert breach_frame_schema() == BREACH_COLUMNS
