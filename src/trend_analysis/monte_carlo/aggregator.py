@@ -749,9 +749,10 @@ def _coerce_shortfall_specs(
         if isinstance(raw, Mapping):
             raw_alpha = raw.get("alpha")
             if raw_alpha is not None:
-                alpha = _coerce_alpha(raw_alpha)
-                if alpha is None:
+                parsed_alpha = _coerce_alpha(raw_alpha)
+                if parsed_alpha is None:
                     return None
+                alpha = parsed_alpha
             raw_tail = raw.get("tail", raw.get("direction", tail))
             if raw_tail is None:
                 raw_tail = tail
@@ -760,9 +761,10 @@ def _coerce_shortfall_specs(
                 raise ValueError(f"Unsupported shortfall tail '{tail_value}'")
             tail = cast(_Tail, tail_value)
         else:
-            alpha = _coerce_alpha(raw)
-            if alpha is None:
+            parsed_alpha = _coerce_alpha(raw)
+            if parsed_alpha is None:
                 return None
+            alpha = parsed_alpha
         if not np.isfinite(alpha):
             raise ValueError("Expected shortfall alpha must be between 0 and 1")
         if alpha <= 0.0 or alpha >= 1.0:
