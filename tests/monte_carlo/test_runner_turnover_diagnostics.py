@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import pandas.testing as pdt
 
@@ -162,6 +163,93 @@ def test_runner_records_turnover_per_path(monkeypatch) -> None:
     assert not errors
     assert len(evaluations) == 2
     evaluation_by_path = {evaluation.path_id: evaluation for evaluation in evaluations}
+    expected_a = pd.Series([0.01, 0.02], index=dates, name="turnover")
+    expected_b = pd.Series([0.03, 0.04], index=dates, name="turnover")
+    pdt.assert_series_equal(evaluation_by_path[0].turnover, expected_a, check_freq=False)
+    pdt.assert_series_equal(evaluation_by_path[1].turnover, expected_b, check_freq=False)
+
+
+def test_runner_run_exposes_realized_turnover(monkeypatch) -> None:
+    dates = pd.date_range("2021-01-31", periods=2, freq="ME")
+    returns_by_path = {
+        0: [0.01, 0.02],
+        1: [0.03, 0.04],
+    }
+    log_returns = pd.DataFrame(
+        {("Asset", path): np.log1p(values) for path, values in returns_by_path.items()},
+        index=dates,
+    )
+    log_returns.columns = pd.MultiIndex.from_tuples(log_returns.columns, names=["asset", "path"])
+    prices = np.exp(log_returns).cumprod() * 100.0
+
+    class _StubSample:
+        def __init__(self, prices: pd.DataFrame, log_returns: pd.DataFrame) -> None:
+            self.prices = prices
+            self.log_returns = log_returns
+
+    class _StubModel:
+        def sample_prices(
+            self,
+            *,
+            n_periods: int,
+            n_paths: int,
+            frequency: str,
+            seed: int | None,
+        ) -> _StubSample:
+            assert n_periods == len(dates)
+            assert n_paths == len(returns_by_path)
+            return _StubSample(prices, log_returns)
+
+    def _fake_build_price_model(*_args, **_kwargs) -> _StubModel:
+        return _StubModel()
+
+    def _fake_run_simulation(config, returns, *_args, **_kwargs):
+        series = pd.Series(
+            returns["Asset"].to_numpy(),
+            index=pd.to_datetime(returns["Date"].values),
+            name="turnover",
+        )
+        out_scaled = pd.DataFrame({"Asset": returns["Asset"].to_numpy()}, index=series.index)
+        metrics = pd.DataFrame({"cagr": [0.1]}, index=["user_weight"])
+        return RunResult(
+            metrics=metrics,
+            details={"out_sample_scaled": out_scaled},
+            seed=0,
+            environment={},
+            turnover=series,
+        )
+
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.run_simulation",
+        _fake_run_simulation,
+    )
+
+    history = pd.DataFrame(
+        {"Asset": [100.0, 101.0, 102.0]},
+        index=pd.date_range("2020-01-31", periods=3, freq="ME"),
+    )
+    scenario = MonteCarloScenario(
+        name="diagnostic_test",
+        base_config="base.yml",
+        monte_carlo={
+            "mode": "two_layer",
+            "n_paths": 2,
+            "horizon_years": 2 / 12,
+            "frequency": "M",
+        },
+        return_model={"kind": "stationary_bootstrap"},
+        enable_fold_runs=False,
+    )
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(max_turnover=1.0),
+        price_history=history,
+    )
+
+    results = runner.run(jobs=1)
+
+    evaluation_by_path = {evaluation.path_id: evaluation for evaluation in results.evaluations}
     expected_a = pd.Series([0.01, 0.02], index=dates, name="turnover")
     expected_b = pd.Series([0.03, 0.04], index=dates, name="turnover")
     pdt.assert_series_equal(evaluation_by_path[0].turnover, expected_a, check_freq=False)
