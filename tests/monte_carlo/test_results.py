@@ -119,6 +119,21 @@ def test_build_summary_frame_excludes_paths_and_folds_columns() -> None:
     assert summary.loc[0, "metric"] == 2.0
 
 
+def test_build_summary_frame_coerces_numeric_string_metrics() -> None:
+    frame = pd.DataFrame(
+        [
+            {"fold_id": 1, "path_id": 1, "strategy": "A", "metric": "1.0", "note": "x"},
+            {"fold_id": 1, "path_id": 2, "strategy": "A", "metric": "3.0", "note": "y"},
+        ]
+    )
+
+    summary = build_summary_frame(frame)
+
+    assert "metric" in summary.columns
+    assert "note" not in summary.columns
+    assert summary.loc[0, "metric"] == 2.0
+
+
 def test_build_pooled_summary_frame_ignores_folds() -> None:
     frame = pd.DataFrame(
         [
