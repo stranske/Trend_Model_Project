@@ -18,6 +18,7 @@ __all__ = [
     "BreachAggregationRow",
     "MonteCarloAggregationResults",
     "ExpectedShortfallAggregationRow",
+    "PathAggregationRow",
     "QuantilesAggregationRow",
     "aggregate_monte_carlo_results",
     "build_breach_frame",
@@ -54,6 +55,14 @@ class QuantilesAggregationRow(TypedDict):
     quantile: float
     value: float
     paths: int
+
+
+class PathAggregationRow(TypedDict, total=False):
+    """Schema for a single per-path aggregation row."""
+
+    strategy: Any
+    path: Any
+    fold: Any
 
 
 class BreachAggregationRow(TypedDict):
