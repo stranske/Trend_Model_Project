@@ -47,4 +47,4 @@ Implement the aggregator that computes distribution summaries over simulated out
 - [x] `tests/monte_carlo/test_aggregator.py`
 
 ## Progress
-39/39 tasks complete (re-verified 2026-02-05 via `pytest tests/monte_carlo/test_aggregator.py -m "not slow"`; added fold_label and path_hash fallback coverage for per-path aggregation).
+39/39 tasks complete (re-verified 2026-02-05 via `pytest tests/monte_carlo/test_aggregator.py -m "not slow"`; added mixed-type strategy sorting coverage for per-path aggregation).

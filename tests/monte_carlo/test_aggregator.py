@@ -295,6 +295,20 @@ def test_path_frame_schema_includes_numeric_metrics_only() -> None:
     assert schema == tuple(AGGREGATION_PATH_COLUMNS) + ("metric", "metric_str")
 
 
+def test_build_path_frame_sorts_mixed_strategy_types() -> None:
+    results_frame = pd.DataFrame(
+        [
+            {"strategy": "A", "path": 2, "fold": 0, "metric": 1.0},
+            {"strategy": 1, "path": 1, "fold": 0, "metric": 2.0},
+        ]
+    )
+
+    path_frame = build_path_frame(results_frame)
+
+    assert list(path_frame["strategy"]) == [1, "A"]
+    assert list(path_frame["path"]) == [1, 2]
+
+
 def test_build_quantiles_frame_reports_requested_quantiles() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 

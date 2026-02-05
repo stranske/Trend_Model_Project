@@ -458,7 +458,14 @@ def _ensure_path_columns(path_frame: pd.DataFrame) -> pd.DataFrame:
 def _sort_frame(frame: pd.DataFrame, sort_columns: Sequence[str]) -> pd.DataFrame:
     if frame.empty:
         return frame
-    return frame.sort_values(list(sort_columns), kind="mergesort").reset_index(drop=True)
+    try:
+        return frame.sort_values(list(sort_columns), kind="mergesort").reset_index(drop=True)
+    except TypeError:
+        return frame.sort_values(
+            list(sort_columns),
+            kind="mergesort",
+            key=lambda series: series.astype(str),
+        ).reset_index(drop=True)
 
 
 def _coerce_quantiles(quantiles: Sequence[float] | None) -> list[float]:
