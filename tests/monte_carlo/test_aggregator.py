@@ -835,7 +835,9 @@ def test_aggregate_monte_carlo_results_uses_strategy_name_and_ids() -> None:
     assert aggregation.path_frame.loc[0, "strategy"] == "Alpha"
     assert aggregation.path_frame.loc[0, "path"] == 10
     assert aggregation.path_frame.loc[0, "fold"] == 2
-    quantile_row = aggregation.quantiles_frame.loc[aggregation.quantiles_frame["metric"] == "metric"]
+    quantile_row = aggregation.quantiles_frame.loc[
+        aggregation.quantiles_frame["metric"] == "metric"
+    ]
     assert quantile_row["value"].iloc[0] == pytest.approx(2.0)
 
 
