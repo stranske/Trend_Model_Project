@@ -287,7 +287,7 @@ def test_runner_exports_aggregation_outputs(tmp_path, monkeypatch: pytest.Monkey
     assert captured["results_output_dir"] == captured["aggregation_output_dir"]
     assert captured["results_formats"] == captured["aggregation_formats"]
     aggregation = captured["aggregation"]
-    assert {"strategy", "path_id", "fold_id"}.issubset(set(aggregation.path_frame.columns))
+    assert {"strategy", "path", "fold"}.issubset(set(aggregation.path_frame.columns))
     assert sorted(aggregation.quantiles_frame["quantile"].unique()) == pytest.approx([0.1, 0.9])
     assert not aggregation.breach_frame.empty
     assert not aggregation.expected_shortfall_frame.empty

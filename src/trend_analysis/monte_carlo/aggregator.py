@@ -44,8 +44,8 @@ ExpectedShortfallFrameSchema = tuple[str, ...]
 
 PATH_COLUMNS = (
     "strategy",
-    "path_id",
-    "fold_id",
+    "path",
+    "fold",
 )
 AGGREGATION_PATH_COLUMNS = PATH_COLUMNS
 
@@ -65,8 +65,8 @@ class PathAggregationRow(TypedDict, total=False):
     """Schema for a single per-path aggregation row."""
 
     strategy: Any
-    path_id: Any
-    fold_id: Any
+    path: Any
+    fold: Any
 
 
 class BreachAggregationRow(TypedDict):
@@ -177,7 +177,7 @@ def aggregation_frame_schemas(results_frame: pd.DataFrame) -> AggregationFrameSc
 
 
 def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
-    """Return per-path metrics with strategy/path_id/fold_id identifiers."""
+    """Return per-path metrics with strategy/path/fold identifiers."""
 
     metric_cols = _metric_columns(results_frame)
     if results_frame.empty:
@@ -185,8 +185,8 @@ def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
 
     data: dict[str, Any] = {
         "strategy": _select_strategy_column(results_frame),
-        "path_id": _coerce_column(results_frame, ("path_id", "path", "path_hash")),
-        "fold_id": _coerce_column(results_frame, ("fold_id", "fold", "fold_label"), default=None),
+        "path": _coerce_column(results_frame, ("path", "path_id", "path_hash")),
+        "fold": _coerce_column(results_frame, ("fold", "fold_id", "fold_label"), default=None),
     }
     frame = pd.DataFrame(data).reset_index(drop=True)
     if metric_cols:
@@ -195,7 +195,7 @@ def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     schema = path_frame_schema(results_frame)
     if schema:
         frame = frame[list(schema)]
-    return _sort_frame(frame, ("strategy", "fold_id", "path_id"))
+    return _sort_frame(frame, ("strategy", "fold", "path"))
 
 
 def path_frame_schema(results_frame: pd.DataFrame) -> PathFrameSchema:
@@ -477,16 +477,33 @@ def _numeric_values(series: pd.Series) -> np.ndarray:
 
 
 def _ensure_path_columns(path_frame: pd.DataFrame) -> pd.DataFrame:
-    missing_cols = [col for col in AGGREGATION_PATH_COLUMNS if col not in path_frame.columns]
+    expected_cols = set(AGGREGATION_PATH_COLUMNS)
+    required_cols = expected_cols | {"path_id", "fold_id"}
+    missing_cols = [col for col in required_cols if col not in path_frame.columns]
     if not missing_cols:
         return path_frame
     frame = path_frame.copy()
+    if "path" in missing_cols:
+        if "path_id" in frame.columns:
+            frame["path"] = frame["path_id"]
+            missing_cols.remove("path")
+        elif "path_hash" in frame.columns:
+            frame["path"] = frame["path_hash"]
+            missing_cols.remove("path")
     if "path_id" in missing_cols:
-        for candidate in ("path", "path_hash"):
-            if candidate in frame.columns:
-                frame["path_id"] = frame[candidate]
-                missing_cols.remove("path_id")
-                break
+        if "path" in frame.columns:
+            frame["path_id"] = frame["path"]
+            missing_cols.remove("path_id")
+        elif "path_hash" in frame.columns:
+            frame["path_id"] = frame["path_hash"]
+            missing_cols.remove("path_id")
+    if "fold" in missing_cols:
+        if "fold_id" in frame.columns:
+            frame["fold"] = frame["fold_id"]
+            missing_cols.remove("fold")
+        elif "fold_label" in frame.columns:
+            frame["fold"] = frame["fold_label"]
+            missing_cols.remove("fold")
     if "fold_id" in missing_cols:
         if "fold" in frame.columns:
             frame["fold_id"] = frame["fold"]

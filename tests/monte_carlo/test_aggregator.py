@@ -62,8 +62,8 @@ def test_build_path_frame_schema_and_values() -> None:
         AGGREGATION_PATH_COLUMNS
     )
     assert path_frame.loc[0, "strategy"] == "A"
-    assert path_frame.loc[0, "path_id"] == 1
-    assert path_frame.loc[0, "fold_id"] == 1
+    assert path_frame.loc[0, "path"] == 1
+    assert path_frame.loc[0, "fold"] == 1
     assert path_frame.loc[0, "metric"] == pytest.approx(1.0)
 
 
@@ -78,10 +78,10 @@ def test_build_path_frame_excludes_path_and_fold_from_metrics() -> None:
     path_frame = build_path_frame(results_frame)
 
     assert "metric" in path_frame.columns
-    assert "path_id" in path_frame.columns
-    assert "fold_id" in path_frame.columns
-    assert list(path_frame.columns).count("path_id") == 1
-    assert list(path_frame.columns).count("fold_id") == 1
+    assert "path" in path_frame.columns
+    assert "fold" in path_frame.columns
+    assert list(path_frame.columns).count("path") == 1
+    assert list(path_frame.columns).count("fold") == 1
 
 
 def test_build_path_frame_excludes_numeric_strategy_from_metrics() -> None:
@@ -117,8 +117,8 @@ def test_build_path_frame_excludes_seed_and_ids_from_metrics() -> None:
 
     assert list(path_frame.columns) == list(AGGREGATION_PATH_COLUMNS) + ["metric"]
     assert "seed" not in path_frame.columns
-    assert "fold_id" in path_frame.columns
-    assert "path_id" in path_frame.columns
+    assert "fold" in path_frame.columns
+    assert "path" in path_frame.columns
 
 
 def test_build_path_frame_excludes_paths_and_folds_from_metrics() -> None:
@@ -145,16 +145,16 @@ def test_summary_frames_ignore_paths_and_folds_columns() -> None:
         [
             {
                 "strategy": "A",
-                "fold_id": 1,
-                "path_id": 10,
+                "fold": 1,
+                "path": 10,
                 "metric": 1.0,
                 "paths": 5,
                 "folds": 2,
             },
             {
                 "strategy": "A",
-                "fold_id": 1,
-                "path_id": 11,
+                "fold": 1,
+                "path": 11,
                 "metric": 3.0,
                 "paths": 5,
                 "folds": 2,
@@ -383,8 +383,8 @@ def test_build_path_frame_fills_missing_path_and_fold() -> None:
     assert list(path_frame.columns[: len(AGGREGATION_PATH_COLUMNS)]) == list(
         AGGREGATION_PATH_COLUMNS
     )
-    assert path_frame["path_id"].isna().all()
-    assert path_frame["fold_id"].isna().all()
+    assert path_frame["path"].isna().all()
+    assert path_frame["fold"].isna().all()
 
 
 def test_build_path_frame_uses_fold_label_when_fold_id_missing() -> None:
@@ -397,7 +397,7 @@ def test_build_path_frame_uses_fold_label_when_fold_id_missing() -> None:
 
     path_frame = build_path_frame(results_frame)
 
-    assert path_frame.loc[0, "fold_id"] == "Fold-1"
+    assert path_frame.loc[0, "fold"] == "Fold-1"
 
 
 def test_build_path_frame_uses_path_hash_when_path_id_missing() -> None:
@@ -410,7 +410,7 @@ def test_build_path_frame_uses_path_hash_when_path_id_missing() -> None:
 
     path_frame = build_path_frame(results_frame)
 
-    assert path_frame.loc[0, "path_id"] == "hash-1"
+    assert path_frame.loc[0, "path"] == "hash-1"
 
 
 def test_path_frame_schema_includes_numeric_metrics_only() -> None:
@@ -443,7 +443,7 @@ def test_build_path_frame_sorts_mixed_strategy_types() -> None:
     path_frame = build_path_frame(results_frame)
 
     assert list(path_frame["strategy"]) == [1, "A"]
-    assert list(path_frame["path_id"]) == [1, 2]
+    assert list(path_frame["path"]) == [1, 2]
 
 
 def test_build_quantiles_frame_reports_requested_quantiles() -> None:
@@ -878,8 +878,8 @@ def test_aggregate_monte_carlo_results_uses_strategy_name_and_ids() -> None:
         AGGREGATION_PATH_COLUMNS
     )
     assert aggregation.path_frame.loc[0, "strategy"] == "Alpha"
-    assert aggregation.path_frame.loc[0, "path_id"] == 10
-    assert aggregation.path_frame.loc[0, "fold_id"] == 2
+    assert aggregation.path_frame.loc[0, "path"] == 10
+    assert aggregation.path_frame.loc[0, "fold"] == 2
     quantile_row = aggregation.quantiles_frame.loc[
         aggregation.quantiles_frame["metric"] == "metric"
     ]

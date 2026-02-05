@@ -137,8 +137,27 @@ def _reorder_path_frame(frame: pd.DataFrame) -> pd.DataFrame:
         frame = frame.copy()
         for col in missing_cols:
             frame[col] = pd.NA
+    if "path" in frame.columns and "path_id" in frame.columns:
+        frame = frame.copy()
+        frame["path"] = frame["path"].where(frame["path"].notna(), frame["path_id"])
+    elif "path" in frame.columns and "path_id" not in frame.columns:
+        pass
+    elif "path_id" in frame.columns:
+        frame = frame.copy()
+        frame["path"] = frame["path_id"]
+    if "fold" in frame.columns and "fold_id" in frame.columns:
+        frame = frame.copy()
+        frame["fold"] = frame["fold"].where(frame["fold"].notna(), frame["fold_id"])
+    elif "fold" in frame.columns and "fold_id" not in frame.columns:
+        pass
+    elif "fold_id" in frame.columns:
+        frame = frame.copy()
+        frame["fold"] = frame["fold_id"]
     base_cols = list(AGGREGATION_PATH_COLUMNS)
-    metric_cols = [col for col in frame.columns if col not in base_cols]
+    excluded = {"path_id", "fold_id"}
+    metric_cols = [
+        col for col in frame.columns if col not in base_cols and col not in excluded
+    ]
     return frame[base_cols + metric_cols]
 
 
