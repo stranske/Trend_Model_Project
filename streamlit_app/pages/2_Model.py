@@ -274,6 +274,18 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
     history.append(entry)
     if len(history) > _MAX_CONFIG_PREVIEW_TIMINGS:
         del history[:-_MAX_CONFIG_PREVIEW_TIMINGS]
+
+    if _LOGGER.isEnabledFor(logging.INFO):
+        _LOGGER.info(
+            "Config chat preview timing: reused=%s build=%.2fs run=%.2fs total=%.2fs cache=%s miss=%s invalidated_by=%s",
+            "yes" if entry.get("chain_reused") else "no",
+            float(entry.get("chain_build_seconds") or 0.0),
+            float(entry.get("run_seconds") or 0.0),
+            total_seconds,
+            entry.get("cache_summary") or "unknown",
+            entry.get("cache_miss_reason") or "none",
+            ", ".join(entry.get("cache_invalidation_fields") or []) or "none",
+        )
     st.session_state[_CONFIG_CHAIN_METRICS_KEY] = {
         "timestamp": entry.get("timestamp"),
         "provider": provider,
