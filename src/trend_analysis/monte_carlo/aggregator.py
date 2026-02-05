@@ -403,7 +403,7 @@ def build_expected_shortfall_frame(
 
 def _metric_columns(results_frame: pd.DataFrame) -> list[str]:
     excluded = set(RESULT_BASE_COLUMNS)
-    excluded.update({"fold", "path", "strategy_name"})
+    excluded.update({"fold", "path", "paths", "folds", "strategy_name"})
     metric_cols: list[str] = []
     for col in results_frame.columns:
         name = str(col)
@@ -417,7 +417,7 @@ def _metric_columns(results_frame: pd.DataFrame) -> list[str]:
 
 def _path_metric_columns(path_frame: pd.DataFrame) -> list[str]:
     excluded = set(RESULT_BASE_COLUMNS)
-    excluded.update({"path", "fold", "strategy_name"})
+    excluded.update({"path", "fold", "paths", "folds", "strategy_name"})
     metric_cols: list[str] = []
     for col in path_frame.columns:
         name = str(col)
