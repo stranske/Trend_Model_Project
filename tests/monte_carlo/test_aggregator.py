@@ -208,6 +208,14 @@ def test_build_quantiles_frame_rejects_out_of_bounds_quantile() -> None:
         build_quantiles_frame(path_frame, [-0.1])
 
 
+def test_build_quantiles_frame_defaults_when_quantiles_empty() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    quantiles = build_quantiles_frame(path_frame, [])
+
+    assert sorted(quantiles["quantile"].unique()) == pytest.approx([0.05, 0.5, 0.95])
+
+
 def test_build_quantiles_frame_empty_input_preserves_schema() -> None:
     path_frame = pd.DataFrame(columns=list(AGGREGATION_PATH_COLUMNS))
 
