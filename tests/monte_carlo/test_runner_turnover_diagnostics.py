@@ -999,3 +999,35 @@ def test_build_diagnostics_frame_expands_scalar_binding_from_evaluation() -> Non
         }
     )
     pdt.assert_frame_equal(diagnostics.reset_index(drop=True), expected)
+
+
+def test_build_diagnostics_frame_uses_evaluation_turnover_with_scalar_binding() -> None:
+    dates = pd.date_range("2025-06-30", periods=2, freq="ME")
+    turnover = pd.Series([0.05, 0.09], index=dates, name="turnover")
+    evaluation = StrategyEvaluation(
+        fold_id=None,
+        path_id=12,
+        strategy_name="base",
+        metrics={"cagr": 0.1},
+        metric_source="metrics",
+        path_hash="hash",
+        seed=37,
+        turnover=turnover,
+        turnover_cap_binding=False,
+    )
+
+    diagnostics = build_diagnostics_frame([evaluation])
+
+    expected = pd.DataFrame(
+        {
+            "fold_id": [None, None],
+            "path_id": [12, 12],
+            "strategy": ["base", "base"],
+            "path_hash": ["hash", "hash"],
+            "seed": [37, 37],
+            "period": list(dates),
+            "turnover": [0.05, 0.09],
+            "turnover_cap_binding": [False, False],
+        }
+    )
+    pdt.assert_frame_equal(diagnostics.reset_index(drop=True), expected)
