@@ -481,6 +481,27 @@ def test_build_quantiles_frame_ignores_non_finite_values() -> None:
     assert quantiles.loc[0, "paths"] == 2
 
 
+def test_build_quantiles_frame_reports_zero_paths_for_all_non_finite_metric() -> None:
+    path_frame = build_path_frame(
+        pd.DataFrame(
+            [
+                {"strategy": "A", "path": 1, "fold": 0, "metric": 1.0, "metric2": float("nan")},
+                {"strategy": "A", "path": 2, "fold": 0, "metric": 2.0, "metric2": float("inf")},
+                {"strategy": "A", "path": 3, "fold": 0, "metric": 3.0, "metric2": float("-inf")},
+            ]
+        )
+    )
+
+    quantiles = build_quantiles_frame(path_frame, [0.5])
+
+    metric_row = quantiles.loc[quantiles["metric"] == "metric"].iloc[0]
+    metric2_row = quantiles.loc[quantiles["metric"] == "metric2"].iloc[0]
+    assert metric_row["paths"] == 3
+    assert metric_row["value"] == pytest.approx(2.0)
+    assert metric2_row["paths"] == 0
+    assert pd.isna(metric2_row["value"])
+
+
 def test_build_quantiles_frame_handles_string_metrics() -> None:
     path_frame = build_path_frame(
         pd.DataFrame(
