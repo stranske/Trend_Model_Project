@@ -100,6 +100,27 @@ def test_build_path_frame_excludes_numeric_strategy_from_metrics() -> None:
     assert set(quantiles["metric"]) == {"metric"}
 
 
+def test_build_path_frame_excludes_seed_and_ids_from_metrics() -> None:
+    results_frame = pd.DataFrame(
+        [
+            {
+                "strategy": "A",
+                "fold_id": 1,
+                "path_id": 10,
+                "seed": 123,
+                "metric": 1.0,
+            }
+        ]
+    )
+
+    path_frame = build_path_frame(results_frame)
+
+    assert list(path_frame.columns) == list(AGGREGATION_PATH_COLUMNS) + ["metric"]
+    assert "seed" not in path_frame.columns
+    assert "fold_id" not in path_frame.columns
+    assert "path_id" not in path_frame.columns
+
+
 def test_build_path_frame_preserves_metric_schema_on_empty_input() -> None:
     results_frame = pd.DataFrame(
         {
