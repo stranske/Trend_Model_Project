@@ -20,6 +20,9 @@ import yaml
 
 from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner, nl_operation_viewer
+from streamlit_app.components.llm_settings import (
+    default_api_key as _default_api_key,
+)
 from streamlit_app.components.progress_eta import (
     estimate_eta_seconds,
     progress_ratio_and_remaining,
@@ -89,6 +92,10 @@ _CONFIG_CHAIN_INVALIDATION_FIELDS = (
     "extra_payload_hash",
     "api_key_fingerprint",
 )
+_LLM_PROVIDER_OVERRIDE_KEY = "llm_provider_override"
+_LLM_MODEL_OVERRIDE_KEY = "llm_model_override"
+_LLM_BASE_URL_OVERRIDE_KEY = "llm_base_url_override"
+_LLM_ORG_OVERRIDE_KEY = "llm_org_override"
 
 
 def _get_chain_cache_state() -> dict[str, Any]:
@@ -660,7 +667,11 @@ def _apply_config_wrapper(wrapper: Mapping[str, Any]) -> None:
 
 
 def _resolve_llm_provider_config() -> LLMProviderConfig:
-    provider_name = (os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
+    overrides = _resolve_llm_session_overrides()
+    provider_override = overrides.get("provider")
+    provider_name = (
+        provider_override or os.environ.get("TREND_LLM_PROVIDER") or "openai"
+    ).lower()
     supported = {"openai", "anthropic", "ollama"}
     if provider_name not in supported:
         raise ValueError(
@@ -674,9 +685,9 @@ def _resolve_llm_provider_config() -> LLMProviderConfig:
         api_key = os.environ.get("TREND_LLM_API_KEY")
     if not api_key and provider_name == "anthropic":
         api_key = os.environ.get("ANTHROPIC_API_KEY")
-    model = os.environ.get("TREND_LLM_MODEL")
-    base_url = os.environ.get("TREND_LLM_BASE_URL")
-    organization = os.environ.get("TREND_LLM_ORG")
+    model = overrides.get("model") or os.environ.get("TREND_LLM_MODEL")
+    base_url = overrides.get("base_url") or os.environ.get("TREND_LLM_BASE_URL")
+    organization = overrides.get("organization") or os.environ.get("TREND_LLM_ORG")
     kwargs: dict[str, Any] = {"provider": provider_name}
     if model:
         kwargs["model"] = model
@@ -722,6 +733,89 @@ def _normalize_cache_str(value: str | None) -> str | None:
         return None
     stripped = value.strip()
     return stripped or None
+
+
+def _resolve_llm_session_overrides() -> dict[str, str | None]:
+    provider = st.session_state.get(_LLM_PROVIDER_OVERRIDE_KEY)
+    model = st.session_state.get(_LLM_MODEL_OVERRIDE_KEY)
+    base_url = st.session_state.get(_LLM_BASE_URL_OVERRIDE_KEY)
+    organization = st.session_state.get(_LLM_ORG_OVERRIDE_KEY)
+    provider_override = _normalize_cache_str(str(provider)) if provider else None
+    if provider_override:
+        provider_override = provider_override.lower()
+    return {
+        "provider": provider_override,
+        "model": _normalize_cache_str(str(model)) if model else None,
+        "base_url": _normalize_cache_str(str(base_url)) if base_url else None,
+        "organization": _normalize_cache_str(str(organization)) if organization else None,
+    }
+
+
+def _llm_env_var_hints(provider: str) -> list[str]:
+    hints = ["TS_STREAMLIT_API_KEY", "TREND_LLM_API_KEY"]
+    if provider == "openai":
+        hints.append("OPENAI_API_KEY")
+    elif provider == "anthropic":
+        hints.append("ANTHROPIC_API_KEY")
+    return hints
+
+
+def _llm_api_key_available(provider: str) -> bool:
+    if provider == "ollama":
+        return True
+    return bool(_default_api_key(provider))
+
+
+def _render_llm_session_overrides_panel() -> None:
+    with st.expander("LLM Settings (Session Only)", expanded=False):
+        st.caption(
+            "Overrides apply only to this session and do not store or display API keys."
+        )
+        provider_options = [None, "openai", "anthropic", "ollama"]
+        provider_labels = {
+            None: "Use env default",
+            "openai": "OpenAI",
+            "anthropic": "Anthropic",
+            "ollama": "Ollama",
+        }
+        current_override = st.session_state.get(_LLM_PROVIDER_OVERRIDE_KEY)
+        if current_override not in provider_options:
+            current_override = None
+        st.selectbox(
+            "Provider",
+            provider_options,
+            index=provider_options.index(current_override),
+            key=_LLM_PROVIDER_OVERRIDE_KEY,
+            format_func=lambda value: provider_labels.get(value, "Use env default"),
+            help="Overrides TREND_LLM_PROVIDER for this session only.",
+        )
+        st.text_input(
+            "Model (optional)",
+            key=_LLM_MODEL_OVERRIDE_KEY,
+            help="Overrides TREND_LLM_MODEL for this session only.",
+        )
+        st.text_input(
+            "Base URL (optional)",
+            key=_LLM_BASE_URL_OVERRIDE_KEY,
+            help="Overrides TREND_LLM_BASE_URL for this session only.",
+        )
+        st.text_input(
+            "Organization (optional)",
+            key=_LLM_ORG_OVERRIDE_KEY,
+            help="Overrides TREND_LLM_ORG for this session only.",
+        )
+        resolved_provider = _resolve_llm_provider_config().provider
+        if resolved_provider == "ollama":
+            st.caption("Active provider: Ollama (no API key required).")
+            return
+        if _llm_api_key_available(resolved_provider):
+            st.caption(f"Active provider: {resolved_provider} (API key detected).")
+            return
+        hints = ", ".join(_llm_env_var_hints(resolved_provider))
+        st.warning(
+            f"Active provider: {resolved_provider}. No API key detected. "
+            f"Set one of: {hints}."
+        )
 
 
 def _normalize_temperature(value: float) -> float:
@@ -1386,6 +1480,7 @@ def render_config_chat_panel(
 
     if location == "sidebar":
         with st.sidebar:
+            _render_llm_session_overrides_panel()
             with st.expander("💬 Config Chat", expanded=False):
                 _render_config_chat_contents(model_state)
         return

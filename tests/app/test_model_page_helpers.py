@@ -803,3 +803,40 @@ def test_build_nl_chain_invalidation_on_model_change(
     assert "model" in (meta_second["chain_cache_invalidation_fields"] or [])
     assert "config_chat_preview" not in stub.session_state
     assert "config_chat_last_instruction" not in stub.session_state
+
+
+def test_llm_session_overrides_win_over_env(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    monkeypatch.setenv("TREND_LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("TREND_LLM_MODEL", "claude-3")
+    monkeypatch.setenv("TREND_LLM_BASE_URL", "https://env.example.com")
+    monkeypatch.setenv("TREND_LLM_ORG", "env-org")
+
+    stub.session_state[model_module._LLM_PROVIDER_OVERRIDE_KEY] = "openai"
+    stub.session_state[model_module._LLM_MODEL_OVERRIDE_KEY] = "gpt-4o-mini"
+    stub.session_state[model_module._LLM_BASE_URL_OVERRIDE_KEY] = "https://override.example.com"
+    stub.session_state[model_module._LLM_ORG_OVERRIDE_KEY] = "override-org"
+
+    config = model_module._resolve_llm_provider_config()
+
+    assert config.provider == "openai"
+    assert config.model == "gpt-4o-mini"
+    assert config.base_url == "https://override.example.com"
+    assert config.organization == "override-org"
+
+
+def test_llm_session_override_normalizes_whitespace(model_module: ModuleType) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    stub.session_state[model_module._LLM_PROVIDER_OVERRIDE_KEY] = "  OpenAI  "
+    stub.session_state[model_module._LLM_MODEL_OVERRIDE_KEY] = "  gpt-4o-mini  "
+
+    overrides = model_module._resolve_llm_session_overrides()
+
+    assert overrides["provider"] == "openai"
+    assert overrides["model"] == "gpt-4o-mini"
