@@ -496,6 +496,8 @@ def _coerce_shortfall_specs(
 
     specs: list[tuple[str, float, _Tail]] = []
     for metric, raw in shortfall_spec.items():
+        if raw is None:
+            continue
         metric_name = str(metric)
         alpha = 0.05
         tail: _Tail = "lower"
