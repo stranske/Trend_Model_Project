@@ -238,37 +238,36 @@ def build_quantiles_frame(
     if path_frame.empty or not metric_cols:
         return pd.DataFrame(columns=list(schema))
 
-    grouped = path_frame.groupby(["strategy", "fold"], dropna=False)
-    rows: list[QuantilesAggregationRow] = []
-    for (strategy, fold), group in grouped:
-        for metric in metric_cols:
-            values = _numeric_values(group[metric])
-            values = values[np.isfinite(values)]
-            if values.size == 0:
-                for q in quantile_list:
-                    rows.append(
-                        {
-                            "strategy": strategy,
-                            "fold": fold,
-                            "metric": metric,
-                            "quantile": q,
-                            "value": np.nan,
-                            "paths": 0,
-                        }
-                    )
-                continue
-            for q in quantile_list:
-                rows.append(
-                    {
-                        "strategy": strategy,
-                        "fold": fold,
-                        "metric": metric,
-                        "quantile": q,
-                        "value": float(np.nanquantile(values, q)),
-                        "paths": int(values.size),
-                    }
-                )
-    frame = pd.DataFrame(rows, columns=list(schema))
+    numeric = path_frame[metric_cols].apply(pd.to_numeric, errors="coerce")
+    finite_mask = np.isfinite(numeric.to_numpy(dtype=float))
+    finite_frame = pd.DataFrame(finite_mask, columns=metric_cols, index=numeric.index)
+    numeric = numeric.where(finite_frame)
+    group_keys = [path_frame["strategy"], path_frame["fold"]]
+    counts = finite_frame.groupby(group_keys, dropna=False).sum().astype(int)
+    quantiles_frame = numeric.groupby(group_keys, dropna=False).quantile(quantile_list)
+    quantiles_frame = quantiles_frame.reset_index()
+    if "quantile" not in quantiles_frame.columns:
+        candidate_cols = [
+            col
+            for col in quantiles_frame.columns
+            if col not in {"strategy", "fold", *metric_cols}
+        ]
+        if len(candidate_cols) == 1:
+            quantiles_frame = quantiles_frame.rename(columns={candidate_cols[0]: "quantile"})
+    quantiles_long = quantiles_frame.melt(
+        id_vars=["strategy", "fold", "quantile"],
+        value_vars=metric_cols,
+        var_name="metric",
+        value_name="value",
+    )
+    counts_long = counts.reset_index().melt(
+        id_vars=["strategy", "fold"],
+        value_vars=metric_cols,
+        var_name="metric",
+        value_name="paths",
+    )
+    frame = quantiles_long.merge(counts_long, on=["strategy", "fold", "metric"], how="left")
+    frame = frame[list(schema)]
     return _sort_frame(frame, ("strategy", "fold", "metric", "quantile"))
 
 
@@ -290,6 +289,7 @@ def build_breach_frame(
 
     grouped = path_frame.groupby(["strategy", "fold"], dropna=False)
     rows: list[BreachAggregationRow] = []
+    # Loop per metric/threshold spec to avoid large intermediate frames for mixed directions.
     for (strategy, fold), group in grouped:
         for metric, thresholds, direction in specs:
             if metric not in group.columns:
@@ -337,6 +337,7 @@ def build_expected_shortfall_frame(
 
     grouped = path_frame.groupby(["strategy", "fold"], dropna=False)
     rows: list[ExpectedShortfallAggregationRow] = []
+    # Loop per metric/tail spec to keep per-tail thresholds explicit and readable.
     for (strategy, fold), group in grouped:
         for metric, alpha, tail in specs:
             if metric not in group.columns:
