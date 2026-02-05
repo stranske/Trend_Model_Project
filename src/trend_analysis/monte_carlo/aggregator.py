@@ -571,7 +571,10 @@ def _coerce_breach_specs(
             return []
         return [(metric, default_thresholds, "lower") for metric in metrics]
     if not isinstance(breach_spec, Mapping):
-        return []
+        threshold = _coerce_threshold(breach_spec)
+        if threshold is None:
+            return []
+        return [(metric, [threshold], "lower") for metric in metrics]
 
     specs: list[tuple[str, list[float], _Direction]] = []
     default_raw: Any | None = None

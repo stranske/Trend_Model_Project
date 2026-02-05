@@ -683,6 +683,18 @@ def test_build_breach_frame_accepts_threshold_key() -> None:
     assert breach.loc[0, "breach_probability"] == pytest.approx(2.0 / 3.0)
 
 
+def test_build_breach_frame_accepts_scalar_threshold() -> None:
+    path_frame = build_path_frame(_sample_results_frame())
+
+    breach = build_breach_frame(path_frame, 2.5)
+
+    assert list(breach.columns) == list(breach_frame_schema())
+    assert len(breach) == 2
+    assert breach["threshold"].nunique() == 1
+    assert breach["threshold"].iloc[0] == pytest.approx(2.5)
+    assert set(breach["metric"]) == {"metric", "metric2"}
+
+
 def test_build_breach_frame_applies_default_thresholds_to_all_metrics() -> None:
     path_frame = build_path_frame(_sample_results_frame())
 
