@@ -385,6 +385,30 @@ def test_aggregate_monte_carlo_results_reports_expected_shortfall_values() -> No
     assert shortfall_row["expected_shortfall"] == pytest.approx(2.0)
 
 
+def test_aggregate_monte_carlo_results_reports_metric_a_and_b_quantiles() -> None:
+    results_frame = pd.DataFrame(
+        [
+            {"strategy": "A", "fold": 0, "path": 1, "metric_a": 1.0, "metric_b": 2.0},
+            {"strategy": "A", "fold": 0, "path": 2, "metric_a": 3.0, "metric_b": 4.0},
+            {"strategy": "A", "fold": 0, "path": 3, "metric_a": 5.0, "metric_b": 6.0},
+        ]
+    )
+
+    aggregation = aggregate_monte_carlo_results(results_frame, quantiles=[0.5])
+
+    assert set(aggregation.quantiles_frame["metric"]) == {"metric_a", "metric_b"}
+    metric_a_value = aggregation.quantiles_frame.loc[
+        aggregation.quantiles_frame["metric"] == "metric_a",
+        "value",
+    ].iloc[0]
+    metric_b_value = aggregation.quantiles_frame.loc[
+        aggregation.quantiles_frame["metric"] == "metric_b",
+        "value",
+    ].iloc[0]
+    assert metric_a_value == pytest.approx(3.0)
+    assert metric_b_value == pytest.approx(4.0)
+
+
 def test_aggregate_monte_carlo_results_empty_input_preserves_schemas() -> None:
     results_frame = pd.DataFrame(
         {
