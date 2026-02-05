@@ -1338,6 +1338,22 @@ def test_export_aggregation_results_summary_schemas(tmp_path) -> None:
     assert list(shortfall.columns) == list(expected_shortfall_frame_schema())
 
 
+def test_export_summary_quantiles_columns_for_multiple_quantiles(tmp_path) -> None:
+    results_frame = _sample_results_frame()
+
+    aggregation = aggregate_monte_carlo_results(
+        results_frame,
+        quantiles=[0.05, 0.5, 0.95],
+        breach_spec={"metric": [2.5]},
+        expected_shortfall_spec={"metric": 0.5},
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+    summary_quantiles = pd.read_csv(exported["summary_quantiles_csv"])
+
+    assert list(summary_quantiles.columns) == ["strategy", "fold", "metric", "q05", "q50", "q95"]
+
+
 def test_export_aggregation_results_reorders_empty_frames(tmp_path) -> None:
     path_frame = pd.DataFrame(columns=["metric", "fold", "path", "strategy"])
     quantiles_frame = pd.DataFrame(columns=list(QUANTILE_COLUMNS)[::-1])
