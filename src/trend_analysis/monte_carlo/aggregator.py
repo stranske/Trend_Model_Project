@@ -250,7 +250,8 @@ def build_quantiles_frame(
                         "paths": int(values.size),
                     }
                 )
-    return pd.DataFrame(rows, columns=list(schema))
+    frame = pd.DataFrame(rows, columns=list(schema))
+    return _sort_frame(frame, ("strategy", "fold", "metric", "quantile"))
 
 
 def build_breach_frame(
@@ -295,7 +296,8 @@ def build_breach_frame(
                         "paths": total,
                     }
                 )
-    return pd.DataFrame(rows, columns=list(schema))
+    frame = pd.DataFrame(rows, columns=list(schema))
+    return _sort_frame(frame, ("strategy", "fold", "metric", "threshold", "direction"))
 
 
 def build_expected_shortfall_frame(
@@ -355,7 +357,8 @@ def build_expected_shortfall_frame(
                     "paths": total,
                 }
             )
-    return pd.DataFrame(rows, columns=list(schema))
+    frame = pd.DataFrame(rows, columns=list(schema))
+    return _sort_frame(frame, ("strategy", "fold", "metric", "tail", "alpha"))
 
 
 def _metric_columns(results_frame: pd.DataFrame) -> list[str]:
@@ -409,6 +412,12 @@ def _is_numeric_like(series: pd.Series) -> bool:
 def _numeric_values(series: pd.Series) -> np.ndarray:
     numeric = pd.to_numeric(series, errors="coerce")
     return cast(np.ndarray, numeric.to_numpy(dtype=float))
+
+
+def _sort_frame(frame: pd.DataFrame, sort_columns: Sequence[str]) -> pd.DataFrame:
+    if frame.empty:
+        return frame
+    return frame.sort_values(list(sort_columns), kind="mergesort").reset_index(drop=True)
 
 
 def _coerce_quantiles(quantiles: Sequence[float] | None) -> list[float]:
