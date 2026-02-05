@@ -627,6 +627,27 @@ def test_export_aggregation_results_path_summary_schema(tmp_path) -> None:
     assert list(path_summary.columns) == list(AGGREGATION_PATH_COLUMNS) + ["metric", "metric2"]
 
 
+def test_export_aggregation_results_path_summary_schema_without_metrics(tmp_path) -> None:
+    results_frame = pd.DataFrame(
+        [
+            {"strategy": "A", "path": 1, "fold": 0, "note": "x"},
+            {"strategy": "A", "path": 2, "fold": 0, "note": "y"},
+        ]
+    )
+
+    aggregation = aggregate_monte_carlo_results(
+        results_frame,
+        quantiles=[0.5],
+        breach_spec={"metric": [2.5]},
+        expected_shortfall_spec={"metric": 0.5},
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+    path_summary = pd.read_csv(exported["path_summary_csv"])
+
+    assert list(path_summary.columns) == list(AGGREGATION_PATH_COLUMNS)
+
+
 def test_export_aggregation_results_summary_schemas(tmp_path) -> None:
     results_frame = _sample_results_frame()
 
