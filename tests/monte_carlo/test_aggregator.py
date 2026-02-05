@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -1985,6 +1986,34 @@ def test_export_summary_quantiles_uses_fold_when_fold_id_missing(tmp_path) -> No
 
     assert list(summary_quantiles.columns) == ["strategy", "fold", "metric", "q50"]
     assert summary_quantiles.loc[0, "fold"] == 2
+
+
+def test_export_summary_quantiles_prefers_fold_when_fold_id_all_nan(tmp_path) -> None:
+    quantiles_frame = pd.DataFrame(
+        [
+            {
+                "strategy": "A",
+                "fold_id": np.nan,
+                "fold": 7,
+                "metric": "metric",
+                "quantile": 0.5,
+                "value": 1.5,
+                "paths": 3,
+            }
+        ]
+    )
+    aggregation = MonteCarloAggregationResults(
+        path_frame=pd.DataFrame(columns=list(AGGREGATION_PATH_COLUMNS)),
+        quantiles_frame=quantiles_frame,
+        breach_frame=pd.DataFrame(columns=list(BREACH_COLUMNS)),
+        expected_shortfall_frame=pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS)),
+    )
+
+    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
+    summary_quantiles = pd.read_csv(exported["summary_quantiles_csv"])
+
+    assert list(summary_quantiles.columns) == ["strategy", "fold", "metric", "q50"]
+    assert summary_quantiles.loc[0, "fold"] == 7
 
 
 def test_export_summary_quantiles_drops_nan_quantiles(tmp_path) -> None:
