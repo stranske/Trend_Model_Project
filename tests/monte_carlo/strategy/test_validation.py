@@ -117,6 +117,40 @@ def test_validate_strategy_pack_hf_equity_curated_validates_each_strategy_schema
     assert base_config == base_snapshot
 
 
+def test_validate_strategy_pack_hf_equity_curated_schema_validation_preserves_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base_config_path = Path("config/defaults.yml")
+    before_text = base_config_path.read_text(encoding="utf-8")
+    base_config = yaml.safe_load(before_text)
+    base_snapshot = deepcopy(base_config)
+
+    pack_path = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
+    payload = yaml.safe_load(pack_path.read_text(encoding="utf-8"))
+    curated = payload.get("curated")
+    assert isinstance(curated, list)
+
+    schema = validation_module.load_schema()
+    calls: list[dict[str, object]] = []
+    real_validate = validation_module.validate_config_data
+
+    def _validate_config_data(config: dict[str, object], call_schema: dict[str, object]) -> list[str]:
+        calls.append(config)
+        assert call_schema is schema
+        return real_validate(config, call_schema)
+
+    monkeypatch.setattr(validation_module, "load_schema", lambda: schema)
+    monkeypatch.setattr(validation_module, "validate_config_data", _validate_config_data)
+
+    errors = validate_strategy_pack(pack_path, base_config_path=base_config_path)
+    after_text = base_config_path.read_text(encoding="utf-8")
+
+    assert errors == []
+    assert len(calls) == len(curated)
+    assert after_text == before_text
+    assert base_config == base_snapshot
+
+
 def test_validate_strategy_pack_hf_equity_curated_schema_and_defaults_round_trip_validation() -> (
     None
 ):
