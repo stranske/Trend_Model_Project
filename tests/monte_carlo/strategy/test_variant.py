@@ -369,6 +369,44 @@ def test_to_trend_config_uses_defaults_without_mutation_when_weighting_overrides
     assert base_config["portfolio"]["weighting"]["name"] == "score_prop_bayes"
 
 
+def test_to_trend_config_weighting_scheme_and_name_preserve_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    defaults_path = Path("config/defaults.yml")
+    base_config = yaml.safe_load(defaults_path.read_text(encoding="utf-8"))
+    base_snapshot = deepcopy(base_config)
+    variant = StrategyVariant(
+        name="DefaultsSchemeName",
+        overrides={
+            "portfolio": {
+                "weighting_scheme": "risk_parity",
+                "weighting": {"name": "score_prop"},
+            }
+        },
+    )
+
+    captured: dict[str, object] = {}
+    real_validate = validate_trend_config
+
+    def _wrapped(data: dict[str, object], *, base_path: Path) -> object:
+        captured.update(data)
+        return real_validate(data, base_path=base_path)
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.strategy.variant.validate_trend_config", _wrapped
+    )
+
+    cfg = variant.to_trend_config(base_config, base_path=defaults_path.parent)
+
+    assert cfg.portfolio.rebalance_calendar == base_config["portfolio"]["rebalance_calendar"]
+    assert captured["portfolio"]["weighting_scheme"] == "risk_parity"
+    assert captured["portfolio"]["weighting"]["name"] == "score_prop"
+    assert captured["portfolio"]["weighting"]["params"]["shrink_tau"] == 0.25
+    assert base_config == base_snapshot
+    assert base_config["portfolio"]["weighting_scheme"] == "equal"
+    assert base_config["portfolio"]["weighting"]["name"] == "score_prop_bayes"
+
+
 def test_to_trend_config_allows_only_weighting_scheme_override(tmp_path: Path) -> None:
     base = _base_config(tmp_path)
     variant = StrategyVariant(
