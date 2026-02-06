@@ -1000,13 +1000,18 @@ def _cached_llm_client(
     show_spinner=False,
     hash_funcs={dict: _hash_cache_key, _ApiKeySecret: _hash_api_key_secret},
 )
-def _cached_config_patch_chain(
+def _cached_config_patch_chain_resource(
     session_cache_key: str,
-    chain_cache_key: Mapping[str, Any],
+    provider: str,
+    model: str,
+    temperature: float,
+    base_url: str | None,
+    organization: str | None,
     llm_cache_key: Mapping[str, Any],
     api_key_secret: _ApiKeySecret | None,
     extra_payload: str,
 ) -> ConfigPatchChain:
+    """Cache the NL chain per session and provider/model/temperature."""
     llm = _cached_llm_client(
         session_cache_key,
         llm_cache_key,
@@ -1018,8 +1023,28 @@ def _cached_config_patch_chain(
         llm=llm,
         schema=schema,
         prompt_builder=build_config_patch_prompt,
-        temperature=float(chain_cache_key.get("temperature") or 0.0),
+        temperature=float(temperature or 0.0),
+        model=str(model),
+    )
+
+
+def _cached_config_patch_chain(
+    session_cache_key: str,
+    chain_cache_key: Mapping[str, Any],
+    llm_cache_key: Mapping[str, Any],
+    api_key_secret: _ApiKeySecret | None,
+    extra_payload: str,
+) -> ConfigPatchChain:
+    return _cached_config_patch_chain_resource(
+        session_cache_key=session_cache_key,
+        provider=str(chain_cache_key.get("provider") or "openai"),
         model=str(chain_cache_key.get("model")),
+        temperature=float(chain_cache_key.get("temperature") or 0.0),
+        base_url=chain_cache_key.get("base_url"),
+        organization=chain_cache_key.get("organization"),
+        llm_cache_key=llm_cache_key,
+        api_key_secret=api_key_secret,
+        extra_payload=extra_payload,
     )
 
 
