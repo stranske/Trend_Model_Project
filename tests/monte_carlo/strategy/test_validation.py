@@ -175,6 +175,7 @@ def test_validate_strategy_pack_hf_equity_curated_validates_each_strategy_and_pr
 ) -> None:
     base_config_path = Path("config/defaults.yml")
     before_text = base_config_path.read_text(encoding="utf-8")
+    before_config = yaml.safe_load(before_text)
 
     pack_path = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
     payload = yaml.safe_load(pack_path.read_text(encoding="utf-8"))
@@ -192,10 +193,12 @@ def test_validate_strategy_pack_hf_equity_curated_validates_each_strategy_and_pr
 
     errors = validate_strategy_pack(pack_path, base_config_path=base_config_path)
     after_text = base_config_path.read_text(encoding="utf-8")
+    after_config = yaml.safe_load(after_text)
 
     assert errors == []
     assert call_count["count"] == len(curated)
     assert after_text == before_text
+    assert after_config == before_config
 
 
 def test_validate_strategy_pack_reports_base_config_mutation(
