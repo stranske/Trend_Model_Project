@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Add a Results-page UI component that accepts a question and calls ResultSummaryChain
       with the current analysis output and metric catalog.
-    status: doing
+    status: done
     started_at: '2026-02-06T21:50:34Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-06T21:50:46Z'
+    commit: 47806971f218aecfc9a0d495905e1630ac1db564
     notes: []
   - id: task-02
     title: 'Define scope for: Add a Results-page UI component that accepts a question
