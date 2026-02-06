@@ -161,12 +161,17 @@ def _chain_resource_signature(
     return _chain_cache_signature({"chain": dict(chain_cache_key), "llm": dict(llm_cache_key)})
 
 
-def _chain_cache_summary(cache_key: Mapping[str, Any]) -> str:
+def _chain_cache_summary(
+    cache_key: Mapping[str, Any],
+    *,
+    base_url: str | None = None,
+    organization: str | None = None,
+) -> str:
     provider = cache_key.get("provider") or "default"
     model = cache_key.get("model") or "default"
     temperature = cache_key.get("temperature")
-    base_url = cache_key.get("base_url")
-    organization = cache_key.get("organization")
+    base_url = base_url or cache_key.get("base_url")
+    organization = organization or cache_key.get("organization")
     summary = f"{provider}:{model}@{_format_value(temperature)}"
     if base_url:
         summary = f"{summary} | base_url={base_url}"
@@ -179,16 +184,12 @@ def _build_chain_cache_key(
     *,
     provider: str,
     model: str,
-    base_url: str | None,
-    organization: str | None,
     temperature: float,
 ) -> dict[str, Any]:
     return {
         "cache_version": _CONFIG_CHAIN_CACHE_VERSION,
         "provider": provider,
         "model": model,
-        "base_url": base_url,
-        "organization": organization,
         "temperature": temperature,
     }
 
@@ -1161,8 +1162,6 @@ def _build_chain_cache_context_from_config(
     cache_key = _build_chain_cache_key(
         provider=provider,
         model=resolved_model,
-        base_url=base_url,
-        organization=organization,
         temperature=temperature,
     )
     return {
@@ -1188,9 +1187,8 @@ def _build_chain_cache_context() -> dict[str, Any]:
 def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     config = _resolve_llm_provider_config()
     temperature = _resolve_llm_temperature()
-    snapshot_changes = _maybe_reset_config_chat_cache(
-        _build_chain_settings_snapshot(config, temperature)
-    )
+    settings_snapshot = _build_chain_settings_snapshot(config, temperature)
+    snapshot_changes = _maybe_reset_config_chat_cache(settings_snapshot)
     context = _build_chain_cache_context_from_config(config, temperature)
     api_key = context["api_key"]
     api_key_fingerprint = context["api_key_fingerprint"]
@@ -1199,21 +1197,28 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     cache_key = context["cache_key"]
     cache_state = _get_chain_cache_state()
     signature = _chain_cache_signature(cache_key)
+    settings_signature = _chain_cache_signature(settings_snapshot)
     resource_signature = _chain_resource_signature(cache_key, llm_cache_key)
-    previous_signature = cache_state.get("last_signature")
+    previous_settings_signature = cache_state.get("last_settings_signature")
     previous_resource_signature = cache_state.get("last_resource_signature")
-    settings_changed = bool(previous_signature and previous_signature != signature)
-    previous_cache_key = cache_state.get("last_cache_key")
+    settings_changed = bool(
+        previous_settings_signature and previous_settings_signature != settings_signature
+    )
+    previous_settings_snapshot = cache_state.get("last_settings_snapshot")
     previous_llm_cache_key = cache_state.get("last_llm_cache_key")
-    changed_fields = _cache_key_changes(previous_cache_key, cache_key, _CONFIG_CHAIN_CORE_FIELDS)
+    changed_fields = _cache_key_changes(
+        previous_settings_snapshot,
+        settings_snapshot,
+        _CONFIG_CHAIN_CORE_FIELDS,
+    )
     llm_changed_fields = _cache_key_changes(
         previous_llm_cache_key,
         llm_cache_key,
         _CONFIG_CHAIN_LLM_FIELDS,
     )
     invalidation_fields = _cache_key_changes(
-        previous_cache_key,
-        cache_key,
+        previous_settings_snapshot,
+        settings_snapshot,
         _CONFIG_CHAIN_REBUILD_FIELDS,
     )
     if snapshot_changes:
@@ -1266,8 +1271,10 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
             cache_miss_reason = "first_build"
     entries[signature] = id(chain)
     cache_state["last_signature"] = signature
+    cache_state["last_settings_signature"] = settings_signature
     cache_state["last_resource_signature"] = resource_signature
     cache_state["last_cache_key"] = cache_key
+    cache_state["last_settings_snapshot"] = settings_snapshot
     cache_state["last_llm_cache_key"] = llm_cache_key
     cache_state["last_chain_id"] = id(chain)
     st.session_state["config_chat_chain_key"] = cache_key
@@ -1277,7 +1284,11 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         "chain_cache_key": cache_key,
         "chain_cache_signature": signature,
         "chain_resource_signature": resource_signature,
-        "chain_cache_summary": _chain_cache_summary(cache_key),
+        "chain_cache_summary": _chain_cache_summary(
+            cache_key,
+            base_url=context.get("base_url"),
+            organization=context.get("organization"),
+        ),
         "chain_cache_miss_reason": cache_miss_reason,
         "chain_cache_invalidation_fields": invalidation_fields,
         "chain_settings_changed": settings_changed,
