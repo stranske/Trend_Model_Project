@@ -464,6 +464,27 @@ def test_build_nl_chain_invalidates_on_temperature_change(
     assert "config_chat_last_instruction" not in stub.session_state
 
 
+def test_current_chain_settings_snapshot_uses_resolved_env(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    monkeypatch.setenv("TREND_LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("TREND_LLM_MODEL", "claude-3-haiku")
+    monkeypatch.setenv("TREND_LLM_BASE_URL", "https://api.example")
+    monkeypatch.setenv("TREND_LLM_ORG", "org-x")
+    monkeypatch.setenv("TREND_LLM_TEMPERATURE", "0.35")
+
+    snapshot = model_module._current_chain_settings_snapshot()
+
+    assert snapshot["provider"] == "anthropic"
+    assert snapshot["model"] == "claude-3-haiku"
+    assert snapshot["base_url"] == "https://api.example"
+    assert snapshot["organization"] == "org-x"
+    assert snapshot["temperature"] == pytest.approx(0.35)
+
+
 def test_record_preview_timing_tracks_chain_reuse(model_module: ModuleType) -> None:
     stub = model_module.st
     stub.session_state.clear()

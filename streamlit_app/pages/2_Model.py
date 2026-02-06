@@ -813,12 +813,12 @@ def _resolve_llm_session_overrides() -> dict[str, str | None]:
 
 
 def _current_chain_settings_snapshot() -> dict[str, Any]:
-    overrides = _resolve_llm_session_overrides()
+    config = _resolve_llm_provider_config()
     return {
-        "provider": overrides.get("provider"),
-        "model": overrides.get("model"),
-        "base_url": overrides.get("base_url"),
-        "organization": overrides.get("organization"),
+        "provider": _normalize_cache_str(config.provider),
+        "model": _normalize_cache_str(config.model),
+        "base_url": _normalize_cache_str(config.base_url),
+        "organization": _normalize_cache_str(config.organization),
         "temperature": _normalize_temperature(_resolve_llm_temperature()),
     }
 
