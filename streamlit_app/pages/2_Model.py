@@ -947,6 +947,11 @@ def _maybe_reset_config_chat_cache(snapshot: Mapping[str, Any]) -> list[str]:
     st.session_state.pop(_CONFIG_CHAIN_METRICS_KEY, None)
     st.session_state.pop(_CONFIG_CHAIN_STATS_KEY, None)
     st.session_state[_CONFIG_CHAIN_STATE_KEY] = {"entries": {}}
+    try:
+        _cached_config_patch_chain.clear()
+        _cached_llm_client.clear()
+    except Exception as exc:
+        _LOGGER.warning("Unable to clear config chat caches: %s", exc)
     _LOGGER.info(
         "Config chat cache reset due to settings change: %s -> %s",
         previous_normalized,
