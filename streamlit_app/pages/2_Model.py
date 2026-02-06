@@ -95,6 +95,7 @@ _LLM_PROVIDER_OVERRIDE_KEY = "llm_provider_override"
 _LLM_MODEL_OVERRIDE_KEY = "llm_model_override"
 _LLM_BASE_URL_OVERRIDE_KEY = "llm_base_url_override"
 _LLM_ORG_OVERRIDE_KEY = "llm_org_override"
+_LLM_TEMPERATURE_OVERRIDE_KEY = "llm_temperature_override"
 _LLM_OVERRIDE_SNAPSHOT_KEY = "llm_override_snapshot"
 
 
@@ -762,6 +763,14 @@ def _resolve_llm_provider_config() -> LLMProviderConfig:
 
 
 def _resolve_llm_temperature() -> float:
+    override = st.session_state.get(_LLM_TEMPERATURE_OVERRIDE_KEY)
+    if override is not None:
+        override_text = str(override).strip()
+        if override_text:
+            try:
+                return float(override_text)
+            except (TypeError, ValueError):
+                pass
     raw = os.environ.get("TREND_LLM_TEMPERATURE")
     if raw is None:
         return 0.0
@@ -897,6 +906,16 @@ def _render_llm_session_overrides_panel() -> None:
             key=_LLM_ORG_OVERRIDE_KEY,
             help="Overrides TREND_LLM_ORG for this session only.",
         )
+        temp_override = st.text_input(
+            "Temperature (optional)",
+            key=_LLM_TEMPERATURE_OVERRIDE_KEY,
+            help="Overrides TREND_LLM_TEMPERATURE for this session only.",
+        )
+        if temp_override:
+            try:
+                float(temp_override)
+            except (TypeError, ValueError):
+                st.warning("Temperature override must be a number; using env default.")
         _maybe_reset_config_chat_cache(_current_chain_settings_snapshot())
         resolved_provider = _resolve_llm_provider_config().provider
         if resolved_provider == "ollama":
