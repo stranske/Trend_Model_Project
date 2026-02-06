@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import difflib
 import hashlib
 import html
@@ -1666,7 +1667,12 @@ def render_config_chat_panel(
     """Render the Config Chat panel for natural-language config tweaks."""
 
     if location == "sidebar":
-        with st.sidebar:
+        sidebar_ctx = st.sidebar
+        if not (
+            hasattr(sidebar_ctx, "__enter__") and hasattr(sidebar_ctx, "__exit__")
+        ):
+            sidebar_ctx = contextlib.nullcontext()
+        with sidebar_ctx:
             _render_llm_session_overrides_panel()
             with st.expander("💬 Config Chat", expanded=False):
                 _render_config_chat_contents(model_state)
@@ -4001,4 +4007,14 @@ def render_model_page() -> None:
                 st.success("✅ Model configuration saved. Go to Results to run analysis.")
 
 
-render_model_page()
+def _should_auto_render() -> bool:
+    """Return True when running inside an active Streamlit session."""
+    try:
+        from streamlit.runtime.scriptrunner import get_script_run_ctx
+    except Exception:
+        return False
+    return get_script_run_ctx() is not None
+
+
+if _should_auto_render():
+    render_model_page()

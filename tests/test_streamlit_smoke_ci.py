@@ -384,7 +384,7 @@ def test_end_to_end_analysis_simulation(demo_data, demo_config):
     print("🎉 End-to-end analysis simulation completed successfully")
 
 
-def test_run_page_imports_successfully():
+def test_run_page_imports_successfully(monkeypatch: pytest.MonkeyPatch):
     """Test that the Results page can be imported without errors."""
     run_page_path = Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
 
@@ -396,20 +396,26 @@ def test_run_page_imports_successfully():
     from unittest.mock import Mock
 
     # Mock streamlit before importing
-    sys.modules["streamlit"] = Mock()
+    monkeypatch.setitem(sys.modules, "streamlit", Mock())
+    existing_streamlit_app = {name for name in sys.modules if name.startswith("streamlit_app")}
 
     spec = importlib.util.spec_from_file_location("results_page", run_page_path)
     assert spec is not None and spec.loader is not None
     results_page = importlib.util.module_from_spec(spec)
 
-    # Should not raise any import errors
-    spec.loader.exec_module(results_page)
+    try:
+        # Should not raise any import errors
+        spec.loader.exec_module(results_page)
 
-    # Check that key functions exist
-    assert hasattr(results_page, "_analysis_error_messages")
-    assert hasattr(results_page, "render_results_page")
+        # Check that key functions exist
+        assert hasattr(results_page, "_analysis_error_messages")
+        assert hasattr(results_page, "render_results_page")
 
-    print("✅ Results page imports successfully")
+        print("✅ Results page imports successfully")
+    finally:
+        for name in list(sys.modules):
+            if name.startswith("streamlit_app") and name not in existing_streamlit_app:
+                sys.modules.pop(name, None)
 
 
 if __name__ == "__main__":
