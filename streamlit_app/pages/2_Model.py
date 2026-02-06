@@ -831,15 +831,16 @@ def _current_chain_settings_snapshot() -> dict[str, Any]:
     return _build_chain_settings_snapshot(config, temperature)
 
 
-def _maybe_reset_config_chat_cache(snapshot: Mapping[str, Any]) -> None:
+def _maybe_reset_config_chat_cache(snapshot: Mapping[str, Any]) -> list[str]:
     previous = st.session_state.get(_LLM_OVERRIDE_SNAPSHOT_KEY)
     normalized = dict(snapshot)
     if not isinstance(previous, Mapping):
         st.session_state[_LLM_OVERRIDE_SNAPSHOT_KEY] = normalized
-        return
+        return []
     previous_normalized = {key: previous.get(key) for key in normalized}
     if previous_normalized == normalized:
-        return
+        return []
+    changed_fields = [key for key in normalized if previous_normalized.get(key) != normalized.get(key)]
     st.session_state[_LLM_OVERRIDE_SNAPSHOT_KEY] = normalized
     st.session_state.pop("config_chat_preview", None)
     st.session_state.pop("config_chat_last_instruction", None)
@@ -851,6 +852,7 @@ def _maybe_reset_config_chat_cache(snapshot: Mapping[str, Any]) -> None:
         previous_normalized,
         normalized,
     )
+    return changed_fields
 
 
 def _llm_env_var_hints(provider: str) -> list[str]:
@@ -1082,7 +1084,9 @@ def _build_chain_cache_context() -> dict[str, Any]:
 def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     config = _resolve_llm_provider_config()
     temperature = _resolve_llm_temperature()
-    _maybe_reset_config_chat_cache(_build_chain_settings_snapshot(config, temperature))
+    snapshot_changes = _maybe_reset_config_chat_cache(
+        _build_chain_settings_snapshot(config, temperature)
+    )
     context = _build_chain_cache_context_from_config(config, temperature)
     api_key = context["api_key"]
     api_key_fingerprint = context["api_key_fingerprint"]
@@ -1108,6 +1112,11 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         cache_key,
         _CONFIG_CHAIN_REBUILD_FIELDS,
     )
+    if snapshot_changes:
+        if invalidation_fields:
+            invalidation_fields = list(dict.fromkeys((*invalidation_fields, *snapshot_changes)))
+        else:
+            invalidation_fields = list(snapshot_changes)
     resource_changed = bool(
         previous_resource_signature and previous_resource_signature != resource_signature
     )
