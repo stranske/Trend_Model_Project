@@ -146,6 +146,40 @@ def test_to_trend_config_accepts_weighting_scheme_and_name(
     assert captured["portfolio"]["weighting"]["name"] == "score_prop_bayes"
 
 
+def test_to_trend_config_applies_weighting_scheme_and_name_without_mutation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base = _base_config(tmp_path)
+    base_snapshot = deepcopy(base)
+    variant = StrategyVariant(
+        name="SchemeNameApply",
+        overrides={
+            "portfolio": {
+                "weighting_scheme": "robust_mv",
+                "weighting": {"name": "score_prop"},
+            }
+        },
+    )
+
+    captured: dict[str, object] = {}
+    real_validate = validate_trend_config
+
+    def _wrapped(data: dict[str, object], *, base_path: Path) -> object:
+        captured.update(data)
+        return real_validate(data, base_path=base_path)
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.strategy.variant.validate_trend_config", _wrapped
+    )
+
+    cfg = variant.to_trend_config(base, base_path=tmp_path)
+
+    assert cfg.portfolio.max_turnover == 0.5
+    assert captured["portfolio"]["weighting_scheme"] == "robust_mv"
+    assert captured["portfolio"]["weighting"]["name"] == "score_prop"
+    assert base == base_snapshot
+
+
 def test_to_trend_config_merges_weighting_scheme_name_and_params(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
