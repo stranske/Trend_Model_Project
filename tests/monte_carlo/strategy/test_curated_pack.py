@@ -64,7 +64,8 @@ def test_hf_equity_curated_strategies_do_not_mutate_defaults() -> None:
 
 def test_hf_equity_curated_to_trend_config_does_not_mutate_defaults() -> None:
     base_path = Path("config/defaults.yml")
-    base_config = yaml.safe_load(base_path.read_text(encoding="utf-8"))
+    before_text = base_path.read_text(encoding="utf-8")
+    base_config = yaml.safe_load(before_text)
     base_snapshot = deepcopy(base_config)
 
     strategy_path = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
@@ -84,6 +85,9 @@ def test_hf_equity_curated_to_trend_config_does_not_mutate_defaults() -> None:
         validated = variant.to_trend_config(base_config, base_path=base_path.parent)
         assert isinstance(validated, TrendConfig)
         assert base_config == base_snapshot
+
+    after_text = base_path.read_text(encoding="utf-8")
+    assert after_text == before_text
 
 
 def test_hf_equity_curated_strategies_compatible_with_strategy_guards() -> None:
