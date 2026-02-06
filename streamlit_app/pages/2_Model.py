@@ -1161,8 +1161,6 @@ def _build_chain_cache_context_from_config(
         base_url=base_url,
         organization=organization,
         temperature=temperature,
-        base_url=base_url,
-        organization=organization,
     )
     return {
         "provider": provider,
