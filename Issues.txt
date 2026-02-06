@@ -48,15 +48,15 @@ This does not enable tool access beyond the existing analysis outputs.
 
 ## Tasks
 
-- [ ] Add a Results-page UI component that accepts a question and calls ResultSummaryChain with the current analysis output and metric catalog.
-- [ ] Display returned explanation text and show LangSmith trace URL when available.
-- [ ] Ensure existing disclaimer behavior is preserved for all generated explanations.
+- [x] Add a Results-page UI component that accepts a question and calls ResultSummaryChain with the current analysis output and metric catalog.
+- [x] Display returned explanation text and show LangSmith trace URL when available.
+- [x] Ensure existing disclaimer behavior is preserved for all generated explanations.
 
 ## Acceptance Criteria
 
-- [ ] The Results page can answer user questions using ResultSummaryChain for an existing analysis run.
-- [ ] The displayed output always includes the configured disclaimer behavior.
-- [ ] When tracing is enabled, the UI surfaces the trace URL for the operation.
+- [x] The Results page can answer user questions using ResultSummaryChain for an existing analysis run.
+- [x] The displayed output always includes the configured disclaimer behavior.
+- [x] When tracing is enabled, the UI surfaces the trace URL for the operation.
 
 ## Implementation Notes
 

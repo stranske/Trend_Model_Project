@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from trend_analysis.llm import ResultClaimIssue, ResultSummaryResponse
+from trend_analysis.llm import RESULT_DISCLAIMER, ResultClaimIssue, ResultSummaryResponse
 
 
 @dataclass
@@ -193,7 +193,8 @@ def test_render_explain_results_uses_cached_result(explain_module) -> None:
 
     explain_module.render_explain_results(result, run_key=run_key)
 
-    st_stub.markdown.assert_any_call("Cached output")
+    expected_text = f"Cached output\n\n{RESULT_DISCLAIMER}"
+    st_stub.markdown.assert_any_call(expected_text)
 
 
 def test_render_explain_results_downloads_include_json_payload(explain_module) -> None:
@@ -273,7 +274,45 @@ def test_render_explain_results_downloads_include_text(explain_module) -> None:
     txt_call = next(
         call for call in calls if call.kwargs.get("file_name") == "explanation_run-001.txt"
     )
-    assert txt_call.kwargs["data"] == "Cached output"
+    assert txt_call.kwargs["data"] == f"Cached output\n\n{RESULT_DISCLAIMER}"
+
+
+def test_render_explain_results_appends_disclaimer_for_display(explain_module) -> None:
+    st_stub = sys.modules["streamlit"]
+    st_stub.button.return_value = False
+
+    col_one = MagicMock()
+    col_one.__enter__.return_value = col_one
+    col_one.__exit__.return_value = False
+    col_two = MagicMock()
+    col_two.__enter__.return_value = col_two
+    col_two.__exit__.return_value = False
+    st_stub.columns.return_value = [col_one, col_two]
+
+    run_key = "run:disclaimer"
+    cached = explain_module.ExplanationResult(
+        text="Cached output",
+        trace_url=None,
+        claim_issues=[],
+        metric_count=1,
+        created_at="2024-01-01T00:00:00+00:00",
+    )
+    st_stub.session_state[explain_module._CACHE_KEY] = {run_key: cached}
+
+    details = {"run_id": "run-002"}
+    result = SimpleNamespace(details=details)
+
+    explain_module.render_explain_results(result, run_key=run_key)
+
+    expected_text = f"Cached output\n\n{RESULT_DISCLAIMER}"
+    st_stub.markdown.assert_any_call(expected_text)
+
+    txt_call = next(
+        call
+        for call in st_stub.download_button.call_args_list
+        if call.kwargs.get("file_name") == "explanation_run-002.txt"
+    )
+    assert txt_call.kwargs["data"] == expected_text
 
 
 def test_render_explain_results_handles_missing_details(explain_module) -> None:
