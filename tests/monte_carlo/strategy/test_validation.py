@@ -75,17 +75,20 @@ def test_validate_strategy_pack_hf_equity_curated_validates_each_strategy_schema
     curated = payload.get("curated")
     assert isinstance(curated, list)
 
+    schema = validation_module.load_schema()
+    monkeypatch.setattr(validation_module, "load_schema", lambda: schema)
+
     def _load_yaml_mapping(path: Path, label: str) -> dict[str, object]:
         if label == "base_config":
             return base_config
         assert path == pack_path
         return payload
 
-    calls: list[dict[str, object]] = []
+    calls: list[tuple[dict[str, object], dict[str, object]]] = []
     real_validate = validation_module.validate_config_data
 
     def _validate_config_data(config: dict[str, object], schema: dict[str, object]) -> list[str]:
-        calls.append(config)
+        calls.append((config, schema))
         return real_validate(config, schema)
 
     monkeypatch.setattr(validation_module, "_load_yaml_mapping", _load_yaml_mapping)
@@ -95,6 +98,7 @@ def test_validate_strategy_pack_hf_equity_curated_validates_each_strategy_schema
 
     assert errors == []
     assert len(calls) == len(curated)
+    assert all(call_schema is schema for _, call_schema in calls)
     assert base_config == base_snapshot
 
 
