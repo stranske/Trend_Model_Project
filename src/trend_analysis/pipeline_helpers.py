@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Mapping
+from typing import Any, Mapping, SupportsFloat, SupportsIndex, cast
 
 import numpy as np
 import pandas as pd
@@ -149,6 +149,18 @@ def _normalize_regime_key(value: Any) -> str | None:
     return re.sub(r"[^a-z0-9]+", "", text.casefold())
 
 
+def _coerce_float(value: object) -> float | None:
+    if isinstance(value, (int, float, str, bytes, bytearray)):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+    try:
+        return float(cast(SupportsFloat | SupportsIndex, value))
+    except (TypeError, ValueError):
+        return None
+
+
 def _resolve_regime_turnover_cap(
     max_turnover: object | None,
     regime_label: str | None,
@@ -157,10 +169,7 @@ def _resolve_regime_turnover_cap(
     if max_turnover is None:
         return None
     if not isinstance(max_turnover, Mapping):
-        try:
-            return float(max_turnover)
-        except (TypeError, ValueError):
-            return None
+        return _coerce_float(max_turnover)
 
     normalized: dict[str, object] = {}
     for key, value in max_turnover.items():
@@ -174,25 +183,16 @@ def _resolve_regime_turnover_cap(
     if regime_label:
         label_key = _normalize_regime_key(regime_label)
         if label_key and label_key in normalized:
-            try:
-                return float(normalized[label_key])
-            except (TypeError, ValueError):
-                return None
+            return _coerce_float(normalized[label_key])
 
     default_label = getattr(settings, "default_label", None)
     default_key = _normalize_regime_key(default_label)
     if default_key and default_key in normalized:
-        try:
-            return float(normalized[default_key])
-        except (TypeError, ValueError):
-            return None
+        return _coerce_float(normalized[default_key])
 
     for fallback in ("default", "all", "any"):
         if fallback in normalized:
-            try:
-                return float(normalized[fallback])
-            except (TypeError, ValueError):
-                return None
+            return _coerce_float(normalized[fallback])
     return None
 
 
