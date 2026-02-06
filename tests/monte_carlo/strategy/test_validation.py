@@ -164,7 +164,9 @@ def test_validate_strategy_pack_hf_equity_curated_schema_validation_preserves_de
     calls: list[dict[str, object]] = []
     real_validate = validation_module.validate_config_data
 
-    def _validate_config_data(config: dict[str, object], call_schema: dict[str, object]) -> list[str]:
+    def _validate_config_data(
+        config: dict[str, object], call_schema: dict[str, object]
+    ) -> list[str]:
         calls.append(config)
         assert call_schema is schema
         return real_validate(config, call_schema)
