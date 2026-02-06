@@ -84,9 +84,7 @@ def test_validate_strategy_pack_hf_equity_curated_validates_each_strategy_schema
     calls: list[dict[str, object]] = []
     real_validate = validation_module.validate_config_data
 
-    def _validate_config_data(
-        config: dict[str, object], schema: dict[str, object]
-    ) -> list[str]:
+    def _validate_config_data(config: dict[str, object], schema: dict[str, object]) -> list[str]:
         calls.append(config)
         return real_validate(config, schema)
 
