@@ -12,7 +12,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from trend_analysis.llm import RESULT_DISCLAIMER, ResultClaimIssue, ResultSummaryResponse
+from trend_analysis.llm import (
+    RESULT_DISCLAIMER,
+    ResultClaimIssue,
+    ResultSummaryResponse,
+)
 
 
 @dataclass
