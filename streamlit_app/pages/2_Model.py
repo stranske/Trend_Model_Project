@@ -1668,9 +1668,7 @@ def render_config_chat_panel(
 
     if location == "sidebar":
         sidebar_ctx = st.sidebar
-        if not (
-            hasattr(sidebar_ctx, "__enter__") and hasattr(sidebar_ctx, "__exit__")
-        ):
+        if not (hasattr(sidebar_ctx, "__enter__") and hasattr(sidebar_ctx, "__exit__")):
             sidebar_ctx = contextlib.nullcontext()
         with sidebar_ctx:
             _render_llm_session_overrides_panel()

@@ -43,7 +43,7 @@ def _run_command(
             text=True,
             timeout=timeout,
         )
-    except subprocess.TimeoutExpired as exc:
+    except subprocess.TimeoutExpired:
         timeout_hint = timeout if timeout is not None else "unknown"
         pytest.skip(f"Command timed out after {timeout_hint}s: {' '.join(cmd)}")
     if result.returncode not in ok_exit_codes:
