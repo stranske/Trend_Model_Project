@@ -840,7 +840,9 @@ def _maybe_reset_config_chat_cache(snapshot: Mapping[str, Any]) -> list[str]:
     previous_normalized = {key: previous.get(key) for key in normalized}
     if previous_normalized == normalized:
         return []
-    changed_fields = [key for key in normalized if previous_normalized.get(key) != normalized.get(key)]
+    changed_fields = [
+        key for key in normalized if previous_normalized.get(key) != normalized.get(key)
+    ]
     st.session_state[_LLM_OVERRIDE_SNAPSHOT_KEY] = normalized
     st.session_state.pop("config_chat_preview", None)
     st.session_state.pop("config_chat_last_instruction", None)
