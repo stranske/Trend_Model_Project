@@ -6,6 +6,7 @@ from pathlib import Path
 import yaml
 
 from trend_analysis.config.model import TrendConfig
+from trend_analysis.config.schema_validation import load_schema, validate_config_data
 from trend_analysis.monte_carlo.strategy import StrategyVariant
 
 
@@ -13,6 +14,7 @@ def test_hf_equity_curated_strategies_validate_against_schema() -> None:
     base_path = Path("config/defaults.yml")
     base_config = yaml.safe_load(base_path.read_text(encoding="utf-8"))
     baseline = deepcopy(base_config)
+    schema = load_schema()
 
     strategy_path = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
     payload = yaml.safe_load(strategy_path.read_text(encoding="utf-8"))
@@ -28,6 +30,10 @@ def test_hf_equity_curated_strategies_validate_against_schema() -> None:
             tags=entry.get("tags", ()),
             curated=True,
         )
+        working_copy = deepcopy(base_config)
+        merged = variant.apply_to(working_copy)
+        schema_errors = validate_config_data(merged, schema)
+        assert schema_errors == []
         validated = variant.to_trend_config(base_config, base_path=base_path.parent)
         assert isinstance(validated, TrendConfig)
         assert base_config == baseline
