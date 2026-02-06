@@ -1132,9 +1132,10 @@ def _build_chain_settings_snapshot(
     config: LLMProviderConfig,
     temperature: float,
 ) -> dict[str, Any]:
+    resolved_model = _normalize_cache_str(config.model) or _DEFAULT_CONFIG_CHAT_MODEL
     return {
         "provider": _normalize_cache_str(config.provider),
-        "model": _normalize_cache_str(config.model),
+        "model": resolved_model,
         "base_url": _normalize_cache_str(config.base_url),
         "organization": _normalize_cache_str(config.organization),
         "temperature": _normalize_temperature(temperature),
