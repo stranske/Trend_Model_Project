@@ -172,7 +172,8 @@ def test_render_explain_results_uses_cached_result(explain_module) -> None:
 
     explain_module.render_explain_results(result, run_key=run_key)
 
-    st_stub.markdown.assert_any_call("Cached output")
+    expected_text = explain_module.ensure_result_disclaimer("Cached output")
+    st_stub.markdown.assert_any_call(expected_text)
 
 
 def test_render_explain_results_downloads_include_json_payload(explain_module) -> None:
@@ -252,7 +253,8 @@ def test_render_explain_results_downloads_include_text(explain_module) -> None:
     txt_call = next(
         call for call in calls if call.kwargs.get("file_name") == "explanation_run-001.txt"
     )
-    assert txt_call.kwargs["data"] == "Cached output"
+    expected_text = explain_module.ensure_result_disclaimer("Cached output")
+    assert txt_call.kwargs["data"] == expected_text
 
 
 def test_render_explain_results_handles_missing_details(explain_module) -> None:

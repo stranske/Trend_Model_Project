@@ -305,7 +305,8 @@ def render_explain_results(
         st.info("Click Explain Results to generate a summary.")
         return
 
-    st.markdown(cached.text)
+    display_text = ensure_result_disclaimer(cached.text)
+    st.markdown(display_text)
     if cached.trace_url:
         st.caption(f"Trace URL: {cached.trace_url}")
 
@@ -320,7 +321,7 @@ def render_explain_results(
     artifact_payload = {
         "run_id": run_id,
         "created_at": cached.created_at,
-        "text": cached.text,
+        "text": display_text,
         "metric_count": cached.metric_count,
         "trace_url": cached.trace_url,
         "questions": questions_text,
@@ -331,7 +332,7 @@ def render_explain_results(
         with columns[0]:
             st.download_button(
                 "Download explanation (TXT)",
-                data=cached.text,
+                data=display_text,
                 file_name=f"explanation_{run_id}.txt",
                 mime="text/plain",
             )
@@ -345,7 +346,7 @@ def render_explain_results(
     else:
         st.download_button(
             "Download explanation (TXT)",
-            data=cached.text,
+            data=display_text,
             file_name=f"explanation_{run_id}.txt",
             mime="text/plain",
         )
