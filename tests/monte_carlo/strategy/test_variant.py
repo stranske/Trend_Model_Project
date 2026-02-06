@@ -496,6 +496,35 @@ def test_apply_to_allows_weighting_params_extension(tmp_path: Path) -> None:
     assert "obs_sigma" not in base["portfolio"]["weighting"]["params"]
 
 
+def test_apply_to_allows_weighting_params_extension_with_scheme_and_name(
+    tmp_path: Path,
+) -> None:
+    base = _base_config(tmp_path)
+    base_snapshot = deepcopy(base)
+    variant = StrategyVariant(
+        name="SchemeNameParams",
+        overrides={
+            "portfolio": {
+                "weighting_scheme": "risk_parity",
+                "weighting": {
+                    "name": "score_prop_bayes",
+                    "params": {"column": "Return", "half_life": 24, "obs_sigma": 0.2},
+                },
+            }
+        },
+    )
+
+    merged = variant.apply_to(base)
+
+    assert merged["portfolio"]["weighting_scheme"] == "risk_parity"
+    assert merged["portfolio"]["weighting"]["name"] == "score_prop_bayes"
+    assert merged["portfolio"]["weighting"]["params"]["column"] == "Return"
+    assert merged["portfolio"]["weighting"]["params"]["half_life"] == 24
+    assert merged["portfolio"]["weighting"]["params"]["obs_sigma"] == 0.2
+    assert merged["portfolio"]["weighting"]["params"]["shrink_tau"] == 0.25
+    assert base == base_snapshot
+
+
 def test_apply_to_allows_weighting_params_creation_for_curated(tmp_path: Path) -> None:
     base = _base_config(tmp_path)
     base["portfolio"]["weighting"].pop("params")
