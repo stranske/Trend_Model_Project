@@ -358,6 +358,24 @@ def _format_seconds(value: Any) -> str:
     return f"{numeric:.2f}s"
 
 
+def _preview_timing_summary(
+    timings: Mapping[str, Any] | None,
+    total_seconds: float | None = None,
+) -> str:
+    if not isinstance(timings, Mapping):
+        return "Preview timing unavailable."
+    cache_hit = "hit" if timings.get("chain_reused") else "miss"
+    build = _format_seconds(timings.get("chain_build_seconds"))
+    lookup = _format_seconds(timings.get("chain_lookup_seconds"))
+    run = _format_seconds(timings.get("run_seconds"))
+    total_value = total_seconds if total_seconds is not None else timings.get("total_seconds")
+    total = _format_seconds(total_value)
+    return (
+        "Preview timing: "
+        f"cache {cache_hit} | build {build} | lookup {lookup} | run {run} | total {total}"
+    )
+
+
 def _render_preview_timing_history() -> None:
     st.markdown("**Preview timings**")
     history = st.session_state.get(_CONFIG_PREVIEW_TIMINGS_KEY)
@@ -1259,6 +1277,10 @@ def _generate_preview_with_progress(
     if isinstance(timings, Mapping):
         timings["total_seconds"] = duration
     _record_preview_timing(result, duration)
+    st.session_state["config_chat_last_preview_summary"] = _preview_timing_summary(
+        timings if isinstance(timings, Mapping) else None,
+        total_seconds=duration,
+    )
     return result
 
 
@@ -1608,6 +1630,9 @@ def _render_config_change_history() -> None:
 def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
     st.caption("Describe the configuration change you want to try.")
     _render_last_preview_metrics()
+    last_summary = st.session_state.get("config_chat_last_preview_summary")
+    if isinstance(last_summary, str) and last_summary:
+        st.caption(last_summary)
     try:
         cache_context = _build_chain_cache_context()
     except Exception as exc:

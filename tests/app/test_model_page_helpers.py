@@ -560,6 +560,21 @@ def test_record_preview_timing_tracks_chain_reuse(model_module: ModuleType) -> N
     assert metrics["chain_reused"] is True
 
 
+def test_preview_timing_summary_reports_cache_hit(model_module: ModuleType) -> None:
+    summary = model_module._preview_timing_summary(
+        {
+            "chain_reused": True,
+            "chain_build_seconds": 0.4,
+            "chain_lookup_seconds": 0.05,
+            "run_seconds": 1.2,
+        },
+        total_seconds=1.7,
+    )
+
+    assert "cache hit" in summary
+    assert "total 1.70s" in summary
+
+
 def test_side_by_side_diff_renders_yaml(model_module: ModuleType) -> None:
     stub = model_module.st
     languages: list[str | None] = []
