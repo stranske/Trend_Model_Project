@@ -108,6 +108,14 @@ def _format_questions(raw: str | None) -> str:
     return "\n".join(f"- {line}" for line in lines)
 
 
+def _resolve_questions(raw: str | None) -> str:
+    if raw is None:
+        return DEFAULT_QUESTION
+    if isinstance(raw, str) and raw.strip():
+        return raw
+    return DEFAULT_QUESTION
+
+
 def _build_result_chain(
     provider: str | None = None,
     *,
@@ -142,8 +150,12 @@ def generate_result_explanation(
     organization: str | None = None,
 ) -> ExplanationResult:
     created_at = datetime.now(timezone.utc).isoformat()
+    effective_questions = _resolve_questions(questions)
     all_entries = extract_metric_catalog(details)
-    compacted_entries = compact_metric_catalog(all_entries, questions=questions)
+    compacted_entries = compact_metric_catalog(
+        all_entries,
+        questions=effective_questions,
+    )
     metric_catalog = format_metric_catalog(compacted_entries)
     if not all_entries:
         text = ensure_result_disclaimer("No metrics were detected in the analysis output.")
@@ -169,7 +181,7 @@ def generate_result_explanation(
     response: ResultSummaryResponse = chain.run(
         analysis_output=analysis_output,
         metric_catalog=metric_catalog,
-        questions=_format_questions(questions),
+        questions=_format_questions(effective_questions),
         request_id=uuid4().hex,
         metric_entries=all_entries,
     )
