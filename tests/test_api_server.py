@@ -5,29 +5,33 @@ import runpy
 import sys
 from types import SimpleNamespace
 
+import httpx
 import pytest
-from fastapi.testclient import TestClient
 
 from trend_analysis import api_server
 from trend_analysis.api_server import app
 
 
 @pytest.fixture
-def client():
+async def client():
     """Create a test client for the FastAPI app."""
-    return TestClient(app)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        yield client
 
 
-def test_health_endpoint(client):
+@pytest.mark.anyio
+async def test_health_endpoint(client):
     """Test the health check endpoint."""
-    response = client.get("/health")
+    response = await client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
 
-def test_root_endpoint(client):
+@pytest.mark.anyio
+async def test_root_endpoint(client):
     """Test the root endpoint."""
-    response = client.get("/")
+    response = await client.get("/")
     assert response.status_code == 200
     data = response.json()
     assert data["message"] == "Trend Analysis API"
@@ -36,31 +40,34 @@ def test_root_endpoint(client):
     assert "health" in data
 
 
-def test_lifespan_events(client):
+@pytest.mark.anyio
+async def test_lifespan_events(client):
     """Test that lifespan events are properly configured."""
     # The fact that the client can be created and used successfully
     # indicates that the lifespan context manager is working correctly
-    response = client.get("/health")
+    response = await client.get("/health")
     assert response.status_code == 200
 
     # Test that the app can handle multiple requests
-    response2 = client.get("/")
+    response2 = await client.get("/")
     assert response2.status_code == 200
 
 
-def test_api_docs_accessible(client):
+@pytest.mark.anyio
+async def test_api_docs_accessible(client):
     """Test that OpenAPI docs are accessible."""
-    response = client.get("/docs")
+    response = await client.get("/docs")
     assert response.status_code == 200
 
-    response = client.get("/redoc")
+    response = await client.get("/redoc")
     assert response.status_code == 200
 
-    response = client.get("/openapi.json")
+    response = await client.get("/openapi.json")
     assert response.status_code == 200
 
 
-def test_api_rejects_risky_patch_without_confirmation(client):
+@pytest.mark.anyio
+async def test_api_rejects_risky_patch_without_confirmation(client):
     payload = {
         "config": {"portfolio": {"max_turnover": 1.0}},
         "patch": {
@@ -72,13 +79,14 @@ def test_api_rejects_risky_patch_without_confirmation(client):
         },
     }
 
-    response = client.post("/config/patch", json=payload)
+    response = await client.post("/config/patch", json=payload)
 
     assert response.status_code == 400
     assert "Risky changes detected" in response.json()["detail"]
 
 
-def test_api_allows_risky_patch_with_confirmation(client):
+@pytest.mark.anyio
+async def test_api_allows_risky_patch_with_confirmation(client):
     payload = {
         "config": {"portfolio": {"max_turnover": 1.0}},
         "patch": {
@@ -91,7 +99,7 @@ def test_api_allows_risky_patch_with_confirmation(client):
         "confirm_risky": True,
     }
 
-    response = client.post("/config/patch", json=payload)
+    response = await client.post("/config/patch", json=payload)
 
     assert response.status_code == 200
     body = response.json()
@@ -99,7 +107,8 @@ def test_api_allows_risky_patch_with_confirmation(client):
     assert "portfolio" in body["config"]
 
 
-def test_api_guard_blocks_risky_patch_before_tool_layer(client, monkeypatch):
+@pytest.mark.anyio
+async def test_api_guard_blocks_risky_patch_before_tool_layer(client, monkeypatch):
     class DummyTool:
         def __init__(self) -> None:
             self.calls = 0
@@ -122,7 +131,7 @@ def test_api_guard_blocks_risky_patch_before_tool_layer(client, monkeypatch):
         },
     }
 
-    response = client.post("/config/patch", json=payload)
+    response = await client.post("/config/patch", json=payload)
 
     assert response.status_code == 400
     assert tool.calls == 0
@@ -130,7 +139,8 @@ def test_api_guard_blocks_risky_patch_before_tool_layer(client, monkeypatch):
 
 @pytest.mark.parametrize("endpoint", ["/config/patch", "/config/patch/preview"])
 @pytest.mark.parametrize("confirm_risky", ["true", 1, None, {}, []])
-def test_api_guard_rejects_malformed_confirmation(client, endpoint, confirm_risky):
+@pytest.mark.anyio
+async def test_api_guard_rejects_malformed_confirmation(client, endpoint, confirm_risky):
     payload = {
         "config": {"portfolio": {"max_turnover": 1.0}},
         "patch": {
@@ -143,14 +153,15 @@ def test_api_guard_rejects_malformed_confirmation(client, endpoint, confirm_risk
         "confirm_risky": confirm_risky,
     }
 
-    response = client.post(endpoint, json=payload)
+    response = await client.post(endpoint, json=payload)
 
     assert response.status_code == 400
     assert "confirm_risky" in response.json()["detail"]
 
 
 @pytest.mark.parametrize("endpoint", ["/config/patch", "/config/patch/preview"])
-def test_api_guard_rejects_unconfirmed_risky_patch(client, endpoint):
+@pytest.mark.anyio
+async def test_api_guard_rejects_unconfirmed_risky_patch(client, endpoint):
     payload = {
         "config": {"portfolio": {"max_turnover": 1.0}},
         "patch": {
@@ -163,13 +174,14 @@ def test_api_guard_rejects_unconfirmed_risky_patch(client, endpoint):
         "confirm_risky": False,
     }
 
-    response = client.post(endpoint, json=payload)
+    response = await client.post(endpoint, json=payload)
 
     assert response.status_code == 400
     assert "Risky changes detected" in response.json()["detail"]
 
 
-def test_api_rejects_unknown_key_review_without_confirmation(client):
+@pytest.mark.anyio
+async def test_api_rejects_unknown_key_review_without_confirmation(client):
     payload = {
         "config": {"analysis": {"top_n": 10}},
         "patch": {
@@ -182,7 +194,7 @@ def test_api_rejects_unknown_key_review_without_confirmation(client):
         },
     }
 
-    response = client.post("/config/patch", json=payload)
+    response = await client.post("/config/patch", json=payload)
 
     assert response.status_code == 400
     detail = response.json()["detail"]
@@ -190,7 +202,8 @@ def test_api_rejects_unknown_key_review_without_confirmation(client):
     assert "confirm_risky" in detail
 
 
-def test_api_allows_unknown_key_review_with_confirmation(client):
+@pytest.mark.anyio
+async def test_api_allows_unknown_key_review_with_confirmation(client):
     payload = {
         "config": {"analysis": {"top_n": 10}},
         "patch": {
@@ -204,7 +217,7 @@ def test_api_allows_unknown_key_review_with_confirmation(client):
         "confirm_risky": True,
     }
 
-    response = client.post("/config/patch", json=payload)
+    response = await client.post("/config/patch", json=payload)
 
     assert response.status_code == 200
     body = response.json()
@@ -212,7 +225,8 @@ def test_api_allows_unknown_key_review_with_confirmation(client):
     assert body["config"]["analysis"]["top_n"] == 12
 
 
-def test_api_preview_rejects_risky_patch_without_confirmation(client):
+@pytest.mark.anyio
+async def test_api_preview_rejects_risky_patch_without_confirmation(client):
     payload = {
         "config": {"portfolio": {"max_turnover": 1.0}},
         "patch": {
@@ -224,13 +238,14 @@ def test_api_preview_rejects_risky_patch_without_confirmation(client):
         },
     }
 
-    response = client.post("/config/patch/preview", json=payload)
+    response = await client.post("/config/patch/preview", json=payload)
 
     assert response.status_code == 400
     assert "Risky changes detected" in response.json()["detail"]
 
 
-def test_api_guard_blocks_preview_risky_patch_before_tool_layer(client, monkeypatch):
+@pytest.mark.anyio
+async def test_api_guard_blocks_preview_risky_patch_before_tool_layer(client, monkeypatch):
     class DummyTool:
         def __init__(self) -> None:
             self.calls = 0
@@ -253,13 +268,14 @@ def test_api_guard_blocks_preview_risky_patch_before_tool_layer(client, monkeypa
         },
     }
 
-    response = client.post("/config/patch/preview", json=payload)
+    response = await client.post("/config/patch/preview", json=payload)
 
     assert response.status_code == 400
     assert tool.calls == 0
 
 
-def test_api_preview_rejects_unknown_key_review_without_confirmation(client):
+@pytest.mark.anyio
+async def test_api_preview_rejects_unknown_key_review_without_confirmation(client):
     payload = {
         "config": {"analysis": {"top_n": 10}},
         "patch": {
@@ -272,7 +288,7 @@ def test_api_preview_rejects_unknown_key_review_without_confirmation(client):
         },
     }
 
-    response = client.post("/config/patch/preview", json=payload)
+    response = await client.post("/config/patch/preview", json=payload)
 
     assert response.status_code == 400
     detail = response.json()["detail"]
@@ -329,13 +345,14 @@ def test_api_preview_rejects_unknown_key_review_without_confirmation(client):
         ),
     ],
 )
-def test_api_guard_blocks_risky_changes_across_endpoints(
+@pytest.mark.anyio
+async def test_api_guard_blocks_risky_changes_across_endpoints(
     client, endpoint, patch_payload, expected_flag
 ):
     config = {"portfolio": {"max_turnover": 1.0}, "analysis": {"top_n": 10}}
     payload = {"config": config, "patch": patch_payload}
 
-    response = client.post(endpoint, json=payload)
+    response = await client.post(endpoint, json=payload)
 
     assert response.status_code == 400
     assert expected_flag in response.json()["detail"]
@@ -375,7 +392,10 @@ def test_api_guard_blocks_risky_changes_across_endpoints(
         },
     ],
 )
-def test_api_guard_allows_confirmed_risky_changes_across_endpoints(client, endpoint, patch_payload):
+@pytest.mark.anyio
+async def test_api_guard_allows_confirmed_risky_changes_across_endpoints(
+    client, endpoint, patch_payload
+):
     config = {
         "analysis": {"top_n": 10},
         "portfolio": {"max_turnover": 1.0},
@@ -384,12 +404,13 @@ def test_api_guard_allows_confirmed_risky_changes_across_endpoints(client, endpo
     }
     payload = {"config": config, "patch": patch_payload, "confirm_risky": True}
 
-    response = client.post(endpoint, json=payload)
+    response = await client.post(endpoint, json=payload)
 
     assert response.status_code == 200
 
 
-def test_api_preview_allows_risky_patch_with_confirmation(client):
+@pytest.mark.anyio
+async def test_api_preview_allows_risky_patch_with_confirmation(client):
     payload = {
         "config": {"portfolio": {"max_turnover": 1.0}},
         "patch": {
@@ -402,7 +423,7 @@ def test_api_preview_allows_risky_patch_with_confirmation(client):
         "confirm_risky": True,
     }
 
-    response = client.post("/config/patch/preview", json=payload)
+    response = await client.post("/config/patch/preview", json=payload)
 
     assert response.status_code == 200
     body = response.json()
@@ -410,7 +431,8 @@ def test_api_preview_allows_risky_patch_with_confirmation(client):
     assert "portfolio" in body["config"]
 
 
-def test_api_preview_allows_unknown_key_review_with_confirmation(client):
+@pytest.mark.anyio
+async def test_api_preview_allows_unknown_key_review_with_confirmation(client):
     payload = {
         "config": {"analysis": {"top_n": 10}},
         "patch": {
@@ -424,7 +446,7 @@ def test_api_preview_allows_unknown_key_review_with_confirmation(client):
         "confirm_risky": True,
     }
 
-    response = client.post("/config/patch/preview", json=payload)
+    response = await client.post("/config/patch/preview", json=payload)
 
     assert response.status_code == 200
     body = response.json()
@@ -432,7 +454,8 @@ def test_api_preview_allows_unknown_key_review_with_confirmation(client):
     assert body["config"]["analysis"]["top_n"] == 12
 
 
-def test_api_preview_allows_risky_patch_returns_diff(client):
+@pytest.mark.anyio
+async def test_api_preview_allows_risky_patch_returns_diff(client):
     payload = {
         "config": {"portfolio": {"max_turnover": 1.0}},
         "patch": {
@@ -445,7 +468,7 @@ def test_api_preview_allows_risky_patch_returns_diff(client):
         "confirm_risky": True,
     }
 
-    response = client.post("/config/patch/preview", json=payload)
+    response = await client.post("/config/patch/preview", json=payload)
 
     assert response.status_code == 200
     body = response.json()
@@ -454,7 +477,8 @@ def test_api_preview_allows_risky_patch_returns_diff(client):
     assert "max_turnover" in body["diff"]
 
 
-def test_api_preview_allows_unknown_key_returns_diff(client):
+@pytest.mark.anyio
+async def test_api_preview_allows_unknown_key_returns_diff(client):
     payload = {
         "config": {"analysis": {"top_n": 10}},
         "patch": {
@@ -468,7 +492,7 @@ def test_api_preview_allows_unknown_key_returns_diff(client):
         "confirm_risky": True,
     }
 
-    response = client.post("/config/patch/preview", json=payload)
+    response = await client.post("/config/patch/preview", json=payload)
 
     assert response.status_code == 200
     body = response.json()

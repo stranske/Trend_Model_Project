@@ -15,6 +15,7 @@ from uuid import uuid4
 from trend_analysis.config.patch import (
     ConfigPatch,
     format_retry_error,
+    parse_config_patch,
     parse_config_patch_with_retries,
 )
 from trend_analysis.llm.injection import (
@@ -203,35 +204,81 @@ class ConfigPatchChain:
                 )
                 patch = ConfigPatch(operations=[], summary=DEFAULT_BLOCK_SUMMARY, risk_flags=[])
                 return patch
-
-            def _response_provider(attempt: int, last_error: Exception | None) -> str:
-                nonlocal response_text, trace_url
-                prompt = (
-                    prompt_text
-                    if attempt == 0
-                    else build_retry_prompt(
-                        current_config=config_text,
-                        allowed_schema=schema_text,
-                        instruction=instruction,
-                        error_message=format_retry_error(last_error),
-                        system_prompt=system_prompt,
-                        safety_rules=safety_rules,
+            structured_llm = self._structured_output_llm()
+            if structured_llm is not None:
+                last_error: Exception | None = None
+                total_attempts = 2
+                retry_id = f"configpatch-structured-{id(structured_llm):x}"
+                for attempt in range(total_attempts):
+                    prompt = (
+                        prompt_text
+                        if attempt == 0
+                        else build_retry_prompt(
+                            current_config=config_text,
+                            allowed_schema=schema_text,
+                            instruction=instruction,
+                            error_message=format_retry_error(last_error),
+                            system_prompt=system_prompt,
+                            safety_rules=safety_rules,
+                        )
                     )
-                )
-                response = self._invoke_llm(
-                    prompt,
-                    request_id=request_id,
-                    operation="nl_to_patch",
-                )
-                response_text = str(response)
-                trace_url = response.trace_url
-                return response_text
+                    response = self._invoke_llm(
+                        prompt,
+                        request_id=request_id,
+                        operation="nl_to_patch",
+                        llm_override=structured_llm,
+                        structured_output=True,
+                    )
+                    response_text = str(response)
+                    trace_url = response.trace_url
+                    try:
+                        patch = parse_config_patch(response_text)
+                        break
+                    except Exception as exc:
+                        last_error = exc
+                        logger.error(
+                            "Structured ConfigPatch parse attempt %s/%s failed (retry_id=%s): %s",
+                            attempt + 1,
+                            total_attempts,
+                            retry_id,
+                            format_retry_error(exc),
+                        )
+                        if attempt + 1 >= total_attempts:
+                            raise ValueError(
+                                "Failed to parse ConfigPatch after "
+                                f"{total_attempts} attempts: {format_retry_error(exc)}"
+                            ) from exc
+            else:
 
-            patch = parse_config_patch_with_retries(
-                _response_provider,
-                retries=max(1, self.retries + 1),
-                logger=logger,
-            )
+                def _response_provider(attempt: int, last_error: Exception | None) -> str:
+                    nonlocal response_text, trace_url
+                    prompt = (
+                        prompt_text
+                        if attempt == 0
+                        else build_retry_prompt(
+                            current_config=config_text,
+                            allowed_schema=schema_text,
+                            instruction=instruction,
+                            error_message=format_retry_error(last_error),
+                            system_prompt=system_prompt,
+                            safety_rules=safety_rules,
+                        )
+                    )
+                    response = self._invoke_llm(
+                        prompt,
+                        request_id=request_id,
+                        operation="nl_to_patch",
+                    )
+                    response_text = str(response)
+                    trace_url = response.trace_url
+                    return response_text
+
+                patch = parse_config_patch_with_retries(
+                    _response_provider,
+                    retries=max(1, self.retries + 1),
+                    logger=logger,
+                )
+            assert patch is not None  # appease mypy; patch is set unless an exception is raised
             schema = self._schema_for_validation(allowed_schema, instruction)
             unknown_keys = flag_unknown_keys(patch, schema, logger=logger)
 
@@ -305,13 +352,16 @@ class ConfigPatchChain:
         *,
         request_id: str | None = None,
         operation: str | None = None,
+        llm_override: Any | None = None,
+        structured_output: bool = False,
     ) -> _LLMResponse:
         from langchain_core.prompts import ChatPromptTemplate
 
         from trend_analysis.llm.tracing import langsmith_tracing_context
 
         template = ChatPromptTemplate.from_messages([("system", "{prompt}")])
-        chain = template | self._bind_llm()
+        llm = llm_override or self._bind_llm()
+        chain = template | llm
         metadata = {
             "request_id": request_id,
             "operation": operation or "nl_operation",
@@ -326,7 +376,10 @@ class ConfigPatchChain:
             metadata=metadata,
         ) as run:
             response = chain.invoke({"prompt": prompt_text})
-            response_text = getattr(response, "content", None) or str(response)
+            if structured_output:
+                response_text = self._serialize_structured_response(response)
+            else:
+                response_text = getattr(response, "content", None) or str(response)
             if run is not None:
                 run.end(outputs={"output": response_text})
                 trace_url = getattr(run, "url", None)
@@ -335,17 +388,52 @@ class ConfigPatchChain:
         return _LLMResponse(response_text, trace_url)
 
     def _bind_llm(self) -> Any:
-        if not hasattr(self.llm, "bind"):
-            return self.llm
+        return self._bind_llm_with(self.llm)
+
+    def _structured_output_llm(self) -> Any | None:
+        base_llm = self.llm
+        if not hasattr(base_llm, "with_structured_output"):
+            return None
+        try:
+            structured_llm = base_llm.with_structured_output(ConfigPatch)
+        except Exception as exc:
+            logger.info("Structured output unavailable; falling back to text output: %s", exc)
+            return None
+        if structured_llm is None:
+            return None
+        return self._bind_llm_with(structured_llm)
+
+    def _bind_llm_with(self, llm: Any) -> Any:
+        if not hasattr(llm, "bind"):
+            return llm
         params: dict[str, Any] = {"temperature": self.temperature}
         if self.model is not None:
             params["model"] = self.model
         if self.max_tokens is not None:
             params["max_tokens"] = self.max_tokens
         try:
-            return self.llm.bind(**params)
+            return llm.bind(**params)
         except TypeError:
-            return self.llm
+            return llm
+
+    def _serialize_structured_response(self, response: Any) -> str:
+        if isinstance(response, str):
+            return response
+        if isinstance(response, ConfigPatch):
+            payload = response.model_dump(mode="json")
+            return json.dumps(payload, ensure_ascii=True)
+        if isinstance(response, dict):
+            return json.dumps(response, ensure_ascii=True)
+        if hasattr(response, "model_dump"):
+            try:
+                payload = response.model_dump(mode="json")
+            except TypeError:
+                payload = response.model_dump()
+            return json.dumps(payload, ensure_ascii=True, default=str)
+        if hasattr(response, "dict"):
+            payload = response.dict()
+            return json.dumps(payload, ensure_ascii=True, default=str)
+        return str(response)
 
     def _serialize_schema(self, schema: dict[str, Any]) -> str:
         return json.dumps(schema, indent=2, ensure_ascii=True)

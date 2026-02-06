@@ -175,7 +175,11 @@ def render(results: Results, out: Path | str = DEFAULT_OUTPUT) -> tuple[Path, Pa
     out_path = Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     returns = _ensure_datetime_index(results.returns).sort_index()
-    turnover = _ensure_datetime_index(results.turnover).reindex_like(returns, method="ffill")
+    turnover = _ensure_datetime_index(results.turnover)
+    try:
+        turnover = turnover.reindex_like(returns, method="ffill")
+    except (TypeError, ValueError):
+        turnover = turnover.reindex(returns.index)
 
     equity = (1 + returns.fillna(0)).cumprod()
     drawdown = equity / equity.cummax() - 1

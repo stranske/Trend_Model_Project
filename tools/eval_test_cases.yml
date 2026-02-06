@@ -398,6 +398,60 @@ cases:
       risk_flags: []
       summary: "Need clarification on requested frequency change."
 
+  - id: unknown_multiple_keys
+    instruction: "Set constraints.max_exposure to 0.4 and enable leverage."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations: []
+      risk_flags: []
+      summary: "Requested unknown keys: constraints.max_exposure, analysis.leverage."
+
+  - id: conflicting_weighting_scheme
+    instruction: "Use risk parity weighting, but actually use equal weighting."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations:
+        - op: set
+          path: analysis.weighting.scheme
+          value: equal
+      risk_flags: []
+      summary: "Resolve conflict by setting weighting scheme to equal."
+
+  - id: ambiguous_constraints
+    instruction: "Tighten risk limits."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations: []
+      risk_flags: []
+      summary: "Need clarification on requested constraint changes."
+
+  - id: conflicting_target_vol
+    instruction: "Target 12% volatility then 8% volatility."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations:
+        - op: set
+          path: analysis.target_vol
+          value: 0.08
+      risk_flags: []
+      summary: "Resolve conflict by setting target_vol to 0.08."
+
+  - id: conflicting_remove_then_set
+    instruction: "Remove the max weight constraint, then set max weight to 10%."
+    current_config: *base_config
+    allowed_schema: *base_schema
+    expected_patch:
+      operations:
+        - op: set
+          path: constraints.max_weight
+          value: 0.1
+      risk_flags: []
+      summary: "Resolve conflict by setting max_weight to 0.1."
+
   - id: conflicting_constraint_instructions
     instruction: "Remove max weight but keep the max weight constraint."
     current_config: *base_config

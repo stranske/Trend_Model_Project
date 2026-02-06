@@ -18,6 +18,45 @@ from trend_analysis.llm.chain import ConfigPatchChain  # noqa: E402
 from trend_analysis.llm.prompts import build_config_patch_prompt  # noqa: E402
 
 
+class _StructuredLLM(RunnableLambda):
+    def __init__(
+        self,
+        *,
+        structured_responses: list[dict[str, object]],
+        unstructured_responses: list[str] | None = None,
+    ) -> None:
+        self.structured_calls = 0
+        self.unstructured_calls = 0
+        self._structured_iter = iter(structured_responses)
+        self._unstructured_iter = iter(unstructured_responses or [])
+        super().__init__(self._respond_unstructured)
+
+    def _respond_unstructured(self, _prompt_value, **_kwargs) -> str:
+        self.unstructured_calls += 1
+        return next(self._unstructured_iter)
+
+    def _respond_structured(self, _prompt_value, **_kwargs) -> dict[str, object]:
+        self.structured_calls += 1
+        return next(self._structured_iter)
+
+    def with_structured_output(self, _schema) -> RunnableLambda:
+        return RunnableLambda(self._respond_structured)
+
+
+class _UnsupportedStructuredLLM(RunnableLambda):
+    def __init__(self, *, responses: list[str]) -> None:
+        self.unstructured_calls = 0
+        self._responses = iter(responses)
+        super().__init__(self._respond)
+
+    def _respond(self, _prompt_value, **_kwargs) -> str:
+        self.unstructured_calls += 1
+        return next(self._responses)
+
+    def with_structured_output(self, _schema) -> RunnableLambda:
+        raise NotImplementedError("Structured output not supported.")
+
+
 def test_config_patch_chain_run_parses_patch() -> None:
     captured: dict[str, str] = {}
 
@@ -606,3 +645,95 @@ def test_config_patch_chain_logs_langsmith_trace_url(
 
     assert "LangSmith trace: https://example.test/trace/123" in caplog.text
     assert trace_url == "https://example.test/trace/123"
+
+
+def test_config_patch_chain_structured_output_parses_patch() -> None:
+    payload = {
+        "operations": [
+            {
+                "op": "set",
+                "path": "portfolio.max_weight",
+                "value": 0.35,
+                "rationale": "Align with instruction",
+            }
+        ],
+        "risk_flags": [],
+        "summary": "Update max_weight",
+    }
+    llm = _StructuredLLM(structured_responses=[payload])
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+    )
+
+    patch = chain.run(
+        current_config={"portfolio": {"max_weight": 0.2}},
+        instruction="Set max_weight to 0.35.",
+    )
+
+    assert patch.summary == "Update max_weight"
+    assert llm.structured_calls == 1
+    assert llm.unstructured_calls == 0
+
+
+def test_config_patch_chain_structured_output_repairs_once() -> None:
+    invalid_payload = {
+        "operations": [],
+        "risk_flags": [],
+    }
+    valid_payload = {
+        "operations": [
+            {
+                "op": "set",
+                "path": "portfolio.max_weight",
+                "value": 0.25,
+                "rationale": "Align with instruction",
+            }
+        ],
+        "risk_flags": [],
+        "summary": "Update max_weight",
+    }
+    llm = _StructuredLLM(structured_responses=[invalid_payload, valid_payload])
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+    )
+
+    patch = chain.run(
+        current_config={"portfolio": {"max_weight": 0.2}},
+        instruction="Set max_weight to 0.25.",
+    )
+
+    assert patch.summary == "Update max_weight"
+    assert llm.structured_calls == 2
+
+
+def test_config_patch_chain_structured_output_fallbacks_to_text() -> None:
+    payload = {
+        "operations": [
+            {
+                "op": "set",
+                "path": "portfolio.max_weight",
+                "value": 0.22,
+                "rationale": "Align with instruction",
+            }
+        ],
+        "risk_flags": [],
+        "summary": "Update max_weight",
+    }
+    llm = _UnsupportedStructuredLLM(responses=[json.dumps(payload)])
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+    )
+
+    patch = chain.run(
+        current_config={"portfolio": {"max_weight": 0.2}},
+        instruction="Set max_weight to 0.22.",
+    )
+
+    assert patch.summary == "Update max_weight"
+    assert llm.unstructured_calls == 1

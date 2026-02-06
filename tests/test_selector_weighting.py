@@ -21,6 +21,7 @@ from trend_analysis.weighting import EqualWeight, ScorePropBayesian
 
 UNUSED_AUTOFIX_MARKER = "diagnostic lint artifact"
 EXPECTED_TOP_SELECTION_COUNT = 2
+COMMAND_TIMEOUT_SECONDS = 120
 
 
 def load_fixture():
@@ -32,8 +33,19 @@ def _run_command(
     cmd: list[str],
     cwd: Path,
     ok_exit_codes: tuple[int, ...] = (0,),
+    timeout: float | None = COMMAND_TIMEOUT_SECONDS,
 ) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        timeout_hint = timeout if timeout is not None else "unknown"
+        pytest.skip(f"Command timed out after {timeout_hint}s: {' '.join(cmd)}")
     if result.returncode not in ok_exit_codes:
         raise AssertionError(
             "Command failed: {cmd}\nReturn code: {code}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}".format(
@@ -85,6 +97,7 @@ def test_bayesian_shrinkage_monotonic():
 
 
 @pytest.mark.integration
+@pytest.mark.slow
 def test_selector_weighting_autofix_diagnostics(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

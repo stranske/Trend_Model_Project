@@ -1,11 +1,14 @@
 """CI smoke test for Streamlit app with headless run testing."""
 
 import os
+import shutil
 import signal
+import socket
 import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Optional
 
 import pandas as pd
 import pytest
@@ -114,9 +117,9 @@ def test_api_run_simulation_smoke(demo_data, demo_config):
 class StreamlitAppManager:
     """Manager for Streamlit app testing."""
 
-    def __init__(self, app_path, port=8501):
+    def __init__(self, app_path, port: Optional[int] = None):
         self.app_path = app_path
-        self.port = port
+        self.port = port if port is not None else _find_open_port()
         self.process = None
 
     def start(self):
@@ -135,18 +138,32 @@ class StreamlitAppManager:
             "false",
         ]
 
-        self.process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            preexec_fn=os.setsid,  # Create new process group for clean shutdown
-        )
+        try:
+            self.process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                preexec_fn=os.setsid,  # Create new process group for clean shutdown
+            )
+        except FileNotFoundError:
+            pytest.skip("Streamlit CLI not available in this environment")
 
         # Wait for app to start
-        max_attempts = 30
-        for i in range(max_attempts):
+        startup_timeout = int(os.getenv("STREAMLIT_STARTUP_TIMEOUT", "60"))
+        deadline = time.monotonic() + startup_timeout
+        while time.monotonic() < deadline:
+            if self.process.poll() is not None:
+                stdout, stderr = self._drain_process_output()
+                if "PermissionError" in stderr and "socket" in stderr:
+                    pytest.skip("Streamlit server cannot bind sockets in this environment")
+                raise RuntimeError(
+                    "Streamlit process exited early "
+                    f"(code={self.process.returncode}).\n"
+                    f"stdout:\n{stdout}\n"
+                    f"stderr:\n{stderr}"
+                )
             try:
-                response = requests.get(f"http://localhost:{self.port}", timeout=5)
+                response = requests.get(f"http://localhost:{self.port}", timeout=2)
                 if response.status_code == 200:
                     print(f"✅ Streamlit app started on port {self.port}")
                     return True
@@ -157,7 +174,12 @@ class StreamlitAppManager:
         # If we get here, startup failed
         if self.process:
             self.stop()
-        raise RuntimeError(f"Failed to start Streamlit app after {max_attempts} seconds")
+        stdout, stderr = self._drain_process_output()
+        raise RuntimeError(
+            f"Failed to start Streamlit app after {startup_timeout} seconds.\n"
+            f"stdout:\n{stdout}\n"
+            f"stderr:\n{stderr}"
+        )
 
     def stop(self):
         """Stop the Streamlit app."""
@@ -183,10 +205,35 @@ class StreamlitAppManager:
         except requests.exceptions.RequestException:
             return False
 
+    def _drain_process_output(self) -> tuple[str, str]:
+        """Capture any available process output for diagnostics."""
+        if not self.process:
+            return "", ""
+        try:
+            stdout_bytes, stderr_bytes = self.process.communicate(timeout=2)
+        except subprocess.TimeoutExpired:
+            return "", ""
+        return stdout_bytes.decode(errors="replace"), stderr_bytes.decode(errors="replace")
+
+
+def _find_open_port() -> int:
+    """Find an available localhost port."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("", 0))
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            return int(sock.getsockname()[1])
+    except OSError:
+        # Fallback for restricted environments that block socket creation.
+        return 8501
+
 
 @pytest.fixture(scope="function")
 def streamlit_app():
     """Start and stop Streamlit app for testing."""
+    if shutil.which("streamlit") is None:
+        pytest.skip("Streamlit CLI not available in this environment")
+
     # Find the main streamlit app file
     app_paths = [
         Path(__file__).parent.parent / "streamlit_app" / "app.py",
@@ -337,7 +384,7 @@ def test_end_to_end_analysis_simulation(demo_data, demo_config):
     print("🎉 End-to-end analysis simulation completed successfully")
 
 
-def test_run_page_imports_successfully():
+def test_run_page_imports_successfully(monkeypatch: pytest.MonkeyPatch):
     """Test that the Results page can be imported without errors."""
     run_page_path = Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
 
@@ -349,20 +396,26 @@ def test_run_page_imports_successfully():
     from unittest.mock import Mock
 
     # Mock streamlit before importing
-    sys.modules["streamlit"] = Mock()
+    monkeypatch.setitem(sys.modules, "streamlit", Mock())
+    existing_streamlit_app = {name for name in sys.modules if name.startswith("streamlit_app")}
 
     spec = importlib.util.spec_from_file_location("results_page", run_page_path)
     assert spec is not None and spec.loader is not None
     results_page = importlib.util.module_from_spec(spec)
 
-    # Should not raise any import errors
-    spec.loader.exec_module(results_page)
+    try:
+        # Should not raise any import errors
+        spec.loader.exec_module(results_page)
 
-    # Check that key functions exist
-    assert hasattr(results_page, "_analysis_error_messages")
-    assert hasattr(results_page, "render_results_page")
+        # Check that key functions exist
+        assert hasattr(results_page, "_analysis_error_messages")
+        assert hasattr(results_page, "render_results_page")
 
-    print("✅ Results page imports successfully")
+        print("✅ Results page imports successfully")
+    finally:
+        for name in list(sys.modules):
+            if name.startswith("streamlit_app") and name not in existing_streamlit_app:
+                sys.modules.pop(name, None)
 
 
 if __name__ == "__main__":

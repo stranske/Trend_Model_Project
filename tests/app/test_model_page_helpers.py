@@ -206,6 +206,360 @@ def test_render_config_chat_panel_stores_instruction(model_module: ModuleType) -
     assert stub.session_state.get("config_chat_last_instruction") == "Increase lookback to 24"
 
 
+def test_build_nl_chain_reuses_cached_chain_with_provider_config(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+    cache: dict[str, object] = {}
+
+    def fake_cached_config_patch_chain(
+        _session_cache_key,
+        chain_cache_key,
+        _llm_cache_key,
+        _api_key,
+        _extra_payload,
+    ):
+        signature = model_module._chain_cache_signature(chain_cache_key)
+        if signature not in cache:
+            cache[signature] = object()
+        return cache[signature]
+
+    monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
+    monkeypatch.setenv("TREND_LLM_TEMPERATURE", "0.2")
+
+    chain_one, meta_one = model_module._build_nl_chain()
+    chain_two, meta_two = model_module._build_nl_chain()
+
+    assert chain_one is chain_two
+    assert meta_one["chain_reused"] is False
+    assert meta_two["chain_reused"] is True
+
+
+def test_build_nl_chain_invalidates_on_model_change(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+    cache: dict[str, object] = {}
+
+    def fake_cached_config_patch_chain(
+        _session_cache_key,
+        chain_cache_key,
+        _llm_cache_key,
+        _api_key,
+        _extra_payload,
+    ):
+        signature = model_module._chain_cache_signature(chain_cache_key)
+        if signature not in cache:
+            cache[signature] = object()
+        return cache[signature]
+
+    monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
+
+    stub.session_state[model_module._LLM_PROVIDER_OVERRIDE_KEY] = "openai"
+    stub.session_state[model_module._LLM_MODEL_OVERRIDE_KEY] = "gpt-4o-mini"
+    stub.session_state["config_chat_preview"] = {"before": {}, "after": {}}
+    stub.session_state["config_chat_last_instruction"] = "old"
+
+    _chain, _meta = model_module._build_nl_chain()
+    session_id_before = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+
+    stub.session_state[model_module._LLM_MODEL_OVERRIDE_KEY] = "gpt-4.1-mini"
+    _chain, meta = model_module._build_nl_chain()
+
+    session_id_after = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+    assert session_id_before != session_id_after
+    assert meta["chain_cache_invalidation_fields"] == ["model"]
+    assert meta["chain_cache_session_reset"] is True
+    assert "config_chat_preview" not in stub.session_state
+    assert "config_chat_last_instruction" not in stub.session_state
+
+
+def test_build_nl_chain_invalidates_on_provider_change(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+    cache: dict[str, object] = {}
+
+    def fake_cached_config_patch_chain(
+        _session_cache_key,
+        chain_cache_key,
+        _llm_cache_key,
+        _api_key,
+        _extra_payload,
+    ):
+        signature = model_module._chain_cache_signature(chain_cache_key)
+        if signature not in cache:
+            cache[signature] = object()
+        return cache[signature]
+
+    monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
+
+    stub.session_state[model_module._LLM_PROVIDER_OVERRIDE_KEY] = "openai"
+    stub.session_state[model_module._LLM_MODEL_OVERRIDE_KEY] = "gpt-4o-mini"
+    stub.session_state["config_chat_preview"] = {"before": {}, "after": {}}
+    stub.session_state["config_chat_last_instruction"] = "old"
+
+    _chain, _meta = model_module._build_nl_chain()
+    session_id_before = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+
+    stub.session_state[model_module._LLM_PROVIDER_OVERRIDE_KEY] = "anthropic"
+    _chain, meta = model_module._build_nl_chain()
+
+    session_id_after = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+    assert session_id_before != session_id_after
+    assert meta["chain_cache_invalidation_fields"] == ["provider"]
+    assert meta["chain_cache_session_reset"] is True
+    assert "config_chat_preview" not in stub.session_state
+    assert "config_chat_last_instruction" not in stub.session_state
+
+
+def test_build_nl_chain_invalidates_on_temperature_env_change(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+    cache: dict[str, object] = {}
+
+    def fake_cached_config_patch_chain(
+        _session_cache_key,
+        chain_cache_key,
+        _llm_cache_key,
+        _api_key,
+        _extra_payload,
+    ):
+        signature = model_module._chain_cache_signature(chain_cache_key)
+        if signature not in cache:
+            cache[signature] = object()
+        return cache[signature]
+
+    monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
+
+    stub.session_state[model_module._LLM_TEMPERATURE_OVERRIDE_KEY] = "0.1"
+    stub.session_state["config_chat_preview"] = {"before": {}, "after": {}}
+    stub.session_state["config_chat_last_instruction"] = "old"
+
+    _chain, _meta = model_module._build_nl_chain()
+    session_id_before = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+
+    stub.session_state[model_module._LLM_TEMPERATURE_OVERRIDE_KEY] = "0.7"
+    _chain, meta = model_module._build_nl_chain()
+
+    session_id_after = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+    assert session_id_before != session_id_after
+    assert meta["chain_cache_invalidation_fields"] == ["temperature"]
+    assert meta["chain_cache_session_reset"] is True
+    assert "config_chat_preview" not in stub.session_state
+    assert "config_chat_last_instruction" not in stub.session_state
+
+
+def test_build_nl_chain_passes_api_key_to_cache(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+    captured: dict[str, object] = {}
+
+    def fake_cached_config_patch_chain(
+        _session_cache_key,
+        _chain_cache_key,
+        _llm_cache_key,
+        api_key_secret,
+        _extra_payload,
+    ):
+        captured["api_key_secret"] = api_key_secret
+        return object()
+
+    monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key-123")
+
+    model_module._build_nl_chain()
+
+    secret = captured.get("api_key_secret")
+    assert secret is not None
+    assert secret.value == "test-key-123"
+    assert secret.fingerprint == model_module._hash_api_key("test-key-123")
+
+
+def test_build_nl_chain_invalidates_on_base_url_change(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+    cache: dict[str, object] = {}
+
+    def fake_cached_config_patch_chain(
+        _session_cache_key,
+        chain_cache_key,
+        _llm_cache_key,
+        _api_key,
+        _extra_payload,
+    ):
+        signature = model_module._chain_cache_signature(chain_cache_key)
+        if signature not in cache:
+            cache[signature] = object()
+        return cache[signature]
+
+    monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
+
+    stub.session_state[model_module._LLM_PROVIDER_OVERRIDE_KEY] = "openai"
+    stub.session_state[model_module._LLM_MODEL_OVERRIDE_KEY] = "gpt-4o-mini"
+    stub.session_state[model_module._LLM_BASE_URL_OVERRIDE_KEY] = "https://api.one"
+    stub.session_state["config_chat_preview"] = {"before": {}, "after": {}}
+    stub.session_state["config_chat_last_instruction"] = "old"
+
+    _chain, _meta = model_module._build_nl_chain()
+    session_id_before = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+
+    stub.session_state[model_module._LLM_BASE_URL_OVERRIDE_KEY] = "https://api.two"
+    _chain, meta = model_module._build_nl_chain()
+
+    session_id_after = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+    assert session_id_before != session_id_after
+    assert meta["chain_cache_invalidation_fields"] == ["base_url"]
+    assert meta["chain_cache_session_reset"] is True
+    assert "config_chat_preview" not in stub.session_state
+    assert "config_chat_last_instruction" not in stub.session_state
+
+
+def test_build_nl_chain_invalidates_on_org_change(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+    cache: dict[str, object] = {}
+
+    def fake_cached_config_patch_chain(
+        _session_cache_key,
+        chain_cache_key,
+        _llm_cache_key,
+        _api_key,
+        _extra_payload,
+    ):
+        signature = model_module._chain_cache_signature(chain_cache_key)
+        if signature not in cache:
+            cache[signature] = object()
+        return cache[signature]
+
+    monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
+
+    stub.session_state[model_module._LLM_PROVIDER_OVERRIDE_KEY] = "openai"
+    stub.session_state[model_module._LLM_MODEL_OVERRIDE_KEY] = "gpt-4o-mini"
+    stub.session_state[model_module._LLM_ORG_OVERRIDE_KEY] = "org-one"
+    stub.session_state["config_chat_preview"] = {"before": {}, "after": {}}
+    stub.session_state["config_chat_last_instruction"] = "old"
+
+    _chain, _meta = model_module._build_nl_chain()
+    session_id_before = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+
+    stub.session_state[model_module._LLM_ORG_OVERRIDE_KEY] = "org-two"
+    _chain, meta = model_module._build_nl_chain()
+
+    session_id_after = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+    assert session_id_before != session_id_after
+    assert meta["chain_cache_invalidation_fields"] == ["organization"]
+    assert meta["chain_cache_session_reset"] is True
+    assert "config_chat_preview" not in stub.session_state
+    assert "config_chat_last_instruction" not in stub.session_state
+
+
+def test_build_nl_chain_invalidates_on_temperature_change(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+    cache: dict[str, object] = {}
+
+    def fake_cached_config_patch_chain(
+        _session_cache_key,
+        chain_cache_key,
+        _llm_cache_key,
+        _api_key,
+        _extra_payload,
+    ):
+        signature = model_module._chain_cache_signature(chain_cache_key)
+        if signature not in cache:
+            cache[signature] = object()
+        return cache[signature]
+
+    monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
+
+    monkeypatch.setenv("TREND_LLM_TEMPERATURE", "0.1")
+    _chain, _meta = model_module._build_nl_chain()
+    session_id_before = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+
+    stub.session_state["config_chat_preview"] = {"before": {}, "after": {}}
+    stub.session_state["config_chat_last_instruction"] = "old"
+    monkeypatch.setenv("TREND_LLM_TEMPERATURE", "0.7")
+    _chain, meta = model_module._build_nl_chain()
+
+    session_id_after = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+    assert session_id_before != session_id_after
+    assert meta["chain_cache_invalidation_fields"] == ["temperature"]
+    assert meta["chain_cache_session_reset"] is True
+    assert "config_chat_preview" not in stub.session_state
+    assert "config_chat_last_instruction" not in stub.session_state
+
+
+def test_current_chain_settings_snapshot_uses_resolved_env(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    monkeypatch.setenv("TREND_LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("TREND_LLM_MODEL", "claude-3-haiku")
+    monkeypatch.setenv("TREND_LLM_BASE_URL", "https://api.example")
+    monkeypatch.setenv("TREND_LLM_ORG", "org-x")
+    monkeypatch.setenv("TREND_LLM_TEMPERATURE", "0.35")
+
+    snapshot = model_module._current_chain_settings_snapshot()
+
+    assert snapshot["provider"] == "anthropic"
+    assert snapshot["model"] == "claude-3-haiku"
+    assert snapshot["base_url"] == "https://api.example"
+    assert snapshot["organization"] == "org-x"
+    assert snapshot["temperature"] == pytest.approx(0.35)
+
+
+def test_record_preview_timing_tracks_chain_reuse(model_module: ModuleType) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    preview = {
+        "instruction": "Increase lookback",
+        "timings": {
+            "chain_cache_key": {"provider": "openai", "model": "gpt-4o-mini", "temperature": 0.2},
+            "chain_cache_signature": "sig-123",
+            "chain_resource_signature": "rsig-456",
+            "chain_cache_summary": "openai:gpt-4o-mini@0.2",
+            "chain_cache_miss_reason": None,
+            "chain_cache_invalidation_fields": [],
+            "chain_settings_changed": False,
+            "chain_llm_changed_fields": [],
+            "chain_cache_session_reset": False,
+            "chain_build_seconds": 1.2,
+            "chain_reused": True,
+            "run_seconds": 2.3,
+        },
+    }
+
+    model_module._record_preview_timing(preview, total_seconds=3.4)
+
+    history = stub.session_state.get(model_module._CONFIG_PREVIEW_TIMINGS_KEY)
+    assert isinstance(history, list)
+    assert len(history) == 1
+    entry = history[0]
+    assert entry["chain_reused"] is True
+    assert entry["total_seconds"] == pytest.approx(3.4)
+
+    metrics = stub.session_state.get(model_module._CONFIG_CHAIN_METRICS_KEY)
+    assert isinstance(metrics, dict)
+    assert metrics["chain_reused"] is True
+
+
 def test_side_by_side_diff_renders_yaml(model_module: ModuleType) -> None:
     stub = model_module.st
     languages: list[str | None] = []
@@ -716,24 +1070,17 @@ def test_build_nl_chain_reuses_cached_chain(
 
     def fake_cached_config_patch_chain(
         session_cache_key: str,
-        cache_version: str,
-        provider: str,
-        model: str,
-        api_key: str | None,
-        base_url: str | None,
-        organization: str | None,
-        timeout: float | None,
-        max_retries: int | None,
+        chain_cache_key: dict[str, object],
+        llm_cache_key: dict[str, object],
+        api_key: object,
         extra_payload: str,
-        temperature: float,
-        api_key_fingerprint: str | None,
     ) -> object:
         calls.append(
             {
-                "provider": provider,
-                "model": model,
+                "provider": chain_cache_key.get("provider"),
+                "model": chain_cache_key.get("model"),
                 "api_key": api_key,
-                "temperature": temperature,
+                "temperature": chain_cache_key.get("temperature"),
             }
         )
         return chain_obj
@@ -758,7 +1105,9 @@ def test_build_nl_chain_reuses_cached_chain(
     assert meta_first["chain_reused"] is False
     assert meta_second["chain_reused"] is True
     assert meta_second["chain_cache_miss_reason"] is None
-    assert calls[0]["api_key"] == "sk-test"
+    api_key_secret = calls[0]["api_key"]
+    assert isinstance(api_key_secret, model_module._ApiKeySecret)
+    assert api_key_secret.value == "sk-test"
 
 
 def test_build_nl_chain_invalidation_on_model_change(
@@ -793,17 +1142,10 @@ def test_build_nl_chain_invalidation_on_model_change(
 
     def fake_cached_config_patch_chain(
         session_cache_key: str,
-        cache_version: str,
-        provider: str,
-        model: str,
+        chain_cache_key: dict[str, object],
+        llm_cache_key: dict[str, object],
         api_key: str | None,
-        base_url: str | None,
-        organization: str | None,
-        timeout: float | None,
-        max_retries: int | None,
         extra_payload: str,
-        temperature: float,
-        api_key_fingerprint: str | None,
     ) -> object:
         call_count["value"] += 1
         return chain_one if call_count["value"] == 1 else chain_two
@@ -817,3 +1159,40 @@ def test_build_nl_chain_invalidation_on_model_change(
     assert "model" in (meta_second["chain_cache_invalidation_fields"] or [])
     assert "config_chat_preview" not in stub.session_state
     assert "config_chat_last_instruction" not in stub.session_state
+
+
+def test_llm_session_overrides_win_over_env(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    monkeypatch.setenv("TREND_LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("TREND_LLM_MODEL", "claude-3")
+    monkeypatch.setenv("TREND_LLM_BASE_URL", "https://env.example.com")
+    monkeypatch.setenv("TREND_LLM_ORG", "env-org")
+
+    stub.session_state[model_module._LLM_PROVIDER_OVERRIDE_KEY] = "openai"
+    stub.session_state[model_module._LLM_MODEL_OVERRIDE_KEY] = "gpt-4o-mini"
+    stub.session_state[model_module._LLM_BASE_URL_OVERRIDE_KEY] = "https://override.example.com"
+    stub.session_state[model_module._LLM_ORG_OVERRIDE_KEY] = "override-org"
+
+    config = model_module._resolve_llm_provider_config()
+
+    assert config.provider == "openai"
+    assert config.model == "gpt-4o-mini"
+    assert config.base_url == "https://override.example.com"
+    assert config.organization == "override-org"
+
+
+def test_llm_session_override_normalizes_whitespace(model_module: ModuleType) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    stub.session_state[model_module._LLM_PROVIDER_OVERRIDE_KEY] = "  OpenAI  "
+    stub.session_state[model_module._LLM_MODEL_OVERRIDE_KEY] = "  gpt-4o-mini  "
+
+    overrides = model_module._resolve_llm_session_overrides()
+
+    assert overrides["provider"] == "openai"
+    assert overrides["model"] == "gpt-4o-mini"

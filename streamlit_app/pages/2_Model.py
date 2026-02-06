@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import difflib
 import hashlib
 import html
@@ -10,6 +11,7 @@ import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
+from dataclasses import dataclass
 from datetime import date, datetime
 from time import monotonic, sleep
 from typing import Any, Mapping
@@ -20,6 +22,12 @@ import yaml
 
 from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner, nl_operation_viewer
+from streamlit_app.components.llm_settings import (
+    default_api_key as _default_api_key,
+)
+from streamlit_app.components.llm_settings import (
+    sanitize_api_key as _sanitize_api_key,
+)
 from streamlit_app.components.progress_eta import (
     estimate_eta_seconds,
     progress_ratio_and_remaining,
@@ -66,29 +74,29 @@ _DEFAULT_CONFIG_CHAT_MODEL = "gpt-4o-mini"
 _CONFIG_CHAIN_CACHE_VERSION = "v1"
 _CONFIG_CHAIN_METRICS_KEY = "config_chat_chain_metrics"
 _CONFIG_CHAIN_STATS_KEY = "config_chat_chain_stats"
-_CONFIG_CHAIN_LOG_FIELDS = (
+_CONFIG_CHAIN_CORE_FIELDS = (
     "provider",
     "model",
     "base_url",
     "organization",
     "temperature",
+)
+_CONFIG_CHAIN_LLM_FIELDS = (
     "timeout",
     "max_retries",
     "extra_payload_hash",
     "api_key_fingerprint",
 )
 _LOGGER = logging.getLogger(__name__)
-_CONFIG_CHAIN_INVALIDATION_FIELDS = (
-    "provider",
-    "model",
-    "base_url",
-    "organization",
-    "temperature",
-    "timeout",
-    "max_retries",
-    "extra_payload_hash",
-    "api_key_fingerprint",
-)
+_CONFIG_CHAIN_INVALIDATION_FIELDS = _CONFIG_CHAIN_CORE_FIELDS
+_CONFIG_CHAIN_REBUILD_FIELDS = _CONFIG_CHAIN_INVALIDATION_FIELDS
+_CONFIG_CHAIN_RESET_FIELDS = _CONFIG_CHAIN_INVALIDATION_FIELDS
+_LLM_PROVIDER_OVERRIDE_KEY = "llm_provider_override"
+_LLM_MODEL_OVERRIDE_KEY = "llm_model_override"
+_LLM_BASE_URL_OVERRIDE_KEY = "llm_base_url_override"
+_LLM_ORG_OVERRIDE_KEY = "llm_org_override"
+_LLM_TEMPERATURE_OVERRIDE_KEY = "llm_temperature_override"
+_LLM_OVERRIDE_SNAPSHOT_KEY = "llm_override_snapshot"
 
 
 def _get_chain_cache_state() -> dict[str, Any]:
@@ -120,6 +128,27 @@ def _chain_cache_signature(cache_key: Mapping[str, Any]) -> str:
     return json.dumps(dict(cache_key), sort_keys=True, default=str)
 
 
+def _chain_resource_signature(
+    chain_cache_key: Mapping[str, Any],
+    llm_cache_key: Mapping[str, Any],
+) -> str:
+    return _chain_cache_signature({"chain": dict(chain_cache_key), "llm": dict(llm_cache_key)})
+
+
+def _chain_cache_summary(cache_key: Mapping[str, Any]) -> str:
+    provider = cache_key.get("provider") or "default"
+    model = cache_key.get("model") or "default"
+    temperature = cache_key.get("temperature")
+    base_url = cache_key.get("base_url")
+    organization = cache_key.get("organization")
+    summary = f"{provider}:{model}@{_format_value(temperature)}"
+    if base_url:
+        summary = f"{summary} | base_url={base_url}"
+    if organization:
+        summary = f"{summary} | org={organization}"
+    return summary
+
+
 def _build_chain_cache_key(
     *,
     provider: str,
@@ -127,6 +156,23 @@ def _build_chain_cache_key(
     base_url: str | None,
     organization: str | None,
     temperature: float,
+) -> dict[str, Any]:
+    return {
+        "cache_version": _CONFIG_CHAIN_CACHE_VERSION,
+        "provider": provider,
+        "model": model,
+        "base_url": base_url,
+        "organization": organization,
+        "temperature": temperature,
+    }
+
+
+def _build_llm_cache_key(
+    *,
+    provider: str,
+    model: str,
+    base_url: str | None,
+    organization: str | None,
     timeout: float | None,
     max_retries: int | None,
     extra_payload_hash: str | None,
@@ -138,7 +184,6 @@ def _build_chain_cache_key(
         "model": model,
         "base_url": base_url,
         "organization": organization,
-        "temperature": temperature,
         "timeout": timeout,
         "max_retries": max_retries,
         "extra_payload_hash": extra_payload_hash,
@@ -204,6 +249,10 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
     invalidation_fields_raw = timings.get("chain_cache_invalidation_fields")
     if isinstance(invalidation_fields_raw, list):
         invalidation_fields = [str(field) for field in invalidation_fields_raw]
+    llm_changed_fields_raw = timings.get("chain_llm_changed_fields")
+    llm_changed_fields: list[str] | None = None
+    if isinstance(llm_changed_fields_raw, list):
+        llm_changed_fields = [str(field) for field in llm_changed_fields_raw]
     entry = {
         "timestamp": datetime.utcnow().isoformat(timespec="seconds") + "Z",
         "instruction": preview.get("instruction"),
@@ -211,10 +260,15 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
         "model": model,
         "temperature": temperature,
         "cache_signature": timings.get("chain_cache_signature"),
+        "resource_signature": timings.get("chain_resource_signature"),
+        "cache_summary": timings.get("chain_cache_summary"),
         "cache_miss_reason": timings.get("chain_cache_miss_reason"),
         "cache_invalidation_fields": invalidation_fields,
+        "cache_llm_changed_fields": llm_changed_fields,
         "cache_settings_changed": timings.get("chain_settings_changed"),
+        "cache_session_reset": timings.get("chain_cache_session_reset"),
         "chain_build_seconds": timings.get("chain_build_seconds"),
+        "chain_lookup_seconds": timings.get("chain_lookup_seconds"),
         "chain_reused": timings.get("chain_reused"),
         "run_seconds": timings.get("run_seconds"),
         "total_seconds": total_seconds,
@@ -226,17 +280,34 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
     history.append(entry)
     if len(history) > _MAX_CONFIG_PREVIEW_TIMINGS:
         del history[:-_MAX_CONFIG_PREVIEW_TIMINGS]
+
+    if _LOGGER.isEnabledFor(logging.INFO):
+        _LOGGER.info(
+            "Config chat preview timing: reused=%s build=%.2fs run=%.2fs total=%.2fs cache=%s miss=%s invalidated_by=%s",
+            "yes" if entry.get("chain_reused") else "no",
+            float(entry.get("chain_build_seconds") or 0.0),
+            float(entry.get("run_seconds") or 0.0),
+            total_seconds,
+            entry.get("cache_summary") or "unknown",
+            entry.get("cache_miss_reason") or "none",
+            ", ".join(entry.get("cache_invalidation_fields") or []) or "none",
+        )
     st.session_state[_CONFIG_CHAIN_METRICS_KEY] = {
         "timestamp": entry.get("timestamp"),
         "provider": provider,
         "model": model,
         "temperature": temperature,
         "cache_signature": timings.get("chain_cache_signature"),
+        "resource_signature": timings.get("chain_resource_signature"),
+        "cache_summary": timings.get("chain_cache_summary"),
         "cache_miss_reason": timings.get("chain_cache_miss_reason"),
         "cache_invalidation_fields": invalidation_fields,
+        "cache_llm_changed_fields": llm_changed_fields,
         "cache_settings_changed": timings.get("chain_settings_changed"),
+        "cache_session_reset": timings.get("chain_cache_session_reset"),
         "chain_reused": timings.get("chain_reused"),
         "chain_build_seconds": timings.get("chain_build_seconds"),
+        "chain_lookup_seconds": timings.get("chain_lookup_seconds"),
         "run_seconds": timings.get("run_seconds"),
         "total_seconds": total_seconds,
     }
@@ -300,16 +371,25 @@ def _render_preview_timing_history() -> None:
             continue
         cache_sig = entry.get("cache_signature")
         cache_sig_label = str(cache_sig)[:8] if cache_sig else "—"
+        resource_sig = entry.get("resource_signature")
+        resource_sig_label = str(resource_sig)[:8] if resource_sig else "—"
+        cache_summary = entry.get("cache_summary") or "—"
         cache_reason = entry.get("cache_miss_reason")
         cache_reason_label = str(cache_reason) if cache_reason else "—"
         invalidation_fields = entry.get("cache_invalidation_fields")
         invalidation_label = (
             ", ".join(invalidation_fields) if isinstance(invalidation_fields, list) else "—"
         )
+        llm_changed_fields = entry.get("cache_llm_changed_fields")
+        llm_changed_label = (
+            ", ".join(llm_changed_fields) if isinstance(llm_changed_fields, list) else "—"
+        )
         settings_changed = entry.get("cache_settings_changed")
         settings_changed_label = (
             "Yes" if settings_changed is True else "No" if settings_changed is False else "—"
         )
+        cache_reset = entry.get("cache_session_reset")
+        cache_reset_label = "Yes" if cache_reset else "No"
         rows.append(
             {
                 "Timestamp": str(entry.get("timestamp") or "Unknown time"),
@@ -318,10 +398,15 @@ def _render_preview_timing_history() -> None:
                 "Model": str(entry.get("model") or "default"),
                 "Temp": _format_value(entry.get("temperature")),
                 "Settings changed": settings_changed_label,
+                "Session cache reset": cache_reset_label,
+                "Cache key": str(cache_summary),
                 "Cache sig": cache_sig_label,
+                "Resource sig": resource_sig_label,
                 "Cache miss": cache_reason_label,
                 "Cache invalidated by": invalidation_label,
+                "LLM changed": llm_changed_label,
                 "Chain build": _format_seconds(entry.get("chain_build_seconds")),
+                "Chain lookup": _format_seconds(entry.get("chain_lookup_seconds")),
                 "Chain reused": "Yes" if entry.get("chain_reused") else "No",
                 "Run": _format_seconds(entry.get("run_seconds")),
                 "Total": _format_seconds(entry.get("total_seconds")),
@@ -339,6 +424,9 @@ def _render_last_preview_metrics() -> None:
         return
     cache_sig = metrics.get("cache_signature")
     cache_label = str(cache_sig)[:8] if cache_sig else "—"
+    resource_sig = metrics.get("resource_signature")
+    resource_label = str(resource_sig)[:8] if resource_sig else "—"
+    cache_summary = metrics.get("cache_summary") or "—"
     chain_reused = "Yes" if metrics.get("chain_reused") else "No"
     cache_miss = metrics.get("cache_miss_reason")
     cache_miss_label = str(cache_miss) if cache_miss else "—"
@@ -346,18 +434,29 @@ def _render_last_preview_metrics() -> None:
     invalidation_label = (
         ", ".join(invalidation_fields) if isinstance(invalidation_fields, list) else "—"
     )
+    llm_changed_fields = metrics.get("cache_llm_changed_fields")
+    llm_changed_label = (
+        ", ".join(llm_changed_fields) if isinstance(llm_changed_fields, list) else "—"
+    )
     settings_changed = metrics.get("cache_settings_changed")
     settings_changed_label = (
         "Yes" if settings_changed is True else "No" if settings_changed is False else "—"
     )
+    cache_reset = metrics.get("cache_session_reset")
+    cache_reset_label = "Yes" if cache_reset else "No"
     st.caption(
         "Last preview cache — "
+        f"Key: {cache_summary} | "
         f"Sig: {cache_label} | "
+        f"Resource sig: {resource_label} | "
         f"Chain reused: {chain_reused} | "
         f"Cache miss: {cache_miss_label} | "
         f"Invalidated by: {invalidation_label} | "
+        f"LLM changed: {llm_changed_label} | "
         f"Settings changed: {settings_changed_label} | "
+        f"Session reset: {cache_reset_label} | "
         f"Build: {_format_seconds(metrics.get('chain_build_seconds'))} | "
+        f"Lookup: {_format_seconds(metrics.get('chain_lookup_seconds'))} | "
         f"Run: {_format_seconds(metrics.get('run_seconds'))} | "
         f"Total: {_format_seconds(metrics.get('total_seconds'))}"
     )
@@ -636,23 +735,25 @@ def _apply_config_wrapper(wrapper: Mapping[str, Any]) -> None:
 
 
 def _resolve_llm_provider_config() -> LLMProviderConfig:
-    provider_name = (os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
+    overrides = _resolve_llm_session_overrides()
+    provider_override = overrides.get("provider")
+    provider_name = (provider_override or os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
     supported = {"openai", "anthropic", "ollama"}
     if provider_name not in supported:
         raise ValueError(
             f"Unknown LLM provider '{provider_name}'. "
             f"Expected one of: {', '.join(sorted(supported))}."
         )
-    api_key = os.environ.get("TS_STREAMLIT_API_KEY")
+    api_key = _sanitize_api_key(os.environ.get("TS_STREAMLIT_API_KEY"))
     if not api_key:
-        api_key = os.environ.get("OPENAI_API_KEY")
+        api_key = _sanitize_api_key(os.environ.get("OPENAI_API_KEY"))
     if not api_key:
-        api_key = os.environ.get("TREND_LLM_API_KEY")
+        api_key = _sanitize_api_key(os.environ.get("TREND_LLM_API_KEY"))
     if not api_key and provider_name == "anthropic":
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
-    model = os.environ.get("TREND_LLM_MODEL")
-    base_url = os.environ.get("TREND_LLM_BASE_URL")
-    organization = os.environ.get("TREND_LLM_ORG")
+        api_key = _sanitize_api_key(os.environ.get("ANTHROPIC_API_KEY"))
+    model = overrides.get("model") or os.environ.get("TREND_LLM_MODEL")
+    base_url = overrides.get("base_url") or os.environ.get("TREND_LLM_BASE_URL")
+    organization = overrides.get("organization") or os.environ.get("TREND_LLM_ORG")
     kwargs: dict[str, Any] = {"provider": provider_name}
     if model:
         kwargs["model"] = model
@@ -666,6 +767,14 @@ def _resolve_llm_provider_config() -> LLMProviderConfig:
 
 
 def _resolve_llm_temperature() -> float:
+    override = st.session_state.get(_LLM_TEMPERATURE_OVERRIDE_KEY)
+    if override is not None:
+        override_text = str(override).strip()
+        if override_text:
+            try:
+                return float(override_text)
+            except (TypeError, ValueError):
+                pass
     raw = os.environ.get("TREND_LLM_TEMPERATURE")
     if raw is None:
         return 0.0
@@ -700,6 +809,131 @@ def _normalize_cache_str(value: str | None) -> str | None:
     return stripped or None
 
 
+def _resolve_llm_session_overrides() -> dict[str, str | None]:
+    provider = st.session_state.get(_LLM_PROVIDER_OVERRIDE_KEY)
+    model = st.session_state.get(_LLM_MODEL_OVERRIDE_KEY)
+    base_url = st.session_state.get(_LLM_BASE_URL_OVERRIDE_KEY)
+    organization = st.session_state.get(_LLM_ORG_OVERRIDE_KEY)
+    provider_override = _normalize_cache_str(str(provider)) if provider else None
+    if provider_override:
+        provider_override = provider_override.lower()
+    return {
+        "provider": provider_override,
+        "model": _normalize_cache_str(str(model)) if model else None,
+        "base_url": _normalize_cache_str(str(base_url)) if base_url else None,
+        "organization": _normalize_cache_str(str(organization)) if organization else None,
+    }
+
+
+def _current_chain_settings_snapshot() -> dict[str, Any]:
+    config = _resolve_llm_provider_config()
+    return {
+        "provider": _normalize_cache_str(config.provider),
+        "model": _normalize_cache_str(config.model),
+        "base_url": _normalize_cache_str(config.base_url),
+        "organization": _normalize_cache_str(config.organization),
+        "temperature": _normalize_temperature(_resolve_llm_temperature()),
+    }
+
+
+def _maybe_reset_config_chat_cache(snapshot: Mapping[str, Any]) -> None:
+    previous = st.session_state.get(_LLM_OVERRIDE_SNAPSHOT_KEY)
+    normalized = dict(snapshot)
+    if not isinstance(previous, Mapping):
+        st.session_state[_LLM_OVERRIDE_SNAPSHOT_KEY] = normalized
+        return
+    previous_normalized = {key: previous.get(key) for key in normalized}
+    if previous_normalized == normalized:
+        return
+    st.session_state[_LLM_OVERRIDE_SNAPSHOT_KEY] = normalized
+    st.session_state.pop("config_chat_preview", None)
+    st.session_state.pop("config_chat_last_instruction", None)
+    st.session_state.pop(_CONFIG_CHAIN_STATE_KEY, None)
+    st.session_state.pop(_CONFIG_CHAIN_METRICS_KEY, None)
+    st.session_state.pop(_CONFIG_CHAIN_STATS_KEY, None)
+    _reset_config_chat_session_id()
+    _LOGGER.info(
+        "Config chat cache reset due to settings change: %s -> %s",
+        previous_normalized,
+        normalized,
+    )
+
+
+def _llm_env_var_hints(provider: str) -> list[str]:
+    hints = ["TS_STREAMLIT_API_KEY", "TREND_LLM_API_KEY"]
+    if provider == "openai":
+        hints.append("OPENAI_API_KEY")
+    elif provider == "anthropic":
+        hints.append("ANTHROPIC_API_KEY")
+    return hints
+
+
+def _llm_api_key_available(provider: str) -> bool:
+    if provider == "ollama":
+        return True
+    return bool(_default_api_key(provider))
+
+
+def _render_llm_session_overrides_panel() -> None:
+    with st.expander("LLM Settings (Session Only)", expanded=False):
+        st.caption("Overrides apply only to this session and do not store or display API keys.")
+        provider_options = [None, "openai", "anthropic", "ollama"]
+        provider_labels = {
+            None: "Use env default",
+            "openai": "OpenAI",
+            "anthropic": "Anthropic",
+            "ollama": "Ollama",
+        }
+        current_override = st.session_state.get(_LLM_PROVIDER_OVERRIDE_KEY)
+        if current_override not in provider_options:
+            current_override = None
+        st.selectbox(
+            "Provider",
+            provider_options,
+            index=provider_options.index(current_override),
+            key=_LLM_PROVIDER_OVERRIDE_KEY,
+            format_func=lambda value: provider_labels.get(value, "Use env default"),
+            help="Overrides TREND_LLM_PROVIDER for this session only.",
+        )
+        st.text_input(
+            "Model (optional)",
+            key=_LLM_MODEL_OVERRIDE_KEY,
+            help="Overrides TREND_LLM_MODEL for this session only.",
+        )
+        st.text_input(
+            "Base URL (optional)",
+            key=_LLM_BASE_URL_OVERRIDE_KEY,
+            help="Overrides TREND_LLM_BASE_URL for this session only.",
+        )
+        st.text_input(
+            "Organization (optional)",
+            key=_LLM_ORG_OVERRIDE_KEY,
+            help="Overrides TREND_LLM_ORG for this session only.",
+        )
+        temp_override = st.text_input(
+            "Temperature (optional)",
+            key=_LLM_TEMPERATURE_OVERRIDE_KEY,
+            help="Overrides TREND_LLM_TEMPERATURE for this session only.",
+        )
+        if temp_override:
+            try:
+                float(temp_override)
+            except (TypeError, ValueError):
+                st.warning("Temperature override must be a number; using env default.")
+        _maybe_reset_config_chat_cache(_current_chain_settings_snapshot())
+        resolved_provider = _resolve_llm_provider_config().provider
+        if resolved_provider == "ollama":
+            st.caption("Active provider: Ollama (no API key required).")
+            return
+        if _llm_api_key_available(resolved_provider):
+            st.caption(f"Active provider: {resolved_provider} (API key detected).")
+            return
+        hints = ", ".join(_llm_env_var_hints(resolved_provider))
+        st.warning(
+            f"Active provider: {resolved_provider}. No API key detected. " f"Set one of: {hints}."
+        )
+
+
 def _normalize_temperature(value: float) -> float:
     try:
         return round(float(value), 4)
@@ -707,73 +941,89 @@ def _normalize_temperature(value: float) -> float:
         return 0.0
 
 
+def _hash_cache_key(value: Mapping[str, Any]) -> str:
+    return _chain_cache_signature(value)
+
+
+@dataclass(frozen=True, slots=True)
+class _ApiKeySecret:
+    value: str | None
+    fingerprint: str | None
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, _ApiKeySecret):
+            return (self.value, self.fingerprint) == (other.value, other.fingerprint)
+        if isinstance(other, str):
+            return self.value == other
+        if other is None:
+            return self.value is None
+        return False
+
+
+def _hash_api_key_secret(secret: _ApiKeySecret) -> str:
+    if secret.fingerprint:
+        return secret.fingerprint
+    return "no-key"
+
+
 @st.cache_resource(show_spinner=False)
+def _cached_compact_schema() -> dict[str, Any]:
+    return load_compact_schema()
+
+
+@st.cache_resource(
+    show_spinner=False,
+    hash_funcs={dict: _hash_cache_key, _ApiKeySecret: _hash_api_key_secret},
+)
 def _cached_llm_client(
     session_cache_key: str,
-    cache_version: str,
-    provider: str,
-    model: str,
-    api_key: str | None,
-    base_url: str | None,
-    organization: str | None,
-    timeout: float | None,
-    max_retries: int | None,
+    cache_key: Mapping[str, Any],
+    api_key_secret: _ApiKeySecret | None,
     extra_payload: str,
-    api_key_fingerprint: str | None,
 ) -> Any:
-    del session_cache_key, cache_version, api_key_fingerprint
+    del session_cache_key
+    api_key = api_key_secret.value if api_key_secret is not None else None
     config = LLMProviderConfig(
-        provider=provider,
-        model=model,
+        provider=str(cache_key.get("provider")),
+        model=str(cache_key.get("model")),
         api_key=api_key,
-        base_url=base_url,
-        organization=organization,
-        timeout=timeout,
-        max_retries=max_retries,
+        base_url=cache_key.get("base_url"),
+        organization=cache_key.get("organization"),
+        timeout=cache_key.get("timeout"),
+        max_retries=cache_key.get("max_retries"),
         extra=json.loads(extra_payload) if extra_payload else {},
     )
     return create_llm(config)
 
 
-@st.cache_resource(show_spinner=False)
+@st.cache_resource(
+    show_spinner=False,
+    hash_funcs={dict: _hash_cache_key, _ApiKeySecret: _hash_api_key_secret},
+)
 def _cached_config_patch_chain(
     session_cache_key: str,
-    cache_version: str,
-    provider: str,
-    model: str,
-    api_key: str | None,
-    base_url: str | None,
-    organization: str | None,
-    timeout: float | None,
-    max_retries: int | None,
+    chain_cache_key: Mapping[str, Any],
+    llm_cache_key: Mapping[str, Any],
+    api_key_secret: _ApiKeySecret | None,
     extra_payload: str,
-    temperature: float,
-    api_key_fingerprint: str | None,
 ) -> ConfigPatchChain:
     llm = _cached_llm_client(
         session_cache_key,
-        cache_version,
-        provider,
-        model,
-        api_key,
-        base_url,
-        organization,
-        timeout,
-        max_retries,
+        llm_cache_key,
+        api_key_secret,
         extra_payload,
-        api_key_fingerprint,
     )
-    schema = load_compact_schema()
+    schema = _cached_compact_schema()
     return ConfigPatchChain.from_env(
         llm=llm,
         schema=schema,
         prompt_builder=build_config_patch_prompt,
-        temperature=temperature,
-        model=model,
+        temperature=float(chain_cache_key.get("temperature") or 0.0),
+        model=str(chain_cache_key.get("model")),
     )
 
 
-def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
+def _build_chain_cache_context() -> dict[str, Any]:
     config = _resolve_llm_provider_config()
     provider = _normalize_cache_str(config.provider) or "openai"
     temperature = _normalize_temperature(_resolve_llm_temperature())
@@ -783,47 +1033,85 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     extra_payload = _serialize_extra(config.extra)
     extra_payload_hash = _hash_text(extra_payload)
     resolved_model = _normalize_cache_str(config.model) or _DEFAULT_CONFIG_CHAT_MODEL
+    llm_cache_key = _build_llm_cache_key(
+        provider=provider,
+        model=resolved_model,
+        base_url=base_url,
+        organization=organization,
+        timeout=config.timeout,
+        max_retries=config.max_retries,
+        extra_payload_hash=extra_payload_hash,
+        api_key_fingerprint=api_key_fingerprint,
+    )
     cache_key = _build_chain_cache_key(
         provider=provider,
         model=resolved_model,
         base_url=base_url,
         organization=organization,
         temperature=temperature,
-        timeout=config.timeout,
-        max_retries=config.max_retries,
-        extra_payload_hash=extra_payload_hash,
-        api_key_fingerprint=api_key_fingerprint,
     )
+    return {
+        "provider": provider,
+        "temperature": temperature,
+        "base_url": base_url,
+        "organization": organization,
+        "resolved_model": resolved_model,
+        "api_key": config.api_key,
+        "api_key_fingerprint": api_key_fingerprint,
+        "extra_payload": extra_payload,
+        "llm_cache_key": llm_cache_key,
+        "cache_key": cache_key,
+    }
+
+
+def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
+    context = _build_chain_cache_context()
+    api_key = context["api_key"]
+    api_key_fingerprint = context["api_key_fingerprint"]
+    extra_payload = context["extra_payload"]
+    llm_cache_key = context["llm_cache_key"]
+    cache_key = context["cache_key"]
     cache_state = _get_chain_cache_state()
     signature = _chain_cache_signature(cache_key)
+    resource_signature = _chain_resource_signature(cache_key, llm_cache_key)
     previous_signature = cache_state.get("last_signature")
+    previous_resource_signature = cache_state.get("last_resource_signature")
     settings_changed = bool(previous_signature and previous_signature != signature)
     previous_cache_key = cache_state.get("last_cache_key")
-    changed_fields = _cache_key_changes(previous_cache_key, cache_key, _CONFIG_CHAIN_LOG_FIELDS)
+    previous_llm_cache_key = cache_state.get("last_llm_cache_key")
+    changed_fields = _cache_key_changes(previous_cache_key, cache_key, _CONFIG_CHAIN_CORE_FIELDS)
+    llm_changed_fields = _cache_key_changes(
+        previous_llm_cache_key,
+        llm_cache_key,
+        _CONFIG_CHAIN_LLM_FIELDS,
+    )
     invalidation_fields = _cache_key_changes(
         previous_cache_key,
         cache_key,
-        _CONFIG_CHAIN_INVALIDATION_FIELDS,
+        _CONFIG_CHAIN_REBUILD_FIELDS,
     )
+    resource_changed = bool(
+        previous_resource_signature and previous_resource_signature != resource_signature
+    )
+    session_reset = False
     if invalidation_fields:
-        _reset_config_chat_session_id()
         st.session_state.pop("config_chat_preview", None)
         st.session_state.pop("config_chat_last_instruction", None)
-    session_cache_key = _get_config_chat_session_id()
+        cache_state["last_invalidation_fields"] = list(invalidation_fields)
+        session_reset = True
+    session_cache_key = (
+        _reset_config_chat_session_id() if session_reset else _get_config_chat_session_id()
+    )
+    api_key_secret = _ApiKeySecret(api_key, api_key_fingerprint)
+    lookup_start = monotonic()
     chain = _cached_config_patch_chain(
         session_cache_key,
-        _CONFIG_CHAIN_CACHE_VERSION,
-        provider,
-        resolved_model,
-        config.api_key,
-        base_url,
-        organization,
-        config.timeout,
-        config.max_retries,
+        cache_key,
+        llm_cache_key,
+        api_key_secret,
         extra_payload,
-        temperature,
-        api_key_fingerprint,
     )
+    lookup_seconds = monotonic() - lookup_start
     entries = cache_state["entries"]
     cached_chain_id = entries.get(signature)
     reused = cached_chain_id == id(chain)
@@ -836,11 +1124,17 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
                 cache_miss_reason = f"settings_changed: {', '.join(changed_fields)}"
             else:
                 cache_miss_reason = "settings_changed"
+        elif llm_changed_fields:
+            cache_miss_reason = f"llm_settings_changed: {', '.join(llm_changed_fields)}"
+        elif resource_changed:
+            cache_miss_reason = "llm_settings_changed"
         else:
             cache_miss_reason = "first_build"
     entries[signature] = id(chain)
     cache_state["last_signature"] = signature
+    cache_state["last_resource_signature"] = resource_signature
     cache_state["last_cache_key"] = cache_key
+    cache_state["last_llm_cache_key"] = llm_cache_key
     cache_state["last_chain_id"] = id(chain)
     st.session_state["config_chat_chain_key"] = cache_key
     st.session_state["config_chat_chain_signature"] = signature
@@ -848,9 +1142,14 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         "chain_reused": reused,
         "chain_cache_key": cache_key,
         "chain_cache_signature": signature,
+        "chain_resource_signature": resource_signature,
+        "chain_cache_summary": _chain_cache_summary(cache_key),
         "chain_cache_miss_reason": cache_miss_reason,
         "chain_cache_invalidation_fields": invalidation_fields,
         "chain_settings_changed": settings_changed,
+        "chain_llm_changed_fields": llm_changed_fields,
+        "chain_cache_session_reset": session_reset,
+        "chain_lookup_seconds": lookup_seconds,
     }
 
 
@@ -882,9 +1181,14 @@ def _generate_config_preview(
             "chain_reused": chain_meta.get("chain_reused"),
             "chain_cache_key": chain_meta.get("chain_cache_key"),
             "chain_cache_signature": chain_meta.get("chain_cache_signature"),
+            "chain_resource_signature": chain_meta.get("chain_resource_signature"),
+            "chain_cache_summary": chain_meta.get("chain_cache_summary"),
             "chain_cache_miss_reason": chain_meta.get("chain_cache_miss_reason"),
             "chain_cache_invalidation_fields": chain_meta.get("chain_cache_invalidation_fields"),
             "chain_settings_changed": chain_meta.get("chain_settings_changed"),
+            "chain_llm_changed_fields": chain_meta.get("chain_llm_changed_fields"),
+            "chain_cache_session_reset": chain_meta.get("chain_cache_session_reset"),
+            "chain_lookup_seconds": chain_meta.get("chain_lookup_seconds"),
             "run_seconds": run_seconds,
         },
     }
@@ -1228,6 +1532,7 @@ def _render_config_diff_preview(model_state: Mapping[str, Any] | None) -> None:
             f"Cache sig: {cache_signature_label} | "
             f"Settings changed: {settings_changed_label} | "
             f"Chain build: {_format_seconds(timings.get('chain_build_seconds'))} | "
+            f"Chain lookup: {_format_seconds(timings.get('chain_lookup_seconds'))} | "
             f"Run: {_format_seconds(timings.get('run_seconds'))} | "
             f"Total: {_format_seconds(timings.get('total_seconds'))}"
             f"{cache_miss_label}{invalidation_label}"
@@ -1278,6 +1583,17 @@ def _render_config_change_history() -> None:
 def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
     st.caption("Describe the configuration change you want to try.")
     _render_last_preview_metrics()
+    try:
+        cache_context = _build_chain_cache_context()
+    except Exception as exc:
+        st.caption(f"Cache key unavailable: {exc}")
+    else:
+        cache_key = cache_context.get("cache_key")
+        cache_summary = _chain_cache_summary(cache_key) if isinstance(cache_key, Mapping) else "—"
+        cache_signature = (
+            _chain_cache_signature(cache_key)[:8] if isinstance(cache_key, Mapping) else "—"
+        )
+        st.caption(f"Current cache key: {cache_summary} | Sig: {cache_signature}")
     instruction = st.text_area(
         "Instruction",
         key="config_chat_instruction",
@@ -1379,7 +1695,11 @@ def render_config_chat_panel(
     """Render the Config Chat panel for natural-language config tweaks."""
 
     if location == "sidebar":
-        with st.sidebar:
+        sidebar_ctx = st.sidebar
+        if not (hasattr(sidebar_ctx, "__enter__") and hasattr(sidebar_ctx, "__exit__")):
+            sidebar_ctx = contextlib.nullcontext()
+        with sidebar_ctx:
+            _render_llm_session_overrides_panel()
             with st.expander("💬 Config Chat", expanded=False):
                 _render_config_chat_contents(model_state)
         return
@@ -3713,4 +4033,14 @@ def render_model_page() -> None:
                 st.success("✅ Model configuration saved. Go to Results to run analysis.")
 
 
-render_model_page()
+def _should_auto_render() -> bool:
+    """Return True when running inside an active Streamlit session."""
+    try:
+        from streamlit.runtime.scriptrunner import get_script_run_ctx
+    except Exception:
+        return False
+    return get_script_run_ctx() is not None
+
+
+if _should_auto_render():
+    render_model_page()

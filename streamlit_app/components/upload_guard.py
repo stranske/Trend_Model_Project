@@ -8,9 +8,22 @@ import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Protocol, runtime_checkable
 
-from streamlit.runtime.uploaded_file_manager import UploadedFile
+try:
+    from streamlit.runtime.uploaded_file_manager import UploadedFile
+except Exception:  # pragma: no cover - streamlit isn't available in CI import tests
+
+    @runtime_checkable
+    class UploadedFile(Protocol):
+        """Minimal uploaded file interface used by guardrails."""
+
+        name: str
+
+        def read(self, size: int | None = None) -> bytes: ...
+
+        def seek(self, offset: int, whence: int = 0) -> int: ...
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_UPLOAD_DIR = REPO_ROOT / "tmp" / "uploads"

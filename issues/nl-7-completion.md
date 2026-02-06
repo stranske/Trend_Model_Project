@@ -34,13 +34,13 @@ Complete the remaining acceptance criteria from #4185:
   - [x] Calculate success rate metrics
   - [x] Generate evaluation report
 
-- [ ] Define test cases in `tools/eval_test_cases.yml`:
-  - [ ] "Use risk parity weighting" → set analysis.weighting.scheme = "risk_parity"
-  - [ ] "Select top 12 funds" → set analysis.top_n = 12
-  - [ ] "Remove position limits" → remove constraints.max_weight + REMOVES_CONSTRAINT flag
-  - [ ] "Target 15% volatility" → set analysis.target_vol = 0.15
-  - [ ] "Use monthly frequency and risk parity" → Two operations in one patch
-  - [ ] Add 5 additional edge cases (unknown keys, conflicting instructions, ambiguous requests)
+- [x] Define test cases in `tools/eval_test_cases.yml`:
+  - [x] "Use risk parity weighting" → set analysis.weighting.scheme = "risk_parity"
+  - [x] "Select top 12 funds" → set analysis.top_n = 12
+  - [x] "Remove position limits" → remove constraints.max_weight + REMOVES_CONSTRAINT flag
+  - [x] "Target 15% volatility" → set analysis.target_vol = 0.15
+  - [x] "Use monthly frequency and risk parity" → Two operations in one patch
+  - [x] Add 5 additional edge cases (unknown keys, conflicting instructions, ambiguous requests)
 
 - [ ] Add comprehensive integration tests in `tests/test_config_patch_chain_integration.py`:
   - [ ] Test each eval harness case programmatically
