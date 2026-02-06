@@ -72,6 +72,7 @@ def test_generate_result_explanation_uses_chain_and_disclaimer(
     assert "analysis_output" in stub.last_payload
     assert "metric_catalog" in stub.last_payload
     assert "questions" in stub.last_payload
+    assert "Summarize" in stub.last_payload["questions"]
 
 
 def test_generate_result_explanation_handles_missing_metrics(

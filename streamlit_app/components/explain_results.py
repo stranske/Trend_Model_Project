@@ -203,8 +203,8 @@ def render_explain_results(
 
     question_key = "explain_results_questions"
     st.text_area(
-        "Questions (optional)",
-        value=st.session_state.get(question_key, DEFAULT_QUESTION),
+        "Question (optional)",
+        value=st.session_state.get(question_key, ""),
         key=question_key,
         help="Leave blank to use the default summary prompt.",
     )
