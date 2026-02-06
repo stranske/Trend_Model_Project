@@ -825,26 +825,33 @@ def _resolve_llm_session_overrides() -> dict[str, str | None]:
     }
 
 
-def _current_chain_settings_snapshot() -> dict[str, Any]:
-    config = _resolve_llm_provider_config()
+def _current_chain_settings_snapshot(
+    config: LLMProviderConfig | None = None,
+    temperature: float | None = None,
+) -> dict[str, Any]:
+    if config is None:
+        config = _resolve_llm_provider_config()
+    if temperature is None:
+        temperature = _resolve_llm_temperature()
     return {
         "provider": _normalize_cache_str(config.provider),
         "model": _normalize_cache_str(config.model),
         "base_url": _normalize_cache_str(config.base_url),
         "organization": _normalize_cache_str(config.organization),
-        "temperature": _normalize_temperature(_resolve_llm_temperature()),
+        "temperature": _normalize_temperature(temperature),
     }
 
 
-def _maybe_reset_config_chat_cache(snapshot: Mapping[str, Any]) -> None:
+def _maybe_reset_config_chat_cache(snapshot: Mapping[str, Any]) -> list[str]:
     previous = st.session_state.get(_LLM_OVERRIDE_SNAPSHOT_KEY)
     normalized = dict(snapshot)
     if not isinstance(previous, Mapping):
         st.session_state[_LLM_OVERRIDE_SNAPSHOT_KEY] = normalized
-        return
+        return []
     previous_normalized = {key: previous.get(key) for key in normalized}
     if previous_normalized == normalized:
-        return
+        return []
+    changed = [key for key in normalized if previous_normalized.get(key) != normalized.get(key)]
     st.session_state[_LLM_OVERRIDE_SNAPSHOT_KEY] = normalized
     st.session_state.pop("config_chat_preview", None)
     st.session_state.pop("config_chat_last_instruction", None)
@@ -857,6 +864,7 @@ def _maybe_reset_config_chat_cache(snapshot: Mapping[str, Any]) -> None:
         previous_normalized,
         normalized,
     )
+    return changed
 
 
 def _llm_env_var_hints(provider: str) -> list[str]:
@@ -1023,10 +1031,16 @@ def _cached_config_patch_chain(
     )
 
 
-def _build_chain_cache_context() -> dict[str, Any]:
-    config = _resolve_llm_provider_config()
+def _build_chain_cache_context(
+    config: LLMProviderConfig | None = None,
+    temperature: float | None = None,
+) -> dict[str, Any]:
+    if config is None:
+        config = _resolve_llm_provider_config()
+    if temperature is None:
+        temperature = _resolve_llm_temperature()
     provider = _normalize_cache_str(config.provider) or "openai"
-    temperature = _normalize_temperature(_resolve_llm_temperature())
+    temperature = _normalize_temperature(temperature)
     base_url = _normalize_cache_str(config.base_url)
     organization = _normalize_cache_str(config.organization)
     normalized_model = _normalize_cache_str(config.model)
@@ -1066,8 +1080,12 @@ def _build_chain_cache_context() -> dict[str, Any]:
 
 
 def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
-    _maybe_reset_config_chat_cache(_current_chain_settings_snapshot())
-    context = _build_chain_cache_context()
+    config = _resolve_llm_provider_config()
+    temperature = _resolve_llm_temperature()
+    reset_fields = _maybe_reset_config_chat_cache(
+        _current_chain_settings_snapshot(config, temperature)
+    )
+    context = _build_chain_cache_context(config, temperature)
     api_key = context["api_key"]
     api_key_fingerprint = context["api_key_fingerprint"]
     extra_payload = context["extra_payload"]
@@ -1101,9 +1119,14 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         st.session_state.pop("config_chat_last_instruction", None)
         cache_state["last_invalidation_fields"] = list(invalidation_fields)
         session_reset = True
-    session_cache_key = (
-        _reset_config_chat_session_id() if session_reset else _get_config_chat_session_id()
-    )
+    elif reset_fields:
+        invalidation_fields = list(reset_fields)
+        cache_state["last_invalidation_fields"] = list(invalidation_fields)
+        session_reset = True
+    if session_reset and not reset_fields:
+        session_cache_key = _reset_config_chat_session_id()
+    else:
+        session_cache_key = _get_config_chat_session_id()
     api_key_secret = _ApiKeySecret(api_key, api_key_fingerprint)
     lookup_start = monotonic()
     chain = _cached_config_patch_chain(
