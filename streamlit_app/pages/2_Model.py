@@ -184,12 +184,16 @@ def _build_chain_cache_key(
     *,
     provider: str,
     model: str,
+    base_url: str | None,
+    organization: str | None,
     temperature: float,
 ) -> dict[str, Any]:
     return {
         "cache_version": _CONFIG_CHAIN_CACHE_VERSION,
         "provider": provider,
         "model": model,
+        "base_url": base_url,
+        "organization": organization,
         "temperature": temperature,
     }
 
@@ -1162,6 +1166,8 @@ def _build_chain_cache_context_from_config(
     cache_key = _build_chain_cache_key(
         provider=provider,
         model=resolved_model,
+        base_url=base_url,
+        organization=organization,
         temperature=temperature,
     )
     return {
