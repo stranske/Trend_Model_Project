@@ -115,6 +115,17 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     return module
 
 
+def _cache_key_from_cached_chain_kwargs(kwargs: dict[str, object]) -> dict[str, object]:
+    return {
+        "cache_version": kwargs.get("cache_version"),
+        "provider": kwargs.get("provider"),
+        "model": kwargs.get("model"),
+        "base_url": kwargs.get("base_url"),
+        "organization": kwargs.get("organization"),
+        "temperature": kwargs.get("temperature"),
+    }
+
+
 def test_validate_model_catches_errors(model_module: ModuleType) -> None:
     """Test that _validate_model catches various validation errors."""
     # Test 1: Selection count exceeds column count
@@ -213,13 +224,8 @@ def test_build_nl_chain_reuses_cached_chain_with_provider_config(
     stub.session_state.clear()
     cache: dict[str, object] = {}
 
-    def fake_cached_config_patch_chain(
-        _session_cache_key,
-        chain_cache_key,
-        _llm_cache_key,
-        _api_key,
-        _extra_payload,
-    ):
+    def fake_cached_config_patch_chain(**kwargs):
+        chain_cache_key = _cache_key_from_cached_chain_kwargs(kwargs)
         signature = model_module._chain_cache_signature(chain_cache_key)
         if signature not in cache:
             cache[signature] = object()
@@ -243,13 +249,8 @@ def test_build_nl_chain_invalidates_on_model_change(
     stub.session_state.clear()
     cache: dict[str, object] = {}
 
-    def fake_cached_config_patch_chain(
-        _session_cache_key,
-        chain_cache_key,
-        _llm_cache_key,
-        _api_key,
-        _extra_payload,
-    ):
+    def fake_cached_config_patch_chain(**kwargs):
+        chain_cache_key = _cache_key_from_cached_chain_kwargs(kwargs)
         signature = model_module._chain_cache_signature(chain_cache_key)
         if signature not in cache:
             cache[signature] = object()
@@ -263,12 +264,12 @@ def test_build_nl_chain_invalidates_on_model_change(
     stub.session_state["config_chat_last_instruction"] = "old"
 
     _chain, _meta = model_module._build_nl_chain()
-    session_id_before = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+    session_id_before = stub.session_state.get("config_chat_chain_signature")
 
     stub.session_state[model_module._LLM_MODEL_OVERRIDE_KEY] = "gpt-4.1-mini"
     _chain, meta = model_module._build_nl_chain()
 
-    session_id_after = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+    session_id_after = stub.session_state.get("config_chat_chain_signature")
     assert session_id_before != session_id_after
     assert meta["chain_cache_invalidation_fields"] == ["model"]
     assert meta["chain_cache_session_reset"] is True
@@ -283,13 +284,8 @@ def test_build_nl_chain_invalidates_on_provider_change(
     stub.session_state.clear()
     cache: dict[str, object] = {}
 
-    def fake_cached_config_patch_chain(
-        _session_cache_key,
-        chain_cache_key,
-        _llm_cache_key,
-        _api_key,
-        _extra_payload,
-    ):
+    def fake_cached_config_patch_chain(**kwargs):
+        chain_cache_key = _cache_key_from_cached_chain_kwargs(kwargs)
         signature = model_module._chain_cache_signature(chain_cache_key)
         if signature not in cache:
             cache[signature] = object()
@@ -303,12 +299,12 @@ def test_build_nl_chain_invalidates_on_provider_change(
     stub.session_state["config_chat_last_instruction"] = "old"
 
     _chain, _meta = model_module._build_nl_chain()
-    session_id_before = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+    session_id_before = stub.session_state.get("config_chat_chain_signature")
 
     stub.session_state[model_module._LLM_PROVIDER_OVERRIDE_KEY] = "anthropic"
     _chain, meta = model_module._build_nl_chain()
 
-    session_id_after = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+    session_id_after = stub.session_state.get("config_chat_chain_signature")
     assert session_id_before != session_id_after
     assert meta["chain_cache_invalidation_fields"] == ["provider"]
     assert meta["chain_cache_session_reset"] is True
@@ -323,13 +319,8 @@ def test_build_nl_chain_invalidates_on_temperature_env_change(
     stub.session_state.clear()
     cache: dict[str, object] = {}
 
-    def fake_cached_config_patch_chain(
-        _session_cache_key,
-        chain_cache_key,
-        _llm_cache_key,
-        _api_key,
-        _extra_payload,
-    ):
+    def fake_cached_config_patch_chain(**kwargs):
+        chain_cache_key = _cache_key_from_cached_chain_kwargs(kwargs)
         signature = model_module._chain_cache_signature(chain_cache_key)
         if signature not in cache:
             cache[signature] = object()
@@ -342,12 +333,12 @@ def test_build_nl_chain_invalidates_on_temperature_env_change(
     stub.session_state["config_chat_last_instruction"] = "old"
 
     _chain, _meta = model_module._build_nl_chain()
-    session_id_before = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+    session_id_before = stub.session_state.get("config_chat_chain_signature")
 
     stub.session_state[model_module._LLM_TEMPERATURE_OVERRIDE_KEY] = "0.7"
     _chain, meta = model_module._build_nl_chain()
 
-    session_id_after = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+    session_id_after = stub.session_state.get("config_chat_chain_signature")
     assert session_id_before != session_id_after
     assert meta["chain_cache_invalidation_fields"] == ["temperature"]
     assert meta["chain_cache_session_reset"] is True
@@ -362,14 +353,8 @@ def test_build_nl_chain_cache_key_defaults_provider_model_temperature(
     stub.session_state.clear()
     captured: dict[str, object] = {}
 
-    def fake_cached_config_patch_chain(
-        _session_cache_key,
-        chain_cache_key,
-        _llm_cache_key,
-        _api_key,
-        _extra_payload,
-    ):
-        captured["chain_cache_key"] = dict(chain_cache_key)
+    def fake_cached_config_patch_chain(**kwargs):
+        captured["chain_cache_key"] = _cache_key_from_cached_chain_kwargs(kwargs)
         return object()
 
     monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
@@ -412,14 +397,8 @@ def test_build_nl_chain_passes_api_key_to_cache(
     stub.session_state.clear()
     captured: dict[str, object] = {}
 
-    def fake_cached_config_patch_chain(
-        _session_cache_key,
-        _chain_cache_key,
-        _llm_cache_key,
-        api_key_secret,
-        _extra_payload,
-    ):
-        captured["api_key_secret"] = api_key_secret
+    def fake_cached_config_patch_chain(**kwargs):
+        captured["api_key_secret"] = kwargs.get("api_key_secret")
         return object()
 
     monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
@@ -440,13 +419,8 @@ def test_build_nl_chain_invalidates_on_base_url_change(
     stub.session_state.clear()
     cache: dict[str, object] = {}
 
-    def fake_cached_config_patch_chain(
-        _session_cache_key,
-        chain_cache_key,
-        _llm_cache_key,
-        _api_key,
-        _extra_payload,
-    ):
+    def fake_cached_config_patch_chain(**kwargs):
+        chain_cache_key = _cache_key_from_cached_chain_kwargs(kwargs)
         signature = model_module._chain_cache_signature(chain_cache_key)
         if signature not in cache:
             cache[signature] = object()
@@ -461,12 +435,12 @@ def test_build_nl_chain_invalidates_on_base_url_change(
     stub.session_state["config_chat_last_instruction"] = "old"
 
     _chain, _meta = model_module._build_nl_chain()
-    session_id_before = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+    session_id_before = stub.session_state.get("config_chat_chain_signature")
 
     stub.session_state[model_module._LLM_BASE_URL_OVERRIDE_KEY] = "https://api.two"
     _chain, meta = model_module._build_nl_chain()
 
-    session_id_after = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+    session_id_after = stub.session_state.get("config_chat_chain_signature")
     assert session_id_before != session_id_after
     assert meta["chain_cache_invalidation_fields"] == ["base_url"]
     assert meta["chain_cache_session_reset"] is True
@@ -481,13 +455,8 @@ def test_build_nl_chain_invalidates_on_org_change(
     stub.session_state.clear()
     cache: dict[str, object] = {}
 
-    def fake_cached_config_patch_chain(
-        _session_cache_key,
-        chain_cache_key,
-        _llm_cache_key,
-        _api_key,
-        _extra_payload,
-    ):
+    def fake_cached_config_patch_chain(**kwargs):
+        chain_cache_key = _cache_key_from_cached_chain_kwargs(kwargs)
         signature = model_module._chain_cache_signature(chain_cache_key)
         if signature not in cache:
             cache[signature] = object()
@@ -502,12 +471,12 @@ def test_build_nl_chain_invalidates_on_org_change(
     stub.session_state["config_chat_last_instruction"] = "old"
 
     _chain, _meta = model_module._build_nl_chain()
-    session_id_before = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+    session_id_before = stub.session_state.get("config_chat_chain_signature")
 
     stub.session_state[model_module._LLM_ORG_OVERRIDE_KEY] = "org-two"
     _chain, meta = model_module._build_nl_chain()
 
-    session_id_after = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+    session_id_after = stub.session_state.get("config_chat_chain_signature")
     assert session_id_before != session_id_after
     assert meta["chain_cache_invalidation_fields"] == ["organization"]
     assert meta["chain_cache_session_reset"] is True
@@ -522,13 +491,8 @@ def test_build_nl_chain_invalidates_on_temperature_change(
     stub.session_state.clear()
     cache: dict[str, object] = {}
 
-    def fake_cached_config_patch_chain(
-        _session_cache_key,
-        chain_cache_key,
-        _llm_cache_key,
-        _api_key,
-        _extra_payload,
-    ):
+    def fake_cached_config_patch_chain(**kwargs):
+        chain_cache_key = _cache_key_from_cached_chain_kwargs(kwargs)
         signature = model_module._chain_cache_signature(chain_cache_key)
         if signature not in cache:
             cache[signature] = object()
@@ -538,14 +502,14 @@ def test_build_nl_chain_invalidates_on_temperature_change(
 
     monkeypatch.setenv("TREND_LLM_TEMPERATURE", "0.1")
     _chain, _meta = model_module._build_nl_chain()
-    session_id_before = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+    session_id_before = stub.session_state.get("config_chat_chain_signature")
 
     stub.session_state["config_chat_preview"] = {"before": {}, "after": {}}
     stub.session_state["config_chat_last_instruction"] = "old"
     monkeypatch.setenv("TREND_LLM_TEMPERATURE", "0.7")
     _chain, meta = model_module._build_nl_chain()
 
-    session_id_after = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+    session_id_after = stub.session_state.get("config_chat_chain_signature")
     assert session_id_before != session_id_after
     assert meta["chain_cache_invalidation_fields"] == ["temperature"]
     assert meta["chain_cache_session_reset"] is True
@@ -1118,18 +1082,13 @@ def test_build_nl_chain_reuses_cached_chain(
     chain_obj = object()
     calls: list[dict[str, object]] = []
 
-    def fake_cached_config_patch_chain(
-        session_cache_key: str,
-        chain_cache_key: dict[str, object],
-        llm_cache_key: dict[str, object],
-        api_key: object,
-        extra_payload: str,
-    ) -> object:
+    def fake_cached_config_patch_chain(**kwargs) -> object:
+        chain_cache_key = _cache_key_from_cached_chain_kwargs(kwargs)
         calls.append(
             {
                 "provider": chain_cache_key.get("provider"),
                 "model": chain_cache_key.get("model"),
-                "api_key": api_key,
+                "api_key": kwargs.get("api_key_secret"),
                 "temperature": chain_cache_key.get("temperature"),
             }
         )
@@ -1168,13 +1127,7 @@ def test_build_nl_chain_reports_evicted_cache(
 
     chain_objects = iter([object(), object()])
 
-    def fake_cached_config_patch_chain(
-        session_cache_key: str,
-        chain_cache_key: dict[str, object],
-        llm_cache_key: dict[str, object],
-        api_key: object,
-        extra_payload: str,
-    ) -> object:
+    def fake_cached_config_patch_chain(**kwargs) -> object:
         return next(chain_objects)
 
     monkeypatch.setattr(
@@ -1227,13 +1180,7 @@ def test_build_nl_chain_invalidation_on_model_change(
     chain_two = object()
     call_count = {"value": 0}
 
-    def fake_cached_config_patch_chain(
-        session_cache_key: str,
-        chain_cache_key: dict[str, object],
-        llm_cache_key: dict[str, object],
-        api_key: str | None,
-        extra_payload: str,
-    ) -> object:
+    def fake_cached_config_patch_chain(**_kwargs) -> object:
         call_count["value"] += 1
         return chain_one if call_count["value"] == 1 else chain_two
 
