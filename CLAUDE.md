@@ -47,6 +47,43 @@ When an issue is labeled `agent:codex`:
 - `keepalive_next_task.md` - Normal work instructions
 - `fix_ci_failures.md` - CI fix instructions
 
+## Auto-Pilot System
+
+⚠️ **WARNING**: Auto-pilot is experimental and has known issues. Prefer `agent:codex` for most work.
+
+When an issue is labeled `agents:auto-pilot`:
+1. **Format** - Standardizes issue structure
+2. **Optimize** - Decomposes tasks, suggests improvements
+3. **Apply** - Applies optimization suggestions to issue body
+4. **Create PR** - Generates bootstrap PR with codex/ branch
+5. **Monitor PR** - Waits for PR completion (merge or close)
+6. **Verify** - Triggers verification workflow post-merge
+7. **Done** - Removes auto-pilot label, posts completion comment
+
+### Known Issues
+
+- **Task decomposition can spiral**: Optimizer may create hundreds of duplicate subtasks
+  - Symptom: Issue body explodes with repeated "Define scope", "Implement", "Validate" items
+  - Cause: `AttributeError` in `issue_optimizer.py` triggers re-runs that duplicate tasks
+  - Recovery: Close issue and recreate with clean body
+
+- **PR monitoring stalls**: "Monitor PR" step waits indefinitely
+  - Symptom: Auto-pilot adds `agents:auto-pilot-pause` + `needs-human` labels
+  - Cause: No clear completion criteria, relies on external merge
+  - Recovery: Manually merge/close PR, then remove pause labels
+
+### When to Use Auto-Pilot
+
+❌ **Don't use for**:
+- Normal feature work (use `agent:codex` instead)
+- Issues with >5 tasks (decomposition may spiral)
+- Time-sensitive work (may stall in monitor-pr)
+
+✅ **Consider for**:
+- Simple 1-2 task issues that need standardization
+- Testing the automation pipeline
+- Issues where optimizer suggestions would be valuable
+
 ## Common Issues
 
 ### Workflow fails with "workflow file issue"
