@@ -24,12 +24,12 @@ def test_validate_strategy_pack_hf_equity_curated_does_not_mutate_defaults(
     base_snapshot = deepcopy(base_config)
 
     pack_path = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
-    payload = yaml.safe_load(pack_path.read_text(encoding="utf-8"))
+    real_loader = validation_module._load_yaml_mapping
 
     def _load_yaml_mapping(path: Path, label: str) -> dict[str, object]:
         if label == "base_config":
             return base_config
-        return payload
+        return real_loader(path, label)
 
     monkeypatch.setattr(validation_module, "_load_yaml_mapping", _load_yaml_mapping)
 
