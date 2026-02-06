@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any, Mapping
 
 import numpy as np
@@ -27,6 +28,7 @@ __all__ = [
     "_empty_run_full_result",
     "_format_period",
     "_policy_from_config",
+    "_resolve_regime_turnover_cap",
     "_resolve_regime_label",
     "_resolve_sample_split",
     "_resolve_target_vol",
@@ -136,6 +138,62 @@ def _resolve_regime_label(
     if aligned.empty:
         return None, settings
     return str(aligned.iloc[-1]), settings
+
+
+def _normalize_regime_key(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    return re.sub(r"[^a-z0-9]+", "", text.casefold())
+
+
+def _resolve_regime_turnover_cap(
+    max_turnover: object | None,
+    regime_label: str | None,
+    settings: Any,
+) -> float | None:
+    if max_turnover is None:
+        return None
+    if not isinstance(max_turnover, Mapping):
+        try:
+            return float(max_turnover)
+        except (TypeError, ValueError):
+            return None
+
+    normalized: dict[str, object] = {}
+    for key, value in max_turnover.items():
+        normalized_key = _normalize_regime_key(key)
+        if not normalized_key:
+            continue
+        normalized[normalized_key] = value
+    if not normalized:
+        return None
+
+    if regime_label:
+        label_key = _normalize_regime_key(regime_label)
+        if label_key and label_key in normalized:
+            try:
+                return float(normalized[label_key])
+            except (TypeError, ValueError):
+                return None
+
+    default_label = getattr(settings, "default_label", None)
+    default_key = _normalize_regime_key(default_label)
+    if default_key and default_key in normalized:
+        try:
+            return float(normalized[default_key])
+        except (TypeError, ValueError):
+            return None
+
+    for fallback in ("default", "all", "any"):
+        if fallback in normalized:
+            try:
+                return float(normalized[fallback])
+            except (TypeError, ValueError):
+                return None
+    return None
 
 
 def _apply_regime_overrides(

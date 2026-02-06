@@ -246,7 +246,7 @@ def run_analysis(
     periods_per_year: float | None = None,
     previous_weights: Mapping[str, float] | None = None,
     lambda_tc: float | None = None,
-    max_turnover: float | None = None,
+    max_turnover: float | Mapping[str, float] | None = None,
     signal_spec: TrendSpec | None = None,
     regime_cfg: Mapping[str, Any] | None = None,
     calendar_frequency: str | None = None,
