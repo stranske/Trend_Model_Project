@@ -184,16 +184,12 @@ def _build_chain_cache_key(
     *,
     provider: str,
     model: str,
-    base_url: str | None,
-    organization: str | None,
     temperature: float,
 ) -> dict[str, Any]:
     return {
         "cache_version": _CONFIG_CHAIN_CACHE_VERSION,
         "provider": provider,
         "model": model,
-        "base_url": base_url,
-        "organization": organization,
         "temperature": temperature,
     }
 
@@ -1167,8 +1163,6 @@ def _build_chain_cache_context_from_config(
     cache_key = _build_chain_cache_key(
         provider=provider,
         model=resolved_model,
-        base_url=base_url,
-        organization=organization,
         temperature=temperature,
     )
     return {
@@ -1256,7 +1250,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     )
     lookup_seconds = monotonic() - lookup_start
     entries = cache_state["entries"]
-    cached_chain_id = entries.get(signature)
+    cached_chain_id = entries.get(resource_signature)
     reused = cached_chain_id == id(chain)
     cache_miss_reason = None
     if not reused:
@@ -1276,7 +1270,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
             cache_miss_reason = "cache_evicted"
         else:
             cache_miss_reason = "first_build"
-    entries[signature] = id(chain)
+    entries[resource_signature] = id(chain)
     cache_state["last_signature"] = signature
     cache_state["last_settings_signature"] = settings_signature
     cache_state["last_resource_signature"] = resource_signature
@@ -1918,7 +1912,15 @@ def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
         st.caption(f"Cache key unavailable: {exc}")
     else:
         cache_key = cache_context.get("cache_key")
-        cache_summary = _chain_cache_summary(cache_key) if isinstance(cache_key, Mapping) else "—"
+        cache_summary = (
+            _chain_cache_summary(
+                cache_key,
+                base_url=cache_context.get("base_url"),
+                organization=cache_context.get("organization"),
+            )
+            if isinstance(cache_key, Mapping)
+            else "—"
+        )
         cache_signature = (
             _chain_cache_signature(cache_key)[:8] if isinstance(cache_key, Mapping) else "—"
         )
