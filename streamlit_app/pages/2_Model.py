@@ -236,7 +236,7 @@ def _record_config_change(preview: Mapping[str, Any]) -> None:
 def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> None:
     timings = preview.get("timings")
     if not isinstance(timings, Mapping):
-        return
+        timings = {}
     chain_key = timings.get("chain_cache_key")
     provider = None
     model = None

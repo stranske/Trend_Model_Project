@@ -385,6 +385,26 @@ def test_build_nl_chain_cache_key_defaults_provider_model_temperature(
     assert cache_key["temperature"] == 0.0
 
 
+def test_record_preview_timing_records_entry_without_timings(
+    model_module: ModuleType,
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    preview = {"instruction": "Try something", "before": {}, "after": {}}
+    model_module._record_preview_timing(preview, 1.23)
+
+    history = stub.session_state.get(model_module._CONFIG_PREVIEW_TIMINGS_KEY)
+    assert isinstance(history, list)
+    assert history
+    entry = history[-1]
+    assert entry["instruction"] == "Try something"
+    assert entry["total_seconds"] == pytest.approx(1.23)
+    metrics = stub.session_state.get(model_module._CONFIG_CHAIN_METRICS_KEY)
+    assert isinstance(metrics, dict)
+    assert metrics["total_seconds"] == pytest.approx(1.23)
+
+
 def test_build_nl_chain_passes_api_key_to_cache(
     monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
 ) -> None:
