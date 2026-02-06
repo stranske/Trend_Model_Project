@@ -71,6 +71,7 @@ _MAX_CONFIG_PREVIEW_TIMINGS = 20
 _CONFIG_CHAIN_STATE_KEY = "config_chat_chain_state"
 _DEFAULT_CONFIG_CHAT_MODEL = "gpt-4o-mini"
 _CONFIG_CHAIN_CACHE_VERSION = "v1"
+_CONFIG_CHAIN_CACHE_MAX_ENTRIES = 25
 _CONFIG_CHAIN_METRICS_KEY = "config_chat_chain_metrics"
 _CONFIG_CHAIN_STATS_KEY = "config_chat_chain_stats"
 _CONFIG_CHAIN_CORE_FIELDS = (
@@ -282,6 +283,7 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
         "cache_llm_changed_fields": llm_changed_fields,
         "cache_settings_changed": timings.get("chain_settings_changed"),
         "cache_session_reset": timings.get("chain_cache_session_reset"),
+        "cache_entry_count": timings.get("chain_cache_entry_count"),
         "chain_build_seconds": timings.get("chain_build_seconds"),
         "chain_lookup_seconds": timings.get("chain_lookup_seconds"),
         "chain_reused": timings.get("chain_reused"),
@@ -320,6 +322,7 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
         "cache_llm_changed_fields": llm_changed_fields,
         "cache_settings_changed": timings.get("chain_settings_changed"),
         "cache_session_reset": timings.get("chain_cache_session_reset"),
+        "cache_entry_count": timings.get("chain_cache_entry_count"),
         "chain_reused": timings.get("chain_reused"),
         "chain_build_seconds": timings.get("chain_build_seconds"),
         "chain_lookup_seconds": timings.get("chain_lookup_seconds"),
@@ -359,6 +362,7 @@ def _record_chain_cache_stats(
     stats["last_miss_reason"] = chain_meta.get("chain_cache_miss_reason")
     stats["last_invalidation_fields"] = chain_meta.get("chain_cache_invalidation_fields")
     stats["last_signature"] = chain_meta.get("chain_cache_signature")
+    stats["cache_entry_count"] = chain_meta.get("chain_cache_entry_count")
     stats["timestamp"] = datetime.utcnow().isoformat(timespec="seconds") + "Z"
     st.session_state[_CONFIG_CHAIN_STATS_KEY] = stats
 
@@ -420,6 +424,7 @@ def _render_preview_timing_history() -> None:
                 "Cache miss": cache_reason_label,
                 "Cache invalidated by": invalidation_label,
                 "LLM changed": llm_changed_label,
+                "Cache entries": str(entry.get("cache_entry_count") or "—"),
                 "Chain build": _format_seconds(entry.get("chain_build_seconds")),
                 "Chain lookup": _format_seconds(entry.get("chain_lookup_seconds")),
                 "Chain reused": "Yes" if entry.get("chain_reused") else "No",
@@ -470,6 +475,7 @@ def _render_last_preview_metrics() -> None:
         f"LLM changed: {llm_changed_label} | "
         f"Settings changed: {settings_changed_label} | "
         f"Session reset: {cache_reset_label} | "
+        f"Cache entries: {metrics.get('cache_entry_count') or '—'} | "
         f"Build: {_format_seconds(metrics.get('chain_build_seconds'))} | "
         f"Lookup: {_format_seconds(metrics.get('chain_lookup_seconds'))} | "
         f"Run: {_format_seconds(metrics.get('run_seconds'))} | "
@@ -489,6 +495,7 @@ def _render_last_preview_metrics() -> None:
     st.caption(
         "Cache stats — "
         f"Hits: {hits} | Misses: {misses} | Hit rate: {hit_rate} | "
+        f"Entries: {stats.get('cache_entry_count') or '—'} | "
         f"Last build: {_format_seconds(stats.get('last_build_seconds'))} | "
         f"Last invalidation: {last_invalidation_label}"
     )
@@ -1270,6 +1277,10 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         else:
             cache_miss_reason = "first_build"
     entries[resource_signature] = id(chain)
+    if len(entries) > _CONFIG_CHAIN_CACHE_MAX_ENTRIES:
+        stale_keys = list(entries)[:-_CONFIG_CHAIN_CACHE_MAX_ENTRIES]
+        for key in stale_keys:
+            entries.pop(key, None)
     cache_state["last_signature"] = signature
     cache_state["last_settings_signature"] = settings_signature
     cache_state["last_resource_signature"] = resource_signature
@@ -1294,6 +1305,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         "chain_settings_changed": settings_changed,
         "chain_llm_changed_fields": llm_changed_fields,
         "chain_cache_session_reset": session_reset,
+        "chain_cache_entry_count": len(entries),
         "chain_lookup_seconds": lookup_seconds,
     }
 
