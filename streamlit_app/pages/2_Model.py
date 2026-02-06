@@ -15,7 +15,6 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from time import monotonic, sleep
 from typing import Any, Mapping
-from uuid import uuid4
 
 import pandas as pd
 import streamlit as st
@@ -70,7 +69,6 @@ _MAX_CONFIG_HISTORY = 20
 _CONFIG_PREVIEW_TIMINGS_KEY = "config_chat_preview_timings"
 _MAX_CONFIG_PREVIEW_TIMINGS = 20
 _CONFIG_CHAIN_STATE_KEY = "config_chat_chain_state"
-_CONFIG_CHAT_SESSION_KEY = "config_chat_session_id"
 _DEFAULT_CONFIG_CHAT_MODEL = "gpt-4o-mini"
 _CONFIG_CHAIN_CACHE_VERSION = "v1"
 _CONFIG_CHAIN_METRICS_KEY = "config_chat_chain_metrics"
@@ -136,20 +134,6 @@ def _get_chain_cache_state() -> dict[str, Any]:
     return state
 
 
-def _get_config_chat_session_id() -> str:
-    session_id = st.session_state.get(_CONFIG_CHAT_SESSION_KEY)
-    if not session_id:
-        session_id = uuid4().hex
-        st.session_state[_CONFIG_CHAT_SESSION_KEY] = session_id
-    return session_id
-
-
-def _reset_config_chat_session_id() -> str:
-    session_id = uuid4().hex
-    st.session_state[_CONFIG_CHAT_SESSION_KEY] = session_id
-    return session_id
-
-
 def _chain_cache_signature(cache_key: Mapping[str, Any]) -> str:
     return json.dumps(dict(cache_key), sort_keys=True, default=str)
 
@@ -187,8 +171,6 @@ def _build_chain_cache_key(
     base_url: str | None,
     organization: str | None,
     temperature: float,
-    base_url: str | None,
-    organization: str | None,
 ) -> dict[str, Any]:
     return {
         "cache_version": _CONFIG_CHAIN_CACHE_VERSION,
@@ -197,8 +179,6 @@ def _build_chain_cache_key(
         "base_url": base_url,
         "organization": organization,
         "temperature": temperature,
-        "base_url": base_url,
-        "organization": organization,
     }
 
 
@@ -1050,10 +1030,6 @@ def _normalize_temperature(value: float) -> float:
         return 0.0
 
 
-def _hash_cache_key(value: Mapping[str, Any]) -> str:
-    return _chain_cache_signature(value)
-
-
 @dataclass(frozen=True, slots=True)
 class _ApiKeySecret:
     value: str | None
@@ -1080,55 +1056,66 @@ def _cached_compact_schema() -> dict[str, Any]:
     return load_compact_schema()
 
 
-@st.cache_resource(
-    show_spinner=False,
-    hash_funcs={dict: _hash_cache_key, _ApiKeySecret: _hash_api_key_secret},
-)
+@st.cache_resource(show_spinner=False, hash_funcs={_ApiKeySecret: _hash_api_key_secret})
 def _cached_llm_client(
-    session_cache_key: str,
-    cache_key: Mapping[str, Any],
-    api_key_secret: _ApiKeySecret | None,
+    *,
+    provider: str,
+    model: str,
+    base_url: str | None,
+    organization: str | None,
+    timeout: float | None,
+    max_retries: int | None,
     extra_payload: str,
+    api_key_secret: _ApiKeySecret | None,
+    cache_version: str,
 ) -> Any:
-    del session_cache_key
+    del cache_version
     api_key = api_key_secret.value if api_key_secret is not None else None
     config = LLMProviderConfig(
-        provider=str(cache_key.get("provider")),
-        model=str(cache_key.get("model")),
+        provider=str(provider),
+        model=str(model),
         api_key=api_key,
-        base_url=cache_key.get("base_url"),
-        organization=cache_key.get("organization"),
-        timeout=cache_key.get("timeout"),
-        max_retries=cache_key.get("max_retries"),
+        base_url=base_url,
+        organization=organization,
+        timeout=timeout,
+        max_retries=max_retries,
         extra=json.loads(extra_payload) if extra_payload else {},
     )
     return create_llm(config)
 
 
-@st.cache_resource(
-    show_spinner=False,
-    hash_funcs={dict: _hash_cache_key, _ApiKeySecret: _hash_api_key_secret},
-)
+@st.cache_resource(show_spinner=False, hash_funcs={_ApiKeySecret: _hash_api_key_secret})
 def _cached_config_patch_chain(
-    session_cache_key: str,
-    chain_cache_key: Mapping[str, Any],
-    llm_cache_key: Mapping[str, Any],
-    api_key_secret: _ApiKeySecret | None,
+    *,
+    provider: str,
+    model: str,
+    temperature: float,
+    base_url: str | None,
+    organization: str | None,
+    timeout: float | None,
+    max_retries: int | None,
     extra_payload: str,
+    api_key_secret: _ApiKeySecret | None,
+    cache_version: str,
 ) -> ConfigPatchChain:
     llm = _cached_llm_client(
-        session_cache_key,
-        llm_cache_key,
-        api_key_secret,
-        extra_payload,
+        provider=provider,
+        model=model,
+        base_url=base_url,
+        organization=organization,
+        timeout=timeout,
+        max_retries=max_retries,
+        extra_payload=extra_payload,
+        api_key_secret=api_key_secret,
+        cache_version=cache_version,
     )
     schema = _cached_compact_schema()
     return ConfigPatchChain.from_env(
         llm=llm,
         schema=schema,
         prompt_builder=build_config_patch_prompt,
-        temperature=float(chain_cache_key.get("temperature") or 0.0),
-        model=str(chain_cache_key.get("model")),
+        temperature=float(temperature or 0.0),
+        model=str(model),
     )
 
 
@@ -1248,17 +1235,19 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         st.session_state.pop("config_chat_last_instruction", None)
         cache_state["last_invalidation_fields"] = list(invalidation_fields)
         session_reset = True
-    session_cache_key = (
-        _reset_config_chat_session_id() if session_reset else _get_config_chat_session_id()
-    )
     api_key_secret = _ApiKeySecret(api_key, api_key_fingerprint)
     lookup_start = monotonic()
     chain = _cached_config_patch_chain(
-        session_cache_key,
-        cache_key,
-        llm_cache_key,
-        api_key_secret,
-        extra_payload,
+        provider=context["provider"],
+        model=context["resolved_model"],
+        temperature=context["temperature"],
+        base_url=context["base_url"],
+        organization=context["organization"],
+        timeout=llm_cache_key.get("timeout"),
+        max_retries=llm_cache_key.get("max_retries"),
+        extra_payload=extra_payload,
+        api_key_secret=api_key_secret,
+        cache_version=_CONFIG_CHAIN_CACHE_VERSION,
     )
     lookup_seconds = monotonic() - lookup_start
     entries = cache_state["entries"]
