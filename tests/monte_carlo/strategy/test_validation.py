@@ -117,7 +117,9 @@ def test_validate_strategy_pack_hf_equity_curated_validates_each_strategy_schema
     assert base_config == base_snapshot
 
 
-def test_validate_strategy_pack_hf_equity_curated_schema_and_defaults_round_trip_validation() -> None:
+def test_validate_strategy_pack_hf_equity_curated_schema_and_defaults_round_trip_validation() -> (
+    None
+):
     base_config_path = Path("config/defaults.yml")
     before_text = base_config_path.read_text(encoding="utf-8")
     base_config = yaml.safe_load(before_text)
