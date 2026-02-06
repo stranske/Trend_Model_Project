@@ -6,6 +6,8 @@ from pathlib import Path
 import pytest
 import yaml
 
+from trend_analysis.config.schema_validation import validate_config_data
+from trend_analysis.monte_carlo.strategy import StrategyVariant
 from trend_analysis.monte_carlo.strategy import validation as validation_module
 from trend_analysis.monte_carlo.strategy.validation import validate_strategy_pack
 
@@ -112,6 +114,34 @@ def test_validate_strategy_pack_hf_equity_curated_validates_each_strategy_schema
     assert errors == []
     assert len(calls) == len(curated)
     assert all(call_schema is schema for _, call_schema in calls)
+    assert base_config == base_snapshot
+
+
+def test_validate_strategy_pack_hf_equity_curated_validates_schema_and_preserves_defaults() -> None:
+    base_config_path = Path("config/defaults.yml")
+    base_config = yaml.safe_load(base_config_path.read_text(encoding="utf-8"))
+    base_snapshot = deepcopy(base_config)
+    schema = validation_module.load_schema()
+
+    pack_path = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
+    payload = yaml.safe_load(pack_path.read_text(encoding="utf-8"))
+    curated = payload.get("curated")
+    assert isinstance(curated, list)
+
+    errors = validate_strategy_pack(pack_path, base_config_path=base_config_path)
+    assert errors == []
+
+    for entry in curated:
+        variant = StrategyVariant(
+            name=entry["name"],
+            overrides=entry.get("overrides", {}),
+            tags=entry.get("tags", ()),
+            curated=True,
+        )
+        merged = variant.apply_to(deepcopy(base_config))
+        schema_errors = validate_config_data(merged, schema)
+        assert schema_errors == []
+
     assert base_config == base_snapshot
 
 
