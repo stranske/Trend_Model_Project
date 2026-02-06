@@ -845,6 +845,7 @@ def _maybe_reset_config_chat_cache(snapshot: Mapping[str, Any]) -> None:
     st.session_state.pop("config_chat_last_instruction", None)
     st.session_state.pop(_CONFIG_CHAIN_METRICS_KEY, None)
     st.session_state.pop(_CONFIG_CHAIN_STATS_KEY, None)
+    st.session_state[_CONFIG_CHAIN_STATE_KEY] = {"entries": {}}
     _LOGGER.info(
         "Config chat cache reset due to settings change: %s -> %s",
         previous_normalized,
