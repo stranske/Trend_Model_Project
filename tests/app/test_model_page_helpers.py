@@ -3,11 +3,33 @@ from __future__ import annotations
 import importlib
 import re
 import sys
+from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import pandas as pd
 import pytest
+
+
+def _chain_cache_key_to_dict(cache_key: object) -> dict[str, object]:
+    if is_dataclass(cache_key):
+        return asdict(cache_key)
+    if isinstance(cache_key, dict):
+        return cache_key
+    return {
+        "provider": getattr(cache_key, "provider", None),
+        "model": getattr(cache_key, "model", None),
+        "base_url": getattr(cache_key, "base_url", None),
+        "organization": getattr(cache_key, "organization", None),
+        "temperature": getattr(cache_key, "temperature", None),
+        "cache_version": getattr(cache_key, "cache_version", None),
+    }
+
+
+def _cache_key_signature(module: ModuleType, cache_key: object) -> str:
+    if hasattr(module, "_ChainCacheKey") and isinstance(cache_key, module._ChainCacheKey):
+        return module._hash_chain_cache_key(cache_key)
+    return module._chain_cache_signature(cache_key)
 
 
 @pytest.fixture()
@@ -220,7 +242,7 @@ def test_build_nl_chain_reuses_cached_chain_with_provider_config(
         _api_key,
         _extra_payload,
     ):
-        signature = model_module._chain_cache_signature(chain_cache_key)
+        signature = _cache_key_signature(model_module, chain_cache_key)
         if signature not in cache:
             cache[signature] = object()
         return cache[signature]
@@ -250,7 +272,7 @@ def test_build_nl_chain_invalidates_on_model_change(
         _api_key,
         _extra_payload,
     ):
-        signature = model_module._chain_cache_signature(chain_cache_key)
+        signature = _cache_key_signature(model_module, chain_cache_key)
         if signature not in cache:
             cache[signature] = object()
         return cache[signature]
@@ -290,7 +312,7 @@ def test_build_nl_chain_invalidates_on_provider_change(
         _api_key,
         _extra_payload,
     ):
-        signature = model_module._chain_cache_signature(chain_cache_key)
+        signature = _cache_key_signature(model_module, chain_cache_key)
         if signature not in cache:
             cache[signature] = object()
         return cache[signature]
@@ -330,7 +352,7 @@ def test_build_nl_chain_invalidates_on_temperature_env_change(
         _api_key,
         _extra_payload,
     ):
-        signature = model_module._chain_cache_signature(chain_cache_key)
+        signature = _cache_key_signature(model_module, chain_cache_key)
         if signature not in cache:
             cache[signature] = object()
         return cache[signature]
@@ -397,7 +419,7 @@ def test_build_nl_chain_invalidates_on_base_url_change(
         _api_key,
         _extra_payload,
     ):
-        signature = model_module._chain_cache_signature(chain_cache_key)
+        signature = _cache_key_signature(model_module, chain_cache_key)
         if signature not in cache:
             cache[signature] = object()
         return cache[signature]
@@ -438,7 +460,7 @@ def test_build_nl_chain_invalidates_on_org_change(
         _api_key,
         _extra_payload,
     ):
-        signature = model_module._chain_cache_signature(chain_cache_key)
+        signature = _cache_key_signature(model_module, chain_cache_key)
         if signature not in cache:
             cache[signature] = object()
         return cache[signature]
@@ -479,7 +501,7 @@ def test_build_nl_chain_invalidates_on_temperature_change(
         _api_key,
         _extra_payload,
     ):
-        signature = model_module._chain_cache_signature(chain_cache_key)
+        signature = _cache_key_signature(model_module, chain_cache_key)
         if signature not in cache:
             cache[signature] = object()
         return cache[signature]
@@ -541,6 +563,7 @@ def test_record_preview_timing_tracks_chain_reuse(model_module: ModuleType) -> N
             "chain_llm_changed_fields": [],
             "chain_cache_session_reset": False,
             "chain_build_seconds": 1.2,
+            "chain_lookup_seconds": 0.05,
             "chain_reused": True,
             "run_seconds": 2.3,
         },
@@ -558,6 +581,7 @@ def test_record_preview_timing_tracks_chain_reuse(model_module: ModuleType) -> N
     metrics = stub.session_state.get(model_module._CONFIG_CHAIN_METRICS_KEY)
     assert isinstance(metrics, dict)
     assert metrics["chain_reused"] is True
+    assert metrics["chain_lookup_seconds"] == pytest.approx(0.05)
 
 
 def test_side_by_side_diff_renders_yaml(model_module: ModuleType) -> None:
@@ -1070,17 +1094,18 @@ def test_build_nl_chain_reuses_cached_chain(
 
     def fake_cached_config_patch_chain(
         session_cache_key: str,
-        chain_cache_key: dict[str, object],
+        chain_cache_key: object,
         llm_cache_key: dict[str, object],
         api_key: object,
         extra_payload: str,
     ) -> object:
+        key_dict = _chain_cache_key_to_dict(chain_cache_key)
         calls.append(
             {
-                "provider": chain_cache_key.get("provider"),
-                "model": chain_cache_key.get("model"),
+                "provider": key_dict.get("provider"),
+                "model": key_dict.get("model"),
                 "api_key": api_key,
-                "temperature": chain_cache_key.get("temperature"),
+                "temperature": key_dict.get("temperature"),
             }
         )
         return chain_obj

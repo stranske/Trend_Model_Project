@@ -283,9 +283,11 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
 
     if _LOGGER.isEnabledFor(logging.INFO):
         _LOGGER.info(
-            "Config chat preview timing: reused=%s build=%.2fs run=%.2fs total=%.2fs cache=%s miss=%s invalidated_by=%s",
+            "Config chat preview timing: reused=%s build=%.2fs lookup=%.2fs run=%.2fs "
+            "total=%.2fs cache=%s miss=%s invalidated_by=%s",
             "yes" if entry.get("chain_reused") else "no",
             float(entry.get("chain_build_seconds") or 0.0),
+            float(entry.get("chain_lookup_seconds") or 0.0),
             float(entry.get("run_seconds") or 0.0),
             total_seconds,
             entry.get("cache_summary") or "unknown",
