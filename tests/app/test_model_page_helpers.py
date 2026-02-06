@@ -1283,3 +1283,39 @@ def test_llm_session_override_normalizes_whitespace(model_module: ModuleType) ->
 
     assert overrides["provider"] == "openai"
     assert overrides["model"] == "gpt-4o-mini"
+
+
+def test_build_variant_instruction_includes_hint_and_instruction(
+    model_module: ModuleType,
+) -> None:
+    instruction = model_module._build_variant_instruction(
+        "Increase lookback to 24", "Conservative"
+    )
+    assert "Increase lookback to 24" in instruction
+    assert "conservative" in instruction.lower()
+
+
+def test_select_metric_value_prefers_first_key(model_module: ModuleType) -> None:
+    metrics = {"return_ann": 0.08, "cagr": 0.12}
+    value = model_module._select_metric_value(metrics, ("cagr", "return_ann"))
+    assert value == 0.12
+
+
+def test_extract_variant_metrics_reads_out_user_stats(model_module: ModuleType) -> None:
+    class DummyStats:
+        def __init__(self) -> None:
+            self.cagr = 0.15
+            self.vol = 0.2
+            self.sharpe = 1.4
+            self.sortino = 1.8
+            self.information_ratio = 0.3
+            self.max_drawdown = -0.25
+            self.total_return = 0.5
+
+    result = SimpleNamespace(details={"out_user_stats": DummyStats()})
+
+    metrics = model_module._extract_variant_metrics(result)
+
+    assert metrics["cagr"] == 0.15
+    assert metrics["vol"] == 0.2
+    assert metrics["sharpe"] == 1.4

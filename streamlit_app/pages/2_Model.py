@@ -19,6 +19,7 @@ from uuid import uuid4
 
 import streamlit as st
 import yaml
+import pandas as pd
 
 from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner, nl_operation_viewer
@@ -97,6 +98,31 @@ _LLM_BASE_URL_OVERRIDE_KEY = "llm_base_url_override"
 _LLM_ORG_OVERRIDE_KEY = "llm_org_override"
 _LLM_TEMPERATURE_OVERRIDE_KEY = "llm_temperature_override"
 _LLM_OVERRIDE_SNAPSHOT_KEY = "llm_override_snapshot"
+_WHAT_IF_VARIANTS_KEY = "what_if_variants"
+_WHAT_IF_RESULTS_KEY = "what_if_results"
+_WHAT_IF_ERRORS_KEY = "what_if_errors"
+_WHAT_IF_INSTRUCTION_KEY = "what_if_instruction"
+_WHAT_IF_VARIANT_LABELS = ("Conservative", "Baseline", "Aggressive")
+_WHAT_IF_VARIANT_HINTS = {
+    "Conservative": (
+        "Create a conservative variant of the instruction. Favor lower risk, "
+        "more stability, and tighter constraints while still honoring the request."
+    ),
+    "Baseline": "Create a baseline variant that applies the instruction as-is with minimal changes.",
+    "Aggressive": (
+        "Create an aggressive variant of the instruction. Favor higher responsiveness, "
+        "more risk tolerance, or stronger signal emphasis while still honoring the request."
+    ),
+}
+_WHAT_IF_METRIC_KEYS = {
+    "CAGR": ("cagr", "return_ann", "ann_return"),
+    "Volatility": ("vol", "volatility"),
+    "Sharpe": ("sharpe",),
+    "Sortino": ("sortino",),
+    "Info Ratio": ("information_ratio", "info_ratio", "ir"),
+    "Max Drawdown": ("max_drawdown", "maxdd", "drawdown"),
+    "Total Return": ("total_return", "return_total", "return"),
+}
 
 
 def _get_chain_cache_state() -> dict[str, Any]:
@@ -497,6 +523,82 @@ def _format_value(value: Any) -> str:
     if isinstance(value, float):
         return f"{value:.3f}"
     return str(value)
+
+
+def _build_variant_instruction(base_instruction: str, label: str) -> str:
+    hint = _WHAT_IF_VARIANT_HINTS.get(label, "")
+    trimmed = (base_instruction or "").strip()
+    if not trimmed:
+        return hint
+    return f"{hint}\n\nUser instruction: {trimmed}".strip()
+
+
+def _select_metric_value(
+    metrics: Mapping[str, float | None], keys: tuple[str, ...]
+) -> float | None:
+    for key in keys:
+        if key in metrics:
+            return metrics.get(key)
+    return None
+
+
+def _format_variant_metric_value(metric_name: str, value: float | None) -> str:
+    if value is None:
+        return "—"
+    if metric_name in {"CAGR", "Volatility", "Max Drawdown", "Total Return"}:
+        return f"{value * 100:.2f}%"
+    return f"{value:.2f}"
+
+
+def _extract_variant_metrics(result: Any) -> dict[str, float | None]:
+    details = getattr(result, "details", {}) or {}
+    metrics_dict: dict[str, float | None] = {}
+
+    user_stats = details.get("out_user_stats")
+    if user_stats is not None:
+        if hasattr(user_stats, "__dict__"):
+            for key, value in vars(user_stats).items():
+                if not str(key).startswith("_"):
+                    try:
+                        metrics_dict[str(key)] = float(value)
+                    except (TypeError, ValueError):
+                        metrics_dict[str(key)] = None
+        elif hasattr(user_stats, "items"):
+            for key, value in user_stats.items():
+                try:
+                    metrics_dict[str(key)] = float(value)
+                except (TypeError, ValueError):
+                    metrics_dict[str(key)] = None
+
+    if metrics_dict:
+        return metrics_dict
+
+    metrics = getattr(result, "metrics", None)
+    if isinstance(metrics, pd.DataFrame) and not metrics.empty:
+        series = metrics.iloc[0]
+        for key, value in series.items():
+            try:
+                metrics_dict[str(key)] = float(value)
+            except (TypeError, ValueError):
+                metrics_dict[str(key)] = None
+        if metrics_dict:
+            return metrics_dict
+
+    stats_obj = details.get("out_sample_stats") or {}
+    if hasattr(stats_obj, "items"):
+        for key, value in stats_obj.items():
+            try:
+                metrics_dict[str(key)] = float(value)
+            except (TypeError, ValueError):
+                metrics_dict[str(key)] = None
+    elif hasattr(stats_obj, "__dict__"):
+        for key, value in vars(stats_obj).items():
+            try:
+                metrics_dict[str(key)] = float(value)
+            except (TypeError, ValueError):
+                metrics_dict[str(key)] = None
+
+    return metrics_dict
 
 
 def _render_validation_error_styles() -> None:
@@ -1267,6 +1369,183 @@ def _generate_preview_with_progress(
         timings["total_seconds"] = duration
     _record_preview_timing(result, duration)
     return result
+
+
+def _generate_what_if_variants(
+    model_state: Mapping[str, Any],
+    instruction: str,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    chain, _meta = _build_nl_chain()
+    variants: list[dict[str, Any]] = []
+    errors: list[str] = []
+    for label in _WHAT_IF_VARIANT_LABELS:
+        variant_instruction = _build_variant_instruction(instruction, label)
+        try:
+            patch = chain.run(current_config=dict(model_state), instruction=variant_instruction)
+            after = apply_config_patch(deepcopy(dict(model_state)), patch)
+            variants.append(
+                {
+                    "label": label,
+                    "instruction": variant_instruction,
+                    "summary": patch.summary,
+                    "risk_flags": [flag.value for flag in patch.risk_flags],
+                    "needs_review": patch.needs_review,
+                    "patch": patch.model_dump(),
+                    "after": after,
+                }
+            )
+        except Exception as exc:
+            errors.append(f"{label}: {exc}")
+    return variants, errors
+
+
+def _run_what_if_analysis(
+    variants: list[dict[str, Any]],
+    *,
+    df: Any,
+    benchmark: str | None,
+    data_hash: str | None,
+    selected_rf: str | None,
+) -> tuple[dict[str, Any], dict[str, str]]:
+    results: dict[str, Any] = {}
+    errors: dict[str, str] = {}
+    progress = st.progress(0.0, text="Running what-if analyses...")
+    total = len(variants)
+    for idx, variant in enumerate(variants, start=1):
+        label = str(variant.get("label") or f"Variant {idx}")
+        after = variant.get("after")
+        if not isinstance(after, Mapping):
+            errors[label] = "Missing configuration data for this variant."
+            continue
+        effective_model_state = dict(after)
+        if selected_rf:
+            effective_model_state["risk_free_column"] = selected_rf
+        try:
+            result = analysis_runner.run_analysis(
+                df,
+                effective_model_state,
+                benchmark,
+                data_hash=data_hash,
+            )
+            results[label] = result
+        except Exception as exc:
+            errors[label] = str(exc)
+        progress.progress(idx / total, text=f"Running what-if analyses... ({idx}/{total})")
+    progress.empty()
+    return results, errors
+
+
+def _build_what_if_comparison_tables(
+    results: Mapping[str, Any],
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    display_rows: list[dict[str, Any]] = []
+    raw_rows: list[dict[str, Any]] = []
+    for label in _WHAT_IF_VARIANT_LABELS:
+        if label not in results:
+            continue
+        metrics = _extract_variant_metrics(results[label])
+        display_row = {"Variant": label}
+        raw_row = {"Variant": label}
+        for display_name, metric_keys in _WHAT_IF_METRIC_KEYS.items():
+            value = _select_metric_value(metrics, metric_keys)
+            raw_row[display_name] = value
+            display_row[display_name] = _format_variant_metric_value(display_name, value)
+        display_rows.append(display_row)
+        raw_rows.append(raw_row)
+    return pd.DataFrame(display_rows), pd.DataFrame(raw_rows)
+
+
+def _render_what_if_variants_panel(
+    *,
+    model_state: Mapping[str, Any],
+    df: Any,
+    benchmark: str | None,
+    data_hash: str | None,
+) -> None:
+    st.subheader("What-if Variants (3)")
+    st.caption(
+        "Generate three labeled config variants from one instruction, "
+        "run analyses, and compare key metrics."
+    )
+    instruction = st.text_area(
+        "Instruction for variants",
+        key=_WHAT_IF_INSTRUCTION_KEY,
+        placeholder="Example: Increase lookback to improve stability.",
+    )
+    cols = st.columns(2)
+    with cols[0]:
+        generate_clicked = st.button("Generate variants", key="what_if_generate")
+    with cols[1]:
+        run_clicked = st.button("Run what-if analysis", key="what_if_run")
+
+    if generate_clicked:
+        if not instruction or not instruction.strip():
+            st.warning("Enter an instruction to generate variants.")
+        else:
+            with st.spinner("Generating variants..."):
+                variants, errors = _generate_what_if_variants(model_state, instruction)
+            st.session_state[_WHAT_IF_VARIANTS_KEY] = variants
+            st.session_state[_WHAT_IF_ERRORS_KEY] = errors
+            st.session_state.pop(_WHAT_IF_RESULTS_KEY, None)
+
+    variants = st.session_state.get(_WHAT_IF_VARIANTS_KEY)
+    if not isinstance(variants, list) or not variants:
+        st.info("Generate variants to compare alternative configurations.")
+        return
+
+    for variant in variants:
+        label = variant.get("label") or "Variant"
+        st.markdown(f"**{label}**")
+        summary = variant.get("summary") or "No summary provided."
+        st.caption(summary)
+        risk_flags = variant.get("risk_flags") or []
+        if risk_flags:
+            st.warning(f"Risk flags: {', '.join(str(flag) for flag in risk_flags)}")
+
+    errors = st.session_state.get(_WHAT_IF_ERRORS_KEY)
+    if isinstance(errors, list) and errors:
+        st.warning("Some variants failed to generate:")
+        for message in errors:
+            st.caption(str(message))
+
+    if run_clicked:
+        if df is None:
+            st.error("Load data before running what-if analysis.")
+            return
+        selected_rf = st.session_state.get("selected_risk_free")
+        with st.spinner("Running what-if analyses..."):
+            results, run_errors = _run_what_if_analysis(
+                variants,
+                df=df,
+                benchmark=benchmark,
+                data_hash=data_hash,
+                selected_rf=selected_rf,
+            )
+        st.session_state[_WHAT_IF_RESULTS_KEY] = results
+        st.session_state[_WHAT_IF_ERRORS_KEY] = run_errors
+
+    results = st.session_state.get(_WHAT_IF_RESULTS_KEY)
+    if not isinstance(results, Mapping) or not results:
+        st.info("Run what-if analysis to see a comparison table.")
+        return
+
+    run_errors = st.session_state.get(_WHAT_IF_ERRORS_KEY)
+    if isinstance(run_errors, Mapping) and run_errors:
+        st.warning("Some analyses failed:")
+        for label, message in run_errors.items():
+            st.caption(f"{label}: {message}")
+
+    display_df, raw_df = _build_what_if_comparison_tables(results)
+    if display_df.empty:
+        st.info("No comparison data available.")
+        return
+    st.dataframe(display_df, use_container_width=True, hide_index=True)
+    st.download_button(
+        "Download comparison CSV",
+        data=raw_df.to_csv(index=False),
+        file_name="what_if_comparison.csv",
+        mime="text/csv",
+    )
 
 
 def _current_run_key(model_state: dict[str, Any], benchmark: str | None) -> str:
@@ -2351,6 +2630,15 @@ def render_model_page() -> None:
         st.write(", ".join(fund_cols[:50]))
         if len(fund_cols) > 50:
             st.caption(f"...and {len(fund_cols) - 50} more")
+
+    st.markdown("---")
+
+    _render_what_if_variants_panel(
+        model_state=model_state,
+        df=df,
+        benchmark=st.session_state.get("selected_benchmark"),
+        data_hash=st.session_state.get("data_hash"),
+    )
 
     st.markdown("---")
 
