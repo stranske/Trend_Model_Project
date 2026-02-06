@@ -15,15 +15,15 @@ This does not store API keys in session state.
 
 ## Tasks
 
-- [ ] Refactor `_build_nl_chain` in `streamlit_app/pages/2_Model.py` to use a cache mechanism appropriate for Streamlit (st.cache_resource or equivalent), keyed by provider/model/temperature.
-- [ ] Ensure cache invalidation occurs when relevant settings change (provider, model, base_url, org, temperature).
-- [ ] Add lightweight timing instrumentation for preview generation to verify chain reuse.
+- [x] Refactor `_build_nl_chain` in `streamlit_app/pages/2_Model.py` to use a cache mechanism appropriate for Streamlit (st.cache_resource or equivalent), keyed by provider/model/temperature.
+- [x] Ensure cache invalidation occurs when relevant settings change (provider, model, base_url, org, temperature).
+- [x] Add lightweight timing instrumentation for preview generation to verify chain reuse.
 
 ## Acceptance Criteria
 
-- [ ] Repeated Preview operations in the same session reuse the cached chain (measurable via instrumentation/logging).
-- [ ] Changing provider/model settings results in a new cached instance (no stale reuse).
-- [ ] Existing config chat behavior remains correct (preview/apply/run still works).
+- [x] Repeated Preview operations in the same session reuse the cached chain (measurable via instrumentation/logging).
+- [x] Changing provider/model settings results in a new cached instance (no stale reuse).
+- [x] Existing config chat behavior remains correct (preview/apply/run still works).
 
 ## Implementation Notes
 

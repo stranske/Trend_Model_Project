@@ -1059,6 +1059,47 @@ def test_record_preview_timing_stores_last_metrics(model_module: ModuleType) -> 
     assert metrics["total_seconds"] == 1.25
 
 
+def test_record_chain_cache_stats_tracks_hits_and_misses(model_module: ModuleType) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    model_module._record_chain_cache_stats(
+        {
+            "chain_reused": True,
+            "chain_cache_miss_reason": None,
+            "chain_cache_invalidation_fields": [],
+            "chain_cache_signature": "sig-1",
+        },
+        chain_build_seconds=0.4,
+    )
+
+    stats = stub.session_state.get(model_module._CONFIG_CHAIN_STATS_KEY)
+    assert isinstance(stats, dict)
+    assert stats["hits"] == 1
+    assert stats["misses"] == 0
+    assert stats["last_reused"] is True
+    assert stats["last_signature"] == "sig-1"
+
+    model_module._record_chain_cache_stats(
+        {
+            "chain_reused": False,
+            "chain_cache_miss_reason": "first_build",
+            "chain_cache_invalidation_fields": ["model"],
+            "chain_cache_signature": "sig-2",
+        },
+        chain_build_seconds=0.9,
+    )
+
+    stats = stub.session_state.get(model_module._CONFIG_CHAIN_STATS_KEY)
+    assert isinstance(stats, dict)
+    assert stats["hits"] == 1
+    assert stats["misses"] == 1
+    assert stats["last_reused"] is False
+    assert stats["last_miss_reason"] == "first_build"
+    assert stats["last_invalidation_fields"] == ["model"]
+    assert stats["last_signature"] == "sig-2"
+
+
 def test_build_nl_chain_reuses_cached_chain(
     monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
 ) -> None:
