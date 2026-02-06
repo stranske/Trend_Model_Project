@@ -1029,10 +1029,11 @@ def _build_chain_cache_context() -> dict[str, Any]:
     temperature = _normalize_temperature(_resolve_llm_temperature())
     base_url = _normalize_cache_str(config.base_url)
     organization = _normalize_cache_str(config.organization)
+    normalized_model = _normalize_cache_str(config.model)
     api_key_fingerprint = _hash_api_key(config.api_key)
     extra_payload = _serialize_extra(config.extra)
     extra_payload_hash = _hash_text(extra_payload)
-    resolved_model = _normalize_cache_str(config.model) or _DEFAULT_CONFIG_CHAT_MODEL
+    resolved_model = normalized_model or _DEFAULT_CONFIG_CHAT_MODEL
     llm_cache_key = _build_llm_cache_key(
         provider=provider,
         model=resolved_model,
@@ -1065,6 +1066,7 @@ def _build_chain_cache_context() -> dict[str, Any]:
 
 
 def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
+    _maybe_reset_config_chat_cache(_current_chain_settings_snapshot())
     context = _build_chain_cache_context()
     api_key = context["api_key"]
     api_key_fingerprint = context["api_key_fingerprint"]
