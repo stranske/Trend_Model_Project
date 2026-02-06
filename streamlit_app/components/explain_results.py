@@ -67,6 +67,29 @@ def _cache_bucket() -> dict[str, ExplanationResult]:
     return cache
 
 
+def _cache_key_for(
+    run_key: str,
+    *,
+    questions: str,
+    provider: str | None,
+    model: str | None,
+    base_url: str | None,
+    organization: str | None,
+) -> str:
+    payload = {
+        "run_key": run_key,
+        "questions": questions,
+        "provider": provider,
+        "model": model,
+        "base_url": base_url,
+        "organization": organization,
+    }
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, ensure_ascii=True).encode("utf-8")
+    ).hexdigest()[:12]
+    return f"{run_key}:{digest}"
+
+
 def _resolve_explanation_run_id(details: Mapping[str, Any], run_key: str) -> str:
     candidates = [
         details.get("run_id"),
@@ -286,7 +309,19 @@ def render_explain_results(
     button_key = hashlib.sha256(run_key.encode("utf-8")).hexdigest()[:12]
     clicked = st.button("Explain Results", key=f"btn_explain_results_{button_key}")
     cache = _cache_bucket()
-    cached = cache.get(run_key)
+    provider_value = st.session_state.get(provider_key, provider_default)
+    model_value = st.session_state.get(model_key) or None
+    base_url_value = st.session_state.get(base_url_key) or None
+    org_value = st.session_state.get(org_key) or None
+    cache_key = _cache_key_for(
+        run_key,
+        questions=questions_text,
+        provider=provider_value,
+        model=model_value,
+        base_url=base_url_value,
+        organization=org_value,
+    )
+    cached = cache.get(cache_key)
 
     if clicked:
         with st.spinner("Generating explanation..."):
@@ -301,13 +336,13 @@ def render_explain_results(
                 cached = generate_result_explanation(
                     details,
                     questions=st.session_state.get(question_key),
-                    provider=st.session_state.get("explain_results_provider", provider),
+                    provider=provider_value or provider,
                     api_key=resolved_key,
-                    model=st.session_state.get("explain_results_model") or None,
-                    base_url=st.session_state.get("explain_results_base_url") or None,
-                    organization=st.session_state.get("explain_results_org") or None,
+                    model=model_value,
+                    base_url=base_url_value,
+                    organization=org_value,
                 )
-                cache[run_key] = cached
+                cache[cache_key] = cached
             except Exception as exc:
                 st.error("We could not generate an explanation.")
                 st.caption(str(exc))

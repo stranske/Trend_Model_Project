@@ -170,6 +170,28 @@ def test_resolve_llm_provider_config_requires_api_key(
         explain_module._resolve_llm_provider_config()
 
 
+def test_cache_key_varies_by_questions(explain_module) -> None:
+    run_key = "run:cached"
+    key_one = explain_module._cache_key_for(
+        run_key,
+        questions="Question A",
+        provider="openai",
+        model=None,
+        base_url=None,
+        organization=None,
+    )
+    key_two = explain_module._cache_key_for(
+        run_key,
+        questions="Question B",
+        provider="openai",
+        model=None,
+        base_url=None,
+        organization=None,
+    )
+
+    assert key_one != key_two
+
+
 def test_render_explain_results_uses_cached_result(explain_module) -> None:
     st_stub = sys.modules["streamlit"]
     st_stub.button.return_value = False
@@ -190,7 +212,15 @@ def test_render_explain_results_uses_cached_result(explain_module) -> None:
         metric_count=1,
         created_at="2024-01-01T00:00:00+00:00",
     )
-    st_stub.session_state[explain_module._CACHE_KEY] = {run_key: cached}
+    cache_key = explain_module._cache_key_for(
+        run_key,
+        questions=explain_module.DEFAULT_QUESTION,
+        provider="openai",
+        model=None,
+        base_url=None,
+        organization=None,
+    )
+    st_stub.session_state[explain_module._CACHE_KEY] = {cache_key: cached}
 
     details = {"run_id": "run-001"}
     result = SimpleNamespace(details=details)
@@ -226,7 +256,15 @@ def test_render_explain_results_downloads_include_json_payload(explain_module) -
         metric_count=2,
         created_at="2024-01-01T00:00:00+00:00",
     )
-    st_stub.session_state[explain_module._CACHE_KEY] = {run_key: cached}
+    cache_key = explain_module._cache_key_for(
+        run_key,
+        questions=explain_module.DEFAULT_QUESTION,
+        provider="openai",
+        model=None,
+        base_url=None,
+        organization=None,
+    )
+    st_stub.session_state[explain_module._CACHE_KEY] = {cache_key: cached}
 
     details = {"run_id": "run-001"}
     result = SimpleNamespace(details=details)
@@ -266,7 +304,15 @@ def test_render_explain_results_downloads_include_text(explain_module) -> None:
         metric_count=2,
         created_at="2024-01-01T00:00:00+00:00",
     )
-    st_stub.session_state[explain_module._CACHE_KEY] = {run_key: cached}
+    cache_key = explain_module._cache_key_for(
+        run_key,
+        questions=explain_module.DEFAULT_QUESTION,
+        provider="openai",
+        model=None,
+        base_url=None,
+        organization=None,
+    )
+    st_stub.session_state[explain_module._CACHE_KEY] = {cache_key: cached}
 
     details = {"run_id": "run-001"}
     result = SimpleNamespace(details=details)
@@ -301,7 +347,15 @@ def test_render_explain_results_appends_disclaimer_for_display(explain_module) -
         metric_count=1,
         created_at="2024-01-01T00:00:00+00:00",
     )
-    st_stub.session_state[explain_module._CACHE_KEY] = {run_key: cached}
+    cache_key = explain_module._cache_key_for(
+        run_key,
+        questions=explain_module.DEFAULT_QUESTION,
+        provider="openai",
+        model=None,
+        base_url=None,
+        organization=None,
+    )
+    st_stub.session_state[explain_module._CACHE_KEY] = {cache_key: cached}
 
     details = {"run_id": "run-002"}
     result = SimpleNamespace(details=details)
