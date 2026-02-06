@@ -316,7 +316,7 @@ def test_build_nl_chain_invalidates_on_provider_change(
     assert "config_chat_last_instruction" not in stub.session_state
 
 
-def test_build_nl_chain_invalidates_on_temperature_change(
+def test_build_nl_chain_invalidates_on_temperature_env_change(
     monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
 ) -> None:
     stub = model_module.st
