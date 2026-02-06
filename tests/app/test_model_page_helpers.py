@@ -1248,6 +1248,72 @@ def test_build_nl_chain_invalidation_on_model_change(
     assert "config_chat_last_instruction" not in stub.session_state
 
 
+def test_maybe_reset_config_chat_cache_resets_on_change(
+    model_module: ModuleType,
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    snapshot = {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "base_url": None,
+        "organization": None,
+        "temperature": 0.2,
+    }
+
+    assert model_module._maybe_reset_config_chat_cache(snapshot) == []
+
+    stub.session_state.update(
+        {
+            "config_chat_preview": {"before": {}, "after": {}},
+            "config_chat_last_instruction": "old",
+            model_module._CONFIG_CHAIN_METRICS_KEY: {"hits": 1},
+            model_module._CONFIG_CHAIN_STATS_KEY: {"misses": 1},
+            model_module._CONFIG_CHAIN_STATE_KEY: {"entries": {"old": "entry"}},
+        }
+    )
+
+    updated_snapshot = dict(snapshot)
+    updated_snapshot["model"] = "gpt-4o"
+    changed = model_module._maybe_reset_config_chat_cache(updated_snapshot)
+
+    assert "model" in changed
+    assert "config_chat_preview" not in stub.session_state
+    assert "config_chat_last_instruction" not in stub.session_state
+    assert model_module._CONFIG_CHAIN_METRICS_KEY not in stub.session_state
+    assert model_module._CONFIG_CHAIN_STATS_KEY not in stub.session_state
+    assert stub.session_state[model_module._CONFIG_CHAIN_STATE_KEY] == {"entries": {}}
+
+
+def test_maybe_reset_config_chat_cache_no_change_keeps_state(
+    model_module: ModuleType,
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    snapshot = {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "base_url": None,
+        "organization": None,
+        "temperature": 0.2,
+    }
+
+    assert model_module._maybe_reset_config_chat_cache(snapshot) == []
+
+    stub.session_state.update(
+        {
+            "config_chat_preview": {"before": {}, "after": {}},
+            "config_chat_last_instruction": "old",
+        }
+    )
+
+    assert model_module._maybe_reset_config_chat_cache(dict(snapshot)) == []
+    assert "config_chat_preview" in stub.session_state
+    assert "config_chat_last_instruction" in stub.session_state
+
+
 def test_llm_session_overrides_win_over_env(
     monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
 ) -> None:
