@@ -1065,6 +1065,7 @@ def _build_chain_cache_context() -> dict[str, Any]:
 
 
 def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
+    _maybe_reset_config_chat_cache(_current_chain_settings_snapshot())
     context = _build_chain_cache_context()
     api_key = context["api_key"]
     api_key_fingerprint = context["api_key_fingerprint"]
