@@ -268,6 +268,7 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
         "cache_settings_changed": timings.get("chain_settings_changed"),
         "cache_session_reset": timings.get("chain_cache_session_reset"),
         "chain_build_seconds": timings.get("chain_build_seconds"),
+        "chain_lookup_seconds": timings.get("chain_lookup_seconds"),
         "chain_reused": timings.get("chain_reused"),
         "run_seconds": timings.get("run_seconds"),
         "total_seconds": total_seconds,
@@ -306,6 +307,7 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
         "cache_session_reset": timings.get("chain_cache_session_reset"),
         "chain_reused": timings.get("chain_reused"),
         "chain_build_seconds": timings.get("chain_build_seconds"),
+        "chain_lookup_seconds": timings.get("chain_lookup_seconds"),
         "run_seconds": timings.get("run_seconds"),
         "total_seconds": total_seconds,
     }
@@ -404,6 +406,7 @@ def _render_preview_timing_history() -> None:
                 "Cache invalidated by": invalidation_label,
                 "LLM changed": llm_changed_label,
                 "Chain build": _format_seconds(entry.get("chain_build_seconds")),
+                "Chain lookup": _format_seconds(entry.get("chain_lookup_seconds")),
                 "Chain reused": "Yes" if entry.get("chain_reused") else "No",
                 "Run": _format_seconds(entry.get("run_seconds")),
                 "Total": _format_seconds(entry.get("total_seconds")),
@@ -453,6 +456,7 @@ def _render_last_preview_metrics() -> None:
         f"Settings changed: {settings_changed_label} | "
         f"Session reset: {cache_reset_label} | "
         f"Build: {_format_seconds(metrics.get('chain_build_seconds'))} | "
+        f"Lookup: {_format_seconds(metrics.get('chain_lookup_seconds'))} | "
         f"Run: {_format_seconds(metrics.get('run_seconds'))} | "
         f"Total: {_format_seconds(metrics.get('total_seconds'))}"
     )
@@ -1099,6 +1103,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         _reset_config_chat_session_id() if session_reset else _get_config_chat_session_id()
     )
     api_key_secret = _ApiKeySecret(api_key, api_key_fingerprint)
+    lookup_start = monotonic()
     chain = _cached_config_patch_chain(
         session_cache_key,
         cache_key,
@@ -1106,6 +1111,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         api_key_secret,
         extra_payload,
     )
+    lookup_seconds = monotonic() - lookup_start
     entries = cache_state["entries"]
     cached_chain_id = entries.get(signature)
     reused = cached_chain_id == id(chain)
@@ -1143,6 +1149,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         "chain_settings_changed": settings_changed,
         "chain_llm_changed_fields": llm_changed_fields,
         "chain_cache_session_reset": session_reset,
+        "chain_lookup_seconds": lookup_seconds,
     }
 
 
@@ -1181,6 +1188,7 @@ def _generate_config_preview(
             "chain_settings_changed": chain_meta.get("chain_settings_changed"),
             "chain_llm_changed_fields": chain_meta.get("chain_llm_changed_fields"),
             "chain_cache_session_reset": chain_meta.get("chain_cache_session_reset"),
+            "chain_lookup_seconds": chain_meta.get("chain_lookup_seconds"),
             "run_seconds": run_seconds,
         },
     }
@@ -1524,6 +1532,7 @@ def _render_config_diff_preview(model_state: Mapping[str, Any] | None) -> None:
             f"Cache sig: {cache_signature_label} | "
             f"Settings changed: {settings_changed_label} | "
             f"Chain build: {_format_seconds(timings.get('chain_build_seconds'))} | "
+            f"Chain lookup: {_format_seconds(timings.get('chain_lookup_seconds'))} | "
             f"Run: {_format_seconds(timings.get('run_seconds'))} | "
             f"Total: {_format_seconds(timings.get('total_seconds'))}"
             f"{cache_miss_label}{invalidation_label}"
