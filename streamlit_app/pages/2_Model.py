@@ -827,13 +827,8 @@ def _resolve_llm_session_overrides() -> dict[str, str | None]:
 
 def _current_chain_settings_snapshot() -> dict[str, Any]:
     config = _resolve_llm_provider_config()
-    return {
-        "provider": _normalize_cache_str(config.provider),
-        "model": _normalize_cache_str(config.model),
-        "base_url": _normalize_cache_str(config.base_url),
-        "organization": _normalize_cache_str(config.organization),
-        "temperature": _normalize_temperature(_resolve_llm_temperature()),
-    }
+    temperature = _resolve_llm_temperature()
+    return _build_chain_settings_snapshot(config, temperature)
 
 
 def _maybe_reset_config_chat_cache(snapshot: Mapping[str, Any]) -> None:
@@ -848,10 +843,8 @@ def _maybe_reset_config_chat_cache(snapshot: Mapping[str, Any]) -> None:
     st.session_state[_LLM_OVERRIDE_SNAPSHOT_KEY] = normalized
     st.session_state.pop("config_chat_preview", None)
     st.session_state.pop("config_chat_last_instruction", None)
-    st.session_state.pop(_CONFIG_CHAIN_STATE_KEY, None)
     st.session_state.pop(_CONFIG_CHAIN_METRICS_KEY, None)
     st.session_state.pop(_CONFIG_CHAIN_STATS_KEY, None)
-    _reset_config_chat_session_id()
     _LOGGER.info(
         "Config chat cache reset due to settings change: %s -> %s",
         previous_normalized,
@@ -1023,10 +1016,25 @@ def _cached_config_patch_chain(
     )
 
 
-def _build_chain_cache_context() -> dict[str, Any]:
-    config = _resolve_llm_provider_config()
+def _build_chain_settings_snapshot(
+    config: LLMProviderConfig,
+    temperature: float,
+) -> dict[str, Any]:
+    return {
+        "provider": _normalize_cache_str(config.provider),
+        "model": _normalize_cache_str(config.model),
+        "base_url": _normalize_cache_str(config.base_url),
+        "organization": _normalize_cache_str(config.organization),
+        "temperature": _normalize_temperature(temperature),
+    }
+
+
+def _build_chain_cache_context_from_config(
+    config: LLMProviderConfig,
+    temperature: float,
+) -> dict[str, Any]:
     provider = _normalize_cache_str(config.provider) or "openai"
-    temperature = _normalize_temperature(_resolve_llm_temperature())
+    temperature = _normalize_temperature(temperature)
     base_url = _normalize_cache_str(config.base_url)
     organization = _normalize_cache_str(config.organization)
     api_key_fingerprint = _hash_api_key(config.api_key)
@@ -1064,9 +1072,17 @@ def _build_chain_cache_context() -> dict[str, Any]:
     }
 
 
+def _build_chain_cache_context() -> dict[str, Any]:
+    config = _resolve_llm_provider_config()
+    temperature = _resolve_llm_temperature()
+    return _build_chain_cache_context_from_config(config, temperature)
+
+
 def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
-    _maybe_reset_config_chat_cache(_current_chain_settings_snapshot())
-    context = _build_chain_cache_context()
+    config = _resolve_llm_provider_config()
+    temperature = _resolve_llm_temperature()
+    _maybe_reset_config_chat_cache(_build_chain_settings_snapshot(config, temperature))
+    context = _build_chain_cache_context_from_config(config, temperature)
     api_key = context["api_key"]
     api_key_fingerprint = context["api_key_fingerprint"]
     extra_payload = context["extra_payload"]
@@ -1118,6 +1134,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     reused = cached_chain_id == id(chain)
     cache_miss_reason = None
     if not reused:
+        had_cached_entry = cached_chain_id is not None
         if settings_changed:
             if invalidation_fields:
                 cache_miss_reason = f"settings_changed: {', '.join(invalidation_fields)}"
@@ -1129,6 +1146,8 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
             cache_miss_reason = f"llm_settings_changed: {', '.join(llm_changed_fields)}"
         elif resource_changed:
             cache_miss_reason = "llm_settings_changed"
+        elif had_cached_entry:
+            cache_miss_reason = "cache_evicted"
         else:
             cache_miss_reason = "first_build"
     entries[signature] = id(chain)

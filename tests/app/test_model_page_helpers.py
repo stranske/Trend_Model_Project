@@ -1110,6 +1110,43 @@ def test_build_nl_chain_reuses_cached_chain(
     assert api_key_secret.value == "sk-test"
 
 
+def test_build_nl_chain_reports_evicted_cache(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    chain_objects = iter([object(), object()])
+
+    def fake_cached_config_patch_chain(
+        session_cache_key: str,
+        chain_cache_key: dict[str, object],
+        llm_cache_key: dict[str, object],
+        api_key: object,
+        extra_payload: str,
+    ) -> object:
+        return next(chain_objects)
+
+    monkeypatch.setattr(
+        model_module,
+        "_resolve_llm_provider_config",
+        lambda: model_module.LLMProviderConfig(
+            provider="openai",
+            model="gpt-4o-mini",
+            api_key="sk-test",
+        ),
+    )
+    monkeypatch.setattr(model_module, "_resolve_llm_temperature", lambda: 0.0)
+    monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
+
+    _chain_first, meta_first = model_module._build_nl_chain()
+    _chain_second, meta_second = model_module._build_nl_chain()
+
+    assert meta_first["chain_reused"] is False
+    assert meta_second["chain_reused"] is False
+    assert meta_second["chain_cache_miss_reason"] == "cache_evicted"
+
+
 def test_build_nl_chain_invalidation_on_model_change(
     monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
 ) -> None:
