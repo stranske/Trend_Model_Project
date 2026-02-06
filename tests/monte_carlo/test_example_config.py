@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 from typing import Mapping
+
+import yaml
 
 from trend_analysis.monte_carlo import (
     MonteCarloSettings,
@@ -66,3 +69,19 @@ def test_example_config_marks_curated_variants() -> None:
     curated = scenario.strategy_set.get("curated")
     assert curated is not None
     assert all(variant.curated for variant in curated)
+
+
+def test_example_config_curated_variants_do_not_mutate_defaults() -> None:
+    base_path = Path("config/defaults.yml")
+    base_config = yaml.safe_load(base_path.read_text(encoding="utf-8"))
+    base_snapshot = deepcopy(base_config)
+
+    scenario = load_scenario("example_scenario")
+
+    assert scenario.strategy_set is not None
+    curated = scenario.strategy_set.get("curated")
+    assert curated is not None
+
+    for variant in curated:
+        _ = variant.to_trend_config(base_config, base_path=base_path.parent)
+        assert base_config == base_snapshot
