@@ -201,6 +201,34 @@ def test_validate_strategy_pack_hf_equity_curated_validates_each_strategy_and_pr
     assert after_config == before_config
 
 
+def test_validate_strategy_pack_hf_equity_curated_loads_schema_and_preserves_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base_config_path = Path("config/defaults.yml")
+    before_text = base_config_path.read_text(encoding="utf-8")
+
+    pack_path = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
+    payload = yaml.safe_load(pack_path.read_text(encoding="utf-8"))
+    curated = payload.get("curated")
+    assert isinstance(curated, list)
+
+    call_count = {"count": 0}
+    real_validate = validation_module.validate_config_data
+
+    def _validate_config_data(config: dict[str, object], schema: dict[str, object]) -> list[str]:
+        call_count["count"] += 1
+        return real_validate(config, schema)
+
+    monkeypatch.setattr(validation_module, "validate_config_data", _validate_config_data)
+
+    errors = validate_strategy_pack(pack_path, base_config_path=base_config_path)
+    after_text = base_config_path.read_text(encoding="utf-8")
+
+    assert errors == []
+    assert call_count["count"] == len(curated)
+    assert after_text == before_text
+
+
 def test_validate_strategy_pack_reports_base_config_mutation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
