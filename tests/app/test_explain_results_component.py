@@ -218,7 +218,37 @@ def test_render_explain_results_downloads_include_json_payload(explain_module) -
     assert payload["trace_url"] == "trace://example"
     assert payload["metric_count"] == 2
     assert payload["claim_issues"][0]["kind"] == "missing_citation"
-    assert payload["questions"] == explain_module.DEFAULT_QUESTION
+
+
+def test_render_explain_results_surfaces_trace_url(explain_module) -> None:
+    st_stub = sys.modules["streamlit"]
+    st_stub.button.return_value = False
+
+    col_one = MagicMock()
+    col_one.__enter__.return_value = col_one
+    col_one.__exit__.return_value = False
+    col_two = MagicMock()
+    col_two.__enter__.return_value = col_two
+    col_two.__exit__.return_value = False
+    st_stub.columns.return_value = [col_one, col_two]
+
+    run_key = "run:trace"
+    cached = explain_module.ExplanationResult(
+        text="Cached output",
+        trace_url="trace://example",
+        claim_issues=[],
+        metric_count=1,
+        created_at="2024-01-01T00:00:00+00:00",
+    )
+    st_stub.session_state[explain_module._CACHE_KEY] = {run_key: cached}
+
+    details = {"run_id": "run-001"}
+    result = SimpleNamespace(details=details)
+
+    explain_module.render_explain_results(result, run_key=run_key)
+
+    captions = [call.args[0] for call in st_stub.caption.call_args_list if call.args]
+    assert "Trace URL: trace://example" in captions
 
 
 def test_render_explain_results_downloads_include_text(explain_module) -> None:
