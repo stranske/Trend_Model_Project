@@ -16,6 +16,19 @@ def test_validate_strategy_pack_accepts_hf_equity_curated() -> None:
     assert errors == []
 
 
+def test_validate_strategy_pack_hf_equity_curated_does_not_modify_defaults_file() -> None:
+    base_config_path = Path("config/defaults.yml")
+    before = base_config_path.read_text(encoding="utf-8")
+
+    pack_path = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
+    errors = validate_strategy_pack(pack_path, base_config_path=base_config_path)
+
+    after = base_config_path.read_text(encoding="utf-8")
+
+    assert errors == []
+    assert after == before
+
+
 def test_validate_strategy_pack_hf_equity_curated_does_not_mutate_defaults(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
