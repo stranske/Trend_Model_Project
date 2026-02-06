@@ -150,6 +150,7 @@ def test_to_trend_config_merges_weighting_scheme_name_and_params(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     base = _base_config(tmp_path)
+    base_snapshot = deepcopy(base)
     variant = StrategyVariant(
         name="WeightedParams",
         overrides={
@@ -182,14 +183,14 @@ def test_to_trend_config_merges_weighting_scheme_name_and_params(
     assert captured["portfolio"]["weighting"]["params"]["column"] == "Return"
     assert captured["portfolio"]["weighting"]["params"]["half_life"] == 12
     assert captured["portfolio"]["weighting"]["params"]["shrink_tau"] == 0.25
-    assert base["portfolio"]["weighting_scheme"] == "equal"
-    assert base["portfolio"]["weighting"]["name"] == "equal"
+    assert base == base_snapshot
 
 
 def test_to_trend_config_preserves_weighting_params_when_scheme_and_name_override(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     base = _base_config(tmp_path)
+    base_snapshot = deepcopy(base)
     variant = StrategyVariant(
         name="SchemeAndNameNoParams",
         overrides={
@@ -218,8 +219,7 @@ def test_to_trend_config_preserves_weighting_params_when_scheme_and_name_overrid
     assert captured["portfolio"]["weighting"]["name"] == "score_prop"
     assert captured["portfolio"]["weighting"]["params"]["column"] == "Sharpe"
     assert captured["portfolio"]["weighting"]["params"]["shrink_tau"] == 0.25
-    assert base["portfolio"]["weighting_scheme"] == "equal"
-    assert base["portfolio"]["weighting"]["name"] == "equal"
+    assert base == base_snapshot
 
 
 def test_to_trend_config_applies_scheme_and_name_overrides(
