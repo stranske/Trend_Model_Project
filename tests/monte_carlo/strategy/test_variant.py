@@ -342,6 +342,12 @@ def test_to_trend_config_uses_defaults_without_mutation_when_weighting_overrides
         },
     )
 
+    merged = variant.apply_to(base_config)
+    assert merged["portfolio"]["weighting_scheme"] == "risk_parity"
+    assert merged["portfolio"]["weighting"]["name"] == "score_prop"
+    assert merged["portfolio"]["weighting"]["params"]["shrink_tau"] == 0.25
+    assert base_config == base_snapshot
+
     captured: dict[str, object] = {}
     real_validate = validate_trend_config
 
