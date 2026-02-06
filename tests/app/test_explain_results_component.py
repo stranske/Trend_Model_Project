@@ -73,6 +73,9 @@ def test_generate_result_explanation_uses_chain_and_disclaimer(
     assert "metric_catalog" in stub.last_payload
     assert "questions" in stub.last_payload
     assert "Summarize" in stub.last_payload["questions"]
+    metric_catalog = stub.last_payload["metric_catalog"]
+    assert "out_sample_stats.Portfolio.cagr:" in metric_catalog
+    assert "out_sample_stats.Portfolio.max_drawdown:" in metric_catalog
 
 
 def test_generate_result_explanation_handles_missing_metrics(
