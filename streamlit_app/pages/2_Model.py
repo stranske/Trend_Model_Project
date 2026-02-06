@@ -966,6 +966,29 @@ def _hash_api_key_secret(secret: _ApiKeySecret) -> str:
     return "no-key"
 
 
+@dataclass(frozen=True, slots=True)
+class _ChainCacheKey:
+    provider: str
+    model: str
+    base_url: str | None
+    organization: str | None
+    temperature: float
+    cache_version: str = _CONFIG_CHAIN_CACHE_VERSION
+
+
+def _hash_chain_cache_key(cache_key: _ChainCacheKey) -> str:
+    return _chain_cache_signature(
+        {
+            "cache_version": cache_key.cache_version,
+            "provider": cache_key.provider,
+            "model": cache_key.model,
+            "base_url": cache_key.base_url,
+            "organization": cache_key.organization,
+            "temperature": cache_key.temperature,
+        }
+    )
+
+
 @st.cache_resource(show_spinner=False)
 def _cached_compact_schema() -> dict[str, Any]:
     return load_compact_schema()
@@ -998,11 +1021,15 @@ def _cached_llm_client(
 
 @st.cache_resource(
     show_spinner=False,
-    hash_funcs={dict: _hash_cache_key, _ApiKeySecret: _hash_api_key_secret},
+    hash_funcs={
+        dict: _hash_cache_key,
+        _ApiKeySecret: _hash_api_key_secret,
+        _ChainCacheKey: _hash_chain_cache_key,
+    },
 )
 def _cached_config_patch_chain(
     session_cache_key: str,
-    chain_cache_key: Mapping[str, Any],
+    chain_cache_key: _ChainCacheKey,
     llm_cache_key: Mapping[str, Any],
     api_key_secret: _ApiKeySecret | None,
     extra_payload: str,
@@ -1018,8 +1045,8 @@ def _cached_config_patch_chain(
         llm=llm,
         schema=schema,
         prompt_builder=build_config_patch_prompt,
-        temperature=float(chain_cache_key.get("temperature") or 0.0),
-        model=str(chain_cache_key.get("model")),
+        temperature=float(chain_cache_key.temperature or 0.0),
+        model=str(chain_cache_key.model),
     )
 
 
@@ -1071,6 +1098,13 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     extra_payload = context["extra_payload"]
     llm_cache_key = context["llm_cache_key"]
     cache_key = context["cache_key"]
+    chain_cache_key = _ChainCacheKey(
+        provider=str(cache_key.get("provider")),
+        model=str(cache_key.get("model")),
+        base_url=cache_key.get("base_url"),
+        organization=cache_key.get("organization"),
+        temperature=float(cache_key.get("temperature") or 0.0),
+    )
     cache_state = _get_chain_cache_state()
     signature = _chain_cache_signature(cache_key)
     resource_signature = _chain_resource_signature(cache_key, llm_cache_key)
@@ -1106,7 +1140,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     lookup_start = monotonic()
     chain = _cached_config_patch_chain(
         session_cache_key,
-        cache_key,
+        chain_cache_key,
         llm_cache_key,
         api_key_secret,
         extra_payload,
@@ -1138,6 +1172,12 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     cache_state["last_chain_id"] = id(chain)
     st.session_state["config_chat_chain_key"] = cache_key
     st.session_state["config_chat_chain_signature"] = signature
+    _LOGGER.info(
+        "Config chat chain cache: key=%s reused=%s lookup_s=%s",
+        _chain_cache_summary(cache_key),
+        reused,
+        f"{lookup_seconds:.4f}",
+    )
     return chain, {
         "chain_reused": reused,
         "chain_cache_key": cache_key,
