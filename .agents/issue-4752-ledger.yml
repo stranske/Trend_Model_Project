@@ -7,10 +7,10 @@ tasks:
     title: Refactor `_build_nl_chain` in `streamlit_app/pages/2_Model.py` to use a
       Streamlit cache mechanism (e.g., `st.cache_resource`), keyed by provider, model,
       base_url, org, and temperature.
-    status: doing
+    status: done
     started_at: '2026-02-06T22:00:51Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-06T22:00:59Z'
+    commit: fdf05d2b5317aa899b56723874ee21d936f866a3
     notes: []
   - id: task-02
     title: 'Define scope for: Refactor `_build_nl_chain` in `streamlit_app/pages/2_Model.py`
