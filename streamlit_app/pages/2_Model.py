@@ -17,9 +17,9 @@ from time import monotonic, sleep
 from typing import Any, Mapping
 from uuid import uuid4
 
+import pandas as pd
 import streamlit as st
 import yaml
-import pandas as pd
 
 from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner, nl_operation_viewer

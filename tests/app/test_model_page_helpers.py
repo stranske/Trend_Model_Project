@@ -1288,9 +1288,7 @@ def test_llm_session_override_normalizes_whitespace(model_module: ModuleType) ->
 def test_build_variant_instruction_includes_hint_and_instruction(
     model_module: ModuleType,
 ) -> None:
-    instruction = model_module._build_variant_instruction(
-        "Increase lookback to 24", "Conservative"
-    )
+    instruction = model_module._build_variant_instruction("Increase lookback to 24", "Conservative")
     assert "Increase lookback to 24" in instruction
     assert "conservative" in instruction.lower()
 
