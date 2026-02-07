@@ -79,6 +79,7 @@ results/
 !/.github/config/required-contexts.json
 !perf/perf_baseline.json
 !src/trend_analysis/export/manifest_schema.json
+!tests/fixtures/config_patch_structured.json
 !tests/fixtures/keepalive/*.json
 !tests/fixtures/keepalive_post_work/*.json
 !tests/fixtures/agents_pr_meta/*.json
