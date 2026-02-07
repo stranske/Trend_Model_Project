@@ -112,7 +112,7 @@ def _chain_cache_signature(cache_key: Mapping[str, Any]) -> str:
     return json.dumps(dict(cache_key), sort_keys=True, default=str)
 
 
-def _chain_cache_signature_from_inputs(
+def _derive_cache_signature(
     provider: str,
     model: str,
     base_url: str | None,
@@ -133,6 +133,16 @@ def _chain_cache_signature_from_inputs(
         "temperature": normalized_temperature,
     }
     return _chain_cache_signature(cache_key)
+
+
+def _chain_cache_signature_from_inputs(
+    provider: str,
+    model: str,
+    base_url: str | None,
+    organization: str | None,
+    temperature: float,
+) -> str:
+    return _derive_cache_signature(provider, model, base_url, organization, temperature)
 
 
 def _chain_resource_signature(
@@ -1117,6 +1127,18 @@ def _cached_config_patch_chain(
     )
 
 
+def _build_chain_config(config: LLMProviderConfig) -> dict[str, Any]:
+    extra_payload = _serialize_extra(config.extra)
+    return {
+        "timeout": config.timeout,
+        "max_retries": config.max_retries,
+        "extra_payload": extra_payload,
+        "extra_payload_hash": _hash_text(extra_payload),
+        "api_key": config.api_key,
+        "api_key_fingerprint": _hash_api_key(config.api_key),
+    }
+
+
 def _build_chain_cache_context(
     config: LLMProviderConfig | None = None,
     temperature: float | None = None,
@@ -1125,14 +1147,12 @@ def _build_chain_cache_context(
         config = _resolve_llm_provider_config()
     if temperature is None:
         temperature = _resolve_llm_temperature()
+    chain_config = _build_chain_config(config)
     provider = _normalize_cache_str(config.provider) or "openai"
     temperature = _normalize_temperature(temperature)
     base_url = _normalize_cache_str(config.base_url)
     organization = _normalize_cache_str(config.organization)
     normalized_model = _normalize_cache_str(config.model)
-    api_key_fingerprint = _hash_api_key(config.api_key)
-    extra_payload = _serialize_extra(config.extra)
-    extra_payload_hash = _hash_text(extra_payload)
     resolved_model = normalized_model or _DEFAULT_CONFIG_CHAT_MODEL
     cache_key, llm_cache_key = _build_chain_cache_keys(
         provider=provider,
@@ -1140,10 +1160,10 @@ def _build_chain_cache_context(
         base_url=base_url,
         organization=organization,
         temperature=temperature,
-        timeout=config.timeout,
-        max_retries=config.max_retries,
-        extra_payload_hash=extra_payload_hash,
-        api_key_fingerprint=api_key_fingerprint,
+        timeout=chain_config["timeout"],
+        max_retries=chain_config["max_retries"],
+        extra_payload_hash=chain_config["extra_payload_hash"],
+        api_key_fingerprint=chain_config["api_key_fingerprint"],
     )
     return {
         "provider": provider,
@@ -1151,49 +1171,62 @@ def _build_chain_cache_context(
         "base_url": base_url,
         "organization": organization,
         "resolved_model": resolved_model,
-        "api_key": config.api_key,
-        "api_key_fingerprint": api_key_fingerprint,
-        "extra_payload": extra_payload,
+        "api_key": chain_config["api_key"],
+        "api_key_fingerprint": chain_config["api_key_fingerprint"],
+        "extra_payload": chain_config["extra_payload"],
         "llm_cache_key": llm_cache_key,
         "cache_key": cache_key,
     }
 
 
-@st.cache_resource(
-    show_spinner=False,
-    hash_funcs={dict: _hash_cache_key, _ApiKeySecret: _hash_api_key_secret},
-)
 def _build_nl_chain(
     provider: str,
     model: str,
     base_url: str | None,
     organization: str | None,
     temperature: float,
-    cache_signature: str,
-    timeout: float | None,
-    max_retries: int | None,
-    api_key_secret: _ApiKeySecret | None,
-    extra_payload: str,
 ) -> ConfigPatchChain:
-    build_start = monotonic()
-    api_key_fingerprint = api_key_secret.fingerprint if api_key_secret else None
-    extra_payload_hash = _hash_text(extra_payload)
+    config = _resolve_llm_provider_config()
+    chain_config = _build_chain_config(config)
+    api_key_secret = _ApiKeySecret(
+        chain_config["api_key"],
+        chain_config["api_key_fingerprint"],
+    )
     chain_cache_key, llm_cache_key = _build_chain_cache_keys(
         provider=provider,
         model=model,
         base_url=base_url,
         organization=organization,
         temperature=temperature,
-        timeout=timeout,
-        max_retries=max_retries,
-        extra_payload_hash=extra_payload_hash,
-        api_key_fingerprint=api_key_fingerprint,
+        timeout=chain_config["timeout"],
+        max_retries=chain_config["max_retries"],
+        extra_payload_hash=chain_config["extra_payload_hash"],
+        api_key_fingerprint=chain_config["api_key_fingerprint"],
     )
-    chain = _cached_config_patch_chain(
+    return _cached_config_patch_chain(
         chain_cache_key,
         llm_cache_key,
         api_key_secret,
-        extra_payload,
+        chain_config["extra_payload"],
+    )
+
+
+@st.cache_resource(show_spinner=False)
+def _cached_nl_chain(
+    cache_signature: str,
+    provider: str,
+    model: str,
+    base_url: str | None,
+    organization: str | None,
+    temperature: float,
+) -> ConfigPatchChain:
+    build_start = monotonic()
+    chain = _build_nl_chain(
+        provider=provider,
+        model=model,
+        base_url=base_url,
+        organization=organization,
+        temperature=temperature,
     )
     build_seconds = monotonic() - build_start
     if _LOGGER.isEnabledFor(logging.INFO):
@@ -1214,13 +1247,10 @@ def _get_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     context = _build_chain_cache_context(config, temperature)
     st.session_state["selected_provider"] = context["provider"]
     st.session_state["selected_model"] = context["resolved_model"]
-    api_key = context["api_key"]
-    api_key_fingerprint = context["api_key_fingerprint"]
-    extra_payload = context["extra_payload"]
     llm_cache_key = context["llm_cache_key"]
     cache_key = context["cache_key"]
     cache_state = _get_chain_cache_state()
-    signature = _chain_cache_signature_from_inputs(
+    signature = _derive_cache_signature(
         context["provider"],
         context["resolved_model"],
         context["base_url"],
@@ -1265,19 +1295,14 @@ def _get_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         invalidation_fields = list(reset_fields)
         cache_state["last_invalidation_fields"] = list(invalidation_fields)
         session_reset = True
-    api_key_secret = _ApiKeySecret(api_key, api_key_fingerprint)
     lookup_start = monotonic()
-    chain = _build_nl_chain(
+    chain = _cached_nl_chain(
+        signature,
         provider=context["provider"],
         model=context["resolved_model"],
         base_url=context["base_url"],
         organization=context["organization"],
         temperature=context["temperature"],
-        cache_signature=signature,
-        timeout=config.timeout,
-        max_retries=config.max_retries,
-        api_key_secret=api_key_secret,
-        extra_payload=extra_payload,
     )
     lookup_seconds = monotonic() - lookup_start
     entries = cache_state["entries"]
@@ -1304,8 +1329,6 @@ def _get_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     cache_state["last_cache_key"] = cache_key
     cache_state["last_llm_cache_key"] = llm_cache_key
     cache_state["last_chain_id"] = id(chain)
-    st.session_state["config_chat_chain_key"] = cache_key
-    st.session_state["config_chat_chain_signature"] = signature
     if _LOGGER.isEnabledFor(logging.INFO):
         _LOGGER.info(
             "Config chat chain cache: %s sig=%s cache=%s lookup_s=%.3f miss=%s",
