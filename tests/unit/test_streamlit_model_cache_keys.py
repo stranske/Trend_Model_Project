@@ -18,14 +18,10 @@ def test_chain_cache_key_includes_core_fields():
     key = module._build_chain_cache_key(
         provider="openai",
         model="gpt-4o-mini",
-        base_url="https://example.test",
-        organization="org",
         temperature=0.2,
     )
     assert key["provider"] == "openai"
     assert key["model"] == "gpt-4o-mini"
-    assert key["base_url"] == "https://example.test"
-    assert key["organization"] == "org"
     assert key["temperature"] == 0.2
 
 
@@ -34,15 +30,11 @@ def test_cache_key_changes_detects_core_fields():
     previous = module._build_chain_cache_key(
         provider="openai",
         model="gpt-4o-mini",
-        base_url=None,
-        organization=None,
         temperature=0.0,
     )
     current = module._build_chain_cache_key(
         provider="anthropic",
         model="claude-3-5-sonnet",
-        base_url="https://example.test",
-        organization="org",
         temperature=0.4,
     )
     changed = module._cache_key_changes(
@@ -52,8 +44,6 @@ def test_cache_key_changes_detects_core_fields():
     )
     assert "provider" in changed
     assert "model" in changed
-    assert "base_url" in changed
-    assert "organization" in changed
     assert "temperature" in changed
 
 
@@ -77,3 +67,9 @@ def test_llm_cache_key_tracks_connection_fields():
     assert key["max_retries"] == 3
     assert key["extra_payload_hash"] == "hash"
     assert key["api_key_fingerprint"] == "fingerprint"
+
+
+def test_invalidation_fields_include_connection_overrides():
+    module = _load_model_page()
+    assert "base_url" in module._CONFIG_CHAIN_INVALIDATION_FIELDS
+    assert "organization" in module._CONFIG_CHAIN_INVALIDATION_FIELDS

@@ -15,7 +15,6 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from time import monotonic, sleep
 from typing import Any, Mapping
-from uuid import uuid4
 
 import streamlit as st
 import yaml
@@ -69,12 +68,16 @@ _MAX_CONFIG_HISTORY = 20
 _CONFIG_PREVIEW_TIMINGS_KEY = "config_chat_preview_timings"
 _MAX_CONFIG_PREVIEW_TIMINGS = 20
 _CONFIG_CHAIN_STATE_KEY = "config_chat_chain_state"
-_CONFIG_CHAT_SESSION_KEY = "config_chat_session_id"
 _DEFAULT_CONFIG_CHAT_MODEL = "gpt-4o-mini"
 _CONFIG_CHAIN_CACHE_VERSION = "v1"
 _CONFIG_CHAIN_METRICS_KEY = "config_chat_chain_metrics"
 _CONFIG_CHAIN_STATS_KEY = "config_chat_chain_stats"
-_CONFIG_CHAIN_CORE_FIELDS = (
+_CONFIG_CHAIN_KEY_FIELDS = (
+    "provider",
+    "model",
+    "temperature",
+)
+_CONFIG_CHAIN_INVALIDATION_FIELDS = (
     "provider",
     "model",
     "base_url",
@@ -88,7 +91,7 @@ _CONFIG_CHAIN_LLM_FIELDS = (
     "api_key_fingerprint",
 )
 _LOGGER = logging.getLogger(__name__)
-_CONFIG_CHAIN_INVALIDATION_FIELDS = _CONFIG_CHAIN_CORE_FIELDS
+_CONFIG_CHAIN_CORE_FIELDS = _CONFIG_CHAIN_KEY_FIELDS
 _CONFIG_CHAIN_REBUILD_FIELDS = _CONFIG_CHAIN_INVALIDATION_FIELDS
 _CONFIG_CHAIN_RESET_FIELDS = _CONFIG_CHAIN_INVALIDATION_FIELDS
 _LLM_PROVIDER_OVERRIDE_KEY = "llm_provider_override"
@@ -110,20 +113,6 @@ def _get_chain_cache_state() -> dict[str, Any]:
     return state
 
 
-def _get_config_chat_session_id() -> str:
-    session_id = st.session_state.get(_CONFIG_CHAT_SESSION_KEY)
-    if not session_id:
-        session_id = uuid4().hex
-        st.session_state[_CONFIG_CHAT_SESSION_KEY] = session_id
-    return session_id
-
-
-def _reset_config_chat_session_id() -> str:
-    session_id = uuid4().hex
-    st.session_state[_CONFIG_CHAT_SESSION_KEY] = session_id
-    return session_id
-
-
 def _chain_cache_signature(cache_key: Mapping[str, Any]) -> str:
     return json.dumps(dict(cache_key), sort_keys=True, default=str)
 
@@ -135,12 +124,18 @@ def _chain_resource_signature(
     return _chain_cache_signature({"chain": dict(chain_cache_key), "llm": dict(llm_cache_key)})
 
 
-def _chain_cache_summary(cache_key: Mapping[str, Any]) -> str:
+def _chain_cache_summary(
+    cache_key: Mapping[str, Any],
+    llm_cache_key: Mapping[str, Any] | None = None,
+) -> str:
     provider = cache_key.get("provider") or "default"
     model = cache_key.get("model") or "default"
     temperature = cache_key.get("temperature")
-    base_url = cache_key.get("base_url")
-    organization = cache_key.get("organization")
+    base_url = None
+    organization = None
+    if isinstance(llm_cache_key, Mapping):
+        base_url = llm_cache_key.get("base_url")
+        organization = llm_cache_key.get("organization")
     summary = f"{provider}:{model}@{_format_value(temperature)}"
     if base_url:
         summary = f"{summary} | base_url={base_url}"
@@ -153,16 +148,12 @@ def _build_chain_cache_key(
     *,
     provider: str,
     model: str,
-    base_url: str | None,
-    organization: str | None,
     temperature: float,
 ) -> dict[str, Any]:
     return {
         "cache_version": _CONFIG_CHAIN_CACHE_VERSION,
         "provider": provider,
         "model": model,
-        "base_url": base_url,
-        "organization": organization,
         "temperature": temperature,
     }
 
@@ -203,6 +194,18 @@ def _cache_key_changes(
         if previous.get(field) != current.get(field):
             changed.append(field)
     return changed
+
+
+def _merge_cache_keys(
+    cache_key: Mapping[str, Any] | None,
+    llm_cache_key: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    merged: dict[str, Any] = {}
+    if isinstance(cache_key, Mapping):
+        merged.update(cache_key)
+    if isinstance(llm_cache_key, Mapping):
+        merged.update(llm_cache_key)
+    return merged
 
 
 def _get_config_change_history() -> list[dict[str, Any]]:
@@ -356,6 +359,24 @@ def _format_seconds(value: Any) -> str:
     except (TypeError, ValueError):
         return "—"
     return f"{numeric:.2f}s"
+
+
+def _preview_timing_summary(
+    timings: Mapping[str, Any] | None,
+    total_seconds: float | None = None,
+) -> str:
+    if not isinstance(timings, Mapping):
+        return "Preview timing unavailable."
+    cache_hit = "hit" if timings.get("chain_reused") else "miss"
+    build = _format_seconds(timings.get("chain_build_seconds"))
+    lookup = _format_seconds(timings.get("chain_lookup_seconds"))
+    run = _format_seconds(timings.get("run_seconds"))
+    total_value = total_seconds if total_seconds is not None else timings.get("total_seconds")
+    total = _format_seconds(total_value)
+    return (
+        "Preview timing: "
+        f"cache {cache_hit} | build {build} | lookup {lookup} | run {run} | total {total}"
+    )
 
 
 def _render_preview_timing_history() -> None:
@@ -825,38 +846,45 @@ def _resolve_llm_session_overrides() -> dict[str, str | None]:
     }
 
 
-def _current_chain_settings_snapshot() -> dict[str, Any]:
-    config = _resolve_llm_provider_config()
+def _current_chain_settings_snapshot(
+    config: LLMProviderConfig | None = None,
+    temperature: float | None = None,
+) -> dict[str, Any]:
+    if config is None:
+        config = _resolve_llm_provider_config()
+    if temperature is None:
+        temperature = _resolve_llm_temperature()
     return {
         "provider": _normalize_cache_str(config.provider),
         "model": _normalize_cache_str(config.model),
         "base_url": _normalize_cache_str(config.base_url),
         "organization": _normalize_cache_str(config.organization),
-        "temperature": _normalize_temperature(_resolve_llm_temperature()),
+        "temperature": _normalize_temperature(temperature),
     }
 
 
-def _maybe_reset_config_chat_cache(snapshot: Mapping[str, Any]) -> None:
+def _maybe_reset_config_chat_cache(snapshot: Mapping[str, Any]) -> list[str]:
     previous = st.session_state.get(_LLM_OVERRIDE_SNAPSHOT_KEY)
     normalized = dict(snapshot)
     if not isinstance(previous, Mapping):
         st.session_state[_LLM_OVERRIDE_SNAPSHOT_KEY] = normalized
-        return
+        return []
     previous_normalized = {key: previous.get(key) for key in normalized}
     if previous_normalized == normalized:
-        return
+        return []
+    changed = [key for key in normalized if previous_normalized.get(key) != normalized.get(key)]
     st.session_state[_LLM_OVERRIDE_SNAPSHOT_KEY] = normalized
     st.session_state.pop("config_chat_preview", None)
     st.session_state.pop("config_chat_last_instruction", None)
     st.session_state.pop(_CONFIG_CHAIN_STATE_KEY, None)
     st.session_state.pop(_CONFIG_CHAIN_METRICS_KEY, None)
     st.session_state.pop(_CONFIG_CHAIN_STATS_KEY, None)
-    _reset_config_chat_session_id()
     _LOGGER.info(
         "Config chat cache reset due to settings change: %s -> %s",
         previous_normalized,
         normalized,
     )
+    return changed
 
 
 def _llm_env_var_hints(provider: str) -> list[str]:
@@ -976,12 +1004,10 @@ def _cached_compact_schema() -> dict[str, Any]:
     hash_funcs={dict: _hash_cache_key, _ApiKeySecret: _hash_api_key_secret},
 )
 def _cached_llm_client(
-    session_cache_key: str,
     cache_key: Mapping[str, Any],
     api_key_secret: _ApiKeySecret | None,
     extra_payload: str,
 ) -> Any:
-    del session_cache_key
     api_key = api_key_secret.value if api_key_secret is not None else None
     config = LLMProviderConfig(
         provider=str(cache_key.get("provider")),
@@ -1001,14 +1027,12 @@ def _cached_llm_client(
     hash_funcs={dict: _hash_cache_key, _ApiKeySecret: _hash_api_key_secret},
 )
 def _cached_config_patch_chain(
-    session_cache_key: str,
     chain_cache_key: Mapping[str, Any],
     llm_cache_key: Mapping[str, Any],
     api_key_secret: _ApiKeySecret | None,
     extra_payload: str,
 ) -> ConfigPatchChain:
     llm = _cached_llm_client(
-        session_cache_key,
         llm_cache_key,
         api_key_secret,
         extra_payload,
@@ -1023,16 +1047,23 @@ def _cached_config_patch_chain(
     )
 
 
-def _build_chain_cache_context() -> dict[str, Any]:
-    config = _resolve_llm_provider_config()
+def _build_chain_cache_context(
+    config: LLMProviderConfig | None = None,
+    temperature: float | None = None,
+) -> dict[str, Any]:
+    if config is None:
+        config = _resolve_llm_provider_config()
+    if temperature is None:
+        temperature = _resolve_llm_temperature()
     provider = _normalize_cache_str(config.provider) or "openai"
-    temperature = _normalize_temperature(_resolve_llm_temperature())
+    temperature = _normalize_temperature(temperature)
     base_url = _normalize_cache_str(config.base_url)
     organization = _normalize_cache_str(config.organization)
+    normalized_model = _normalize_cache_str(config.model)
     api_key_fingerprint = _hash_api_key(config.api_key)
     extra_payload = _serialize_extra(config.extra)
     extra_payload_hash = _hash_text(extra_payload)
-    resolved_model = _normalize_cache_str(config.model) or _DEFAULT_CONFIG_CHAT_MODEL
+    resolved_model = normalized_model or _DEFAULT_CONFIG_CHAT_MODEL
     llm_cache_key = _build_llm_cache_key(
         provider=provider,
         model=resolved_model,
@@ -1046,8 +1077,6 @@ def _build_chain_cache_context() -> dict[str, Any]:
     cache_key = _build_chain_cache_key(
         provider=provider,
         model=resolved_model,
-        base_url=base_url,
-        organization=organization,
         temperature=temperature,
     )
     return {
@@ -1065,7 +1094,12 @@ def _build_chain_cache_context() -> dict[str, Any]:
 
 
 def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
-    context = _build_chain_cache_context()
+    config = _resolve_llm_provider_config()
+    temperature = _resolve_llm_temperature()
+    reset_fields = _maybe_reset_config_chat_cache(
+        _current_chain_settings_snapshot(config, temperature)
+    )
+    context = _build_chain_cache_context(config, temperature)
     api_key = context["api_key"]
     api_key_fingerprint = context["api_key_fingerprint"]
     extra_payload = context["extra_payload"]
@@ -1076,9 +1110,12 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     resource_signature = _chain_resource_signature(cache_key, llm_cache_key)
     previous_signature = cache_state.get("last_signature")
     previous_resource_signature = cache_state.get("last_resource_signature")
-    settings_changed = bool(previous_signature and previous_signature != signature)
     previous_cache_key = cache_state.get("last_cache_key")
     previous_llm_cache_key = cache_state.get("last_llm_cache_key")
+    previous_invalidation_key = None
+    if isinstance(previous_cache_key, Mapping) or isinstance(previous_llm_cache_key, Mapping):
+        previous_invalidation_key = _merge_cache_keys(previous_cache_key, previous_llm_cache_key)
+    current_invalidation_key = _merge_cache_keys(cache_key, llm_cache_key)
     changed_fields = _cache_key_changes(previous_cache_key, cache_key, _CONFIG_CHAIN_CORE_FIELDS)
     llm_changed_fields = _cache_key_changes(
         previous_llm_cache_key,
@@ -1086,9 +1123,14 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         _CONFIG_CHAIN_LLM_FIELDS,
     )
     invalidation_fields = _cache_key_changes(
-        previous_cache_key,
-        cache_key,
+        previous_invalidation_key,
+        current_invalidation_key,
         _CONFIG_CHAIN_REBUILD_FIELDS,
+    )
+    settings_changed = bool(
+        (previous_signature and previous_signature != signature)
+        or invalidation_fields
+        or reset_fields
     )
     resource_changed = bool(
         previous_resource_signature and previous_resource_signature != resource_signature
@@ -1099,13 +1141,13 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         st.session_state.pop("config_chat_last_instruction", None)
         cache_state["last_invalidation_fields"] = list(invalidation_fields)
         session_reset = True
-    session_cache_key = (
-        _reset_config_chat_session_id() if session_reset else _get_config_chat_session_id()
-    )
+    elif reset_fields:
+        invalidation_fields = list(reset_fields)
+        cache_state["last_invalidation_fields"] = list(invalidation_fields)
+        session_reset = True
     api_key_secret = _ApiKeySecret(api_key, api_key_fingerprint)
     lookup_start = monotonic()
     chain = _cached_config_patch_chain(
-        session_cache_key,
         cache_key,
         llm_cache_key,
         api_key_secret,
@@ -1143,7 +1185,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         "chain_cache_key": cache_key,
         "chain_cache_signature": signature,
         "chain_resource_signature": resource_signature,
-        "chain_cache_summary": _chain_cache_summary(cache_key),
+        "chain_cache_summary": _chain_cache_summary(cache_key, llm_cache_key),
         "chain_cache_miss_reason": cache_miss_reason,
         "chain_cache_invalidation_fields": invalidation_fields,
         "chain_settings_changed": settings_changed,
@@ -1234,6 +1276,10 @@ def _generate_preview_with_progress(
     if isinstance(timings, Mapping):
         timings["total_seconds"] = duration
     _record_preview_timing(result, duration)
+    st.session_state["config_chat_last_preview_summary"] = _preview_timing_summary(
+        timings if isinstance(timings, Mapping) else None,
+        total_seconds=duration,
+    )
     return result
 
 
@@ -1583,13 +1629,21 @@ def _render_config_change_history() -> None:
 def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
     st.caption("Describe the configuration change you want to try.")
     _render_last_preview_metrics()
+    last_summary = st.session_state.get("config_chat_last_preview_summary")
+    if isinstance(last_summary, str) and last_summary:
+        st.caption(last_summary)
     try:
         cache_context = _build_chain_cache_context()
     except Exception as exc:
         st.caption(f"Cache key unavailable: {exc}")
     else:
         cache_key = cache_context.get("cache_key")
-        cache_summary = _chain_cache_summary(cache_key) if isinstance(cache_key, Mapping) else "—"
+        llm_cache_key = cache_context.get("llm_cache_key")
+        cache_summary = (
+            _chain_cache_summary(cache_key, llm_cache_key)
+            if isinstance(cache_key, Mapping)
+            else "—"
+        )
         cache_signature = (
             _chain_cache_signature(cache_key)[:8] if isinstance(cache_key, Mapping) else "—"
         )
