@@ -5,10 +5,10 @@ branch: codex/issue-4778
 tasks:
   - id: task-01
     title: Apply the `st.cache_resource` decorator to `_build_nl_chain()` in `streamlit_app/pages/2_Model.py`
-    status: doing
+    status: done
     started_at: '2026-02-07T19:03:47Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-07T19:03:55Z'
+    commit: 4ca982c1a1353ac21cbb518fb65b317e0467af52
     notes: []
   - id: task-02
     title: Refactor `_build_nl_chain()` to accept provider, model, base_url, org,
