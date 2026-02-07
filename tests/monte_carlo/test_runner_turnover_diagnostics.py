@@ -342,6 +342,10 @@ def test_run_persists_binding_indicator_per_period_and_path(monkeypatch) -> None
     assert diagnostics is not None
     assert diagnostics["turnover_cap_binding"].notna().all()
 
+    expected_keys = {(path_id, date) for path_id in (0, 1) for date in dates}
+    observed_keys = set(zip(diagnostics["path_id"].to_list(), diagnostics["period"].to_list()))
+    assert observed_keys == expected_keys
+
     binding_map = {
         (row.path_id, row.period): bool(row.turnover_cap_binding)
         for row in diagnostics.itertuples(index=False)
