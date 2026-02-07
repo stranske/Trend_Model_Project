@@ -15,7 +15,6 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from time import monotonic, sleep
 from typing import Any, Mapping
-from uuid import uuid4
 
 import streamlit as st
 import yaml
@@ -69,7 +68,6 @@ _MAX_CONFIG_HISTORY = 20
 _CONFIG_PREVIEW_TIMINGS_KEY = "config_chat_preview_timings"
 _MAX_CONFIG_PREVIEW_TIMINGS = 20
 _CONFIG_CHAIN_STATE_KEY = "config_chat_chain_state"
-_CONFIG_CHAT_SESSION_KEY = "config_chat_session_id"
 _DEFAULT_CONFIG_CHAT_MODEL = "gpt-4o-mini"
 _CONFIG_CHAIN_CACHE_VERSION = "v1"
 _CONFIG_CHAIN_METRICS_KEY = "config_chat_chain_metrics"
@@ -113,20 +111,6 @@ def _get_chain_cache_state() -> dict[str, Any]:
     if not isinstance(entries, dict):
         state["entries"] = {}
     return state
-
-
-def _get_config_chat_session_id() -> str:
-    session_id = st.session_state.get(_CONFIG_CHAT_SESSION_KEY)
-    if not session_id:
-        session_id = uuid4().hex
-        st.session_state[_CONFIG_CHAT_SESSION_KEY] = session_id
-    return session_id
-
-
-def _reset_config_chat_session_id() -> str:
-    session_id = uuid4().hex
-    st.session_state[_CONFIG_CHAT_SESSION_KEY] = session_id
-    return session_id
 
 
 def _chain_cache_signature(cache_key: Mapping[str, Any]) -> str:
@@ -895,7 +879,6 @@ def _maybe_reset_config_chat_cache(snapshot: Mapping[str, Any]) -> list[str]:
     st.session_state.pop(_CONFIG_CHAIN_STATE_KEY, None)
     st.session_state.pop(_CONFIG_CHAIN_METRICS_KEY, None)
     st.session_state.pop(_CONFIG_CHAIN_STATS_KEY, None)
-    _reset_config_chat_session_id()
     _LOGGER.info(
         "Config chat cache reset due to settings change: %s -> %s",
         previous_normalized,
@@ -1021,12 +1004,10 @@ def _cached_compact_schema() -> dict[str, Any]:
     hash_funcs={dict: _hash_cache_key, _ApiKeySecret: _hash_api_key_secret},
 )
 def _cached_llm_client(
-    session_cache_key: str,
     cache_key: Mapping[str, Any],
     api_key_secret: _ApiKeySecret | None,
     extra_payload: str,
 ) -> Any:
-    del session_cache_key
     api_key = api_key_secret.value if api_key_secret is not None else None
     config = LLMProviderConfig(
         provider=str(cache_key.get("provider")),
@@ -1046,14 +1027,12 @@ def _cached_llm_client(
     hash_funcs={dict: _hash_cache_key, _ApiKeySecret: _hash_api_key_secret},
 )
 def _cached_config_patch_chain(
-    session_cache_key: str,
     chain_cache_key: Mapping[str, Any],
     llm_cache_key: Mapping[str, Any],
     api_key_secret: _ApiKeySecret | None,
     extra_payload: str,
 ) -> ConfigPatchChain:
     llm = _cached_llm_client(
-        session_cache_key,
         llm_cache_key,
         api_key_secret,
         extra_payload,
@@ -1166,14 +1145,9 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         invalidation_fields = list(reset_fields)
         cache_state["last_invalidation_fields"] = list(invalidation_fields)
         session_reset = True
-    if session_reset and not reset_fields:
-        session_cache_key = _reset_config_chat_session_id()
-    else:
-        session_cache_key = _get_config_chat_session_id()
     api_key_secret = _ApiKeySecret(api_key, api_key_fingerprint)
     lookup_start = monotonic()
     chain = _cached_config_patch_chain(
-        session_cache_key,
         cache_key,
         llm_cache_key,
         api_key_secret,
