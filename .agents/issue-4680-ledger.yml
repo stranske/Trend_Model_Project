@@ -7,10 +7,10 @@ tasks:
     title: Add a method `supports_structured_output()` to the provider interface in
       `src/trend_analysis/llm/chain.py` that returns a boolean indicating structured
       output support
-    status: doing
+    status: done
     started_at: '2026-02-07T21:42:43Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-07T21:42:51Z'
+    commit: 73fb0a464c29549f7b1952970ec0fac73b650efe
     notes: []
   - id: task-02
     title: Implement provider capability detection logic that checks for structured
