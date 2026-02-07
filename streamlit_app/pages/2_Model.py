@@ -990,7 +990,7 @@ def _render_llm_status_panel() -> None:
     for name in required_vars:
         icon = "✓" if status.get(name) else "✗"
         st.write(f"{icon} `{name}`")
-    missing_vars = [name for name in required_vars if not status.get(name)]
+    missing_vars = [name for name in required_vars if not _llm_env_var_present(name)]
     if missing_vars:
         missing_list = ", ".join(missing_vars)
         st.warning(
