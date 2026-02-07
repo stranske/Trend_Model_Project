@@ -140,29 +140,6 @@
 
 **Documented in**: `docs/INTEGRATION_GUIDE.md` in Workflows repo
 
-### Case Study: Task Appendix Blocking (PR #4742)
-
-**Incident Date:** 2026-02-06
-**PRs Affected:** #4742, #4753
-
-**Symptom:** Agent on PR #4742 (turnover caps) began implementing config chat caching (PR #4753's task) starting at 09:39 UTC. Six off-task commits landed in the wrong PR.
-
-**Root Cause:** GitHub Actions secret scanner blocked `task_appendix` output because the PR body contained duplicate checkbox items (16 items, 8 duplicated). The scanner flagged the long/repetitive multiline output as a potential secret: `##[warning]Skip output 'task_appendix' since it may contain secret`. The agent received an empty task list and worked on whatever code seemed relevant.
-
-**Resolution:**
-- Workflows PR #1300 & #1306: Artifact-based `task_appendix` delivery (bypasses output scanner)
-- Issue #4735 & PR #4742: Deduplicated checkbox items (16→8)
-- Off-task commits retained in #4742 (already merged, code was valuable)
-- Off-task commit in #4753 reverted and salvaged into PR #4767
-
-**Symptoms to watch for:**
-- Off-task commits appearing in keepalive runs
-- Agent references wrong files relative to PR scope
-- Multiple PRs working on the same subsystem simultaneously
-- `0/N tasks complete` despite commits landing
-
-**Prevention:** Codex runs now write `task_appendix` to an artifact file via `fs.writeFileSync` before calling `core.setOutput`, bypassing the secret scanner. The artifact is downloaded and streamed into the prompt in `reusable-codex-run.yml`.
-
 ---
 
 ## Repository-Specific Notes
