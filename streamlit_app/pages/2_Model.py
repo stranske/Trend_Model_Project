@@ -1374,12 +1374,16 @@ def _build_nl_chain(
     }
 
 
+def _get_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
+    return _build_nl_chain()
+
+
 def _generate_config_preview(
     model_state: Mapping[str, Any],
     instruction: str,
 ) -> dict[str, Any]:
     chain_start = monotonic()
-    chain, chain_meta = _build_nl_chain()
+    chain, chain_meta = _get_nl_chain()
     chain_build_seconds = monotonic() - chain_start
     _record_chain_cache_stats(chain_meta, chain_build_seconds)
     run_start = monotonic()
