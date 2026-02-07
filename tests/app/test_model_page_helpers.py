@@ -1176,6 +1176,59 @@ def test_build_nl_chain_invalidation_on_model_change(
     assert "config_chat_last_instruction" not in stub.session_state
 
 
+def test_build_nl_chain_invalidation_on_base_url_change(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+    stub.session_state["config_chat_preview"] = {"after": {"lookback_periods": 6}}
+    stub.session_state["config_chat_last_instruction"] = "Increase lookback"
+
+    configs = iter(
+        [
+            model_module.LLMProviderConfig(
+                provider="openai",
+                model="gpt-4o-mini",
+                api_key="sk-test",
+                base_url="https://one.example.com",
+            ),
+            model_module.LLMProviderConfig(
+                provider="openai",
+                model="gpt-4o-mini",
+                api_key="sk-test",
+                base_url="https://two.example.com",
+            ),
+        ]
+    )
+
+    monkeypatch.setattr(model_module, "_resolve_llm_provider_config", lambda: next(configs))
+    monkeypatch.setattr(model_module, "_resolve_llm_temperature", lambda: 0.0)
+
+    chain_one = object()
+    chain_two = object()
+    call_count = {"value": 0}
+
+    def fake_cached_config_patch_chain(
+        session_cache_key: str,
+        chain_cache_key: dict[str, object],
+        llm_cache_key: dict[str, object],
+        api_key: str | None,
+        extra_payload: str,
+    ) -> object:
+        call_count["value"] += 1
+        return chain_one if call_count["value"] == 1 else chain_two
+
+    monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
+
+    _, meta_first = model_module._build_nl_chain()
+    _, meta_second = model_module._build_nl_chain()
+
+    assert meta_first["chain_reused"] is False
+    assert "base_url" in (meta_second["chain_cache_invalidation_fields"] or [])
+    assert "config_chat_preview" not in stub.session_state
+    assert "config_chat_last_instruction" not in stub.session_state
+
+
 def test_llm_session_overrides_win_over_env(
     monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
 ) -> None:

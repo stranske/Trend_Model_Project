@@ -212,6 +212,18 @@ def _cache_key_changes(
     return changed
 
 
+def _merge_cache_keys(
+    cache_key: Mapping[str, Any] | None,
+    llm_cache_key: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    merged: dict[str, Any] = {}
+    if isinstance(cache_key, Mapping):
+        merged.update(cache_key)
+    if isinstance(llm_cache_key, Mapping):
+        merged.update(llm_cache_key)
+    return merged
+
+
 def _get_config_change_history() -> list[dict[str, Any]]:
     history = st.session_state.get(_CONFIG_HISTORY_KEY)
     if not isinstance(history, list):
@@ -1121,6 +1133,10 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     previous_resource_signature = cache_state.get("last_resource_signature")
     previous_cache_key = cache_state.get("last_cache_key")
     previous_llm_cache_key = cache_state.get("last_llm_cache_key")
+    previous_invalidation_key = None
+    if isinstance(previous_cache_key, Mapping) or isinstance(previous_llm_cache_key, Mapping):
+        previous_invalidation_key = _merge_cache_keys(previous_cache_key, previous_llm_cache_key)
+    current_invalidation_key = _merge_cache_keys(cache_key, llm_cache_key)
     changed_fields = _cache_key_changes(previous_cache_key, cache_key, _CONFIG_CHAIN_CORE_FIELDS)
     llm_changed_fields = _cache_key_changes(
         previous_llm_cache_key,
@@ -1128,8 +1144,8 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         _CONFIG_CHAIN_LLM_FIELDS,
     )
     invalidation_fields = _cache_key_changes(
-        previous_cache_key,
-        cache_key,
+        previous_invalidation_key,
+        current_invalidation_key,
         _CONFIG_CHAIN_REBUILD_FIELDS,
     )
     settings_changed = bool(
