@@ -7,10 +7,10 @@ tasks:
     title: Implement variant patch generation in `src/trend_analysis/llm/chain.py`
       to produce N=3 labeled config patches (e.g., conservative/baseline/aggressive)
       from a single instruction.
-    status: doing
+    status: done
     started_at: '2026-02-07T23:39:19Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-07T23:39:27Z'
+    commit: 6ac77d75449644edd59e75582d8e0f6e8c4ae099
     notes: []
   - id: task-02
     title: 'Define the data structure for labeled config patches including variant
