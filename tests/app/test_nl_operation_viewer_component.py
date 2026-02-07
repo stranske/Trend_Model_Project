@@ -160,8 +160,8 @@ def test_build_diff_summary_formats_operations(monkeypatch: pytest.MonkeyPatch) 
     summary = module._build_diff_summary(payload)
 
     assert summary == [
-        'set risk.vol_floor -> 0.15',
-        'set risk.warmup_periods -> 5',
+        "set risk.vol_floor -> 0.15",
+        "set risk.warmup_periods -> 5",
     ]
 
 
