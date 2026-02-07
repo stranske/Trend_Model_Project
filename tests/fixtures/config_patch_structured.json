@@ -1,0 +1,13 @@
+{
+  "operations": [
+    {
+      "op": "set",
+      "path": "portfolio.max_weight",
+      "value": 0.4,
+      "rationale": "Align with instruction"
+    }
+  ],
+  "needs_review": false,
+  "risk_flags": [],
+  "summary": "Update max_weight"
+}
