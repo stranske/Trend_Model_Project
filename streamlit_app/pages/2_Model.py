@@ -240,6 +240,7 @@ def _build_llm_cache_key(
         "api_key_fingerprint": api_key_fingerprint,
     }
 
+
 def _cache_key_changes(
     previous: Mapping[str, Any] | None,
     current: Mapping[str, Any],
@@ -1233,8 +1234,14 @@ def _build_nl_chain(
     extra_payload: str | None = None,
 ) -> tuple[ConfigPatchChain, dict[str, Any]]:
     config = _resolve_llm_provider_config()
-    resolved_provider = _normalize_cache_str(provider) or _normalize_cache_str(config.provider) or "openai"
-    resolved_model = _normalize_cache_str(model) or _normalize_cache_str(config.model) or _DEFAULT_CONFIG_CHAT_MODEL
+    resolved_provider = (
+        _normalize_cache_str(provider) or _normalize_cache_str(config.provider) or "openai"
+    )
+    resolved_model = (
+        _normalize_cache_str(model)
+        or _normalize_cache_str(config.model)
+        or _DEFAULT_CONFIG_CHAT_MODEL
+    )
     resolved_base_url = (
         _normalize_cache_str(base_url)
         if base_url is not None
@@ -1250,7 +1257,9 @@ def _build_nl_chain(
     )
     resolved_timeout = timeout if timeout is not None else config.timeout
     resolved_max_retries = max_retries if max_retries is not None else config.max_retries
-    resolved_payload = extra_payload if extra_payload is not None else _serialize_extra(config.extra)
+    resolved_payload = (
+        extra_payload if extra_payload is not None else _serialize_extra(config.extra)
+    )
     resolved_payload_hash = _hash_text(resolved_payload)
     resolved_api_key_secret = api_key_secret or _ApiKeySecret(
         config.api_key,
