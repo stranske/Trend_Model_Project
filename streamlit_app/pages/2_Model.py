@@ -113,7 +113,7 @@ def _chain_cache_signature(cache_key: Mapping[str, Any]) -> str:
     return json.dumps(dict(cache_key), sort_keys=True, default=str)
 
 
-def _chain_cache_signature_from_inputs(
+def _derive_cache_signature(
     provider: str,
     model: str,
     base_url: str | None,
@@ -134,6 +134,16 @@ def _chain_cache_signature_from_inputs(
         "temperature": normalized_temperature,
     }
     return _chain_cache_signature(cache_key)
+
+
+def _chain_cache_signature_from_inputs(
+    provider: str,
+    model: str,
+    base_url: str | None,
+    organization: str | None,
+    temperature: float,
+) -> str:
+    return _derive_cache_signature(provider, model, base_url, organization, temperature)
 
 
 def _chain_resource_signature(
@@ -335,7 +345,10 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
 
     if _LOGGER.isEnabledFor(logging.INFO):
         _LOGGER.info(
-            "Config chat preview timing: reused=%s build=%.2fs run=%.2fs total=%.2fs cache=%s miss=%s invalidated_by=%s",
+            (
+                "Config chat preview timing: reused=%s build=%.2fs run=%.2fs "
+                "total=%.2fs cache=%s miss=%s invalidated_by=%s"
+            ),
             "yes" if entry.get("chain_reused") else "no",
             float(entry.get("chain_build_seconds") or 0.0),
             float(entry.get("run_seconds") or 0.0),
@@ -952,7 +965,12 @@ def _llm_required_env_vars(provider: str) -> list[str] | None:
 
 def _llm_env_var_present(name: str) -> bool:
     value = os.environ.get(name)
-    if name in {"TS_STREAMLIT_API_KEY", "TREND_LLM_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"}:
+    if name in {
+        "TS_STREAMLIT_API_KEY",
+        "TREND_LLM_API_KEY",
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+    }:
         return bool(_sanitize_api_key(value))
     return bool(value)
 
@@ -1151,6 +1169,18 @@ def _cached_config_patch_chain(
     )
 
 
+def _build_chain_config(config: LLMProviderConfig) -> dict[str, Any]:
+    extra_payload = _serialize_extra(config.extra)
+    return {
+        "timeout": config.timeout,
+        "max_retries": config.max_retries,
+        "extra_payload": extra_payload,
+        "extra_payload_hash": _hash_text(extra_payload),
+        "api_key": config.api_key,
+        "api_key_fingerprint": _hash_api_key(config.api_key),
+    }
+
+
 def _build_chain_cache_context(
     config: LLMProviderConfig | None = None,
     temperature: float | None = None,
@@ -1159,14 +1189,12 @@ def _build_chain_cache_context(
         config = _resolve_llm_provider_config()
     if temperature is None:
         temperature = _resolve_llm_temperature()
+    chain_config = _build_chain_config(config)
     provider = _normalize_cache_str(config.provider) or "openai"
     temperature = _normalize_temperature(temperature)
     base_url = _normalize_cache_str(config.base_url)
     organization = _normalize_cache_str(config.organization)
     normalized_model = _normalize_cache_str(config.model)
-    api_key_fingerprint = _hash_api_key(config.api_key)
-    extra_payload = _serialize_extra(config.extra)
-    extra_payload_hash = _hash_text(extra_payload)
     resolved_model = normalized_model or _DEFAULT_CONFIG_CHAT_MODEL
     cache_key, llm_cache_key = _build_chain_cache_keys(
         provider=provider,
@@ -1174,10 +1202,10 @@ def _build_chain_cache_context(
         base_url=base_url,
         organization=organization,
         temperature=temperature,
-        timeout=config.timeout,
-        max_retries=config.max_retries,
-        extra_payload_hash=extra_payload_hash,
-        api_key_fingerprint=api_key_fingerprint,
+        timeout=chain_config["timeout"],
+        max_retries=chain_config["max_retries"],
+        extra_payload_hash=chain_config["extra_payload_hash"],
+        api_key_fingerprint=chain_config["api_key_fingerprint"],
     )
     return {
         "provider": provider,
@@ -1185,49 +1213,62 @@ def _build_chain_cache_context(
         "base_url": base_url,
         "organization": organization,
         "resolved_model": resolved_model,
-        "api_key": config.api_key,
-        "api_key_fingerprint": api_key_fingerprint,
-        "extra_payload": extra_payload,
+        "api_key": chain_config["api_key"],
+        "api_key_fingerprint": chain_config["api_key_fingerprint"],
+        "extra_payload": chain_config["extra_payload"],
         "llm_cache_key": llm_cache_key,
         "cache_key": cache_key,
     }
 
 
-@st.cache_resource(
-    show_spinner=False,
-    hash_funcs={dict: _hash_cache_key, _ApiKeySecret: _hash_api_key_secret},
-)
-def _build_nl_chain_cached(
+def _build_nl_chain(
     provider: str,
     model: str,
     base_url: str | None,
     organization: str | None,
     temperature: float,
-    cache_signature: str,
-    timeout: float | None,
-    max_retries: int | None,
-    api_key_secret: _ApiKeySecret | None,
-    extra_payload: str,
 ) -> ConfigPatchChain:
-    build_start = monotonic()
-    api_key_fingerprint = api_key_secret.fingerprint if api_key_secret else None
-    extra_payload_hash = _hash_text(extra_payload)
+    config = _resolve_llm_provider_config()
+    chain_config = _build_chain_config(config)
+    api_key_secret = _ApiKeySecret(
+        chain_config["api_key"],
+        chain_config["api_key_fingerprint"],
+    )
     chain_cache_key, llm_cache_key = _build_chain_cache_keys(
         provider=provider,
         model=model,
         base_url=base_url,
         organization=organization,
         temperature=temperature,
-        timeout=timeout,
-        max_retries=max_retries,
-        extra_payload_hash=extra_payload_hash,
-        api_key_fingerprint=api_key_fingerprint,
+        timeout=chain_config["timeout"],
+        max_retries=chain_config["max_retries"],
+        extra_payload_hash=chain_config["extra_payload_hash"],
+        api_key_fingerprint=chain_config["api_key_fingerprint"],
     )
-    chain = _cached_config_patch_chain(
+    return _cached_config_patch_chain(
         chain_cache_key,
         llm_cache_key,
         api_key_secret,
-        extra_payload,
+        chain_config["extra_payload"],
+    )
+
+
+@st.cache_resource(show_spinner=False)
+def _cached_nl_chain(
+    cache_signature: str,
+    provider: str,
+    model: str,
+    base_url: str | None,
+    organization: str | None,
+    temperature: float,
+) -> ConfigPatchChain:
+    build_start = monotonic()
+    chain = _build_nl_chain(
+        provider=provider,
+        model=model,
+        base_url=base_url,
+        organization=organization,
+        temperature=temperature,
     )
     build_seconds = monotonic() - build_start
     if _LOGGER.isEnabledFor(logging.INFO):
@@ -1239,68 +1280,6 @@ def _build_nl_chain_cached(
     return chain
 
 
-def _build_nl_chain(
-    provider: str | None = None,
-    model: str | None = None,
-    base_url: str | None = None,
-    organization: str | None = None,
-    temperature: float | None = None,
-    cache_signature: str | None = None,
-    timeout: float | None = None,
-    max_retries: int | None = None,
-    api_key_secret: _ApiKeySecret | None = None,
-    extra_payload: str | None = None,
-) -> ConfigPatchChain:
-    if provider is None or model is None or temperature is None:
-        config = _resolve_llm_provider_config()
-        temperature = _resolve_llm_temperature() if temperature is None else temperature
-        context = _build_chain_cache_context(config, temperature)
-        st.session_state["selected_provider"] = context["provider"]
-        st.session_state["selected_model"] = context["resolved_model"]
-        api_key_secret = _ApiKeySecret(context["api_key"], context["api_key_fingerprint"])
-        cache_signature = _chain_cache_signature_from_inputs(
-            context["provider"],
-            context["resolved_model"],
-            context["base_url"],
-            context["organization"],
-            context["temperature"],
-        )
-        return _build_nl_chain_cached(
-            provider=context["provider"],
-            model=context["resolved_model"],
-            base_url=context["base_url"],
-            organization=context["organization"],
-            temperature=context["temperature"],
-            cache_signature=cache_signature,
-            timeout=config.timeout,
-            max_retries=config.max_retries,
-            api_key_secret=api_key_secret,
-            extra_payload=context["extra_payload"],
-        )
-    if cache_signature is None:
-        cache_signature = _chain_cache_signature_from_inputs(
-            provider,
-            model,
-            base_url,
-            organization,
-            temperature,
-        )
-    if extra_payload is None:
-        extra_payload = ""
-    return _build_nl_chain_cached(
-        provider=provider,
-        model=model,
-        base_url=base_url,
-        organization=organization,
-        temperature=temperature,
-        cache_signature=cache_signature,
-        timeout=timeout,
-        max_retries=max_retries,
-        api_key_secret=api_key_secret,
-        extra_payload=extra_payload,
-    )
-
-
 def _get_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     config = _resolve_llm_provider_config()
     temperature = _resolve_llm_temperature()
@@ -1308,15 +1287,12 @@ def _get_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         _current_chain_settings_snapshot(config, temperature)
     )
     context = _build_chain_cache_context(config, temperature)
-    st.session_state.setdefault("selected_provider", context["provider"])
-    st.session_state.setdefault("selected_model", context["resolved_model"])
-    api_key = context["api_key"]
-    api_key_fingerprint = context["api_key_fingerprint"]
-    extra_payload = context["extra_payload"]
+    st.session_state["selected_provider"] = context["provider"]
+    st.session_state["selected_model"] = context["resolved_model"]
     llm_cache_key = context["llm_cache_key"]
     cache_key = context["cache_key"]
     cache_state = _get_chain_cache_state()
-    signature = _chain_cache_signature_from_inputs(
+    signature = _derive_cache_signature(
         context["provider"],
         context["resolved_model"],
         context["base_url"],
@@ -1361,19 +1337,14 @@ def _get_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         invalidation_fields = list(reset_fields)
         cache_state["last_invalidation_fields"] = list(invalidation_fields)
         session_reset = True
-    api_key_secret = _ApiKeySecret(api_key, api_key_fingerprint)
     lookup_start = monotonic()
-    chain = _build_nl_chain_cached(
+    chain = _cached_nl_chain(
+        signature,
         provider=context["provider"],
         model=context["resolved_model"],
         base_url=context["base_url"],
         organization=context["organization"],
         temperature=context["temperature"],
-        cache_signature=signature,
-        timeout=config.timeout,
-        max_retries=config.max_retries,
-        api_key_secret=api_key_secret,
-        extra_payload=extra_payload,
     )
     lookup_seconds = monotonic() - lookup_start
     entries = cache_state["entries"]
@@ -1400,8 +1371,6 @@ def _get_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     cache_state["last_cache_key"] = cache_key
     cache_state["last_llm_cache_key"] = llm_cache_key
     cache_state["last_chain_id"] = id(chain)
-    st.session_state["config_chat_chain_key"] = cache_key
-    st.session_state["config_chat_chain_signature"] = signature
     if _LOGGER.isEnabledFor(logging.INFO):
         _LOGGER.info(
             "Config chat chain cache: %s sig=%s cache=%s lookup_s=%.3f miss=%s",
@@ -2241,7 +2210,10 @@ BENCHMARK_COLUMNS = ["SPX", "TSX", "MSCI", "ACWI", "EAFE", "EM", "AGG", "BND"]
 
 # Help text for configuration parameters (brief tooltips)
 HELP_TEXT = {
-    "preset": "Pre-configured settings optimized for different investment styles. Changing preset auto-populates all parameters.",
+    "preset": (
+        "Pre-configured settings optimized for different investment styles. Changing preset "
+        "auto-populates all parameters."
+    ),
     "lookback": "Months of history used to calculate fund metrics (Sharpe, returns, etc.) for ranking.",
     "min_history": "Minimum months of data required for a fund to be considered for selection.",
     "evaluation": "Out-of-sample period (months) to measure portfolio performance after selection.",
@@ -2260,10 +2232,19 @@ HELP_TEXT = {
     "start_date": "Simulation start date. Data before this date will be excluded.",
     "end_date": "Simulation end date. Data after this date will be excluded.",
     # Risk settings
-    "rf_override": "Override the risk-free rate from data with a constant value. ⚠️ Using a constant rate reduces accuracy vs. time-varying rates.",
-    "rf_rate": "Constant annual risk-free rate fallback. Only used when override is enabled and no RF column is in the data.",
+    "rf_override": (
+        "Override the risk-free rate from data with a constant value. ⚠️ Using a constant "
+        "rate reduces accuracy vs. time-varying rates."
+    ),
+    "rf_rate": (
+        "Constant annual risk-free rate fallback. Only used when override is enabled and "
+        "no RF column is in the data."
+    ),
     "vol_floor": "Minimum volatility floor for scaling. Prevents extreme weights on low-vol assets.",
-    "warmup_periods": "Initial periods where returns are zeroed out to allow volatility estimates to stabilize before calculating performance metrics.",
+    "warmup_periods": (
+        "Initial periods where returns are zeroed out to allow volatility estimates to "
+        "stabilize before calculating performance metrics."
+    ),
     # Phase 10: Volatility adjustment details
     "vol_adjust_enabled": "Enable volatility adjustment to scale returns to target vol.",
     "vol_window_length": "Rolling window for volatility estimation (periods). ~63 = 3 months.",
@@ -2299,7 +2280,10 @@ HELP_TEXT = {
     "z_exit_soft": "Z-score threshold for fund exit consideration. Lower = stricter exit.",
     "soft_strikes": "Consecutive periods below exit threshold before removing a fund.",
     "entry_soft_strikes": "Consecutive periods above entry threshold before adding a fund.",
-    "min_weight_strikes": "Underweight exit: consecutive periods a fund's natural weight stays below the minimum weight before it is replaced. 0 = disable.",
+    "min_weight_strikes": (
+        "Underweight exit: consecutive periods a fund's natural weight stays below the "
+        "minimum weight before it is replaced. 0 = disable."
+    ),
     "sticky_add_periods": "Periods a fund must rank highly before being added to portfolio.",
     "sticky_drop_periods": "Periods a fund must rank poorly before being removed from portfolio.",
     "ci_level": "Confidence interval level for reporting only (0 = disabled, 0.9 = 90% CI).",
@@ -2308,7 +2292,9 @@ HELP_TEXT = {
     "multi_period_frequency": "Period frequency: Monthly (M), Quarterly (Q), or Annual (A).",
     "lookback_periods": "Number of periods for in-sample (training) window.",
     "evaluation_periods": "Number of periods for out-of-sample (testing) window.",
-    "inclusion_approach": "How to select funds: Top N, Top Percentage, Z-score Threshold, Random, or Buy & Hold.",
+    "inclusion_approach": (
+        "How to select funds: Top N, Top Percentage, Z-score Threshold, Random, or Buy & Hold."
+    ),
     "buy_hold_initial": "Initial selection method for Buy & Hold mode.",
     "slippage_bps": "Additional slippage cost in basis points (market impact).",
     "bottom_k": "Number of bottom-ranked funds to always exclude (0 = none).",
@@ -3038,7 +3024,10 @@ def render_model_page() -> None:
                     st.warning("Date range exceeds 50 years - please verify your selection.")
                 else:
                     st.info(
-                        f"📊 Selected period: {sim_start_date.strftime('%Y-%m')} to {sim_end_date.strftime('%Y-%m')} ({months_span} months)"
+                        (
+                            f"📊 Selected period: {sim_start_date.strftime('%Y-%m')} to "
+                            f"{sim_end_date.strftime('%Y-%m')} ({months_span} months)"
+                        )
                     )
     else:
         st.info(
