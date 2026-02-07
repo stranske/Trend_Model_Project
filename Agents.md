@@ -225,6 +225,52 @@ This reveals:
 - Both in-sample AND out-of-sample periods must have complete data
 - Verify configuration parameters match intended behavior
 
+### Auto-Pilot Recovery Procedures
+
+⚠️ **Before re-triggering `agents:auto-pilot` on a stuck issue:**
+
+**1. Check for task explosion:**
+```bash
+task_count=$(gh issue view ISSUE_NUM --json body --jq '.body' | grep -c "- \[ \]")
+echo "Task count: $task_count"
+# If >50, issue needs manual cleanup (close and recreate)
+```
+
+**2. Check optimizer crash loop:**
+```bash
+gh run list --workflow=agents-issue-optimizer.yml --limit 10 --json conclusion,createdAt,displayTitle \
+  | jq -r '.[] | select(.displayTitle | contains("ISSUE_TITLE")) | [.createdAt, .conclusion] | @tsv'
+# If multiple failures in <1 hour, don't re-trigger (fix Workflows repo first)
+```
+
+**3. Check PR state:**
+```bash
+gh pr list --search "in:title #ISSUE_NUM" --state all --json number,state,mergeable,statusCheckRollup
+```
+
+**4. Recovery decision tree:**
+
+| Symptom | Root Cause | Action |
+|---------|-----------|--------|
+| Task explosion (>50 tasks) | Optimizer `NoneType` crash + re-runs | Close issue, create clean replacement |
+| Optimizer crash loop | `AttributeError` in `issue_optimizer.py` | Fix in Workflows repo, trigger sync |
+| PR monitoring stalled (5/5 retries) | No completion detection | Manually merge/close PR, remove pause labels |
+| Multiple issues stuck | Systemic workflow problem | Disable auto-pilot, investigate in Workflows |
+
+**5. Clean issue recreation template:**
+```bash
+# Extract original intent from messy issue
+gh issue view BROKEN_ISSUE --json title,body | jq -r '.body' | head -50 > /tmp/original.md 
+
+# Create clean issue (manual body editing required)
+gh issue create --title "ORIGINAL_TITLE" --body-file /tmp/cleaned.md --label "agent:codex"
+
+# Close broken issue with reference
+gh issue close BROKEN_ISSUE --comment "Closed due to task explosion. Recreated as #NEW_ISSUE"
+```
+
+**Recommendation**: Use `agent:codex` instead of `agents:auto-pilot` for most work until optimizer issues are resolved in Workflows repo.
+
 ---
 
 ## Related Documentation
