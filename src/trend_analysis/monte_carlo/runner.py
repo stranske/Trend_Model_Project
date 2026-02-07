@@ -702,9 +702,7 @@ class MonteCarloRunner:
                 return str(col)
         return None
 
-    def _build_regime_proxy_series(
-        self, returns: pd.DataFrame, proxy_col: str
-    ) -> pd.Series | None:
+    def _build_regime_proxy_series(self, returns: pd.DataFrame, proxy_col: str) -> pd.Series | None:
         if proxy_col not in returns.columns:
             return None
         if "Date" in returns.columns:
