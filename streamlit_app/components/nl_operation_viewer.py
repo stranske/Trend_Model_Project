@@ -323,6 +323,13 @@ def _render_replay(entry: NLOperationLog, *, entry_id: str, run_replay: bool) ->
                 st.code(_redact_text(diff), language="diff")
 
 
+def _build_entry_id(entry_index: int, *, log_path: Path | None = None) -> str:
+    base_id = str(entry_index)
+    if log_path is None:
+        return base_id
+    return f"{log_path.stem}_{base_id}"
+
+
 def render_nl_operation_viewer(
     *,
     base_dir: Path | None = None,
@@ -357,7 +364,7 @@ def render_nl_operation_viewer(
     selected_entry_label = st.selectbox("Select entry", labels, key="nl_log_entry_select")
     selected_choice = next(choice for choice in choices if choice.label == selected_entry_label)
     entry = selected_choice.entry
-    entry_id = str(selected_choice.index)
+    entry_id = _build_entry_id(selected_choice.index, log_path=selected_path)
     replay_open_key = f"nl_replay_open_{entry_id}"
     selected_entry_key = "nl_selected_entry_label"
     if st.session_state.get(selected_entry_key) != selected_entry_label:

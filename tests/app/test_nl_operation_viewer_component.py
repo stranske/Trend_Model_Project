@@ -335,5 +335,6 @@ def test_replay_button_invokes_replay_for_selected_entry(
 
     replay_mock.assert_called_once()
     called_entry = replay_mock.call_args.args[0]
+    entry_id = f"{log_path.stem}_1"
     assert called_entry.request_id == entry.request_id
-    assert st_stub.session_state["nl_replay_result_1"]["output"] == "ok"
+    assert st_stub.session_state[f"nl_replay_result_{entry_id}"]["output"] == "ok"
