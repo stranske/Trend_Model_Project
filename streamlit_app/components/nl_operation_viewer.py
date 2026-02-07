@@ -329,6 +329,11 @@ def render_nl_operation_viewer(
     selected_entry_label = st.selectbox("Select entry", labels, key="nl_log_entry_select")
     selected_choice = next(choice for choice in choices if choice.label == selected_entry_label)
     entry = selected_choice.entry
+    replay_open_key = "nl_replay_open"
+    selected_entry_key = "nl_selected_entry_label"
+    if st.session_state.get(selected_entry_key) != selected_entry_label:
+        st.session_state[replay_open_key] = False
+        st.session_state[selected_entry_key] = selected_entry_label
 
     st.markdown("**Entry details**")
     st.caption(f"Request ID: {entry.request_id}")
@@ -354,7 +359,9 @@ def render_nl_operation_viewer(
         st.code(_redact_text(entry.model_output), language="text")
 
     _render_patch_summary(entry)
-    with st.expander("Replay entry", expanded=False):
+    if st.button("Replay selected entry", key="nl_replay_open_btn"):
+        st.session_state[replay_open_key] = True
+    with st.expander("Replay entry", expanded=bool(st.session_state.get(replay_open_key))):
         _render_replay(entry)
 
 
