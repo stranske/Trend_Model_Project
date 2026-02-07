@@ -146,6 +146,25 @@ def test_sanitize_patch_payload_redacts_sensitive_values(
     assert payload["operations"][0]["value"] == "[REDACTED]"
 
 
+def test_build_diff_summary_formats_operations(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = _load_module(monkeypatch)
+    patch = ConfigPatch(
+        summary="Adjust volatility floor",
+        operations=[
+            PatchOperation(op="set", path="risk.vol_floor", value=0.15),
+            PatchOperation(op="set", path="risk.warmup_periods", value=5),
+        ],
+    )
+
+    payload = module._sanitize_patch_payload(patch)
+    summary = module._build_diff_summary(payload)
+
+    assert summary == [
+        'set risk.vol_floor -> 0.15',
+        'set risk.warmup_periods -> 5',
+    ]
+
+
 def test_load_log_entries_respects_limit(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     module = _load_module(monkeypatch)
     log_path = tmp_path / "nl_ops_2026-02-03.jsonl"
