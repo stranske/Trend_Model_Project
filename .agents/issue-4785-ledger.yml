@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: 'Update the function signature of `_build_nl_chain()` in `streamlit_app/pages/2_Model.py`
       to accept exactly five parameters: provider, model, base_url, org, and temperature'
-    status: doing
+    status: done
     started_at: '2026-02-07T19:53:54Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-07T19:54:01Z'
+    commit: 61a1be766c7035980db82803b5761aa86eadd69d
     notes: []
   - id: task-02
     title: Remove all additional parameters from `_build_nl_chain()` including cache_signature,
