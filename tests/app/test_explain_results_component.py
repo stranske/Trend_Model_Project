@@ -473,6 +473,51 @@ def test_render_explain_results_downloads_include_text(explain_module) -> None:
     assert txt_call.kwargs["data"] == f"Cached output\n\n{RESULT_DISCLAIMER}"
 
 
+def test_render_explain_results_ignores_blank_trace_url(explain_module) -> None:
+    st_stub = sys.modules["streamlit"]
+    st_stub.button.return_value = False
+
+    col_one = MagicMock()
+    col_one.__enter__.return_value = col_one
+    col_one.__exit__.return_value = False
+    col_two = MagicMock()
+    col_two.__enter__.return_value = col_two
+    col_two.__exit__.return_value = False
+    st_stub.columns.return_value = [col_one, col_two]
+
+    run_key = "run:blank-trace"
+    cached = explain_module.ExplanationResult(
+        text="Cached output",
+        trace_url="   ",
+        claim_issues=[],
+        metric_count=1,
+        created_at="2024-01-01T00:00:00+00:00",
+    )
+    cache_key = explain_module._cache_key_for(
+        run_key,
+        questions=explain_module.DEFAULT_QUESTION,
+        provider="openai",
+        model=None,
+        base_url=None,
+        organization=None,
+    )
+    st_stub.session_state[explain_module._CACHE_KEY] = {cache_key: cached}
+
+    details = {"run_id": "run-003"}
+    result = SimpleNamespace(details=details)
+
+    explain_module.render_explain_results(result, run_key=run_key)
+
+    assert not any(
+        call.args and call.args[0] == "Trace URL" for call in st_stub.text_input.call_args_list
+    )
+    json_call = next(
+        call for call in st_stub.download_button.call_args_list if call.kwargs["mime"] == "application/json"
+    )
+    payload = json.loads(json_call.kwargs["data"])
+    assert payload["trace_url"] is None
+
+
 def test_render_explain_results_appends_disclaimer_for_display(explain_module) -> None:
     st_stub = sys.modules["streamlit"]
     st_stub.button.return_value = False

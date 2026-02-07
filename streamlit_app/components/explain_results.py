@@ -103,6 +103,13 @@ def _resolve_explanation_run_id(details: Mapping[str, Any], run_key: str) -> str
     return hashlib.sha256(run_key.encode("utf-8")).hexdigest()[:12]
 
 
+def _normalize_trace_url(value: str | None) -> str | None:
+    if not isinstance(value, str):
+        return None
+    cleaned = value.strip()
+    return cleaned or None
+
+
 def _render_analysis_output(details: Mapping[str, Any]) -> str:
     parts: list[str] = []
     summary = pd.DataFrame()
@@ -215,7 +222,7 @@ def generate_result_explanation(
     )
     return ExplanationResult(
         text=text,
-        trace_url=response.trace_url,
+        trace_url=_normalize_trace_url(response.trace_url),
         claim_issues=claim_issues,
         metric_count=len(compacted_entries),
         created_at=created_at,
@@ -352,16 +359,17 @@ def render_explain_results(
         st.info("Click Explain Results to generate a summary.")
         return
 
+    trace_url = _normalize_trace_url(cached.trace_url)
     display_text = ensure_result_disclaimer(cached.text)
     st.markdown(display_text)
-    if cached.trace_url:
-        st.caption(f"Trace URL: {cached.trace_url}")
+    if trace_url:
+        st.caption(f"Trace URL: {trace_url}")
         st.text_input(
             "Trace URL",
-            value=cached.trace_url,
+            value=trace_url,
             disabled=True,
         )
-        st.markdown(f"[Open LangSmith trace]({cached.trace_url})")
+        st.markdown(f"[Open LangSmith trace]({trace_url})")
 
     if cached.claim_issues:
         with st.expander("Discrepancy log", expanded=False):
@@ -376,7 +384,7 @@ def render_explain_results(
         "created_at": cached.created_at,
         "text": display_text,
         "metric_count": cached.metric_count,
-        "trace_url": cached.trace_url,
+        "trace_url": trace_url,
         "questions": questions_text,
         "claim_issues": [serialize_claim_issue(issue) for issue in cached.claim_issues],
     }
