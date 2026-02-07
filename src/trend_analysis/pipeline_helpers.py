@@ -149,6 +149,16 @@ def _normalize_regime_key(value: Any) -> str | None:
     return re.sub(r"[^a-z0-9]+", "", text.casefold())
 
 
+def _alias_regime_key(value: str) -> str | None:
+    aliases = {
+        "riskon": "calm",
+        "riskoff": "stress",
+        "calm": "riskon",
+        "stress": "riskoff",
+    }
+    return aliases.get(value)
+
+
 def _resolve_regime_turnover_cap(
     max_turnover: object | None,
     regime_label: str | None,
@@ -188,15 +198,26 @@ def _resolve_regime_turnover_cap(
     if not normalized:
         return None
 
+    def _lookup(label: str | None) -> float | None:
+        label_key = _normalize_regime_key(label)
+        if not label_key:
+            return None
+        if label_key in normalized:
+            return _coerce_optional_float(normalized[label_key])
+        alias_key = _alias_regime_key(label_key)
+        if alias_key and alias_key in normalized:
+            return _coerce_optional_float(normalized[alias_key])
+        return None
+
     if regime_label:
-        label_key = _normalize_regime_key(regime_label)
-        if label_key and label_key in normalized:
-            return normalized[label_key]
+        resolved = _lookup(regime_label)
+        if resolved is not None:
+            return resolved
 
     default_label = getattr(settings, "default_label", None)
-    default_key = _normalize_regime_key(default_label)
-    if default_key and default_key in normalized:
-        return normalized[default_key]
+    resolved = _lookup(default_label)
+    if resolved is not None:
+        return resolved
 
     for fallback in ("default", "all", "any"):
         if fallback in normalized:

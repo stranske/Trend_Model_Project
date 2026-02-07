@@ -148,6 +148,9 @@ def _deep_merge_overrides(
         base_value = merged[key]
         if isinstance(override_value, Mapping):
             if not isinstance(base_value, Mapping):
+                if next_path == ("portfolio", "max_turnover"):
+                    merged[key] = deepcopy(override_value)
+                    continue
                 raise TypeError(
                     "override path '{path}' expects mapping, found {kind}".format(
                         path=path_label,

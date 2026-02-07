@@ -39,8 +39,11 @@ from ..pipeline import (
     _resolve_risk_free_column,
     _resolve_target_vol,
 )
+from ..pipeline_helpers import _resolve_regime_turnover_cap
 from ..portfolio import apply_weight_policy
 from ..rebalancing import CashPolicy, apply_rebalancing_strategies
+from ..regimes import compute_regimes, normalise_settings
+from ..risk import periods_per_year_from_code
 from ..schedules import get_rebalance_dates
 from ..timefreq import MONTHLY_DATE_FREQ
 from ..universe import (
@@ -1214,6 +1217,59 @@ def run(
     def _parse_month(s: str) -> pd.Timestamp:
         return pd.to_datetime(f"{s}-01", utc=True).tz_localize(None) + pd.offsets.MonthEnd(0)
 
+    regime_settings = normalise_settings(regime_cfg)
+    regime_frequency = str(data_settings.get("frequency") or "M")
+    regime_ppy = float(periods_per_year_from_code(regime_frequency))
+    max_turnover_cfg = cfg.portfolio.get("max_turnover", 1.0)
+
+    def _resolve_regime_proxy_column(proxy_value: str, columns: Iterable[str]) -> str | None:
+        if proxy_value in columns:
+            return proxy_value
+        proxy_lower = proxy_value.lower()
+        if isinstance(benchmarks_cfg, dict):
+            for key, value in benchmarks_cfg.items():
+                if proxy_lower == str(key).lower() and value in columns:
+                    return str(value)
+                if proxy_lower == str(value).lower() and value in columns:
+                    return str(value)
+        for col in columns:
+            if proxy_lower == str(col).lower():
+                return str(col)
+        return None
+
+    def _resolve_regime_label_for_window(in_df: pd.DataFrame) -> str | None:
+        if not regime_settings.enabled or not regime_settings.proxy:
+            return None
+        proxy_col = _resolve_regime_proxy_column(regime_settings.proxy, in_df.columns)
+        if proxy_col is None:
+            return None
+        proxy_series = pd.Series(in_df[proxy_col].to_numpy(), index=in_df.index).dropna()
+        if proxy_series.empty:
+            return None
+        labels = compute_regimes(
+            proxy_series,
+            regime_settings,
+            freq=regime_frequency,
+            periods_per_year=regime_ppy,
+        )
+        if labels.empty:
+            return None
+        return str(labels.iloc[-1])
+
+    def _resolve_max_turnover_cap(in_df: pd.DataFrame) -> float:
+        if max_turnover_cfg is None:
+            return 1.0
+        if not isinstance(max_turnover_cfg, Mapping):
+            try:
+                return float(max_turnover_cfg)
+            except (TypeError, ValueError):
+                return 1.0
+        regime_label = _resolve_regime_label_for_window(in_df)
+        resolved = _resolve_regime_turnover_cap(max_turnover_cfg, regime_label, regime_settings)
+        if resolved is None:
+            return 1.0
+        return float(resolved)
+
     def _valid_universe(
         full: pd.DataFrame,
         in_start: str,
@@ -1569,7 +1625,6 @@ def run(
     # Transaction cost and turnover-cap controls (Issue #429)
     tc_bps = float(cfg.portfolio.get("transaction_cost_bps", 0.0))
     slippage_bps = float(cfg.portfolio.get("slippage_bps", 0.0))
-    max_turnover_cap = float(cfg.portfolio.get("max_turnover", 1.0))
     lambda_tc = float(cfg.portfolio.get("lambda_tc", 0.0) or 0.0)
     low_weight_strikes: dict[str, int] = {}
     cooldown_book: dict[str, int] = {}
@@ -3305,6 +3360,7 @@ def run(
                 and abs(last_aligned.loc[ix]) <= NUMERICAL_TOLERANCE_HIGH
                 and abs(target_w.loc[ix]) > NUMERICAL_TOLERANCE_HIGH
             }
+        max_turnover_cap = _resolve_max_turnover_cap(in_df)
         if (
             max_turnover_cap < 1.0 - NUMERICAL_TOLERANCE_HIGH
             and desired_turnover > max_turnover_cap + NUMERICAL_TOLERANCE_HIGH

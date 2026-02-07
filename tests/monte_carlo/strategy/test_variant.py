@@ -78,6 +78,19 @@ def test_apply_to_accepts_trend_config(tmp_path: Path) -> None:
     assert merged["portfolio"]["max_turnover"] == 0.4
 
 
+def test_apply_to_accepts_regime_turnover_mapping(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="RegimeCaps",
+        overrides={"portfolio": {"max_turnover": {"calm": 0.15, "stress": 0.08}}},
+    )
+
+    merged = variant.apply_to(base)
+
+    assert merged["portfolio"]["max_turnover"] == {"calm": 0.15, "stress": 0.08}
+    assert base["portfolio"]["max_turnover"] == 0.5
+
+
 def test_to_trend_config_validates_merge(tmp_path: Path) -> None:
     base = _base_config(tmp_path)
     variant = StrategyVariant(

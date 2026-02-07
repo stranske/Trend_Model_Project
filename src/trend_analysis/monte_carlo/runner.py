@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import math
 import random
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -37,6 +38,8 @@ from trend_analysis.monte_carlo.strategy.sampler import (
     sample_strategy_variants,
 )
 from trend_analysis.pipeline import _resolve_sample_split
+from trend_analysis.pipeline_helpers import _resolve_regime_turnover_cap
+from trend_analysis.regimes import compute_regimes, normalise_settings
 from trend_analysis.risk import periods_per_year_from_code
 from trend_analysis.stages.selection import single_period_run
 
@@ -84,6 +87,30 @@ def _coerce_turnover_guard(value: Any) -> float:
         raise ValueError(
             f"{_TURNOVER_GUARD_PATH} must be numeric or a distribution mapping"
         ) from exc
+
+
+def _normalize_regime_key(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    return re.sub(r"[^a-z0-9]+", "", text.casefold())
+
+
+def _alias_regime_key(value: str) -> str | None:
+    aliases = {
+        "riskon": "calm",
+        "riskoff": "stress",
+        "calm": "riskon",
+        "stress": "riskoff",
+    }
+    return aliases.get(value)
+
+
+def _is_distribution_mapping(value: Mapping[str, Any]) -> bool:
+    dist = value.get("dist")
+    return isinstance(dist, str) and bool(dist.strip())
 
 
 def _has_turnover_override(variant: StrategyVariant) -> bool:
@@ -554,6 +581,7 @@ class MonteCarloRunner:
     ) -> StrategyEvaluation:
         strategy_seed = self._strategy_seed(context.path_id, strategy.name)
         config = self._build_strategy_config(strategy, strategy_seed)
+        self._apply_regime_turnover_caps(config, context)
         run_result = run_simulation(config, context.returns)
         metrics, source = self._extract_metrics(run_result.metrics)
         cost_payload = self._maybe_sample_costs(run_result, context, strategy)
@@ -607,6 +635,95 @@ class MonteCarloRunner:
             turnover=turnover_series,
             turnover_cap_binding=binding,
         )
+
+    def _apply_regime_turnover_caps(self, config: ConfigType, context: _PathContext) -> None:
+        multi_period_cfg = getattr(config, "multi_period", None)
+        if isinstance(multi_period_cfg, Mapping):
+            return
+        portfolio = getattr(config, "portfolio", None)
+        if not isinstance(portfolio, Mapping):
+            return
+        max_turnover = portfolio.get("max_turnover")
+        if not isinstance(max_turnover, Mapping):
+            return
+        resolved = self._resolve_turnover_cap_for_context(config, context, max_turnover)
+        if resolved is None or resolved is max_turnover:
+            return
+        if isinstance(portfolio, dict):
+            portfolio["max_turnover"] = resolved
+
+    def _resolve_turnover_cap_for_context(
+        self,
+        config: ConfigType,
+        context: _PathContext,
+        max_turnover: Mapping[str, Any],
+    ) -> float | Mapping[str, Any] | None:
+        regime_cfg = getattr(config, "regime", None)
+        if not isinstance(regime_cfg, Mapping):
+            return max_turnover
+        settings = normalise_settings(regime_cfg)
+        if not settings.enabled or not settings.proxy:
+            return max_turnover
+        proxy_col = self._resolve_regime_proxy_column(
+            context.returns,
+            settings.proxy,
+            getattr(config, "benchmarks", None),
+        )
+        if proxy_col is None:
+            return max_turnover
+        proxy_series = self._build_regime_proxy_series(context.returns, proxy_col)
+        if proxy_series is None or proxy_series.empty:
+            return max_turnover
+        data_cfg = getattr(config, "data", None)
+        freq = None
+        if isinstance(data_cfg, Mapping):
+            freq = data_cfg.get("frequency")
+        freq_label = str(freq or "M")
+        periods_per_year = periods_per_year_from_code(freq_label)
+        regimes = compute_regimes(
+            proxy_series,
+            settings,
+            freq=freq_label,
+            periods_per_year=periods_per_year,
+        )
+        if regimes.empty:
+            return max_turnover
+        regime_label = str(regimes.iloc[-1])
+        resolved = _resolve_regime_turnover_cap(max_turnover, regime_label, settings)
+        if resolved is None:
+            return max_turnover
+        return resolved
+
+    def _resolve_regime_proxy_column(
+        self,
+        returns: pd.DataFrame,
+        proxy: str,
+        benchmarks: Mapping[str, Any] | None,
+    ) -> str | None:
+        columns = returns.columns
+        if proxy in columns:
+            return proxy
+        proxy_lower = str(proxy).lower()
+        if isinstance(benchmarks, Mapping):
+            for key, value in benchmarks.items():
+                if proxy_lower == str(key).lower() and value in columns:
+                    return str(value)
+                if proxy_lower == str(value).lower() and value in columns:
+                    return str(value)
+        for col in columns:
+            if proxy_lower == str(col).lower():
+                return str(col)
+        return None
+
+    def _build_regime_proxy_series(self, returns: pd.DataFrame, proxy_col: str) -> pd.Series | None:
+        if proxy_col not in returns.columns:
+            return None
+        if "Date" in returns.columns:
+            index = pd.to_datetime(returns["Date"], errors="coerce")
+        else:
+            index = returns.index
+        series = pd.Series(returns[proxy_col].to_numpy(), index=index)
+        return series.dropna()
 
     def _compute_n_periods(self) -> int:
         settings = self._settings()
@@ -836,6 +953,9 @@ class MonteCarloRunner:
         if "max_turnover" in guards:
             guard_value = guards.get("max_turnover")
             if isinstance(guard_value, Mapping):
+                if _is_distribution_mapping(guard_value):
+                    return
+                portfolio["max_turnover"] = dict(guard_value)
                 return
             if guard_value is None:
                 return
@@ -873,7 +993,9 @@ class MonteCarloRunner:
             return None
         guard_value = guards.get("max_turnover")
         if isinstance(guard_value, Mapping):
-            return parse_distribution(guard_value, path=_TURNOVER_GUARD_PATH)
+            if _is_distribution_mapping(guard_value):
+                return parse_distribution(guard_value, path=_TURNOVER_GUARD_PATH)
+            return None
         if guard_value is None:
             return None
         if _is_number(guard_value):
@@ -975,6 +1097,15 @@ class MonteCarloRunner:
             out_scaled = details.get("out_sample_scaled")
             if isinstance(out_scaled, pd.DataFrame):
                 return out_scaled.index
+            period_index = self._period_results_index(details.get("period_results"))
+            if period_index is not None:
+                return period_index
+            turnover = details.get("turnover")
+            if isinstance(turnover, pd.Series):
+                return turnover.index
+        turnover_attr = getattr(run_result, "turnover", None)
+        if isinstance(turnover_attr, pd.Series):
+            return turnover_attr.index
         if isinstance(context.returns, pd.DataFrame) and "Date" in context.returns.columns:
             return pd.DatetimeIndex(context.returns["Date"]).copy()
         return None
@@ -988,6 +1119,9 @@ class MonteCarloRunner:
             labels = details.get("regime_labels")
             if isinstance(labels, pd.Series):
                 return labels.reindex(out_index)
+            period_labels = self._period_results_regimes(details.get("period_results"), out_index)
+            if period_labels is not None:
+                return period_labels
         return None
 
     def _resolve_turnover_series(
@@ -1040,6 +1174,56 @@ class MonteCarloRunner:
         binding = self._turnover_cap_binding_indicator(turnover_series, cap_series)
         return turnover_series, binding
 
+    def _period_results_index(self, period_results: Any) -> pd.Index | None:
+        if not isinstance(period_results, Sequence):
+            return None
+        values: list[Any] = []
+        for entry in period_results:
+            if not isinstance(entry, Mapping):
+                continue
+            period = entry.get("period")
+            if isinstance(period, (list, tuple)) and len(period) > 2:
+                values.append(period[2])
+        if not values:
+            return None
+        return pd.Index(values, name="period")
+
+    def _period_results_regimes(
+        self,
+        period_results: Any,
+        out_index: pd.Index | None,
+    ) -> pd.Series | None:
+        if not isinstance(period_results, Sequence):
+            return None
+        values: list[Any] = []
+        labels: list[Any] = []
+        for entry in period_results:
+            if not isinstance(entry, Mapping):
+                continue
+            period = entry.get("period")
+            if not isinstance(period, (list, tuple)) or len(period) <= 2:
+                continue
+            values.append(period[2])
+            label = None
+            labels_out = entry.get("regime_labels_out")
+            if isinstance(labels_out, pd.Series) and not labels_out.empty:
+                label = labels_out.iloc[-1]
+            else:
+                labels_in = entry.get("regime_labels")
+                if isinstance(labels_in, pd.Series) and not labels_in.empty:
+                    label = labels_in.iloc[-1]
+            labels.append(label)
+        if not values:
+            return None
+        series = pd.Series(labels, index=pd.Index(values, name="period"), name="regime")
+        try:
+            series = series.astype("string")
+        except Exception:
+            pass
+        if out_index is None:
+            return series
+        return series.reindex(out_index)
+
     def _coerce_turnover_series(
         self, turnover: pd.Series | SupportsFloat | None, out_index: pd.Index | None
     ) -> pd.Series | None:
@@ -1067,16 +1251,31 @@ class MonteCarloRunner:
                 return None
             if regimes is None:
                 return pd.Series(np.nan, index=out_index, name="turnover_cap")
-            mapping = {}
+            mapping: dict[str, float] = {}
             for key, value in max_turnover.items():
-                if key is None:
+                normalized_key = _normalize_regime_key(key)
+                if not normalized_key:
                     continue
                 try:
-                    mapping[str(key)] = float(value)
+                    mapping[normalized_key] = float(value)
                 except (TypeError, ValueError):
                     continue
             labels = regimes.reindex(out_index).astype("string")
-            caps = labels.map(lambda label: mapping.get(str(label)) if label else np.nan)
+
+            def _lookup_turnover_cap(label: str | None) -> float:
+                if not label:
+                    return float("nan")
+                normalized = _normalize_regime_key(label)
+                if not normalized:
+                    return float("nan")
+                if normalized in mapping:
+                    return mapping[normalized]
+                alias_key = _alias_regime_key(normalized)
+                if alias_key and alias_key in mapping:
+                    return mapping[alias_key]
+                return float("nan")
+
+            caps = labels.map(_lookup_turnover_cap)
             return pd.Series(caps, index=out_index, name="turnover_cap")
         try:
             cap = float(cast(SupportsFloat, max_turnover))

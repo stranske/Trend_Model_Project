@@ -385,6 +385,19 @@ def test_threshold_hold_scales_trades_to_respect_turnover_cap(
     selector = ScriptedSelector(["Alpha One", "Beta One"])
     monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: selector)
 
+    def fake_compute_regimes(
+        proxy_series: pd.Series,
+        _settings: Any,
+        *,
+        freq: str,
+        periods_per_year: float,
+    ) -> pd.Series:
+        del freq, periods_per_year
+        label = "stress" if float(proxy_series.iloc[-1]) < 0 else "calm"
+        return pd.Series([label], index=[proxy_series.index[-1]], dtype="string")
+
+    monkeypatch.setattr(mp_engine, "compute_regimes", fake_compute_regimes)
+
     run_calls: list[Dict[str, Any]] = []
     monkeypatch.setattr(mp_engine, "_run_analysis", _stub_run_analysis(run_calls))
 
@@ -400,6 +413,108 @@ def test_threshold_hold_scales_trades_to_respect_turnover_cap(
         "Beta One": pytest.approx(0.675 * 100, rel=1e-3),
     }
     assert run_calls[1]["custom_weights"] == expected_weights
+
+
+def test_threshold_hold_applies_regime_turnover_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = DummyConfig()
+    cfg.portfolio["threshold_hold"].update({"target_n": 2, "metric": "Sharpe"})
+    cfg.portfolio["constraints"].update(
+        {"max_funds": 2, "min_weight": 0.0, "max_weight": 1.0, "min_weight_strikes": 2}
+    )
+    cfg.portfolio["max_turnover"] = {"calm": 1.0, "stress": 0.1}
+    cfg.data["frequency"] = "M"
+    cfg.regime = {
+        "enabled": True,
+        "proxy": "Alpha One",
+        "method": "rolling_return",
+        "lookback": 1,
+        "smoothing": 1,
+        "threshold": 0.0,
+        "neutral_band": 0.0,
+        "risk_on_label": "calm",
+        "risk_off_label": "stress",
+        "default_label": "calm",
+    }
+
+    dates = pd.to_datetime(
+        [
+            "2020-01-31",
+            "2020-02-29",
+            "2020-03-31",
+            "2020-04-30",
+        ]
+    )
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "Alpha One": [0.05, 0.04, -0.02, -0.01],
+            "Beta One": [0.01, 0.02, 0.03, 0.04],
+            "Cash Proxy": [0.0, 0.0, 0.0, 0.0],
+        }
+    )
+
+    periods = [
+        DummyPeriod("2020-01-31", "2020-02-29", "2020-03-31", "2020-03-31"),
+        DummyPeriod("2020-02-29", "2020-03-31", "2020-04-30", "2020-04-30"),
+    ]
+    monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
+
+    metric_maps = {
+        "AnnualReturn": {"Alpha One": 0.1, "Beta One": 0.08, "Cash Proxy": 0.01},
+        "Volatility": {"Alpha One": 0.2, "Beta One": 0.18, "Cash Proxy": 0.001},
+        "Sharpe": {"Alpha One": 1.0, "Beta One": 0.9, "Cash Proxy": 0.05},
+        "Sortino": {"Alpha One": 1.1, "Beta One": 1.0, "Cash Proxy": 0.05},
+        "InformationRatio": {"Alpha One": 0.6, "Beta One": 0.55, "Cash Proxy": 0.02},
+        "MaxDrawdown": {"Alpha One": -0.1, "Beta One": -0.08, "Cash Proxy": -0.01},
+    }
+
+    import trend_analysis.core.rank_selection as rank_sel
+
+    def fake_metric_series(frame: pd.DataFrame, metric: str, _cfg: Any) -> pd.Series:
+        values = metric_maps[metric]
+        return pd.Series({col: values[col] for col in frame.columns}, dtype=float)
+
+    monkeypatch.setattr(rank_sel, "_compute_metric_series", fake_metric_series)
+
+    weighting = SequenceWeighting(
+        [
+            {"Alpha One": 0.6, "Beta One": 0.4},
+            {"Alpha One": 0.0, "Beta One": 1.0},
+        ]
+    )
+    monkeypatch.setattr(mp_engine, "AdaptiveBayesWeighting", lambda *a, **k: weighting)
+    monkeypatch.setattr(mp_engine, "Rebalancer", IdentityRebalancer)
+
+    import trend_analysis.selector as selector_mod
+
+    selector = ScriptedSelector(["Alpha One", "Beta One"])
+    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: selector)
+
+    run_calls: list[Dict[str, Any]] = []
+    monkeypatch.setattr(mp_engine, "_run_analysis", _stub_run_analysis(run_calls))
+
+    labels: list[str | None] = []
+    caps: list[float | None] = []
+
+    def fake_resolve_turnover_cap(
+        max_turnover: dict[str, float],
+        regime_label: str | None,
+        _settings: Any,
+    ) -> float | None:
+        labels.append(regime_label)
+        cap = max_turnover.get(str(regime_label)) if regime_label is not None else None
+        caps.append(cap)
+        return cap
+
+    monkeypatch.setattr(mp_engine, "_resolve_regime_turnover_cap", fake_resolve_turnover_cap)
+
+    results = mp_engine.run(cfg, df=df)
+
+    assert len(results) == 2
+    assert labels == ["calm", "stress"]
+    assert caps == [1.0, 0.1]
 
 
 def test_threshold_hold_seed_dedupe_and_rebalance_events(
