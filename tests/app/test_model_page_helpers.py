@@ -27,7 +27,9 @@ def _extract_strings(value: object) -> list[str]:
     return []
 
 
-def _capture_streamlit_calls(stub: SimpleNamespace, names: tuple[str, ...]) -> list[tuple[str, tuple, dict]]:
+def _capture_streamlit_calls(
+    stub: SimpleNamespace, names: tuple[str, ...]
+) -> list[tuple[str, tuple, dict]]:
     calls: list[tuple[str, tuple, dict]] = []
 
     def _make_recorder(name: str):

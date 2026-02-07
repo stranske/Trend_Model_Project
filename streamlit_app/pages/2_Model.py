@@ -972,7 +972,9 @@ def _render_llm_status_panel() -> None:
     }
     selected_provider = _normalize_cache_str(st.session_state.get("selected_provider"))
     selected_provider = (selected_provider or _DEFAULT_CONFIG_CHAT_PROVIDER).lower()
-    selected_model = _normalize_cache_str(st.session_state.get("selected_model")) or _DEFAULT_CONFIG_CHAT_MODEL
+    selected_model = (
+        _normalize_cache_str(st.session_state.get("selected_model")) or _DEFAULT_CONFIG_CHAT_MODEL
+    )
     provider_label = provider_labels.get(selected_provider, selected_provider)
     st.info(f"Active provider: {provider_label}")
     st.info(f"Active model: {selected_model}")
@@ -992,8 +994,7 @@ def _render_llm_status_panel() -> None:
     if missing_vars:
         missing_list = ", ".join(missing_vars)
         st.warning(
-            f"Missing required environment variables for {provider_label}. "
-            f"Set: {missing_list}."
+            f"Missing required environment variables for {provider_label}. " f"Set: {missing_list}."
         )
 
 
@@ -1003,7 +1004,9 @@ def _sync_llm_selection_from_overrides() -> None:
         st.session_state["selected_provider"] = provider_override.lower()
     else:
         env_provider = _normalize_cache_str(os.environ.get("TREND_LLM_PROVIDER"))
-        st.session_state["selected_provider"] = (env_provider or _DEFAULT_CONFIG_CHAT_PROVIDER).lower()
+        st.session_state["selected_provider"] = (
+            env_provider or _DEFAULT_CONFIG_CHAT_PROVIDER
+        ).lower()
     model_override = _normalize_cache_str(st.session_state.get(_LLM_MODEL_OVERRIDE_KEY))
     if model_override:
         st.session_state["selected_model"] = model_override
