@@ -584,6 +584,42 @@ def test_record_preview_timing_tracks_chain_reuse(model_module: ModuleType) -> N
     assert metrics["chain_lookup_seconds"] == pytest.approx(0.05)
 
 
+def test_record_preview_timing_tracks_invalidation_fields(model_module: ModuleType) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    preview = {
+        "instruction": "Adjust risk settings",
+        "timings": {
+            "chain_cache_key": {"provider": "openai", "model": "gpt-4o-mini", "temperature": 0.3},
+            "chain_cache_signature": "sig-456",
+            "chain_resource_signature": "rsig-999",
+            "chain_cache_summary": "openai:gpt-4o-mini@0.3",
+            "chain_cache_miss_reason": "settings_changed",
+            "chain_cache_invalidation_fields": ["model", "temperature"],
+            "chain_settings_changed": True,
+            "chain_llm_changed_fields": ["api_key_fingerprint"],
+            "chain_cache_session_reset": True,
+            "chain_build_seconds": 0.8,
+            "chain_lookup_seconds": 0.02,
+            "chain_reused": False,
+            "run_seconds": 1.1,
+        },
+    }
+
+    model_module._record_preview_timing(preview, total_seconds=2.0)
+
+    history = stub.session_state.get(model_module._CONFIG_PREVIEW_TIMINGS_KEY)
+    assert isinstance(history, list)
+    assert history[0]["cache_invalidation_fields"] == ["model", "temperature"]
+    assert history[0]["cache_miss_reason"] == "settings_changed"
+
+    metrics = stub.session_state.get(model_module._CONFIG_CHAIN_METRICS_KEY)
+    assert isinstance(metrics, dict)
+    assert metrics["cache_invalidation_fields"] == ["model", "temperature"]
+    assert metrics["cache_miss_reason"] == "settings_changed"
+
+
 def test_side_by_side_diff_renders_yaml(model_module: ModuleType) -> None:
     stub = model_module.st
     languages: list[str | None] = []
