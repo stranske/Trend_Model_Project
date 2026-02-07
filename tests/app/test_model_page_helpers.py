@@ -62,6 +62,7 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     stub.date_input = lambda _label, value=None, **_kwargs: value
     stub.page_link = _noop
     stub.rerun = _noop
+
     def _cache_resource_decorator(*dargs, **dkwargs):
         hash_funcs = dkwargs.get("hash_funcs", {})
 
