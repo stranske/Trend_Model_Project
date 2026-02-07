@@ -553,6 +553,68 @@ def test_build_nl_chain_invalidates_on_temperature_change(
     assert "config_chat_last_instruction" not in stub.session_state
 
 
+@pytest.mark.parametrize(
+    ("field", "initial_value", "updated_value"),
+    [
+        ("provider", "openai", "anthropic"),
+        ("model", "gpt-4o-mini", "gpt-4.1-mini"),
+        ("base_url", "https://api.one", "https://api.two"),
+        ("organization", "org-one", "org-two"),
+        ("temperature", "0.1", "0.7"),
+    ],
+)
+def test_build_nl_chain_creates_new_instance_on_setting_change(
+    monkeypatch: pytest.MonkeyPatch,
+    model_module: ModuleType,
+    field: str,
+    initial_value: str,
+    updated_value: str,
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+    cache: dict[str, object] = {}
+    override_keys = {
+        "provider": model_module._LLM_PROVIDER_OVERRIDE_KEY,
+        "model": model_module._LLM_MODEL_OVERRIDE_KEY,
+        "base_url": model_module._LLM_BASE_URL_OVERRIDE_KEY,
+        "organization": model_module._LLM_ORG_OVERRIDE_KEY,
+        "temperature": model_module._LLM_TEMPERATURE_OVERRIDE_KEY,
+    }
+
+    def fake_cached_config_patch_chain(
+        chain_cache_key,
+        llm_cache_key,
+        _api_key,
+        _extra_payload,
+    ):
+        signature = model_module._chain_resource_signature(chain_cache_key, llm_cache_key)
+        if signature not in cache:
+            cache[signature] = object()
+        return cache[signature]
+
+    monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
+
+    base_overrides = {
+        model_module._LLM_PROVIDER_OVERRIDE_KEY: "openai",
+        model_module._LLM_MODEL_OVERRIDE_KEY: "gpt-4o-mini",
+        model_module._LLM_BASE_URL_OVERRIDE_KEY: "https://api.one",
+        model_module._LLM_ORG_OVERRIDE_KEY: "org-one",
+        model_module._LLM_TEMPERATURE_OVERRIDE_KEY: "0.1",
+    }
+    override_key = override_keys[field]
+    base_overrides[override_key] = initial_value
+    for key, value in base_overrides.items():
+        stub.session_state[key] = value
+
+    chain_first, _meta_first = model_module._build_nl_chain()
+
+    stub.session_state[override_key] = updated_value
+    chain_second, meta_second = model_module._build_nl_chain()
+
+    assert chain_first is not chain_second
+    assert field in (meta_second["chain_cache_invalidation_fields"] or [])
+
+
 def test_current_chain_settings_snapshot_uses_resolved_env(
     monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
 ) -> None:
