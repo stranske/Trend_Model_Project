@@ -32,7 +32,6 @@ from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv
 from ..diagnostics import PipelineResult, coerce_pipeline_result
-from ..pipeline_helpers import _resolve_regime_turnover_cap
 from ..pipeline import (
     _build_trend_spec,
     _compute_stats,
@@ -40,6 +39,7 @@ from ..pipeline import (
     _resolve_risk_free_column,
     _resolve_target_vol,
 )
+from ..pipeline_helpers import _resolve_regime_turnover_cap
 from ..portfolio import apply_weight_policy
 from ..rebalancing import CashPolicy, apply_rebalancing_strategies
 from ..regimes import compute_regimes, normalise_settings
