@@ -142,6 +142,32 @@ def test_generate_result_explanation_uses_default_questions_when_empty(
     assert "Analyze this manager selection backtest" in questions
 
 
+def test_generate_result_explanation_passes_metric_catalog_contents(
+    explain_module, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    details = {
+        "out_sample_stats": {"Portfolio": (0.1, 0.2, 0.3, 0.4, 0.5, 0.6)},
+        "fund_weights": {"FundA": 0.6, "FundB": 0.4},
+    }
+    response = ResultSummaryResponse(text="Summary text", trace_url=None)
+    stub = _StubChain(response)
+
+    monkeypatch.setattr(
+        explain_module,
+        "_build_result_chain",
+        lambda *args, **kwargs: stub,
+    )
+
+    explain_module.generate_result_explanation(details, questions="Summarize FundA")
+
+    assert stub.last_payload is not None
+    entries = explain_module.extract_metric_catalog(details)
+    compacted = explain_module.compact_metric_catalog(entries, questions="Summarize FundA")
+    expected_catalog = explain_module.format_metric_catalog(compacted)
+    assert stub.last_payload["metric_catalog"] == expected_catalog
+    assert "Summary table" in stub.last_payload["analysis_output"]
+
+
 def test_resolve_explanation_run_id_prefers_details(explain_module) -> None:
     run_key = "run:abc123"
     details = {"run_id": "run-001"}
