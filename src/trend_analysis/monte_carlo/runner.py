@@ -1097,6 +1097,7 @@ class MonteCarloRunner:
                 except (TypeError, ValueError):
                     continue
             labels = regimes.reindex(out_index).astype("string")
+
             def _lookup_turnover_cap(label: str | None) -> float:
                 if not label:
                     return float("nan")
