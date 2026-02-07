@@ -345,6 +345,72 @@ def test_runner_resolves_regime_turnover_caps(monkeypatch) -> None:
     pdt.assert_series_equal(diagnostic["turnover_cap_binding"], expected_binding)
 
 
+def test_runner_resolves_guard_regime_turnover_caps(monkeypatch) -> None:
+    dates = pd.date_range("2021-03-31", periods=3, freq="ME")
+    returns = pd.DataFrame({"Date": dates, "Asset": [0.01, 0.02, 0.03]})
+    turnover = pd.Series([0.1, 0.08, 0.2], index=dates, name="turnover")
+    regimes = pd.Series(["calm", "stress", "calm"], index=dates, name="regime")
+    out_scaled = pd.DataFrame({"Asset": [0.01, 0.02, 0.03]}, index=dates)
+    metrics = pd.DataFrame({"cagr": [0.1]}, index=["user_weight"])
+    run_result = RunResult(
+        metrics=metrics,
+        details={"out_sample_scaled": out_scaled, "regime_labels_out": regimes},
+        seed=0,
+        environment={},
+        turnover=turnover,
+    )
+    captured: dict[str, object] = {}
+
+    def _fake_run_simulation(config, *_args, **_kwargs):
+        captured["max_turnover"] = config.portfolio.get("max_turnover")
+        return run_result
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.run_simulation",
+        _fake_run_simulation,
+    )
+
+    scenario = MonteCarloScenario(
+        name="diagnostic_test",
+        base_config="base.yml",
+        monte_carlo={
+            "mode": "two_layer",
+            "n_paths": 1,
+            "horizon_years": 1.0,
+            "frequency": "M",
+        },
+        return_model={"kind": "stationary_bootstrap"},
+        enable_fold_runs=False,
+        strategy_set={
+            "curated": ["base"],
+            "guards": {"max_turnover": {"calm": 0.15, "stress": 0.05}},
+        },
+    )
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(max_turnover=0.2),
+    )
+    context = _PathContext(
+        path_id=0,
+        prices=pd.DataFrame(),
+        returns=returns,
+        score_frame=pd.DataFrame(),
+        path_hash="hash",
+        seed=123,
+    )
+
+    evaluation = runner._evaluate_strategy(StrategyVariant(name="base"), context)
+    diagnostic = evaluation.diagnostic or {}
+
+    assert captured["max_turnover"] == {"calm": 0.15, "stress": 0.05}
+    expected_binding = pd.Series(
+        [False, True, True],
+        index=dates,
+        name="turnover_cap_binding",
+    )
+    pdt.assert_series_equal(diagnostic["turnover_cap_binding"], expected_binding)
+
+
 def test_runner_uses_risk_diagnostics_turnover_value(monkeypatch) -> None:
     dates = pd.date_range("2021-01-31", periods=2, freq="ME")
     returns = pd.DataFrame({"Date": dates, "Asset": [0.01, 0.02]})

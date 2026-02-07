@@ -86,6 +86,11 @@ def _coerce_turnover_guard(value: Any) -> float:
         ) from exc
 
 
+def _is_distribution_mapping(value: Mapping[str, Any]) -> bool:
+    dist = value.get("dist")
+    return isinstance(dist, str) and bool(dist.strip())
+
+
 def _has_turnover_override(variant: StrategyVariant) -> bool:
     overrides = variant.overrides
     if not isinstance(overrides, Mapping):
@@ -836,6 +841,9 @@ class MonteCarloRunner:
         if "max_turnover" in guards:
             guard_value = guards.get("max_turnover")
             if isinstance(guard_value, Mapping):
+                if _is_distribution_mapping(guard_value):
+                    return
+                portfolio["max_turnover"] = dict(guard_value)
                 return
             if guard_value is None:
                 return
@@ -873,7 +881,9 @@ class MonteCarloRunner:
             return None
         guard_value = guards.get("max_turnover")
         if isinstance(guard_value, Mapping):
-            return parse_distribution(guard_value, path=_TURNOVER_GUARD_PATH)
+            if _is_distribution_mapping(guard_value):
+                return parse_distribution(guard_value, path=_TURNOVER_GUARD_PATH)
+            return None
         if guard_value is None:
             return None
         if _is_number(guard_value):
