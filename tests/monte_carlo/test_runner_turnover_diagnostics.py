@@ -169,6 +169,197 @@ def test_runner_records_turnover_per_path(monkeypatch) -> None:
     pdt.assert_series_equal(evaluation_by_path[1].turnover, expected_b, check_freq=False)
 
 
+def test_run_persists_turnover_per_period_and_path(monkeypatch) -> None:
+    dates = pd.date_range("2021-01-31", periods=3, freq="ME")
+    price_history = pd.DataFrame(
+        {
+            "AssetA": [100.0, 101.0, 102.0, 103.0],
+            "AssetB": [50.0, 51.0, 52.0, 53.0],
+        },
+        index=pd.date_range("2020-12-31", periods=4, freq="ME"),
+    )
+
+    def _fake_generate_path_context(
+        self,
+        *,
+        path_id: int,
+        **_kwargs,
+    ) -> _PathContext:
+        base = 0.01 if path_id == 0 else 0.04
+        returns = pd.DataFrame(
+            {
+                "Date": dates,
+                "Asset": [base, base + 0.01, base + 0.02],
+            }
+        )
+        return _PathContext(
+            path_id=path_id,
+            prices=pd.DataFrame(),
+            returns=returns,
+            score_frame=pd.DataFrame(),
+            path_hash=f"hash-{path_id}",
+            seed=path_id,
+        )
+
+    def _fake_run_simulation(*_args, **_kwargs):
+        returns = _kwargs.get("returns")
+        if returns is None and len(_args) > 1:
+            returns = _args[1]
+        series = pd.Series(
+            returns["Asset"].to_numpy(),
+            index=pd.to_datetime(returns["Date"].values),
+            name="turnover",
+        )
+        out_scaled = pd.DataFrame({"Asset": series.to_numpy()}, index=series.index)
+        metrics = pd.DataFrame({"cagr": [0.1]}, index=["user_weight"])
+        return RunResult(
+            metrics=metrics,
+            details={"out_sample_scaled": out_scaled},
+            seed=0,
+            environment={},
+            turnover=series,
+        )
+
+    monkeypatch.setattr(MonteCarloRunner, "_generate_path_context", _fake_generate_path_context)
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        MonteCarloRunner, "_build_seeds", lambda *_args, **_kwargs: ([101, 202], [None, None])
+    )
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.run_simulation",
+        _fake_run_simulation,
+    )
+
+    scenario = MonteCarloScenario(
+        name="turnover_output",
+        base_config="base.yml",
+        monte_carlo={
+            "mode": "two_layer",
+            "n_paths": 2,
+            "horizon_years": 0.25,
+            "frequency": "M",
+        },
+        return_model={"kind": "stationary_bootstrap"},
+        enable_fold_runs=False,
+    )
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(max_turnover=1.0),
+        price_history=price_history,
+    )
+
+    results = runner.run(jobs=1)
+
+    diagnostics = results.diagnostics_frame
+    assert diagnostics is not None
+    assert len(diagnostics) == 6
+
+    expected_keys = {(path_id, date) for path_id in (0, 1) for date in dates}
+    observed_keys = set(
+        zip(diagnostics["path_id"].to_list(), diagnostics["period"].to_list())
+    )
+    assert observed_keys == expected_keys
+    assert diagnostics["turnover"].notna().all()
+
+
+def test_run_persists_binding_indicator_per_period_and_path(monkeypatch) -> None:
+    dates = pd.date_range("2021-01-31", periods=3, freq="ME")
+    price_history = pd.DataFrame(
+        {
+            "AssetA": [100.0, 101.0, 102.0, 103.0],
+            "AssetB": [50.0, 51.0, 52.0, 53.0],
+        },
+        index=pd.date_range("2020-12-31", periods=4, freq="ME"),
+    )
+    cap = 0.2
+    near_cap = cap - 5e-13
+    below_cap = cap - 2e-6
+
+    def _fake_generate_path_context(
+        self,
+        *,
+        path_id: int,
+        **_kwargs,
+    ) -> _PathContext:
+        values = (
+            [near_cap, below_cap, cap]
+            if path_id == 0
+            else [below_cap, near_cap, cap]
+        )
+        returns = pd.DataFrame({"Date": dates, "Asset": values})
+        return _PathContext(
+            path_id=path_id,
+            prices=pd.DataFrame(),
+            returns=returns,
+            score_frame=pd.DataFrame(),
+            path_hash=f"hash-{path_id}",
+            seed=path_id,
+        )
+
+    def _fake_run_simulation(*_args, **_kwargs):
+        returns = _kwargs.get("returns")
+        if returns is None and len(_args) > 1:
+            returns = _args[1]
+        series = pd.Series(
+            returns["Asset"].to_numpy(),
+            index=pd.to_datetime(returns["Date"].values),
+            name="turnover",
+        )
+        out_scaled = pd.DataFrame({"Asset": series.to_numpy()}, index=series.index)
+        metrics = pd.DataFrame({"cagr": [0.1]}, index=["user_weight"])
+        return RunResult(
+            metrics=metrics,
+            details={"out_sample_scaled": out_scaled},
+            seed=0,
+            environment={},
+            turnover=series,
+        )
+
+    monkeypatch.setattr(MonteCarloRunner, "_generate_path_context", _fake_generate_path_context)
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        MonteCarloRunner, "_build_seeds", lambda *_args, **_kwargs: ([7, 13], [None, None])
+    )
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.run_simulation",
+        _fake_run_simulation,
+    )
+
+    scenario = MonteCarloScenario(
+        name="turnover_binding",
+        base_config="base.yml",
+        monte_carlo={
+            "mode": "two_layer",
+            "n_paths": 2,
+            "horizon_years": 0.25,
+            "frequency": "M",
+        },
+        return_model={"kind": "stationary_bootstrap"},
+        enable_fold_runs=False,
+    )
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(max_turnover=cap),
+        price_history=price_history,
+    )
+
+    results = runner.run(jobs=1)
+    diagnostics = results.diagnostics_frame
+    assert diagnostics is not None
+    assert diagnostics["turnover_cap_binding"].notna().all()
+
+    binding_map = {
+        (row.path_id, row.period): bool(row.turnover_cap_binding)
+        for row in diagnostics.itertuples(index=False)
+    }
+    assert binding_map[(0, dates[0])] is True
+    assert binding_map[(0, dates[1])] is False
+    assert binding_map[(0, dates[2])] is True
+    assert binding_map[(1, dates[0])] is False
+    assert binding_map[(1, dates[1])] is True
+    assert binding_map[(1, dates[2])] is True
+
+
 def test_runner_records_turnover_from_details_series(monkeypatch) -> None:
     dates = pd.date_range("2021-01-31", periods=3, freq="ME")
     returns = pd.DataFrame({"Date": dates, "Asset": [0.01, 0.02, 0.03]})
