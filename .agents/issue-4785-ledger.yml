@@ -1,0 +1,284 @@
+version: 1
+issue: 4785
+base: phase-3
+branch: codex/issue-4785
+tasks:
+  - id: task-01
+    title: 'Update the function signature of `_build_nl_chain()` in `streamlit_app/pages/2_Model.py`
+      to accept exactly five parameters: provider, model, base_url, org, and temperature'
+    status: doing
+    started_at: '2026-02-07T19:53:54Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Remove all additional parameters from `_build_nl_chain()` including cache_signature,
+      timeout, max_retries, api_key_secret, and extra_payload
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Create a separate internal configuration builder function `_build_chain_config()`
+      in `streamlit_app/pages/2_Model.py` to handle timeout, max_retries, and extra_payload
+      settings outside the cached chain builder
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Implement a `_derive_cache_signature()` helper function in `streamlit_app/pages/2_Model.py`
+      that accepts provider, model, base_url, org, and temperature and returns a deterministic
+      string signature
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Create a thin cached wrapper function `get_nl_chain()` in `streamlit_app/pages/2_Model.py`
+      decorated with `@st.cache_resource` that accepts the cache signature as its
+      first parameter
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Configure the cached wrapper to delegate to `_build_nl_chain()` with the
+      five required parameters after cache lookup
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Update all chain-construction call sites within `streamlit_app/pages/2_Model.py`
+      to call the cached wrapper entrypoint with the derived signature
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Revise `tests/app/test_model_page_helpers.py` to remove any test that calls
+      `_build_nl_chain()` with zero arguments
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Update tests in `tests/app/test_model_page_helpers.py` to call `_build_nl_chain(provider,
+      model, base_url, org, temperature)` with exactly five arguments
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Remove all session-state-based cache hit/miss tracking code from `streamlit_app/pages/2_Model.py`
+      including any keys like cache_hit, cache_miss, or nl_chain_cache_*
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Add a lookup log statement at INFO level before each call to the cached
+      wrapper that includes the derived cache signature
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Add a miss/build log statement at INFO level inside the cached wrapper
+      body that includes the cache signature and elapsed build time in milliseconds
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Add a test in `tests/app/test_model_page_helpers.py` that verifies calling
+      the caching entrypoint twice with identical inputs results in only one execution
+      of `_build_nl_chain()` using a monkeypatch counter
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Add a test in `tests/app/test_model_page_helpers.py` that verifies changing
+      any one of the five inputs changes the cache signature and triggers a second
+      build execution
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Add a test in `tests/app/test_model_page_helpers.py` that verifies signature
+      determinism by calling `_derive_cache_signature()` twice with identical inputs
+      and asserting the returned strings are equal
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Add a test in `tests/app/test_model_page_helpers.py` that verifies signature
+      sensitivity by calling `_derive_cache_signature()` with each of the five inputs
+      changed individually and asserting each produces a different signature
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: '`streamlit_app/pages/2_Model.py` defines `_build_nl_chain(provider, model,
+      base_url, org, temperature)` with exactly 5 parameters (no `*args`/`**kwargs`,
+      no defaults added to accept fewer args, and no additional named parameters such
+      as `cache_signature`, `timeout`, `max_retries`, `api_key_secret`, `extra_payload`)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: '`_build_nl_chain` is not decorated with `st.cache_resource` (caching is
+      applied only to a thin wrapper that is keyed primarily by the derived signature)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: '`streamlit_app/pages/2_Model.py` contains a helper `_derive_cache_signature(provider,
+      model, base_url, org, temperature)` that returns the same string for repeated
+      calls with identical values, and a different string when any one of the five
+      values differs (including temperature changes such as `0.0` vs `0.1`)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: The `@st.cache_resource`-decorated wrapper function accepts cache_signature
+      as its first parameter, and calling the wrapper twice with identical signatures
+      returns the same object instance (verified via `id()` comparison or equivalent
+      identity check)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: The cached wrapper does not accept secrets or non-deterministic inputs
+      as parameters
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: All chain-construction call sites within `streamlit_app/pages/2_Model.py`
+      call either the cached wrapper entrypoint or `_build_nl_chain(provider, model,
+      base_url, org, temperature)` with exactly five positional/keyword arguments
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: There are zero remaining call sites in `streamlit_app/pages/2_Model.py`
+      that pass removed parameters (`cache_signature`, `timeout`, `max_retries`, `api_key_secret`,
+      `extra_payload`) to `_build_nl_chain`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: '`tests/app/test_model_page_helpers.py` contains no test that calls `_build_nl_chain()`
+      with zero arguments'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: All direct invocations of `_build_nl_chain` in `tests/app/test_model_page_helpers.py`
+      supply exactly `(provider, model, base_url, org, temperature)`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: A test verifies that calling the caching entrypoint twice with identical
+      `(provider, model, base_url, org, temperature)` results in the underlying builder
+      executing only once (cache hit on second call), using log capture or a spy/monkeypatch
+      counter on `_build_nl_chain`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: A test verifies that changing any one of the five inputs changes the cache
+      signature and triggers a second underlying build execution (i.e., two distinct
+      signatures produce two builds)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: A test verifies that `_derive_cache_signature()` returns identical strings
+      for identical inputs across multiple calls
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: A test verifies that `_derive_cache_signature()` returns different strings
+      when each of the five inputs is changed individually
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: 'Session-state-based cache hit/miss bookkeeping is removed: `streamlit_app/pages/2_Model.py`
+      does not read/write `st.session_state` for cache hit/miss tracking (no keys
+      like `cache_hit`, `cache_miss`, `nl_chain_cache_*` used for determining cache
+      outcomes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: 'For each chain retrieval attempt, logs at INFO level or higher include:
+      (1) a lookup log containing the substring "cache signature:" followed by the
+      signature value, emitted before calling the cached wrapper, and (2) a miss/build
+      log containing both the signature and a numeric elapsed time value (with units),
+      emitted only during cache wrapper execution'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: A test verifies that two calls to the caching entrypoint with identical
+      inputs produce two "lookup" log entries but only one "miss/build" log entry
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
