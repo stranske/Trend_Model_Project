@@ -315,7 +315,6 @@ def test_build_nl_chain_invalidates_on_provider_env_change(
     cache: dict[str, object] = {}
 
     def fake_cached_config_patch_chain(
-        _session_cache_key,
         chain_cache_key,
         _llm_cache_key,
         _api_key,
@@ -330,16 +329,16 @@ def test_build_nl_chain_invalidates_on_provider_env_change(
     monkeypatch.setenv("TREND_LLM_PROVIDER", "openai")
     monkeypatch.setenv("TREND_LLM_MODEL", "gpt-4o-mini")
 
-    _chain, _meta = model_module._build_nl_chain()
-    session_id_before = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+    _chain, meta_before = model_module._build_nl_chain()
+    signature_before = meta_before["chain_cache_signature"]
 
     stub.session_state["config_chat_preview"] = {"before": {}, "after": {}}
     stub.session_state["config_chat_last_instruction"] = "old"
     monkeypatch.setenv("TREND_LLM_PROVIDER", "anthropic")
     _chain, meta = model_module._build_nl_chain()
 
-    session_id_after = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
-    assert session_id_before != session_id_after
+    signature_after = meta["chain_cache_signature"]
+    assert signature_before != signature_after
     assert meta["chain_cache_invalidation_fields"] == ["provider"]
     assert meta["chain_cache_session_reset"] is True
     assert "config_chat_preview" not in stub.session_state
@@ -354,7 +353,6 @@ def test_build_nl_chain_invalidates_on_model_env_change(
     cache: dict[str, object] = {}
 
     def fake_cached_config_patch_chain(
-        _session_cache_key,
         chain_cache_key,
         _llm_cache_key,
         _api_key,
@@ -369,16 +367,16 @@ def test_build_nl_chain_invalidates_on_model_env_change(
     monkeypatch.setenv("TREND_LLM_PROVIDER", "openai")
     monkeypatch.setenv("TREND_LLM_MODEL", "gpt-4o-mini")
 
-    _chain, _meta = model_module._build_nl_chain()
-    session_id_before = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
+    _chain, meta_before = model_module._build_nl_chain()
+    signature_before = meta_before["chain_cache_signature"]
 
     stub.session_state["config_chat_preview"] = {"before": {}, "after": {}}
     stub.session_state["config_chat_last_instruction"] = "old"
     monkeypatch.setenv("TREND_LLM_MODEL", "gpt-4.1-mini")
     _chain, meta = model_module._build_nl_chain()
 
-    session_id_after = stub.session_state.get(model_module._CONFIG_CHAT_SESSION_KEY)
-    assert session_id_before != session_id_after
+    signature_after = meta["chain_cache_signature"]
+    assert signature_before != signature_after
     assert meta["chain_cache_invalidation_fields"] == ["model"]
     assert meta["chain_cache_session_reset"] is True
     assert "config_chat_preview" not in stub.session_state
