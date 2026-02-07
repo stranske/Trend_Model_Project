@@ -10,6 +10,7 @@ from .pipeline_helpers import (
     _apply_regime_overrides,
     _apply_regime_weight_overrides,
     _resolve_regime_label,
+    _resolve_regime_turnover_cap,
 )
 from .signals import TrendSpec
 from .stages import portfolio as portfolio_stage
@@ -47,7 +48,7 @@ def _run_analysis_with_diagnostics(
     periods_per_year_override: float | None = None,
     previous_weights: Mapping[str, float] | None = None,
     lambda_tc: float | None = None,
-    max_turnover: float | None = None,
+    max_turnover: float | Mapping[str, float] | None = None,
     signal_spec: TrendSpec | None = None,
     regime_cfg: Mapping[str, Any] | None = None,
     weight_policy: Mapping[str, Any] | None = None,
@@ -99,6 +100,11 @@ def _run_analysis_with_diagnostics(
         settings=regime_settings,
         regime_cfg=regime_cfg,
     )
+    resolved_max_turnover = _resolve_regime_turnover_cap(
+        max_turnover,
+        regime_label,
+        regime_settings,
+    )
 
     selection_stage_result = selection_stage._select_universe(
         preprocess_stage,
@@ -133,7 +139,7 @@ def _run_analysis_with_diagnostics(
         risk_window=risk_window,
         previous_weights=previous_weights,
         lambda_tc=lambda_tc,
-        max_turnover=max_turnover,
+        max_turnover=resolved_max_turnover,
         signal_spec=signal_spec,
         weight_policy=weight_policy,
         warmup=preprocess_stage.warmup,
@@ -184,7 +190,7 @@ def _run_analysis(
     periods_per_year_override: float | None = None,
     previous_weights: Mapping[str, float] | None = None,
     lambda_tc: float | None = None,
-    max_turnover: float | None = None,
+    max_turnover: float | Mapping[str, float] | None = None,
     signal_spec: TrendSpec | None = None,
     regime_cfg: Mapping[str, Any] | None = None,
     weight_policy: Mapping[str, Any] | None = None,

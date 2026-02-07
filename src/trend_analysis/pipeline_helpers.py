@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Mapping
+import re
+from typing import Any, Mapping, cast
 
 import numpy as np
 import pandas as pd
@@ -27,6 +28,7 @@ __all__ = [
     "_empty_run_full_result",
     "_format_period",
     "_policy_from_config",
+    "_resolve_regime_turnover_cap",
     "_resolve_regime_label",
     "_resolve_sample_split",
     "_resolve_target_vol",
@@ -136,6 +138,56 @@ def _resolve_regime_label(
     if aligned.empty:
         return None, settings
     return str(aligned.iloc[-1]), settings
+
+
+def _normalize_regime_key(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    return re.sub(r"[^a-z0-9]+", "", text.casefold())
+
+
+def _resolve_regime_turnover_cap(
+    max_turnover: object | None,
+    regime_label: str | None,
+    settings: Any,
+) -> float | None:
+    def _coerce_optional_float(value: object) -> float | None:
+        try:
+            return float(cast(Any, value))
+        except (TypeError, ValueError):
+            return None
+
+    if max_turnover is None:
+        return None
+    if not isinstance(max_turnover, Mapping):
+        return _coerce_optional_float(max_turnover)
+
+    normalized: dict[str, object] = {}
+    for key, value in max_turnover.items():
+        normalized_key = _normalize_regime_key(key)
+        if not normalized_key:
+            continue
+        normalized[normalized_key] = value
+    if not normalized:
+        return None
+
+    if regime_label:
+        label_key = _normalize_regime_key(regime_label)
+        if label_key and label_key in normalized:
+            return _coerce_optional_float(normalized[label_key])
+
+    default_label = getattr(settings, "default_label", None)
+    default_key = _normalize_regime_key(default_label)
+    if default_key and default_key in normalized:
+        return _coerce_optional_float(normalized[default_key])
+
+    for fallback in ("default", "all", "any"):
+        if fallback in normalized:
+            return _coerce_optional_float(normalized[fallback])
+    return None
 
 
 def _apply_regime_overrides(

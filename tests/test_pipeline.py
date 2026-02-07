@@ -169,6 +169,31 @@ def test_run_propagates_max_turnover_to_risk(tmp_path, monkeypatch):
     assert captured["max_turnover"] == pytest.approx(0.33)
 
 
+def test_run_resolves_regime_max_turnover_mapping(tmp_path, monkeypatch):
+    df = make_df()
+    cfg = make_cfg(tmp_path, df)
+    cfg.regime = {
+        "enabled": True,
+        "proxy": "A",
+        "lookback": 1,
+        "smoothing": 1,
+        "threshold": 0.0,
+    }
+    cfg.portfolio["max_turnover"] = {"risk_on": 0.12, "risk_off": 0.05}
+    captured = {}
+
+    def _stub_enforce(target, prev, max_turnover):
+        captured["max_turnover"] = max_turnover
+        turnover = float(target.abs().sum())
+        return target, turnover
+
+    monkeypatch.setattr(risk, "_enforce_turnover_cap", _stub_enforce)
+
+    result = pipeline.run(cfg)
+    assert not result.empty
+    assert captured["max_turnover"] == pytest.approx(0.12)
+
+
 def test_run_file_missing(tmp_path, monkeypatch):
     cfg = make_cfg(tmp_path, make_df())
     cfg.data["csv_path"] = str(tmp_path / "missing.csv")
