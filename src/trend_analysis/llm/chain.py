@@ -357,7 +357,10 @@ class ConfigPatchChain:
     ) -> _LLMResponse:
         from langchain_core.prompts import ChatPromptTemplate
 
-        from trend_analysis.llm.tracing import langsmith_tracing_context, resolve_trace_url
+        from trend_analysis.llm.tracing import (
+            langsmith_tracing_context,
+            resolve_trace_url,
+        )
 
         template = ChatPromptTemplate.from_messages([("system", "{prompt}")])
         llm = llm_override or self._bind_llm()
@@ -561,7 +564,10 @@ class ResultSummaryChain:
     ) -> _LLMResponse:
         from langchain_core.prompts import ChatPromptTemplate
 
-        from trend_analysis.llm.tracing import langsmith_tracing_context, resolve_trace_url
+        from trend_analysis.llm.tracing import (
+            langsmith_tracing_context,
+            resolve_trace_url,
+        )
 
         template = ChatPromptTemplate.from_messages([("system", "{prompt}")])
         chain = template | self._bind_llm()
