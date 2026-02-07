@@ -530,7 +530,9 @@ def test_render_explain_results_ignores_blank_trace_url(explain_module) -> None:
         call.args and call.args[0] == "Trace URL" for call in st_stub.text_input.call_args_list
     )
     json_call = next(
-        call for call in st_stub.download_button.call_args_list if call.kwargs["mime"] == "application/json"
+        call
+        for call in st_stub.download_button.call_args_list
+        if call.kwargs["mime"] == "application/json"
     )
     payload = json.loads(json_call.kwargs["data"])
     assert payload["trace_url"] is None
