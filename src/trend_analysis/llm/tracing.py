@@ -79,9 +79,7 @@ def langsmith_tracing_context(
 ) -> Iterator[Any]:
     """Provide a LangSmith tracing context and optional run metadata."""
 
-    if os.environ.get("PYTEST_CURRENT_TEST") and not _truthy_env(
-        "TREND_LANGSMITH_TRACE_TESTS"
-    ):
+    if os.environ.get("PYTEST_CURRENT_TEST") and not _truthy_env("TREND_LANGSMITH_TRACE_TESTS"):
         yield None
         return
     if not maybe_enable_langsmith_tracing():
