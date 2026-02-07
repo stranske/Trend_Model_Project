@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import json
 import sys
+from contextlib import nullcontext
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
@@ -17,6 +18,8 @@ from trend_analysis.llm.nl_logging import NLOperationLog
 def _load_module(monkeypatch: pytest.MonkeyPatch):
     st_stub = MagicMock()
     st_stub.session_state = {}
+    st_stub.expander.side_effect = lambda *_, **__: nullcontext()
+    st_stub.spinner.side_effect = lambda *_, **__: nullcontext()
     monkeypatch.setitem(sys.modules, "streamlit", st_stub)
     return importlib.reload(importlib.import_module("streamlit_app.components.nl_operation_viewer"))
 
@@ -187,3 +190,69 @@ def test_load_log_entries_respects_limit(tmp_path, monkeypatch: pytest.MonkeyPat
     loaded = module._load_log_entries(log_path, limit=2)
 
     assert [entry_index for entry_index, _ in loaded] == [2, 3]
+
+
+def test_load_log_entries_orders_by_timestamp(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module = _load_module(monkeypatch)
+    log_path = tmp_path / "nl_ops_2026-02-03.jsonl"
+    t1 = datetime(2026, 2, 3, 10, 0, tzinfo=timezone.utc)
+    t2 = datetime(2026, 2, 3, 12, 0, tzinfo=timezone.utc)
+    t3 = datetime(2026, 2, 3, 14, 0, tzinfo=timezone.utc)
+
+    entries = [
+        _make_entry(request_id="req-2", input_hash="hash-2", timestamp=t2),
+        _make_entry(request_id="req-1", input_hash="hash-1", timestamp=t1),
+        _make_entry(request_id="req-3", input_hash="hash-3", timestamp=t3),
+    ]
+    for entry in entries:
+        line = json.dumps(entry.model_dump(mode="json"), separators=(",", ":"))
+        with log_path.open("a", encoding="utf-8") as handle:
+            handle.write(line + "\n")
+
+    loaded = module._load_log_entries(log_path, limit=50)
+
+    assert [entry.request_id for _, entry in loaded] == ["req-1", "req-2", "req-3"]
+
+
+def test_redact_text_replaces_fixtures_and_is_idempotent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module(monkeypatch)
+    fixture_text = (
+        "sk-proj-abc123xyz ghp_abc123xyz github_pat_abc123xyz "
+        "AKIAIOSFODNN7EXAMPLE SECRET_KEY=value123"
+    )
+
+    redacted = module._redact_text(fixture_text)
+
+    assert "sk-proj-abc123xyz" not in redacted
+    assert "ghp_abc123xyz" not in redacted
+    assert "github_pat_abc123xyz" not in redacted
+    assert "AKIAIOSFODNN7EXAMPLE" not in redacted
+    assert "SECRET_KEY=value123" not in redacted
+    assert "[REDACTED]" in redacted
+    assert module._redact_text(redacted) == redacted
+
+
+def test_render_replay_stores_result_and_renders_redacted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module(monkeypatch)
+    st_stub = sys.modules["streamlit"]
+    entry = _make_entry()
+    replay_result = MagicMock(
+        output="result sk-proj-abc123xyz",
+        diff="diff ghp_abc123xyz",
+        trace_url="https://example.com/path?token=secret",
+    )
+    replay_mock = MagicMock(return_value=replay_result)
+    monkeypatch.setattr(module, "replay_nl_entry", replay_mock)
+    st_stub.button.side_effect = [True]
+
+    module._render_replay(entry, entry_id="1")
+
+    replay_mock.assert_called_once()
+    assert st_stub.session_state["nl_replay_result_1"]["output"] == replay_result.output
+    assert st_stub.expander.call_args_list[-1].args[0] == "Replay Results"
+    code_calls = [call.args[0] for call in st_stub.code.call_args_list]
+    assert any("[REDACTED]" in text for text in code_calls)
