@@ -7,10 +7,10 @@ tasks:
     title: Implement the missing environment variable computation logic that creates
       `required_vars` from `_llm_required_env_vars(selected_provider)` and filters
       to `missing_vars` using `_llm_env_var_present(v)` checks
-    status: doing
+    status: done
     started_at: '2026-02-07T19:52:21Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-07T19:52:31Z'
+    commit: 51c81b278784a35e7ad125a159379464ff70674b
     notes: []
   - id: task-02
     title: Update the warning display logic to call `st.warning()` exactly once when
