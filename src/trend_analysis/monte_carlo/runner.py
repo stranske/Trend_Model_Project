@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import math
 import random
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -83,7 +84,16 @@ def _coerce_turnover_guard(value: Any) -> float:
     except (TypeError, ValueError) as exc:
         raise ValueError(
             f"{_TURNOVER_GUARD_PATH} must be numeric or a distribution mapping"
-        ) from exc
+    ) from exc
+
+
+def _normalize_regime_key(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    return re.sub(r"[^a-z0-9]+", "", text.casefold())
 
 
 def _is_distribution_mapping(value: Mapping[str, Any]) -> bool:
@@ -1077,16 +1087,19 @@ class MonteCarloRunner:
                 return None
             if regimes is None:
                 return pd.Series(np.nan, index=out_index, name="turnover_cap")
-            mapping = {}
+            mapping: dict[str, float] = {}
             for key, value in max_turnover.items():
-                if key is None:
+                normalized_key = _normalize_regime_key(key)
+                if not normalized_key:
                     continue
                 try:
-                    mapping[str(key)] = float(value)
+                    mapping[normalized_key] = float(value)
                 except (TypeError, ValueError):
                     continue
             labels = regimes.reindex(out_index).astype("string")
-            caps = labels.map(lambda label: mapping.get(str(label)) if label else np.nan)
+            caps = labels.map(
+                lambda label: mapping.get(_normalize_regime_key(label)) if label else np.nan
+            )
             return pd.Series(caps, index=out_index, name="turnover_cap")
         try:
             cap = float(cast(SupportsFloat, max_turnover))
