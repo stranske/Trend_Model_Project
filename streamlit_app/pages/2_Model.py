@@ -1134,6 +1134,11 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         st.session_state.pop("config_chat_preview", None)
         st.session_state.pop("config_chat_last_instruction", None)
         cache_state["last_invalidation_fields"] = list(invalidation_fields)
+        if _LOGGER.isEnabledFor(logging.INFO):
+            _LOGGER.info(
+                "Config chat chain cache invalidated by settings change: %s",
+                ", ".join(invalidation_fields),
+            )
         session_reset = True
     session_cache_key = (
         _reset_config_chat_session_id() if session_reset else _get_config_chat_session_id()
@@ -1275,6 +1280,13 @@ def _generate_preview_with_progress(
     timings = result.get("timings")
     if isinstance(timings, Mapping):
         timings["total_seconds"] = duration
+        if _LOGGER.isEnabledFor(logging.INFO):
+            _LOGGER.info(
+                "Config chat preview completed: reused=%s total_s=%.2f cache=%s",
+                timings.get("chain_reused"),
+                duration,
+                timings.get("chain_cache_summary") or "unknown",
+            )
     _record_preview_timing(result, duration)
     return result
 
