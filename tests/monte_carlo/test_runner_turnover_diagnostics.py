@@ -412,6 +412,66 @@ def test_runner_normalizes_regime_turnover_caps(monkeypatch) -> None:
     pdt.assert_series_equal(diagnostic["turnover_cap_binding"], expected_binding)
 
 
+def test_runner_uses_period_results_for_binding(monkeypatch) -> None:
+    dates = pd.date_range("2021-01-31", periods=2, freq="ME")
+    returns = pd.DataFrame({"Date": dates, "Asset": [0.01, 0.02]})
+    turnover = pd.Series(
+        [0.12, 0.3],
+        index=pd.Index(["2021-01", "2021-02"], name="period"),
+        name="turnover",
+    )
+    period_results = [
+        {
+            "period": ("2020-11", "2020-12", "2021-01", "2021-01"),
+            "regime_labels_out": pd.Series(["calm"], index=[0]),
+        },
+        {
+            "period": ("2020-12", "2021-01", "2021-02", "2021-02"),
+            "regime_labels_out": pd.Series(["stress"], index=[0]),
+        },
+    ]
+    metrics = pd.DataFrame({"cagr": [0.1]}, index=["user_weight"])
+    run_result = RunResult(
+        metrics=metrics,
+        details={"period_results": period_results, "turnover": turnover},
+        seed=0,
+        environment={},
+        turnover=turnover,
+    )
+
+    def _fake_run_simulation(*_args, **_kwargs):
+        return run_result
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.run_simulation",
+        _fake_run_simulation,
+    )
+
+    runner = MonteCarloRunner(
+        _scenario(),
+        base_config=_base_config(max_turnover={"calm": 0.15, "stress": 0.25}),
+    )
+    context = _PathContext(
+        path_id=0,
+        prices=pd.DataFrame(),
+        returns=returns,
+        score_frame=pd.DataFrame(),
+        path_hash="hash",
+        seed=123,
+    )
+
+    evaluation = runner._evaluate_strategy(StrategyVariant(name="base"), context)
+    diagnostic = evaluation.diagnostic or {}
+
+    expected_binding = pd.Series(
+        [False, True],
+        index=turnover.index,
+        name="turnover_cap_binding",
+    )
+    pdt.assert_series_equal(diagnostic["turnover"], turnover)
+    pdt.assert_series_equal(diagnostic["turnover_cap_binding"], expected_binding)
+
+
 def test_runner_resolves_guard_regime_turnover_caps(monkeypatch) -> None:
     dates = pd.date_range("2021-03-31", periods=3, freq="ME")
     returns = pd.DataFrame({"Date": dates, "Asset": [0.01, 0.02, 0.03]})

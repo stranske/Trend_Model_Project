@@ -627,6 +627,9 @@ class MonteCarloRunner:
         )
 
     def _apply_regime_turnover_caps(self, config: ConfigType, context: _PathContext) -> None:
+        multi_period_cfg = getattr(config, "multi_period", None)
+        if isinstance(multi_period_cfg, Mapping):
+            return
         portfolio = getattr(config, "portfolio", None)
         if not isinstance(portfolio, Mapping):
             return
@@ -1084,6 +1087,15 @@ class MonteCarloRunner:
             out_scaled = details.get("out_sample_scaled")
             if isinstance(out_scaled, pd.DataFrame):
                 return out_scaled.index
+            period_index = self._period_results_index(details.get("period_results"))
+            if period_index is not None:
+                return period_index
+            turnover = details.get("turnover")
+            if isinstance(turnover, pd.Series):
+                return turnover.index
+        turnover_attr = getattr(run_result, "turnover", None)
+        if isinstance(turnover_attr, pd.Series):
+            return turnover_attr.index
         if isinstance(context.returns, pd.DataFrame) and "Date" in context.returns.columns:
             return pd.DatetimeIndex(context.returns["Date"]).copy()
         return None
@@ -1097,6 +1109,9 @@ class MonteCarloRunner:
             labels = details.get("regime_labels")
             if isinstance(labels, pd.Series):
                 return labels.reindex(out_index)
+            period_labels = self._period_results_regimes(details.get("period_results"), out_index)
+            if period_labels is not None:
+                return period_labels
         return None
 
     def _resolve_turnover_series(
@@ -1148,6 +1163,56 @@ class MonteCarloRunner:
         cap_series = self._resolve_turnover_cap_series(max_turnover, regimes, out_index)
         binding = self._turnover_cap_binding_indicator(turnover_series, cap_series)
         return turnover_series, binding
+
+    def _period_results_index(self, period_results: Any) -> pd.Index | None:
+        if not isinstance(period_results, Sequence):
+            return None
+        values: list[Any] = []
+        for entry in period_results:
+            if not isinstance(entry, Mapping):
+                continue
+            period = entry.get("period")
+            if isinstance(period, (list, tuple)) and len(period) > 2:
+                values.append(period[2])
+        if not values:
+            return None
+        return pd.Index(values, name="period")
+
+    def _period_results_regimes(
+        self,
+        period_results: Any,
+        out_index: pd.Index | None,
+    ) -> pd.Series | None:
+        if not isinstance(period_results, Sequence):
+            return None
+        values: list[Any] = []
+        labels: list[Any] = []
+        for entry in period_results:
+            if not isinstance(entry, Mapping):
+                continue
+            period = entry.get("period")
+            if not isinstance(period, (list, tuple)) or len(period) <= 2:
+                continue
+            values.append(period[2])
+            label = None
+            labels_out = entry.get("regime_labels_out")
+            if isinstance(labels_out, pd.Series) and not labels_out.empty:
+                label = labels_out.iloc[-1]
+            else:
+                labels_in = entry.get("regime_labels")
+                if isinstance(labels_in, pd.Series) and not labels_in.empty:
+                    label = labels_in.iloc[-1]
+            labels.append(label)
+        if not values:
+            return None
+        series = pd.Series(labels, index=pd.Index(values, name="period"), name="regime")
+        try:
+            series = series.astype("string")
+        except Exception:
+            pass
+        if out_index is None:
+            return series
+        return series.reindex(out_index)
 
     def _coerce_turnover_series(
         self, turnover: pd.Series | SupportsFloat | None, out_index: pd.Index | None
