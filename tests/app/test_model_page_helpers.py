@@ -615,6 +615,68 @@ def test_build_nl_chain_creates_new_instance_on_setting_change(
     assert field in (meta_second["chain_cache_invalidation_fields"] or [])
 
 
+@pytest.mark.parametrize(
+    ("field", "initial_value", "updated_value"),
+    [
+        ("provider", "openai", "anthropic"),
+        ("model", "gpt-4o-mini", "gpt-4.1-mini"),
+        ("base_url", "https://api.one", "https://api.two"),
+        ("organization", "org-one", "org-two"),
+        ("temperature", "0.1", "0.7"),
+    ],
+)
+def test_build_nl_chain_creates_new_instance_on_env_setting_change(
+    monkeypatch: pytest.MonkeyPatch,
+    model_module: ModuleType,
+    field: str,
+    initial_value: str,
+    updated_value: str,
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+    cache: dict[str, object] = {}
+
+    def fake_cached_config_patch_chain(
+        chain_cache_key,
+        llm_cache_key,
+        _api_key,
+        _extra_payload,
+    ):
+        signature = model_module._chain_resource_signature(chain_cache_key, llm_cache_key)
+        if signature not in cache:
+            cache[signature] = object()
+        return cache[signature]
+
+    monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
+
+    base_env = {
+        "TREND_LLM_PROVIDER": "openai",
+        "TREND_LLM_MODEL": "gpt-4o-mini",
+        "TREND_LLM_BASE_URL": "https://api.one",
+        "TREND_LLM_ORG": "org-one",
+        "TREND_LLM_TEMPERATURE": "0.1",
+    }
+    env_key_map = {
+        "provider": "TREND_LLM_PROVIDER",
+        "model": "TREND_LLM_MODEL",
+        "base_url": "TREND_LLM_BASE_URL",
+        "organization": "TREND_LLM_ORG",
+        "temperature": "TREND_LLM_TEMPERATURE",
+    }
+    env_key = env_key_map[field]
+    base_env[env_key] = initial_value
+    for key, value in base_env.items():
+        monkeypatch.setenv(key, value)
+
+    chain_first, _meta_first = model_module._build_nl_chain()
+
+    monkeypatch.setenv(env_key, updated_value)
+    chain_second, meta_second = model_module._build_nl_chain()
+
+    assert chain_first is not chain_second
+    assert field in (meta_second["chain_cache_invalidation_fields"] or [])
+
+
 def test_current_chain_settings_snapshot_uses_resolved_env(
     monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
 ) -> None:
