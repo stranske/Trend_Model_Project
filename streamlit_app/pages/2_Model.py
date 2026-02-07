@@ -176,7 +176,6 @@ def _build_llm_cache_key(
         "api_key_fingerprint": api_key_fingerprint,
     }
 
-
 def _cache_key_changes(
     previous: Mapping[str, Any] | None,
     current: Mapping[str, Any],
@@ -1110,22 +1109,64 @@ def _build_chain_cache_context(
     }
 
 
-def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
+def _build_nl_chain(
+    provider: str | None = None,
+    model: str | None = None,
+    base_url: str | None = None,
+    organization: str | None = None,
+    temperature: float | None = None,
+    cache_signature: str | None = None,
+    timeout: float | None = None,
+    max_retries: int | None = None,
+    api_key_secret: "_ApiKeySecret" | None = None,
+    extra_payload: str | None = None,
+) -> tuple[ConfigPatchChain, dict[str, Any]]:
     config = _resolve_llm_provider_config()
-    temperature = _resolve_llm_temperature()
-    reset_fields = _maybe_reset_config_chat_cache(
-        _current_chain_settings_snapshot(config, temperature)
+    resolved_provider = _normalize_cache_str(provider) or _normalize_cache_str(config.provider) or "openai"
+    resolved_model = _normalize_cache_str(model) or _normalize_cache_str(config.model) or _DEFAULT_CONFIG_CHAT_MODEL
+    resolved_base_url = (
+        _normalize_cache_str(base_url)
+        if base_url is not None
+        else _normalize_cache_str(config.base_url)
     )
-    context = _build_chain_cache_context(config, temperature)
-    st.session_state["selected_provider"] = context["provider"]
-    st.session_state["selected_model"] = context["resolved_model"]
-    api_key = context["api_key"]
-    api_key_fingerprint = context["api_key_fingerprint"]
-    extra_payload = context["extra_payload"]
-    llm_cache_key = context["llm_cache_key"]
-    cache_key = context["cache_key"]
+    resolved_org = (
+        _normalize_cache_str(organization)
+        if organization is not None
+        else _normalize_cache_str(config.organization)
+    )
+    resolved_temp = _normalize_temperature(
+        temperature if temperature is not None else _resolve_llm_temperature()
+    )
+    resolved_timeout = timeout if timeout is not None else config.timeout
+    resolved_max_retries = max_retries if max_retries is not None else config.max_retries
+    resolved_payload = extra_payload if extra_payload is not None else _serialize_extra(config.extra)
+    resolved_payload_hash = _hash_text(resolved_payload)
+    resolved_api_key_secret = api_key_secret or _ApiKeySecret(
+        config.api_key,
+        _hash_api_key(config.api_key),
+    )
+    reset_fields = _maybe_reset_config_chat_cache(
+        _current_chain_settings_snapshot(config, resolved_temp)
+    )
+    llm_cache_key = _build_llm_cache_key(
+        provider=resolved_provider,
+        model=resolved_model,
+        base_url=resolved_base_url,
+        organization=resolved_org,
+        timeout=resolved_timeout,
+        max_retries=resolved_max_retries,
+        extra_payload_hash=resolved_payload_hash,
+        api_key_fingerprint=resolved_api_key_secret.fingerprint,
+    )
+    cache_key = _build_chain_cache_key(
+        provider=resolved_provider,
+        model=resolved_model,
+        temperature=resolved_temp,
+    )
+    st.session_state["selected_provider"] = resolved_provider
+    st.session_state["selected_model"] = resolved_model
     cache_state = _get_chain_cache_state()
-    signature = _chain_cache_signature(cache_key)
+    signature = cache_signature or _chain_cache_signature(cache_key)
     resource_signature = _chain_resource_signature(cache_key, llm_cache_key)
     previous_signature = cache_state.get("last_signature")
     previous_resource_signature = cache_state.get("last_resource_signature")
@@ -1164,13 +1205,13 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         invalidation_fields = list(reset_fields)
         cache_state["last_invalidation_fields"] = list(invalidation_fields)
         session_reset = True
-    api_key_secret = _ApiKeySecret(api_key, api_key_fingerprint)
+    api_key_secret = resolved_api_key_secret
     lookup_start = monotonic()
     chain = _cached_config_patch_chain(
         cache_key,
         llm_cache_key,
         api_key_secret,
-        extra_payload,
+        resolved_payload,
     )
     lookup_seconds = monotonic() - lookup_start
     entries = cache_state["entries"]
