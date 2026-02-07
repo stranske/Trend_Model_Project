@@ -301,7 +301,10 @@ def test_render_replay_stores_result_and_renders_redacted(
     assert st_stub.session_state["nl_replay_result_1"]["output"] == replay_result.output
     assert st_stub.expander.call_args_list[-1].args[0] == "Replay Results"
     code_calls = [call.args[0] for call in st_stub.code.call_args_list]
-    assert any("[REDACTED]" in text for text in code_calls)
+    redacted_output = module._redact_text(replay_result.output)
+    redacted_diff = module._redact_text(replay_result.diff)
+    assert redacted_output in code_calls
+    assert redacted_diff in code_calls
 
 
 def test_replay_button_invokes_replay_for_selected_entry(
