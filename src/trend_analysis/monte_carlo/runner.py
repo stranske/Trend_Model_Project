@@ -98,6 +98,16 @@ def _normalize_regime_key(value: Any) -> str | None:
     return re.sub(r"[^a-z0-9]+", "", text.casefold())
 
 
+def _alias_regime_key(value: str) -> str | None:
+    aliases = {
+        "riskon": "calm",
+        "riskoff": "stress",
+        "calm": "riskon",
+        "stress": "riskoff",
+    }
+    return aliases.get(value)
+
+
 def _is_distribution_mapping(value: Mapping[str, Any]) -> bool:
     dist = value.get("dist")
     return isinstance(dist, str) and bool(dist.strip())
@@ -1258,7 +1268,12 @@ class MonteCarloRunner:
                 normalized = _normalize_regime_key(label)
                 if not normalized:
                     return float("nan")
-                return mapping.get(normalized, float("nan"))
+                if normalized in mapping:
+                    return mapping[normalized]
+                alias_key = _alias_regime_key(normalized)
+                if alias_key and alias_key in mapping:
+                    return mapping[alias_key]
+                return float("nan")
 
             caps = labels.map(_lookup_turnover_cap)
             return pd.Series(caps, index=out_index, name="turnover_cap")
