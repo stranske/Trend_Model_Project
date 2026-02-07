@@ -17,7 +17,7 @@ from trend_analysis.llm.replay import render_prompt, replay_nl_entry
 from trend_analysis.logging import iter_jsonl
 
 _LOG_FILE_GLOB = "nl_ops_*.jsonl"
-_DEFAULT_MAX_ENTRIES = 200
+_DEFAULT_MAX_ENTRIES = 50
 _REDACT_KEYS = (
     "key",
     "token",
@@ -38,9 +38,13 @@ _REDACT_TEXT_PATTERNS = [
         re.DOTALL,
     ),
     re.compile(r"sk-[A-Za-z0-9]{20,}"),
+    re.compile(r"sk-proj-[A-Za-z0-9]{6,}"),
     re.compile(r"sk-ant-[A-Za-z0-9-]{20,}"),
+    re.compile(r"ghp_[A-Za-z0-9]{6,}"),
+    re.compile(r"github_pat_[A-Za-z0-9]{6,}"),
     re.compile(r"(?i)bearer\s+[A-Za-z0-9\-._~+/]+=*"),
     re.compile(r"(?i)(api[-_]?key|token|secret|password|authorization)\s*[:=]\s*\S+"),
+    re.compile(r"(?i)secret_key\s*[:=]\s*\S+"),
     re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"),
     re.compile(r"(AKIA|ASIA)[0-9A-Z]{16}"),
 ]
@@ -69,6 +73,7 @@ def _load_log_entries(
         except Exception:
             continue
         entries.append((index, entry))
+    entries.sort(key=lambda item: item[1].timestamp)
     if limit and len(entries) > limit:
         entries = entries[-limit:]
     return entries
@@ -257,7 +262,7 @@ def _render_patch_summary(entry: NLOperationLog) -> None:
     st.code(json.dumps(safe_payload, indent=2, sort_keys=True), language="json")
 
 
-def _render_replay(entry: NLOperationLog) -> None:
+def _render_replay(entry: NLOperationLog, *, entry_id: str, run_replay: bool) -> None:
     st.markdown("**Replay**")
     st.caption("Replays may differ across time, models, or provider settings.")
     replay_entry, redacted = _prepare_replay_entry(entry)
@@ -267,39 +272,62 @@ def _render_replay(entry: NLOperationLog) -> None:
         )
     else:
         st.caption("Replay uses redacted prompt variables to prevent leakage.")
-    provider = st.selectbox("Provider", ["openai", "anthropic", "ollama"], key="nl_replay_provider")
-    model = st.text_input("Model (optional)", value=entry.model_name or "", key="nl_replay_model")
+    provider = st.selectbox(
+        "Provider",
+        ["openai", "anthropic", "ollama"],
+        key=f"nl_replay_provider_{entry_id}",
+    )
+    model = st.text_input(
+        "Model (optional)",
+        value=entry.model_name or "",
+        key=f"nl_replay_model_{entry_id}",
+    )
     temperature = st.slider(
         "Temperature",
         min_value=0.0,
         max_value=1.5,
         value=float(entry.temperature or 0.0),
         step=0.05,
-        key="nl_replay_temperature",
+        key=f"nl_replay_temperature_{entry_id}",
     )
-    clicked = st.button("Replay entry (outputs may differ)", key="nl_replay_btn")
-    if not clicked:
-        return
-    with st.spinner("Replaying entry..."):
-        try:
-            replay_result = replay_nl_entry(
-                replay_entry,
-                provider=provider,
-                model=model or None,
-                temperature=temperature,
-            )
-        except Exception as exc:
-            st.error("Replay failed. Ensure provider credentials are available.")
-            st.caption(str(exc))
-            return
-    st.success("Replay completed.")
-    st.markdown("**Replay output**")
-    st.code(_redact_text(replay_result.output), language="text")
-    if replay_result.trace_url:
-        st.caption(f"Trace URL: {_redact_url(replay_result.trace_url)}")
-    if replay_result.diff:
-        st.markdown("**Diff vs recorded output**")
-        st.code(_redact_text(replay_result.diff), language="diff")
+    if run_replay:
+        with st.spinner("Replaying entry..."):
+            try:
+                replay_result = replay_nl_entry(
+                    replay_entry,
+                    provider=provider,
+                    model=model or None,
+                    temperature=temperature,
+                )
+            except Exception as exc:
+                st.error("Replay failed. Ensure provider credentials are available.")
+                st.caption(_redact_text(str(exc)))
+                return
+        st.session_state[f"nl_replay_result_{entry_id}"] = {
+            "output": replay_result.output,
+            "diff": replay_result.diff,
+            "trace_url": replay_result.trace_url,
+        }
+        st.success("Replay completed.")
+    replay_payload = st.session_state.get(f"nl_replay_result_{entry_id}")
+    if replay_payload:
+        with st.expander("Replay Results", expanded=True):
+            st.markdown("**Replay output**")
+            st.code(_redact_text(replay_payload.get("output") or ""), language="text")
+            trace_url = replay_payload.get("trace_url")
+            if trace_url:
+                st.caption(f"Trace URL: {_redact_url(trace_url)}")
+            diff = replay_payload.get("diff")
+            if diff:
+                st.markdown("**Diff vs recorded output**")
+                st.code(_redact_text(diff), language="diff")
+
+
+def _build_entry_id(entry_index: int, *, log_path: Path | None = None) -> str:
+    base_id = str(entry_index)
+    if log_path is None:
+        return base_id
+    return f"{log_path.stem}_{base_id}"
 
 
 def render_nl_operation_viewer(
@@ -336,7 +364,8 @@ def render_nl_operation_viewer(
     selected_entry_label = st.selectbox("Select entry", labels, key="nl_log_entry_select")
     selected_choice = next(choice for choice in choices if choice.label == selected_entry_label)
     entry = selected_choice.entry
-    replay_open_key = "nl_replay_open"
+    entry_id = _build_entry_id(selected_choice.index, log_path=selected_path)
+    replay_open_key = f"nl_replay_open_{entry_id}"
     selected_entry_key = "nl_selected_entry_label"
     if st.session_state.get(selected_entry_key) != selected_entry_label:
         st.session_state[replay_open_key] = False
@@ -369,10 +398,11 @@ def render_nl_operation_viewer(
         st.code(_redact_text(entry.model_output), language="text")
 
     _render_patch_summary(entry)
-    if st.button("Replay selected entry", key="nl_replay_open_btn"):
+    replay_clicked = st.button("Replay selected entry", key=f"nl_replay_open_btn_{entry_id}")
+    if replay_clicked:
         st.session_state[replay_open_key] = True
     with st.expander("Replay entry", expanded=bool(st.session_state.get(replay_open_key))):
-        _render_replay(entry)
+        _render_replay(entry, entry_id=entry_id, run_replay=replay_clicked)
 
 
 __all__ = [
