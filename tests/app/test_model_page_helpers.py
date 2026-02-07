@@ -519,6 +519,29 @@ def test_build_nl_chain_invalidates_on_org_change(
     assert "config_chat_last_instruction" not in stub.session_state
 
 
+def test_build_chain_cache_context_includes_llm_settings(model_module: ModuleType) -> None:
+    config = model_module.LLMProviderConfig(
+        provider="openai",
+        model="gpt-4o-mini",
+        api_key="test-key",
+        base_url="https://api.example.com",
+        organization="org-main",
+        timeout=42.0,
+        max_retries=3,
+        extra={"foo": "bar"},
+    )
+
+    context = model_module._build_chain_cache_context(config, temperature=0.42)
+
+    cache_key = context["cache_key"]
+    llm_cache_key = context["llm_cache_key"]
+    assert cache_key["provider"] == "openai"
+    assert cache_key["model"] == "gpt-4o-mini"
+    assert cache_key["temperature"] == 0.42
+    assert llm_cache_key["base_url"] == "https://api.example.com"
+    assert llm_cache_key["organization"] == "org-main"
+
+
 def test_build_nl_chain_invalidates_on_temperature_change(
     monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
 ) -> None:
