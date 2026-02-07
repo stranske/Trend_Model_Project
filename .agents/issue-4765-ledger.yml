@@ -1,0 +1,305 @@
+version: 1
+issue: 4765
+base: phase-3
+branch: codex/issue-4765
+tasks:
+  - id: task-01
+    title: Modify `src/trend_analysis/pipeline_runner.py` to call `_resolve_regime_turnover_cap()`
+      at the start of each period rather than once per run
+    status: doing
+    started_at: '2026-02-07T17:04:16Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Update the Monte Carlo simulation loop to pass the current period's `regime_label`
+      to the turnover cap resolution function
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Add a test verifying that `_resolve_regime_turnover_cap()` is called once
+      per period during multi-period simulations
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Write a test that simulates regime switching across multiple periods and
+      verifies different `max_turnover` values are resolved per period
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Identify the Monte Carlo simulation runner module responsible for managing
+      simulation paths and periods
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Add a data structure to store realized turnover values indexed by path
+      and period
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Capture the actual turnover value returned from `portfolio_stage.run_portfolio()`
+      for each period
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Implement serialization of the turnover time series to the output artifact
+      format
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Write a test that loads the output artifact and verifies turnover values
+      exist for each path and period
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Define the data structure for the binding indicator field in the output
+      schema
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Implement logic to compare realized turnover against the cap and set the
+      binding flag when they match within tolerance of 1e-6
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Add the binding indicator to the per-period per-path output data structure
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Implement serialization of the binding indicator to the output artifact
+      alongside realized turnover
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Write a test that creates a scenario where turnover equals the cap and
+      verifies the binding indicator is true
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Write a test that creates a scenario where turnover is below the cap and
+      verifies the binding indicator is false
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Update `_resolve_regime_turnover_cap()` to parse dictionary-style `max_turnover`
+      configurations with regime keys
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Implement fallback logic to return the value associated with the `default`
+      key when the current regime key is not found, or raise `KeyError` if no default
+      is specified
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Add validation to ensure the fallback behavior is deterministic and documented
+      in docstrings
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Write a test that verifies `_resolve_regime_turnover_cap()` correctly
+      parses `max_turnover: {calm: 0.15, stress: 0.08}` syntax'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Write a test that verifies fallback behavior when the current regime key
+      is missing from the configuration
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Add type validation in `_resolve_regime_turnover_cap()` to raise `TypeError`
+      when `max_turnover` values are not floats or valid numeric types
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Implement validation to raise `ValueError` when the `max_turnover` configuration
+      is malformed or empty
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: Add collision detection logic to identify when normalized regime keys would
+      overwrite each other (e.g., 'risk-on' vs 'risk_on')
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: Implement error raising with descriptive message when normalized key collisions
+      are detected instead of silently overwriting
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: Write a test that verifies `TypeError` is raised when `max_turnover` contains
+      non-float values
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: Write a test that verifies `ValueError` is raised when the configuration
+      is missing required keys
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: Write a test that verifies collision detection raises an error for keys
+      that normalize to the same value
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: Write a test that runs a Monte Carlo simulation and verifies realized turnover
+      is recorded for every period and path
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: Write a test that verifies the binding indicator is present in the output
+      for each period and path
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: 'Tests validate `_resolve_regime_turnover_cap()` accepts `max_turnover:
+      {calm: 0.15, stress: 0.08}` and resolves `0.15` for `regime_label=calm` and
+      `0.08` for `regime_label=stress`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: Tests validate `_resolve_regime_turnover_cap()` returns the value associated
+      with the `default` key when the current regime key is missing, or raises `KeyError`
+      if no default is specified
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: Tests validate `TypeError` is raised when `max_turnover` contains non-float
+      values
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: Tests validate regime switching across periods results in different resolved
+      `max_turnover` values **per period** (not a single resolved value reused for
+      the run)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: Running the Monte Carlo simulation produces persisted realized turnover
+      outputs for **each path and each period** (inspectable in the produced output
+      artifact/structure)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: Monte Carlo outputs include a persisted binding indicator (per path/period)
+      and tests confirm it is `true` when realized turnover is within 1e-6 of the
+      cap value and `false` when below the cap
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: All automated tests pass (e.g., `pytest` exits 0)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: Tests verify collision detection raises an error when normalized regime
+      keys would overwrite each other
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
