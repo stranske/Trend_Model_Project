@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Update the Streamlit Replay button callback to invoke `replay_nl_entry`
       with the selected entry context
-    status: doing
+    status: done
     started_at: '2026-02-07T19:04:55Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-07T19:05:02Z'
+    commit: 9b7e28579a75a7c07cbb635c294ebc497e5633ed
     notes: []
   - id: task-02
     title: Store the returned replay payload from `replay_nl_entry` into session state
