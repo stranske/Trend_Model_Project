@@ -58,6 +58,7 @@ This does not enable tool access beyond the existing analysis outputs.
 - [x] The displayed output always includes the configured disclaimer behavior.
 - [x] When tracing is enabled, the UI surfaces the trace URL for the operation.
 Verification: `pytest tests/app/test_explain_results_component.py -m "not slow"` (2026-02-07).
+Reconciliation: 2026-02-07 formatting-only change; no additional task checkboxes updated.
 
 ## Implementation Notes
 

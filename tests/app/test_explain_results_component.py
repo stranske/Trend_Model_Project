@@ -303,6 +303,25 @@ def test_cache_key_varies_by_questions(explain_module) -> None:
     assert key_one != key_two
 
 
+def test_render_explain_results_falls_back_to_default_provider(explain_module) -> None:
+    st_stub = sys.modules["streamlit"]
+    st_stub.session_state = {
+        "explain_results_questions": "Summarize results",
+        "explain_results_provider": "unknown-provider",
+    }
+    st_stub.expander.return_value = nullcontext()
+    st_stub.spinner.return_value = nullcontext()
+    st_stub.columns.return_value = [_StubColumn(), _StubColumn()]
+    st_stub.button.return_value = False
+
+    run_key = "run:provider-default"
+    explain_module.render_explain_results(SimpleNamespace(details={}), run_key=run_key)
+
+    select_call = st_stub.selectbox.call_args
+    assert select_call is not None
+    assert select_call.kwargs["index"] == 0
+
+
 def test_render_explain_results_displays_trace_url(explain_module) -> None:
     st_stub = explain_module.st
     st_stub.session_state = {

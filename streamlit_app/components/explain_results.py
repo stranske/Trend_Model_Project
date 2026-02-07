@@ -265,11 +265,14 @@ def render_explain_results(
             or "openai"
         )
         provider_default = str(provider_default).lower()
+        provider_options = ["openai", "anthropic", "ollama"]
+        if provider_default not in provider_options:
+            provider_default = "openai"
 
         st.selectbox(
             "Provider",
-            ["openai", "anthropic", "ollama"],
-            index=["openai", "anthropic", "ollama"].index(provider_default),
+            provider_options,
+            index=provider_options.index(provider_default),
             key=provider_key,
             help="Defaults to TREND_LLM_PROVIDER if set; otherwise OpenAI.",
         )
