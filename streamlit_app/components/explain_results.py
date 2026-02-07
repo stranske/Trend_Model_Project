@@ -355,7 +355,8 @@ def render_explain_results(
     display_text = ensure_result_disclaimer(cached.text)
     st.markdown(display_text)
     if cached.trace_url:
-        st.caption(f"Trace URL: {cached.trace_url}")
+        st.caption("LangSmith trace available.")
+        st.markdown(f"[Open LangSmith trace]({cached.trace_url})")
 
     if cached.claim_issues:
         with st.expander("Discrepancy log", expanded=False):
