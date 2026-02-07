@@ -180,6 +180,65 @@ def test_generate_result_explanation_passes_metric_catalog_contents(
     assert "Summary table" in stub.last_payload["analysis_output"]
 
 
+def test_render_explain_results_displays_trace_url_and_disclaimer(
+    explain_module,
+) -> None:
+    st_stub = explain_module.st
+    run_key = "run:abc123"
+    details = {"out_sample_stats": {"Portfolio": (0.1, 0.2, 0.3, 0.4, 0.5, 0.6)}}
+    result = SimpleNamespace(details=details)
+
+    st_stub.session_state.update(
+        {
+            "explain_results_questions": "Summarize",
+            "explain_results_provider": "openai",
+            "explain_results_api_key": "test-key",
+            "explain_results_model": "",
+            "explain_results_base_url": "",
+            "explain_results_org": "",
+        }
+    )
+    cache_key = explain_module._cache_key_for(
+        run_key,
+        questions="Summarize",
+        provider="openai",
+        model=None,
+        base_url=None,
+        organization=None,
+    )
+    st_stub.session_state["explain_results_cache"] = {
+        cache_key: explain_module.ExplanationResult(
+            text="Summary text",
+            trace_url="trace://example",
+            claim_issues=[],
+            metric_count=1,
+            created_at="2026-02-07T00:00:00+00:00",
+        )
+    }
+
+    st_stub.button.return_value = False
+    st_stub.expander.return_value = nullcontext()
+    st_stub.spinner.return_value = nullcontext()
+    st_stub.columns.return_value = [_StubColumn(), _StubColumn()]
+
+    explain_module.render_explain_results(result, run_key=run_key)
+
+    assert any(
+        call.args
+        and "Trace URL" in call.args[0]
+        and "trace://example" in call.args[0]
+        for call in st_stub.caption.call_args_list
+    )
+    assert any(
+        call.args and call.args[0] == "Trace URL"
+        for call in st_stub.text_input.call_args_list
+    )
+    assert any(
+        call.args and RESULT_DISCLAIMER in call.args[0]
+        for call in st_stub.markdown.call_args_list
+    )
+
+
 def test_resolve_explanation_run_id_prefers_details(explain_module) -> None:
     run_key = "run:abc123"
     details = {"run_id": "run-001"}
