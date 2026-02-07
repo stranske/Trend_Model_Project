@@ -519,6 +519,14 @@ def test_build_nl_chain_invalidates_on_org_change(
     assert "config_chat_last_instruction" not in stub.session_state
 
 
+def test_hash_api_key_secret_prefers_fingerprint(model_module: ModuleType) -> None:
+    secret = model_module._ApiKeySecret(value="sk-test", fingerprint="fp-123")
+    assert model_module._hash_api_key_secret(secret) == "fp-123"
+
+    secret_no_fp = model_module._ApiKeySecret(value="sk-test", fingerprint=None)
+    assert model_module._hash_api_key_secret(secret_no_fp) == "no-key"
+
+
 def test_build_chain_cache_context_includes_llm_settings(model_module: ModuleType) -> None:
     config = model_module.LLMProviderConfig(
         provider="openai",
