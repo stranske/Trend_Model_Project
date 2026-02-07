@@ -15,7 +15,7 @@ import pandas as pd
 
 from trend_analysis.api import run_simulation
 from trend_analysis.config.models import Config, ConfigType
-from trend_analysis.constants import NUMERICAL_TOLERANCE_HIGH
+from trend_analysis.constants import NUMERICAL_TOLERANCE_LOW
 from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
 from trend_analysis.io.market_data import (
     MarketDataMode,
@@ -1096,11 +1096,11 @@ class MonteCarloRunner:
         if isinstance(cap, pd.Series):
             aligned_cap = cap.reindex(turnover.index)
             valid_cap = aligned_cap.where(aligned_cap > 0)
-            binding = turnover >= (valid_cap - NUMERICAL_TOLERANCE_HIGH)
+            binding = turnover >= (valid_cap - NUMERICAL_TOLERANCE_LOW)
             return binding.fillna(False).astype(bool).rename("turnover_cap_binding")
         if cap <= 0:
             return pd.Series(False, index=turnover.index, name="turnover_cap_binding")
-        binding = turnover >= (cap - NUMERICAL_TOLERANCE_HIGH)
+        binding = turnover >= (cap - NUMERICAL_TOLERANCE_LOW)
         return binding.astype(bool).rename("turnover_cap_binding")
 
     def _cost_rng(self, path_id: int, strategy_name: str) -> np.random.Generator:

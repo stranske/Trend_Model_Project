@@ -1346,7 +1346,7 @@ def test_monte_carlo_run_persists_binding_indicator(monkeypatch) -> None:
 
     def _fake_run_simulation(config, returns, *_args, **_kwargs):
         turnover = pd.Series(
-            [0.1000005, 0.08],
+            [0.0999995, 0.099998],
             index=pd.to_datetime(returns["Date"].values),
             name="turnover",
         )
