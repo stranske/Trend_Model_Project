@@ -21,12 +21,7 @@ import yaml
 
 from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner, nl_operation_viewer
-from streamlit_app.components.llm_settings import (
-    default_api_key as _default_api_key,
-)
-from streamlit_app.components.llm_settings import (
-    sanitize_api_key as _sanitize_api_key,
-)
+from streamlit_app.components.llm_settings import sanitize_api_key as _sanitize_api_key
 from streamlit_app.components.progress_eta import (
     estimate_eta_seconds,
     progress_ratio_and_remaining,
@@ -887,19 +882,52 @@ def _maybe_reset_config_chat_cache(snapshot: Mapping[str, Any]) -> list[str]:
     return changed
 
 
-def _llm_env_var_hints(provider: str) -> list[str]:
-    hints = ["TS_STREAMLIT_API_KEY", "TREND_LLM_API_KEY"]
+def _llm_required_env_vars(provider: str) -> list[str]:
+    required = ["TS_STREAMLIT_API_KEY", "TREND_LLM_API_KEY"]
     if provider == "openai":
-        hints.append("OPENAI_API_KEY")
+        required.append("OPENAI_API_KEY")
     elif provider == "anthropic":
-        hints.append("ANTHROPIC_API_KEY")
-    return hints
+        required.append("ANTHROPIC_API_KEY")
+    else:
+        return []
+    return required
 
 
-def _llm_api_key_available(provider: str) -> bool:
-    if provider == "ollama":
-        return True
-    return bool(_default_api_key(provider))
+def _llm_env_var_present(name: str) -> bool:
+    value = os.environ.get(name)
+    if name in {"TS_STREAMLIT_API_KEY", "TREND_LLM_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"}:
+        return bool(_sanitize_api_key(value))
+    return bool(value)
+
+
+def _llm_env_var_status(provider: str) -> dict[str, bool]:
+    return {name: _llm_env_var_present(name) for name in _llm_required_env_vars(provider)}
+
+
+def _render_llm_status_panel() -> None:
+    provider_labels = {
+        "openai": "OpenAI",
+        "anthropic": "Anthropic",
+        "ollama": "Ollama",
+    }
+    resolved_provider = _resolve_llm_provider_config().provider
+    provider_label = provider_labels.get(resolved_provider, resolved_provider)
+    st.info(f"Active provider: {provider_label}")
+    required_vars = _llm_required_env_vars(resolved_provider)
+    if not required_vars:
+        st.caption("Expected environment variables: None required.")
+        return
+    st.caption("Expected environment variables (values hidden):")
+    status = _llm_env_var_status(resolved_provider)
+    for name in required_vars:
+        icon = "✓" if status.get(name) else "✗"
+        st.write(f"{icon} `{name}`")
+    if not any(status.values()):
+        missing_list = ", ".join(required_vars)
+        st.warning(
+            f"Missing required environment variables for {provider_label}. "
+            f"Set one of: {missing_list}."
+        )
 
 
 def _render_llm_session_overrides_panel() -> None:
@@ -949,17 +977,6 @@ def _render_llm_session_overrides_panel() -> None:
             except (TypeError, ValueError):
                 st.warning("Temperature override must be a number; using env default.")
         _maybe_reset_config_chat_cache(_current_chain_settings_snapshot())
-        resolved_provider = _resolve_llm_provider_config().provider
-        if resolved_provider == "ollama":
-            st.caption("Active provider: Ollama (no API key required).")
-            return
-        if _llm_api_key_available(resolved_provider):
-            st.caption(f"Active provider: {resolved_provider} (API key detected).")
-            return
-        hints = ", ".join(_llm_env_var_hints(resolved_provider))
-        st.warning(
-            f"Active provider: {resolved_provider}. No API key detected. " f"Set one of: {hints}."
-        )
 
 
 def _normalize_temperature(value: float) -> float:
@@ -1100,6 +1117,8 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         _current_chain_settings_snapshot(config, temperature)
     )
     context = _build_chain_cache_context(config, temperature)
+    st.session_state["selected_provider"] = context["provider"]
+    st.session_state["selected_model"] = context["resolved_model"]
     api_key = context["api_key"]
     api_key_fingerprint = context["api_key_fingerprint"]
     extra_payload = context["extra_payload"]
@@ -1761,6 +1780,7 @@ def render_config_chat_panel(
         if not (hasattr(sidebar_ctx, "__enter__") and hasattr(sidebar_ctx, "__exit__")):
             sidebar_ctx = contextlib.nullcontext()
         with sidebar_ctx:
+            _render_llm_status_panel()
             _render_llm_session_overrides_panel()
             with st.expander("💬 Config Chat", expanded=False):
                 _render_config_chat_contents(model_state)
