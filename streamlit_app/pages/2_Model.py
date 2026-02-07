@@ -985,12 +985,11 @@ def _render_llm_status_panel() -> None:
     if not required_vars:
         st.caption("Expected environment variables: None required.")
         return
-    st.caption("Expected environment variables (values hidden):")
-    status = {name: _llm_env_var_present(name) for name in required_vars}
-    for name in required_vars:
-        icon = "✓" if status.get(name) else "✗"
-        st.write(f"{icon} `{name}`")
     missing_vars = [name for name in required_vars if not _llm_env_var_present(name)]
+    st.caption("Expected environment variables (values hidden):")
+    for name in required_vars:
+        icon = "✓" if name not in missing_vars else "✗"
+        st.write(f"{icon} `{name}`")
     if missing_vars:
         missing_list = ", ".join(missing_vars)
         st.warning(
