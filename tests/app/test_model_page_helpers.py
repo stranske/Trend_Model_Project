@@ -698,6 +698,28 @@ def test_current_chain_settings_snapshot_uses_resolved_env(
     assert snapshot["temperature"] == pytest.approx(0.35)
 
 
+def test_chain_cache_summary_includes_llm_details(model_module: ModuleType) -> None:
+    cache_key = {"provider": "openai", "model": "gpt-4o-mini", "temperature": 0.2}
+    llm_cache_key = {"base_url": "https://api.example", "organization": "org-one"}
+
+    summary = model_module._chain_cache_summary(cache_key, llm_cache_key)
+
+    assert summary.startswith("openai:gpt-4o-mini@0.2")
+    assert "base_url=https://api.example" in summary
+    assert "org=org-one" in summary
+
+
+def test_chain_resource_signature_changes_with_llm_key(model_module: ModuleType) -> None:
+    chain_cache_key = {"provider": "openai", "model": "gpt-4o-mini", "temperature": 0.2}
+    llm_key_one = {"base_url": "https://api.one", "organization": "org-one"}
+    llm_key_two = {"base_url": "https://api.two", "organization": "org-one"}
+
+    sig_one = model_module._chain_resource_signature(chain_cache_key, llm_key_one)
+    sig_two = model_module._chain_resource_signature(chain_cache_key, llm_key_two)
+
+    assert sig_one != sig_two
+
+
 def test_record_preview_timing_tracks_chain_reuse(model_module: ModuleType) -> None:
     stub = model_module.st
     stub.session_state.clear()
