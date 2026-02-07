@@ -356,6 +356,11 @@ def render_explain_results(
     st.markdown(display_text)
     if cached.trace_url:
         st.caption(f"Trace URL: {cached.trace_url}")
+        st.text_input(
+            "Trace URL",
+            value=cached.trace_url,
+            disabled=True,
+        )
         st.markdown(f"[Open LangSmith trace]({cached.trace_url})")
 
     if cached.claim_issues:

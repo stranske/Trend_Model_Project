@@ -277,6 +277,10 @@ def test_render_explain_results_displays_trace_url(explain_module) -> None:
         if call.args and isinstance(call.args[0], str)
     ]
     assert any(RESULT_DISCLAIMER in text for text in markdown_calls)
+    assert any(
+        call.args and call.args[0] == "Trace URL" and call.kwargs.get("value") == "trace://example"
+        for call in st_stub.text_input.call_args_list
+    )
 
 
 def test_render_explain_results_uses_cached_result(explain_module) -> None:
