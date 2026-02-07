@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import re
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
@@ -61,8 +62,49 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     stub.date_input = lambda _label, value=None, **_kwargs: value
     stub.page_link = _noop
     stub.rerun = _noop
+
+    def _cache_resource_decorator(*dargs, **dkwargs):
+        hash_funcs = dkwargs.get("hash_funcs", {})
+
+        def _hash_value(value):
+            for key_type, func in hash_funcs.items():
+                if isinstance(value, key_type):
+                    return func(value)
+            if isinstance(value, Mapping):
+                return tuple(sorted((k, _hash_value(v)) for k, v in value.items()))
+            if isinstance(value, (list, tuple)):
+                return tuple(_hash_value(v) for v in value)
+            if isinstance(value, set):
+                return tuple(sorted(_hash_value(v) for v in value))
+            try:
+                hash(value)
+                return value
+            except TypeError:
+                return repr(value)
+
+        def decorator(fn):
+            cache: dict[tuple[object, object], object] = {}
+
+            def wrapper(*args, **kwargs):
+                key = (_hash_value(args), _hash_value(kwargs))
+                if key in cache:
+                    return cache[key]
+                result = fn(*args, **kwargs)
+                cache[key] = result
+                return result
+
+            def clear():
+                cache.clear()
+
+            wrapper.clear = clear
+            return wrapper
+
+        if dargs and callable(dargs[0]):
+            return decorator(dargs[0])
+        return decorator
+
     stub.cache_data = _passthrough_decorator
-    stub.cache_resource = _passthrough_decorator
+    stub.cache_resource = _cache_resource_decorator
     stub.expander = lambda *_args, **_kwargs: Context()
     stub.sidebar = Context()
     stub.dialog = lambda *_args, **_kwargs: Context()
@@ -206,6 +248,158 @@ def test_render_config_chat_panel_stores_instruction(model_module: ModuleType) -
     assert stub.session_state.get("config_chat_last_instruction") == "Increase lookback to 24"
 
 
+def test_chain_cache_signature_is_stable(model_module: ModuleType) -> None:
+    signature_one = model_module._chain_cache_signature_from_inputs(
+        "openai",
+        "gpt-4o-mini",
+        "https://api.example.com",
+        "org-123",
+        0.2,
+    )
+    signature_two = model_module._chain_cache_signature_from_inputs(
+        "openai",
+        "gpt-4o-mini",
+        "https://api.example.com",
+        "org-123",
+        0.2,
+    )
+    assert signature_one == signature_two
+
+
+@pytest.mark.parametrize(
+    ("updates", "label"),
+    [
+        ({"provider": "anthropic"}, "provider"),
+        ({"model": "gpt-4.1-mini"}, "model"),
+        ({"base_url": "https://api.alt.example.com"}, "base_url"),
+        ({"organization": "org-456"}, "organization"),
+        ({"temperature": 0.7}, "temperature"),
+    ],
+)
+def test_chain_cache_signature_changes_with_input(
+    model_module: ModuleType, updates: dict[str, object], label: str
+) -> None:
+    base = {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "base_url": "https://api.example.com",
+        "organization": "org-123",
+        "temperature": 0.2,
+    }
+    signature_base = model_module._chain_cache_signature_from_inputs(**base)
+    updated = dict(base)
+    updated.update(updates)
+    signature_updated = model_module._chain_cache_signature_from_inputs(**updated)
+    assert signature_updated != signature_base, f"Signature did not change for {label}"
+
+
+def test_build_nl_chain_cache_reuses_underlying_builder(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    calls = 0
+
+    def fake_cached_config_patch_chain(*_args, **_kwargs):
+        nonlocal calls
+        calls += 1
+        return object()
+
+    monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
+
+    signature = model_module._chain_cache_signature_from_inputs(
+        "openai",
+        "gpt-4o-mini",
+        None,
+        None,
+        0.3,
+    )
+    api_key_secret = model_module._ApiKeySecret(None, None)
+
+    chain_one = model_module._build_nl_chain(
+        "openai",
+        "gpt-4o-mini",
+        None,
+        None,
+        0.3,
+        signature,
+        None,
+        None,
+        api_key_secret,
+        "",
+    )
+    chain_two = model_module._build_nl_chain(
+        "openai",
+        "gpt-4o-mini",
+        None,
+        None,
+        0.3,
+        signature,
+        None,
+        None,
+        api_key_secret,
+        "",
+    )
+
+    assert calls == 1
+    assert chain_one is chain_two
+
+
+def test_build_nl_chain_cache_invalidates_on_change(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    calls = 0
+
+    def fake_cached_config_patch_chain(*_args, **_kwargs):
+        nonlocal calls
+        calls += 1
+        return object()
+
+    monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
+
+    api_key_secret = model_module._ApiKeySecret(None, None)
+    signature_one = model_module._chain_cache_signature_from_inputs(
+        "openai",
+        "gpt-4o-mini",
+        None,
+        None,
+        0.3,
+    )
+    signature_two = model_module._chain_cache_signature_from_inputs(
+        "openai",
+        "gpt-4.1-mini",
+        None,
+        None,
+        0.3,
+    )
+
+    chain_one = model_module._build_nl_chain(
+        "openai",
+        "gpt-4o-mini",
+        None,
+        None,
+        0.3,
+        signature_one,
+        None,
+        None,
+        api_key_secret,
+        "",
+    )
+    chain_two = model_module._build_nl_chain(
+        "openai",
+        "gpt-4.1-mini",
+        None,
+        None,
+        0.3,
+        signature_two,
+        None,
+        None,
+        api_key_secret,
+        "",
+    )
+
+    assert calls == 2
+    assert chain_one is not chain_two
+
+
 def test_build_nl_chain_reuses_cached_chain_with_provider_config(
     monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
 ) -> None:
@@ -227,8 +421,8 @@ def test_build_nl_chain_reuses_cached_chain_with_provider_config(
     monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
     monkeypatch.setenv("TREND_LLM_TEMPERATURE", "0.2")
 
-    chain_one, meta_one = model_module._build_nl_chain()
-    chain_two, meta_two = model_module._build_nl_chain()
+    chain_one, meta_one = model_module._get_nl_chain()
+    chain_two, meta_two = model_module._get_nl_chain()
 
     assert chain_one is chain_two
     assert meta_one["chain_reused"] is False
@@ -260,10 +454,10 @@ def test_build_nl_chain_invalidates_on_model_change(
     stub.session_state["config_chat_preview"] = {"before": {}, "after": {}}
     stub.session_state["config_chat_last_instruction"] = "old"
 
-    _chain, _meta = model_module._build_nl_chain()
+    _chain, _meta = model_module._get_nl_chain()
 
     stub.session_state[model_module._LLM_MODEL_OVERRIDE_KEY] = "gpt-4.1-mini"
-    _chain, meta = model_module._build_nl_chain()
+    _chain, meta = model_module._get_nl_chain()
 
     assert meta["chain_cache_invalidation_fields"] == ["model"]
     assert meta["chain_cache_session_reset"] is True
@@ -296,10 +490,10 @@ def test_build_nl_chain_invalidates_on_provider_change(
     stub.session_state["config_chat_preview"] = {"before": {}, "after": {}}
     stub.session_state["config_chat_last_instruction"] = "old"
 
-    _chain, _meta = model_module._build_nl_chain()
+    _chain, _meta = model_module._get_nl_chain()
 
     stub.session_state[model_module._LLM_PROVIDER_OVERRIDE_KEY] = "anthropic"
-    _chain, meta = model_module._build_nl_chain()
+    _chain, meta = model_module._get_nl_chain()
 
     assert meta["chain_cache_invalidation_fields"] == ["provider"]
     assert meta["chain_cache_session_reset"] is True
@@ -329,13 +523,13 @@ def test_build_nl_chain_invalidates_on_provider_env_change(
     monkeypatch.setenv("TREND_LLM_PROVIDER", "openai")
     monkeypatch.setenv("TREND_LLM_MODEL", "gpt-4o-mini")
 
-    _chain, _meta = model_module._build_nl_chain()
+    _chain, _meta = model_module._get_nl_chain()
     signature_before = stub.session_state.get("config_chat_chain_signature")
 
     stub.session_state["config_chat_preview"] = {"before": {}, "after": {}}
     stub.session_state["config_chat_last_instruction"] = "old"
     monkeypatch.setenv("TREND_LLM_PROVIDER", "anthropic")
-    _chain, meta = model_module._build_nl_chain()
+    _chain, meta = model_module._get_nl_chain()
 
     signature_after = stub.session_state.get("config_chat_chain_signature")
     assert signature_before != signature_after
@@ -367,13 +561,13 @@ def test_build_nl_chain_invalidates_on_model_env_change(
     monkeypatch.setenv("TREND_LLM_PROVIDER", "openai")
     monkeypatch.setenv("TREND_LLM_MODEL", "gpt-4o-mini")
 
-    _chain, _meta = model_module._build_nl_chain()
+    _chain, _meta = model_module._get_nl_chain()
     signature_before = stub.session_state.get("config_chat_chain_signature")
 
     stub.session_state["config_chat_preview"] = {"before": {}, "after": {}}
     stub.session_state["config_chat_last_instruction"] = "old"
     monkeypatch.setenv("TREND_LLM_MODEL", "gpt-4.1-mini")
-    _chain, meta = model_module._build_nl_chain()
+    _chain, meta = model_module._get_nl_chain()
 
     signature_after = stub.session_state.get("config_chat_chain_signature")
     assert signature_before != signature_after
@@ -407,10 +601,10 @@ def test_build_nl_chain_invalidates_on_temperature_env_change(
     stub.session_state["config_chat_preview"] = {"before": {}, "after": {}}
     stub.session_state["config_chat_last_instruction"] = "old"
 
-    _chain, _meta = model_module._build_nl_chain()
+    _chain, _meta = model_module._get_nl_chain()
 
     stub.session_state[model_module._LLM_TEMPERATURE_OVERRIDE_KEY] = "0.7"
-    _chain, meta = model_module._build_nl_chain()
+    _chain, meta = model_module._get_nl_chain()
 
     assert meta["chain_cache_invalidation_fields"] == ["temperature"]
     assert meta["chain_cache_session_reset"] is True
@@ -437,7 +631,7 @@ def test_build_nl_chain_passes_api_key_to_cache(
     monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
     monkeypatch.setenv("OPENAI_API_KEY", "test-key-123")
 
-    model_module._build_nl_chain()
+    model_module._get_nl_chain()
 
     secret = captured.get("api_key_secret")
     assert secret is not None
@@ -471,10 +665,10 @@ def test_build_nl_chain_invalidates_on_base_url_change(
     stub.session_state["config_chat_preview"] = {"before": {}, "after": {}}
     stub.session_state["config_chat_last_instruction"] = "old"
 
-    _chain, _meta = model_module._build_nl_chain()
+    _chain, _meta = model_module._get_nl_chain()
 
     stub.session_state[model_module._LLM_BASE_URL_OVERRIDE_KEY] = "https://api.two"
-    _chain, meta = model_module._build_nl_chain()
+    _chain, meta = model_module._get_nl_chain()
 
     assert meta["chain_cache_invalidation_fields"] == ["base_url"]
     assert meta["chain_cache_session_reset"] is True
@@ -508,10 +702,10 @@ def test_build_nl_chain_invalidates_on_org_change(
     stub.session_state["config_chat_preview"] = {"before": {}, "after": {}}
     stub.session_state["config_chat_last_instruction"] = "old"
 
-    _chain, _meta = model_module._build_nl_chain()
+    _chain, _meta = model_module._get_nl_chain()
 
     stub.session_state[model_module._LLM_ORG_OVERRIDE_KEY] = "org-two"
-    _chain, meta = model_module._build_nl_chain()
+    _chain, meta = model_module._get_nl_chain()
 
     assert meta["chain_cache_invalidation_fields"] == ["organization"]
     assert meta["chain_cache_session_reset"] is True
@@ -571,12 +765,12 @@ def test_build_nl_chain_invalidates_on_temperature_change(
     monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
 
     monkeypatch.setenv("TREND_LLM_TEMPERATURE", "0.1")
-    _chain, _meta = model_module._build_nl_chain()
+    _chain, _meta = model_module._get_nl_chain()
 
     stub.session_state["config_chat_preview"] = {"before": {}, "after": {}}
     stub.session_state["config_chat_last_instruction"] = "old"
     monkeypatch.setenv("TREND_LLM_TEMPERATURE", "0.7")
-    _chain, meta = model_module._build_nl_chain()
+    _chain, meta = model_module._get_nl_chain()
 
     assert meta["chain_cache_invalidation_fields"] == ["temperature"]
     assert meta["chain_cache_session_reset"] is True
@@ -637,10 +831,10 @@ def test_build_nl_chain_creates_new_instance_on_setting_change(
     for key, value in base_overrides.items():
         stub.session_state[key] = value
 
-    chain_first, _meta_first = model_module._build_nl_chain()
+    chain_first, _meta_first = model_module._get_nl_chain()
 
     stub.session_state[override_key] = updated_value
-    chain_second, meta_second = model_module._build_nl_chain()
+    chain_second, meta_second = model_module._get_nl_chain()
 
     assert chain_first is not chain_second
     assert field in (meta_second["chain_cache_invalidation_fields"] or [])
@@ -699,10 +893,10 @@ def test_build_nl_chain_creates_new_instance_on_env_setting_change(
     for key, value in base_env.items():
         monkeypatch.setenv(key, value)
 
-    chain_first, _meta_first = model_module._build_nl_chain()
+    chain_first, _meta_first = model_module._get_nl_chain()
 
     monkeypatch.setenv(env_key, updated_value)
-    chain_second, meta_second = model_module._build_nl_chain()
+    chain_second, meta_second = model_module._get_nl_chain()
 
     assert chain_first is not chain_second
     assert field in (meta_second["chain_cache_invalidation_fields"] or [])
@@ -1346,8 +1540,8 @@ def test_build_nl_chain_reuses_cached_chain(
     monkeypatch.setattr(model_module, "_resolve_llm_temperature", lambda: 0.1)
     monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
 
-    chain_first, meta_first = model_module._build_nl_chain()
-    chain_second, meta_second = model_module._build_nl_chain()
+    chain_first, meta_first = model_module._get_nl_chain()
+    chain_second, meta_second = model_module._get_nl_chain()
 
     assert chain_first is chain_obj
     assert chain_second is chain_obj
@@ -1400,8 +1594,8 @@ def test_build_nl_chain_invalidation_on_model_change(
 
     monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
 
-    _, meta_first = model_module._build_nl_chain()
-    _, meta_second = model_module._build_nl_chain()
+    _, meta_first = model_module._get_nl_chain()
+    _, meta_second = model_module._get_nl_chain()
 
     assert meta_first["chain_reused"] is False
     assert "model" in (meta_second["chain_cache_invalidation_fields"] or [])
@@ -1452,8 +1646,8 @@ def test_build_nl_chain_invalidation_on_base_url_change(
 
     monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
 
-    _, meta_first = model_module._build_nl_chain()
-    _, meta_second = model_module._build_nl_chain()
+    _, meta_first = model_module._get_nl_chain()
+    _, meta_second = model_module._get_nl_chain()
 
     assert meta_first["chain_reused"] is False
     assert "base_url" in (meta_second["chain_cache_invalidation_fields"] or [])
@@ -1497,8 +1691,8 @@ def test_build_nl_chain_invalidation_on_temperature_change(
 
     monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
 
-    _, meta_first = model_module._build_nl_chain()
-    _, meta_second = model_module._build_nl_chain()
+    _, meta_first = model_module._get_nl_chain()
+    _, meta_second = model_module._get_nl_chain()
 
     assert meta_first["chain_reused"] is False
     assert "temperature" in (meta_second["chain_cache_invalidation_fields"] or [])
@@ -1549,8 +1743,8 @@ def test_build_nl_chain_invalidation_on_org_change(
 
     monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
 
-    _, meta_first = model_module._build_nl_chain()
-    _, meta_second = model_module._build_nl_chain()
+    _, meta_first = model_module._get_nl_chain()
+    _, meta_second = model_module._get_nl_chain()
 
     assert meta_first["chain_reused"] is False
     assert "organization" in (meta_second["chain_cache_invalidation_fields"] or [])
