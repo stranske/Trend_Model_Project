@@ -1114,7 +1114,6 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     resource_signature = _chain_resource_signature(cache_key, llm_cache_key)
     previous_signature = cache_state.get("last_signature")
     previous_resource_signature = cache_state.get("last_resource_signature")
-    settings_changed = bool(previous_signature and previous_signature != signature)
     previous_cache_key = cache_state.get("last_cache_key")
     previous_llm_cache_key = cache_state.get("last_llm_cache_key")
     changed_fields = _cache_key_changes(previous_cache_key, cache_key, _CONFIG_CHAIN_CORE_FIELDS)
@@ -1127,6 +1126,11 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         previous_cache_key,
         cache_key,
         _CONFIG_CHAIN_REBUILD_FIELDS,
+    )
+    settings_changed = bool(
+        (previous_signature and previous_signature != signature)
+        or invalidation_fields
+        or reset_fields
     )
     resource_changed = bool(
         previous_resource_signature and previous_resource_signature != resource_signature
