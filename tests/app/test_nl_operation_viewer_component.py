@@ -214,9 +214,7 @@ def test_load_log_entries_orders_by_timestamp(tmp_path, monkeypatch: pytest.Monk
     assert [entry.request_id for _, entry in loaded] == ["req-1", "req-2", "req-3"]
 
 
-def test_load_log_entries_returns_most_recent_50(
-    tmp_path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_load_log_entries_returns_most_recent_50(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     module = _load_module(monkeypatch)
     log_path = tmp_path / "nl_ops_2026-02-03.jsonl"
 
