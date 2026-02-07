@@ -1,0 +1,296 @@
+version: 1
+issue: 4779
+base: phase-3
+branch: codex/issue-4779
+tasks:
+  - id: task-01
+    title: Update the Streamlit Replay button callback to invoke `replay_nl_entry`
+      with the selected entry context
+    status: doing
+    started_at: '2026-02-07T19:04:55Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Store the returned replay payload from `replay_nl_entry` into session state
+      using an entry-specific key pattern `nl_replay_result_{entry_id}`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Remove any session state toggle-only logic that bypasses the `replay_nl_entry`
+      call
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Create an `st.expander` widget labeled "Replay Results" in the Streamlit
+      NLOperationLog page that displays redacted text from `st.session_state[f"nl_replay_result_{entry_id}"]`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Update the expander to render only when `st.session_state[f"nl_replay_result_{entry_id}"]`
+      exists and is non-empty
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Update all replay-related session state key writes to use the pattern `nl_replay_open_{entry_id}`
+      and `nl_replay_result_{entry_id}`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Update all replay-related session state key reads to use the pattern `nl_replay_open_{entry_id}`
+      and `nl_replay_result_{entry_id}`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Update `_render_replay` to pass all replay text through `_redact_text`
+      before calling any Streamlit rendering functions (`st.text`, `st.code`, `st.markdown`)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Implement redaction pattern in `_redact_text` for OpenAI-style keys matching
+      `sk-[a-zA-Z0-9_-]+`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Implement redaction pattern in `_redact_text` for GitHub tokens matching
+      `ghp_[a-zA-Z0-9_]+` or `github_pat_[a-zA-Z0-9_]+`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Implement redaction pattern in `_redact_text` for AWS access key IDs matching
+      `AKIA[A-Z0-9]{16}`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Implement redaction pattern in `_redact_text` for environment variable
+      dump lines matching `^\s*[A-Z_]*(KEY|TOKEN|SECRET|PASSWORD)[A-Z_]*\s*=\s*.+$`
+      (case-insensitive)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Write unit test in `tests/test_redaction.py` verifying `_redact_text` replaces
+      `sk-proj-abc123xyz` with `[REDACTED]`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Write unit test in `tests/test_redaction.py` verifying `_redact_text` replaces
+      `ghp_abc123xyz` with `[REDACTED]`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Write unit test in `tests/test_redaction.py` verifying `_redact_text` replaces
+      `github_pat_abc123xyz` with `[REDACTED]`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Write unit test in `tests/test_redaction.py` verifying `_redact_text` replaces
+      `AKIAIOSFODNN7EXAMPLE` with `[REDACTED]`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Write unit test in `tests/test_redaction.py` verifying `_redact_text` replaces
+      `SECRET_KEY=value123` with `[REDACTED]`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Write unit test in `tests/test_redaction.py` verifying `_redact_text(_redact_text(x))
+      == _redact_text(x)` for all test fixtures (idempotence)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Write integration test in `tests/test_redaction.py` verifying `_render_replay`
+      calls `_redact_text` before passing text to mocked Streamlit rendering functions
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Write test in `tests/test_streamlit_replay.py` verifying the Replay button
+      callback invokes mocked `replay_nl_entry` with correct entry context
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Write test in `tests/test_streamlit_replay.py` verifying the replay result
+      is stored in `st.session_state[f"nl_replay_result_{entry_id}"]`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Write test in `tests/test_streamlit_replay.py` verifying replay wiring
+      does not make network calls by asserting only mocks are invoked
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: Write test in `tests/test_nl_operation_log_listing.py` verifying the query
+      returns at most 50 entries ordered by descending timestamp when more than 50
+      exist
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: Write test in `tests/test_nl_operation_log_listing.py` verifying the query
+      returns all entries when fewer than 50 exist
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: Verify `git diff` for this branch shows no changes to `pr_verifier.py`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: Verify `git diff` for this branch shows no changes to `package.json`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: Clicking the Streamlit **Replay** button for a selected NLOperationLog
+      entry invokes `replay_nl_entry(...)` exactly once with that selected entry context
+      (entry_id or entry object) and stores the returned replay payload (e.g., diff/result)
+      into Streamlit `st.session_state` under an entry-specific key.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: After `replay_nl_entry(...)` returns, the Streamlit page renders replay
+      output from session state in an `st.expander` widget labeled "Replay Results",
+      and the displayed text equals the session-state replay result (after redaction).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: 'Replay-related `st.session_state` keys are entry-specific: the code must
+      not read/write any global replay keys (e.g., `nl_replay_open`, `nl_replay_result`)
+      without incorporating the selected entry identifier; keys must follow the pattern
+      `nl_replay_open_{entry_id}` and `nl_replay_result_{entry_id}` everywhere they
+      are used.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: '`_render_replay(...)` must apply `_redact_text(...)` to all replay text
+      prior to rendering (i.e., no replay content is passed directly to Streamlit
+      rendering calls without redaction).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: '`_redact_text(text)` replaces the following test fixtures with `[REDACTED]`:
+      (1) `sk-proj-abc123xyz` (OpenAI key), (2) `ghp_abc123xyz` and `github_pat_abc123xyz`
+      (GitHub tokens), (3) `AKIAIOSFODNN7EXAMPLE` (AWS key), and (4) `SECRET_KEY=value123`
+      (environment variable line).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: 'Redaction must be idempotent: calling `_redact_text` on already-redacted
+      text must not reintroduce secrets and must preserve `[REDACTED]` markers (i.e.,
+      `_redact_text(_redact_text(x)) == _redact_text(x)` for test fixtures).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: The NLOperationLog listing query returns at most 50 entries and they are
+      the most recent by timestamp/created field; when fewer than 50 exist, it returns
+      all available entries.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: Replay wiring tests must not perform any network/provider calls; `replay_nl_entry`
+      must be mocked in tests and assertions must prove the mock was used.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: The follow-up PR must not modify `pr_verifier.py` or `package.json`; `git
+      diff` for this branch shows no hunks for those files.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
