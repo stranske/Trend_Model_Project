@@ -1,6 +1,11 @@
 """LLM utilities for Trend Model."""
 
-from .chain import ConfigPatchChain, ResultSummaryChain, ResultSummaryResponse
+from .chain import (
+    ConfigPatchChain,
+    ConfigPatchVariantsChain,
+    ResultSummaryChain,
+    ResultSummaryResponse,
+)
 from .nl_logging import NLOperationLog
 from .prompts import (
     DEFAULT_COMPARISON_RULES,
@@ -9,6 +14,8 @@ from .prompts import (
     DEFAULT_RESULT_SYSTEM_PROMPT,
     DEFAULT_SAFETY_RULES,
     DEFAULT_SYSTEM_PROMPT,
+    DEFAULT_VARIANT_RULES,
+    DEFAULT_VARIANT_SYSTEM_PROMPT,
     SECTION_COMPARISON_METRICS_A,
     SECTION_COMPARISON_METRICS_B,
     SECTION_COMPARISON_QUESTIONS,
@@ -29,6 +36,8 @@ from .prompts import (
     build_comparison_prompt,
     build_config_patch_prompt,
     build_result_summary_prompt,
+    build_variant_patch_prompt,
+    build_variant_retry_prompt,
     format_config_for_prompt,
 )
 from .providers import LLMProviderConfig, create_llm
@@ -53,6 +62,7 @@ from .result_validation import (
 
 __all__ = [
     "ConfigPatchChain",
+    "ConfigPatchVariantsChain",
     "ResultSummaryChain",
     "ResultSummaryResponse",
     "DEFAULT_RESULT_RULES",
@@ -61,6 +71,8 @@ __all__ = [
     "DEFAULT_COMPARISON_SYSTEM_PROMPT",
     "DEFAULT_SAFETY_RULES",
     "DEFAULT_SYSTEM_PROMPT",
+    "DEFAULT_VARIANT_RULES",
+    "DEFAULT_VARIANT_SYSTEM_PROMPT",
     "SECTION_CONFIG",
     "SECTION_RESULT_METRICS",
     "SECTION_RESULT_OUTPUT",
@@ -81,6 +93,8 @@ __all__ = [
     "build_config_patch_prompt",
     "build_comparison_prompt",
     "build_result_summary_prompt",
+    "build_variant_patch_prompt",
+    "build_variant_retry_prompt",
     "format_config_for_prompt",
     "NLOperationLog",
     "ReplayResult",
