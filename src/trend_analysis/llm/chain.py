@@ -395,6 +395,18 @@ class ConfigPatchChain:
 
     def _structured_output_llm(self) -> Any | None:
         base_llm = self.llm
+        supports_attr = getattr(base_llm, "supports_structured_output", None)
+        if supports_attr is not None:
+            try:
+                supports = supports_attr() if callable(supports_attr) else bool(supports_attr)
+            except Exception as exc:
+                logger.info(
+                    "Structured output availability check failed; falling back to text output: %s",
+                    exc,
+                )
+                return None
+            if not supports:
+                return None
         if not hasattr(base_llm, "with_structured_output"):
             return None
         try:
