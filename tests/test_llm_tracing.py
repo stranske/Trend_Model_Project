@@ -49,6 +49,7 @@ def test_langsmith_tracing_context_is_noop_without_key(monkeypatch) -> None:
 
 
 def test_langsmith_tracing_context_invokes_trace(monkeypatch) -> None:
+    monkeypatch.setenv("TREND_LANGSMITH_TRACE_TESTS", "1")
     monkeypatch.setenv("LANGSMITH_API_KEY", "test-key")
     monkeypatch.delenv("LANGCHAIN_API_KEY", raising=False)
     monkeypatch.delenv("LANGCHAIN_TRACING_V2", raising=False)

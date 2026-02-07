@@ -7,6 +7,14 @@ from contextlib import contextmanager
 from typing import Any, Iterator, Literal
 
 _LANGSMITH_ENABLED: bool | None = None
+_TRUTHY = {"1", "true", "yes", "on"}
+
+
+def _truthy_env(name: str) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return False
+    return value.strip().lower() in _TRUTHY
 
 
 def maybe_enable_langsmith_tracing() -> bool:
@@ -71,6 +79,11 @@ def langsmith_tracing_context(
 ) -> Iterator[Any]:
     """Provide a LangSmith tracing context and optional run metadata."""
 
+    if os.environ.get("PYTEST_CURRENT_TEST") and not _truthy_env(
+        "TREND_LANGSMITH_TRACE_TESTS"
+    ):
+        yield None
+        return
     if not maybe_enable_langsmith_tracing():
         yield None
         return
