@@ -31,6 +31,34 @@ def _get_langsmith_project() -> str | None:
     return os.environ.get("LANGCHAIN_PROJECT") or os.environ.get("LANGSMITH_PROJECT")
 
 
+def resolve_trace_url(run: Any) -> str | None:
+    """Resolve the trace URL from a LangSmith run object."""
+
+    if run is None:
+        return None
+    url_attr = getattr(run, "url", None)
+    if isinstance(url_attr, str) and url_attr:
+        return url_attr
+    if callable(url_attr):
+        try:
+            value = url_attr()
+        except TypeError:
+            value = None
+        if isinstance(value, str) and value:
+            return value
+    for method_name in ("get_url", "get_run_url"):
+        method = getattr(run, method_name, None)
+        if not callable(method):
+            continue
+        try:
+            value = method()
+        except TypeError:
+            value = None
+        if isinstance(value, str) and value:
+            return value
+    return None
+
+
 @contextmanager
 def langsmith_tracing_context(
     *,
@@ -82,4 +110,4 @@ def langsmith_tracing_context(
                 yield run
 
 
-__all__ = ["langsmith_tracing_context", "maybe_enable_langsmith_tracing"]
+__all__ = ["langsmith_tracing_context", "maybe_enable_langsmith_tracing", "resolve_trace_url"]

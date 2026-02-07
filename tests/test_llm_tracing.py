@@ -6,6 +6,7 @@ from trend_analysis.llm import tracing as tracing_module
 from trend_analysis.llm.tracing import (
     langsmith_tracing_context,
     maybe_enable_langsmith_tracing,
+    resolve_trace_url,
 )
 
 
@@ -96,3 +97,18 @@ def test_langsmith_tracing_context_invokes_trace(monkeypatch) -> None:
     assert isinstance(calls["kwargs"], dict)
     assert calls["kwargs"]["inputs"] == {"prompt": "hello"}
     assert calls["kwargs"]["metadata"] == {"request_id": "req-123"}
+
+
+def test_resolve_trace_url_prefers_property() -> None:
+    class DummyRun:
+        url = "https://example.test/run/123"
+
+    assert resolve_trace_url(DummyRun()) == "https://example.test/run/123"
+
+
+def test_resolve_trace_url_falls_back_to_method() -> None:
+    class DummyRun:
+        def get_url(self) -> str:
+            return "https://example.test/run/456"
+
+    assert resolve_trace_url(DummyRun()) == "https://example.test/run/456"
