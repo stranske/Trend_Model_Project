@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import logging
 import re
 import sys
 from collections.abc import Mapping
@@ -1933,3 +1934,39 @@ def test_llm_status_panel_allows_env_var_names_but_not_values(
     assert "OPENAI_API_KEY" in rendered_text
     for secret in seeded_llm_env.values():
         assert secret not in rendered_text
+
+
+def test_llm_status_panel_warns_once_with_all_missing_env_vars(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+    stub.session_state["selected_provider"] = "openai"
+    stub.session_state["selected_model"] = "gpt-4o-mini"
+
+    monkeypatch.setenv("TS_STREAMLIT_API_KEY", "ts-present")
+    monkeypatch.delenv("TREND_LLM_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    warnings: list[str] = []
+    stub.warning = lambda message, **_kwargs: warnings.append(message)
+
+    model_module._render_llm_status_panel()
+
+    assert len(warnings) == 1
+    warning_text = warnings[0]
+    for name in ("TREND_LLM_API_KEY", "OPENAI_API_KEY"):
+        assert name in warning_text
+
+
+def test_llm_required_env_vars_warns_on_unknown_provider(
+    caplog: pytest.LogCaptureFixture, model_module: ModuleType
+) -> None:
+    with caplog.at_level(logging.WARNING):
+        required = model_module._llm_required_env_vars("mystery-provider")
+
+    assert required is None
+    assert any(
+        "Unknown LLM provider for env var requirements" in message
+        for message in caplog.messages
+    )
