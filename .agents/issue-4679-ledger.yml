@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Create the sidebar layout structure in `streamlit_app/pages/2_Model.py`
       with sections for provider selection, model selection, and status display
-    status: doing
+    status: done
     started_at: '2026-02-07T19:10:34Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-07T19:10:43Z'
+    commit: 749b21c108c61be5ec068ef29aa73022b82ea149
     notes: []
   - id: task-02
     title: Implement the provider dropdown selector in `streamlit_app/pages/2_Model.py`
