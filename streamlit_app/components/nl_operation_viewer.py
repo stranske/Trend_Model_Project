@@ -180,6 +180,18 @@ def _sanitize_patch_payload(patch: ConfigPatch) -> dict[str, Any]:
     return _sanitize_value(payload)
 
 
+def _build_diff_summary(payload: dict[str, Any]) -> list[str]:
+    operations = []
+    for op in payload.get("operations", []):
+        if not isinstance(op, dict):
+            continue
+        operation = op.get("op")
+        path = op.get("path")
+        value = json.dumps(op.get("value"), default=str)
+        operations.append(f"{operation} {path} -> {value}")
+    return operations
+
+
 def _format_timestamp(entry: NLOperationLog) -> str:
     timestamp = entry.timestamp
     try:
@@ -237,14 +249,9 @@ def _render_patch_summary(entry: NLOperationLog) -> None:
     if risk_flags:
         st.caption("Risk flags: " + ", ".join(str(flag) for flag in risk_flags))
     st.caption("Needs review: " + ("Yes" if safe_payload.get("needs_review") else "No"))
-    operations = []
-    for op in safe_payload.get("operations", []):
-        if not isinstance(op, dict):
-            continue
-        operations.append(
-            f"{op.get('op')} {op.get('path')} -> {json.dumps(op.get('value'), default=str)}"
-        )
+    operations = _build_diff_summary(safe_payload)
     if operations:
+        st.markdown("**Diff summary**")
         st.code("\n".join(operations), language="text")
     st.markdown("**Patch payload**")
     st.code(json.dumps(safe_payload, indent=2, sort_keys=True), language="json")
@@ -352,7 +359,10 @@ def render_nl_operation_viewer(
     variables = entry.prompt_variables or {}
     if variables:
         st.markdown("**Prompt variables**")
-        st.code(json.dumps(_sanitize_prompt_variables(dict(variables)), indent=2), language="json")
+        st.code(
+            json.dumps(_sanitize_prompt_variables(dict(variables)), indent=2),
+            language="json",
+        )
 
     if entry.model_output:
         st.markdown("**Model output**")
