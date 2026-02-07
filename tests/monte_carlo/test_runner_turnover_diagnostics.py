@@ -255,9 +255,7 @@ def test_run_persists_turnover_per_period_and_path(monkeypatch) -> None:
     assert len(diagnostics) == 6
 
     expected_keys = {(path_id, date) for path_id in (0, 1) for date in dates}
-    observed_keys = set(
-        zip(diagnostics["path_id"].to_list(), diagnostics["period"].to_list())
-    )
+    observed_keys = set(zip(diagnostics["path_id"].to_list(), diagnostics["period"].to_list()))
     assert observed_keys == expected_keys
     assert diagnostics["turnover"].notna().all()
 
@@ -281,11 +279,7 @@ def test_run_persists_binding_indicator_per_period_and_path(monkeypatch) -> None
         path_id: int,
         **_kwargs,
     ) -> _PathContext:
-        values = (
-            [near_cap, below_cap, cap]
-            if path_id == 0
-            else [below_cap, near_cap, cap]
-        )
+        values = [near_cap, below_cap, cap] if path_id == 0 else [below_cap, near_cap, cap]
         returns = pd.DataFrame({"Date": dates, "Asset": values})
         return _PathContext(
             path_id=path_id,
