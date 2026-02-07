@@ -27,6 +27,7 @@ from trend_analysis.pipeline import (
     compute_signal,
     single_period_run,
 )
+from trend_analysis.pipeline_helpers import _resolve_regime_turnover_cap
 from trend_analysis.signals import TrendSpec
 from trend_analysis.util.frequency import FrequencySummary
 from trend_analysis.util.missing import MissingPolicyResult
@@ -152,6 +153,55 @@ def test_build_trend_spec_uses_vol_adjust_defaults() -> None:
     assert spec.vol_adjust is True
     assert spec.vol_target == pytest.approx(0.15)
     assert spec.zscore is True
+
+
+def test_resolve_regime_turnover_cap_matches_labels() -> None:
+    settings = SimpleNamespace(default_label=None)
+    caps = {"calm": 0.15, "stress": 0.08}
+
+    assert _resolve_regime_turnover_cap(caps, "calm", settings) == pytest.approx(0.15)
+    assert _resolve_regime_turnover_cap(caps, "stress", settings) == pytest.approx(0.08)
+
+
+def test_resolve_regime_turnover_cap_uses_default_key() -> None:
+    settings = SimpleNamespace(default_label=None)
+    caps = {"default": 0.2, "calm": 0.15}
+
+    assert _resolve_regime_turnover_cap(caps, "unknown", settings) == pytest.approx(0.2)
+
+
+def test_resolve_regime_turnover_cap_missing_default_raises() -> None:
+    settings = SimpleNamespace(default_label=None)
+    caps = {"calm": 0.15}
+
+    with pytest.raises(KeyError, match="default"):
+        _resolve_regime_turnover_cap(caps, "stress", settings)
+
+
+def test_resolve_regime_turnover_cap_type_error_on_non_float() -> None:
+    settings = SimpleNamespace(default_label=None)
+
+    with pytest.raises(TypeError, match="max_turnover"):
+        _resolve_regime_turnover_cap({"calm": "fast"}, "calm", settings)
+
+
+def test_resolve_regime_turnover_cap_detects_normalized_collisions() -> None:
+    settings = SimpleNamespace(default_label=None)
+
+    with pytest.raises(ValueError, match="normaliz"):
+        _resolve_regime_turnover_cap({"Risk On": 0.1, "risk_on": 0.2}, "risk_on", settings)
+
+
+def test_resolve_regime_turnover_cap_resolves_per_period() -> None:
+    settings = SimpleNamespace(default_label=None)
+    caps = {"calm": 0.15, "stress": 0.08}
+
+    resolved = [
+        _resolve_regime_turnover_cap(caps, label, settings)
+        for label in ("calm", "stress", "calm")
+    ]
+
+    assert resolved == [pytest.approx(0.15), pytest.approx(0.08), pytest.approx(0.15)]
 
 
 def test_policy_from_config_constructs_composites() -> None:

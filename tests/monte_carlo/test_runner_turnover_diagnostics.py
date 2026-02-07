@@ -1040,6 +1040,177 @@ def test_build_diagnostics_frame_expands_scalar_binding_from_evaluation() -> Non
     pdt.assert_frame_equal(diagnostics.reset_index(drop=True), expected)
 
 
+def test_monte_carlo_run_records_turnover_for_each_path_period(monkeypatch) -> None:
+    dates = pd.date_range("2022-01-31", periods=3, freq="ME")
+    returns_by_path = {
+        0: [0.01, 0.02, 0.03],
+        1: [0.04, 0.05, 0.06],
+    }
+    log_returns = pd.DataFrame(
+        {("Asset", path): np.log1p(values) for path, values in returns_by_path.items()},
+        index=dates,
+    )
+    log_returns.columns = pd.MultiIndex.from_tuples(log_returns.columns, names=["asset", "path"])
+    prices = np.exp(log_returns).cumprod() * 100.0
+
+    class _StubSample:
+        def __init__(self, prices: pd.DataFrame, log_returns: pd.DataFrame) -> None:
+            self.prices = prices
+            self.log_returns = log_returns
+
+    class _StubModel:
+        def sample_prices(
+            self,
+            *,
+            n_periods: int,
+            n_paths: int,
+            frequency: str,
+            seed: int | None,
+        ) -> _StubSample:
+            assert n_periods == len(dates)
+            assert n_paths == len(returns_by_path)
+            return _StubSample(prices, log_returns)
+
+    def _fake_build_price_model(*_args, **_kwargs) -> _StubModel:
+        return _StubModel()
+
+    def _fake_run_simulation(config, returns, *_args, **_kwargs):
+        series = pd.Series(
+            returns["Asset"].to_numpy(),
+            index=pd.to_datetime(returns["Date"].values),
+            name="turnover",
+        )
+        out_scaled = pd.DataFrame({"Asset": returns["Asset"].to_numpy()}, index=series.index)
+        metrics = pd.DataFrame({"cagr": [0.1]}, index=["user_weight"])
+        return RunResult(
+            metrics=metrics,
+            details={"out_sample_scaled": out_scaled},
+            seed=0,
+            environment={},
+            turnover=series,
+        )
+
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.run_simulation",
+        _fake_run_simulation,
+    )
+
+    history = pd.DataFrame(
+        {"Asset": [100.0, 101.0, 102.0]},
+        index=pd.date_range("2020-01-31", periods=3, freq="ME"),
+    )
+    scenario = MonteCarloScenario(
+        name="turnover_paths",
+        base_config="base.yml",
+        monte_carlo={
+            "mode": "two_layer",
+            "n_paths": 2,
+            "horizon_years": 3 / 12,
+            "frequency": "M",
+        },
+        return_model={"kind": "stationary_bootstrap"},
+        enable_fold_runs=False,
+    )
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(max_turnover=1.0),
+        price_history=history,
+    )
+
+    results = runner.run(jobs=1)
+
+    diagnostics = results.diagnostics_frame
+    assert diagnostics is not None
+    assert len(diagnostics) == len(dates) * len(returns_by_path)
+    for path_id, values in returns_by_path.items():
+        subset = diagnostics[diagnostics["path_id"] == path_id]
+        assert list(subset["period"]) == list(dates)
+        assert np.allclose(subset["turnover"].to_numpy(), np.array(values))
+
+
+def test_monte_carlo_run_persists_binding_indicator(monkeypatch) -> None:
+    dates = pd.date_range("2022-06-30", periods=2, freq="ME")
+    log_returns = pd.DataFrame(
+        {("Asset", 0): np.log1p([0.01, 0.02])},
+        index=dates,
+    )
+    log_returns.columns = pd.MultiIndex.from_tuples(log_returns.columns, names=["asset", "path"])
+    prices = np.exp(log_returns).cumprod() * 100.0
+
+    class _StubSample:
+        def __init__(self, prices: pd.DataFrame, log_returns: pd.DataFrame) -> None:
+            self.prices = prices
+            self.log_returns = log_returns
+
+    class _StubModel:
+        def sample_prices(
+            self,
+            *,
+            n_periods: int,
+            n_paths: int,
+            frequency: str,
+            seed: int | None,
+        ) -> _StubSample:
+            assert n_periods == len(dates)
+            assert n_paths == 1
+            return _StubSample(prices, log_returns)
+
+    def _fake_build_price_model(*_args, **_kwargs) -> _StubModel:
+        return _StubModel()
+
+    def _fake_run_simulation(config, returns, *_args, **_kwargs):
+        turnover = pd.Series(
+            [0.1000005, 0.08],
+            index=pd.to_datetime(returns["Date"].values),
+            name="turnover",
+        )
+        out_scaled = pd.DataFrame({"Asset": returns["Asset"].to_numpy()}, index=turnover.index)
+        metrics = pd.DataFrame({"cagr": [0.1]}, index=["user_weight"])
+        return RunResult(
+            metrics=metrics,
+            details={"out_sample_scaled": out_scaled},
+            seed=0,
+            environment={},
+            turnover=turnover,
+        )
+
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.run_simulation",
+        _fake_run_simulation,
+    )
+
+    history = pd.DataFrame(
+        {"Asset": [100.0, 101.0, 102.0]},
+        index=pd.date_range("2020-01-31", periods=3, freq="ME"),
+    )
+    scenario = MonteCarloScenario(
+        name="binding_indicator",
+        base_config="base.yml",
+        monte_carlo={
+            "mode": "two_layer",
+            "n_paths": 1,
+            "horizon_years": 2 / 12,
+            "frequency": "M",
+        },
+        return_model={"kind": "stationary_bootstrap"},
+        enable_fold_runs=False,
+    )
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(max_turnover=0.1),
+        price_history=history,
+    )
+
+    results = runner.run(jobs=1)
+
+    diagnostics = results.diagnostics_frame
+    assert diagnostics is not None
+    assert list(diagnostics["period"]) == list(dates)
+    assert list(diagnostics["turnover_cap_binding"]) == [True, False]
+
+
 def test_build_diagnostics_frame_uses_evaluation_turnover_with_scalar_binding() -> None:
     dates = pd.date_range("2025-06-30", periods=2, freq="ME")
     turnover = pd.Series([0.05, 0.09], index=dates, name="turnover")
