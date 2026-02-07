@@ -57,6 +57,7 @@ This does not enable tool access beyond the existing analysis outputs.
 - [x] The Results page can answer user questions using ResultSummaryChain for an existing analysis run.
 - [x] The displayed output always includes the configured disclaimer behavior.
 - [x] When tracing is enabled, the UI surfaces the trace URL for the operation.
+Verification: `pytest tests/app/test_explain_results_component.py -m "not slow"` (2026-02-07).
 
 ## Implementation Notes
 

@@ -132,6 +132,24 @@ def test_generate_result_explanation_appends_diagnostics(
     assert "Deterministic diagnostics" in stub.last_payload["analysis_output"]
 
 
+def test_generate_result_explanation_normalizes_blank_trace_url(
+    explain_module, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    details = {"out_sample_stats": {"Portfolio": (0.1, 0.2, 0.3, 0.4, 0.5, 0.6)}}
+    response = ResultSummaryResponse(text="Summary text", trace_url="   ")
+    stub = _StubChain(response)
+
+    monkeypatch.setattr(
+        explain_module,
+        "_build_result_chain",
+        lambda *args, **kwargs: stub,
+    )
+
+    explanation = explain_module.generate_result_explanation(details, questions="Summarize")
+
+    assert explanation.trace_url is None
+
+
 def test_generate_result_explanation_uses_default_questions_when_empty(
     explain_module, monkeypatch: pytest.MonkeyPatch
 ) -> None:
