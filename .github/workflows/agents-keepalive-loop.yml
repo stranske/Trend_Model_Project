@@ -348,7 +348,7 @@ jobs:
 
       - name: Upload task appendix artifact
         if: steps.evaluate.outputs.action == 'run' || steps.evaluate.outputs.action == 'fix' || steps.evaluate.outputs.action == 'conflict'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v6
         with:
           name: keepalive-task-appendix-${{ steps.evaluate.outputs.pr_number }}
           path: /tmp/keepalive-artifacts/task-appendix.txt
