@@ -203,9 +203,7 @@ def _resolve_regime_turnover_cap(
             return normalized[fallback]
 
     if regime_label and _normalize_regime_key(regime_label):
-        raise KeyError(
-            f"max_turnover missing regime '{regime_label}' and no default specified"
-        )
+        raise KeyError(f"max_turnover missing regime '{regime_label}' and no default specified")
     return None
 
 

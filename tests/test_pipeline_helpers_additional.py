@@ -197,8 +197,7 @@ def test_resolve_regime_turnover_cap_resolves_per_period() -> None:
     caps = {"calm": 0.15, "stress": 0.08}
 
     resolved = [
-        _resolve_regime_turnover_cap(caps, label, settings)
-        for label in ("calm", "stress", "calm")
+        _resolve_regime_turnover_cap(caps, label, settings) for label in ("calm", "stress", "calm")
     ]
 
     assert resolved == [pytest.approx(0.15), pytest.approx(0.08), pytest.approx(0.15)]
