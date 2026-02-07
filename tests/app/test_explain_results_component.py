@@ -224,18 +224,14 @@ def test_render_explain_results_displays_trace_url_and_disclaimer(
     explain_module.render_explain_results(result, run_key=run_key)
 
     assert any(
-        call.args
-        and "Trace URL" in call.args[0]
-        and "trace://example" in call.args[0]
+        call.args and "Trace URL" in call.args[0] and "trace://example" in call.args[0]
         for call in st_stub.caption.call_args_list
     )
     assert any(
-        call.args and call.args[0] == "Trace URL"
-        for call in st_stub.text_input.call_args_list
+        call.args and call.args[0] == "Trace URL" for call in st_stub.text_input.call_args_list
     )
     assert any(
-        call.args and RESULT_DISCLAIMER in call.args[0]
-        for call in st_stub.markdown.call_args_list
+        call.args and RESULT_DISCLAIMER in call.args[0] for call in st_stub.markdown.call_args_list
     )
 
 
