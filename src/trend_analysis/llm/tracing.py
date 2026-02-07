@@ -7,6 +7,14 @@ from contextlib import contextmanager
 from typing import Any, Iterator, Literal
 
 _LANGSMITH_ENABLED: bool | None = None
+_TRUTHY = {"1", "true", "yes", "on"}
+
+
+def _truthy_env(name: str) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return False
+    return value.strip().lower() in _TRUTHY
 
 
 def maybe_enable_langsmith_tracing() -> bool:
@@ -31,6 +39,34 @@ def _get_langsmith_project() -> str | None:
     return os.environ.get("LANGCHAIN_PROJECT") or os.environ.get("LANGSMITH_PROJECT")
 
 
+def resolve_trace_url(run: Any) -> str | None:
+    """Resolve the trace URL from a LangSmith run object."""
+
+    if run is None:
+        return None
+    url_attr = getattr(run, "url", None)
+    if isinstance(url_attr, str) and url_attr:
+        return url_attr
+    if callable(url_attr):
+        try:
+            value = url_attr()
+        except TypeError:
+            value = None
+        if isinstance(value, str) and value:
+            return value
+    for method_name in ("get_url", "get_run_url"):
+        method = getattr(run, method_name, None)
+        if not callable(method):
+            continue
+        try:
+            value = method()
+        except TypeError:
+            value = None
+        if isinstance(value, str) and value:
+            return value
+    return None
+
+
 @contextmanager
 def langsmith_tracing_context(
     *,
@@ -43,6 +79,9 @@ def langsmith_tracing_context(
 ) -> Iterator[Any]:
     """Provide a LangSmith tracing context and optional run metadata."""
 
+    if os.environ.get("PYTEST_CURRENT_TEST") and not _truthy_env("TREND_LANGSMITH_TRACE_TESTS"):
+        yield None
+        return
     if not maybe_enable_langsmith_tracing():
         yield None
         return
@@ -82,4 +121,4 @@ def langsmith_tracing_context(
                 yield run
 
 
-__all__ = ["langsmith_tracing_context", "maybe_enable_langsmith_tracing"]
+__all__ = ["langsmith_tracing_context", "maybe_enable_langsmith_tracing", "resolve_trace_url"]

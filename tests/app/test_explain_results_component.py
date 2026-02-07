@@ -6,13 +6,29 @@ import hashlib
 import importlib
 import json
 import sys
+from contextlib import nullcontext
 from dataclasses import dataclass
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
-from trend_analysis.llm import ResultClaimIssue, ResultSummaryResponse
+from trend_analysis.llm import (
+    RESULT_DISCLAIMER,
+    ResultClaimIssue,
+    ResultSummaryResponse,
+)
+
+
+class _StubColumn:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def download_button(self, *args, **kwargs) -> None:
+        return None
 
 
 @dataclass
@@ -116,6 +132,127 @@ def test_generate_result_explanation_appends_diagnostics(
     assert "Deterministic diagnostics" in stub.last_payload["analysis_output"]
 
 
+def test_generate_result_explanation_normalizes_blank_trace_url(
+    explain_module, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    details = {"out_sample_stats": {"Portfolio": (0.1, 0.2, 0.3, 0.4, 0.5, 0.6)}}
+    response = ResultSummaryResponse(text="Summary text", trace_url="   ")
+    stub = _StubChain(response)
+
+    monkeypatch.setattr(
+        explain_module,
+        "_build_result_chain",
+        lambda *args, **kwargs: stub,
+    )
+
+    explanation = explain_module.generate_result_explanation(details, questions="Summarize")
+
+    assert explanation.trace_url is None
+
+
+def test_generate_result_explanation_uses_default_questions_when_empty(
+    explain_module, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    details = {"out_sample_stats": {"Portfolio": (0.1, 0.2, 0.3, 0.4, 0.5, 0.6)}}
+    response = ResultSummaryResponse(text="Summary text", trace_url=None)
+    stub = _StubChain(response)
+
+    monkeypatch.setattr(
+        explain_module,
+        "_build_result_chain",
+        lambda *args, **kwargs: stub,
+    )
+
+    explanation = explain_module.generate_result_explanation(details, questions="")
+
+    assert explanation.metric_count == 6
+    assert stub.last_payload is not None
+    questions = stub.last_payload["questions"]
+    assert "-" in questions
+    assert "Analyze this manager selection backtest" in questions
+
+
+def test_generate_result_explanation_passes_metric_catalog_contents(
+    explain_module, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    details = {
+        "out_sample_stats": {"Portfolio": (0.1, 0.2, 0.3, 0.4, 0.5, 0.6)},
+        "fund_weights": {"FundA": 0.6, "FundB": 0.4},
+    }
+    response = ResultSummaryResponse(text="Summary text", trace_url=None)
+    stub = _StubChain(response)
+
+    monkeypatch.setattr(
+        explain_module,
+        "_build_result_chain",
+        lambda *args, **kwargs: stub,
+    )
+
+    explain_module.generate_result_explanation(details, questions="Summarize FundA")
+
+    assert stub.last_payload is not None
+    entries = explain_module.extract_metric_catalog(details)
+    compacted = explain_module.compact_metric_catalog(entries, questions="Summarize FundA")
+    expected_catalog = explain_module.format_metric_catalog(compacted)
+    assert stub.last_payload["metric_catalog"] == expected_catalog
+    assert "Summary table" in stub.last_payload["analysis_output"]
+
+
+def test_render_explain_results_displays_trace_url_and_disclaimer(
+    explain_module,
+) -> None:
+    st_stub = explain_module.st
+    run_key = "run:abc123"
+    details = {"out_sample_stats": {"Portfolio": (0.1, 0.2, 0.3, 0.4, 0.5, 0.6)}}
+    result = SimpleNamespace(details=details)
+
+    st_stub.session_state.update(
+        {
+            "explain_results_questions": "Summarize",
+            "explain_results_provider": "openai",
+            "explain_results_api_key": "test-key",
+            "explain_results_model": "",
+            "explain_results_base_url": "",
+            "explain_results_org": "",
+        }
+    )
+    cache_key = explain_module._cache_key_for(
+        run_key,
+        questions="Summarize",
+        provider="openai",
+        model=None,
+        base_url=None,
+        organization=None,
+    )
+    st_stub.session_state["explain_results_cache"] = {
+        cache_key: explain_module.ExplanationResult(
+            text="Summary text",
+            trace_url="trace://example",
+            claim_issues=[],
+            metric_count=1,
+            created_at="2026-02-07T00:00:00+00:00",
+        )
+    }
+
+    st_stub.button.return_value = False
+    st_stub.expander.return_value = nullcontext()
+    st_stub.spinner.return_value = nullcontext()
+    st_stub.columns.return_value = [_StubColumn(), _StubColumn()]
+
+    explain_module.render_explain_results(result, run_key=run_key)
+
+    assert any(
+        call.args and "Trace URL" in call.args[0] and "trace://example" in call.args[0]
+        for call in st_stub.caption.call_args_list
+    )
+    assert any(
+        call.args and call.args[0] == "Trace URL" for call in st_stub.text_input.call_args_list
+    )
+    assert any(
+        call.args and RESULT_DISCLAIMER in call.args[0] for call in st_stub.markdown.call_args_list
+    )
+
+
 def test_resolve_explanation_run_id_prefers_details(explain_module) -> None:
     run_key = "run:abc123"
     details = {"run_id": "run-001"}
@@ -144,6 +281,100 @@ def test_resolve_llm_provider_config_requires_api_key(
         explain_module._resolve_llm_provider_config()
 
 
+def test_cache_key_varies_by_questions(explain_module) -> None:
+    run_key = "run:cached"
+    key_one = explain_module._cache_key_for(
+        run_key,
+        questions="Question A",
+        provider="openai",
+        model=None,
+        base_url=None,
+        organization=None,
+    )
+    key_two = explain_module._cache_key_for(
+        run_key,
+        questions="Question B",
+        provider="openai",
+        model=None,
+        base_url=None,
+        organization=None,
+    )
+
+    assert key_one != key_two
+
+
+def test_render_explain_results_falls_back_to_default_provider(explain_module) -> None:
+    st_stub = sys.modules["streamlit"]
+    st_stub.session_state = {
+        "explain_results_questions": "Summarize results",
+        "explain_results_provider": "unknown-provider",
+    }
+    st_stub.expander.return_value = nullcontext()
+    st_stub.spinner.return_value = nullcontext()
+    st_stub.columns.return_value = [_StubColumn(), _StubColumn()]
+    st_stub.button.return_value = False
+
+    run_key = "run:provider-default"
+    explain_module.render_explain_results(SimpleNamespace(details={}), run_key=run_key)
+
+    select_call = st_stub.selectbox.call_args
+    assert select_call is not None
+    assert select_call.kwargs["index"] == 0
+
+
+def test_render_explain_results_displays_trace_url(explain_module) -> None:
+    st_stub = explain_module.st
+    st_stub.session_state = {
+        "explain_results_questions": "Summarize results",
+        "explain_results_provider": "openai",
+    }
+    st_stub.expander.return_value = nullcontext()
+    st_stub.spinner.return_value = nullcontext()
+    st_stub.columns.side_effect = lambda *_args, **_kwargs: [
+        _StubColumn(),
+        _StubColumn(),
+    ]
+    st_stub.button.return_value = False
+
+    run_key = "run:trace"
+    cache_key = explain_module._cache_key_for(
+        run_key,
+        questions="Summarize results",
+        provider="openai",
+        model=None,
+        base_url=None,
+        organization=None,
+    )
+    cache = explain_module._cache_bucket()
+    cache[cache_key] = explain_module.ExplanationResult(
+        text="Explanation text",
+        trace_url="trace://example",
+        claim_issues=[],
+        metric_count=1,
+        created_at="2025-01-01T00:00:00Z",
+    )
+
+    explain_module.render_explain_results(SimpleNamespace(details={}), run_key=run_key)
+
+    caption_calls = [
+        call.args[0]
+        for call in st_stub.caption.call_args_list
+        if call.args and isinstance(call.args[0], str)
+    ]
+    assert any("Trace URL: trace://example" in text for text in caption_calls)
+
+    markdown_calls = [
+        call.args[0]
+        for call in st_stub.markdown.call_args_list
+        if call.args and isinstance(call.args[0], str)
+    ]
+    assert any(RESULT_DISCLAIMER in text for text in markdown_calls)
+    assert any(
+        call.args and call.args[0] == "Trace URL" and call.kwargs.get("value") == "trace://example"
+        for call in st_stub.text_input.call_args_list
+    )
+
+
 def test_render_explain_results_uses_cached_result(explain_module) -> None:
     st_stub = sys.modules["streamlit"]
     st_stub.button.return_value = False
@@ -164,14 +395,23 @@ def test_render_explain_results_uses_cached_result(explain_module) -> None:
         metric_count=1,
         created_at="2024-01-01T00:00:00+00:00",
     )
-    st_stub.session_state[explain_module._CACHE_KEY] = {run_key: cached}
+    cache_key = explain_module._cache_key_for(
+        run_key,
+        questions=explain_module.DEFAULT_QUESTION,
+        provider="openai",
+        model=None,
+        base_url=None,
+        organization=None,
+    )
+    st_stub.session_state[explain_module._CACHE_KEY] = {cache_key: cached}
 
     details = {"run_id": "run-001"}
     result = SimpleNamespace(details=details)
 
     explain_module.render_explain_results(result, run_key=run_key)
 
-    st_stub.markdown.assert_any_call("Cached output")
+    expected_text = f"Cached output\n\n{RESULT_DISCLAIMER}"
+    st_stub.markdown.assert_any_call(expected_text)
 
 
 def test_render_explain_results_downloads_include_json_payload(explain_module) -> None:
@@ -199,7 +439,15 @@ def test_render_explain_results_downloads_include_json_payload(explain_module) -
         metric_count=2,
         created_at="2024-01-01T00:00:00+00:00",
     )
-    st_stub.session_state[explain_module._CACHE_KEY] = {run_key: cached}
+    cache_key = explain_module._cache_key_for(
+        run_key,
+        questions=explain_module.DEFAULT_QUESTION,
+        provider="openai",
+        model=None,
+        base_url=None,
+        organization=None,
+    )
+    st_stub.session_state[explain_module._CACHE_KEY] = {cache_key: cached}
 
     details = {"run_id": "run-001"}
     result = SimpleNamespace(details=details)
@@ -239,7 +487,15 @@ def test_render_explain_results_downloads_include_text(explain_module) -> None:
         metric_count=2,
         created_at="2024-01-01T00:00:00+00:00",
     )
-    st_stub.session_state[explain_module._CACHE_KEY] = {run_key: cached}
+    cache_key = explain_module._cache_key_for(
+        run_key,
+        questions=explain_module.DEFAULT_QUESTION,
+        provider="openai",
+        model=None,
+        base_url=None,
+        organization=None,
+    )
+    st_stub.session_state[explain_module._CACHE_KEY] = {cache_key: cached}
 
     details = {"run_id": "run-001"}
     result = SimpleNamespace(details=details)
@@ -251,7 +507,100 @@ def test_render_explain_results_downloads_include_text(explain_module) -> None:
     txt_call = next(
         call for call in calls if call.kwargs.get("file_name") == "explanation_run-001.txt"
     )
-    assert txt_call.kwargs["data"] == "Cached output"
+    assert txt_call.kwargs["data"] == f"Cached output\n\n{RESULT_DISCLAIMER}"
+
+
+def test_render_explain_results_ignores_blank_trace_url(explain_module) -> None:
+    st_stub = sys.modules["streamlit"]
+    st_stub.button.return_value = False
+
+    col_one = MagicMock()
+    col_one.__enter__.return_value = col_one
+    col_one.__exit__.return_value = False
+    col_two = MagicMock()
+    col_two.__enter__.return_value = col_two
+    col_two.__exit__.return_value = False
+    st_stub.columns.return_value = [col_one, col_two]
+
+    run_key = "run:blank-trace"
+    cached = explain_module.ExplanationResult(
+        text="Cached output",
+        trace_url="   ",
+        claim_issues=[],
+        metric_count=1,
+        created_at="2024-01-01T00:00:00+00:00",
+    )
+    cache_key = explain_module._cache_key_for(
+        run_key,
+        questions=explain_module.DEFAULT_QUESTION,
+        provider="openai",
+        model=None,
+        base_url=None,
+        organization=None,
+    )
+    st_stub.session_state[explain_module._CACHE_KEY] = {cache_key: cached}
+
+    details = {"run_id": "run-003"}
+    result = SimpleNamespace(details=details)
+
+    explain_module.render_explain_results(result, run_key=run_key)
+
+    assert not any(
+        call.args and call.args[0] == "Trace URL" for call in st_stub.text_input.call_args_list
+    )
+    json_call = next(
+        call
+        for call in st_stub.download_button.call_args_list
+        if call.kwargs["mime"] == "application/json"
+    )
+    payload = json.loads(json_call.kwargs["data"])
+    assert payload["trace_url"] is None
+
+
+def test_render_explain_results_appends_disclaimer_for_display(explain_module) -> None:
+    st_stub = sys.modules["streamlit"]
+    st_stub.button.return_value = False
+
+    col_one = MagicMock()
+    col_one.__enter__.return_value = col_one
+    col_one.__exit__.return_value = False
+    col_two = MagicMock()
+    col_two.__enter__.return_value = col_two
+    col_two.__exit__.return_value = False
+    st_stub.columns.return_value = [col_one, col_two]
+
+    run_key = "run:disclaimer"
+    cached = explain_module.ExplanationResult(
+        text="Cached output",
+        trace_url=None,
+        claim_issues=[],
+        metric_count=1,
+        created_at="2024-01-01T00:00:00+00:00",
+    )
+    cache_key = explain_module._cache_key_for(
+        run_key,
+        questions=explain_module.DEFAULT_QUESTION,
+        provider="openai",
+        model=None,
+        base_url=None,
+        organization=None,
+    )
+    st_stub.session_state[explain_module._CACHE_KEY] = {cache_key: cached}
+
+    details = {"run_id": "run-002"}
+    result = SimpleNamespace(details=details)
+
+    explain_module.render_explain_results(result, run_key=run_key)
+
+    expected_text = f"Cached output\n\n{RESULT_DISCLAIMER}"
+    st_stub.markdown.assert_any_call(expected_text)
+
+    txt_call = next(
+        call
+        for call in st_stub.download_button.call_args_list
+        if call.kwargs.get("file_name") == "explanation_run-002.txt"
+    )
+    assert txt_call.kwargs["data"] == expected_text
 
 
 def test_render_explain_results_handles_missing_details(explain_module) -> None:

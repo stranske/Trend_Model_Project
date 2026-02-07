@@ -16,7 +16,6 @@ from datetime import date, datetime
 from time import monotonic, sleep
 from typing import Any, Mapping
 
-import pandas as pd
 import streamlit as st
 import yaml
 
@@ -71,10 +70,14 @@ _MAX_CONFIG_PREVIEW_TIMINGS = 20
 _CONFIG_CHAIN_STATE_KEY = "config_chat_chain_state"
 _DEFAULT_CONFIG_CHAT_MODEL = "gpt-4o-mini"
 _CONFIG_CHAIN_CACHE_VERSION = "v1"
-_CONFIG_CHAIN_CACHE_MAX_ENTRIES = 25
 _CONFIG_CHAIN_METRICS_KEY = "config_chat_chain_metrics"
 _CONFIG_CHAIN_STATS_KEY = "config_chat_chain_stats"
-_CONFIG_CHAIN_CORE_FIELDS = (
+_CONFIG_CHAIN_KEY_FIELDS = (
+    "provider",
+    "model",
+    "temperature",
+)
+_CONFIG_CHAIN_INVALIDATION_FIELDS = (
     "provider",
     "model",
     "base_url",
@@ -88,7 +91,7 @@ _CONFIG_CHAIN_LLM_FIELDS = (
     "api_key_fingerprint",
 )
 _LOGGER = logging.getLogger(__name__)
-_CONFIG_CHAIN_INVALIDATION_FIELDS = _CONFIG_CHAIN_CORE_FIELDS
+_CONFIG_CHAIN_CORE_FIELDS = _CONFIG_CHAIN_KEY_FIELDS
 _CONFIG_CHAIN_REBUILD_FIELDS = _CONFIG_CHAIN_INVALIDATION_FIELDS
 _CONFIG_CHAIN_RESET_FIELDS = _CONFIG_CHAIN_INVALIDATION_FIELDS
 _LLM_PROVIDER_OVERRIDE_KEY = "llm_provider_override"
@@ -97,31 +100,6 @@ _LLM_BASE_URL_OVERRIDE_KEY = "llm_base_url_override"
 _LLM_ORG_OVERRIDE_KEY = "llm_org_override"
 _LLM_TEMPERATURE_OVERRIDE_KEY = "llm_temperature_override"
 _LLM_OVERRIDE_SNAPSHOT_KEY = "llm_override_snapshot"
-_WHAT_IF_VARIANTS_KEY = "what_if_variants"
-_WHAT_IF_RESULTS_KEY = "what_if_results"
-_WHAT_IF_ERRORS_KEY = "what_if_errors"
-_WHAT_IF_INSTRUCTION_KEY = "what_if_instruction"
-_WHAT_IF_VARIANT_LABELS = ("Conservative", "Baseline", "Aggressive")
-_WHAT_IF_VARIANT_HINTS = {
-    "Conservative": (
-        "Create a conservative variant of the instruction. Favor lower risk, "
-        "more stability, and tighter constraints while still honoring the request."
-    ),
-    "Baseline": "Create a baseline variant that applies the instruction as-is with minimal changes.",
-    "Aggressive": (
-        "Create an aggressive variant of the instruction. Favor higher responsiveness, "
-        "more risk tolerance, or stronger signal emphasis while still honoring the request."
-    ),
-}
-_WHAT_IF_METRIC_KEYS = {
-    "CAGR": ("cagr", "return_ann", "ann_return"),
-    "Volatility": ("vol", "volatility"),
-    "Sharpe": ("sharpe",),
-    "Sortino": ("sortino",),
-    "Info Ratio": ("information_ratio", "info_ratio", "ir"),
-    "Max Drawdown": ("max_drawdown", "maxdd", "drawdown"),
-    "Total Return": ("total_return", "return_total", "return"),
-}
 
 
 def _get_chain_cache_state() -> dict[str, Any]:
@@ -143,20 +121,23 @@ def _chain_resource_signature(
     chain_cache_key: Mapping[str, Any],
     llm_cache_key: Mapping[str, Any],
 ) -> str:
-    return _chain_cache_signature({"chain": dict(chain_cache_key), "llm": dict(llm_cache_key)})
+    return _chain_cache_signature(
+        {"chain": dict(chain_cache_key), "llm": dict(llm_cache_key)}
+    )
 
 
 def _chain_cache_summary(
     cache_key: Mapping[str, Any],
-    *,
-    base_url: str | None = None,
-    organization: str | None = None,
+    llm_cache_key: Mapping[str, Any] | None = None,
 ) -> str:
     provider = cache_key.get("provider") or "default"
     model = cache_key.get("model") or "default"
     temperature = cache_key.get("temperature")
-    base_url = base_url or cache_key.get("base_url")
-    organization = organization or cache_key.get("organization")
+    base_url = None
+    organization = None
+    if isinstance(llm_cache_key, Mapping):
+        base_url = llm_cache_key.get("base_url")
+        organization = llm_cache_key.get("organization")
     summary = f"{provider}:{model}@{_format_value(temperature)}"
     if base_url:
         summary = f"{summary} | base_url={base_url}"
@@ -169,16 +150,12 @@ def _build_chain_cache_key(
     *,
     provider: str,
     model: str,
-    base_url: str | None,
-    organization: str | None,
     temperature: float,
 ) -> dict[str, Any]:
     return {
         "cache_version": _CONFIG_CHAIN_CACHE_VERSION,
         "provider": provider,
         "model": model,
-        "base_url": base_url,
-        "organization": organization,
         "temperature": temperature,
     }
 
@@ -221,6 +198,18 @@ def _cache_key_changes(
     return changed
 
 
+def _merge_cache_keys(
+    cache_key: Mapping[str, Any] | None,
+    llm_cache_key: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    merged: dict[str, Any] = {}
+    if isinstance(cache_key, Mapping):
+        merged.update(cache_key)
+    if isinstance(llm_cache_key, Mapping):
+        merged.update(llm_cache_key)
+    return merged
+
+
 def _get_config_change_history() -> list[dict[str, Any]]:
     history = st.session_state.get(_CONFIG_HISTORY_KEY)
     if not isinstance(history, list):
@@ -252,7 +241,7 @@ def _record_config_change(preview: Mapping[str, Any]) -> None:
 def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> None:
     timings = preview.get("timings")
     if not isinstance(timings, Mapping):
-        timings = {}
+        return
     chain_key = timings.get("chain_cache_key")
     provider = None
     model = None
@@ -283,7 +272,6 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
         "cache_llm_changed_fields": llm_changed_fields,
         "cache_settings_changed": timings.get("chain_settings_changed"),
         "cache_session_reset": timings.get("chain_cache_session_reset"),
-        "cache_entry_count": timings.get("chain_cache_entry_count"),
         "chain_build_seconds": timings.get("chain_build_seconds"),
         "chain_lookup_seconds": timings.get("chain_lookup_seconds"),
         "chain_reused": timings.get("chain_reused"),
@@ -322,7 +310,6 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
         "cache_llm_changed_fields": llm_changed_fields,
         "cache_settings_changed": timings.get("chain_settings_changed"),
         "cache_session_reset": timings.get("chain_cache_session_reset"),
-        "cache_entry_count": timings.get("chain_cache_entry_count"),
         "chain_reused": timings.get("chain_reused"),
         "chain_build_seconds": timings.get("chain_build_seconds"),
         "chain_lookup_seconds": timings.get("chain_lookup_seconds"),
@@ -360,9 +347,10 @@ def _record_chain_cache_stats(
     stats["last_build_seconds"] = chain_build_seconds
     stats["last_reused"] = reused
     stats["last_miss_reason"] = chain_meta.get("chain_cache_miss_reason")
-    stats["last_invalidation_fields"] = chain_meta.get("chain_cache_invalidation_fields")
+    stats["last_invalidation_fields"] = chain_meta.get(
+        "chain_cache_invalidation_fields"
+    )
     stats["last_signature"] = chain_meta.get("chain_cache_signature")
-    stats["cache_entry_count"] = chain_meta.get("chain_cache_entry_count")
     stats["timestamp"] = datetime.utcnow().isoformat(timespec="seconds") + "Z"
     st.session_state[_CONFIG_CHAIN_STATS_KEY] = stats
 
@@ -375,6 +363,26 @@ def _format_seconds(value: Any) -> str:
     except (TypeError, ValueError):
         return "—"
     return f"{numeric:.2f}s"
+
+
+def _preview_timing_summary(
+    timings: Mapping[str, Any] | None,
+    total_seconds: float | None = None,
+) -> str:
+    if not isinstance(timings, Mapping):
+        return "Preview timing unavailable."
+    cache_hit = "hit" if timings.get("chain_reused") else "miss"
+    build = _format_seconds(timings.get("chain_build_seconds"))
+    lookup = _format_seconds(timings.get("chain_lookup_seconds"))
+    run = _format_seconds(timings.get("run_seconds"))
+    total_value = (
+        total_seconds if total_seconds is not None else timings.get("total_seconds")
+    )
+    total = _format_seconds(total_value)
+    return (
+        "Preview timing: "
+        f"cache {cache_hit} | build {build} | lookup {lookup} | run {run} | total {total}"
+    )
 
 
 def _render_preview_timing_history() -> None:
@@ -397,15 +405,21 @@ def _render_preview_timing_history() -> None:
         cache_reason_label = str(cache_reason) if cache_reason else "—"
         invalidation_fields = entry.get("cache_invalidation_fields")
         invalidation_label = (
-            ", ".join(invalidation_fields) if isinstance(invalidation_fields, list) else "—"
+            ", ".join(invalidation_fields)
+            if isinstance(invalidation_fields, list)
+            else "—"
         )
         llm_changed_fields = entry.get("cache_llm_changed_fields")
         llm_changed_label = (
-            ", ".join(llm_changed_fields) if isinstance(llm_changed_fields, list) else "—"
+            ", ".join(llm_changed_fields)
+            if isinstance(llm_changed_fields, list)
+            else "—"
         )
         settings_changed = entry.get("cache_settings_changed")
         settings_changed_label = (
-            "Yes" if settings_changed is True else "No" if settings_changed is False else "—"
+            "Yes"
+            if settings_changed is True
+            else "No" if settings_changed is False else "—"
         )
         cache_reset = entry.get("cache_session_reset")
         cache_reset_label = "Yes" if cache_reset else "No"
@@ -424,7 +438,6 @@ def _render_preview_timing_history() -> None:
                 "Cache miss": cache_reason_label,
                 "Cache invalidated by": invalidation_label,
                 "LLM changed": llm_changed_label,
-                "Cache entries": str(entry.get("cache_entry_count") or "—"),
                 "Chain build": _format_seconds(entry.get("chain_build_seconds")),
                 "Chain lookup": _format_seconds(entry.get("chain_lookup_seconds")),
                 "Chain reused": "Yes" if entry.get("chain_reused") else "No",
@@ -460,7 +473,9 @@ def _render_last_preview_metrics() -> None:
     )
     settings_changed = metrics.get("cache_settings_changed")
     settings_changed_label = (
-        "Yes" if settings_changed is True else "No" if settings_changed is False else "—"
+        "Yes"
+        if settings_changed is True
+        else "No" if settings_changed is False else "—"
     )
     cache_reset = metrics.get("cache_session_reset")
     cache_reset_label = "Yes" if cache_reset else "No"
@@ -475,7 +490,6 @@ def _render_last_preview_metrics() -> None:
         f"LLM changed: {llm_changed_label} | "
         f"Settings changed: {settings_changed_label} | "
         f"Session reset: {cache_reset_label} | "
-        f"Cache entries: {metrics.get('cache_entry_count') or '—'} | "
         f"Build: {_format_seconds(metrics.get('chain_build_seconds'))} | "
         f"Lookup: {_format_seconds(metrics.get('chain_lookup_seconds'))} | "
         f"Run: {_format_seconds(metrics.get('run_seconds'))} | "
@@ -495,7 +509,6 @@ def _render_last_preview_metrics() -> None:
     st.caption(
         "Cache stats — "
         f"Hits: {hits} | Misses: {misses} | Hit rate: {hit_rate} | "
-        f"Entries: {stats.get('cache_entry_count') or '—'} | "
         f"Last build: {_format_seconds(stats.get('last_build_seconds'))} | "
         f"Last invalidation: {last_invalidation_label}"
     )
@@ -519,82 +532,6 @@ def _format_value(value: Any) -> str:
     if isinstance(value, float):
         return f"{value:.3f}"
     return str(value)
-
-
-def _build_variant_instruction(base_instruction: str, label: str) -> str:
-    hint = _WHAT_IF_VARIANT_HINTS.get(label, "")
-    trimmed = (base_instruction or "").strip()
-    if not trimmed:
-        return hint
-    return f"{hint}\n\nUser instruction: {trimmed}".strip()
-
-
-def _select_metric_value(
-    metrics: Mapping[str, float | None], keys: tuple[str, ...]
-) -> float | None:
-    for key in keys:
-        if key in metrics:
-            return metrics.get(key)
-    return None
-
-
-def _format_variant_metric_value(metric_name: str, value: float | None) -> str:
-    if value is None:
-        return "—"
-    if metric_name in {"CAGR", "Volatility", "Max Drawdown", "Total Return"}:
-        return f"{value * 100:.2f}%"
-    return f"{value:.2f}"
-
-
-def _extract_variant_metrics(result: Any) -> dict[str, float | None]:
-    details = getattr(result, "details", {}) or {}
-    metrics_dict: dict[str, float | None] = {}
-
-    user_stats = details.get("out_user_stats")
-    if user_stats is not None:
-        if hasattr(user_stats, "__dict__"):
-            for key, value in vars(user_stats).items():
-                if not str(key).startswith("_"):
-                    try:
-                        metrics_dict[str(key)] = float(value)
-                    except (TypeError, ValueError):
-                        metrics_dict[str(key)] = None
-        elif hasattr(user_stats, "items"):
-            for key, value in user_stats.items():
-                try:
-                    metrics_dict[str(key)] = float(value)
-                except (TypeError, ValueError):
-                    metrics_dict[str(key)] = None
-
-    if metrics_dict:
-        return metrics_dict
-
-    metrics = getattr(result, "metrics", None)
-    if isinstance(metrics, pd.DataFrame) and not metrics.empty:
-        series = metrics.iloc[0]
-        for key, value in series.items():
-            try:
-                metrics_dict[str(key)] = float(value)
-            except (TypeError, ValueError):
-                metrics_dict[str(key)] = None
-        if metrics_dict:
-            return metrics_dict
-
-    stats_obj = details.get("out_sample_stats") or {}
-    if hasattr(stats_obj, "items"):
-        for key, value in stats_obj.items():
-            try:
-                metrics_dict[str(key)] = float(value)
-            except (TypeError, ValueError):
-                metrics_dict[str(key)] = None
-    elif hasattr(stats_obj, "__dict__"):
-        for key, value in vars(stats_obj).items():
-            try:
-                metrics_dict[str(key)] = float(value)
-            except (TypeError, ValueError):
-                metrics_dict[str(key)] = None
-
-    return metrics_dict
 
 
 def _render_validation_error_styles() -> None:
@@ -835,7 +772,9 @@ def _apply_config_wrapper(wrapper: Mapping[str, Any]) -> None:
 def _resolve_llm_provider_config() -> LLMProviderConfig:
     overrides = _resolve_llm_session_overrides()
     provider_override = overrides.get("provider")
-    provider_name = (provider_override or os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
+    provider_name = (
+        provider_override or os.environ.get("TREND_LLM_PROVIDER") or "openai"
+    ).lower()
     supported = {"openai", "anthropic", "ollama"}
     if provider_name not in supported:
         raise ValueError(
@@ -919,14 +858,27 @@ def _resolve_llm_session_overrides() -> dict[str, str | None]:
         "provider": provider_override,
         "model": _normalize_cache_str(str(model)) if model else None,
         "base_url": _normalize_cache_str(str(base_url)) if base_url else None,
-        "organization": _normalize_cache_str(str(organization)) if organization else None,
+        "organization": (
+            _normalize_cache_str(str(organization)) if organization else None
+        ),
     }
 
 
-def _current_chain_settings_snapshot() -> dict[str, Any]:
-    config = _resolve_llm_provider_config()
-    temperature = _resolve_llm_temperature()
-    return _build_chain_settings_snapshot(config, temperature)
+def _current_chain_settings_snapshot(
+    config: LLMProviderConfig | None = None,
+    temperature: float | None = None,
+) -> dict[str, Any]:
+    if config is None:
+        config = _resolve_llm_provider_config()
+    if temperature is None:
+        temperature = _resolve_llm_temperature()
+    return {
+        "provider": _normalize_cache_str(config.provider),
+        "model": _normalize_cache_str(config.model),
+        "base_url": _normalize_cache_str(config.base_url),
+        "organization": _normalize_cache_str(config.organization),
+        "temperature": _normalize_temperature(temperature),
+    }
 
 
 def _maybe_reset_config_chat_cache(snapshot: Mapping[str, Any]) -> list[str]:
@@ -938,26 +890,21 @@ def _maybe_reset_config_chat_cache(snapshot: Mapping[str, Any]) -> list[str]:
     previous_normalized = {key: previous.get(key) for key in normalized}
     if previous_normalized == normalized:
         return []
-    changed_fields = [
+    changed = [
         key for key in normalized if previous_normalized.get(key) != normalized.get(key)
     ]
     st.session_state[_LLM_OVERRIDE_SNAPSHOT_KEY] = normalized
     st.session_state.pop("config_chat_preview", None)
     st.session_state.pop("config_chat_last_instruction", None)
+    st.session_state.pop(_CONFIG_CHAIN_STATE_KEY, None)
     st.session_state.pop(_CONFIG_CHAIN_METRICS_KEY, None)
     st.session_state.pop(_CONFIG_CHAIN_STATS_KEY, None)
-    st.session_state[_CONFIG_CHAIN_STATE_KEY] = {"entries": {}}
-    try:
-        _cached_config_patch_chain.clear()
-        _cached_llm_client.clear()
-    except Exception as exc:
-        _LOGGER.warning("Unable to clear config chat caches: %s", exc)
     _LOGGER.info(
         "Config chat cache reset due to settings change: %s -> %s",
         previous_normalized,
         normalized,
     )
-    return changed_fields
+    return changed
 
 
 def _llm_env_var_hints(provider: str) -> list[str]:
@@ -977,7 +924,9 @@ def _llm_api_key_available(provider: str) -> bool:
 
 def _render_llm_session_overrides_panel() -> None:
     with st.expander("LLM Settings (Session Only)", expanded=False):
-        st.caption("Overrides apply only to this session and do not store or display API keys.")
+        st.caption(
+            "Overrides apply only to this session and do not store or display API keys."
+        )
         provider_options = [None, "openai", "anthropic", "ollama"]
         provider_labels = {
             None: "Use env default",
@@ -1031,7 +980,8 @@ def _render_llm_session_overrides_panel() -> None:
             return
         hints = ", ".join(_llm_env_var_hints(resolved_provider))
         st.warning(
-            f"Active provider: {resolved_provider}. No API key detected. " f"Set one of: {hints}."
+            f"Active provider: {resolved_provider}. No API key detected. "
+            f"Set one of: {hints}."
         )
 
 
@@ -1040,6 +990,10 @@ def _normalize_temperature(value: float) -> float:
         return round(float(value), 4)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _hash_cache_key(value: Mapping[str, Any]) -> str:
+    return _chain_cache_signature(value)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1068,95 +1022,71 @@ def _cached_compact_schema() -> dict[str, Any]:
     return load_compact_schema()
 
 
-@st.cache_resource(show_spinner=False, hash_funcs={_ApiKeySecret: _hash_api_key_secret})
+@st.cache_resource(
+    show_spinner=False,
+    hash_funcs={dict: _hash_cache_key, _ApiKeySecret: _hash_api_key_secret},
+)
 def _cached_llm_client(
-    *,
-    provider: str,
-    model: str,
-    base_url: str | None,
-    organization: str | None,
-    timeout: float | None,
-    max_retries: int | None,
-    extra_payload: str,
+    cache_key: Mapping[str, Any],
     api_key_secret: _ApiKeySecret | None,
-    cache_version: str,
+    extra_payload: str,
 ) -> Any:
-    del cache_version
     api_key = api_key_secret.value if api_key_secret is not None else None
     config = LLMProviderConfig(
-        provider=str(provider),
-        model=str(model),
+        provider=str(cache_key.get("provider")),
+        model=str(cache_key.get("model")),
         api_key=api_key,
-        base_url=base_url,
-        organization=organization,
-        timeout=timeout,
-        max_retries=max_retries,
+        base_url=cache_key.get("base_url"),
+        organization=cache_key.get("organization"),
+        timeout=cache_key.get("timeout"),
+        max_retries=cache_key.get("max_retries"),
         extra=json.loads(extra_payload) if extra_payload else {},
     )
     return create_llm(config)
 
 
-@st.cache_resource(show_spinner=False, hash_funcs={_ApiKeySecret: _hash_api_key_secret})
+@st.cache_resource(
+    show_spinner=False,
+    hash_funcs={dict: _hash_cache_key, _ApiKeySecret: _hash_api_key_secret},
+)
 def _cached_config_patch_chain(
-    *,
-    provider: str,
-    model: str,
-    temperature: float,
-    base_url: str | None,
-    organization: str | None,
-    timeout: float | None,
-    max_retries: int | None,
-    extra_payload: str,
+    chain_cache_key: Mapping[str, Any],
+    llm_cache_key: Mapping[str, Any],
     api_key_secret: _ApiKeySecret | None,
-    cache_version: str,
+    extra_payload: str,
 ) -> ConfigPatchChain:
     llm = _cached_llm_client(
-        provider=provider,
-        model=model,
-        base_url=base_url,
-        organization=organization,
-        timeout=timeout,
-        max_retries=max_retries,
-        extra_payload=extra_payload,
-        api_key_secret=api_key_secret,
-        cache_version=cache_version,
+        llm_cache_key,
+        api_key_secret,
+        extra_payload,
     )
     schema = _cached_compact_schema()
     return ConfigPatchChain.from_env(
         llm=llm,
         schema=schema,
         prompt_builder=build_config_patch_prompt,
-        temperature=float(temperature or 0.0),
-        model=str(model),
+        temperature=float(chain_cache_key.get("temperature") or 0.0),
+        model=str(chain_cache_key.get("model")),
     )
 
 
-def _build_chain_settings_snapshot(
-    config: LLMProviderConfig,
-    temperature: float,
+def _build_chain_cache_context(
+    config: LLMProviderConfig | None = None,
+    temperature: float | None = None,
 ) -> dict[str, Any]:
-    resolved_model = _normalize_cache_str(config.model) or _DEFAULT_CONFIG_CHAT_MODEL
-    return {
-        "provider": _normalize_cache_str(config.provider),
-        "model": resolved_model,
-        "base_url": _normalize_cache_str(config.base_url),
-        "organization": _normalize_cache_str(config.organization),
-        "temperature": _normalize_temperature(temperature),
-    }
-
-
-def _build_chain_cache_context_from_config(
-    config: LLMProviderConfig,
-    temperature: float,
-) -> dict[str, Any]:
+    if config is None:
+        config = _resolve_llm_provider_config()
+    if temperature is None:
+        temperature = _resolve_llm_temperature()
     provider = _normalize_cache_str(config.provider) or "openai"
     temperature = _normalize_temperature(temperature)
     base_url = _normalize_cache_str(config.base_url)
     organization = _normalize_cache_str(config.organization)
+    normalized_model = _normalize_cache_str(config.model)
     api_key_fingerprint = _hash_api_key(config.api_key)
     extra_payload = _serialize_extra(config.extra)
     extra_payload_hash = _hash_text(extra_payload)
-    resolved_model = _normalize_cache_str(config.model) or _DEFAULT_CONFIG_CHAT_MODEL
+    resolved_model = normalized_model or _DEFAULT_CONFIG_CHAT_MODEL
     llm_cache_key = _build_llm_cache_key(
         provider=provider,
         model=resolved_model,
@@ -1170,8 +1100,6 @@ def _build_chain_cache_context_from_config(
     cache_key = _build_chain_cache_key(
         provider=provider,
         model=resolved_model,
-        base_url=base_url,
-        organization=organization,
         temperature=temperature,
     )
     return {
@@ -1188,18 +1116,13 @@ def _build_chain_cache_context_from_config(
     }
 
 
-def _build_chain_cache_context() -> dict[str, Any]:
-    config = _resolve_llm_provider_config()
-    temperature = _resolve_llm_temperature()
-    return _build_chain_cache_context_from_config(config, temperature)
-
-
 def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     config = _resolve_llm_provider_config()
     temperature = _resolve_llm_temperature()
-    settings_snapshot = _build_chain_settings_snapshot(config, temperature)
-    snapshot_changes = _maybe_reset_config_chat_cache(settings_snapshot)
-    context = _build_chain_cache_context_from_config(config, temperature)
+    reset_fields = _maybe_reset_config_chat_cache(
+        _current_chain_settings_snapshot(config, temperature)
+    )
+    context = _build_chain_cache_context(config, temperature)
     api_key = context["api_key"]
     api_key_fingerprint = context["api_key_fingerprint"]
     extra_payload = context["extra_payload"]
@@ -1207,19 +1130,21 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     cache_key = context["cache_key"]
     cache_state = _get_chain_cache_state()
     signature = _chain_cache_signature(cache_key)
-    settings_signature = _chain_cache_signature(settings_snapshot)
     resource_signature = _chain_resource_signature(cache_key, llm_cache_key)
-    previous_settings_signature = cache_state.get("last_settings_signature")
+    previous_signature = cache_state.get("last_signature")
     previous_resource_signature = cache_state.get("last_resource_signature")
-    settings_changed = bool(
-        previous_settings_signature and previous_settings_signature != settings_signature
-    )
-    previous_settings_snapshot = cache_state.get("last_settings_snapshot")
+    previous_cache_key = cache_state.get("last_cache_key")
     previous_llm_cache_key = cache_state.get("last_llm_cache_key")
+    previous_invalidation_key = None
+    if isinstance(previous_cache_key, Mapping) or isinstance(
+        previous_llm_cache_key, Mapping
+    ):
+        previous_invalidation_key = _merge_cache_keys(
+            previous_cache_key, previous_llm_cache_key
+        )
+    current_invalidation_key = _merge_cache_keys(cache_key, llm_cache_key)
     changed_fields = _cache_key_changes(
-        previous_settings_snapshot,
-        settings_snapshot,
-        _CONFIG_CHAIN_CORE_FIELDS,
+        previous_cache_key, cache_key, _CONFIG_CHAIN_CORE_FIELDS
     )
     llm_changed_fields = _cache_key_changes(
         previous_llm_cache_key,
@@ -1227,17 +1152,18 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         _CONFIG_CHAIN_LLM_FIELDS,
     )
     invalidation_fields = _cache_key_changes(
-        previous_settings_snapshot,
-        settings_snapshot,
+        previous_invalidation_key,
+        current_invalidation_key,
         _CONFIG_CHAIN_REBUILD_FIELDS,
     )
-    if snapshot_changes:
-        if invalidation_fields:
-            invalidation_fields = list(dict.fromkeys((*invalidation_fields, *snapshot_changes)))
-        else:
-            invalidation_fields = list(snapshot_changes)
+    settings_changed = bool(
+        (previous_signature and previous_signature != signature)
+        or invalidation_fields
+        or reset_fields
+    )
     resource_changed = bool(
-        previous_resource_signature and previous_resource_signature != resource_signature
+        previous_resource_signature
+        and previous_resource_signature != resource_signature
     )
     session_reset = False
     if invalidation_fields:
@@ -1245,30 +1171,29 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         st.session_state.pop("config_chat_last_instruction", None)
         cache_state["last_invalidation_fields"] = list(invalidation_fields)
         session_reset = True
+    elif reset_fields:
+        invalidation_fields = list(reset_fields)
+        cache_state["last_invalidation_fields"] = list(invalidation_fields)
+        session_reset = True
     api_key_secret = _ApiKeySecret(api_key, api_key_fingerprint)
     lookup_start = monotonic()
     chain = _cached_config_patch_chain(
-        provider=context["provider"],
-        model=context["resolved_model"],
-        temperature=context["temperature"],
-        base_url=context["base_url"],
-        organization=context["organization"],
-        timeout=llm_cache_key.get("timeout"),
-        max_retries=llm_cache_key.get("max_retries"),
-        extra_payload=extra_payload,
-        api_key_secret=api_key_secret,
-        cache_version=_CONFIG_CHAIN_CACHE_VERSION,
+        cache_key,
+        llm_cache_key,
+        api_key_secret,
+        extra_payload,
     )
     lookup_seconds = monotonic() - lookup_start
     entries = cache_state["entries"]
-    cached_chain_id = entries.get(resource_signature)
+    cached_chain_id = entries.get(signature)
     reused = cached_chain_id == id(chain)
     cache_miss_reason = None
     if not reused:
-        had_cached_entry = cached_chain_id is not None
         if settings_changed:
             if invalidation_fields:
-                cache_miss_reason = f"settings_changed: {', '.join(invalidation_fields)}"
+                cache_miss_reason = (
+                    f"settings_changed: {', '.join(invalidation_fields)}"
+                )
             elif changed_fields:
                 cache_miss_reason = f"settings_changed: {', '.join(changed_fields)}"
             else:
@@ -1277,40 +1202,35 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
             cache_miss_reason = f"llm_settings_changed: {', '.join(llm_changed_fields)}"
         elif resource_changed:
             cache_miss_reason = "llm_settings_changed"
-        elif had_cached_entry:
-            cache_miss_reason = "cache_evicted"
         else:
             cache_miss_reason = "first_build"
-    entries[resource_signature] = id(chain)
-    if len(entries) > _CONFIG_CHAIN_CACHE_MAX_ENTRIES:
-        stale_keys = list(entries)[:-_CONFIG_CHAIN_CACHE_MAX_ENTRIES]
-        for key in stale_keys:
-            entries.pop(key, None)
+    entries[signature] = id(chain)
     cache_state["last_signature"] = signature
-    cache_state["last_settings_signature"] = settings_signature
     cache_state["last_resource_signature"] = resource_signature
     cache_state["last_cache_key"] = cache_key
-    cache_state["last_settings_snapshot"] = settings_snapshot
     cache_state["last_llm_cache_key"] = llm_cache_key
     cache_state["last_chain_id"] = id(chain)
     st.session_state["config_chat_chain_key"] = cache_key
     st.session_state["config_chat_chain_signature"] = signature
+    if _LOGGER.isEnabledFor(logging.INFO):
+        _LOGGER.info(
+            "Config chat chain: reused=%s cache=%s lookup_s=%.3f miss=%s",
+            "yes" if reused else "no",
+            _chain_cache_summary(cache_key, llm_cache_key),
+            lookup_seconds,
+            cache_miss_reason or "none",
+        )
     return chain, {
         "chain_reused": reused,
         "chain_cache_key": cache_key,
         "chain_cache_signature": signature,
         "chain_resource_signature": resource_signature,
-        "chain_cache_summary": _chain_cache_summary(
-            cache_key,
-            base_url=context.get("base_url"),
-            organization=context.get("organization"),
-        ),
+        "chain_cache_summary": _chain_cache_summary(cache_key, llm_cache_key),
         "chain_cache_miss_reason": cache_miss_reason,
         "chain_cache_invalidation_fields": invalidation_fields,
         "chain_settings_changed": settings_changed,
         "chain_llm_changed_fields": llm_changed_fields,
         "chain_cache_session_reset": session_reset,
-        "chain_cache_entry_count": len(entries),
         "chain_lookup_seconds": lookup_seconds,
     }
 
@@ -1346,7 +1266,9 @@ def _generate_config_preview(
             "chain_resource_signature": chain_meta.get("chain_resource_signature"),
             "chain_cache_summary": chain_meta.get("chain_cache_summary"),
             "chain_cache_miss_reason": chain_meta.get("chain_cache_miss_reason"),
-            "chain_cache_invalidation_fields": chain_meta.get("chain_cache_invalidation_fields"),
+            "chain_cache_invalidation_fields": chain_meta.get(
+                "chain_cache_invalidation_fields"
+            ),
             "chain_settings_changed": chain_meta.get("chain_settings_changed"),
             "chain_llm_changed_fields": chain_meta.get("chain_llm_changed_fields"),
             "chain_cache_session_reset": chain_meta.get("chain_cache_session_reset"),
@@ -1396,184 +1318,11 @@ def _generate_preview_with_progress(
     if isinstance(timings, Mapping):
         timings["total_seconds"] = duration
     _record_preview_timing(result, duration)
+    st.session_state["config_chat_last_preview_summary"] = _preview_timing_summary(
+        timings if isinstance(timings, Mapping) else None,
+        total_seconds=duration,
+    )
     return result
-
-
-def _generate_what_if_variants(
-    model_state: Mapping[str, Any],
-    instruction: str,
-) -> tuple[list[dict[str, Any]], list[str]]:
-    chain, _meta = _build_nl_chain()
-    variants: list[dict[str, Any]] = []
-    errors: list[str] = []
-    for label in _WHAT_IF_VARIANT_LABELS:
-        variant_instruction = _build_variant_instruction(instruction, label)
-        try:
-            patch = chain.run(current_config=dict(model_state), instruction=variant_instruction)
-            after = apply_config_patch(deepcopy(dict(model_state)), patch)
-            variants.append(
-                {
-                    "label": label,
-                    "instruction": variant_instruction,
-                    "summary": patch.summary,
-                    "risk_flags": [flag.value for flag in patch.risk_flags],
-                    "needs_review": patch.needs_review,
-                    "patch": patch.model_dump(),
-                    "after": after,
-                }
-            )
-        except Exception as exc:
-            errors.append(f"{label}: {exc}")
-    return variants, errors
-
-
-def _run_what_if_analysis(
-    variants: list[dict[str, Any]],
-    *,
-    df: Any,
-    benchmark: str | None,
-    data_hash: str | None,
-    selected_rf: str | None,
-) -> tuple[dict[str, Any], dict[str, str]]:
-    results: dict[str, Any] = {}
-    errors: dict[str, str] = {}
-    progress = st.progress(0.0, text="Running what-if analyses...")
-    total = len(variants)
-    for idx, variant in enumerate(variants, start=1):
-        label = str(variant.get("label") or f"Variant {idx}")
-        after = variant.get("after")
-        if not isinstance(after, Mapping):
-            errors[label] = "Missing configuration data for this variant."
-            continue
-        effective_model_state = dict(after)
-        if selected_rf:
-            effective_model_state["risk_free_column"] = selected_rf
-        try:
-            result = analysis_runner.run_analysis(
-                df,
-                effective_model_state,
-                benchmark,
-                data_hash=data_hash,
-            )
-            results[label] = result
-        except Exception as exc:
-            errors[label] = str(exc)
-        progress.progress(idx / total, text=f"Running what-if analyses... ({idx}/{total})")
-    progress.empty()
-    return results, errors
-
-
-def _build_what_if_comparison_tables(
-    results: Mapping[str, Any],
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    display_rows: list[dict[str, Any]] = []
-    raw_rows: list[dict[str, Any]] = []
-    for label in _WHAT_IF_VARIANT_LABELS:
-        if label not in results:
-            continue
-        metrics = _extract_variant_metrics(results[label])
-        display_row = {"Variant": label}
-        raw_row = {"Variant": label}
-        for display_name, metric_keys in _WHAT_IF_METRIC_KEYS.items():
-            value = _select_metric_value(metrics, metric_keys)
-            raw_row[display_name] = value
-            display_row[display_name] = _format_variant_metric_value(display_name, value)
-        display_rows.append(display_row)
-        raw_rows.append(raw_row)
-    return pd.DataFrame(display_rows), pd.DataFrame(raw_rows)
-
-
-def _render_what_if_variants_panel(
-    *,
-    model_state: Mapping[str, Any],
-    df: Any,
-    benchmark: str | None,
-    data_hash: str | None,
-) -> None:
-    st.subheader("What-if Variants (3)")
-    st.caption(
-        "Generate three labeled config variants from one instruction, "
-        "run analyses, and compare key metrics."
-    )
-    instruction = st.text_area(
-        "Instruction for variants",
-        key=_WHAT_IF_INSTRUCTION_KEY,
-        placeholder="Example: Increase lookback to improve stability.",
-    )
-    cols = st.columns(2)
-    with cols[0]:
-        generate_clicked = st.button("Generate variants", key="what_if_generate")
-    with cols[1]:
-        run_clicked = st.button("Run what-if analysis", key="what_if_run")
-
-    if generate_clicked:
-        if not instruction or not instruction.strip():
-            st.warning("Enter an instruction to generate variants.")
-        else:
-            with st.spinner("Generating variants..."):
-                variants, errors = _generate_what_if_variants(model_state, instruction)
-            st.session_state[_WHAT_IF_VARIANTS_KEY] = variants
-            st.session_state[_WHAT_IF_ERRORS_KEY] = errors
-            st.session_state.pop(_WHAT_IF_RESULTS_KEY, None)
-
-    variants = st.session_state.get(_WHAT_IF_VARIANTS_KEY)
-    if not isinstance(variants, list) or not variants:
-        st.info("Generate variants to compare alternative configurations.")
-        return
-
-    for variant in variants:
-        label = variant.get("label") or "Variant"
-        st.markdown(f"**{label}**")
-        summary = variant.get("summary") or "No summary provided."
-        st.caption(summary)
-        risk_flags = variant.get("risk_flags") or []
-        if risk_flags:
-            st.warning(f"Risk flags: {', '.join(str(flag) for flag in risk_flags)}")
-
-    errors = st.session_state.get(_WHAT_IF_ERRORS_KEY)
-    if isinstance(errors, list) and errors:
-        st.warning("Some variants failed to generate:")
-        for message in errors:
-            st.caption(str(message))
-
-    if run_clicked:
-        if df is None:
-            st.error("Load data before running what-if analysis.")
-            return
-        selected_rf = st.session_state.get("selected_risk_free")
-        with st.spinner("Running what-if analyses..."):
-            results, run_errors = _run_what_if_analysis(
-                variants,
-                df=df,
-                benchmark=benchmark,
-                data_hash=data_hash,
-                selected_rf=selected_rf,
-            )
-        st.session_state[_WHAT_IF_RESULTS_KEY] = results
-        st.session_state[_WHAT_IF_ERRORS_KEY] = run_errors
-
-    results = st.session_state.get(_WHAT_IF_RESULTS_KEY)
-    if not isinstance(results, Mapping) or not results:
-        st.info("Run what-if analysis to see a comparison table.")
-        return
-
-    run_errors = st.session_state.get(_WHAT_IF_ERRORS_KEY)
-    if isinstance(run_errors, Mapping) and run_errors:
-        st.warning("Some analyses failed:")
-        for label, message in run_errors.items():
-            st.caption(f"{label}: {message}")
-
-    display_df, raw_df = _build_what_if_comparison_tables(results)
-    if display_df.empty:
-        st.info("No comparison data available.")
-        return
-    st.dataframe(display_df, use_container_width=True, hide_index=True)
-    st.download_button(
-        "Download comparison CSV",
-        data=raw_df.to_csv(index=False),
-        file_name="what_if_comparison.csv",
-        mime="text/csv",
-    )
 
 
 def _current_run_key(model_state: dict[str, Any], benchmark: str | None) -> str:
@@ -1589,7 +1338,9 @@ def _current_run_key(model_state: dict[str, Any], benchmark: str | None) -> str:
     selected_rf = st.session_state.get("selected_risk_free")
     selected_rf_key = selected_rf or "__none__"
     info_ratio_benchmark = (
-        model_state.get("info_ratio_benchmark") if isinstance(model_state, dict) else None
+        model_state.get("info_ratio_benchmark")
+        if isinstance(model_state, dict)
+        else None
     )
     regime_proxy = None
     if bool(model_state.get("regime_enabled", False)):
@@ -1702,7 +1453,9 @@ def _render_risky_change_dialog() -> None:
         cancel = st.button("Cancel", type="secondary")
         if confirm:
             st.session_state.pop("config_chat_pending_apply", None)
-            _apply_preview_state(preview, run_analysis=bool(pending.get("run_analysis")))
+            _apply_preview_state(
+                preview, run_analysis=bool(pending.get("run_analysis"))
+            )
         elif cancel:
             st.session_state.pop("config_chat_pending_apply", None)
 
@@ -1802,8 +1555,12 @@ def _render_unified_diff(diff_text: str) -> None:
     st.markdown(_diff_text_to_html(diff_text), unsafe_allow_html=True)
 
 
-def _render_side_by_side_diff(before: Mapping[str, Any], after: Mapping[str, Any]) -> None:
-    before_yaml = yaml.safe_dump(dict(before), sort_keys=False, default_flow_style=False)
+def _render_side_by_side_diff(
+    before: Mapping[str, Any], after: Mapping[str, Any]
+) -> None:
+    before_yaml = yaml.safe_dump(
+        dict(before), sort_keys=False, default_flow_style=False
+    )
     after_yaml = yaml.safe_dump(dict(after), sort_keys=False, default_flow_style=False)
     differ = difflib.HtmlDiff(tabsize=2, wrapcolumn=80)
     diff_table = differ.make_table(
@@ -1855,10 +1612,14 @@ def _render_config_diff_preview(model_state: Mapping[str, Any] | None) -> None:
         cache_signature_label = str(cache_signature)[:8] if cache_signature else "—"
         settings_changed = timings.get("chain_settings_changed")
         settings_changed_label = (
-            "Yes" if settings_changed is True else "No" if settings_changed is False else "—"
+            "Yes"
+            if settings_changed is True
+            else "No" if settings_changed is False else "—"
         )
         cache_miss_reason = timings.get("chain_cache_miss_reason")
-        cache_miss_label = f" | Cache miss: {cache_miss_reason}" if cache_miss_reason else ""
+        cache_miss_label = (
+            f" | Cache miss: {cache_miss_reason}" if cache_miss_reason else ""
+        )
         invalidation_fields = timings.get("chain_cache_invalidation_fields")
         invalidation_label = (
             f" | Invalidated by: {', '.join(invalidation_fields)}"
@@ -1922,23 +1683,25 @@ def _render_config_change_history() -> None:
 def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
     st.caption("Describe the configuration change you want to try.")
     _render_last_preview_metrics()
+    last_summary = st.session_state.get("config_chat_last_preview_summary")
+    if isinstance(last_summary, str) and last_summary:
+        st.caption(last_summary)
     try:
         cache_context = _build_chain_cache_context()
     except Exception as exc:
         st.caption(f"Cache key unavailable: {exc}")
     else:
         cache_key = cache_context.get("cache_key")
+        llm_cache_key = cache_context.get("llm_cache_key")
         cache_summary = (
-            _chain_cache_summary(
-                cache_key,
-                base_url=cache_context.get("base_url"),
-                organization=cache_context.get("organization"),
-            )
+            _chain_cache_summary(cache_key, llm_cache_key)
             if isinstance(cache_key, Mapping)
             else "—"
         )
         cache_signature = (
-            _chain_cache_signature(cache_key)[:8] if isinstance(cache_key, Mapping) else "—"
+            _chain_cache_signature(cache_key)[:8]
+            if isinstance(cache_key, Mapping)
+            else "—"
         )
         st.caption(f"Current cache key: {cache_summary} | Sig: {cache_signature}")
     instruction = st.text_area(
@@ -1956,7 +1719,9 @@ def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
             st.session_state["config_chat_last_instruction"] = trimmed
             st.success("Instruction captured. Preview coming next.")
     preview = st.session_state.get("config_chat_preview")
-    has_preview = isinstance(preview, Mapping) and isinstance(preview.get("after"), Mapping)
+    has_preview = isinstance(preview, Mapping) and isinstance(
+        preview.get("after"), Mapping
+    )
     action_cols = st.columns(4)
     with action_cols[0]:
         preview_clicked = st.button(
@@ -2613,7 +2378,9 @@ def render_model_page() -> None:
             applied_funds = st.session_state.get("fund_columns")
 
         if isinstance(applied_funds, list) and applied_funds:
-            fund_cols = [c for c in applied_funds if c in df.columns and c not in system_cols]
+            fund_cols = [
+                c for c in applied_funds if c in df.columns and c not in system_cols
+            ]
         else:
             # Fallback: count only fund columns (exclude benchmarks/indices)
             fund_cols = [
@@ -2669,15 +2436,6 @@ def render_model_page() -> None:
 
     st.markdown("---")
 
-    _render_what_if_variants_panel(
-        model_state=model_state,
-        df=df,
-        benchmark=st.session_state.get("selected_benchmark"),
-        data_hash=st.session_state.get("data_hash"),
-    )
-
-    st.markdown("---")
-
     saved_model_states = app_state.get_saved_model_states()
     saved_names = sorted(saved_model_states)
 
@@ -2705,14 +2463,18 @@ def render_model_page() -> None:
                         else "Disabled until a duplicate name is entered."
                     ),
                 )
-                save_clicked = st.form_submit_button("Save Current Settings", type="primary")
+                save_clicked = st.form_submit_button(
+                    "Save Current Settings", type="primary"
+                )
 
             if save_clicked:
                 trimmed = save_name.strip()
                 if not trimmed:
                     st.error("Enter a name to save your configuration.")
                 elif overwrite_required and not overwrite_confirmed:
-                    st.warning("This name already exists. Check 'Confirm overwrite' to replace it.")
+                    st.warning(
+                        "This name already exists. Check 'Confirm overwrite' to replace it."
+                    )
                 else:
                     app_state.save_model_state(trimmed, st.session_state["model_state"])
                     app_state.save_config_wrapper(
@@ -2728,7 +2490,9 @@ def render_model_page() -> None:
         with manage_col:
             st.markdown("**Load or manage saved configurations**")
             if not saved_names:
-                st.info("No saved configurations yet. Save one to enable loading and export.")
+                st.info(
+                    "No saved configurations yet. Save one to enable loading and export."
+                )
             else:
                 selected_index = 0
                 active_saved_name = st.session_state.get("active_saved_model_name")
@@ -2741,7 +2505,9 @@ def render_model_page() -> None:
                     key="saved_configuration_selector",
                 )
 
-                if st.button("Load selected configuration", key="load_saved_config_button"):
+                if st.button(
+                    "Load selected configuration", key="load_saved_config_button"
+                ):
                     wrapper = app_state.load_saved_config_wrapper(selected_saved)
                     if isinstance(wrapper, Mapping):
                         _apply_config_wrapper(wrapper)
@@ -2769,12 +2535,18 @@ def render_model_page() -> None:
 
                 if rename_clicked:
                     try:
-                        app_state.rename_saved_model_state(selected_saved, rename_target)
+                        app_state.rename_saved_model_state(
+                            selected_saved, rename_target
+                        )
                     except (KeyError, ValueError) as exc:
                         st.error(str(exc))
                     else:
-                        st.session_state["active_saved_model_name"] = rename_target.strip()
-                        st.success(f"Renamed configuration to '{rename_target.strip()}'.")
+                        st.session_state["active_saved_model_name"] = (
+                            rename_target.strip()
+                        )
+                        st.success(
+                            f"Renamed configuration to '{rename_target.strip()}'."
+                        )
                         st.rerun()
 
                 if st.button(
@@ -2783,7 +2555,10 @@ def render_model_page() -> None:
                     type="secondary",
                 ):
                     app_state.delete_saved_model_state(selected_saved)
-                    if st.session_state.get("active_saved_model_name") == selected_saved:
+                    if (
+                        st.session_state.get("active_saved_model_name")
+                        == selected_saved
+                    ):
                         st.session_state.pop("active_saved_model_name", None)
                     st.success(f"Deleted configuration '{selected_saved}'.")
                     st.rerun()
@@ -2793,7 +2568,9 @@ def render_model_page() -> None:
         # Quick download of current configuration (without saving)
         st.markdown("**Download Current Configuration**")
         current_wrapper = _build_config_wrapper(st.session_state["model_state"])
-        current_payload = json.dumps(current_wrapper, indent=2, sort_keys=True, default=str)
+        current_payload = json.dumps(
+            current_wrapper, indent=2, sort_keys=True, default=str
+        )
         # Use active saved name if set, else uploaded filename, else "config"
         config_name = (
             st.session_state.get("active_saved_model_name")
@@ -2820,7 +2597,9 @@ def render_model_page() -> None:
             if saved_names:
                 export_index = 0
                 if st.session_state.get("active_saved_model_name") in saved_names:
-                    export_index = saved_names.index(st.session_state["active_saved_model_name"])
+                    export_index = saved_names.index(
+                        st.session_state["active_saved_model_name"]
+                    )
                 export_target = st.selectbox(
                     "Choose configuration to export",
                     saved_names,
@@ -2848,7 +2627,9 @@ def render_model_page() -> None:
 
         with import_col:
             st.markdown("**Import configuration from JSON**")
-            import_name = st.text_input("Name for imported configuration", key="import_config_name")
+            import_name = st.text_input(
+                "Name for imported configuration", key="import_config_name"
+            )
             uploaded_config = st.file_uploader(
                 "Upload JSON file",
                 type=["json"],
@@ -2859,7 +2640,9 @@ def render_model_page() -> None:
                 try:
                     raw_value = uploaded_config.getvalue()
                     if isinstance(raw_value, bytes):
-                        st.session_state["import_config_payload"] = raw_value.decode("utf-8-sig")
+                        st.session_state["import_config_payload"] = raw_value.decode(
+                            "utf-8-sig"
+                        )
                     else:
                         st.session_state["import_config_payload"] = str(raw_value)
                 except UnicodeDecodeError:
@@ -2868,26 +2651,38 @@ def render_model_page() -> None:
                         "Please upload a UTF-8 encoded JSON file."
                     )
                 except (AttributeError, TypeError):
-                    st.error("Unable to read uploaded JSON file due to an unexpected file format.")
+                    st.error(
+                        "Unable to read uploaded JSON file due to an unexpected file format."
+                    )
                 except OSError as exc:
                     st.error(f"Unable to read uploaded file: {exc}")
-            import_payload = st.text_area("Paste JSON to import", key="import_config_payload")
+            import_payload = st.text_area(
+                "Paste JSON to import", key="import_config_payload"
+            )
             if st.button("Import JSON configuration", key="import_config_button"):
                 if not import_payload.strip():
                     st.error("Paste a JSON payload to import a configuration.")
                 else:
                     try:
-                        imported_state = app_state.import_model_state(import_name, import_payload)
+                        imported_state = app_state.import_model_state(
+                            import_name, import_payload
+                        )
                     except ValueError as exc:
                         st.error(str(exc))
                     else:
-                        st.session_state["active_saved_model_name"] = import_name.strip()
-                        wrapper = app_state.load_saved_config_wrapper(import_name.strip())
+                        st.session_state["active_saved_model_name"] = (
+                            import_name.strip()
+                        )
+                        wrapper = app_state.load_saved_config_wrapper(
+                            import_name.strip()
+                        )
                         if isinstance(wrapper, Mapping):
                             _apply_config_wrapper(wrapper)
                         else:
                             st.session_state["model_state"] = imported_state
-                            st.session_state["last_loaded_model_state"] = dict(imported_state)
+                            st.session_state["last_loaded_model_state"] = dict(
+                                imported_state
+                            )
                             _reset_model_widget_state()
                             _sync_model_widgets_from_state(imported_state)
                         analysis_runner.clear_cached_analysis()
@@ -2927,7 +2722,9 @@ def render_model_page() -> None:
                     saved_model_states[config_b_name],
                 )
                 if not diffs:
-                    st.success("No differences found. The selected configurations match.")
+                    st.success(
+                        "No differences found. The selected configurations match."
+                    )
                 else:
                     diff_rows = []
                     for entry in diffs:
@@ -3047,7 +2844,9 @@ def render_model_page() -> None:
                 import datetime
 
                 original_end_str = current_end
-                current_end = datetime.datetime.strptime(current_end[:7] + "-01", "%Y-%m-%d").date()
+                current_end = datetime.datetime.strptime(
+                    current_end[:7] + "-01", "%Y-%m-%d"
+                ).date()
             except (ValueError, TypeError):
                 current_end = max_date
         elif current_end is None:
@@ -3074,10 +2873,14 @@ def render_model_page() -> None:
             )
             # Show warning if date was auto-corrected
             if start_was_corrected and original_start_str:
-                st.caption(f"⚠️ Adjusted from {original_start_str[:10]} to nearest available date")
+                st.caption(
+                    f"⚠️ Adjusted from {original_start_str[:10]} to nearest available date"
+                )
             # Update model state
             if sim_start_date:
-                st.session_state["model_state"]["start_date"] = sim_start_date.strftime("%Y-%m-%d")
+                st.session_state["model_state"]["start_date"] = sim_start_date.strftime(
+                    "%Y-%m-%d"
+                )
 
         with date_col2:
             sim_end_date = st.date_input(
@@ -3090,10 +2893,14 @@ def render_model_page() -> None:
             )
             # Show warning if date was auto-corrected
             if end_was_corrected and original_end_str:
-                st.caption(f"⚠️ Adjusted from {original_end_str[:10]} to nearest available date")
+                st.caption(
+                    f"⚠️ Adjusted from {original_end_str[:10]} to nearest available date"
+                )
             # Update model state
             if sim_end_date:
-                st.session_state["model_state"]["end_date"] = sim_end_date.strftime("%Y-%m-%d")
+                st.session_state["model_state"]["end_date"] = sim_end_date.strftime(
+                    "%Y-%m-%d"
+                )
 
         # Validate date range
         if sim_start_date and sim_end_date and sim_start_date > sim_end_date:
@@ -3105,7 +2912,9 @@ def render_model_page() -> None:
                     sim_end_date.month - sim_start_date.month
                 )
                 if months_span > 600:  # 50 years * 12 months
-                    st.warning("Date range exceeds 50 years - please verify your selection.")
+                    st.warning(
+                        "Date range exceeds 50 years - please verify your selection."
+                    )
                 else:
                     st.info(
                         f"📊 Selected period: {sim_start_date.strftime('%Y-%m')} to {sim_end_date.strftime('%Y-%m')} ({months_span} months)"
@@ -3218,7 +3027,9 @@ def render_model_page() -> None:
 
     # Show description for selected weighting scheme (updates dynamically)
     with st.expander("ℹ️ About this weighting scheme", expanded=False):
-        st.markdown(WEIGHTING_DESCRIPTIONS.get(weighting_value, "No description available."))
+        st.markdown(
+            WEIGHTING_DESCRIPTIONS.get(weighting_value, "No description available.")
+        )
 
     # Update model_state if weighting changed
     if weighting_value != current_weighting:
@@ -3348,7 +3159,9 @@ def render_model_page() -> None:
         # =====================================================================
         st.divider()
         st.subheader("📋 Fund Selection & Time Windows")
-        st.caption("Configure time windows for fund evaluation and walk-forward analysis.")
+        st.caption(
+            "Configure time windows for fund evaluation and walk-forward analysis."
+        )
 
         # Row 1: Frequency (sets the period unit for all time windows)
         # Note: This is inside the form, so labels won't update until form is submitted.
@@ -3412,7 +3225,9 @@ def render_model_page() -> None:
                 min_value=1,
                 max_value=20,
                 value=int(
-                    model_state.get("min_history_periods", model_state.get("lookback_periods", 3))
+                    model_state.get(
+                        "min_history_periods", model_state.get("lookback_periods", 3)
+                    )
                 ),
                 help=HELP_TEXT.get(
                     "min_history",
@@ -3524,7 +3339,9 @@ def render_model_page() -> None:
                 "🎲 **Random Mode**: Metric weights are not used for selection in random mode. "
                 "Funds are selected randomly. Metrics are still calculated for reporting purposes."
             )
-        st.caption("Relative importance of each metric when ranking funds for selection.")
+        st.caption(
+            "Relative importance of each metric when ranking funds for selection."
+        )
 
         metric_weights: dict[str, float] = {}
         # Create two rows for the 6 metrics
@@ -3549,7 +3366,9 @@ def render_model_page() -> None:
                     min_value=0.0,
                     value=float(model_state.get("metric_weights", {}).get(code, 1.0)),
                     step=0.1,
-                    help=HELP_TEXT.get(help_key, "Weight for this metric in fund ranking."),
+                    help=HELP_TEXT.get(
+                        help_key, "Weight for this metric in fund ranking."
+                    ),
                     key=f"metric_{code}",
                 )
 
@@ -3564,9 +3383,13 @@ def render_model_page() -> None:
                     metric_weights[code] = st.number_input(
                         label,
                         min_value=0.0,
-                        value=float(model_state.get("metric_weights", {}).get(code, 1.0)),
+                        value=float(
+                            model_state.get("metric_weights", {}).get(code, 1.0)
+                        ),
                         step=0.1,
-                        help=HELP_TEXT.get(help_key, "Weight for this metric in fund ranking."),
+                        help=HELP_TEXT.get(
+                            help_key, "Weight for this metric in fund ranking."
+                        ),
                         key=f"metric_{code}",
                     )
 
@@ -3582,7 +3405,9 @@ def render_model_page() -> None:
         # Benchmark selector for Info Ratio - always show when info_ratio weight > 0
         # Check both form value AND saved state for info_ratio weight
         info_ratio_weight = metric_weights.get("info_ratio", 0)
-        saved_info_ratio_weight = model_state.get("metric_weights", {}).get("info_ratio", 0)
+        saved_info_ratio_weight = model_state.get("metric_weights", {}).get(
+            "info_ratio", 0
+        )
         show_benchmark_selector = info_ratio_weight > 0 or saved_info_ratio_weight > 0
 
         info_ratio_benchmark = model_state.get("info_ratio_benchmark", "")
@@ -3720,7 +3545,9 @@ def render_model_page() -> None:
                     options=decay_methods,
                     format_func=lambda x: decay_labels.get(x, x),
                     index=(
-                        decay_methods.index(current_decay) if current_decay in decay_methods else 0
+                        decay_methods.index(current_decay)
+                        if current_decay in decay_methods
+                        else 0
                     ),
                     help=HELP_TEXT["vol_window_decay"],
                     disabled=not vol_adj_enabled,
@@ -3863,7 +3690,9 @@ def render_model_page() -> None:
             with reg_c2:
                 # Use benchmark columns as regime proxy options
                 regime_proxy_options = ["SPX", "TSX", "MSCI", "ACWI"] + [
-                    c for c in benchmark_options if c.upper() not in ["SPX", "TSX", "MSCI", "ACWI"]
+                    c
+                    for c in benchmark_options
+                    if c.upper() not in ["SPX", "TSX", "MSCI", "ACWI"]
                 ][
                     :10
                 ]  # Limit to 14 options
@@ -4026,7 +3855,9 @@ def render_model_page() -> None:
                         help=HELP_TEXT["sticky_add_periods"],
                         disabled=not mp_enabled_state,
                     )
-                    st.caption(f"Fund must rank in top-K for {sticky_add_periods} period(s).")
+                    st.caption(
+                        f"Fund must rank in top-K for {sticky_add_periods} period(s)."
+                    )
 
                 with rank_c2:
                     sticky_drop_periods = st.number_input(
@@ -4037,7 +3868,9 @@ def render_model_page() -> None:
                         help=HELP_TEXT["sticky_drop_periods"],
                         disabled=not mp_enabled_state,
                     )
-                    st.caption(f"Fund must fall out of top-K for {sticky_drop_periods} period(s).")
+                    st.caption(
+                        f"Fund must fall out of top-K for {sticky_drop_periods} period(s)."
+                    )
             elif is_random_mode:
                 # Random mode: no ranking stability needed
                 st.info(
@@ -4103,7 +3936,9 @@ def render_model_page() -> None:
                     help="Fund must fail threshold for this many consecutive periods.",
                     disabled=not mp_enabled_state,
                 )
-                st.caption(f"Score ≤ {z_exit_soft:.2f}σ for {soft_strikes} period(s) to exit.")
+                st.caption(
+                    f"Score ≤ {z_exit_soft:.2f}σ for {soft_strikes} period(s) to exit."
+                )
 
             st.markdown("**Underweight Exit (Weight-based)**")
             min_weight_strikes = st.number_input(
@@ -4136,7 +3971,9 @@ def render_model_page() -> None:
                     "Hard Entry Z-Score",
                     min_value=0.0,
                     max_value=5.0,
-                    value=float(z_entry_hard_val if z_entry_hard_val is not None else 2.0),
+                    value=float(
+                        z_entry_hard_val if z_entry_hard_val is not None else 2.0
+                    ),
                     step=0.25,
                     format="%.2f",
                     help=HELP_TEXT["z_entry_hard"],
@@ -4161,7 +3998,9 @@ def render_model_page() -> None:
                     "Hard Exit Z-Score",
                     min_value=-5.0,
                     max_value=0.0,
-                    value=float(z_exit_hard_val if z_exit_hard_val is not None else -2.0),
+                    value=float(
+                        z_exit_hard_val if z_exit_hard_val is not None else -2.0
+                    ),
                     step=0.25,
                     format="%.2f",
                     help=HELP_TEXT["z_exit_hard"],
@@ -4244,14 +4083,18 @@ def render_model_page() -> None:
                     help=HELP_TEXT["bottom_k"],
                 )
                 if bottom_k > 0:
-                    st.caption(f"Bottom {bottom_k} ranked funds will always be excluded.")
+                    st.caption(
+                        f"Bottom {bottom_k} ranked funds will always be excluded."
+                    )
 
         # =====================================================================
         # Reporting Options
         # =====================================================================
         st.markdown("---")
         with st.expander("📊 Reporting Options", expanded=False):
-            st.markdown("Configure what additional information to include in the Results page.")
+            st.markdown(
+                "Configure what additional information to include in the Results page."
+            )
 
             report_c1, report_c2 = st.columns(2)
             with report_c1:
@@ -4379,14 +4222,18 @@ def render_model_page() -> None:
                 "report_attribution": show_attribution,
                 "report_rolling_metrics": show_rolling_metrics,
             }
-            errors = _validate_model(candidate_state, len(fund_cols) if fund_cols else 0)
+            errors = _validate_model(
+                candidate_state, len(fund_cols) if fund_cols else 0
+            )
             if errors:
                 _render_validation_errors(errors)
             else:
                 st.session_state["model_state"] = candidate_state
                 analysis_runner.clear_cached_analysis()
                 app_state.clear_analysis_results()
-                st.success("✅ Model configuration saved. Go to Results to run analysis.")
+                st.success(
+                    "✅ Model configuration saved. Go to Results to run analysis."
+                )
 
 
 def _should_auto_render() -> bool:

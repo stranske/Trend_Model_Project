@@ -239,9 +239,41 @@ jobs:
             const options = { github, context, core };
             // Pass workflow_dispatch inputs if present
             const inputPrNumber = process.env.INPUT_PR_NUMBER;
-            const forceRetry = process.env.INPUT_FORCE_RETRY === 'true';
+            let forceRetry = process.env.INPUT_FORCE_RETRY === 'true';
             if (inputPrNumber) {
               options.overridePrNumber = parseInt(inputPrNumber, 10);
+            }
+            // Check if agent:retry label exists on PR (works for all event types)
+            if (!forceRetry) {
+              const { owner, repo } = context.repo;
+              // Resolve PR number from override, workflow_run, or pull_request event
+              const prNumberForLabelCheck =
+                options.overridePrNumber ||
+                (context.payload?.workflow_run?.pull_requests?.[0]?.number) ||
+                (context.payload?.pull_request?.number);
+              if (prNumberForLabelCheck) {
+                try {
+                  const labelsResponse = await github.rest.issues.listLabelsOnIssue({
+                    owner,
+                    repo,
+                    issue_number: prNumberForLabelCheck,
+                  });
+                  const hasRetryLabel = Array.isArray(labelsResponse.data) &&
+                    labelsResponse.data.some(label => label.name === 'agent:retry');
+                  if (hasRetryLabel) {
+                    forceRetry = true;
+                    core.info(
+                      `agent:retry label found on PR #${prNumberForLabelCheck} - ` +
+                      `enabling force retry`
+                    );
+                  }
+                } catch (error) {
+                  core.warning(
+                    `Could not check labels for PR #${prNumberForLabelCheck}: ` +
+                    `${error.message}`
+                  );
+                }
+              }
             }
             if (forceRetry) {
               options.forceRetry = true;
@@ -279,8 +311,48 @@ jobs:
             for (const [key, value] of Object.entries(output)) {
               core.setOutput(key, value);
             }
-            // Task appendix needs special handling due to multiline content
+            
+            // Task appendix: Write directly to file to avoid GitHub's secret scanner
+            // blocking job outputs (which happens with long/repetitive content).
+            // Writing here (before setting the task_appendix output) ensures the content
+            // reaches the artifact even if that output gets censored.
+            const fs = require('fs');
+            const path = require('path');
+            const artifactsDir = '/tmp/keepalive-artifacts';
+            const appendixPath = path.join(artifactsDir, 'task-appendix.txt');
+
+            // Ensure artifacts directory exists
+            fs.mkdirSync(artifactsDir, { recursive: true });
+
+            // Write the full task appendix directly to the artifact file
+            if (result.taskAppendix && result.taskAppendix.length > 0) {
+              fs.writeFileSync(appendixPath, result.taskAppendix + '\n', { encoding: 'utf8' });
+              core.info(`Task appendix written directly to file (${result.taskAppendix.length} chars)`);
+            } else {
+              // Create an empty file if there is no appendix content
+              fs.closeSync(fs.openSync(appendixPath, 'w'));
+              core.info('Empty task appendix file created');
+            }
+
+            // Keep output for backward compatibility (may be censored, but that's OK now)
             core.setOutput('task_appendix', result.taskAppendix || '');
+
+      - name: Verify task appendix artifact
+        if: steps.evaluate.outputs.action == 'run' || steps.evaluate.outputs.action == 'fix' || steps.evaluate.outputs.action == 'conflict'
+        run: |
+          if [ ! -f /tmp/keepalive-artifacts/task-appendix.txt ]; then
+            echo "ERROR: Task appendix file not created by evaluate step"
+            exit 1
+          fi
+          echo "Task appendix ready ($(wc -c < /tmp/keepalive-artifacts/task-appendix.txt) bytes)"
+
+      - name: Upload task appendix artifact
+        if: steps.evaluate.outputs.action == 'run' || steps.evaluate.outputs.action == 'fix' || steps.evaluate.outputs.action == 'conflict'
+        uses: actions/upload-artifact@v7
+        with:
+          name: keepalive-task-appendix-${{ steps.evaluate.outputs.pr_number }}
+          path: /tmp/keepalive-artifacts/task-appendix.txt
+          retention-days: 1
 
   preflight:
     name: Verify secrets available
@@ -396,15 +468,7 @@ jobs:
        needs.evaluate.outputs.action == 'fix' ||
        needs.evaluate.outputs.action == 'conflict')
     uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
-    secrets:
-      CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
-      # Use KEEPALIVE_APP for isolated rate limit pool (5000/hr)
-      # Falls back to WORKFLOWS_APP if not configured
-      WORKFLOWS_APP_ID: >-
-        ${{ secrets.KEEPALIVE_APP_ID || secrets.WORKFLOWS_APP_ID }}
-      WORKFLOWS_APP_PRIVATE_KEY: >-
-        ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY ||
-            secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+    secrets: inherit
     with:
       skip: >-
         ${{ needs.evaluate.outputs.action != 'run' &&
@@ -474,7 +538,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install pydantic langchain-openai
+        run: pip install pydantic langchain-openai langchain-anthropic
 
       - name: Get recent commits
         id: commits
@@ -548,6 +612,7 @@ jobs:
         id: review
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
           CRITERIA: ${{ steps.criteria.outputs.criteria }}
           COMMITS: ${{ steps.commits.outputs.messages }}
           FILES: ${{ steps.commits.outputs.files }}
@@ -650,17 +715,22 @@ jobs:
             // If STOP recommended, remove agent label to prevent further runs
             if (recommendation === 'STOP') {
               core.warning('Progress review recommends STOP - agent work appears unaligned');
-              try {
-                await withRetry((client) =>
-                  client.rest.issues.removeLabel({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    issue_number: prNumber,
-                    name: 'agent:codex',
-                  })
-                );
-              } catch (e) {
-                core.info(`Could not remove label: ${e.message}`);
+              const agentType = '${{ needs.evaluate.outputs.agent_type }}';
+              if (agentType) {
+                const agentLabel = `agent:${agentType}`;
+                try {
+                  await withRetry((client) =>
+                    client.rest.issues.removeLabel({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: prNumber,
+                      name: agentLabel,
+                    })
+                  );
+                  core.info(`Removed ${agentLabel} label after STOP recommendation`);
+                } catch (e) {
+                  core.info(`Could not remove ${agentLabel} label: ${e.message}`);
+                }
               }
             }
 
@@ -845,7 +915,8 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const { updateKeepaliveLoopSummary } = require('./.github/scripts/keepalive_loop.js');
+            const { updateKeepaliveLoopSummary } =
+              require('./.github/scripts/keepalive_loop.js');
             const inputs = {
               pr_number: Number('${{ needs.evaluate.outputs.pr_number }}') || 0,
               action: '${{ needs.evaluate.outputs.action }}',
@@ -854,6 +925,8 @@ jobs:
               iteration: Number('${{ needs.evaluate.outputs.iteration }}') || 0,
               max_iterations: Number('${{ needs.evaluate.outputs.max_iterations }}') || 0,
               failure_threshold: Number('${{ needs.evaluate.outputs.failure_threshold }}') || 3,
+              rounds_without_task_completion:
+                Number('${{ needs.evaluate.outputs.rounds_without_task_completion }}') || 0,
               tasks_total: Number('${{ needs.evaluate.outputs.tasks_total }}') || 0,
               tasks_unchecked: Number('${{ needs.evaluate.outputs.tasks_unchecked }}') || 0,
               keepalive_enabled: '${{ needs.evaluate.outputs.keepalive_enabled }}',
@@ -869,8 +942,12 @@ jobs:
               agent_files_changed: '${{ needs.run-codex.outputs.files-changed }}',
               agent_summary: process.env.CODEX_SUMMARY || '',
               // LLM analysis details for task completion reporting
-              llm_provider: '${{ needs.run-codex.outputs.llm-provider || '' }}',
-              llm_confidence: '${{ needs.run-codex.outputs.llm-confidence || '' }}',
+              llm_provider:
+                '${{ needs.run-codex.outputs.llm-provider || '' }}',
+              llm_model:
+                '${{ needs.run-codex.outputs.llm-model || '' }}',
+              llm_confidence:
+                '${{ needs.run-codex.outputs.llm-confidence || ''}}',
               llm_analysis_run: '${{ needs.run-codex.outputs.llm-analysis-run }}' === 'true',
             };
             await updateKeepaliveLoopSummary({ github, context, core, inputs });

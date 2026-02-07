@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Mapping, SupportsFloat, SupportsIndex, cast
+from typing import Any, Mapping, cast
 
 import numpy as np
 import pandas as pd
@@ -149,27 +149,21 @@ def _normalize_regime_key(value: Any) -> str | None:
     return re.sub(r"[^a-z0-9]+", "", text.casefold())
 
 
-def _coerce_float(value: object) -> float | None:
-    if isinstance(value, (int, float, str, bytes, bytearray)):
-        try:
-            return float(value)
-        except (TypeError, ValueError):
-            return None
-    try:
-        return float(cast(SupportsFloat | SupportsIndex, value))
-    except (TypeError, ValueError):
-        return None
-
-
 def _resolve_regime_turnover_cap(
     max_turnover: object | None,
     regime_label: str | None,
     settings: Any,
 ) -> float | None:
+    def _coerce_optional_float(value: object) -> float | None:
+        try:
+            return float(cast(Any, value))
+        except (TypeError, ValueError):
+            return None
+
     if max_turnover is None:
         return None
     if not isinstance(max_turnover, Mapping):
-        return _coerce_float(max_turnover)
+        return _coerce_optional_float(max_turnover)
 
     normalized: dict[str, object] = {}
     for key, value in max_turnover.items():
@@ -183,16 +177,16 @@ def _resolve_regime_turnover_cap(
     if regime_label:
         label_key = _normalize_regime_key(regime_label)
         if label_key and label_key in normalized:
-            return _coerce_float(normalized[label_key])
+            return _coerce_optional_float(normalized[label_key])
 
     default_label = getattr(settings, "default_label", None)
     default_key = _normalize_regime_key(default_label)
     if default_key and default_key in normalized:
-        return _coerce_float(normalized[default_key])
+        return _coerce_optional_float(normalized[default_key])
 
     for fallback in ("default", "all", "any"):
         if fallback in normalized:
-            return _coerce_float(normalized[fallback])
+            return _coerce_optional_float(normalized[fallback])
     return None
 
 
@@ -285,9 +279,13 @@ def _apply_regime_weight_overrides(
 
     updated_target = target_vol
     if "risk_off_target_vol" in cfg:
-        updated_target = _coerce_positive_float(cfg.get("risk_off_target_vol"), target_vol)
+        updated_target = _coerce_positive_float(
+            cfg.get("risk_off_target_vol"), target_vol
+        )
     else:
-        multiplier = _coerce_positive_float(cfg.get("risk_off_target_vol_multiplier", 0.5), 0.5)
+        multiplier = _coerce_positive_float(
+            cfg.get("risk_off_target_vol_multiplier", 0.5), 0.5
+        )
         updated_target = float(target_vol) * multiplier
 
     return updated_target, constraints
@@ -364,7 +362,9 @@ def _build_trend_spec(
         lag = 1
 
     vol_adjust_default = bool(_section_get(vol_adjust_cfg, "enabled", False))
-    vol_adjust_flag = bool(_signal_setting("vol_adjust", "trend_vol_adjust", vol_adjust_default))
+    vol_adjust_flag = bool(
+        _signal_setting("vol_adjust", "trend_vol_adjust", vol_adjust_default)
+    )
     vol_target_raw = _signal_setting("vol_target", "trend_vol_target")
     if vol_target_raw is None and vol_adjust_flag:
         vol_target_raw = _section_get(vol_adjust_cfg, "target_vol")
@@ -419,7 +419,9 @@ def _policy_from_config(
     limit_base = cfg.get("limit")
     per_asset_limit = cfg.get("per_asset_limit")
     if isinstance(per_asset_limit, Mapping):
-        limit_map: dict[str, int | None] = {str(k): v for k, v in per_asset_limit.items()}
+        limit_map: dict[str, int | None] = {
+            str(k): v for k, v in per_asset_limit.items()
+        }
         if limit_base is not None:
             limit_map = {"default": limit_base, **limit_map}
         limit_spec: Mapping[str, int | None] | None = limit_map
@@ -508,7 +510,9 @@ def _resolve_sample_split(
         return resolved
 
     if "Date" not in df.columns:
-        raise ValueError("Input data must contain a 'Date' column to derive sample splits")
+        raise ValueError(
+            "Input data must contain a 'Date' column to derive sample splits"
+        )
 
     date_series = pd.to_datetime(df["Date"], errors="coerce")
     date_series = date_series.dropna()
@@ -542,7 +546,9 @@ def _resolve_sample_split(
 
     still_missing = [key for key in required_keys if key not in resolved]
     if still_missing:
-        raise ValueError(f"Unable to derive sample split values for: {', '.join(still_missing)}")
+        raise ValueError(
+            f"Unable to derive sample split values for: {', '.join(still_missing)}"
+        )
     return resolved
 
 

@@ -357,7 +357,10 @@ class ConfigPatchChain:
     ) -> _LLMResponse:
         from langchain_core.prompts import ChatPromptTemplate
 
-        from trend_analysis.llm.tracing import langsmith_tracing_context
+        from trend_analysis.llm.tracing import (
+            langsmith_tracing_context,
+            resolve_trace_url,
+        )
 
         template = ChatPromptTemplate.from_messages([("system", "{prompt}")])
         llm = llm_override or self._bind_llm()
@@ -382,7 +385,7 @@ class ConfigPatchChain:
                 response_text = getattr(response, "content", None) or str(response)
             if run is not None:
                 run.end(outputs={"output": response_text})
-                trace_url = getattr(run, "url", None)
+                trace_url = resolve_trace_url(run)
                 if trace_url:
                     logger.info("LangSmith trace: %s", trace_url)
         return _LLMResponse(response_text, trace_url)
@@ -561,7 +564,10 @@ class ResultSummaryChain:
     ) -> _LLMResponse:
         from langchain_core.prompts import ChatPromptTemplate
 
-        from trend_analysis.llm.tracing import langsmith_tracing_context
+        from trend_analysis.llm.tracing import (
+            langsmith_tracing_context,
+            resolve_trace_url,
+        )
 
         template = ChatPromptTemplate.from_messages([("system", "{prompt}")])
         chain = template | self._bind_llm()
@@ -582,7 +588,7 @@ class ResultSummaryChain:
             response_text = getattr(response, "content", None) or str(response)
             if run is not None:
                 run.end(outputs={"output": response_text})
-                trace_url = getattr(run, "url", None)
+                trace_url = resolve_trace_url(run)
                 if trace_url:
                     logger.info("LangSmith trace: %s", trace_url)
         return _LLMResponse(response_text, trace_url)
