@@ -63,6 +63,7 @@ _MAX_CONFIG_HISTORY = 20
 _CONFIG_PREVIEW_TIMINGS_KEY = "config_chat_preview_timings"
 _MAX_CONFIG_PREVIEW_TIMINGS = 20
 _CONFIG_CHAIN_STATE_KEY = "config_chat_chain_state"
+_DEFAULT_CONFIG_CHAT_PROVIDER = "openai"
 _DEFAULT_CONFIG_CHAT_MODEL = "gpt-4o-mini"
 _CONFIG_CHAIN_CACHE_VERSION = "v1"
 _CONFIG_CHAIN_METRICS_KEY = "config_chat_chain_metrics"
@@ -935,14 +936,17 @@ def _maybe_reset_config_chat_cache(snapshot: Mapping[str, Any]) -> list[str]:
     return changed
 
 
-def _llm_required_env_vars(provider: str) -> list[str]:
+def _llm_required_env_vars(provider: str) -> list[str] | None:
     required = ["TS_STREAMLIT_API_KEY", "TREND_LLM_API_KEY"]
     if provider == "openai":
         required.append("OPENAI_API_KEY")
     elif provider == "anthropic":
         required.append("ANTHROPIC_API_KEY")
+    elif provider == "ollama":
+        pass
     else:
-        return []
+        _LOGGER.warning("Unknown LLM provider for env var requirements: %s", provider)
+        return None
     return required
 
 
@@ -954,7 +958,10 @@ def _llm_env_var_present(name: str) -> bool:
 
 
 def _llm_env_var_status(provider: str) -> dict[str, bool]:
-    return {name: _llm_env_var_present(name) for name in _llm_required_env_vars(provider)}
+    required = _llm_required_env_vars(provider)
+    if not required:
+        return {}
+    return {name: _llm_env_var_present(name) for name in required}
 
 
 def _render_llm_status_panel() -> None:
@@ -963,24 +970,48 @@ def _render_llm_status_panel() -> None:
         "anthropic": "Anthropic",
         "ollama": "Ollama",
     }
-    resolved_provider = _resolve_llm_provider_config().provider
-    provider_label = provider_labels.get(resolved_provider, resolved_provider)
+    selected_provider = _normalize_cache_str(st.session_state.get("selected_provider"))
+    selected_provider = (selected_provider or _DEFAULT_CONFIG_CHAT_PROVIDER).lower()
+    selected_model = (
+        _normalize_cache_str(st.session_state.get("selected_model")) or _DEFAULT_CONFIG_CHAT_MODEL
+    )
+    provider_label = provider_labels.get(selected_provider, selected_provider)
     st.info(f"Active provider: {provider_label}")
-    required_vars = _llm_required_env_vars(resolved_provider)
+    st.info(f"Active model: {selected_model}")
+    required_vars = _llm_required_env_vars(selected_provider)
+    if required_vars is None:
+        st.warning(f"Unknown provider: {selected_provider}. Update your LLM settings.")
+        return
     if not required_vars:
         st.caption("Expected environment variables: None required.")
         return
+    missing_vars = [name for name in required_vars if not _llm_env_var_present(name)]
     st.caption("Expected environment variables (values hidden):")
-    status = _llm_env_var_status(resolved_provider)
     for name in required_vars:
-        icon = "✓" if status.get(name) else "✗"
+        icon = "✓" if name not in missing_vars else "✗"
         st.write(f"{icon} `{name}`")
-    if not any(status.values()):
-        missing_list = ", ".join(required_vars)
+    if missing_vars:
+        missing_list = ", ".join(missing_vars)
         st.warning(
-            f"Missing required environment variables for {provider_label}. "
-            f"Set one of: {missing_list}."
+            f"Missing required environment variables for {provider_label}. " f"Set: {missing_list}."
         )
+
+
+def _sync_llm_selection_from_overrides() -> None:
+    provider_override = _normalize_cache_str(st.session_state.get(_LLM_PROVIDER_OVERRIDE_KEY))
+    if provider_override:
+        st.session_state["selected_provider"] = provider_override.lower()
+    else:
+        env_provider = _normalize_cache_str(os.environ.get("TREND_LLM_PROVIDER"))
+        st.session_state["selected_provider"] = (
+            env_provider or _DEFAULT_CONFIG_CHAT_PROVIDER
+        ).lower()
+    model_override = _normalize_cache_str(st.session_state.get(_LLM_MODEL_OVERRIDE_KEY))
+    if model_override:
+        st.session_state["selected_model"] = model_override
+    else:
+        env_model = _normalize_cache_str(os.environ.get("TREND_LLM_MODEL"))
+        st.session_state["selected_model"] = env_model or _DEFAULT_CONFIG_CHAT_MODEL
 
 
 def _render_llm_session_overrides_panel() -> None:
@@ -1003,11 +1034,13 @@ def _render_llm_session_overrides_panel() -> None:
             key=_LLM_PROVIDER_OVERRIDE_KEY,
             format_func=lambda value: provider_labels.get(value, "Use env default"),
             help="Overrides TREND_LLM_PROVIDER for this session only.",
+            on_change=_sync_llm_selection_from_overrides,
         )
         st.text_input(
             "Model (optional)",
             key=_LLM_MODEL_OVERRIDE_KEY,
             help="Overrides TREND_LLM_MODEL for this session only.",
+            on_change=_sync_llm_selection_from_overrides,
         )
         st.text_input(
             "Base URL (optional)",
@@ -1029,6 +1062,7 @@ def _render_llm_session_overrides_panel() -> None:
                 float(temp_override)
             except (TypeError, ValueError):
                 st.warning("Temperature override must be a number; using env default.")
+        _sync_llm_selection_from_overrides()
         _maybe_reset_config_chat_cache(_current_chain_settings_snapshot())
 
 
@@ -1163,7 +1197,7 @@ def _build_chain_cache_context(
     show_spinner=False,
     hash_funcs={dict: _hash_cache_key, _ApiKeySecret: _hash_api_key_secret},
 )
-def _build_nl_chain(
+def _build_nl_chain_cached(
     provider: str,
     model: str,
     base_url: str | None,
@@ -1205,6 +1239,68 @@ def _build_nl_chain(
     return chain
 
 
+def _build_nl_chain(
+    provider: str | None = None,
+    model: str | None = None,
+    base_url: str | None = None,
+    organization: str | None = None,
+    temperature: float | None = None,
+    cache_signature: str | None = None,
+    timeout: float | None = None,
+    max_retries: int | None = None,
+    api_key_secret: _ApiKeySecret | None = None,
+    extra_payload: str | None = None,
+) -> ConfigPatchChain:
+    if provider is None or model is None or temperature is None:
+        config = _resolve_llm_provider_config()
+        temperature = _resolve_llm_temperature() if temperature is None else temperature
+        context = _build_chain_cache_context(config, temperature)
+        st.session_state["selected_provider"] = context["provider"]
+        st.session_state["selected_model"] = context["resolved_model"]
+        api_key_secret = _ApiKeySecret(context["api_key"], context["api_key_fingerprint"])
+        cache_signature = _chain_cache_signature_from_inputs(
+            context["provider"],
+            context["resolved_model"],
+            context["base_url"],
+            context["organization"],
+            context["temperature"],
+        )
+        return _build_nl_chain_cached(
+            provider=context["provider"],
+            model=context["resolved_model"],
+            base_url=context["base_url"],
+            organization=context["organization"],
+            temperature=context["temperature"],
+            cache_signature=cache_signature,
+            timeout=config.timeout,
+            max_retries=config.max_retries,
+            api_key_secret=api_key_secret,
+            extra_payload=context["extra_payload"],
+        )
+    if cache_signature is None:
+        cache_signature = _chain_cache_signature_from_inputs(
+            provider,
+            model,
+            base_url,
+            organization,
+            temperature,
+        )
+    if extra_payload is None:
+        extra_payload = ""
+    return _build_nl_chain_cached(
+        provider=provider,
+        model=model,
+        base_url=base_url,
+        organization=organization,
+        temperature=temperature,
+        cache_signature=cache_signature,
+        timeout=timeout,
+        max_retries=max_retries,
+        api_key_secret=api_key_secret,
+        extra_payload=extra_payload,
+    )
+
+
 def _get_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     config = _resolve_llm_provider_config()
     temperature = _resolve_llm_temperature()
@@ -1212,8 +1308,8 @@ def _get_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         _current_chain_settings_snapshot(config, temperature)
     )
     context = _build_chain_cache_context(config, temperature)
-    st.session_state["selected_provider"] = context["provider"]
-    st.session_state["selected_model"] = context["resolved_model"]
+    st.session_state.setdefault("selected_provider", context["provider"])
+    st.session_state.setdefault("selected_model", context["resolved_model"])
     api_key = context["api_key"]
     api_key_fingerprint = context["api_key_fingerprint"]
     extra_payload = context["extra_payload"]
@@ -1267,7 +1363,7 @@ def _get_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         session_reset = True
     api_key_secret = _ApiKeySecret(api_key, api_key_fingerprint)
     lookup_start = monotonic()
-    chain = _build_nl_chain(
+    chain = _build_nl_chain_cached(
         provider=context["provider"],
         model=context["resolved_model"],
         base_url=context["base_url"],
