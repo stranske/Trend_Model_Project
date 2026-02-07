@@ -134,7 +134,9 @@ def _redact_entry_for_replay(entry: NLOperationLog) -> NLOperationLog:
     return entry.model_copy(
         update={
             "prompt_template": _redact_text(entry.prompt_template or ""),
-            "prompt_variables": _sanitize_prompt_variables(entry.prompt_variables or {}),
+            "prompt_variables": _sanitize_prompt_variables(
+                entry.prompt_variables or {}
+            ),
         }
     )
 
@@ -164,7 +166,9 @@ def _sanitize_patch_payload(patch: ConfigPatch) -> dict[str, Any]:
     payload = patch.model_dump()
     summary = payload.get("summary")
     if isinstance(summary, str):
-        payload["summary"] = "[REDACTED]" if _is_sensitive_key(summary) else _redact_text(summary)
+        payload["summary"] = (
+            "[REDACTED]" if _is_sensitive_key(summary) else _redact_text(summary)
+        )
     operations = []
     for operation in payload.get("operations", []):
         if not isinstance(operation, dict):
@@ -174,10 +178,24 @@ def _sanitize_patch_payload(patch: ConfigPatch) -> dict[str, Any]:
         safe_operation = dict(operation)
         safe_operation["path"] = _redact_text(path)
         if "value" in safe_operation:
-            safe_operation["value"] = _sanitize_value(operation.get("value"), key=path or None)
+            safe_operation["value"] = _sanitize_value(
+                operation.get("value"), key=path or None
+            )
         operations.append(safe_operation)
     payload["operations"] = operations
     return _sanitize_value(payload)
+
+
+def _build_diff_summary(payload: dict[str, Any]) -> list[str]:
+    operations = []
+    for op in payload.get("operations", []):
+        if not isinstance(op, dict):
+            continue
+        operation = op.get("op")
+        path = op.get("path")
+        value = json.dumps(op.get("value"), default=str)
+        operations.append(f"{operation} {path} -> {value}")
+    return operations
 
 
 def _format_timestamp(entry: NLOperationLog) -> str:
@@ -237,14 +255,9 @@ def _render_patch_summary(entry: NLOperationLog) -> None:
     if risk_flags:
         st.caption("Risk flags: " + ", ".join(str(flag) for flag in risk_flags))
     st.caption("Needs review: " + ("Yes" if safe_payload.get("needs_review") else "No"))
-    operations = []
-    for op in safe_payload.get("operations", []):
-        if not isinstance(op, dict):
-            continue
-        operations.append(
-            f"{op.get('op')} {op.get('path')} -> {json.dumps(op.get('value'), default=str)}"
-        )
+    operations = _build_diff_summary(safe_payload)
     if operations:
+        st.markdown("**Diff summary**")
         st.code("\n".join(operations), language="text")
     st.markdown("**Patch payload**")
     st.code(json.dumps(safe_payload, indent=2, sort_keys=True), language="json")
@@ -260,8 +273,12 @@ def _render_replay(entry: NLOperationLog) -> None:
         )
     else:
         st.caption("Replay uses redacted prompt variables to prevent leakage.")
-    provider = st.selectbox("Provider", ["openai", "anthropic", "ollama"], key="nl_replay_provider")
-    model = st.text_input("Model (optional)", value=entry.model_name or "", key="nl_replay_model")
+    provider = st.selectbox(
+        "Provider", ["openai", "anthropic", "ollama"], key="nl_replay_provider"
+    )
+    model = st.text_input(
+        "Model (optional)", value=entry.model_name or "", key="nl_replay_model"
+    )
     temperature = st.slider(
         "Temperature",
         min_value=0.0,
@@ -326,8 +343,12 @@ def render_nl_operation_viewer(
     _render_entry_table(choices)
 
     labels = [choice.label for choice in choices]
-    selected_entry_label = st.selectbox("Select entry", labels, key="nl_log_entry_select")
-    selected_choice = next(choice for choice in choices if choice.label == selected_entry_label)
+    selected_entry_label = st.selectbox(
+        "Select entry", labels, key="nl_log_entry_select"
+    )
+    selected_choice = next(
+        choice for choice in choices if choice.label == selected_entry_label
+    )
     entry = selected_choice.entry
 
     st.markdown("**Entry details**")
@@ -347,7 +368,10 @@ def render_nl_operation_viewer(
     variables = entry.prompt_variables or {}
     if variables:
         st.markdown("**Prompt variables**")
-        st.code(json.dumps(_sanitize_prompt_variables(dict(variables)), indent=2), language="json")
+        st.code(
+            json.dumps(_sanitize_prompt_variables(dict(variables)), indent=2),
+            language="json",
+        )
 
     if entry.model_output:
         st.markdown("**Model output**")

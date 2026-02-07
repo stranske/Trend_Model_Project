@@ -18,7 +18,9 @@ def _load_module(monkeypatch: pytest.MonkeyPatch):
     st_stub = MagicMock()
     st_stub.session_state = {}
     monkeypatch.setitem(sys.modules, "streamlit", st_stub)
-    return importlib.reload(importlib.import_module("streamlit_app.components.nl_operation_viewer"))
+    return importlib.reload(
+        importlib.import_module("streamlit_app.components.nl_operation_viewer")
+    )
 
 
 def test_sanitize_prompt_variables_redacts_sensitive_fields(
@@ -91,7 +93,9 @@ def _make_entry(**kwargs) -> NLOperationLog:
     return NLOperationLog(**defaults)
 
 
-def test_prepare_replay_entry_redacts_sensitive_prompt(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_prepare_replay_entry_redacts_sensitive_prompt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     module = _load_module(monkeypatch)
     entry = _make_entry(
         prompt_template="Authorization: Bearer sk-test-1234567890abcdef1234567890",
@@ -105,7 +109,9 @@ def test_prepare_replay_entry_redacts_sensitive_prompt(monkeypatch: pytest.Monke
     assert redacted_entry.prompt_variables["api_key"] == "[REDACTED]"
 
 
-def test_prepare_replay_entry_no_redaction_when_safe(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_prepare_replay_entry_no_redaction_when_safe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     module = _load_module(monkeypatch)
     entry = _make_entry(prompt_template="Hello", prompt_variables={"user": "test"})
 
@@ -116,7 +122,9 @@ def test_prepare_replay_entry_no_redaction_when_safe(monkeypatch: pytest.MonkeyP
     assert redacted_entry.prompt_variables == {"user": "test"}
 
 
-def test_render_prompt_for_display_redacts_by_key(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_render_prompt_for_display_redacts_by_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     module = _load_module(monkeypatch)
     entry = _make_entry(
         prompt_template="Password: {password}",
@@ -146,7 +154,28 @@ def test_sanitize_patch_payload_redacts_sensitive_values(
     assert payload["operations"][0]["value"] == "[REDACTED]"
 
 
-def test_load_log_entries_respects_limit(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_diff_summary_formats_operations(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = _load_module(monkeypatch)
+    patch = ConfigPatch(
+        summary="Adjust volatility floor",
+        operations=[
+            PatchOperation(op="set", path="risk.vol_floor", value=0.15),
+            PatchOperation(op="set", path="risk.warmup_periods", value=5),
+        ],
+    )
+
+    payload = module._sanitize_patch_payload(patch)
+    summary = module._build_diff_summary(payload)
+
+    assert summary == [
+        "set risk.vol_floor -> 0.15",
+        "set risk.warmup_periods -> 5",
+    ]
+
+
+def test_load_log_entries_respects_limit(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     module = _load_module(monkeypatch)
     log_path = tmp_path / "nl_ops_2026-02-03.jsonl"
 
