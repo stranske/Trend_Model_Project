@@ -338,3 +338,36 @@ def test_replay_button_invokes_replay_for_selected_entry(
     entry_id = f"{log_path.stem}_1"
     assert called_entry.request_id == entry.request_id
     assert st_stub.session_state[f"nl_replay_result_{entry_id}"]["output"] == "ok"
+
+
+def test_replay_session_state_keys_are_entry_specific(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _load_module(monkeypatch)
+    st_stub = sys.modules["streamlit"]
+
+    log_dir = tmp_path / ".trend_nl_logs"
+    log_dir.mkdir()
+    log_path = log_dir / "nl_ops_2026-02-03.jsonl"
+    entry = _make_entry()
+    line = json.dumps(entry.model_dump(mode="json"), separators=(",", ":"))
+    with log_path.open("w", encoding="utf-8") as handle:
+        handle.write(line + "\n")
+
+    label = (
+        f"1. {module._format_timestamp(entry)} | {entry.operation} | "
+        f"{entry.model_name or 'unknown'} | {module._format_duration(entry)}"
+    )
+    st_stub.selectbox.side_effect = [log_path.name, label, "openai"]
+    st_stub.text_input.return_value = entry.model_name or ""
+    st_stub.slider.return_value = float(entry.temperature or 0.0)
+    st_stub.button.return_value = True
+
+    replay_result = MagicMock(output="ok", diff=None, trace_url=None)
+    replay_mock = MagicMock(return_value=replay_result)
+    monkeypatch.setattr(module, "replay_nl_entry", replay_mock)
+
+    module.render_nl_operation_viewer(base_dir=log_dir)
+
+    assert "nl_replay_open" not in st_stub.session_state
+    assert "nl_replay_result" not in st_stub.session_state
