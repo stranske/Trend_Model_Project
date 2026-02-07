@@ -6,6 +6,7 @@ import hashlib
 import importlib
 import json
 import sys
+from contextlib import nullcontext
 from dataclasses import dataclass
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -17,6 +18,17 @@ from trend_analysis.llm import (
     ResultClaimIssue,
     ResultSummaryResponse,
 )
+
+
+class _StubColumn:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def download_button(self, *args, **kwargs) -> None:
+        return None
 
 
 @dataclass
@@ -216,6 +228,55 @@ def test_cache_key_varies_by_questions(explain_module) -> None:
     )
 
     assert key_one != key_two
+
+
+def test_render_explain_results_displays_trace_url(explain_module) -> None:
+    st_stub = explain_module.st
+    st_stub.session_state = {
+        "explain_results_questions": "Summarize results",
+        "explain_results_provider": "openai",
+    }
+    st_stub.expander.return_value = nullcontext()
+    st_stub.spinner.return_value = nullcontext()
+    st_stub.columns.side_effect = lambda *_args, **_kwargs: [
+        _StubColumn(),
+        _StubColumn(),
+    ]
+    st_stub.button.return_value = False
+
+    run_key = "run:trace"
+    cache_key = explain_module._cache_key_for(
+        run_key,
+        questions="Summarize results",
+        provider="openai",
+        model=None,
+        base_url=None,
+        organization=None,
+    )
+    cache = explain_module._cache_bucket()
+    cache[cache_key] = explain_module.ExplanationResult(
+        text="Explanation text",
+        trace_url="trace://example",
+        claim_issues=[],
+        metric_count=1,
+        created_at="2025-01-01T00:00:00Z",
+    )
+
+    explain_module.render_explain_results(SimpleNamespace(details={}), run_key=run_key)
+
+    caption_calls = [
+        call.args[0]
+        for call in st_stub.caption.call_args_list
+        if call.args and isinstance(call.args[0], str)
+    ]
+    assert any("Trace URL: trace://example" in text for text in caption_calls)
+
+    markdown_calls = [
+        call.args[0]
+        for call in st_stub.markdown.call_args_list
+        if call.args and isinstance(call.args[0], str)
+    ]
+    assert any(RESULT_DISCLAIMER in text for text in markdown_calls)
 
 
 def test_render_explain_results_uses_cached_result(explain_module) -> None:
