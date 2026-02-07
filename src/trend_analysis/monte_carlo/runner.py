@@ -38,6 +38,8 @@ from trend_analysis.monte_carlo.strategy.sampler import (
     sample_strategy_variants,
 )
 from trend_analysis.pipeline import _resolve_sample_split
+from trend_analysis.pipeline_helpers import _resolve_regime_turnover_cap
+from trend_analysis.regimes import compute_regimes, normalise_settings
 from trend_analysis.risk import periods_per_year_from_code
 from trend_analysis.stages.selection import single_period_run
 
@@ -569,6 +571,7 @@ class MonteCarloRunner:
     ) -> StrategyEvaluation:
         strategy_seed = self._strategy_seed(context.path_id, strategy.name)
         config = self._build_strategy_config(strategy, strategy_seed)
+        self._apply_regime_turnover_caps(config, context)
         run_result = run_simulation(config, context.returns)
         metrics, source = self._extract_metrics(run_result.metrics)
         cost_payload = self._maybe_sample_costs(run_result, context, strategy)
@@ -622,6 +625,94 @@ class MonteCarloRunner:
             turnover=turnover_series,
             turnover_cap_binding=binding,
         )
+
+    def _apply_regime_turnover_caps(self, config: ConfigType, context: _PathContext) -> None:
+        portfolio = getattr(config, "portfolio", None)
+        if not isinstance(portfolio, Mapping):
+            return
+        max_turnover = portfolio.get("max_turnover")
+        if not isinstance(max_turnover, Mapping):
+            return
+        resolved = self._resolve_turnover_cap_for_context(config, context, max_turnover)
+        if resolved is None or resolved is max_turnover:
+            return
+        if isinstance(portfolio, dict):
+            portfolio["max_turnover"] = resolved
+
+    def _resolve_turnover_cap_for_context(
+        self,
+        config: ConfigType,
+        context: _PathContext,
+        max_turnover: Mapping[str, Any],
+    ) -> float | Mapping[str, Any] | None:
+        regime_cfg = getattr(config, "regime", None)
+        if not isinstance(regime_cfg, Mapping):
+            return max_turnover
+        settings = normalise_settings(regime_cfg)
+        if not settings.enabled or not settings.proxy:
+            return max_turnover
+        proxy_col = self._resolve_regime_proxy_column(
+            context.returns,
+            settings.proxy,
+            getattr(config, "benchmarks", None),
+        )
+        if proxy_col is None:
+            return max_turnover
+        proxy_series = self._build_regime_proxy_series(context.returns, proxy_col)
+        if proxy_series is None or proxy_series.empty:
+            return max_turnover
+        data_cfg = getattr(config, "data", None)
+        freq = None
+        if isinstance(data_cfg, Mapping):
+            freq = data_cfg.get("frequency")
+        freq_label = str(freq or "M")
+        periods_per_year = periods_per_year_from_code(freq_label)
+        regimes = compute_regimes(
+            proxy_series,
+            settings,
+            freq=freq_label,
+            periods_per_year=periods_per_year,
+        )
+        if regimes.empty:
+            return max_turnover
+        regime_label = str(regimes.iloc[-1])
+        resolved = _resolve_regime_turnover_cap(max_turnover, regime_label, settings)
+        if resolved is None:
+            return max_turnover
+        return resolved
+
+    def _resolve_regime_proxy_column(
+        self,
+        returns: pd.DataFrame,
+        proxy: str,
+        benchmarks: Mapping[str, Any] | None,
+    ) -> str | None:
+        columns = returns.columns
+        if proxy in columns:
+            return proxy
+        proxy_lower = str(proxy).lower()
+        if isinstance(benchmarks, Mapping):
+            for key, value in benchmarks.items():
+                if proxy_lower == str(key).lower() and value in columns:
+                    return str(value)
+                if proxy_lower == str(value).lower() and value in columns:
+                    return str(value)
+        for col in columns:
+            if proxy_lower == str(col).lower():
+                return str(col)
+        return None
+
+    def _build_regime_proxy_series(
+        self, returns: pd.DataFrame, proxy_col: str
+    ) -> pd.Series | None:
+        if proxy_col not in returns.columns:
+            return None
+        if "Date" in returns.columns:
+            index = pd.to_datetime(returns["Date"], errors="coerce")
+        else:
+            index = returns.index
+        series = pd.Series(returns[proxy_col].to_numpy(), index=index)
+        return series.dropna()
 
     def _compute_n_periods(self) -> int:
         settings = self._settings()

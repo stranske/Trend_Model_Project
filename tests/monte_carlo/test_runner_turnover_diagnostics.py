@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pandas.testing as pdt
+import pytest
 
 from trend_analysis.api import RunResult
 from trend_analysis.monte_carlo.results import (
@@ -14,10 +15,15 @@ from trend_analysis.monte_carlo.scenario import MonteCarloScenario
 from trend_analysis.monte_carlo.strategy import StrategyVariant
 
 
-def _base_config(max_turnover: object | None = None) -> dict[str, object]:
+def _base_config(
+    max_turnover: object | None = None,
+    *,
+    regime_cfg: dict[str, object] | None = None,
+) -> dict[str, object]:
     portfolio: dict[str, object] = {}
     if max_turnover is not None:
         portfolio["max_turnover"] = max_turnover
+    regime_payload = regime_cfg if regime_cfg is not None else {}
     return {
         "version": "1",
         "data": {
@@ -31,6 +37,7 @@ def _base_config(max_turnover: object | None = None) -> dict[str, object]:
         "sample_split": {},
         "portfolio": portfolio,
         "metrics": {},
+        "regime": regime_payload,
         "export": {},
         "run": {},
         "benchmarks": {},
@@ -297,14 +304,13 @@ def test_runner_run_exposes_realized_turnover(monkeypatch) -> None:
 
 def test_runner_resolves_regime_turnover_caps(monkeypatch) -> None:
     dates = pd.date_range("2021-01-31", periods=3, freq="ME")
-    returns = pd.DataFrame({"Date": dates, "Asset": [0.01, 0.02, 0.03]})
+    returns = pd.DataFrame({"Date": dates, "Asset": [0.01, -0.02, -0.03]})
     turnover = pd.Series([0.1, 0.08, 0.2], index=dates, name="turnover")
-    regimes = pd.Series(["risk_on", "risk_off", "unknown"], index=dates, name="regime")
     out_scaled = pd.DataFrame({"Asset": [0.01, 0.02, 0.03]}, index=dates)
     metrics = pd.DataFrame({"cagr": [0.1]}, index=["user_weight"])
     run_result = RunResult(
         metrics=metrics,
-        details={"out_sample_scaled": out_scaled, "regime_labels_out": regimes},
+        details={"out_sample_scaled": out_scaled},
         seed=0,
         environment={},
         turnover=turnover,
@@ -322,7 +328,21 @@ def test_runner_resolves_regime_turnover_caps(monkeypatch) -> None:
 
     runner = MonteCarloRunner(
         _scenario(),
-        base_config=_base_config(max_turnover={"risk_on": 0.15, "risk_off": 0.05}),
+        base_config=_base_config(
+            max_turnover={"calm": 0.15, "stress": 0.12},
+            regime_cfg={
+                "enabled": True,
+                "proxy": "Asset",
+                "method": "rolling_return",
+                "lookback": 1,
+                "smoothing": 1,
+                "threshold": 0.0,
+                "neutral_band": 0.0,
+                "risk_on_label": "calm",
+                "risk_off_label": "stress",
+                "default_label": "calm",
+            },
+        ),
     )
     context = _PathContext(
         path_id=0,
@@ -336,9 +356,9 @@ def test_runner_resolves_regime_turnover_caps(monkeypatch) -> None:
     evaluation = runner._evaluate_strategy(StrategyVariant(name="base"), context)
     diagnostic = evaluation.diagnostic or {}
 
-    assert captured["max_turnover"] == {"risk_on": 0.15, "risk_off": 0.05}
+    assert captured["max_turnover"] == pytest.approx(0.12)
     expected_binding = pd.Series(
-        [False, True, False],
+        [False, False, True],
         index=dates,
         name="turnover_cap_binding",
     )
