@@ -24,6 +24,7 @@ This does not store API keys in session state.
 - [x] Repeated Preview operations in the same session reuse the cached chain (measurable via instrumentation/logging).
 - [x] Changing provider/model settings results in a new cached instance (no stale reuse).
 - [x] Existing config chat behavior remains correct (preview/apply/run still works).
+Verification: `pytest tests/app/test_model_page_helpers.py -m "not slow"` (2026-02-07).
 
 ## Implementation Notes
 
@@ -48,15 +49,17 @@ This does not enable tool access beyond the existing analysis outputs.
 
 ## Tasks
 
-- [ ] Add a Results-page UI component that accepts a question and calls ResultSummaryChain with the current analysis output and metric catalog.
-- [ ] Display returned explanation text and show LangSmith trace URL when available.
-- [ ] Ensure existing disclaimer behavior is preserved for all generated explanations.
+- [x] Add a Results-page UI component that accepts a question and calls ResultSummaryChain with the current analysis output and metric catalog.
+- [x] Display returned explanation text and show LangSmith trace URL when available.
+- [x] Ensure existing disclaimer behavior is preserved for all generated explanations.
 
 ## Acceptance Criteria
 
-- [ ] The Results page can answer user questions using ResultSummaryChain for an existing analysis run.
-- [ ] The displayed output always includes the configured disclaimer behavior.
-- [ ] When tracing is enabled, the UI surfaces the trace URL for the operation.
+- [x] The Results page can answer user questions using ResultSummaryChain for an existing analysis run.
+- [x] The displayed output always includes the configured disclaimer behavior.
+- [x] When tracing is enabled, the UI surfaces the trace URL for the operation.
+Verification: `pytest tests/app/test_explain_results_component.py -m "not slow"` (2026-02-07).
+Reconciliation: 2026-02-07 formatting-only change; no additional task checkboxes updated.
 
 ## Implementation Notes
 

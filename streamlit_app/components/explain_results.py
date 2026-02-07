@@ -67,6 +67,29 @@ def _cache_bucket() -> dict[str, ExplanationResult]:
     return cache
 
 
+def _cache_key_for(
+    run_key: str,
+    *,
+    questions: str,
+    provider: str | None,
+    model: str | None,
+    base_url: str | None,
+    organization: str | None,
+) -> str:
+    payload = {
+        "run_key": run_key,
+        "questions": questions,
+        "provider": provider,
+        "model": model,
+        "base_url": base_url,
+        "organization": organization,
+    }
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, ensure_ascii=True).encode("utf-8")
+    ).hexdigest()[:12]
+    return f"{run_key}:{digest}"
+
+
 def _resolve_explanation_run_id(details: Mapping[str, Any], run_key: str) -> str:
     candidates = [
         details.get("run_id"),
@@ -78,6 +101,13 @@ def _resolve_explanation_run_id(details: Mapping[str, Any], run_key: str) -> str
         if isinstance(value, str) and value.strip():
             return value.strip()
     return hashlib.sha256(run_key.encode("utf-8")).hexdigest()[:12]
+
+
+def _normalize_trace_url(value: str | None) -> str | None:
+    if not isinstance(value, str):
+        return None
+    cleaned = value.strip()
+    return cleaned or None
 
 
 def _render_analysis_output(details: Mapping[str, Any]) -> str:
@@ -106,6 +136,14 @@ def _format_questions(raw: str | None) -> str:
     if not lines:
         lines = [DEFAULT_QUESTION]
     return "\n".join(f"- {line}" for line in lines)
+
+
+def _resolve_questions(raw: str | None) -> str:
+    if raw is None:
+        return DEFAULT_QUESTION
+    if isinstance(raw, str) and raw.strip():
+        return raw
+    return DEFAULT_QUESTION
 
 
 def _build_result_chain(
@@ -142,8 +180,12 @@ def generate_result_explanation(
     organization: str | None = None,
 ) -> ExplanationResult:
     created_at = datetime.now(timezone.utc).isoformat()
+    effective_questions = _resolve_questions(questions)
     all_entries = extract_metric_catalog(details)
-    compacted_entries = compact_metric_catalog(all_entries, questions=questions)
+    compacted_entries = compact_metric_catalog(
+        all_entries,
+        questions=effective_questions,
+    )
     metric_catalog = format_metric_catalog(compacted_entries)
     if not all_entries:
         text = ensure_result_disclaimer("No metrics were detected in the analysis output.")
@@ -169,7 +211,7 @@ def generate_result_explanation(
     response: ResultSummaryResponse = chain.run(
         analysis_output=analysis_output,
         metric_catalog=metric_catalog,
-        questions=_format_questions(questions),
+        questions=_format_questions(effective_questions),
         request_id=uuid4().hex,
         metric_entries=all_entries,
     )
@@ -180,7 +222,7 @@ def generate_result_explanation(
     )
     return ExplanationResult(
         text=text,
-        trace_url=response.trace_url,
+        trace_url=_normalize_trace_url(response.trace_url),
         claim_issues=claim_issues,
         metric_count=len(compacted_entries),
         created_at=created_at,
@@ -223,11 +265,14 @@ def render_explain_results(
             or "openai"
         )
         provider_default = str(provider_default).lower()
+        provider_options = ["openai", "anthropic", "ollama"]
+        if provider_default not in provider_options:
+            provider_default = "openai"
 
         st.selectbox(
             "Provider",
-            ["openai", "anthropic", "ollama"],
-            index=["openai", "anthropic", "ollama"].index(provider_default),
+            provider_options,
+            index=provider_options.index(provider_default),
             key=provider_key,
             help="Defaults to TREND_LLM_PROVIDER if set; otherwise OpenAI.",
         )
@@ -274,7 +319,19 @@ def render_explain_results(
     button_key = hashlib.sha256(run_key.encode("utf-8")).hexdigest()[:12]
     clicked = st.button("Explain Results", key=f"btn_explain_results_{button_key}")
     cache = _cache_bucket()
-    cached = cache.get(run_key)
+    provider_value = st.session_state.get(provider_key, provider_default)
+    model_value = st.session_state.get(model_key) or None
+    base_url_value = st.session_state.get(base_url_key) or None
+    org_value = st.session_state.get(org_key) or None
+    cache_key = _cache_key_for(
+        run_key,
+        questions=questions_text,
+        provider=provider_value,
+        model=model_value,
+        base_url=base_url_value,
+        organization=org_value,
+    )
+    cached = cache.get(cache_key)
 
     if clicked:
         with st.spinner("Generating explanation..."):
@@ -289,13 +346,13 @@ def render_explain_results(
                 cached = generate_result_explanation(
                     details,
                     questions=st.session_state.get(question_key),
-                    provider=st.session_state.get("explain_results_provider", provider),
+                    provider=provider_value or provider,
                     api_key=resolved_key,
-                    model=st.session_state.get("explain_results_model") or None,
-                    base_url=st.session_state.get("explain_results_base_url") or None,
-                    organization=st.session_state.get("explain_results_org") or None,
+                    model=model_value,
+                    base_url=base_url_value,
+                    organization=org_value,
                 )
-                cache[run_key] = cached
+                cache[cache_key] = cached
             except Exception as exc:
                 st.error("We could not generate an explanation.")
                 st.caption(str(exc))
@@ -305,9 +362,17 @@ def render_explain_results(
         st.info("Click Explain Results to generate a summary.")
         return
 
-    st.markdown(cached.text)
-    if cached.trace_url:
-        st.caption(f"Trace URL: {cached.trace_url}")
+    trace_url = _normalize_trace_url(cached.trace_url)
+    display_text = ensure_result_disclaimer(cached.text)
+    st.markdown(display_text)
+    if trace_url:
+        st.caption(f"Trace URL: {trace_url}")
+        st.text_input(
+            "Trace URL",
+            value=trace_url,
+            disabled=True,
+        )
+        st.markdown(f"[Open LangSmith trace]({trace_url})")
 
     if cached.claim_issues:
         with st.expander("Discrepancy log", expanded=False):
@@ -320,9 +385,9 @@ def render_explain_results(
     artifact_payload = {
         "run_id": run_id,
         "created_at": cached.created_at,
-        "text": cached.text,
+        "text": display_text,
         "metric_count": cached.metric_count,
-        "trace_url": cached.trace_url,
+        "trace_url": trace_url,
         "questions": questions_text,
         "claim_issues": [serialize_claim_issue(issue) for issue in cached.claim_issues],
     }
@@ -331,7 +396,7 @@ def render_explain_results(
         with columns[0]:
             st.download_button(
                 "Download explanation (TXT)",
-                data=cached.text,
+                data=display_text,
                 file_name=f"explanation_{run_id}.txt",
                 mime="text/plain",
             )
@@ -345,7 +410,7 @@ def render_explain_results(
     else:
         st.download_button(
             "Download explanation (TXT)",
-            data=cached.text,
+            data=display_text,
             file_name=f"explanation_{run_id}.txt",
             mime="text/plain",
         )
