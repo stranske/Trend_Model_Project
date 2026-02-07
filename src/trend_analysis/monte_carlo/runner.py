@@ -84,7 +84,7 @@ def _coerce_turnover_guard(value: Any) -> float:
     except (TypeError, ValueError) as exc:
         raise ValueError(
             f"{_TURNOVER_GUARD_PATH} must be numeric or a distribution mapping"
-    ) from exc
+        ) from exc
 
 
 def _normalize_regime_key(value: Any) -> str | None:
