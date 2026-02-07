@@ -1,0 +1,188 @@
+version: 1
+issue: 4680
+base: phase-3
+branch: codex/issue-4680
+tasks:
+  - id: task-01
+    title: Add a method `supports_structured_output()` to the provider interface in
+      `src/trend_analysis/llm/chain.py` that returns a boolean indicating structured
+      output support
+    status: doing
+    started_at: '2026-02-07T21:42:43Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Implement provider capability detection logic that checks for structured
+      output support before attempting to use it
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Add configuration parameter `use_structured_output: bool = True` to `ConfigPatchChain.__init__()`
+      in `src/trend_analysis/llm/chain.py`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Implement request formatting logic in `ConfigPatchChain._invoke_llm` that
+      includes ConfigPatch JSON schema when `use_structured_output=True` and provider
+      supports it
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Create response parsing logic in `ConfigPatchChain._invoke_llm` that handles
+      structured JSON output from compatible providers
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Create validation logic in `ConfigPatchChain._invoke_llm` that catches
+      ConfigPatch parsing errors and extracts specific validation failure details
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Add error detail formatting function that constructs repair retry prompts
+      including validation failures
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Implement retry mechanism in `ConfigPatchChain._invoke_llm` that executes
+      exactly once when structured output validation fails
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Add retry counter guard in `ConfigPatchChain._invoke_llm` that prevents
+      multiple repair attempts beyond the single allowed retry
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Write test `test_structured_output_valid_json` in `tests/test_llm_chain.py`
+      that verifies valid structured JSON output produces correct ConfigPatch objects
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Write test `test_structured_output_all_required_fields` in `tests/test_llm_chain.py`
+      that verifies ConfigPatch contains all required fields from JSON fixture
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Write test `test_structured_output_malformed_triggers_single_retry` in
+      `tests/test_llm_chain.py` that verifies malformed JSON triggers exactly one
+      repair retry
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Write test `test_structured_output_repair_succeeds` in `tests/test_llm_chain.py`
+      that verifies repair retry produces valid ConfigPatch after initial failure
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Write test `test_structured_output_no_multiple_retries` in `tests/test_llm_chain.py`
+      that verifies retry counter prevents more than one repair attempt
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Write test `test_fallback_when_structured_unsupported` in `tests/test_llm_chain.py`
+      that mocks `supports_structured_output()` returning False and verifies free-form
+      parsing path is used
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Write test `test_fallback_produces_valid_configpatch` in `tests/test_llm_chain.py`
+      that verifies fallback parsing produces valid ConfigPatch when structured output
+      unavailable
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Write test `test_no_structured_request_when_unsupported` in `tests/test_llm_chain.py`
+      that verifies no structured output requests are made when provider doesn't support
+      it
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Tests verify structured-output mode returns a ConfigPatch object that:
+      (1) contains all required fields from the JSON fixture, (2) passes `ConfigPatch.validate()`
+      without errors, and (3) matches the expected fixture values exactly'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Tests verify that on malformed structured output, exactly one repair retry
+      occurs by asserting retry counter equals 1 and no additional LLM calls are made
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Tests verify that when `provider.supports_structured_output()` returns
+      False, the system: (1) uses the existing free-form parsing path, (2) produces
+      a valid ConfigPatch object, and (3) does not attempt structured output requests'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: All tests in `tests/test_llm_chain.py` pass with `pytest tests/test_llm_chain.py
+      -v`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Code passes linting with `ruff check src/trend_analysis/llm/chain.py`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
