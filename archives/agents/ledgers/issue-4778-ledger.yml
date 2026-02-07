@@ -1,0 +1,184 @@
+version: 1
+issue: 4778
+base: phase-3
+branch: codex/issue-4778
+tasks:
+  - id: task-01
+    title: Apply the `st.cache_resource` decorator to `_build_nl_chain()` in `streamlit_app/pages/2_Model.py`
+    status: done
+    started_at: '2026-02-07T19:03:47Z'
+    finished_at: '2026-02-07T19:03:55Z'
+    commit: 4ca982c1a1353ac21cbb518fb65b317e0467af52
+    notes: []
+  - id: task-02
+    title: Refactor `_build_nl_chain()` to accept provider, model, base_url, org,
+      and temperature as explicit parameters
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Verify that the cache key changes when any of the five parameters (provider,
+      model, base_url, org, temperature) are modified
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Create a helper function in `streamlit_app/pages/2_Model.py` that computes
+      a deterministic cache signature from provider, model, base_url, org, and temperature
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Ensure the cache signature helper excludes secret values and returns stable
+      output for identical inputs
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Integrate the cache signature helper with `_build_nl_chain()` so the signature
+      is used as part of the cache key
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Add timing instrumentation to `_build_nl_chain()` using `time.perf_counter()`
+      to measure chain construction duration
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Implement cache hit/miss detection for `_build_nl_chain()` calls using
+      a tracking mechanism
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Add logging statements that emit the cache signature and elapsed time for
+      each `_build_nl_chain()` invocation
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Add tests in `tests/app/test_model_page_helpers.py` that verify signature
+      stability for identical inputs across multiple calls
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Add parameterized tests in `tests/app/test_model_page_helpers.py` that
+      verify signature changes when each of the five parameters is modified individually
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Add tests in `tests/app/test_model_page_helpers.py` that verify cache reuse
+      by asserting the underlying build is called once for identical parameters
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Add tests in `tests/app/test_model_page_helpers.py` that verify cache invalidation
+      by asserting the underlying build is called again when parameters change
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: In `streamlit_app/pages/2_Model.py`, `_build_nl_chain()` is decorated with
+      `st.cache_resource` and accepts provider, model, base_url, org, and temperature
+      as parameters
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: A helper function exists in `streamlit_app/pages/2_Model.py` that returns
+      a deterministic cache signature from provider, model, base_url, org, and temperature,
+      excluding secret values
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: The cached chain construction uses the signature helper output as part
+      of the cache key
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: '`tests/app/test_model_page_helpers.py` contains a test that passes when
+      given identical inputs twice, the signature helper returns identical output'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: '`tests/app/test_model_page_helpers.py` contains parameterized tests that
+      pass when changing provider, model, base_url, org, or temperature individually
+      produces a different signature value'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: '`tests/app/test_model_page_helpers.py` contains a test that passes when
+      the underlying chain build function is called exactly once for two consecutive
+      calls with identical parameters'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: '`tests/app/test_model_page_helpers.py` contains a test that passes when
+      the underlying chain build function is called twice after a parameter change'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: '`streamlit_app/pages/2_Model.py` emits log records containing the cache
+      signature and elapsed time in seconds (or milliseconds) for each chain construction'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: '`streamlit_app/pages/2_Model.py` emits log records indicating cache hit
+      or cache miss for each `_build_nl_chain()` call, including the signature used'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
