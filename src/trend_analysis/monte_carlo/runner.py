@@ -1097,9 +1097,15 @@ class MonteCarloRunner:
                 except (TypeError, ValueError):
                     continue
             labels = regimes.reindex(out_index).astype("string")
-            caps = labels.map(
-                lambda label: mapping.get(_normalize_regime_key(label)) if label else np.nan
-            )
+            def _lookup_turnover_cap(label: str | None) -> float:
+                if not label:
+                    return float("nan")
+                normalized = _normalize_regime_key(label)
+                if not normalized:
+                    return float("nan")
+                return mapping.get(normalized, float("nan"))
+
+            caps = labels.map(_lookup_turnover_cap)
             return pd.Series(caps, index=out_index, name="turnover_cap")
         try:
             cap = float(cast(SupportsFloat, max_turnover))
