@@ -1604,11 +1604,11 @@ def test_build_nl_chain_updates_selected_provider_model_for_llm_instance(
     stub.session_state[model_module._LLM_PROVIDER_OVERRIDE_KEY] = "  Anthropic  "
     stub.session_state[model_module._LLM_MODEL_OVERRIDE_KEY] = "  claude-3-sonnet  "
 
-    captured: dict[str, str] = {}
+    captured_config: model_module.LLMProviderConfig | None = None
 
     def fake_create_llm(config: model_module.LLMProviderConfig) -> object:
-        captured["provider"] = config.provider
-        captured["model"] = config.model
+        nonlocal captured_config
+        captured_config = config
         return SimpleNamespace(provider=config.provider, model=config.model)
 
     def fake_cached_config_patch_chain(
@@ -1625,5 +1625,6 @@ def test_build_nl_chain_updates_selected_provider_model_for_llm_instance(
 
     model_module._build_nl_chain()
 
-    assert stub.session_state["selected_provider"] == captured["provider"]
-    assert stub.session_state["selected_model"] == captured["model"]
+    assert captured_config is not None
+    assert stub.session_state["selected_provider"] == captured_config.provider
+    assert stub.session_state["selected_model"] == captured_config.model
