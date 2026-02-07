@@ -1180,6 +1180,14 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     cache_state["last_chain_id"] = id(chain)
     st.session_state["config_chat_chain_key"] = cache_key
     st.session_state["config_chat_chain_signature"] = signature
+    if _LOGGER.isEnabledFor(logging.INFO):
+        _LOGGER.info(
+            "Config chat chain: reused=%s cache=%s lookup_s=%.3f miss=%s",
+            "yes" if reused else "no",
+            _chain_cache_summary(cache_key, llm_cache_key),
+            lookup_seconds,
+            cache_miss_reason or "none",
+        )
     return chain, {
         "chain_reused": reused,
         "chain_cache_key": cache_key,
