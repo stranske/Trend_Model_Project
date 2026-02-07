@@ -170,17 +170,31 @@ def _resolve_regime_turnover_cap(
         except (TypeError, ValueError):
             return None
 
+    def _coerce_required_float(value: object) -> float:
+        try:
+            return float(cast(Any, value))
+        except (TypeError, ValueError) as exc:
+            raise TypeError("max_turnover values must be numeric") from exc
+
     if max_turnover is None:
         return None
     if not isinstance(max_turnover, Mapping):
         return _coerce_optional_float(max_turnover)
 
-    normalized: dict[str, object] = {}
+    normalized: dict[str, float] = {}
+    normalized_sources: dict[str, str] = {}
     for key, value in max_turnover.items():
         normalized_key = _normalize_regime_key(key)
         if not normalized_key:
             continue
-        normalized[normalized_key] = value
+        original = str(key)
+        if normalized_key in normalized_sources and normalized_sources[normalized_key] != original:
+            raise ValueError(
+                "max_turnover regime keys collide after normalization "
+                f"({normalized_sources[normalized_key]!r} vs {original!r})"
+            )
+        normalized[normalized_key] = _coerce_required_float(value)
+        normalized_sources[normalized_key] = original
     if not normalized:
         return None
 
@@ -207,7 +221,10 @@ def _resolve_regime_turnover_cap(
 
     for fallback in ("default", "all", "any"):
         if fallback in normalized:
-            return _coerce_optional_float(normalized[fallback])
+            return normalized[fallback]
+
+    if regime_label and _normalize_regime_key(regime_label):
+        raise KeyError(f"max_turnover missing regime '{regime_label}' and no default specified")
     return None
 
 
