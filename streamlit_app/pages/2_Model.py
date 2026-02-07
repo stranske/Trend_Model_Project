@@ -74,7 +74,12 @@ _DEFAULT_CONFIG_CHAT_MODEL = "gpt-4o-mini"
 _CONFIG_CHAIN_CACHE_VERSION = "v1"
 _CONFIG_CHAIN_METRICS_KEY = "config_chat_chain_metrics"
 _CONFIG_CHAIN_STATS_KEY = "config_chat_chain_stats"
-_CONFIG_CHAIN_CORE_FIELDS = (
+_CONFIG_CHAIN_KEY_FIELDS = (
+    "provider",
+    "model",
+    "temperature",
+)
+_CONFIG_CHAIN_INVALIDATION_FIELDS = (
     "provider",
     "model",
     "base_url",
@@ -88,7 +93,7 @@ _CONFIG_CHAIN_LLM_FIELDS = (
     "api_key_fingerprint",
 )
 _LOGGER = logging.getLogger(__name__)
-_CONFIG_CHAIN_INVALIDATION_FIELDS = _CONFIG_CHAIN_CORE_FIELDS
+_CONFIG_CHAIN_CORE_FIELDS = _CONFIG_CHAIN_KEY_FIELDS
 _CONFIG_CHAIN_REBUILD_FIELDS = _CONFIG_CHAIN_INVALIDATION_FIELDS
 _CONFIG_CHAIN_RESET_FIELDS = _CONFIG_CHAIN_INVALIDATION_FIELDS
 _LLM_PROVIDER_OVERRIDE_KEY = "llm_provider_override"
@@ -135,12 +140,18 @@ def _chain_resource_signature(
     return _chain_cache_signature({"chain": dict(chain_cache_key), "llm": dict(llm_cache_key)})
 
 
-def _chain_cache_summary(cache_key: Mapping[str, Any]) -> str:
+def _chain_cache_summary(
+    cache_key: Mapping[str, Any],
+    llm_cache_key: Mapping[str, Any] | None = None,
+) -> str:
     provider = cache_key.get("provider") or "default"
     model = cache_key.get("model") or "default"
     temperature = cache_key.get("temperature")
-    base_url = cache_key.get("base_url")
-    organization = cache_key.get("organization")
+    base_url = None
+    organization = None
+    if isinstance(llm_cache_key, Mapping):
+        base_url = llm_cache_key.get("base_url")
+        organization = llm_cache_key.get("organization")
     summary = f"{provider}:{model}@{_format_value(temperature)}"
     if base_url:
         summary = f"{summary} | base_url={base_url}"
@@ -153,16 +164,12 @@ def _build_chain_cache_key(
     *,
     provider: str,
     model: str,
-    base_url: str | None,
-    organization: str | None,
     temperature: float,
 ) -> dict[str, Any]:
     return {
         "cache_version": _CONFIG_CHAIN_CACHE_VERSION,
         "provider": provider,
         "model": model,
-        "base_url": base_url,
-        "organization": organization,
         "temperature": temperature,
     }
 
@@ -1079,8 +1086,6 @@ def _build_chain_cache_context(
     cache_key = _build_chain_cache_key(
         provider=provider,
         model=resolved_model,
-        base_url=base_url,
-        organization=organization,
         temperature=temperature,
     )
     return {
@@ -1190,7 +1195,7 @@ def _build_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
         "chain_cache_key": cache_key,
         "chain_cache_signature": signature,
         "chain_resource_signature": resource_signature,
-        "chain_cache_summary": _chain_cache_summary(cache_key),
+        "chain_cache_summary": _chain_cache_summary(cache_key, llm_cache_key),
         "chain_cache_miss_reason": cache_miss_reason,
         "chain_cache_invalidation_fields": invalidation_fields,
         "chain_settings_changed": settings_changed,
@@ -1643,7 +1648,12 @@ def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
         st.caption(f"Cache key unavailable: {exc}")
     else:
         cache_key = cache_context.get("cache_key")
-        cache_summary = _chain_cache_summary(cache_key) if isinstance(cache_key, Mapping) else "—"
+        llm_cache_key = cache_context.get("llm_cache_key")
+        cache_summary = (
+            _chain_cache_summary(cache_key, llm_cache_key)
+            if isinstance(cache_key, Mapping)
+            else "—"
+        )
         cache_signature = (
             _chain_cache_signature(cache_key)[:8] if isinstance(cache_key, Mapping) else "—"
         )
