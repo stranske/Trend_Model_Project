@@ -639,13 +639,13 @@ class ConfigPatchVariantsChain(ConfigPatchChain):
                 retry_id = f"configpatch-variants-structured-{id(structured_llm):x}"
                 for attempt in range(total_attempts):
                     prompt = (
-                    prompt_text
-                    if attempt == 0
-                    else build_variant_retry_prompt(
-                        current_config=config_text,
-                        allowed_schema=schema_text,
-                        instruction=instruction,
-                        error_message=format_retry_error(last_error),
+                        prompt_text
+                        if attempt == 0
+                        else build_variant_retry_prompt(
+                            current_config=config_text,
+                            allowed_schema=schema_text,
+                            instruction=instruction,
+                            error_message=format_retry_error(last_error),
                             system_prompt=system_prompt,
                             safety_rules=safety_rules,
                         )
