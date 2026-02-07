@@ -214,6 +214,52 @@ def test_load_log_entries_orders_by_timestamp(tmp_path, monkeypatch: pytest.Monk
     assert [entry.request_id for _, entry in loaded] == ["req-1", "req-2", "req-3"]
 
 
+def test_load_log_entries_returns_most_recent_50(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _load_module(monkeypatch)
+    log_path = tmp_path / "nl_ops_2026-02-03.jsonl"
+
+    base_time = datetime(2026, 2, 3, 10, 0, tzinfo=timezone.utc)
+    for offset in range(55):
+        entry = _make_entry(
+            request_id=f"req-{offset}",
+            input_hash=f"hash-{offset}",
+            timestamp=base_time.replace(minute=offset),
+        )
+        line = json.dumps(entry.model_dump(mode="json"), separators=(",", ":"))
+        with log_path.open("a", encoding="utf-8") as handle:
+            handle.write(line + "\n")
+
+    loaded = module._load_log_entries(log_path, limit=50)
+
+    assert len(loaded) == 50
+    assert loaded[0][0] == 6
+    assert loaded[-1][0] == 55
+
+
+def test_load_log_entries_returns_all_when_under_limit(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _load_module(monkeypatch)
+    log_path = tmp_path / "nl_ops_2026-02-03.jsonl"
+
+    base_time = datetime(2026, 2, 3, 9, 0, tzinfo=timezone.utc)
+    for offset in range(10):
+        entry = _make_entry(
+            request_id=f"req-{offset}",
+            input_hash=f"hash-{offset}",
+            timestamp=base_time.replace(minute=offset),
+        )
+        line = json.dumps(entry.model_dump(mode="json"), separators=(",", ":"))
+        with log_path.open("a", encoding="utf-8") as handle:
+            handle.write(line + "\n")
+
+    loaded = module._load_log_entries(log_path, limit=50)
+
+    assert len(loaded) == 10
+
+
 def test_redact_text_replaces_fixtures_and_is_idempotent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -247,12 +293,49 @@ def test_render_replay_stores_result_and_renders_redacted(
     )
     replay_mock = MagicMock(return_value=replay_result)
     monkeypatch.setattr(module, "replay_nl_entry", replay_mock)
-    st_stub.button.side_effect = [True]
+    st_stub.selectbox.return_value = "openai"
+    st_stub.text_input.return_value = entry.model_name or ""
+    st_stub.slider.return_value = float(entry.temperature or 0.0)
 
-    module._render_replay(entry, entry_id="1")
+    module._render_replay(entry, entry_id="1", run_replay=True)
 
     replay_mock.assert_called_once()
     assert st_stub.session_state["nl_replay_result_1"]["output"] == replay_result.output
     assert st_stub.expander.call_args_list[-1].args[0] == "Replay Results"
     code_calls = [call.args[0] for call in st_stub.code.call_args_list]
     assert any("[REDACTED]" in text for text in code_calls)
+
+
+def test_replay_button_invokes_replay_for_selected_entry(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _load_module(monkeypatch)
+    st_stub = sys.modules["streamlit"]
+
+    log_dir = tmp_path / ".trend_nl_logs"
+    log_dir.mkdir()
+    log_path = log_dir / "nl_ops_2026-02-03.jsonl"
+    entry = _make_entry()
+    line = json.dumps(entry.model_dump(mode="json"), separators=(",", ":"))
+    with log_path.open("w", encoding="utf-8") as handle:
+        handle.write(line + "\n")
+
+    label = (
+        f"1. {module._format_timestamp(entry)} | {entry.operation} | "
+        f"{entry.model_name or 'unknown'} | {module._format_duration(entry)}"
+    )
+    st_stub.selectbox.side_effect = [log_path.name, label, "openai"]
+    st_stub.text_input.return_value = entry.model_name or ""
+    st_stub.slider.return_value = float(entry.temperature or 0.0)
+    st_stub.button.return_value = True
+
+    replay_result = MagicMock(output="ok", diff=None, trace_url=None)
+    replay_mock = MagicMock(return_value=replay_result)
+    monkeypatch.setattr(module, "replay_nl_entry", replay_mock)
+
+    module.render_nl_operation_viewer(base_dir=log_dir)
+
+    replay_mock.assert_called_once()
+    called_entry = replay_mock.call_args.args[0]
+    assert called_entry.request_id == entry.request_id
+    assert st_stub.session_state["nl_replay_result_1"]["output"] == "ok"

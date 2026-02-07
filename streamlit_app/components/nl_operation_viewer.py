@@ -262,7 +262,7 @@ def _render_patch_summary(entry: NLOperationLog) -> None:
     st.code(json.dumps(safe_payload, indent=2, sort_keys=True), language="json")
 
 
-def _render_replay(entry: NLOperationLog, *, entry_id: str) -> None:
+def _render_replay(entry: NLOperationLog, *, entry_id: str, run_replay: bool) -> None:
     st.markdown("**Replay**")
     st.caption("Replays may differ across time, models, or provider settings.")
     replay_entry, redacted = _prepare_replay_entry(entry)
@@ -290,8 +290,7 @@ def _render_replay(entry: NLOperationLog, *, entry_id: str) -> None:
         step=0.05,
         key=f"nl_replay_temperature_{entry_id}",
     )
-    clicked = st.button("Replay entry (outputs may differ)", key=f"nl_replay_btn_{entry_id}")
-    if clicked:
+    if run_replay:
         with st.spinner("Replaying entry..."):
             try:
                 replay_result = replay_nl_entry(
@@ -302,7 +301,7 @@ def _render_replay(entry: NLOperationLog, *, entry_id: str) -> None:
                 )
             except Exception as exc:
                 st.error("Replay failed. Ensure provider credentials are available.")
-                st.caption(str(exc))
+                st.caption(_redact_text(str(exc)))
                 return
         st.session_state[f"nl_replay_result_{entry_id}"] = {
             "output": replay_result.output,
@@ -392,10 +391,11 @@ def render_nl_operation_viewer(
         st.code(_redact_text(entry.model_output), language="text")
 
     _render_patch_summary(entry)
-    if st.button("Replay selected entry", key=f"nl_replay_open_btn_{entry_id}"):
+    replay_clicked = st.button("Replay selected entry", key=f"nl_replay_open_btn_{entry_id}")
+    if replay_clicked:
         st.session_state[replay_open_key] = True
     with st.expander("Replay entry", expanded=bool(st.session_state.get(replay_open_key))):
-        _render_replay(entry, entry_id=entry_id)
+        _render_replay(entry, entry_id=entry_id, run_replay=replay_clicked)
 
 
 __all__ = [
