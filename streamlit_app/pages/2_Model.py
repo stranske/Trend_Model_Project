@@ -1169,6 +1169,28 @@ def _cached_config_patch_chain(
     )
 
 
+@st.cache_resource(show_spinner=False)
+def _cached_nl_chain(
+    cache_signature: str,
+    provider: str,
+    model: str,
+    base_url: str | None,
+    organization: str | None,
+    temperature: float,
+) -> ConfigPatchChain:
+    result = _build_nl_chain(
+        provider=provider,
+        model=model,
+        base_url=base_url,
+        organization=organization,
+        temperature=temperature,
+        cache_signature=cache_signature,
+    )
+    if isinstance(result, tuple):
+        return result[0]
+    return result
+
+
 def _build_chain_config(config: LLMProviderConfig) -> dict[str, Any]:
     extra_payload = _serialize_extra(config.extra)
     return {
@@ -1266,7 +1288,7 @@ def _build_nl_chain(
         _hash_api_key(config.api_key),
     )
     reset_fields = _maybe_reset_config_chat_cache(
-        _current_chain_settings_snapshot(config, resolved_temp)
+        _current_chain_settings_snapshot(temperature=resolved_temp)
     )
     llm_cache_key = _build_llm_cache_key(
         provider=resolved_provider,
