@@ -148,7 +148,9 @@ def test_fallback_when_structured_unsupported() -> None:
         instruction="Set max_weight to 0.4.",
     )
 
+    assert isinstance(patch, ConfigPatch)
     assert patch.summary == "Update max_weight"
+    assert patch.operations[0].path == "portfolio.max_weight"
     assert llm.unstructured_calls == 1
     assert llm.structured_calls == 0
 
