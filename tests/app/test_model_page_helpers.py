@@ -11,6 +11,37 @@ import pandas as pd
 import pytest
 
 
+def _extract_strings(value: object) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, Mapping):
+        collected: list[str] = []
+        for item in value.values():
+            collected.extend(_extract_strings(item))
+        return collected
+    if isinstance(value, (list, tuple, set)):
+        collected = []
+        for item in value:
+            collected.extend(_extract_strings(item))
+        return collected
+    return []
+
+
+def _capture_streamlit_calls(stub: SimpleNamespace, names: tuple[str, ...]) -> list[tuple[str, tuple, dict]]:
+    calls: list[tuple[str, tuple, dict]] = []
+
+    def _make_recorder(name: str):
+        def _recorder(*args, **kwargs):
+            calls.append((name, args, kwargs))
+            return None
+
+        return _recorder
+
+    for name in names:
+        setattr(stub, name, _make_recorder(name))
+    return calls
+
+
 @pytest.fixture()
 def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     def _noop(*_args, **_kwargs):
@@ -155,6 +186,19 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
 
     module = importlib.reload(importlib.import_module("streamlit_app.pages.2_Model"))
     return module
+
+
+@pytest.fixture()
+def seeded_llm_env(monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
+    secrets = {
+        "TS_STREAMLIT_API_KEY": "ts-secret-12345",
+        "TREND_LLM_API_KEY": "trend-secret-67890",
+        "OPENAI_API_KEY": "openai-secret-abcde",
+        "ANTHROPIC_API_KEY": "anthropic-secret-fghij",
+    }
+    for key, value in secrets.items():
+        monkeypatch.setenv(key, value)
+    return secrets
 
 
 def test_validate_model_catches_errors(model_module: ModuleType) -> None:
@@ -1817,8 +1861,73 @@ def test_build_nl_chain_updates_selected_provider_model_for_llm_instance(
     monkeypatch.setattr(model_module, "create_llm", fake_create_llm)
     monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
 
-    model_module._build_nl_chain()
+    model_module._get_nl_chain()
 
     assert captured_config is not None
     assert stub.session_state["selected_provider"] == captured_config.provider
     assert stub.session_state["selected_model"] == captured_config.model
+
+
+def test_llm_status_panel_never_leaks_secret_values_in_args(
+    seeded_llm_env: dict[str, str], model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+    stub.session_state["selected_provider"] = "openai"
+    stub.session_state["selected_model"] = "gpt-4o-mini"
+
+    calls = _capture_streamlit_calls(stub, ("info", "caption", "write", "warning"))
+    model_module._render_llm_status_panel()
+
+    secret_values = set(seeded_llm_env.values())
+    for _name, args, _kwargs in calls:
+        for arg in args:
+            for text in _extract_strings(arg):
+                for secret in secret_values:
+                    assert secret not in text
+
+
+def test_llm_status_panel_never_leaks_secret_values_in_kwargs(
+    seeded_llm_env: dict[str, str], model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+    stub.session_state["selected_provider"] = "openai"
+    stub.session_state["selected_model"] = "gpt-4o-mini"
+
+    calls = _capture_streamlit_calls(stub, ("info", "caption", "write", "warning"))
+    model_module._render_llm_status_panel()
+
+    secret_values = set(seeded_llm_env.values())
+    for _name, _args, kwargs in calls:
+        for value in kwargs.values():
+            for text in _extract_strings(value):
+                for secret in secret_values:
+                    assert secret not in text
+
+
+def test_llm_status_panel_allows_env_var_names_but_not_values(
+    monkeypatch: pytest.MonkeyPatch,
+    seeded_llm_env: dict[str, str],
+    model_module: ModuleType,
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+    stub.session_state["selected_provider"] = "openai"
+    stub.session_state["selected_model"] = "gpt-4o-mini"
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    calls = _capture_streamlit_calls(stub, ("info", "caption", "write", "warning"))
+    model_module._render_llm_status_panel()
+
+    rendered_texts: list[str] = []
+    for _name, args, kwargs in calls:
+        for arg in args:
+            rendered_texts.extend(_extract_strings(arg))
+        for value in kwargs.values():
+            rendered_texts.extend(_extract_strings(value))
+
+    rendered_text = " ".join(rendered_texts)
+    assert "OPENAI_API_KEY" in rendered_text
+    for secret in seeded_llm_env.values():
+        assert secret not in rendered_text
