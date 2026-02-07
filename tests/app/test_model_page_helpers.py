@@ -1593,3 +1593,38 @@ def test_llm_session_override_normalizes_whitespace(model_module: ModuleType) ->
 
     assert overrides["provider"] == "openai"
     assert overrides["model"] == "gpt-4o-mini"
+
+
+def test_build_nl_chain_updates_selected_provider_model_for_llm_instance(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+
+    stub.session_state[model_module._LLM_PROVIDER_OVERRIDE_KEY] = "  Anthropic  "
+    stub.session_state[model_module._LLM_MODEL_OVERRIDE_KEY] = "  claude-3-sonnet  "
+
+    captured_config: model_module.LLMProviderConfig | None = None
+
+    def fake_create_llm(config: model_module.LLMProviderConfig) -> object:
+        nonlocal captured_config
+        captured_config = config
+        return SimpleNamespace(provider=config.provider, model=config.model)
+
+    def fake_cached_config_patch_chain(
+        chain_cache_key: dict[str, object],
+        llm_cache_key: dict[str, object],
+        api_key: object,
+        extra_payload: str,
+    ) -> object:
+        llm = model_module._cached_llm_client(llm_cache_key, api_key, extra_payload)
+        return SimpleNamespace(llm=llm)
+
+    monkeypatch.setattr(model_module, "create_llm", fake_create_llm)
+    monkeypatch.setattr(model_module, "_cached_config_patch_chain", fake_cached_config_patch_chain)
+
+    model_module._build_nl_chain()
+
+    assert captured_config is not None
+    assert stub.session_state["selected_provider"] == captured_config.provider
+    assert stub.session_state["selected_model"] == captured_config.model
