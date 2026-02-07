@@ -134,9 +134,7 @@ def _redact_entry_for_replay(entry: NLOperationLog) -> NLOperationLog:
     return entry.model_copy(
         update={
             "prompt_template": _redact_text(entry.prompt_template or ""),
-            "prompt_variables": _sanitize_prompt_variables(
-                entry.prompt_variables or {}
-            ),
+            "prompt_variables": _sanitize_prompt_variables(entry.prompt_variables or {}),
         }
     )
 
@@ -166,9 +164,7 @@ def _sanitize_patch_payload(patch: ConfigPatch) -> dict[str, Any]:
     payload = patch.model_dump()
     summary = payload.get("summary")
     if isinstance(summary, str):
-        payload["summary"] = (
-            "[REDACTED]" if _is_sensitive_key(summary) else _redact_text(summary)
-        )
+        payload["summary"] = "[REDACTED]" if _is_sensitive_key(summary) else _redact_text(summary)
     operations = []
     for operation in payload.get("operations", []):
         if not isinstance(operation, dict):
@@ -178,9 +174,7 @@ def _sanitize_patch_payload(patch: ConfigPatch) -> dict[str, Any]:
         safe_operation = dict(operation)
         safe_operation["path"] = _redact_text(path)
         if "value" in safe_operation:
-            safe_operation["value"] = _sanitize_value(
-                operation.get("value"), key=path or None
-            )
+            safe_operation["value"] = _sanitize_value(operation.get("value"), key=path or None)
         operations.append(safe_operation)
     payload["operations"] = operations
     return _sanitize_value(payload)
@@ -273,12 +267,8 @@ def _render_replay(entry: NLOperationLog) -> None:
         )
     else:
         st.caption("Replay uses redacted prompt variables to prevent leakage.")
-    provider = st.selectbox(
-        "Provider", ["openai", "anthropic", "ollama"], key="nl_replay_provider"
-    )
-    model = st.text_input(
-        "Model (optional)", value=entry.model_name or "", key="nl_replay_model"
-    )
+    provider = st.selectbox("Provider", ["openai", "anthropic", "ollama"], key="nl_replay_provider")
+    model = st.text_input("Model (optional)", value=entry.model_name or "", key="nl_replay_model")
     temperature = st.slider(
         "Temperature",
         min_value=0.0,
@@ -343,12 +333,8 @@ def render_nl_operation_viewer(
     _render_entry_table(choices)
 
     labels = [choice.label for choice in choices]
-    selected_entry_label = st.selectbox(
-        "Select entry", labels, key="nl_log_entry_select"
-    )
-    selected_choice = next(
-        choice for choice in choices if choice.label == selected_entry_label
-    )
+    selected_entry_label = st.selectbox("Select entry", labels, key="nl_log_entry_select")
+    selected_choice = next(choice for choice in choices if choice.label == selected_entry_label)
     entry = selected_choice.entry
 
     st.markdown("**Entry details**")

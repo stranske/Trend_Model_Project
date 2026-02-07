@@ -18,9 +18,7 @@ def _load_module(monkeypatch: pytest.MonkeyPatch):
     st_stub = MagicMock()
     st_stub.session_state = {}
     monkeypatch.setitem(sys.modules, "streamlit", st_stub)
-    return importlib.reload(
-        importlib.import_module("streamlit_app.components.nl_operation_viewer")
-    )
+    return importlib.reload(importlib.import_module("streamlit_app.components.nl_operation_viewer"))
 
 
 def test_sanitize_prompt_variables_redacts_sensitive_fields(
@@ -173,9 +171,7 @@ def test_build_diff_summary_formats_operations(monkeypatch: pytest.MonkeyPatch) 
     ]
 
 
-def test_load_log_entries_respects_limit(
-    tmp_path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_load_log_entries_respects_limit(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     module = _load_module(monkeypatch)
     log_path = tmp_path / "nl_ops_2026-02-03.jsonl"
 
