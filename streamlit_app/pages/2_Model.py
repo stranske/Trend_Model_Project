@@ -344,7 +344,10 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
 
     if _LOGGER.isEnabledFor(logging.INFO):
         _LOGGER.info(
-            "Config chat preview timing: reused=%s build=%.2fs run=%.2fs total=%.2fs cache=%s miss=%s invalidated_by=%s",
+            (
+                "Config chat preview timing: reused=%s build=%.2fs run=%.2fs "
+                "total=%.2fs cache=%s miss=%s invalidated_by=%s"
+            ),
             "yes" if entry.get("chain_reused") else "no",
             float(entry.get("chain_build_seconds") or 0.0),
             float(entry.get("run_seconds") or 0.0),
@@ -2168,7 +2171,10 @@ BENCHMARK_COLUMNS = ["SPX", "TSX", "MSCI", "ACWI", "EAFE", "EM", "AGG", "BND"]
 
 # Help text for configuration parameters (brief tooltips)
 HELP_TEXT = {
-    "preset": "Pre-configured settings optimized for different investment styles. Changing preset auto-populates all parameters.",
+    "preset": (
+        "Pre-configured settings optimized for different investment styles. Changing preset "
+        "auto-populates all parameters."
+    ),
     "lookback": "Months of history used to calculate fund metrics (Sharpe, returns, etc.) for ranking.",
     "min_history": "Minimum months of data required for a fund to be considered for selection.",
     "evaluation": "Out-of-sample period (months) to measure portfolio performance after selection.",
@@ -2187,10 +2193,19 @@ HELP_TEXT = {
     "start_date": "Simulation start date. Data before this date will be excluded.",
     "end_date": "Simulation end date. Data after this date will be excluded.",
     # Risk settings
-    "rf_override": "Override the risk-free rate from data with a constant value. ⚠️ Using a constant rate reduces accuracy vs. time-varying rates.",
-    "rf_rate": "Constant annual risk-free rate fallback. Only used when override is enabled and no RF column is in the data.",
+    "rf_override": (
+        "Override the risk-free rate from data with a constant value. ⚠️ Using a constant "
+        "rate reduces accuracy vs. time-varying rates."
+    ),
+    "rf_rate": (
+        "Constant annual risk-free rate fallback. Only used when override is enabled and "
+        "no RF column is in the data."
+    ),
     "vol_floor": "Minimum volatility floor for scaling. Prevents extreme weights on low-vol assets.",
-    "warmup_periods": "Initial periods where returns are zeroed out to allow volatility estimates to stabilize before calculating performance metrics.",
+    "warmup_periods": (
+        "Initial periods where returns are zeroed out to allow volatility estimates to "
+        "stabilize before calculating performance metrics."
+    ),
     # Phase 10: Volatility adjustment details
     "vol_adjust_enabled": "Enable volatility adjustment to scale returns to target vol.",
     "vol_window_length": "Rolling window for volatility estimation (periods). ~63 = 3 months.",
@@ -2226,7 +2241,10 @@ HELP_TEXT = {
     "z_exit_soft": "Z-score threshold for fund exit consideration. Lower = stricter exit.",
     "soft_strikes": "Consecutive periods below exit threshold before removing a fund.",
     "entry_soft_strikes": "Consecutive periods above entry threshold before adding a fund.",
-    "min_weight_strikes": "Underweight exit: consecutive periods a fund's natural weight stays below the minimum weight before it is replaced. 0 = disable.",
+    "min_weight_strikes": (
+        "Underweight exit: consecutive periods a fund's natural weight stays below the "
+        "minimum weight before it is replaced. 0 = disable."
+    ),
     "sticky_add_periods": "Periods a fund must rank highly before being added to portfolio.",
     "sticky_drop_periods": "Periods a fund must rank poorly before being removed from portfolio.",
     "ci_level": "Confidence interval level for reporting only (0 = disabled, 0.9 = 90% CI).",
@@ -2235,7 +2253,9 @@ HELP_TEXT = {
     "multi_period_frequency": "Period frequency: Monthly (M), Quarterly (Q), or Annual (A).",
     "lookback_periods": "Number of periods for in-sample (training) window.",
     "evaluation_periods": "Number of periods for out-of-sample (testing) window.",
-    "inclusion_approach": "How to select funds: Top N, Top Percentage, Z-score Threshold, Random, or Buy & Hold.",
+    "inclusion_approach": (
+        "How to select funds: Top N, Top Percentage, Z-score Threshold, Random, or Buy & Hold."
+    ),
     "buy_hold_initial": "Initial selection method for Buy & Hold mode.",
     "slippage_bps": "Additional slippage cost in basis points (market impact).",
     "bottom_k": "Number of bottom-ranked funds to always exclude (0 = none).",
@@ -2965,7 +2985,10 @@ def render_model_page() -> None:
                     st.warning("Date range exceeds 50 years - please verify your selection.")
                 else:
                     st.info(
-                        f"📊 Selected period: {sim_start_date.strftime('%Y-%m')} to {sim_end_date.strftime('%Y-%m')} ({months_span} months)"
+                        (
+                            f"📊 Selected period: {sim_start_date.strftime('%Y-%m')} to "
+                            f"{sim_end_date.strftime('%Y-%m')} ({months_span} months)"
+                        )
                     )
     else:
         st.info(
