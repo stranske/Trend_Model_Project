@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Modify `src/trend_analysis/pipeline_runner.py` to call `_resolve_regime_turnover_cap()`
       at the start of each period rather than once per run
-    status: doing
+    status: done
     started_at: '2026-02-07T17:04:16Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-07T17:04:24Z'
+    commit: 031019adf61e3d26983a70ea96887a9190693420
     notes: []
   - id: task-02
     title: Update the Monte Carlo simulation loop to pass the current period's `regime_label`
