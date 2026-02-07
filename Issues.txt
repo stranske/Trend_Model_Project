@@ -87,8 +87,7 @@ This does not require LangSmith to be enabled.
 ## Tasks
 
 - [ ] Implement a Streamlit UI view (new page or expander) that lists recent NL operations (timestamp, operation, duration, model, trace_url).
-- [x] Implement a Streamlit UI view (new page or expander) that lists recent NL operations (timestamp, operation, duration, model, trace_url).
-- [x] Allow selecting an entry and displaying its prompt, raw output, parsed patch, and diff summary.
+- [ ] Allow selecting an entry and displaying its prompt, raw output, parsed patch, and diff summary.
 - [ ] Add a safe replay action using replay_nl_entry, with clear labeling that outputs may differ across time/models.
 
 ## Acceptance Criteria
@@ -96,7 +95,6 @@ This does not require LangSmith to be enabled.
 - [ ] The UI renders recent NL log entries without errors and without exposing secrets.
 - [ ] Selecting an entry shows stored prompt/output and parsed patch details.
 - [ ] Replay runs successfully when provider credentials are available and surfaces the replay diff.
-Verification: `pytest tests/app/test_nl_operation_viewer_component.py -m "not slow"` (2026-02-07).
 
 ## Implementation Notes
 
