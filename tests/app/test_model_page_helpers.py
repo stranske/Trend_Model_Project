@@ -1967,6 +1967,5 @@ def test_llm_required_env_vars_warns_on_unknown_provider(
 
     assert required is None
     assert any(
-        "Unknown LLM provider for env var requirements" in message
-        for message in caplog.messages
+        "Unknown LLM provider for env var requirements" in message for message in caplog.messages
     )
