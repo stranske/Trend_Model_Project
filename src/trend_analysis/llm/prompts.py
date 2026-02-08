@@ -11,6 +11,7 @@ SECTION_SYSTEM = "SYSTEM PROMPT"
 SECTION_CONFIG = "CURRENT CONFIG"
 SECTION_SCHEMA = "ALLOWED SCHEMA"
 SECTION_SAFETY = "SAFETY RULES"
+SECTION_VARIANT_GUIDELINES = "VARIANT GUIDELINES"
 SECTION_USER = "USER INSTRUCTION"
 SECTION_RETRY_ERROR = "PREVIOUS ERROR"
 SECTION_RESULT_SYSTEM = "RESULT SUMMARY SYSTEM PROMPT"
@@ -54,16 +55,24 @@ Return ONLY a valid JSON object that conforms exactly to the ConfigPatchVariants
 
 Each patch must follow the ConfigPatch schema and update the config safely and minimally.
 
-Variant guidelines:
-- conservative: reduce risk, tighten constraints, prefer smaller or safer changes.
-- baseline: implement the instruction with minimal necessary changes.
-- aggressive: allow higher risk/return trade-offs, looser constraints, larger changes.
-
 Never add keys outside the ConfigPatch schema or output non-JSON content.
 Do not invent keys; if the instruction or config mentions unknown or extraneous
 keys, flag them explicitly in the patch summary and return empty operations.
 If asked to target unknown keys or unsafe content, return empty operations and
 explain the refusal in the summary without echoing the unsafe request.
+"""
+
+DEFAULT_VARIANT_GUIDELINES = """conservative:
+- Reduce risk, tighten constraints, prefer smaller or safer changes.
+- Favor lower exposure, shorter leverage, or stricter filters when applicable.
+
+baseline:
+- Implement the instruction with the minimal necessary changes.
+- Preserve existing risk posture unless explicitly instructed otherwise.
+
+aggressive:
+- Allow higher risk/return trade-offs, looser constraints, and larger changes.
+- Favor broader selection or higher exposure if consistent with the instruction.
 """
 
 DEFAULT_RESULT_SYSTEM_PROMPT = """You are a quantitative investment analyst reviewing a trend-following
@@ -284,11 +293,13 @@ def build_variant_patch_prompt(
     system_text = (system_prompt or DEFAULT_VARIANT_SYSTEM_PROMPT).strip()
     rules = list(safety_rules or DEFAULT_VARIANT_RULES)
     safety_text = "\n".join(f"- {rule}" for rule in rules)
+    variant_text = DEFAULT_VARIANT_GUIDELINES.strip()
     sections = [
         _format_section(SECTION_SYSTEM, system_text),
         _format_section(SECTION_CONFIG, current_config.strip()),
         _format_section(SECTION_SCHEMA, allowed_schema.strip()),
         _format_section(SECTION_SAFETY, safety_text),
+        _format_section(SECTION_VARIANT_GUIDELINES, variant_text),
         _format_section(SECTION_USER, instruction.strip()),
     ]
     return "\n\n".join(sections).strip()
@@ -360,6 +371,7 @@ __all__ = [
     "SECTION_CONFIG",
     "SECTION_SCHEMA",
     "SECTION_SAFETY",
+    "SECTION_VARIANT_GUIDELINES",
     "SECTION_USER",
     "SECTION_RETRY_ERROR",
     "SECTION_RESULT_SYSTEM",
@@ -375,6 +387,9 @@ __all__ = [
     "SECTION_COMPARISON_RULES",
     "SECTION_COMPARISON_QUESTIONS",
     "DEFAULT_SYSTEM_PROMPT",
+    "DEFAULT_VARIANT_SYSTEM_PROMPT",
+    "DEFAULT_VARIANT_GUIDELINES",
+    "DEFAULT_VARIANT_RULES",
     "DEFAULT_RESULT_SYSTEM_PROMPT",
     "DEFAULT_COMPARISON_SYSTEM_PROMPT",
     "DEFAULT_SAFETY_RULES",
@@ -383,6 +398,8 @@ __all__ = [
     "format_config_for_prompt",
     "build_config_patch_prompt",
     "build_retry_prompt",
+    "build_variant_patch_prompt",
+    "build_variant_retry_prompt",
     "build_result_summary_prompt",
     "build_comparison_prompt",
 ]
