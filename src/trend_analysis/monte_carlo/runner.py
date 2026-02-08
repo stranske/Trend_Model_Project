@@ -168,6 +168,7 @@ class MonteCarloRunner:
         self._seed_manager_init = False
         self._cost_process: CostProcess | None = None
         self._cost_process_init = False
+        self._regime_cache: dict[tuple[object, ...], pd.Series] = {}
 
     def run(
         self,
@@ -670,12 +671,22 @@ class MonteCarloRunner:
             freq = data_cfg.get("frequency")
         freq_label = str(freq or "M")
         periods_per_year = periods_per_year_from_code(freq_label)
-        regimes = compute_regimes(
-            proxy_series,
+        cache_key = self._regime_cache_key(
+            context,
+            proxy_col,
+            freq_label,
+            periods_per_year,
             settings,
-            freq=freq_label,
-            periods_per_year=periods_per_year,
         )
+        regimes = self._regime_cache.get(cache_key)
+        if regimes is None:
+            regimes = compute_regimes(
+                proxy_series,
+                settings,
+                freq=freq_label,
+                periods_per_year=periods_per_year,
+            )
+            self._regime_cache[cache_key] = regimes
         if regimes.empty:
             return max_turnover
         regime_label = str(regimes.iloc[-1])
@@ -683,6 +694,31 @@ class MonteCarloRunner:
         if resolved is None:
             return max_turnover
         return resolved
+
+    def _regime_cache_key(
+        self,
+        context: _PathContext,
+        proxy_col: str,
+        freq_label: str,
+        periods_per_year: float,
+        settings: Any,
+    ) -> tuple[object, ...]:
+        return (
+            context.path_hash,
+            proxy_col,
+            freq_label,
+            periods_per_year,
+            getattr(settings, "method", None),
+            getattr(settings, "lookback", None),
+            getattr(settings, "smoothing", None),
+            getattr(settings, "threshold", None),
+            getattr(settings, "neutral_band", None),
+            getattr(settings, "min_obs", None),
+            getattr(settings, "risk_on_label", None),
+            getattr(settings, "risk_off_label", None),
+            getattr(settings, "default_label", None),
+            getattr(settings, "annualise_volatility", None),
+        )
 
     def _resolve_regime_proxy_column(
         self,

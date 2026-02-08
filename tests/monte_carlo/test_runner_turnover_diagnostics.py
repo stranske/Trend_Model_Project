@@ -554,6 +554,62 @@ def test_runner_resolves_regime_turnover_caps(monkeypatch) -> None:
     pdt.assert_series_equal(diagnostic["turnover_cap_binding"], expected_binding)
 
 
+def test_runner_caches_regime_labels(monkeypatch) -> None:
+    dates = pd.date_range("2023-01-31", periods=3, freq="ME")
+    returns = pd.DataFrame({"Date": dates, "Asset": [0.01, -0.02, 0.03]})
+    call_count = {"count": 0}
+
+    def _fake_compute_regimes(series, settings, *, freq, periods_per_year):
+        call_count["count"] += 1
+        return pd.Series(
+            ["calm", "stress", "stress"],
+            index=series.index,
+            name="regime",
+        )
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.compute_regimes",
+        _fake_compute_regimes,
+    )
+
+    runner = MonteCarloRunner(
+        _scenario(),
+        base_config=_base_config(
+            max_turnover={"calm": 0.2, "stress": 0.1},
+            regime_cfg={
+                "enabled": True,
+                "proxy": "Asset",
+                "method": "rolling_return",
+                "lookback": 1,
+                "smoothing": 1,
+                "threshold": 0.0,
+                "neutral_band": 0.0,
+                "risk_on_label": "calm",
+                "risk_off_label": "stress",
+                "default_label": "calm",
+            },
+        ),
+    )
+    context = _PathContext(
+        path_id=0,
+        prices=pd.DataFrame(),
+        returns=returns,
+        score_frame=pd.DataFrame(),
+        path_hash="hash",
+        seed=123,
+    )
+
+    config_a = runner._build_strategy_config(StrategyVariant(name="a"), seed=1)
+    config_b = runner._build_strategy_config(StrategyVariant(name="b"), seed=2)
+
+    runner._apply_regime_turnover_caps(config_a, context)
+    runner._apply_regime_turnover_caps(config_b, context)
+
+    assert call_count["count"] == 1
+    assert config_a.portfolio["max_turnover"] == pytest.approx(0.1)
+    assert config_b.portfolio["max_turnover"] == pytest.approx(0.1)
+
+
 def test_runner_normalizes_regime_turnover_caps(monkeypatch) -> None:
     dates = pd.date_range("2022-01-31", periods=2, freq="ME")
     returns = pd.DataFrame({"Date": dates, "Asset": [0.01, 0.02]})
