@@ -1238,6 +1238,9 @@ def run(
     # Exclude their columns from the candidate universe even if they are
     # numeric and present in the returns frame.
     benchmarks_cfg = cast(object, getattr(cfg, "benchmarks", None))
+    benchmarks_cfg_mapping: Mapping[str, Any] | None = (
+        benchmarks_cfg if isinstance(benchmarks_cfg, Mapping) else None
+    )
     benchmark_cols: list[str] = []
     if benchmarks_cfg:
         # Config models define `benchmarks` as `dict[str, str]` (label -> column).
@@ -3396,7 +3399,7 @@ def run(
             in_df,
             max_turnover_cfg=max_turnover_cfg,
             regime_settings=regime_settings,
-            benchmarks_cfg=benchmarks_cfg,
+            benchmarks_cfg=benchmarks_cfg_mapping,
             regime_frequency=regime_frequency,
             regime_ppy=regime_ppy,
         )
