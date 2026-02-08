@@ -213,6 +213,7 @@ def _render_results(
     filtered_results = _filter_results_by_fold(results_frame, fold_selection)
     if filtered_results.empty:
         st.warning("No results available for the selected fold.")
+        return
 
     st.subheader("Summary")
     summary_table = mc_tables.render_summary_table(filtered_results)

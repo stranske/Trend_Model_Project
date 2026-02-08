@@ -525,3 +525,15 @@ def test_download_link_generation(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "text/csv" in mimes
     assert "application/x-parquet" in mimes
     assert "application/zip" in mimes
+
+
+def test_empty_filtered_results_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
+    page, stub = _load_page(monkeypatch)
+
+    empty_results = DummyResults(results_frame=pd.DataFrame())
+
+    page._render_results(empty_results, fold_selection="Fold 2")
+
+    assert any("No results available" in message for message in stub.warning_messages)
+    assert not stub.dataframes
+    assert not stub.downloads
