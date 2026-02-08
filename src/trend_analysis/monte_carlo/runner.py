@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import math
 import random
-import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -39,6 +38,7 @@ from trend_analysis.monte_carlo.strategy.sampler import (
 )
 from trend_analysis.pipeline import _resolve_sample_split
 from trend_analysis.pipeline_helpers import _resolve_regime_turnover_cap
+from trend_analysis.regime_utils import alias_regime_key, normalize_regime_key
 from trend_analysis.regimes import compute_regimes, normalise_settings
 from trend_analysis.risk import periods_per_year_from_code
 from trend_analysis.stages.selection import single_period_run
@@ -87,25 +87,6 @@ def _coerce_turnover_guard(value: Any) -> float:
         raise ValueError(
             f"{_TURNOVER_GUARD_PATH} must be numeric or a distribution mapping"
         ) from exc
-
-
-def _normalize_regime_key(value: Any) -> str | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    if not text:
-        return None
-    return re.sub(r"[^a-z0-9]+", "", text.casefold())
-
-
-def _alias_regime_key(value: str) -> str | None:
-    aliases = {
-        "riskon": "calm",
-        "riskoff": "stress",
-        "calm": "riskon",
-        "stress": "riskoff",
-    }
-    return aliases.get(value)
 
 
 def _is_distribution_mapping(value: Mapping[str, Any]) -> bool:
@@ -1253,7 +1234,7 @@ class MonteCarloRunner:
                 return pd.Series(np.nan, index=out_index, name="turnover_cap")
             mapping: dict[str, float] = {}
             for key, value in max_turnover.items():
-                normalized_key = _normalize_regime_key(key)
+                normalized_key = normalize_regime_key(key)
                 if not normalized_key:
                     continue
                 try:
@@ -1265,12 +1246,12 @@ class MonteCarloRunner:
             def _lookup_turnover_cap(label: str | None) -> float:
                 if not label:
                     return float("nan")
-                normalized = _normalize_regime_key(label)
+                normalized = normalize_regime_key(label)
                 if not normalized:
                     return float("nan")
                 if normalized in mapping:
                     return mapping[normalized]
-                alias_key = _alias_regime_key(normalized)
+                alias_key = alias_regime_key(normalized)
                 if alias_key and alias_key in mapping:
                     return mapping[alias_key]
                 return float("nan")

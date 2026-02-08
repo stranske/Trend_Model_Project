@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import logging
-import re
 from typing import Any, Mapping, cast
 
 import numpy as np
 import pandas as pd
 
 from .regimes import compute_regimes, normalise_settings
+from .regime_utils import alias_regime_key, normalize_regime_key
 from .signals import TrendSpec
 from .stages.preprocessing import _PreprocessStage, _WindowStage
 
@@ -140,25 +140,6 @@ def _resolve_regime_label(
     return str(aligned.iloc[-1]), settings
 
 
-def _normalize_regime_key(value: Any) -> str | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    if not text:
-        return None
-    return re.sub(r"[^a-z0-9]+", "", text.casefold())
-
-
-def _alias_regime_key(value: str) -> str | None:
-    aliases = {
-        "riskon": "calm",
-        "riskoff": "stress",
-        "calm": "riskon",
-        "stress": "riskoff",
-    }
-    return aliases.get(value)
-
-
 def _resolve_regime_turnover_cap(
     max_turnover: object | None,
     regime_label: str | None,
@@ -184,7 +165,7 @@ def _resolve_regime_turnover_cap(
     normalized: dict[str, float] = {}
     normalized_sources: dict[str, str] = {}
     for key, value in max_turnover.items():
-        normalized_key = _normalize_regime_key(key)
+        normalized_key = normalize_regime_key(key)
         if not normalized_key:
             continue
         original = str(key)
@@ -199,12 +180,12 @@ def _resolve_regime_turnover_cap(
         return None
 
     def _lookup(label: str | None) -> float | None:
-        label_key = _normalize_regime_key(label)
+        label_key = normalize_regime_key(label)
         if not label_key:
             return None
         if label_key in normalized:
             return _coerce_optional_float(normalized[label_key])
-        alias_key = _alias_regime_key(label_key)
+        alias_key = alias_regime_key(label_key)
         if alias_key and alias_key in normalized:
             return _coerce_optional_float(normalized[alias_key])
         return None
@@ -223,7 +204,7 @@ def _resolve_regime_turnover_cap(
         if fallback in normalized:
             return normalized[fallback]
 
-    if regime_label and _normalize_regime_key(regime_label):
+    if regime_label and normalize_regime_key(regime_label):
         raise KeyError(f"max_turnover missing regime '{regime_label}' and no default specified")
     return None
 
