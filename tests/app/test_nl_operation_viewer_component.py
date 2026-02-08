@@ -330,7 +330,7 @@ def test_redact_text_handles_escaped_quotes_in_assignment_value(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     module = _load_module(monkeypatch)
-    fixture_text = r'SECRET_KEY=\"va\\\"lue\"'
+    fixture_text = r"SECRET_KEY=\"va\\\"lue\""
 
     redacted = module._redact_text(fixture_text)
 
