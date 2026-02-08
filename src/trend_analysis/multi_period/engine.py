@@ -143,6 +143,86 @@ def _prepare_returns_frame(df: pd.DataFrame) -> pd.DataFrame:
     return prepared
 
 
+def _resolve_regime_proxy_column(
+    proxy_value: str,
+    columns: Iterable[str],
+    benchmarks_cfg: Mapping[str, Any] | None,
+) -> str | None:
+    if proxy_value in columns:
+        return proxy_value
+    proxy_lower = proxy_value.lower()
+    if isinstance(benchmarks_cfg, Mapping):
+        for key, value in benchmarks_cfg.items():
+            if proxy_lower == str(key).lower() and value in columns:
+                return str(value)
+            if proxy_lower == str(value).lower() and value in columns:
+                return str(value)
+    for col in columns:
+        if proxy_lower == str(col).lower():
+            return str(col)
+    return None
+
+
+def _resolve_regime_label_for_window(
+    in_df: pd.DataFrame,
+    *,
+    regime_settings: Any,
+    benchmarks_cfg: Mapping[str, Any] | None,
+    regime_frequency: str,
+    regime_ppy: float,
+) -> str | None:
+    if not regime_settings.enabled or not regime_settings.proxy:
+        return None
+    proxy_col = _resolve_regime_proxy_column(
+        regime_settings.proxy,
+        in_df.columns,
+        benchmarks_cfg,
+    )
+    if proxy_col is None:
+        return None
+    proxy_series = pd.Series(in_df[proxy_col].to_numpy(), index=in_df.index).dropna()
+    if proxy_series.empty:
+        return None
+    labels = compute_regimes(
+        proxy_series,
+        regime_settings,
+        freq=regime_frequency,
+        periods_per_year=regime_ppy,
+    )
+    if labels.empty:
+        return None
+    return str(labels.iloc[-1])
+
+
+def _resolve_max_turnover_cap(
+    in_df: pd.DataFrame,
+    *,
+    max_turnover_cfg: Any,
+    regime_settings: Any,
+    benchmarks_cfg: Mapping[str, Any] | None,
+    regime_frequency: str,
+    regime_ppy: float,
+) -> float:
+    if max_turnover_cfg is None:
+        return 1.0
+    if not isinstance(max_turnover_cfg, Mapping):
+        try:
+            return float(max_turnover_cfg)
+        except (TypeError, ValueError):
+            return 1.0
+    regime_label = _resolve_regime_label_for_window(
+        in_df,
+        regime_settings=regime_settings,
+        benchmarks_cfg=benchmarks_cfg,
+        regime_frequency=regime_frequency,
+        regime_ppy=regime_ppy,
+    )
+    resolved = _resolve_regime_turnover_cap(max_turnover_cfg, regime_label, regime_settings)
+    if resolved is None:
+        return 1.0
+    return float(resolved)
+
+
 def _membership_table_from_frame(frame: pd.DataFrame) -> MembershipTable:
     """Convert a membership ledger DataFrame into ``MembershipTable``."""
 
@@ -1221,54 +1301,6 @@ def run(
     regime_frequency = str(data_settings.get("frequency") or "M")
     regime_ppy = float(periods_per_year_from_code(regime_frequency))
     max_turnover_cfg = cfg.portfolio.get("max_turnover", 1.0)
-
-    def _resolve_regime_proxy_column(proxy_value: str, columns: Iterable[str]) -> str | None:
-        if proxy_value in columns:
-            return proxy_value
-        proxy_lower = proxy_value.lower()
-        if isinstance(benchmarks_cfg, dict):
-            for key, value in benchmarks_cfg.items():
-                if proxy_lower == str(key).lower() and value in columns:
-                    return str(value)
-                if proxy_lower == str(value).lower() and value in columns:
-                    return str(value)
-        for col in columns:
-            if proxy_lower == str(col).lower():
-                return str(col)
-        return None
-
-    def _resolve_regime_label_for_window(in_df: pd.DataFrame) -> str | None:
-        if not regime_settings.enabled or not regime_settings.proxy:
-            return None
-        proxy_col = _resolve_regime_proxy_column(regime_settings.proxy, in_df.columns)
-        if proxy_col is None:
-            return None
-        proxy_series = pd.Series(in_df[proxy_col].to_numpy(), index=in_df.index).dropna()
-        if proxy_series.empty:
-            return None
-        labels = compute_regimes(
-            proxy_series,
-            regime_settings,
-            freq=regime_frequency,
-            periods_per_year=regime_ppy,
-        )
-        if labels.empty:
-            return None
-        return str(labels.iloc[-1])
-
-    def _resolve_max_turnover_cap(in_df: pd.DataFrame) -> float:
-        if max_turnover_cfg is None:
-            return 1.0
-        if not isinstance(max_turnover_cfg, Mapping):
-            try:
-                return float(max_turnover_cfg)
-            except (TypeError, ValueError):
-                return 1.0
-        regime_label = _resolve_regime_label_for_window(in_df)
-        resolved = _resolve_regime_turnover_cap(max_turnover_cfg, regime_label, regime_settings)
-        if resolved is None:
-            return 1.0
-        return float(resolved)
 
     def _valid_universe(
         full: pd.DataFrame,
@@ -3360,7 +3392,14 @@ def run(
                 and abs(last_aligned.loc[ix]) <= NUMERICAL_TOLERANCE_HIGH
                 and abs(target_w.loc[ix]) > NUMERICAL_TOLERANCE_HIGH
             }
-        max_turnover_cap = _resolve_max_turnover_cap(in_df)
+        max_turnover_cap = _resolve_max_turnover_cap(
+            in_df,
+            max_turnover_cfg=max_turnover_cfg,
+            regime_settings=regime_settings,
+            benchmarks_cfg=benchmarks_cfg,
+            regime_frequency=regime_frequency,
+            regime_ppy=regime_ppy,
+        )
         if (
             max_turnover_cap < 1.0 - NUMERICAL_TOLERANCE_HIGH
             and desired_turnover > max_turnover_cap + NUMERICAL_TOLERANCE_HIGH
