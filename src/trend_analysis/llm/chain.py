@@ -9,7 +9,7 @@ import os
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator, Self
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -148,8 +148,8 @@ def parse_config_patch_variants_with_retries(
 
 
 @dataclass(slots=True)
-class ConfigPatchChain:
-    """Container for the ConfigPatch LangChain pipeline."""
+class _BaseConfigPatchChain:
+    """Container for shared ConfigPatch LangChain pipeline behavior."""
 
     llm: Any
     prompt_builder: PromptBuilder
@@ -170,7 +170,7 @@ class ConfigPatchChain:
         model: str | None = None,
         max_tokens: int | None = None,
         retries: int = 1,
-    ) -> "ConfigPatchChain":
+    ) -> Self:
         """Build a chain with standard prompt builder + schema."""
 
         return cls(
@@ -194,7 +194,7 @@ class ConfigPatchChain:
         model: str | None = None,
         max_tokens: int | None = None,
         retries: int = 1,
-    ) -> "ConfigPatchChain":
+    ) -> Self:
         """Build a chain using environment overrides for model/temperature."""
         env_temperature = (
             temperature
@@ -238,168 +238,6 @@ class ConfigPatchChain:
             system_prompt=system_prompt,
             safety_rules=safety_rules,
         )
-
-    def run(
-        self,
-        *,
-        current_config: str | dict[str, Any],
-        instruction: str,
-        allowed_schema: str | None = None,
-        system_prompt: str | None = None,
-        safety_rules: Iterable[str] | None = None,
-        request_id: str | None = None,
-        log_operation: bool = True,
-    ) -> ConfigPatch:
-        """Invoke the LLM and parse the ConfigPatch response."""
-
-        started_at = time.perf_counter()
-        timestamp = datetime.now(timezone.utc)
-        request_id = request_id or uuid4().hex
-        prompt_text = ""
-        input_hash = ""
-        response_text: str | None = None
-        trace_url: str | None = None
-        patch: ConfigPatch | None = None
-        error: str | None = None
-
-        config_text = (
-            current_config
-            if isinstance(current_config, str)
-            else format_config_for_prompt(current_config)
-        )
-        schema_text = allowed_schema or self._serialize_schema(
-            self._select_schema(instruction=instruction)
-        )
-        prompt_text = self.prompt_builder(
-            current_config=config_text,
-            allowed_schema=schema_text,
-            instruction=instruction,
-            system_prompt=system_prompt,
-            safety_rules=safety_rules,
-        )
-        input_hash = _hash_payload(
-            {
-                "prompt": prompt_text,
-                "model": self.model,
-                "temperature": self.temperature,
-            }
-        )
-        injection_hits = detect_prompt_injection_payload(
-            instruction=instruction,
-            current_config=current_config,
-        )
-        try:
-            if injection_hits:
-                logger.warning(
-                    "Prompt injection detected (%s); skipping LLM call.",
-                    ", ".join(sorted(set(injection_hits))),
-                )
-                patch = ConfigPatch(operations=[], summary=DEFAULT_BLOCK_SUMMARY, risk_flags=[])
-                return patch
-            structured_llm = self._structured_output_llm()
-            if structured_llm is not None:
-                last_error: Exception | None = None
-                total_attempts = 2
-                retry_id = f"configpatch-structured-{id(structured_llm):x}"
-                for attempt in range(total_attempts):
-                    prompt = (
-                        prompt_text
-                        if attempt == 0
-                        else build_retry_prompt(
-                            current_config=config_text,
-                            allowed_schema=schema_text,
-                            instruction=instruction,
-                            error_message=format_retry_error(last_error),
-                            system_prompt=system_prompt,
-                            safety_rules=safety_rules,
-                        )
-                    )
-                    response = self._invoke_llm(
-                        prompt,
-                        request_id=request_id,
-                        operation="nl_to_patch",
-                        llm_override=structured_llm,
-                        structured_output=True,
-                    )
-                    response_text = str(response)
-                    trace_url = response.trace_url
-                    try:
-                        patch = parse_config_patch(response_text)
-                        break
-                    except Exception as exc:
-                        last_error = exc
-                        logger.error(
-                            "Structured ConfigPatch parse attempt %s/%s failed (retry_id=%s): %s",
-                            attempt + 1,
-                            total_attempts,
-                            retry_id,
-                            format_retry_error(exc),
-                        )
-                        if attempt + 1 >= total_attempts:
-                            raise ValueError(
-                                "Failed to parse ConfigPatch after "
-                                f"{total_attempts} attempts: {format_retry_error(exc)}"
-                            ) from exc
-            else:
-
-                def _response_provider(attempt: int, last_error: Exception | None) -> str:
-                    nonlocal response_text, trace_url
-                    prompt = (
-                        prompt_text
-                        if attempt == 0
-                        else build_variant_retry_prompt(
-                            current_config=config_text,
-                            allowed_schema=schema_text,
-                            instruction=instruction,
-                            error_message=format_retry_error(last_error),
-                            system_prompt=system_prompt,
-                            safety_rules=safety_rules,
-                        )
-                    )
-                    response = self._invoke_llm(
-                        prompt,
-                        request_id=request_id,
-                        operation="nl_to_patch",
-                    )
-                    response_text = str(response)
-                    trace_url = response.trace_url
-                    return response_text
-
-                patch = parse_config_patch_with_retries(
-                    _response_provider,
-                    retries=max(1, self.retries + 1),
-                    logger=logger,
-                )
-            assert patch is not None  # appease mypy; patch is set unless an exception is raised
-            schema = self._schema_for_validation(allowed_schema, instruction)
-            unknown_keys = flag_unknown_keys(patch, schema, logger=logger)
-            self._filter_unknown_keys(patch, unknown_keys)
-
-            return patch
-        except Exception as exc:
-            error = str(exc) or type(exc).__name__
-            raise
-        finally:
-            if log_operation:
-                elapsed_ms = (time.perf_counter() - started_at) * 1000
-                entry = NLOperationLog(
-                    request_id=request_id,
-                    timestamp=timestamp,
-                    operation="nl_to_patch",
-                    input_hash=input_hash,
-                    prompt_template=prompt_text,
-                    prompt_variables={},
-                    model_output=response_text,
-                    parsed_patch=patch,
-                    validation_result=None,
-                    error=error,
-                    duration_ms=elapsed_ms,
-                    model_name=self.model or "unknown",
-                    temperature=self.temperature,
-                    token_usage=None,
-                    trace_url=trace_url,
-                )
-                write_nl_log(entry)
 
     def _invoke_llm(
         self,
@@ -572,7 +410,174 @@ class ConfigPatchChain:
 
 
 @dataclass(slots=True)
-class ConfigPatchVariantsChain(ConfigPatchChain):
+class ConfigPatchChain(_BaseConfigPatchChain):
+    """Container for the ConfigPatch LangChain pipeline."""
+
+    def run(
+        self,
+        *,
+        current_config: str | dict[str, Any],
+        instruction: str,
+        allowed_schema: str | None = None,
+        system_prompt: str | None = None,
+        safety_rules: Iterable[str] | None = None,
+        request_id: str | None = None,
+        log_operation: bool = True,
+    ) -> ConfigPatch:
+        """Invoke the LLM and parse the ConfigPatch response."""
+
+        started_at = time.perf_counter()
+        timestamp = datetime.now(timezone.utc)
+        request_id = request_id or uuid4().hex
+        prompt_text = ""
+        input_hash = ""
+        response_text: str | None = None
+        trace_url: str | None = None
+        patch: ConfigPatch | None = None
+        error: str | None = None
+
+        config_text = (
+            current_config
+            if isinstance(current_config, str)
+            else format_config_for_prompt(current_config)
+        )
+        schema_text = allowed_schema or self._serialize_schema(
+            self._select_schema(instruction=instruction)
+        )
+        prompt_text = self.prompt_builder(
+            current_config=config_text,
+            allowed_schema=schema_text,
+            instruction=instruction,
+            system_prompt=system_prompt,
+            safety_rules=safety_rules,
+        )
+        input_hash = _hash_payload(
+            {
+                "prompt": prompt_text,
+                "model": self.model,
+                "temperature": self.temperature,
+            }
+        )
+        injection_hits = detect_prompt_injection_payload(
+            instruction=instruction,
+            current_config=current_config,
+        )
+        try:
+            if injection_hits:
+                logger.warning(
+                    "Prompt injection detected (%s); skipping LLM call.",
+                    ", ".join(sorted(set(injection_hits))),
+                )
+                patch = ConfigPatch(operations=[], summary=DEFAULT_BLOCK_SUMMARY, risk_flags=[])
+                return patch
+            structured_llm = self._structured_output_llm()
+            if structured_llm is not None:
+                last_error: Exception | None = None
+                total_attempts = 2
+                retry_id = f"configpatch-structured-{id(structured_llm):x}"
+                for attempt in range(total_attempts):
+                    prompt = (
+                        prompt_text
+                        if attempt == 0
+                        else build_retry_prompt(
+                            current_config=config_text,
+                            allowed_schema=schema_text,
+                            instruction=instruction,
+                            error_message=format_retry_error(last_error),
+                            system_prompt=system_prompt,
+                            safety_rules=safety_rules,
+                        )
+                    )
+                    response = self._invoke_llm(
+                        prompt,
+                        request_id=request_id,
+                        operation="nl_to_patch",
+                        llm_override=structured_llm,
+                        structured_output=True,
+                    )
+                    response_text = str(response)
+                    trace_url = response.trace_url
+                    try:
+                        patch = parse_config_patch(response_text)
+                        break
+                    except Exception as exc:
+                        last_error = exc
+                        logger.error(
+                            "Structured ConfigPatch parse attempt %s/%s failed (retry_id=%s): %s",
+                            attempt + 1,
+                            total_attempts,
+                            retry_id,
+                            format_retry_error(exc),
+                        )
+                        if attempt + 1 >= total_attempts:
+                            raise ValueError(
+                                "Failed to parse ConfigPatch after "
+                                f"{total_attempts} attempts: {format_retry_error(exc)}"
+                            ) from exc
+            else:
+
+                def _response_provider(attempt: int, last_error: Exception | None) -> str:
+                    nonlocal response_text, trace_url
+                    prompt = (
+                        prompt_text
+                        if attempt == 0
+                        else build_variant_retry_prompt(
+                            current_config=config_text,
+                            allowed_schema=schema_text,
+                            instruction=instruction,
+                            error_message=format_retry_error(last_error),
+                            system_prompt=system_prompt,
+                            safety_rules=safety_rules,
+                        )
+                    )
+                    response = self._invoke_llm(
+                        prompt,
+                        request_id=request_id,
+                        operation="nl_to_patch",
+                    )
+                    response_text = str(response)
+                    trace_url = response.trace_url
+                    return response_text
+
+                patch = parse_config_patch_with_retries(
+                    _response_provider,
+                    retries=max(1, self.retries + 1),
+                    logger=logger,
+                )
+            assert patch is not None  # appease mypy; patch is set unless an exception is raised
+            schema = self._schema_for_validation(allowed_schema, instruction)
+            unknown_keys = flag_unknown_keys(patch, schema, logger=logger)
+            self._filter_unknown_keys(patch, unknown_keys)
+
+            return patch
+        except Exception as exc:
+            error = str(exc) or type(exc).__name__
+            raise
+        finally:
+            if log_operation:
+                elapsed_ms = (time.perf_counter() - started_at) * 1000
+                entry = NLOperationLog(
+                    request_id=request_id,
+                    timestamp=timestamp,
+                    operation="nl_to_patch",
+                    input_hash=input_hash,
+                    prompt_template=prompt_text,
+                    prompt_variables={},
+                    model_output=response_text,
+                    parsed_patch=patch,
+                    validation_result=None,
+                    error=error,
+                    duration_ms=elapsed_ms,
+                    model_name=self.model or "unknown",
+                    temperature=self.temperature,
+                    token_usage=None,
+                    trace_url=trace_url,
+                )
+                write_nl_log(entry)
+
+
+@dataclass(slots=True)
+class ConfigPatchVariantsChain(_BaseConfigPatchChain):
     """Container for the variant ConfigPatch LangChain pipeline."""
 
     def run(
