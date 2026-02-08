@@ -37,7 +37,10 @@ from trend_analysis.monte_carlo.strategy.sampler import (
     sample_strategy_variants,
 )
 from trend_analysis.pipeline import _resolve_sample_split
-from trend_analysis.pipeline_helpers import _resolve_regime_turnover_cap, parse_regime_turnover_caps
+from trend_analysis.pipeline_helpers import (
+    _resolve_regime_turnover_cap,
+    parse_regime_turnover_caps,
+)
 from trend_analysis.regime_utils import alias_regime_key, normalize_regime_key
 from trend_analysis.regimes import compute_regimes, normalise_settings
 from trend_analysis.risk import periods_per_year_from_code
@@ -589,7 +592,9 @@ class MonteCarloRunner:
         if isinstance(portfolio_cfg, Mapping):
             max_turnover = portfolio_cfg.get("max_turnover")
         regime_cfg = getattr(config, "regime", None)
-        regime_settings = normalise_settings(regime_cfg) if isinstance(regime_cfg, Mapping) else None
+        regime_settings = (
+            normalise_settings(regime_cfg) if isinstance(regime_cfg, Mapping) else None
+        )
         turnover_series, binding = self._resolve_turnover_diagnostics(
             run_result,
             context,

@@ -25,8 +25,8 @@ from typing import Any, Dict, Iterable, List, Mapping, Protocol, cast
 import numpy as np
 import pandas as pd
 
-from trend.diagnostics import DiagnosticResult
 from trend.config_schema import CoreConfigError
+from trend.diagnostics import DiagnosticResult
 
 from .._typing import FloatArray
 from ..constants import NUMERICAL_TOLERANCE_HIGH
