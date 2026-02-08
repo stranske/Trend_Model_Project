@@ -37,7 +37,7 @@ from trend_analysis.monte_carlo.strategy.sampler import (
     sample_strategy_variants,
 )
 from trend_analysis.pipeline import _resolve_sample_split
-from trend_analysis.pipeline_helpers import _resolve_regime_turnover_cap
+from trend_analysis.pipeline_helpers import _resolve_regime_turnover_cap, parse_regime_turnover_caps
 from trend_analysis.regime_utils import alias_regime_key, normalize_regime_key
 from trend_analysis.regimes import compute_regimes, normalise_settings
 from trend_analysis.risk import periods_per_year_from_code
@@ -588,10 +588,13 @@ class MonteCarloRunner:
         max_turnover = None
         if isinstance(portfolio_cfg, Mapping):
             max_turnover = portfolio_cfg.get("max_turnover")
+        regime_cfg = getattr(config, "regime", None)
+        regime_settings = normalise_settings(regime_cfg) if isinstance(regime_cfg, Mapping) else None
         turnover_series, binding = self._resolve_turnover_diagnostics(
             run_result,
             context,
             max_turnover=max_turnover,
+            regime_settings=regime_settings,
         )
         if turnover_series is not None or binding is not None:
             if diagnostic is None:
@@ -624,8 +627,13 @@ class MonteCarloRunner:
             return
         max_turnover = portfolio.get("max_turnover")
         # Supported shapes for ``portfolio.max_turnover``:
-        # - scalar (float/int): apply as-is, no regime lookup required.
-        # - mapping: treated as regime-conditioned caps keyed by regime labels.
+        # - numeric scalar (int/float/np.number): apply as-is, no regime lookup required.
+        # - mapping: regime-conditioned caps; keys are normalized/aliased via
+        #   ``parse_regime_turnover_caps`` to canonical regime labels.
+        # Caps are applied only when a mapping is provided and regime detection is enabled.
+        # Single-period runs resolve the mapping to a scalar for the current path; if no
+        # regime label can be resolved or the mapping is empty, the cap is left unchanged.
+        # Multi-period runs keep the mapping so the engine can apply per-period caps.
         if max_turnover is None or not isinstance(max_turnover, Mapping):
             return
 
@@ -671,9 +679,11 @@ class MonteCarloRunner:
             freq = data_cfg.get("frequency")
         freq_label = str(freq or "M")
         periods_per_year = periods_per_year_from_code(freq_label)
+        proxy_window = (proxy_series.index[0], proxy_series.index[-1], len(proxy_series))
         cache_key = self._regime_cache_key(
             context,
             proxy_col,
+            proxy_window,
             freq_label,
             periods_per_year,
             settings,
@@ -699,6 +709,7 @@ class MonteCarloRunner:
         self,
         context: _PathContext,
         proxy_col: str,
+        proxy_window: tuple[object, object, int],
         freq_label: str,
         periods_per_year: float,
         settings: Any,
@@ -706,6 +717,7 @@ class MonteCarloRunner:
         return (
             context.path_hash,
             proxy_col,
+            proxy_window,
             freq_label,
             periods_per_year,
             getattr(settings, "method", None),
@@ -1189,6 +1201,7 @@ class MonteCarloRunner:
         context: _PathContext,
         *,
         max_turnover: object | None,
+        regime_settings: Any | None,
     ) -> tuple[pd.Series | None, pd.Series | None]:
         out_index = self._resolve_cost_index(run_result, context)
         regimes = (
@@ -1196,7 +1209,12 @@ class MonteCarloRunner:
         )
         turnover_raw = self._resolve_turnover_series(run_result, out_index)
         turnover_series = self._coerce_turnover_series(turnover_raw, out_index)
-        cap_series = self._resolve_turnover_cap_series(max_turnover, regimes, out_index)
+        cap_series = self._resolve_turnover_cap_series(
+            max_turnover,
+            regimes,
+            out_index,
+            regime_settings=regime_settings,
+        )
         binding = self._turnover_cap_binding_indicator(turnover_series, cap_series)
         return turnover_series, binding
 
@@ -1269,6 +1287,8 @@ class MonteCarloRunner:
         max_turnover: object | None,
         regimes: pd.Series | None,
         out_index: pd.Index | None,
+        *,
+        regime_settings: Any | None,
     ) -> pd.Series | float | None:
         if max_turnover is None:
             return None
@@ -1277,15 +1297,9 @@ class MonteCarloRunner:
                 return None
             if regimes is None:
                 return pd.Series(np.nan, index=out_index, name="turnover_cap")
-            mapping: dict[str, float] = {}
-            for key, value in max_turnover.items():
-                normalized_key = normalize_regime_key(key)
-                if not normalized_key:
-                    continue
-                try:
-                    mapping[normalized_key] = float(value)
-                except (TypeError, ValueError):
-                    continue
+            mapping = parse_regime_turnover_caps(max_turnover, regime_settings)
+            if not mapping:
+                return None
             labels = regimes.reindex(out_index).astype("string")
 
             def _lookup_turnover_cap(label: str | None) -> float:
@@ -1303,9 +1317,8 @@ class MonteCarloRunner:
 
             caps = labels.map(_lookup_turnover_cap)
             return pd.Series(caps, index=out_index, name="turnover_cap")
-        try:
-            cap = float(cast(SupportsFloat, max_turnover))
-        except (TypeError, ValueError):
+        cap = _resolve_regime_turnover_cap(max_turnover, None, regime_settings)
+        if cap is None:
             return None
         if out_index is None:
             return cap

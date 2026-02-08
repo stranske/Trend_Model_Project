@@ -26,6 +26,7 @@ import numpy as np
 import pandas as pd
 
 from trend.diagnostics import DiagnosticResult
+from trend.config_schema import CoreConfigError
 
 from .._typing import FloatArray
 from ..constants import NUMERICAL_TOLERANCE_HIGH
@@ -204,12 +205,24 @@ def _resolve_max_turnover_cap(
     regime_ppy: float,
 ) -> float:
     if max_turnover_cfg is None:
-        return 1.0
+        raise CoreConfigError(
+            "max_turnover must be a numeric scalar (int, float, numpy number) "
+            "or a regime mapping; got None"
+        )
     if not isinstance(max_turnover_cfg, Mapping):
         try:
-            return float(max_turnover_cfg)
-        except (TypeError, ValueError):
-            return 1.0
+            value = float(max_turnover_cfg)
+        except (TypeError, ValueError) as exc:
+            raise CoreConfigError(
+                "max_turnover must be a numeric scalar (int, float, numpy number) "
+                f"and finite; got {max_turnover_cfg!r}"
+            ) from exc
+        if not np.isfinite(value):
+            raise CoreConfigError(
+                "max_turnover must be a numeric scalar (int, float, numpy number) "
+                f"and finite; got {max_turnover_cfg!r}"
+            )
+        return value
     regime_label = _resolve_regime_label_for_window(
         in_df,
         regime_settings=regime_settings,

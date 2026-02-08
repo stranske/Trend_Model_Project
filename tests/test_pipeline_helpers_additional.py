@@ -192,7 +192,7 @@ def test_resolve_regime_turnover_cap_type_error_on_non_float() -> None:
 def test_resolve_regime_turnover_cap_detects_normalized_collisions() -> None:
     settings = SimpleNamespace(default_label=None)
 
-    with pytest.raises(ValueError, match="normaliz"):
+    with pytest.raises(CoreConfigError, match="normalization/aliasing"):
         _resolve_regime_turnover_cap({"Risk On": 0.1, "risk_on": 0.2}, "risk_on", settings)
 
 
@@ -218,8 +218,8 @@ def test_parse_regime_turnover_caps_accepts_valid_mapping() -> None:
     parsed = parse_regime_turnover_caps(caps, settings)
 
     assert parsed == {
-        "calm": pytest.approx(0.15),
-        "stress": pytest.approx(0.08),
+        "riskon": pytest.approx(0.15),
+        "riskoff": pytest.approx(0.08),
         "default": pytest.approx(0.2),
     }
 
@@ -237,6 +237,19 @@ def test_parse_regime_turnover_caps_normalizes_aliases_and_case() -> None:
     assert parsed == {"riskon": pytest.approx(0.12), "riskoff": pytest.approx(0.07)}
 
 
+def test_parse_regime_turnover_caps_canonicalizes_alias_inputs() -> None:
+    settings = SimpleNamespace(
+        risk_on_label="Risk-On",
+        risk_off_label="Risk-Off",
+        default_label="Risk-On",
+    )
+    caps = {"calm": 0.12, "stress": 0.07}
+
+    parsed = parse_regime_turnover_caps(caps, settings)
+
+    assert parsed == {"riskon": pytest.approx(0.12), "riskoff": pytest.approx(0.07)}
+
+
 def test_parse_regime_turnover_caps_unknown_label_raises() -> None:
     settings = SimpleNamespace(
         risk_on_label="Risk-On",
@@ -244,8 +257,25 @@ def test_parse_regime_turnover_caps_unknown_label_raises() -> None:
         default_label="Risk-On",
     )
 
-    with pytest.raises(CoreConfigError, match="mystery"):
+    with pytest.raises(CoreConfigError, match="mystery") as excinfo:
         parse_regime_turnover_caps({"mystery": 0.1}, settings)
+
+    assert "allowed labels" in str(excinfo.value)
+
+
+def test_parse_regime_turnover_caps_duplicate_labels_raise() -> None:
+    settings = SimpleNamespace(
+        risk_on_label="Risk-On",
+        risk_off_label="Risk-Off",
+        default_label="Risk-On",
+    )
+
+    with pytest.raises(CoreConfigError, match="riskon") as excinfo:
+        parse_regime_turnover_caps({"Risk On": 0.1, "calm": 0.2}, settings)
+
+    message = str(excinfo.value)
+    assert "Risk On" in message
+    assert "calm" in message
 
 
 def test_parse_regime_turnover_caps_non_numeric_raises() -> None:
@@ -255,8 +285,10 @@ def test_parse_regime_turnover_caps_non_numeric_raises() -> None:
         default_label="Risk-On",
     )
 
-    with pytest.raises(CoreConfigError, match="calm"):
+    with pytest.raises(CoreConfigError, match="calm") as excinfo:
         parse_regime_turnover_caps({"calm": "fast"}, settings)
+
+    assert "fast" in str(excinfo.value)
 
 
 def test_parse_regime_turnover_caps_missing_or_empty_returns_none() -> None:

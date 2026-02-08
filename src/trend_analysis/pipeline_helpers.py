@@ -203,20 +203,25 @@ def parse_regime_turnover_caps(
     default_settings = normalise_settings(None)
     regime_settings = settings or default_settings
 
-    def _allowed_keys() -> set[str]:
+    def _allowed_keys() -> tuple[set[str], set[str], dict[str, str]]:
         allowed: set[str] = {"default", "all", "any"}
+        canonical_labels: set[str] = set()
+        alias_to_canonical: dict[str, str] = {}
         for attr in ("risk_on_label", "risk_off_label", "default_label"):
             label = getattr(regime_settings, attr, getattr(default_settings, attr))
             normalized = normalize_regime_key(label)
             if not normalized:
                 continue
-            allowed.add(normalized)
-            alias_key = alias_regime_key(normalized)
+            canonical_labels.add(normalized)
+        allowed.update(canonical_labels)
+        for canonical in canonical_labels:
+            alias_key = alias_regime_key(canonical)
             if alias_key:
                 allowed.add(alias_key)
-        return allowed
+                alias_to_canonical[alias_key] = canonical
+        return allowed, canonical_labels, alias_to_canonical
 
-    allowed = _allowed_keys()
+    allowed, canonical_labels, alias_to_canonical = _allowed_keys()
     normalized_caps: dict[str, float] = {}
     normalized_sources: dict[str, str] = {}
     for key, value in max_turnover.items():
@@ -225,28 +230,31 @@ def parse_regime_turnover_caps(
             raise CoreConfigError("max_turnover regime keys must be non-empty strings")
 
         if normalized_key not in allowed:
-            alias_key = alias_regime_key(normalized_key)
-            if not alias_key or alias_key not in allowed:
-                allowed_list = ", ".join(sorted(allowed))
-                raise CoreConfigError(
-                    "max_turnover regime label "
-                    f"{key!r} is not recognized; allowed labels: {allowed_list}"
-                )
+            allowed_list = ", ".join(sorted(allowed))
+            raise CoreConfigError(
+                "max_turnover regime label "
+                f"{key!r} is not recognized; allowed labels: {allowed_list}"
+            )
 
         original = str(key)
-        if normalized_key in normalized_sources and normalized_sources[normalized_key] != original:
+        canonical_key = alias_to_canonical.get(normalized_key, normalized_key)
+        if canonical_key in normalized_sources and normalized_sources[canonical_key] != original:
             raise CoreConfigError(
-                "max_turnover regime keys collide after normalization "
-                f"({normalized_sources[normalized_key]!r} vs {original!r})"
+                "max_turnover regime keys collide after normalization/aliasing to "
+                f"{canonical_key!r} ({normalized_sources[canonical_key]!r} vs {original!r})"
             )
         try:
             numeric_value = float(cast(Any, value))
         except (TypeError, ValueError) as exc:
-            raise CoreConfigError(f"max_turnover for regime {original!r} must be numeric") from exc
+            raise CoreConfigError(
+                f"max_turnover for regime {original!r} must be numeric; got {value!r}"
+            ) from exc
         if not np.isfinite(numeric_value):
-            raise CoreConfigError(f"max_turnover for regime {original!r} must be a finite number")
-        normalized_caps[normalized_key] = numeric_value
-        normalized_sources[normalized_key] = original
+            raise CoreConfigError(
+                f"max_turnover for regime {original!r} must be a finite number; got {value!r}"
+            )
+        normalized_caps[canonical_key] = numeric_value
+        normalized_sources[canonical_key] = original
 
     if not normalized_caps:
         return None
