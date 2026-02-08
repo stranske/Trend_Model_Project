@@ -65,9 +65,7 @@ class ConfigPatchVariant(BaseModel):
         normalized = label.casefold()
         canonical_map = {variant.casefold(): variant for variant in VARIANT_LABELS}
         if normalized not in canonical_map:
-            raise ValueError(
-                "label must be one of: " + ", ".join(sorted(canonical_map.values()))
-            )
+            raise ValueError("label must be one of: " + ", ".join(sorted(canonical_map.values())))
         return canonical_map[normalized]
 
 
