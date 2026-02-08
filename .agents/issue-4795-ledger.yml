@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Add a `structured_repair_retry_count` attribute to the chain class in `src/trend_analysis/llm/chain.py`
       that initializes to 0
-    status: doing
+    status: done
     started_at: '2026-02-08T08:15:52Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-08T08:15:59Z'
+    commit: 5edd608778cfe5d7b0a02428cc03ad7dec213a9f
     notes: []
   - id: task-02
     title: Add an `invocation_count` attribute to the LLM test double in `tests/`
