@@ -898,15 +898,55 @@ def test_multi_period_turnover_caps_and_binding(monkeypatch: pytest.MonkeyPatch)
     assert diagnostics["period"].tolist() == expected_periods
 
     turnover = diagnostics["turnover"].tolist()
-    assert resolved_caps == [pytest.approx(0.2), pytest.approx(0.8)]
-
-    binding = [turn >= cap for turn, cap in zip(turnover, resolved_caps, strict=True)]
-    assert binding == [True, False]
+    assert sorted(resolved_caps) == [pytest.approx(0.2), pytest.approx(0.8)]
 
     evaluation = results.evaluations[0]
     expected_index = pd.Index(expected_periods, name="period")
     expected_turnover = pd.Series(turnover, index=expected_index, name="turnover")
     pdt.assert_series_equal(evaluation.turnover, expected_turnover, check_freq=False)
+
+    diagnostic = evaluation.diagnostic or {}
+    cap_regimes = diagnostic.get("turnover_cap_regime")
+    assert isinstance(cap_regimes, pd.Series)
+    cap_regimes = cap_regimes.reindex(expected_index)
+    cap_regime_list = cap_regimes.tolist()
+    assert set(cap_regime_list) == {"riskon", "riskoff"}
+    assert len(set(cap_regime_list)) == 2
+
+    cap_series = diagnostic.get("turnover_cap")
+    assert isinstance(cap_series, pd.Series)
+    cap_series = cap_series.reindex(expected_index)
+
+    caps_by_regime = {"riskon": 0.2, "riskoff": 0.8}
+    expected_caps = [caps_by_regime[label] for label in cap_regime_list]
+    pdt.assert_series_equal(
+        cap_series,
+        pd.Series(expected_caps, index=expected_index, name="turnover_cap"),
+        check_freq=False,
+    )
+
+    binding = [turn >= cap for turn, cap in zip(turnover, cap_series.tolist(), strict=True)]
+    assert binding == diagnostics["turnover_cap_binding"].tolist()
+
+    mismatch_config = _base_config(
+        max_turnover={"mystery": 0.3},
+        regime_cfg=base_config["regime"],
+    )
+    mismatch_config["portfolio"].update(
+        {key: value for key, value in base_config["portfolio"].items() if key != "max_turnover"}
+    )
+    mismatch_config["data"] = dict(base_config["data"])
+    mismatch_config["multi_period"] = dict(base_config["multi_period"])
+
+    mismatch_runner = MonteCarloRunner(
+        scenario,
+        base_config=mismatch_config,
+        price_history=price_history,
+    )
+
+    mismatch_results = mismatch_runner.run(jobs=1)
+    assert mismatch_results.errors
+    assert any("mystery" in err.message for err in mismatch_results.errors)
 
 
 def test_runner_normalizes_regime_turnover_caps(monkeypatch) -> None:

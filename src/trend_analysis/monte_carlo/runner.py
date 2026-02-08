@@ -595,7 +595,7 @@ class MonteCarloRunner:
         regime_settings = (
             normalise_settings(regime_cfg) if isinstance(regime_cfg, Mapping) else None
         )
-        turnover_series, binding = self._resolve_turnover_diagnostics(
+        turnover_series, binding, cap_series, cap_regimes = self._resolve_turnover_diagnostics(
             run_result,
             context,
             max_turnover=max_turnover,
@@ -608,6 +608,10 @@ class MonteCarloRunner:
                 diagnostic["turnover"] = turnover_series
             if binding is not None:
                 diagnostic["turnover_cap_binding"] = binding
+            if cap_series is not None:
+                diagnostic["turnover_cap"] = cap_series
+            if cap_regimes is not None:
+                diagnostic["turnover_cap_regime"] = cap_regimes
         if cost_payload is not None:
             if diagnostic is None:
                 diagnostic = {}
@@ -632,8 +636,10 @@ class MonteCarloRunner:
             return
         max_turnover = portfolio.get("max_turnover")
         # Supported shapes for ``portfolio.max_turnover``:
-        # - numeric scalar (int/float/np.number): apply as-is, no regime lookup required.
-        # - mapping: regime-conditioned caps; keys are normalized/aliased via
+        # - numeric scalar (int/float/np.number): apply as-is without regime lookup. Numeric
+        #   coercion/validation happens only inside ``parse_regime_turnover_caps``.
+        # - mapping: regime-conditioned caps; keys are normalized/aliased (case-insensitive,
+        #   punctuation-stripped, calm/stress -> riskon/riskoff) via
         #   ``parse_regime_turnover_caps`` to canonical regime labels.
         # Caps are applied only when a mapping is provided and regime detection is enabled.
         # Single-period runs resolve the mapping to a scalar for the current path; if no
@@ -1207,21 +1213,22 @@ class MonteCarloRunner:
         *,
         max_turnover: object | None,
         regime_settings: Any | None,
-    ) -> tuple[pd.Series | None, pd.Series | None]:
+    ) -> tuple[pd.Series | None, pd.Series | None, pd.Series | float | None, pd.Series | None]:
         out_index = self._resolve_cost_index(run_result, context)
         regimes = (
             self._resolve_regime_labels(run_result, out_index) if out_index is not None else None
         )
         turnover_raw = self._resolve_turnover_series(run_result, out_index)
         turnover_series = self._coerce_turnover_series(turnover_raw, out_index)
-        cap_series = self._resolve_turnover_cap_series(
-            max_turnover,
+        parsed_caps = parse_regime_turnover_caps(max_turnover, regime_settings)
+        cap_series = self._resolve_turnover_cap_series_from_parsed(
+            parsed_caps,
             regimes,
             out_index,
-            regime_settings=regime_settings,
         )
+        cap_regimes = self._resolve_turnover_cap_regimes(parsed_caps, regimes, out_index)
         binding = self._turnover_cap_binding_indicator(turnover_series, cap_series)
-        return turnover_series, binding
+        return turnover_series, binding, cap_series, cap_regimes
 
     def _period_results_index(self, period_results: Any) -> pd.Index | None:
         if not isinstance(period_results, Sequence):
@@ -1295,39 +1302,74 @@ class MonteCarloRunner:
         *,
         regime_settings: Any | None,
     ) -> pd.Series | float | None:
-        if max_turnover is None:
+        parsed = parse_regime_turnover_caps(max_turnover, regime_settings)
+        return self._resolve_turnover_cap_series_from_parsed(parsed, regimes, out_index)
+
+    def _resolve_turnover_cap_series_from_parsed(
+        self,
+        parsed: dict[str, float] | float | None,
+        regimes: pd.Series | None,
+        out_index: pd.Index | None,
+    ) -> pd.Series | float | None:
+        if parsed is None:
             return None
-        if isinstance(max_turnover, Mapping):
+        if not isinstance(parsed, Mapping):
             if out_index is None:
-                return None
-            if regimes is None:
-                return pd.Series(np.nan, index=out_index, name="turnover_cap")
-            mapping = parse_regime_turnover_caps(max_turnover, regime_settings)
-            if not mapping:
-                return None
-            labels = regimes.reindex(out_index).astype("string")
-
-            def _lookup_turnover_cap(label: str | None) -> float:
-                if not label:
-                    return float("nan")
-                normalized = normalize_regime_key(label)
-                if not normalized:
-                    return float("nan")
-                if normalized in mapping:
-                    return mapping[normalized]
-                alias_key = alias_regime_key(normalized)
-                if alias_key and alias_key in mapping:
-                    return mapping[alias_key]
-                return float("nan")
-
-            caps = labels.map(_lookup_turnover_cap)
-            return pd.Series(caps, index=out_index, name="turnover_cap")
-        cap = _resolve_regime_turnover_cap(max_turnover, None, regime_settings)
-        if cap is None:
-            return None
+                return parsed
+            return pd.Series(parsed, index=out_index, name="turnover_cap")
         if out_index is None:
-            return cap
-        return pd.Series(cap, index=out_index, name="turnover_cap")
+            return None
+        if regimes is None:
+            return pd.Series(np.nan, index=out_index, name="turnover_cap")
+        labels = regimes.reindex(out_index).astype("string")
+
+        def _lookup_turnover_cap(label: str | None) -> float:
+            if not label:
+                return np.nan
+            normalized = normalize_regime_key(label)
+            if not normalized:
+                return np.nan
+            if normalized in parsed:
+                return parsed[normalized]
+            alias_key = alias_regime_key(normalized)
+            if alias_key and alias_key in parsed:
+                return parsed[alias_key]
+            return np.nan
+
+        caps = labels.map(_lookup_turnover_cap)
+        return pd.Series(caps, index=out_index, name="turnover_cap")
+
+    def _resolve_turnover_cap_regimes(
+        self,
+        parsed: dict[str, float] | float | None,
+        regimes: pd.Series | None,
+        out_index: pd.Index | None,
+    ) -> pd.Series | None:
+        if not isinstance(parsed, Mapping):
+            return None
+        if regimes is None or out_index is None:
+            return None
+        labels = regimes.reindex(out_index).astype("string")
+
+        def _canonical_label(label: str | None) -> str | None:
+            if not label:
+                return None
+            normalized = normalize_regime_key(label)
+            if not normalized:
+                return None
+            canonical = normalized
+            if normalized in ("calm", "stress"):
+                alias_key = alias_regime_key(normalized)
+                if alias_key:
+                    canonical = alias_key
+            return canonical
+
+        resolved = labels.map(_canonical_label)
+        try:
+            resolved = resolved.astype("string")
+        except Exception:
+            pass
+        return resolved.rename("turnover_cap_regime")
 
     def _turnover_cap_binding_indicator(
         self,
