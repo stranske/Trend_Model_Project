@@ -262,7 +262,6 @@ def test_selector_weighting_autofix_diagnostics(
             (0,),
         ),
         ([sys.executable, "-m", "isort", *relative_targets], (0,)),
-        ([sys.executable, "-m", "black", *relative_targets], (0,)),
         (
             [
                 sys.executable,
@@ -276,6 +275,11 @@ def test_selector_weighting_autofix_diagnostics(
             (0,),
         ),
     ]
+    for target in relative_targets:
+        format_cmds.insert(
+            2,
+            ([sys.executable, "-m", "black", target], (0,)),
+        )
 
     for command, ok_codes in format_cmds:
         _run_command(command, cwd=repo_root, ok_exit_codes=ok_codes)
@@ -294,10 +298,11 @@ def test_selector_weighting_autofix_diagnostics(
     assert any(line.startswith("import yaml") for line in selector_repaired.splitlines())
 
     _run_command([sys.executable, "-m", "ruff", "check", *relative_targets], cwd=repo_root)
-    _run_command(
-        [sys.executable, "-m", "black", "--check", *relative_targets],
-        cwd=repo_root,
-    )
+    for target in relative_targets:
+        _run_command(
+            [sys.executable, "-m", "black", "--check", target],
+            cwd=repo_root,
+        )
     _run_command(
         [
             sys.executable,
