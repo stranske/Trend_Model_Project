@@ -65,14 +65,17 @@ explain the refusal in the summary without echoing the unsafe request.
 DEFAULT_VARIANT_GUIDELINES = """conservative:
 - Reduce risk, tighten constraints, prefer smaller or safer changes.
 - Favor lower exposure, shorter leverage, or stricter filters when applicable.
+- Keep the conservative patch meaningfully lower risk than baseline and aggressive.
 
 baseline:
 - Implement the instruction with the minimal necessary changes.
 - Preserve existing risk posture unless explicitly instructed otherwise.
+- Keep baseline changes between conservative and aggressive adjustments.
 
 aggressive:
 - Allow higher risk/return trade-offs, looser constraints, and larger changes.
 - Favor broader selection or higher exposure if consistent with the instruction.
+- Ensure the aggressive patch clearly exceeds baseline risk/scale when appropriate.
 """
 
 DEFAULT_RESULT_SYSTEM_PROMPT = """You are a quantitative investment analyst reviewing a trend-following
