@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any, Iterable, Mapping, Sequence
 
 import altair as alt
-import numpy as np
 import pandas as pd
 import streamlit as st
 
@@ -263,7 +262,11 @@ def cdf_plot(
             x=alt.X("Value:Q", title="Outcome"),
             y=alt.Y("CDF:Q", title="CDF", axis=alt.Axis(format=".0%")),
             color=alt.Color("Strategy:N", scale=alt.Scale(range=PALETTE)),
-            tooltip=["Strategy:N", alt.Tooltip("Value:Q", format=",.2f"), alt.Tooltip("CDF:Q", format=".0%")],
+            tooltip=[
+                "Strategy:N",
+                alt.Tooltip("Value:Q", format=",.2f"),
+                alt.Tooltip("CDF:Q", format=".0%"),
+            ],
         )
         .properties(height=260)
     )
