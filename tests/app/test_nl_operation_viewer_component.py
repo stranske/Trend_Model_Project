@@ -304,6 +304,61 @@ def test_redact_text_preserves_non_assignment_line(
     assert redacted == fixture_text
 
 
+def test_redact_text_redacts_full_line_assignments_only_in_multiline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module(monkeypatch)
+    fixture_text = (
+        "header line\n"
+        "SECRET_KEY=value123\n"
+        "prefix SECRET_KEY=value123 suffix\n"
+        "  SECRET_KEY=value456  \n"
+        "footer line"
+    )
+
+    redacted = module._redact_text(fixture_text)
+    lines = redacted.splitlines()
+
+    assert lines[0] == "header line"
+    assert lines[1] == "[REDACTED]"
+    assert lines[2] == "prefix SECRET_KEY=value123 suffix"
+    assert lines[3] == "[REDACTED]"
+    assert lines[4] == "footer line"
+
+
+def test_redact_text_handles_escaped_quotes_in_assignment_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module(monkeypatch)
+    fixture_text = r'SECRET_KEY=\"va\\\"lue\"'
+
+    redacted = module._redact_text(fixture_text)
+
+    assert fixture_text not in redacted
+    assert "[REDACTED]" in redacted
+
+
+def test_redact_text_skips_complex_shell_syntax_and_respects_whitespace(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module(monkeypatch)
+    fixture_text = (
+        "export SECRET_KEY=value123\n"
+        "SECRET_KEY=value123 command\n"
+        "  SECRET_KEY=value456  \n"
+        "SECRET_KEY=value789\n"
+        "echo done"
+    )
+
+    redacted = module._redact_text(fixture_text)
+
+    assert "export SECRET_KEY=value123" in redacted
+    assert "SECRET_KEY=value123 command" in redacted
+    assert "SECRET_KEY=value456" not in redacted
+    assert "SECRET_KEY=value789" not in redacted
+    assert "[REDACTED]" in redacted
+
+
 def test_render_replay_stores_result_and_renders_redacted(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
