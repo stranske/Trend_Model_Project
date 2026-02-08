@@ -222,7 +222,7 @@ def _resolve_max_turnover_cap(
             ) from exc
         if parsed is None or isinstance(parsed, Mapping):
             _raise_invalid_max_turnover(max_turnover_cfg)
-        return parsed
+        return cast(float, parsed)
     regime_label = _resolve_regime_label_for_window(
         in_df,
         regime_settings=regime_settings,

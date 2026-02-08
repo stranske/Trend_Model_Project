@@ -162,6 +162,8 @@ def _resolve_regime_turnover_cap(
     normalized = parse_regime_turnover_caps(max_turnover, settings)
     if normalized is None:
         return None
+    if not isinstance(normalized, Mapping):
+        return None
 
     def _lookup(label: str | None) -> float | None:
         label_key = normalize_regime_key(label)
