@@ -40,7 +40,7 @@ from ..pipeline import (
     _resolve_risk_free_column,
     _resolve_target_vol,
 )
-from ..pipeline_helpers import _resolve_regime_turnover_cap
+from ..pipeline_helpers import _resolve_regime_turnover_cap, parse_regime_turnover_caps
 from ..portfolio import apply_weight_policy
 from ..rebalancing import CashPolicy, apply_rebalancing_strategies
 from ..regimes import compute_regimes, normalise_settings
@@ -206,23 +206,23 @@ def _resolve_max_turnover_cap(
 ) -> float:
     def _raise_invalid_max_turnover(value: Any) -> None:
         raise CoreConfigError(
-            "max_turnover must be a finite numeric scalar (int, float, numpy number) "
-            f"or a regime mapping; got {value!r}"
+            "max_turnover only accepts numeric scalars (int, float, numpy numeric types) "
+            f"or a valid regime mapping; got {value!r}"
         )
 
     if max_turnover_cfg is None:
         _raise_invalid_max_turnover(max_turnover_cfg)
     if not isinstance(max_turnover_cfg, Mapping):
         try:
-            value = float(max_turnover_cfg)
-        except (TypeError, ValueError) as exc:
+            parsed = parse_regime_turnover_caps(max_turnover_cfg, regime_settings)
+        except CoreConfigError as exc:
             raise CoreConfigError(
-                "max_turnover must be a finite numeric scalar (int, float, numpy number) "
-                f"or a regime mapping; got {max_turnover_cfg!r}"
+                "max_turnover only accepts numeric scalars (int, float, numpy numeric types) "
+                f"or a valid regime mapping; got {max_turnover_cfg!r}"
             ) from exc
-        if not np.isfinite(value):
+        if parsed is None or isinstance(parsed, Mapping):
             _raise_invalid_max_turnover(max_turnover_cfg)
-        return value
+        return parsed
     regime_label = _resolve_regime_label_for_window(
         in_df,
         regime_settings=regime_settings,
@@ -233,7 +233,7 @@ def _resolve_max_turnover_cap(
     resolved = _resolve_regime_turnover_cap(max_turnover_cfg, regime_label, regime_settings)
     if resolved is None:
         return 1.0
-    return float(resolved)
+    return resolved
 
 
 def _membership_table_from_frame(frame: pd.DataFrame) -> MembershipTable:

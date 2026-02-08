@@ -291,6 +291,17 @@ def test_parse_regime_turnover_caps_non_numeric_raises() -> None:
     assert "fast" in str(excinfo.value)
 
 
+def test_parse_regime_turnover_caps_accepts_numeric_scalar() -> None:
+    settings = SimpleNamespace(
+        risk_on_label="Risk-On",
+        risk_off_label="Risk-Off",
+        default_label="Risk-On",
+    )
+
+    assert parse_regime_turnover_caps(0.15, settings) == pytest.approx(0.15)
+    assert parse_regime_turnover_caps(np.float64(0.2), settings) == pytest.approx(0.2)
+
+
 def test_parse_regime_turnover_caps_missing_or_empty_returns_none() -> None:
     settings = SimpleNamespace(
         risk_on_label="Risk-On",

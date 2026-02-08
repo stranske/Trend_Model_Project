@@ -148,19 +148,19 @@ def _resolve_regime_turnover_cap(
     regime_label: str | None,
     settings: Any,
 ) -> float | None:
-    def _coerce_optional_float(value: object) -> float | None:
-        try:
-            return float(cast(Any, value))
-        except (TypeError, ValueError):
-            return None
-
     if max_turnover is None:
         return None
     if not isinstance(max_turnover, Mapping):
-        return _coerce_optional_float(max_turnover)
+        try:
+            parsed = parse_regime_turnover_caps(max_turnover, settings)
+        except CoreConfigError:
+            return None
+        if parsed is None or isinstance(parsed, Mapping):
+            return None
+        return parsed
 
     normalized = parse_regime_turnover_caps(max_turnover, settings)
-    if not normalized:
+    if normalized is None:
         return None
 
     def _lookup(label: str | None) -> float | None:
@@ -168,10 +168,10 @@ def _resolve_regime_turnover_cap(
         if not label_key:
             return None
         if label_key in normalized:
-            return _coerce_optional_float(normalized[label_key])
+            return normalized[label_key]
         alias_key = alias_regime_key(label_key)
         if alias_key and alias_key in normalized:
-            return _coerce_optional_float(normalized[alias_key])
+            return normalized[alias_key]
         return None
 
     if regime_label:
@@ -194,9 +194,27 @@ def _resolve_regime_turnover_cap(
 
 
 def parse_regime_turnover_caps(
-    max_turnover: Mapping[str, Any] | None,
+    max_turnover: object | None,
     settings: Any,
-) -> dict[str, float] | None:
+) -> dict[str, float] | float | None:
+    if max_turnover is None:
+        return None
+
+    if not isinstance(max_turnover, Mapping):
+        try:
+            numeric_value = float(cast(Any, max_turnover))
+        except (TypeError, ValueError) as exc:
+            raise CoreConfigError(
+                "max_turnover must be a finite numeric scalar (int, float, numpy number) "
+                f"or a regime mapping; got {max_turnover!r}"
+            ) from exc
+        if not np.isfinite(numeric_value):
+            raise CoreConfigError(
+                "max_turnover must be a finite numeric scalar (int, float, numpy number) "
+                f"or a regime mapping; got {max_turnover!r}"
+            )
+        return numeric_value
+
     if not max_turnover:
         return None
 
