@@ -204,24 +204,24 @@ def _resolve_max_turnover_cap(
     regime_frequency: str,
     regime_ppy: float,
 ) -> float:
-    if max_turnover_cfg is None:
+    def _raise_invalid_max_turnover(value: Any) -> None:
         raise CoreConfigError(
-            "max_turnover must be a numeric scalar (int, float, numpy number) "
-            "or a regime mapping; got None"
+            "max_turnover must be a finite numeric scalar (int, float, numpy number) "
+            f"or a regime mapping; got {value!r}"
         )
+
+    if max_turnover_cfg is None:
+        _raise_invalid_max_turnover(max_turnover_cfg)
     if not isinstance(max_turnover_cfg, Mapping):
         try:
             value = float(max_turnover_cfg)
         except (TypeError, ValueError) as exc:
             raise CoreConfigError(
-                "max_turnover must be a numeric scalar (int, float, numpy number) "
-                f"and finite; got {max_turnover_cfg!r}"
+                "max_turnover must be a finite numeric scalar (int, float, numpy number) "
+                f"or a regime mapping; got {max_turnover_cfg!r}"
             ) from exc
         if not np.isfinite(value):
-            raise CoreConfigError(
-                "max_turnover must be a numeric scalar (int, float, numpy number) "
-                f"and finite; got {max_turnover_cfg!r}"
-            )
+            _raise_invalid_max_turnover(max_turnover_cfg)
         return value
     regime_label = _resolve_regime_label_for_window(
         in_df,
