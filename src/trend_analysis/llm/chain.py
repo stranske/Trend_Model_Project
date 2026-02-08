@@ -35,9 +35,11 @@ from trend_analysis.llm.result_validation import (
     ensure_result_disclaimer,
 )
 from trend_analysis.llm.schema import load_compact_schema, select_schema_sections
-from trend_analysis.llm.validation import (
-    flag_unknown_keys,
-    normalize_patch_path,
+from trend_analysis.llm.validation import flag_unknown_keys, normalize_patch_path
+from trend_analysis.llm.variants import (
+    VARIANT_LABELS,
+    ensure_unique_variant_labels,
+    normalize_variant_label,
 )
 
 if TYPE_CHECKING:
@@ -46,9 +48,6 @@ if TYPE_CHECKING:
 PromptBuilder = Callable[..., str]
 
 logger = logging.getLogger(__name__)
-
-VARIANT_LABELS = ("conservative", "baseline", "aggressive")
-
 
 class ConfigPatchVariant(BaseModel):
     label: str = Field(description="Variant label.")
@@ -59,14 +58,7 @@ class ConfigPatchVariant(BaseModel):
     @field_validator("label")
     @classmethod
     def _label_non_empty(cls, value: str) -> str:
-        label = value.strip()
-        if not label:
-            raise ValueError("label must be a non-empty string")
-        normalized = label.casefold()
-        canonical_map = {variant.casefold(): variant for variant in VARIANT_LABELS}
-        if normalized not in canonical_map:
-            raise ValueError("label must be one of: " + ", ".join(sorted(canonical_map.values())))
-        return canonical_map[normalized]
+        return normalize_variant_label(value)
 
 
 class ConfigPatchVariants(BaseModel):
@@ -79,9 +71,7 @@ class ConfigPatchVariants(BaseModel):
         if len(self.variants) != 3:
             raise ValueError("variants must contain exactly three entries")
         labels = [variant.label for variant in self.variants]
-        normalized = [label.casefold() for label in labels]
-        if len(set(normalized)) != len(labels):
-            raise ValueError("variants must have unique labels")
+        ensure_unique_variant_labels(labels)
         return self
 
 
@@ -526,7 +516,7 @@ class ConfigPatchChain(_BaseConfigPatchChain):
                     prompt = (
                         prompt_text
                         if attempt == 0
-                        else build_variant_retry_prompt(
+                        else build_retry_prompt(
                             current_config=config_text,
                             allowed_schema=schema_text,
                             instruction=instruction,
@@ -694,7 +684,7 @@ class ConfigPatchVariantsChain(_BaseConfigPatchChain):
                     prompt = (
                         prompt_text
                         if attempt == 0
-                        else build_retry_prompt(
+                        else build_variant_retry_prompt(
                             current_config=config_text,
                             allowed_schema=schema_text,
                             instruction=instruction,
