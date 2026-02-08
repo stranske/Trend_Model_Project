@@ -300,8 +300,17 @@ def render() -> None:
         return
 
     options = [entry.name for entry in scenarios]
-    selected_name = st.selectbox("Scenario", options=options, index=0)
     entry_map = _scenario_lookup(scenarios)
+    selected_name = st.selectbox(
+        "Scenario",
+        options=options,
+        index=0,
+        format_func=lambda name: (
+            f"{name} - {entry_map[name].description}"
+            if name in entry_map and entry_map[name].description
+            else name
+        ),
+    )
     selected_entry = entry_map.get(selected_name)
 
     if selected_entry and selected_entry.description:
