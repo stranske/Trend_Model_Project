@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import math
 import random
-import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -39,6 +38,7 @@ from trend_analysis.monte_carlo.strategy.sampler import (
 )
 from trend_analysis.pipeline import _resolve_sample_split
 from trend_analysis.pipeline_helpers import _resolve_regime_turnover_cap
+from trend_analysis.regime_utils import alias_regime_key, normalize_regime_key
 from trend_analysis.regimes import compute_regimes, normalise_settings
 from trend_analysis.risk import periods_per_year_from_code
 from trend_analysis.stages.selection import single_period_run
@@ -87,25 +87,6 @@ def _coerce_turnover_guard(value: Any) -> float:
         raise ValueError(
             f"{_TURNOVER_GUARD_PATH} must be numeric or a distribution mapping"
         ) from exc
-
-
-def _normalize_regime_key(value: Any) -> str | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    if not text:
-        return None
-    return re.sub(r"[^a-z0-9]+", "", text.casefold())
-
-
-def _alias_regime_key(value: str) -> str | None:
-    aliases = {
-        "riskon": "calm",
-        "riskoff": "stress",
-        "calm": "riskon",
-        "stress": "riskoff",
-    }
-    return aliases.get(value)
 
 
 def _is_distribution_mapping(value: Mapping[str, Any]) -> bool:
@@ -187,6 +168,7 @@ class MonteCarloRunner:
         self._seed_manager_init = False
         self._cost_process: CostProcess | None = None
         self._cost_process_init = False
+        self._regime_cache: dict[tuple[object, ...], pd.Series] = {}
 
     def run(
         self,
@@ -637,16 +619,25 @@ class MonteCarloRunner:
         )
 
     def _apply_regime_turnover_caps(self, config: ConfigType, context: _PathContext) -> None:
-        multi_period_cfg = getattr(config, "multi_period", None)
-        if isinstance(multi_period_cfg, Mapping):
-            return
         portfolio = getattr(config, "portfolio", None)
         if not isinstance(portfolio, Mapping):
             return
         max_turnover = portfolio.get("max_turnover")
-        if not isinstance(max_turnover, Mapping):
+        # Supported shapes for ``portfolio.max_turnover``:
+        # - scalar (float/int): apply as-is, no regime lookup required.
+        # - mapping: treated as regime-conditioned caps keyed by regime labels.
+        if max_turnover is None or not isinstance(max_turnover, Mapping):
             return
-        resolved = self._resolve_turnover_cap_for_context(config, context, max_turnover)
+
+        multi_period_cfg = getattr(config, "multi_period", None)
+        multi_period_enabled = isinstance(multi_period_cfg, Mapping)
+        # Control flow:
+        # - Single-period runs resolve the mapping to a scalar for the current path.
+        # - Multi-period runs keep the mapping so the engine can apply per-period caps.
+        if multi_period_enabled:
+            resolved: float | Mapping[str, Any] | None = max_turnover
+        else:
+            resolved = self._resolve_turnover_cap_for_context(config, context, max_turnover)
         if resolved is None or resolved is max_turnover:
             return
         if isinstance(portfolio, dict):
@@ -680,12 +671,22 @@ class MonteCarloRunner:
             freq = data_cfg.get("frequency")
         freq_label = str(freq or "M")
         periods_per_year = periods_per_year_from_code(freq_label)
-        regimes = compute_regimes(
-            proxy_series,
+        cache_key = self._regime_cache_key(
+            context,
+            proxy_col,
+            freq_label,
+            periods_per_year,
             settings,
-            freq=freq_label,
-            periods_per_year=periods_per_year,
         )
+        regimes = self._regime_cache.get(cache_key)
+        if regimes is None:
+            regimes = compute_regimes(
+                proxy_series,
+                settings,
+                freq=freq_label,
+                periods_per_year=periods_per_year,
+            )
+            self._regime_cache[cache_key] = regimes
         if regimes.empty:
             return max_turnover
         regime_label = str(regimes.iloc[-1])
@@ -693,6 +694,31 @@ class MonteCarloRunner:
         if resolved is None:
             return max_turnover
         return resolved
+
+    def _regime_cache_key(
+        self,
+        context: _PathContext,
+        proxy_col: str,
+        freq_label: str,
+        periods_per_year: float,
+        settings: Any,
+    ) -> tuple[object, ...]:
+        return (
+            context.path_hash,
+            proxy_col,
+            freq_label,
+            periods_per_year,
+            getattr(settings, "method", None),
+            getattr(settings, "lookback", None),
+            getattr(settings, "smoothing", None),
+            getattr(settings, "threshold", None),
+            getattr(settings, "neutral_band", None),
+            getattr(settings, "min_obs", None),
+            getattr(settings, "risk_on_label", None),
+            getattr(settings, "risk_off_label", None),
+            getattr(settings, "default_label", None),
+            getattr(settings, "annualise_volatility", None),
+        )
 
     def _resolve_regime_proxy_column(
         self,
@@ -1253,7 +1279,7 @@ class MonteCarloRunner:
                 return pd.Series(np.nan, index=out_index, name="turnover_cap")
             mapping: dict[str, float] = {}
             for key, value in max_turnover.items():
-                normalized_key = _normalize_regime_key(key)
+                normalized_key = normalize_regime_key(key)
                 if not normalized_key:
                     continue
                 try:
@@ -1265,12 +1291,12 @@ class MonteCarloRunner:
             def _lookup_turnover_cap(label: str | None) -> float:
                 if not label:
                     return float("nan")
-                normalized = _normalize_regime_key(label)
+                normalized = normalize_regime_key(label)
                 if not normalized:
                     return float("nan")
                 if normalized in mapping:
                     return mapping[normalized]
-                alias_key = _alias_regime_key(normalized)
+                alias_key = alias_regime_key(normalized)
                 if alias_key and alias_key in mapping:
                     return mapping[alias_key]
                 return float("nan")
