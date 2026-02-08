@@ -405,11 +405,32 @@ class _BaseConfigPatchChain:
             patch.operations = filtered_ops
 
 
-@dataclass(slots=True)
 class ConfigPatchChain(_BaseConfigPatchChain):
     """Container for the ConfigPatch LangChain pipeline."""
 
-    structured_repair_retry_count: int = 0
+    __slots__ = ("structured_repair_retry_count",)
+
+    def __init__(
+        self,
+        *,
+        llm: Any,
+        prompt_builder: PromptBuilder,
+        schema: dict[str, Any] | None,
+        temperature: float = 0.0,
+        model: str | None = None,
+        max_tokens: int | None = None,
+        retries: int = 1,
+    ) -> None:
+        super().__init__(
+            llm=llm,
+            prompt_builder=prompt_builder,
+            schema=schema,
+            temperature=temperature,
+            model=model,
+            max_tokens=max_tokens,
+            retries=retries,
+        )
+        self.structured_repair_retry_count = 0
 
     def run(
         self,
@@ -475,6 +496,8 @@ class ConfigPatchChain(_BaseConfigPatchChain):
                 total_attempts = 2
                 retry_id = f"configpatch-structured-{id(structured_llm):x}"
                 for attempt in range(total_attempts):
+                    if attempt > 0:
+                        self.structured_repair_retry_count += 1
                     prompt = (
                         prompt_text
                         if attempt == 0
@@ -508,8 +531,6 @@ class ConfigPatchChain(_BaseConfigPatchChain):
                             retry_id,
                             format_retry_error(exc),
                         )
-                        if attempt == 0 and attempt + 1 < total_attempts:
-                            self.structured_repair_retry_count += 1
                         if attempt + 1 >= total_attempts:
                             raise ValueError(
                                 "Failed to parse ConfigPatch after "
@@ -577,9 +598,32 @@ class ConfigPatchChain(_BaseConfigPatchChain):
                 write_nl_log(entry)
 
 
-@dataclass(slots=True)
 class ConfigPatchVariantsChain(_BaseConfigPatchChain):
     """Container for the variant ConfigPatch LangChain pipeline."""
+
+    __slots__ = ("structured_repair_retry_count",)
+
+    def __init__(
+        self,
+        *,
+        llm: Any,
+        prompt_builder: PromptBuilder,
+        schema: dict[str, Any] | None,
+        temperature: float = 0.0,
+        model: str | None = None,
+        max_tokens: int | None = None,
+        retries: int = 1,
+    ) -> None:
+        super().__init__(
+            llm=llm,
+            prompt_builder=prompt_builder,
+            schema=schema,
+            temperature=temperature,
+            model=model,
+            max_tokens=max_tokens,
+            retries=retries,
+        )
+        self.structured_repair_retry_count = 0
 
     def run(
         self,
@@ -595,6 +639,7 @@ class ConfigPatchVariantsChain(_BaseConfigPatchChain):
         """Invoke the LLM and parse the variant ConfigPatch response."""
 
         started_at = time.perf_counter()
+        self.structured_repair_retry_count = 0
         timestamp = datetime.now(timezone.utc)
         request_id = request_id or uuid4().hex
         prompt_text = ""
@@ -644,6 +689,8 @@ class ConfigPatchVariantsChain(_BaseConfigPatchChain):
                 total_attempts = 2
                 retry_id = f"configpatch-variants-structured-{id(structured_llm):x}"
                 for attempt in range(total_attempts):
+                    if attempt > 0:
+                        self.structured_repair_retry_count += 1
                     prompt = (
                         prompt_text
                         if attempt == 0

@@ -52,15 +52,22 @@ class _NoStructuredOutputLLMRaises(RunnableLambda):
         raise AssertionError("Structured output should not be requested.")
 
 
-class _StructuredOutputLLM:
-    def __init__(self, *, responses: list[object]) -> None:
+class _StructuredOutputLLM(RunnableLambda):
+    def __init__(
+        self,
+        *,
+        responses: list[object],
+        supports_structured_output: bool = True,
+    ) -> None:
         self.invocation_count = 0
         self.structured_requests = 0
         self.structured_invocations = 0
+        self._supports_structured_output = supports_structured_output
         self._responses = iter(responses)
+        super().__init__(self._respond)
 
     def supports_structured_output(self) -> bool:
-        return True
+        return self._supports_structured_output
 
     def with_structured_output(self, _schema) -> RunnableLambda:
         self.structured_requests += 1
@@ -68,8 +75,12 @@ class _StructuredOutputLLM:
 
     def _respond(self, _prompt_value, **_kwargs) -> object:
         self.invocation_count += 1
-        self.structured_invocations += 1
-        return next(self._responses)
+        if self._supports_structured_output:
+            self.structured_invocations += 1
+        response = next(self._responses)
+        if isinstance(response, BaseException):
+            raise response
+        return response
 
 
 def _make_payload() -> dict[str, object]:
@@ -208,3 +219,61 @@ def test_no_structured_request_when_unsupported() -> None:
 
     assert patch.summary == "Update max_weight"
     assert llm.unstructured_calls == 1
+
+
+def test_structured_output_invocation_count_zero_when_prompt_builder_fails() -> None:
+    def _boom_prompt_builder(**_kwargs) -> str:
+        raise ValueError("prompt builder failure")
+
+    llm = _StructuredOutputLLM(responses=[])
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=_boom_prompt_builder,
+        schema={"type": "object"},
+    )
+
+    with pytest.raises(ValueError, match="prompt builder failure"):
+        chain.run(
+            current_config={"portfolio": {"max_weight": 0.2}},
+            instruction="Set max_weight to 0.4.",
+        )
+
+    assert llm.invocation_count == 0
+
+
+def test_structured_output_invocation_count_one_when_llm_raises() -> None:
+    llm = _StructuredOutputLLM(responses=[ValueError("structured boom")])
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+    )
+
+    with pytest.raises(ValueError, match="structured boom"):
+        chain.run(
+            current_config={"portfolio": {"max_weight": 0.2}},
+            instruction="Set max_weight to 0.4.",
+        )
+
+    assert llm.invocation_count == 1
+
+
+def test_structured_output_invocation_count_three_when_fallback_retries() -> None:
+    llm = _StructuredOutputLLM(
+        responses=["not json", "still not json", "nope"],
+        supports_structured_output=False,
+    )
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+        retries=2,
+    )
+
+    with pytest.raises(ValueError, match="Failed to parse ConfigPatch after 3 attempts"):
+        chain.run(
+            current_config={"portfolio": {"max_weight": 0.2}},
+            instruction="Set max_weight to 0.4.",
+        )
+
+    assert llm.invocation_count == 3
