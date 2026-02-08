@@ -8,6 +8,7 @@ import pandas as pd
 
 from .regime_utils import alias_regime_key, normalize_regime_key
 from .regimes import compute_regimes, normalise_settings
+from trend.config_schema import CoreConfigError
 from .signals import TrendSpec
 from .stages.preprocessing import _PreprocessStage, _WindowStage
 
@@ -28,6 +29,7 @@ __all__ = [
     "_empty_run_full_result",
     "_format_period",
     "_policy_from_config",
+    "parse_regime_turnover_caps",
     "_resolve_regime_turnover_cap",
     "_resolve_regime_label",
     "_resolve_sample_split",
@@ -151,31 +153,12 @@ def _resolve_regime_turnover_cap(
         except (TypeError, ValueError):
             return None
 
-    def _coerce_required_float(value: object) -> float:
-        try:
-            return float(cast(Any, value))
-        except (TypeError, ValueError) as exc:
-            raise TypeError("max_turnover values must be numeric") from exc
-
     if max_turnover is None:
         return None
     if not isinstance(max_turnover, Mapping):
         return _coerce_optional_float(max_turnover)
 
-    normalized: dict[str, float] = {}
-    normalized_sources: dict[str, str] = {}
-    for key, value in max_turnover.items():
-        normalized_key = normalize_regime_key(key)
-        if not normalized_key:
-            continue
-        original = str(key)
-        if normalized_key in normalized_sources and normalized_sources[normalized_key] != original:
-            raise ValueError(
-                "max_turnover regime keys collide after normalization "
-                f"({normalized_sources[normalized_key]!r} vs {original!r})"
-            )
-        normalized[normalized_key] = _coerce_required_float(value)
-        normalized_sources[normalized_key] = original
+    normalized = parse_regime_turnover_caps(max_turnover, settings)
     if not normalized:
         return None
 
@@ -207,6 +190,70 @@ def _resolve_regime_turnover_cap(
     if regime_label and normalize_regime_key(regime_label):
         raise KeyError(f"max_turnover missing regime '{regime_label}' and no default specified")
     return None
+
+
+def parse_regime_turnover_caps(
+    max_turnover: Mapping[str, Any] | None,
+    settings: Any,
+) -> dict[str, float] | None:
+    if not max_turnover:
+        return None
+
+    default_settings = normalise_settings(None)
+    regime_settings = settings or default_settings
+
+    def _allowed_keys() -> set[str]:
+        allowed: set[str] = {"default", "all", "any"}
+        for attr in ("risk_on_label", "risk_off_label", "default_label"):
+            label = getattr(regime_settings, attr, getattr(default_settings, attr))
+            normalized = normalize_regime_key(label)
+            if not normalized:
+                continue
+            allowed.add(normalized)
+            alias_key = alias_regime_key(normalized)
+            if alias_key:
+                allowed.add(alias_key)
+        return allowed
+
+    allowed = _allowed_keys()
+    normalized_caps: dict[str, float] = {}
+    normalized_sources: dict[str, str] = {}
+    for key, value in max_turnover.items():
+        normalized_key = normalize_regime_key(key)
+        if not normalized_key:
+            raise CoreConfigError("max_turnover regime keys must be non-empty strings")
+
+        if normalized_key not in allowed:
+            alias_key = alias_regime_key(normalized_key)
+            if not alias_key or alias_key not in allowed:
+                allowed_list = ", ".join(sorted(allowed))
+                raise CoreConfigError(
+                    "max_turnover regime label "
+                    f"{key!r} is not recognized; allowed labels: {allowed_list}"
+                )
+
+        original = str(key)
+        if normalized_key in normalized_sources and normalized_sources[normalized_key] != original:
+            raise CoreConfigError(
+                "max_turnover regime keys collide after normalization "
+                f"({normalized_sources[normalized_key]!r} vs {original!r})"
+            )
+        try:
+            numeric_value = float(cast(Any, value))
+        except (TypeError, ValueError) as exc:
+            raise CoreConfigError(
+                f"max_turnover for regime {original!r} must be numeric"
+            ) from exc
+        if not np.isfinite(numeric_value):
+            raise CoreConfigError(
+                f"max_turnover for regime {original!r} must be a finite number"
+            )
+        normalized_caps[normalized_key] = numeric_value
+        normalized_sources[normalized_key] = original
+
+    if not normalized_caps:
+        return None
+    return normalized_caps
 
 
 def _apply_regime_overrides(

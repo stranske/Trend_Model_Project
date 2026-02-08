@@ -10,6 +10,7 @@ import pandas as pd
 import pytest
 
 import trend_analysis.pipeline as pipeline
+from trend.config_schema import CoreConfigError
 from trend_analysis.pipeline import (
     _build_trend_spec,
     _cfg_section,
@@ -181,7 +182,7 @@ def test_resolve_regime_turnover_cap_missing_default_raises() -> None:
 def test_resolve_regime_turnover_cap_type_error_on_non_float() -> None:
     settings = SimpleNamespace(default_label=None)
 
-    with pytest.raises(TypeError, match="max_turnover"):
+    with pytest.raises(CoreConfigError, match="max_turnover"):
         _resolve_regime_turnover_cap({"calm": "fast"}, "calm", settings)
 
 
