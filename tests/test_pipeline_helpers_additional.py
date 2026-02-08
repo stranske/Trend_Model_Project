@@ -28,7 +28,10 @@ from trend_analysis.pipeline import (
     compute_signal,
     single_period_run,
 )
-from trend_analysis.pipeline_helpers import _resolve_regime_turnover_cap, parse_regime_turnover_caps
+from trend_analysis.pipeline_helpers import (
+    _resolve_regime_turnover_cap,
+    parse_regime_turnover_caps,
+)
 from trend_analysis.signals import TrendSpec
 from trend_analysis.util.frequency import FrequencySummary
 from trend_analysis.util.missing import MissingPolicyResult
