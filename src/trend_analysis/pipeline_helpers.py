@@ -6,8 +6,8 @@ from typing import Any, Mapping, cast
 import numpy as np
 import pandas as pd
 
-from .regimes import compute_regimes, normalise_settings
 from .regime_utils import alias_regime_key, normalize_regime_key
+from .regimes import compute_regimes, normalise_settings
 from .signals import TrendSpec
 from .stages.preprocessing import _PreprocessStage, _WindowStage
 
