@@ -11,6 +11,7 @@ SECTION_SYSTEM = "SYSTEM PROMPT"
 SECTION_CONFIG = "CURRENT CONFIG"
 SECTION_SCHEMA = "ALLOWED SCHEMA"
 SECTION_SAFETY = "SAFETY RULES"
+SECTION_VARIANT_GUIDELINES = "VARIANT GUIDELINES"
 SECTION_USER = "USER INSTRUCTION"
 SECTION_RETRY_ERROR = "PREVIOUS ERROR"
 SECTION_RESULT_SYSTEM = "RESULT SUMMARY SYSTEM PROMPT"
@@ -37,6 +38,44 @@ Do not invent keys; if the instruction or config mentions unknown or extraneous
 keys, flag them explicitly in the summary and return empty operations.
 If asked to target unknown keys or unsafe content, return empty operations and
 explain the refusal in the summary without echoing the unsafe request.
+"""
+
+DEFAULT_VARIANT_SYSTEM_PROMPT = """You are a configuration assistant for Trend Model.
+Your task is to read the user instruction and current configuration, then emit
+THREE labeled ConfigPatch variants: conservative, baseline, and aggressive.
+
+Return ONLY a valid JSON object that conforms exactly to the ConfigPatchVariants schema:
+{
+  "variants": [
+    {"label": "conservative", "patch": <ConfigPatch>},
+    {"label": "baseline", "patch": <ConfigPatch>},
+    {"label": "aggressive", "patch": <ConfigPatch>}
+  ]
+}
+
+Each patch must follow the ConfigPatch schema and update the config safely and minimally.
+
+Never add keys outside the ConfigPatch schema or output non-JSON content.
+Do not invent keys; if the instruction or config mentions unknown or extraneous
+keys, flag them explicitly in the patch summary and return empty operations.
+If asked to target unknown keys or unsafe content, return empty operations and
+explain the refusal in the summary without echoing the unsafe request.
+"""
+
+DEFAULT_VARIANT_GUIDELINES = """conservative:
+- Reduce risk, tighten constraints, prefer smaller or safer changes.
+- Favor lower exposure, shorter leverage, or stricter filters when applicable.
+- Keep the conservative patch meaningfully lower risk than baseline and aggressive.
+
+baseline:
+- Implement the instruction with the minimal necessary changes.
+- Preserve existing risk posture unless explicitly instructed otherwise.
+- Keep baseline changes between conservative and aggressive adjustments.
+
+aggressive:
+- Allow higher risk/return trade-offs, looser constraints, and larger changes.
+- Favor broader selection or higher exposure if consistent with the instruction.
+- Ensure the aggressive patch clearly exceeds baseline risk/scale when appropriate.
 """
 
 DEFAULT_RESULT_SYSTEM_PROMPT = """You are a quantitative investment analyst reviewing a trend-following
@@ -134,6 +173,11 @@ DEFAULT_SAFETY_RULES = (
     "Never include secrets, credentials, or unsafe content in any field.",
 )
 
+DEFAULT_VARIANT_RULES = (
+    *DEFAULT_SAFETY_RULES,
+    "Return exactly three variants labeled conservative, baseline, and aggressive.",
+)
+
 DEFAULT_RESULT_RULES = (
     "Ground all claims in metrics from the analysis output - cite sparingly for key points.",
     "Focus on analytical insights and comparisons, not restating individual numbers.",
@@ -210,6 +254,60 @@ def build_retry_prompt(
     return "\n\n".join(sections).strip()
 
 
+def build_variant_retry_prompt(
+    *,
+    current_config: str,
+    allowed_schema: str,
+    instruction: str,
+    error_message: str,
+    system_prompt: str | None = None,
+    safety_rules: Iterable[str] | None = None,
+) -> str:
+    """Build the retry prompt with previous parsing error context for variants."""
+
+    base_prompt = build_variant_patch_prompt(
+        current_config=current_config,
+        allowed_schema=allowed_schema,
+        instruction=instruction,
+        system_prompt=system_prompt,
+        safety_rules=safety_rules,
+    )
+    retry_note = (
+        f"{error_message}\n\n"
+        "Return ONLY a valid JSON object that matches the ConfigPatchVariants schema."
+    )
+    sections = [
+        base_prompt,
+        _format_section(SECTION_RETRY_ERROR, retry_note),
+    ]
+    return "\n\n".join(sections).strip()
+
+
+def build_variant_patch_prompt(
+    *,
+    current_config: str,
+    allowed_schema: str,
+    instruction: str,
+    system_prompt: str | None = None,
+    safety_rules: Iterable[str] | None = None,
+) -> str:
+    """Build the prompt text for variant ConfigPatch generation."""
+
+    system_text = (system_prompt or DEFAULT_VARIANT_SYSTEM_PROMPT).strip()
+    rules = list(safety_rules or DEFAULT_VARIANT_RULES)
+    safety_text = "\n".join(f"- {rule}" for rule in rules)
+    variant_text = DEFAULT_VARIANT_GUIDELINES.strip()
+    sections = [
+        _format_section(SECTION_SYSTEM, system_text),
+        _format_section(SECTION_CONFIG, current_config.strip()),
+        _format_section(SECTION_SCHEMA, allowed_schema.strip()),
+        _format_section(SECTION_SAFETY, safety_text),
+        _format_section(SECTION_VARIANT_GUIDELINES, variant_text),
+        _format_section(SECTION_USER, instruction.strip()),
+    ]
+    return "\n\n".join(sections).strip()
+
+
 def build_result_summary_prompt(
     *,
     analysis_output: str,
@@ -276,6 +374,7 @@ __all__ = [
     "SECTION_CONFIG",
     "SECTION_SCHEMA",
     "SECTION_SAFETY",
+    "SECTION_VARIANT_GUIDELINES",
     "SECTION_USER",
     "SECTION_RETRY_ERROR",
     "SECTION_RESULT_SYSTEM",
@@ -291,6 +390,9 @@ __all__ = [
     "SECTION_COMPARISON_RULES",
     "SECTION_COMPARISON_QUESTIONS",
     "DEFAULT_SYSTEM_PROMPT",
+    "DEFAULT_VARIANT_SYSTEM_PROMPT",
+    "DEFAULT_VARIANT_GUIDELINES",
+    "DEFAULT_VARIANT_RULES",
     "DEFAULT_RESULT_SYSTEM_PROMPT",
     "DEFAULT_COMPARISON_SYSTEM_PROMPT",
     "DEFAULT_SAFETY_RULES",
@@ -299,6 +401,8 @@ __all__ = [
     "format_config_for_prompt",
     "build_config_patch_prompt",
     "build_retry_prompt",
+    "build_variant_patch_prompt",
+    "build_variant_retry_prompt",
     "build_result_summary_prompt",
     "build_comparison_prompt",
 ]
