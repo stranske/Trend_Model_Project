@@ -129,3 +129,11 @@ def test_variant_labels_are_validated() -> None:
 
     with pytest.raises(ValidationError):
         ConfigPatchVariants.model_validate(payload)
+
+
+def test_variant_patch_requires_summary() -> None:
+    payload = _make_payload()
+    payload["variants"][0]["patch"].pop("summary")
+
+    with pytest.raises(ValidationError):
+        ConfigPatchVariants.model_validate(payload)
