@@ -49,6 +49,7 @@ PromptBuilder = Callable[..., str]
 
 logger = logging.getLogger(__name__)
 
+
 class ConfigPatchVariant(BaseModel):
     label: str = Field(description="Variant label.")
     patch: ConfigPatch = Field(description="ConfigPatch payload for the variant.")

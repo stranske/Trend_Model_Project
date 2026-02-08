@@ -27,7 +27,4 @@ def test_variant_label_case_collision_raises() -> None:
     with pytest.raises(ValueError) as excinfo:
         ConfigPatchVariants.model_validate(payload)
 
-    assert (
-        "variants must have unique labels (case-insensitive): baseline"
-        in str(excinfo.value)
-    )
+    assert "variants must have unique labels (case-insensitive): baseline" in str(excinfo.value)

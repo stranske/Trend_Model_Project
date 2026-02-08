@@ -17,9 +17,7 @@ def normalize_variant_label(label: str) -> str:
         raise ValueError("label must be a non-empty string")
     normalized = stripped.casefold()
     if normalized not in _CANONICAL_LABELS:
-        raise ValueError(
-            "label must be one of: " + ", ".join(sorted(_CANONICAL_LABELS.values()))
-        )
+        raise ValueError("label must be one of: " + ", ".join(sorted(_CANONICAL_LABELS.values())))
     return _CANONICAL_LABELS[normalized]
 
 
@@ -50,6 +48,5 @@ def ensure_unique_variant_labels(labels: Iterable[str]) -> None:
     duplicates = find_duplicate_variant_labels(labels)
     if duplicates:
         raise ValueError(
-            "variants must have unique labels (case-insensitive): "
-            + ", ".join(duplicates)
+            "variants must have unique labels (case-insensitive): " + ", ".join(duplicates)
         )
