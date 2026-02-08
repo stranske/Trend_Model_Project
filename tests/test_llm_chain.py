@@ -88,7 +88,9 @@ def _make_payload() -> dict[str, object]:
 
 
 def _load_structured_fixture() -> dict[str, object]:
-    fixture_path = Path(__file__).resolve().parent / "fixtures" / "config_patch_structured.json"
+    fixture_path = (
+        Path(__file__).resolve().parent / "fixtures" / "config_patch_structured.json"
+    )
     return json.loads(fixture_path.read_text(encoding="utf-8"))
 
 
