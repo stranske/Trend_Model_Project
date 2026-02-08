@@ -6,9 +6,10 @@ from typing import Any, Mapping, cast
 import numpy as np
 import pandas as pd
 
+from trend.config_schema import CoreConfigError
+
 from .regime_utils import alias_regime_key, normalize_regime_key
 from .regimes import compute_regimes, normalise_settings
-from trend.config_schema import CoreConfigError
 from .signals import TrendSpec
 from .stages.preprocessing import _PreprocessStage, _WindowStage
 
@@ -241,13 +242,9 @@ def parse_regime_turnover_caps(
         try:
             numeric_value = float(cast(Any, value))
         except (TypeError, ValueError) as exc:
-            raise CoreConfigError(
-                f"max_turnover for regime {original!r} must be numeric"
-            ) from exc
+            raise CoreConfigError(f"max_turnover for regime {original!r} must be numeric") from exc
         if not np.isfinite(numeric_value):
-            raise CoreConfigError(
-                f"max_turnover for regime {original!r} must be a finite number"
-            )
+            raise CoreConfigError(f"max_turnover for regime {original!r} must be a finite number")
         normalized_caps[normalized_key] = numeric_value
         normalized_sources[normalized_key] = original
 
