@@ -1511,6 +1511,7 @@ def _build_variant_metrics_table(results: Mapping[str, Any]) -> pd.DataFrame:
         rows.append(row)
     return pd.DataFrame(rows)
 
+
 def _generate_config_preview(
     model_state: Mapping[str, Any],
     instruction: str,
