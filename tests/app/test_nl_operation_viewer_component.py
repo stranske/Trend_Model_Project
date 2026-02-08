@@ -264,7 +264,8 @@ def test_redact_text_replaces_fixtures_and_is_idempotent(
     module = _load_module(monkeypatch)
     fixture_text = (
         "sk-proj-abc123xyz ghp_abc123xyz github_pat_abc123xyz "
-        "AKIAIOSFODNN7EXAMPLE SECRET_KEY=value123"
+        "AKIAIOSFODNN7EXAMPLE\n"
+        "SECRET_KEY=value123"
     )
 
     redacted = module._redact_text(fixture_text)
@@ -276,6 +277,31 @@ def test_redact_text_replaces_fixtures_and_is_idempotent(
     assert "SECRET_KEY=value123" not in redacted
     assert "[REDACTED]" in redacted
     assert module._redact_text(redacted) == redacted
+
+
+def test_redact_text_redacts_full_line_env_assignment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module(monkeypatch)
+    fixture_text = "SAFE_VALUE=ok\nSECRET_KEY=value123\nANOTHER=keep"
+
+    redacted = module._redact_text(fixture_text)
+
+    assert "SECRET_KEY=value123" not in redacted
+    assert "SAFE_VALUE=ok" in redacted
+    assert "ANOTHER=keep" in redacted
+    assert "[REDACTED]" in redacted
+
+
+def test_redact_text_preserves_non_assignment_line(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module(monkeypatch)
+    fixture_text = 'echo "SECRET_KEY=value123"'
+
+    redacted = module._redact_text(fixture_text)
+
+    assert redacted == fixture_text
 
 
 def test_render_replay_stores_result_and_renders_redacted(

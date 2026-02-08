@@ -409,6 +409,8 @@ class _BaseConfigPatchChain:
 class ConfigPatchChain(_BaseConfigPatchChain):
     """Container for the ConfigPatch LangChain pipeline."""
 
+    structured_repair_retry_count: int = 0
+
     def run(
         self,
         *,
@@ -423,6 +425,7 @@ class ConfigPatchChain(_BaseConfigPatchChain):
         """Invoke the LLM and parse the ConfigPatch response."""
 
         started_at = time.perf_counter()
+        self.structured_repair_retry_count = 0
         timestamp = datetime.now(timezone.utc)
         request_id = request_id or uuid4().hex
         prompt_text = ""
@@ -505,6 +508,8 @@ class ConfigPatchChain(_BaseConfigPatchChain):
                             retry_id,
                             format_retry_error(exc),
                         )
+                        if attempt == 0 and attempt + 1 < total_attempts:
+                            self.structured_repair_retry_count += 1
                         if attempt + 1 >= total_attempts:
                             raise ValueError(
                                 "Failed to parse ConfigPatch after "

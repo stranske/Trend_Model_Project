@@ -43,8 +43,10 @@ _REDACT_TEXT_PATTERNS = [
     re.compile(r"ghp_[A-Za-z0-9]{6,}"),
     re.compile(r"github_pat_[A-Za-z0-9]{6,}"),
     re.compile(r"(?i)bearer\s+[A-Za-z0-9\-._~+/]+=*"),
-    re.compile(r"(?i)(api[-_]?key|token|secret|password|authorization)\s*[:=]\s*\S+"),
-    re.compile(r"(?i)secret_key\s*[:=]\s*\S+"),
+    re.compile(
+        r"(?im)^\s*(?:api[-_]?key|token|secret|password|authorization|secret_key)\s*=\s*\S+\s*$"
+    ),
+    re.compile(r"(?i)(api[-_]?key|token|secret|password|authorization)\s*:\s*\S+"),
     re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"),
     re.compile(r"(AKIA|ASIA)[0-9A-Z]{16}"),
 ]
