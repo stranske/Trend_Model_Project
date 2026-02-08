@@ -277,6 +277,8 @@ def test_scenario_picker_and_tag_filtering(monkeypatch: pytest.MonkeyPatch) -> N
 
     page.render()
 
+    assert stub.multiselect_calls
+    assert stub.multiselect_calls[0][1] == ["credit", "macro"]
     assert calls[0]["tags"] is None
     assert calls[1]["tags"] == ["macro"]
     assert stub.selectbox_calls[0][1] == ["macro"]

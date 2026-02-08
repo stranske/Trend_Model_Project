@@ -15,7 +15,7 @@ tasks:
   - id: task-02
     title: 'Create the base monte_carlo.py page file with a render function (verify:
       confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -23,7 +23,7 @@ tasks:
   - id: task-03
     title: 'Create the base monte_carlo.py page file with page title (verify: confirm
       completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -31,7 +31,7 @@ tasks:
   - id: task-04
     title: 'Implement scenario dropdown populated from registry.list_scenarios() with
       name (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -39,7 +39,7 @@ tasks:
   - id: task-05
     title: 'Implement scenario dropdown populated from registry.list_scenarios() with
       description display (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -47,7 +47,7 @@ tasks:
   - id: task-06
     title: 'Add tag multi-select filtering widget that filters the scenario dropdown
       options (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -58,7 +58,7 @@ tasks:
       50), random seed (text input), parallel jobs (slider 1\u201316), and fold selection\
       \ (conditional if enabled in scenario), including input validation and error\
       \ messaging."
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -66,7 +66,7 @@ tasks:
   - id: task-08
     title: 'Add number of paths slider control with range validation between 100 (verify:
       confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -74,7 +74,7 @@ tasks:
   - id: task-09
     title: 'Add number of paths slider control with 5000 (verify: confirm completion
       in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -82,7 +82,7 @@ tasks:
   - id: task-10
     title: 'Add horizon years slider control with range validation between 5 (verify:
       confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -90,7 +90,7 @@ tasks:
   - id: task-11
     title: 'Add horizon years slider control with 50 (verify: confirm completion in
       repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -98,7 +98,7 @@ tasks:
   - id: task-12
     title: 'Add random seed text input control with numeric validation (verify: confirm
       completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -106,7 +106,7 @@ tasks:
   - id: task-13
     title: 'Add random seed text input control with error messaging (verify: confirm
       completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -114,7 +114,7 @@ tasks:
   - id: task-14
     title: 'Add parallel jobs slider control with range validation between 1 (verify:
       confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -122,7 +122,7 @@ tasks:
   - id: task-15
     title: 'Add parallel jobs slider control with 16 (verify: confirm completion in
       repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -130,7 +130,7 @@ tasks:
   - id: task-16
     title: 'Add conditional fold selection control that appears only when scenario
       enables it (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -140,7 +140,7 @@ tasks:
       wired to `trend_analysis.monte_carlo.runner.run(...)` (and validation entrypoint
       if available), with progress updates via `progress_callback`, elapsed/ETA display,
       and safe error handling.
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -148,7 +148,7 @@ tasks:
   - id: task-18
     title: 'Create Run button that triggers runner.run() with selected scenario (verify:
       confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -156,7 +156,7 @@ tasks:
   - id: task-19
     title: 'Create Run button that triggers runner.run() with override parameters
       (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -164,7 +164,7 @@ tasks:
   - id: task-20
     title: 'Create Validate button that triggers validation entrypoint if available
       in the runner (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -172,14 +172,14 @@ tasks:
   - id: task-21
     title: 'Create Cancel button that appears during execution (verify: confirm completion
       in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
     notes: []
   - id: task-22
     title: 'interrupts the running simulation (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -187,14 +187,14 @@ tasks:
   - id: task-23
     title: 'Implement progress callback integration that updates a progress bar component
       (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
     notes: []
   - id: task-24
     title: 'Add elapsed time (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -202,7 +202,7 @@ tasks:
   - id: task-25
     title: 'ETA display components that update during simulation execution (verify:
       confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -210,14 +210,14 @@ tasks:
   - id: task-26
     title: 'Implement error handling wrapper that catches runner exceptions (verify:
       confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
     notes: []
   - id: task-27
     title: 'displays user-friendly messages (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -226,7 +226,7 @@ tasks:
     title: 'Add results components: create `streamlit_app/components/mc_tables.py`
       to render the summary table grid and create `streamlit_app/components/mc_plots.py`
       to render histogram, fan chart, box plot, and CDF plot based on runner results.'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -234,7 +234,7 @@ tasks:
   - id: task-29
     title: 'Define scope for: Create mc_tables.py component file with function to
       render summary table grid from results (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -242,7 +242,7 @@ tasks:
   - id: task-30
     title: 'Implement focused slice for: Create mc_tables.py component file with function
       to render summary table grid from results (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -250,7 +250,7 @@ tasks:
   - id: task-31
     title: 'Validate focused slice for: Create mc_tables.py component file with function
       to render summary table grid from results (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -258,7 +258,7 @@ tasks:
   - id: task-32
     title: 'Create mc_plots.py component file with base plotting utilities (verify:
       confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -266,7 +266,7 @@ tasks:
   - id: task-33
     title: 'Create mc_plots.py component file with imports (verify: confirm completion
       in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -274,7 +274,7 @@ tasks:
   - id: task-34
     title: 'Define scope for: Implement histogram plot function in mc_plots.py showing
       Sharpe distribution per strategy (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -282,7 +282,7 @@ tasks:
   - id: task-35
     title: 'Implement focused slice for: Implement histogram plot function in mc_plots.py
       showing Sharpe distribution per strategy (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -290,7 +290,7 @@ tasks:
   - id: task-36
     title: 'Validate focused slice for: Implement histogram plot function in mc_plots.py
       showing Sharpe distribution per strategy (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -298,7 +298,7 @@ tasks:
   - id: task-37
     title: 'Define scope for: Implement fan chart plot function in mc_plots.py displaying
       NAV paths over time (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -306,7 +306,7 @@ tasks:
   - id: task-38
     title: 'Implement focused slice for: Implement fan chart plot function in mc_plots.py
       displaying NAV paths over time (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -314,7 +314,7 @@ tasks:
   - id: task-39
     title: 'Validate focused slice for: Implement fan chart plot function in mc_plots.py
       displaying NAV paths over time (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -322,7 +322,7 @@ tasks:
   - id: task-40
     title: 'Implement box plot function in mc_plots.py for strategy comparison visualization
       (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -330,7 +330,7 @@ tasks:
   - id: task-41
     title: 'Define scope for: Implement CDF plot function in mc_plots.py showing cumulative
       distribution of outcomes (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -338,7 +338,7 @@ tasks:
   - id: task-42
     title: 'Implement focused slice for: Implement CDF plot function in mc_plots.py
       showing cumulative distribution of outcomes (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -346,7 +346,7 @@ tasks:
   - id: task-43
     title: 'Validate focused slice for: Implement CDF plot function in mc_plots.py
       showing cumulative distribution of outcomes (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -354,7 +354,7 @@ tasks:
   - id: task-44
     title: Implement export generation and download links in `streamlit_app/pages/monte_carlo.py`
       for ZIP bundle, summary CSV, and representative paths parquet.
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -363,7 +363,7 @@ tasks:
     title: Write `tests/streamlit/test_mc_page.py` to cover rendering controls, run/validate/cancel
       flow, progress display updates (mocked), and outputs (table/plots/downloads)
       using a mocked runner.
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -371,14 +371,14 @@ tasks:
   - id: task-46
     title: 'Write test cases for scenario picker rendering (verify: confirm completion
       in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
     notes: []
   - id: task-47
     title: 'tag filtering functionality (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -386,14 +386,14 @@ tasks:
   - id: task-48
     title: 'Write test cases for runtime override controls validation (verify: confirm
       completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
     notes: []
   - id: task-49
     title: 'range enforcement (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -401,7 +401,7 @@ tasks:
   - id: task-50
     title: 'Write test cases for Run button flow with mocked runner (verify: confirm
       completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -409,14 +409,14 @@ tasks:
   - id: task-51
     title: 'Write test cases for Run button flow with progress updates (verify: confirm
       completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
     notes: []
   - id: task-52
     title: 'Write test cases for Validate (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -424,7 +424,7 @@ tasks:
   - id: task-53
     title: 'Cancel button behaviors with mocked callbacks (verify: confirm completion
       in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -432,7 +432,7 @@ tasks:
   - id: task-54
     title: 'Write test cases for summary table rendering with mocked result data (verify:
       confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -440,7 +440,7 @@ tasks:
   - id: task-55
     title: 'Write test cases for plot components rendering without exceptions using
       mocked results (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -448,14 +448,14 @@ tasks:
   - id: task-56
     title: 'Write test cases for download link generation (verify: confirm completion
       in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
     notes: []
   - id: task-57
     title: 'file type validation (verify: confirm completion in repo)'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -463,7 +463,7 @@ tasks:
   - id: task-58
     title: '`streamlit_app/pages/monte_carlo.py` exists and renders a "Monte Carlo
       Simulation" page with scenario selection.'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -471,7 +471,7 @@ tasks:
   - id: task-59
     title: Scenario picker options are populated from `trend_analysis.monte_carlo.registry.list_scenarios()`
       and support tag multi-select filtering.
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -480,7 +480,7 @@ tasks:
     title: "Runtime override controls enforce the specified ranges (paths 100\u2013\
       5000, horizon 5\u201350, jobs 1\u201316) and invalid seed input produces a visible\
       \ validation error."
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -488,7 +488,7 @@ tasks:
   - id: task-61
     title: Clicking **Run** triggers `trend_analysis.monte_carlo.runner.run(...)`
       and displays a progress bar during execution.
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -496,7 +496,7 @@ tasks:
   - id: task-62
     title: Progress UI updates at least once per second when `progress_callback` is
       invoked repeatedly (verifiable in tests with mocked time/progress calls).
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -505,7 +505,7 @@ tasks:
     title: 'After a successful run, the summary table is displayed and includes the
       columns: Strategy, Sharpe (median), Sharpe (5th), Max DD (median), Max DD (5th),
       Terminal Wealth.'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -513,7 +513,7 @@ tasks:
   - id: task-64
     title: After a successful run, histogram, fan chart, box plot, and CDF plot components
       render without raising exceptions.
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -521,7 +521,7 @@ tasks:
   - id: task-65
     title: 'Download links produce files with expected types: ZIP bundle, CSV summary,
       and parquet representative paths.'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -529,14 +529,14 @@ tasks:
   - id: task-66
     title: '`tests/streamlit/test_mc_page.py` exists and test suite passes with the
       runner mocked.'
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
     notes: []
   - id: task-67
     title: Implement scenario picker with registry data and tag filtering.
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -544,7 +544,7 @@ tasks:
   - id: task-68
     title: Add runtime override controls (paths, horizon, seed, jobs, folds) with
       validation.
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -552,7 +552,7 @@ tasks:
   - id: task-69
     title: Wire Run/Validate/Cancel actions to runner with progress updates and error
       handling.
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
@@ -560,84 +560,84 @@ tasks:
   - id: task-70
     title: Render summary table, distribution plots, and export links using dedicated
       components.
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
     notes: []
   - id: task-71
     title: Add Streamlit tests covering controls, run flow, and outputs (mock runner).
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
     notes: []
   - id: task-72
     title: Scenario picker populated from registry
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
     notes: []
   - id: task-73
     title: Runtime override sliders work correctly
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
     notes: []
   - id: task-74
     title: Run button executes scenario
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
     notes: []
   - id: task-75
     title: Progress bar shows during execution
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
     notes: []
   - id: task-76
     title: Summary table displays after completion
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
     notes: []
   - id: task-77
     title: Distribution plots render correctly
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
     notes: []
   - id: task-78
     title: Export links download correct files
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
     notes: []
   - id: task-79
     title: Works for scenarios up to ~500 paths without timing out
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
     notes: []
   - id: task-80
     title: Error messages displayed clearly for validation failures
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
     notes: []
   - id: task-81
     title: Mobile-responsive layout
-    status: todo
+    status: done
     started_at: null
     finished_at: null
     commit: ''
