@@ -68,6 +68,7 @@ class DummyStreamlit:
         self.metric_calls: list[tuple[str, str]] = []
         self.selectbox_calls: list[tuple[str, list[str]]] = []
         self.multiselect_calls: list[tuple[str, list[str]]] = []
+        self.slider_calls: list[tuple[str, dict[str, Any]]] = []
 
     def title(self, _text: str) -> None:
         return None
@@ -111,7 +112,8 @@ class DummyStreamlit:
             return self.selectbox_returns.pop(0)
         return options[index]
 
-    def slider(self, _label: str, **kwargs: Any) -> int:
+    def slider(self, label: str, **kwargs: Any) -> int:
+        self.slider_calls.append((label, dict(kwargs)))
         if self.slider_returns:
             return int(self.slider_returns.pop(0))
         return int(kwargs.get("value", 0))
@@ -310,6 +312,34 @@ def test_runtime_override_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     assert any("Horizon years" in message for message in stub.error_messages)
     assert any("Parallel jobs" in message for message in stub.error_messages)
     assert any("Random seed" in message for message in stub.error_messages)
+
+
+def test_override_slider_ranges(monkeypatch: pytest.MonkeyPatch) -> None:
+    page, stub = _load_page(monkeypatch)
+
+    monkeypatch.setattr(
+        page,
+        "list_scenarios",
+        lambda **_kwargs: [
+            ScenarioRegistryEntry(
+                name="macro",
+                path=Path("config/scenarios/monte_carlo/example.yml"),
+                description="Macro scenario",
+                tags=("macro",),
+            )
+        ],
+    )
+    monkeypatch.setattr(page, "load_scenario", lambda name: _make_scenario(name))
+
+    page.render()
+
+    slider_map = {label: kwargs for label, kwargs in stub.slider_calls}
+    assert slider_map["Number of paths"]["min_value"] == 100
+    assert slider_map["Number of paths"]["max_value"] == 5000
+    assert slider_map["Horizon (years)"]["min_value"] == 5
+    assert slider_map["Horizon (years)"]["max_value"] == 50
+    assert slider_map["Parallel jobs"]["min_value"] == 1
+    assert slider_map["Parallel jobs"]["max_value"] == 16
 
 
 def test_run_button_flow_with_progress(monkeypatch: pytest.MonkeyPatch) -> None:
