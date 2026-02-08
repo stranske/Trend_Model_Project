@@ -28,7 +28,7 @@ from trend_analysis.pipeline import (
     compute_signal,
     single_period_run,
 )
-from trend_analysis.pipeline_helpers import _resolve_regime_turnover_cap
+from trend_analysis.pipeline_helpers import _resolve_regime_turnover_cap, parse_regime_turnover_caps
 from trend_analysis.signals import TrendSpec
 from trend_analysis.util.frequency import FrequencySummary
 from trend_analysis.util.missing import MissingPolicyResult
@@ -202,6 +202,69 @@ def test_resolve_regime_turnover_cap_resolves_per_period() -> None:
     ]
 
     assert resolved == [pytest.approx(0.15), pytest.approx(0.08), pytest.approx(0.15)]
+
+
+def test_parse_regime_turnover_caps_accepts_valid_mapping() -> None:
+    settings = SimpleNamespace(
+        risk_on_label="Risk-On",
+        risk_off_label="Risk-Off",
+        default_label="Risk-On",
+    )
+    caps = {"calm": 0.15, "stress": 0.08, "default": 0.2}
+
+    parsed = parse_regime_turnover_caps(caps, settings)
+
+    assert parsed == {
+        "calm": pytest.approx(0.15),
+        "stress": pytest.approx(0.08),
+        "default": pytest.approx(0.2),
+    }
+
+
+def test_parse_regime_turnover_caps_normalizes_aliases_and_case() -> None:
+    settings = SimpleNamespace(
+        risk_on_label="Risk-On",
+        risk_off_label="Risk-Off",
+        default_label="Risk-On",
+    )
+    caps = {"Risk On": 0.12, "RISK OFF": 0.07}
+
+    parsed = parse_regime_turnover_caps(caps, settings)
+
+    assert parsed == {"riskon": pytest.approx(0.12), "riskoff": pytest.approx(0.07)}
+
+
+def test_parse_regime_turnover_caps_unknown_label_raises() -> None:
+    settings = SimpleNamespace(
+        risk_on_label="Risk-On",
+        risk_off_label="Risk-Off",
+        default_label="Risk-On",
+    )
+
+    with pytest.raises(CoreConfigError, match="mystery"):
+        parse_regime_turnover_caps({"mystery": 0.1}, settings)
+
+
+def test_parse_regime_turnover_caps_non_numeric_raises() -> None:
+    settings = SimpleNamespace(
+        risk_on_label="Risk-On",
+        risk_off_label="Risk-Off",
+        default_label="Risk-On",
+    )
+
+    with pytest.raises(CoreConfigError, match="calm"):
+        parse_regime_turnover_caps({"calm": "fast"}, settings)
+
+
+def test_parse_regime_turnover_caps_missing_or_empty_returns_none() -> None:
+    settings = SimpleNamespace(
+        risk_on_label="Risk-On",
+        risk_off_label="Risk-Off",
+        default_label="Risk-On",
+    )
+
+    assert parse_regime_turnover_caps(None, settings) is None
+    assert parse_regime_turnover_caps({}, settings) is None
 
 
 def test_policy_from_config_constructs_composites() -> None:
