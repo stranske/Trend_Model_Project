@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import copy
+import zipfile
 from datetime import datetime
 from io import BytesIO
 from time import monotonic
 from typing import Iterable, Mapping
-import zipfile
 
 import pandas as pd
 import streamlit as st

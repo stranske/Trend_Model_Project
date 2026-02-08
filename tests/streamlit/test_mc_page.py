@@ -4,7 +4,7 @@ import importlib
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from types import ModuleType, SimpleNamespace
+from types import ModuleType
 from typing import Any, Callable
 
 import pandas as pd
@@ -285,14 +285,18 @@ def test_scenario_picker_and_tag_filtering(monkeypatch: pytest.MonkeyPatch) -> N
 def test_runtime_override_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     page, stub = _load_page(monkeypatch)
 
-    monkeypatch.setattr(page, "list_scenarios", lambda **_kwargs: [
-        ScenarioRegistryEntry(
-            name="macro",
-            path=Path("config/scenarios/monte_carlo/example.yml"),
-            description="Macro scenario",
-            tags=("macro",),
-        )
-    ])
+    monkeypatch.setattr(
+        page,
+        "list_scenarios",
+        lambda **_kwargs: [
+            ScenarioRegistryEntry(
+                name="macro",
+                path=Path("config/scenarios/monte_carlo/example.yml"),
+                description="Macro scenario",
+                tags=("macro",),
+            )
+        ],
+    )
     monkeypatch.setattr(page, "load_scenario", lambda name: _make_scenario(name))
 
     stub.slider_returns = [50, 3, 20]
@@ -309,14 +313,18 @@ def test_runtime_override_validation(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_run_button_flow_with_progress(monkeypatch: pytest.MonkeyPatch) -> None:
     page, stub = _load_page(monkeypatch)
 
-    monkeypatch.setattr(page, "list_scenarios", lambda **_kwargs: [
-        ScenarioRegistryEntry(
-            name="macro",
-            path=Path("config/scenarios/monte_carlo/example.yml"),
-            description="Macro scenario",
-            tags=("macro",),
-        )
-    ])
+    monkeypatch.setattr(
+        page,
+        "list_scenarios",
+        lambda **_kwargs: [
+            ScenarioRegistryEntry(
+                name="macro",
+                path=Path("config/scenarios/monte_carlo/example.yml"),
+                description="Macro scenario",
+                tags=("macro",),
+            )
+        ],
+    )
     monkeypatch.setattr(page, "load_scenario", lambda name: _make_scenario(name))
 
     captured: dict[str, Any] = {}
@@ -325,7 +333,12 @@ def test_run_button_flow_with_progress(monkeypatch: pytest.MonkeyPatch) -> None:
         def __init__(self, scenario: MonteCarloScenario) -> None:
             captured["scenario"] = scenario
 
-        def run(self, *, progress_callback: Callable[[dict[str, Any]], None] | None = None, jobs: int | None = None):
+        def run(
+            self,
+            *,
+            progress_callback: Callable[[dict[str, Any]], None] | None = None,
+            jobs: int | None = None,
+        ):
             captured["jobs"] = jobs
             if progress_callback:
                 progress_callback({"completed": 1, "total": 2, "path_id": 0})
@@ -364,14 +377,18 @@ def test_run_button_flow_with_progress(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_validate_button_flow(monkeypatch: pytest.MonkeyPatch) -> None:
     page, stub = _load_page(monkeypatch)
 
-    monkeypatch.setattr(page, "list_scenarios", lambda **_kwargs: [
-        ScenarioRegistryEntry(
-            name="macro",
-            path=Path("config/scenarios/monte_carlo/example.yml"),
-            description="Macro scenario",
-            tags=("macro",),
-        )
-    ])
+    monkeypatch.setattr(
+        page,
+        "list_scenarios",
+        lambda **_kwargs: [
+            ScenarioRegistryEntry(
+                name="macro",
+                path=Path("config/scenarios/monte_carlo/example.yml"),
+                description="Macro scenario",
+                tags=("macro",),
+            )
+        ],
+    )
     monkeypatch.setattr(page, "load_scenario", lambda name: _make_scenario(name))
 
     class FakeRunner:
@@ -400,14 +417,18 @@ def test_validate_button_flow(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_cancel_button_sets_flag(monkeypatch: pytest.MonkeyPatch) -> None:
     page, stub = _load_page(monkeypatch)
 
-    monkeypatch.setattr(page, "list_scenarios", lambda **_kwargs: [
-        ScenarioRegistryEntry(
-            name="macro",
-            path=Path("config/scenarios/monte_carlo/example.yml"),
-            description="Macro scenario",
-            tags=("macro",),
-        )
-    ])
+    monkeypatch.setattr(
+        page,
+        "list_scenarios",
+        lambda **_kwargs: [
+            ScenarioRegistryEntry(
+                name="macro",
+                path=Path("config/scenarios/monte_carlo/example.yml"),
+                description="Macro scenario",
+                tags=("macro",),
+            )
+        ],
+    )
     monkeypatch.setattr(page, "load_scenario", lambda name: _make_scenario(name))
 
     stub.session_state[page.MC_RUNNING_KEY] = True
@@ -422,21 +443,30 @@ def test_cancel_button_sets_flag(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_cancel_interrupts_run(monkeypatch: pytest.MonkeyPatch) -> None:
     page, stub = _load_page(monkeypatch)
 
-    monkeypatch.setattr(page, "list_scenarios", lambda **_kwargs: [
-        ScenarioRegistryEntry(
-            name="macro",
-            path=Path("config/scenarios/monte_carlo/example.yml"),
-            description="Macro scenario",
-            tags=("macro",),
-        )
-    ])
+    monkeypatch.setattr(
+        page,
+        "list_scenarios",
+        lambda **_kwargs: [
+            ScenarioRegistryEntry(
+                name="macro",
+                path=Path("config/scenarios/monte_carlo/example.yml"),
+                description="Macro scenario",
+                tags=("macro",),
+            )
+        ],
+    )
     monkeypatch.setattr(page, "load_scenario", lambda name: _make_scenario(name))
 
     class FakeRunner:
         def __init__(self, scenario: MonteCarloScenario) -> None:
             self.scenario = scenario
 
-        def run(self, *, progress_callback: Callable[[dict[str, Any]], None] | None = None, jobs: int | None = None):
+        def run(
+            self,
+            *,
+            progress_callback: Callable[[dict[str, Any]], None] | None = None,
+            jobs: int | None = None,
+        ):
             stub.session_state[page.MC_CANCEL_KEY] = True
             if progress_callback:
                 progress_callback({"completed": 1, "total": 2, "path_id": 0})
