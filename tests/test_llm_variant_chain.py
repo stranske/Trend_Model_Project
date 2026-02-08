@@ -5,12 +5,16 @@ from __future__ import annotations
 import json
 
 import pytest
+from pydantic import ValidationError
 
 pytest.importorskip("langchain_core")
 
 from langchain_core.runnables import RunnableLambda  # noqa: E402
 
-from trend_analysis.llm.chain import ConfigPatchVariantsChain  # noqa: E402
+from trend_analysis.llm.chain import (  # noqa: E402
+    ConfigPatchVariants,
+    ConfigPatchVariantsChain,
+)
 from trend_analysis.llm.prompts import build_variant_patch_prompt  # noqa: E402
 
 
@@ -117,3 +121,11 @@ def test_variant_fallback_when_structured_unsupported() -> None:
     assert variants.variants[0].patch.summary == "Conservative tweak"
     assert llm.unstructured_calls == 1
     assert llm.structured_calls == 0
+
+
+def test_variant_labels_are_validated() -> None:
+    payload = _make_payload()
+    payload["variants"][0]["label"] = "steady"
+
+    with pytest.raises(ValidationError):
+        ConfigPatchVariants.model_validate(payload)

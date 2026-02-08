@@ -59,9 +59,16 @@ class ConfigPatchVariant(BaseModel):
     @field_validator("label")
     @classmethod
     def _label_non_empty(cls, value: str) -> str:
-        if not value.strip():
+        label = value.strip()
+        if not label:
             raise ValueError("label must be a non-empty string")
-        return value.strip()
+        normalized = label.casefold()
+        canonical_map = {variant.casefold(): variant for variant in VARIANT_LABELS}
+        if normalized not in canonical_map:
+            raise ValueError(
+                "label must be one of: " + ", ".join(sorted(canonical_map.values()))
+            )
+        return canonical_map[normalized]
 
 
 class ConfigPatchVariants(BaseModel):
