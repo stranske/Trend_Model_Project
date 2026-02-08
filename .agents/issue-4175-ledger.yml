@@ -7,10 +7,10 @@ tasks:
     title: Create `streamlit_app/pages/monte_carlo.py` implementing a `render()` page
       with scenario selection UI using `trend_analysis.monte_carlo.registry.list_scenarios()`,
       including tag multi-select filtering and displaying scenario name + description.
-    status: doing
+    status: done
     started_at: '2026-02-08T08:13:48Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-08T08:13:58Z'
+    commit: 2ecc4ec6185961b68ce0b6d26c41fbe6fda400f0
     notes: []
   - id: task-02
     title: 'Create the base monte_carlo.py page file with a render function (verify:
