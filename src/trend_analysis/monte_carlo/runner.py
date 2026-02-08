@@ -619,19 +619,25 @@ class MonteCarloRunner:
 
     def _apply_regime_turnover_caps(self, config: ConfigType, context: _PathContext) -> None:
         multi_period_cfg = getattr(config, "multi_period", None)
-        if isinstance(multi_period_cfg, Mapping):
-            return
+        multi_period_enabled = isinstance(multi_period_cfg, Mapping)
         portfolio = getattr(config, "portfolio", None)
         if not isinstance(portfolio, Mapping):
             return
         max_turnover = portfolio.get("max_turnover")
+        # Supported shapes:
+        # - scalar max_turnover (float/int): apply as-is, no regime lookup required.
+        # - mapping max_turnover: interpreted as regime-conditioned caps.
         if not isinstance(max_turnover, Mapping):
             return
-        resolved = self._resolve_turnover_cap_for_context(config, context, max_turnover)
-        if resolved is None or resolved is max_turnover:
-            return
-        if isinstance(portfolio, dict):
-            portfolio["max_turnover"] = resolved
+        # In single-period runs we can resolve a regime-conditioned mapping to a
+        # scalar for the current path; multi-period runs keep the mapping so the
+        # engine can apply per-window regime caps.
+        if not multi_period_enabled:
+            resolved = self._resolve_turnover_cap_for_context(config, context, max_turnover)
+            if resolved is None or resolved is max_turnover:
+                return
+            if isinstance(portfolio, dict):
+                portfolio["max_turnover"] = resolved
 
     def _resolve_turnover_cap_for_context(
         self,
