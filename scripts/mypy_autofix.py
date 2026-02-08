@@ -148,6 +148,8 @@ def run_mypy(config_file: str | None, targets: Iterable[Path]) -> tuple[str, str
         "--hide-error-context",
         "--show-column-numbers",
         "--error-format=json",
+        "--follow-imports=skip",
+        "--ignore-missing-imports",
         "--cache-dir",
         str(cache_dir),
     ]
@@ -162,6 +164,8 @@ def run_mypy(config_file: str | None, targets: Iterable[Path]) -> tuple[str, str
         fallback_args = [
             "--hide-error-context",
             "--show-column-numbers",
+            "--follow-imports=skip",
+            "--ignore-missing-imports",
             "--cache-dir",
             str(cache_dir),
         ]
