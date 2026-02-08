@@ -54,6 +54,7 @@ class _NoStructuredOutputLLMRaises(RunnableLambda):
 
 class _StructuredOutputLLM:
     def __init__(self, *, responses: list[object]) -> None:
+        self.invocation_count = 0
         self.structured_requests = 0
         self.structured_invocations = 0
         self._responses = iter(responses)
@@ -66,6 +67,7 @@ class _StructuredOutputLLM:
         return RunnableLambda(self._respond)
 
     def _respond(self, _prompt_value, **_kwargs) -> object:
+        self.invocation_count += 1
         self.structured_invocations += 1
         return next(self._responses)
 
@@ -109,7 +111,9 @@ def test_structured_output_returns_expected_configpatch() -> None:
     validated = ConfigPatch.model_validate(patch.model_dump(mode="json"))
     assert validated.model_dump(mode="json") == payload
     assert patch.model_dump(mode="json") == payload
+    assert chain.structured_repair_retry_count == 0
     assert llm.structured_requests == 1
+    assert llm.invocation_count == 1
     assert llm.structured_invocations == 1
 
 
@@ -129,8 +133,10 @@ def test_structured_output_retries_once_on_malformed_response() -> None:
     )
 
     assert patch.model_dump(mode="json") == payload
-    retry_count = llm.structured_invocations - 1
-    assert retry_count == 1
+    assert chain.structured_repair_retry_count == 1
+    assert llm.invocation_count > 1
+    assert llm.invocation_count <= 2
+    assert llm.invocation_count == 2
     assert llm.structured_invocations == 2
 
 
