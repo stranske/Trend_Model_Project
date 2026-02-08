@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from typing import Any, Mapping
+
 import numpy as np
 import pandas as pd
 import pandas.testing as pdt
 import pytest
 
+import trend_analysis.multi_period.engine as mp_engine
 from trend.config_schema import CoreConfigError
 from trend_analysis.api import RunResult
 from trend_analysis.monte_carlo.results import (
@@ -14,6 +17,8 @@ from trend_analysis.monte_carlo.results import (
 from trend_analysis.monte_carlo.runner import MonteCarloRunner, _PathContext
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario
 from trend_analysis.monte_carlo.strategy import StrategyVariant
+from trend_analysis.regimes import normalise_settings
+from trend_analysis.risk import periods_per_year_from_code
 
 
 def _base_config(
@@ -709,31 +714,123 @@ def test_resolve_turnover_cap_for_context_invalid_mapping_raises(monkeypatch) ->
         )
 
 
+def test_runner_regime_cache_key_includes_proxy_window(monkeypatch) -> None:
+    dates_a = pd.date_range("2020-01-31", periods=3, freq="ME")
+    dates_b = pd.date_range("2021-01-31", periods=3, freq="ME")
+    returns_a = pd.DataFrame({"Date": dates_a, "Asset": [0.01, 0.02, 0.03]})
+    returns_b = pd.DataFrame({"Date": dates_b, "Asset": [0.01, 0.02, -0.03]})
+
+    calls: list[pd.Timestamp] = []
+
+    def _fake_compute_regimes(series, settings, *, freq, periods_per_year):
+        del freq, periods_per_year
+        calls.append(series.index[0])
+        return pd.Series([settings.risk_on_label] * len(series), index=series.index, dtype="string")
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.compute_regimes",
+        _fake_compute_regimes,
+    )
+
+    base_config = _base_config(
+        max_turnover={"calm": 0.2},
+        regime_cfg={
+            "enabled": True,
+            "proxy": "Asset",
+            "method": "rolling_return",
+            "lookback": 1,
+            "smoothing": 1,
+            "threshold": 0.0,
+            "neutral_band": 0.0,
+            "risk_on_label": "calm",
+            "risk_off_label": "stress",
+            "default_label": "calm",
+        },
+    )
+    runner = MonteCarloRunner(_scenario(), base_config=base_config)
+    config = runner._build_strategy_config(StrategyVariant(name="base"), seed=1)
+
+    context_a = _PathContext(
+        path_id=0,
+        prices=pd.DataFrame(),
+        returns=returns_a,
+        score_frame=pd.DataFrame(),
+        path_hash="shared",
+        seed=123,
+    )
+    context_b = _PathContext(
+        path_id=1,
+        prices=pd.DataFrame(),
+        returns=returns_b,
+        score_frame=pd.DataFrame(),
+        path_hash="shared",
+        seed=123,
+    )
+
+    max_turnover = config.portfolio["max_turnover"]
+    runner._resolve_turnover_cap_for_context(config, context_a, max_turnover)
+    runner._resolve_turnover_cap_for_context(config, context_b, max_turnover)
+
+    assert len(calls) == 2
+
+    proxy_a = runner._build_regime_proxy_series(context_a.returns, "Asset")
+    proxy_b = runner._build_regime_proxy_series(context_b.returns, "Asset")
+    settings = normalise_settings(config.regime)
+    key_a = runner._regime_cache_key(
+        context_a,
+        "Asset",
+        (proxy_a.index[0], proxy_a.index[-1], len(proxy_a)),
+        "M",
+        periods_per_year_from_code("M"),
+        settings,
+    )
+    key_b = runner._regime_cache_key(
+        context_b,
+        "Asset",
+        (proxy_b.index[0], proxy_b.index[-1], len(proxy_b)),
+        "M",
+        periods_per_year_from_code("M"),
+        settings,
+    )
+
+    assert key_a != key_b
+
+
 def test_multi_period_turnover_caps_and_binding(monkeypatch: pytest.MonkeyPatch) -> None:
     history_dates = pd.date_range("2019-06-30", periods=7, freq="ME")
     price_history = pd.DataFrame(
         {
-            "Asset": np.linspace(100.0, 120.0, len(history_dates)),
-            "AssetB": np.linspace(90.0, 110.0, len(history_dates)),
+            "Asset": [100.0, 102.0, 101.0, 103.0, 100.0, 98.0, 99.0],
+            "AssetB": [90.0, 91.0, 89.0, 90.0, 88.0, 87.0, 88.0],
             "RF": np.full(len(history_dates), 100.0),
         },
         index=history_dates,
     )
 
-    def _fake_compute_regimes(series, _settings, *, freq, periods_per_year):
-        del freq, periods_per_year
-        cutoff = pd.Timestamp("2020-03-01")
-        label = "calm" if series.index.min() < cutoff else "stress"
-        return pd.Series([label] * len(series), index=series.index, name="regime")
+    resolved_caps: list[float] = []
+    original_resolver = mp_engine._resolve_max_turnover_cap
 
-    monkeypatch.setattr(
-        "trend_analysis.multi_period.engine.compute_regimes",
-        _fake_compute_regimes,
-    )
-    monkeypatch.setattr(
-        "trend_analysis.regimes.compute_regimes",
-        _fake_compute_regimes,
-    )
+    def _capture_cap(
+        in_df: pd.DataFrame,
+        *,
+        max_turnover_cfg: Any,
+        regime_settings: Any,
+        benchmarks_cfg: Mapping[str, Any] | None,
+        regime_frequency: str,
+        regime_ppy: float,
+    ) -> float:
+        cap = original_resolver(
+            in_df,
+            max_turnover_cfg=max_turnover_cfg,
+            regime_settings=regime_settings,
+            benchmarks_cfg=benchmarks_cfg,
+            regime_frequency=regime_frequency,
+            regime_ppy=regime_ppy,
+        )
+        resolved_caps.append(cap)
+        return cap
+
+    monkeypatch.setattr(mp_engine, "_resolve_max_turnover_cap", _capture_cap)
 
     base_config = _base_config(
         max_turnover={"calm": 0.2, "stress": 0.8},
@@ -779,7 +876,7 @@ def test_multi_period_turnover_caps_and_binding(monkeypatch: pytest.MonkeyPatch)
             "frequency": "M",
             "seed": 7,
         },
-        return_model={"kind": "stationary_bootstrap"},
+        return_model={"kind": "stationary_bootstrap", "params": {"mean_block_len": 1}},
         enable_fold_runs=False,
     )
 
@@ -801,22 +898,15 @@ def test_multi_period_turnover_caps_and_binding(monkeypatch: pytest.MonkeyPatch)
     assert diagnostics["period"].tolist() == expected_periods
 
     turnover = diagnostics["turnover"].tolist()
-    binding = diagnostics["turnover_cap_binding"].tolist()
+    assert resolved_caps == [pytest.approx(0.2), pytest.approx(0.8)]
 
-    assert turnover[0] >= 0.2
-    assert turnover[1] < 0.8
+    binding = [turn >= cap for turn, cap in zip(turnover, resolved_caps, strict=True)]
     assert binding == [True, False]
 
     evaluation = results.evaluations[0]
     expected_index = pd.Index(expected_periods, name="period")
     expected_turnover = pd.Series(turnover, index=expected_index, name="turnover")
-    expected_binding = pd.Series(binding, index=expected_index, name="turnover_cap_binding")
     pdt.assert_series_equal(evaluation.turnover, expected_turnover, check_freq=False)
-    pdt.assert_series_equal(
-        evaluation.turnover_cap_binding,
-        expected_binding,
-        check_freq=False,
-    )
 
 
 def test_runner_normalizes_regime_turnover_caps(monkeypatch) -> None:

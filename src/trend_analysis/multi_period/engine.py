@@ -25,6 +25,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Protocol, cast
 import numpy as np
 import pandas as pd
 
+from trend.config_schema import CoreConfigError
 from trend.diagnostics import DiagnosticResult
 
 from .._typing import FloatArray
@@ -203,13 +204,25 @@ def _resolve_max_turnover_cap(
     regime_frequency: str,
     regime_ppy: float,
 ) -> float:
+    def _raise_invalid_max_turnover(value: Any) -> None:
+        raise CoreConfigError(
+            "max_turnover must be a finite numeric scalar (int, float, numpy number) "
+            f"or a regime mapping; got {value!r}"
+        )
+
     if max_turnover_cfg is None:
-        return 1.0
+        _raise_invalid_max_turnover(max_turnover_cfg)
     if not isinstance(max_turnover_cfg, Mapping):
         try:
-            return float(max_turnover_cfg)
-        except (TypeError, ValueError):
-            return 1.0
+            value = float(max_turnover_cfg)
+        except (TypeError, ValueError) as exc:
+            raise CoreConfigError(
+                "max_turnover must be a finite numeric scalar (int, float, numpy number) "
+                f"or a regime mapping; got {max_turnover_cfg!r}"
+            ) from exc
+        if not np.isfinite(value):
+            _raise_invalid_max_turnover(max_turnover_cfg)
+        return value
     regime_label = _resolve_regime_label_for_window(
         in_df,
         regime_settings=regime_settings,
