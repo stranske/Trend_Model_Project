@@ -1951,3 +1951,20 @@ def test_llm_required_env_vars_warns_on_unknown_provider(
     assert any(
         "Unknown LLM provider for env var requirements" in message for message in caplog.messages
     )
+
+
+def test_build_variant_metrics_table(model_module: ModuleType) -> None:
+    result_a = SimpleNamespace(metrics=pd.DataFrame([{"sharpe": 1.2, "return_ann": 0.08}]))
+    result_b = SimpleNamespace(metrics=pd.DataFrame([{"sharpe": 1.0}]))
+    result_c = SimpleNamespace(metrics=pd.DataFrame([{"return_ann": 0.1}]))
+
+    table = model_module._build_variant_metrics_table(
+        {
+            "conservative": result_a,
+            "baseline": result_b,
+            "aggressive": result_c,
+        }
+    )
+
+    assert list(table.columns) == ["Metric", "conservative", "baseline", "aggressive"]
+    assert set(table["Metric"]) == {"sharpe", "return_ann"}

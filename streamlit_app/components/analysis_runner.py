@@ -6,13 +6,14 @@ import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Callable, Iterable, Mapping, Protocol
 
 import pandas as pd
 import streamlit as st
 
 from trend_analysis.config.bridge import build_config_payload, validate_payload
 from trend_analysis.config.legacy import Config
+from trend_analysis.config.patch import ConfigPatch, apply_config_patch
 from trend_analysis.config.ui_mapping import METRIC_REGISTRY, build_config_from_ui_state
 from trend_analysis.signals import TrendSpec as TrendSpecModel
 from utils.paths import proj_path
@@ -45,6 +46,21 @@ class AnalysisPayload:
     returns: pd.DataFrame
     model_state: Mapping[str, Any]
     benchmark: str | None
+
+
+class _VariantPatch(Protocol):
+    label: str
+    patch: ConfigPatch
+
+
+class VariantRunError(RuntimeError):
+    """Raised when a variant patch or analysis run fails."""
+
+    def __init__(self, *, label: str, stage: str, detail: str) -> None:
+        self.label = label
+        self.stage = stage
+        self.detail = detail
+        super().__init__(f"Variant '{label}' failed during {stage}: {detail}")
 
 
 def _coerce_positive_int(value: Any, *, default: int, minimum: int = 1) -> int:
@@ -427,6 +443,86 @@ def _validate_streamlit_payload(payload: AnalysisPayload) -> None:
     _, validation_error = validate_payload(payload_dict, base_path=base_dir)
     if validation_error:
         raise ValueError(f"Config validation failed:\n{validation_error}")
+
+
+def apply_variant_patch(
+    base_state: Mapping[str, Any],
+    patch: ConfigPatch,
+    *,
+    returns: pd.DataFrame,
+    benchmark: str | None,
+    label: str,
+) -> dict[str, Any]:
+    """Apply a ConfigPatch to the base configuration and validate the result."""
+
+    try:
+        updated = apply_config_patch(dict(base_state), patch)
+    except Exception as exc:
+        raise VariantRunError(
+            label=label,
+            stage="patch application",
+            detail=str(exc) or type(exc).__name__,
+        ) from exc
+
+    try:
+        _validate_streamlit_payload(
+            AnalysisPayload(returns=returns, model_state=updated, benchmark=benchmark)
+        )
+    except Exception as exc:
+        raise VariantRunError(
+            label=label,
+            stage="config validation",
+            detail=str(exc) or type(exc).__name__,
+        ) from exc
+
+    return updated
+
+
+def run_variant_analysis(
+    returns: pd.DataFrame,
+    base_state: Mapping[str, Any],
+    benchmark: str | None,
+    variants: Iterable[_VariantPatch],
+    *,
+    data_hash: str | None = None,
+    progress: Callable[[str, int, int], None] | None = None,
+) -> dict[str, Any]:
+    """Run analysis for each variant patch, returning results keyed by label."""
+
+    variant_list = list(variants)
+    if len(variant_list) != 3:
+        raise ValueError("Expected exactly three variants for analysis.")
+    labels = [variant.label for variant in variant_list]
+    normalized = [label.casefold() for label in labels]
+    if len(set(normalized)) != len(labels):
+        raise ValueError("Variant labels must be unique.")
+
+    results: dict[str, Any] = {}
+    total = len(variant_list)
+    for idx, variant in enumerate(variant_list, start=1):
+        if progress is not None:
+            progress(variant.label, idx, total)
+        updated_state = apply_variant_patch(
+            base_state,
+            variant.patch,
+            returns=returns,
+            benchmark=benchmark,
+            label=variant.label,
+        )
+        try:
+            results[variant.label] = run_analysis(
+                returns,
+                updated_state,
+                benchmark,
+                data_hash=data_hash,
+            )
+        except Exception as exc:
+            raise VariantRunError(
+                label=variant.label,
+                stage="analysis run",
+                detail=str(exc) or type(exc).__name__,
+            ) from exc
+    return results
 
 
 def _execute_analysis(payload: AnalysisPayload):

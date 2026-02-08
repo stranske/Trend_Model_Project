@@ -16,6 +16,7 @@ from datetime import date, datetime
 from time import monotonic, sleep
 from typing import Any, Mapping
 
+import pandas as pd
 import streamlit as st
 import yaml
 
@@ -30,8 +31,10 @@ from streamlit_app.components.progress_eta import (
 from trend_analysis.config.patch import apply_config_patch, diff_configs
 from trend_analysis.llm import (
     ConfigPatchChain,
+    ConfigPatchVariantsChain,
     LLMProviderConfig,
     build_config_patch_prompt,
+    build_variant_patch_prompt,
     create_llm,
 )
 from trend_analysis.llm.schema import load_compact_schema
@@ -86,6 +89,7 @@ _CONFIG_CHAIN_LLM_FIELDS = (
     "extra_payload_hash",
     "api_key_fingerprint",
 )
+_VARIANT_LABEL_ORDER = ("conservative", "baseline", "aggressive")
 _LOGGER = logging.getLogger(__name__)
 _CONFIG_CHAIN_CORE_FIELDS = _CONFIG_CHAIN_KEY_FIELDS
 _CONFIG_CHAIN_REBUILD_FIELDS = _CONFIG_CHAIN_INVALIDATION_FIELDS
@@ -1169,6 +1173,31 @@ def _cached_config_patch_chain(
     )
 
 
+@st.cache_resource(
+    show_spinner=False,
+    hash_funcs={dict: _hash_cache_key, _ApiKeySecret: _hash_api_key_secret},
+)
+def _cached_variant_patch_chain(
+    chain_cache_key: Mapping[str, Any],
+    llm_cache_key: Mapping[str, Any],
+    api_key_secret: _ApiKeySecret | None,
+    extra_payload: str,
+) -> ConfigPatchVariantsChain:
+    llm = _cached_llm_client(
+        llm_cache_key,
+        api_key_secret,
+        extra_payload,
+    )
+    schema = _cached_compact_schema()
+    return ConfigPatchVariantsChain.from_env(
+        llm=llm,
+        schema=schema,
+        prompt_builder=build_variant_patch_prompt,
+        temperature=float(chain_cache_key.get("temperature") or 0.0),
+        model=str(chain_cache_key.get("model")),
+    )
+
+
 @st.cache_resource(show_spinner=False)
 def _cached_nl_chain(
     cache_signature: str,
@@ -1408,6 +1437,79 @@ def _build_nl_chain(
 def _get_nl_chain() -> tuple[ConfigPatchChain, dict[str, Any]]:
     return _build_nl_chain()
 
+
+def _get_variant_chain() -> tuple[ConfigPatchVariantsChain, dict[str, Any]]:
+    context = _build_chain_cache_context()
+    api_key_secret = _ApiKeySecret(
+        context.get("api_key"),
+        context.get("api_key_fingerprint"),
+    )
+    chain = _cached_variant_patch_chain(
+        context["cache_key"],
+        context["llm_cache_key"],
+        api_key_secret,
+        context["extra_payload"],
+    )
+    return chain, context
+
+
+def _coerce_metric_value(value: Any) -> float | None:
+    try:
+        as_float = float(value)
+    except (TypeError, ValueError):
+        return None
+    return as_float if pd.notna(as_float) else None
+
+
+def _extract_metric_map(result: Any) -> dict[str, float | None]:
+    details = getattr(result, "details", {}) or {}
+    metrics_dict: dict[str, float | None] = {}
+
+    user_stats = details.get("out_user_stats")
+    if user_stats is not None:
+        if hasattr(user_stats, "__dict__"):
+            for key, value in vars(user_stats).items():
+                if not str(key).startswith("_"):
+                    metrics_dict[str(key)] = _coerce_metric_value(value)
+        elif hasattr(user_stats, "items"):
+            for key, value in user_stats.items():
+                metrics_dict[str(key)] = _coerce_metric_value(value)
+        if metrics_dict:
+            return metrics_dict
+
+    metrics = getattr(result, "metrics", None)
+    if isinstance(metrics, pd.DataFrame) and not metrics.empty:
+        series = metrics.iloc[0]
+        for key, value in series.items():
+            metrics_dict[str(key)] = _coerce_metric_value(value)
+        if metrics_dict:
+            return metrics_dict
+
+    stats_obj = details.get("out_sample_stats") or {}
+    if hasattr(stats_obj, "items"):
+        for key, value in stats_obj.items():
+            metrics_dict[str(key)] = _coerce_metric_value(value)
+    elif hasattr(stats_obj, "__dict__"):
+        for key, value in vars(stats_obj).items():
+            metrics_dict[str(key)] = _coerce_metric_value(value)
+    return metrics_dict
+
+
+def _build_variant_metrics_table(results: Mapping[str, Any]) -> pd.DataFrame:
+    metrics_by_label = {label: _extract_metric_map(result) for label, result in results.items()}
+    all_metrics = sorted({key for metrics in metrics_by_label.values() for key in metrics})
+
+    ordered_labels = [
+        label for label in _VARIANT_LABEL_ORDER if label in metrics_by_label
+    ] + sorted(label for label in metrics_by_label if label not in _VARIANT_LABEL_ORDER)
+
+    rows = []
+    for metric in all_metrics:
+        row = {"Metric": metric}
+        for label in ordered_labels:
+            row[label] = metrics_by_label[label].get(metric)
+        rows.append(row)
+    return pd.DataFrame(rows)
 
 def _generate_config_preview(
     model_state: Mapping[str, Any],
@@ -1975,6 +2077,103 @@ def render_config_chat_panel(
 
     with st.expander("💬 Config Chat", expanded=False):
         _render_config_chat_contents(model_state)
+
+
+def _render_variant_what_if_panel(
+    *,
+    model_state: Mapping[str, Any] | None,
+    returns: pd.DataFrame | None,
+    benchmark: str | None,
+) -> None:
+    st.subheader("🔀 What-if (3 variants)")
+    st.caption(
+        "Generate conservative, baseline, and aggressive variants from one instruction, "
+        "then compare their analysis metrics side-by-side."
+    )
+    instruction = st.text_area(
+        "Variant instruction",
+        key="what_if_instruction",
+        height=110,
+        placeholder="e.g. Reduce turnover and tighten max weight while preserving returns.",
+    )
+    run_clicked = st.button("Run What-if (3 variants)", key="what_if_run", type="primary")
+
+    if run_clicked:
+        st.session_state.pop("what_if_variant_results", None)
+        st.session_state.pop("what_if_variant_metrics", None)
+        st.session_state.pop("what_if_variant_error", None)
+        trimmed = instruction.strip()
+        if not trimmed:
+            st.warning("Enter an instruction to generate variants.")
+        elif model_state is None:
+            st.error("No configuration is loaded to generate variants.")
+        elif returns is None:
+            st.error("Load data on the Data page before running What-if analysis.")
+        else:
+            progress_slot = st.empty()
+            status_slot = st.empty()
+            progress_bar = progress_slot.progress(0.0, text="Generating variants...")
+            try:
+                chain, _ = _get_variant_chain()
+                variants = chain.run(current_config=dict(model_state), instruction=trimmed)
+
+                def _progress(label: str, idx: int, total: int) -> None:
+                    progress_bar.progress(
+                        idx / total,
+                        text=f"Running {label} ({idx}/{total})",
+                    )
+                    status_slot.info(f"Running {label} variant ({idx}/{total})…")
+
+                results = analysis_runner.run_variant_analysis(
+                    returns,
+                    model_state,
+                    benchmark,
+                    variants.variants,
+                    data_hash=st.session_state.get("data_hash"),
+                    progress=_progress,
+                )
+            except analysis_runner.VariantRunError as exc:
+                message = str(exc)
+                st.session_state["what_if_variant_error"] = message
+                status_slot.error(message)
+            except Exception as exc:
+                message = f"What-if analysis failed: {exc}"
+                st.session_state["what_if_variant_error"] = message
+                status_slot.error(message)
+            else:
+                progress_bar.progress(1.0, text="All variants complete.")
+                status_slot.success("What-if analysis complete.")
+                metrics_table = _build_variant_metrics_table(results)
+                st.session_state["what_if_variant_results"] = results
+                st.session_state["what_if_variant_metrics"] = metrics_table
+
+    error_message = st.session_state.get("what_if_variant_error")
+    if isinstance(error_message, str) and error_message:
+        st.error(error_message)
+
+    metrics_table = st.session_state.get("what_if_variant_metrics")
+    if isinstance(metrics_table, pd.DataFrame):
+        if metrics_table.empty:
+            st.warning("No metrics were detected in the variant results.")
+        else:
+            st.dataframe(metrics_table, use_container_width=True, hide_index=True)
+            csv_payload = metrics_table.to_csv(index=False)
+            json_payload = metrics_table.to_json(orient="records")
+            export_cols = st.columns(2)
+            with export_cols[0]:
+                st.download_button(
+                    "Download Metrics (CSV)",
+                    data=csv_payload.encode("utf-8"),
+                    file_name="what_if_variants_metrics.csv",
+                    mime="text/csv",
+                )
+            with export_cols[1]:
+                st.download_button(
+                    "Download Metrics (JSON)",
+                    data=json_payload.encode("utf-8"),
+                    file_name="what_if_variants_metrics.json",
+                    mime="application/json",
+                )
 
 
 # Preset configurations with default parameter values
@@ -2606,6 +2805,12 @@ def render_model_page() -> None:
         if len(fund_cols) > 50:
             st.caption(f"...and {len(fund_cols) - 50} more")
 
+    st.markdown("---")
+    _render_variant_what_if_panel(
+        model_state=model_state,
+        returns=df,
+        benchmark=st.session_state.get("selected_benchmark"),
+    )
     st.markdown("---")
 
     saved_model_states = app_state.get_saved_model_states()
