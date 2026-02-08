@@ -19,3 +19,6 @@ def test_variant_prompt_includes_guidelines_section() -> None:
     assert "conservative:" in prompt
     assert "baseline:" in prompt
     assert "aggressive:" in prompt
+    assert "Reduce risk" in prompt
+    assert "lower exposure" in prompt
+    assert "conservative patch meaningfully lower risk" in prompt
