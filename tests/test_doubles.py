@@ -21,7 +21,8 @@ class _StructuredOutputLLM(RunnableLambda):
         return True
 
     def with_structured_output(self, _schema) -> RunnableLambda:
-        # If RunnableLambda changes its callable expectations, this should break fast.
+        # Coupled to RunnableLambda.__init__ accepting this callable; the test below
+        # should fail if RunnableLambda changes its constructor or invocation shape.
         return RunnableLambda(self._respond)
 
     def _respond(self, _prompt_value, **_kwargs) -> object:
@@ -36,5 +37,13 @@ def test_structured_output_llm_runnable_lambda_accepts_prompt_dict() -> None:
     structured_llm = llm.with_structured_output(dict)
 
     result = structured_llm.invoke({"prompt": "hello"})
+
+    assert result == {"ok": True}
+
+
+def test_structured_output_llm_base_runnable_accepts_prompt_dict() -> None:
+    llm = _StructuredOutputLLM(responses=[{"ok": True}])
+
+    result = llm.invoke({"prompt": "hello"})
 
     assert result == {"ok": True}
