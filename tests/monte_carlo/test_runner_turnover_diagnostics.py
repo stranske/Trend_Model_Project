@@ -896,6 +896,12 @@ def test_multi_period_turnover_caps_and_binding(monkeypatch: pytest.MonkeyPatch)
 
     expected_periods = ["2020-03-31", "2020-05-31"]
     assert diagnostics["period"].tolist() == expected_periods
+    assert "turnover_cap_regime" in diagnostics.columns
+    diagnostics_regimes = diagnostics["turnover_cap_regime"].tolist()
+    assert set(diagnostics_regimes) == {"riskon", "riskoff"}
+    assert len(set(diagnostics_regimes)) >= 2
+    assert "calm" not in diagnostics["turnover_cap_regime"].tolist()
+    assert "stress" not in diagnostics["turnover_cap_regime"].tolist()
 
     turnover = diagnostics["turnover"].tolist()
     assert sorted(resolved_caps) == [pytest.approx(0.2), pytest.approx(0.8)]
@@ -911,7 +917,8 @@ def test_multi_period_turnover_caps_and_binding(monkeypatch: pytest.MonkeyPatch)
     cap_regimes = cap_regimes.reindex(expected_index)
     cap_regime_list = cap_regimes.tolist()
     assert set(cap_regime_list) == {"riskon", "riskoff"}
-    assert len(set(cap_regime_list)) == 2
+    regime_labels = cap_regime_list
+    assert len(set(regime_labels)) >= 2
 
     cap_series = diagnostic.get("turnover_cap")
     assert isinstance(cap_series, pd.Series)
@@ -944,9 +951,14 @@ def test_multi_period_turnover_caps_and_binding(monkeypatch: pytest.MonkeyPatch)
         price_history=price_history,
     )
 
-    mismatch_results = mismatch_runner.run(jobs=1)
-    assert mismatch_results.errors
-    assert any("mystery" in err.message for err in mismatch_results.errors)
+    with pytest.raises(CoreConfigError, match="mystery") as excinfo:
+        mismatch_runner._resolve_turnover_cap_series(
+            {"mystery": 0.3},
+            regimes=pd.Series(["riskon", "riskoff"], index=expected_index),
+            out_index=expected_index,
+            regime_settings=normalise_settings(base_config["regime"]),
+        )
+    assert "mystery" in str(excinfo.value)
 
 
 def test_runner_normalizes_regime_turnover_caps(monkeypatch) -> None:

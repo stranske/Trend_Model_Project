@@ -40,6 +40,7 @@ DIAGNOSTIC_COLUMNS = (
     "seed",
     "period",
     "turnover",
+    "turnover_cap_regime",
     "turnover_cap_binding",
 )
 
@@ -125,6 +126,7 @@ def build_diagnostics_frame(evaluations: Iterable[StrategyEvaluation]) -> pd.Dat
         binding = diagnostic.get("turnover_cap_binding")
         if binding is None:
             binding = evaluation.turnover_cap_binding
+        cap_regime = diagnostic.get("turnover_cap_regime")
         if not isinstance(turnover, pd.Series) and not isinstance(binding, pd.Series):
             continue
         index = None
@@ -144,6 +146,9 @@ def build_diagnostics_frame(evaluations: Iterable[StrategyEvaluation]) -> pd.Dat
             binding_series = binding.reindex(index)
         elif isinstance(binding, (bool, np.bool_)):
             binding_series = pd.Series(bool(binding), index=index, name="turnover_cap_binding")
+        cap_regime_series = None
+        if isinstance(cap_regime, pd.Series):
+            cap_regime_series = cap_regime.reindex(index)
         for period in index:
             row: dict[str, Any] = {
                 "fold_id": (int(evaluation.fold_id) if evaluation.fold_id is not None else None),
@@ -163,6 +168,8 @@ def build_diagnostics_frame(evaluations: Iterable[StrategyEvaluation]) -> pd.Dat
                     else None
                 ),
             }
+            if cap_regime_series is not None and pd.notna(cap_regime_series.loc[period]):
+                row["turnover_cap_regime"] = str(cap_regime_series.loc[period])
             rows.append(row)
     if not rows:
         return pd.DataFrame(columns=list(DIAGNOSTIC_COLUMNS))
