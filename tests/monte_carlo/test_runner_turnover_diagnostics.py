@@ -896,6 +896,8 @@ def test_multi_period_turnover_caps_and_binding(monkeypatch: pytest.MonkeyPatch)
 
     expected_periods = ["2020-03-31", "2020-05-31"]
     assert diagnostics["period"].tolist() == expected_periods
+    assert "turnover_cap_regime" in diagnostics.columns
+    assert set(diagnostics["turnover_cap_regime"].tolist()) == {"riskon", "riskoff"}
 
     turnover = diagnostics["turnover"].tolist()
     assert sorted(resolved_caps) == [pytest.approx(0.2), pytest.approx(0.8)]
