@@ -128,42 +128,42 @@ tasks:
   - id: task-15
     title: Add test case to `test_multi_period_turnover_caps_and_binding` in `tests/test_multi_period_integration.py`
       that passes turnover-cap mapping with `calm` and `stress` alias keys
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-09T15:09:05Z'
+    finished_at: '2026-02-09T15:09:05Z'
     commit: ''
     notes: []
   - id: task-16
     title: Add assertion to the alias test case that binding diagnostics contain `riskon`
       and `riskoff` canonical regime labels
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-09T15:09:05Z'
+    finished_at: '2026-02-09T15:09:05Z'
     commit: ''
     notes: []
   - id: task-17
     title: Add assertion to `test_multi_period_turnover_caps_and_binding` that per-period
       regime detection yields at least two distinct regime labels (e.g., `len(set(regime_labels))
       >= 2`)
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-09T15:09:05Z'
+    finished_at: '2026-02-09T15:09:05Z'
     commit: ''
     notes: []
   - id: task-18
     title: Add test case to `test_multi_period_turnover_caps_and_binding` with unknown
       regime key containing `mystery` substring
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-09T15:09:05Z'
+    finished_at: '2026-02-09T15:09:05Z'
     commit: ''
     notes: []
   - id: task-19
     title: Add assertion to the unknown-key test case that `CoreConfigError` is raised
       with `mystery` in the error message (case-sensitive)
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-09T15:09:05Z'
+    finished_at: '2026-02-09T15:09:05Z'
     commit: ''
     notes: []
   - id: task-20
@@ -274,42 +274,42 @@ tasks:
   - id: task-32
     title: '`test_multi_period_turnover_caps_and_binding` passes a turnover-cap regime
       mapping using alias keys `calm` and `stress`'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-09T15:09:05Z'
+    finished_at: '2026-02-09T15:09:05Z'
     commit: ''
     notes: []
   - id: task-33
     title: '`test_multi_period_turnover_caps_and_binding` asserts that the produced
       binding diagnostics include the canonical regime labels `riskon` and `riskoff`
       (not relying on `calm`/`stress` as output labels)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-09T15:09:05Z'
+    finished_at: '2026-02-09T15:09:05Z'
     commit: ''
     notes: []
   - id: task-34
     title: '`test_multi_period_turnover_caps_and_binding` asserts that per-period
       regime detection yields at least two distinct regime labels (e.g., `len(set(regime_labels))
       >= 2`)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-09T15:09:05Z'
+    finished_at: '2026-02-09T15:09:05Z'
     commit: ''
     notes: []
   - id: task-35
     title: 'A test case using an unknown regime key containing the substring `mystery`
       (e.g., `{"mystery": 0.1}`) asserts `CoreConfigError` is raised'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-09T15:09:05Z'
+    finished_at: '2026-02-09T15:09:05Z'
     commit: ''
     notes: []
   - id: task-36
     title: The unknown-key test case asserts the error message contains `mystery`
       (case-sensitive)
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-09T15:09:05Z'
+    finished_at: '2026-02-09T15:09:05Z'
     commit: ''
     notes: []
