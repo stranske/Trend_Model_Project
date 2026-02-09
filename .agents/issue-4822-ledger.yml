@@ -7,10 +7,10 @@ tasks:
     title: Fix `ConfigPatchVariantsChain` in `src/**/config_patch_variants_chain.py`
       so `self.structured_repair_retry_count` is initialized only in `__init__` and
       is not reset at the start of `run()`.
-    status: doing
+    status: done
     started_at: '2026-02-09T13:34:29Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-09T13:34:41Z'
+    commit: 8311931441f6bf5fa2184ed4fd8716fd44405ecc
     notes: []
   - id: task-02
     title: Update `ConfigPatchVariantsChain` retry loop in `src/**/config_patch_variants_chain.py`
