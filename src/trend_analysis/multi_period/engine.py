@@ -211,6 +211,8 @@ def _resolve_max_turnover_cap(
 
     if max_turnover_cfg is None:
         _raise_invalid_max_turnover(max_turnover_cfg)
+    if isinstance(max_turnover_cfg, str):
+        _raise_invalid_max_turnover(max_turnover_cfg)
     if not isinstance(max_turnover_cfg, Mapping):
         try:
             parsed = parse_regime_turnover_caps(max_turnover_cfg, regime_settings)
