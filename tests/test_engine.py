@@ -26,6 +26,7 @@ def test_resolve_max_turnover_cap_none_message() -> None:
         )
     message = str(excinfo.value)
     assert "None" in message
+    assert "type NoneType" in message
     assert "numeric scalars: int/float/numpy numeric types, or a valid regime mapping" in message
 
 
@@ -44,4 +45,5 @@ def test_resolve_max_turnover_cap_string_message() -> None:
         )
     message = str(excinfo.value)
     assert "'abc'" in message
+    assert "type str" in message
     assert "numeric scalars: int/float/numpy numeric types, or a valid regime mapping" in message
