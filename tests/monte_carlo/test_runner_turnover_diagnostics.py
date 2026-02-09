@@ -951,7 +951,7 @@ def test_multi_period_turnover_caps_and_binding(monkeypatch: pytest.MonkeyPatch)
         price_history=price_history,
     )
 
-    with pytest.raises(CoreConfigError) as excinfo:
+    with pytest.raises(CoreConfigError, match="mystery") as excinfo:
         mismatch_runner._resolve_turnover_cap_series(
             {"mystery": 0.3},
             regimes=pd.Series(["riskon", "riskoff"], index=expected_index),
