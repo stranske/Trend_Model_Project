@@ -6,30 +6,9 @@ import pytest
 
 pytest.importorskip("langchain_core")
 
-from langchain_core.runnables import RunnableLambda  # noqa: E402
-
+from tests.test_doubles import _StructuredOutputLLM  # noqa: E402
 from trend_analysis.llm.chain import ConfigPatchVariantsChain  # noqa: E402
 from trend_analysis.llm.prompts import build_variant_patch_prompt  # noqa: E402
-
-
-class _StructuredOutputLLM(RunnableLambda):
-    def __init__(self, *, responses: list[object]) -> None:
-        self.invocation_count = 0
-        self._responses = iter(responses)
-        super().__init__(self._respond)
-
-    def supports_structured_output(self) -> bool:
-        return True
-
-    def with_structured_output(self, _schema) -> RunnableLambda:
-        return RunnableLambda(self._respond)
-
-    def _respond(self, _prompt_value, **_kwargs) -> object:
-        self.invocation_count += 1
-        response = next(self._responses)
-        if isinstance(response, BaseException):
-            raise response
-        return response
 
 
 def _valid_patch(summary: str, value: float) -> dict[str, object]:
