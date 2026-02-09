@@ -732,7 +732,7 @@ class MonteCarloRunner:
         if parsed is None:
             return None
         if not isinstance(parsed, Mapping):
-            return cast(float, parsed)
+            return parsed
 
         def _lookup(label: str | None) -> float | None:
             normalized = normalize_regime_key(label)
