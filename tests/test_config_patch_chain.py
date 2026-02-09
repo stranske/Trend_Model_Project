@@ -1,38 +1,752 @@
-"""Tests for ConfigPatchChain retry counters."""
+"""Tests for ConfigPatchChain."""
 
 from __future__ import annotations
+
+import json
+import logging
+from contextlib import contextmanager
 
 import pytest
 
 pytest.importorskip("langchain_core")
 
+import jsonschema  # noqa: E402
 from langchain_core.runnables import RunnableLambda  # noqa: E402
 
+from trend_analysis.config.patch import ConfigPatch  # noqa: E402
 from trend_analysis.llm.chain import ConfigPatchChain  # noqa: E402
 from trend_analysis.llm.prompts import build_config_patch_prompt  # noqa: E402
 
 
-class _StructuredOutputLLM(RunnableLambda):
-    def __init__(self, *, responses: list[object]) -> None:
-        self.invocation_count = 0
+class _StructuredLLM(RunnableLambda):
+    def __init__(
+        self,
+        *,
+        structured_responses: list[dict[str, object]],
+        unstructured_responses: list[str] | None = None,
+    ) -> None:
+        self.structured_calls = 0
+        self.unstructured_calls = 0
+        self._structured_iter = iter(structured_responses)
+        self._unstructured_iter = iter(unstructured_responses or [])
+        super().__init__(self._respond_unstructured)
+
+    def _respond_unstructured(self, _prompt_value, **_kwargs) -> str:
+        self.unstructured_calls += 1
+        return next(self._unstructured_iter)
+
+    def _respond_structured(self, _prompt_value, **_kwargs) -> dict[str, object]:
+        self.structured_calls += 1
+        return next(self._structured_iter)
+
+    def with_structured_output(self, _schema) -> RunnableLambda:
+        return RunnableLambda(self._respond_structured)
+
+
+class _UnsupportedStructuredLLM(RunnableLambda):
+    def __init__(self, *, responses: list[str]) -> None:
+        self.unstructured_calls = 0
         self._responses = iter(responses)
         super().__init__(self._respond)
 
-    def supports_structured_output(self) -> bool:
-        return True
+    def _respond(self, _prompt_value, **_kwargs) -> str:
+        self.unstructured_calls += 1
+        return next(self._responses)
 
     def with_structured_output(self, _schema) -> RunnableLambda:
-        return RunnableLambda(self._respond)
-
-    def _respond(self, _prompt_value, **_kwargs) -> object:
-        self.invocation_count += 1
-        response = next(self._responses)
-        if isinstance(response, BaseException):
-            raise response
-        return response
+        raise NotImplementedError("Structured output not supported.")
 
 
-def _valid_payload() -> dict[str, object]:
+def test_config_patch_chain_run_parses_patch() -> None:
+    captured: dict[str, str] = {}
+
+    def _respond(prompt_value, **_kwargs) -> str:
+        messages = prompt_value.to_messages()
+        captured["prompt"] = messages[0].content
+        payload = {
+            "operations": [
+                {
+                    "op": "set",
+                    "path": "portfolio.max_weight",
+                    "value": 0.3,
+                    "rationale": "Align with instruction",
+                }
+            ],
+            "risk_flags": [],
+            "summary": "Update max_weight",
+        }
+        return json.dumps(payload)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+    )
+
+    patch = chain.run(
+        current_config={"portfolio": {"max_weight": 0.2}},
+        instruction="Set max_weight to 0.3.",
+    )
+
+    assert patch.operations[0].path == "portfolio.max_weight"
+    assert patch.summary == "Update max_weight"
+    assert "USER INSTRUCTION" in captured["prompt"]
+
+
+def test_config_patch_chain_batch_schema_conformance() -> None:
+    total_cases = 100
+    valid_cases = 96
+    responses: list[str] = []
+    for idx in range(total_cases):
+        if idx < valid_cases:
+            payload = {
+                "operations": [
+                    {
+                        "op": "set",
+                        "path": "portfolio.max_weight",
+                        "value": round(0.2 + idx * 0.001, 3),
+                        "rationale": "Align with instruction",
+                    }
+                ],
+                "risk_flags": [],
+                "summary": f"Update max_weight {idx}",
+            }
+            responses.append(json.dumps(payload))
+        else:
+            responses.append(json.dumps({"operations": [], "risk_flags": []}))
+
+    response_iter = iter(responses)
+
+    def _respond(prompt_value, **_kwargs) -> str:
+        _ = prompt_value.to_messages()
+        return next(response_iter)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+    )
+
+    schema = ConfigPatch.json_schema()
+    validator = jsonschema.Draft202012Validator(schema)
+    valid_count = 0
+    for idx in range(total_cases):
+        prompt = chain.build_prompt(
+            current_config={"portfolio": {"max_weight": 0.2}},
+            instruction=f"Set max_weight to {0.2 + idx * 0.001:.3f}.",
+        )
+        response_text, _trace_url = chain._invoke_llm(prompt)
+        try:
+            payload = json.loads(response_text)
+        except json.JSONDecodeError:
+            continue
+        if validator.is_valid(payload):
+            valid_count += 1
+
+    assert valid_count / total_cases >= 0.95
+
+
+def test_config_patch_chain_flags_unknown_keys() -> None:
+    def _respond(_prompt_value, **_kwargs) -> str:
+        payload = {
+            "operations": [
+                {
+                    "op": "set",
+                    "path": "analysis.turbo_mode",
+                    "value": True,
+                }
+            ],
+            "risk_flags": [],
+            "summary": "Enable turbo mode.",
+        }
+        return json.dumps(payload)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={
+            "type": "object",
+            "properties": {
+                "analysis": {
+                    "type": "object",
+                    "properties": {"top_n": {"type": "integer"}},
+                }
+            },
+        },
+    )
+
+    patch = chain.run(
+        current_config={"analysis": {"top_n": 8}},
+        instruction="Enable turbo mode.",
+    )
+
+    assert patch.needs_review is True
+    assert patch.operations == []
+    assert "analysis.turbo_mode" in patch.summary
+
+
+def test_config_patch_chain_filters_unknown_keys_from_mixed_ops() -> None:
+    def _respond(_prompt_value, **_kwargs) -> str:
+        payload = {
+            "operations": [
+                {
+                    "op": "set",
+                    "path": "analysis.top_n",
+                    "value": 12,
+                },
+                {
+                    "op": "set",
+                    "path": "analysis.turbo_mode",
+                    "value": True,
+                },
+            ],
+            "risk_flags": [],
+            "summary": "Update top_n and enable turbo mode.",
+        }
+        return json.dumps(payload)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={
+            "type": "object",
+            "properties": {
+                "analysis": {
+                    "type": "object",
+                    "properties": {"top_n": {"type": "integer"}},
+                }
+            },
+        },
+    )
+
+    patch = chain.run(
+        current_config={"analysis": {"top_n": 8}},
+        instruction="Set top_n to 12 and enable turbo mode.",
+    )
+
+    assert patch.needs_review is True
+    assert len(patch.operations) == 1
+    assert patch.operations[0].path == "analysis.top_n"
+    assert "analysis.turbo_mode" in patch.summary
+
+
+def test_config_patch_chain_filters_unknown_keys_from_merge() -> None:
+    def _respond(_prompt_value, **_kwargs) -> str:
+        payload = {
+            "operations": [
+                {
+                    "op": "merge",
+                    "path": "constraints",
+                    "value": {"max_weight": 0.2, "min_weight": 0.05},
+                }
+            ],
+            "risk_flags": [],
+            "summary": "Update constraint bounds.",
+        }
+        return json.dumps(payload)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={
+            "type": "object",
+            "properties": {
+                "constraints": {"type": "object", "properties": {"max_weight": {"type": "number"}}}
+            },
+        },
+    )
+
+    patch = chain.run(
+        current_config={"constraints": {"max_weight": 0.2}},
+        instruction="Set max weight to 0.2 and min weight to 0.05.",
+    )
+
+    assert patch.needs_review is True
+    assert len(patch.operations) == 1
+    assert patch.operations[0].op == "merge"
+    assert patch.operations[0].value == {"max_weight": 0.2}
+    assert "constraints.min_weight" in patch.summary
+
+
+def test_config_patch_chain_unknown_keys_raise() -> None:
+    def _respond(prompt_value, **_kwargs) -> str:
+        _ = prompt_value.to_messages()
+        payload = {
+            "operations": [],
+            "risk_flags": [],
+            "summary": "No changes",
+            "extra_field": "unexpected",
+        }
+        return json.dumps(payload)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        chain.run(
+            current_config={"portfolio": {"max_weight": 0.2}},
+            instruction="Do nothing.",
+        )
+    message = str(excinfo.value)
+    assert "Failed to parse ConfigPatch after 2 attempts" in message
+    assert "ValidationError" in message
+
+
+def test_config_patch_chain_omits_unknown_key_instruction() -> None:
+    def _respond(prompt_value, **_kwargs) -> str:
+        _ = prompt_value.to_messages()
+        payload = {
+            "operations": [],
+            "risk_flags": [],
+            "summary": "Unknown key portfolio.unknown_setting; no changes applied.",
+        }
+        return json.dumps(payload)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+    )
+
+    patch = chain.run(
+        current_config={"portfolio": {"max_weight": 0.2}},
+        instruction="Set portfolio.unknown_setting to 0.5.",
+    )
+
+    assert patch.operations == []
+    assert "unknown key" in patch.summary.lower()
+
+
+def test_config_patch_chain_retries_on_parse_error() -> None:
+    prompts: list[str] = []
+    responses = iter(
+        [
+            "not-json",
+            json.dumps(
+                {
+                    "operations": [
+                        {
+                            "op": "set",
+                            "path": "portfolio.max_weight",
+                            "value": 0.25,
+                        }
+                    ],
+                    "risk_flags": [],
+                    "summary": "Update max_weight",
+                }
+            ),
+        ]
+    )
+
+    def _respond(prompt_value, **_kwargs) -> str:
+        messages = prompt_value.to_messages()
+        prompts.append(messages[0].content)
+        return next(responses)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+        retries=1,
+    )
+
+    patch = chain.run(
+        current_config={"portfolio": {"max_weight": 0.2}},
+        instruction="Set max_weight to 0.25.",
+    )
+
+    assert patch.summary == "Update max_weight"
+    assert len(prompts) == 2
+    assert "PREVIOUS ERROR" in prompts[1]
+    assert "ValidationError" in prompts[1]
+
+
+def test_config_patch_chain_retries_on_validation_error() -> None:
+    prompts: list[str] = []
+    responses = iter(
+        [
+            json.dumps({"operations": [], "risk_flags": []}),
+            json.dumps(
+                {
+                    "operations": [
+                        {
+                            "op": "set",
+                            "path": "portfolio.max_weight",
+                            "value": 0.25,
+                        }
+                    ],
+                    "risk_flags": [],
+                    "summary": "Update max_weight",
+                }
+            ),
+        ]
+    )
+
+    def _respond(prompt_value, **_kwargs) -> str:
+        messages = prompt_value.to_messages()
+        prompts.append(messages[0].content)
+        return next(responses)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+        retries=1,
+    )
+
+    patch = chain.run(
+        current_config={"portfolio": {"max_weight": 0.2}},
+        instruction="Set max_weight to 0.25.",
+    )
+
+    assert patch.summary == "Update max_weight"
+    assert len(prompts) == 2
+    assert "PREVIOUS ERROR" in prompts[1]
+    assert "ValidationError" in prompts[1]
+
+
+def test_config_patch_chain_retry_exhausted_raises_error() -> None:
+    def _respond(_prompt_value, **_kwargs) -> str:
+        return "not-json"
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+        retries=1,
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        chain.run(
+            current_config={"portfolio": {"max_weight": 0.2}},
+            instruction="Set max_weight to 0.25.",
+        )
+
+    message = str(excinfo.value)
+    assert "Failed to parse ConfigPatch after 2 attempts" in message
+    assert "ValidationError" in message
+
+
+def test_config_patch_chain_logs_parse_errors(caplog: pytest.LogCaptureFixture) -> None:
+    responses = iter(
+        [
+            "not-json",
+            "still-not-json",
+            json.dumps(
+                {
+                    "operations": [
+                        {
+                            "op": "set",
+                            "path": "portfolio.max_weight",
+                            "value": 0.25,
+                        }
+                    ],
+                    "risk_flags": [],
+                    "summary": "Update max_weight",
+                }
+            ),
+        ]
+    )
+
+    def _respond(_prompt_value, **_kwargs) -> str:
+        return next(responses)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+        retries=2,
+    )
+
+    with caplog.at_level(logging.WARNING, logger="trend_analysis.llm.chain"):
+        patch = chain.run(
+            current_config={"portfolio": {"max_weight": 0.2}},
+            instruction="Set max_weight to 0.25.",
+        )
+
+    assert patch.summary == "Update max_weight"
+    parse_logs = [
+        record for record in caplog.records if "ConfigPatch parse attempt" in record.message
+    ]
+    assert len(parse_logs) == 2
+    assert "attempt 1/3" in parse_logs[0].message
+    assert "ValidationError" in parse_logs[0].message
+    assert "attempt 2/3" in parse_logs[1].message
+    assert "ValidationError" in parse_logs[1].message
+
+
+def test_config_patch_chain_logs_validation_errors(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    responses = iter(
+        [
+            json.dumps({"operations": [], "risk_flags": []}),
+            json.dumps({"operations": [], "risk_flags": []}),
+            json.dumps(
+                {
+                    "operations": [
+                        {
+                            "op": "set",
+                            "path": "portfolio.max_weight",
+                            "value": 0.25,
+                        }
+                    ],
+                    "risk_flags": [],
+                    "summary": "Update max_weight",
+                }
+            ),
+        ]
+    )
+
+    def _respond(_prompt_value, **_kwargs) -> str:
+        return next(responses)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+        retries=2,
+    )
+
+    with caplog.at_level(logging.WARNING, logger="trend_analysis.llm.chain"):
+        patch = chain.run(
+            current_config={"portfolio": {"max_weight": 0.2}},
+            instruction="Set max_weight to 0.25.",
+        )
+
+    assert patch.summary == "Update max_weight"
+    parse_logs = [
+        record for record in caplog.records if "ConfigPatch parse attempt" in record.message
+    ]
+    assert len(parse_logs) == 2
+    assert "attempt 2/3" in parse_logs[-1].message
+    assert "ValidationError" in parse_logs[-1].message
+
+
+def test_config_patch_chain_logs_parse_errors_on_exhaustion(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    responses = iter(["not-json", "still-not-json", "bad-json"])
+
+    def _respond(_prompt_value, **_kwargs) -> str:
+        return next(responses)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+        retries=2,
+    )
+
+    with caplog.at_level(logging.WARNING, logger="trend_analysis.llm.chain"):
+        with pytest.raises(ValueError) as excinfo:
+            chain.run(
+                current_config={"portfolio": {"max_weight": 0.2}},
+                instruction="Set max_weight to 0.25.",
+            )
+
+    parse_logs = [
+        record for record in caplog.records if "ConfigPatch parse attempt" in record.message
+    ]
+    assert len(parse_logs) == 3
+    assert "attempt 3/3" in parse_logs[-1].message
+    assert "Failed to parse ConfigPatch after 3 attempts" in str(excinfo.value)
+    assert "ValidationError" in str(excinfo.value)
+
+
+def test_config_patch_chain_no_retry_when_retries_zero(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    responses = iter(["not-json"])
+
+    def _respond(_prompt_value, **_kwargs) -> str:
+        return next(responses)
+
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+        retries=0,
+    )
+
+    with caplog.at_level(logging.WARNING, logger="trend_analysis.llm.chain"):
+        with pytest.raises(ValueError) as excinfo:
+            chain.run(
+                current_config={"portfolio": {"max_weight": 0.2}},
+                instruction="Set max_weight to 0.25.",
+            )
+
+    parse_logs = [
+        record for record in caplog.records if "ConfigPatch parse attempt" in record.message
+    ]
+    assert len(parse_logs) == 1
+    assert "attempt 1/1" in parse_logs[0].message
+    assert "Failed to parse ConfigPatch after 1 attempts" in str(excinfo.value)
+
+
+def test_config_patch_chain_logs_langsmith_trace_url(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    def _respond(_prompt_value, **_kwargs) -> str:
+        payload = {
+            "operations": [
+                {
+                    "op": "set",
+                    "path": "portfolio.max_weight",
+                    "value": 0.3,
+                    "rationale": "Align with instruction",
+                }
+            ],
+            "risk_flags": [],
+            "summary": "Update max_weight",
+        }
+        return json.dumps(payload)
+
+    class FakeRun:
+        url = "https://example.test/trace/123"
+
+        def end(self, outputs: dict[str, str]) -> None:
+            self.outputs = outputs
+
+    @contextmanager
+    def _fake_context(**_kwargs):
+        yield FakeRun()
+
+    monkeypatch.setattr(
+        "trend_analysis.llm.tracing.langsmith_tracing_context",
+        _fake_context,
+    )
+    llm = RunnableLambda(_respond)
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+    )
+
+    with caplog.at_level(logging.INFO, logger="trend_analysis.llm.chain"):
+        _, trace_url = chain._invoke_llm("Prompt")
+
+    assert "LangSmith trace: https://example.test/trace/123" in caplog.text
+    assert trace_url == "https://example.test/trace/123"
+
+
+def test_config_patch_chain_structured_output_parses_patch() -> None:
+    payload = {
+        "operations": [
+            {
+                "op": "set",
+                "path": "portfolio.max_weight",
+                "value": 0.35,
+                "rationale": "Align with instruction",
+            }
+        ],
+        "risk_flags": [],
+        "summary": "Update max_weight",
+    }
+    llm = _StructuredLLM(structured_responses=[payload])
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+    )
+
+    patch = chain.run(
+        current_config={"portfolio": {"max_weight": 0.2}},
+        instruction="Set max_weight to 0.35.",
+    )
+
+    assert patch.summary == "Update max_weight"
+    assert llm.structured_calls == 1
+    assert llm.unstructured_calls == 0
+
+
+def test_config_patch_chain_structured_output_repairs_once() -> None:
+    invalid_payload = {
+        "operations": [],
+        "risk_flags": [],
+    }
+    valid_payload = {
+        "operations": [
+            {
+                "op": "set",
+                "path": "portfolio.max_weight",
+                "value": 0.25,
+                "rationale": "Align with instruction",
+            }
+        ],
+        "risk_flags": [],
+        "summary": "Update max_weight",
+    }
+    llm = _StructuredLLM(structured_responses=[invalid_payload, valid_payload])
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+    )
+
+    patch = chain.run(
+        current_config={"portfolio": {"max_weight": 0.2}},
+        instruction="Set max_weight to 0.25.",
+    )
+
+    assert patch.summary == "Update max_weight"
+    assert llm.structured_calls == 2
+
+
+def test_config_patch_chain_structured_output_fallbacks_to_text() -> None:
+    payload = {
+        "operations": [
+            {
+                "op": "set",
+                "path": "portfolio.max_weight",
+                "value": 0.22,
+                "rationale": "Align with instruction",
+            }
+        ],
+        "risk_flags": [],
+        "summary": "Update max_weight",
+    }
+    llm = _UnsupportedStructuredLLM(responses=[json.dumps(payload)])
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+    )
+
+    patch = chain.run(
+        current_config={"portfolio": {"max_weight": 0.2}},
+        instruction="Set max_weight to 0.22.",
+    )
+
+    assert patch.summary == "Update max_weight"
+    assert llm.unstructured_calls == 1
+
+
+def _retry_invalid_payload() -> dict[str, object]:
+    return {
+        "operations": [],
+        "risk_flags": [],
+    }
+
+
+def _retry_valid_payload() -> dict[str, object]:
     return {
         "operations": [
             {
@@ -47,27 +761,24 @@ def _valid_payload() -> dict[str, object]:
     }
 
 
-def _invalid_payload() -> dict[str, object]:
-    return {"operations": []}
-
-
-def _make_chain(responses: list[object], *, retries: int = 1) -> ConfigPatchChain:
-    llm = _StructuredOutputLLM(responses=responses)
-    return ConfigPatchChain(
+def test_structured_retry_count_initializes_to_zero() -> None:
+    llm = _StructuredLLM(structured_responses=[_retry_valid_payload()])
+    chain = ConfigPatchChain(
         llm=llm,
         prompt_builder=build_config_patch_prompt,
         schema={"type": "object"},
-        retries=retries,
     )
 
-
-def test_structured_retry_count_initializes_to_zero() -> None:
-    chain = _make_chain([_valid_payload()])
     assert chain.structured_repair_retry_count == 0
 
 
 def test_structured_retry_count_zero_on_first_attempt() -> None:
-    chain = _make_chain([_valid_payload()])
+    llm = _StructuredLLM(structured_responses=[_retry_valid_payload()])
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+    )
 
     chain.run(
         current_config={"portfolio": {"max_weight": 0.2}},
@@ -78,7 +789,15 @@ def test_structured_retry_count_zero_on_first_attempt() -> None:
 
 
 def test_structured_retry_count_one_retry() -> None:
-    chain = _make_chain([_invalid_payload(), _valid_payload()], retries=1)
+    llm = _StructuredLLM(
+        structured_responses=[_retry_invalid_payload(), _retry_valid_payload()],
+    )
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+        retries=1,
+    )
 
     chain.run(
         current_config={"portfolio": {"max_weight": 0.2}},
@@ -89,8 +808,17 @@ def test_structured_retry_count_one_retry() -> None:
 
 
 def test_structured_retry_count_multiple_retries() -> None:
-    chain = _make_chain(
-        [_invalid_payload(), _invalid_payload(), _valid_payload()],
+    llm = _StructuredLLM(
+        structured_responses=[
+            _retry_invalid_payload(),
+            _retry_invalid_payload(),
+            _retry_valid_payload(),
+        ],
+    )
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
         retries=2,
     )
 
@@ -102,9 +830,21 @@ def test_structured_retry_count_multiple_retries() -> None:
     assert chain.structured_repair_retry_count == 2
 
 
-def test_structured_retry_count_is_isolated_per_instance() -> None:
-    chain_with_retry = _make_chain([_invalid_payload(), _valid_payload()])
-    chain_without_retry = _make_chain([_valid_payload()])
+def test_structured_retry_count_isolated_per_instance() -> None:
+    llm_with_retry = _StructuredLLM(
+        structured_responses=[_retry_invalid_payload(), _retry_valid_payload()],
+    )
+    llm_without_retry = _StructuredLLM(structured_responses=[_retry_valid_payload()])
+    chain_with_retry = ConfigPatchChain(
+        llm=llm_with_retry,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+    )
+    chain_without_retry = ConfigPatchChain(
+        llm=llm_without_retry,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+    )
 
     chain_with_retry.run(
         current_config={"portfolio": {"max_weight": 0.2}},
