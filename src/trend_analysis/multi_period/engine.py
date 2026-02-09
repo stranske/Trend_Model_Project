@@ -228,7 +228,12 @@ def _resolve_max_turnover_cap(
         regime_frequency=regime_frequency,
         regime_ppy=regime_ppy,
     )
-    resolved = _resolve_regime_turnover_cap(max_turnover_cfg, regime_label, regime_settings)
+    try:
+        resolved = _resolve_regime_turnover_cap(max_turnover_cfg, regime_label, regime_settings)
+    except CoreConfigError as exc:
+        raise CoreConfigError(
+            f"max_turnover must be {allowed_types}; got {max_turnover_cfg!r}"
+        ) from exc
     if resolved is None:
         return 1.0
     return resolved
