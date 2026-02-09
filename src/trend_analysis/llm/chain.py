@@ -686,6 +686,8 @@ class ConfigPatchVariantsChain(_BaseConfigPatchChain):
                 total_attempts = max(1, self.retries + 1)
                 retry_id = f"configpatch-variants-structured-{id(structured_llm):x}"
                 for attempt in range(total_attempts):
+                    if attempt > 0:
+                        self.structured_repair_retry_count += 1
                     prompt = (
                         prompt_text
                         if attempt == 0
@@ -725,7 +727,6 @@ class ConfigPatchVariantsChain(_BaseConfigPatchChain):
                                 "Failed to parse ConfigPatchVariants after "
                                 f"{total_attempts} attempts: {format_retry_error(exc)}"
                             ) from exc
-                        self.structured_repair_retry_count += 1
             else:
 
                 def _response_provider(attempt: int, last_error: Exception | None) -> str:
