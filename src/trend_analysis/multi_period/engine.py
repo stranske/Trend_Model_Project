@@ -207,9 +207,7 @@ def _resolve_max_turnover_cap(
     allowed_types = "numeric scalars: int/float/numpy numeric types, or a valid regime mapping"
 
     def _raise_invalid_max_turnover(value: Any) -> None:
-        raise CoreConfigError(
-            f"max_turnover must be {allowed_types}; got {value!r}"
-        )
+        raise CoreConfigError(f"max_turnover must be {allowed_types}; got {value!r}")
 
     if max_turnover_cfg is None:
         _raise_invalid_max_turnover(max_turnover_cfg)

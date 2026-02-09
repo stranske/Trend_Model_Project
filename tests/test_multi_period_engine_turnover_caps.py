@@ -48,8 +48,7 @@ def test_resolve_max_turnover_cap_non_numeric_raises() -> None:
             )
         message = str(excinfo.value)
         assert (
-            "numeric scalars: int/float/numpy numeric types, or a valid regime mapping"
-            in message
+            "numeric scalars: int/float/numpy numeric types, or a valid regime mapping" in message
         )
         assert repr(value) in message
 
