@@ -1264,7 +1264,7 @@ class MonteCarloRunner:
         )
         turnover_raw = self._resolve_turnover_series(run_result, out_index)
         turnover_series = self._coerce_turnover_series(turnover_raw, out_index)
-        parsed_caps = parse_regime_turnover_caps(max_turnover, regime_settings)
+        parsed_caps = self._parse_turnover_cap_config(max_turnover, regime_settings)
         cap_series = self._resolve_turnover_cap_series_from_parsed(
             parsed_caps,
             regimes,
@@ -1338,6 +1338,13 @@ class MonteCarloRunner:
         value = cast(SupportsFloat, turnover)
         return pd.Series(float(value), index=out_index, name="turnover")
 
+    def _parse_turnover_cap_config(
+        self,
+        max_turnover: object | None,
+        regime_settings: Any | None,
+    ) -> dict[str, float] | float | None:
+        return parse_regime_turnover_caps(max_turnover, regime_settings)
+
     def _resolve_turnover_cap_series(
         self,
         max_turnover: object | None,
@@ -1346,7 +1353,7 @@ class MonteCarloRunner:
         *,
         regime_settings: Any | None,
     ) -> pd.Series | float | None:
-        parsed = parse_regime_turnover_caps(max_turnover, regime_settings)
+        parsed = self._parse_turnover_cap_config(max_turnover, regime_settings)
         return self._resolve_turnover_cap_series_from_parsed(parsed, regimes, out_index)
 
     def _resolve_turnover_cap_series_from_parsed(
