@@ -37,10 +37,7 @@ from trend_analysis.monte_carlo.strategy.sampler import (
     sample_strategy_variants,
 )
 from trend_analysis.pipeline import _resolve_sample_split
-from trend_analysis.pipeline_helpers import (
-    _resolve_regime_turnover_cap,
-    parse_regime_turnover_caps,
-)
+from trend_analysis.pipeline_helpers import parse_regime_turnover_caps
 from trend_analysis.regime_utils import alias_regime_key, normalize_regime_key
 from trend_analysis.regimes import compute_regimes, normalise_settings
 from trend_analysis.risk import periods_per_year_from_code
@@ -631,6 +628,15 @@ class MonteCarloRunner:
         )
 
     def _apply_regime_turnover_caps(self, config: ConfigType, context: _PathContext) -> None:
+        """Apply turnover-cap regime overrides to ``portfolio.max_turnover``.
+
+        Supported shapes for ``portfolio.max_turnover`` are a numeric scalar or a
+        regime mapping. Regime key aliases are normalized so ``calm``/``stress`` map
+        to the canonical ``riskon``/``riskoff`` labels. Caps are applied when a
+        regime mapping is provided and regime detection is enabled; they are
+        bypassed when regime detection is disabled or no mapping can be resolved.
+        Numeric coercion happens only in parse_regime_turnover_caps.
+        """
         portfolio = getattr(config, "portfolio", None)
         if not isinstance(portfolio, Mapping):
             return
@@ -711,10 +717,48 @@ class MonteCarloRunner:
         if regimes.empty:
             return max_turnover
         regime_label = str(regimes.iloc[-1])
-        resolved = _resolve_regime_turnover_cap(max_turnover, regime_label, settings)
+        parsed = parse_regime_turnover_caps(max_turnover, settings)
+        resolved = self._resolve_turnover_cap_from_parsed(parsed, regime_label, settings)
         if resolved is None:
             return max_turnover
         return resolved
+
+    def _resolve_turnover_cap_from_parsed(
+        self,
+        parsed: dict[str, float] | float | None,
+        regime_label: str | None,
+        settings: Any,
+    ) -> float | None:
+        if parsed is None:
+            return None
+        if not isinstance(parsed, Mapping):
+            return cast(float, parsed)
+
+        def _lookup(label: str | None) -> float | None:
+            normalized = normalize_regime_key(label)
+            if not normalized:
+                return None
+            if normalized in parsed:
+                return parsed[normalized]
+            alias_key = alias_regime_key(normalized)
+            if alias_key and alias_key in parsed:
+                return parsed[alias_key]
+            return None
+
+        if regime_label:
+            resolved = _lookup(regime_label)
+            if resolved is not None:
+                return resolved
+
+        default_label = getattr(settings, "default_label", None)
+        resolved = _lookup(default_label)
+        if resolved is not None:
+            return resolved
+
+        for fallback in ("default", "all", "any"):
+            if fallback in parsed:
+                return parsed[fallback]
+        return None
 
     def _regime_cache_key(
         self,

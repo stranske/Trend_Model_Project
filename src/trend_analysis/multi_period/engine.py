@@ -204,10 +204,11 @@ def _resolve_max_turnover_cap(
     regime_frequency: str,
     regime_ppy: float,
 ) -> float:
+    allowed_types = "numeric scalars: int/float/numpy numeric types, or a valid regime mapping"
+
     def _raise_invalid_max_turnover(value: Any) -> None:
         raise CoreConfigError(
-            "max_turnover only accepts numeric scalars (int, float, numpy numeric types) "
-            f"or a valid regime mapping; got {value!r}"
+            f"max_turnover must be {allowed_types}; got {value!r}"
         )
 
     if max_turnover_cfg is None:
@@ -217,8 +218,7 @@ def _resolve_max_turnover_cap(
             parsed = parse_regime_turnover_caps(max_turnover_cfg, regime_settings)
         except CoreConfigError as exc:
             raise CoreConfigError(
-                "max_turnover only accepts numeric scalars (int, float, numpy numeric types) "
-                f"or a valid regime mapping; got {max_turnover_cfg!r}"
+                f"max_turnover must be {allowed_types}; got {max_turnover_cfg!r}"
             ) from exc
         if parsed is None or isinstance(parsed, Mapping):
             _raise_invalid_max_turnover(max_turnover_cfg)
