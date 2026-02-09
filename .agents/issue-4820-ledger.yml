@@ -1,0 +1,315 @@
+version: 1
+issue: 4820
+base: phase-3
+branch: codex/issue-4820
+tasks:
+  - id: task-01
+    title: Refactor `MonteCarloRunner._resolve_turnover_cap_series` in `runner.py`
+      to delegate all turnover-cap series building to `parse_regime_turnover_caps`
+      or a single helper that calls it
+    status: doing
+    started_at: '2026-02-09T13:13:48Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Remove all inline numeric coercion calls from `_resolve_turnover_cap_series`
+      including `float()`, `int()`, `pd.to_numeric()`, and numpy conversion functions
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Remove all direct calls to `_resolve_regime_turnover_cap` from the `_resolve_turnover_cap_series`
+      implementation
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Remove or deprecate in `runner.py` any legacy turnover-cap conversion path
+      that resolves regime turnover caps by calling `_resolve_regime_turnover_cap`,
+      ensuring production entry points and tests use only one supported implementation
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Update `_resolve_max_turnover_cap` in `multi_period/engine.py` to raise
+      `CoreConfigError` when the input value is `None` with `repr(None)` in the message
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Update `_resolve_max_turnover_cap` in `multi_period/engine.py` to raise
+      `CoreConfigError` when the input value is a non-numeric scalar like strings
+      with `repr(value)` in the message
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Ensure all `CoreConfigError` messages from `_resolve_max_turnover_cap`
+      include the exact allowed-types statement: `numeric scalars: int/float/numpy
+      numeric types, or a valid regime mapping`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Add unit test in `tests/test_engine.py` asserting `_resolve_max_turnover_cap(None)`
+      raises `CoreConfigError` with message containing `"None"`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Add unit test in `tests/test_engine.py` asserting `_resolve_max_turnover_cap('abc')`
+      raises `CoreConfigError` with message containing `"'abc'"`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Add assertion in `tests/test_engine.py` that both error messages contain
+      the exact allowed-types statement: `numeric scalars: int/float/numpy numeric
+      types, or a valid regime mapping`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Update `runner.py` docstring for `MonteCarloRunner._apply_regime_turnover_caps`
+      to document supported turnover-cap config shapes (numeric scalar vs regime mapping)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Update `runner.py` docstring for `MonteCarloRunner._apply_regime_turnover_caps`
+      to document regime-key alias normalization with examples of `calm`/`stress`
+      mapping to `riskon`/`riskoff`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Update `runner.py` docstring for `MonteCarloRunner._apply_regime_turnover_caps`
+      to document when caps are applied vs bypassed (must include both words `applied`
+      and `bypassed`)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Update `runner.py` docstring for `MonteCarloRunner._apply_regime_turnover_caps`
+      to state that numeric coercion happens only inside `parse_regime_turnover_caps`
+      using one of these exact phrases: "numeric coercion happens only in parse_regime_turnover_caps"
+      OR "only parse_regime_turnover_caps performs numeric coercion" OR "coercion
+      is performed only by parse_regime_turnover_caps"'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Add test case to `test_multi_period_turnover_caps_and_binding` in `tests/test_multi_period_integration.py`
+      that passes turnover-cap mapping with `calm` and `stress` alias keys
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Add assertion to the alias test case that binding diagnostics contain `riskon`
+      and `riskoff` canonical regime labels
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Add assertion to `test_multi_period_turnover_caps_and_binding` that per-period
+      regime detection yields at least two distinct regime labels (e.g., `len(set(regime_labels))
+      >= 2`)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Add test case to `test_multi_period_turnover_caps_and_binding` with unknown
+      regime key containing `mystery` substring
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Add assertion to the unknown-key test case that `CoreConfigError` is raised
+      with `mystery` in the error message (case-sensitive)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: '`MonteCarloRunner._resolve_turnover_cap_series` in `runner.py` contains
+      zero direct calls to `_resolve_regime_turnover_cap` (verified by `rg "_resolve_regime_turnover_cap"
+      runner.py` showing no matches in that method)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: '`MonteCarloRunner._resolve_turnover_cap_series` in `runner.py` performs
+      zero inline numeric coercion calls: no `float(...)`, `int(...)`, `pd.to_numeric(...)`,
+      `np.float64(...)`, or `np.int64(...)` on turnover-cap config values (verified
+      by code inspection)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: '`MonteCarloRunner._resolve_turnover_cap_series` builds the regime turnover-cap
+      series by calling `parse_regime_turnover_caps` directly or via exactly one helper
+      function that itself calls `parse_regime_turnover_caps`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: No production code path from runner/engine entry points used by tests calls
+      the legacy `_resolve_regime_turnover_cap` function for turnover-cap series resolution
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: '`_resolve_max_turnover_cap(None)` raises `CoreConfigError` and the exception
+      message contains the substring `"None"` (i.e., `repr(None)`)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: '`_resolve_max_turnover_cap(None)` exception message contains the exact
+      allowed-types statement: `numeric scalars: int/float/numpy numeric types, or
+      a valid regime mapping`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: '`_resolve_max_turnover_cap(''abc'')` raises `CoreConfigError` and the
+      exception message contains the substring `"''abc''"` (i.e., `repr(''abc'')`)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: '`_resolve_max_turnover_cap(''abc'')` exception message contains the exact
+      allowed-types statement: `numeric scalars: int/float/numpy numeric types, or
+      a valid regime mapping`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: 'The docstring for `MonteCarloRunner._apply_regime_turnover_caps` contains
+      all three terms (case-insensitive): `numeric scalar`, `regime`, and `mapping`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: 'The docstring for `MonteCarloRunner._apply_regime_turnover_caps` contains
+      all four regime key terms (case-insensitive): `calm`, `stress`, `riskon`, and
+      `riskoff`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: 'The docstring for `MonteCarloRunner._apply_regime_turnover_caps` contains
+      both words (case-insensitive): `applied` and `bypassed`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: 'The docstring for `MonteCarloRunner._apply_regime_turnover_caps` contains
+      the function name `parse_regime_turnover_caps` and one of these exact phrases:
+      "numeric coercion happens only in parse_regime_turnover_caps" OR "only parse_regime_turnover_caps
+      performs numeric coercion" OR "coercion is performed only by parse_regime_turnover_caps"'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: '`test_multi_period_turnover_caps_and_binding` passes a turnover-cap regime
+      mapping using alias keys `calm` and `stress`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: '`test_multi_period_turnover_caps_and_binding` asserts that the produced
+      binding diagnostics include the canonical regime labels `riskon` and `riskoff`
+      (not relying on `calm`/`stress` as output labels)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: '`test_multi_period_turnover_caps_and_binding` asserts that per-period
+      regime detection yields at least two distinct regime labels (e.g., `len(set(regime_labels))
+      >= 2`)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: 'A test case using an unknown regime key containing the substring `mystery`
+      (e.g., `{"mystery": 0.1}`) asserts `CoreConfigError` is raised'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: The unknown-key test case asserts the error message contains `mystery`
+      (case-sensitive)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
