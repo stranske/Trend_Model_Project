@@ -737,3 +737,119 @@ def test_config_patch_chain_structured_output_fallbacks_to_text() -> None:
 
     assert patch.summary == "Update max_weight"
     assert llm.unstructured_calls == 1
+
+
+def _retry_invalid_payload() -> dict[str, object]:
+    return {
+        "operations": [],
+        "risk_flags": [],
+    }
+
+
+def _retry_valid_payload() -> dict[str, object]:
+    return {
+        "operations": [
+            {
+                "op": "set",
+                "path": "portfolio.max_weight",
+                "value": 0.4,
+                "rationale": "Align with instruction",
+            }
+        ],
+        "risk_flags": [],
+        "summary": "Update max_weight",
+    }
+
+
+def test_structured_retry_count_initializes_to_zero() -> None:
+    llm = _StructuredLLM(structured_responses=[_retry_valid_payload()])
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+    )
+
+    assert chain.structured_repair_retry_count == 0
+
+
+def test_structured_retry_count_zero_on_first_attempt() -> None:
+    llm = _StructuredLLM(structured_responses=[_retry_valid_payload()])
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+    )
+
+    chain.run(
+        current_config={"portfolio": {"max_weight": 0.2}},
+        instruction="Set max_weight to 0.4.",
+    )
+
+    assert chain.structured_repair_retry_count == 0
+
+
+def test_structured_retry_count_one_retry() -> None:
+    llm = _StructuredLLM(
+        structured_responses=[_retry_invalid_payload(), _retry_valid_payload()],
+    )
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+        retries=1,
+    )
+
+    chain.run(
+        current_config={"portfolio": {"max_weight": 0.2}},
+        instruction="Set max_weight to 0.4.",
+    )
+
+    assert chain.structured_repair_retry_count == 1
+
+
+def test_structured_retry_count_multiple_retries() -> None:
+    llm = _StructuredLLM(
+        structured_responses=[
+            _retry_invalid_payload(),
+            _retry_invalid_payload(),
+            _retry_valid_payload(),
+        ],
+    )
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+        retries=2,
+    )
+
+    chain.run(
+        current_config={"portfolio": {"max_weight": 0.2}},
+        instruction="Set max_weight to 0.4.",
+    )
+
+    assert chain.structured_repair_retry_count == 2
+
+
+def test_structured_retry_count_isolated_per_instance() -> None:
+    llm_with_retry = _StructuredLLM(
+        structured_responses=[_retry_invalid_payload(), _retry_valid_payload()],
+    )
+    llm_without_retry = _StructuredLLM(structured_responses=[_retry_valid_payload()])
+    chain_with_retry = ConfigPatchChain(
+        llm=llm_with_retry,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+    )
+    chain_without_retry = ConfigPatchChain(
+        llm=llm_without_retry,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+    )
+
+    chain_with_retry.run(
+        current_config={"portfolio": {"max_weight": 0.2}},
+        instruction="Set max_weight to 0.4.",
+    )
+
+    assert chain_with_retry.structured_repair_retry_count == 1
+    assert chain_without_retry.structured_repair_retry_count == 0
