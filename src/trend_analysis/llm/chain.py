@@ -493,7 +493,7 @@ class ConfigPatchChain(_BaseConfigPatchChain):
             structured_llm = self._structured_output_llm()
             if structured_llm is not None:
                 last_error: Exception | None = None
-                total_attempts = 2
+                total_attempts = max(1, self.retries + 1)
                 retry_id = f"configpatch-structured-{id(structured_llm):x}"
                 for attempt in range(total_attempts):
                     if attempt > 0:
@@ -639,7 +639,6 @@ class ConfigPatchVariantsChain(_BaseConfigPatchChain):
         """Invoke the LLM and parse the variant ConfigPatch response."""
 
         started_at = time.perf_counter()
-        self.structured_repair_retry_count = 0
         timestamp = datetime.now(timezone.utc)
         request_id = request_id or uuid4().hex
         prompt_text = ""
@@ -686,7 +685,7 @@ class ConfigPatchVariantsChain(_BaseConfigPatchChain):
             structured_llm = self._structured_output_llm_for(ConfigPatchVariants)
             if structured_llm is not None:
                 last_error: Exception | None = None
-                total_attempts = 2
+                total_attempts = max(1, self.retries + 1)
                 retry_id = f"configpatch-variants-structured-{id(structured_llm):x}"
                 for attempt in range(total_attempts):
                     if attempt > 0:

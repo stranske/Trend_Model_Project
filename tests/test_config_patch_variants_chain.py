@@ -1,4 +1,4 @@
-"""Tests for ConfigPatchChain retry counters."""
+"""Tests for ConfigPatchVariantsChain retry counters."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ pytest.importorskip("langchain_core")
 
 from langchain_core.runnables import RunnableLambda  # noqa: E402
 
-from trend_analysis.llm.chain import ConfigPatchChain  # noqa: E402
-from trend_analysis.llm.prompts import build_config_patch_prompt  # noqa: E402
+from trend_analysis.llm.chain import ConfigPatchVariantsChain  # noqa: E402
+from trend_analysis.llm.prompts import build_variant_patch_prompt  # noqa: E402
 
 
 class _StructuredOutputLLM(RunnableLambda):
@@ -32,30 +32,40 @@ class _StructuredOutputLLM(RunnableLambda):
         return response
 
 
-def _valid_payload() -> dict[str, object]:
+def _valid_patch(summary: str, value: float) -> dict[str, object]:
     return {
         "operations": [
             {
                 "op": "set",
                 "path": "portfolio.max_weight",
-                "value": 0.4,
+                "value": value,
                 "rationale": "Align with instruction",
             }
         ],
         "risk_flags": [],
-        "summary": "Update max_weight",
+        "summary": summary,
+    }
+
+
+def _valid_payload() -> dict[str, object]:
+    return {
+        "variants": [
+            {"label": "conservative", "patch": _valid_patch("Conservative tweak", 0.3)},
+            {"label": "baseline", "patch": _valid_patch("Baseline tweak", 0.4)},
+            {"label": "aggressive", "patch": _valid_patch("Aggressive tweak", 0.5)},
+        ]
     }
 
 
 def _invalid_payload() -> dict[str, object]:
-    return {"operations": []}
+    return {"variants": []}
 
 
-def _make_chain(responses: list[object], *, retries: int = 1) -> ConfigPatchChain:
+def _make_chain(responses: list[object], *, retries: int = 1) -> ConfigPatchVariantsChain:
     llm = _StructuredOutputLLM(responses=responses)
-    return ConfigPatchChain(
+    return ConfigPatchVariantsChain(
         llm=llm,
-        prompt_builder=build_config_patch_prompt,
+        prompt_builder=build_variant_patch_prompt,
         schema={"type": "object"},
         retries=retries,
     )
@@ -71,7 +81,7 @@ def test_structured_retry_count_zero_on_first_attempt() -> None:
 
     chain.run(
         current_config={"portfolio": {"max_weight": 0.2}},
-        instruction="Set max_weight to 0.4.",
+        instruction="Generate variants.",
     )
 
     assert chain.structured_repair_retry_count == 0
@@ -82,7 +92,7 @@ def test_structured_retry_count_one_retry() -> None:
 
     chain.run(
         current_config={"portfolio": {"max_weight": 0.2}},
-        instruction="Set max_weight to 0.4.",
+        instruction="Generate variants.",
     )
 
     assert chain.structured_repair_retry_count == 1
@@ -96,10 +106,34 @@ def test_structured_retry_count_multiple_retries() -> None:
 
     chain.run(
         current_config={"portfolio": {"max_weight": 0.2}},
-        instruction="Set max_weight to 0.4.",
+        instruction="Generate variants.",
     )
 
     assert chain.structured_repair_retry_count == 2
+
+
+def test_structured_retry_count_cumulative_across_runs() -> None:
+    chain = _make_chain(
+        [
+            _invalid_payload(),
+            _valid_payload(),
+            _invalid_payload(),
+            _invalid_payload(),
+            _valid_payload(),
+        ],
+        retries=2,
+    )
+
+    chain.run(
+        current_config={"portfolio": {"max_weight": 0.2}},
+        instruction="Generate variants.",
+    )
+    chain.run(
+        current_config={"portfolio": {"max_weight": 0.2}},
+        instruction="Generate variants again.",
+    )
+
+    assert chain.structured_repair_retry_count == 3
 
 
 def test_structured_retry_count_is_isolated_per_instance() -> None:
@@ -108,7 +142,7 @@ def test_structured_retry_count_is_isolated_per_instance() -> None:
 
     chain_with_retry.run(
         current_config={"portfolio": {"max_weight": 0.2}},
-        instruction="Set max_weight to 0.4.",
+        instruction="Generate variants.",
     )
 
     assert chain_with_retry.structured_repair_retry_count == 1
