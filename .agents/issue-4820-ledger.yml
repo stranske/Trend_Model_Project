@@ -7,10 +7,10 @@ tasks:
     title: Refactor `MonteCarloRunner._resolve_turnover_cap_series` in `runner.py`
       to delegate all turnover-cap series building to `parse_regime_turnover_caps`
       or a single helper that calls it
-    status: doing
+    status: done
     started_at: '2026-02-09T13:13:48Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-09T13:14:00Z'
+    commit: b91e10dca3ca31a3df41bafcd9bd75e633ed2b96
     notes: []
   - id: task-02
     title: Remove all inline numeric coercion calls from `_resolve_turnover_cap_series`
