@@ -9,7 +9,6 @@ from streamlit_app.components.llm_settings import (
     resolve_llm_provider_config,
 )
 
-
 _ENV_KEYS = (
     "CLAUDE_API_STRANSKE",
     "ANTHROPIC_API_KEY",

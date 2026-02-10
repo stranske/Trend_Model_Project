@@ -24,6 +24,8 @@ from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner, nl_operation_viewer
 from streamlit_app.components.llm_settings import (
     resolve_llm_provider_config as _resolve_llm_provider_config_shared,
+)
+from streamlit_app.components.llm_settings import (
     sanitize_api_key as _sanitize_api_key,
 )
 from streamlit_app.components.progress_eta import (
