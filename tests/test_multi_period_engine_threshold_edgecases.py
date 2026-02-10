@@ -499,16 +499,20 @@ def test_threshold_hold_applies_regime_turnover_cap(
     caps: list[float | None] = []
 
     def fake_resolve_turnover_cap(
-        max_turnover: dict[str, float],
+        parsed: dict[str, float] | float | None,
         regime_label: str | None,
         _settings: Any,
     ) -> float | None:
         labels.append(regime_label)
-        cap = max_turnover.get(str(regime_label)) if regime_label is not None else None
+        cap = None
+        if isinstance(parsed, dict) and regime_label is not None:
+            cap = parsed.get(str(regime_label))
+        elif isinstance(parsed, float):
+            cap = parsed
         caps.append(cap)
         return cap
 
-    monkeypatch.setattr(mp_engine, "_resolve_regime_turnover_cap", fake_resolve_turnover_cap)
+    monkeypatch.setattr(mp_engine, "_resolve_turnover_cap_from_parsed", fake_resolve_turnover_cap)
 
     results = mp_engine.run(cfg, df=df)
 

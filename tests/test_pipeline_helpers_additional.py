@@ -29,7 +29,7 @@ from trend_analysis.pipeline import (
     single_period_run,
 )
 from trend_analysis.pipeline_helpers import (
-    _resolve_regime_turnover_cap,
+    _resolve_turnover_cap_from_parsed,
     parse_regime_turnover_caps,
 )
 from trend_analysis.signals import TrendSpec
@@ -159,49 +159,74 @@ def test_build_trend_spec_uses_vol_adjust_defaults() -> None:
     assert spec.zscore is True
 
 
-def test_resolve_regime_turnover_cap_matches_labels() -> None:
-    settings = SimpleNamespace(default_label=None)
-    caps = {"calm": 0.15, "stress": 0.08}
+def test_resolve_turnover_cap_from_parsed_matches_labels() -> None:
+    settings = SimpleNamespace(
+        risk_on_label="calm",
+        risk_off_label="stress",
+        default_label=None,
+    )
+    parsed = parse_regime_turnover_caps({"calm": 0.15, "stress": 0.08}, settings)
 
-    assert _resolve_regime_turnover_cap(caps, "calm", settings) == pytest.approx(0.15)
-    assert _resolve_regime_turnover_cap(caps, "stress", settings) == pytest.approx(0.08)
-
-
-def test_resolve_regime_turnover_cap_uses_default_key() -> None:
-    settings = SimpleNamespace(default_label=None)
-    caps = {"default": 0.2, "calm": 0.15}
-
-    assert _resolve_regime_turnover_cap(caps, "unknown", settings) == pytest.approx(0.2)
+    assert _resolve_turnover_cap_from_parsed(parsed, "calm", settings) == pytest.approx(0.15)
+    assert _resolve_turnover_cap_from_parsed(parsed, "stress", settings) == pytest.approx(0.08)
 
 
-def test_resolve_regime_turnover_cap_missing_default_raises() -> None:
-    settings = SimpleNamespace(default_label=None)
-    caps = {"calm": 0.15}
+def test_resolve_turnover_cap_from_parsed_uses_default_key() -> None:
+    settings = SimpleNamespace(
+        risk_on_label="calm",
+        risk_off_label="stress",
+        default_label=None,
+    )
+    parsed = parse_regime_turnover_caps({"default": 0.2, "calm": 0.15}, settings)
+
+    assert _resolve_turnover_cap_from_parsed(parsed, "unknown", settings) == pytest.approx(0.2)
+
+
+def test_resolve_turnover_cap_from_parsed_missing_default_raises() -> None:
+    settings = SimpleNamespace(
+        risk_on_label="calm",
+        risk_off_label="stress",
+        default_label=None,
+    )
+    parsed = parse_regime_turnover_caps({"calm": 0.15}, settings)
 
     with pytest.raises(KeyError, match="default"):
-        _resolve_regime_turnover_cap(caps, "stress", settings)
+        _resolve_turnover_cap_from_parsed(parsed, "stress", settings)
 
 
-def test_resolve_regime_turnover_cap_type_error_on_non_float() -> None:
-    settings = SimpleNamespace(default_label=None)
+def test_parse_regime_turnover_caps_type_error_on_non_float() -> None:
+    settings = SimpleNamespace(
+        risk_on_label="calm",
+        risk_off_label="stress",
+        default_label=None,
+    )
 
     with pytest.raises(CoreConfigError, match="max_turnover"):
-        _resolve_regime_turnover_cap({"calm": "fast"}, "calm", settings)
+        parse_regime_turnover_caps({"calm": "fast"}, settings)
 
 
-def test_resolve_regime_turnover_cap_detects_normalized_collisions() -> None:
-    settings = SimpleNamespace(default_label=None)
+def test_parse_regime_turnover_caps_detects_normalized_collisions() -> None:
+    settings = SimpleNamespace(
+        risk_on_label="calm",
+        risk_off_label="stress",
+        default_label=None,
+    )
 
     with pytest.raises(CoreConfigError, match="normalization/aliasing"):
-        _resolve_regime_turnover_cap({"Risk On": 0.1, "risk_on": 0.2}, "risk_on", settings)
+        parse_regime_turnover_caps({"Risk On": 0.1, "risk_on": 0.2}, settings)
 
 
-def test_resolve_regime_turnover_cap_resolves_per_period() -> None:
-    settings = SimpleNamespace(default_label=None)
-    caps = {"calm": 0.15, "stress": 0.08}
+def test_resolve_turnover_cap_from_parsed_resolves_per_period() -> None:
+    settings = SimpleNamespace(
+        risk_on_label="calm",
+        risk_off_label="stress",
+        default_label=None,
+    )
+    parsed = parse_regime_turnover_caps({"calm": 0.15, "stress": 0.08}, settings)
 
     resolved = [
-        _resolve_regime_turnover_cap(caps, label, settings) for label in ("calm", "stress", "calm")
+        _resolve_turnover_cap_from_parsed(parsed, label, settings)
+        for label in ("calm", "stress", "calm")
     ]
 
     assert resolved == [pytest.approx(0.15), pytest.approx(0.08), pytest.approx(0.15)]

@@ -4,13 +4,16 @@ from typing import Any, Mapping
 
 import pandas as pd
 
+from trend.config_schema import CoreConfigError
+
 from .core.rank_selection import RiskStatsConfig
 from .diagnostics import AnalysisResult, PipelineResult
 from .pipeline_helpers import (
     _apply_regime_overrides,
     _apply_regime_weight_overrides,
     _resolve_regime_label,
-    _resolve_regime_turnover_cap,
+    _resolve_turnover_cap_from_parsed,
+    parse_regime_turnover_caps,
 )
 from .signals import TrendSpec
 from .stages import portfolio as portfolio_stage
@@ -100,8 +103,12 @@ def _run_analysis_with_diagnostics(
         settings=regime_settings,
         regime_cfg=regime_cfg,
     )
-    resolved_max_turnover = _resolve_regime_turnover_cap(
-        max_turnover,
+    try:
+        parsed_turnover = parse_regime_turnover_caps(max_turnover, regime_settings)
+    except CoreConfigError:
+        parsed_turnover = None
+    resolved_max_turnover = _resolve_turnover_cap_from_parsed(
+        parsed_turnover,
         regime_label,
         regime_settings,
     )
