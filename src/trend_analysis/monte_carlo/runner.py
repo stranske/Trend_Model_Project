@@ -4,13 +4,24 @@ Canonical ``nav_paths`` schema (used by Monte Carlo reporting/export):
 
 - Type: ``pandas.DataFrame`` with one column per simulated path.
 - Index: datetime-like period-end labels (``DatetimeIndex`` preferred). Each row
-  represents a simulation period end date.
+  represents a simulation period end date and should be aligned across paths.
 - Values: floating-point NAV values normalized to start at ``1.0`` for every
   path (first row equals 1.0 per column).
 - Columns: either plain path identifiers (e.g. ``0, 1, 2, ...``) or a
-  ``MultiIndex`` with levels ``path`` and ``asset``. When using a MultiIndex,
-  the ``path`` level carries the path id and the ``asset`` level must contain
-  ``"NAV"`` for the NAV series.
+  ``MultiIndex`` with levels ``path`` and ``asset``.
+  - ``path``: the integer path identifier.
+  - ``asset``: the asset label. For NAV paths this must be ``"NAV"``.
+
+Example (plain columns):
+```
+index = DatetimeIndex(["2024-01-31", "2024-02-29"], name="period")
+columns = Index([0, 1], name="path")
+```
+
+Example (MultiIndex columns):
+```
+columns = MultiIndex.from_product([[0, 1], ["NAV"]], names=["path", "asset"])
+```
 """
 
 from __future__ import annotations
@@ -1444,6 +1455,7 @@ class MonteCarloRunner:
             nav = evaluation.nav_series
             if not isinstance(nav, pd.Series) or nav.empty:
                 continue
+            # Enforce canonical NAV normalization: each path must start at 1.0.
             if not np.isclose(nav.iloc[0], 1.0, atol=NUMERICAL_TOLERANCE_LOW):
                 self._logger.debug(
                     "nav_paths: path %s did not normalize to 1.0; skipping", evaluation.path_id
@@ -1451,6 +1463,7 @@ class MonteCarloRunner:
                 continue
             if index_ref is None:
                 index_ref = nav.index
+            # All NAV series must share the same datetime-like index.
             elif not nav.index.equals(index_ref):
                 self._logger.debug(
                     "nav_paths: index mismatch for path %s; skipping", evaluation.path_id
@@ -1460,8 +1473,10 @@ class MonteCarloRunner:
         if not paths:
             return pd.DataFrame()
         frame = pd.DataFrame(paths)
+        # Coerce to DatetimeIndex for canonical period-end semantics.
         frame.index = pd.DatetimeIndex(frame.index)
         frame.sort_index(inplace=True)
+        # Ensure columns support either plain path ids or MultiIndex (path, asset="NAV").
         frame = self._coerce_nav_paths_columns(frame)
         return frame
 
@@ -1470,12 +1485,14 @@ class MonteCarloRunner:
         if isinstance(frame.columns, pd.MultiIndex):
             names = list(frame.columns.names)
             nlevels = frame.columns.nlevels
+            # Ensure a "path" level exists (defaults to the first level).
             path_level = names.index("path") if "path" in names else 0
             if len(names) <= path_level:
                 names.extend([None] * (path_level + 1 - len(names)))
             names[path_level] = "path"
             asset_level = names.index("asset") if "asset" in names else (1 if nlevels > 1 else None)
             if asset_level is None:
+                # Append an "asset" level containing NAV when absent.
                 arrays = [frame.columns.get_level_values(i) for i in range(nlevels)]
                 arrays.append(pd.Index(["NAV"] * len(frame.columns)))
                 names.append("asset")
@@ -1487,6 +1504,7 @@ class MonteCarloRunner:
             frame.columns = frame.columns.set_names(names)
             assets = frame.columns.get_level_values(asset_level)
             if not (assets == "NAV").all():
+                # Force asset labels to NAV for fan chart compatibility.
                 arrays = [frame.columns.get_level_values(i) for i in range(nlevels)]
                 arrays[asset_level] = pd.Index(["NAV"] * len(frame.columns))
                 frame.columns = pd.MultiIndex.from_arrays(arrays, names=frame.columns.names)
