@@ -31,9 +31,7 @@ def _select_terminal_values(
         names = [name or "" for name in frame.columns.names]
         unexpected = [name for name in names if name not in {"", "asset", "path"}]
         if unexpected:
-            raise ValueError(
-                "nav_paths MultiIndex levels must be named 'asset' and/or 'path'"
-            )
+            raise ValueError("nav_paths MultiIndex levels must be named 'asset' and/or 'path'")
         if "asset" in names:
             asset_level = names.index("asset")
             assets = frame.columns.get_level_values(asset_level)
