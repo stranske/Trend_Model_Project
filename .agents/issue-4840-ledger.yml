@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Update `streamlit_app/components/llm_settings.py` to resolve the Anthropic
       API key from `CLAUDE_API_STRANSKE` as the primary env var when provider is `anthropic`.
-    status: doing
+    status: done
     started_at: '2026-02-10T08:41:48Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-10T08:41:57Z'
+    commit: d9f61840c547f196698a1a38776220eced36b127
     notes: []
   - id: task-02
     title: Add fallback resolution in `streamlit_app/components/llm_settings.py` to
