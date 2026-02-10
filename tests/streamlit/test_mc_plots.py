@@ -56,6 +56,21 @@ def test_path_distribution_chart_uses_terminal_metric() -> None:
     assert fig.data[0].type == "histogram"
 
 
+def test_path_distribution_chart_resolves_terminal_alias() -> None:
+    results = pd.DataFrame(
+        {
+            "strategy": ["A", "A", "B", "B"],
+            "final_wealth": [120.0, 118.0, 110.0, 112.0],
+        }
+    )
+
+    fig = mc_plots.path_distribution_chart(results)
+
+    assert len(fig.data) >= 1
+    assert fig.data[0].type == "histogram"
+    assert fig.layout.xaxis.title.text == "Final Wealth"
+
+
 def test_risk_return_chart_builds_scatter() -> None:
     results = pd.DataFrame(
         {
@@ -112,6 +127,23 @@ def test_render_path_distribution_warns_on_missing_strategy(
     assert len(fig.data) == 0
     assert stub.warning_messages
     assert "Path distribution chart unavailable" in stub.warning_messages[0]
+
+
+def test_render_path_distribution_warns_on_non_numeric_terminal_metric(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stub = _StreamlitStub()
+    monkeypatch.setattr(mc_plots, "st", stub)
+
+    results = pd.DataFrame({"strategy": ["A", "B"], "terminal_wealth": ["bad", "data"]})
+
+    fig = mc_plots.render_path_distribution_chart(results)
+
+    assert len(fig.data) == 0
+    assert stub.warning_messages
+    assert "has no numeric values" in stub.warning_messages[0]
+    assert stub.plotly_calls
+    assert stub.plotly_calls[0][1] is True
 
 
 def test_render_risk_return_warns_on_missing_metrics(

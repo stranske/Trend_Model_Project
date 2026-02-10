@@ -300,3 +300,4 @@ tasks:
     commit: ''
     notes:
       - 'Local validation passed: pytest tests/streamlit/test_mc_page.py tests/streamlit/test_mc_plots.py -m "not slow".'
+      - 'Additional local validation passed: pytest tests/streamlit/test_mc_plots.py tests/streamlit/test_mc_page.py -m "not slow" (25 passed).'
