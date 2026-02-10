@@ -137,7 +137,7 @@ def _filter_results_by_fold(results: pd.DataFrame, selection: str | None) -> pd.
     return results
 
 
-def _extract_nav_paths(results: object, *, fold_id: int | None) -> pd.DataFrame:
+def _extract_nav_paths(results: object, *, fold_id: int | None = None) -> pd.DataFrame:
     if hasattr(results, "nav_paths"):
         nav_paths = getattr(results, "nav_paths")
         if isinstance(nav_paths, pd.DataFrame):
