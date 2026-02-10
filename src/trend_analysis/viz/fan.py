@@ -7,7 +7,14 @@ from typing import Iterable, Sequence
 import pandas as pd
 import plotly.graph_objects as go
 
-from .utils import DEFAULT_COLORS, coerce_frame, ensure_non_empty, hex_to_rgba, quantile_bands, quantiles_over_columns
+from .utils import (
+    DEFAULT_COLORS,
+    coerce_frame,
+    ensure_non_empty,
+    hex_to_rgba,
+    quantile_bands,
+    quantiles_over_columns,
+)
 
 DEFAULT_QUANTILES: tuple[float, ...] = (0.1, 0.25, 0.5, 0.75, 0.9)
 
