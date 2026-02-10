@@ -7,10 +7,10 @@ tasks:
     title: Create `src/trend_analysis/viz/__init__.py` with a minimal initializer
       that does not import `streamlit` and does not import viz implementation modules
       (`fan`, `path_dist`, `risk_return`) at import time
-    status: doing
+    status: done
     started_at: '2026-02-10T20:52:06Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-10T20:52:15Z'
+    commit: df7feff33f76dc7577afd4aafb9e358afdae0262
     notes: []
   - id: task-02
     title: Add `tests/test_viz_package_import.py` to import `trend_analysis.viz` and
