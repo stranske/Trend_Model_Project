@@ -830,6 +830,37 @@ def test_structured_retry_count_multiple_retries() -> None:
     assert chain.structured_repair_retry_count == 2
 
 
+def test_structured_repair_retry_count_accumulates_across_runs() -> None:
+    llm = _StructuredLLM(
+        structured_responses=[
+            _retry_invalid_payload(),
+            _retry_valid_payload(),
+            _retry_invalid_payload(),
+            _retry_valid_payload(),
+        ],
+    )
+    chain = ConfigPatchChain(
+        llm=llm,
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+        retries=1,
+    )
+
+    chain.run(
+        current_config={"portfolio": {"max_weight": 0.2}},
+        instruction="Set max_weight to 0.4.",
+    )
+
+    assert chain.structured_repair_retry_count == 1
+
+    chain.run(
+        current_config={"portfolio": {"max_weight": 0.2}},
+        instruction="Set max_weight to 0.4.",
+    )
+
+    assert chain.structured_repair_retry_count == 2
+
+
 def test_structured_retry_count_isolated_per_instance() -> None:
     llm_with_retry = _StructuredLLM(
         structured_responses=[_retry_invalid_payload(), _retry_valid_payload()],
