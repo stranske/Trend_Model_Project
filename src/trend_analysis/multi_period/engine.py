@@ -40,7 +40,7 @@ from ..pipeline import (
     _resolve_risk_free_column,
     _resolve_target_vol,
 )
-from ..pipeline_helpers import _resolve_regime_turnover_cap, parse_regime_turnover_caps
+from ..pipeline_helpers import _resolve_turnover_cap_from_parsed, parse_regime_turnover_caps
 from ..portfolio import apply_weight_policy
 from ..rebalancing import CashPolicy, apply_rebalancing_strategies
 from ..regimes import compute_regimes, normalise_settings
@@ -234,8 +234,9 @@ def _resolve_max_turnover_cap(
         regime_ppy=regime_ppy,
     )
     try:
-        resolved = _resolve_regime_turnover_cap(max_turnover_cfg, regime_label, regime_settings)
-    except CoreConfigError as exc:
+        parsed = parse_regime_turnover_caps(max_turnover_cfg, regime_settings)
+        resolved = _resolve_turnover_cap_from_parsed(parsed, regime_label, regime_settings)
+    except (CoreConfigError, KeyError) as exc:
         _raise_invalid_max_turnover(max_turnover_cfg, cause=exc)
     if resolved is None:
         return 1.0

@@ -951,14 +951,9 @@ def test_multi_period_turnover_caps_and_binding(monkeypatch: pytest.MonkeyPatch)
         price_history=price_history,
     )
 
-    with pytest.raises(CoreConfigError, match="mystery") as excinfo:
-        mismatch_runner._resolve_turnover_cap_series(
-            {"mystery": 0.3},
-            regimes=pd.Series(["riskon", "riskoff"], index=expected_index),
-            out_index=expected_index,
-            regime_settings=normalise_settings(base_config["regime"]),
-        )
-    assert "mystery" in str(excinfo.value)
+    mismatch_results = mismatch_runner.run(jobs=1)
+    assert mismatch_results.errors
+    assert any("mystery" in error.message for error in mismatch_results.errors)
 
 
 def test_runner_normalizes_regime_turnover_caps(monkeypatch) -> None:
@@ -1066,11 +1061,11 @@ def test_runner_uses_period_results_for_binding(monkeypatch) -> None:
     period_results = [
         {
             "period": ("2020-11", "2020-12", "2021-01", "2021-01"),
-            "regime_labels_out": pd.Series(["calm"], index=[0]),
+            "regime_labels_out": pd.Series(["Risk-On"], index=[0]),
         },
         {
             "period": ("2020-12", "2021-01", "2021-02", "2021-02"),
-            "regime_labels_out": pd.Series(["stress"], index=[0]),
+            "regime_labels_out": pd.Series(["Risk-Off"], index=[0]),
         },
     ]
     metrics = pd.DataFrame({"cagr": [0.1]}, index=["user_weight"])
@@ -1119,7 +1114,7 @@ def test_runner_resolves_guard_regime_turnover_caps(monkeypatch) -> None:
     dates = pd.date_range("2021-03-31", periods=3, freq="ME")
     returns = pd.DataFrame({"Date": dates, "Asset": [0.01, 0.02, 0.03]})
     turnover = pd.Series([0.1, 0.08, 0.2], index=dates, name="turnover")
-    regimes = pd.Series(["calm", "stress", "calm"], index=dates, name="regime")
+    regimes = pd.Series(["Risk-On", "Risk-Off", "Risk-On"], index=dates, name="regime")
     out_scaled = pd.DataFrame({"Asset": [0.01, 0.02, 0.03]}, index=dates)
     metrics = pd.DataFrame({"cagr": [0.1]}, index=["user_weight"])
     run_result = RunResult(
@@ -1185,7 +1180,7 @@ def test_runner_resolves_regime_caps_per_period(monkeypatch) -> None:
     dates = pd.date_range("2021-06-30", periods=3, freq="ME")
     returns = pd.DataFrame({"Date": dates, "Asset": [0.01, 0.02, 0.03]})
     turnover = pd.Series([0.09, 0.09, 0.11], index=dates, name="turnover")
-    regimes = pd.Series(["calm", "stress", "calm"], index=dates, name="regime")
+    regimes = pd.Series(["Risk-On", "Risk-Off", "Risk-On"], index=dates, name="regime")
     out_scaled = pd.DataFrame({"Asset": [0.01, 0.02, 0.03]}, index=dates)
     metrics = pd.DataFrame({"cagr": [0.1]}, index=["user_weight"])
     run_result = RunResult(
@@ -1400,6 +1395,7 @@ def test_results_include_turnover_binding_diagnostics(monkeypatch) -> None:
             "seed": [123, 123],
             "period": list(dates),
             "turnover": [0.1, 0.25],
+            "turnover_cap_regime": [None, None],
             "turnover_cap_binding": [False, True],
         }
     )
@@ -1450,6 +1446,7 @@ def test_runner_diagnostics_frame_reports_binding(monkeypatch) -> None:
             "seed": [123, 123],
             "period": list(dates),
             "turnover": [0.1, 0.3],
+            "turnover_cap_regime": [None, None],
             "turnover_cap_binding": [False, True],
         }
     )
@@ -1508,6 +1505,7 @@ def test_results_include_binding_for_multiple_paths(monkeypatch) -> None:
             "seed": [123, 123, 321, 321],
             "period": list(dates) + list(dates),
             "turnover": [0.05, 0.15, 0.08, 0.04],
+            "turnover_cap_regime": [None, None, None, None],
             "turnover_cap_binding": [False, True, True, False],
         }
     )
@@ -1555,6 +1553,7 @@ def test_results_include_binding_from_evaluation_fields(monkeypatch) -> None:
             "seed": [55, 55],
             "period": list(dates),
             "turnover": [0.09, 0.2],
+            "turnover_cap_regime": [None, None],
             "turnover_cap_binding": [False, True],
         }
     )
@@ -1618,6 +1617,7 @@ def test_build_diagnostics_frame_expands_binding_indicator() -> None:
             "seed": [7, 7, 7],
             "period": list(dates),
             "turnover": [0.05, 0.2, 0.1],
+            "turnover_cap_regime": [None, None, None],
             "turnover_cap_binding": [True, True, True],
         }
     )
@@ -1649,6 +1649,7 @@ def test_build_diagnostics_frame_expands_false_binding_indicator() -> None:
             "seed": [12, 12],
             "period": list(dates),
             "turnover": [0.04, 0.06],
+            "turnover_cap_regime": [None, None],
             "turnover_cap_binding": [False, False],
         }
     )
@@ -1681,6 +1682,7 @@ def test_build_diagnostics_frame_preserves_fold_id_and_binding() -> None:
             "seed": [21, 21],
             "period": list(dates),
             "turnover": [0.08, 0.12],
+            "turnover_cap_regime": [None, None],
             "turnover_cap_binding": [True, False],
         }
     )
@@ -1712,6 +1714,7 @@ def test_build_diagnostics_frame_includes_binding_without_turnover() -> None:
             "seed": [11, 11],
             "period": list(dates),
             "turnover": [None, None],
+            "turnover_cap_regime": [None, None],
             "turnover_cap_binding": [True, False],
         }
     )
@@ -1743,6 +1746,7 @@ def test_build_diagnostics_frame_includes_turnover_without_binding() -> None:
             "seed": [17, 17],
             "period": list(dates),
             "turnover": [0.11, 0.09],
+            "turnover_cap_regime": [None, None],
             "turnover_cap_binding": [None, None],
         }
     )
@@ -1788,6 +1792,7 @@ def test_build_diagnostics_frame_includes_binding_for_multiple_paths() -> None:
             "seed": [5, 5, 6, 6],
             "period": list(dates) + list(dates),
             "turnover": [0.05, 0.1, 0.2, 0.3],
+            "turnover_cap_regime": [None, None, None, None],
             "turnover_cap_binding": [False, False, True, False],
         }
     )
@@ -1821,6 +1826,7 @@ def test_build_diagnostics_frame_uses_evaluation_fields() -> None:
             "seed": [19, 19],
             "period": list(dates),
             "turnover": [0.07, 0.09],
+            "turnover_cap_regime": [None, None],
             "turnover_cap_binding": [False, True],
         }
     )
@@ -1854,6 +1860,7 @@ def test_build_diagnostics_frame_uses_evaluation_binding_with_diagnostic_turnove
             "seed": [29, 29],
             "period": list(dates),
             "turnover": [0.12, 0.18],
+            "turnover_cap_regime": [None, None],
             "turnover_cap_binding": [True, False],
         }
     )
@@ -1885,6 +1892,7 @@ def test_build_diagnostics_frame_expands_scalar_turnover_with_binding_series() -
             "seed": [13, 13],
             "period": list(dates),
             "turnover": [0.2, 0.2],
+            "turnover_cap_regime": [None, None],
             "turnover_cap_binding": [True, False],
         }
     )
@@ -1917,6 +1925,7 @@ def test_build_diagnostics_frame_expands_scalar_binding_from_evaluation() -> Non
             "seed": [31, 31],
             "period": list(dates),
             "turnover": [0.14, 0.16],
+            "turnover_cap_regime": [None, None],
             "turnover_cap_binding": [True, True],
         }
     )
@@ -2120,6 +2129,7 @@ def test_build_diagnostics_frame_uses_evaluation_turnover_with_scalar_binding() 
             "seed": [37, 37],
             "period": list(dates),
             "turnover": [0.05, 0.09],
+            "turnover_cap_regime": [None, None],
             "turnover_cap_binding": [False, False],
         }
     )
