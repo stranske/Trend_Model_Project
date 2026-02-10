@@ -21,6 +21,31 @@ _TERMINAL_ALIASES = (
     "terminal_wealth",
     "nav",
 )
+_RETURN_ALIASES = (
+    "return",
+    "annualreturn",
+    "expectedreturn",
+    "meanreturn",
+    "cagr",
+    "terminalwealth",
+    "terminalvalue",
+    "finalwealth",
+    "endingwealth",
+    "terminal_wealth",
+    "nav",
+)
+_RISK_ALIASES = (
+    "volatility",
+    "vol",
+    "stdev",
+    "stddev",
+    "sigma",
+    "risk",
+    "maxdrawdown",
+    "maxdd",
+    "drawdown",
+    "max_drawdown",
+)
 
 
 def _canonical_metric(name: str) -> str:
@@ -91,6 +116,24 @@ def _select_metric_name(results_frame: pd.DataFrame, metric: str | None) -> str 
     return metric_name if metric_name in results_frame.columns else None
 
 
+def _select_metric_by_aliases(
+    results_frame: pd.DataFrame,
+    aliases: Sequence[str],
+    *,
+    fallback_numeric: bool = True,
+) -> str | None:
+    metric_names = [str(col) for col in results_frame.columns if col != "strategy"]
+    metric_name = _resolve_metric(metric_names, aliases)
+    if metric_name is None and fallback_numeric:
+        numeric_cols = [
+            col
+            for col in results_frame.columns
+            if col != "strategy" and pd.api.types.is_numeric_dtype(results_frame[col])
+        ]
+        metric_name = numeric_cols[0] if numeric_cols else None
+    return metric_name if metric_name in results_frame.columns else None
+
+
 def _metric_warning_message(results: Any, metric: str | None, label: str) -> str | None:
     results_frame = _extract_results_frame(results)
     if results_frame.empty:
@@ -103,6 +146,33 @@ def _metric_warning_message(results: Any, metric: str | None, label: str) -> str
         if metric:
             return f"{label} unavailable: required column '{metric}' is missing."
         return f"{label} unavailable: no numeric metric columns were found."
+
+    metric_values = pd.to_numeric(results_frame[metric_name], errors="coerce")
+    if metric_values.dropna().empty:
+        return f"{label} unavailable: column '{metric_name}' has no numeric values."
+    return None
+
+
+def _metric_warning_message_for_aliases(
+    results: Any,
+    aliases: Sequence[str],
+    label: str,
+    *,
+    fallback_numeric: bool = True,
+) -> str | None:
+    results_frame = _extract_results_frame(results)
+    if results_frame.empty:
+        return f"{label} unavailable: results frame is missing."
+    if "strategy" not in results_frame.columns:
+        return f"{label} unavailable: required column 'strategy' is missing."
+
+    metric_name = _select_metric_by_aliases(
+        results_frame,
+        aliases,
+        fallback_numeric=fallback_numeric,
+    )
+    if metric_name is None:
+        return f"{label} unavailable: required metric columns were not found."
 
     metric_values = pd.to_numeric(results_frame[metric_name], errors="coerce")
     if metric_values.dropna().empty:
@@ -161,6 +231,79 @@ def render_sharpe_histogram(
     if not chart.data:
         warning = _metric_warning_message(results, metric, "Sharpe distribution chart")
         st.warning(warning or "Sharpe distribution chart unavailable: no data to display.")
+    st.plotly_chart(chart, use_container_width=True)
+    return chart
+
+
+def path_distribution_chart(
+    results: Any,
+    *,
+    metric: str | None = None,
+    max_bins: int = 40,
+    max_strategies: int = 8,
+) -> go.Figure:
+    """Return a histogram chart of terminal path outcomes."""
+
+    results_frame = _extract_results_frame(results)
+    if results_frame.empty or "strategy" not in results_frame.columns:
+        return _empty_chart()
+
+    metric_name = metric if metric and metric in results_frame.columns else None
+    if metric_name is None:
+        metric_name = _select_metric_by_aliases(results_frame, _TERMINAL_ALIASES)
+    if metric_name is None:
+        return _empty_chart()
+
+    frame = results_frame[["strategy", metric_name]].copy()
+    frame = frame.rename(columns={"strategy": "Strategy", metric_name: "Value"})
+    frame["Value"] = pd.to_numeric(frame["Value"], errors="coerce")
+    frame = frame.dropna(subset=["Value"])
+    if frame.empty:
+        return _empty_chart()
+
+    top_strategies = frame["Strategy"].value_counts().index[:max_strategies]
+    frame = frame[frame["Strategy"].isin(top_strategies)]
+
+    fig = px.histogram(
+        frame,
+        x="Value",
+        color="Strategy",
+        nbins=max_bins,
+        color_discrete_sequence=PALETTE,
+    )
+    fig.update_traces(
+        opacity=0.6, hovertemplate="Strategy=%{legendgroup}<br>Count=%{y}<extra></extra>"
+    )
+    fig.update_layout(
+        height=260,
+        xaxis_title=metric_name.replace("_", " ").title(),
+        yaxis_title="Count",
+        legend_title_text="Strategy",
+        bargap=0.05,
+    )
+    return fig
+
+
+def render_path_distribution_chart(
+    results: Any,
+    *,
+    metric: str | None = None,
+    max_bins: int = 40,
+    max_strategies: int = 8,
+) -> go.Figure:
+    chart = path_distribution_chart(
+        results,
+        metric=metric,
+        max_bins=max_bins,
+        max_strategies=max_strategies,
+    )
+    if not chart.data:
+        warning = _metric_warning_message_for_aliases(
+            results,
+            _TERMINAL_ALIASES,
+            "Path distribution chart",
+        )
+        st.warning(warning or "Path distribution chart unavailable: no data to display.")
     st.plotly_chart(chart, use_container_width=True)
     return chart
 
@@ -420,5 +563,123 @@ def render_cdf_plot(
     if not chart.data:
         warning = _metric_warning_message(results, metric, "Outcome CDF chart")
         st.warning(warning or "Outcome CDF chart unavailable: no data to display.")
+    st.plotly_chart(chart, use_container_width=True)
+    return chart
+
+
+def risk_return_chart(
+    results: Any,
+    *,
+    return_metric: str | None = None,
+    risk_metric: str | None = None,
+    max_strategies: int = 12,
+) -> go.Figure:
+    """Return a risk-return scatter plot across strategies."""
+
+    results_frame = _extract_results_frame(results)
+    if results_frame.empty or "strategy" not in results_frame.columns:
+        return _empty_chart()
+
+    numeric_cols = [
+        col
+        for col in results_frame.columns
+        if col != "strategy" and pd.api.types.is_numeric_dtype(results_frame[col])
+    ]
+    return_metric_name = (
+        return_metric if return_metric and return_metric in results_frame.columns else None
+    )
+    if return_metric_name is None:
+        return_metric_name = _select_metric_by_aliases(
+            results_frame,
+            _RETURN_ALIASES,
+            fallback_numeric=False,
+        )
+    if return_metric_name is None and numeric_cols:
+        return_metric_name = numeric_cols[0]
+
+    risk_metric_name = risk_metric if risk_metric and risk_metric in results_frame.columns else None
+    if risk_metric_name is None:
+        risk_metric_name = _select_metric_by_aliases(
+            results_frame,
+            _RISK_ALIASES,
+            fallback_numeric=False,
+        )
+    if risk_metric_name is None:
+        risk_metric_name = next(
+            (col for col in numeric_cols if col != return_metric_name),
+            None,
+        )
+
+    if return_metric_name is None or risk_metric_name is None:
+        return _empty_chart()
+
+    frame = results_frame[["strategy", return_metric_name, risk_metric_name]].copy()
+    frame = frame.rename(
+        columns={
+            "strategy": "Strategy",
+            return_metric_name: "Return",
+            risk_metric_name: "Risk",
+        }
+    )
+    frame["Return"] = pd.to_numeric(frame["Return"], errors="coerce")
+    frame["Risk"] = pd.to_numeric(frame["Risk"], errors="coerce")
+    if _canonical_metric(risk_metric_name) in {
+        _canonical_metric(alias) for alias in _MAX_DD_ALIASES
+    }:
+        frame["Risk"] = frame["Risk"].abs()
+    frame = frame.dropna(subset=["Return", "Risk"])
+    if frame.empty:
+        return _empty_chart()
+
+    top_strategies = frame["Strategy"].value_counts().index[:max_strategies]
+    frame = frame[frame["Strategy"].isin(top_strategies)]
+
+    grouped = frame.groupby("Strategy", as_index=False)[["Return", "Risk"]].mean()
+    fig = px.scatter(
+        grouped,
+        x="Risk",
+        y="Return",
+        color="Strategy",
+        color_discrete_sequence=PALETTE,
+    )
+    fig.update_traces(
+        marker=dict(size=10, opacity=0.8),
+        hovertemplate="Strategy=%{legendgroup}<br>Risk=%{x:,.3f}<br>Return=%{y:,.3f}<extra></extra>",
+    )
+    fig.update_layout(
+        height=260,
+        xaxis_title=risk_metric_name.replace("_", " ").title(),
+        yaxis_title=return_metric_name.replace("_", " ").title(),
+        legend_title_text="Strategy",
+    )
+    return fig
+
+
+def render_risk_return_chart(
+    results: Any,
+    *,
+    return_metric: str | None = None,
+    risk_metric: str | None = None,
+    max_strategies: int = 12,
+) -> go.Figure:
+    chart = risk_return_chart(
+        results,
+        return_metric=return_metric,
+        risk_metric=risk_metric,
+        max_strategies=max_strategies,
+    )
+    if not chart.data:
+        warning = _metric_warning_message_for_aliases(
+            results,
+            _RETURN_ALIASES,
+            "Risk-return chart",
+        )
+        if warning is None:
+            warning = _metric_warning_message_for_aliases(
+                results,
+                _RISK_ALIASES,
+                "Risk-return chart",
+            )
+        st.warning(warning or "Risk-return chart unavailable: no data to display.")
     st.plotly_chart(chart, use_container_width=True)
     return chart

@@ -241,6 +241,8 @@ def _render_results(
         st.warning("No NAV paths available for the selected fold.")
     mc_plots.render_sharpe_histogram(filtered_results)
     mc_plots.render_fan_chart(nav_paths)
+    mc_plots.render_path_distribution_chart(filtered_results)
+    mc_plots.render_risk_return_chart(filtered_results)
     mc_plots.render_box_plot(filtered_results)
     mc_plots.render_cdf_plot(filtered_results)
 

@@ -29,3 +29,33 @@ def test_fan_chart_empty_returns_empty_figure() -> None:
     fig = mc_plots.fan_chart(pd.DataFrame())
 
     assert len(fig.data) == 0
+
+
+def test_path_distribution_chart_uses_terminal_metric() -> None:
+    results = pd.DataFrame(
+        {
+            "strategy": ["A", "A", "B", "B"],
+            "terminal_wealth": [120.0, 118.0, 110.0, 112.0],
+        }
+    )
+
+    fig = mc_plots.path_distribution_chart(results)
+
+    assert len(fig.data) >= 1
+    assert fig.data[0].type == "histogram"
+
+
+def test_risk_return_chart_builds_scatter() -> None:
+    results = pd.DataFrame(
+        {
+            "strategy": ["A", "A", "B", "B"],
+            "terminal_wealth": [120.0, 118.0, 110.0, 112.0],
+            "max_drawdown": [-0.2, -0.25, -0.3, -0.28],
+        }
+    )
+
+    fig = mc_plots.risk_return_chart(results)
+
+    assert len(fig.data) >= 1
+    assert fig.data[0].type == "scatter"
+    assert all(value >= 0 for value in fig.data[0].x)
