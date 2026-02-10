@@ -100,6 +100,9 @@ class DummyStreamlit:
     def altair_chart(self, *_args: Any, **_kwargs: Any) -> None:
         return None
 
+    def plotly_chart(self, *_args: Any, **_kwargs: Any) -> None:
+        return None
+
     def multiselect(self, label: str, options: list[str], **_kwargs: Any) -> list[str]:
         self.multiselect_calls.append((label, options))
         if self.multiselect_returns:
