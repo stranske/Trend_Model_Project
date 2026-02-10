@@ -1,2 +1,1 @@
 """Fan chart visualizations."""
-

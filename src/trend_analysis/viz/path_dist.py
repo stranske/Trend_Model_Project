@@ -1,2 +1,1 @@
 """Path distribution visualizations."""
-
