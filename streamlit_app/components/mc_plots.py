@@ -1,4 +1,4 @@
-"""Monte Carlo plotting helpers for the Streamlit app."""
+"""Plotly-based Monte Carlo plotting helpers for the Streamlit app."""
 
 from __future__ import annotations
 
