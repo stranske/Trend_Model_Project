@@ -102,3 +102,19 @@ def test_render_path_distribution_warns_on_missing_strategy(
     assert len(fig.data) == 0
     assert stub.warning_messages
     assert "Path distribution chart unavailable" in stub.warning_messages[0]
+
+
+def test_render_risk_return_warns_on_missing_metrics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stub = _StreamlitStub()
+    monkeypatch.setattr(mc_plots, "st", stub)
+
+    results = pd.DataFrame({"strategy": ["A", "B"], "label": ["foo", "bar"]})
+
+    fig = mc_plots.render_risk_return_chart(results)
+
+    assert len(fig.data) == 0
+    assert stub.warning_messages
+    assert "Risk-return chart unavailable" in stub.warning_messages[0]
+    assert stub.plotly_calls
