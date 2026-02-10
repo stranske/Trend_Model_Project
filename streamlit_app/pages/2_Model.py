@@ -904,7 +904,9 @@ def _fallback_llm_provider_config() -> LLMProviderConfig:
     provider = (provider or _DEFAULT_CONFIG_CHAT_PROVIDER).lower()
     if provider not in {"openai", "anthropic", "ollama"}:
         provider = _DEFAULT_CONFIG_CHAT_PROVIDER
-    model = overrides.get("model") or os.environ.get("TREND_LLM_MODEL") or _DEFAULT_CONFIG_CHAT_MODEL
+    model = (
+        overrides.get("model") or os.environ.get("TREND_LLM_MODEL") or _DEFAULT_CONFIG_CHAT_MODEL
+    )
     base_url = overrides.get("base_url") or os.environ.get("TREND_LLM_BASE_URL")
     organization = overrides.get("organization") or os.environ.get("TREND_LLM_ORG")
     kwargs: dict[str, object] = {"provider": provider}
@@ -1100,9 +1102,7 @@ def _render_llm_session_overrides_panel() -> None:
             except (TypeError, ValueError):
                 st.warning("Temperature override must be a number; using env default.")
         _sync_llm_selection_from_overrides()
-        _maybe_reset_config_chat_cache(
-            _current_chain_settings_snapshot(allow_missing_api_key=True)
-        )
+        _maybe_reset_config_chat_cache(_current_chain_settings_snapshot(allow_missing_api_key=True))
 
 
 def _normalize_temperature(value: float) -> float:
