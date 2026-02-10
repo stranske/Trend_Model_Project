@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from streamlit_app.components import mc_plots
 
@@ -59,3 +60,45 @@ def test_risk_return_chart_builds_scatter() -> None:
     assert len(fig.data) >= 1
     assert fig.data[0].type == "scatter"
     assert all(value >= 0 for value in fig.data[0].x)
+
+
+class _StreamlitStub:
+    def __init__(self) -> None:
+        self.warning_messages: list[str] = []
+        self.plotly_calls: list[tuple[object, bool]] = []
+
+    def warning(self, message: str) -> None:
+        self.warning_messages.append(message)
+
+    def plotly_chart(self, fig: object, *, use_container_width: bool = False) -> None:
+        self.plotly_calls.append((fig, use_container_width))
+
+
+def test_render_fan_chart_warns_on_empty_nav_paths(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stub = _StreamlitStub()
+    monkeypatch.setattr(mc_plots, "st", stub)
+
+    fig = mc_plots.render_fan_chart(pd.DataFrame())
+
+    assert len(fig.data) == 0
+    assert stub.warning_messages
+    assert "Fan chart unavailable" in stub.warning_messages[0]
+    assert stub.plotly_calls
+    assert stub.plotly_calls[0][1] is True
+
+
+def test_render_path_distribution_warns_on_missing_strategy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stub = _StreamlitStub()
+    monkeypatch.setattr(mc_plots, "st", stub)
+
+    results = pd.DataFrame({"terminal_wealth": [120.0, 118.0]})
+
+    fig = mc_plots.render_path_distribution_chart(results)
+
+    assert len(fig.data) == 0
+    assert stub.warning_messages
+    assert "Path distribution chart unavailable" in stub.warning_messages[0]
