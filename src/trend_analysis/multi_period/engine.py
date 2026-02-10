@@ -40,7 +40,10 @@ from ..pipeline import (
     _resolve_risk_free_column,
     _resolve_target_vol,
 )
-from ..pipeline_helpers import _resolve_turnover_cap_from_parsed, parse_regime_turnover_caps
+from ..pipeline_helpers import (
+    _resolve_turnover_cap_from_parsed,
+    parse_regime_turnover_caps,
+)
 from ..portfolio import apply_weight_policy
 from ..rebalancing import CashPolicy, apply_rebalancing_strategies
 from ..regimes import compute_regimes, normalise_settings
