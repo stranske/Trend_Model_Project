@@ -23,6 +23,9 @@ import yaml
 from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner, nl_operation_viewer
 from streamlit_app.components.llm_settings import (
+    anthropic_api_key_status as _anthropic_api_key_status,
+)
+from streamlit_app.components.llm_settings import (
     resolve_llm_provider_config as _resolve_llm_provider_config_shared,
 )
 from streamlit_app.components.llm_settings import (
@@ -896,12 +899,40 @@ def _resolve_llm_session_overrides() -> dict[str, str | None]:
     }
 
 
+def _fallback_llm_provider_config() -> LLMProviderConfig:
+    overrides = _resolve_llm_session_overrides()
+    provider = overrides.get("provider") or os.environ.get("TREND_LLM_PROVIDER")
+    provider = (provider or _DEFAULT_CONFIG_CHAT_PROVIDER).lower()
+    if provider not in {"openai", "anthropic", "ollama"}:
+        provider = _DEFAULT_CONFIG_CHAT_PROVIDER
+    model = (
+        overrides.get("model") or os.environ.get("TREND_LLM_MODEL") or _DEFAULT_CONFIG_CHAT_MODEL
+    )
+    base_url = overrides.get("base_url") or os.environ.get("TREND_LLM_BASE_URL")
+    organization = overrides.get("organization") or os.environ.get("TREND_LLM_ORG")
+    kwargs: dict[str, object] = {"provider": provider}
+    if model:
+        kwargs["model"] = model
+    if base_url:
+        kwargs["base_url"] = base_url
+    if organization:
+        kwargs["organization"] = organization
+    return LLMProviderConfig(**kwargs)
+
+
 def _current_chain_settings_snapshot(
     config: LLMProviderConfig | None = None,
     temperature: float | None = None,
+    *,
+    allow_missing_api_key: bool = False,
 ) -> dict[str, Any]:
     if config is None:
-        config = _resolve_llm_provider_config()
+        try:
+            config = _resolve_llm_provider_config()
+        except ValueError:
+            if not allow_missing_api_key:
+                raise
+            config = _fallback_llm_provider_config()
     if temperature is None:
         temperature = _resolve_llm_temperature()
     return {
@@ -942,8 +973,9 @@ def _llm_required_env_vars(provider: str) -> list[str] | None:
     if provider == "openai":
         required.append("OPENAI_API_KEY")
     elif provider == "anthropic":
+        # Only the canonical key is listed; the resolver accepts
+        # ANTHROPIC_API_KEY as a fallback so either satisfies the check.
         required.append("CLAUDE_API_STRANSKE")
-        required.append("ANTHROPIC_API_KEY")
     elif provider == "ollama":
         pass
     else:
@@ -953,13 +985,19 @@ def _llm_required_env_vars(provider: str) -> list[str] | None:
 
 
 def _llm_env_var_present(name: str) -> bool:
+    if name == "CLAUDE_API_STRANSKE":
+        # The resolver accepts either key, so treat both as satisfying
+        # the canonical variable requirement.
+        status = _anthropic_api_key_status()
+        return any(status.values())
+    if name == "ANTHROPIC_API_KEY":
+        status = _anthropic_api_key_status()
+        return bool(status.get(name))
     value = os.environ.get(name)
     if name in {
         "TS_STREAMLIT_API_KEY",
         "TREND_LLM_API_KEY",
         "OPENAI_API_KEY",
-        "ANTHROPIC_API_KEY",
-        "CLAUDE_API_STRANSKE",
     }:
         return bool(_sanitize_api_key(value))
     return bool(value)
@@ -1071,7 +1109,7 @@ def _render_llm_session_overrides_panel() -> None:
             except (TypeError, ValueError):
                 st.warning("Temperature override must be a number; using env default.")
         _sync_llm_selection_from_overrides()
-        _maybe_reset_config_chat_cache(_current_chain_settings_snapshot())
+        _maybe_reset_config_chat_cache(_current_chain_settings_snapshot(allow_missing_api_key=True))
 
 
 def _normalize_temperature(value: float) -> float:
@@ -1303,7 +1341,7 @@ def _build_nl_chain(
         _hash_api_key(config.api_key),
     )
     reset_fields = _maybe_reset_config_chat_cache(
-        _current_chain_settings_snapshot(temperature=resolved_temp)
+        _current_chain_settings_snapshot(config=config, temperature=resolved_temp)
     )
     llm_cache_key = _build_llm_cache_key(
         provider=resolved_provider,

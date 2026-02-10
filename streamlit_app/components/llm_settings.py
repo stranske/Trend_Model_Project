@@ -95,6 +95,26 @@ def resolve_anthropic_api_key(
     return None
 
 
+def anthropic_api_key_status(
+    *,
+    include_secrets: bool = True,
+    include_env: bool = True,
+) -> dict[str, bool]:
+    """Report which Anthropic API key sources are present."""
+    status = {"CLAUDE_API_STRANSKE": False, "ANTHROPIC_API_KEY": False}
+    if include_secrets:
+        if sanitize_api_key(read_secret("CLAUDE_API_STRANSKE")):
+            status["CLAUDE_API_STRANSKE"] = True
+        if sanitize_api_key(read_secret("ANTHROPIC_API_KEY")):
+            status["ANTHROPIC_API_KEY"] = True
+    if include_env:
+        if sanitize_api_key(os.environ.get("CLAUDE_API_STRANSKE")):
+            status["CLAUDE_API_STRANSKE"] = True
+        if sanitize_api_key(os.environ.get("ANTHROPIC_API_KEY")):
+            status["ANTHROPIC_API_KEY"] = True
+    return status
+
+
 def default_api_key(provider_name: str) -> str | None:
     proxy_url = os.environ.get("TS_LLM_PROXY_URL")
     if proxy_url:
@@ -167,7 +187,7 @@ def resolve_llm_provider_config(
         env_hint = (
             "OPENAI_API_KEY"
             if provider_name == "openai"
-            else "CLAUDE_API_STRANSKE or ANTHROPIC_API_KEY"
+            else "CLAUDE_API_STRANSKE (preferred) or ANTHROPIC_API_KEY"
         )
         raise ValueError(
             f"Missing API key for {provider_name}. "
@@ -189,6 +209,7 @@ def resolve_llm_provider_config(
 
 
 __all__ = [
+    "anthropic_api_key_status",
     "default_api_key",
     "read_secret",
     "resolve_api_key_input",

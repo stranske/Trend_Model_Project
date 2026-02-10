@@ -166,6 +166,9 @@ See `config/defaults.yml` for the complete schema and `config/presets/` for read
 
 ## Environment Variables
 
+Anthropic keys resolve in order, with `CLAUDE_API_STRANSKE` as the canonical primary and
+`ANTHROPIC_API_KEY` used only as a fallback when the primary is unset.
+
 - `CLAUDE_API_STRANSKE`: Canonical Anthropic API key (primary).
 - `ANTHROPIC_API_KEY`: Anthropic API key (fallback, used only if CLAUDE_API_STRANSKE is unset).
 

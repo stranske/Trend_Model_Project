@@ -47,6 +47,10 @@ def _capture_streamlit_calls(
 
 @pytest.fixture()
 def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
+    # Ensure provider config resolution has a key in tests that don't set env explicitly.
+    monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
+
     def _noop(*_args, **_kwargs):
         return None
 
@@ -1609,7 +1613,7 @@ def test_build_nl_chain_invalidation_on_model_change(
         model="gpt-4o",
         api_key="sk-test",
     )
-    configs = iter([config_first, config_first, config_second, config_second])
+    configs = iter([config_first, config_second])
 
     monkeypatch.setattr(model_module, "_resolve_llm_provider_config", lambda: next(configs))
     monkeypatch.setattr(model_module, "_resolve_llm_temperature", lambda: 0.0)
@@ -1658,7 +1662,7 @@ def test_build_nl_chain_invalidation_on_base_url_change(
         api_key="sk-test",
         base_url="https://two.example.com",
     )
-    configs = iter([config_first, config_first, config_second, config_second])
+    configs = iter([config_first, config_second])
 
     monkeypatch.setattr(model_module, "_resolve_llm_provider_config", lambda: next(configs))
     monkeypatch.setattr(model_module, "_resolve_llm_temperature", lambda: 0.0)
@@ -1752,7 +1756,7 @@ def test_build_nl_chain_invalidation_on_org_change(
         api_key="sk-test",
         organization="org-two",
     )
-    configs = iter([config_first, config_first, config_second, config_second])
+    configs = iter([config_first, config_second])
 
     monkeypatch.setattr(model_module, "_resolve_llm_provider_config", lambda: next(configs))
     monkeypatch.setattr(model_module, "_resolve_llm_temperature", lambda: 0.0)
