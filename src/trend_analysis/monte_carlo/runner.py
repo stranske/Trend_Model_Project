@@ -1462,6 +1462,21 @@ class MonteCarloRunner:
         frame = pd.DataFrame(paths)
         frame.index = pd.DatetimeIndex(frame.index)
         frame.sort_index(inplace=True)
+        frame = self._coerce_nav_paths_columns(frame)
+        return frame
+
+    def _coerce_nav_paths_columns(self, frame: pd.DataFrame) -> pd.DataFrame:
+        """Ensure nav_paths columns support both plain and MultiIndex path ids."""
+        if isinstance(frame.columns, pd.MultiIndex):
+            names = list(frame.columns.names)
+            if "path" not in names:
+                if names:
+                    names[0] = "path"
+                else:
+                    names = ["path"]
+                frame.columns = frame.columns.set_names(names)
+            return frame
+        frame.columns = pd.Index(frame.columns, name="path")
         return frame
 
     def _period_results_regimes(
