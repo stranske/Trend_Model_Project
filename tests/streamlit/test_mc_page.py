@@ -583,6 +583,40 @@ def test_download_link_generation(monkeypatch: pytest.MonkeyPatch) -> None:
         assert "Strategy" in summary_text
 
 
+def test_download_payload_file_names_use_timestamp(monkeypatch: pytest.MonkeyPatch) -> None:
+    page, _stub = _load_page(monkeypatch)
+
+    from datetime import datetime as real_datetime
+
+    class _FixedDatetime:
+        @classmethod
+        def now(cls) -> real_datetime:
+            return real_datetime(2024, 1, 2, 3, 4, 5)
+
+    monkeypatch.setattr(page, "datetime", _FixedDatetime)
+
+    summary_table = pd.DataFrame(
+        {
+            "Strategy": ["A"],
+            "Sharpe (median)": [1.1],
+            "Sharpe (5th)": [0.5],
+            "Max DD (median)": [-0.2],
+            "Max DD (5th)": [-0.3],
+            "Terminal Wealth": [120.0],
+        }
+    )
+    filtered_results = _sample_results().results_frame
+
+    payloads = page._build_download_payloads(summary_table, filtered_results)
+
+    filenames = {payload["file_name"] for payload in payloads}
+    assert filenames == {
+        "mc_summary_20240102_030405.csv",
+        "mc_representative_paths_20240102_030405.parquet",
+        "mc_bundle_20240102_030405.zip",
+    }
+
+
 def test_empty_filtered_results_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
     page, stub = _load_page(monkeypatch)
 
