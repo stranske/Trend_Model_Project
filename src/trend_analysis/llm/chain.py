@@ -446,7 +446,6 @@ class ConfigPatchChain(_BaseConfigPatchChain):
         """Invoke the LLM and parse the ConfigPatch response."""
 
         started_at = time.perf_counter()
-        self.structured_repair_retry_count = 0
         timestamp = datetime.now(timezone.utc)
         request_id = request_id or uuid4().hex
         prompt_text = ""
