@@ -1,206 +1,43 @@
-1. [Streamlit NL] Cache LLM + ConfigPatchChain instances to reduce config-chat latency
-labels: [agent:codex, enhancement]
+1. Use Workflows Anthropic secret alias (CLAUDE_API_STRANSKE) for Streamlit LLM configuration
+
 ## Why
 
-The Streamlit config chat constructs a new LLM client and chain during preview generation, which adds latency and variability across calls. Caching chain construction per session should improve UX.
+The Workflows automation system standardizes on `CLAUDE_API_STRANSKE` for Anthropic credentials. Trend Model Project should align on the same canonical variable to avoid duplicated secrets and inconsistent environment setups across repos.
 
 ## Scope
 
-Cache creation of the LLM client and ConfigPatchChain used by `streamlit_app/pages/2_Model.py` while preserving env override behavior.
+Make `CLAUDE_API_STRANSKE` the canonical Anthropic API key input for Trend’s LLM configuration (Streamlit + supporting helpers). Optionally allow `ANTHROPIC_API_KEY` as a backward-compatible fallback (recommended).
 
 ## Non-Goals
 
-This does not change the ConfigPatch schema or patch semantics.
-This does not store API keys in session state.
+This does not change which providers are supported (still OpenAI / Anthropic / Ollama).
+This does not store or display secret values in the UI.
+This does not introduce new secret-management mechanisms.
 
 ## Tasks
 
-- [x] Refactor `_build_nl_chain` in `streamlit_app/pages/2_Model.py` to use a cache mechanism appropriate for Streamlit (st.cache_resource or equivalent), keyed by provider/model/temperature.
-- [x] Ensure cache invalidation occurs when relevant settings change (provider, model, base_url, org, temperature).
-- [x] Add lightweight timing instrumentation for preview generation to verify chain reuse.
+- [ ] Update Streamlit LLM settings resolution to treat `CLAUDE_API_STRANSKE` as the primary env var when provider is `anthropic`.
+- [ ] (Optional but recommended) Keep `ANTHROPIC_API_KEY` as a fallback if `CLAUDE_API_STRANSKE` is unset, and document the precedence order.
+- [ ] Ensure all Streamlit components that resolve provider keys (config chat, explain results, comparison LLM, replay tooling) consistently use the shared resolver logic (no one-off env reads that bypass precedence).
+- [ ] Add unit tests confirming Anthropic config resolves when only `CLAUDE_API_STRANSKE` is set (and also when only the fallback is set, if the fallback is kept).
+- [ ] Update docs to state the canonical Anthropic variable name and the precedence rules.
 
 ## Acceptance Criteria
 
-- [x] Repeated Preview operations in the same session reuse the cached chain (measurable via instrumentation/logging).
-- [x] Changing provider/model settings results in a new cached instance (no stale reuse).
-- [x] Existing config chat behavior remains correct (preview/apply/run still works).
-Verification: `pytest tests/app/test_model_page_helpers.py -m "not slow"` (2026-02-07).
+- [ ] With `CLAUDE_API_STRANSKE` set and no `ANTHROPIC_API_KEY`, selecting provider `anthropic` works without “Missing API key” errors.
+- [ ] If fallback is enabled: with only `ANTHROPIC_API_KEY` set, selecting provider `anthropic` still works.
+- [ ] No Streamlit component uses a different Anthropic key precedence than the shared resolver (verified via tests or a simple grep + review).
+- [ ] Documentation explicitly states the canonical variable and any fallback behavior.
 
 ## Implementation Notes
 
-Primary file:
-`streamlit_app/pages/2_Model.py`
-
-
-2. [Streamlit] Add Results Explain panel using ResultSummaryChain (traceable, disclaimer-safe)
-labels: [agent:codex, enhancement]
-## Why
-
-The repo already includes ResultSummaryChain for generating safe explanations of results. Exposing it in the Streamlit Results view adds real user-facing capability: interpret outputs and answer targeted questions without leaving the app.
-
-## Scope
-
-Add an Explain Results UI section that uses ResultSummaryChain to answer user questions about the current analysis output, shows trace URL when available, and enforces existing result disclaimer behavior.
-
-## Non-Goals
-
-This does not add new analytics metrics.
-This does not enable tool access beyond the existing analysis outputs.
-
-## Tasks
-
-- [x] Add a Results-page UI component that accepts a question and calls ResultSummaryChain with the current analysis output and metric catalog.
-- [x] Display returned explanation text and show LangSmith trace URL when available.
-- [x] Ensure existing disclaimer behavior is preserved for all generated explanations.
-
-## Acceptance Criteria
-
-- [x] The Results page can answer user questions using ResultSummaryChain for an existing analysis run.
-- [x] The displayed output always includes the configured disclaimer behavior.
-- [x] When tracing is enabled, the UI surfaces the trace URL for the operation.
-Verification: `pytest tests/app/test_explain_results_component.py -m "not slow"` (2026-02-07).
-Reconciliation: 2026-02-07 formatting-only change; no additional task checkboxes updated.
-
-## Implementation Notes
-
-Likely touch points:
-`src/trend_analysis/llm/chain.py`
-`src/trend_analysis/llm/result_validation.py`
-Results page file under `streamlit_app/pages/`
-
-
-3. [UX/Debug] Add NL operation log viewer + replay hook for config chat operations
-labels: [agent:codex, enhancement]
-## Why
-
-The repo already writes structured NL logs and has replay tooling. Exposing these in the UI improves debuggability and makes NL behavior auditable (what prompt, what output, what patch).
-
-## Scope
-
-Add a lightweight Streamlit viewer for recent NLOperationLog entries and a replay action using existing replay utilities.
-
-## Non-Goals
-
-This does not expose secrets or raw environment variables.
-This does not require LangSmith to be enabled.
-
-## Tasks
-
-- [ ] Implement a Streamlit UI view (new page or expander) that lists recent NL operations (timestamp, operation, duration, model, trace_url).
-- [ ] Allow selecting an entry and displaying its prompt, raw output, parsed patch, and diff summary.
-- [ ] Add a safe replay action using replay_nl_entry, with clear labeling that outputs may differ across time/models.
-
-## Acceptance Criteria
-
-- [ ] The UI renders recent NL log entries without errors and without exposing secrets.
-- [ ] Selecting an entry shows stored prompt/output and parsed patch details.
-- [ ] Replay runs successfully when provider credentials are available and surfaces the replay diff.
-
-## Implementation Notes
-
-Primary files:
-`src/trend_analysis/llm/nl_logging.py`
-`src/trend_analysis/llm/replay.py`
-Streamlit location: add a new page under `streamlit_app/pages/` or a sidebar tool panel.
-
-
-4. [LLM] Add provider/model selection UI for Streamlit (OpenAI/Anthropic/Ollama), session-scoped overrides
-labels: [agent:codex, enhancement]
-## Why
-
-The LLM stack supports multiple providers, but the Streamlit UI relies on environment variables only. A session-scoped UI selector increases usability and makes upcoming Anthropic adoption smoother.
-
-## Scope
-
-Add a Streamlit sidebar panel to choose provider/model (without storing keys), show which env vars are expected, and support session-scoped overrides.
-
-## Non-Goals
-
-This does not add secret entry fields into the UI.
-This does not persist choices beyond the Streamlit session unless explicitly saved by the user.
-
-## Tasks
-
-- [ ] Add a sidebar selector for provider and model with clear session-only override semantics.
-- [ ] Update provider resolution logic to prefer session overrides over env defaults.
-- [ ] Add a provider status display showing which provider is active and whether required env vars are present.
-
-## Acceptance Criteria
-
-- [ ] Users can switch provider/model within a session and config chat uses the selected provider.
-- [ ] The UI never stores or displays API keys.
-- [ ] When provider env vars are missing, the UI shows a clear non-blocking warning.
-
-## Implementation Notes
-
-Primary files:
-`streamlit_app/pages/2_Model.py`
-`src/trend_analysis/llm/providers.py`
-
-
-5. [LLM] Optional structured-output mode for ConfigPatchChain (reduce parse retries and ambiguity)
-labels: [agent:codex, enhancement]
-## Why
-
-ConfigPatchChain parses free-form model output into a ConfigPatch with retries. Adding an optional structured-output path (where supported) should reduce retries and improve determinism.
-
-## Scope
-
-Implement an optional structured-output mode in ConfigPatchChain invocation that requests strictly valid JSON for ConfigPatch and uses a single repair retry on validation failure.
-
-## Non-Goals
-
-This does not change the patch schema.
-This does not require all providers to support structured output (fallback remains supported).
-
-## Tasks
-
-- [ ] Add a structured-output execution path in ConfigPatchChain._invoke_llm that prefers strict JSON output when supported by the provider/client.
-- [ ] Implement a single repair retry that includes validation error details when structured parsing fails.
-- [ ] Add tests covering: valid structured output, malformed JSON output that repairs successfully, and fallback behavior when structured output is unavailable.
-
-## Acceptance Criteria
-
-- [ ] Structured-output mode produces valid ConfigPatch objects with fewer retries (test-covered via deterministic fixtures).
-- [ ] On malformed outputs, exactly one repair retry is performed.
-- [ ] Fallback parsing behavior still works for providers that cannot do structured output.
-
-## Implementation Notes
-
-Primary file:
-`src/trend_analysis/llm/chain.py`
-
-
-6. [New capability] What-if batch runner - generate and compare multiple config variants from one instruction
-labels: [agent:codex, enhancement]
-## Why
-
-Config chat is great for single edits, but real decision-making often involves comparing a few plausible variants (conservative/baseline/aggressive). Automating variant generation and comparison extends the app’s practical capacity.
-
-## Scope
-
-Add a What-if (3 variants) feature that takes one instruction, generates up to 3 config variants (via patches), runs analysis for each, and shows a comparison table with an optional export.
-
-## Non-Goals
-
-This does not run large hyperparameter searches.
-This does not change the underlying analytics engine.
-
-## Tasks
-
-- [ ] Implement a helper that generates N=3 config patches from one instruction with explicit variant labels.
-- [ ] Apply patches to a base config and run analysis for each variant with clear progress UI.
-- [ ] Display a comparison table of key metrics and provide a download option for the comparison output.
-
-## Acceptance Criteria
-
-- [ ] The UI generates three labeled variants and successfully runs analysis for each.
-- [ ] The comparison view shows consistent, clearly labeled metrics per variant.
-- [ ] The feature enforces sane limits (N fixed/capped; clear errors for missing data).
-
-## Implementation Notes
-
-Likely touch points:
-`streamlit_app/pages/2_Model.py`
-`streamlit_app/components/analysis_runner.py`
-`src/trend_analysis/llm/chain.py`
+Primary files to check/update:
+- `streamlit_app/components/llm_settings.py` (canonicalize Anthropic key resolution)
+- `streamlit_app/pages/2_Model.py` (provider config resolution should defer to shared resolver)
+- `streamlit_app/components/explain_results.py` (ensure it relies on shared resolver behavior)
+- Any other LLM-enabled components under `streamlit_app/components/`
+
+Proposed precedence for anthropic:
+1. `TS_STREAMLIT_API_KEY` / `TREND_LLM_API_KEY` (if you want provider-agnostic “app key”)
+2. `CLAUDE_API_STRANSKE` (canonical anthropic key)
+3. (Optional) `ANTHROPIC_API_KEY` fallback for compatibility
