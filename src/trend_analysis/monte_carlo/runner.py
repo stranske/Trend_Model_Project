@@ -1,4 +1,16 @@
-"""Monte Carlo runner for evaluating strategy variants."""
+"""Monte Carlo runner for evaluating strategy variants.
+
+Canonical ``nav_paths`` schema (used by Monte Carlo reporting/export):
+
+- Type: ``pandas.DataFrame`` with one column per simulated path.
+- Index: datetime-like period-end labels (``DatetimeIndex`` preferred). Each row
+  represents a simulation period end date.
+- Values: floating-point NAV values normalized to start at ``1.0`` for every
+  path (first row equals 1.0 per column).
+- Columns: either plain path identifiers (e.g. ``0, 1, 2, ...``) or a
+  ``MultiIndex`` with levels ``path`` and ``asset``. When using a MultiIndex,
+  the ``asset`` level must contain ``"NAV"`` for the NAV series.
+"""
 
 from __future__ import annotations
 
@@ -64,6 +76,10 @@ __all__ = ["MonteCarloRunner", "evaluate_strategies_for_path"]
 
 _STRATEGY_SELECTION_SEED_TAG = "__strategy_selection__"
 _TURNOVER_GUARD_PATH = "strategy_set.guards.max_turnover"
+# nav_paths schema requirements:
+# - DataFrame index: datetime-like period ends (DatetimeIndex preferred).
+# - Values: float NAVs normalized to start at 1.0 for each path.
+# - Columns: plain path ids or MultiIndex with levels (path, asset="NAV").
 
 
 def _is_number(value: Any) -> bool:
