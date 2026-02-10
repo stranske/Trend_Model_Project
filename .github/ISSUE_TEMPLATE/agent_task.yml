@@ -1,50 +1,57 @@
-name: Agent task
-description: Plan a Codex automation task and trigger the issue bridge.
-title: "[Agent task] <summary>"
+name: Agent Task
+description: Create a task for Codex to work on automatically
+title: "[Agent] "
 labels:
-  - agents
   - agent:codex
 body:
   - type: markdown
     attributes:
       value: |
-        Use this template when Codex should pick up a task. The issue bridge
-        watches for the `agent:codex` label and will prepare a branch/PR once
-        the issue is ready. This template automatically applies the `agents`
-        and `agent:codex` labels so the Codex issue bridge can hand the work
-        directly to `agents-70-orchestrator.yml`; no legacy consumer shims
-        remain in the repo.
-  - type: textarea
-    id: context
-    attributes:
-      label: Background
-      description: What problem are we solving? Link any prior discussions or runs.
-      placeholder: Provide the context and link supporting material.
-    validations:
-      required: true
-  - type: textarea
-    id: goals
-    attributes:
-      label: Goals
-      description: List the concrete outcomes this task should deliver.
-      placeholder: Bullet the acceptance criteria or deliverables.
-    validations:
-      required: true
+        Use this template to create tasks that Codex will pick up automatically.
+
+        The `agent:codex` label triggers the agent pipeline which will:
+        1. Create a branch and PR from this issue
+        2. Have Codex work through the tasks iteratively
+        3. Run CI after each iteration until all tasks are complete
+
   - type: textarea
     id: scope
     attributes:
-      label: Out of scope / guardrails
-      description: Clarify any boundaries Codex must respect (files to avoid, limits, etc.).
-      placeholder: Optional but recommended so the automation stays on track.
-  - type: input
-    id: target_branch
-    attributes:
-      label: Target base branch
-      description: Branch Codex should use when creating the PR (defaults to the repo default branch).
-      placeholder: main
+      label: Scope
+      description: What should be changed or implemented?
+      placeholder: |
+        Describe the work to be done. Be specific about files, functions, or features.
+    validations:
+      required: true
+
   - type: textarea
-    id: notes
+    id: tasks
     attributes:
-      label: Additional notes
-      description: Anything else maintainers should know before Codex runs.
-      placeholder: Optional diagnostics, credentials hand-off, or follow-up tasks.
+      label: Tasks
+      description: Break down the work into specific actionable items
+      placeholder: |
+        - [ ] Task 1
+        - [ ] Task 2
+        - [ ] Task 3
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: How do we know the work is complete?
+      placeholder: |
+        - [ ] All tests pass
+        - [ ] Feature works as described
+        - [ ] Documentation updated
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any extra information, constraints, or references
+      placeholder: |
+        Links, screenshots, or other context that helps understand the task.
