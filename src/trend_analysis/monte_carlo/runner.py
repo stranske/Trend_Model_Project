@@ -1,4 +1,29 @@
-"""Monte Carlo runner for evaluating strategy variants."""
+"""Monte Carlo runner for evaluating strategy variants.
+
+Canonical ``nav_paths`` schema (used by Monte Carlo reporting/export):
+
+- Type: ``pandas.DataFrame`` with one column per simulated path.
+- Index: datetime-like period-end labels (``DatetimeIndex`` preferred). Each row
+  represents a simulation period end date and should be aligned across paths.
+- Values: floating-point NAV values normalized to start at ``1.0`` for every
+  path (first row equals 1.0 per column).
+- Columns: either plain path identifiers (e.g. ``0, 1, 2, ...``) or a
+  ``MultiIndex`` with levels ``path`` and ``asset``.
+  - ``path``: the integer path identifier.
+  - ``asset``: the asset label. For NAV paths this must be ``"NAV"`` (non-NAV
+    labels are coerced to ``"NAV"`` during normalization).
+
+Example (plain columns):
+```
+index = DatetimeIndex(["2024-01-31", "2024-02-29"], name="period")
+columns = Index([0, 1], name="path")
+```
+
+Example (MultiIndex columns):
+```
+columns = MultiIndex.from_product([[0, 1], ["NAV"]], names=["path", "asset"])
+```
+"""
 
 from __future__ import annotations
 
@@ -64,6 +89,11 @@ __all__ = ["MonteCarloRunner", "evaluate_strategies_for_path"]
 
 _STRATEGY_SELECTION_SEED_TAG = "__strategy_selection__"
 _TURNOVER_GUARD_PATH = "strategy_set.guards.max_turnover"
+# nav_paths schema requirements:
+# - DataFrame index: datetime-like period ends (DatetimeIndex preferred).
+# - Values: float NAVs normalized to start at 1.0 for each path.
+# - Columns: plain path ids or MultiIndex with levels (path, asset="NAV").
+#   When using a MultiIndex, the path id lives in the "path" level.
 
 
 def _is_number(value: Any) -> bool:
@@ -190,6 +220,9 @@ class MonteCarloRunner:
         assert mode is not None
         evaluations: list[StrategyEvaluation] = []
         errors: list[MonteCarloPathError] = []
+        primary_strategy = None
+        if mode != "mixture" and strategies:
+            primary_strategy = strategies[0].name
         if folds:
             for fold in folds:
                 model = self._build_price_model(
@@ -229,6 +262,23 @@ class MonteCarloRunner:
         results_frame = build_results_frame(evaluations)
         summary_frame = build_summary_frame(results_frame)
         diagnostics_frame = build_diagnostics_frame(evaluations)
+        nav_paths_by_fold: dict[int, pd.DataFrame] | None = None
+        nav_paths: pd.DataFrame | None = None
+        if folds:
+            nav_paths_by_fold = {}
+            for fold in folds:
+                fold_nav = self._build_nav_paths_frame(
+                    evaluations,
+                    primary_strategy_name=primary_strategy,
+                    fold_id=fold.fold_id,
+                )
+                nav_paths_by_fold[int(fold.fold_id)] = fold_nav
+        else:
+            nav_paths = self._build_nav_paths_frame(
+                evaluations,
+                primary_strategy_name=primary_strategy,
+                fold_id=None,
+            )
         metadata: dict[str, Any] = {
             "scenario": self.scenario.name,
             "mode": mode,
@@ -236,6 +286,10 @@ class MonteCarloRunner:
             "n_strategies": len(strategies),
             "seed": settings.seed,
         }
+        if nav_paths is not None:
+            metadata["nav_paths"] = nav_paths
+        if nav_paths_by_fold is not None:
+            metadata["nav_paths_by_fold"] = nav_paths_by_fold
         if folds:
             metadata["n_folds"] = len(folds)
             metadata["folds"] = [fold.as_dict() for fold in folds]
@@ -613,6 +667,16 @@ class MonteCarloRunner:
             if diagnostic is None:
                 diagnostic = {}
             diagnostic["costs"] = self._cost_payload_dict(cost_payload)
+        nav_series = None
+        try:
+            nav_series = self._extract_nav_series(run_result, context)
+        except Exception as exc:
+            self._logger.debug(
+                "Failed to extract NAV series for path %s (%s): %s",
+                context.path_id,
+                strategy.name,
+                exc,
+            )
         return StrategyEvaluation(
             fold_id=context.fold_id,
             fold_label=context.fold_label,
@@ -625,6 +689,7 @@ class MonteCarloRunner:
             diagnostic=diagnostic,
             turnover=turnover_series,
             turnover_cap_binding=binding,
+            nav_series=nav_series,
         )
 
     def _apply_regime_turnover_caps(self, config: ConfigType, context: _PathContext) -> None:
@@ -1247,6 +1312,92 @@ class MonteCarloRunner:
             return float(turnover_value)
         return None
 
+    def _resolve_nav_return_series(self, run_result: Any) -> pd.Series | None:
+        portfolio_attr = getattr(run_result, "portfolio", None)
+        if isinstance(portfolio_attr, pd.Series):
+            return portfolio_attr
+        analysis = getattr(run_result, "analysis", None)
+        if analysis is not None:
+            candidate = getattr(analysis, "returns", None)
+            if isinstance(candidate, pd.Series):
+                return candidate
+            candidate = getattr(analysis, "portfolio", None)
+            if isinstance(candidate, pd.Series):
+                return candidate
+        details = getattr(run_result, "details", None)
+        if isinstance(details, Mapping):
+            for key in (
+                "portfolio_user_weight_combined",
+                "portfolio_user_weight",
+                "portfolio_equal_weight_combined",
+                "portfolio_equal_weight",
+            ):
+                candidate = details.get(key)
+                if isinstance(candidate, pd.Series):
+                    return candidate
+        return None
+
+    def _coerce_nav_index(
+        self,
+        index: pd.Index,
+        run_result: Any,
+        context: _PathContext,
+        length: int,
+    ) -> pd.DatetimeIndex | None:
+        if isinstance(index, pd.DatetimeIndex):
+            return index.copy()
+        try:
+            coerced = pd.to_datetime(index, errors="coerce")
+        except Exception:
+            coerced = None
+        if coerced is not None:
+            dt_index = pd.DatetimeIndex(coerced)
+            if not dt_index.isna().all():
+                return dt_index
+        fallback = self._resolve_cost_index(run_result, context)
+        if fallback is not None and len(fallback) == length:
+            try:
+                return pd.DatetimeIndex(fallback)
+            except Exception:
+                return None
+        return None
+
+    def _extract_nav_series(
+        self,
+        run_result: Any,
+        context: _PathContext,
+    ) -> pd.Series | None:
+        returns = self._resolve_nav_return_series(run_result)
+        if not isinstance(returns, pd.Series) or returns.empty:
+            return None
+        returns = returns.astype(float)
+        returns = returns.replace([np.inf, -np.inf], np.nan).dropna()
+        if returns.empty:
+            return None
+        nav_index = self._coerce_nav_index(returns.index, run_result, context, len(returns))
+        if nav_index is None:
+            self._logger.debug(
+                "nav_paths: non-datetime index for path %s; skipping NAV series",
+                context.path_id,
+            )
+            return None
+        returns = pd.Series(returns.to_numpy(), index=nav_index, name=returns.name)
+        nav = (1.0 + returns.fillna(0.0)).cumprod()
+        nav = nav.replace([np.inf, -np.inf], np.nan).dropna()
+        if nav.empty:
+            return None
+        first = float(nav.iloc[0])
+        if not np.isfinite(first) or first <= 0.0:
+            self._logger.debug(
+                "nav_paths: invalid starting NAV for path %s (value=%s)",
+                context.path_id,
+                first,
+            )
+            return None
+        nav = nav / first
+        nav.name = "NAV"
+        return nav
+
     def _resolve_turnover_diagnostics(
         self,
         run_result: Any,
@@ -1284,6 +1435,92 @@ class MonteCarloRunner:
         if not values:
             return None
         return pd.Index(values, name="period")
+
+    def _build_nav_paths_frame(
+        self,
+        evaluations: Sequence[StrategyEvaluation],
+        *,
+        primary_strategy_name: str | None,
+        fold_id: int | None,
+    ) -> pd.DataFrame:
+        paths: dict[int, pd.Series] = {}
+        index_ref: pd.Index | None = None
+        for evaluation in evaluations:
+            if fold_id is not None and evaluation.fold_id != fold_id:
+                continue
+            if (
+                primary_strategy_name is not None
+                and evaluation.strategy_name != primary_strategy_name
+            ):
+                continue
+            nav = evaluation.nav_series
+            if not isinstance(nav, pd.Series) or nav.empty:
+                continue
+            # Enforce canonical NAV normalization: each path must start at 1.0.
+            if not np.isclose(nav.iloc[0], 1.0, atol=NUMERICAL_TOLERANCE_LOW):
+                self._logger.debug(
+                    "nav_paths: path %s did not normalize to 1.0; skipping", evaluation.path_id
+                )
+                continue
+            if index_ref is None:
+                index_ref = nav.index
+            # All NAV series must share the same datetime-like index.
+            elif not nav.index.equals(index_ref):
+                self._logger.debug(
+                    "nav_paths: index mismatch for path %s; skipping", evaluation.path_id
+                )
+                continue
+            paths[int(evaluation.path_id)] = nav
+        if not paths:
+            return pd.DataFrame()
+        frame = pd.DataFrame(paths)
+        # Coerce to DatetimeIndex for canonical period-end semantics.
+        frame.index = pd.DatetimeIndex(frame.index)
+        frame.sort_index(inplace=True)
+        # Ensure columns support either plain path ids or MultiIndex (path, asset="NAV").
+        frame = self._coerce_nav_paths_columns(frame)
+        return frame
+
+    def _coerce_nav_paths_columns(self, frame: pd.DataFrame) -> pd.DataFrame:
+        """Ensure nav_paths columns support both plain and MultiIndex path ids."""
+        if isinstance(frame.columns, pd.MultiIndex):
+            names = list(frame.columns.names)
+            nlevels = frame.columns.nlevels
+            # Ensure a "path" level exists (defaults to the first level).
+            path_level = names.index("path") if "path" in names else 0
+            if len(names) <= path_level:
+                names.extend([None] * (path_level + 1 - len(names)))
+            names[path_level] = "path"
+            asset_level = names.index("asset") if "asset" in names else (1 if nlevels > 1 else None)
+            if asset_level is None:
+                # Append an "asset" level containing NAV when absent.
+                arrays = [frame.columns.get_level_values(i) for i in range(nlevels)]
+                arrays.append(pd.Index(["NAV"] * len(frame.columns)))
+                names.append("asset")
+                frame.columns = pd.MultiIndex.from_arrays(arrays, names=names)
+                return frame
+            if len(names) <= asset_level:
+                names.extend([None] * (asset_level + 1 - len(names)))
+            names[asset_level] = "asset"
+            frame.columns = frame.columns.set_names(names)
+            assets = frame.columns.get_level_values(asset_level)
+            if not (assets == "NAV").all():
+                # Force asset labels to NAV for fan chart compatibility.
+                arrays = [frame.columns.get_level_values(i) for i in range(nlevels)]
+                arrays[asset_level] = pd.Index(["NAV"] * len(frame.columns))
+                frame.columns = pd.MultiIndex.from_arrays(arrays, names=frame.columns.names)
+            try:
+                # Keep paths ordered for deterministic fan chart exports.
+                frame = frame.sort_index(axis=1, level=path_level)
+            except TypeError:
+                pass
+            return frame
+        frame.columns = pd.Index(frame.columns, name="path")
+        try:
+            frame = frame.sort_index(axis=1)
+        except TypeError:
+            pass
+        return frame
 
     def _period_results_regimes(
         self,

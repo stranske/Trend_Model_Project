@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from trend_analysis.monte_carlo.results import (
     RESULT_BASE_COLUMNS,
@@ -14,6 +15,16 @@ from trend_analysis.monte_carlo.results import (
     build_summary_frame,
     export_results,
 )
+
+
+def _has_parquet_engine() -> bool:
+    for module in ("pyarrow", "fastparquet"):
+        try:
+            __import__(module)
+        except Exception:
+            continue
+        return True
+    return False
 
 
 def test_build_results_frame_includes_fold_id_and_base_columns() -> None:
@@ -342,6 +353,62 @@ def test_export_results_writes_pooled_summary(tmp_path) -> None:
     assert pooled_dist.loc[0, "scope"] == "pooled"
     assert pooled_dist.loc[0, "pooled_scope"] == "distribution"
     assert "fold_id" in pooled_dist.columns
+
+
+@pytest.mark.skipif(not _has_parquet_engine(), reason="parquet engine required")
+def test_export_results_writes_nav_paths_parquet(tmp_path) -> None:
+    nav_index = pd.date_range("2024-01-31", periods=2, freq="ME")
+    nav_paths = pd.DataFrame(
+        {
+            0: [1.0, 1.1],
+            1: [1.0, 0.9],
+        },
+        index=nav_index,
+    )
+    frame = pd.DataFrame([{"path_id": 1, "strategy": "A", "metric": 1.0}])
+    summary = build_summary_frame(frame)
+    results = MonteCarloResults(
+        mode="two_layer",
+        evaluations=[],
+        errors=[],
+        results_frame=frame,
+        summary_frame=summary,
+        metadata={"nav_paths": nav_paths},
+    )
+
+    exported = export_results(results, tmp_path, formats=["csv"])
+
+    nav_path = exported["nav_paths_parquet"]
+    assert nav_path.exists()
+    loaded = pd.read_parquet(nav_path)
+    assert list(loaded.index) == list(nav_index)
+    assert set(loaded.columns) == {0, 1}
+
+
+@pytest.mark.skipif(not _has_parquet_engine(), reason="parquet engine required")
+def test_export_results_writes_nav_paths_by_fold_parquet(tmp_path) -> None:
+    nav_index = pd.date_range("2024-02-29", periods=2, freq="ME")
+    fold_one = pd.DataFrame({0: [1.0, 1.05]}, index=nav_index)
+    fold_two = pd.DataFrame({0: [1.0, 0.95]}, index=nav_index)
+    frame = pd.DataFrame([{"path_id": 1, "strategy": "A", "metric": 1.0}])
+    summary = build_summary_frame(frame)
+    results = MonteCarloResults(
+        mode="two_layer",
+        evaluations=[],
+        errors=[],
+        results_frame=frame,
+        summary_frame=summary,
+        metadata={"nav_paths_by_fold": {1: fold_one, 2: fold_two}},
+    )
+
+    exported = export_results(results, tmp_path, formats=["csv"])
+
+    fold_one_path = exported["nav_paths_fold_1_parquet"]
+    fold_two_path = exported["nav_paths_fold_2_parquet"]
+    assert fold_one_path.exists()
+    assert fold_two_path.exists()
+    assert pd.read_parquet(fold_one_path).iloc[-1, 0] == pytest.approx(1.05)
+    assert pd.read_parquet(fold_two_path).iloc[-1, 0] == pytest.approx(0.95)
 
 
 def test_export_results_skips_pooled_summary_when_missing(tmp_path) -> None:

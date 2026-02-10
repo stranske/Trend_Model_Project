@@ -139,6 +139,7 @@ def resolve_llm_provider_config(
     model: str | None = None,
     base_url: str | None = None,
     organization: str | None = None,
+    require_api_key: bool = True,
 ) -> LLMProviderConfig:
     provider_name = (provider or os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
     supported = {"openai", "anthropic", "ollama"}
@@ -162,7 +163,7 @@ def resolve_llm_provider_config(
         resolved_api_key = sanitize_api_key(os.environ.get("TREND_LLM_API_KEY"))
     if not resolved_api_key and provider_name == "anthropic":
         resolved_api_key = resolve_anthropic_api_key()
-    if provider_name in {"openai", "anthropic"} and not resolved_api_key:
+    if provider_name in {"openai", "anthropic"} and not resolved_api_key and require_api_key:
         env_hint = (
             "OPENAI_API_KEY"
             if provider_name == "openai"

@@ -708,6 +708,151 @@ def test_runner_builds_cross_fold_summary_without_pooled_distributions(
     assert cross_fold.loc[0, "metric_median"] == pytest.approx(float(np.median(metric_values)))
 
 
+def test_runner_populates_nav_paths_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenario = _scenario("two_layer")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+    nav_index = pd.date_range("2021-01-31", periods=3, freq="M")
+
+    def _fake_build_price_model(
+        self: MonteCarloRunner,
+        _history_slice: pd.DataFrame,
+        *,
+        calibration_start: pd.Timestamp | None = None,
+        calibration_end: pd.Timestamp | None = None,
+    ) -> object:
+        return object()
+
+    def _fake_run_mode(self: MonteCarloRunner, **_kwargs: Any) -> tuple[list[Any], list[Any]]:
+        evals = [
+            StrategyEvaluation(
+                fold_id=None,
+                path_id=0,
+                strategy_name="StrategyA",
+                metrics={"metric": 1.0},
+                metric_source="unit_test",
+                path_hash="hash-0",
+                seed=0,
+                nav_series=pd.Series([1.0, 1.02, 1.05], index=nav_index, name="NAV"),
+            ),
+            StrategyEvaluation(
+                fold_id=None,
+                path_id=1,
+                strategy_name="StrategyA",
+                metrics={"metric": 2.0},
+                metric_source="unit_test",
+                path_hash="hash-1",
+                seed=1,
+                nav_series=pd.Series([1.0, 0.98, 1.01], index=nav_index, name="NAV"),
+            ),
+        ]
+        return evals, []
+
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
+    monkeypatch.setattr(MonteCarloRunner, "_run_mode", _fake_run_mode)
+
+    results = runner.run(jobs=1)
+
+    nav_paths = results.metadata.get("nav_paths")
+    assert isinstance(nav_paths, pd.DataFrame)
+    assert not nav_paths.empty
+    assert isinstance(nav_paths.index, pd.DatetimeIndex)
+    assert nav_paths.index.equals(nav_index)
+    assert set(nav_paths.columns) == {0, 1}
+    assert nav_paths.columns.name == "path"
+    assert nav_paths.loc[nav_index[-1], 0] == pytest.approx(1.05)
+
+
+def test_runner_coerces_nav_paths_multiindex_asset_level() -> None:
+    scenario = _scenario("two_layer")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+    columns = pd.MultiIndex.from_arrays([[0, 1], ["foo", "bar"]])
+    frame = pd.DataFrame([[1.0, 1.0], [1.1, 0.9]], columns=columns)
+
+    coerced = runner._coerce_nav_paths_columns(frame)
+
+    assert isinstance(coerced.columns, pd.MultiIndex)
+    assert coerced.columns.names == ["path", "asset"]
+    assert set(coerced.columns.get_level_values("path")) == {0, 1}
+    assert set(coerced.columns.get_level_values("asset")) == {"NAV"}
+
+
+def test_runner_populates_nav_paths_by_fold(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenario = _scenario_with_folds(
+        mode="two_layer",
+        folds={"mode": "explicit", "fold_starts": ["2022-01-31", "2023-01-31"]},
+    )
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+    nav_index = pd.date_range("2021-01-31", periods=2, freq="M")
+
+    def _fake_build_price_model(
+        self: MonteCarloRunner,
+        _history_slice: pd.DataFrame,
+        *,
+        calibration_start: pd.Timestamp | None = None,
+        calibration_end: pd.Timestamp | None = None,
+    ) -> object:
+        return object()
+
+    def _fake_run_mode(self: MonteCarloRunner, **kwargs: Any) -> tuple[list[Any], list[Any]]:
+        fold_id = int(kwargs.get("fold_id") or 0)
+        evals = [
+            StrategyEvaluation(
+                fold_id=fold_id,
+                path_id=0,
+                strategy_name="StrategyA",
+                metrics={"metric": 1.0},
+                metric_source="unit_test",
+                path_hash=f"hash-{fold_id}-0",
+                seed=fold_id,
+                nav_series=pd.Series([1.0, 1.0 + (0.01 * fold_id)], index=nav_index, name="NAV"),
+            ),
+            StrategyEvaluation(
+                fold_id=fold_id,
+                path_id=1,
+                strategy_name="StrategyA",
+                metrics={"metric": 1.5},
+                metric_source="unit_test",
+                path_hash=f"hash-{fold_id}-1",
+                seed=fold_id + 1,
+                nav_series=pd.Series([1.0, 1.0 + (0.02 * fold_id)], index=nav_index, name="NAV"),
+            ),
+        ]
+        return evals, []
+
+    monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
+    monkeypatch.setattr(MonteCarloRunner, "_run_mode", _fake_run_mode)
+
+    results = runner.run(jobs=1)
+
+    nav_paths_by_fold = results.metadata.get("nav_paths_by_fold")
+    assert isinstance(nav_paths_by_fold, dict)
+    assert set(nav_paths_by_fold) == {1, 2}
+    fold_one = nav_paths_by_fold[1]
+    fold_two = nav_paths_by_fold[2]
+    assert isinstance(fold_one, pd.DataFrame)
+    assert isinstance(fold_two, pd.DataFrame)
+    assert fold_one.index.equals(nav_index)
+    assert fold_two.index.equals(nav_index)
+    assert fold_one.loc[nav_index[-1], 0] == pytest.approx(1.01)
+    assert fold_two.loc[nav_index[-1], 0] == pytest.approx(1.02)
+
+
 def test_runner_cross_fold_summary_stats_include_pooled_labels(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

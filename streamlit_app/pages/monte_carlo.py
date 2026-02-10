@@ -137,7 +137,7 @@ def _filter_results_by_fold(results: pd.DataFrame, selection: str | None) -> pd.
     return results
 
 
-def _extract_nav_paths(results: object) -> pd.DataFrame:
+def _extract_nav_paths(results: object, *, fold_id: int | None = None) -> pd.DataFrame:
     if hasattr(results, "nav_paths"):
         nav_paths = getattr(results, "nav_paths")
         if isinstance(nav_paths, pd.DataFrame):
@@ -145,10 +145,22 @@ def _extract_nav_paths(results: object) -> pd.DataFrame:
     if hasattr(results, "metadata"):
         metadata = getattr(results, "metadata")
         if isinstance(metadata, Mapping):
+            if fold_id is not None:
+                nav_paths_by_fold = metadata.get("nav_paths_by_fold")
+                if isinstance(nav_paths_by_fold, Mapping):
+                    nav_paths = nav_paths_by_fold.get(fold_id)
+                    if isinstance(nav_paths, pd.DataFrame):
+                        return nav_paths
             nav_paths = metadata.get("nav_paths")
             if isinstance(nav_paths, pd.DataFrame):
                 return nav_paths
     if isinstance(results, Mapping):
+        if fold_id is not None:
+            nav_paths_by_fold = results.get("nav_paths_by_fold")
+            if isinstance(nav_paths_by_fold, Mapping):
+                nav_paths = nav_paths_by_fold.get(fold_id)
+                if isinstance(nav_paths, pd.DataFrame):
+                    return nav_paths
         nav_paths = results.get("nav_paths")
         if isinstance(nav_paths, pd.DataFrame):
             return nav_paths
@@ -219,7 +231,14 @@ def _render_results(
     summary_table = mc_tables.render_summary_table(filtered_results)
 
     st.subheader("Charts")
-    nav_paths = _extract_nav_paths(results)
+    fold_id = None
+    if fold_selection:
+        tokens = fold_selection.split()
+        if tokens and tokens[-1].isdigit():
+            fold_id = int(tokens[-1])
+    nav_paths = _extract_nav_paths(results, fold_id=fold_id)
+    if nav_paths.empty:
+        st.warning("No NAV paths available for the selected fold.")
     mc_plots.render_sharpe_histogram(filtered_results)
     mc_plots.render_fan_chart(nav_paths)
     mc_plots.render_box_plot(filtered_results)
