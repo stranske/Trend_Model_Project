@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Create `src/trend_analysis/viz/` and add initial module files for `theme`,
       `utils`, `fan`, `path_dist`, and `risk_return`
-    status: doing
+    status: done
     started_at: '2026-02-10T17:28:38Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-10T17:28:49Z'
+    commit: 70215dd77a6d5b1b358a79ea38091bd0b654d7bf
     notes: []
   - id: task-02
     title: Implement ports of the required PAEM `pa_core.viz` functions into `src/trend_analysis/viz/theme.py`,
