@@ -1,0 +1,235 @@
+version: 1
+issue: 4856
+base: phase-3
+branch: codex/issue-4856
+tasks:
+  - id: task-01
+    title: Create `src/trend_analysis/viz/__init__.py` with a minimal initializer
+      that does not import `streamlit` and does not import viz implementation modules
+      (`fan`, `path_dist`, `risk_return`) at import time
+    status: doing
+    started_at: '2026-02-10T20:52:06Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Add `tests/test_viz_package_import.py` to import `trend_analysis.viz` and
+      assert `"streamlit" not in sys.modules` after import
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Add `tests/viz/test_fan_make.py` to call `trend_analysis.viz.fan.make(...)`
+      with minimal valid input and assert `isinstance(fig, plotly.graph_objects.Figure)`
+      and `json.loads(fig.to_json())` succeeds
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Add `tests/viz/test_path_dist_make.py` to call `trend_analysis.viz.path_dist.make(...)`
+      with minimal valid input and assert `isinstance(fig, plotly.graph_objects.Figure)`
+      and `json.loads(fig.to_json())` succeeds
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Add `tests/viz/test_risk_return_make.py` to call `trend_analysis.viz.risk_return.make(...)`
+      with minimal valid input and assert `isinstance(fig, plotly.graph_objects.Figure)`
+      and `json.loads(fig.to_json())` succeeds
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Update `trend_analysis.viz.utils.quantile_bands(...)` to remove usage of
+      `zip(..., strict=False)` by implementing equivalent pairing logic compatible
+      with Python < 3.10
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Add `tests/viz/test_utils_quantile_bands.py` to exercise `quantile_bands(...)`
+      pairing behavior, including at least one expected pairing case and at least
+      one mismatched/odd-length quantile inputs case (assert output pairing or a well-defined
+      exception)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Add tests for `_select_nav_paths` with empty DataFrame input asserting
+      specific exception type and message substring
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Add tests for `_select_nav_paths` with unsorted quantile labels asserting
+      correct DataFrame shape and index order
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Add tests for `_select_nav_paths` with duplicate quantile labels asserting
+      specific exception type and message substring
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Add tests for `_select_terminal_values` with MultiIndex having unexpected
+      level names asserting specific exception type and message substring
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Add tests for `_select_terminal_values` with MultiIndex having unexpected
+      level order asserting correct numeric output values
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Add tests for `_select_terminal_values` with numeric values provided as
+      strings asserting correct dtype coercion to numeric types
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: '`src/trend_analysis/viz/__init__.py` exists, and `import trend_analysis.viz`
+      does not raise when `streamlit` is not installed'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: After `import trend_analysis.viz`, `"streamlit"` is not present in `sys.modules`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: '`src/trend_analysis/viz/__init__.py` contains no `import streamlit` statement
+      and does not import `fan`, `path_dist`, or `risk_return` at import time'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Calling `trend_analysis.viz.fan.make(...)` with minimal valid input returns
+      an instance of `plotly.graph_objects.Figure`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'The Figure from `trend_analysis.viz.fan.make(...)` is JSON-serializable:
+      `fig.to_json()` completes without raising and `json.loads(...)` parses the returned
+      string'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Calling `trend_analysis.viz.path_dist.make(...)` with minimal valid input
+      returns an instance of `plotly.graph_objects.Figure`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'The Figure from `trend_analysis.viz.path_dist.make(...)` is JSON-serializable:
+      `fig.to_json()` completes without raising and `json.loads(...)` parses the returned
+      string'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Calling `trend_analysis.viz.risk_return.make(...)` with minimal valid input
+      returns an instance of `plotly.graph_objects.Figure`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'The Figure from `trend_analysis.viz.risk_return.make(...)` is JSON-serializable:
+      `fig.to_json()` completes without raising and `json.loads(...)` parses the returned
+      string'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: '`trend_analysis.viz.utils.quantile_bands(...)` contains no usage of `zip(...,
+      strict=...)` and executes without requiring Python 3.10+ language features'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: '`tests/viz/test_utils_quantile_bands.py` exists and passes, including
+      coverage for mismatched/odd-length quantile inputs per intended behavior'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: '`_select_nav_paths` has automated tests covering: (1) empty input, (2)
+      unsorted quantile labels, (3) duplicate quantile labels; each asserts a specific
+      returned DataFrame shape/index or a specific exception type and message substring'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: '`_select_terminal_values` has automated tests covering: (1) MultiIndex
+      quirks (unexpected level names/order), and (2) dtype coercion (numeric values
+      provided as strings); each asserts correct numeric output values/dtypes or a
+      specific exception type and message substring'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: 'Pytest collects the new test files: `tests/test_viz_package_import.py`,
+      `tests/viz/test_fan_make.py`, `tests/viz/test_path_dist_make.py`, `tests/viz/test_risk_return_make.py`,
+      `tests/viz/test_utils_quantile_bands.py`, and tests for `_select_nav_paths`
+      and `_select_terminal_values` edge cases'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
