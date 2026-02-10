@@ -23,6 +23,7 @@ import yaml
 from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner, nl_operation_viewer
 from streamlit_app.components.llm_settings import (
+    anthropic_api_key_status as _anthropic_api_key_status,
     resolve_llm_provider_config as _resolve_llm_provider_config_shared,
 )
 from streamlit_app.components.llm_settings import (
@@ -952,13 +953,14 @@ def _llm_required_env_vars(provider: str) -> list[str] | None:
 
 
 def _llm_env_var_present(name: str) -> bool:
+    if name in {"CLAUDE_API_STRANSKE", "ANTHROPIC_API_KEY"}:
+        status = _anthropic_api_key_status()
+        return bool(status.get(name))
     value = os.environ.get(name)
     if name in {
         "TS_STREAMLIT_API_KEY",
         "TREND_LLM_API_KEY",
         "OPENAI_API_KEY",
-        "ANTHROPIC_API_KEY",
-        "CLAUDE_API_STRANSKE",
     }:
         return bool(_sanitize_api_key(value))
     return bool(value)
