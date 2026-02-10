@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 import os
 import sys
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping
 
 
 @dataclass(slots=True)
@@ -142,7 +142,9 @@ def _detect_cosmetic_failure(
     return True, tuple(sorted(cosmetic_hits))
 
 
-def _collect_table(records: Iterable[Mapping[str, object]]) -> tuple[
+def _collect_table(
+    records: Iterable[Mapping[str, object]],
+) -> tuple[
     list[str],
     list[tuple[str, str]],
     list[tuple[str, str]],
@@ -167,9 +169,9 @@ def _collect_table(records: Iterable[Mapping[str, object]]) -> tuple[
         job_name = str(record.get("job_name") or runtime)
         checks = record.get("checks") if isinstance(record.get("checks"), Mapping) else {}
 
-        def _check(name: str) -> str:
+        def _check(name: str, checks_map=checks) -> str:
             return _normalize_check_outcome(
-                checks.get(name) if isinstance(checks, Mapping) else None
+                checks_map.get(name) if isinstance(checks_map, Mapping) else None
             )
 
         lint = _check("lint")
@@ -193,20 +195,15 @@ def _collect_table(records: Iterable[Mapping[str, object]]) -> tuple[
         else:
             percent_display = "—"
 
-        table.append(
-            "| {runtime} | {lint} {lint_status} | {typing} {type_status} | {tests} {test_status} | {coverage_min} {cov_status} | {percent} |".format(
-                runtime=runtime,
-                lint=_emoji(lint),
-                lint_status=_friendly(lint),
-                typing=_emoji(typing),
-                type_status=_friendly(typing),
-                tests=_emoji(tests),
-                test_status=_friendly(tests),
-                coverage_min=_emoji(coverage_min),
-                cov_status=_friendly(coverage_min),
-                percent=percent_display,
-            )
+        row = (
+            f"| {runtime}"
+            f" | {_emoji(lint)} {_friendly(lint)}"
+            f" | {_emoji(typing)} {_friendly(typing)}"
+            f" | {_emoji(tests)} {_friendly(tests)}"
+            f" | {_emoji(coverage_min)} {_friendly(coverage_min)}"
+            f" | {percent_display} |"
         )
+        table.append(row)
 
     return (
         table,
@@ -272,9 +269,9 @@ def _active_lines(
     lines.append(f"- Lint: {_emoji(lint_status)} {_friendly(lint_status)} ({lint_detail})")
     lines.append(f"- Type check: {_emoji(type_status)} {_friendly(type_status)} ({type_detail})")
     lines.append(f"- Tests: {_emoji(test_status)} {_friendly(test_status)} ({test_detail})")
-    lines.append(
-        f"- Coverage minimum: {_emoji(coverage_status)} {_friendly(coverage_status)} ({coverage_detail})"
-    )
+    cov_emoji = _emoji(coverage_status)
+    cov_text = _friendly(coverage_status)
+    lines.append(f"- Coverage minimum: {cov_emoji} {cov_text} ({coverage_detail})")
     coverage_summary = list(coverage_percents)
     if coverage_summary:
         lines.append(f"- Reported coverage: {', '.join(coverage_summary)}")
@@ -293,6 +290,7 @@ def summarize(context: SummaryContext) -> SummaryResult:
         return SummaryResult(lines=lines, state="success", description=description)
 
     records = _load_summary_records(context.artifacts_root)
+    has_records = bool(records)
 
     (
         table,
@@ -325,13 +323,23 @@ def summarize(context: SummaryContext) -> SummaryResult:
     format_failure = False
 
     # Python CI skipped is OK if run_core is false (doc/workflow-only changes)
-    if python_result not in ("success", "skipped") or (
+    if python_result == "cancelled":
+        state = "pending"
+        description = "Python CI cancelled; waiting for rerun."
+    elif python_result not in ("success", "skipped") or (
         python_result == "skipped" and context.run_core
     ):
-        state = "failure"
-        description = f"Python CI result: {python_result}."
-        cosmetic_failure, failure_checks = _detect_cosmetic_failure(records)
-        format_failure = "format" in failure_checks
+        if python_result == "skipped" and context.run_core and not has_records:
+            state = "pending"
+            description = "Python CI skipped; waiting for rerun."
+        else:
+            state = "failure"
+            description = f"Python CI result: {python_result}."
+            cosmetic_failure, failure_checks = _detect_cosmetic_failure(records)
+            format_failure = "format" in failure_checks
+    elif context.docker_changed and docker_result_norm == "cancelled":
+        state = "pending"
+        description = "Docker smoke cancelled; waiting for rerun."
     elif context.docker_changed and docker_result_norm != "success":
         state = "failure"
         description = f"Docker smoke result: {docker_result_norm}."
