@@ -315,6 +315,8 @@ platformdirs==4.5.1
     #   black
     #   jupyter-core
     #   virtualenv
+plotly==5.24.1
+    # via trend-model (pyproject.toml)
 pluggy==1.6.0
     # via
     #   pytest
