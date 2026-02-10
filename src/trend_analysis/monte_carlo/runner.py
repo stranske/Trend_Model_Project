@@ -1434,7 +1434,10 @@ class MonteCarloRunner:
         for evaluation in evaluations:
             if fold_id is not None and evaluation.fold_id != fold_id:
                 continue
-            if primary_strategy_name is not None and evaluation.strategy_name != primary_strategy_name:
+            if (
+                primary_strategy_name is not None
+                and evaluation.strategy_name != primary_strategy_name
+            ):
                 continue
             nav = evaluation.nav_series
             if not isinstance(nav, pd.Series) or nav.empty:
