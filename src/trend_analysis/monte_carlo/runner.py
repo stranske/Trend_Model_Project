@@ -10,7 +10,8 @@ Canonical ``nav_paths`` schema (used by Monte Carlo reporting/export):
 - Columns: either plain path identifiers (e.g. ``0, 1, 2, ...``) or a
   ``MultiIndex`` with levels ``path`` and ``asset``.
   - ``path``: the integer path identifier.
-  - ``asset``: the asset label. For NAV paths this must be ``"NAV"``.
+  - ``asset``: the asset label. For NAV paths this must be ``"NAV"`` (non-NAV
+    labels are coerced to ``"NAV"`` during normalization).
 
 Example (plain columns):
 ```
