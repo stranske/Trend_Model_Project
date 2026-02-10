@@ -162,6 +162,7 @@ def build_diagnostics_frame(evaluations: Iterable[StrategyEvaluation]) -> pd.Dat
                     if turnover_series is not None and pd.notna(turnover_series.loc[period])
                     else None
                 ),
+                "turnover_cap_regime": None,
                 "turnover_cap_binding": (
                     bool(binding_series.loc[period])
                     if binding_series is not None and pd.notna(binding_series.loc[period])

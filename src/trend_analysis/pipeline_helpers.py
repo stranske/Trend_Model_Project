@@ -31,7 +31,7 @@ __all__ = [
     "_format_period",
     "_policy_from_config",
     "parse_regime_turnover_caps",
-    "_resolve_regime_turnover_cap",
+    "_resolve_turnover_cap_from_parsed",
     "_resolve_regime_label",
     "_resolve_sample_split",
     "_resolve_target_vol",
@@ -143,37 +143,22 @@ def _resolve_regime_label(
     return str(aligned.iloc[-1]), settings
 
 
-def _resolve_regime_turnover_cap(
-    max_turnover: object | None,
+def _resolve_turnover_cap_from_parsed(
+    parsed: dict[str, float] | float | None,
     regime_label: str | None,
     settings: Any,
 ) -> float | None:
-    if max_turnover is None:
+    if parsed is None:
         return None
-    if not isinstance(max_turnover, Mapping):
-        try:
-            parsed = parse_regime_turnover_caps(max_turnover, settings)
-        except CoreConfigError:
-            return None
-        if parsed is None or isinstance(parsed, Mapping):
-            return None
+    if not isinstance(parsed, Mapping):
         return parsed
-
-    normalized = parse_regime_turnover_caps(max_turnover, settings)
-    if normalized is None:
-        return None
-    if not isinstance(normalized, Mapping):
-        return None
 
     def _lookup(label: str | None) -> float | None:
         label_key = normalize_regime_key(label)
         if not label_key:
             return None
-        if label_key in normalized:
-            return normalized[label_key]
-        alias_key = alias_regime_key(label_key)
-        if alias_key and alias_key in normalized:
-            return normalized[alias_key]
+        if label_key in parsed:
+            return parsed[label_key]
         return None
 
     if regime_label:
@@ -187,8 +172,8 @@ def _resolve_regime_turnover_cap(
         return resolved
 
     for fallback in ("default", "all", "any"):
-        if fallback in normalized:
-            return normalized[fallback]
+        if fallback in parsed:
+            return parsed[fallback]
 
     if regime_label and normalize_regime_key(regime_label):
         raise KeyError(f"max_turnover missing regime '{regime_label}' and no default specified")

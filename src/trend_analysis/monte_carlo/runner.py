@@ -740,9 +740,6 @@ class MonteCarloRunner:
                 return None
             if normalized in parsed:
                 return parsed[normalized]
-            alias_key = alias_regime_key(normalized)
-            if alias_key and alias_key in parsed:
-                return parsed[alias_key]
             return None
 
         if regime_label:
@@ -1382,9 +1379,6 @@ class MonteCarloRunner:
                 return np.nan
             if normalized in parsed:
                 return parsed[normalized]
-            alias_key = alias_regime_key(normalized)
-            if alias_key and alias_key in parsed:
-                return parsed[alias_key]
             return np.nan
 
         caps = labels.map(_lookup_turnover_cap)
