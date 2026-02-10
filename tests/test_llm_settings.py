@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from streamlit_app.components.llm_settings import (
+    anthropic_api_key_status,
     resolve_anthropic_api_key,
     resolve_llm_provider_config,
 )
@@ -79,3 +80,10 @@ def test_anthropic_key_missing_returns_none_and_config_errors() -> None:
     assert resolve_anthropic_api_key() is None
     with pytest.raises(ValueError):
         resolve_llm_provider_config("anthropic")
+
+
+def test_anthropic_key_status_reports_primary_env() -> None:
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("CLAUDE_API_STRANSKE", "claude-primary")
+        status = anthropic_api_key_status(include_secrets=False, include_env=True)
+        assert status == {"CLAUDE_API_STRANSKE": True, "ANTHROPIC_API_KEY": False}
