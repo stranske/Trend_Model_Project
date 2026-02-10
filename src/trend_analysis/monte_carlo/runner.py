@@ -1509,8 +1509,17 @@ class MonteCarloRunner:
                 arrays = [frame.columns.get_level_values(i) for i in range(nlevels)]
                 arrays[asset_level] = pd.Index(["NAV"] * len(frame.columns))
                 frame.columns = pd.MultiIndex.from_arrays(arrays, names=frame.columns.names)
+            try:
+                # Keep paths ordered for deterministic fan chart exports.
+                frame = frame.sort_index(axis=1, level=path_level)
+            except TypeError:
+                pass
             return frame
         frame.columns = pd.Index(frame.columns, name="path")
+        try:
+            frame = frame.sort_index(axis=1)
+        except TypeError:
+            pass
         return frame
 
     def _period_results_regimes(
