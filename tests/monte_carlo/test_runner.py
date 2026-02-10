@@ -801,9 +801,7 @@ def test_runner_populates_nav_paths_by_fold(
                 metric_source="unit_test",
                 path_hash=f"hash-{fold_id}-0",
                 seed=fold_id,
-                nav_series=pd.Series(
-                    [1.0, 1.0 + (0.01 * fold_id)], index=nav_index, name="NAV"
-                ),
+                nav_series=pd.Series([1.0, 1.0 + (0.01 * fold_id)], index=nav_index, name="NAV"),
             ),
             StrategyEvaluation(
                 fold_id=fold_id,
@@ -813,9 +811,7 @@ def test_runner_populates_nav_paths_by_fold(
                 metric_source="unit_test",
                 path_hash=f"hash-{fold_id}-1",
                 seed=fold_id + 1,
-                nav_series=pd.Series(
-                    [1.0, 1.0 + (0.02 * fold_id)], index=nav_index, name="NAV"
-                ),
+                nav_series=pd.Series([1.0, 1.0 + (0.02 * fold_id)], index=nav_index, name="NAV"),
             ),
         ]
         return evals, []
