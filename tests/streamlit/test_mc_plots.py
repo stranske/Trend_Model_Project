@@ -7,10 +7,7 @@ from streamlit_app.components import mc_plots
 
 def _sample_nav_paths(rows: int = 12, paths: int = 6) -> pd.DataFrame:
     index = pd.date_range("2024-01-01", periods=rows, freq="D")
-    data = {
-        f"path_{i}": [float(i) + j * 0.5 for j in range(rows)]
-        for i in range(paths)
-    }
+    data = {f"path_{i}": [float(i) + j * 0.5 for j in range(rows)] for i in range(paths)}
     return pd.DataFrame(data, index=index)
 
 
