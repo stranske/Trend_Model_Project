@@ -206,6 +206,9 @@ class MonteCarloRunner:
         assert mode is not None
         evaluations: list[StrategyEvaluation] = []
         errors: list[MonteCarloPathError] = []
+        primary_strategy = None
+        if mode != "mixture" and strategies:
+            primary_strategy = strategies[0].name
         if folds:
             for fold in folds:
                 model = self._build_price_model(
@@ -245,6 +248,23 @@ class MonteCarloRunner:
         results_frame = build_results_frame(evaluations)
         summary_frame = build_summary_frame(results_frame)
         diagnostics_frame = build_diagnostics_frame(evaluations)
+        nav_paths_by_fold: dict[int, pd.DataFrame] | None = None
+        nav_paths: pd.DataFrame | None = None
+        if folds:
+            nav_paths_by_fold = {}
+            for fold in folds:
+                fold_nav = self._build_nav_paths_frame(
+                    evaluations,
+                    primary_strategy_name=primary_strategy,
+                    fold_id=fold.fold_id,
+                )
+                nav_paths_by_fold[int(fold.fold_id)] = fold_nav
+        else:
+            nav_paths = self._build_nav_paths_frame(
+                evaluations,
+                primary_strategy_name=primary_strategy,
+                fold_id=None,
+            )
         metadata: dict[str, Any] = {
             "scenario": self.scenario.name,
             "mode": mode,
@@ -252,6 +272,10 @@ class MonteCarloRunner:
             "n_strategies": len(strategies),
             "seed": settings.seed,
         }
+        if nav_paths is not None:
+            metadata["nav_paths"] = nav_paths
+        if nav_paths_by_fold is not None:
+            metadata["nav_paths_by_fold"] = nav_paths_by_fold
         if folds:
             metadata["n_folds"] = len(folds)
             metadata["folds"] = [fold.as_dict() for fold in folds]
@@ -629,6 +653,16 @@ class MonteCarloRunner:
             if diagnostic is None:
                 diagnostic = {}
             diagnostic["costs"] = self._cost_payload_dict(cost_payload)
+        nav_series = None
+        try:
+            nav_series = self._extract_nav_series(run_result, context)
+        except Exception as exc:
+            self._logger.debug(
+                "Failed to extract NAV series for path %s (%s): %s",
+                context.path_id,
+                strategy.name,
+                exc,
+            )
         return StrategyEvaluation(
             fold_id=context.fold_id,
             fold_label=context.fold_label,
@@ -641,6 +675,7 @@ class MonteCarloRunner:
             diagnostic=diagnostic,
             turnover=turnover_series,
             turnover_cap_binding=binding,
+            nav_series=nav_series,
         )
 
     def _apply_regime_turnover_caps(self, config: ConfigType, context: _PathContext) -> None:
@@ -1263,6 +1298,92 @@ class MonteCarloRunner:
             return float(turnover_value)
         return None
 
+    def _resolve_nav_return_series(self, run_result: Any) -> pd.Series | None:
+        portfolio_attr = getattr(run_result, "portfolio", None)
+        if isinstance(portfolio_attr, pd.Series):
+            return portfolio_attr
+        analysis = getattr(run_result, "analysis", None)
+        if analysis is not None:
+            candidate = getattr(analysis, "returns", None)
+            if isinstance(candidate, pd.Series):
+                return candidate
+            candidate = getattr(analysis, "portfolio", None)
+            if isinstance(candidate, pd.Series):
+                return candidate
+        details = getattr(run_result, "details", None)
+        if isinstance(details, Mapping):
+            for key in (
+                "portfolio_user_weight_combined",
+                "portfolio_user_weight",
+                "portfolio_equal_weight_combined",
+                "portfolio_equal_weight",
+            ):
+                candidate = details.get(key)
+                if isinstance(candidate, pd.Series):
+                    return candidate
+        return None
+
+    def _coerce_nav_index(
+        self,
+        index: pd.Index,
+        run_result: Any,
+        context: _PathContext,
+        length: int,
+    ) -> pd.DatetimeIndex | None:
+        if isinstance(index, pd.DatetimeIndex):
+            return index.copy()
+        try:
+            coerced = pd.to_datetime(index, errors="coerce")
+        except Exception:
+            coerced = None
+        if coerced is not None:
+            dt_index = pd.DatetimeIndex(coerced)
+            if not dt_index.isna().all():
+                return dt_index
+        fallback = self._resolve_cost_index(run_result, context)
+        if fallback is not None and len(fallback) == length:
+            try:
+                return pd.DatetimeIndex(fallback)
+            except Exception:
+                return None
+        return None
+
+    def _extract_nav_series(
+        self,
+        run_result: Any,
+        context: _PathContext,
+    ) -> pd.Series | None:
+        returns = self._resolve_nav_return_series(run_result)
+        if not isinstance(returns, pd.Series) or returns.empty:
+            return None
+        returns = returns.astype(float)
+        returns = returns.replace([np.inf, -np.inf], np.nan).dropna()
+        if returns.empty:
+            return None
+        nav_index = self._coerce_nav_index(returns.index, run_result, context, len(returns))
+        if nav_index is None:
+            self._logger.debug(
+                "nav_paths: non-datetime index for path %s; skipping NAV series",
+                context.path_id,
+            )
+            return None
+        returns = pd.Series(returns.to_numpy(), index=nav_index, name=returns.name)
+        nav = (1.0 + returns.fillna(0.0)).cumprod()
+        nav = nav.replace([np.inf, -np.inf], np.nan).dropna()
+        if nav.empty:
+            return None
+        first = float(nav.iloc[0])
+        if not np.isfinite(first) or first <= 0.0:
+            self._logger.debug(
+                "nav_paths: invalid starting NAV for path %s (value=%s)",
+                context.path_id,
+                first,
+            )
+            return None
+        nav = nav / first
+        nav.name = "NAV"
+        return nav
+
     def _resolve_turnover_diagnostics(
         self,
         run_result: Any,
@@ -1300,6 +1421,43 @@ class MonteCarloRunner:
         if not values:
             return None
         return pd.Index(values, name="period")
+
+    def _build_nav_paths_frame(
+        self,
+        evaluations: Sequence[StrategyEvaluation],
+        *,
+        primary_strategy_name: str | None,
+        fold_id: int | None,
+    ) -> pd.DataFrame:
+        paths: dict[int, pd.Series] = {}
+        index_ref: pd.Index | None = None
+        for evaluation in evaluations:
+            if fold_id is not None and evaluation.fold_id != fold_id:
+                continue
+            if primary_strategy_name is not None and evaluation.strategy_name != primary_strategy_name:
+                continue
+            nav = evaluation.nav_series
+            if not isinstance(nav, pd.Series) or nav.empty:
+                continue
+            if not np.isclose(nav.iloc[0], 1.0, atol=NUMERICAL_TOLERANCE_LOW):
+                self._logger.debug(
+                    "nav_paths: path %s did not normalize to 1.0; skipping", evaluation.path_id
+                )
+                continue
+            if index_ref is None:
+                index_ref = nav.index
+            elif not nav.index.equals(index_ref):
+                self._logger.debug(
+                    "nav_paths: index mismatch for path %s; skipping", evaluation.path_id
+                )
+                continue
+            paths[int(evaluation.path_id)] = nav
+        if not paths:
+            return pd.DataFrame()
+        frame = pd.DataFrame(paths)
+        frame.index = pd.DatetimeIndex(frame.index)
+        frame.sort_index(inplace=True)
+        return frame
 
     def _period_results_regimes(
         self,

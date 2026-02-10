@@ -60,6 +60,7 @@ class StrategyEvaluation:
     diagnostic: Mapping[str, Any] | None = None
     turnover: pd.Series | None = None
     turnover_cap_binding: pd.Series | None = None
+    nav_series: pd.Series | None = None
 
 
 @dataclass(frozen=True)
