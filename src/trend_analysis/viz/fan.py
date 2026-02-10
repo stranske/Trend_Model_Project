@@ -49,6 +49,9 @@ def _select_nav_paths(
         else:
             frame.columns = ["_".join(map(str, col)) for col in frame.columns]
 
+    if frame.columns.has_duplicates:
+        raise ValueError("nav_paths has duplicate path labels")
+
     if max_paths is not None and frame.shape[1] > max_paths:
         frame = frame.iloc[:, :max_paths]
 

@@ -104,9 +104,10 @@ def quantile_bands(
 
     q_values = sorted(validate_quantiles(quantiles))
     bands: list[QuantileBand] = []
-    for lower, upper in zip(q_values, reversed(q_values), strict=False):
+    for idx, lower in enumerate(q_values):
+        upper = q_values[-(idx + 1)]
         if lower >= upper:
-            continue
+            break
         bands.append(QuantileBand(lower=lower, upper=upper))
     return tuple(bands)
 
