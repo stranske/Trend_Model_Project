@@ -26,6 +26,16 @@ def test_fan_chart_uses_quantile_bands() -> None:
     assert fig.data[4].name == "Median"
 
 
+def test_fan_chart_trace_count_stays_constant_with_many_paths() -> None:
+    nav_paths = _sample_nav_paths(paths=250)
+
+    fig = mc_plots.fan_chart(nav_paths)
+
+    assert len(fig.data) == 5
+    assert fig.data[1].fill == "tonexty"
+    assert fig.data[3].fill == "tonexty"
+
+
 def test_fan_chart_empty_returns_empty_figure() -> None:
     fig = mc_plots.fan_chart(pd.DataFrame())
 

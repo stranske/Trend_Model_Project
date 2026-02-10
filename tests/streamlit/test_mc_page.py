@@ -59,6 +59,7 @@ class DummyStreamlit:
         self.slider_returns: list[int] = []
         self.text_input_returns: list[str] = []
         self.downloads: list[dict[str, Any]] = []
+        self.plotly_calls: list[dict[str, Any]] = []
         self.dataframes: list[pd.DataFrame] = []
         self.error_messages: list[str] = []
         self.warning_messages: list[str] = []
@@ -101,8 +102,8 @@ class DummyStreamlit:
     def altair_chart(self, *_args: Any, **_kwargs: Any) -> None:
         return None
 
-    def plotly_chart(self, *_args: Any, **_kwargs: Any) -> None:
-        return None
+    def plotly_chart(self, *_args: Any, **kwargs: Any) -> None:
+        self.plotly_calls.append(dict(kwargs))
 
     def multiselect(self, label: str, options: list[str], **_kwargs: Any) -> list[str]:
         self.multiselect_calls.append((label, options))
@@ -397,6 +398,8 @@ def test_run_button_flow_with_progress(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.jobs == 4
     assert captured["jobs"] == 4
     assert stub.progress_calls
+    assert len(stub.plotly_calls) >= 3
+    assert all(call.get("use_container_width") is True for call in stub.plotly_calls)
     assert stub.dataframes
 
     columns = list(stub.dataframes[0].columns)
