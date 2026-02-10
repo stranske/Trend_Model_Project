@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable, Mapping, Sequence
 
-import numpy as np
 import pandas as pd
 
 DEFAULT_COLORS: tuple[str, ...] = (
