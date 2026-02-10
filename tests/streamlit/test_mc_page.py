@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import sys
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
@@ -558,6 +559,28 @@ def test_download_link_generation(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "text/csv" in mimes
     assert "application/x-parquet" in mimes
     assert "application/zip" in mimes
+
+    csv_entry = next(entry for entry in stub.downloads if entry.get("mime") == "text/csv")
+    assert isinstance(csv_entry.get("data"), str)
+    assert "Strategy" in csv_entry.get("data")
+
+    parquet_entry = next(
+        entry for entry in stub.downloads if entry.get("mime") == "application/x-parquet"
+    )
+    parquet_data = parquet_entry.get("data")
+    assert hasattr(parquet_data, "getvalue")
+    parquet_bytes = parquet_data.getvalue()
+    assert parquet_bytes[:4] == b"PAR1"
+
+    zip_entry = next(entry for entry in stub.downloads if entry.get("mime") == "application/zip")
+    zip_data = zip_entry.get("data")
+    assert hasattr(zip_data, "getvalue")
+    if hasattr(zip_data, "seek"):
+        zip_data.seek(0)
+    with zipfile.ZipFile(zip_data) as bundle:
+        assert set(bundle.namelist()) == {"summary.csv", "representative_paths.parquet"}
+        summary_text = bundle.read("summary.csv").decode("utf-8")
+        assert "Strategy" in summary_text
 
 
 def test_empty_filtered_results_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
