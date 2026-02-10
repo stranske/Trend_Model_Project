@@ -52,6 +52,14 @@ def test_resolve_anthropic_key_fallback_env() -> None:
         assert resolve_anthropic_api_key() == "anthropic-fallback"
 
 
+def test_anthropic_provider_config_from_fallback_env() -> None:
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("ANTHROPIC_API_KEY", "anthropic-fallback")
+        config = resolve_llm_provider_config("anthropic")
+        assert config.provider == "anthropic"
+        assert config.api_key == "anthropic-fallback"
+
+
 def test_anthropic_key_precedence_primary_over_fallback() -> None:
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("CLAUDE_API_STRANSKE", "claude-primary")
