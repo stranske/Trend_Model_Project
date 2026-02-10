@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -21,6 +22,8 @@ __all__ = [
     "build_summary_frame",
     "export_results",
 ]
+
+_LOGGER = logging.getLogger(__name__)
 
 RESULT_BASE_COLUMNS = (
     "fold_id",
@@ -365,6 +368,27 @@ def export_results(
             exported[f"pooled_distributions_{ext}"] = pooled_path
         exported[f"results_{ext}"] = results_path
         exported[f"summary_{ext}"] = summary_path
+    metadata = results.metadata
+    if isinstance(metadata, Mapping):
+        nav_paths = metadata.get("nav_paths")
+        if nav_paths is not None:
+            nav_path = out_dir / "nav_paths.parquet"
+            if _export_nav_paths_frame(nav_paths, nav_path, label="nav_paths"):
+                exported["nav_paths_parquet"] = nav_path
+        nav_paths_by_fold = metadata.get("nav_paths_by_fold")
+        if nav_paths_by_fold is not None:
+            if isinstance(nav_paths_by_fold, Mapping):
+                for fold_id, frame in nav_paths_by_fold.items():
+                    label = f"fold {fold_id}"
+                    fold_label = _safe_fold_label(fold_id)
+                    fold_path = out_dir / f"nav_paths_fold_{fold_label}.parquet"
+                    if _export_nav_paths_frame(frame, fold_path, label=label):
+                        exported[f"nav_paths_fold_{fold_label}_parquet"] = fold_path
+            else:
+                _LOGGER.warning(
+                    "nav_paths_by_fold export skipped: expected mapping, got %s",
+                    type(nav_paths_by_fold).__name__,
+                )
     return exported
 
 
@@ -395,3 +419,27 @@ def _export_frame(frame: pd.DataFrame, path: Path, fmt: str) -> None:
         frame.to_parquet(path, index=False)
         return
     raise ValueError(f"Unsupported export format '{fmt}'")
+
+
+def _safe_fold_label(fold_id: object) -> str:
+    label = str(fold_id)
+    return label.replace("/", "_").replace("\\", "_").strip() or "unknown"
+
+
+def _export_nav_paths_frame(frame: object, path: Path, *, label: str) -> bool:
+    if not isinstance(frame, pd.DataFrame):
+        _LOGGER.warning(
+            "nav_paths export skipped for %s: expected DataFrame, got %s",
+            label,
+            type(frame).__name__,
+        )
+        return False
+    if frame.empty:
+        _LOGGER.warning("nav_paths export skipped for %s: empty DataFrame", label)
+        return False
+    try:
+        frame.to_parquet(path, index=True)
+    except Exception as exc:
+        _LOGGER.warning("nav_paths export failed for %s: %s", label, exc)
+        return False
+    return True
