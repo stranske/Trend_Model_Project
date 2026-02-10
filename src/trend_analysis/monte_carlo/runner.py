@@ -1469,12 +1469,27 @@ class MonteCarloRunner:
         """Ensure nav_paths columns support both plain and MultiIndex path ids."""
         if isinstance(frame.columns, pd.MultiIndex):
             names = list(frame.columns.names)
-            if "path" not in names:
-                if names:
-                    names[0] = "path"
-                else:
-                    names = ["path"]
-                frame.columns = frame.columns.set_names(names)
+            nlevels = frame.columns.nlevels
+            path_level = names.index("path") if "path" in names else 0
+            if len(names) <= path_level:
+                names.extend([None] * (path_level + 1 - len(names)))
+            names[path_level] = "path"
+            asset_level = names.index("asset") if "asset" in names else (1 if nlevels > 1 else None)
+            if asset_level is None:
+                arrays = [frame.columns.get_level_values(i) for i in range(nlevels)]
+                arrays.append(pd.Index(["NAV"] * len(frame.columns)))
+                names.append("asset")
+                frame.columns = pd.MultiIndex.from_arrays(arrays, names=names)
+                return frame
+            if len(names) <= asset_level:
+                names.extend([None] * (asset_level + 1 - len(names)))
+            names[asset_level] = "asset"
+            frame.columns = frame.columns.set_names(names)
+            assets = frame.columns.get_level_values(asset_level)
+            if not (assets == "NAV").all():
+                arrays = [frame.columns.get_level_values(i) for i in range(nlevels)]
+                arrays[asset_level] = pd.Index(["NAV"] * len(frame.columns))
+                frame.columns = pd.MultiIndex.from_arrays(arrays, names=frame.columns.names)
             return frame
         frame.columns = pd.Index(frame.columns, name="path")
         return frame

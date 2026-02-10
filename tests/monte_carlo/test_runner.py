@@ -764,7 +764,26 @@ def test_runner_populates_nav_paths_metadata(
     assert isinstance(nav_paths.index, pd.DatetimeIndex)
     assert nav_paths.index.equals(nav_index)
     assert set(nav_paths.columns) == {0, 1}
+    assert nav_paths.columns.name == "path"
     assert nav_paths.loc[nav_index[-1], 0] == pytest.approx(1.05)
+
+
+def test_runner_coerces_nav_paths_multiindex_asset_level() -> None:
+    scenario = _scenario("two_layer")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+    columns = pd.MultiIndex.from_arrays([[0, 1], ["foo", "bar"]])
+    frame = pd.DataFrame([[1.0, 1.0], [1.1, 0.9]], columns=columns)
+
+    coerced = runner._coerce_nav_paths_columns(frame)
+
+    assert isinstance(coerced.columns, pd.MultiIndex)
+    assert coerced.columns.names == ["path", "asset"]
+    assert set(coerced.columns.get_level_values("path")) == {0, 1}
+    assert set(coerced.columns.get_level_values("asset")) == {"NAV"}
 
 
 def test_runner_populates_nav_paths_by_fold(
