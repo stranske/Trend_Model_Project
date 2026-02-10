@@ -16,6 +16,7 @@ _ALLOWED_KEY_NAMES = {
     "TREND_LLM_API_KEY",
     "OPENAI_API_KEY",
     "ANTHROPIC_API_KEY",
+    "CLAUDE_API_STRANSKE",
     "TS_LLM_PROXY_TOKEN",
 }
 
@@ -70,6 +71,30 @@ def resolve_api_key_input(raw: str | None) -> str | None:
     return trimmed
 
 
+def resolve_anthropic_api_key(
+    *,
+    include_secrets: bool = True,
+    include_env: bool = True,
+) -> str | None:
+    """Resolve Anthropic API key with precedence: CLAUDE_API_STRANSKE, then ANTHROPIC_API_KEY."""
+    # Precedence order: CLAUDE_API_STRANSKE (primary), then ANTHROPIC_API_KEY (fallback).
+    if include_secrets:
+        key = sanitize_api_key(read_secret("CLAUDE_API_STRANSKE"))
+        if key:
+            return key
+    if include_env:
+        key = sanitize_api_key(os.environ.get("CLAUDE_API_STRANSKE"))
+        if key:
+            return key
+    if include_secrets:
+        key = sanitize_api_key(read_secret("ANTHROPIC_API_KEY"))
+        if key:
+            return key
+    if include_env:
+        return sanitize_api_key(os.environ.get("ANTHROPIC_API_KEY"))
+    return None
+
+
 def default_api_key(provider_name: str) -> str | None:
     proxy_url = os.environ.get("TS_LLM_PROXY_URL")
     if proxy_url:
@@ -88,7 +113,7 @@ def default_api_key(provider_name: str) -> str | None:
         if env_key:
             return env_key
     if provider_name == "anthropic":
-        env_key = sanitize_api_key(os.environ.get("ANTHROPIC_API_KEY"))
+        env_key = resolve_anthropic_api_key(include_secrets=False, include_env=True)
         if env_key:
             return env_key
     secrets_key = sanitize_api_key(read_secret("TS_STREAMLIT_API_KEY"))
@@ -101,7 +126,7 @@ def default_api_key(provider_name: str) -> str | None:
     if secrets_key:
         return secrets_key
     if provider_name == "anthropic":
-        secrets_anthropic = sanitize_api_key(read_secret("ANTHROPIC_API_KEY"))
+        secrets_anthropic = resolve_anthropic_api_key(include_secrets=True, include_env=False)
         if secrets_anthropic:
             return secrets_anthropic
     return None
@@ -136,11 +161,13 @@ def resolve_llm_provider_config(
     if not resolved_api_key:
         resolved_api_key = sanitize_api_key(os.environ.get("TREND_LLM_API_KEY"))
     if not resolved_api_key and provider_name == "anthropic":
-        resolved_api_key = sanitize_api_key(read_secret("ANTHROPIC_API_KEY"))
-    if not resolved_api_key and provider_name == "anthropic":
-        resolved_api_key = sanitize_api_key(os.environ.get("ANTHROPIC_API_KEY"))
+        resolved_api_key = resolve_anthropic_api_key()
     if provider_name in {"openai", "anthropic"} and not resolved_api_key:
-        env_hint = "OPENAI_API_KEY" if provider_name == "openai" else "ANTHROPIC_API_KEY"
+        env_hint = (
+            "OPENAI_API_KEY"
+            if provider_name == "openai"
+            else "CLAUDE_API_STRANSKE or ANTHROPIC_API_KEY"
+        )
         raise ValueError(
             f"Missing API key for {provider_name}. "
             f"Set TS_STREAMLIT_API_KEY, OPENAI_API_KEY, TREND_LLM_API_KEY, or {env_hint}."
@@ -164,6 +191,7 @@ __all__ = [
     "default_api_key",
     "read_secret",
     "resolve_api_key_input",
+    "resolve_anthropic_api_key",
     "resolve_llm_provider_config",
     "sanitize_api_key",
 ]

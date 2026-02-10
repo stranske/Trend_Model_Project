@@ -22,7 +22,12 @@ import yaml
 
 from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner, nl_operation_viewer
-from streamlit_app.components.llm_settings import sanitize_api_key as _sanitize_api_key
+from streamlit_app.components.llm_settings import (
+    resolve_llm_provider_config as _resolve_llm_provider_config_shared,
+)
+from streamlit_app.components.llm_settings import (
+    sanitize_api_key as _sanitize_api_key,
+)
 from streamlit_app.components.progress_eta import (
     estimate_eta_seconds,
     progress_ratio_and_remaining,
@@ -823,34 +828,12 @@ def _apply_config_wrapper(wrapper: Mapping[str, Any]) -> None:
 
 def _resolve_llm_provider_config() -> LLMProviderConfig:
     overrides = _resolve_llm_session_overrides()
-    provider_override = overrides.get("provider")
-    provider_name = (provider_override or os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
-    supported = {"openai", "anthropic", "ollama"}
-    if provider_name not in supported:
-        raise ValueError(
-            f"Unknown LLM provider '{provider_name}'. "
-            f"Expected one of: {', '.join(sorted(supported))}."
-        )
-    api_key = _sanitize_api_key(os.environ.get("TS_STREAMLIT_API_KEY"))
-    if not api_key:
-        api_key = _sanitize_api_key(os.environ.get("OPENAI_API_KEY"))
-    if not api_key:
-        api_key = _sanitize_api_key(os.environ.get("TREND_LLM_API_KEY"))
-    if not api_key and provider_name == "anthropic":
-        api_key = _sanitize_api_key(os.environ.get("ANTHROPIC_API_KEY"))
-    model = overrides.get("model") or os.environ.get("TREND_LLM_MODEL")
-    base_url = overrides.get("base_url") or os.environ.get("TREND_LLM_BASE_URL")
-    organization = overrides.get("organization") or os.environ.get("TREND_LLM_ORG")
-    kwargs: dict[str, Any] = {"provider": provider_name}
-    if model:
-        kwargs["model"] = model
-    if api_key:
-        kwargs["api_key"] = api_key
-    if base_url:
-        kwargs["base_url"] = base_url
-    if organization:
-        kwargs["organization"] = organization
-    return LLMProviderConfig(**kwargs)
+    return _resolve_llm_provider_config_shared(
+        overrides.get("provider"),
+        model=overrides.get("model"),
+        base_url=overrides.get("base_url"),
+        organization=overrides.get("organization"),
+    )
 
 
 def _resolve_llm_temperature() -> float:
@@ -958,6 +941,7 @@ def _llm_required_env_vars(provider: str) -> list[str] | None:
     if provider == "openai":
         required.append("OPENAI_API_KEY")
     elif provider == "anthropic":
+        required.append("CLAUDE_API_STRANSKE")
         required.append("ANTHROPIC_API_KEY")
     elif provider == "ollama":
         pass
@@ -974,6 +958,7 @@ def _llm_env_var_present(name: str) -> bool:
         "TREND_LLM_API_KEY",
         "OPENAI_API_KEY",
         "ANTHROPIC_API_KEY",
+        "CLAUDE_API_STRANSKE",
     }:
         return bool(_sanitize_api_key(value))
     return bool(value)
