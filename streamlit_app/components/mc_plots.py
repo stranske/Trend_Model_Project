@@ -108,7 +108,9 @@ def sharpe_histogram(
         nbins=max_bins,
         color_discrete_sequence=PALETTE,
     )
-    fig.update_traces(opacity=0.6, hovertemplate="Strategy=%{legendgroup}<br>Count=%{y}<extra></extra>")
+    fig.update_traces(
+        opacity=0.6, hovertemplate="Strategy=%{legendgroup}<br>Count=%{y}<extra></extra>"
+    )
     fig.update_layout(
         height=260,
         xaxis_title="Sharpe",
