@@ -61,22 +61,7 @@ def _metric_frame(results: Any, metric: str | None) -> pd.DataFrame:
     if "strategy" not in results_frame.columns:
         return pd.DataFrame(columns=["Strategy", "Value"])
 
-    metric_name = metric
-    if metric_name is None:
-        metric_names = [str(col) for col in results_frame.columns if col != "strategy"]
-        metric_name = _resolve_metric(metric_names, _SHARPE_ALIASES)
-        if metric_name is None:
-            metric_name = _resolve_metric(metric_names, _MAX_DD_ALIASES)
-        if metric_name is None:
-            metric_name = _resolve_metric(metric_names, _TERMINAL_ALIASES)
-        if metric_name is None:
-            numeric_cols = [
-                col
-                for col in results_frame.columns
-                if col != "strategy" and pd.api.types.is_numeric_dtype(results_frame[col])
-            ]
-            metric_name = numeric_cols[0] if numeric_cols else None
-
+    metric_name = _select_metric_name(results_frame, metric)
     if metric_name is None or metric_name not in results_frame.columns:
         return pd.DataFrame(columns=["Strategy", "Value"])
 
@@ -84,6 +69,45 @@ def _metric_frame(results: Any, metric: str | None) -> pd.DataFrame:
     frame = frame.rename(columns={"strategy": "Strategy", metric_name: "Value"})
     frame["Value"] = pd.to_numeric(frame["Value"], errors="coerce")
     return frame.dropna(subset=["Value"])
+
+
+def _select_metric_name(results_frame: pd.DataFrame, metric: str | None) -> str | None:
+    if metric:
+        return metric if metric in results_frame.columns else None
+
+    metric_names = [str(col) for col in results_frame.columns if col != "strategy"]
+    metric_name = _resolve_metric(metric_names, _SHARPE_ALIASES)
+    if metric_name is None:
+        metric_name = _resolve_metric(metric_names, _MAX_DD_ALIASES)
+    if metric_name is None:
+        metric_name = _resolve_metric(metric_names, _TERMINAL_ALIASES)
+    if metric_name is None:
+        numeric_cols = [
+            col
+            for col in results_frame.columns
+            if col != "strategy" and pd.api.types.is_numeric_dtype(results_frame[col])
+        ]
+        metric_name = numeric_cols[0] if numeric_cols else None
+    return metric_name if metric_name in results_frame.columns else None
+
+
+def _metric_warning_message(results: Any, metric: str | None, label: str) -> str | None:
+    results_frame = _extract_results_frame(results)
+    if results_frame.empty:
+        return f"{label} unavailable: results frame is missing."
+    if "strategy" not in results_frame.columns:
+        return f"{label} unavailable: required column 'strategy' is missing."
+
+    metric_name = _select_metric_name(results_frame, metric)
+    if metric_name is None:
+        if metric:
+            return f"{label} unavailable: required column '{metric}' is missing."
+        return f"{label} unavailable: no numeric metric columns were found."
+
+    metric_values = pd.to_numeric(results_frame[metric_name], errors="coerce")
+    if metric_values.dropna().empty:
+        return f"{label} unavailable: column '{metric_name}' has no numeric values."
+    return None
 
 
 def sharpe_histogram(
@@ -135,7 +159,8 @@ def render_sharpe_histogram(
         max_strategies=max_strategies,
     )
     if not chart.data:
-        st.warning("Sharpe distribution chart unavailable: missing strategy metrics.")
+        warning = _metric_warning_message(results, metric, "Sharpe distribution chart")
+        st.warning(warning or "Sharpe distribution chart unavailable: no data to display.")
     st.plotly_chart(chart, use_container_width=True)
     return chart
 
@@ -340,7 +365,8 @@ def render_box_plot(
 ) -> go.Figure:
     chart = box_plot(results, metric=metric, max_strategies=max_strategies)
     if not chart.data:
-        st.warning("Metric comparison chart unavailable: missing strategy metrics.")
+        warning = _metric_warning_message(results, metric, "Metric comparison chart")
+        st.warning(warning or "Metric comparison chart unavailable: no data to display.")
     st.plotly_chart(chart, use_container_width=True)
     return chart
 
@@ -392,6 +418,7 @@ def render_cdf_plot(
 ) -> go.Figure:
     chart = cdf_plot(results, metric=metric, max_strategies=max_strategies)
     if not chart.data:
-        st.warning("Outcome CDF chart unavailable: missing strategy metrics.")
+        warning = _metric_warning_message(results, metric, "Outcome CDF chart")
+        st.warning(warning or "Outcome CDF chart unavailable: no data to display.")
     st.plotly_chart(chart, use_container_width=True)
     return chart
