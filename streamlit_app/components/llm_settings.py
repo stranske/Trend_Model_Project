@@ -186,7 +186,7 @@ def resolve_llm_provider_config(
         env_hint = (
             "OPENAI_API_KEY"
             if provider_name == "openai"
-            else "CLAUDE_API_STRANSKE or ANTHROPIC_API_KEY"
+            else "CLAUDE_API_STRANSKE (preferred) or ANTHROPIC_API_KEY"
         )
         raise ValueError(
             f"Missing API key for {provider_name}. "

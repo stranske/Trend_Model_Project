@@ -972,8 +972,9 @@ def _llm_required_env_vars(provider: str) -> list[str] | None:
     if provider == "openai":
         required.append("OPENAI_API_KEY")
     elif provider == "anthropic":
+        # Only the canonical key is listed; the resolver accepts
+        # ANTHROPIC_API_KEY as a fallback so either satisfies the check.
         required.append("CLAUDE_API_STRANSKE")
-        required.append("ANTHROPIC_API_KEY")
     elif provider == "ollama":
         pass
     else:
@@ -983,7 +984,12 @@ def _llm_required_env_vars(provider: str) -> list[str] | None:
 
 
 def _llm_env_var_present(name: str) -> bool:
-    if name in {"CLAUDE_API_STRANSKE", "ANTHROPIC_API_KEY"}:
+    if name == "CLAUDE_API_STRANSKE":
+        # The resolver accepts either key, so treat both as satisfying
+        # the canonical variable requirement.
+        status = _anthropic_api_key_status()
+        return any(status.values())
+    if name == "ANTHROPIC_API_KEY":
         status = _anthropic_api_key_status()
         return bool(status.get(name))
     value = os.environ.get(name)

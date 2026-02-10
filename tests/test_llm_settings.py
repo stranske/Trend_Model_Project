@@ -93,3 +93,53 @@ def test_anthropic_key_status_reports_primary_env() -> None:
         mp.setenv("CLAUDE_API_STRANSKE", "claude-primary")
         status = anthropic_api_key_status(include_secrets=False, include_env=True)
         assert status == {"CLAUDE_API_STRANSKE": True, "ANTHROPIC_API_KEY": False}
+
+
+# --- Secrets-based resolution path tests ---
+
+
+def test_resolve_anthropic_key_secret_primary(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Secrets path: CLAUDE_API_STRANSKE secret is preferred over env fallback."""
+    import streamlit as st
+
+    fake_secrets = {"CLAUDE_API_STRANSKE": "secret-primary"}
+    monkeypatch.setattr(st, "secrets", fake_secrets)
+    result = resolve_anthropic_api_key(include_secrets=True, include_env=True)
+    assert result == "secret-primary"
+
+
+def test_resolve_anthropic_key_secret_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Secrets path: ANTHROPIC_API_KEY secret used when CLAUDE_API_STRANSKE absent."""
+    import streamlit as st
+
+    fake_secrets = {"ANTHROPIC_API_KEY": "secret-fallback"}
+    monkeypatch.setattr(st, "secrets", fake_secrets)
+    result = resolve_anthropic_api_key(include_secrets=True, include_env=True)
+    assert result == "secret-fallback"
+
+
+def test_resolve_anthropic_key_secret_precedence(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Secrets path: CLAUDE_API_STRANSKE secret wins even when ANTHROPIC_API_KEY env is set."""
+    import streamlit as st
+
+    fake_secrets = {"CLAUDE_API_STRANSKE": "secret-primary"}
+    monkeypatch.setattr(st, "secrets", fake_secrets)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "env-fallback")
+    result = resolve_anthropic_api_key(include_secrets=True, include_env=True)
+    assert result == "secret-primary"
+
+
+def test_anthropic_status_secrets_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    """anthropic_api_key_status reflects secrets presence."""
+    import streamlit as st
+
+    fake_secrets = {"CLAUDE_API_STRANSKE": "secret-val"}
+    monkeypatch.setattr(st, "secrets", fake_secrets)
+    status = anthropic_api_key_status(include_secrets=True, include_env=True)
+    assert status["CLAUDE_API_STRANSKE"] is True
+
+
+def test_config_error_message_mentions_precedence() -> None:
+    """Error message on missing key mentions CLAUDE_API_STRANSKE as preferred."""
+    with pytest.raises(ValueError, match=r"CLAUDE_API_STRANSKE \(preferred\)"):
+        resolve_llm_provider_config("anthropic")
