@@ -164,6 +164,11 @@ output:
 
 See `config/defaults.yml` for the complete schema and `config/presets/` for ready-made strategies.
 
+## Environment Variables
+
+- `CLAUDE_API_STRANSKE`: Canonical Anthropic API key (primary).
+- `ANTHROPIC_API_KEY`: Anthropic API key (fallback, used only if CLAUDE_API_STRANSKE is unset).
+
 ## Project Structure
 
 ```
