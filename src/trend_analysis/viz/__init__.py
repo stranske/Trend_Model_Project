@@ -14,7 +14,7 @@ __all__ = [
 ]
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> object:
     if name in __all__:
         from . import charts
 
@@ -22,5 +22,5 @@ def __getattr__(name: str):
     raise AttributeError(f"module 'trend_analysis.viz' has no attribute {name!r}")
 
 
-def __dir__():
+def __dir__() -> list[str]:
     return sorted(__all__)
