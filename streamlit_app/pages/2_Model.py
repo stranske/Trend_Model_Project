@@ -833,6 +833,7 @@ def _resolve_llm_provider_config() -> LLMProviderConfig:
         model=overrides.get("model"),
         base_url=overrides.get("base_url"),
         organization=overrides.get("organization"),
+        require_api_key=False,
     )
 
 
