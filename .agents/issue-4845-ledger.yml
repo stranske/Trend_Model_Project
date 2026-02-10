@@ -8,10 +8,10 @@ tasks:
       canonical `nav_paths` schema (index: datetime-like period ends; values: float
       NAV starting at 1.0; columns: either plain path ids or MultiIndex with levels
       `path` and `asset` where `asset="NAV"`).'
-    status: doing
+    status: done
     started_at: '2026-02-10T09:03:12Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-10T09:03:55Z'
+    commit: 0795af5f777cf9aa535ce5db18d7dd8906fc25c1
     notes: []
   - id: task-02
     title: 'Define scope for: Document the canonical nav_paths schema specification
