@@ -277,19 +277,21 @@ tasks:
   - id: task-30
     title: The MC page renders Plotly charts without errors when running the Streamlit
       app.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-02-10T23:00:12Z'
+    finished_at: '2026-02-10T23:00:12Z'
+    commit: 6f6a2cd8267eda1febd586b5c5a622a5567fb71c
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py tests/streamlit/test_mc_page.py -m "not slow".'
   - id: task-31
     title: The fan chart is quantile-band based (shaded quantile region(s)) and does
       not render as hundreds of individual path lines.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-02-10T23:00:12Z'
+    finished_at: '2026-02-10T23:00:12Z'
+    commit: 6f6a2cd8267eda1febd586b5c5a622a5567fb71c
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py tests/streamlit/test_mc_page.py -m "not slow".'
   - id: task-32
     title: CI passes.
     status: todo
