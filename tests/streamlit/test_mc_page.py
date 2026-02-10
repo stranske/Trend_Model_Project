@@ -681,6 +681,29 @@ def test_build_download_payloads_zip_bundle_content(monkeypatch: pytest.MonkeyPa
         assert bundle.read("representative_paths.parquet")[:4] == b"PAR1"
 
 
+def test_build_download_payloads_binary_buffers_are_rewound(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    page, _stub = _load_page(monkeypatch)
+
+    summary_table = pd.DataFrame({"Strategy": ["A"], "Sharpe (median)": [1.1]})
+    filtered_results = _sample_results().results_frame
+
+    payloads = page._build_download_payloads(summary_table, filtered_results)
+    parquet_payload = next(
+        payload for payload in payloads if payload["mime"] == "application/x-parquet"
+    )
+    zip_payload = next(payload for payload in payloads if payload["mime"] == "application/zip")
+
+    parquet_buffer = parquet_payload["data"]
+    zip_buffer = zip_payload["data"]
+
+    assert hasattr(parquet_buffer, "tell")
+    assert hasattr(zip_buffer, "tell")
+    assert parquet_buffer.tell() == 0
+    assert zip_buffer.tell() == 0
+
+
 def test_empty_filtered_results_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
     page, stub = _load_page(monkeypatch)
 
