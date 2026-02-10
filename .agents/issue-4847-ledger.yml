@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Add `plotly` to project dependencies (and optionally add `kaleido` as an
       optional extra) in the appropriate dependency file(s).
-    status: doing
+    status: done
     started_at: '2026-02-10T21:39:06Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-10T21:39:14Z'
+    commit: 6e340fa8a729dd898e3adf468ff17e479a69524a
     notes: []
   - id: task-02
     title: Update `streamlit_app/components/mc_plots.py` to replace Altair chart builders
