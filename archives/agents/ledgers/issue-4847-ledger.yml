@@ -15,38 +15,39 @@ tasks:
     title: Update `streamlit_app/components/mc_plots.py` to replace Altair chart builders
       with Plotly (or create `streamlit_app/components/mc_plots_plotly.py` and update
       imports to use it).
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-10T22:25:28Z'
+    finished_at: '2026-02-10T22:25:28Z'
+    commit: 96c274c8da7a581db9866a31a799f170af93b4d3
     notes: []
   - id: task-03
     title: 'Define scope for: Create or identify the target file for Plotly chart
       implementations (either refactor mc_plots.py or create mc_plots_plotly.py) (verify:
       confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-10T22:25:28Z'
+    finished_at: '2026-02-10T22:25:28Z'
+    commit: 96c274c8da7a581db9866a31a799f170af93b4d3
     notes: []
   - id: task-04
     title: 'Implement focused slice for: Create or identify the target file for Plotly
       chart implementations (either refactor mc_plots.py or create mc_plots_plotly.py)
       (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-10T22:25:28Z'
+    finished_at: '2026-02-10T22:25:28Z'
+    commit: 96c274c8da7a581db9866a31a799f170af93b4d3
     notes: []
   - id: task-05
     title: 'Validate focused slice for: Create or identify the target file for Plotly
       chart implementations (either refactor mc_plots.py or create mc_plots_plotly.py)
       (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-02-10T22:25:28Z'
+    finished_at: '2026-02-10T22:25:28Z'
+    commit: b1b72cbe6760f8251e78444d5a2ec9fb88e3833f
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow".'
   - id: task-06
     title: 'Define scope for: Implement the fan chart as a quantile-band Plotly chart
       with shaded regions between quantiles (verify: confirm completion in repo)'
