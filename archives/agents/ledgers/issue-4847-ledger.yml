@@ -133,11 +133,12 @@ tasks:
   - id: task-16
     title: Add/Update empty-state handling in the MC plotting code to emit clear `st.warning(...)`
       text when required columns are missing (and avoid raising exceptions).
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-02-10T22:38:52Z'
+    finished_at: '2026-02-10T22:38:52Z'
+    commit: 17c9db750bfc2dbc837fdf2e38f0b15fa128c3b8
+    notes:
+      - 'Validated warning behavior in tests/streamlit/test_mc_plots.py.'
   - id: task-17
     title: Fix/Update any MC-page code paths impacted by the refactor so existing
       downloads (CSV/Parquet/ZIP) remain functional.
