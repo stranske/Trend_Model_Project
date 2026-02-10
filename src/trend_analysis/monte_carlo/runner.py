@@ -9,7 +9,8 @@ Canonical ``nav_paths`` schema (used by Monte Carlo reporting/export):
   path (first row equals 1.0 per column).
 - Columns: either plain path identifiers (e.g. ``0, 1, 2, ...``) or a
   ``MultiIndex`` with levels ``path`` and ``asset``. When using a MultiIndex,
-  the ``asset`` level must contain ``"NAV"`` for the NAV series.
+  the ``path`` level carries the path id and the ``asset`` level must contain
+  ``"NAV"`` for the NAV series.
 """
 
 from __future__ import annotations
@@ -80,6 +81,7 @@ _TURNOVER_GUARD_PATH = "strategy_set.guards.max_turnover"
 # - DataFrame index: datetime-like period ends (DatetimeIndex preferred).
 # - Values: float NAVs normalized to start at 1.0 for each path.
 # - Columns: plain path ids or MultiIndex with levels (path, asset="NAV").
+#   When using a MultiIndex, the path id lives in the "path" level.
 
 
 def _is_number(value: Any) -> bool:
