@@ -898,12 +898,38 @@ def _resolve_llm_session_overrides() -> dict[str, str | None]:
     }
 
 
+def _fallback_llm_provider_config() -> LLMProviderConfig:
+    overrides = _resolve_llm_session_overrides()
+    provider = overrides.get("provider") or os.environ.get("TREND_LLM_PROVIDER")
+    provider = (provider or _DEFAULT_CONFIG_CHAT_PROVIDER).lower()
+    if provider not in {"openai", "anthropic", "ollama"}:
+        provider = _DEFAULT_CONFIG_CHAT_PROVIDER
+    model = overrides.get("model") or os.environ.get("TREND_LLM_MODEL") or _DEFAULT_CONFIG_CHAT_MODEL
+    base_url = overrides.get("base_url") or os.environ.get("TREND_LLM_BASE_URL")
+    organization = overrides.get("organization") or os.environ.get("TREND_LLM_ORG")
+    kwargs: dict[str, object] = {"provider": provider}
+    if model:
+        kwargs["model"] = model
+    if base_url:
+        kwargs["base_url"] = base_url
+    if organization:
+        kwargs["organization"] = organization
+    return LLMProviderConfig(**kwargs)
+
+
 def _current_chain_settings_snapshot(
     config: LLMProviderConfig | None = None,
     temperature: float | None = None,
+    *,
+    allow_missing_api_key: bool = False,
 ) -> dict[str, Any]:
     if config is None:
-        config = _resolve_llm_provider_config()
+        try:
+            config = _resolve_llm_provider_config()
+        except ValueError:
+            if not allow_missing_api_key:
+                raise
+            config = _fallback_llm_provider_config()
     if temperature is None:
         temperature = _resolve_llm_temperature()
     return {
@@ -1074,7 +1100,9 @@ def _render_llm_session_overrides_panel() -> None:
             except (TypeError, ValueError):
                 st.warning("Temperature override must be a number; using env default.")
         _sync_llm_selection_from_overrides()
-        _maybe_reset_config_chat_cache(_current_chain_settings_snapshot())
+        _maybe_reset_config_chat_cache(
+            _current_chain_settings_snapshot(allow_missing_api_key=True)
+        )
 
 
 def _normalize_temperature(value: float) -> float:
@@ -1306,7 +1334,7 @@ def _build_nl_chain(
         _hash_api_key(config.api_key),
     )
     reset_fields = _maybe_reset_config_chat_cache(
-        _current_chain_settings_snapshot(temperature=resolved_temp)
+        _current_chain_settings_snapshot(config=config, temperature=resolved_temp)
     )
     llm_cache_key = _build_llm_cache_key(
         provider=resolved_provider,
