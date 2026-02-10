@@ -176,26 +176,26 @@ tasks:
   - id: task-21
     title: With `CLAUDE_API_STRANSKE` set and `ANTHROPIC_API_KEY` unset, selecting
       provider `anthropic` in the Streamlit UI works without "Missing API key" errors.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-10T10:19:48Z'
+    finished_at: '2026-02-10T10:19:48Z'
+    commit: 197ad5a9
     notes: []
   - id: task-22
     title: With `ANTHROPIC_API_KEY` set and `CLAUDE_API_STRANSKE` unset, selecting
       provider `anthropic` in the Streamlit UI works without "Missing API key" errors.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-10T10:19:48Z'
+    finished_at: '2026-02-10T10:19:48Z'
+    commit: 197ad5a9
     notes: []
   - id: task-23
     title: With both `CLAUDE_API_STRANSKE` and `ANTHROPIC_API_KEY` set to different
       values, the Anthropic client uses the value from `CLAUDE_API_STRANSKE`.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-10T10:19:48Z'
+    finished_at: '2026-02-10T10:19:48Z'
+    commit: 197ad5a9
     notes: []
   - id: task-24
     title: Running `grep -r 'os\.environ.*ANTHROPIC_API_KEY\|os\.environ.*CLAUDE_API_STRANSKE'
