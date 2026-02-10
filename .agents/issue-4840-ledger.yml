@@ -1,0 +1,234 @@
+version: 1
+issue: 4840
+base: phase-3
+branch: codex/issue-4840
+tasks:
+  - id: task-01
+    title: Update `streamlit_app/components/llm_settings.py` to resolve the Anthropic
+      API key from `CLAUDE_API_STRANSKE` as the primary env var when provider is `anthropic`.
+    status: doing
+    started_at: '2026-02-10T08:41:48Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Add fallback resolution in `streamlit_app/components/llm_settings.py` to
+      use `ANTHROPIC_API_KEY` only when `CLAUDE_API_STRANSKE` is unset.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Add docstring to the Anthropic key resolver function in `streamlit_app/components/llm_settings.py`
+      documenting the precedence order: `CLAUDE_API_STRANSKE` (primary), then `ANTHROPIC_API_KEY`
+      (fallback).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Identify all Python files under `streamlit_app/components/` that perform
+      LLM API calls or provider configuration by searching for imports of `anthropic`,
+      `openai`, or `llm` modules.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Audit each identified component to find direct environment variable reads
+      for API keys using `grep -E 'os\.environ|getenv' streamlit_app/components/*.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Create a list document (e.g., `COMPONENTS_TO_REFACTOR.md`) of components
+      that need refactoring to use the shared resolver.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Fix `streamlit_app/pages/2_Model.py` to defer Anthropic key/provider config
+      resolution to the shared resolver in `streamlit_app/components/llm_settings.py`
+      (remove any one-off env var reads).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Fix `streamlit_app/components/explain_results.py` to rely on the shared
+      resolver in `streamlit_app/components/llm_settings.py` for Anthropic key resolution
+      (remove any one-off env var reads).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Update each component identified in `COMPONENTS_TO_REFACTOR.md` to import
+      and use the shared resolver from `llm_settings.py`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Verify that no component bypasses the shared resolver precedence logic
+      by running `grep -r 'os\.environ.*ANTHROPIC_API_KEY\|os\.environ.*CLAUDE_API_STRANSKE'
+      streamlit_app/components/ streamlit_app/pages/` and confirming only `llm_settings.py`
+      contains direct access.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Create a unit test in `tests/test_llm_settings.py` that sets only `CLAUDE_API_STRANSKE`
+      environment variable and verifies the resolver returns the correct API key value.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Create a unit test in `tests/test_llm_settings.py` that verifies the Anthropic
+      provider is correctly configured when only `CLAUDE_API_STRANSKE` is set.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Create a unit test in `tests/test_llm_settings.py` that confirms no error
+      is raised when only `CLAUDE_API_STRANSKE` is present and provider is `anthropic`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Create a unit test in `tests/test_llm_settings.py` that sets only `ANTHROPIC_API_KEY`
+      environment variable and verifies the resolver returns it as fallback.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Create a unit test in `tests/test_llm_settings.py` that verifies `CLAUDE_API_STRANSKE`
+      takes precedence when both `CLAUDE_API_STRANSKE` and `ANTHROPIC_API_KEY` environment
+      variables are set.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Create a unit test in `tests/test_llm_settings.py` that confirms an appropriate
+      error or None is returned when neither `CLAUDE_API_STRANSKE` nor `ANTHROPIC_API_KEY`
+      is set.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Update `README.md` to add or modify an "Environment Variables" or "Configuration"
+      section that lists `CLAUDE_API_STRANSKE` with description "Canonical Anthropic
+      API key (primary)".
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Update `README.md` to add `ANTHROPIC_API_KEY` with description "Anthropic
+      API key (fallback, used only if CLAUDE_API_STRANSKE is unset)".
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Add inline code comments in `streamlit_app/components/llm_settings.py`
+      explaining the precedence order: `CLAUDE_API_STRANSKE` checked first, then `ANTHROPIC_API_KEY`
+      as fallback.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Create or update `docs/environment_variables.md` (if it exists) to document
+      the precedence rules for Anthropic API key resolution.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: With `CLAUDE_API_STRANSKE` set and `ANTHROPIC_API_KEY` unset, selecting
+      provider `anthropic` in the Streamlit UI works without "Missing API key" errors.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: With `ANTHROPIC_API_KEY` set and `CLAUDE_API_STRANSKE` unset, selecting
+      provider `anthropic` in the Streamlit UI works without "Missing API key" errors.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: With both `CLAUDE_API_STRANSKE` and `ANTHROPIC_API_KEY` set to different
+      values, the Anthropic client uses the value from `CLAUDE_API_STRANSKE`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: Running `grep -r 'os\.environ.*ANTHROPIC_API_KEY\|os\.environ.*CLAUDE_API_STRANSKE'
+      streamlit_app/` returns matches only in `streamlit_app/components/llm_settings.py`
+      (excluding comments and import statements).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: All unit tests in `tests/test_llm_settings.py` pass with exit code 0.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: '`README.md` contains a section titled "Environment Variables" or "Configuration"
+      that lists `CLAUDE_API_STRANSKE` with description "Canonical Anthropic API key
+      (primary)" and `ANTHROPIC_API_KEY` with description "Anthropic API key (fallback,
+      used only if CLAUDE_API_STRANSKE is unset)".'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: The docstring or inline comments in the Anthropic key resolver function
+      in `streamlit_app/components/llm_settings.py` explicitly document the precedence
+      order.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
