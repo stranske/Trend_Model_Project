@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: '**Decide CASH injection gating policy**: Determine whether CASH injection
       should:'
-    status: doing
+    status: done
     started_at: '2026-02-11T12:43:43Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-11T12:43:51Z'
+    commit: f2ccaae3fe0934f526c129daa2de2e44b8da9a41
     notes: []
   - id: task-02
     title: Update the `_apply_cash_handling` method in `src/trend_analysis/monte_carlo/runner.py`
