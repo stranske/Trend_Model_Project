@@ -28,3 +28,8 @@ scenarios:
     path: credit_stress_15y.yml
     description: "Credit-focused Monte Carlo stress scenario over 15 years"
     tags: [credit, hedge_fund, stress_test]
+
+  - name: cost_regime_example
+    path: cost_regime_example.yml
+    description: "Known-good example for regime-switching costs and slippage"
+    tags: [example, costs, regression]

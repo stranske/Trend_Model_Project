@@ -1,0 +1,45 @@
+# Cost regime example scenario:
+# - Demonstrates stochastic calm/stress switching for transaction costs.
+# - Demonstrates regime-specific slippage multipliers.
+# - Intended as a known-good reference for regression tests and CLI examples.
+scenario:
+  name: cost_regime_example
+  description: "Example scenario exercising regime-switching costs and slippage."
+  version: "1.0"
+
+base_config: config/defaults.yml
+
+monte_carlo:
+  mode: two_layer
+  n_paths: 20
+  horizon_years: 2
+  frequency: M
+  seed: 20260211
+  jobs: 1
+
+costs:
+  kind: regime_stochastic
+  default_regime: calm
+  calm:
+    # Baseline all-in trading cost in basis points (bps) in normal markets.
+    trade_cost_bps:
+      dist: lognormal
+      mean: 5
+      sigma: 0.20
+    # Multiplies modeled slippage under calm liquidity conditions.
+    slippage_multiplier: 1.0
+  stress:
+    # Elevated all-in trading cost in basis points (bps) during stress regimes.
+    trade_cost_bps:
+      dist: lognormal
+      mean: 20
+      sigma: 0.35
+    # Multiplies modeled slippage when liquidity worsens in stress.
+    slippage_multiplier: 1.8
+
+strategy_set:
+  curated_pack: strategies/hf_equity_curated.yml
+
+outputs:
+  directory: outputs/monte_carlo/{scenario_name}/{timestamp}
+  formats: [csv]
