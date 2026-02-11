@@ -597,6 +597,7 @@ class MonteCarloRunner:
         log_returns = self._extract_path_frame(result.log_returns, path_index)
         returns = np.expm1(log_returns)
         returns_df = self._returns_with_date(returns)
+        returns_df = self._inject_cash_returns(returns_df)
         score_frame = self._compute_score_frame(returns_df)
         path_hash = self._hash_frame(prices)
         return _PathContext(
@@ -1205,6 +1206,35 @@ class MonteCarloRunner:
         except Exception as exc:
             self._logger.debug("Failed to compute score frame: %s", exc)
             return pd.DataFrame()
+
+    def _inject_cash_returns(self, returns: pd.DataFrame) -> pd.DataFrame:
+        if "CASH" in returns.columns:
+            return returns
+        try:
+            config = Config(**self._base_config)
+        except Exception:
+            return returns
+        data_settings = config.data or {}
+        if data_settings.get("risk_free_column"):
+            return returns
+        if data_settings.get("allow_risk_free_fallback") is not True:
+            return returns
+        try:
+            resolution = resolve_risk_free_source(returns, config)
+        except Exception as exc:
+            self._logger.debug("Failed to inject CASH returns: %s", exc)
+            return returns
+        risk_free = resolution.risk_free
+        if not isinstance(risk_free, pd.Series):
+            return returns
+        cash_values = pd.to_numeric(risk_free, errors="coerce")
+        if len(cash_values) != len(returns):
+            return returns
+        if cash_values.isna().any():
+            return returns
+        out = returns.copy()
+        out["CASH"] = cash_values.to_numpy(dtype=float, copy=False)
+        return out
 
     def _extract_metrics(self, metrics_df: pd.DataFrame) -> tuple[dict[str, float], str | None]:
         if metrics_df is None or metrics_df.empty:
