@@ -1673,6 +1673,21 @@ def test_apply_cash_handling_skips_when_override_disabled_even_with_risk_free_co
     assert "CASH" not in injected.columns
 
 
+def test_apply_cash_handling_skips_when_override_disabled_even_with_fallback_enabled() -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {
+        "registry": ["sharpe_ratio"],
+        "rf_override_enabled": False,
+    }
+    cfg["data"]["risk_free_column"] = None
+    cfg["data"]["allow_risk_free_fallback"] = True
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+
+    injected = runner._apply_cash_handling(_returns_without_rf())
+
+    assert "CASH" not in injected.columns
+
+
 def test_cash_injection_when_condition_not_met() -> None:
     cfg = _base_config()
     cfg["metrics"] = {"registry": ["sharpe_ratio"], "rf_override_enabled": False}
