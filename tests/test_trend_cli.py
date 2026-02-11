@@ -135,7 +135,9 @@ def test_mc_viz_loads_summary_and_results_frames(
 ) -> None:
     bundle_dir = tmp_path / "bundle"
     bundle_dir.mkdir()
-    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(bundle_dir / "summary.csv", index=False)
+    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
     pd.DataFrame({"path_id": [1, 2], "terminal_nav": [112.0, 98.4]}).to_csv(
         bundle_dir / "results.csv", index=False
     )
@@ -190,7 +192,9 @@ def test_mc_viz_errors_when_results_file_is_corrupted(
 ) -> None:
     bundle_dir = tmp_path / "bundle"
     bundle_dir.mkdir()
-    pd.DataFrame({"metric": ["vol"], "value": [0.09]}).to_csv(bundle_dir / "summary.csv", index=False)
+    pd.DataFrame({"metric": ["vol"], "value": [0.09]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
     (bundle_dir / "results.json").write_text("{bad json", encoding="utf-8")
 
     exit_code = main(
