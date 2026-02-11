@@ -1,0 +1,118 @@
+version: 1
+issue: 4868
+base: phase-3
+branch: codex/issue-4868
+tasks:
+  - id: task-01
+    title: "Add a \u201CMixture mode seeding\u201D section to `docs/phase-3/MonteCarlo.md`\
+      \ describing mixture-mode determinism and the two execution modes."
+    status: done
+    started_at: '2026-02-11T12:01:00Z'
+    finished_at: '2026-02-11T12:01:09Z'
+    commit: 9ce393393a707343fbf82353e7544d557b51f24c
+    notes: []
+  - id: task-02
+    title: 'Update `docs/phase-3/MonteCarlo.md` to document the exact condition under
+      which shared-path bulk generation vs per-path generation occurs (explicitly:
+      when per-path seeds match the base `SeedManager` vs when seeds diverge).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: "Add a troubleshooting note to `docs/phase-3/MonteCarlo.md` titled \u201C\
+      why is my mixture run slower?\u201D explaining the performance tradeoff when\
+      \ per-path generation is selected."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Add a debug log line in `src/trend_analysis/monte_carlo/runner.py` that
+      logs when mixture-mode chooses per-path generation (optional).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: "`docs/phase-3/MonteCarlo.md` contains a \u201CMixture mode seeding\u201D\
+      \ section that states mixture-mode determinism rules and distinguishes shared-path\
+      \ bulk vs per-path generation."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: '`docs/phase-3/MonteCarlo.md` explicitly states the condition that determines
+      whether a run uses shared-path bulk generation or per-path generation (matching
+      base `SeedManager` seeds vs diverging per-path seeds).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: "`docs/phase-3/MonteCarlo.md` includes a \u201Cwhy is my mixture run slower?\u201D\
+      \ troubleshooting note describing that per-path generation can be slower than\
+      \ shared-path bulk generation."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: If `src/trend_analysis/monte_carlo/runner.py` is modified, it emits a debug
+      log message when mixture-mode selects per-path generation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: "Add a \u201CMixture mode seeding\u201D section to `docs/phase-3/MonteCarlo.md`"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Document the exact condition under which bulk vs per-path generation occurs
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: "Add a short troubleshooting note (\u201Cwhy is my mixture run slower?\u201D\
+      )"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: (Optional) Add a debug log line when mixture chooses per-path mode
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Documentation explains mixture mode determinism and performance at a glance
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Users can predict whether a run will use shared-path or per-path generation
+      from config
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []

@@ -62,6 +62,24 @@ This implies an **expected variance-reduction factor of ~100x** (independent var
 
 This meets the documented expectation of ~100x reduction for the benchmark configuration.
 
+### Mixture mode seeding
+
+Mixture mode remains deterministic when a scenario seed is set, but it has two valid execution modes:
+
+1. **Shared-path bulk generation**: generate all paths in one bulk call, then evaluate one sampled strategy per path.
+2. **Per-path generation**: generate each path independently with that path's seed, then evaluate one sampled strategy for that path.
+
+The exact mode-selection condition is:
+
+- Use **shared-path bulk generation** when per-path seeds match what the base `SeedManager` would produce for the run seed (or when all per-path seeds are `None`).
+- Use **per-path generation** when per-path seeds diverge from the base `SeedManager` sequence.
+
+Both modes are deterministic for fixed inputs and fixed seeds; they differ in how path generation work is scheduled.
+
+#### why is my mixture run slower?
+
+If mixture mode selects **per-path generation**, the runner performs many small model calls (`n_paths=1`) instead of one bulk call (`n_paths=N`). This can be slower due to repeated setup overhead and reduced vectorization compared with shared-path bulk generation.
+
 ---
 
 ## Goals and Non-Goals
