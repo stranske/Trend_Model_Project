@@ -1252,6 +1252,7 @@ class MonteCarloRunner:
             return returns
         data_settings = config.data or {}
         metrics_settings = config.metrics or {}
+        # Keep CASH injection policy explicit and centralized for backward compatibility.
         inject_cash = self._should_resolve_risk_free(data_settings, metrics_settings)
         if not inject_cash:
             self._warn_cash_once(
@@ -1282,14 +1283,6 @@ class MonteCarloRunner:
                 "(source=%s, type=%s)",
                 getattr(resolution, "source", "unknown"),
                 type(risk_free).__name__,
-            )
-            return returns
-        if len(cash_values) != len(returns):
-            self._warn_cash_once(
-                "CASH injection skipped: risk-free length (%d) does not match "
-                "returns length (%d)",
-                len(cash_values),
-                len(returns),
             )
             return returns
         if cash_values.isna().any():

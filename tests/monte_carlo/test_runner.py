@@ -1590,6 +1590,20 @@ def test_apply_cash_handling_injects_cash_when_override_gate_enabled() -> None:
     )
 
 
+def test_cash_injection_when_condition_met() -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {
+        "registry": ["sharpe_ratio"],
+        "rf_override_enabled": True,
+        "rf_rate_annual": 0.06,
+    }
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+
+    injected = runner._apply_cash_handling(_returns_without_rf())
+
+    assert "CASH" in injected.columns
+
+
 def test_apply_cash_handling_injects_cash_when_risk_free_column_is_configured() -> None:
     cfg = _base_config()
     cfg["metrics"] = {
@@ -1610,6 +1624,18 @@ def test_apply_cash_handling_injects_cash_when_risk_free_column_is_configured() 
     )
 
 
+def test_cash_injection_when_condition_not_met() -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {"registry": ["sharpe_ratio"], "rf_override_enabled": False}
+    cfg["data"]["allow_risk_free_fallback"] = False
+    cfg["data"]["risk_free_column"] = None
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+
+    injected = runner._apply_cash_handling(_returns_without_rf())
+
+    assert "CASH" not in injected.columns
+
+
 def test_apply_cash_handling_skips_when_override_gate_disabled() -> None:
     cfg = _base_config()
     cfg["metrics"] = {
@@ -1623,6 +1649,21 @@ def test_apply_cash_handling_skips_when_override_gate_disabled() -> None:
     injected = runner._apply_cash_handling(_returns_without_rf())
 
     assert "CASH" not in injected.columns
+
+
+def test_cash_uses_correct_risk_free_rate() -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {
+        "registry": ["sharpe_ratio"],
+        "rf_override_enabled": True,
+        "rf_rate_annual": 0.12,
+    }
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+
+    injected = runner._apply_cash_handling(_returns_without_rf())
+
+    expected = np.full(6, (1.12 ** (1.0 / 12.0)) - 1.0, dtype=float)
+    np.testing.assert_allclose(injected["CASH"].to_numpy(dtype=float, copy=False), expected)
 
 
 def test_apply_cash_handling_handles_missing_metrics_nulls_and_empty_inputs() -> None:
@@ -1707,7 +1748,7 @@ def test_apply_cash_handling_skips_when_rf_resolution_returns_unsupported_type(
     assert "CASH" not in injected.columns
 
 
-def test_apply_cash_handling_skips_when_rf_series_length_mismatches(
+def test_apply_cash_handling_skips_when_rf_series_alignment_introduces_nan(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     cfg = _base_config()
