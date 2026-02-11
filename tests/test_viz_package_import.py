@@ -17,3 +17,17 @@ def test_viz_import_does_not_load_streamlit(monkeypatch):
     importlib.import_module("trend_analysis.viz")
 
     assert "streamlit" not in sys.modules
+
+
+def test_lazy_attribute_access_no_streamlit_import(monkeypatch):
+    """Lazy chart attribute access should not import Streamlit."""
+
+    monkeypatch.delitem(sys.modules, "streamlit", raising=False)
+    monkeypatch.delitem(sys.modules, "trend_analysis.viz", raising=False)
+    monkeypatch.delitem(sys.modules, "trend_analysis.viz.charts", raising=False)
+
+    viz = importlib.import_module("trend_analysis.viz")
+
+    _ = viz.equity_curve
+
+    assert "streamlit" not in sys.modules
