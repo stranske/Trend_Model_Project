@@ -9,6 +9,7 @@ from trend_analysis.viz.adapters import (
     PATHS_REQUIRED_COLUMNS,
     PATHS_REQUIRED_DTYPES,
     ROLLING_REQUIRED_COLUMNS,
+    _normalize_nav_paths,
     make_paths,
     path_correlations,
     rolling_stats,
@@ -48,6 +49,27 @@ def test_make_paths_supports_multiindex_columns_with_asset_level() -> None:
 
     assert canonical.shape == (6, 1)
     assert canonical.loc[(pd.Timestamp("2024-03-31"), 0), "nav"] == 1.21
+
+
+def test_normalize_nav_paths_collapses_duplicate_path_labels_by_mean() -> None:
+    index = pd.to_datetime(["2024-01-31", "2024-02-29"])
+    nav_paths = pd.DataFrame(
+        np.array(
+            [
+                [1.0, 1.2, 0.9],
+                [1.1, 1.5, 1.0],
+            ]
+        ),
+        index=index,
+        columns=pd.Index([0, 0, 1], name="path"),
+    )
+
+    normalized = _normalize_nav_paths(nav_paths)
+
+    assert list(normalized.columns) == [0, 1]
+    assert normalized.loc[pd.Timestamp("2024-01-31"), 0] == pytest.approx(1.1)
+    assert normalized.loc[pd.Timestamp("2024-02-29"), 0] == pytest.approx(1.3)
+    assert normalized.loc[pd.Timestamp("2024-02-29"), 1] == pytest.approx(1.0)
 
 
 def test_make_paths_rejects_multiindex_asset_without_nav() -> None:

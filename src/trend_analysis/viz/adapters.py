@@ -405,7 +405,9 @@ def _normalize_nav_paths(nav_paths: pd.DataFrame) -> pd.DataFrame:
 
     frame.columns = pd.Index(frame.columns, name="path")
     if frame.columns.duplicated().any():
-        frame = frame.groupby(level=0, axis=1).mean()
+        # Use transpose-groupby-transpose for pandas compatibility across versions
+        # that deprecate/alter ``groupby(..., axis=1)`` behavior.
+        frame = frame.T.groupby(level=0).mean().T
         frame.columns.name = "path"
 
     for column in frame.columns:
