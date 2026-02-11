@@ -9,17 +9,19 @@ from trend_analysis.viz.utils import quantile_bands
 
 
 def test_quantile_bands_even_pairing():
-    bands = quantile_bands([0.1, 0.25, 0.75, 0.9])
+    quantiles = [0.1, 0.25, 0.75, 0.9]
+    bands = quantile_bands(quantiles)
 
-    assert len(bands) == 2
+    assert len(bands) == len(quantiles) // 2
     assert [(band.lower, band.upper) for band in bands] == [
         (0.1, 0.9),
         (0.25, 0.75),
     ]
+    assert [band.label() for band in bands] == ["10-90%", "25-75%"]
 
 
 def test_quantile_bands_odd_length_raises_value_error():
-    with pytest.raises(ValueError, match="mismatch|odd length"):
+    with pytest.raises(ValueError, match="odd length quantiles"):
         quantile_bands([0.05, 0.5, 0.95])
 
 
