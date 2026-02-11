@@ -563,16 +563,18 @@ def test_progress_updates_throttled(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_download_link_generation(monkeypatch: pytest.MonkeyPatch) -> None:
     page, stub = _load_page(monkeypatch)
+    monkeypatch.setattr(page, "save_chart_bundle", lambda *_args, **_kwargs: BytesIO(b"PK\x05\x06" + b"\x00" * 18))
 
     results = _sample_results()
 
     page._render_results(results, fold_selection=None)
 
-    assert len(stub.downloads) == 3
+    assert len(stub.downloads) == 4
     filenames = [entry.get("file_name") for entry in stub.downloads]
     assert any(name and name.endswith(".csv") for name in filenames)
     assert any(name and name.endswith(".parquet") for name in filenames)
-    assert any(name and name.endswith(".zip") for name in filenames)
+    assert len([name for name in filenames if name and name.endswith(".zip")]) == 2
+    assert any(name and "mc_charts_bundle_" in name for name in filenames)
     mimes = [entry.get("mime") for entry in stub.downloads]
     assert "text/csv" in mimes
     assert "application/x-parquet" in mimes
@@ -590,7 +592,11 @@ def test_download_link_generation(monkeypatch: pytest.MonkeyPatch) -> None:
     parquet_bytes = parquet_data.getvalue()
     assert parquet_bytes[:4] == b"PAR1"
 
-    zip_entry = next(entry for entry in stub.downloads if entry.get("mime") == "application/zip")
+    zip_entry = next(
+        entry
+        for entry in stub.downloads
+        if entry.get("mime") == "application/zip" and str(entry.get("label")) == "Download ZIP bundle"
+    )
     zip_data = zip_entry.get("data")
     assert hasattr(zip_data, "getvalue")
     if hasattr(zip_data, "seek"):
@@ -599,6 +605,35 @@ def test_download_link_generation(monkeypatch: pytest.MonkeyPatch) -> None:
         assert set(bundle.namelist()) == {"summary.csv", "representative_paths.parquet"}
         summary_text = bundle.read("summary.csv").decode("utf-8")
         assert "Strategy" in summary_text
+
+
+def test_render_results_surfaces_png_export_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    page, stub = _load_page(monkeypatch)
+
+    buffer = BytesIO(b"PK\x05\x06" + b"\x00" * 18)
+    monkeypatch.setattr(
+        page,
+        "save_chart_bundle",
+        lambda *_args, **_kwargs: buffer,
+    )
+    monkeypatch.setattr(
+        page,
+        "_build_chart_bundle_payload",
+        lambda _charts: (
+            {
+                "label": "Download charts bundle",
+                "data": buffer,
+                "file_name": "mc_charts_bundle_test.zip",
+                "mime": "application/zip",
+            },
+            ["PNG export skipped: Kaleido is not installed."],
+        ),
+    )
+
+    page._render_results(_sample_results(), fold_selection=None)
+
+    assert any("PNG export warnings" in message for message in stub.warning_messages)
+    assert any(entry.get("label") == "Download charts bundle" for entry in stub.downloads)
 
 
 def test_download_payload_file_names_use_timestamp(monkeypatch: pytest.MonkeyPatch) -> None:
