@@ -234,9 +234,7 @@ def test_mc_viz_loads_optional_nav_paths_frame(
     )
     (bundle_dir / "nav_paths.parquet").write_text("placeholder", encoding="utf-8")
 
-    monkeypatch.setattr(
-        cli.pd, "read_parquet", lambda _path: pd.DataFrame({"path_id": [1, 2, 3]})
-    )
+    monkeypatch.setattr(cli.pd, "read_parquet", lambda _path: pd.DataFrame({"path_id": [1, 2, 3]}))
 
     exit_code = main(
         [
