@@ -1,0 +1,103 @@
+version: 1
+issue: 4871
+base: phase-3
+branch: codex/issue-4871
+tasks:
+  - id: task-01
+    title: '**Decide CASH injection gating policy**: Determine whether CASH injection
+      should:'
+    status: doing
+    started_at: '2026-02-11T12:43:43Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Update the `_apply_cash_handling` method in `src/trend_analysis/monte_carlo/runner.py`
+      to implement the chosen gating policy (specify Option A or Option B after decision)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Add inline code comments in `_apply_cash_handling` documenting the rationale
+      for the chosen gating policy
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Add test case in `tests/monte_carlo/test_runner.py` named `test_cash_injection_when_condition_met`
+      that verifies CASH injection occurs under the chosen gating condition
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Add test case in `tests/monte_carlo/test_runner.py` named `test_cash_injection_when_condition_not_met`
+      that verifies CASH injection does not occur when the chosen gating condition
+      is false
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Add test case in `tests/monte_carlo/test_runner.py` named `test_cash_uses_correct_risk_free_rate`
+      that verifies the correct risk-free rate value is applied to injected CASH
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Add a new section titled "CASH Injection Policy" to `docs/phase-3/MonteCarlo.md`
+      that includes:'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: All test cases in `tests/monte_carlo/test_runner.py` pass successfully
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: The `_apply_cash_handling` method in `src/trend_analysis/monte_carlo/runner.py`
+      implements the chosen gating policy with no conditional branches that deviate
+      from this policy
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'The `docs/phase-3/MonteCarlo.md` file includes a "CASH Injection Policy"
+      section containing: (1) the boolean condition that triggers CASH injection,
+      (2) the risk-free rate value used, and (3) an example scenario demonstrating
+      the behavior'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Code coverage for `_apply_cash_handling` method reaches 100% for all branches
+      related to CASH injection logic
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: All existing Monte Carlo tests continue to pass without modification
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
