@@ -1621,6 +1621,7 @@ def test_should_inject_cash_is_gated_by_override_flag() -> None:
     assert runner._should_inject_cash(metrics_settings={"rf_override_enabled": True}) is True
     assert runner._should_inject_cash(metrics_settings={"rf_override_enabled": False}) is False
     assert runner._should_inject_cash(metrics_settings={}) is False
+    assert runner._should_inject_cash(metrics_settings={"rf_override_enabled": None}) is False
 
 
 def test_apply_cash_handling_injects_cash_when_override_gate_enabled() -> None:
