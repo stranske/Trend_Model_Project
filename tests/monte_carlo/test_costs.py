@@ -278,13 +278,13 @@ def test_inject_cash_warns_when_fallback_disabled(monkeypatch: Any, caplog: Any)
 
     warning_messages = [r.message for r in caplog.records if r.levelno >= logging.WARNING]
     fallback_warnings = [m for m in warning_messages if "allow_risk_free_fallback" in m]
-    assert fallback_warnings, (
-        f"Expected a warning about allow_risk_free_fallback, got: {warning_messages}"
-    )
+    assert (
+        fallback_warnings
+    ), f"Expected a warning about allow_risk_free_fallback, got: {warning_messages}"
     # P2 fix: The warning should be emitted only once, not per path.
-    assert len(fallback_warnings) == 1, (
-        f"Expected exactly 1 fallback warning but got {len(fallback_warnings)}"
-    )
+    assert (
+        len(fallback_warnings) == 1
+    ), f"Expected exactly 1 fallback warning but got {len(fallback_warnings)}"
 
 
 def test_scenario_data_override_merges_into_base_config(
@@ -307,6 +307,6 @@ def test_scenario_data_override_merges_into_base_config(
     )
 
     # The merged base config should now have the override applied.
-    assert runner.base_config["data"]["allow_risk_free_fallback"] is True, (
-        "Scenario-level data.allow_risk_free_fallback should override defaults"
-    )
+    assert (
+        runner.base_config["data"]["allow_risk_free_fallback"] is True
+    ), "Scenario-level data.allow_risk_free_fallback should override defaults"
