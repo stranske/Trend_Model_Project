@@ -17,7 +17,7 @@ from trend_analysis.viz.adapters import (
 
 
 def _sample_nav_paths() -> pd.DataFrame:
-    index = pd.to_datetime(["2024-01-31", "2024-02-29", "2024-03-31"]) 
+    index = pd.to_datetime(["2024-01-31", "2024-02-29", "2024-03-31"])
     return pd.DataFrame(
         {
             0: [1.0, 1.1, 1.21],
