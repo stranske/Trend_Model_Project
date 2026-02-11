@@ -672,6 +672,37 @@ def test_load_scenario_accepts_return_model_mapping(tmp_path: Path) -> None:
     }
 
 
+def test_load_scenario_accepts_null_optional_mappings(tmp_path: Path) -> None:
+    base_config = tmp_path / "base.yml"
+    base_config.write_text("{}", encoding="utf-8")
+    scenario_path = tmp_path / "null_optional.yml"
+    scenario_path.write_text(
+        "scenario:\n"
+        "  name: null_optional\n"
+        "  version: '1'\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: mixture\n"
+        "  n_paths: 10\n"
+        "  horizon_years: 1\n"
+        "  frequency: M\n"
+        "strategy_set: null\n"
+        "outputs: null\n"
+        "costs: null\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n" "  - name: null_optional\n" "    path: null_optional.yml\n",
+        encoding="utf-8",
+    )
+
+    scenario = load_scenario("null_optional", registry_path=registry)
+    assert scenario.strategy_set is None
+    assert scenario.outputs is None
+    assert scenario.costs is None
+
+
 def test_load_scenario_rejects_null_folds_mapping(tmp_path: Path) -> None:
     base_config = tmp_path / "base.yml"
     base_config.write_text("{}", encoding="utf-8")

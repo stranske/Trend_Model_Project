@@ -1,0 +1,68 @@
+version: 1
+issue: 4872
+base: phase-3
+branch: codex/issue-4872
+tasks:
+  - id: task-01
+    title: 'Update `src/trend_analysis/monte_carlo/registry.py` scenario parsing to
+      treat `strategy_set: null`, `outputs: null`, and `costs: null` as `None` (instead
+      of attempting to coerce as mappings)'
+    status: done
+    started_at: '2026-02-11T12:43:51Z'
+    finished_at: '2026-02-11T12:43:59Z'
+    commit: 3789d1760c0116339ff9dc6e28afc699a0247e68
+    notes: []
+  - id: task-02
+    title: 'Add a unit test in `tests/monte_carlo/test_registry.py` that loads a scenario
+      with `strategy_set: null`, `outputs: null`, and `costs: null` and asserts it
+      parses successfully'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'A scenario definition containing `strategy_set: null`, `outputs: null`,
+      and `costs: null` loads without raising an exception in tests'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Running the existing test suite (including `tests/monte_carlo/test_registry.py`)
+      passes without changes to expected validation for non-null mappings
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Update scenario parsing to treat `strategy_set: null`, `outputs: null`,
+      `costs: null` as `None`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Add a unit test scenario confirming null optional sections load cleanly
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Scenario with null optional sections loads successfully
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Existing scenarios continue to validate as before
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []

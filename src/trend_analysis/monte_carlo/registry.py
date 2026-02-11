@@ -375,7 +375,7 @@ def _parse_scenario(
     monte_carlo_map = _ensure_mapping(monte_carlo, label="Scenario config 'monte_carlo'")
 
     strategy_set = None
-    if "strategy_set" in raw:
+    if "strategy_set" in raw and raw.get("strategy_set") is not None:
         strategy_set = _ensure_mapping(
             raw.get("strategy_set"), label="Scenario config 'strategy_set'"
         )
@@ -399,11 +399,11 @@ def _parse_scenario(
             strategy_set = merged
 
     outputs = None
-    if "outputs" in raw:
+    if "outputs" in raw and raw.get("outputs") is not None:
         outputs = _ensure_mapping(raw.get("outputs"), label="Scenario config 'outputs'")
 
     costs = None
-    if "costs" in raw:
+    if "costs" in raw and raw.get("costs") is not None:
         costs = _ensure_mapping(raw.get("costs"), label="Scenario config 'costs'")
 
     enable_fold_runs = raw.get("enable_fold_runs", _MISSING)
