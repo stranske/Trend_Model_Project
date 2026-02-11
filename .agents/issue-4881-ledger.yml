@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Create a new scenario YAML file in `config/scenarios/monte_carlo/` with
       a descriptive name like `cost_regime_example.yml`
-    status: doing
+    status: done
     started_at: '2026-02-11T05:11:27Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-11T05:11:35Z'
+    commit: fe92f28e0847a8df7543d62422d0d70f00f7ca9f
     notes: []
   - id: task-02
     title: Configure the costs section with `kind` set to `regime_stochastic` in the
