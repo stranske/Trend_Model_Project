@@ -563,7 +563,9 @@ def test_progress_updates_throttled(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_download_link_generation(monkeypatch: pytest.MonkeyPatch) -> None:
     page, stub = _load_page(monkeypatch)
-    monkeypatch.setattr(page, "save_chart_bundle", lambda *_args, **_kwargs: BytesIO(b"PK\x05\x06" + b"\x00" * 18))
+    monkeypatch.setattr(
+        page, "save_chart_bundle", lambda *_args, **_kwargs: BytesIO(b"PK\x05\x06" + b"\x00" * 18)
+    )
 
     results = _sample_results()
 
@@ -595,7 +597,8 @@ def test_download_link_generation(monkeypatch: pytest.MonkeyPatch) -> None:
     zip_entry = next(
         entry
         for entry in stub.downloads
-        if entry.get("mime") == "application/zip" and str(entry.get("label")) == "Download ZIP bundle"
+        if entry.get("mime") == "application/zip"
+        and str(entry.get("label")) == "Download ZIP bundle"
     )
     zip_data = zip_entry.get("data")
     assert hasattr(zip_data, "getvalue")
