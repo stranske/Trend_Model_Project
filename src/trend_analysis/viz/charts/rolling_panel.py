@@ -86,7 +86,7 @@ def _prepare_panel_series(
 
 
 def build_figure(
-    paths: pd.DataFrame,
+    data: pd.DataFrame,
     *,
     window: int = 12,
     periods_per_year: int = 12,
@@ -95,7 +95,7 @@ def build_figure(
     """Build rolling diagnostics panel from canonical ``make_paths`` output."""
 
     panel = _prepare_panel_series(
-        paths,
+        data,
         window=window,
         periods_per_year=periods_per_year,
         max_paths=max_paths,

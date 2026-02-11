@@ -34,10 +34,10 @@ def _prepare_corr_matrix(paths: pd.DataFrame, *, window: int | None = 60) -> pd.
     return path_correlations(paths, window=window)
 
 
-def build_figure(paths: pd.DataFrame, *, window: int | None = 60) -> go.Figure:
+def build_figure(data: pd.DataFrame, *, window: int | None = 60) -> go.Figure:
     """Build a correlation heatmap from canonical ``make_paths`` output."""
 
-    corr = _prepare_corr_matrix(paths, window=window)
+    corr = _prepare_corr_matrix(data, window=window)
     if corr.empty:
         return go.Figure()
     fig = px.imshow(

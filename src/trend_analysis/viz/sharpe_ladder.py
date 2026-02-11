@@ -69,8 +69,8 @@ def prepare_sharpe_ladder(
     return ladder
 
 
-def make(
-    summary: pd.DataFrame | Mapping[str, list[Any]],
+def build_figure(
+    data: pd.DataFrame | Mapping[str, list[Any]],
     *,
     metric: str = "sharpe",
     title: str | None = "Sharpe Ladder",
@@ -88,7 +88,7 @@ def make(
     """
 
     ladder = prepare_sharpe_ladder(
-        summary,
+        data,
         metric=metric,
         aggregate_duplicates=aggregate_duplicates,
         ascending=True,
@@ -120,10 +120,38 @@ def make(
     return apply_theme(fig)
 
 
+def make(
+    summary: pd.DataFrame | Mapping[str, list[Any]],
+    *,
+    metric: str = "sharpe",
+    title: str | None = "Sharpe Ladder",
+    xaxis_title: str | None = "Sharpe Ratio",
+    yaxis_title: str | None = "Strategy",
+    show_values: bool = True,
+    positive_color: str = DEFAULT_POSITIVE_COLOR,
+    negative_color: str = DEFAULT_NEGATIVE_COLOR,
+    aggregate_duplicates: bool = True,
+) -> go.Figure:
+    """Backward-compatible wrapper around :func:`build_figure`."""
+
+    return build_figure(
+        summary,
+        metric=metric,
+        title=title,
+        xaxis_title=xaxis_title,
+        yaxis_title=yaxis_title,
+        show_values=show_values,
+        positive_color=positive_color,
+        negative_color=negative_color,
+        aggregate_duplicates=aggregate_duplicates,
+    )
+
+
 __all__ = [
     "REQUIRED_COLUMNS",
     "DEFAULT_POSITIVE_COLOR",
     "DEFAULT_NEGATIVE_COLOR",
     "prepare_sharpe_ladder",
+    "build_figure",
     "make",
 ]

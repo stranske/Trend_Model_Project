@@ -53,10 +53,10 @@ def _prepare_seasonality_matrix(paths: pd.DataFrame) -> pd.DataFrame:
     return frame.pivot_table(index="year", columns="month", values="value", aggfunc="mean")
 
 
-def build_figure(paths: pd.DataFrame) -> go.Figure:
+def build_figure(data: pd.DataFrame) -> go.Figure:
     """Build a monthly seasonality heatmap from canonical ``make_paths`` output."""
 
-    seasonality = _prepare_seasonality_matrix(paths)
+    seasonality = _prepare_seasonality_matrix(data)
     if seasonality.empty:
         return go.Figure()
     fig = px.imshow(
