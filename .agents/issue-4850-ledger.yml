@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Add a CLI subcommand `trend mc viz` that accepts `--bundle <path> --out
       <dir> --charts fan,path_dist,risk_return --html --json --png`.
-    status: doing
+    status: done
     started_at: '2026-02-11T20:15:51Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-11T20:16:01Z'
+    commit: 37e1d901e5d38f591010a13745d28322556438f1
     notes: []
   - id: task-02
     title: 'Register the `trend mc viz` subcommand in the CLI command hierarchy (verify:
