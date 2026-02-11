@@ -196,6 +196,57 @@ def test_mc_viz_errors_when_summary_missing(
     assert "Missing required MC summary file" in err
 
 
+def test_mc_viz_errors_when_results_missing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["vol"], "value": [0.09]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+
+    exit_code = main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--html",
+        ]
+    )
+
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert "Missing required MC results file" in err
+
+
+def test_mc_viz_errors_when_multiple_required_inputs_missing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+
+    exit_code = main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--json",
+        ]
+    )
+
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert "Missing required MC input files" in err
+    assert "summary" in err
+    assert "results" in err
+
+
 def test_mc_viz_errors_when_results_file_is_corrupted(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

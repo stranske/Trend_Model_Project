@@ -1674,13 +1674,13 @@ def _read_mc_frame(path: Path, *, label: str) -> pd.DataFrame:
 
 def _load_mc_frame(bundle_dir: Path, *, stem: str) -> pd.DataFrame:
     candidates = tuple(bundle_dir / f"{stem}.{ext}" for ext in ("parquet", "csv", "json"))
-    for candidate in candidates:
-        if candidate.exists():
-            return _read_mc_frame(candidate, label=stem)
-    expected = ", ".join(path.name for path in candidates)
-    raise TrendCLIError(
-        f"Missing required MC {stem} file in '{bundle_dir}'. Expected one of: {expected}"
-    )
+    existing = next((candidate for candidate in candidates if candidate.exists()), None)
+    if existing is None:
+        expected = ", ".join(path.name for path in candidates)
+        raise TrendCLIError(
+            f"Missing required MC {stem} file in '{bundle_dir}'. Expected one of: {expected}"
+        )
+    return _read_mc_frame(existing, label=stem)
 
 
 def _load_mc_summary_frame(bundle_dir: Path) -> pd.DataFrame:
@@ -1697,6 +1697,27 @@ def _load_mc_bundle_frames(bundle: str | os.PathLike[str]) -> tuple[pd.DataFrame
         raise TrendCLIError(f"MC bundle directory does not exist: {bundle_dir}")
     if not bundle_dir.is_dir():
         raise TrendCLIError(f"MC bundle path is not a directory: {bundle_dir}")
+    required_stems = ("summary", "results")
+    missing_inputs: list[str] = []
+    expected_by_stem: dict[str, str] = {}
+    for stem in required_stems:
+        candidates = tuple(bundle_dir / f"{stem}.{ext}" for ext in ("parquet", "csv", "json"))
+        if not any(candidate.exists() for candidate in candidates):
+            missing_inputs.append(stem)
+            expected_by_stem[stem] = ", ".join(path.name for path in candidates)
+    if missing_inputs:
+        if len(missing_inputs) == 1:
+            stem = missing_inputs[0]
+            expected = expected_by_stem[stem]
+            raise TrendCLIError(
+                f"Missing required MC {stem} file in '{bundle_dir}'. Expected one of: {expected}"
+            )
+        missing_text = ", ".join(missing_inputs)
+        expected_text = "; ".join(f"{stem}: {expected_by_stem[stem]}" for stem in missing_inputs)
+        raise TrendCLIError(
+            f"Missing required MC input files in '{bundle_dir}': {missing_text}. "
+            f"Expected one of each: {expected_text}"
+        )
     return _load_mc_summary_frame(bundle_dir), _load_mc_results_frame(bundle_dir)
 
 
