@@ -245,6 +245,9 @@ def test_inject_cash_warns_when_fallback_disabled(monkeypatch: Any, caplog: Any)
     scenario.monte_carlo.n_paths = 10
     scenario.strategy_set = {"curated": [StrategyVariant(name="StrategyA")]}
     scenario.costs = None
+    # Remove the scenario-level data override so the base_config value wins.
+    if isinstance(scenario.raw, dict):
+        scenario.raw.pop("data", None)
 
     base_cfg = _base_config()
     base_cfg["data"]["allow_risk_free_fallback"] = False
@@ -274,6 +277,36 @@ def test_inject_cash_warns_when_fallback_disabled(monkeypatch: Any, caplog: Any)
         ), "CASH should not be injected when allow_risk_free_fallback is False"
 
     warning_messages = [r.message for r in caplog.records if r.levelno >= logging.WARNING]
-    assert any(
-        "allow_risk_free_fallback" in msg for msg in warning_messages
-    ), f"Expected a warning about allow_risk_free_fallback, got: {warning_messages}"
+    fallback_warnings = [m for m in warning_messages if "allow_risk_free_fallback" in m]
+    assert fallback_warnings, (
+        f"Expected a warning about allow_risk_free_fallback, got: {warning_messages}"
+    )
+    # P2 fix: The warning should be emitted only once, not per path.
+    assert len(fallback_warnings) == 1, (
+        f"Expected exactly 1 fallback warning but got {len(fallback_warnings)}"
+    )
+
+
+def test_scenario_data_override_merges_into_base_config(
+    monkeypatch: Any,
+) -> None:
+    """Scenario-level data overrides (e.g. allow_risk_free_fallback) should be
+    merged into the runner's base config even when the base config file sets
+    a different value."""
+    scenario = load_scenario("cost_regime_example")
+    scenario.monte_carlo.n_paths = 10
+    scenario.strategy_set = {"curated": [StrategyVariant(name="StrategyA")]}
+    scenario.costs = None
+
+    # Do NOT pass base_config — let the runner load it from the scenario's
+    # base_config path.  The scenario YAML sets data.allow_risk_free_fallback:
+    # true which should override defaults.yml's false.
+    runner = MonteCarloRunner(
+        scenario,
+        price_history=_price_history(),
+    )
+
+    # The merged base config should now have the override applied.
+    assert runner.base_config["data"]["allow_risk_free_fallback"] is True, (
+        "Scenario-level data.allow_risk_free_fallback should override defaults"
+    )
