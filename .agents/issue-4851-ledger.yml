@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Add test file(s) for visualization smoke tests covering that Plotly figures
       create successfully and `fig.to_json()` works (e.g., `tests/test_visualization_smoke.py`).
-    status: doing
+    status: done
     started_at: '2026-02-11T22:26:00Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-11T22:26:10Z'
+    commit: 120d0016f8bce32ab8de42dd3654166a7e573cb7
     notes: []
   - id: task-02
     title: 'Create the test file `tests/test_visualization_smoke.py` with basic structure
