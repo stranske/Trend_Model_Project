@@ -1234,7 +1234,7 @@ class MonteCarloRunner:
         metrics_settings: Mapping[str, Any],
     ) -> bool:
         """Return whether risk-free resolution should run for score/cash handling."""
-        override_enabled = bool(metrics_settings.get("rf_override_enabled", False))
+        override_enabled = self._should_inject_cash(metrics_settings)
         risk_free_column = str(data_settings.get("risk_free_column") or "").strip()
         has_risk_free_column = bool(risk_free_column)
         fallback_enabled = data_settings.get("allow_risk_free_fallback") is True
