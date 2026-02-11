@@ -1234,11 +1234,11 @@ class MonteCarloRunner:
         metrics_settings: Mapping[str, Any],
     ) -> bool:
         """Return whether risk-free resolution should run for score/cash handling."""
-        if bool(metrics_settings.get("rf_override_enabled", False)):
-            return True
-        if data_settings.get("risk_free_column"):
-            return True
-        return data_settings.get("allow_risk_free_fallback") is True
+        override_enabled = bool(metrics_settings.get("rf_override_enabled", False))
+        risk_free_column = str(data_settings.get("risk_free_column") or "").strip()
+        has_risk_free_column = bool(risk_free_column)
+        fallback_enabled = data_settings.get("allow_risk_free_fallback") is True
+        return override_enabled or has_risk_free_column or fallback_enabled
 
     def _apply_cash_handling(self, returns: pd.DataFrame) -> pd.DataFrame:
         existing_cash = any(str(col).upper() == "CASH" for col in returns.columns)
@@ -1256,10 +1256,16 @@ class MonteCarloRunner:
         # Keep CASH injection policy explicit and centralized for backward compatibility.
         inject_cash = self._should_resolve_risk_free(data_settings, metrics_settings)
         if not inject_cash:
+            rf_override_enabled = bool(metrics_settings.get("rf_override_enabled", False))
+            has_risk_free_column = bool(str(data_settings.get("risk_free_column") or "").strip())
+            fallback_enabled = data_settings.get("allow_risk_free_fallback") is True
             self._warn_cash_once(
-                "CASH injection skipped: metrics.rf_override_enabled is disabled, "
-                "data.risk_free_column is not set, and "
-                "data.allow_risk_free_fallback is disabled"
+                "CASH injection skipped: gate=false "
+                "(metrics.rf_override_enabled=%s, data.risk_free_column_set=%s, "
+                "data.allow_risk_free_fallback=%s)",
+                rf_override_enabled,
+                has_risk_free_column,
+                fallback_enabled,
             )
             return returns
         try:

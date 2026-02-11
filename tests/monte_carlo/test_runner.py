@@ -1603,6 +1603,18 @@ def test_should_resolve_risk_free_gate_truth_table() -> None:
     )
 
 
+def test_should_resolve_risk_free_treats_blank_column_as_unset() -> None:
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=_base_config())
+
+    assert (
+        runner._should_resolve_risk_free(
+            data_settings={"risk_free_column": "   ", "allow_risk_free_fallback": False},
+            metrics_settings={"rf_override_enabled": False},
+        )
+        is False
+    )
+
+
 def test_apply_cash_handling_injects_cash_when_override_gate_enabled() -> None:
     cfg = _base_config()
     cfg["metrics"] = {
@@ -1682,6 +1694,28 @@ def test_apply_cash_handling_skips_when_override_gate_disabled() -> None:
     injected = runner._apply_cash_handling(_returns_without_rf())
 
     assert "CASH" not in injected.columns
+
+
+def test_apply_cash_handling_logs_gate_components_when_skipped(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {
+        "registry": ["sharpe_ratio"],
+        "rf_override_enabled": False,
+    }
+    cfg["data"]["risk_free_column"] = "   "
+    cfg["data"]["allow_risk_free_fallback"] = False
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+
+    with caplog.at_level(logging.WARNING):
+        injected = runner._apply_cash_handling(_returns_without_rf())
+
+    assert "CASH" not in injected.columns
+    assert "gate=false" in caplog.text
+    assert "metrics.rf_override_enabled=False" in caplog.text
+    assert "data.risk_free_column_set=False" in caplog.text
+    assert "data.allow_risk_free_fallback=False" in caplog.text
 
 
 def test_cash_uses_correct_risk_free_rate() -> None:
