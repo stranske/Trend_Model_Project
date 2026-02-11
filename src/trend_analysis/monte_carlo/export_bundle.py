@@ -105,4 +105,3 @@ def _resolve_destination(destination: BytesIO | Path | str | None) -> BytesIO | 
 def _safe_name(name: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("._")
     return cleaned or "chart"
-

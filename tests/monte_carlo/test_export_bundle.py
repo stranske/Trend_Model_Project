@@ -14,9 +14,7 @@ def _sample_charts() -> dict[str, go.Figure]:
         "Equity Curve": go.Figure(
             data=[go.Scatter(x=["2025-01-01", "2025-01-02"], y=[100.0, 102.0], mode="lines")]
         ),
-        "Risk Return": go.Figure(
-            data=[go.Scatter(x=[0.08, 0.12], y=[0.10, 0.14], mode="markers")]
-        ),
+        "Risk Return": go.Figure(data=[go.Scatter(x=[0.08, 0.12], y=[0.10, 0.14], mode="markers")]),
     }
 
 
@@ -64,4 +62,3 @@ def test_save_to_tempfile_creates_zip_path() -> None:
             assert "Equity_Curve.html" in names
     finally:
         out_path.unlink(missing_ok=True)
-
