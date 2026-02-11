@@ -50,8 +50,12 @@ def test_viz_cache_data_is_decorated_and_invoked(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "streamlit", SimpleNamespace(cache_data=cache_data))
 
     adapters = importlib.reload(importlib.import_module("trend_analysis.viz.adapters"))
-    corr_heatmap = importlib.reload(importlib.import_module("trend_analysis.viz.charts.corr_heatmap"))
-    rolling_panel = importlib.reload(importlib.import_module("trend_analysis.viz.charts.rolling_panel"))
+    corr_heatmap = importlib.reload(
+        importlib.import_module("trend_analysis.viz.charts.corr_heatmap")
+    )
+    rolling_panel = importlib.reload(
+        importlib.import_module("trend_analysis.viz.charts.rolling_panel")
+    )
     seasonality_heatmap = importlib.reload(
         importlib.import_module("trend_analysis.viz.charts.seasonality_heatmap")
     )

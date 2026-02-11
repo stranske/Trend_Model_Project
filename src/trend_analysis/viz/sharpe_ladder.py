@@ -10,8 +10,7 @@ only for preprocessing; chart rendering uses strategy + metric.
 
 from __future__ import annotations
 
-from typing import Any, Mapping
-from typing import Callable
+from typing import Any, Callable, Mapping
 
 import pandas as pd
 import plotly.graph_objects as go
