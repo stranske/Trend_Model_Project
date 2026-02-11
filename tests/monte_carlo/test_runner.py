@@ -1569,6 +1569,48 @@ def test_score_frame_uses_fallback_rf_series(monkeypatch: pytest.MonkeyPatch) ->
     assert not frame.empty
 
 
+def test_inject_cash_returns_applies_fallback_rate_when_enabled() -> None:
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=_base_config())
+    returns = _returns_without_rf()
+
+    injected = runner._inject_cash_returns(returns)
+
+    assert "CASH" in injected.columns
+    np.testing.assert_allclose(
+        injected["CASH"].to_numpy(dtype=float, copy=False),
+        returns["B"].to_numpy(dtype=float, copy=False),
+    )
+
+
+def test_inject_cash_returns_skips_when_fallback_gate_disabled() -> None:
+    cfg = _base_config()
+    cfg["data"]["allow_risk_free_fallback"] = False
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+
+    injected = runner._inject_cash_returns(_returns_without_rf())
+
+    assert "CASH" not in injected.columns
+
+
+def test_inject_cash_returns_handles_missing_metrics_nulls_and_empty_inputs() -> None:
+    cfg = _base_config()
+    cfg.pop("metrics", None)
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+
+    injected_missing_metrics = runner._inject_cash_returns(_returns_without_rf())
+    assert "CASH" in injected_missing_metrics.columns
+
+    null_returns = _returns_without_rf()
+    null_returns.loc[1, "B"] = np.nan
+    injected_null = runner._inject_cash_returns(null_returns)
+    assert "CASH" not in injected_null.columns
+
+    empty_returns = _returns_without_rf().iloc[:0].copy()
+    injected_empty = runner._inject_cash_returns(empty_returns)
+    assert injected_empty.empty
+    assert "CASH" not in injected_empty.columns
+
+
 def test_run_mixture_requires_matching_seed_lengths() -> None:
     scenario = _scenario("mixture")
     runner = MonteCarloRunner(
