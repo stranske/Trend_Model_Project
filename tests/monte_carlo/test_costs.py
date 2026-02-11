@@ -274,9 +274,9 @@ def test_inject_cash_warns_when_override_disabled(monkeypatch: Any, caplog: Any)
 
     assert captured_returns
     for returns in captured_returns:
-        assert "CASH" not in returns.columns, (
-            "CASH should not be injected when metrics.rf_override_enabled is False"
-        )
+        assert (
+            "CASH" not in returns.columns
+        ), "CASH should not be injected when metrics.rf_override_enabled is False"
 
     warning_messages = [r.message for r in caplog.records if r.levelno >= logging.WARNING]
     fallback_warnings = [m for m in warning_messages if "metrics.rf_override_enabled" in m]
