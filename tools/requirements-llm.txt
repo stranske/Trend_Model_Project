@@ -2,12 +2,12 @@
 # Rationale:
 # - Pin runtime installs to the same versions in requirements.lock to avoid drift.
 # - Keep aligned with pyproject.toml [langchain] extras to reduce surprises.
-# - Update in lockstep when scripts/update_langchain_versions.py bumps versions.
+# - Update these pins in lockstep with requirements.lock and pyproject.toml.
 # - Use strict X.Y.Z pins to keep installs reproducible and lock aligned.
-langchain==1.2.9
-langchain-core==1.2.9
+langchain==1.2.3
+langchain-core==1.2.7
 langchain-community==0.4.1
 langchain-openai==1.1.7
-langchain-anthropic==1.3.2
+langchain-anthropic==1.3.1
 pydantic==2.12.5
 requests==2.32.5
