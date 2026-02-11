@@ -7,11 +7,17 @@ chart components that expect predictable DataFrame schemas.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Callable
 
 import numpy as np
 import pandas as pd
 
 from trend_analysis.monte_carlo.results import build_summary_frame
+
+try:
+    import streamlit as st
+except Exception:  # pragma: no cover - streamlit is optional outside app runtime
+    st = None
 
 SUMMARY_REQUIRED_COLUMNS: tuple[str, ...] = ("fold_id", "fold_label", "strategy", "paths")
 """Required columns for ``make_summary`` outputs."""
@@ -46,6 +52,61 @@ ROLLING_REQUIRED_COLUMNS: tuple[str, ...] = (
 """Required columns for ``rolling_stats`` outputs."""
 
 
+def _cache_data(
+    *args: object, **kwargs: object
+) -> Callable[[Callable[..., object]], Callable[..., object]]:
+    cache_data = getattr(st, "cache_data", None) if st is not None else None
+    if callable(cache_data):
+        return cache_data(*args, **kwargs)
+
+    def _identity(func: Callable[..., object]) -> Callable[..., object]:
+        return func
+
+    return _identity
+
+
+@_cache_data(show_spinner=False)
+def _make_summary_cached(
+    results_frame: pd.DataFrame,
+    *,
+    fold_selection: int | str | Sequence[int | str] | None = None,
+) -> pd.DataFrame:
+    if "strategy" not in results_frame.columns:
+        raise ValueError("results_frame must include a 'strategy' column")
+
+    pooled = _is_pooled_selection(fold_selection)
+    filtered = _apply_fold_selection(results_frame, fold_selection)
+
+    if pooled:
+        no_fold = filtered.drop(
+            columns=[col for col in ("fold_id", "fold_label") if col in filtered]
+        )
+        summary = build_summary_frame(no_fold)
+    else:
+        summary = build_summary_frame(filtered)
+
+    return _normalize_summary_schema(summary)
+
+
+@_cache_data(show_spinner=False)
+def _make_paths_cached(nav_paths: pd.DataFrame) -> pd.DataFrame:
+    frame = _normalize_nav_paths(nav_paths)
+    if frame.empty:
+        return pd.DataFrame(
+            {"nav": pd.Series(dtype="float64")},
+            index=pd.MultiIndex.from_arrays(
+                [pd.DatetimeIndex([], name="date"), pd.Index([], name="path")],
+                names=list(PATHS_INDEX_NAMES),
+            ),
+        )
+
+    long = frame.stack(future_stack=True).rename("nav").to_frame()
+    long.index.set_names(list(PATHS_INDEX_NAMES), inplace=True)
+    long["nav"] = pd.to_numeric(long["nav"], errors="coerce").astype("float64")
+    long = long[~long.index.duplicated(keep="last")]
+    return long.sort_index()
+
+
 def make_summary(
     results_frame: pd.DataFrame,
     *,
@@ -77,21 +138,7 @@ def make_summary(
 
     if not isinstance(results_frame, pd.DataFrame):
         raise TypeError("results_frame must be a pandas DataFrame")
-    if "strategy" not in results_frame.columns:
-        raise ValueError("results_frame must include a 'strategy' column")
-
-    pooled = _is_pooled_selection(fold_selection)
-    filtered = _apply_fold_selection(results_frame, fold_selection)
-
-    if pooled:
-        no_fold = filtered.drop(
-            columns=[col for col in ("fold_id", "fold_label") if col in filtered]
-        )
-        summary = build_summary_frame(no_fold)
-    else:
-        summary = build_summary_frame(filtered)
-
-    return _normalize_summary_schema(summary)
+    return _make_summary_cached(results_frame, fold_selection=fold_selection)
 
 
 def make_paths(nav_paths: pd.DataFrame) -> pd.DataFrame:
@@ -111,21 +158,7 @@ def make_paths(nav_paths: pd.DataFrame) -> pd.DataFrame:
     - Required columns: ``nav`` (float64).
     """
 
-    frame = _normalize_nav_paths(nav_paths)
-    if frame.empty:
-        return pd.DataFrame(
-            {"nav": pd.Series(dtype="float64")},
-            index=pd.MultiIndex.from_arrays(
-                [pd.DatetimeIndex([], name="date"), pd.Index([], name="path")],
-                names=list(PATHS_INDEX_NAMES),
-            ),
-        )
-
-    long = frame.stack(future_stack=True).rename("nav").to_frame()
-    long.index.set_names(list(PATHS_INDEX_NAMES), inplace=True)
-    long["nav"] = pd.to_numeric(long["nav"], errors="coerce").astype("float64")
-    long = long[~long.index.duplicated(keep="last")]
-    return long.sort_index()
+    return _make_paths_cached(nav_paths)
 
 
 def terminal_returns(
