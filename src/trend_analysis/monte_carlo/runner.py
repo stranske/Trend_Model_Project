@@ -194,6 +194,7 @@ class MonteCarloRunner:
         self._base_config = self._coerce_base_config(base_config)
         self._price_history = price_history
         self._logger = logger or logging.getLogger("trend_analysis.monte_carlo")
+        self._cash_injection_warned = False
         self._seed_manager: SeedManager | None = None
         self._seed_manager_init = False
         self._cost_process: CostProcess | None = None
@@ -1207,30 +1208,56 @@ class MonteCarloRunner:
             self._logger.debug("Failed to compute score frame: %s", exc)
             return pd.DataFrame()
 
+    def _warn_cash_once(self, msg: str, *args: object) -> None:
+        """Emit a CASH-injection warning at most once per runner lifetime."""
+        if self._cash_injection_warned:
+            return
+        self._cash_injection_warned = True
+        self._logger.warning(msg, *args)
+
     def _inject_cash_returns(self, returns: pd.DataFrame) -> pd.DataFrame:
         if "CASH" in returns.columns:
             return returns
         try:
             config = Config(**self._base_config)
         except Exception:
+            self._warn_cash_once("CASH injection skipped: failed to parse base config")
             return returns
         data_settings = config.data or {}
         if data_settings.get("risk_free_column"):
             return returns
         if data_settings.get("allow_risk_free_fallback") is not True:
+            self._warn_cash_once(
+                "CASH injection skipped: data.allow_risk_free_fallback is not "
+                "enabled (set to true in your scenario or base config to "
+                "allow CASH column injection)"
+            )
             return returns
         try:
             resolution = resolve_risk_free_source(returns, config)
         except Exception as exc:
-            self._logger.debug("Failed to inject CASH returns: %s", exc)
+            self._warn_cash_once("CASH injection failed: %s", exc)
             return returns
         risk_free = resolution.risk_free
         if not isinstance(risk_free, pd.Series):
+            self._warn_cash_once(
+                "CASH injection skipped: resolved risk-free source is not a Series (source=%s)",
+                getattr(resolution, "source", "unknown"),
+            )
             return returns
         cash_values = pd.to_numeric(risk_free, errors="coerce")
         if len(cash_values) != len(returns):
+            self._warn_cash_once(
+                "CASH injection skipped: risk-free length (%d) does not match "
+                "returns length (%d)",
+                len(cash_values),
+                len(returns),
+            )
             return returns
         if cash_values.isna().any():
+            self._warn_cash_once(
+                "CASH injection skipped: resolved risk-free series contains NaN values"
+            )
             return returns
         out = returns.copy()
         out["CASH"] = cash_values.to_numpy(dtype=float, copy=False)
@@ -1884,12 +1911,54 @@ class MonteCarloRunner:
             payload = yaml.safe_load(raw)
             if not isinstance(payload, dict):
                 raise ValueError("Base config must be a mapping")
+            payload = self._apply_scenario_overrides(payload)
             return self._ensure_required_sections(payload)
         if hasattr(base_config, "model_dump"):
             payload = base_config.model_dump()
         else:
             payload = dict(base_config)
+        payload = self._apply_scenario_overrides(payload)
         return self._ensure_required_sections(payload)
+
+    def _apply_scenario_overrides(self, config: dict[str, Any]) -> dict[str, Any]:
+        """Merge scenario-level section overrides into the base config.
+
+        Scenario YAML files may contain top-level keys like ``data`` that
+        should override values inherited from ``base_config``.  Without this
+        merge the overrides sit in ``scenario.raw`` but never reach the
+        runtime config dict.
+        """
+        raw = getattr(self.scenario, "raw", None)
+        if not isinstance(raw, Mapping):
+            return config
+        # Only merge keys that correspond to known config sections so we
+        # don't accidentally inject scenario-only keys (e.g. ``costs``,
+        # ``strategy_set``) into the pipeline config.
+        mergeable_sections = (
+            "data",
+            "preprocessing",
+            "vol_adjust",
+            "sample_split",
+            "portfolio",
+            "metrics",
+            "benchmarks",
+            "export",
+            "run",
+            "regime",
+        )
+        updated = dict(config)
+        for section in mergeable_sections:
+            override = raw.get(section)
+            if override is None or not isinstance(override, Mapping):
+                continue
+            existing = updated.get(section)
+            if isinstance(existing, dict):
+                merged = dict(existing)
+                merged.update(override)
+                updated[section] = merged
+            else:
+                updated[section] = dict(override)
+        return updated
 
     def _ensure_required_sections(self, config: dict[str, Any]) -> dict[str, Any]:
         required = [

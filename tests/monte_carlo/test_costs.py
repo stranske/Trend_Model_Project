@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import numpy as np
@@ -235,3 +236,77 @@ def test_runner_injects_cash_series_when_risk_free_column_absent(monkeypatch: An
         cash_series = returns["CASH"]
         assert pd.api.types.is_numeric_dtype(cash_series)
         assert np.isfinite(cash_series.to_numpy(dtype=float, copy=False)).all()
+
+
+def test_inject_cash_warns_when_fallback_disabled(monkeypatch: Any, caplog: Any) -> None:
+    """When allow_risk_free_fallback is False the runner should log a warning
+    explaining why CASH injection was skipped."""
+    scenario = load_scenario("cost_regime_example")
+    scenario.monte_carlo.n_paths = 10
+    scenario.strategy_set = {"curated": [StrategyVariant(name="StrategyA")]}
+    scenario.costs = None
+    # Remove the scenario-level data override so the base_config value wins.
+    if isinstance(scenario.raw, dict):
+        scenario.raw.pop("data", None)
+
+    base_cfg = _base_config()
+    base_cfg["data"]["allow_risk_free_fallback"] = False
+
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=base_cfg,
+        price_history=_price_history(),
+    )
+
+    captured_returns: list[pd.DataFrame] = []
+
+    def fake_run_simulation(config: Any, returns: pd.DataFrame) -> RunResult:
+        captured_returns.append(returns.copy())
+        metrics = pd.DataFrame({"annual_return": [0.1]}, index=["user_weight"])
+        return RunResult(metrics=metrics, details={}, seed=0, environment={})
+
+    monkeypatch.setattr(runner_module, "run_simulation", fake_run_simulation)
+
+    with caplog.at_level(logging.WARNING, logger="trend_analysis.monte_carlo"):
+        _ = runner.run(jobs=1)
+
+    assert captured_returns
+    for returns in captured_returns:
+        assert (
+            "CASH" not in returns.columns
+        ), "CASH should not be injected when allow_risk_free_fallback is False"
+
+    warning_messages = [r.message for r in caplog.records if r.levelno >= logging.WARNING]
+    fallback_warnings = [m for m in warning_messages if "allow_risk_free_fallback" in m]
+    assert (
+        fallback_warnings
+    ), f"Expected a warning about allow_risk_free_fallback, got: {warning_messages}"
+    # P2 fix: The warning should be emitted only once, not per path.
+    assert (
+        len(fallback_warnings) == 1
+    ), f"Expected exactly 1 fallback warning but got {len(fallback_warnings)}"
+
+
+def test_scenario_data_override_merges_into_base_config(
+    monkeypatch: Any,
+) -> None:
+    """Scenario-level data overrides (e.g. allow_risk_free_fallback) should be
+    merged into the runner's base config even when the base config file sets
+    a different value."""
+    scenario = load_scenario("cost_regime_example")
+    scenario.monte_carlo.n_paths = 10
+    scenario.strategy_set = {"curated": [StrategyVariant(name="StrategyA")]}
+    scenario.costs = None
+
+    # Do NOT pass base_config — let the runner load it from the scenario's
+    # base_config path.  The scenario YAML sets data.allow_risk_free_fallback:
+    # true which should override defaults.yml's false.
+    runner = MonteCarloRunner(
+        scenario,
+        price_history=_price_history(),
+    )
+
+    # The merged base config should now have the override applied.
+    assert (
+        runner.base_config["data"]["allow_risk_free_fallback"] is True
+    ), "Scenario-level data.allow_risk_free_fallback should override defaults"
