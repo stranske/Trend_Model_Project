@@ -318,6 +318,21 @@ Cash Earns = Risk-Free Rate (configurable source)
 - RF source options: explicit series, constant rate, benchmark proxy
 - Portfolio return = weighted sum including cash component
 
+### CASH Injection Policy
+
+- Trigger condition (boolean):
+  - `inject_cash = bool(metrics.rf_override_enabled)`.
+- Injected CASH rate:
+  - If `metrics.rf_override_enabled` is `true`, use `metrics.rf_rate_annual`.
+  - Convert to periodic simulation rate with `periods_per_year_from_code(data.frequency)`.
+  - Formula: `rf_periodic = (1 + rf_rate_annual) ** (1 / periods_per_year) - 1`.
+- Skip behavior: if `metrics.rf_override_enabled` is disabled, no `CASH` column is injected (even when `data.risk_free_column` or `data.allow_risk_free_fallback` is set).
+
+Example:
+- Config sets `data.frequency: "M"`, `metrics.rf_override_enabled: true`, and `metrics.rf_rate_annual: 0.12`.
+- Then `rf_periodic = (1.12) ** (1/12) - 1 ≈ 0.009489`.
+- For a simulated return frame with no `CASH` column, the runner injects `CASH=0.009489` for each period.
+
 ### Stochastic Transaction Costs
 
 Canonical schema (required):

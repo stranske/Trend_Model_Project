@@ -615,7 +615,7 @@ class MonteCarloRunner:
         log_returns = self._extract_path_frame(result.log_returns, path_index)
         returns = np.expm1(log_returns)
         returns_df = self._returns_with_date(returns)
-        returns_df = self._inject_cash_returns(returns_df)
+        returns_df = self._apply_cash_handling(returns_df)
         score_frame = self._compute_score_frame(returns_df)
         path_hash = self._hash_frame(prices)
         return _PathContext(
@@ -1190,11 +1190,7 @@ class MonteCarloRunner:
             metrics = canonical_metric_list(metrics_raw)
             data_settings = config.data or {}
             metrics_settings = config.metrics or {}
-            use_resolver = bool(metrics_settings.get("rf_override_enabled", False))
-            if data_settings.get("risk_free_column"):
-                use_resolver = True
-            if data_settings.get("allow_risk_free_fallback") is True:
-                use_resolver = True
+            use_resolver = self._should_resolve_risk_free(data_settings, metrics_settings)
             risk_free_value: float | pd.Series | None = None
             if use_resolver:
                 resolution = resolve_risk_free_source(returns, config)
@@ -1232,23 +1228,48 @@ class MonteCarloRunner:
         self._cash_injection_warned = True
         self._logger.warning(msg, *args)
 
-    def _inject_cash_returns(self, returns: pd.DataFrame) -> pd.DataFrame:
-        if "CASH" in returns.columns:
+    def _should_resolve_risk_free(
+        self,
+        data_settings: Mapping[str, Any],
+        metrics_settings: Mapping[str, Any],
+    ) -> bool:
+        """Return whether risk-free resolution should run for score/cash handling."""
+        override_enabled = self._should_inject_cash(metrics_settings)
+        risk_free_column = str(data_settings.get("risk_free_column") or "").strip()
+        has_risk_free_column = bool(risk_free_column)
+        fallback_enabled = data_settings.get("allow_risk_free_fallback") is True
+        return override_enabled or has_risk_free_column or fallback_enabled
+
+    def _should_inject_cash(self, metrics_settings: Mapping[str, Any]) -> bool:
+        """Return whether CASH should be injected into simulated returns."""
+        return bool(metrics_settings.get("rf_override_enabled", False))
+
+    def _base_metrics_settings(self) -> Mapping[str, Any]:
+        """Return raw metrics settings from base config for gate evaluation."""
+        if isinstance(self._base_config, Mapping):
+            metrics_settings = self._base_config.get("metrics")
+            if isinstance(metrics_settings, Mapping):
+                return metrics_settings
+        return {}
+
+    def _apply_cash_handling(self, returns: pd.DataFrame) -> pd.DataFrame:
+        existing_cash = any(str(col).upper() == "CASH" for col in returns.columns)
+        if existing_cash:
+            return returns
+        if returns.empty:
+            return returns
+        metrics_settings = self._base_metrics_settings()
+        inject_cash = self._should_inject_cash(metrics_settings)
+        if not inject_cash:
+            self._warn_cash_once(
+                "CASH injection skipped: gate=false (metrics.rf_override_enabled=%s)",
+                bool(metrics_settings.get("rf_override_enabled", False)),
+            )
             return returns
         try:
             config = Config(**self._base_config)
         except Exception:
             self._warn_cash_once("CASH injection skipped: failed to parse base config")
-            return returns
-        data_settings = config.data or {}
-        if data_settings.get("risk_free_column"):
-            return returns
-        if data_settings.get("allow_risk_free_fallback") is not True:
-            self._warn_cash_once(
-                "CASH injection skipped: data.allow_risk_free_fallback is not "
-                "enabled (set to true in your scenario or base config to "
-                "allow CASH column injection)"
-            )
             return returns
         try:
             resolution = resolve_risk_free_source(returns, config)
@@ -1256,19 +1277,22 @@ class MonteCarloRunner:
             self._warn_cash_once("CASH injection failed: %s", exc)
             return returns
         risk_free = resolution.risk_free
-        if not isinstance(risk_free, pd.Series):
-            self._warn_cash_once(
-                "CASH injection skipped: resolved risk-free source is not a Series (source=%s)",
-                getattr(resolution, "source", "unknown"),
+        if isinstance(risk_free, (int, float)):
+            cash_values = pd.Series(
+                np.full(len(returns), float(risk_free), dtype=float),
+                index=returns.index,
+                name="CASH",
             )
-            return returns
-        cash_values = pd.to_numeric(risk_free, errors="coerce")
-        if len(cash_values) != len(returns):
+        elif isinstance(risk_free, pd.Series):
+            cash_values = pd.to_numeric(risk_free, errors="coerce")
+            if not cash_values.index.equals(returns.index):
+                cash_values = cash_values.reindex(returns.index)
+        else:
             self._warn_cash_once(
-                "CASH injection skipped: risk-free length (%d) does not match "
-                "returns length (%d)",
-                len(cash_values),
-                len(returns),
+                "CASH injection skipped: resolved risk-free source has unsupported type "
+                "(source=%s, type=%s)",
+                getattr(resolution, "source", "unknown"),
+                type(risk_free).__name__,
             )
             return returns
         if cash_values.isna().any():
@@ -1279,6 +1303,10 @@ class MonteCarloRunner:
         out = returns.copy()
         out["CASH"] = cash_values.to_numpy(dtype=float, copy=False)
         return out
+
+    def _inject_cash_returns(self, returns: pd.DataFrame) -> pd.DataFrame:
+        """Backward-compatible alias for cash injection behavior."""
+        return self._apply_cash_handling(returns)
 
     def _extract_metrics(self, metrics_df: pd.DataFrame) -> tuple[dict[str, float], str | None]:
         if metrics_df is None or metrics_df.empty:

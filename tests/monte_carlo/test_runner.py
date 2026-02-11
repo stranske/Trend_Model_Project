@@ -12,6 +12,7 @@ import pytest
 import trend_analysis.monte_carlo.folds as folds_module
 import trend_analysis.monte_carlo.runner as runner_module
 from trend_analysis.api import RunResult
+from trend_analysis.monte_carlo.config import RiskFreeResolution
 from trend_analysis.monte_carlo.results import (
     MonteCarloPathError,
     MonteCarloResults,
@@ -1567,6 +1568,427 @@ def test_score_frame_uses_fallback_rf_series(monkeypatch: pytest.MonkeyPatch) ->
     runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
     frame = runner._compute_score_frame(returns)
     assert not frame.empty
+
+
+def test_should_resolve_risk_free_gate_truth_table() -> None:
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=_base_config())
+
+    assert (
+        runner._should_resolve_risk_free(
+            data_settings={"risk_free_column": None, "allow_risk_free_fallback": False},
+            metrics_settings={"rf_override_enabled": True},
+        )
+        is True
+    )
+    assert (
+        runner._should_resolve_risk_free(
+            data_settings={"risk_free_column": "RF", "allow_risk_free_fallback": False},
+            metrics_settings={"rf_override_enabled": False},
+        )
+        is True
+    )
+    assert (
+        runner._should_resolve_risk_free(
+            data_settings={"risk_free_column": None, "allow_risk_free_fallback": True},
+            metrics_settings={"rf_override_enabled": False},
+        )
+        is True
+    )
+    assert (
+        runner._should_resolve_risk_free(
+            data_settings={"risk_free_column": None, "allow_risk_free_fallback": False},
+            metrics_settings={"rf_override_enabled": False},
+        )
+        is False
+    )
+
+
+def test_should_resolve_risk_free_treats_blank_column_as_unset() -> None:
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=_base_config())
+
+    assert (
+        runner._should_resolve_risk_free(
+            data_settings={"risk_free_column": "   ", "allow_risk_free_fallback": False},
+            metrics_settings={"rf_override_enabled": False},
+        )
+        is False
+    )
+
+
+def test_should_inject_cash_is_gated_by_override_flag() -> None:
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=_base_config())
+
+    assert runner._should_inject_cash(metrics_settings={"rf_override_enabled": True}) is True
+    assert runner._should_inject_cash(metrics_settings={"rf_override_enabled": False}) is False
+    assert runner._should_inject_cash(metrics_settings={}) is False
+    assert runner._should_inject_cash(metrics_settings={"rf_override_enabled": None}) is False
+
+
+def test_apply_cash_handling_injects_cash_when_override_gate_enabled() -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {
+        "registry": ["sharpe_ratio"],
+        "rf_override_enabled": True,
+        "rf_rate_annual": 0.12,
+    }
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+    returns = _returns_without_rf()
+
+    injected = runner._apply_cash_handling(returns)
+
+    expected_periodic = (1.0 + 0.12) ** (1.0 / 12.0) - 1.0
+    assert "CASH" in injected.columns
+    np.testing.assert_allclose(
+        injected["CASH"].to_numpy(dtype=float, copy=False),
+        np.full(len(returns), expected_periodic, dtype=float),
+    )
+
+
+def test_cash_injection_when_condition_met() -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {
+        "registry": ["sharpe_ratio"],
+        "rf_override_enabled": True,
+        "rf_rate_annual": 0.06,
+    }
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+
+    injected = runner._apply_cash_handling(_returns_without_rf())
+
+    assert "CASH" in injected.columns
+
+
+def test_apply_cash_handling_skips_when_override_disabled_even_with_risk_free_column() -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {
+        "registry": ["sharpe_ratio"],
+        "rf_override_enabled": False,
+    }
+    cfg["data"]["risk_free_column"] = "RF"
+    cfg["data"]["allow_risk_free_fallback"] = False
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+    returns = _returns_with_rf()
+
+    injected = runner._apply_cash_handling(returns)
+
+    assert "CASH" not in injected.columns
+
+
+def test_apply_cash_handling_skips_when_override_disabled_even_with_fallback_enabled() -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {
+        "registry": ["sharpe_ratio"],
+        "rf_override_enabled": False,
+    }
+    cfg["data"]["risk_free_column"] = None
+    cfg["data"]["allow_risk_free_fallback"] = True
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+
+    injected = runner._apply_cash_handling(_returns_without_rf())
+
+    assert "CASH" not in injected.columns
+
+
+def test_apply_cash_handling_does_not_resolve_rf_when_override_gate_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {
+        "registry": ["sharpe_ratio"],
+        "rf_override_enabled": False,
+        "rf_rate_annual": 0.12,
+    }
+    cfg["data"]["risk_free_column"] = "RF"
+    cfg["data"]["allow_risk_free_fallback"] = True
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+
+    resolver_called = False
+
+    def _resolver_should_not_run(*_args: Any, **_kwargs: Any) -> Any:
+        nonlocal resolver_called
+        resolver_called = True
+        return RiskFreeResolution(source="override", risk_free=0.01)
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.resolve_risk_free_source",
+        _resolver_should_not_run,
+    )
+
+    injected = runner._apply_cash_handling(_returns_with_rf())
+
+    assert "CASH" not in injected.columns
+    assert resolver_called is False
+
+
+def test_apply_cash_handling_skips_when_override_missing_even_with_rf_sources() -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {"registry": ["sharpe_ratio"]}
+    cfg["data"]["risk_free_column"] = "RF"
+    cfg["data"]["allow_risk_free_fallback"] = True
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+
+    injected = runner._apply_cash_handling(_returns_with_rf())
+
+    assert "CASH" not in injected.columns
+
+
+def test_cash_injection_when_condition_not_met() -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {"registry": ["sharpe_ratio"], "rf_override_enabled": False}
+    cfg["data"]["allow_risk_free_fallback"] = False
+    cfg["data"]["risk_free_column"] = None
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+
+    injected = runner._apply_cash_handling(_returns_without_rf())
+
+    assert "CASH" not in injected.columns
+
+
+def test_apply_cash_handling_skips_when_override_gate_disabled() -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {
+        "registry": ["sharpe_ratio"],
+        "rf_override_enabled": False,
+        "rf_rate_annual": 0.12,
+    }
+    cfg["data"]["allow_risk_free_fallback"] = False
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+
+    injected = runner._apply_cash_handling(_returns_without_rf())
+
+    assert "CASH" not in injected.columns
+
+
+def test_apply_cash_handling_logs_gate_components_when_skipped(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {
+        "registry": ["sharpe_ratio"],
+        "rf_override_enabled": False,
+    }
+    cfg["data"]["risk_free_column"] = "   "
+    cfg["data"]["allow_risk_free_fallback"] = False
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+
+    with caplog.at_level(logging.WARNING):
+        injected = runner._apply_cash_handling(_returns_without_rf())
+
+    assert "CASH" not in injected.columns
+    assert "gate=false" in caplog.text
+    assert "metrics.rf_override_enabled=False" in caplog.text
+
+
+def test_cash_uses_correct_risk_free_rate() -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {
+        "registry": ["sharpe_ratio"],
+        "rf_override_enabled": True,
+        "rf_rate_annual": 0.12,
+    }
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+
+    injected = runner._apply_cash_handling(_returns_without_rf())
+
+    expected = np.full(6, (1.12 ** (1.0 / 12.0)) - 1.0, dtype=float)
+    np.testing.assert_allclose(injected["CASH"].to_numpy(dtype=float, copy=False), expected)
+
+
+def test_apply_cash_handling_handles_missing_metrics_nulls_and_empty_inputs() -> None:
+    cfg = _base_config()
+    cfg.pop("metrics", None)
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+
+    injected_missing_metrics = runner._apply_cash_handling(_returns_without_rf())
+    assert "CASH" not in injected_missing_metrics.columns
+
+    null_returns = _returns_without_rf()
+    null_returns.loc[1, "B"] = np.nan
+    injected_null = runner._apply_cash_handling(null_returns)
+    assert "CASH" not in injected_null.columns
+
+    empty_returns = _returns_without_rf().iloc[:0].copy()
+    injected_empty = runner._apply_cash_handling(empty_returns)
+    assert injected_empty.empty
+    assert "CASH" not in injected_empty.columns
+
+
+def test_apply_cash_handling_returns_unchanged_when_cash_already_present() -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {"registry": ["sharpe_ratio"], "rf_override_enabled": True}
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+    returns = _returns_without_rf().copy()
+    returns["CASH"] = 0.001
+
+    injected = runner._apply_cash_handling(returns)
+
+    pd.testing.assert_frame_equal(injected, returns)
+
+
+def test_apply_cash_handling_returns_unchanged_when_legacy_lowercase_cash_present() -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {"registry": ["sharpe_ratio"], "rf_override_enabled": True}
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+    returns = _returns_without_rf().copy()
+    returns["cash"] = 0.001
+
+    injected = runner._apply_cash_handling(returns)
+
+    pd.testing.assert_frame_equal(injected, returns)
+
+
+def test_apply_cash_handling_skips_when_base_config_invalid(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {"registry": ["sharpe_ratio"], "rf_override_enabled": True}
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+
+    class _BrokenConfig:
+        def __init__(self, **_kwargs: Any) -> None:
+            raise ValueError("bad config")
+
+    monkeypatch.setattr(runner_module, "Config", _BrokenConfig)
+
+    injected = runner._apply_cash_handling(_returns_without_rf())
+
+    assert "CASH" not in injected.columns
+
+
+def test_apply_cash_handling_skips_without_parsing_config_when_override_gate_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=_base_config())
+
+    class _BrokenConfig:
+        def __init__(self, **_kwargs: Any) -> None:
+            raise ValueError("bad config")
+
+    monkeypatch.setattr(runner_module, "Config", _BrokenConfig)
+
+    with caplog.at_level(logging.WARNING):
+        injected = runner._apply_cash_handling(_returns_without_rf())
+
+    assert "CASH" not in injected.columns
+    assert "gate=false" in caplog.text
+    assert "failed to parse base config" not in caplog.text
+
+
+def test_apply_cash_handling_skips_when_rf_resolution_raises(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {"registry": ["sharpe_ratio"], "rf_override_enabled": True}
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+
+    def _boom(*_args: Any, **_kwargs: Any) -> Any:
+        raise RuntimeError("resolver failed")
+
+    monkeypatch.setattr("trend_analysis.monte_carlo.runner.resolve_risk_free_source", _boom)
+
+    injected = runner._apply_cash_handling(_returns_without_rf())
+
+    assert "CASH" not in injected.columns
+
+
+def test_apply_cash_handling_skips_when_rf_resolution_returns_unsupported_type(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {"registry": ["sharpe_ratio"], "rf_override_enabled": True}
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+    returns = _returns_without_rf()
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.resolve_risk_free_source",
+        lambda *_args, **_kwargs: RiskFreeResolution(source="test", risk_free=["bad"]),
+    )
+
+    injected = runner._apply_cash_handling(returns)
+
+    assert "CASH" not in injected.columns
+
+
+def test_apply_cash_handling_skips_when_rf_series_alignment_introduces_nan(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {"registry": ["sharpe_ratio"], "rf_override_enabled": True}
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+    returns = _returns_without_rf()
+    bad_series = pd.Series([0.001] * (len(returns) - 1), name="RF")
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.resolve_risk_free_source",
+        lambda *_args, **_kwargs: RiskFreeResolution(source="test", risk_free=bad_series),
+    )
+
+    injected = runner._apply_cash_handling(returns)
+
+    assert "CASH" not in injected.columns
+
+
+def test_apply_cash_handling_skips_when_rf_series_contains_nan(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {"registry": ["sharpe_ratio"], "rf_override_enabled": True}
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+    returns = _returns_without_rf()
+    nan_series = pd.Series([0.001, np.nan, 0.001, 0.001, 0.001, 0.001], name="RF")
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.resolve_risk_free_source",
+        lambda *_args, **_kwargs: RiskFreeResolution(source="test", risk_free=nan_series),
+    )
+
+    injected = runner._apply_cash_handling(returns)
+
+    assert "CASH" not in injected.columns
+
+
+def test_apply_cash_handling_aligns_rf_series_by_returns_index(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {"registry": ["sharpe_ratio"], "rf_override_enabled": True}
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+    returns = _returns_without_rf()
+
+    rf_values = pd.Series(
+        [0.002, 0.003, 0.004, 0.005, 0.006, 0.007],
+        index=pd.Index([5, 4, 3, 2, 1, 0]),
+        name="RF",
+    )
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.resolve_risk_free_source",
+        lambda *_args, **_kwargs: RiskFreeResolution(source="test", risk_free=rf_values),
+    )
+
+    injected = runner._apply_cash_handling(returns)
+
+    np.testing.assert_allclose(
+        injected["CASH"].to_numpy(dtype=float, copy=False),
+        np.array([0.007, 0.006, 0.005, 0.004, 0.003, 0.002], dtype=float),
+    )
+
+
+def test_inject_cash_returns_aliases_apply_cash_handling() -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {
+        "registry": ["sharpe_ratio"],
+        "rf_override_enabled": True,
+        "rf_rate_annual": 0.06,
+    }
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+    returns = _returns_without_rf()
+
+    expected = runner._apply_cash_handling(returns)
+    actual = runner._inject_cash_returns(returns)
+
+    pd.testing.assert_frame_equal(actual, expected)
 
 
 def test_run_mixture_requires_matching_seed_lengths() -> None:

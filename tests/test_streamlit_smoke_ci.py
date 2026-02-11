@@ -121,6 +121,9 @@ class StreamlitAppManager:
         self.app_path = app_path
         self.port = port if port is not None else _find_open_port()
         self.process = None
+        # Use an explicit IPv4 loopback host to avoid localhost IPv4/IPv6
+        # resolution mismatches across CI runners.
+        self._base_url = f"http://127.0.0.1:{self.port}"
 
     def start(self):
         """Start the Streamlit app."""
@@ -149,7 +152,7 @@ class StreamlitAppManager:
             pytest.skip("Streamlit CLI not available in this environment")
 
         # Wait for app to start
-        startup_timeout = int(os.getenv("STREAMLIT_STARTUP_TIMEOUT", "60"))
+        startup_timeout = int(os.getenv("STREAMLIT_STARTUP_TIMEOUT", "90"))
         deadline = time.monotonic() + startup_timeout
         while time.monotonic() < deadline:
             if self.process.poll() is not None:
@@ -163,7 +166,7 @@ class StreamlitAppManager:
                     f"stderr:\n{stderr}"
                 )
             try:
-                response = requests.get(f"http://localhost:{self.port}", timeout=2)
+                response = requests.get(self._base_url, timeout=2)
                 if response.status_code == 200:
                     print(f"✅ Streamlit app started on port {self.port}")
                     return True
@@ -200,7 +203,7 @@ class StreamlitAppManager:
     def is_running(self):
         """Check if the app is still running."""
         try:
-            response = requests.get(f"http://localhost:{self.port}", timeout=2)
+            response = requests.get(self._base_url, timeout=2)
             return response.status_code == 200
         except requests.exceptions.RequestException:
             return False
@@ -265,7 +268,7 @@ def test_streamlit_app_startup(streamlit_app):
     assert streamlit_app.is_running()
 
     # Test basic connectivity
-    response = requests.get(f"http://localhost:{streamlit_app.port}")
+    response = requests.get(streamlit_app._base_url)
     assert response.status_code == 200
     assert "streamlit" in response.text.lower() or "trend" in response.text.lower()
     print("✅ Streamlit app startup test passed")
@@ -273,7 +276,7 @@ def test_streamlit_app_startup(streamlit_app):
 
 def test_streamlit_app_pages_accessible(streamlit_app):
     """Test that main app pages are accessible."""
-    base_url = f"http://localhost:{streamlit_app.port}"
+    base_url = streamlit_app._base_url
 
     # Test main page
     response = requests.get(base_url)
