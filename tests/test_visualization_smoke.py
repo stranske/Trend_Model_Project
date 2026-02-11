@@ -6,6 +6,7 @@ import json
 
 import pandas as pd
 import plotly.graph_objects as go
+import pytest
 
 from trend_analysis.viz import fan, path_dist, risk_return
 
@@ -30,26 +31,34 @@ def _sample_returns() -> pd.DataFrame:
     )
 
 
-def _smoke_figures() -> list[go.Figure]:
+@pytest.mark.parametrize(
+    ("builder", "payload"),
+    [
+        pytest.param(lambda nav, _ret: fan.make(nav, max_paths=None), "nav", id="fan"),
+        pytest.param(lambda nav, _ret: path_dist.make(nav, max_paths=None), "nav", id="path_dist"),
+        pytest.param(lambda _nav, ret: risk_return.make(ret), "returns", id="risk_return"),
+    ],
+)
+def test_plotly_figures_create_successfully(builder, payload: str) -> None:
     nav_paths = _sample_nav_paths()
     returns = _sample_returns()
-    return [
+    figure = builder(nav_paths, returns)
+
+    assert payload in {"nav", "returns"}
+    assert isinstance(figure, go.Figure)
+    assert figure.data
+
+
+def test_plotly_figures_to_json_returns_valid_json() -> None:
+    nav_paths = _sample_nav_paths()
+    returns = _sample_returns()
+    figures = [
         fan.make(nav_paths, max_paths=None),
         path_dist.make(nav_paths, max_paths=None),
         risk_return.make(returns),
     ]
-
-
-def test_plotly_figures_create_successfully() -> None:
-    figures = _smoke_figures()
-    assert figures
     for fig in figures:
-        assert isinstance(fig, go.Figure)
-
-
-def test_plotly_figures_to_json_returns_valid_json() -> None:
-    for fig in _smoke_figures():
         payload = json.loads(fig.to_json())
         assert isinstance(payload, dict)
-        assert "data" in payload
-        assert "layout" in payload
+        assert isinstance(payload.get("data"), list)
+        assert isinstance(payload.get("layout"), dict)
