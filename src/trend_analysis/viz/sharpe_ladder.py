@@ -32,9 +32,7 @@ DEFAULT_POSITIVE_COLOR = "#2a9d8f"
 DEFAULT_NEGATIVE_COLOR = "#e76f51"
 
 
-def _cache_data(
-    *args: object, **kwargs: object
-) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def _cache_data(*args: object, **kwargs: object) -> Callable[[Callable[P, R]], Callable[P, R]]:
     cache_data = getattr(st, "cache_data", None) if st is not None else None
     if callable(cache_data):
         return cast(Callable[[Callable[P, R]], Callable[P, R]], cache_data(*args, **kwargs))

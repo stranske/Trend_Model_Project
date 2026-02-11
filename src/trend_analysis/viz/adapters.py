@@ -63,9 +63,7 @@ LOOKBACK_PERIODS_VALIDATION_MESSAGE = (
 """Controlled validation error message for ``terminal_returns`` lookback input."""
 
 
-def _cache_data(
-    *args: object, **kwargs: object
-) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def _cache_data(*args: object, **kwargs: object) -> Callable[[Callable[P, R]], Callable[P, R]]:
     cache_data = getattr(st, "cache_data", None) if st is not None else None
     if callable(cache_data):
         return cast(Callable[[Callable[P, R]], Callable[P, R]], cache_data(*args, **kwargs))
@@ -247,11 +245,7 @@ def _normalize_lookback_periods(
 
 
 def _is_valid_lookback_period(value: object) -> TypeGuard[_IntLike]:
-    return (
-        isinstance(value, (int, np.integer))
-        and not isinstance(value, bool)
-        and int(value) > 0
-    )
+    return isinstance(value, (int, np.integer)) and not isinstance(value, bool) and int(value) > 0
 
 
 def rolling_stats(
