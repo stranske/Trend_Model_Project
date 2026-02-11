@@ -1315,6 +1315,172 @@ def test_run_mixture_deterministic() -> None:
     pd.testing.assert_frame_equal(frame1, frame2)
 
 
+def test_run_mixture_uses_shared_bulk_generation_when_path_seeds_match_base(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenario = _scenario("mixture")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+    n_periods = runner._compute_n_periods()
+    total = scenario.monte_carlo.n_paths
+    assert total is not None
+    strategies = runner._resolve_strategies()
+    path_seeds, strategy_seeds = runner._build_seeds()
+    call_log: list[dict[str, Any]] = []
+
+    class _RecordingModel:
+        def sample_prices(
+            self,
+            *,
+            n_periods: int,
+            n_paths: int,
+            frequency: str,
+            seed: int | None,
+        ) -> Any:
+            call_log.append(
+                {
+                    "n_periods": n_periods,
+                    "n_paths": n_paths,
+                    "frequency": frequency,
+                    "seed": seed,
+                }
+            )
+            index = pd.date_range("2024-01-31", periods=n_periods, freq="ME")
+            columns = pd.MultiIndex.from_product(
+                [range(n_paths), ["AssetA", "AssetB"]],
+                names=["path", "asset"],
+            )
+            prices = pd.DataFrame(100.0, index=index, columns=columns)
+            log_returns = pd.DataFrame(0.0, index=index, columns=columns)
+            return type("PathResult", (), {"prices": prices, "log_returns": log_returns})()
+
+    monkeypatch.setattr(
+        runner,
+        "_compute_score_frame",
+        lambda _returns: pd.DataFrame({"score": [1.0]}, index=["AssetA"]),
+    )
+
+    def _fake_evaluate_strategy(
+        strategy: StrategyVariant, context: runner_module._PathContext
+    ) -> StrategyEvaluation:
+        return StrategyEvaluation(
+            fold_id=None,
+            path_id=context.path_id,
+            strategy_name=strategy.name,
+            metrics={"metric": 1.0},
+            metric_source="stub",
+            path_hash=context.path_hash,
+            seed=context.seed,
+        )
+
+    monkeypatch.setattr(runner, "_evaluate_strategy", _fake_evaluate_strategy)
+
+    evals, errors = runner._run_mixture(
+        model=_RecordingModel(),
+        n_periods=n_periods,
+        strategies=strategies,
+        path_seeds=path_seeds,
+        strategy_seeds=strategy_seeds,
+        progress_callback=None,
+        jobs=1,
+    )
+
+    assert not errors
+    assert len(evals) == total
+    assert len(call_log) == 1
+    assert call_log[0]["n_paths"] == total
+    assert call_log[0]["seed"] == scenario.monte_carlo.seed
+
+
+def test_run_mixture_uses_per_path_generation_when_path_seeds_diverge(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    scenario = _scenario("mixture")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+    n_periods = runner._compute_n_periods()
+    total = scenario.monte_carlo.n_paths
+    assert total is not None
+    strategies = runner._resolve_strategies()
+    path_seeds, strategy_seeds = runner._build_seeds()
+    assert path_seeds[0] is not None
+    divergent_seeds = list(path_seeds)
+    divergent_seeds[0] = int(path_seeds[0]) + 1
+    call_log: list[dict[str, Any]] = []
+
+    class _RecordingModel:
+        def sample_prices(
+            self,
+            *,
+            n_periods: int,
+            n_paths: int,
+            frequency: str,
+            seed: int | None,
+        ) -> Any:
+            call_log.append(
+                {
+                    "n_periods": n_periods,
+                    "n_paths": n_paths,
+                    "frequency": frequency,
+                    "seed": seed,
+                }
+            )
+            index = pd.date_range("2024-01-31", periods=n_periods, freq="ME")
+            columns = pd.MultiIndex.from_product(
+                [range(n_paths), ["AssetA", "AssetB"]],
+                names=["path", "asset"],
+            )
+            prices = pd.DataFrame(100.0, index=index, columns=columns)
+            log_returns = pd.DataFrame(0.0, index=index, columns=columns)
+            return type("PathResult", (), {"prices": prices, "log_returns": log_returns})()
+
+    monkeypatch.setattr(
+        runner,
+        "_compute_score_frame",
+        lambda _returns: pd.DataFrame({"score": [1.0]}, index=["AssetA"]),
+    )
+
+    def _fake_evaluate_strategy(
+        strategy: StrategyVariant, context: runner_module._PathContext
+    ) -> StrategyEvaluation:
+        return StrategyEvaluation(
+            fold_id=None,
+            path_id=context.path_id,
+            strategy_name=strategy.name,
+            metrics={"metric": 1.0},
+            metric_source="stub",
+            path_hash=context.path_hash,
+            seed=context.seed,
+        )
+
+    monkeypatch.setattr(runner, "_evaluate_strategy", _fake_evaluate_strategy)
+
+    with caplog.at_level(logging.DEBUG, logger="trend_analysis.monte_carlo"):
+        evals, errors = runner._run_mixture(
+            model=_RecordingModel(),
+            n_periods=n_periods,
+            strategies=strategies,
+            path_seeds=divergent_seeds,
+            strategy_seeds=strategy_seeds,
+            progress_callback=None,
+            jobs=1,
+        )
+
+    assert not errors
+    assert len(evals) == total
+    assert len(call_log) == total
+    assert all(call["n_paths"] == 1 for call in call_log)
+    assert [call["seed"] for call in call_log] == divergent_seeds
+    assert "Mixture mode selected per-path generation" in caplog.text
+
+
 def test_score_frame_uses_rf_override(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = _base_config()
     cfg["metrics"] = {

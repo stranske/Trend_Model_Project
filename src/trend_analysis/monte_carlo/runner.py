@@ -505,21 +505,36 @@ class MonteCarloRunner:
         evaluations: list[StrategyEvaluation] = []
         errors: list[MonteCarloPathError] = []
         base_seed = self._settings().seed
-
-        try:
-            path_result = model.sample_prices(
-                n_periods=n_periods,
-                n_paths=total,
-                frequency=self.scenario.simulation_frequency(),
-                seed=base_seed,
+        seed_manager = SeedManager(base_seed) if base_seed is not None else None
+        seeds_match_base = False
+        if seed_manager is not None:
+            seeds_match_base = all(
+                seed == seed_manager.get_path_seed(path_id)
+                for path_id, seed in enumerate(path_seeds)
+                if seed is not None
             )
-        except Exception as exc:
-            for path_id in range(total):
-                self._log_path_error(path_id, None, exc, fold_id=fold_id, fold_label=fold_label)
-                errors.append(
-                    self._error_record(path_id, None, exc, fold_id=fold_id, fold_label=fold_label)
+        shared_paths = seeds_match_base or all(seed is None for seed in path_seeds)
+
+        path_result = None
+        if shared_paths:
+            try:
+                path_result = model.sample_prices(
+                    n_periods=n_periods,
+                    n_paths=total,
+                    frequency=self.scenario.simulation_frequency(),
+                    seed=base_seed,
                 )
-            return evaluations, errors
+            except Exception as exc:
+                for path_id in range(total):
+                    self._log_path_error(path_id, None, exc, fold_id=fold_id, fold_label=fold_label)
+                    errors.append(
+                        self._error_record(path_id, None, exc, fold_id=fold_id, fold_label=fold_label)
+                    )
+                return evaluations, errors
+        else:
+            self._logger.debug(
+                "Mixture mode selected per-path generation because path seeds diverge from the base SeedManager"
+            )
 
         def _evaluate_path(
             path_id: int, seed: int | None
