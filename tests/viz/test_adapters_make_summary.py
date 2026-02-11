@@ -59,6 +59,8 @@ def test_make_summary_includes_required_schema_and_dtypes() -> None:
     assert summary.dtypes["paths"] == SUMMARY_REQUIRED_DTYPES["paths"]
     assert "sharpe" in summary.columns
     assert "max_drawdown" in summary.columns
+    assert summary.dtypes["sharpe"] == "float64"
+    assert summary.dtypes["max_drawdown"] == "float64"
 
 
 def test_make_summary_fold_selection_filters_by_fold_id() -> None:

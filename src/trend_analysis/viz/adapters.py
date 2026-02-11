@@ -339,7 +339,7 @@ def _normalize_summary_schema(summary: pd.DataFrame) -> pd.DataFrame:
 
     metric_cols = [col for col in frame.columns if col not in SUMMARY_REQUIRED_COLUMNS]
     for col in metric_cols:
-        frame[col] = pd.to_numeric(frame[col], errors="coerce")
+        frame[col] = pd.to_numeric(frame[col], errors="coerce").astype("float64")
 
     ordered_metrics = sorted(metric_cols)
     return frame[list(SUMMARY_REQUIRED_COLUMNS) + ordered_metrics]
