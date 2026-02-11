@@ -8,10 +8,10 @@ tasks:
       entrypoint function (choose `build_figure(...)` or `render(...)`) that builds/returns
       the corr heatmap Plotly Figure, and update `trend_analysis/viz/pages/<streamlit_page>.py`
       to import and call it instead of inline logic.
-    status: doing
+    status: done
     started_at: '2026-02-11T18:08:56Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-11T18:09:09Z'
+    commit: 20dcad3ea22eba66dfe4c377159c0de2d764a79e
     notes: []
   - id: task-02
     title: Create `trend_analysis/viz/charts/rolling_panel.py` with the same public
