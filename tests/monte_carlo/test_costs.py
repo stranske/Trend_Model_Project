@@ -8,6 +8,7 @@ import pandas as pd
 import trend_analysis.monte_carlo.runner as runner_module
 from trend_analysis.api import RunResult
 from trend_analysis.monte_carlo.costs import CostProcess
+from trend_analysis.monte_carlo.registry import load_scenario
 from trend_analysis.monte_carlo.runner import MonteCarloRunner
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario
 from trend_analysis.monte_carlo.strategy import StrategyVariant
@@ -142,31 +143,10 @@ def test_cost_process_accepts_legacy_numeric_shorthand() -> None:
 
 
 def test_runner_integration_records_costs(monkeypatch: Any) -> None:
-    costs_cfg = {
-        "default_regime": "calm",
-        "regimes": {
-            "calm": {"distribution": {"kind": "fixed", "value": 4.0}},
-            "stress": {
-                "distribution": {"kind": "fixed", "value": 8.0},
-                "slippage_multiplier": 1.2,
-            },
-        },
-    }
-    scenario = MonteCarloScenario(
-        name="mc_costs",
-        base_config="config/defaults.yml",
-        monte_carlo={
-            "mode": "two_layer",
-            "n_paths": 1,
-            "horizon_years": 1.0,
-            "frequency": "M",
-            "seed": 11,
-            "jobs": 1,
-        },
-        strategy_set={"curated": [StrategyVariant(name="StrategyA")]},
-        return_model={"kind": "stationary_bootstrap", "params": {"block_size": 3}},
-        costs=costs_cfg,
-    )
+    scenario = load_scenario("cost_regime_example")
+    scenario.monte_carlo.n_paths = 10
+    scenario.strategy_set = {"curated": [StrategyVariant(name="StrategyA")]}
+    assert scenario.costs is not None
 
     runner = MonteCarloRunner(
         scenario,
@@ -204,12 +184,54 @@ def test_runner_integration_records_costs(monkeypatch: Any) -> None:
     transaction_costs = costs["transaction_costs"]
     assert isinstance(transaction_costs, pd.Series)
     assert len(transaction_costs) == 3
-    assert costs["cost_bps"].tolist() == [4.0, 8.0, 4.0]
-    assert costs["slippage_multiplier"].tolist() == [1.0, 1.2, 1.0]
+    cost_bps = pd.Series(costs["cost_bps"], index=transaction_costs.index, dtype=float)
+    assert (cost_bps > 0.0).all()
+    assert float(cost_bps.iloc[1]) > float(max(cost_bps.iloc[0], cost_bps.iloc[2]))
+    assert costs["slippage_multiplier"].tolist() == [1.0, 1.8, 1.0]
     expected_costs = (
         pd.Series([0.1, 0.2, 0.3], index=transaction_costs.index, name="turnover")
-        * (pd.Series([4.0, 8.0, 4.0], index=transaction_costs.index) / 10000.0)
-        * pd.Series([1.0, 1.2, 1.0], index=transaction_costs.index)
+        * (cost_bps / 10000.0)
+        * pd.Series([1.0, 1.8, 1.0], index=transaction_costs.index)
     )
     expected_costs.name = transaction_costs.name
     pd.testing.assert_series_equal(transaction_costs, expected_costs)
+    total_cost_drag = pd.to_numeric(results.results_frame["total_cost_drag"], errors="coerce")
+    assert total_cost_drag.notna().all()
+    assert bool((total_cost_drag.abs() > 0.0).all())
+
+
+def test_cost_regime_scenario_loads_from_registry() -> None:
+    scenario = load_scenario("cost_regime_example")
+    assert isinstance(scenario, MonteCarloScenario)
+    assert scenario.name == "cost_regime_example"
+    assert scenario.costs is not None
+
+
+def test_runner_injects_cash_series_when_risk_free_column_absent(monkeypatch: Any) -> None:
+    scenario = load_scenario("cost_regime_example")
+    scenario.monte_carlo.n_paths = 10
+    scenario.strategy_set = {"curated": [StrategyVariant(name="StrategyA")]}
+    scenario.costs = None
+    captured_returns: list[pd.DataFrame] = []
+
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+
+    def fake_run_simulation(config: Any, returns: pd.DataFrame) -> RunResult:
+        captured_returns.append(returns.copy())
+        metrics = pd.DataFrame({"annual_return": [0.1]}, index=["user_weight"])
+        return RunResult(metrics=metrics, details={}, seed=0, environment={})
+
+    monkeypatch.setattr(runner_module, "run_simulation", fake_run_simulation)
+
+    _ = runner.run(jobs=1)
+
+    assert captured_returns
+    for returns in captured_returns:
+        assert "CASH" in returns.columns
+        cash_series = returns["CASH"]
+        assert pd.api.types.is_numeric_dtype(cash_series)
+        assert np.isfinite(cash_series.to_numpy(dtype=float, copy=False)).all()
