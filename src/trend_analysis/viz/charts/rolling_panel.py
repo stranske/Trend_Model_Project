@@ -20,9 +20,7 @@ else:
 F = TypeVar("F", bound=Callable[..., Any])
 
 
-def _cache_data(
-    *args: object, **kwargs: object
-) -> Callable[[F], F]:
+def _cache_data(*args: object, **kwargs: object) -> Callable[[F], F]:
     cache_data = getattr(st, "cache_data", None) if st is not None else None
     if callable(cache_data):
         return cast(Callable[[F], F], cache_data(*args, **kwargs))
