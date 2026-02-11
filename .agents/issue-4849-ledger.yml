@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Create an `export_bundle.save`-style helper to write a charts ZIP bundle
       (include Plotly chart JSON + HTML) to an in-memory buffer or temp file for download.
-    status: doing
+    status: done
     started_at: '2026-02-11T17:48:56Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-11T17:49:05Z'
+    commit: e56072b3e46a2542795c9ca2b3ec7ea167209cb9
     notes: []
   - id: task-02
     title: 'Define scope for: Create the export_bundle module with a save function
