@@ -238,9 +238,7 @@ def test_runner_injects_cash_series_when_risk_free_column_absent(monkeypatch: An
         assert np.isfinite(cash_series.to_numpy(dtype=float, copy=False)).all()
 
 
-def test_inject_cash_warns_when_fallback_disabled(
-    monkeypatch: Any, caplog: Any
-) -> None:
+def test_inject_cash_warns_when_fallback_disabled(monkeypatch: Any, caplog: Any) -> None:
     """When allow_risk_free_fallback is False the runner should log a warning
     explaining why CASH injection was skipped."""
     scenario = load_scenario("cost_regime_example")
@@ -271,11 +269,11 @@ def test_inject_cash_warns_when_fallback_disabled(
 
     assert captured_returns
     for returns in captured_returns:
-        assert "CASH" not in returns.columns, (
-            "CASH should not be injected when allow_risk_free_fallback is False"
-        )
+        assert (
+            "CASH" not in returns.columns
+        ), "CASH should not be injected when allow_risk_free_fallback is False"
 
     warning_messages = [r.message for r in caplog.records if r.levelno >= logging.WARNING]
-    assert any("allow_risk_free_fallback" in msg for msg in warning_messages), (
-        f"Expected a warning about allow_risk_free_fallback, got: {warning_messages}"
-    )
+    assert any(
+        "allow_risk_free_fallback" in msg for msg in warning_messages
+    ), f"Expected a warning about allow_risk_free_fallback, got: {warning_messages}"

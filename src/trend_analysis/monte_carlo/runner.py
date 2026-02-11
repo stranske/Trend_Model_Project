@@ -1213,9 +1213,7 @@ class MonteCarloRunner:
         try:
             config = Config(**self._base_config)
         except Exception:
-            self._logger.warning(
-                "CASH injection skipped: failed to parse base config"
-            )
+            self._logger.warning("CASH injection skipped: failed to parse base config")
             return returns
         data_settings = config.data or {}
         if data_settings.get("risk_free_column"):
@@ -1235,8 +1233,7 @@ class MonteCarloRunner:
         risk_free = resolution.risk_free
         if not isinstance(risk_free, pd.Series):
             self._logger.warning(
-                "CASH injection skipped: resolved risk-free source is not a "
-                "Series (source=%s)",
+                "CASH injection skipped: resolved risk-free source is not a " "Series (source=%s)",
                 getattr(resolution, "source", "unknown"),
             )
             return returns
@@ -1251,8 +1248,7 @@ class MonteCarloRunner:
             return returns
         if cash_values.isna().any():
             self._logger.warning(
-                "CASH injection skipped: resolved risk-free series contains "
-                "NaN values"
+                "CASH injection skipped: resolved risk-free series contains " "NaN values"
             )
             return returns
         out = returns.copy()
