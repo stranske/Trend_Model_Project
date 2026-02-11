@@ -1,0 +1,361 @@
+version: 1
+issue: 4850
+base: phase-3
+branch: codex/issue-4850
+tasks:
+  - id: task-01
+    title: Add a CLI subcommand `trend mc viz` that accepts `--bundle <path> --out
+      <dir> --charts fan,path_dist,risk_return --html --json --png`.
+    status: doing
+    started_at: '2026-02-11T20:15:51Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Register the `trend mc viz` subcommand in the CLI command hierarchy (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Implement argument parser for `--bundle` flag to accept input directory
+      path (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Implement argument parser for `--out` flag to specify output directory
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Implement argument parser for `--charts` flag accepting comma-separated
+      chart types (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Implement boolean flags `--html`, `--json`, (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: '`--png` for output format selection (verify: formatter passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Define scope for: Add validation logic to ensure at least one output format
+      flag is specified (verify: formatter passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Implement focused slice for: Add validation logic to ensure at least one
+      output format flag is specified (verify: formatter passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Validate focused slice for: Add validation logic to ensure at least one
+      output format flag is specified (verify: formatter passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Implement loaders to read MC summary/results data frames from the bundle
+      path.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Define scope for: Implement loader function to read MC summary data frame
+      from the bundle directory (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Implement focused slice for: Implement loader function to read MC summary
+      data frame from the bundle directory (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Validate focused slice for: Implement loader function to read MC summary
+      data frame from the bundle directory (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Define scope for: Implement loader function to read MC results data frame
+      from the bundle directory (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Implement focused slice for: Implement loader function to read MC results
+      data frame from the bundle directory (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Validate focused slice for: Implement loader function to read MC results
+      data frame from the bundle directory (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Add error handling for missing or corrupted summary data files (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Add error handling for missing or corrupted results data files (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Implement loading of `nav_paths.parquet` from the bundle path when present.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Implement routing from parsed `--charts` selections to `trend_analysis.viz`
+      chart builder functions and call `export_bundle` to write artifacts to the output
+      directory.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'Define scope for: Parse the comma-separated `--charts` argument into a
+      list of chart type identifiers (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: 'Implement focused slice for: Parse the comma-separated `--charts` argument
+      into a list of chart type identifiers (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'Validate focused slice for: Parse the comma-separated `--charts` argument
+      into a list of chart type identifiers (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: 'Define scope for: Create a mapping dictionary from chart type strings
+      to corresponding viz builder functions (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: 'Implement focused slice for: Create a mapping dictionary from chart type
+      strings to corresponding viz builder functions (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: 'Validate focused slice for: Create a mapping dictionary from chart type
+      strings to corresponding viz builder functions (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: 'Define scope for: Implement routing logic to invoke the appropriate viz
+      builder for each selected chart type (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: 'Implement focused slice for: Implement routing logic to invoke the appropriate
+      viz builder for each selected chart type (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: 'Validate focused slice for: Implement routing logic to invoke the appropriate
+      viz builder for each selected chart type (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: 'Call `export_bundle` function with generated charts (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: 'Call `export_bundle` function with selected output formats (verify: formatter
+      passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: 'Ensure output directory structure is created before writing artifacts
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: Add documentation snippet with example usage of `trend mc viz` including
+      flags `--bundle`, `--out`, `--charts`, `--html`, `--json`, and `--png`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: Running `trend mc viz --bundle <path> --out <dir> --charts fan,path_dist,risk_return
+      --html --json --png` against a sample MC output directory produces a `<dir>/plots/`
+      folder containing chart artifacts.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: When required inputs are missing from `--bundle <path>`, the command exits
+      with a non-zero status code and prints an error message indicating which inputs
+      are missing.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: 'Add CLI command (suggested shape):'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: '`trend mc viz --bundle <path> --out <dir> --charts fan,path_dist,risk_return
+      --html --json --png`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: 'Implement loaders:'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: read summary/results frames
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: read `nav_paths.parquet` when present
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: Route to viz builders + export_bundle.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: Add docs snippet with example usage.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: Running against a sample MC output directory produces a `plots/` folder
+      with artifacts.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: Clear non-zero exit and message when required inputs are missing.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
