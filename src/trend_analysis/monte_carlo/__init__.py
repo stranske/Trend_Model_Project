@@ -2,6 +2,7 @@
 
 from .config import RiskFreeResolution, resolve_risk_free_source
 from .costs import CostProcess
+from .export_bundle import save as save_chart_bundle
 from .registry import (
     ScenarioRegistryEntry,
     get_scenario_path,
@@ -26,4 +27,5 @@ __all__ = [
     "MonteCarloRunner",
     "MonteCarloResults",
     "CostProcess",
+    "save_chart_bundle",
 ]
