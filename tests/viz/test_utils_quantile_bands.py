@@ -5,7 +5,7 @@ import pytest
 
 from trend_analysis.viz.fan import _select_nav_paths
 from trend_analysis.viz.path_dist import _select_terminal_values
-from trend_analysis.viz.utils import quantile_bands
+from trend_analysis.viz.utils import quantile_bands, validate_quantiles
 
 
 def test_quantile_bands_even_pairing():
@@ -23,6 +23,31 @@ def test_quantile_bands_even_pairing():
 def test_quantile_bands_odd_length_raises_value_error():
     with pytest.raises(ValueError, match="odd length quantiles"):
         quantile_bands([0.05, 0.5, 0.95])
+
+
+def test_validate_quantiles_empty_input():
+    with pytest.raises(ValueError):
+        validate_quantiles([])
+
+
+def test_validate_quantiles_negative_value():
+    with pytest.raises(ValueError):
+        validate_quantiles([-0.1])
+
+
+def test_validate_quantiles_value_above_one():
+    with pytest.raises(ValueError):
+        validate_quantiles([1.5])
+
+
+def test_quantile_bands_duplicate_values():
+    with pytest.raises(ValueError, match="lower must be < upper"):
+        quantile_bands([0.5, 0.5])
+
+
+def test_quantile_bands_single_element():
+    with pytest.raises(ValueError, match="odd length quantiles"):
+        quantile_bands([0.5])
 
 
 def test_select_nav_paths_empty_input_raises():
