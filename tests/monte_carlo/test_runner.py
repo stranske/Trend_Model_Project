@@ -1570,6 +1570,39 @@ def test_score_frame_uses_fallback_rf_series(monkeypatch: pytest.MonkeyPatch) ->
     assert not frame.empty
 
 
+def test_should_resolve_risk_free_gate_truth_table() -> None:
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=_base_config())
+
+    assert (
+        runner._should_resolve_risk_free(
+            data_settings={"risk_free_column": None, "allow_risk_free_fallback": False},
+            metrics_settings={"rf_override_enabled": True},
+        )
+        is True
+    )
+    assert (
+        runner._should_resolve_risk_free(
+            data_settings={"risk_free_column": "RF", "allow_risk_free_fallback": False},
+            metrics_settings={"rf_override_enabled": False},
+        )
+        is True
+    )
+    assert (
+        runner._should_resolve_risk_free(
+            data_settings={"risk_free_column": None, "allow_risk_free_fallback": True},
+            metrics_settings={"rf_override_enabled": False},
+        )
+        is True
+    )
+    assert (
+        runner._should_resolve_risk_free(
+            data_settings={"risk_free_column": None, "allow_risk_free_fallback": False},
+            metrics_settings={"rf_override_enabled": False},
+        )
+        is False
+    )
+
+
 def test_apply_cash_handling_injects_cash_when_override_gate_enabled() -> None:
     cfg = _base_config()
     cfg["metrics"] = {
