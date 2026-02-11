@@ -1,0 +1,219 @@
+version: 1
+issue: 4881
+base: phase-3
+branch: codex/issue-4881
+tasks:
+  - id: task-01
+    title: Create a new scenario YAML file in `config/scenarios/monte_carlo/` with
+      a descriptive name like `cost_regime_example.yml`
+    status: doing
+    started_at: '2026-02-11T05:11:27Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Configure the costs section with `kind` set to `regime_stochastic` in the
+      new scenario file
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Define `trade_cost_bps` parameter values for both calm and stress regimes
+      in the scenario
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Define `slippage_multiplier` parameter values for both calm and stress
+      regimes in the scenario
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Add inline comments to the scenario YAML explaining each cost parameter's
+      purpose
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Update `config/scenarios/monte_carlo/index.yml` to register the new scenario
+      with tags including `example` and `costs`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Decide whether to add the cost regime test to existing `tests/monte_carlo/test_runner.py`
+      or create a new `tests/monte_carlo/test_costs.py` file
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Create a test function that loads the new cost regime scenario using the
+      scenario registry
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Configure the test to run Monte Carlo simulation with a small `n_paths`
+      value like 10 or 20
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Add assertion to verify that `total_cost_drag` column exists in the `results_frame`
+      DataFrame
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Add assertion to verify that `total_cost_drag` contains non-zero numeric
+      values when costs are enabled
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Create a test function that configures a scenario without specifying `risk_free_column`
+      parameter
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Run Monte Carlo simulation with the risk-free-absent configuration using
+      small `n_paths`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Add assertion to verify that `CASH` column exists in the returns DataFrame
+      output
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Add assertion to verify that `CASH` column contains valid numeric values
+      representing risk-free returns
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Decide whether to document CLI usage in the scenario YAML comments or in
+      `docs/phase-3/MonteCarlo.md`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Write a comment block at the top of the scenario YAML explaining its purpose
+      and features
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Add a CLI usage example showing how to run the scenario with `trend mc
+      run` command
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Document the expected outputs and cost-related columns that will appear
+      in results
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Running `trend mc list` shows the scenario registered from `config/scenarios/monte_carlo/index.yml`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: The scenario is filterable by tags `example` and `costs` via `trend mc
+      list`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: The scenario passes validation when running `trend mc validate <scenario_name>`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: The scenario loads successfully in the added unit/integration test without
+      raising validation errors
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: The cost drag verification test passes and confirms `total_cost_drag` appears
+      in `results_frame`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: The cost drag verification test confirms `total_cost_drag` contains non-zero
+      numeric values
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: The CASH column verification test passes and confirms `CASH` column exists
+      in returns when `risk_free_column` is absent
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: The CASH column verification test confirms `CASH` column contains valid
+      numeric values
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
