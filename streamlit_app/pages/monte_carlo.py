@@ -25,6 +25,7 @@ from trend_analysis.monte_carlo.registry import (
 )
 from trend_analysis.monte_carlo.runner import MonteCarloRunner
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
+from trend_analysis.viz.charts import corr_heatmap as corr_heatmap_chart
 from trend_analysis.viz import sharpe_ladder as sharpe_ladder_chart
 from trend_analysis.viz.adapters import (
     make_paths,
@@ -234,21 +235,6 @@ def _to_nav_wide(paths: pd.DataFrame) -> pd.DataFrame:
     return wide.sort_index()
 
 
-def _corr_heatmap(paths: pd.DataFrame) -> go.Figure:
-    corr = _cached_path_correlations(paths, window=60)
-    if corr.empty:
-        return go.Figure()
-    fig = px.imshow(
-        corr,
-        color_continuous_scale="RdBu",
-        zmin=-1.0,
-        zmax=1.0,
-        aspect="auto",
-    )
-    fig.update_layout(height=360, title="Path Correlation Heatmap")
-    return fig
-
-
 def _rolling_panel(paths: pd.DataFrame) -> go.Figure:
     rolling = _cached_rolling_stats(paths, window=12, periods_per_year=12)
     if rolling.empty:
@@ -344,7 +330,7 @@ def _render_diagnostic_charts(summary: pd.DataFrame, paths: pd.DataFrame) -> Non
     except Exception:
         st.warning("Sharpe ladder unavailable: summary does not include a usable 'sharpe' metric.")
         sharpe_fig = go.Figure()
-    corr_fig = _corr_heatmap(paths)
+    corr_fig = corr_heatmap_chart.build_figure(paths, window=60)
     rolling_fig = _rolling_panel(paths)
     seasonality_fig = _seasonality_heatmap(paths)
 
