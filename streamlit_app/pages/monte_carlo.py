@@ -6,6 +6,7 @@ import copy
 import zipfile
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 from time import monotonic
 from typing import Any, Iterable, Mapping
 
@@ -17,6 +18,7 @@ from streamlit_app.components import mc_plots, mc_tables
 from streamlit_app.components.data_cache import cache_key_for_frame
 from streamlit_app.components.progress_eta import progress_ratio_and_remaining
 from trend_analysis.monte_carlo.aggregator import aggregate_monte_carlo_results
+from trend_analysis.monte_carlo.export_bundle import save as save_chart_bundle
 from trend_analysis.monte_carlo.registry import (
     ScenarioRegistryEntry,
     list_scenarios,
@@ -209,13 +211,14 @@ def _fold_selection_for_adapters(selection: str | None) -> int | str | None:
     return selection
 
 
-def _render_diagnostic_charts(summary: pd.DataFrame, paths: pd.DataFrame) -> None:
+def _render_diagnostic_charts(summary: pd.DataFrame, paths: pd.DataFrame) -> dict[str, go.Figure]:
+    charts: dict[str, go.Figure] = {}
     if summary.empty:
         st.warning("Diagnostics unavailable: summary frame is empty.")
-        return
+        return charts
     if paths.empty:
         st.warning("Diagnostics unavailable: canonical paths are empty.")
-        return
+        return charts
 
     try:
         sharpe_fig = sharpe_ladder_chart.make(summary, metric="sharpe")
@@ -227,11 +230,18 @@ def _render_diagnostic_charts(summary: pd.DataFrame, paths: pd.DataFrame) -> Non
         paths, window=12, periods_per_year=12, max_paths=6
     )
     seasonality_fig = seasonality_heatmap_chart.build_figure(paths)
+    charts = {
+        "Sharpe Ladder": sharpe_fig,
+        "Correlation Heatmap": corr_fig,
+        "Rolling Diagnostics": rolling_fig,
+        "Seasonality Heatmap": seasonality_fig,
+    }
 
     st.plotly_chart(sharpe_fig, use_container_width=True)
     st.plotly_chart(corr_fig, use_container_width=True)
     st.plotly_chart(rolling_fig, use_container_width=True)
     st.plotly_chart(seasonality_fig, use_container_width=True)
+    return charts
 
 
 def _progress_callback_factory(
@@ -309,21 +319,31 @@ def _render_results(
     canonical_paths = _cached_make_paths(nav_paths) if not nav_paths.empty else pd.DataFrame()
 
     st.subheader("Charts")
+    chart_bundle_inputs: dict[str, go.Figure] = {}
     tabs = st.tabs(["Core", "Diagnostics"])
     with tabs[0]:
         if nav_paths.empty:
             st.warning("No NAV paths available for the selected fold.")
-        mc_plots.render_sharpe_histogram(filtered_results)
-        mc_plots.render_fan_chart(nav_paths)
-        mc_plots.render_path_distribution_chart(filtered_results)
-        mc_plots.render_risk_return_chart(filtered_results)
-        mc_plots.render_box_plot(filtered_results)
-        mc_plots.render_cdf_plot(filtered_results)
+        chart_bundle_inputs["Sharpe Histogram"] = mc_plots.render_sharpe_histogram(filtered_results)
+        chart_bundle_inputs["Fan Chart"] = mc_plots.render_fan_chart(nav_paths)
+        chart_bundle_inputs["Path Distribution"] = mc_plots.render_path_distribution_chart(
+            filtered_results
+        )
+        chart_bundle_inputs["Risk Return"] = mc_plots.render_risk_return_chart(filtered_results)
+        chart_bundle_inputs["Strategy Box Plot"] = mc_plots.render_box_plot(filtered_results)
+        chart_bundle_inputs["Outcome CDF"] = mc_plots.render_cdf_plot(filtered_results)
     with tabs[1]:
-        _render_diagnostic_charts(summary, canonical_paths)
+        chart_bundle_inputs.update(_render_diagnostic_charts(summary, canonical_paths))
 
     st.subheader("Downloads")
-    for payload in _build_download_payloads(summary_table, filtered_results):
+    payloads = _build_download_payloads(summary_table, filtered_results)
+    chart_bundle_payload, chart_bundle_warnings = _build_chart_bundle_payload(chart_bundle_inputs)
+    if chart_bundle_payload is not None:
+        payloads.append(chart_bundle_payload)
+    warning_text = _png_export_warning_message(chart_bundle_warnings)
+    if warning_text:
+        st.warning(warning_text)
+    for payload in payloads:
         st.download_button(**payload)
 
 
@@ -369,6 +389,38 @@ def _build_download_payloads(
             "mime": "application/zip",
         },
     ]
+
+
+def _build_chart_bundle_payload(
+    charts: Mapping[str, go.Figure],
+) -> tuple[dict[str, Any] | None, list[str]]:
+    if not charts:
+        return None, []
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    warnings: list[str] = []
+    bundle_buffer = save_chart_bundle(charts, include_png=True, warnings=warnings)
+    if not isinstance(bundle_buffer, BytesIO):
+        with Path(bundle_buffer).open("rb") as handle:
+            payload = BytesIO(handle.read())
+        payload.seek(0)
+    else:
+        payload = bundle_buffer
+        payload.seek(0)
+    return (
+        {
+            "label": "Download charts bundle",
+            "data": payload,
+            "file_name": f"mc_charts_bundle_{timestamp}.zip",
+            "mime": "application/zip",
+        },
+        warnings,
+    )
+
+
+def _png_export_warning_message(messages: list[str]) -> str | None:
+    if not messages:
+        return None
+    return "Charts bundle PNG export warnings: " + " ".join(messages)
 
 
 def render() -> None:
