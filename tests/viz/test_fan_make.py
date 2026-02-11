@@ -5,7 +5,7 @@ import json
 import pandas as pd
 import plotly.graph_objects as go
 
-from trend_analysis.viz import fan
+import trend_analysis.viz.fan as fan
 
 
 def test_fan_make_minimal_input():
@@ -19,5 +19,5 @@ def test_fan_make_minimal_input():
     fig = fan.make(frame, max_paths=None, show_paths=True)
 
     assert isinstance(fig, go.Figure)
-    payload = fig.to_json()
-    assert json.loads(payload)
+    payload = json.loads(fig.to_json())
+    assert isinstance(payload, dict)

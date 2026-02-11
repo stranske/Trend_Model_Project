@@ -5,7 +5,7 @@ import json
 import pandas as pd
 import plotly.graph_objects as go
 
-from trend_analysis.viz import path_dist
+import trend_analysis.viz.path_dist as path_dist
 
 
 def test_path_dist_make_minimal_input():
@@ -19,5 +19,5 @@ def test_path_dist_make_minimal_input():
     fig = path_dist.make(frame, bins=5, max_paths=None)
 
     assert isinstance(fig, go.Figure)
-    payload = fig.to_json()
-    assert json.loads(payload)
+    payload = json.loads(fig.to_json())
+    assert isinstance(payload, dict)
