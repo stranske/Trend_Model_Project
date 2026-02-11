@@ -160,7 +160,9 @@ class DummyStreamlit:
         self.tabs_calls.append(list(labels))
         return [_Context(self) for _ in labels]
 
-    def cache_data(self, *_args: Any, **_kwargs: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    def cache_data(
+        self, *_args: Any, **_kwargs: Any
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         def _decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             return func
 
