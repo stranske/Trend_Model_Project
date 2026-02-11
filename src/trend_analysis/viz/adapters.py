@@ -6,7 +6,7 @@ chart components that expect predictable DataFrame schemas.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Callable
 
 import numpy as np
@@ -50,6 +50,12 @@ ROLLING_REQUIRED_COLUMNS: tuple[str, ...] = (
     "rolling_sharpe",
 )
 """Required columns for ``rolling_stats`` outputs."""
+
+LOOKBACK_PERIODS_VALIDATION_MESSAGE = (
+    "lookback_periods must be a positive integer, or an iterable containing at least one "
+    "positive integer"
+)
+"""Controlled validation error message for ``terminal_returns`` lookback input."""
 
 
 def _cache_data(
@@ -164,7 +170,7 @@ def make_paths(nav_paths: pd.DataFrame) -> pd.DataFrame:
 def terminal_returns(
     paths: pd.DataFrame,
     *,
-    lookback_periods: int | None = None,
+    lookback_periods: int | Iterable[object] | None = None,
 ) -> pd.DataFrame:
     """Calculate terminal returns per path from canonical ``make_paths`` output.
 
@@ -175,8 +181,11 @@ def terminal_returns(
         ``("date", "path")`` and column ``nav``.
     lookback_periods:
         Optional trailing window (in rows). If ``None``, uses first to last NAV
-        over the full horizon. If provided, return is computed from
+        over the full horizon. If provided as an integer, return is computed from
         ``t - lookback_periods`` to final ``t``.
+        If provided as an iterable, invalid entries are filtered out and the first
+        valid positive integer is used. Raises a controlled ``ValueError`` if no
+        valid positive integer remains.
 
     Returns
     -------
@@ -195,16 +204,16 @@ def terminal_returns(
             }
         )
 
-    if lookback_periods is None:
+    normalized_lookback = _normalize_lookback_periods(lookback_periods)
+
+    if normalized_lookback is None:
         base = wide.ffill().iloc[0]
         periods_used = max(len(wide.index) - 1, 0)
     else:
-        if lookback_periods <= 0:
-            raise ValueError("lookback_periods must be > 0")
-        if len(wide.index) <= lookback_periods:
+        if len(wide.index) <= normalized_lookback:
             raise ValueError("lookback_periods must be smaller than the number of rows")
-        base = wide.ffill().iloc[-(lookback_periods + 1)]
-        periods_used = lookback_periods
+        base = wide.ffill().iloc[-(normalized_lookback + 1)]
+        periods_used = normalized_lookback
 
     terminal = wide.ffill().iloc[-1]
     returns = (terminal / base) - 1.0
@@ -212,6 +221,28 @@ def terminal_returns(
     out["lookback_periods"] = pd.Series(periods_used, index=out.index, dtype="Int64")
     out.index = out.index.rename("path")
     return out
+
+
+def _normalize_lookback_periods(
+    lookback_periods: int | Iterable[object] | None,
+) -> int | None:
+    if lookback_periods is None:
+        return None
+    if _is_valid_lookback_period(lookback_periods):
+        return int(lookback_periods)
+    if isinstance(lookback_periods, (str, bytes)):
+        raise ValueError(LOOKBACK_PERIODS_VALIDATION_MESSAGE)
+    if isinstance(lookback_periods, Iterable):
+        valid_periods = [
+            int(value) for value in lookback_periods if _is_valid_lookback_period(value)
+        ]
+        if valid_periods:
+            return valid_periods[0]
+    raise ValueError(LOOKBACK_PERIODS_VALIDATION_MESSAGE)
+
+
+def _is_valid_lookback_period(value: object) -> bool:
+    return isinstance(value, (int, np.integer)) and not isinstance(value, bool) and int(value) > 0
 
 
 def rolling_stats(
