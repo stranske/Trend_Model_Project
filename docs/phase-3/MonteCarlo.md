@@ -321,13 +321,13 @@ Cash Earns = Risk-Free Rate (configurable source)
 ### CASH Injection Policy
 
 - Trigger condition (boolean):
-  - `inject_cash = bool(metrics.rf_override_enabled) or (data.allow_risk_free_fallback is true)`.
+  - `inject_cash = bool(metrics.rf_override_enabled) or bool(data.risk_free_column) or (data.allow_risk_free_fallback is true)`.
 - Injected CASH rate:
   - If `metrics.rf_override_enabled` is `true`, use `metrics.rf_rate_annual`.
   - Convert to periodic simulation rate with `periods_per_year_from_code(data.frequency)`.
   - Formula: `rf_periodic = (1 + rf_rate_annual) ** (1 / periods_per_year) - 1`.
   - If override is not enabled and fallback is enabled, use resolved risk-free series from data (`risk_free_column` or fallback resolver).
-- Skip behavior: if both `metrics.rf_override_enabled` and `data.allow_risk_free_fallback` are disabled, no `CASH` column is injected.
+- Skip behavior: if `metrics.rf_override_enabled` is disabled, `data.risk_free_column` is unset, and `data.allow_risk_free_fallback` is disabled, no `CASH` column is injected.
 
 Example:
 - Config sets `data.frequency: "M"`, `metrics.rf_override_enabled: true`, and `metrics.rf_rate_annual: 0.12`.

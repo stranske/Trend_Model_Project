@@ -1190,11 +1190,7 @@ class MonteCarloRunner:
             metrics = canonical_metric_list(metrics_raw)
             data_settings = config.data or {}
             metrics_settings = config.metrics or {}
-            use_resolver = bool(metrics_settings.get("rf_override_enabled", False))
-            if data_settings.get("risk_free_column"):
-                use_resolver = True
-            if data_settings.get("allow_risk_free_fallback") is True:
-                use_resolver = True
+            use_resolver = self._should_resolve_risk_free(data_settings, metrics_settings)
             risk_free_value: float | pd.Series | None = None
             if use_resolver:
                 resolution = resolve_risk_free_source(returns, config)
@@ -1232,6 +1228,18 @@ class MonteCarloRunner:
         self._cash_injection_warned = True
         self._logger.warning(msg, *args)
 
+    def _should_resolve_risk_free(
+        self,
+        data_settings: Mapping[str, Any],
+        metrics_settings: Mapping[str, Any],
+    ) -> bool:
+        """Return whether risk-free resolution should run for score/cash handling."""
+        if bool(metrics_settings.get("rf_override_enabled", False)):
+            return True
+        if data_settings.get("risk_free_column"):
+            return True
+        return data_settings.get("allow_risk_free_fallback") is True
+
     def _apply_cash_handling(self, returns: pd.DataFrame) -> pd.DataFrame:
         if "CASH" in returns.columns:
             return returns
@@ -1244,13 +1252,12 @@ class MonteCarloRunner:
             return returns
         data_settings = config.data or {}
         metrics_settings = config.metrics or {}
-        inject_cash = bool(metrics_settings.get("rf_override_enabled", False)) or (
-            data_settings.get("allow_risk_free_fallback") is True
-        )
+        inject_cash = self._should_resolve_risk_free(data_settings, metrics_settings)
         if not inject_cash:
             self._warn_cash_once(
-                "CASH injection skipped: both metrics.rf_override_enabled and "
-                "data.allow_risk_free_fallback are disabled"
+                "CASH injection skipped: metrics.rf_override_enabled is disabled, "
+                "data.risk_free_column is not set, and "
+                "data.allow_risk_free_fallback is disabled"
             )
             return returns
         try:

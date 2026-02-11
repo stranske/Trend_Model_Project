@@ -1590,6 +1590,26 @@ def test_apply_cash_handling_injects_cash_when_override_gate_enabled() -> None:
     )
 
 
+def test_apply_cash_handling_injects_cash_when_risk_free_column_is_configured() -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {
+        "registry": ["sharpe_ratio"],
+        "rf_override_enabled": False,
+    }
+    cfg["data"]["risk_free_column"] = "RF"
+    cfg["data"]["allow_risk_free_fallback"] = False
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+    returns = _returns_with_rf()
+
+    injected = runner._apply_cash_handling(returns)
+
+    assert "CASH" in injected.columns
+    np.testing.assert_allclose(
+        injected["CASH"].to_numpy(dtype=float, copy=False),
+        returns["RF"].to_numpy(dtype=float, copy=False),
+    )
+
+
 def test_apply_cash_handling_skips_when_override_gate_disabled() -> None:
     cfg = _base_config()
     cfg["metrics"] = {
