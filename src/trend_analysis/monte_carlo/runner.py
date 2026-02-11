@@ -1274,6 +1274,8 @@ class MonteCarloRunner:
             )
         elif isinstance(risk_free, pd.Series):
             cash_values = pd.to_numeric(risk_free, errors="coerce")
+            if not cash_values.index.equals(returns.index):
+                cash_values = cash_values.reindex(returns.index)
         else:
             self._warn_cash_once(
                 "CASH injection skipped: resolved risk-free source has unsupported type "

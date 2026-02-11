@@ -1745,6 +1745,33 @@ def test_apply_cash_handling_skips_when_rf_series_contains_nan(
     assert "CASH" not in injected.columns
 
 
+def test_apply_cash_handling_aligns_rf_series_by_returns_index(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {"registry": ["sharpe_ratio"], "rf_override_enabled": True}
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+    returns = _returns_without_rf()
+
+    rf_values = pd.Series(
+        [0.002, 0.003, 0.004, 0.005, 0.006, 0.007],
+        index=pd.Index([5, 4, 3, 2, 1, 0]),
+        name="RF",
+    )
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.resolve_risk_free_source",
+        lambda *_args, **_kwargs: RiskFreeResolution(source="test", risk_free=rf_values),
+    )
+
+    injected = runner._apply_cash_handling(returns)
+
+    np.testing.assert_allclose(
+        injected["CASH"].to_numpy(dtype=float, copy=False),
+        np.array([0.007, 0.006, 0.005, 0.004, 0.003, 0.002], dtype=float),
+    )
+
+
 def test_inject_cash_returns_aliases_apply_cash_handling() -> None:
     cfg = _base_config()
     cfg["metrics"] = {
