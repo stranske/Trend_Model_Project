@@ -9,6 +9,12 @@ scenario:
 
 base_config: config/defaults.yml
 
+# Override the default to enable CASH column injection when risk_free_column is
+# absent.  Without this the runner silently skips CASH injection because
+# defaults.yml sets allow_risk_free_fallback: false.
+data:
+  allow_risk_free_fallback: true
+
 monte_carlo:
   mode: two_layer
   n_paths: 20

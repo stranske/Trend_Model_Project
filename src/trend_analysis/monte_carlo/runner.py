@@ -1213,24 +1213,47 @@ class MonteCarloRunner:
         try:
             config = Config(**self._base_config)
         except Exception:
+            self._logger.warning(
+                "CASH injection skipped: failed to parse base config"
+            )
             return returns
         data_settings = config.data or {}
         if data_settings.get("risk_free_column"):
             return returns
         if data_settings.get("allow_risk_free_fallback") is not True:
+            self._logger.warning(
+                "CASH injection skipped: data.allow_risk_free_fallback is not "
+                "enabled (set to true in your config to allow CASH column "
+                "injection)"
+            )
             return returns
         try:
             resolution = resolve_risk_free_source(returns, config)
         except Exception as exc:
-            self._logger.debug("Failed to inject CASH returns: %s", exc)
+            self._logger.warning("CASH injection failed: %s", exc)
             return returns
         risk_free = resolution.risk_free
         if not isinstance(risk_free, pd.Series):
+            self._logger.warning(
+                "CASH injection skipped: resolved risk-free source is not a "
+                "Series (source=%s)",
+                getattr(resolution, "source", "unknown"),
+            )
             return returns
         cash_values = pd.to_numeric(risk_free, errors="coerce")
         if len(cash_values) != len(returns):
+            self._logger.warning(
+                "CASH injection skipped: risk-free length (%d) does not match "
+                "returns length (%d)",
+                len(cash_values),
+                len(returns),
+            )
             return returns
         if cash_values.isna().any():
+            self._logger.warning(
+                "CASH injection skipped: resolved risk-free series contains "
+                "NaN values"
+            )
             return returns
         out = returns.copy()
         out["CASH"] = cash_values.to_numpy(dtype=float, copy=False)
