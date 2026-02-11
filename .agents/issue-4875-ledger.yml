@@ -8,10 +8,10 @@ tasks:
       that uses `importlib.import_module` to import `trend_analysis.viz`, accesses
       `trend_analysis.viz.equity_curve` to trigger `__getattr__`, and asserts `"streamlit"
       not in sys.modules`
-    status: doing
+    status: done
     started_at: '2026-02-11T04:59:11Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-11T04:59:20Z'
+    commit: ce7abbebd978f513477d8b9d09011c7ab21d9cc9
     notes: []
   - id: task-02
     title: Add test function `test_validate_quantiles_empty_input` in `tests/viz/test_utils_quantile_bands.py`
