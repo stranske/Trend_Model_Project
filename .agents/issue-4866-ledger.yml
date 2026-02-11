@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: 'Define the canonical costs schema structure using epic-style `kind: regime_stochastic`
       with `trade_cost_bps` and top-level regimes'
-    status: doing
+    status: done
     started_at: '2026-02-11T01:49:17Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-11T01:49:25Z'
+    commit: 0e72bb9309e19022f12ae442473201d4e579660a
     notes: []
   - id: task-02
     title: Document the canonical costs schema in the `docs/phase-3/MonteCarlo.md`
