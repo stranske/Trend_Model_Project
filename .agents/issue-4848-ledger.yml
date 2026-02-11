@@ -7,10 +7,10 @@ tasks:
     title: Create `trend_analysis/viz/adapters.py` and implement `make_summary(results_frame,
       *, fold_selection=None) -> pd.DataFrame` to convert `results_frame` into a summary-like
       DataFrame shape expected by chart functions.
-    status: doing
+    status: done
     started_at: '2026-02-11T14:29:54Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-11T14:30:03Z'
+    commit: 87533e11000b7eb2b5018bd2796b1f052be2546a
     notes: []
   - id: task-02
     title: 'Create the `trend_analysis/viz/adapters.py` module with appropriate imports
