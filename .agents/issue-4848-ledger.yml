@@ -1,0 +1,1143 @@
+version: 1
+issue: 4848
+base: phase-3
+branch: codex/issue-4848
+tasks:
+  - id: task-01
+    title: Create `trend_analysis/viz/adapters.py` and implement `make_summary(results_frame,
+      *, fold_selection=None) -> pd.DataFrame` to convert `results_frame` into a summary-like
+      DataFrame shape expected by chart functions.
+    status: doing
+    started_at: '2026-02-11T14:29:54Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Create the `trend_analysis/viz/adapters.py` module with appropriate imports
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Create the `trend_analysis/viz/adapters.py` module with module docstring
+      (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Define the expected output schema for the summary DataFrame including
+      required columns (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Define the expected output schema for the summary DataFrame including
+      data types (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Implement the `make_summary` function signature with type hints (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Implement the `make_summary` function signature with parameter documentation
+      (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Implement the core transformation logic to convert results_frame to summary
+      format (verify: formatter passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Define scope for: Add support for the optional fold_selection parameter
+      to filter or aggregate results (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Implement focused slice for: Add support for the optional fold_selection
+      parameter to filter or aggregate results (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Validate focused slice for: Add support for the optional fold_selection
+      parameter to filter or aggregate results (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Write docstring for make_summary documenting input requirements (verify:
+      docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'output schema (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Create `trend_analysis/viz/adapters.py` and implement `make_paths(nav_paths)
+      -> pd.DataFrame` to convert `nav_paths` into a canonical paths DataFrame.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Define the canonical paths DataFrame schema including required columns
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Define the canonical paths DataFrame schema including index structure
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Implement the `make_paths` function signature with type hints (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Implement the `make_paths` function signature with parameter documentation
+      (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Implement the transformation logic to normalize nav_paths into canonical
+      format (verify: formatter passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Add validation to ensure input nav_paths contains required fields (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'Write docstring for make_paths documenting input requirements (verify:
+      docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Add helper functions in `trend_analysis/viz/adapters.py` to derive terminal
+      returns, rolling stats, and correlations from `nav_paths`/derived frames.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: 'Define scope for: Implement a helper function to calculate terminal returns
+      from nav_paths with appropriate window parameters (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'Implement focused slice for: Implement a helper function to calculate
+      terminal returns from nav_paths with appropriate window parameters (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: 'Validate focused slice for: Implement a helper function to calculate terminal
+      returns from nav_paths with appropriate window parameters (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: 'Implement a helper function to compute rolling statistics including mean
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: 'Implement a helper function to compute rolling statistics including std
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: 'Implement a helper function to compute rolling statistics including and
+      Sharpe ratio (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: 'Implement a helper function to calculate correlation matrices from path
+      data (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: 'Add input validation (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: 'error handling for each helper function (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: 'Document the expected input format (verify: formatter passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: 'output schema for each helper function (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: Add a `trend_analysis/viz/charts/sharpe_ladder.py` module (or port existing
+      equivalent) that consumes adapter outputs and renders a Plotly Sharpe ladder
+      chart.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: 'Define scope for: Create the `trend_analysis/viz/charts/sharpe_ladder.py`
+      module with appropriate imports (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: 'Implement focused slice for: Create the `trend_analysis/viz/charts/sharpe_ladder.py`
+      module with appropriate imports (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: 'Validate focused slice for: Create the `trend_analysis/viz/charts/sharpe_ladder.py`
+      module with appropriate imports (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: 'Define scope for: Define the function signature for the Sharpe ladder
+      chart including required input parameters (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: 'Implement focused slice for: Define the function signature for the Sharpe
+      ladder chart including required input parameters (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: 'Validate focused slice for: Define the function signature for the Sharpe
+      ladder chart including required input parameters (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: 'Implement the data preparation logic to extract Sharpe ratios from adapter
+      outputs (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: 'Implement the Plotly figure generation for the Sharpe ladder visualization
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: 'Add configuration parameters for chart styling (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: 'layout options (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: 'Write docstring documenting required input columns (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: 'chart customization options (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: Add a `trend_analysis/viz/charts/corr_heatmap.py` module that consumes
+      adapter outputs and renders a Plotly correlation heatmap.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: 'Define scope for: Create the `trend_analysis/viz/charts/corr_heatmap.py`
+      module with appropriate imports (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: 'Implement focused slice for: Create the `trend_analysis/viz/charts/corr_heatmap.py`
+      module with appropriate imports (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: 'Validate focused slice for: Create the `trend_analysis/viz/charts/corr_heatmap.py`
+      module with appropriate imports (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: 'Define the function signature for the correlation heatmap including input
+      parameters (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: 'Implement logic to extract or compute correlation matrix from adapter
+      outputs (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: 'Implement the Plotly heatmap figure generation with appropriate color
+      scales (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: 'Add configuration parameters for annotation display (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: 'clustering options (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-56
+    title: 'Write docstring documenting required input format (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-57
+    title: 'customization options (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-58
+    title: Add a `trend_analysis/viz/charts/rolling_panel.py` (or rolling risk equivalent)
+      module that consumes adapter outputs and renders Plotly rolling metrics diagnostics.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-59
+    title: 'Define scope for: Create the `trend_analysis/viz/charts/rolling_panel.py`
+      module with appropriate imports (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-60
+    title: 'Implement focused slice for: Create the `trend_analysis/viz/charts/rolling_panel.py`
+      module with appropriate imports (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-61
+    title: 'Validate focused slice for: Create the `trend_analysis/viz/charts/rolling_panel.py`
+      module with appropriate imports (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-62
+    title: 'Define scope for: Define which rolling metrics to display in the panel
+      such as volatility, Sharpe, (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-63
+    title: 'Implement focused slice for: Define which rolling metrics to display in
+      the panel such as volatility, Sharpe, (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-64
+    title: 'Validate focused slice for: Define which rolling metrics to display in
+      the panel such as volatility, Sharpe, (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-65
+    title: 'drawdown (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-66
+    title: 'Define scope for: Define the function signature for the rolling panel
+      chart including window size parameters (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-67
+    title: 'Implement focused slice for: Define the function signature for the rolling
+      panel chart including window size parameters (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-68
+    title: 'Validate focused slice for: Define the function signature for the rolling
+      panel chart including window size parameters (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-69
+    title: 'Implement data preparation to calculate rolling metrics from adapter outputs
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-70
+    title: 'Implement the Plotly multi-panel or subplot figure generation (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-71
+    title: 'Add configuration for rolling window sizes (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-72
+    title: 'metric selection (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-73
+    title: 'panel configuration options (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-74
+    title: Add a `trend_analysis/viz/charts/seasonality_heatmap.py` module that consumes
+      adapter outputs and renders a Plotly seasonality heatmap.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-75
+    title: 'Define scope for: Create the `trend_analysis/viz/charts/seasonality_heatmap.py`
+      module with appropriate imports (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-76
+    title: 'Implement focused slice for: Create the `trend_analysis/viz/charts/seasonality_heatmap.py`
+      module with appropriate imports (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-77
+    title: 'Validate focused slice for: Create the `trend_analysis/viz/charts/seasonality_heatmap.py`
+      module with appropriate imports (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-78
+    title: 'Define the seasonality aggregation method such as monthly or quarterly
+      returns (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-79
+    title: 'Define the function signature for the seasonality heatmap including period
+      parameters (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-80
+    title: 'Implement logic to extract (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-81
+    title: 'aggregate returns by seasonal periods from adapter outputs (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-82
+    title: 'Implement the Plotly heatmap figure generation with appropriate axes labels
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-83
+    title: 'Add configuration for seasonality period selection (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-84
+    title: 'metric choice (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-85
+    title: 'seasonality calculation method (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-86
+    title: Update the Streamlit MC page to call `make_summary`/`make_paths`, wrap
+      expensive derived-frame computations with `st.cache_data`, and render the added
+      diagnostics charts using tabs or expanders.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-87
+    title: 'Define scope for: Update the Streamlit MC page to call make_summary with
+      appropriate parameters from results_frame (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-88
+    title: 'Implement focused slice for: Update the Streamlit MC page to call make_summary
+      with appropriate parameters from results_frame (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-89
+    title: 'Validate focused slice for: Update the Streamlit MC page to call make_summary
+      with appropriate parameters from results_frame (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-90
+    title: 'Define scope for: Update the Streamlit MC page to call make_paths with
+      nav_paths data (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-91
+    title: 'Implement focused slice for: Update the Streamlit MC page to call make_paths
+      with nav_paths data (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-92
+    title: 'Validate focused slice for: Update the Streamlit MC page to call make_paths
+      with nav_paths data (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-93
+    title: 'Define scope for: Wrap the make_summary call with st.cache_data decorator
+      to cache expensive computations (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-94
+    title: 'Implement focused slice for: Wrap the make_summary call with st.cache_data
+      decorator to cache expensive computations (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-95
+    title: 'Validate focused slice for: Wrap the make_summary call with st.cache_data
+      decorator to cache expensive computations (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-96
+    title: 'Define scope for: Wrap the make_paths call with st.cache_data decorator
+      to cache expensive computations (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-97
+    title: 'Implement focused slice for: Wrap the make_paths call with st.cache_data
+      decorator to cache expensive computations (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-98
+    title: 'Validate focused slice for: Wrap the make_paths call with st.cache_data
+      decorator to cache expensive computations (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-99
+    title: 'Wrap helper function calls for rolling stats (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-100
+    title: 'correlations with st.cache_data (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-101
+    title: 'Define scope for: Add UI layout structure using tabs or expanders to organize
+      the diagnostic charts (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-102
+    title: 'Implement focused slice for: Add UI layout structure using tabs or expanders
+      to organize the diagnostic charts (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-103
+    title: 'Validate focused slice for: Add UI layout structure using tabs or expanders
+      to organize the diagnostic charts (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-104
+    title: 'Define scope for: Integrate each of the four new diagnostic charts into
+      the Streamlit page layout (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-105
+    title: 'Implement focused slice for: Integrate each of the four new diagnostic
+      charts into the Streamlit page layout (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-106
+    title: 'Validate focused slice for: Integrate each of the four new diagnostic
+      charts into the Streamlit page layout (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-107
+    title: Write unit tests for `make_summary` and `make_paths` (and key helpers)
+      verifying required columns and expected output shapes for representative `results_frame`
+      and `nav_paths` inputs.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-108
+    title: 'Define scope for: Write unit tests for make_summary verifying all required
+      output columns are present (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-109
+    title: 'Implement focused slice for: Write unit tests for make_summary verifying
+      all required output columns are present (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-110
+    title: 'Validate focused slice for: Write unit tests for make_summary verifying
+      all required output columns are present (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-111
+    title: 'Define scope for: Write unit tests for make_summary verifying output DataFrame
+      shape matches expected dimensions (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-112
+    title: 'Implement focused slice for: Write unit tests for make_summary verifying
+      output DataFrame shape matches expected dimensions (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-113
+    title: 'Validate focused slice for: Write unit tests for make_summary verifying
+      output DataFrame shape matches expected dimensions (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-114
+    title: 'Define scope for: Write unit tests for make_summary verifying fold_selection
+      parameter filters results correctly (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-115
+    title: 'Implement focused slice for: Write unit tests for make_summary verifying
+      fold_selection parameter filters results correctly (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-116
+    title: 'Validate focused slice for: Write unit tests for make_summary verifying
+      fold_selection parameter filters results correctly (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-117
+    title: 'Define scope for: Write unit tests for make_paths verifying all required
+      output columns are present (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-118
+    title: 'Implement focused slice for: Write unit tests for make_paths verifying
+      all required output columns are present (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-119
+    title: 'Validate focused slice for: Write unit tests for make_paths verifying
+      all required output columns are present (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-120
+    title: 'Write unit tests for make_paths verifying output DataFrame shape (verify:
+      tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-121
+    title: 'index structure (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-122
+    title: 'Write unit tests for terminal returns helper function verifying calculation
+      accuracy (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-123
+    title: 'Write unit tests for rolling stats helper function verifying window calculations
+      (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-124
+    title: 'Write unit tests for correlation helper function verifying matrix properties
+      (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-125
+    title: 'Create fixture data representing typical results_frame (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-126
+    title: 'nav_paths structures (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-127
+    title: Running the Streamlit MC page with real `nav_paths` renders at least 4
+      additional Plotly diagnostics charts beyond fan/path_dist.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-128
+    title: '`trend_analysis/viz/adapters.py` exists and exports `make_summary(results_frame,
+      *, fold_selection=None)` and `make_paths(nav_paths)`.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-129
+    title: Unit tests exist and pass, asserting `make_summary`/`make_paths` outputs
+      include documented required columns and expected shapes.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-130
+    title: Streamlit derived-frame computations for adapters/diagnostics are wrapped
+      with `st.cache_data`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-131
+    title: 'Implement adapters:'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-132
+    title: '`make_summary(results_frame, *, fold_selection=None) -> pd.DataFrame`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-133
+    title: '`make_paths(nav_paths) -> pd.DataFrame`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-134
+    title: helpers for terminal returns, rolling stats, correlations.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-135
+    title: 'Port additional chart modules as needed (prioritize charts that match
+      available data):'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-136
+    title: sharpe_ladder
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-137
+    title: corr_heatmap
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-138
+    title: rolling_panel / rolling risk
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-139
+    title: seasonality_heatmap
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-140
+    title: scatter_matrix (optional)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-141
+    title: 'Streamlit integration:'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-142
+    title: use `st.cache_data` for expensive derived frames.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-143
+    title: keep UI minimal (tabs or expanders, not dozens of panels).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-144
+    title: With real `nav_paths`, MC page shows at least 4 additional Plotly diagnostics
+      charts.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-145
+    title: Adapter functions are unit tested and documented with required columns.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
