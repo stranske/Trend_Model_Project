@@ -10,7 +10,7 @@ only for preprocessing; chart rendering uses strategy + metric.
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping, ParamSpec, TypeVar, cast
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -18,11 +18,32 @@ import plotly.graph_objects as go
 from .theme import apply_theme
 from .utils import coerce_frame, ensure_non_empty
 
+st: Any
+try:
+    import streamlit as st
+except Exception:  # pragma: no cover - streamlit is optional outside app runtime
+    st = None
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
 REQUIRED_COLUMNS: tuple[str, ...] = ("strategy", "sharpe")
 DEFAULT_POSITIVE_COLOR = "#2a9d8f"
 DEFAULT_NEGATIVE_COLOR = "#e76f51"
 
 
+def _cache_data(*args: object, **kwargs: object) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    cache_data = getattr(st, "cache_data", None) if st is not None else None
+    if callable(cache_data):
+        return cast(Callable[[Callable[P, R]], Callable[P, R]], cache_data(*args, **kwargs))
+
+    def _identity(func: Callable[P, R]) -> Callable[P, R]:
+        return func
+
+    return _identity
+
+
+@_cache_data(show_spinner=False)
 def prepare_sharpe_ladder(
     summary: pd.DataFrame | Mapping[str, list[Any]],
     *,
@@ -69,8 +90,8 @@ def prepare_sharpe_ladder(
     return ladder
 
 
-def make(
-    summary: pd.DataFrame | Mapping[str, list[Any]],
+def build_figure(
+    data: pd.DataFrame | Mapping[str, list[Any]],
     *,
     metric: str = "sharpe",
     title: str | None = "Sharpe Ladder",
@@ -88,7 +109,7 @@ def make(
     """
 
     ladder = prepare_sharpe_ladder(
-        summary,
+        data,
         metric=metric,
         aggregate_duplicates=aggregate_duplicates,
         ascending=True,
@@ -120,10 +141,38 @@ def make(
     return apply_theme(fig)
 
 
+def make(
+    summary: pd.DataFrame | Mapping[str, list[Any]],
+    *,
+    metric: str = "sharpe",
+    title: str | None = "Sharpe Ladder",
+    xaxis_title: str | None = "Sharpe Ratio",
+    yaxis_title: str | None = "Strategy",
+    show_values: bool = True,
+    positive_color: str = DEFAULT_POSITIVE_COLOR,
+    negative_color: str = DEFAULT_NEGATIVE_COLOR,
+    aggregate_duplicates: bool = True,
+) -> go.Figure:
+    """Backward-compatible wrapper around :func:`build_figure`."""
+
+    return build_figure(
+        summary,
+        metric=metric,
+        title=title,
+        xaxis_title=xaxis_title,
+        yaxis_title=yaxis_title,
+        show_values=show_values,
+        positive_color=positive_color,
+        negative_color=negative_color,
+        aggregate_duplicates=aggregate_duplicates,
+    )
+
+
 __all__ = [
     "REQUIRED_COLUMNS",
     "DEFAULT_POSITIVE_COLOR",
     "DEFAULT_NEGATIVE_COLOR",
     "prepare_sharpe_ladder",
+    "build_figure",
     "make",
 ]

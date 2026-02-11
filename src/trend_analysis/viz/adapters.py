@@ -6,12 +6,23 @@ chart components that expect predictable DataFrame schemas.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
+from typing import Any, Callable, ParamSpec, TypeGuard, TypeVar, cast
 
 import numpy as np
 import pandas as pd
 
 from trend_analysis.monte_carlo.results import build_summary_frame
+
+st: Any
+try:
+    import streamlit as st
+except Exception:  # pragma: no cover - streamlit is optional outside app runtime
+    st = None
+
+P = ParamSpec("P")
+R = TypeVar("R")
+_IntLike = int | np.integer[Any]
 
 SUMMARY_REQUIRED_COLUMNS: tuple[str, ...] = ("fold_id", "fold_label", "strategy", "paths")
 """Required columns for ``make_summary`` outputs."""
@@ -45,6 +56,65 @@ ROLLING_REQUIRED_COLUMNS: tuple[str, ...] = (
 )
 """Required columns for ``rolling_stats`` outputs."""
 
+LOOKBACK_PERIODS_VALIDATION_MESSAGE = (
+    "lookback_periods must be a positive integer, or an iterable containing at least one "
+    "positive integer"
+)
+"""Controlled validation error message for ``terminal_returns`` lookback input."""
+
+
+def _cache_data(*args: object, **kwargs: object) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    cache_data = getattr(st, "cache_data", None) if st is not None else None
+    if callable(cache_data):
+        return cast(Callable[[Callable[P, R]], Callable[P, R]], cache_data(*args, **kwargs))
+
+    def _identity(func: Callable[P, R]) -> Callable[P, R]:
+        return func
+
+    return _identity
+
+
+@_cache_data(show_spinner=False)
+def _make_summary_cached(
+    results_frame: pd.DataFrame,
+    *,
+    fold_selection: int | str | Sequence[int | str] | None = None,
+) -> pd.DataFrame:
+    if "strategy" not in results_frame.columns:
+        raise ValueError("results_frame must include a 'strategy' column")
+
+    pooled = _is_pooled_selection(fold_selection)
+    filtered = _apply_fold_selection(results_frame, fold_selection)
+
+    if pooled:
+        no_fold = filtered.drop(
+            columns=[col for col in ("fold_id", "fold_label") if col in filtered]
+        )
+        summary = build_summary_frame(no_fold)
+    else:
+        summary = build_summary_frame(filtered)
+
+    return _normalize_summary_schema(summary)
+
+
+@_cache_data(show_spinner=False)
+def _make_paths_cached(nav_paths: pd.DataFrame) -> pd.DataFrame:
+    frame = _normalize_nav_paths(nav_paths)
+    if frame.empty:
+        return pd.DataFrame(
+            {"nav": pd.Series(dtype="float64")},
+            index=pd.MultiIndex.from_arrays(
+                [pd.DatetimeIndex([], name="date"), pd.Index([], name="path")],
+                names=list(PATHS_INDEX_NAMES),
+            ),
+        )
+
+    long = frame.stack(future_stack=True).rename("nav").to_frame()
+    long.index.set_names(list(PATHS_INDEX_NAMES), inplace=True)
+    long["nav"] = pd.to_numeric(long["nav"], errors="coerce").astype("float64")
+    long = long[~long.index.duplicated(keep="last")]
+    return long.sort_index()
+
 
 def make_summary(
     results_frame: pd.DataFrame,
@@ -77,21 +147,7 @@ def make_summary(
 
     if not isinstance(results_frame, pd.DataFrame):
         raise TypeError("results_frame must be a pandas DataFrame")
-    if "strategy" not in results_frame.columns:
-        raise ValueError("results_frame must include a 'strategy' column")
-
-    pooled = _is_pooled_selection(fold_selection)
-    filtered = _apply_fold_selection(results_frame, fold_selection)
-
-    if pooled:
-        no_fold = filtered.drop(
-            columns=[col for col in ("fold_id", "fold_label") if col in filtered]
-        )
-        summary = build_summary_frame(no_fold)
-    else:
-        summary = build_summary_frame(filtered)
-
-    return _normalize_summary_schema(summary)
+    return _make_summary_cached(results_frame, fold_selection=fold_selection)
 
 
 def make_paths(nav_paths: pd.DataFrame) -> pd.DataFrame:
@@ -111,27 +167,13 @@ def make_paths(nav_paths: pd.DataFrame) -> pd.DataFrame:
     - Required columns: ``nav`` (float64).
     """
 
-    frame = _normalize_nav_paths(nav_paths)
-    if frame.empty:
-        return pd.DataFrame(
-            {"nav": pd.Series(dtype="float64")},
-            index=pd.MultiIndex.from_arrays(
-                [pd.DatetimeIndex([], name="date"), pd.Index([], name="path")],
-                names=list(PATHS_INDEX_NAMES),
-            ),
-        )
-
-    long = frame.stack(future_stack=True).rename("nav").to_frame()
-    long.index.set_names(list(PATHS_INDEX_NAMES), inplace=True)
-    long["nav"] = pd.to_numeric(long["nav"], errors="coerce").astype("float64")
-    long = long[~long.index.duplicated(keep="last")]
-    return long.sort_index()
+    return _make_paths_cached(nav_paths)
 
 
 def terminal_returns(
     paths: pd.DataFrame,
     *,
-    lookback_periods: int | None = None,
+    lookback_periods: int | Iterable[object] | None = None,
 ) -> pd.DataFrame:
     """Calculate terminal returns per path from canonical ``make_paths`` output.
 
@@ -142,8 +184,11 @@ def terminal_returns(
         ``("date", "path")`` and column ``nav``.
     lookback_periods:
         Optional trailing window (in rows). If ``None``, uses first to last NAV
-        over the full horizon. If provided, return is computed from
+        over the full horizon. If provided as an integer, return is computed from
         ``t - lookback_periods`` to final ``t``.
+        If provided as an iterable, invalid entries are filtered out and the first
+        valid positive integer is used. Raises a controlled ``ValueError`` if no
+        valid positive integer remains.
 
     Returns
     -------
@@ -162,16 +207,16 @@ def terminal_returns(
             }
         )
 
-    if lookback_periods is None:
+    normalized_lookback = _normalize_lookback_periods(lookback_periods)
+
+    if normalized_lookback is None:
         base = wide.ffill().iloc[0]
         periods_used = max(len(wide.index) - 1, 0)
     else:
-        if lookback_periods <= 0:
-            raise ValueError("lookback_periods must be > 0")
-        if len(wide.index) <= lookback_periods:
+        if len(wide.index) <= normalized_lookback:
             raise ValueError("lookback_periods must be smaller than the number of rows")
-        base = wide.ffill().iloc[-(lookback_periods + 1)]
-        periods_used = lookback_periods
+        base = wide.ffill().iloc[-(normalized_lookback + 1)]
+        periods_used = normalized_lookback
 
     terminal = wide.ffill().iloc[-1]
     returns = (terminal / base) - 1.0
@@ -179,6 +224,28 @@ def terminal_returns(
     out["lookback_periods"] = pd.Series(periods_used, index=out.index, dtype="Int64")
     out.index = out.index.rename("path")
     return out
+
+
+def _normalize_lookback_periods(
+    lookback_periods: int | Iterable[object] | None,
+) -> int | None:
+    if lookback_periods is None:
+        return None
+    if _is_valid_lookback_period(lookback_periods):
+        return int(lookback_periods)
+    if isinstance(lookback_periods, (str, bytes)):
+        raise ValueError(LOOKBACK_PERIODS_VALIDATION_MESSAGE)
+    if isinstance(lookback_periods, Iterable):
+        valid_periods = [
+            int(value) for value in lookback_periods if _is_valid_lookback_period(value)
+        ]
+        if valid_periods:
+            return valid_periods[0]
+    raise ValueError(LOOKBACK_PERIODS_VALIDATION_MESSAGE)
+
+
+def _is_valid_lookback_period(value: object) -> TypeGuard[_IntLike]:
+    return isinstance(value, (int, np.integer)) and not isinstance(value, bool) and int(value) > 0
 
 
 def rolling_stats(
@@ -372,7 +439,9 @@ def _normalize_nav_paths(nav_paths: pd.DataFrame) -> pd.DataFrame:
 
     frame.columns = pd.Index(frame.columns, name="path")
     if frame.columns.duplicated().any():
-        frame = frame.groupby(level=0, axis=1).mean()
+        # Use transpose-groupby-transpose for pandas compatibility across versions
+        # that deprecate/alter ``groupby(..., axis=1)`` behavior.
+        frame = frame.T.groupby(level=0).mean().T
         frame.columns.name = "path"
 
     for column in frame.columns:

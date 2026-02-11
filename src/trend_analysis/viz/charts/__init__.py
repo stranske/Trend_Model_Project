@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Mapping, Protocol, cast
 
 import pandas as pd
 
-from .. import configure_matplotlib_config_dir
-from ..metrics import rolling as rolling_metrics
+from trend_analysis import configure_matplotlib_config_dir
+from trend_analysis.metrics import rolling as rolling_metrics
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

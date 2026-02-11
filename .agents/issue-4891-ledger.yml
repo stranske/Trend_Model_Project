@@ -1,0 +1,851 @@
+version: 1
+issue: 4891
+base: phase-3
+branch: codex/issue-4891
+tasks:
+  - id: task-01
+    title: Create `trend_analysis/viz/charts/corr_heatmap.py` with a public chart
+      entrypoint function (choose `build_figure(...)` or `render(...)`) that builds/returns
+      the corr heatmap Plotly Figure, and update `trend_analysis/viz/pages/<streamlit_page>.py`
+      to import and call it instead of inline logic.
+    status: done
+    started_at: '2026-02-11T18:08:56Z'
+    finished_at: '2026-02-11T18:09:09Z'
+    commit: 20dcad3ea22eba66dfe4c377159c0de2d764a79e
+    notes: []
+  - id: task-02
+    title: Create `trend_analysis/viz/charts/rolling_panel.py` with the same public
+      chart entrypoint (name/signature convention as other charts) that builds/returns
+      the rolling panel diagnostic Plotly Figure, and update `trend_analysis/viz/pages/<streamlit_page>.py`
+      to import and call it.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Create `trend_analysis/viz/charts/seasonality_heatmap.py` with the same
+      public chart entrypoint (name/signature convention as other charts) that builds/returns
+      the seasonality heatmap Plotly Figure, and update `trend_analysis/viz/pages/<streamlit_page>.py`
+      to import and call it.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Update `trend_analysis/viz/charts/sharpe_ladder.py` (and the three new
+      chart modules) so all four expose the same public entrypoint name and align
+      on the same first parameter name for their primary data input; ensure no `st.*`
+      calls occur inside the public entrypoint function body.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Define scope for: Rename the public entrypoint function in all four chart
+      modules to use a consistent name (either build_figure or render) (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Implement focused slice for: Rename the public entrypoint function in
+      all four chart modules to use a consistent name (either build_figure or render)
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Validate focused slice for: Rename the public entrypoint function in all
+      four chart modules to use a consistent name (either build_figure or render)
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Define scope for: Standardize the first parameter name across all four
+      chart modules to use the same identifier for primary data input (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Implement focused slice for: Standardize the first parameter name across
+      all four chart modules to use the same identifier for primary data input (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Validate focused slice for: Standardize the first parameter name across
+      all four chart modules to use the same identifier for primary data input (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Define scope for: Remove all Streamlit UI calls from the public entrypoint
+      function bodies in all four chart modules (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Implement focused slice for: Remove all Streamlit UI calls from the public
+      entrypoint function bodies in all four chart modules (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Validate focused slice for: Remove all Streamlit UI calls from the public
+      entrypoint function bodies in all four chart modules (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Implement `streamlit.cache_data` caching for `trend_analysis/viz/adapters.py::make_summary`
+      (either decorate directly or call an internal cached helper that is invoked
+      during normal execution).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Implement `streamlit.cache_data` caching for `trend_analysis/viz/adapters.py::make_paths`
+      (either decorate directly or call an internal cached helper that is invoked
+      during normal execution).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Add at least one materially expensive cached data-prep helper (decorated
+      with `st.cache_data`) inside each chart module used by the public entrypoint
+      to produce chart-ready frames.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Write `tests/test_viz_adapters_summary.py` to call `trend_analysis/viz/adapters.py::make_summary`
+      with representative inputs and assert required output columns (per docstring)
+      and expected output shape/row count.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Write `tests/test_viz_adapters_paths.py` to call `trend_analysis/viz/adapters.py::make_paths`
+      with representative inputs and assert required output schema/index/column conventions
+      (per docstring) and expected output shape.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: "Write `tests/test_viz_caching.py` that monkeypatches `streamlit.cache_data`\
+      \ with a spy wrapper and asserts caching is applied/invoked for adapters (`make_summary`,\
+      \ `make_paths`) and each chart module\u2019s cached processor function."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Update docstrings in `trend_analysis/viz/adapters.py` for `make_summary`
+      and `make_paths` to explicitly enumerate required output schemas (required columns
+      and meanings; index/column-level conventions where applicable) matching the
+      unit tests.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Fix `_normalize_nav_paths` to avoid pandas version-sensitive `frame.groupby(level=0,
+      axis=1).mean()` by switching to a version-compatible approach (e.g., `frame.T.groupby(level=0).mean().T`)
+      or adding a clearly commented version-gated branch.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Add a unit test (in `tests/test_viz_adapters_paths.py`) that constructs
+      a DataFrame with duplicated top-level column labels, calls `_normalize_nav_paths`
+      (directly or via `make_paths`), and asserts duplicated columns are collapsed
+      by mean aggregation with deterministic expected values.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: Update the terminal returns helper at `trend_analysis/viz/<terminal_returns_helper>.py`
+      to validate/sanitize `lookback_periods` so invalid inputs (empty list, non-positive
+      values, non-integers) do not raise an uncaught `ValueError`, and instead either
+      filter invalid entries (proceeding if at least one valid remains) or raise a
+      single controlled exception type/message used by the app.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'Define scope for: Decide whether the terminal returns helper should filter
+      invalid lookback_periods entries or raise a controlled exception (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: 'Implement focused slice for: Decide whether the terminal returns helper
+      should filter invalid lookback_periods entries or raise a controlled exception
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: 'Validate focused slice for: Decide whether the terminal returns helper
+      should filter invalid lookback_periods entries or raise a controlled exception
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: 'Define scope for: Implement validation logic in the terminal returns helper
+      to detect invalid lookback_periods inputs including empty lists (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: 'Implement focused slice for: Implement validation logic in the terminal
+      returns helper to detect invalid lookback_periods inputs including empty lists
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: 'Validate focused slice for: Implement validation logic in the terminal
+      returns helper to detect invalid lookback_periods inputs including empty lists
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: 'Define scope for: Implement validation logic in the terminal returns helper
+      to detect invalid lookback_periods inputs including non-positive values (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: 'Implement focused slice for: Implement validation logic in the terminal
+      returns helper to detect invalid lookback_periods inputs including non-positive
+      values (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: 'Validate focused slice for: Implement validation logic in the terminal
+      returns helper to detect invalid lookback_periods inputs including non-positive
+      values (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: 'Define scope for: Implement validation logic in the terminal returns helper
+      to detect invalid lookback_periods inputs including and non-integers (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: 'Implement focused slice for: Implement validation logic in the terminal
+      returns helper to detect invalid lookback_periods inputs including and non-integers
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: 'Validate focused slice for: Implement validation logic in the terminal
+      returns helper to detect invalid lookback_periods inputs including and non-integers
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: 'Define scope for: Implement the chosen error handling strategy for invalid
+      lookback_periods inputs with appropriate exception types (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: 'Implement focused slice for: Implement the chosen error handling strategy
+      for invalid lookback_periods inputs with appropriate exception types (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: 'Validate focused slice for: Implement the chosen error handling strategy
+      for invalid lookback_periods inputs with appropriate exception types (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: 'Define scope for: Implement the chosen error handling strategy for invalid
+      lookback_periods inputs with messages (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: 'Implement focused slice for: Implement the chosen error handling strategy
+      for invalid lookback_periods inputs with messages (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: 'Validate focused slice for: Implement the chosen error handling strategy
+      for invalid lookback_periods inputs with messages (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: Write `tests/test_terminal_returns_helper.py` with at least three test
+      cases covering invalid `lookback_periods` inputs (empty list, non-positive values,
+      non-integers) asserting deterministic outcomes (result content/shape if filtering,
+      or exception type/message if raising).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: '`trend_analysis/viz/charts/corr_heatmap.py` exists and defines a public
+      function named `build_figure(...)` (or `render(...)`) that returns a Plotly
+      Figure (`plotly.graph_objects.Figure` or `plotly.graph_objs._figure.Figure`).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: '`trend_analysis/viz/charts/rolling_panel.py` exists and defines a public
+      function named `build_figure(...)` (or `render(...)`) that returns a Plotly
+      Figure.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: '`trend_analysis/viz/charts/seasonality_heatmap.py` exists and defines
+      a public function named `build_figure(...)` (or `render(...)`) that returns
+      a Plotly Figure.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: All four chart modules (`corr_heatmap`, `rolling_panel`, `seasonality_heatmap`,
+      `sharpe_ladder`) expose the same public entrypoint name (either `build_figure`
+      or `render`) and accept the same first parameter name for their primary data
+      input, and the public entrypoint function body contains no Streamlit UI calls
+      (`st.*`).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: The Streamlit page at `trend_analysis/viz/pages/<streamlit_page>.py` contains
+      no inline chart-construction logic for corr heatmap, rolling panel, or seasonality
+      heatmap and instead imports and calls the corresponding chart module entrypoints.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: '`trend_analysis/viz/adapters.py::make_summary` is decorated with `streamlit.cache_data`
+      (directly or via an invoked cached wrapper), and the decorated callable is invoked
+      during normal execution.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: '`trend_analysis/viz/adapters.py::make_paths` is decorated with `streamlit.cache_data`
+      (directly or via an invoked cached wrapper), and the decorated callable is invoked
+      during normal execution.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: Each chart module contains at least one materially-expensive data-prep
+      function used by its public entrypoint that is decorated with `streamlit.cache_data`,
+      and caching is verified for each module by tests.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: '`tests/test_viz_adapters_summary.py` exists and includes tests that call
+      `make_summary`, assert required output columns listed in the `make_summary`
+      docstring, and assert expected output shape/row count for the chosen representative
+      input.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: '`tests/test_viz_adapters_paths.py` exists and includes tests that call
+      `make_paths`, assert required output schema/index/column conventions listed
+      in the `make_paths` docstring, and assert expected output shape for the chosen
+      representative input.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: '`trend_analysis/viz/adapters.py` docstrings for `make_summary` and `make_paths`
+      explicitly list the required output schema (required columns and meanings, plus
+      index/column-level conventions where applicable), and the lists match what the
+      tests assert (no extra/missing required fields).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: '`_normalize_nav_paths` no longer uses `frame.groupby(level=0, axis=1).mean()`
+      (or equivalent axis=1 groupby usage) and instead uses a pandas-version-compatible
+      approach (e.g., transpose-groupby-transpose) or a clearly commented version-gated
+      branch.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: '`tests/test_viz_adapters_paths.py` includes a test that builds a DataFrame
+      with duplicated top-level column labels, calls `_normalize_nav_paths` (directly
+      or via `make_paths`), and asserts duplicated columns are collapsed by mean aggregation
+      with deterministic expected values.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-56
+    title: The terminal returns helper at `trend_analysis/viz/<terminal_returns_helper>.py`
+      validates `lookback_periods` such that empty list, non-integers, or non-positive
+      integers do not raise an uncaught `ValueError`; instead it deterministically
+      either filters invalid entries and proceeds if at least one valid lookback remains,
+      or raises a single documented controlled exception type/message.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-57
+    title: '`tests/test_terminal_returns_helper.py` exists and includes at least three
+      test cases covering invalid `lookback_periods` inputs (empty list, non-positive
+      values, non-integers) and asserts deterministic outcomes for each case (returned
+      result shape/content if filtering, or exception type/message if raising).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-58
+    title: Create `trend_analysis/viz/charts/corr_heatmap.py` by extracting the corr
+      heatmap chart-building logic from the Streamlit page into a reusable render/build
+      function, and update the Streamlit page to import and call it.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-59
+    title: Create `trend_analysis/viz/charts/rolling_panel.py` by extracting the rolling
+      panel diagnostic logic from the Streamlit page into a reusable render/build
+      function, and update the Streamlit page to import and call it.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-60
+    title: Create `trend_analysis/viz/charts/seasonality_heatmap.py` by extracting
+      the seasonality heatmap diagnostic logic from the Streamlit page into a reusable
+      render/build function, and update the Streamlit page to import and call it.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-61
+    title: Add/adjust a small public API for all chart modules (corr_heatmap, rolling_panel,
+      seasonality_heatmap, sharpe_ladder) so they expose consistent function names/signatures
+      (e.g., `build_figure(...)` or `render(...)`), and update the Streamlit page
+      to use the unified API.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-62
+    title: Wrap expensive computations in adapters (`make_summary`, `make_paths`)
+      with `st.cache_data` (or cached helper functions) so repeated renders reuse
+      computed DataFrames rather than recomputing them.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-63
+    title: Wrap chart data processing steps that are materially expensive (any non-trivial
+      transforms used to produce chart-ready frames for the diagnostics) with `st.cache_data`
+      (or cached helper functions) within the chart modules.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-64
+    title: Add unit tests for `trend_analysis/viz/adapters.py::make_summary` validating
+      required output columns and expected output shape for representative inputs.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-65
+    title: Add unit tests for `trend_analysis/viz/adapters.py::make_paths` validating
+      required output columns/index conventions and expected output shape for representative
+      inputs.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-66
+    title: Add a unit test that asserts production code applies `st.cache_data` for
+      the key expensive functions (adapters + chart data processors) by monkeypatching
+      `st.cache_data` with a spy wrapper and verifying it is invoked by the decorated
+      functions.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-67
+    title: Update adapters documentation/docstrings to explicitly describe required
+      output schemas (required columns and meaning) for `make_summary` and `make_paths`,
+      matching what tests assert.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-68
+    title: Modify `_normalize_nav_paths` to avoid pandas version-sensitive usage of
+      `frame.groupby(level=0, axis=1).mean()` by switching to a more compatible approach
+      (e.g., transpose-groupby-transpose) or gating with a version-safe branch and
+      a clear comment.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-69
+    title: Add a unit test covering the `_normalize_nav_paths` column-collapsing behavior
+      with duplicated top-level column labels to ensure the compatibility implementation
+      preserves expected results.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-70
+    title: Add input validation logic in the terminal returns helper to handle invalid/empty
+      `lookback_periods` without raising uncaught `ValueError` (e.g., sanitize/filter
+      invalid entries and raise a controlled exception type used by the app).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-71
+    title: Add unit tests for the terminal returns helper that cover invalid `lookback_periods`
+      inputs (empty list, non-positive values, non-integers) and assert the chosen
+      controlled behavior.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-72
+    title: A new module file exists at `trend_analysis/viz/charts/corr_heatmap.py`
+      and it defines a public function named `build_figure(...)` (or `render(...)`)
+      that returns a Plotly Figure (`plotly.graph_objects.Figure` or `plotly.graph_objs._figure.Figure`).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-73
+    title: A new module file exists at `trend_analysis/viz/charts/rolling_panel.py`
+      and it defines a public function named `build_figure(...)` (or `render(...)`)
+      that returns a Plotly Figure.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-74
+    title: A new module file exists at `trend_analysis/viz/charts/seasonality_heatmap.py`
+      and it defines a public function named `build_figure(...)` (or `render(...)`)
+      that returns a Plotly Figure.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-75
+    title: All four chart modules (corr_heatmap, rolling_panel, seasonality_heatmap,
+      sharpe_ladder) expose the same public entrypoint name (either `build_figure`
+      or `render`) and accept the same first parameter name for their primary data
+      input (e.g., `paths` or `df`) with no Streamlit UI calls (no `st.*`) inside
+      the function body.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-76
+    title: The Streamlit page under `trend_analysis/viz/pages/<streamlit_page>.py`
+      contains no inline chart-construction logic for corr heatmap, rolling panel,
+      or seasonality heatmap and instead imports and calls the corresponding chart
+      module entrypoints.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-77
+    title: '`trend_analysis/viz/adapters.py::make_summary` is decorated with `streamlit.cache_data`
+      (directly or via a cached wrapper function that is called by `make_summary`),
+      such that the decorated callable is invoked during normal execution.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-78
+    title: '`trend_analysis/viz/adapters.py::make_paths` is decorated with `streamlit.cache_data`
+      (directly or via a cached wrapper function that is called by `make_paths`),
+      such that the decorated callable is invoked during normal execution.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-79
+    title: Each chart module contains at least one materially-expensive data-prep
+      function used by its public entrypoint that is decorated with `streamlit.cache_data`
+      (directly or via a cached wrapper), and caching is verified for each module
+      by tests.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-80
+    title: A unit test file exists at `tests/test_viz_adapters_summary.py` containing
+      tests that (a) call `make_summary` on representative input and (b) assert the
+      output DataFrame includes all required columns enumerated in the adapter docstring
+      and (c) assert expected row count/shape for that input.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-81
+    title: A unit test file exists at `tests/test_viz_adapters_paths.py` containing
+      tests that (a) call `make_paths` on representative input and (b) assert required
+      output column/index conventions documented in `adapters.py` and (c) assert expected
+      output shape for that input.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-82
+    title: '`trend_analysis/viz/adapters.py` docstrings for `make_summary` and `make_paths`
+      explicitly list the required output schema (required columns and their meanings,
+      plus index/column-level conventions where applicable) and these lists match
+      what the tests assert (no extra/missing required fields).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-83
+    title: The implementation of `_normalize_nav_paths` no longer uses `frame.groupby(level=0,
+      axis=1).mean()` (or equivalent axis=1 groupby usage) and instead uses a pandas-version-compatible
+      approach (e.g., transpose-groupby-transpose) or a clearly-commented version-gated
+      branch.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-84
+    title: '`tests/test_viz_adapters_paths.py` includes a test that constructs a DataFrame
+      with duplicated top-level column labels, calls `_normalize_nav_paths` (directly
+      or via `make_paths`), and asserts that duplicated columns are collapsed by mean
+      aggregation with deterministic expected values.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-85
+    title: 'The terminal returns helper (`trend_analysis/viz/<terminal_returns_helper>.py`)
+      validates `lookback_periods` such that: empty list, non-integers, or non-positive
+      integers do not raise an uncaught `ValueError`; instead the helper either (a)
+      filters invalid entries and proceeds if at least one valid lookback remains,
+      or (b) raises a single documented, controlled exception type used by the app
+      (e.g., `ValueError` with a specific message or a custom exception).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-86
+    title: "`tests/test_terminal_returns_helper.py` exists and includes at least three\
+      \ test cases covering invalid `lookback_periods` inputs (empty list, non-positive\
+      \ values, non-integers) and asserts the helper\u2019s deterministic outcome\
+      \ for each case (returned result shape/content if filtering, or exception type/message\
+      \ if raising)."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-87
+    title: Update `trend_analysis/viz/charts/sharpe_ladder.py` (and the three new
+      chart modules) so all four expose the same public entrypoint name... (The agent
+      cannot make the subjective design decision of whether to use 'build_figure'
+      or 'render' as the standard entrypoint name across all modules. | Specify in
+      the issue which function name (build_figure or render) should be used as the
+      standard entrypoint, or provide decision criteria (e.g., 'use build_figure if
+      it matches existing codebase conventions').)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-88
+    title: 'Update the terminal returns helper at `trend_analysis/viz/<terminal_returns_helper>.py`
+      to validate/sanitize `lookback_periods`... (The agent cannot make the subjective
+      design decision of whether to filter invalid entries or raise a controlled exception
+      when encountering invalid lookback_periods. | Specify in the issue which error
+      handling strategy should be used: (a) filter invalid entries and proceed if
+      valid ones remain, or (b) raise a specific exception type with a defined message
+      format.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-89
+    title: Add at least one materially expensive cached data-prep helper (decorated
+      with `st.cache_data`) inside each chart module... (The agent cannot make subjective
+      judgments about what constitutes 'materially expensive' computation without
+      specific criteria (e.g., time complexity, data size thresholds). | Define objective
+      criteria for 'materially expensive' (e.g., 'operations on DataFrames with >1000
+      rows', 'computations involving groupby/pivot operations', or 'any function taking
+      >100ms in profiling').)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
