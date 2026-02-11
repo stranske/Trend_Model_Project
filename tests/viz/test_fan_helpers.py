@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from trend_analysis.viz.fan import _select_nav_paths
+from trend_analysis.viz.fan import _band_quantiles, _select_nav_paths
 
 
 def test_select_nav_paths_empty_frame_raises():
@@ -39,3 +39,27 @@ def test_select_nav_paths_duplicate_labels_raise():
 
     with pytest.raises(ValueError, match="duplicate path labels"):
         _select_nav_paths(frame, max_paths=None)
+
+
+def test_band_quantiles_even_passes_through():
+    result = _band_quantiles([0.1, 0.25, 0.75, 0.9])
+
+    assert result == (0.1, 0.25, 0.75, 0.9)
+
+
+def test_band_quantiles_odd_strips_median():
+    result = _band_quantiles([0.1, 0.5, 0.9])
+
+    assert result == (0.1, 0.9)
+
+
+def test_band_quantiles_odd_strips_nearest_median():
+    result = _band_quantiles([0.05, 0.25, 0.5, 0.75, 0.95])
+
+    assert result == (0.05, 0.25, 0.75, 0.95)
+
+
+def test_band_quantiles_deduplicates():
+    result = _band_quantiles([0.1, 0.1, 0.9, 0.9])
+
+    assert result == (0.1, 0.9)
