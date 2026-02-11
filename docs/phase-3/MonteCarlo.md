@@ -696,6 +696,13 @@ trend mc run --scenario hf_equity_ls_10y --n-paths 500 --jobs 4
 
 # Quick test run
 trend mc run --scenario hf_equity_ls_10y --dry-run --n-paths 10
+
+# Export MC charts from an existing bundle
+trend mc viz \
+  --bundle outputs/mc_run_1 \
+  --out outputs/mc_run_1_exports \
+  --charts fan,path_dist,risk_return \
+  --html --json --png
 ```
 
 ### Streamlit UI

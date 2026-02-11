@@ -912,3 +912,79 @@ def test_mc_viz_routes_selected_charts_and_exports_requested_formats(
     assert (plots_dir / "risk_return.png").exists()
     assert (plots_dir / "fan.png").exists()
     assert not (plots_dir / "risk_return.html").exists()
+
+
+def test_mc_viz_acceptance_command_writes_plots_artifacts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    pd.DataFrame({"path_id": [1, 2], "terminal_nav": [112.0, 98.4]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "_mc_chart_builders",
+        lambda: {
+            "fan": lambda _summary, _results, _nav: object(),
+            "path_dist": lambda _summary, _results, _nav: object(),
+            "risk_return": lambda _summary, _results, _nav: object(),
+        },
+    )
+
+    def fake_save(
+        charts: dict[str, object],
+        destination: Path | str | None = None,
+        *,
+        include_json: bool = True,
+        include_html: bool = True,
+        include_png: bool = False,
+        warnings: list[str] | None = None,
+        **_kwargs: object,
+    ) -> Path:
+        assert destination is not None
+        dest_path = Path(destination)
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(dest_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for name in charts:
+                if include_json:
+                    archive.writestr(f"{name}.json", "{}")
+                if include_html:
+                    archive.writestr(f"{name}.html", "<html></html>")
+                if include_png:
+                    archive.writestr(f"{name}.png", b"PNG")
+        if warnings is not None:
+            warnings.append("stub warning")
+        return dest_path
+
+    from trend_analysis.monte_carlo import export_bundle as mc_export_bundle
+
+    monkeypatch.setattr(mc_export_bundle, "save", fake_save)
+
+    out_dir = tmp_path / "exports"
+    rc = cli.main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(out_dir),
+            "--charts",
+            "fan,path_dist,risk_return",
+            "--html",
+            "--json",
+            "--png",
+        ]
+    )
+
+    assert rc == 0
+    plots_dir = out_dir / "plots"
+    assert plots_dir.is_dir()
+    for chart in ("fan", "path_dist", "risk_return"):
+        for ext in ("html", "json", "png"):
+            assert (plots_dir / f"{chart}.{ext}").exists()
