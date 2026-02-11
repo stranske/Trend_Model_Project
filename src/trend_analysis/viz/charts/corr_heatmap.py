@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import Any, Callable, TypeVar, cast
 
 import pandas as pd
 import plotly.express as px
@@ -10,20 +10,25 @@ import plotly.graph_objects as go
 
 from trend_analysis.viz.adapters import path_correlations
 
+st: Any | None
 try:
-    import streamlit as st
+    import streamlit
 except Exception:  # pragma: no cover - streamlit is optional outside app runtime
     st = None
+else:
+    st = streamlit
+
+F = TypeVar("F", bound=Callable[..., Any])
 
 
 def _cache_data(
     *args: object, **kwargs: object
-) -> Callable[[Callable[..., object]], Callable[..., object]]:
+) -> Callable[[F], F]:
     cache_data = getattr(st, "cache_data", None) if st is not None else None
     if callable(cache_data):
-        return cache_data(*args, **kwargs)
+        return cast(Callable[[F], F], cache_data(*args, **kwargs))
 
-    def _identity(func: Callable[..., object]) -> Callable[..., object]:
+    def _identity(func: F) -> F:
         return func
 
     return _identity
