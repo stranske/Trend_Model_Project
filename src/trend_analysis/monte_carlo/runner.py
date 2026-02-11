@@ -528,7 +528,9 @@ class MonteCarloRunner:
                 for path_id in range(total):
                     self._log_path_error(path_id, None, exc, fold_id=fold_id, fold_label=fold_label)
                     errors.append(
-                        self._error_record(path_id, None, exc, fold_id=fold_id, fold_label=fold_label)
+                        self._error_record(
+                            path_id, None, exc, fold_id=fold_id, fold_label=fold_label
+                        )
                     )
                 return evaluations, errors
         else:
