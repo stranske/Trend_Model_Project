@@ -7,10 +7,10 @@ tasks:
     title: Add a minimal package initializer at `src/trend_analysis/viz/__init__.py`
       that contains no imports of streamlit, fan, path_dist, or risk_return (keep
       it import-side-effect free).
-    status: doing
+    status: done
     started_at: '2026-02-11T05:00:13Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-11T05:00:23Z'
+    commit: ed1f3012fb4bac61d49d3d4fdd5fcf4ecbc95c1a
     notes: []
   - id: task-02
     title: Update `trend_analysis.viz.utils.quantile_bands(...)` to remove any usage
