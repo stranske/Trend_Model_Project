@@ -25,7 +25,6 @@ from trend_analysis.monte_carlo.registry import (
 )
 from trend_analysis.monte_carlo.runner import MonteCarloRunner
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
-from trend_analysis.viz.charts import corr_heatmap as corr_heatmap_chart
 from trend_analysis.viz import sharpe_ladder as sharpe_ladder_chart
 from trend_analysis.viz.adapters import (
     make_paths,
@@ -33,6 +32,7 @@ from trend_analysis.viz.adapters import (
     path_correlations,
     rolling_stats,
 )
+from trend_analysis.viz.charts import corr_heatmap as corr_heatmap_chart
 
 
 def _should_auto_render() -> bool:
