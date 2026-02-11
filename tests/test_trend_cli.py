@@ -221,6 +221,40 @@ def test_mc_viz_errors_when_results_file_is_corrupted(
     assert "Failed to read results data" in err
 
 
+def test_mc_viz_loads_optional_nav_paths_frame(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    pd.DataFrame({"path_id": [1, 2], "terminal_nav": [112.0, 98.4]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+    (bundle_dir / "nav_paths.parquet").write_text("placeholder", encoding="utf-8")
+
+    monkeypatch.setattr(
+        cli.pd, "read_parquet", lambda _path: pd.DataFrame({"path_id": [1, 2, 3]})
+    )
+
+    exit_code = main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--png",
+        ]
+    )
+
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "nav_paths_rows=3" in out
+
+
 def test_explain_parser_accepts_output_option(tmp_path: Path) -> None:
     parser = build_parser()
 

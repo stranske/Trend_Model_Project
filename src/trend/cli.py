@@ -1699,13 +1699,22 @@ def _load_mc_bundle_frames(bundle: str | os.PathLike[str]) -> tuple[pd.DataFrame
     return _load_mc_summary_frame(bundle_dir), _load_mc_results_frame(bundle_dir)
 
 
+def _load_mc_nav_paths_frame(bundle: str | os.PathLike[str]) -> pd.DataFrame | None:
+    bundle_dir = Path(bundle).expanduser().resolve()
+    nav_paths_path = bundle_dir / "nav_paths.parquet"
+    if not nav_paths_path.exists():
+        return None
+    return _read_mc_frame(nav_paths_path, label="nav_paths")
+
+
 def _run_mc_viz_command(args: argparse.Namespace) -> int:
     _validate_mc_viz_output_flags(args)
     summary_frame, results_frame = _load_mc_bundle_frames(args.bundle)
-    print(
-        "Loaded MC bundle frames: "
-        f"summary_rows={len(summary_frame)} results_rows={len(results_frame)}"
-    )
+    nav_paths_frame = _load_mc_nav_paths_frame(args.bundle)
+    counts = f"summary_rows={len(summary_frame)} results_rows={len(results_frame)}"
+    if nav_paths_frame is not None:
+        counts = f"{counts} nav_paths_rows={len(nav_paths_frame)}"
+    print(f"Loaded MC bundle frames: {counts}")
     return 0
 
 
