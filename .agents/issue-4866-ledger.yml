@@ -1,0 +1,122 @@
+version: 1
+issue: 4866
+base: phase-3
+branch: codex/issue-4866
+tasks:
+  - id: task-01
+    title: 'Define the canonical costs schema structure using epic-style `kind: regime_stochastic`
+      with `trade_cost_bps` and top-level regimes'
+    status: doing
+    started_at: '2026-02-11T01:49:17Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Document the canonical costs schema in the `docs/phase-3/MonteCarlo.md`
+      file with field descriptions and requirements
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Add a concrete YAML snippet example demonstrating the canonical costs schema
+      in `docs/phase-3/MonteCarlo.md`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Fix all existing `costs:` examples in `docs/phase-3/MonteCarlo.md` to match
+      the canonical schema end-to-end
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Create a Backward compatibility section in the `docs/phase-3/MonteCarlo.md`
+      documentation file
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Document all accepted legacy keys and aliases including `regimes:`, `dist`,
+      and numeric shorthand formats in the Backward compatibility section
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Update at least one YAML in `config/scenarios/monte_carlo/*.yml` to use
+      the canonical `costs:` schema (including `kind: regime_stochastic` and `trade_cost_bps`)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Update docstrings in `src/trend_analysis/monte_carlo/costs.py` to reference
+      the canonical schema structure
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: '**[HUMAN DECISION REQUIRED]** Label each legacy format (`regimes:`, `dist`,
+      numeric shorthand) with its deprecation status in the Backward compatibility
+      section. Specify whether each should be marked as "Supported for backward compatibility"
+      or "Deprecated" based on project maintenance policy.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'All costs YAML snippets in `docs/phase-3/MonteCarlo.md` (minimum 2 examples)
+      include the fields `kind: regime_stochastic` and `trade_cost_bps`, verified
+      by grep or manual inspection'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'At least one file under `config/scenarios/monte_carlo/` contains the canonical
+      `costs:` schema with `kind: regime_stochastic` and `trade_cost_bps` (inspect
+      file content)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: The Backward compatibility section in `docs/phase-3/MonteCarlo.md` contains
+      at least 3 legacy format entries (`regimes:`, `dist`, numeric shorthand) with
+      each entry including the format name and example usage
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: The canonical schema definition in `docs/phase-3/MonteCarlo.md` includes
+      field descriptions for `kind`, `trade_cost_bps`, and top-level `regimes` structure
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: At least one concrete YAML example in `docs/phase-3/MonteCarlo.md` demonstrates
+      the complete canonical costs schema with all required fields
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
