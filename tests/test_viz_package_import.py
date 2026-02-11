@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import importlib
+import json
+import subprocess
 import sys
 
 
@@ -31,3 +33,19 @@ def test_lazy_attribute_access_no_streamlit_import(monkeypatch):
     _ = viz.equity_curve
 
     assert "streamlit" not in sys.modules
+
+
+def test_viz_import_fresh_interpreter_does_not_load_streamlit():
+    """Importing viz in a fresh interpreter should not import Streamlit."""
+
+    cmd = [
+        sys.executable,
+        "-c",
+        (
+            "import importlib, json, sys; "
+            "importlib.import_module('trend_analysis.viz'); "
+            "print(json.dumps('streamlit' in sys.modules))"
+        ),
+    ]
+    result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    assert json.loads(result.stdout.strip()) is False

@@ -103,11 +103,16 @@ def quantile_bands(
     """Return symmetric quantile bands sorted from widest to narrowest."""
 
     q_values = sorted(validate_quantiles(quantiles))
+    if len(q_values) % 2 != 0:
+        raise ValueError("quantile pairing mismatch: odd length quantiles")
+
     bands: list[QuantileBand] = []
-    for idx, lower in enumerate(q_values):
+    half = len(q_values) // 2
+    for idx in range(half):
+        lower = q_values[idx]
         upper = q_values[-(idx + 1)]
         if lower >= upper:
-            break
+            raise ValueError("quantile pairing mismatch: lower must be < upper")
         bands.append(QuantileBand(lower=lower, upper=upper))
     return tuple(bands)
 
