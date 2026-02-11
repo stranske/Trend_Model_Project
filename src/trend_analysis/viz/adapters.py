@@ -65,7 +65,9 @@ def make_summary(
     filtered = _apply_fold_selection(results_frame, fold_selection)
 
     if pooled:
-        no_fold = filtered.drop(columns=[col for col in ("fold_id", "fold_label") if col in filtered])
+        no_fold = filtered.drop(
+            columns=[col for col in ("fold_id", "fold_label") if col in filtered]
+        )
         summary = build_summary_frame(no_fold)
     else:
         summary = build_summary_frame(filtered)
