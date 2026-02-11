@@ -1,4 +1,20 @@
-"""Cost process utilities for Monte Carlo simulations."""
+"""Cost process utilities for Monte Carlo simulations.
+
+Canonical schema:
+    costs:
+      kind: regime_stochastic
+      calm:
+        trade_cost_bps:
+          dist: lognormal
+          mean: 6
+          sigma: 0.25
+      stress:
+        trade_cost_bps:
+          dist: lognormal
+          mean: 18
+          sigma: 0.35
+        slippage_multiplier: 1.5
+"""
 
 from __future__ import annotations
 
@@ -115,7 +131,13 @@ class CostProcessOutput:
 
 
 class CostProcess:
-    """Sample per-period transaction costs conditional on regime."""
+    """Sample per-period transaction costs conditional on regime.
+
+    `from_config` accepts the canonical `kind: regime_stochastic` shape with
+    top-level regime blocks (`calm`, `stress`, etc.) containing `trade_cost_bps`.
+    Legacy aliases remain supported (`regimes`, `distribution`, `dist`, numeric
+    shorthand).
+    """
 
     def __init__(
         self,
@@ -155,12 +177,16 @@ class CostProcess:
             return None
 
         default_regime = str(config.get("default_regime") or "calm").strip() or "calm"
-        regimes_cfg = config.get("regimes")
         regimes: dict[str, RegimeCostSpec] = {}
 
+        regimes_cfg = config.get("regimes")
         if isinstance(regimes_cfg, Mapping):
             for label, spec in regimes_cfg.items():
                 regimes[str(label)] = _parse_regime_spec(spec, name=str(label))
+
+        top_level_regimes = _extract_top_level_regimes(config)
+        for label, spec in top_level_regimes.items():
+            regimes[str(label)] = _parse_regime_spec(spec, name=str(label))
 
         if not regimes:
             fallback_spec = config.get("default") or config.get("distribution") or config
@@ -264,9 +290,14 @@ def _coerce_turnover_series(turnover: pd.Series | float | None, index: pd.Index)
 
 
 def _parse_regime_spec(spec: Any, *, name: str) -> RegimeCostSpec:
+    if isinstance(spec, (int, float)) and not isinstance(spec, bool):
+        return RegimeCostSpec(
+            distribution=FixedCostDistribution(kind="fixed", value=float(spec)),
+            slippage_multiplier=1.0,
+        )
     if not isinstance(spec, Mapping):
-        raise ValueError(f"regime '{name}' spec must be a mapping")
-    dist_cfg = spec.get("distribution", spec)
+        raise ValueError(f"regime '{name}' spec must be a mapping or number")
+    dist_cfg = spec.get("trade_cost_bps", spec.get("distribution", spec))
     distribution = _parse_distribution(dist_cfg, regime=name)
     slippage = _coerce_float(
         spec.get("slippage_multiplier", 1.0), "slippage_multiplier", minimum=0.0
@@ -275,9 +306,11 @@ def _parse_regime_spec(spec: Any, *, name: str) -> RegimeCostSpec:
 
 
 def _parse_distribution(spec: Any, *, regime: str) -> CostDistribution:
+    if isinstance(spec, (int, float)) and not isinstance(spec, bool):
+        return FixedCostDistribution(kind="fixed", value=float(spec))
     if not isinstance(spec, Mapping):
-        raise ValueError(f"distribution for regime '{regime}' must be a mapping")
-    kind = str(spec.get("kind") or "fixed").strip().lower()
+        raise ValueError(f"distribution for regime '{regime}' must be a mapping or number")
+    kind = str(spec.get("kind") or spec.get("dist") or "fixed").strip().lower()
     clip_min = _coerce_optional_float(spec.get("clip_min"), "clip_min")
     clip_max = _coerce_optional_float(spec.get("clip_max"), "clip_max")
 
@@ -308,3 +341,25 @@ def _parse_distribution(spec: Any, *, regime: str) -> CostDistribution:
         )
 
     raise ValueError(f"Unsupported distribution kind '{kind}' for regime '{regime}'")
+
+
+def _extract_top_level_regimes(config: Mapping[str, Any]) -> dict[str, Any]:
+    reserved = {
+        "kind",
+        "enabled",
+        "default_regime",
+        "allow_unknown",
+        "regimes",
+        "default",
+        "distribution",
+    }
+    top_level: dict[str, Any] = {}
+    for key, value in config.items():
+        label = str(key).strip()
+        if not label or label in reserved:
+            continue
+        if isinstance(value, Mapping) and (
+            "trade_cost_bps" in value or "distribution" in value or "slippage_multiplier" in value
+        ):
+            top_level[label] = value
+    return top_level

@@ -13,6 +13,21 @@ monte_carlo:
   seed: 12345
   jobs: 1
 
+costs:
+  kind: regime_stochastic
+  default_regime: calm
+  calm:
+    trade_cost_bps:
+      dist: lognormal
+      mean: 6
+      sigma: 0.25
+  stress:
+    trade_cost_bps:
+      dist: lognormal
+      mean: 18
+      sigma: 0.35
+    slippage_multiplier: 1.5
+
 strategy_set:
   curated:
     - name: Rank_12_Equal_TightTurnover

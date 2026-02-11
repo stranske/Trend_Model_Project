@@ -302,11 +302,18 @@ Cash Earns = Risk-Free Rate (configurable source)
 
 ### Stochastic Transaction Costs
 
-Costs vary by regime and optionally by turnover/volatility:
+Canonical schema (required):
+
+- `kind`: Must be `regime_stochastic`.
+- `trade_cost_bps`: Required under each regime; defines the basis-point cost distribution.
+- Top-level `regimes` structure: regime names (for example `calm`, `stress`) are top-level keys under `costs`, and each regime must include `trade_cost_bps`.
+
+Concrete canonical example:
 
 ```yaml
 costs:
   kind: regime_stochastic
+  default_regime: calm
   calm:
     trade_cost_bps:
       dist: lognormal
@@ -324,6 +331,45 @@ costs:
 - Expected cost in basis points
 - Optional slippage multiplier
 - Applied to portfolio turnover
+
+### Backward Compatibility
+
+Accepted legacy formats and aliases:
+
+- `regimes:` mapping format
+```yaml
+costs:
+  default_regime: calm
+  regimes:
+    calm:
+      distribution:
+        kind: fixed
+        value: 6
+    stress:
+      distribution:
+        kind: fixed
+        value: 18
+      slippage_multiplier: 1.5
+```
+
+- `dist` alias for distribution kind
+```yaml
+costs:
+  regimes:
+    calm:
+      trade_cost_bps:
+        dist: normal
+        mean: 6
+        std: 1.5
+```
+
+- Numeric shorthand (fixed cost in bps)
+```yaml
+costs:
+  regimes:
+    calm: 6
+    stress: 18
+```
 
 ### Turnover Constraints Under MC
 

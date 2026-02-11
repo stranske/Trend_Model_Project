@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import importlib
 import sys
+import zipfile
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Callable
@@ -58,6 +60,7 @@ class DummyStreamlit:
         self.slider_returns: list[int] = []
         self.text_input_returns: list[str] = []
         self.downloads: list[dict[str, Any]] = []
+        self.plotly_calls: list[dict[str, Any]] = []
         self.dataframes: list[pd.DataFrame] = []
         self.error_messages: list[str] = []
         self.warning_messages: list[str] = []
@@ -99,6 +102,9 @@ class DummyStreamlit:
 
     def altair_chart(self, *_args: Any, **_kwargs: Any) -> None:
         return None
+
+    def plotly_chart(self, *_args: Any, **kwargs: Any) -> None:
+        self.plotly_calls.append(dict(kwargs))
 
     def multiselect(self, label: str, options: list[str], **_kwargs: Any) -> list[str]:
         self.multiselect_calls.append((label, options))
@@ -393,6 +399,8 @@ def test_run_button_flow_with_progress(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.jobs == 4
     assert captured["jobs"] == 4
     assert stub.progress_calls
+    assert len(stub.plotly_calls) >= 3
+    assert all(call.get("use_container_width") is True for call in stub.plotly_calls)
     assert stub.dataframes
 
     columns = list(stub.dataframes[0].columns)
@@ -555,6 +563,145 @@ def test_download_link_generation(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "text/csv" in mimes
     assert "application/x-parquet" in mimes
     assert "application/zip" in mimes
+
+    csv_entry = next(entry for entry in stub.downloads if entry.get("mime") == "text/csv")
+    assert isinstance(csv_entry.get("data"), str)
+    assert "Strategy" in csv_entry.get("data")
+
+    parquet_entry = next(
+        entry for entry in stub.downloads if entry.get("mime") == "application/x-parquet"
+    )
+    parquet_data = parquet_entry.get("data")
+    assert hasattr(parquet_data, "getvalue")
+    parquet_bytes = parquet_data.getvalue()
+    assert parquet_bytes[:4] == b"PAR1"
+
+    zip_entry = next(entry for entry in stub.downloads if entry.get("mime") == "application/zip")
+    zip_data = zip_entry.get("data")
+    assert hasattr(zip_data, "getvalue")
+    if hasattr(zip_data, "seek"):
+        zip_data.seek(0)
+    with zipfile.ZipFile(zip_data) as bundle:
+        assert set(bundle.namelist()) == {"summary.csv", "representative_paths.parquet"}
+        summary_text = bundle.read("summary.csv").decode("utf-8")
+        assert "Strategy" in summary_text
+
+
+def test_download_payload_file_names_use_timestamp(monkeypatch: pytest.MonkeyPatch) -> None:
+    page, _stub = _load_page(monkeypatch)
+
+    from datetime import datetime as real_datetime
+
+    class _FixedDatetime:
+        @classmethod
+        def now(cls) -> real_datetime:
+            return real_datetime(2024, 1, 2, 3, 4, 5)
+
+    monkeypatch.setattr(page, "datetime", _FixedDatetime)
+
+    summary_table = pd.DataFrame(
+        {
+            "Strategy": ["A"],
+            "Sharpe (median)": [1.1],
+            "Sharpe (5th)": [0.5],
+            "Max DD (median)": [-0.2],
+            "Max DD (5th)": [-0.3],
+            "Terminal Wealth": [120.0],
+        }
+    )
+    filtered_results = _sample_results().results_frame
+
+    payloads = page._build_download_payloads(summary_table, filtered_results)
+
+    filenames = {payload["file_name"] for payload in payloads}
+    assert filenames == {
+        "mc_summary_20240102_030405.csv",
+        "mc_representative_paths_20240102_030405.parquet",
+        "mc_bundle_20240102_030405.zip",
+    }
+
+
+def test_build_download_payloads_csv_content(monkeypatch: pytest.MonkeyPatch) -> None:
+    page, _stub = _load_page(monkeypatch)
+
+    summary_table = pd.DataFrame(
+        {
+            "Strategy": ["A", "B"],
+            "Sharpe (median)": [1.1, 0.9],
+        }
+    )
+    filtered_results = _sample_results().results_frame
+
+    payloads = page._build_download_payloads(summary_table, filtered_results)
+    csv_payload = next(payload for payload in payloads if payload["mime"] == "text/csv")
+
+    assert csv_payload["label"] == "Download summary CSV"
+    assert isinstance(csv_payload["data"], str)
+    assert "Strategy,Sharpe (median)" in csv_payload["data"]
+    assert "A,1.1" in csv_payload["data"]
+
+
+def test_build_download_payloads_parquet_content(monkeypatch: pytest.MonkeyPatch) -> None:
+    page, _stub = _load_page(monkeypatch)
+
+    summary_table = pd.DataFrame({"Strategy": ["A"], "Sharpe (median)": [1.1]})
+    filtered_results = _sample_results().results_frame
+
+    payloads = page._build_download_payloads(summary_table, filtered_results)
+    parquet_payload = next(
+        payload for payload in payloads if payload["mime"] == "application/x-parquet"
+    )
+    parquet_buffer = parquet_payload["data"]
+
+    assert parquet_payload["label"] == "Download representative paths (parquet)"
+    assert hasattr(parquet_buffer, "getvalue")
+    parquet_bytes = parquet_buffer.getvalue()
+    assert parquet_bytes[:4] == b"PAR1"
+    loaded = pd.read_parquet(BytesIO(parquet_bytes))
+    assert not loaded.empty
+    assert set(loaded.columns) >= {"strategy", "path", "fold", "terminal_wealth"}
+
+
+def test_build_download_payloads_zip_bundle_content(monkeypatch: pytest.MonkeyPatch) -> None:
+    page, _stub = _load_page(monkeypatch)
+
+    summary_table = pd.DataFrame({"Strategy": ["A"], "Sharpe (median)": [1.1]})
+    filtered_results = _sample_results().results_frame
+
+    payloads = page._build_download_payloads(summary_table, filtered_results)
+    zip_payload = next(payload for payload in payloads if payload["mime"] == "application/zip")
+    zip_buffer = zip_payload["data"]
+
+    assert zip_payload["label"] == "Download ZIP bundle"
+    assert hasattr(zip_buffer, "getvalue")
+    with zipfile.ZipFile(BytesIO(zip_buffer.getvalue())) as bundle:
+        assert set(bundle.namelist()) == {"summary.csv", "representative_paths.parquet"}
+        summary_text = bundle.read("summary.csv").decode("utf-8")
+        assert "Strategy,Sharpe (median)" in summary_text
+        assert bundle.read("representative_paths.parquet")[:4] == b"PAR1"
+
+
+def test_build_download_payloads_binary_buffers_are_rewound(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    page, _stub = _load_page(monkeypatch)
+
+    summary_table = pd.DataFrame({"Strategy": ["A"], "Sharpe (median)": [1.1]})
+    filtered_results = _sample_results().results_frame
+
+    payloads = page._build_download_payloads(summary_table, filtered_results)
+    parquet_payload = next(
+        payload for payload in payloads if payload["mime"] == "application/x-parquet"
+    )
+    zip_payload = next(payload for payload in payloads if payload["mime"] == "application/zip")
+
+    parquet_buffer = parquet_payload["data"]
+    zip_buffer = zip_payload["data"]
+
+    assert hasattr(parquet_buffer, "tell")
+    assert hasattr(zip_buffer, "tell")
+    assert parquet_buffer.tell() == 0
+    assert zip_buffer.tell() == 0
 
 
 def test_empty_filtered_results_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
