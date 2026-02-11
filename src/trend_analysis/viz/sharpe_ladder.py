@@ -11,6 +11,7 @@ only for preprocessing; chart rendering uses strategy + metric.
 from __future__ import annotations
 
 from typing import Any, Mapping
+from typing import Callable
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -18,11 +19,30 @@ import plotly.graph_objects as go
 from .theme import apply_theme
 from .utils import coerce_frame, ensure_non_empty
 
+try:
+    import streamlit as st
+except Exception:  # pragma: no cover - streamlit is optional outside app runtime
+    st = None
+
 REQUIRED_COLUMNS: tuple[str, ...] = ("strategy", "sharpe")
 DEFAULT_POSITIVE_COLOR = "#2a9d8f"
 DEFAULT_NEGATIVE_COLOR = "#e76f51"
 
 
+def _cache_data(
+    *args: object, **kwargs: object
+) -> Callable[[Callable[..., object]], Callable[..., object]]:
+    cache_data = getattr(st, "cache_data", None) if st is not None else None
+    if callable(cache_data):
+        return cache_data(*args, **kwargs)
+
+    def _identity(func: Callable[..., object]) -> Callable[..., object]:
+        return func
+
+    return _identity
+
+
+@_cache_data(show_spinner=False)
 def prepare_sharpe_ladder(
     summary: pd.DataFrame | Mapping[str, list[Any]],
     *,
