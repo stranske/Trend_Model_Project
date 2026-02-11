@@ -1638,8 +1638,12 @@ def _confirm_risky_patch(patch: ConfigPatch, *, no_confirm: bool) -> None:
 
 
 def _validate_mc_viz_output_flags(args: argparse.Namespace) -> None:
-    if not any((getattr(args, "html", False), getattr(args, "json", False), getattr(args, "png", False))):
-        raise TrendCLIError("The 'mc viz' command requires at least one output flag: --html, --json, or --png")
+    if not any(
+        (getattr(args, "html", False), getattr(args, "json", False), getattr(args, "png", False))
+    ):
+        raise TrendCLIError(
+            "The 'mc viz' command requires at least one output flag: --html, --json, or --png"
+        )
 
 
 def _run_mc_viz_command(args: argparse.Namespace) -> int:
