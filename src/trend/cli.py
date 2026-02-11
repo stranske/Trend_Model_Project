@@ -9,6 +9,7 @@ import subprocess
 import sys
 import time
 import uuid
+import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -1707,14 +1708,150 @@ def _load_mc_nav_paths_frame(bundle: str | os.PathLike[str]) -> pd.DataFrame | N
     return _read_mc_frame(nav_paths_path, label="nav_paths")
 
 
+def _parse_mc_chart_selection(charts_value: str) -> list[str]:
+    requested = [token.strip().lower() for token in charts_value.split(",") if token.strip()]
+    if not requested:
+        raise TrendCLIError(
+            "The 'mc viz' command requires at least one chart in --charts."
+        )
+
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for chart in requested:
+        if chart not in seen:
+            seen.add(chart)
+            ordered.append(chart)
+
+    supported = tuple(_mc_chart_builders().keys())
+    unsupported = [chart for chart in ordered if chart not in supported]
+    if unsupported:
+        supported_text = ", ".join(supported)
+        invalid_text = ", ".join(unsupported)
+        raise TrendCLIError(
+            f"Unsupported chart identifier(s): {invalid_text}. Supported charts: {supported_text}"
+        )
+    return ordered
+
+
+def _mc_nav_source_frame(
+    summary_frame: pd.DataFrame,
+    results_frame: pd.DataFrame,
+    nav_paths_frame: pd.DataFrame | None,
+) -> pd.DataFrame:
+    if nav_paths_frame is not None:
+        return nav_paths_frame
+
+    for frame in (results_frame, summary_frame):
+        numeric = frame.select_dtypes(include=[np.number]).copy()
+        numeric = numeric.dropna(how="all")
+        if not numeric.empty:
+            return numeric
+
+    raise TrendCLIError(
+        "Unable to derive path data for Monte Carlo charts. "
+        "Provide nav_paths.parquet or numeric summary/results files."
+    )
+
+
+def _build_mc_fan_chart(
+    summary_frame: pd.DataFrame,
+    results_frame: pd.DataFrame,
+    nav_paths_frame: pd.DataFrame | None,
+) -> Any:
+    from trend_analysis.viz import fan
+
+    nav_frame = _mc_nav_source_frame(summary_frame, results_frame, nav_paths_frame)
+    return fan.make(nav_frame)
+
+
+def _build_mc_path_dist_chart(
+    summary_frame: pd.DataFrame,
+    results_frame: pd.DataFrame,
+    nav_paths_frame: pd.DataFrame | None,
+) -> Any:
+    from trend_analysis.viz import path_dist
+
+    nav_frame = _mc_nav_source_frame(summary_frame, results_frame, nav_paths_frame)
+    return path_dist.make(nav_frame)
+
+
+def _build_mc_risk_return_chart(
+    summary_frame: pd.DataFrame,
+    results_frame: pd.DataFrame,
+    nav_paths_frame: pd.DataFrame | None,
+) -> Any:
+    from trend_analysis.viz import risk_return
+
+    nav_frame = _mc_nav_source_frame(summary_frame, results_frame, nav_paths_frame)
+    returns_frame = nav_frame.pct_change(fill_method=None).replace([np.inf, -np.inf], np.nan)
+    returns_frame = returns_frame.dropna(how="all")
+    if returns_frame.empty:
+        returns_frame = nav_frame.apply(pd.to_numeric, errors="coerce").dropna(how="all")
+    return risk_return.make(returns_frame)
+
+
+def _mc_chart_builders(
+) -> dict[str, Callable[[pd.DataFrame, pd.DataFrame, pd.DataFrame | None], Any]]:
+    return {
+        "fan": _build_mc_fan_chart,
+        "path_dist": _build_mc_path_dist_chart,
+        "risk_return": _build_mc_risk_return_chart,
+    }
+
+
+def _export_mc_chart_artifacts(
+    charts: Mapping[str, Any],
+    out_dir: Path,
+    *,
+    include_html: bool,
+    include_json: bool,
+    include_png: bool,
+) -> tuple[Path, list[str]]:
+    from trend_analysis.monte_carlo.export_bundle import save as export_bundle
+
+    plots_dir = out_dir.expanduser().resolve() / "plots"
+    plots_dir.mkdir(parents=True, exist_ok=True)
+    bundle_path = plots_dir / "mc_charts_bundle.zip"
+
+    warnings: list[str] = []
+    export_bundle(
+        charts,
+        destination=bundle_path,
+        include_html=include_html,
+        include_json=include_json,
+        include_png=include_png,
+        warnings=warnings,
+    )
+    with zipfile.ZipFile(bundle_path) as archive:
+        archive.extractall(plots_dir)
+    return plots_dir, warnings
+
+
 def _run_mc_viz_command(args: argparse.Namespace) -> int:
     _validate_mc_viz_output_flags(args)
     summary_frame, results_frame = _load_mc_bundle_frames(args.bundle)
     nav_paths_frame = _load_mc_nav_paths_frame(args.bundle)
+    selected_charts = _parse_mc_chart_selection(args.charts)
+    chart_builders = _mc_chart_builders()
+    generated_charts = {
+        chart_id: chart_builders[chart_id](summary_frame, results_frame, nav_paths_frame)
+        for chart_id in selected_charts
+    }
+    plots_dir, warnings = _export_mc_chart_artifacts(
+        generated_charts,
+        args.out,
+        include_html=args.html,
+        include_json=args.json,
+        include_png=args.png,
+    )
+
     counts = f"summary_rows={len(summary_frame)} results_rows={len(results_frame)}"
     if nav_paths_frame is not None:
         counts = f"{counts} nav_paths_rows={len(nav_paths_frame)}"
     print(f"Loaded MC bundle frames: {counts}")
+    print(f"Wrote MC chart artifacts to: {plots_dir}")
+    for warning in warnings:
+        print(f"Warning: {warning}", file=sys.stderr)
     return 0
 
 

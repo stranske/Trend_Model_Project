@@ -156,116 +156,116 @@ tasks:
     notes: []
   - id: task-20
     title: Implement loading of `nav_paths.parquet` from the bundle path when present.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T21:54:12Z'
+    finished_at: '2026-02-11T21:54:12Z'
     commit: ''
     notes: []
   - id: task-21
     title: Implement routing from parsed `--charts` selections to `trend_analysis.viz`
       chart builder functions and call `export_bundle` to write artifacts to the output
       directory.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T21:54:12Z'
+    finished_at: '2026-02-11T21:54:12Z'
     commit: ''
     notes: []
   - id: task-22
     title: 'Define scope for: Parse the comma-separated `--charts` argument into a
       list of chart type identifiers (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T21:54:12Z'
+    finished_at: '2026-02-11T21:54:12Z'
     commit: ''
     notes: []
   - id: task-23
     title: 'Implement focused slice for: Parse the comma-separated `--charts` argument
       into a list of chart type identifiers (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T21:54:12Z'
+    finished_at: '2026-02-11T21:54:12Z'
     commit: ''
     notes: []
   - id: task-24
     title: 'Validate focused slice for: Parse the comma-separated `--charts` argument
       into a list of chart type identifiers (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T21:54:12Z'
+    finished_at: '2026-02-11T21:54:12Z'
     commit: ''
     notes: []
   - id: task-25
     title: 'Define scope for: Create a mapping dictionary from chart type strings
       to corresponding viz builder functions (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T21:54:12Z'
+    finished_at: '2026-02-11T21:54:12Z'
     commit: ''
     notes: []
   - id: task-26
     title: 'Implement focused slice for: Create a mapping dictionary from chart type
       strings to corresponding viz builder functions (verify: confirm completion in
       repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T21:54:12Z'
+    finished_at: '2026-02-11T21:54:12Z'
     commit: ''
     notes: []
   - id: task-27
     title: 'Validate focused slice for: Create a mapping dictionary from chart type
       strings to corresponding viz builder functions (verify: confirm completion in
       repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T21:54:12Z'
+    finished_at: '2026-02-11T21:54:12Z'
     commit: ''
     notes: []
   - id: task-28
     title: 'Define scope for: Implement routing logic to invoke the appropriate viz
       builder for each selected chart type (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T21:54:12Z'
+    finished_at: '2026-02-11T21:54:12Z'
     commit: ''
     notes: []
   - id: task-29
     title: 'Implement focused slice for: Implement routing logic to invoke the appropriate
       viz builder for each selected chart type (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T21:54:12Z'
+    finished_at: '2026-02-11T21:54:12Z'
     commit: ''
     notes: []
   - id: task-30
     title: 'Validate focused slice for: Implement routing logic to invoke the appropriate
       viz builder for each selected chart type (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T21:54:12Z'
+    finished_at: '2026-02-11T21:54:12Z'
     commit: ''
     notes: []
   - id: task-31
     title: 'Call `export_bundle` function with generated charts (verify: confirm completion
       in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T21:54:12Z'
+    finished_at: '2026-02-11T21:54:12Z'
     commit: ''
     notes: []
   - id: task-32
     title: 'Call `export_bundle` function with selected output formats (verify: formatter
       passes)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T21:54:12Z'
+    finished_at: '2026-02-11T21:54:12Z'
     commit: ''
     notes: []
   - id: task-33
     title: 'Ensure output directory structure is created before writing artifacts
       (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T21:54:12Z'
+    finished_at: '2026-02-11T21:54:12Z'
     commit: ''
     notes: []
   - id: task-34
