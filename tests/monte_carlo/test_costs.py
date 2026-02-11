@@ -119,7 +119,9 @@ def test_cost_process_canonical_regime_stochastic_trade_cost_bps_dist() -> None:
     idx = pd.date_range("2024-01-31", periods=3, freq="ME")
     regimes = pd.Series(["calm", "stress", "unknown"], index=idx, dtype="string")
     turnover = pd.Series([0.10, 0.20, 0.30], index=idx)
-    out = process.sample(regimes=regimes, turnover=turnover, index=None, rng=np.random.default_rng(1))
+    out = process.sample(
+        regimes=regimes, turnover=turnover, index=None, rng=np.random.default_rng(1)
+    )
 
     assert out.cost_bps.tolist() == [6.0, 12.0, 6.0]
     assert out.slippage_multiplier.tolist() == [1.0, 1.25, 1.0]
