@@ -72,6 +72,7 @@ class DummyStreamlit:
         self.selectbox_calls: list[tuple[str, list[str]]] = []
         self.multiselect_calls: list[tuple[str, list[str]]] = []
         self.slider_calls: list[tuple[str, dict[str, Any]]] = []
+        self.tabs_calls: list[list[str]] = []
 
     def title(self, _text: str) -> None:
         return None
@@ -154,6 +155,16 @@ class DummyStreamlit:
         bar = _ProgressBar(self)
         bar.progress(value, text=text)
         return bar
+
+    def tabs(self, labels: list[str]) -> list[_Context]:
+        self.tabs_calls.append(list(labels))
+        return [_Context(self) for _ in labels]
+
+    def cache_data(self, *_args: Any, **_kwargs: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        def _decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+            return func
+
+        return _decorator
 
 
 @dataclass
@@ -399,7 +410,8 @@ def test_run_button_flow_with_progress(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.jobs == 4
     assert captured["jobs"] == 4
     assert stub.progress_calls
-    assert len(stub.plotly_calls) >= 3
+    assert len(stub.plotly_calls) >= 7
+    assert ["Core", "Diagnostics"] in stub.tabs_calls
     assert all(call.get("use_container_width") is True for call in stub.plotly_calls)
     assert stub.dataframes
 

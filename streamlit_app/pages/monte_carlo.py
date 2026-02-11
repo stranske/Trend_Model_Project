@@ -10,8 +10,11 @@ from time import monotonic
 from typing import Any, Iterable, Mapping
 
 import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
+from streamlit_app.components.data_cache import cache_key_for_frame
 from streamlit_app.components import mc_plots, mc_tables
 from streamlit_app.components.progress_eta import progress_ratio_and_remaining
 from trend_analysis.monte_carlo.aggregator import aggregate_monte_carlo_results
@@ -22,6 +25,8 @@ from trend_analysis.monte_carlo.registry import (
 )
 from trend_analysis.monte_carlo.runner import MonteCarloRunner
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
+from trend_analysis.viz import sharpe_ladder as sharpe_ladder_chart
+from trend_analysis.viz.adapters import make_paths, make_summary, path_correlations, rolling_stats
 
 
 def _should_auto_render() -> bool:
@@ -42,6 +47,42 @@ MC_LAST_VALIDATION_KEY = "mc_last_validation"
 
 class _RunCancelled(RuntimeError):
     """Raised when the user cancels a Monte Carlo run."""
+
+
+def _cache_data(*args: object, **kwargs: object):
+    cache_data = getattr(st, "cache_data", None)
+    if callable(cache_data):
+        return cache_data(*args, **kwargs)
+
+    def _identity(func):
+        return func
+
+    return _identity
+
+
+@_cache_data(show_spinner=False, hash_funcs={pd.DataFrame: cache_key_for_frame})
+def _cached_make_summary(results_frame: pd.DataFrame, fold_selection: int | str | None) -> pd.DataFrame:
+    return make_summary(results_frame, fold_selection=fold_selection)
+
+
+@_cache_data(show_spinner=False, hash_funcs={pd.DataFrame: cache_key_for_frame})
+def _cached_make_paths(nav_paths: pd.DataFrame) -> pd.DataFrame:
+    return make_paths(nav_paths)
+
+
+@_cache_data(show_spinner=False, hash_funcs={pd.DataFrame: cache_key_for_frame})
+def _cached_rolling_stats(
+    paths: pd.DataFrame,
+    *,
+    window: int = 12,
+    periods_per_year: int = 12,
+) -> pd.DataFrame:
+    return rolling_stats(paths, window=window, periods_per_year=periods_per_year)
+
+
+@_cache_data(show_spinner=False, hash_funcs={pd.DataFrame: cache_key_for_frame})
+def _cached_path_correlations(paths: pd.DataFrame, *, window: int = 60) -> pd.DataFrame:
+    return path_correlations(paths, window=window)
 
 
 def _collect_tags(entries: Iterable[ScenarioRegistryEntry]) -> list[str]:
@@ -167,6 +208,145 @@ def _extract_nav_paths(results: object, *, fold_id: int | None = None) -> pd.Dat
     return pd.DataFrame()
 
 
+def _fold_selection_for_adapters(selection: str | None) -> int | str | None:
+    if not selection or selection == "All folds":
+        return None
+    tokens = selection.split()
+    if tokens and tokens[-1].isdigit():
+        return int(tokens[-1])
+    return selection
+
+
+def _to_nav_wide(paths: pd.DataFrame) -> pd.DataFrame:
+    if paths.empty:
+        return pd.DataFrame()
+    nav = pd.to_numeric(paths["nav"], errors="coerce")
+    wide = nav.unstack("path")
+    wide.index = pd.to_datetime(wide.index, errors="coerce")
+    wide = wide[wide.index.notna()]
+    return wide.sort_index()
+
+
+def _corr_heatmap(paths: pd.DataFrame) -> go.Figure:
+    corr = _cached_path_correlations(paths, window=60)
+    if corr.empty:
+        return go.Figure()
+    fig = px.imshow(
+        corr,
+        color_continuous_scale="RdBu",
+        zmin=-1.0,
+        zmax=1.0,
+        aspect="auto",
+    )
+    fig.update_layout(height=360, title="Path Correlation Heatmap")
+    return fig
+
+
+def _rolling_panel(paths: pd.DataFrame) -> go.Figure:
+    rolling = _cached_rolling_stats(paths, window=12, periods_per_year=12)
+    if rolling.empty:
+        return go.Figure()
+
+    wide_nav = _to_nav_wide(paths).ffill()
+    if wide_nav.empty:
+        return go.Figure()
+    drawdown = wide_nav / wide_nav.cummax() - 1.0
+    roll_std = rolling["rolling_std"].unstack("path")
+    roll_sharpe = rolling["rolling_sharpe"].unstack("path")
+
+    max_paths = 6
+    selected_paths = [col for col in wide_nav.columns[:max_paths]]
+    fig = go.Figure()
+    for path_id in selected_paths:
+        path_label = f"Path {path_id}"
+        if path_id in roll_sharpe.columns:
+            fig.add_trace(
+                go.Scatter(
+                    x=roll_sharpe.index,
+                    y=roll_sharpe[path_id],
+                    mode="lines",
+                    name=f"{path_label} rolling Sharpe",
+                    legendgroup=str(path_id),
+                )
+            )
+        if path_id in roll_std.columns:
+            fig.add_trace(
+                go.Scatter(
+                    x=roll_std.index,
+                    y=roll_std[path_id],
+                    mode="lines",
+                    name=f"{path_label} rolling vol",
+                    legendgroup=str(path_id),
+                )
+            )
+        if path_id in drawdown.columns:
+            fig.add_trace(
+                go.Scatter(
+                    x=drawdown.index,
+                    y=drawdown[path_id],
+                    mode="lines",
+                    name=f"{path_label} drawdown",
+                    legendgroup=str(path_id),
+                )
+            )
+
+    fig.update_layout(
+        height=420,
+        title="Rolling Diagnostics Panel",
+        xaxis_title="Date",
+        yaxis_title="Value",
+    )
+    return fig
+
+
+def _seasonality_heatmap(paths: pd.DataFrame) -> go.Figure:
+    wide_nav = _to_nav_wide(paths).ffill()
+    if wide_nav.empty:
+        return go.Figure()
+
+    returns = wide_nav.pct_change().dropna(how="all")
+    if returns.empty:
+        return go.Figure()
+    monthly = returns.mean(axis=1)
+    frame = pd.DataFrame({"value": monthly})
+    frame["year"] = frame.index.year
+    frame["month"] = frame.index.month
+    pivot = frame.pivot_table(index="year", columns="month", values="value", aggfunc="mean")
+    if pivot.empty:
+        return go.Figure()
+    fig = px.imshow(
+        pivot.sort_index(),
+        color_continuous_scale="RdYlGn",
+        aspect="auto",
+        labels={"x": "Month", "y": "Year", "color": "Mean return"},
+    )
+    fig.update_layout(height=320, title="Monthly Seasonality Heatmap")
+    return fig
+
+
+def _render_diagnostic_charts(summary: pd.DataFrame, paths: pd.DataFrame) -> None:
+    if summary.empty:
+        st.warning("Diagnostics unavailable: summary frame is empty.")
+        return
+    if paths.empty:
+        st.warning("Diagnostics unavailable: canonical paths are empty.")
+        return
+
+    try:
+        sharpe_fig = sharpe_ladder_chart.make(summary, metric="sharpe")
+    except Exception:
+        st.warning("Sharpe ladder unavailable: summary does not include a usable 'sharpe' metric.")
+        sharpe_fig = go.Figure()
+    corr_fig = _corr_heatmap(paths)
+    rolling_fig = _rolling_panel(paths)
+    seasonality_fig = _seasonality_heatmap(paths)
+
+    st.plotly_chart(sharpe_fig, use_container_width=True)
+    st.plotly_chart(corr_fig, use_container_width=True)
+    st.plotly_chart(rolling_fig, use_container_width=True)
+    st.plotly_chart(seasonality_fig, use_container_width=True)
+
+
 def _progress_callback_factory(
     *,
     progress_bar: object,
@@ -227,24 +407,33 @@ def _render_results(
         st.warning("No results available for the selected fold.")
         return
 
+    adapter_fold_selection = _fold_selection_for_adapters(fold_selection)
+    summary = _cached_make_summary(results_frame, adapter_fold_selection)
+
     st.subheader("Summary")
     summary_table = mc_tables.render_summary_table(filtered_results)
 
-    st.subheader("Charts")
     fold_id = None
     if fold_selection:
         tokens = fold_selection.split()
         if tokens and tokens[-1].isdigit():
             fold_id = int(tokens[-1])
     nav_paths = _extract_nav_paths(results, fold_id=fold_id)
-    if nav_paths.empty:
-        st.warning("No NAV paths available for the selected fold.")
-    mc_plots.render_sharpe_histogram(filtered_results)
-    mc_plots.render_fan_chart(nav_paths)
-    mc_plots.render_path_distribution_chart(filtered_results)
-    mc_plots.render_risk_return_chart(filtered_results)
-    mc_plots.render_box_plot(filtered_results)
-    mc_plots.render_cdf_plot(filtered_results)
+    canonical_paths = _cached_make_paths(nav_paths) if not nav_paths.empty else pd.DataFrame()
+
+    st.subheader("Charts")
+    tabs = st.tabs(["Core", "Diagnostics"])
+    with tabs[0]:
+        if nav_paths.empty:
+            st.warning("No NAV paths available for the selected fold.")
+        mc_plots.render_sharpe_histogram(filtered_results)
+        mc_plots.render_fan_chart(nav_paths)
+        mc_plots.render_path_distribution_chart(filtered_results)
+        mc_plots.render_risk_return_chart(filtered_results)
+        mc_plots.render_box_plot(filtered_results)
+        mc_plots.render_cdf_plot(filtered_results)
+    with tabs[1]:
+        _render_diagnostic_charts(summary, canonical_paths)
 
     st.subheader("Downloads")
     for payload in _build_download_payloads(summary_table, filtered_results):
