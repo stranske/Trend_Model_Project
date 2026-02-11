@@ -7,7 +7,7 @@ import zipfile
 from datetime import datetime
 from io import BytesIO
 from time import monotonic
-from typing import Iterable, Mapping
+from typing import Any, Iterable, Mapping
 
 import pandas as pd
 import streamlit as st
@@ -241,40 +241,58 @@ def _render_results(
         st.warning("No NAV paths available for the selected fold.")
     mc_plots.render_sharpe_histogram(filtered_results)
     mc_plots.render_fan_chart(nav_paths)
+    mc_plots.render_path_distribution_chart(filtered_results)
+    mc_plots.render_risk_return_chart(filtered_results)
     mc_plots.render_box_plot(filtered_results)
     mc_plots.render_cdf_plot(filtered_results)
 
     st.subheader("Downloads")
-    summary_csv = summary_table.to_csv(index=False)
-    st.download_button(
-        label="Download summary CSV",
-        data=summary_csv,
-        file_name=f"mc_summary_{datetime.now():%Y%m%d_%H%M%S}.csv",
-        mime="text/csv",
-    )
+    for payload in _build_download_payloads(summary_table, filtered_results):
+        st.download_button(**payload)
 
+
+def _build_download_payloads(
+    summary_table: pd.DataFrame,
+    filtered_results: pd.DataFrame,
+) -> list[dict[str, Any]]:
+    """Return download button payloads for CSV, Parquet, and ZIP bundles."""
+
+    summary_csv = summary_table.to_csv(index=False)
     path_frame = aggregate_monte_carlo_results(filtered_results).path_frame
+
     parquet_buffer = BytesIO()
     path_frame.to_parquet(parquet_buffer, index=False)
+    parquet_bytes = parquet_buffer.getvalue()
     parquet_buffer.seek(0)
-    st.download_button(
-        label="Download representative paths (parquet)",
-        data=parquet_buffer,
-        file_name=f"mc_representative_paths_{datetime.now():%Y%m%d_%H%M%S}.parquet",
-        mime="application/x-parquet",
-    )
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     zip_buffer = BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
         bundle.writestr("summary.csv", summary_csv)
-        bundle.writestr("representative_paths.parquet", parquet_buffer.getvalue())
+        bundle.writestr("representative_paths.parquet", parquet_bytes)
     zip_buffer.seek(0)
-    st.download_button(
-        label="Download ZIP bundle",
-        data=zip_buffer,
-        file_name=f"mc_bundle_{datetime.now():%Y%m%d_%H%M%S}.zip",
-        mime="application/zip",
-    )
+
+    return [
+        {
+            "label": "Download summary CSV",
+            "data": summary_csv,
+            "file_name": f"mc_summary_{timestamp}.csv",
+            "mime": "text/csv",
+        },
+        {
+            "label": "Download representative paths (parquet)",
+            "data": parquet_buffer,
+            "file_name": f"mc_representative_paths_{timestamp}.parquet",
+            "mime": "application/x-parquet",
+        },
+        {
+            "label": "Download ZIP bundle",
+            "data": zip_buffer,
+            "file_name": f"mc_bundle_{timestamp}.zip",
+            "mime": "application/zip",
+        },
+    ]
 
 
 def render() -> None:

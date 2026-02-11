@@ -1,0 +1,303 @@
+version: 1
+issue: 4847
+base: phase-3
+branch: codex/issue-4847
+tasks:
+  - id: task-01
+    title: Add `plotly` to project dependencies (and optionally add `kaleido` as an
+      optional extra) in the appropriate dependency file(s).
+    status: done
+    started_at: '2026-02-10T21:39:06Z'
+    finished_at: '2026-02-10T21:39:14Z'
+    commit: 6e340fa8a729dd898e3adf468ff17e479a69524a
+    notes: []
+  - id: task-02
+    title: Update `streamlit_app/components/mc_plots.py` to replace Altair chart builders
+      with Plotly (or create `streamlit_app/components/mc_plots_plotly.py` and update
+      imports to use it).
+    status: done
+    started_at: '2026-02-10T22:25:28Z'
+    finished_at: '2026-02-10T22:25:28Z'
+    commit: 96c274c8da7a581db9866a31a799f170af93b4d3
+    notes: []
+  - id: task-03
+    title: 'Define scope for: Create or identify the target file for Plotly chart
+      implementations (either refactor mc_plots.py or create mc_plots_plotly.py) (verify:
+      confirm completion in repo)'
+    status: done
+    started_at: '2026-02-10T22:25:28Z'
+    finished_at: '2026-02-10T22:25:28Z'
+    commit: 96c274c8da7a581db9866a31a799f170af93b4d3
+    notes: []
+  - id: task-04
+    title: 'Implement focused slice for: Create or identify the target file for Plotly
+      chart implementations (either refactor mc_plots.py or create mc_plots_plotly.py)
+      (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-10T22:25:28Z'
+    finished_at: '2026-02-10T22:25:28Z'
+    commit: 96c274c8da7a581db9866a31a799f170af93b4d3
+    notes: []
+  - id: task-05
+    title: 'Validate focused slice for: Create or identify the target file for Plotly
+      chart implementations (either refactor mc_plots.py or create mc_plots_plotly.py)
+      (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-10T22:25:28Z'
+    finished_at: '2026-02-10T22:25:28Z'
+    commit: b1b72cbe6760f8251e78444d5a2ec9fb88e3833f
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow".'
+  - id: task-06
+    title: 'Define scope for: Implement the fan chart as a quantile-band Plotly chart
+      with shaded regions between quantiles (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-07
+    title: 'Implement focused slice for: Implement the fan chart as a quantile-band
+      Plotly chart with shaded regions between quantiles (verify: confirm completion
+      in repo)'
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-08
+    title: 'Validate focused slice for: Implement the fan chart as a quantile-band
+      Plotly chart with shaded regions between quantiles (verify: confirm completion
+      in repo)'
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-09
+    title: 'Implement the path distribution chart using Plotly (verify: confirm completion
+      in repo)'
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-10
+    title: 'Implement the risk-return chart using Plotly when inputs exist (verify:
+      confirm completion in repo)'
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-11
+    title: 'Define scope for: Update import statements in the MC page to reference
+      the new Plotly chart functions (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-12
+    title: 'Implement focused slice for: Update import statements in the MC page to
+      reference the new Plotly chart functions (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-13
+    title: 'Validate focused slice for: Update import statements in the MC page to
+      reference the new Plotly chart functions (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-14
+    title: Implement the fan chart as a Plotly quantile-band chart (e.g., shaded bands
+      between quantiles) rather than plotting ~200 individual path lines.
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-15
+    title: Update the MC page rendering code to use `st.plotly_chart(fig, use_container_width=True)`
+      for all MC charts.
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-16
+    title: Add/Update empty-state handling in the MC plotting code to emit clear `st.warning(...)`
+      text when required columns are missing (and avoid raising exceptions).
+    status: done
+    started_at: '2026-02-10T22:38:52Z'
+    finished_at: '2026-02-10T22:38:52Z'
+    commit: 17c9db750bfc2dbc837fdf2e38f0b15fa128c3b8
+    notes:
+      - 'Validated warning behavior in tests/streamlit/test_mc_plots.py.'
+  - id: task-17
+    title: Fix/Update any MC-page code paths impacted by the refactor so existing
+      downloads (CSV/Parquet/ZIP) remain functional.
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-18
+    title: 'Define scope for: Identify all download-related code paths in the MC page
+      that may be affected by the chart refactor (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-19
+    title: 'Implement focused slice for: Identify all download-related code paths
+      in the MC page that may be affected by the chart refactor (verify: confirm completion
+      in repo)'
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-20
+    title: 'Validate focused slice for: Identify all download-related code paths in
+      the MC page that may be affected by the chart refactor (verify: confirm completion
+      in repo)'
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-21
+    title: 'Define scope for: Test CSV download functionality after the Plotly migration
+      to ensure it remains operational (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-22
+    title: 'Implement focused slice for: Test CSV download functionality after the
+      Plotly migration to ensure it remains operational (verify: confirm completion
+      in repo)'
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-23
+    title: 'Validate focused slice for: Test CSV download functionality after the
+      Plotly migration to ensure it remains operational (verify: confirm completion
+      in repo)'
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-24
+    title: 'Define scope for: Test Parquet download functionality after the Plotly
+      migration to ensure it remains operational (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-25
+    title: 'Implement focused slice for: Test Parquet download functionality after
+      the Plotly migration to ensure it remains operational (verify: confirm completion
+      in repo)'
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-26
+    title: 'Validate focused slice for: Test Parquet download functionality after
+      the Plotly migration to ensure it remains operational (verify: confirm completion
+      in repo)'
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-27
+    title: 'Define scope for: Test ZIP download functionality after the Plotly migration
+      to ensure it remains operational (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-28
+    title: 'Implement focused slice for: Test ZIP download functionality after the
+      Plotly migration to ensure it remains operational (verify: confirm completion
+      in repo)'
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-29
+    title: 'Validate focused slice for: Test ZIP download functionality after the
+      Plotly migration to ensure it remains operational (verify: confirm completion
+      in repo)'
+    status: done
+    started_at: '2026-02-10T22:48:35Z'
+    finished_at: '2026-02-10T22:48:35Z'
+    commit: 01d16637970b1ffdd3fc0636d8b52c612e0e702b
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py -m "not slow" and pytest tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-30
+    title: The MC page renders Plotly charts without errors when running the Streamlit
+      app.
+    status: done
+    started_at: '2026-02-10T23:00:12Z'
+    finished_at: '2026-02-10T23:00:12Z'
+    commit: 6f6a2cd8267eda1febd586b5c5a622a5567fb71c
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-31
+    title: The fan chart is quantile-band based (shaded quantile region(s)) and does
+      not render as hundreds of individual path lines.
+    status: done
+    started_at: '2026-02-10T23:00:12Z'
+    finished_at: '2026-02-10T23:00:12Z'
+    commit: 6f6a2cd8267eda1febd586b5c5a622a5567fb71c
+    notes:
+      - 'Validated via pytest tests/streamlit/test_mc_plots.py tests/streamlit/test_mc_page.py -m "not slow".'
+  - id: task-32
+    title: CI passes.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes:
+      - 'Local validation passed: pytest tests/streamlit/test_mc_page.py tests/streamlit/test_mc_plots.py -m "not slow".'
+      - 'Additional local validation passed: pytest tests/streamlit/test_mc_plots.py tests/streamlit/test_mc_page.py -m "not slow" (25 passed).'
