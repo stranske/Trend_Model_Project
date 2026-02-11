@@ -1244,24 +1244,32 @@ class MonteCarloRunner:
         """Return whether CASH should be injected into simulated returns."""
         return bool(metrics_settings.get("rf_override_enabled", False))
 
+    def _base_metrics_settings(self) -> Mapping[str, Any]:
+        """Return raw metrics settings from base config for gate evaluation."""
+        if isinstance(self._base_config, Mapping):
+            metrics_settings = self._base_config.get("metrics")
+            if isinstance(metrics_settings, Mapping):
+                return metrics_settings
+        return {}
+
     def _apply_cash_handling(self, returns: pd.DataFrame) -> pd.DataFrame:
         existing_cash = any(str(col).upper() == "CASH" for col in returns.columns)
         if existing_cash:
             return returns
         if returns.empty:
             return returns
-        try:
-            config = Config(**self._base_config)
-        except Exception:
-            self._warn_cash_once("CASH injection skipped: failed to parse base config")
-            return returns
-        metrics_settings = config.metrics or {}
+        metrics_settings = self._base_metrics_settings()
         inject_cash = self._should_inject_cash(metrics_settings)
         if not inject_cash:
             self._warn_cash_once(
                 "CASH injection skipped: gate=false (metrics.rf_override_enabled=%s)",
                 bool(metrics_settings.get("rf_override_enabled", False)),
             )
+            return returns
+        try:
+            config = Config(**self._base_config)
+        except Exception:
+            self._warn_cash_once("CASH injection skipped: failed to parse base config")
             return returns
         try:
             resolution = resolve_risk_free_source(returns, config)

@@ -1839,7 +1839,9 @@ def test_apply_cash_handling_returns_unchanged_when_legacy_lowercase_cash_presen
 def test_apply_cash_handling_skips_when_base_config_invalid(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    runner = MonteCarloRunner(_scenario("two_layer"), base_config=_base_config())
+    cfg = _base_config()
+    cfg["metrics"] = {"registry": ["sharpe_ratio"], "rf_override_enabled": True}
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
 
     class _BrokenConfig:
         def __init__(self, **_kwargs: Any) -> None:
@@ -1850,6 +1852,26 @@ def test_apply_cash_handling_skips_when_base_config_invalid(
     injected = runner._apply_cash_handling(_returns_without_rf())
 
     assert "CASH" not in injected.columns
+
+
+def test_apply_cash_handling_skips_without_parsing_config_when_override_gate_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=_base_config())
+
+    class _BrokenConfig:
+        def __init__(self, **_kwargs: Any) -> None:
+            raise ValueError("bad config")
+
+    monkeypatch.setattr(runner_module, "Config", _BrokenConfig)
+
+    with caplog.at_level(logging.WARNING):
+        injected = runner._apply_cash_handling(_returns_without_rf())
+
+    assert "CASH" not in injected.columns
+    assert "gate=false" in caplog.text
+    assert "failed to parse base config" not in caplog.text
 
 
 def test_apply_cash_handling_skips_when_rf_resolution_raises(
