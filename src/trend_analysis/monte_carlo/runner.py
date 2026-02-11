@@ -1241,7 +1241,8 @@ class MonteCarloRunner:
         return data_settings.get("allow_risk_free_fallback") is True
 
     def _apply_cash_handling(self, returns: pd.DataFrame) -> pd.DataFrame:
-        if "CASH" in returns.columns:
+        existing_cash = any(str(col).upper() == "CASH" for col in returns.columns)
+        if existing_cash:
             return returns
         if returns.empty:
             return returns

@@ -1697,6 +1697,18 @@ def test_apply_cash_handling_returns_unchanged_when_cash_already_present() -> No
     pd.testing.assert_frame_equal(injected, returns)
 
 
+def test_apply_cash_handling_returns_unchanged_when_legacy_lowercase_cash_present() -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {"registry": ["sharpe_ratio"], "rf_override_enabled": True}
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+    returns = _returns_without_rf().copy()
+    returns["cash"] = 0.001
+
+    injected = runner._apply_cash_handling(returns)
+
+    pd.testing.assert_frame_equal(injected, returns)
+
+
 def test_apply_cash_handling_skips_when_base_config_invalid(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
