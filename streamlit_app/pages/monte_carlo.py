@@ -10,7 +10,6 @@ from time import monotonic
 from typing import Any, Iterable, Mapping
 
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -29,10 +28,10 @@ from trend_analysis.viz import sharpe_ladder as sharpe_ladder_chart
 from trend_analysis.viz.adapters import (
     make_paths,
     make_summary,
-    path_correlations,
-    rolling_stats,
 )
 from trend_analysis.viz.charts import corr_heatmap as corr_heatmap_chart
+from trend_analysis.viz.charts import rolling_panel as rolling_panel_chart
+from trend_analysis.viz.charts import seasonality_heatmap as seasonality_heatmap_chart
 
 
 def _should_auto_render() -> bool:
@@ -76,21 +75,6 @@ def _cached_make_summary(
 @_cache_data(show_spinner=False, hash_funcs={pd.DataFrame: cache_key_for_frame})
 def _cached_make_paths(nav_paths: pd.DataFrame) -> pd.DataFrame:
     return make_paths(nav_paths)
-
-
-@_cache_data(show_spinner=False, hash_funcs={pd.DataFrame: cache_key_for_frame})
-def _cached_rolling_stats(
-    paths: pd.DataFrame,
-    *,
-    window: int = 12,
-    periods_per_year: int = 12,
-) -> pd.DataFrame:
-    return rolling_stats(paths, window=window, periods_per_year=periods_per_year)
-
-
-@_cache_data(show_spinner=False, hash_funcs={pd.DataFrame: cache_key_for_frame})
-def _cached_path_correlations(paths: pd.DataFrame, *, window: int = 60) -> pd.DataFrame:
-    return path_correlations(paths, window=window)
 
 
 def _collect_tags(entries: Iterable[ScenarioRegistryEntry]) -> list[str]:
@@ -225,98 +209,6 @@ def _fold_selection_for_adapters(selection: str | None) -> int | str | None:
     return selection
 
 
-def _to_nav_wide(paths: pd.DataFrame) -> pd.DataFrame:
-    if paths.empty:
-        return pd.DataFrame()
-    nav = pd.to_numeric(paths["nav"], errors="coerce")
-    wide = nav.unstack("path")
-    wide.index = pd.to_datetime(wide.index, errors="coerce")
-    wide = wide[wide.index.notna()]
-    return wide.sort_index()
-
-
-def _rolling_panel(paths: pd.DataFrame) -> go.Figure:
-    rolling = _cached_rolling_stats(paths, window=12, periods_per_year=12)
-    if rolling.empty:
-        return go.Figure()
-
-    wide_nav = _to_nav_wide(paths).ffill()
-    if wide_nav.empty:
-        return go.Figure()
-    drawdown = wide_nav / wide_nav.cummax() - 1.0
-    roll_std = rolling["rolling_std"].unstack("path")
-    roll_sharpe = rolling["rolling_sharpe"].unstack("path")
-
-    max_paths = 6
-    selected_paths = [col for col in wide_nav.columns[:max_paths]]
-    fig = go.Figure()
-    for path_id in selected_paths:
-        path_label = f"Path {path_id}"
-        if path_id in roll_sharpe.columns:
-            fig.add_trace(
-                go.Scatter(
-                    x=roll_sharpe.index,
-                    y=roll_sharpe[path_id],
-                    mode="lines",
-                    name=f"{path_label} rolling Sharpe",
-                    legendgroup=str(path_id),
-                )
-            )
-        if path_id in roll_std.columns:
-            fig.add_trace(
-                go.Scatter(
-                    x=roll_std.index,
-                    y=roll_std[path_id],
-                    mode="lines",
-                    name=f"{path_label} rolling vol",
-                    legendgroup=str(path_id),
-                )
-            )
-        if path_id in drawdown.columns:
-            fig.add_trace(
-                go.Scatter(
-                    x=drawdown.index,
-                    y=drawdown[path_id],
-                    mode="lines",
-                    name=f"{path_label} drawdown",
-                    legendgroup=str(path_id),
-                )
-            )
-
-    fig.update_layout(
-        height=420,
-        title="Rolling Diagnostics Panel",
-        xaxis_title="Date",
-        yaxis_title="Value",
-    )
-    return fig
-
-
-def _seasonality_heatmap(paths: pd.DataFrame) -> go.Figure:
-    wide_nav = _to_nav_wide(paths).ffill()
-    if wide_nav.empty:
-        return go.Figure()
-
-    returns = wide_nav.pct_change().dropna(how="all")
-    if returns.empty:
-        return go.Figure()
-    monthly = returns.mean(axis=1)
-    frame = pd.DataFrame({"value": monthly})
-    frame["year"] = frame.index.year
-    frame["month"] = frame.index.month
-    pivot = frame.pivot_table(index="year", columns="month", values="value", aggfunc="mean")
-    if pivot.empty:
-        return go.Figure()
-    fig = px.imshow(
-        pivot.sort_index(),
-        color_continuous_scale="RdYlGn",
-        aspect="auto",
-        labels={"x": "Month", "y": "Year", "color": "Mean return"},
-    )
-    fig.update_layout(height=320, title="Monthly Seasonality Heatmap")
-    return fig
-
-
 def _render_diagnostic_charts(summary: pd.DataFrame, paths: pd.DataFrame) -> None:
     if summary.empty:
         st.warning("Diagnostics unavailable: summary frame is empty.")
@@ -331,8 +223,8 @@ def _render_diagnostic_charts(summary: pd.DataFrame, paths: pd.DataFrame) -> Non
         st.warning("Sharpe ladder unavailable: summary does not include a usable 'sharpe' metric.")
         sharpe_fig = go.Figure()
     corr_fig = corr_heatmap_chart.build_figure(paths, window=60)
-    rolling_fig = _rolling_panel(paths)
-    seasonality_fig = _seasonality_heatmap(paths)
+    rolling_fig = rolling_panel_chart.build_figure(paths, window=12, periods_per_year=12, max_paths=6)
+    seasonality_fig = seasonality_heatmap_chart.build_figure(paths)
 
     st.plotly_chart(sharpe_fig, use_container_width=True)
     st.plotly_chart(corr_fig, use_container_width=True)
