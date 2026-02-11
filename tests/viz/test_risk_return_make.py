@@ -5,7 +5,7 @@ import json
 import pandas as pd
 import plotly.graph_objects as go
 
-from trend_analysis.viz import risk_return
+import trend_analysis.viz.risk_return as risk_return
 
 
 def test_risk_return_make_minimal_input():
@@ -20,5 +20,5 @@ def test_risk_return_make_minimal_input():
     fig = risk_return.make(returns, periods_per_year=12.0)
 
     assert isinstance(fig, go.Figure)
-    payload = fig.to_json()
-    assert json.loads(payload)
+    payload = json.loads(fig.to_json())
+    assert isinstance(payload, dict)

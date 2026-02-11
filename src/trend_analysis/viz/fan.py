@@ -77,6 +77,16 @@ def _median_quantile(quantiles: Iterable[float]) -> float | None:
     return min(q_values, key=lambda q: abs(q - 0.5))
 
 
+def _band_quantiles(quantiles: Iterable[float]) -> tuple[float, ...]:
+    """Select quantiles usable for symmetric band pairing."""
+
+    q_values = tuple(sorted({float(q) for q in quantiles}))
+    if len(q_values) % 2 == 0:
+        return q_values
+    median_q = _median_quantile(q_values)
+    return tuple(q for q in q_values if q != median_q)
+
+
 def make(
     nav_paths: pd.DataFrame | dict[str, Sequence[float]],
     *,
@@ -89,7 +99,7 @@ def make(
 
     frame = _select_nav_paths(nav_paths, max_paths=max_paths)
     quantiles_frame = quantiles_over_columns(frame, quantiles)
-    bands = quantile_bands(quantiles)
+    bands = quantile_bands(_band_quantiles(quantiles_frame.columns))
 
     fig = go.Figure()
     x_vals = quantiles_frame.index
