@@ -10,7 +10,7 @@ only for preprocessing; chart rendering uses strategy + metric.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, ParamSpec, TypeVar, cast
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -18,10 +18,14 @@ import plotly.graph_objects as go
 from .theme import apply_theme
 from .utils import coerce_frame, ensure_non_empty
 
+st: Any
 try:
     import streamlit as st
 except Exception:  # pragma: no cover - streamlit is optional outside app runtime
     st = None
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 REQUIRED_COLUMNS: tuple[str, ...] = ("strategy", "sharpe")
 DEFAULT_POSITIVE_COLOR = "#2a9d8f"
@@ -30,12 +34,12 @@ DEFAULT_NEGATIVE_COLOR = "#e76f51"
 
 def _cache_data(
     *args: object, **kwargs: object
-) -> Callable[[Callable[..., object]], Callable[..., object]]:
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     cache_data = getattr(st, "cache_data", None) if st is not None else None
     if callable(cache_data):
-        return cache_data(*args, **kwargs)
+        return cast(Callable[[Callable[P, R]], Callable[P, R]], cache_data(*args, **kwargs))
 
-    def _identity(func: Callable[..., object]) -> Callable[..., object]:
+    def _identity(func: Callable[P, R]) -> Callable[P, R]:
         return func
 
     return _identity

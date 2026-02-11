@@ -7,17 +7,22 @@ chart components that expect predictable DataFrame schemas.
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from typing import Callable
+from typing import Any, Callable, ParamSpec, TypeGuard, TypeVar, cast
 
 import numpy as np
 import pandas as pd
 
 from trend_analysis.monte_carlo.results import build_summary_frame
 
+st: Any
 try:
     import streamlit as st
 except Exception:  # pragma: no cover - streamlit is optional outside app runtime
     st = None
+
+P = ParamSpec("P")
+R = TypeVar("R")
+_IntLike = int | np.integer[Any]
 
 SUMMARY_REQUIRED_COLUMNS: tuple[str, ...] = ("fold_id", "fold_label", "strategy", "paths")
 """Required columns for ``make_summary`` outputs."""
@@ -60,12 +65,12 @@ LOOKBACK_PERIODS_VALIDATION_MESSAGE = (
 
 def _cache_data(
     *args: object, **kwargs: object
-) -> Callable[[Callable[..., object]], Callable[..., object]]:
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     cache_data = getattr(st, "cache_data", None) if st is not None else None
     if callable(cache_data):
-        return cache_data(*args, **kwargs)
+        return cast(Callable[[Callable[P, R]], Callable[P, R]], cache_data(*args, **kwargs))
 
-    def _identity(func: Callable[..., object]) -> Callable[..., object]:
+    def _identity(func: Callable[P, R]) -> Callable[P, R]:
         return func
 
     return _identity
@@ -241,8 +246,12 @@ def _normalize_lookback_periods(
     raise ValueError(LOOKBACK_PERIODS_VALIDATION_MESSAGE)
 
 
-def _is_valid_lookback_period(value: object) -> bool:
-    return isinstance(value, (int, np.integer)) and not isinstance(value, bool) and int(value) > 0
+def _is_valid_lookback_period(value: object) -> TypeGuard[_IntLike]:
+    return (
+        isinstance(value, (int, np.integer))
+        and not isinstance(value, bool)
+        and int(value) > 0
+    )
 
 
 def rolling_stats(
