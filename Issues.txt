@@ -1,222 +1,184 @@
-1. 📈 Monte Carlo: emit nav_paths (NAV path matrix) in results metadata
-Labels: montecarlo, visualization, streamlit, enhancement
+1. Standardize Monte Carlo costs: schema + update docs/examples
 
-Why
-The Streamlit Monte Carlo page extracts a `nav_paths` DataFrame and passes it into `mc_plots.render_fan_chart`, but today that frame is often empty, which blocks fan charts and prevents reusing PAEM’s Plotly viz stack.
+## Why
 
-Scope
-- Extend `trend_analysis.monte_carlo.runner.MonteCarloRunner` to compute and attach NAV paths for each simulated path (opt-in).
-- Store outputs on `MonteCarloResults.metadata` under a stable key (`nav_paths`), and define fold-aware handling.
-- Update `streamlit_app/pages/monte_carlo.py` to select the correct NAV paths for the current fold selection.
-- Ensure schema is compatible with TMP’s existing `_nav_long_frame` logic (supports MultiIndex with `path` / `asset`).
+Monte Carlo cost configuration currently supports multiple shapes (`regimes:` mapping vs epic-style `kind: regime_stochastic` with `trade_cost_bps`). Without a canonical schema and updated documentation, scenario authors will keep guessing and configs will drift.
 
-Non-goals
-- Do not persist every intermediate series; only what’s needed for visualization and export.
-- Do not redesign the Monte Carlo engine or strategy evaluation contract.
+## Scope
 
-Tasks
-- Decide and document the canonical `nav_paths` schema:
-  - Index: datetime-like (period end dates)
-  - Values: float NAV (start at 1.0)
-  - Columns: plain path ids OR MultiIndex that includes levels named `path` and `asset` with `asset="NAV"`.
-- Implement NAV extraction in `MonteCarloRunner.run()`:
-  - After each path simulation, extract a single portfolio series (prefer existing helpers if present).
-  - Build per-path NAV and add to an accumulating DataFrame.
-  - For fold runs: store per-fold NAV paths (e.g., metadata["nav_paths_by_fold"] = {fold_id: df}).
-- Update Streamlit:
-  - Extend `_extract_nav_paths` (or wrap it) to accept fold selection and choose `nav_paths_by_fold[fold_id]` when present.
-- Export support:
-  - Extend `trend_analysis.monte_carlo.results.export_results()` (or the exporter used by the page) to write `nav_paths.parquet` when present.
-- Tests:
-  - Unit test: deterministic per-path series → nav_paths exists, non-empty, correct shape.
-  - Fold test: fold selection returns the correct per-fold nav_paths.
+Define and document the canonical `costs:` schema for Monte Carlo scenarios. Ensure all examples in `docs/phase-3/MonteCarlo.md` match the canonical format and that legacy formats are explicitly documented as supported (or deprecated).
 
-Acceptance criteria
-- Running the Streamlit Monte Carlo page yields a non-empty fan chart (no empty-frame fallback).
-- `results.metadata["nav_paths"]` exists for non-fold runs.
-- For fold runs, selecting Fold N shows the correct fold’s NAV paths.
+## Non-Goals
 
-Implementation notes
-- Streamlit calls `mc_plots.render_fan_chart(nav_paths)` and `mc_plots._nav_long_frame` supports MultiIndex columns with `path` and `asset` levels.
+- Changing the economics of the cost process (sampling math) beyond schema parsing/validation
+- Adding new cost distribution families beyond fixed/normal/lognormal
 
+## Tasks
 
-2. 🧩 Vendor PAEM Plotly viz core into TMP (theme + fan + path_dist + risk_return)
-Labels: montecarlo, visualization, plotly, enhancement
+- [ ] Decide canonical `costs:` schema (recommend: epic-style `kind: regime_stochastic` + `trade_cost_bps` + top-level regimes)
+- [ ] Update `docs/phase-3/MonteCarlo.md` to use canonical schema in all examples
+- [ ] Add a short “Backward compatibility” section documenting which legacy keys/aliases are accepted (`regimes:`, `dist`, numeric shorthand)
+- [ ] Add/adjust at least one scenario YAML example using the canonical schema
 
-Why
-PAEM already has a mature Plotly visualization library. Porting a small “core” subset into TMP lets us standardize visuals and reuse functionality across repos.
+## Acceptance Criteria
 
-Scope
-- Create `src/trend_analysis/viz/` with a curated subset of PAEM `pa_core.viz`.
-- Start with minimum set needed for MC:
-  - theme
-  - utils
-  - fan (quantile band)
-  - path_dist
-  - risk_return
-- Keep functions pure (no Streamlit imports).
+- [ ] Documentation examples for `costs:` match the canonical schema end-to-end
+- [ ] At least one scenario in `config/scenarios/monte_carlo/` uses the canonical schema and loads successfully
+- [ ] Legacy schema support is explicitly documented (supported vs deprecated)
 
-Non-goals
-- Do not port the entire PAEM viz directory in this first pass.
-- Do not add PAEM simulation internals as a dependency.
+## Implementation Notes
 
-Tasks
-- Audit PAEM dependency graph for the subset and port only required pieces.
-- Copy/adapt modules from PAEM and update imports/namespacing.
-- Add `trend_analysis.viz.__init__` exports.
-- Tests:
-  - Each `make(...)` returns `plotly.graph_objects.Figure`
-  - `fig.to_json()` succeeds
+Files to modify:
+- `docs/phase-3/MonteCarlo.md`
+- `config/scenarios/monte_carlo/*.yml`
+- (Optional) `src/trend_analysis/monte_carlo/costs.py` docstrings for schema notes
 
-Acceptance criteria
-- `import trend_analysis.viz` works without Streamlit.
-- Minimal example inputs produce figures for each ported chart.
-- CI passes.
+2. Add scenario demonstrating costs + slippage + CASH injection end-to-end
 
+## Why
 
-3. 📊 Monte Carlo Streamlit: migrate MC charts from Altair to Plotly (use vendored viz)
-Labels: montecarlo, visualization, plotly, streamlit, enhancement
+We need one “known good” scenario that exercises:
+- cost regime switching (calm vs stress)
+- slippage multipliers
+- explicit risk-free/CASH series injection in simulated returns
+so future regressions are caught quickly.
 
-Why
-TMP MC charts are currently Altair-based, including a spaghetti fan chart. Standardizing on Plotly aligns TMP with PAEM and enables export workflows.
+## Scope
 
-Scope
-- Update Streamlit MC page charts to Plotly:
-  - fan chart (quantile band, not 200 path lines)
-  - path distribution
-  - risk-return (when inputs exist)
-- Keep the rest of Streamlit app unchanged.
+Create (or update) a scenario YAML and a lightweight test that runs a small MC simulation with costs enabled and asserts expected columns/metadata are present.
 
-Non-goals
-- Do not remove Altair globally unless it becomes unused.
+## Non-Goals
 
-Tasks
-- Add dependencies:
-  - plotly (and optionally kaleido as an optional extra)
-- Refactor `streamlit_app/components/mc_plots.py`:
-  - Replace Altair builders with Plotly OR create `mc_plots_plotly.py` and switch imports.
-  - Use `st.plotly_chart(fig, use_container_width=True)`.
-- Ensure graceful empty-state behavior:
-  - clear warning text when required columns are missing.
-- Keep downloads working (CSV/Parquet/ZIP).
+- Large-scale performance benchmarking
+- New UI components in Streamlit
 
-Acceptance criteria
-- MC page renders Plotly charts without errors.
-- Fan chart is quantile-band based.
-- CI passes.
+## Tasks
+
+- [ ] Create a new scenario in `config/scenarios/monte_carlo/` that includes `costs.kind: regime_stochastic`, `trade_cost_bps`, and `slippage_multiplier`
+- [ ] Register the scenario in `config/scenarios/monte_carlo/index.yml` (with tags like `example`, `costs`)
+- [ ] Add a unit/integration-style test (small n_paths) asserting:
+  - [ ] `total_cost_drag` appears in results_frame
+  - [ ] CASH column exists in returns where risk_free_column is absent
+- [ ] Document how to run this scenario via CLI (`trend mc run ...`) in the scenario comments or docs
+
+## Acceptance Criteria
+
+- [ ] Scenario loads via registry and validates (`trend mc validate` or unit test)
+- [ ] Test passes and verifies cost + CASH behaviors
+- [ ] Scenario is discoverable by `trend mc list` and filterable by tag
+
+## Implementation Notes
+
+Files to modify:
+- `config/scenarios/monte_carlo/index.yml`
+- `config/scenarios/monte_carlo/<new_scenario>.yml`
+- `tests/monte_carlo/test_runner.py` (or a new focused test file)
+- (Optional) `docs/phase-3/MonteCarlo.md`
 
 
-4. 🧭 Add TMP→PAEM viz adapters + expand MC chart set (use more PAEM charts)
-Labels: montecarlo, visualization, plotly, streamlit, enhancement
+3. Document mixture-mode path generation + seeding contract
 
-Why
-To reuse “a substantial amount” of PAEM charts, TMP needs a stable adapter layer that converts MC outputs into the DataFrame shapes the chart functions expect.
+## Why
 
-Scope
-- Add `trend_analysis.viz.adapters` to normalize:
-  - `results_frame` → summary-like frame
-  - `nav_paths` → canonical paths frame
-- Add additional diagnostics charts (at least 4 beyond fan/path_dist).
+Mixture-mode has two legitimate execution modes:
+- shared-path bulk generation (when per-path seeds match the base SeedManager)
+- per-path generation (when seeds diverge)
+Without a documented contract, users can misinterpret determinism and performance characteristics.
 
-Non-goals
-- Do not change how MC metrics are computed; only derive/transform for visuals.
+## Scope
 
-Tasks
-- Implement adapters:
-  - `make_summary(results_frame, *, fold_selection=None) -> pd.DataFrame`
-  - `make_paths(nav_paths) -> pd.DataFrame`
-  - helpers for terminal returns, rolling stats, correlations.
-- Port additional chart modules as needed (prioritize charts that match available data):
-  - sharpe_ladder
-  - corr_heatmap
-  - rolling_panel / rolling risk
-  - seasonality_heatmap
-  - scatter_matrix (optional)
-- Streamlit integration:
-  - use `st.cache_data` for expensive derived frames.
-  - keep UI minimal (tabs or expanders, not dozens of panels).
+Write down the deterministic rules for mixture-mode path generation and add a brief note about performance tradeoffs.
 
-Acceptance criteria
-- With real `nav_paths`, MC page shows at least 4 additional Plotly diagnostics charts.
-- Adapter functions are unit tested and documented with required columns.
+## Non-Goals
 
+- Implementing new caching layers for per-path generation
+- Adding runtime flags unless necessary for correctness
 
-5. 📦 Add Plotly export bundle for MC charts (PNG/HTML/JSON) and include in downloads
-Labels: montecarlo, visualization, plotly, export, enhancement
+## Tasks
 
-Why
-PAEM’s export workflow makes sharing easy. TMP already offers a ZIP bundle; add a chart bundle to make MC outputs portable for offline review.
+- [ ] Add a “Mixture mode seeding” section to `docs/phase-3/MonteCarlo.md`
+- [ ] Document the exact condition under which bulk vs per-path generation occurs
+- [ ] Add a short troubleshooting note (“why is my mixture run slower?”)
+- [ ] (Optional) Add a debug log line when mixture chooses per-path mode
 
-Scope
-- Port a lightweight `export_bundle.save` style helper.
-- Add a Streamlit “Download charts bundle” button that includes JSON/HTML (and PNG when available).
+## Acceptance Criteria
 
-Non-goals
-- Do not require Chrome/Kaleido for Streamlit to run.
+- [ ] Documentation explains mixture mode determinism and performance at a glance
+- [ ] Users can predict whether a run will use shared-path or per-path generation from config
 
-Tasks
-- Port/adapt:
-  - export_bundle (mandatory)
-  - html_export (optional)
-  - pdf_export/pptx_export only if clearly low-risk and needed
-- Add Streamlit button:
-  - Always include JSON/HTML
-  - Try PNG; if it fails, warn and continue
-- Tests:
-  - Bundle writes JSON/HTML without Kaleido.
+## Implementation Notes
 
-Acceptance criteria
-- Downloaded ZIP includes chart JSON + HTML at minimum.
-- When Kaleido is available, PNGs are included.
+Files to modify:
+- `docs/phase-3/MonteCarlo.md`
+- (Optional) `src/trend_analysis/monte_carlo/runner.py` for debug logging
 
 
-6. 🖥️ CLI: add `trend mc viz` headless chart export from MC bundles
-Labels: montecarlo, visualization, plotly, cli, enhancement
+4. Decide whether CASH injection should be gated (rf_override_enabled vs always)
 
-Why
-A CLI exporter enables automation (scheduled runs, CI artifacts, batch scenario sweeps) and keeps Streamlit UI simpler.
+## Why
 
-Scope
-- Add a CLI subcommand that reads an MC output directory/bundle and writes chart artifacts using `trend_analysis.viz`.
+Current CASH injection behavior can be interpreted two ways:
+1) Always inject CASH when the risk_free_column is missing (simple, deterministic)
+2) Only inject when rf override is explicitly enabled (more conservative)
+We should make the intended policy explicit.
 
-Non-goals
-- No full report generator; just reproducible chart artifacts.
+## Scope
 
-Tasks
-- Add CLI command (suggested shape):
-  - `trend mc viz --bundle <path> --out <dir> --charts fan,path_dist,risk_return --html --json --png`
-- Implement loaders:
-  - read summary/results frames
-  - read `nav_paths.parquet` when present
-- Route to viz builders + export_bundle.
-- Add docs snippet with example usage.
+Decide the gating policy and implement consistent behavior + tests.
 
-Acceptance criteria
-- Running against a sample MC output directory produces a `plots/` folder with artifacts.
-- Clear non-zero exit and message when required inputs are missing.
+## Non-Goals
 
+- Changing how risk_free fallback selection works outside Monte Carlo
+- Introducing new risk-free data sources
 
-7. 🧪 Harden MC Plotly viz stack with tests + docs (contract + examples)
-Labels: montecarlo, visualization, plotly, testing, documentation
+## Tasks
 
-Why
-Cross-repo consistency only works if the data contract and rendering stack are stable and tested.
+- [ ] Decide gating behavior for CASH injection:
+  - [ ] Always inject (default), or
+  - [ ] Only inject when `metrics.rf_override_enabled` is true
+- [ ] Update `_apply_cash_handling` accordingly
+- [ ] Update/add tests for both gating modes
+- [ ] Document the decision in Monte Carlo docs
 
-Scope
-- Tests for nav_paths contract, adapters, Plotly JSON-serializability, and export behavior without Kaleido.
-- Docs: nav_paths schema + how to extend charts + how to trigger agent work post-creation.
+## Acceptance Criteria
 
-Non-goals
-- Avoid brittle image snapshot tests unless they’re easy to keep stable.
+- [ ] Behavior is consistent and covered by tests
+- [ ] Documentation clearly states when CASH is injected and what rate is used
 
-Tasks
-- Add viz smoke tests:
-  - figures create successfully
-  - `fig.to_json()` works
-- Add docs:
-  - `docs/monte_carlo/visualization.md` describing schema + extension points
-- Ensure docs are linked from somewhere obvious.
+## Implementation Notes
 
-Acceptance criteria
-- CI passes.
-- Docs exist and are easy to find.
+Files to modify:
+- `src/trend_analysis/monte_carlo/runner.py`
+- `tests/monte_carlo/test_runner.py`
+- `docs/phase-3/MonteCarlo.md`
+
+5. Allow null for optional scenario sections in registry loader
+
+## Why
+
+Some scenario authors use `strategy_set: null` (or `outputs: null`, `costs: null`) to indicate intentional absence. Today this can error depending on strict mapping coercion.
+
+## Scope
+
+Allow `null` for optional sections (`strategy_set`, `outputs`, `costs`) in scenario parsing.
+
+## Non-Goals
+
+- Allowing `null` for required sections like `monte_carlo`
+- Changing validation strictness for non-null mappings
+
+## Tasks
+
+- [ ] Update scenario parsing to treat `strategy_set: null`, `outputs: null`, `costs: null` as `None`
+- [ ] Add a unit test scenario confirming null optional sections load cleanly
+
+## Acceptance Criteria
+
+- [ ] Scenario with null optional sections loads successfully
+- [ ] Existing scenarios continue to validate as before
+
+## Implementation Notes
+
+Files to modify:
+- `src/trend_analysis/monte_carlo/registry.py`
+- `tests/monte_carlo/test_registry.py`
