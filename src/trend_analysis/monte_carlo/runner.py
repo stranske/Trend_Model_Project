@@ -1240,6 +1240,10 @@ class MonteCarloRunner:
         fallback_enabled = data_settings.get("allow_risk_free_fallback") is True
         return override_enabled or has_risk_free_column or fallback_enabled
 
+    def _should_inject_cash(self, metrics_settings: Mapping[str, Any]) -> bool:
+        """Return whether CASH should be injected into simulated returns."""
+        return bool(metrics_settings.get("rf_override_enabled", False))
+
     def _apply_cash_handling(self, returns: pd.DataFrame) -> pd.DataFrame:
         existing_cash = any(str(col).upper() == "CASH" for col in returns.columns)
         if existing_cash:
@@ -1251,21 +1255,12 @@ class MonteCarloRunner:
         except Exception:
             self._warn_cash_once("CASH injection skipped: failed to parse base config")
             return returns
-        data_settings = config.data or {}
         metrics_settings = config.metrics or {}
-        # Keep CASH injection policy explicit and centralized for backward compatibility.
-        inject_cash = self._should_resolve_risk_free(data_settings, metrics_settings)
+        inject_cash = self._should_inject_cash(metrics_settings)
         if not inject_cash:
-            rf_override_enabled = bool(metrics_settings.get("rf_override_enabled", False))
-            has_risk_free_column = bool(str(data_settings.get("risk_free_column") or "").strip())
-            fallback_enabled = data_settings.get("allow_risk_free_fallback") is True
             self._warn_cash_once(
-                "CASH injection skipped: gate=false "
-                "(metrics.rf_override_enabled=%s, data.risk_free_column_set=%s, "
-                "data.allow_risk_free_fallback=%s)",
-                rf_override_enabled,
-                has_risk_free_column,
-                fallback_enabled,
+                "CASH injection skipped: gate=false (metrics.rf_override_enabled=%s)",
+                bool(metrics_settings.get("rf_override_enabled", False)),
             )
             return returns
         try:

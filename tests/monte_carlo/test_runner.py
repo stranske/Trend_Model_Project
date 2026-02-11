@@ -1615,6 +1615,14 @@ def test_should_resolve_risk_free_treats_blank_column_as_unset() -> None:
     )
 
 
+def test_should_inject_cash_is_gated_by_override_flag() -> None:
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=_base_config())
+
+    assert runner._should_inject_cash(metrics_settings={"rf_override_enabled": True}) is True
+    assert runner._should_inject_cash(metrics_settings={"rf_override_enabled": False}) is False
+    assert runner._should_inject_cash(metrics_settings={}) is False
+
+
 def test_apply_cash_handling_injects_cash_when_override_gate_enabled() -> None:
     cfg = _base_config()
     cfg["metrics"] = {
@@ -1649,7 +1657,7 @@ def test_cash_injection_when_condition_met() -> None:
     assert "CASH" in injected.columns
 
 
-def test_apply_cash_handling_injects_cash_when_risk_free_column_is_configured() -> None:
+def test_apply_cash_handling_skips_when_override_disabled_even_with_risk_free_column() -> None:
     cfg = _base_config()
     cfg["metrics"] = {
         "registry": ["sharpe_ratio"],
@@ -1662,11 +1670,7 @@ def test_apply_cash_handling_injects_cash_when_risk_free_column_is_configured() 
 
     injected = runner._apply_cash_handling(returns)
 
-    assert "CASH" in injected.columns
-    np.testing.assert_allclose(
-        injected["CASH"].to_numpy(dtype=float, copy=False),
-        returns["RF"].to_numpy(dtype=float, copy=False),
-    )
+    assert "CASH" not in injected.columns
 
 
 def test_cash_injection_when_condition_not_met() -> None:
@@ -1714,8 +1718,6 @@ def test_apply_cash_handling_logs_gate_components_when_skipped(
     assert "CASH" not in injected.columns
     assert "gate=false" in caplog.text
     assert "metrics.rf_override_enabled=False" in caplog.text
-    assert "data.risk_free_column_set=False" in caplog.text
-    assert "data.allow_risk_free_fallback=False" in caplog.text
 
 
 def test_cash_uses_correct_risk_free_rate() -> None:
@@ -1739,7 +1741,7 @@ def test_apply_cash_handling_handles_missing_metrics_nulls_and_empty_inputs() ->
     runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
 
     injected_missing_metrics = runner._apply_cash_handling(_returns_without_rf())
-    assert "CASH" in injected_missing_metrics.columns
+    assert "CASH" not in injected_missing_metrics.columns
 
     null_returns = _returns_without_rf()
     null_returns.loc[1, "B"] = np.nan

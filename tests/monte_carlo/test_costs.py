@@ -208,16 +208,19 @@ def test_cost_regime_scenario_loads_from_registry() -> None:
     assert scenario.costs is not None
 
 
-def test_runner_injects_cash_series_when_risk_free_column_absent(monkeypatch: Any) -> None:
+def test_runner_injects_cash_series_when_override_enabled(monkeypatch: Any) -> None:
     scenario = load_scenario("cost_regime_example")
     scenario.monte_carlo.n_paths = 10
     scenario.strategy_set = {"curated": [StrategyVariant(name="StrategyA")]}
     scenario.costs = None
     captured_returns: list[pd.DataFrame] = []
 
+    base_cfg = _base_config()
+    base_cfg["metrics"]["rf_override_enabled"] = True
+
     runner = MonteCarloRunner(
         scenario,
-        base_config=_base_config(),
+        base_config=base_cfg,
         price_history=_price_history(),
     )
 
@@ -238,9 +241,8 @@ def test_runner_injects_cash_series_when_risk_free_column_absent(monkeypatch: An
         assert np.isfinite(cash_series.to_numpy(dtype=float, copy=False)).all()
 
 
-def test_inject_cash_warns_when_fallback_disabled(monkeypatch: Any, caplog: Any) -> None:
-    """When allow_risk_free_fallback is False the runner should log a warning
-    explaining why CASH injection was skipped."""
+def test_inject_cash_warns_when_override_disabled(monkeypatch: Any, caplog: Any) -> None:
+    """When rf_override_enabled is False the runner should log a skip warning."""
     scenario = load_scenario("cost_regime_example")
     scenario.monte_carlo.n_paths = 10
     scenario.strategy_set = {"curated": [StrategyVariant(name="StrategyA")]}
@@ -250,7 +252,7 @@ def test_inject_cash_warns_when_fallback_disabled(monkeypatch: Any, caplog: Any)
         scenario.raw.pop("data", None)
 
     base_cfg = _base_config()
-    base_cfg["data"]["allow_risk_free_fallback"] = False
+    base_cfg["metrics"]["rf_override_enabled"] = False
 
     runner = MonteCarloRunner(
         scenario,
@@ -272,15 +274,15 @@ def test_inject_cash_warns_when_fallback_disabled(monkeypatch: Any, caplog: Any)
 
     assert captured_returns
     for returns in captured_returns:
-        assert (
-            "CASH" not in returns.columns
-        ), "CASH should not be injected when allow_risk_free_fallback is False"
+        assert "CASH" not in returns.columns, (
+            "CASH should not be injected when metrics.rf_override_enabled is False"
+        )
 
     warning_messages = [r.message for r in caplog.records if r.levelno >= logging.WARNING]
-    fallback_warnings = [m for m in warning_messages if "allow_risk_free_fallback" in m]
+    fallback_warnings = [m for m in warning_messages if "metrics.rf_override_enabled" in m]
     assert (
         fallback_warnings
-    ), f"Expected a warning about allow_risk_free_fallback, got: {warning_messages}"
+    ), f"Expected a warning about metrics.rf_override_enabled, got: {warning_messages}"
     # P2 fix: The warning should be emitted only once, not per path.
     assert (
         len(fallback_warnings) == 1
