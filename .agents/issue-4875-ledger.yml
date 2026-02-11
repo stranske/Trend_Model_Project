@@ -1,0 +1,112 @@
+version: 1
+issue: 4875
+base: phase-3
+branch: codex/issue-4875
+tasks:
+  - id: task-01
+    title: Add test function `test_lazy_attribute_access_no_streamlit_import` in `tests/test_viz_package_import.py`
+      that uses `importlib.import_module` to import `trend_analysis.viz`, accesses
+      `trend_analysis.viz.equity_curve` to trigger `__getattr__`, and asserts `"streamlit"
+      not in sys.modules`
+    status: doing
+    started_at: '2026-02-11T04:59:11Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Add test function `test_validate_quantiles_empty_input` in `tests/viz/test_utils_quantile_bands.py`
+      that calls `validate_quantiles([])` and asserts `pytest.raises(ValueError)`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Add test function `test_validate_quantiles_negative_value` in `tests/viz/test_utils_quantile_bands.py`
+      that calls `validate_quantiles([-0.1])` and asserts `pytest.raises(ValueError)`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Add test function `test_validate_quantiles_value_above_one` in `tests/viz/test_utils_quantile_bands.py`
+      that calls `validate_quantiles([1.5])` and asserts `pytest.raises(ValueError)`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Add test function `test_quantile_bands_duplicate_values` in `tests/viz/test_utils_quantile_bands.py`
+      that calls `quantile_bands([0.5, 0.5])` and asserts `len(result) == 0`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Add test function `test_quantile_bands_single_element` in `tests/viz/test_utils_quantile_bands.py`
+      that calls `quantile_bands([0.5])` and asserts `len(result) == 0`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: File `tests/test_viz_package_import.py` contains test function `test_lazy_attribute_access_no_streamlit_import`
+      that accesses `trend_analysis.viz.equity_curve` and asserts `"streamlit" not
+      in sys.modules`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: File `tests/viz/test_utils_quantile_bands.py` contains test function `test_validate_quantiles_empty_input`
+      that asserts `pytest.raises(ValueError)` when calling `validate_quantiles([])`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: File `tests/viz/test_utils_quantile_bands.py` contains test function `test_validate_quantiles_negative_value`
+      that asserts `pytest.raises(ValueError)` when calling `validate_quantiles([-0.1])`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: File `tests/viz/test_utils_quantile_bands.py` contains test function `test_validate_quantiles_value_above_one`
+      that asserts `pytest.raises(ValueError)` when calling `validate_quantiles([1.5])`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: File `tests/viz/test_utils_quantile_bands.py` contains test function `test_quantile_bands_duplicate_values`
+      that asserts `len(quantile_bands([0.5, 0.5])) == 0`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: File `tests/viz/test_utils_quantile_bands.py` contains test function `test_quantile_bands_single_element`
+      that asserts `len(quantile_bands([0.5])) == 0`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Command `pytest tests/test_viz_package_import.py tests/viz/test_utils_quantile_bands.py
+      -v` exits with code 0
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
