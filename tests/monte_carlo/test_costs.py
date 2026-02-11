@@ -103,6 +103,42 @@ def test_cost_process_lognormal_stress_higher_mean_and_variance() -> None:
     assert stress.var() > calm.var()
 
 
+def test_cost_process_canonical_regime_stochastic_trade_cost_bps_dist() -> None:
+    config = {
+        "kind": "regime_stochastic",
+        "default_regime": "calm",
+        "calm": {"trade_cost_bps": {"dist": "fixed", "value": 6.0}},
+        "stress": {
+            "trade_cost_bps": {"dist": "fixed", "value": 12.0},
+            "slippage_multiplier": 1.25,
+        },
+    }
+    process = CostProcess.from_config(config)
+    assert process is not None
+
+    idx = pd.date_range("2024-01-31", periods=3, freq="ME")
+    regimes = pd.Series(["calm", "stress", "unknown"], index=idx, dtype="string")
+    turnover = pd.Series([0.10, 0.20, 0.30], index=idx)
+    out = process.sample(regimes=regimes, turnover=turnover, index=None, rng=np.random.default_rng(1))
+
+    assert out.cost_bps.tolist() == [6.0, 12.0, 6.0]
+    assert out.slippage_multiplier.tolist() == [1.0, 1.25, 1.0]
+
+
+def test_cost_process_accepts_legacy_numeric_shorthand() -> None:
+    process = CostProcess.from_config({"regimes": {"calm": 5, "stress": 11.5}})
+    assert process is not None
+
+    idx = pd.date_range("2024-01-31", periods=2, freq="ME")
+    out = process.sample(
+        regimes=pd.Series(["calm", "stress"], index=idx, dtype="string"),
+        turnover=pd.Series([0.1, 0.2], index=idx),
+        index=None,
+        rng=np.random.default_rng(2),
+    )
+    assert out.cost_bps.tolist() == [5.0, 11.5]
+
+
 def test_runner_integration_records_costs(monkeypatch: Any) -> None:
     costs_cfg = {
         "default_regime": "calm",
