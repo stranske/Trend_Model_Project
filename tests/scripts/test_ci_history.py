@@ -272,17 +272,21 @@ def test_main_skips_classification_cleanup_when_absent(
 
 
 def test_main_missing_junit_reports_error(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     monkeypatch.setenv("JUNIT_PATH", "nonexistent.xml")
+    history_path = tmp_path / "history.ndjson"
+    monkeypatch.setenv("HISTORY_PATH", str(history_path))
     monkeypatch.delenv("METRICS_PATH", raising=False)
-    monkeypatch.delenv("HISTORY_PATH", raising=False)
     monkeypatch.delenv("CLASSIFICATION_OUT", raising=False)
     monkeypatch.delenv("ENABLE_CLASSIFICATION", raising=False)
 
     exit_code = ci_history.main()
 
-    assert exit_code == 1
+    assert exit_code == 0
+    record = json.loads(history_path.read_text(encoding="utf-8").strip())
+    assert record["status"] == "skipped"
+    assert record["reason"] == "missing-junit-report"
     err = capsys.readouterr().err
     assert "JUnit report not found" in err
 

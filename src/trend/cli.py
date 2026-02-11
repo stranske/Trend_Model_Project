@@ -9,6 +9,7 @@ import subprocess
 import sys
 import time
 import uuid
+import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -476,6 +477,41 @@ def build_parser(
         "--config-coverage",
         action="store_true",
         help="Report which config keys were validated vs read",
+    )
+
+    mc_p = sub.add_parser("mc", help="Monte Carlo visualization workflows")
+    mc_sub = mc_p.add_subparsers(dest="mc_command", required=True)
+    mc_viz_p = mc_sub.add_parser("viz", help="Render Monte Carlo chart artifacts from a bundle")
+    mc_viz_p.add_argument(
+        "--bundle",
+        required=True,
+        help="Path to Monte Carlo bundle directory containing summary/results files",
+    )
+    mc_viz_p.add_argument(
+        "--out",
+        type=Path,
+        required=True,
+        help="Output directory for generated chart artifacts",
+    )
+    mc_viz_p.add_argument(
+        "--charts",
+        default="fan,path_dist,risk_return",
+        help="Comma-separated chart identifiers (fan,path_dist,risk_return)",
+    )
+    mc_viz_p.add_argument(
+        "--html",
+        action="store_true",
+        help="Export chart artifacts as HTML",
+    )
+    mc_viz_p.add_argument(
+        "--json",
+        action="store_true",
+        help="Export chart artifacts as JSON",
+    )
+    mc_viz_p.add_argument(
+        "--png",
+        action="store_true",
+        help="Export chart artifacts as PNG",
     )
 
     sub.add_parser("app", help="Launch the Streamlit application")
@@ -1603,6 +1639,242 @@ def _confirm_risky_patch(patch: ConfigPatch, *, no_confirm: bool) -> None:
         raise TrendCLIError("Update cancelled by user.")
 
 
+def _validate_mc_viz_output_flags(args: argparse.Namespace) -> None:
+    if not any(
+        (getattr(args, "html", False), getattr(args, "json", False), getattr(args, "png", False))
+    ):
+        raise TrendCLIError(
+            "The 'mc viz' command requires at least one output flag: --html, --json, or --png"
+        )
+
+
+def _read_mc_frame(path: Path, *, label: str) -> pd.DataFrame:
+    try:
+        suffix = path.suffix.lower()
+        if suffix == ".parquet":
+            frame = pd.read_parquet(path)
+        elif suffix == ".csv":
+            frame = pd.read_csv(path)
+        elif suffix == ".json":
+            frame = pd.read_json(path)
+        else:
+            raise TrendCLIError(
+                f"Unsupported {label} file format '{path.suffix}' for '{path.name}'."
+            )
+    except TrendCLIError:
+        raise
+    except Exception as exc:
+        raise TrendCLIError(f"Failed to read {label} data from '{path}': {exc}") from exc
+    if isinstance(frame, pd.Series):
+        return frame.to_frame()
+    if not isinstance(frame, pd.DataFrame):
+        raise TrendCLIError(f"Expected {label} data in '{path}' to load as a table.")
+    return frame
+
+
+def _load_mc_frame(bundle_dir: Path, *, stem: str) -> pd.DataFrame:
+    candidates = tuple(bundle_dir / f"{stem}.{ext}" for ext in ("parquet", "csv", "json"))
+    existing = next((candidate for candidate in candidates if candidate.exists()), None)
+    if existing is None:
+        expected = ", ".join(path.name for path in candidates)
+        raise TrendCLIError(
+            f"Missing required MC {stem} file in '{bundle_dir}'. Expected one of: {expected}"
+        )
+    return _read_mc_frame(existing, label=stem)
+
+
+def _load_mc_summary_frame(bundle_dir: Path) -> pd.DataFrame:
+    return _load_mc_frame(bundle_dir, stem="summary")
+
+
+def _load_mc_results_frame(bundle_dir: Path) -> pd.DataFrame:
+    return _load_mc_frame(bundle_dir, stem="results")
+
+
+def _load_mc_bundle_frames(bundle: str | os.PathLike[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
+    bundle_dir = Path(bundle).expanduser().resolve()
+    if not bundle_dir.exists():
+        raise TrendCLIError(f"MC bundle directory does not exist: {bundle_dir}")
+    if not bundle_dir.is_dir():
+        raise TrendCLIError(f"MC bundle path is not a directory: {bundle_dir}")
+    required_stems = ("summary", "results")
+    missing_inputs: list[str] = []
+    expected_by_stem: dict[str, str] = {}
+    for stem in required_stems:
+        candidates = tuple(bundle_dir / f"{stem}.{ext}" for ext in ("parquet", "csv", "json"))
+        if not any(candidate.exists() for candidate in candidates):
+            missing_inputs.append(stem)
+            expected_by_stem[stem] = ", ".join(path.name for path in candidates)
+    if missing_inputs:
+        if len(missing_inputs) == 1:
+            stem = missing_inputs[0]
+            expected = expected_by_stem[stem]
+            raise TrendCLIError(
+                f"Missing required MC {stem} file in '{bundle_dir}'. Expected one of: {expected}"
+            )
+        missing_text = ", ".join(missing_inputs)
+        expected_text = "; ".join(f"{stem}: {expected_by_stem[stem]}" for stem in missing_inputs)
+        raise TrendCLIError(
+            f"Missing required MC input files in '{bundle_dir}': {missing_text}. "
+            f"Expected one of each: {expected_text}"
+        )
+    return _load_mc_summary_frame(bundle_dir), _load_mc_results_frame(bundle_dir)
+
+
+def _load_mc_nav_paths_frame(bundle: str | os.PathLike[str]) -> pd.DataFrame | None:
+    bundle_dir = Path(bundle).expanduser().resolve()
+    nav_paths_path = bundle_dir / "nav_paths.parquet"
+    if not nav_paths_path.exists():
+        return None
+    return _read_mc_frame(nav_paths_path, label="nav_paths")
+
+
+def _parse_mc_chart_selection(charts_value: str) -> list[str]:
+    requested = [token.strip().lower() for token in charts_value.split(",") if token.strip()]
+    if not requested:
+        raise TrendCLIError("The 'mc viz' command requires at least one chart in --charts.")
+
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for chart in requested:
+        if chart not in seen:
+            seen.add(chart)
+            ordered.append(chart)
+
+    supported = tuple(_mc_chart_builders().keys())
+    unsupported = [chart for chart in ordered if chart not in supported]
+    if unsupported:
+        supported_text = ", ".join(supported)
+        invalid_text = ", ".join(unsupported)
+        raise TrendCLIError(
+            f"Unsupported chart identifier(s): {invalid_text}. Supported charts: {supported_text}"
+        )
+    return ordered
+
+
+def _mc_nav_source_frame(
+    summary_frame: pd.DataFrame,
+    results_frame: pd.DataFrame,
+    nav_paths_frame: pd.DataFrame | None,
+) -> pd.DataFrame:
+    if nav_paths_frame is not None:
+        return nav_paths_frame
+
+    for frame in (results_frame, summary_frame):
+        numeric = frame.select_dtypes(include=[np.number]).copy()
+        numeric = numeric.dropna(how="all")
+        if not numeric.empty:
+            return numeric
+
+    raise TrendCLIError(
+        "Unable to derive path data for Monte Carlo charts. "
+        "Provide nav_paths.parquet or numeric summary/results files."
+    )
+
+
+def _build_mc_fan_chart(
+    summary_frame: pd.DataFrame,
+    results_frame: pd.DataFrame,
+    nav_paths_frame: pd.DataFrame | None,
+) -> Any:
+    from trend_analysis.viz import fan
+
+    nav_frame = _mc_nav_source_frame(summary_frame, results_frame, nav_paths_frame)
+    return fan.make(nav_frame)
+
+
+def _build_mc_path_dist_chart(
+    summary_frame: pd.DataFrame,
+    results_frame: pd.DataFrame,
+    nav_paths_frame: pd.DataFrame | None,
+) -> Any:
+    from trend_analysis.viz import path_dist
+
+    nav_frame = _mc_nav_source_frame(summary_frame, results_frame, nav_paths_frame)
+    return path_dist.make(nav_frame)
+
+
+def _build_mc_risk_return_chart(
+    summary_frame: pd.DataFrame,
+    results_frame: pd.DataFrame,
+    nav_paths_frame: pd.DataFrame | None,
+) -> Any:
+    from trend_analysis.viz import risk_return
+
+    nav_frame = _mc_nav_source_frame(summary_frame, results_frame, nav_paths_frame)
+    returns_frame = nav_frame.pct_change(fill_method=None).replace([np.inf, -np.inf], np.nan)
+    returns_frame = returns_frame.dropna(how="all")
+    if returns_frame.empty:
+        returns_frame = nav_frame.apply(pd.to_numeric, errors="coerce").dropna(how="all")
+    return risk_return.make(returns_frame)
+
+
+def _mc_chart_builders() -> (
+    dict[str, Callable[[pd.DataFrame, pd.DataFrame, pd.DataFrame | None], Any]]
+):
+    return {
+        "fan": _build_mc_fan_chart,
+        "path_dist": _build_mc_path_dist_chart,
+        "risk_return": _build_mc_risk_return_chart,
+    }
+
+
+def _export_mc_chart_artifacts(
+    charts: Mapping[str, Any],
+    out_dir: Path,
+    *,
+    include_html: bool,
+    include_json: bool,
+    include_png: bool,
+) -> tuple[Path, list[str]]:
+    from trend_analysis.monte_carlo.export_bundle import save as export_bundle
+
+    plots_dir = out_dir.expanduser().resolve() / "plots"
+    plots_dir.mkdir(parents=True, exist_ok=True)
+    bundle_path = plots_dir / "mc_charts_bundle.zip"
+
+    warnings: list[str] = []
+    export_bundle(
+        charts,
+        destination=bundle_path,
+        include_html=include_html,
+        include_json=include_json,
+        include_png=include_png,
+        warnings=warnings,
+    )
+    with zipfile.ZipFile(bundle_path) as archive:
+        archive.extractall(plots_dir)
+    return plots_dir, warnings
+
+
+def _run_mc_viz_command(args: argparse.Namespace) -> int:
+    _validate_mc_viz_output_flags(args)
+    summary_frame, results_frame = _load_mc_bundle_frames(args.bundle)
+    nav_paths_frame = _load_mc_nav_paths_frame(args.bundle)
+    selected_charts = _parse_mc_chart_selection(args.charts)
+    chart_builders = _mc_chart_builders()
+    generated_charts = {
+        chart_id: chart_builders[chart_id](summary_frame, results_frame, nav_paths_frame)
+        for chart_id in selected_charts
+    }
+    plots_dir, warnings = _export_mc_chart_artifacts(
+        generated_charts,
+        args.out,
+        include_html=args.html,
+        include_json=args.json,
+        include_png=args.png,
+    )
+
+    counts = f"summary_rows={len(summary_frame)} results_rows={len(results_frame)}"
+    if nav_paths_frame is not None:
+        counts = f"{counts} nav_paths_rows={len(nav_paths_frame)}"
+    print(f"Loaded MC bundle frames: {counts}")
+    print(f"Wrote MC chart artifacts to: {plots_dir}")
+    for warning in warnings:
+        print(f"Warning: {warning}", file=sys.stderr)
+    return 0
+
+
 def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
     try:
         parser = build_parser(prog=prog)
@@ -1868,10 +2140,16 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                     print(f"Structured log: {log_path}")
             return 0
 
-        if command not in {"run", "report", "stress"}:
+        if command == "mc":
+            if getattr(args, "mc_command", None) != "viz":
+                raise TrendCLIError("Unknown mc subcommand")
+            _finalize_config_coverage()
+            return _run_mc_viz_command(args)
+
+        if command not in {"run", "report", "stress", "mc"}:
             raise TrendCLIError(f"Unknown command: {command}")
 
-        if not args.config:
+        if command != "mc" and not args.config:
             raise TrendCLIError(f"The --config option is required for the '{command}' command")
 
         load_config_fn = _legacy_callable("_load_configuration", _load_configuration)
