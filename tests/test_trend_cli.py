@@ -301,7 +301,9 @@ def test_mc_viz_routes_selected_charts_and_exports_requested_formats(
     call_order: list[str] = []
 
     def _builder(name: str):
-        def _inner(_summary: pd.DataFrame, _results: pd.DataFrame, _nav: pd.DataFrame | None) -> object:
+        def _inner(
+            _summary: pd.DataFrame, _results: pd.DataFrame, _nav: pd.DataFrame | None
+        ) -> object:
             call_order.append(name)
             return object()
 

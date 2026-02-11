@@ -1711,9 +1711,7 @@ def _load_mc_nav_paths_frame(bundle: str | os.PathLike[str]) -> pd.DataFrame | N
 def _parse_mc_chart_selection(charts_value: str) -> list[str]:
     requested = [token.strip().lower() for token in charts_value.split(",") if token.strip()]
     if not requested:
-        raise TrendCLIError(
-            "The 'mc viz' command requires at least one chart in --charts."
-        )
+        raise TrendCLIError("The 'mc viz' command requires at least one chart in --charts.")
 
     seen: set[str] = set()
     ordered: list[str] = []
@@ -1790,8 +1788,9 @@ def _build_mc_risk_return_chart(
     return risk_return.make(returns_frame)
 
 
-def _mc_chart_builders(
-) -> dict[str, Callable[[pd.DataFrame, pd.DataFrame, pd.DataFrame | None], Any]]:
+def _mc_chart_builders() -> (
+    dict[str, Callable[[pd.DataFrame, pd.DataFrame, pd.DataFrame | None], Any]]
+):
     return {
         "fan": _build_mc_fan_chart,
         "path_dist": _build_mc_path_dist_chart,
