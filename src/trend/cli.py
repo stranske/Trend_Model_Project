@@ -1646,8 +1646,65 @@ def _validate_mc_viz_output_flags(args: argparse.Namespace) -> None:
         )
 
 
+def _read_mc_frame(path: Path, *, label: str) -> pd.DataFrame:
+    try:
+        suffix = path.suffix.lower()
+        if suffix == ".parquet":
+            frame = pd.read_parquet(path)
+        elif suffix == ".csv":
+            frame = pd.read_csv(path)
+        elif suffix == ".json":
+            frame = pd.read_json(path)
+        else:
+            raise TrendCLIError(
+                f"Unsupported {label} file format '{path.suffix}' for '{path.name}'."
+            )
+    except TrendCLIError:
+        raise
+    except Exception as exc:
+        raise TrendCLIError(f"Failed to read {label} data from '{path}': {exc}") from exc
+    if isinstance(frame, pd.Series):
+        return frame.to_frame()
+    if not isinstance(frame, pd.DataFrame):
+        raise TrendCLIError(f"Expected {label} data in '{path}' to load as a table.")
+    return frame
+
+
+def _load_mc_frame(bundle_dir: Path, *, stem: str) -> pd.DataFrame:
+    candidates = tuple(bundle_dir / f"{stem}.{ext}" for ext in ("parquet", "csv", "json"))
+    for candidate in candidates:
+        if candidate.exists():
+            return _read_mc_frame(candidate, label=stem)
+    expected = ", ".join(path.name for path in candidates)
+    raise TrendCLIError(
+        f"Missing required MC {stem} file in '{bundle_dir}'. Expected one of: {expected}"
+    )
+
+
+def _load_mc_summary_frame(bundle_dir: Path) -> pd.DataFrame:
+    return _load_mc_frame(bundle_dir, stem="summary")
+
+
+def _load_mc_results_frame(bundle_dir: Path) -> pd.DataFrame:
+    return _load_mc_frame(bundle_dir, stem="results")
+
+
+def _load_mc_bundle_frames(bundle: str | os.PathLike[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
+    bundle_dir = Path(bundle).expanduser().resolve()
+    if not bundle_dir.exists():
+        raise TrendCLIError(f"MC bundle directory does not exist: {bundle_dir}")
+    if not bundle_dir.is_dir():
+        raise TrendCLIError(f"MC bundle path is not a directory: {bundle_dir}")
+    return _load_mc_summary_frame(bundle_dir), _load_mc_results_frame(bundle_dir)
+
+
 def _run_mc_viz_command(args: argparse.Namespace) -> int:
     _validate_mc_viz_output_flags(args)
+    summary_frame, results_frame = _load_mc_bundle_frames(args.bundle)
+    print(
+        "Loaded MC bundle frames: "
+        f"summary_rows={len(summary_frame)} results_rows={len(results_frame)}"
+    )
     return 0
 
 

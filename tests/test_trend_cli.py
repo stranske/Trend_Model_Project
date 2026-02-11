@@ -130,6 +130,86 @@ def test_mc_viz_requires_at_least_one_output_flag(capsys: pytest.CaptureFixture[
     assert "requires at least one output flag" in err
 
 
+def test_mc_viz_loads_summary_and_results_frames(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(bundle_dir / "summary.csv", index=False)
+    pd.DataFrame({"path_id": [1, 2], "terminal_nav": [112.0, 98.4]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+
+    exit_code = main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--html",
+        ]
+    )
+
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "Loaded MC bundle frames" in out
+    assert "summary_rows=1" in out
+    assert "results_rows=2" in out
+
+
+def test_mc_viz_errors_when_summary_missing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"path_id": [1], "terminal_nav": [101.0]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+
+    exit_code = main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--json",
+        ]
+    )
+
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert "Missing required MC summary file" in err
+
+
+def test_mc_viz_errors_when_results_file_is_corrupted(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["vol"], "value": [0.09]}).to_csv(bundle_dir / "summary.csv", index=False)
+    (bundle_dir / "results.json").write_text("{bad json", encoding="utf-8")
+
+    exit_code = main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--png",
+        ]
+    )
+
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert "Failed to read results data" in err
+
+
 def test_explain_parser_accepts_output_option(tmp_path: Path) -> None:
     parser = build_parser()
 

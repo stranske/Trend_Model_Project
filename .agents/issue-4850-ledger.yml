@@ -14,144 +14,144 @@ tasks:
   - id: task-02
     title: 'Register the `trend mc viz` subcommand in the CLI command hierarchy (verify:
       confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-11T20:16:02Z'
+    finished_at: '2026-02-11T20:16:54Z'
+    commit: be02e100b55d219f801b19cc6075ce4ebc2ad1be
     notes: []
   - id: task-03
     title: 'Implement argument parser for `--bundle` flag to accept input directory
       path (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-11T20:16:02Z'
+    finished_at: '2026-02-11T20:16:54Z'
+    commit: be02e100b55d219f801b19cc6075ce4ebc2ad1be
     notes: []
   - id: task-04
     title: 'Implement argument parser for `--out` flag to specify output directory
       (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-11T20:16:02Z'
+    finished_at: '2026-02-11T20:16:54Z'
+    commit: be02e100b55d219f801b19cc6075ce4ebc2ad1be
     notes: []
   - id: task-05
     title: 'Implement argument parser for `--charts` flag accepting comma-separated
       chart types (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-11T20:16:02Z'
+    finished_at: '2026-02-11T20:16:54Z'
+    commit: be02e100b55d219f801b19cc6075ce4ebc2ad1be
     notes: []
   - id: task-06
     title: 'Implement boolean flags `--html`, `--json`, (verify: confirm completion
       in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-11T20:16:02Z'
+    finished_at: '2026-02-11T20:16:54Z'
+    commit: be02e100b55d219f801b19cc6075ce4ebc2ad1be
     notes: []
   - id: task-07
     title: '`--png` for output format selection (verify: formatter passes)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-11T20:16:02Z'
+    finished_at: '2026-02-11T20:16:54Z'
+    commit: be02e100b55d219f801b19cc6075ce4ebc2ad1be
     notes: []
   - id: task-08
     title: 'Define scope for: Add validation logic to ensure at least one output format
       flag is specified (verify: formatter passes)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-11T20:16:02Z'
+    finished_at: '2026-02-11T20:16:54Z'
+    commit: be02e100b55d219f801b19cc6075ce4ebc2ad1be
     notes: []
   - id: task-09
     title: 'Implement focused slice for: Add validation logic to ensure at least one
       output format flag is specified (verify: formatter passes)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-11T20:16:02Z'
+    finished_at: '2026-02-11T20:16:54Z'
+    commit: be02e100b55d219f801b19cc6075ce4ebc2ad1be
     notes: []
   - id: task-10
     title: 'Validate focused slice for: Add validation logic to ensure at least one
       output format flag is specified (verify: formatter passes)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-11T20:16:02Z'
+    finished_at: '2026-02-11T20:16:54Z'
+    commit: be02e100b55d219f801b19cc6075ce4ebc2ad1be
     notes: []
   - id: task-11
     title: Implement loaders to read MC summary/results data frames from the bundle
       path.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T20:26:39Z'
+    finished_at: '2026-02-11T20:26:39Z'
     commit: ''
     notes: []
   - id: task-12
     title: 'Define scope for: Implement loader function to read MC summary data frame
       from the bundle directory (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T20:26:39Z'
+    finished_at: '2026-02-11T20:26:39Z'
     commit: ''
     notes: []
   - id: task-13
     title: 'Implement focused slice for: Implement loader function to read MC summary
       data frame from the bundle directory (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T20:26:39Z'
+    finished_at: '2026-02-11T20:26:39Z'
     commit: ''
     notes: []
   - id: task-14
     title: 'Validate focused slice for: Implement loader function to read MC summary
       data frame from the bundle directory (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T20:26:39Z'
+    finished_at: '2026-02-11T20:26:39Z'
     commit: ''
     notes: []
   - id: task-15
     title: 'Define scope for: Implement loader function to read MC results data frame
       from the bundle directory (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T20:26:39Z'
+    finished_at: '2026-02-11T20:26:39Z'
     commit: ''
     notes: []
   - id: task-16
     title: 'Implement focused slice for: Implement loader function to read MC results
       data frame from the bundle directory (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T20:26:39Z'
+    finished_at: '2026-02-11T20:26:39Z'
     commit: ''
     notes: []
   - id: task-17
     title: 'Validate focused slice for: Implement loader function to read MC results
       data frame from the bundle directory (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T20:26:39Z'
+    finished_at: '2026-02-11T20:26:39Z'
     commit: ''
     notes: []
   - id: task-18
     title: 'Add error handling for missing or corrupted summary data files (verify:
       confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T20:26:39Z'
+    finished_at: '2026-02-11T20:26:39Z'
     commit: ''
     notes: []
   - id: task-19
     title: 'Add error handling for missing or corrupted results data files (verify:
       confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T20:26:39Z'
+    finished_at: '2026-02-11T20:26:39Z'
     commit: ''
     notes: []
   - id: task-20
