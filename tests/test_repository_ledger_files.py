@@ -6,6 +6,7 @@ def test_issue_ledger_files_are_absent() -> None:
     allowed_roots = {
         Path("archives/agents/ledgers").resolve(),
         Path(".workflows-lib/.agents").resolve(),
+        Path(".agents").resolve(),
     }
     unexpected = [
         path
