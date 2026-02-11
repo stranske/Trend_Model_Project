@@ -223,7 +223,9 @@ def _render_diagnostic_charts(summary: pd.DataFrame, paths: pd.DataFrame) -> Non
         st.warning("Sharpe ladder unavailable: summary does not include a usable 'sharpe' metric.")
         sharpe_fig = go.Figure()
     corr_fig = corr_heatmap_chart.build_figure(paths, window=60)
-    rolling_fig = rolling_panel_chart.build_figure(paths, window=12, periods_per_year=12, max_paths=6)
+    rolling_fig = rolling_panel_chart.build_figure(
+        paths, window=12, periods_per_year=12, max_paths=6
+    )
     seasonality_fig = seasonality_heatmap_chart.build_figure(paths)
 
     st.plotly_chart(sharpe_fig, use_container_width=True)

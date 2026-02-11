@@ -15,7 +15,9 @@ except Exception:  # pragma: no cover - streamlit is optional outside app runtim
     st = None
 
 
-def _cache_data(*args: object, **kwargs: object) -> Callable[[Callable[..., object]], Callable[..., object]]:
+def _cache_data(
+    *args: object, **kwargs: object
+) -> Callable[[Callable[..., object]], Callable[..., object]]:
     cache_data = getattr(st, "cache_data", None) if st is not None else None
     if callable(cache_data):
         return cache_data(*args, **kwargs)
@@ -66,10 +68,14 @@ def _prepare_panel_series(
                 )
         if path_id in roll_std.columns:
             for date, value in roll_std[path_id].items():
-                records.append({"date": date, "path": path_id, "series": "rolling_vol", "value": value})
+                records.append(
+                    {"date": date, "path": path_id, "series": "rolling_vol", "value": value}
+                )
         if path_id in drawdown.columns:
             for date, value in drawdown[path_id].items():
-                records.append({"date": date, "path": path_id, "series": "drawdown", "value": value})
+                records.append(
+                    {"date": date, "path": path_id, "series": "drawdown", "value": value}
+                )
 
     if not records:
         return pd.DataFrame()

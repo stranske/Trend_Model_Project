@@ -14,7 +14,9 @@ except Exception:  # pragma: no cover - streamlit is optional outside app runtim
     st = None
 
 
-def _cache_data(*args: object, **kwargs: object) -> Callable[[Callable[..., object]], Callable[..., object]]:
+def _cache_data(
+    *args: object, **kwargs: object
+) -> Callable[[Callable[..., object]], Callable[..., object]]:
     cache_data = getattr(st, "cache_data", None) if st is not None else None
     if callable(cache_data):
         return cache_data(*args, **kwargs)
