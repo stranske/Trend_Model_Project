@@ -488,6 +488,7 @@ def build_parser(
     )
     mc_viz_p.add_argument(
         "--out",
+        type=Path,
         required=True,
         help="Output directory for generated chart artifacts",
     )

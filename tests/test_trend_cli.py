@@ -115,11 +115,18 @@ def test_mc_viz_parser_accepts_expected_flags() -> None:
     assert args.subcommand == "mc"
     assert args.mc_command == "viz"
     assert args.bundle == "bundle_dir"
-    assert args.out == "export_dir"
+    assert args.out == Path("export_dir")
     assert args.charts == "fan,path_dist,risk_return"
     assert args.html is True
     assert args.json is True
     assert args.png is True
+
+
+def test_mc_viz_parser_requires_out_flag() -> None:
+    parser = build_parser()
+    with pytest.raises(SystemExit) as excinfo:
+        parser.parse_args(["mc", "viz", "--bundle", "bundle_dir", "--html"])
+    assert excinfo.value.code == 2
 
 
 def test_mc_viz_requires_at_least_one_output_flag(capsys: pytest.CaptureFixture[str]) -> None:
