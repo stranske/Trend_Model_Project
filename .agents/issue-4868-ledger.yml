@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: "Add a \u201CMixture mode seeding\u201D section to `docs/phase-3/MonteCarlo.md`\
       \ describing mixture-mode determinism and the two execution modes."
-    status: doing
+    status: done
     started_at: '2026-02-11T12:01:00Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-11T12:01:09Z'
+    commit: 9ce393393a707343fbf82353e7544d557b51f24c
     notes: []
   - id: task-02
     title: 'Update `docs/phase-3/MonteCarlo.md` to document the exact condition under
