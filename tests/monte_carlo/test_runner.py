@@ -1688,6 +1688,37 @@ def test_apply_cash_handling_skips_when_override_disabled_even_with_fallback_ena
     assert "CASH" not in injected.columns
 
 
+def test_apply_cash_handling_does_not_resolve_rf_when_override_gate_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _base_config()
+    cfg["metrics"] = {
+        "registry": ["sharpe_ratio"],
+        "rf_override_enabled": False,
+        "rf_rate_annual": 0.12,
+    }
+    cfg["data"]["risk_free_column"] = "RF"
+    cfg["data"]["allow_risk_free_fallback"] = True
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
+
+    resolver_called = False
+
+    def _resolver_should_not_run(*_args: Any, **_kwargs: Any) -> Any:
+        nonlocal resolver_called
+        resolver_called = True
+        return RiskFreeResolution(source="override", risk_free=0.01)
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.resolve_risk_free_source",
+        _resolver_should_not_run,
+    )
+
+    injected = runner._apply_cash_handling(_returns_with_rf())
+
+    assert "CASH" not in injected.columns
+    assert resolver_called is False
+
+
 def test_apply_cash_handling_skips_when_override_missing_even_with_rf_sources() -> None:
     cfg = _base_config()
     cfg["metrics"] = {"registry": ["sharpe_ratio"]}
