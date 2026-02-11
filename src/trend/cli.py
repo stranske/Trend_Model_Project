@@ -478,6 +478,40 @@ def build_parser(
         help="Report which config keys were validated vs read",
     )
 
+    mc_p = sub.add_parser("mc", help="Monte Carlo visualization workflows")
+    mc_sub = mc_p.add_subparsers(dest="mc_command", required=True)
+    mc_viz_p = mc_sub.add_parser("viz", help="Render Monte Carlo chart artifacts from a bundle")
+    mc_viz_p.add_argument(
+        "--bundle",
+        required=True,
+        help="Path to Monte Carlo bundle directory containing summary/results files",
+    )
+    mc_viz_p.add_argument(
+        "--out",
+        required=True,
+        help="Output directory for generated chart artifacts",
+    )
+    mc_viz_p.add_argument(
+        "--charts",
+        default="fan,path_dist,risk_return",
+        help="Comma-separated chart identifiers (fan,path_dist,risk_return)",
+    )
+    mc_viz_p.add_argument(
+        "--html",
+        action="store_true",
+        help="Export chart artifacts as HTML",
+    )
+    mc_viz_p.add_argument(
+        "--json",
+        action="store_true",
+        help="Export chart artifacts as JSON",
+    )
+    mc_viz_p.add_argument(
+        "--png",
+        action="store_true",
+        help="Export chart artifacts as PNG",
+    )
+
     sub.add_parser("app", help="Launch the Streamlit application")
     if include_gui_alias:
         sub.add_parser("gui", help="Launch the app (legacy alias for app)")
@@ -1603,6 +1637,16 @@ def _confirm_risky_patch(patch: ConfigPatch, *, no_confirm: bool) -> None:
         raise TrendCLIError("Update cancelled by user.")
 
 
+def _validate_mc_viz_output_flags(args: argparse.Namespace) -> None:
+    if not any((getattr(args, "html", False), getattr(args, "json", False), getattr(args, "png", False))):
+        raise TrendCLIError("The 'mc viz' command requires at least one output flag: --html, --json, or --png")
+
+
+def _run_mc_viz_command(args: argparse.Namespace) -> int:
+    _validate_mc_viz_output_flags(args)
+    return 0
+
+
 def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
     try:
         parser = build_parser(prog=prog)
@@ -1868,10 +1912,16 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                     print(f"Structured log: {log_path}")
             return 0
 
-        if command not in {"run", "report", "stress"}:
+        if command == "mc":
+            if getattr(args, "mc_command", None) != "viz":
+                raise TrendCLIError("Unknown mc subcommand")
+            _finalize_config_coverage()
+            return _run_mc_viz_command(args)
+
+        if command not in {"run", "report", "stress", "mc"}:
             raise TrendCLIError(f"Unknown command: {command}")
 
-        if not args.config:
+        if command != "mc" and not args.config:
             raise TrendCLIError(f"The --config option is required for the '{command}' command")
 
         load_config_fn = _legacy_callable("_load_configuration", _load_configuration)

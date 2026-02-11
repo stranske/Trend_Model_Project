@@ -80,15 +80,54 @@ def _risky_patch() -> ConfigPatch:
 
 def test_build_parser_contains_expected_subcommands() -> None:
     parser = build_parser()
-    expected_subcommands = {"run", "report", "stress", "app", "check"}
+    expected_subcommands = {"run", "report", "stress", "app", "check", "mc"}
     for subcommand in expected_subcommands:
         # Should not raise SystemExit
         try:
-            args = parser.parse_args([subcommand])
+            argv = [subcommand]
+            if subcommand == "mc":
+                argv.extend(["viz", "--bundle", "bundle", "--out", "out", "--html"])
+            args = parser.parse_args(argv)
         except SystemExit:
             assert False, f"Subcommand '{subcommand}' not recognized by parser"
         # The subcommand should be set in the namespace
         assert getattr(args, "subcommand", None) == subcommand
+
+
+def test_mc_viz_parser_accepts_expected_flags() -> None:
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            "bundle_dir",
+            "--out",
+            "export_dir",
+            "--charts",
+            "fan,path_dist,risk_return",
+            "--html",
+            "--json",
+            "--png",
+        ]
+    )
+
+    assert args.subcommand == "mc"
+    assert args.mc_command == "viz"
+    assert args.bundle == "bundle_dir"
+    assert args.out == "export_dir"
+    assert args.charts == "fan,path_dist,risk_return"
+    assert args.html is True
+    assert args.json is True
+    assert args.png is True
+
+
+def test_mc_viz_requires_at_least_one_output_flag(capsys: pytest.CaptureFixture[str]) -> None:
+    exit_code = main(["mc", "viz", "--bundle", "bundle_dir", "--out", "export_dir"])
+
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert "requires at least one output flag" in err
 
 
 def test_explain_parser_accepts_output_option(tmp_path: Path) -> None:
