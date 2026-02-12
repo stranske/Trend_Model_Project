@@ -72,3 +72,16 @@ def test_extract_bundle_zip_collision_names_are_deterministic_across_repeated_ru
     second_names = sorted(path.name for path in second_destination.glob("*.json"))
     assert first_names == ["risk_return-1.json", "risk_return.json"]
     assert second_names == first_names
+
+
+def test_extract_bundle_zip_creates_nested_member_parent_directories(tmp_path: Path) -> None:
+    bundle_path = tmp_path / "bundle.zip"
+    with zipfile.ZipFile(bundle_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("plots/nested/fan.json", '{"ok": true}')
+
+    destination = tmp_path / "out"
+    extract_bundle_zip(bundle_path, destination)
+
+    nested_file = destination / "plots" / "nested" / "fan.json"
+    assert nested_file.is_file()
+    assert nested_file.read_text(encoding="utf-8") == '{"ok": true}'

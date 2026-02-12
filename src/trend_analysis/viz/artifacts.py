@@ -70,6 +70,7 @@ def extract_bundle_zip(
                 warning_messages.append(message)
                 logger.warning(message)
 
+            target_path.parent.mkdir(parents=True, exist_ok=True)
             with archive.open(member) as source_file, target_path.open("wb") as target_file:
                 shutil.copyfileobj(source_file, target_file)
             written_rel_paths.add(target_relative.as_posix())
