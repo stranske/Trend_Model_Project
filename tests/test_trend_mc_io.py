@@ -5,7 +5,11 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from trend.mc.io import MCNavPathsIOError, load_nav_paths_frame, validate_nav_paths_requirement
+from trend.mc.io import (
+    MCNavPathsIOError,
+    load_nav_paths_frame,
+    validate_nav_paths_requirement,
+)
 
 
 def test_load_nav_paths_frame_returns_none_when_optional_file_missing(tmp_path: Path) -> None:
@@ -44,7 +48,9 @@ def test_load_nav_paths_frame_reads_parquet_when_present(
     pd.testing.assert_frame_equal(loaded, expected)
 
 
-def test_validate_nav_paths_requirement_raises_when_required_chart_requested_without_nav_paths() -> None:
+def test_validate_nav_paths_requirement_raises_when_required_chart_requested_without_nav_paths() -> (
+    None
+):
     with pytest.raises(MCNavPathsIOError, match=r"require nav_paths\.parquet"):
         validate_nav_paths_requirement(
             ["fan", "path_dist"],
