@@ -25,7 +25,7 @@ from trend_analysis.monte_carlo.strategy import StrategyVariant
 
 
 def _price_history() -> pd.DataFrame:
-    dates = pd.date_range("2020-01-31", periods=48, freq="M")
+    dates = pd.date_range("2020-01-31", periods=48, freq="ME")
     base = np.linspace(100.0, 140.0, len(dates))
     prices = pd.DataFrame(
         {
@@ -718,7 +718,7 @@ def test_runner_populates_nav_paths_metadata(
         base_config=_base_config(),
         price_history=_price_history(),
     )
-    nav_index = pd.date_range("2021-01-31", periods=3, freq="M")
+    nav_index = pd.date_range("2021-01-31", periods=3, freq="ME")
 
     def _fake_build_price_model(
         self: MonteCarloRunner,
@@ -799,7 +799,7 @@ def test_runner_populates_nav_paths_by_fold(
         base_config=_base_config(),
         price_history=_price_history(),
     )
-    nav_index = pd.date_range("2021-01-31", periods=2, freq="M")
+    nav_index = pd.date_range("2021-01-31", periods=2, freq="ME")
 
     def _fake_build_price_model(
         self: MonteCarloRunner,
