@@ -1,0 +1,155 @@
+version: 1
+issue: 4913
+base: phase-3
+branch: codex/issue-4913
+tasks:
+  - id: task-01
+    title: Add a missing strategy entry to `config/scenarios/monte_carlo/strategies/hf_macro_curated.yml`
+      so the top-level `strategies` list contains exactly 10 definitions with no duplicate
+      `identifier` or `name`
+    status: doing
+    started_at: '2026-02-12T14:22:40Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Implement `test_hf_macro_curated_validates_against_trendconfig` in `tests/monte_carlo/strategy/test_curated_pack.py`
+      that loads `hf_macro_curated.yml` and validates/parses it via `TrendConfig`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Implement `test_hf_macro_curated_has_10_strategies` in `tests/monte_carlo/strategy/test_curated_pack.py`
+      that asserts `len(parsed_config.strategies) == 10` after `TrendConfig` parsing
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Implement `test_hf_macro_curated_has_unique_id_and_name` in `tests/monte_carlo/strategy/test_curated_pack.py`
+      that asserts uniqueness of both `identifier` and `name` across the parsed strategies
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Create `tests/monte_carlo/scenario/test_hf_macro_20y_load.py` with `test_hf_macro_20y_loads_and_instantiates_curated_pack`
+      that loads the `hf_macro_20y` scenario, instantiates all strategies from the
+      `hf_macro_curated` pack, and asserts the instantiated strategy count is 10
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Update `config/scenarios/monte_carlo/strategies/README.md` to include exactly
+      10 table rows for the `hf_macro_curated` strategies, with non-empty Intent and
+      Rationale columns for each row and a 1:1 match to the YAML entries
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Remove the tracked `coverage-ci-repro.xml` file from the repository using
+      `git rm coverage-ci-repro.xml`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Update `.gitignore` to add `coverage-ci-repro.xml` to prevent similar coverage
+      artifacts from being committed
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: '`config/scenarios/monte_carlo/strategies/hf_macro_curated.yml` parses
+      via `TrendConfig` and the parsed object has exactly 10 strategies (`len(parsed_config.strategies)
+      == 10`), verified by: `pytest -q tests/monte_carlo/strategy/test_curated_pack.py::test_hf_macro_curated_has_10_strategies`
+      exits with code 0'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'All 10 strategies in `hf_macro_curated.yml` have unique `identifier` and
+      unique `name`, verified by: `pytest -q tests/monte_carlo/strategy/test_curated_pack.py::test_hf_macro_curated_has_unique_id_and_name`
+      exits with code 0'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: '`hf_macro_curated.yml` validates against the `TrendConfig` schema with
+      no exceptions/errors, verified by: `pytest -q tests/monte_carlo/strategy/test_curated_pack.py::test_hf_macro_curated_validates_against_trendconfig`
+      exits with code 0'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'A scenario load test exists at `tests/monte_carlo/scenario/test_hf_macro_20y_load.py::test_hf_macro_20y_loads_and_instantiates_curated_pack`
+      that loads `hf_macro_20y` and instantiates all strategies from the `hf_macro_curated`
+      pack without exceptions, verified by: `pytest -q tests/monte_carlo/scenario/test_hf_macro_20y_load.py::test_hf_macro_20y_loads_and_instantiates_curated_pack`
+      exits with code 0'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'The `hf_macro_20y` scenario test asserts the instantiated strategy count
+      is exactly 10 (e.g., `len(instantiated_strategies) == 10`), verified by: `pytest
+      -q tests/monte_carlo/scenario/test_hf_macro_20y_load.py::test_hf_macro_20y_loads_and_instantiates_curated_pack`
+      exits with code 0'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: '`config/scenarios/monte_carlo/strategies/README.md` contains a table for
+      `hf_macro_curated` with exactly 10 rows and non-empty Intent and Rationale values
+      for each row, verified by: inspecting the README content shows 10 rows with
+      populated Intent and Rationale columns'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Every strategy identifier/name in `hf_macro_curated.yml` appears exactly
+      once in the README table for `hf_macro_curated` (no missing/extra entries),
+      verified by: cross-checking the YAML against the README shows 1:1 correspondence'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: '`coverage-ci-repro.xml` is not tracked in the repository, verified by:
+      `git ls-files coverage-ci-repro.xml` returns no output'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: '`.gitignore` includes a rule that matches `coverage-ci-repro.xml`, verified
+      by: `git check-ignore -v coverage-ci-repro.xml` reports a matching ignore rule'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
