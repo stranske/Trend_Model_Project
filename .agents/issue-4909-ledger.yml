@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Create the base YAML file structure for `config/scenarios/monte_carlo/strategies/hf_macro_curated.yml`
       with schema headers and metadata
-    status: doing
+    status: done
     started_at: '2026-02-12T13:33:07Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-12T13:33:24Z'
+    commit: d84a121f9ab1a81f468f9459462149497769987b
     notes: []
   - id: task-02
     title: Define the concentrated rank strategy variant with top-N equal weight and
