@@ -35,6 +35,14 @@ def test_load_nav_paths_raises_when_parquet_missing_and_required(tmp_path: Path)
         load_nav_paths(bundle_dir, missing_parquet=MISSING_NAV_PATHS_RAISE)
 
 
+def test_load_nav_paths_rejects_unsupported_missing_parquet_behavior(tmp_path: Path) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+
+    with pytest.raises(MCNavPathsIOError, match=r"Unsupported missing_parquet behavior 'warn'"):
+        load_nav_paths(bundle_dir, missing_parquet="warn")
+
+
 def test_load_nav_paths_reads_bundle_nav_paths_parquet_location(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
