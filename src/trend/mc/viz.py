@@ -5,6 +5,20 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
+CHART_REQUIREMENTS: dict[str, tuple[str, ...]] = {
+    "fan": ("summary", "results"),
+    "path_dist": ("summary", "results", "nav_paths.parquet"),
+    "risk_return": ("summary", "results"),
+}
+"""Bundle input requirements keyed by MC chart identifier.
+
+Requirement values follow these conventions:
+- Stem values (for example ``"summary"``) mean one of ``.parquet``, ``.csv``,
+  or ``.json`` must be present for that stem.
+- Literal filenames (for example ``"nav_paths.parquet"``) are exact, format-
+  specific requirements.
+"""
+
 
 def execute_mc_viz(
     bundle_path: str | Path,
@@ -46,4 +60,4 @@ def execute_mc_viz(
     raise NotImplementedError("Shared mc viz execution is not implemented yet.")
 
 
-__all__ = ["execute_mc_viz"]
+__all__ = ["CHART_REQUIREMENTS", "execute_mc_viz"]
