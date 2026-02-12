@@ -7,10 +7,8 @@ import logging
 import os
 import subprocess
 import sys
-import tempfile
 import time
 import uuid
-import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -88,6 +86,7 @@ from trend_analysis.signal_presets import (
     get_trend_spec_preset,
     list_trend_spec_presets,
 )
+from trend_analysis.viz.artifacts import extract_bundle_zip
 from trend_analysis.universe_catalog import NamedUniverse, load_universe
 from trend_model.spec import ensure_run_spec
 from utils.paths import proj_path
@@ -1846,22 +1845,7 @@ def _export_mc_chart_artifacts(
         include_png=include_png,
         warnings=warnings,
     )
-    with tempfile.TemporaryDirectory(prefix="mc_charts_extract_", dir=plots_dir) as extract_dir:
-        extract_root = Path(extract_dir)
-        with zipfile.ZipFile(bundle_path) as archive:
-            archive.extractall(extract_root)
-        for extracted_path in extract_root.rglob("*"):
-            if not extracted_path.is_file():
-                continue
-            rel_path = extracted_path.relative_to(extract_root)
-            target_path = plots_dir / rel_path
-            target_path.parent.mkdir(parents=True, exist_ok=True)
-            if target_path.exists():
-                warnings.append(
-                    f"Skipped extracting '{rel_path.as_posix()}' because the destination file already exists."
-                )
-                continue
-            extracted_path.replace(target_path)
+    extract_bundle_zip(bundle_path, plots_dir, warnings=warnings)
     return plots_dir, warnings
 
 
