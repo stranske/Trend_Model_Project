@@ -6,6 +6,8 @@ import ast
 import inspect
 from pathlib import Path
 
+import pytest
+
 from trend_analysis.viz import sharpe_ladder
 from trend_analysis.viz.charts import corr_heatmap, rolling_panel, seasonality_heatmap
 
@@ -58,6 +60,14 @@ def _find_streamlit_attribute_violations(func_def: ast.FunctionDef) -> list[int]
     return bad_line_numbers
 
 
+def _load_function_def_from_source(source: str, function_name: str = "build_figure") -> ast.FunctionDef:
+    module = ast.parse(source)
+    for node in module.body:
+        if isinstance(node, ast.FunctionDef) and node.name == function_name:
+            return node
+    raise AssertionError(f"Unable to locate function definition for {function_name!r}")
+
+
 def test_public_entrypoints_do_not_call_streamlit_api() -> None:
     for entrypoint in ENTRYPOINTS:
         entrypoint_ast = _load_entrypoint_ast(entrypoint)
@@ -66,3 +76,55 @@ def test_public_entrypoints_do_not_call_streamlit_api() -> None:
             f"{entrypoint.__module__}.{entrypoint.__name__} calls Streamlit in executable body "
             f"at lines {violations}"
         )
+
+
+@pytest.mark.parametrize(
+    ("source", "expected_violations"),
+    [
+        (
+            """
+def build_figure(data):
+    st.write(data)
+    return data
+""",
+            [3],
+        ),
+        (
+            """
+def build_figure(data):
+    streamlit.write(data)
+    return data
+""",
+            [3],
+        ),
+        (
+            '''
+def build_figure(data):
+    # st.write(data)
+    note = "streamlit.write(data)"
+    return data
+''',
+            [],
+        ),
+        (
+            """
+@st.cache_data
+def build_figure(data):
+    return data
+""",
+            [],
+        ),
+        (
+            """
+HELPER = st.write
+
+def build_figure(data):
+    return data
+""",
+            [],
+        ),
+    ],
+)
+def test_streamlit_attribute_detection_cases(source: str, expected_violations: list[int]) -> None:
+    function_def = _load_function_def_from_source(source)
+    assert _find_streamlit_attribute_violations(function_def) == expected_violations
