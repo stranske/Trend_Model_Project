@@ -55,8 +55,16 @@ def test_violation_case2_runs_as_script(capsys: "pytest.CaptureFixture[str]") ->
     assert "'count': 3" in captured.out
 
 
-def test_violation_case2_runs_as_a_script(capsys) -> None:
-    runpy.run_module("trend_analysis._autofix_violation_case2", run_name="__main__")
+def test_violation_case2_runs_as_a_script(capsys: "pytest.CaptureFixture[str]") -> None:
+    module_name = "trend_analysis._autofix_violation_case2"
+    original = sys.modules.get(module_name)
+    sys.modules.pop(module_name, None)
+
+    try:
+        runpy.run_module(module_name, run_name="__main__")
+    finally:
+        if original is not None:
+            sys.modules[module_name] = original
 
     captured = capsys.readouterr()
     output = ast.literal_eval(captured.out.strip())
