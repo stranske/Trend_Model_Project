@@ -6,11 +6,19 @@ from trend.mc.io import (
     validate_nav_paths_requirement,
 )
 
-from .viz import execute_mc_viz
+from .viz import (
+    TrendCLIError,
+    check_png_dependency,
+    execute_mc_viz,
+    validate_mc_viz_bundle_requirements,
+)
 
 __all__ = [
     "MCNavPathsIOError",
+    "TrendCLIError",
+    "check_png_dependency",
     "execute_mc_viz",
     "load_nav_paths_frame",
+    "validate_mc_viz_bundle_requirements",
     "validate_nav_paths_requirement",
 ]

@@ -376,8 +376,11 @@ def _legacy_callable(name: str, fallback: Callable[..., Any]) -> Callable[..., A
     return fallback
 
 
-class TrendCLIError(RuntimeError):
-    """Raised when CLI validation fails before dispatching work."""
+# TrendCLIError is the canonical user-facing error for all CLI validation
+# failures.  It is defined in the shared ``trend.mc.viz`` module so that the
+# Monte Carlo visualisation pipeline can raise the same exception type
+# regardless of which CLI entry-point invoked it.
+from trend.mc.viz import TrendCLIError  # noqa: E402
 
 
 def build_parser(
@@ -1852,49 +1855,16 @@ def _export_mc_chart_artifacts(
 
 
 def _run_mc_viz_command(args: argparse.Namespace) -> int:
-    _validate_mc_viz_output_flags(args)
-    summary_frame, results_frame = _load_mc_bundle_frames(args.bundle)
-    selected_charts = _parse_mc_chart_selection(args.charts)
-    try:
-        nav_paths_frame = load_nav_paths_frame(args.bundle)
-        validate_nav_paths_requirement(
-            selected_charts,
-            nav_paths_frame,
-            nav_path_required_charts=NAV_PATH_REQUIRED_CHARTS,
-        )
-    except MCNavPathsIOError as exc:
-        raise TrendCLIError(str(exc)) from exc
-    uses_fallback_nav_data = nav_paths_frame is None
-    chart_builders = _mc_chart_builders()
-    generated_charts = {
-        chart_id: chart_builders[chart_id](summary_frame, results_frame, nav_paths_frame)
-        for chart_id in selected_charts
-    }
-    plots_dir, warnings = _export_mc_chart_artifacts(
-        generated_charts,
-        args.out,
-        include_html=args.html,
-        include_json=args.json,
-        include_png=args.png,
-    )
+    from trend.mc.viz import execute_mc_viz
 
-    counts = f"summary_rows={len(summary_frame)} results_rows={len(results_frame)}"
-    if nav_paths_frame is not None:
-        counts = f"{counts} nav_paths_rows={len(nav_paths_frame)}"
-    print(f"Loaded MC bundle frames: {counts}")
-    if uses_fallback_nav_data:
-        nav_dependent_chart_text = ", ".join(sorted(NAV_PATH_REQUIRED_CHARTS))
-        print(
-            "Warning: nav_paths.parquet is missing; requested charts do not include "
-            f"NAV-path-dependent visuals ({nav_dependent_chart_text}). "
-            "Continuing with fallback data derived from summary/results; "
-            "these fallback visuals may be less accurate or misleading.",
-            file=sys.stderr,
-        )
-    print(f"Wrote MC chart artifacts to: {plots_dir}")
-    for warning in warnings:
-        print(f"Warning: {warning}", file=sys.stderr)
-    return 0
+    return execute_mc_viz(
+        bundle_path=args.bundle,
+        out_dir=args.out,
+        charts=args.charts,
+        html=args.html,
+        json=args.json,
+        png=args.png,
+    )
 
 
 def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:

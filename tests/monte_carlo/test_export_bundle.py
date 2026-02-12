@@ -81,7 +81,13 @@ def test_save_writes_png_when_kaleido_available(monkeypatch: pytest.MonkeyPatch)
         assert "Risk_Return.png" in names
 
 
-def test_save_skips_png_and_adds_warning_when_kaleido_missing() -> None:
+def test_save_skips_png_and_adds_warning_when_kaleido_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.export_bundle.kaleido_available",
+        lambda: False,
+    )
     warnings: list[str] = []
     buffer = save(_sample_charts(), include_png=True, warnings=warnings)
 

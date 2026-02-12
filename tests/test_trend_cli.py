@@ -353,7 +353,9 @@ def test_mc_viz_loads_optional_nav_paths_frame(
     )
     (bundle_dir / "nav_paths.parquet").write_text("placeholder", encoding="utf-8")
 
-    monkeypatch.setattr(cli.pd, "read_parquet", lambda _path: pd.DataFrame({"path_id": [1, 2, 3]}))
+    import trend.mc.io as _mc_io
+
+    monkeypatch.setattr(_mc_io.pd, "read_parquet", lambda _path: pd.DataFrame({"path_id": [1, 2, 3]}))
 
     exit_code = main(
         [
@@ -363,7 +365,9 @@ def test_mc_viz_loads_optional_nav_paths_frame(
             str(bundle_dir),
             "--out",
             str(tmp_path / "exports"),
-            "--png",
+            "--charts",
+            "fan,risk_return",
+            "--html",
         ]
     )
 
@@ -500,8 +504,10 @@ def test_mc_viz_routes_selected_charts_and_exports_requested_formats(
 
         return _inner
 
+    import trend.mc.viz as _mc_viz
+
     monkeypatch.setattr(
-        cli,
+        _mc_viz,
         "_mc_chart_builders",
         lambda: {
             "fan": _builder("fan"),
@@ -588,8 +594,10 @@ def test_mc_viz_skips_collision_without_overwriting_existing_plot_file(
         bundle_dir / "results.csv", index=False
     )
 
+    import trend.mc.viz as _mc_viz
+
     monkeypatch.setattr(
-        cli,
+        _mc_viz,
         "_mc_chart_builders",
         lambda: {
             "fan": lambda *_args, **_kwargs: object(),

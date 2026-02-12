@@ -636,6 +636,8 @@ def test_mc_viz_loads_summary_and_results_frames(
             str(bundle_dir),
             "--out",
             str(tmp_path / "exports"),
+            "--charts",
+            "fan,risk_return",
             "--html",
         ]
     )
@@ -765,7 +767,9 @@ def test_mc_viz_loads_optional_nav_paths_frame(
     )
     (bundle_dir / "nav_paths.parquet").write_text("placeholder", encoding="utf-8")
 
-    monkeypatch.setattr(cli.pd, "read_parquet", lambda _path: pd.DataFrame({"path_id": [1, 2, 3]}))
+    import trend.mc.io as _mc_io
+
+    monkeypatch.setattr(_mc_io.pd, "read_parquet", lambda _path: pd.DataFrame({"path_id": [1, 2, 3]}))
 
     rc = cli.main(
         [
@@ -775,7 +779,9 @@ def test_mc_viz_loads_optional_nav_paths_frame(
             str(bundle_dir),
             "--out",
             str(tmp_path / "exports"),
-            "--png",
+            "--charts",
+            "fan,risk_return",
+            "--html",
         ]
     )
 
@@ -838,8 +844,10 @@ def test_mc_viz_routes_selected_charts_and_exports_requested_formats(
 
         return _inner
 
+    import trend.mc.viz as _mc_viz
+
     monkeypatch.setattr(
-        cli,
+        _mc_viz,
         "_mc_chart_builders",
         lambda: {
             "fan": _builder("fan"),
@@ -926,8 +934,10 @@ def test_mc_viz_acceptance_command_writes_plots_artifacts(
         bundle_dir / "results.csv", index=False
     )
 
+    import trend.mc.viz as _mc_viz
+
     monkeypatch.setattr(
-        cli,
+        _mc_viz,
         "_mc_chart_builders",
         lambda: {
             "fan": lambda _summary, _results, _nav: object(),
@@ -975,7 +985,7 @@ def test_mc_viz_acceptance_command_writes_plots_artifacts(
             "--out",
             str(out_dir),
             "--charts",
-            "fan,path_dist,risk_return",
+            "fan,risk_return",
             "--html",
             "--json",
             "--png",
@@ -985,6 +995,6 @@ def test_mc_viz_acceptance_command_writes_plots_artifacts(
     assert rc == 0
     plots_dir = out_dir / "plots"
     assert plots_dir.is_dir()
-    for chart in ("fan", "path_dist", "risk_return"):
+    for chart in ("fan", "risk_return"):
         for ext in ("html", "json", "png"):
             assert (plots_dir / f"{chart}.{ext}").exists()

@@ -2,11 +2,22 @@ from __future__ import annotations
 
 import inspect
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
 from trend.mc import execute_mc_viz
-from trend.mc.viz import CHART_REQUIREMENTS, validate_mc_viz_bundle_requirements
+from trend.mc.viz import (
+    CHART_REQUIREMENTS,
+    TrendCLIError,
+    check_png_dependency,
+    validate_mc_viz_bundle_requirements,
+)
+
+
+# ---------------------------------------------------------------------------
+# Signature / constant tests
+# ---------------------------------------------------------------------------
 
 
 def test_execute_mc_viz_public_signature() -> None:
@@ -27,6 +38,11 @@ def test_chart_requirements_define_supported_mc_viz_inputs() -> None:
     assert CHART_REQUIREMENTS["fan"] == ("summary", "results")
     assert CHART_REQUIREMENTS["risk_return"] == ("summary", "results")
     assert CHART_REQUIREMENTS["path_dist"] == ("summary", "results", "nav_paths.parquet")
+
+
+# ---------------------------------------------------------------------------
+# Bundle validation tests
+# ---------------------------------------------------------------------------
 
 
 def _write_bundle_file(bundle_dir: Path, filename: str) -> None:
@@ -99,3 +115,52 @@ def test_bundle_validation_rejects_unknown_chart_identifier(tmp_path: Path) -> N
 
     with pytest.raises(ValueError, match="Unsupported chart identifier"):
         validate_mc_viz_bundle_requirements(bundle_dir, "fan,unknown")
+
+
+# ---------------------------------------------------------------------------
+# check_png_dependency tests
+# ---------------------------------------------------------------------------
+
+
+def test_check_png_dependency_returns_true_when_kaleido_importable() -> None:
+    fake_spec = mock.MagicMock()
+    with mock.patch("importlib.util.find_spec", return_value=fake_spec):
+        assert check_png_dependency() is True
+
+
+def test_check_png_dependency_returns_false_when_kaleido_missing() -> None:
+    with mock.patch("importlib.util.find_spec", return_value=None):
+        assert check_png_dependency() is False
+
+
+def test_check_png_dependency_returns_false_on_import_error() -> None:
+    with mock.patch("importlib.util.find_spec", side_effect=ModuleNotFoundError):
+        assert check_png_dependency() is False
+
+
+# ---------------------------------------------------------------------------
+# execute_mc_viz error-path tests
+# ---------------------------------------------------------------------------
+
+
+def test_execute_mc_viz_raises_on_no_output_flags(tmp_path: Path) -> None:
+    with pytest.raises(TrendCLIError, match="at least one output flag"):
+        execute_mc_viz(tmp_path, tmp_path / "out", "fan", html=False, json=False, png=False)
+
+
+def test_execute_mc_viz_raises_on_png_without_kaleido(tmp_path: Path) -> None:
+    with mock.patch("trend.mc.viz.check_png_dependency", return_value=False):
+        with pytest.raises(TrendCLIError, match="pip install kaleido"):
+            execute_mc_viz(
+                tmp_path, tmp_path / "out", "fan", html=False, json=False, png=True
+            )
+
+
+def test_execute_mc_viz_raises_on_missing_bundle(tmp_path: Path) -> None:
+    missing = tmp_path / "does_not_exist"
+    with pytest.raises(TrendCLIError, match="does not exist"):
+        execute_mc_viz(missing, tmp_path / "out", "fan", html=True, json=False, png=False)
+
+
+def test_trend_cli_error_is_runtime_error() -> None:
+    assert issubclass(TrendCLIError, RuntimeError)
