@@ -6,6 +6,7 @@ from collections import Counter
 from types import SimpleNamespace
 
 import pandas as pd
+import pytest
 
 
 def _sample_results_frame() -> pd.DataFrame:
@@ -80,3 +81,13 @@ def test_viz_cache_data_is_decorated_and_invoked(monkeypatch) -> None:
     assert expected.issubset(decorated)
     for name in expected:
         assert called[name] >= 1
+
+
+def test_viz_cache_guard_raises_when_required_and_cache_data_missing(monkeypatch) -> None:
+    monkeypatch.setenv("TREND_VIZ_REQUIRE_CACHE", "1")
+    monkeypatch.setitem(sys.modules, "streamlit", SimpleNamespace(cache_data=None))
+
+    with pytest.raises(
+        RuntimeError, match="Caching required but streamlit.cache_data is unavailable"
+    ):
+        importlib.reload(importlib.import_module("trend_analysis.viz.adapters"))

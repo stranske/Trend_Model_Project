@@ -6,6 +6,7 @@ chart components that expect predictable DataFrame schemas.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterable, Sequence
 from typing import Any, Callable, ParamSpec, TypeVar, cast
 
@@ -63,16 +64,27 @@ LOOKBACK_PERIODS_VALIDATION_MESSAGE = (
 NO_VALID_LOOKBACK_PERIODS_MESSAGE = "No valid lookback_periods provided"
 """Controlled validation error when iterable normalization produces no valid lookbacks."""
 
+CACHING_REQUIRED_UNAVAILABLE_MESSAGE = "Caching required but streamlit.cache_data is unavailable"
+"""Error raised when runtime requires caching but streamlit.cache_data cannot be used."""
+
 
 def _cache_data(*args: object, **kwargs: object) -> Callable[[Callable[P, R]], Callable[P, R]]:
     cache_data = getattr(st, "cache_data", None) if st is not None else None
     if callable(cache_data):
         return cast(Callable[[Callable[P, R]], Callable[P, R]], cache_data(*args, **kwargs))
+    if _is_caching_required():
+        raise RuntimeError(CACHING_REQUIRED_UNAVAILABLE_MESSAGE)
 
     def _identity(func: Callable[P, R]) -> Callable[P, R]:
         return func
 
     return _identity
+
+
+def _is_caching_required() -> bool:
+    if os.environ.get("TREND_VIZ_REQUIRE_CACHE", "").strip().lower() in {"1", "true", "yes", "on"}:
+        return True
+    return os.environ.get("TREND_ENV", "").strip().lower() in {"production", "prod"}
 
 
 @_cache_data(show_spinner=False)
