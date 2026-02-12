@@ -7,10 +7,10 @@ tasks:
     title: Create `tests/monte_carlo/strategy/test_curated_pack.py` with a pytest
       that parses `config/scenarios/monte_carlo/strategies/hf_macro_curated.yml` via
       `TrendConfig` and asserts `len(parsed_config.strategies) == 10`
-    status: doing
+    status: done
     started_at: '2026-02-12T15:02:27Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-12T15:02:45Z'
+    commit: 702078e5c7b645ac7675776dc6ca676f6260e016
     notes: []
   - id: task-02
     title: Add pytest to `tests/monte_carlo/strategy/test_curated_pack.py` asserting
