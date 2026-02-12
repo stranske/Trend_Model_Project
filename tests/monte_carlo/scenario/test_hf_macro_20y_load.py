@@ -10,6 +10,13 @@ from trend_analysis.monte_carlo.strategy import StrategyVariant
 
 
 def test_hf_macro_20y_loads_and_instantiates_curated_pack() -> None:
+    scenario_path = Path("config/scenarios/monte_carlo/hf_macro_20y.yml")
+    scenario_payload = yaml.safe_load(scenario_path.read_text(encoding="utf-8"))
+    assert isinstance(scenario_payload, dict)
+    strategy_set = scenario_payload.get("strategy_set")
+    assert isinstance(strategy_set, dict)
+    assert strategy_set.get("curated_pack") == "strategies/hf_macro_curated.yml"
+
     scenario = load_scenario("hf_macro_20y")
 
     assert scenario.strategy_set is not None
