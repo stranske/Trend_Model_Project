@@ -18,3 +18,18 @@ This directory contains curated strategy packs intended for Monte Carlo scenario
 | Rank_14_RobustMV_TightTurnover | Top-N selection using robust mean-variance with tight turnover. | Targets risk-adjusted optimization while controlling trading activity. |
 | Rank_12_RobustRiskParity_ModerateTurnover | Top-N selection using robust risk parity with moderate turnover. | Provides risk-balanced weights with added robustness to estimation noise. |
 | All_Equal_LowTurnover_LowVol | Full-universe equal weight with low turnover and vol targeting. | Serves as a defensive baseline that limits trading and targets lower volatility. |
+
+## HF Macro Curated (hf_macro_curated.yml)
+
+| Strategy | Intent | Rationale |
+| --- | --- | --- |
+| Rank_8_Equal_TightTurnover | Concentrated macro sleeve selecting top-ranked managers with equal weights and tight turnover. | Preserves high conviction while reducing implementation drift from frequent rebalances. |
+| TopPct_25_RiskParity_ModerateTurnover | Top-quartile macro selection with risk parity weighting and moderate turnover limits. | Balances concentration in stronger signals with risk-based diversification and practical trading cadence. |
+| Threshold_ZScore_HRP_Bayes_ModerateTurnover | Threshold-based macro selection with Bayesian score-proportional weighting and HRP-style diversification intent. | Enforces a minimum signal bar while shrinkage dampens noisy estimates in regime-sensitive macro universes. |
+| Rank_16_HRP_LooseTurnover | Broad rank-based macro sleeve using HRP and looser turnover. | Expands breadth across macro opportunities while preserving clustering-aware risk control. |
+| Rank_20_ERC_LooseTurnover | Diversified top-N macro sleeve with equal risk contribution and loose turnover. | Distributes risk across a broader universe to avoid concentration in correlated macro themes. |
+| Rank_14_RobustMV_TightTurnover | Robust mean-variance long/short macro sleeve with tight turnover controls. | Targets risk-adjusted optimization while allowing controlled short exposure under estimation uncertainty. |
+| Rank_12_RobustRiskParity_ModerateTurnover | Top-N macro sleeve with robust risk parity and moderate turnover constraints. | Prioritizes stable risk budgets under noisy covariance estimates and changing macro regimes. |
+| Random_12_Equal_LooseTurnover | Randomly selected macro baseline with equal weights and loose turnover. | Provides a stress-test benchmark to separate true signal value from selection luck. |
+| Manual_8_Equal_TightTurnover | Fixed manual macro core book with equal sizing and tight turnover. | Represents a discretionary anchor sleeve where holdings are policy-driven rather than score-driven. |
+| All_Equal_LowTurnover_LowVol | Full-universe defensive macro sleeve with low turnover and volatility targeting. | Acts as a conservative reference allocation emphasizing stability and broad diversification. |
