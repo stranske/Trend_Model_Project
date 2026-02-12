@@ -24,7 +24,11 @@ def test_hf_macro_20y_loads_and_instantiates_curated_pack() -> None:
     assert isinstance(curated, list)
     assert all(isinstance(variant, StrategyVariant) for variant in curated)
 
-    base_path = scenario.base_config if isinstance(scenario.base_config, Path) else Path(scenario.base_config)
+    base_path = (
+        scenario.base_config
+        if isinstance(scenario.base_config, Path)
+        else Path(scenario.base_config)
+    )
     base_config = yaml.safe_load(base_path.read_text(encoding="utf-8"))
 
     instantiated_strategies = [

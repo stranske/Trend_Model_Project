@@ -116,7 +116,6 @@ def main() -> int:
         print(f"JUnit report not found: {junit_path}", file=sys.stderr)
         history_path.parent.mkdir(parents=True, exist_ok=True)
         skipped_record = {
-            "timestamp": _dt.datetime.now(_dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
             "status": "skipped",
             "reason": "missing-junit-report",
             "junit_path": str(junit_path),
