@@ -158,6 +158,8 @@ def test_mc_viz_loads_summary_and_results_frames(
             str(bundle_dir),
             "--out",
             str(tmp_path / "exports"),
+            "--charts",
+            "fan,risk_return",
             "--html",
         ]
     )
@@ -304,6 +306,38 @@ def test_mc_viz_loads_optional_nav_paths_frame(
     assert exit_code == 0
     out = capsys.readouterr().out
     assert "nav_paths_rows=3" in out
+
+
+def test_mc_viz_errors_when_path_dist_requires_nav_paths_parquet(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    pd.DataFrame({"path_id": [1, 2], "terminal_nav": [112.0, 98.4]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+
+    exit_code = main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--charts",
+            "path_dist",
+            "--html",
+        ]
+    )
+
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert "nav_paths.parquet" in err
+    assert "path_dist" in err
 
 
 def test_mc_viz_errors_when_chart_identifier_is_invalid(

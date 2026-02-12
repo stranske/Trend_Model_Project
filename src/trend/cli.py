@@ -1819,6 +1819,25 @@ def _mc_chart_builders() -> (
     }
 
 
+def _charts_requiring_nav_paths() -> frozenset[str]:
+    return frozenset({"path_dist"})
+
+
+def _validate_mc_nav_paths_requirement(
+    selected_charts: Iterable[str], nav_paths_frame: pd.DataFrame | None
+) -> None:
+    if nav_paths_frame is not None:
+        return
+    required = sorted(set(selected_charts).intersection(_charts_requiring_nav_paths()))
+    if not required:
+        return
+    chart_text = ", ".join(required)
+    raise TrendCLIError(
+        f"Chart(s) {chart_text} require nav_paths.parquet in the MC bundle. "
+        "Add nav_paths.parquet or remove these chart(s) from --charts."
+    )
+
+
 def _export_mc_chart_artifacts(
     charts: Mapping[str, Any],
     out_dir: Path,
@@ -1850,8 +1869,9 @@ def _export_mc_chart_artifacts(
 def _run_mc_viz_command(args: argparse.Namespace) -> int:
     _validate_mc_viz_output_flags(args)
     summary_frame, results_frame = _load_mc_bundle_frames(args.bundle)
-    nav_paths_frame = _load_mc_nav_paths_frame(args.bundle)
     selected_charts = _parse_mc_chart_selection(args.charts)
+    nav_paths_frame = _load_mc_nav_paths_frame(args.bundle)
+    _validate_mc_nav_paths_requirement(selected_charts, nav_paths_frame)
     chart_builders = _mc_chart_builders()
     generated_charts = {
         chart_id: chart_builders[chart_id](summary_frame, results_frame, nav_paths_frame)

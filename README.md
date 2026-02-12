@@ -138,6 +138,19 @@ trend stress -c config/demo.yml
 python scripts/walk_forward.py --config config/walk_forward.yml
 ```
 
+### Monte Carlo Visualization (`trend mc viz`)
+
+```bash
+trend mc viz --bundle <path> --out <dir> --charts fan,path_dist,risk_return --html --json --png
+```
+
+- `--bundle`: Path to the Monte Carlo bundle directory used as input.
+- `--out`: Output directory where `plots/` is created (for example `<out>/plots/`).
+- `--charts`: Comma-separated chart names to render, for example `fan,path_dist,risk_return`.
+- `--html`: Write HTML chart files to `<out>/plots/*.html`.
+- `--json`: Write JSON chart files to `<out>/plots/*.json`.
+- `--png`: Write PNG chart files to `<out>/plots/*.png`.
+
 ## Configuration
 
 Analysis parameters are controlled via YAML configuration files. The key sections are:
