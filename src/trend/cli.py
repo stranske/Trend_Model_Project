@@ -1869,7 +1869,9 @@ def _run_mc_viz_command(args: argparse.Namespace) -> int:
     _validate_mc_viz_output_flags(args)
     summary_frame, results_frame = _load_mc_bundle_frames(args.bundle)
     selected_charts = _parse_mc_chart_selection(args.charts)
-    nav_path_required_selection = sorted(set(selected_charts).intersection(NAV_PATH_REQUIRED_CHARTS))
+    nav_path_required_selection = sorted(
+        set(selected_charts).intersection(NAV_PATH_REQUIRED_CHARTS)
+    )
     try:
         nav_paths_frame = load_nav_paths_frame(args.bundle)
     except MCNavPathsIOError as exc:
