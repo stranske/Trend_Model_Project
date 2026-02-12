@@ -60,7 +60,9 @@ def _find_streamlit_attribute_violations(func_def: ast.FunctionDef) -> list[int]
     return bad_line_numbers
 
 
-def _load_function_def_from_source(source: str, function_name: str = "build_figure") -> ast.FunctionDef:
+def _load_function_def_from_source(
+    source: str, function_name: str = "build_figure"
+) -> ast.FunctionDef:
     module = ast.parse(source)
     for node in module.body:
         if isinstance(node, ast.FunctionDef) and node.name == function_name:
@@ -98,12 +100,12 @@ def build_figure(data):
             [3],
         ),
         (
-            '''
+            """
 def build_figure(data):
     # st.write(data)
     note = "streamlit.write(data)"
     return data
-''',
+""",
             [],
         ),
         (
