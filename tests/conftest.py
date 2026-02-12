@@ -61,6 +61,13 @@ def pytest_configure(config) -> None:  # noqa: ARG001
         pytest_rerunfailures.HAS_PYTEST_HANDLECRASHITEM = False
 
 
+def pytest_xdist_auto_num_workers(config: pytest.Config) -> int | None:  # noqa: ARG001
+    """Keep CI runs deterministic by avoiding parallel xdist workers."""
+    if os.environ.get("CI", "").lower() == "true":
+        return 1
+    return None
+
+
 # Pre-import modules with lazy loaders to avoid race conditions in xdist parallel execution.
 # The trend_analysis package uses __getattr__ for lazy submodule loading, which can fail
 # when multiple workers try to access submodules concurrently during import.
