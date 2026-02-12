@@ -150,8 +150,8 @@ def test_mc_viz_cli_errors_when_nav_paths_missing_for_required_chart(tmp_path: P
     result = _run_mc_viz(missing_nav_bundle_dir, out_dir, charts="fan,path_dist")
 
     assert result.returncode != 0
-    assert "nav_paths.parquet" in result.stderr
-    assert "path_dist" in result.stderr
+    assert "Chart(s) path_dist require nav_paths.parquet in the MC bundle." in result.stderr
+    assert "Add nav_paths.parquet or remove these chart(s) from --charts." in result.stderr
 
 
 @pytest.mark.integration
@@ -168,7 +168,8 @@ def test_mc_viz_cli_warns_and_continues_when_nav_paths_missing_for_non_required_
     result = _run_mc_viz(missing_nav_bundle_dir, out_dir, charts="fan,risk_return")
 
     assert result.returncode == 0, result.stderr
-    assert "nav_paths.parquet" in result.stderr
+    assert "Missing optional nav_paths.parquet file in MC bundle:" in result.stderr
+    assert "Continuing without NAV-path data." in result.stderr
     assert "NAV-path-dependent visuals" in result.stderr
     assert (out_dir / "plots" / "fan.html").is_file()
     assert (out_dir / "plots" / "risk_return.html").is_file()
