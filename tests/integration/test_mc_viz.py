@@ -67,6 +67,10 @@ def _run_mc_viz(
     )
 
 
+def _expected_png_paths(plots_dir: Path, charts: tuple[str, ...]) -> list[Path]:
+    return [plots_dir / f"{chart}.png" for chart in charts]
+
+
 @pytest.mark.integration
 def test_mc_viz_cli_end_to_end_generates_expected_outputs(tmp_path: Path) -> None:
     bundle_dir = _fixture_bundle_dir()
@@ -100,12 +104,15 @@ def test_mc_viz_cli_end_to_end_generates_expected_outputs(tmp_path: Path) -> Non
         assert any(marker in html_text for marker in expected_markers)
 
     png_files = sorted(plots_dir.glob("*.png"))
+    expected_png_paths = _expected_png_paths(plots_dir, CHARTS)
     if _kaleido_available():
         assert len(png_files) == len(CHARTS)
-        for chart in CHARTS:
-            png_path = plots_dir / f"{chart}.png"
+        for png_path in expected_png_paths:
             assert png_path.is_file()
-            assert png_path.stat().st_size > 0
+            assert png_path.stat().st_size > 0, (
+                f"Expected non-empty PNG chart artifact at {png_path}, "
+                f"but file size was {png_path.stat().st_size} bytes."
+            )
     else:
         assert len(png_files) == 0
         assert "PNG export skipped" in result.stderr
