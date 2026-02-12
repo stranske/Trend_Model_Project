@@ -61,6 +61,7 @@ def save(
                         chart,
                         full_html=True,
                         include_plotlyjs=html_include_plotlyjs,
+                        div_id=f"chart-{stem}",
                         validate=True,
                     )
                 except Exception as exc:
