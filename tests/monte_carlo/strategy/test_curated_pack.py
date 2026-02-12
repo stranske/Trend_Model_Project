@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from copy import deepcopy
 from pathlib import Path
 
+import pytest
 import yaml
 
 from trend_analysis.config.model import TrendConfig
@@ -30,11 +31,24 @@ class ParsedCuratedStrategies:
     names: list[str]
 
 
+def _load_hf_macro_strategies() -> list[dict[str, object]]:
+    strategy_path = Path("config/scenarios/monte_carlo/strategies/hf_macro_curated.yml")
+    payload = yaml.safe_load(strategy_path.read_text(encoding="utf-8"))
+    assert "strategies" in payload, (
+        "Expected top-level key 'strategies' in hf_macro_curated.yml; "
+        "renaming this key is a breaking change and requires migration"
+    )
+    strategies = payload["strategies"]
+    assert isinstance(strategies, list)
+    assert len(strategies) == 10
+    assert all(isinstance(entry, dict) for entry in strategies)
+    return strategies
+
+
 def _parse_hf_macro_curated_via_trendconfig() -> ParsedCuratedStrategies:
     base_path = Path("config/defaults.yml")
     base_config = yaml.safe_load(base_path.read_text(encoding="utf-8"))
-    strategy_path = Path("config/scenarios/monte_carlo/strategies/hf_macro_curated.yml")
-    entries = _load_curated_entries(strategy_path, expected_count=10)
+    entries = _load_hf_macro_strategies()
 
     parsed: list[TrendConfig] = []
     identifiers: list[str] = []
@@ -56,14 +70,15 @@ def _parse_hf_macro_curated_via_trendconfig() -> ParsedCuratedStrategies:
     return ParsedCuratedStrategies(strategies=parsed, identifiers=identifiers, names=names)
 
 
-def _readme_table_rows_for_pack(pack_filename: str) -> list[tuple[str, str, str]]:
+def _readme_table_rows_for_pack(pack_filename: str) -> list[tuple[str, ...]]:
     readme_path = Path("config/scenarios/monte_carlo/strategies/README.md")
     lines = readme_path.read_text(encoding="utf-8").splitlines()
 
     heading = f"({pack_filename})"
     in_section = False
     in_table = False
-    rows: list[tuple[str, str, str]] = []
+    rows: list[tuple[str, ...]] = []
+    ncols = 0
 
     for line in lines:
         stripped = line.strip()
@@ -78,16 +93,20 @@ def _readme_table_rows_for_pack(pack_filename: str) -> list[tuple[str, str, str]
             continue
 
         columns = [column.strip() for column in stripped.strip("|").split("|")]
+        if columns[:4] == ["Identifier", "Name", "Intent", "Rationale"]:
+            in_table = True
+            ncols = 4
+            continue
         if columns[:3] == ["Strategy", "Intent", "Rationale"]:
             in_table = True
+            ncols = 3
             continue
-        if not in_table or len(columns) < 3:
+        if not in_table or len(columns) < ncols:
             continue
-        if all(set(column) <= {"-"} for column in columns[:3]):
+        if all(set(column) <= {"-"} for column in columns[:ncols]):
             continue
 
-        strategy, intent, rationale = columns[:3]
-        rows.append((strategy, intent, rationale))
+        rows.append(tuple(columns[:ncols]))
 
     assert rows, f"No strategy rows found for pack: {pack_filename}"
     return rows
@@ -149,11 +168,24 @@ def test_hf_macro_curated_has_10_strategies() -> None:
 
 
 def test_hf_macro_curated_has_unique_id_and_name() -> None:
-    parsed_config = _parse_hf_macro_curated_via_trendconfig()
-    assert all(identifier for identifier in parsed_config.identifiers)
-    assert all(name for name in parsed_config.names)
-    assert len(set(parsed_config.identifiers)) == len(parsed_config.identifiers)
-    assert len(set(parsed_config.names)) == len(parsed_config.names)
+    strategies = _load_hf_macro_strategies()
+    assert all(str(strategy.get("identifier", "")).strip() for strategy in strategies)
+    assert all(str(strategy.get("name", "")).strip() for strategy in strategies)
+    assert len({strategy["identifier"] for strategy in strategies}) == len(strategies) == 10
+    assert len({strategy["name"] for strategy in strategies}) == len(strategies) == 10
+
+
+def test_hf_macro_curated_schema_validation_raises_no_exception() -> None:
+    try:
+        parsed_config = _parse_hf_macro_curated_via_trendconfig()
+        assert len(parsed_config.strategies) == 10
+        assert all(isinstance(config, TrendConfig) for config in parsed_config.strategies)
+    except Exception as exc:  # pragma: no cover - explicit contract test
+        pytest.fail(f"hf_macro_curated.yml failed TrendConfig validation: {exc}")
+
+
+def test_hf_macro_curated_requires_strategies_top_level_key() -> None:
+    _ = _load_hf_macro_strategies()
 
 
 def test_hf_equity_curated_strategies_do_not_mutate_defaults() -> None:
@@ -342,21 +374,22 @@ def test_hf_equity_curated_docs_cover_all_strategies() -> None:
 def test_hf_macro_curated_docs_cover_all_strategies() -> None:
     strategy_path = Path("config/scenarios/monte_carlo/strategies/hf_macro_curated.yml")
     curated = _load_curated_entries(strategy_path, expected_count=10)
-    curated_names = {entry["name"] for entry in curated}
+    curated_pairs = {(entry["identifier"], entry["name"]) for entry in curated}
 
     rows = _readme_table_rows_for_pack("hf_macro_curated.yml")
-    documented_names = {row[0] for row in rows}
+    documented_pairs = {(row[0], row[1]) for row in rows}
 
-    assert documented_names == curated_names
-    assert len(documented_names) == len(curated_names)
+    assert documented_pairs == curated_pairs
+    assert len(documented_pairs) == len(curated_pairs)
 
 
 def test_hf_macro_curated_docs_has_10_rows_with_intent_and_rationale() -> None:
     rows = _readme_table_rows_for_pack("hf_macro_curated.yml")
 
     assert len(rows) == 10
-    for strategy, intent, rationale in rows:
-        assert strategy.strip()
+    for identifier, name, intent, rationale in rows:
+        assert identifier.strip()
+        assert name.strip()
         assert intent.strip()
         assert rationale.strip()
 
