@@ -276,6 +276,35 @@ def test_mc_viz_errors_when_results_file_is_corrupted(
     assert "Failed to read results data" in err
 
 
+def test_mc_viz_errors_when_results_parquet_file_is_corrupted_without_traceback(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["vol"], "value": [0.09]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    (bundle_dir / "results.parquet").write_text("not parquet bytes", encoding="utf-8")
+
+    exit_code = main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--png",
+        ]
+    )
+
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert "results.parquet" in err
+    assert "corrupted or not a parquet file" in err
+    assert "Traceback" not in err
+
+
 def test_mc_viz_loads_optional_nav_paths_frame(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

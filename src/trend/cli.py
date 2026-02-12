@@ -1652,7 +1652,13 @@ def _read_mc_frame(path: Path, *, label: str) -> pd.DataFrame:
     try:
         suffix = path.suffix.lower()
         if suffix == ".parquet":
-            frame = pd.read_parquet(path)
+            try:
+                frame = pd.read_parquet(path)
+            except Exception as exc:
+                raise TrendCLIError(
+                    f"Failed to read {label} parquet file '{path.name}'. "
+                    "The file may be corrupted or not a parquet file."
+                ) from exc
         elif suffix == ".csv":
             frame = pd.read_csv(path)
         elif suffix == ".json":
