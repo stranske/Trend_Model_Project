@@ -14,7 +14,6 @@ from typing import Any, Iterator, cast
 
 from trend.cli import (
     DEFAULT_REPORT_FORMATS,
-    TrendCLIError,
     _determine_seed,
     _ensure_dataframe,
     _prepare_export_config,
@@ -25,6 +24,7 @@ from trend.cli import (
     _write_report_files,
 )
 from trend.cli import _load_configuration as _load_yaml_configuration
+from trend.mc.viz import TrendCLIError
 from trend.reporting import generate_unified_report
 from trend_analysis.config import load_config
 from trend_model.spec import ensure_run_spec
