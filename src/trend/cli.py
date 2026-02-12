@@ -21,6 +21,7 @@ import yaml
 
 from trend.config_schema import CoreConfigError, load_core_config
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
+from trend.mc.charts import NAV_PATH_REQUIRED_CHARTS
 from trend.mc.io import (
     MCNavPathsIOError,
     load_nav_paths_frame,
@@ -351,7 +352,6 @@ _refresh_legacy_cli_module()
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
 
 DEFAULT_REPORT_FORMATS = ("csv", "json", "xlsx", "txt")
-NAV_PATH_REQUIRED_CHARTS = frozenset({"path_dist"})
 
 SCENARIO_WINDOWS: dict[str, tuple[tuple[str, str], tuple[str, str]]] = {
     "2008": (("2006-01", "2007-12"), ("2008-01", "2009-12")),
