@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import warnings
 from pathlib import Path
 from typing import Iterable
 
@@ -9,6 +10,10 @@ import pandas as pd
 
 class MCNavPathsIOError(RuntimeError):
     """Raised when Monte Carlo NAV-path inputs are missing or invalid."""
+
+
+class MCNavPathsWarning(UserWarning):
+    """Warning emitted for non-fatal NAV-path input conditions."""
 
 
 MISSING_NAV_PATHS_RAISE = "raise"
@@ -113,6 +118,14 @@ def load_nav_paths(
             raise MCNavPathsIOError(
                 f"Missing required nav_paths.parquet file in MC bundle: {bundle_dir}"
             )
+        warnings.warn(
+            (
+                f"Missing optional nav_paths.parquet file in MC bundle: {bundle_dir}. "
+                "Continuing without NAV-path data."
+            ),
+            MCNavPathsWarning,
+            stacklevel=2,
+        )
         return None
     loaded = _read_nav_paths_parquet(nav_paths_path)
     return validate_nav_paths_df(loaded, required_columns=required_columns)
