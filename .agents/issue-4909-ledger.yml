@@ -1,0 +1,241 @@
+version: 1
+issue: 4909
+base: phase-3
+branch: codex/issue-4909
+tasks:
+  - id: task-01
+    title: Create the base YAML file structure for `config/scenarios/monte_carlo/strategies/hf_macro_curated.yml`
+      with schema headers and metadata
+    status: doing
+    started_at: '2026-02-12T13:33:07Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Define the concentrated rank strategy variant with top-N equal weight and
+      tight turnover constraints in `hf_macro_curated.yml`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Define the top-quartile risk parity strategy variant with appropriate risk
+      allocation parameters in `hf_macro_curated.yml`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Define the threshold plus HRP strategy variant with score-proportional
+      Bayesian weighting in `hf_macro_curated.yml`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Define the broader ERC diversified strategy variant with equal risk contribution
+      across assets in `hf_macro_curated.yml`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Define the robust mean-variance long/short strategy variant with optimization
+      constraints in `hf_macro_curated.yml`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Define the robust risk parity strategy variant with uncertainty-aware risk
+      budgeting in `hf_macro_curated.yml`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Define the random baseline strategy variant for stress testing and benchmarking
+      purposes in `hf_macro_curated.yml`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Define the manual core book strategy variant with fixed position specifications
+      in `hf_macro_curated.yml`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Define the full-universe defensive strategy variant with low turnover and
+      volatility targeting in `hf_macro_curated.yml`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Update `config/scenarios/monte_carlo/hf_macro_20y.yml` to reference `curated_pack:
+      strategies/hf_macro_curated.yml` and remove any inline strategy definitions
+      replaced by the curated pack'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Document the concentrated rank strategy in `config/scenarios/monte_carlo/strategies/README.md`
+      with Intent and Rationale columns
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Document the top-quartile risk parity strategy in `config/scenarios/monte_carlo/strategies/README.md`
+      with Intent and Rationale columns
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Document the threshold plus HRP strategy in `config/scenarios/monte_carlo/strategies/README.md`
+      with Intent and Rationale columns
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Document the broader ERC diversified strategy in `config/scenarios/monte_carlo/strategies/README.md`
+      with Intent and Rationale columns
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Document the robust mean-variance long/short strategy in `config/scenarios/monte_carlo/strategies/README.md`
+      with Intent and Rationale columns
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Document the robust risk parity strategy in `config/scenarios/monte_carlo/strategies/README.md`
+      with Intent and Rationale columns
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Document the random baseline strategy in `config/scenarios/monte_carlo/strategies/README.md`
+      with Intent and Rationale columns
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Document the manual core book strategy in `config/scenarios/monte_carlo/strategies/README.md`
+      with Intent and Rationale columns
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Document the full-universe defensive strategy in `config/scenarios/monte_carlo/strategies/README.md`
+      with Intent and Rationale columns
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Verify that all strategies in `hf_macro_curated.yml` have corresponding
+      README entries
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Add test to `tests/monte_carlo/strategy/test_curated_pack.py` to validate
+      `hf_macro_curated.yml` against the `TrendConfig` schema (following the `hf_equity_curated.yml`
+      pattern)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: Add test to `tests/monte_carlo/strategy/test_curated_pack.py` to verify
+      README coverage matches the macro pack contents
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: '`config/scenarios/monte_carlo/strategies/hf_macro_curated.yml` exists
+      and contains exactly 10 strategy definitions'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: '`hf_macro_curated.yml` validates against the `TrendConfig` schema when
+      running `pytest tests/monte_carlo/strategy/test_curated_pack.py::test_hf_macro_curated_schema
+      -v`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: The hf_macro_20y scenario loads without errors and instantiates all strategies
+      from the curated pack reference, verified by running the scenario load test
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: '`config/scenarios/monte_carlo/strategies/README.md` includes documented
+      entries for every strategy in `hf_macro_curated.yml` with Intent and Rationale
+      columns present'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: The complete Monte Carlo test suite passes with zero failures when running
+      `pytest tests/monte_carlo -v`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: The README coverage test in `test_curated_pack.py` passes, confirming all
+      macro strategies are documented
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
