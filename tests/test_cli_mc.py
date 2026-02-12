@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
@@ -605,3 +606,385 @@ def test_mc_list_empty_registry_shows_message(
     assert rc == 0
     out = capsys.readouterr().out
     assert "No Monte Carlo scenarios found." in out
+
+
+def test_mc_viz_requires_at_least_one_output_flag(capsys: pytest.CaptureFixture[str]) -> None:
+    rc = cli.main(["mc", "viz", "--bundle", "bundle_dir", "--out", "export_dir"])
+
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "requires at least one output flag" in err
+
+
+def test_mc_viz_loads_summary_and_results_frames(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    pd.DataFrame({"path_id": [1, 2], "terminal_nav": [112.0, 98.4]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+
+    rc = cli.main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--html",
+        ]
+    )
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Loaded MC bundle frames" in out
+    assert "summary_rows=1" in out
+    assert "results_rows=2" in out
+    assert (tmp_path / "exports" / "plots").is_dir()
+
+
+def test_mc_viz_errors_when_summary_missing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"path_id": [1], "terminal_nav": [101.0]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+
+    rc = cli.main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--json",
+        ]
+    )
+
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "Missing required MC summary file" in err
+
+
+def test_mc_viz_errors_when_results_missing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["vol"], "value": [0.09]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+
+    rc = cli.main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--html",
+        ]
+    )
+
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "Missing required MC results file" in err
+
+
+def test_mc_viz_errors_when_multiple_required_inputs_missing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+
+    rc = cli.main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--json",
+        ]
+    )
+
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "Missing required MC input files" in err
+    assert "summary" in err
+    assert "results" in err
+
+
+def test_mc_viz_errors_when_results_file_is_corrupted(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["vol"], "value": [0.09]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    (bundle_dir / "results.json").write_text("{bad json", encoding="utf-8")
+
+    rc = cli.main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--png",
+        ]
+    )
+
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "Failed to read results data" in err
+
+
+def test_mc_viz_loads_optional_nav_paths_frame(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    pd.DataFrame({"path_id": [1, 2], "terminal_nav": [112.0, 98.4]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+    (bundle_dir / "nav_paths.parquet").write_text("placeholder", encoding="utf-8")
+
+    monkeypatch.setattr(cli.pd, "read_parquet", lambda _path: pd.DataFrame({"path_id": [1, 2, 3]}))
+
+    rc = cli.main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--png",
+        ]
+    )
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "nav_paths_rows=3" in out
+
+
+def test_mc_viz_errors_when_chart_identifier_is_invalid(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    pd.DataFrame({"path_id": [1, 2], "terminal_nav": [112.0, 98.4]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+
+    rc = cli.main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--charts",
+            "fan,unknown",
+            "--html",
+        ]
+    )
+
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "Unsupported chart identifier" in err
+
+
+def test_mc_viz_routes_selected_charts_and_exports_requested_formats(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    pd.DataFrame({"path_id": [1, 2], "terminal_nav": [112.0, 98.4]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+
+    call_order: list[str] = []
+
+    def _builder(name: str):
+        def _inner(
+            _summary: pd.DataFrame, _results: pd.DataFrame, _nav: pd.DataFrame | None
+        ) -> object:
+            call_order.append(name)
+            return object()
+
+        return _inner
+
+    monkeypatch.setattr(
+        cli,
+        "_mc_chart_builders",
+        lambda: {
+            "fan": _builder("fan"),
+            "path_dist": _builder("path_dist"),
+            "risk_return": _builder("risk_return"),
+        },
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_save(
+        charts: dict[str, object],
+        destination: Path | str | None = None,
+        *,
+        include_json: bool = True,
+        include_html: bool = True,
+        include_png: bool = False,
+        warnings: list[str] | None = None,
+        **_kwargs: object,
+    ) -> Path:
+        assert destination is not None
+        dest_path = Path(destination)
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        captured["charts"] = list(charts.keys())
+        captured["include_json"] = include_json
+        captured["include_html"] = include_html
+        captured["include_png"] = include_png
+        with zipfile.ZipFile(dest_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for name in charts:
+                if include_json:
+                    archive.writestr(f"{name}.json", "{}")
+                if include_html:
+                    archive.writestr(f"{name}.html", "<html></html>")
+                if include_png:
+                    archive.writestr(f"{name}.png", b"PNG")
+        if warnings is not None:
+            warnings.append("stub warning")
+        return dest_path
+
+    from trend_analysis.monte_carlo import export_bundle as mc_export_bundle
+
+    monkeypatch.setattr(mc_export_bundle, "save", fake_save)
+
+    out_dir = tmp_path / "exports"
+    rc = cli.main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(out_dir),
+            "--charts",
+            "risk_return,fan",
+            "--json",
+            "--png",
+        ]
+    )
+
+    assert rc == 0
+    assert call_order == ["risk_return", "fan"]
+    assert captured["charts"] == ["risk_return", "fan"]
+    assert captured["include_json"] is True
+    assert captured["include_html"] is False
+    assert captured["include_png"] is True
+    plots_dir = out_dir / "plots"
+    assert plots_dir.is_dir()
+    assert (plots_dir / "risk_return.json").exists()
+    assert (plots_dir / "fan.json").exists()
+    assert (plots_dir / "risk_return.png").exists()
+    assert (plots_dir / "fan.png").exists()
+    assert not (plots_dir / "risk_return.html").exists()
+
+
+def test_mc_viz_acceptance_command_writes_plots_artifacts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    pd.DataFrame({"path_id": [1, 2], "terminal_nav": [112.0, 98.4]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "_mc_chart_builders",
+        lambda: {
+            "fan": lambda _summary, _results, _nav: object(),
+            "path_dist": lambda _summary, _results, _nav: object(),
+            "risk_return": lambda _summary, _results, _nav: object(),
+        },
+    )
+
+    def fake_save(
+        charts: dict[str, object],
+        destination: Path | str | None = None,
+        *,
+        include_json: bool = True,
+        include_html: bool = True,
+        include_png: bool = False,
+        warnings: list[str] | None = None,
+        **_kwargs: object,
+    ) -> Path:
+        assert destination is not None
+        dest_path = Path(destination)
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(dest_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for name in charts:
+                if include_json:
+                    archive.writestr(f"{name}.json", "{}")
+                if include_html:
+                    archive.writestr(f"{name}.html", "<html></html>")
+                if include_png:
+                    archive.writestr(f"{name}.png", b"PNG")
+        if warnings is not None:
+            warnings.append("stub warning")
+        return dest_path
+
+    from trend_analysis.monte_carlo import export_bundle as mc_export_bundle
+
+    monkeypatch.setattr(mc_export_bundle, "save", fake_save)
+
+    out_dir = tmp_path / "exports"
+    rc = cli.main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(out_dir),
+            "--charts",
+            "fan,path_dist,risk_return",
+            "--html",
+            "--json",
+            "--png",
+        ]
+    )
+
+    assert rc == 0
+    plots_dir = out_dir / "plots"
+    assert plots_dir.is_dir()
+    for chart in ("fan", "path_dist", "risk_return"):
+        for ext in ("html", "json", "png"):
+            assert (plots_dir / f"{chart}.{ext}").exists()
