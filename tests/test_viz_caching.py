@@ -6,6 +6,7 @@ from collections import Counter
 from types import SimpleNamespace
 
 import pandas as pd
+import pytest
 
 
 def _sample_results_frame() -> pd.DataFrame:
@@ -80,3 +81,53 @@ def test_viz_cache_data_is_decorated_and_invoked(monkeypatch) -> None:
     assert expected.issubset(decorated)
     for name in expected:
         assert called[name] >= 1
+
+
+def test_viz_cache_data_wraps_functions_when_streamlit_is_available(monkeypatch) -> None:
+    def cache_data(*_args, **_kwargs):
+        def decorator(func):
+            def wrapped(*args, **kwargs):
+                return func(*args, **kwargs)
+
+            wrapped.__wrapped__ = func
+            wrapped._streamlit_cache_wrapped = True
+            return wrapped
+
+        return decorator
+
+    monkeypatch.setitem(sys.modules, "streamlit", SimpleNamespace(cache_data=cache_data))
+
+    adapters = importlib.reload(importlib.import_module("trend_analysis.viz.adapters"))
+    corr_heatmap = importlib.reload(
+        importlib.import_module("trend_analysis.viz.charts.corr_heatmap")
+    )
+    rolling_panel = importlib.reload(
+        importlib.import_module("trend_analysis.viz.charts.rolling_panel")
+    )
+    seasonality_heatmap = importlib.reload(
+        importlib.import_module("trend_analysis.viz.charts.seasonality_heatmap")
+    )
+    sharpe_ladder = importlib.reload(importlib.import_module("trend_analysis.viz.sharpe_ladder"))
+
+    wrapped_functions = [
+        adapters._make_summary_cached,
+        adapters._make_paths_cached,
+        corr_heatmap._prepare_corr_matrix,
+        rolling_panel._prepare_panel_series,
+        seasonality_heatmap._prepare_seasonality_matrix,
+        sharpe_ladder.prepare_sharpe_ladder,
+    ]
+    for fn in wrapped_functions:
+        assert getattr(fn, "_streamlit_cache_wrapped", False) is True
+        assert hasattr(fn, "__wrapped__")
+        assert fn is not fn.__wrapped__
+
+
+def test_viz_cache_guard_raises_when_required_and_cache_data_missing(monkeypatch) -> None:
+    monkeypatch.setenv("TREND_VIZ_REQUIRE_CACHE", "1")
+    monkeypatch.setitem(sys.modules, "streamlit", SimpleNamespace(cache_data=None))
+
+    with pytest.raises(
+        RuntimeError, match="Caching required but streamlit.cache_data is unavailable"
+    ):
+        importlib.reload(importlib.import_module("trend_analysis.viz.adapters"))
