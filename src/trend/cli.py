@@ -21,6 +21,7 @@ import yaml
 
 from trend.config_schema import CoreConfigError, load_core_config
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
+from trend.mc.charts import NAV_PATH_REQUIRED_CHARTS
 from trend.mc.io import (
     MCNavPathsIOError,
     load_nav_paths_frame,
@@ -351,7 +352,6 @@ _refresh_legacy_cli_module()
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
 
 DEFAULT_REPORT_FORMATS = ("csv", "json", "xlsx", "txt")
-NAV_PATH_REQUIRED_CHARTS = frozenset({"path_dist"})
 
 SCENARIO_WINDOWS: dict[str, tuple[tuple[str, str], tuple[str, str]]] = {
     "2008": (("2006-01", "2007-12"), ("2008-01", "2009-12")),
@@ -1851,6 +1851,32 @@ def _export_mc_chart_artifacts(
     return plots_dir, warnings
 
 
+def _inject_mc_html_chart_markers(
+    plots_dir: Path,
+    selected_charts: Iterable[str],
+    *,
+    warnings: list[str],
+) -> None:
+    for chart_id in selected_charts:
+        html_path = plots_dir / f"{chart_id}.html"
+        if not html_path.exists():
+            continue
+        marker = f"<!-- mc-viz-chart:{chart_id} -->"
+        try:
+            html_text = html_path.read_text(encoding="utf-8")
+            if marker in html_text:
+                continue
+            body_token = "<body>"
+            if body_token in html_text:
+                updated_html = html_text.replace(body_token, f"{body_token}\n{marker}", 1)
+            else:
+                updated_html = f"{marker}\n{html_text}"
+            html_path.parent.mkdir(parents=True, exist_ok=True)
+            html_path.write_text(updated_html, encoding="utf-8")
+        except Exception as exc:
+            warnings.append(f"Unable to inject HTML chart marker for '{chart_id}': {exc}.")
+
+
 def _run_mc_viz_command(args: argparse.Namespace) -> int:
     _validate_mc_viz_output_flags(args)
     summary_frame, results_frame = _load_mc_bundle_frames(args.bundle)
@@ -1877,6 +1903,8 @@ def _run_mc_viz_command(args: argparse.Namespace) -> int:
         include_json=args.json,
         include_png=args.png,
     )
+    if args.html:
+        _inject_mc_html_chart_markers(plots_dir, selected_charts, warnings=warnings)
 
     counts = f"summary_rows={len(summary_frame)} results_rows={len(results_frame)}"
     if nav_paths_frame is not None:

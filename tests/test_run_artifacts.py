@@ -90,6 +90,30 @@ def test_write_run_artifacts_skips_missing_files(tmp_path: Path) -> None:
     assert manifest["data_window"]["rows"] == 1
 
 
+def test_write_run_artifacts_creates_nested_output_directory_tree(tmp_path: Path) -> None:
+    nested_output = tmp_path / "nested" / "artifacts" / "out"
+    assert not nested_output.exists()
+
+    run_dir = write_run_artifacts(
+        output_dir=nested_output,
+        run_id="nested-out",
+        config={},
+        config_path="cfg.yml",
+        input_path=tmp_path / "missing.csv",
+        data_frame=pd.DataFrame({"Date": pd.date_range("2023-01-31", periods=1, freq="ME")}),
+        metrics_frame=pd.DataFrame(),
+        run_details={},
+        exported_files=[],
+        summary_text="",
+    )
+
+    assert nested_output.is_dir()
+    assert (nested_output / "runs").is_dir()
+    assert run_dir.is_dir()
+    assert (run_dir / "manifest.json").is_file()
+    assert (run_dir / "report.html").is_file()
+
+
 def test_serialise_stats_handles_mapping_and_invalid_values() -> None:
     stats = {"cagr": "0.5", "vol": "n/a", "ignored": "x"}
 

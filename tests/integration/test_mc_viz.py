@@ -71,6 +71,10 @@ def _expected_png_paths(plots_dir: Path, charts: tuple[str, ...]) -> list[Path]:
     return [plots_dir / f"{chart}.png" for chart in charts]
 
 
+def _marker_for(chart: str) -> str:
+    return f"<!-- mc-viz-chart:{chart} -->"
+
+
 @pytest.mark.integration
 def test_mc_viz_cli_end_to_end_generates_expected_outputs(tmp_path: Path) -> None:
     bundle_dir = _fixture_bundle_dir()
@@ -95,16 +99,14 @@ def test_mc_viz_cli_end_to_end_generates_expected_outputs(tmp_path: Path) -> Non
         assert isinstance(chart_data, list)
         assert len(chart_data) > 0
 
-        html_text = html_path.read_text(encoding="utf-8").lower()
-        expected_markers = {
-            "fan": ("fan chart", "fan"),
-            "path_dist": ("path distribution", "path_dist"),
-            "risk_return": ("risk vs. return", "risk_return"),
-        }[chart]
-        assert any(marker in html_text for marker in expected_markers)
+        html_text = html_path.read_text(encoding="utf-8")
+        assert _marker_for(chart) in html_text
+        assert f'id="chart-{chart}"' in html_text
 
     png_files = sorted(plots_dir.glob("*.png"))
     expected_png_paths = _expected_png_paths(plots_dir, CHARTS)
+    html_chart_ids = {path.stem for path in plots_dir.glob("*.html")}
+    assert html_chart_ids == set(CHARTS)
     if _kaleido_available():
         assert len(png_files) == len(CHARTS)
         for png_path in expected_png_paths:
@@ -113,13 +115,43 @@ def test_mc_viz_cli_end_to_end_generates_expected_outputs(tmp_path: Path) -> Non
                 f"Expected non-empty PNG chart artifact at {png_path}, "
                 f"but file size was {png_path.stat().st_size} bytes."
             )
+        png_chart_ids = {path.stem for path in png_files}
+        assert png_chart_ids == html_chart_ids
     else:
         assert len(png_files) == 0
         assert "PNG export skipped" in result.stderr
 
 
 @pytest.mark.integration
-def test_mc_viz_cli_skips_existing_plot_file_without_overwrite(tmp_path: Path) -> None:
+def test_mc_viz_cli_outputs_only_selected_chart_set_across_formats(tmp_path: Path) -> None:
+    bundle_dir = _fixture_bundle_dir()
+    assert bundle_dir.is_dir()
+
+    selected = ("fan", "risk_return")
+    out_dir = tmp_path / "out_selected"
+    result = _run_mc_viz(bundle_dir, out_dir, charts="fan,risk_return")
+
+    assert result.returncode == 0, result.stderr
+    plots_dir = out_dir / "plots"
+    assert plots_dir.is_dir()
+
+    html_chart_ids = {path.stem for path in plots_dir.glob("*.html")}
+    assert html_chart_ids == set(selected)
+    for chart in selected:
+        html_text = (plots_dir / f"{chart}.html").read_text(encoding="utf-8")
+        assert _marker_for(chart) in html_text
+        assert f'id="chart-{chart}"' in html_text
+
+    png_chart_ids = {path.stem for path in plots_dir.glob("*.png")}
+    if _kaleido_available():
+        assert png_chart_ids == set(selected)
+    else:
+        assert png_chart_ids == set()
+        assert "PNG export skipped" in result.stderr
+
+
+@pytest.mark.integration
+def test_mc_viz_cli_renames_existing_plot_file_collision_without_overwrite(tmp_path: Path) -> None:
     bundle_dir = _fixture_bundle_dir()
     assert bundle_dir.is_dir()
 
@@ -134,8 +166,9 @@ def test_mc_viz_cli_skips_existing_plot_file_without_overwrite(tmp_path: Path) -
 
     assert result.returncode == 0, result.stderr
     assert existing_path.read_bytes() == original_bytes
+    assert (plots_dir / "risk_return-1.json").is_file()
     assert "risk_return.json" in result.stderr
-    assert "destination file already exists" in result.stderr
+    assert "Renamed extracted 'risk_return.json' to 'risk_return-1.json'" in result.stderr
 
 
 @pytest.mark.integration
@@ -150,8 +183,8 @@ def test_mc_viz_cli_errors_when_nav_paths_missing_for_required_chart(tmp_path: P
     result = _run_mc_viz(missing_nav_bundle_dir, out_dir, charts="fan,path_dist")
 
     assert result.returncode != 0
-    assert "nav_paths.parquet" in result.stderr
-    assert "path_dist" in result.stderr
+    assert "Chart(s) path_dist require nav_paths.parquet in the MC bundle." in result.stderr
+    assert "Add nav_paths.parquet or remove these chart(s) from --charts." in result.stderr
 
 
 @pytest.mark.integration
@@ -168,7 +201,8 @@ def test_mc_viz_cli_warns_and_continues_when_nav_paths_missing_for_non_required_
     result = _run_mc_viz(missing_nav_bundle_dir, out_dir, charts="fan,risk_return")
 
     assert result.returncode == 0, result.stderr
-    assert "nav_paths.parquet" in result.stderr
+    assert "Missing optional nav_paths.parquet file in MC bundle:" in result.stderr
+    assert "Continuing without NAV-path data." in result.stderr
     assert "NAV-path-dependent visuals" in result.stderr
     assert (out_dir / "plots" / "fan.html").is_file()
     assert (out_dir / "plots" / "risk_return.html").is_file()

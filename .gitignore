@@ -104,6 +104,7 @@ ci/autofix/diagnostics.json
 trend_model.egg-info/
 coverage.xml
 coverage-ci-repro.xml
+coverage*.xml
 
 # =============================================================================
 # Workflows Consumer Repo - Shared Status Files

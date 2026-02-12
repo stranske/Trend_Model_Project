@@ -151,6 +151,55 @@ trend mc viz --bundle <path> --out <dir> --charts fan,path_dist,risk_return --ht
 - `--json`: Write JSON chart files to `<out>/plots/*.json`.
 - `--png`: Write PNG chart files to `<out>/plots/*.png`.
 
+### NAV-Path Utilities and `mc viz` Contracts
+
+Use the NAV-path helpers from `trend.mc.io` instead of re-implementing loading/validation logic:
+
+```python
+from trend.mc.io import (
+    MISSING_NAV_PATHS_RAISE,
+    load_nav_paths,
+    validate_nav_paths_df,
+)
+
+nav_paths = load_nav_paths(
+    "tests/fixtures/mc_bundle",
+    missing_parquet=MISSING_NAV_PATHS_RAISE,
+    required_columns=("date", "path_id", "nav"),
+)
+validated = validate_nav_paths_df(nav_paths, required_columns=("date", "path_id", "nav"))
+```
+
+Missing `nav_paths.parquet` contract:
+
+- `load_nav_paths(..., missing_parquet="raise")` raises `MCNavPathsIOError` with message prefix `Missing required nav_paths.parquet file in MC bundle:`.
+- `load_nav_paths(..., missing_parquet="return-none")` emits `MCNavPathsWarning` with message containing `Missing optional nav_paths.parquet file in MC bundle:` and `Continuing without NAV-path data.` and returns `None`.
+- `trend mc viz` raises `MCNavPathsIOError` when required charts are selected without NAV paths, with message containing `require nav_paths.parquet in the MC bundle`.
+
+HTML/PNG selection and markers:
+
+- `trend mc viz` uses one selected chart set for both HTML and PNG output modes.
+- Each generated chart HTML includes an exact marker comment in this format: `<!-- mc-viz-chart:<chart_id> -->`.
+- For the default charts, marker strings are:
+  - `<!-- mc-viz-chart:fan -->`
+  - `<!-- mc-viz-chart:path_dist -->`
+  - `<!-- mc-viz-chart:risk_return -->`
+
+Artifact extraction behavior:
+
+- Use the single public extractor `trend_analysis.viz.artifacts.extract_bundle_zip(...)`.
+- Extraction is deterministic and non-destructive; filename collisions are disambiguated with stable numeric suffixes (`-1`, `-2`, ...), for example `risk_return.json` and `risk_return-1.json`.
+
+Output directory creation semantics:
+
+- `trend mc viz` creates parent output directories automatically (`Path(...).mkdir(parents=True, exist_ok=True)`) before writing chart artifacts.
+- Artifact extraction also creates required parent directories automatically before writing extracted files.
+- Example nested output path that works without pre-creating directories:
+
+```bash
+trend mc viz --bundle tests/fixtures/mc_bundle --out tmp/reports/2026/02/12/mc --charts fan --html --json
+```
+
 ## Configuration
 
 Analysis parameters are controlled via YAML configuration files. The key sections are:

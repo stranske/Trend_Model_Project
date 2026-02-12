@@ -1,0 +1,973 @@
+version: 1
+issue: 4911
+base: phase-3
+branch: codex/issue-4911
+tasks:
+  - id: task-01
+    title: Implement `load_nav_paths(...)` and `validate_nav_paths_df(...)` in `trend/mc/io.py`
+      to read `nav_paths.parquet` and enforce validation rules, including an explicit
+      missing-parquet behavior (raise specific exception OR `warnings.warn(...)` +
+      sentinel/empty DataFrame).
+    status: done
+    started_at: '2026-02-12T14:16:09Z'
+    finished_at: '2026-02-12T14:16:22Z'
+    commit: 33362888682965518d836a3d247fd16dffa921fa
+    notes: []
+  - id: task-02
+    title: 'Define scope for: Implement the load_nav_paths function in trend/mc/io.py
+      to read nav_paths.parquet from the expected location (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Implement focused slice for: Implement the load_nav_paths function in
+      trend/mc/io.py to read nav_paths.parquet from the expected location (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Validate focused slice for: Implement the load_nav_paths function in trend/mc/io.py
+      to read nav_paths.parquet from the expected location (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Define scope for: Define the missing parquet file behavior contract by
+      choosing between raising a specific exception or emitting a warning with sentinel
+      return value (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Implement focused slice for: Define the missing parquet file behavior
+      contract by choosing between raising a specific exception or emitting a warning
+      with sentinel return value (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Validate focused slice for: Define the missing parquet file behavior contract
+      by choosing between raising a specific exception or emitting a warning with
+      sentinel return value (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Define scope for: Implement the validate_nav_paths_df function to enforce
+      validation rules on the loaded DataFrame (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Implement focused slice for: Implement the validate_nav_paths_df function
+      to enforce validation rules on the loaded DataFrame (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Validate focused slice for: Implement the validate_nav_paths_df function
+      to enforce validation rules on the loaded DataFrame (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Define the required columns (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'validation rules for the NAV paths DataFrame structure (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Add unit tests in `tests/unit/test_mc_io_nav_paths.py` covering missing
+      `nav_paths.parquet` behavior and deterministic validation failures (non-DataFrame,
+      empty DataFrame, missing required columns).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Add a module-level `NAV_PATH_REQUIRED_CHARTS` constant in the chart-selection/interpretation
+      module(s) used by mc_viz, and implement required-chart validation using this
+      constant.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Update `trend/cli/mc_viz.py` to call `trend/mc/io.py` NAV-path helpers
+      (no duplicate loading/validation logic) and to select charts based on NAV-path
+      rules for both HTML and PNG output modes.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Define scope for: Refactor trend/cli/mc_viz.py to import (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Implement focused slice for: Refactor trend/cli/mc_viz.py to import (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Validate focused slice for: Refactor trend/cli/mc_viz.py to import (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'call the NAV-path loading helpers from trend/mc/io.py (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Define scope for: Implement chart selection logic based on NAV-path rules
+      for HTML output mode (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'Implement focused slice for: Implement chart selection logic based on
+      NAV-path rules for HTML output mode (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'Validate focused slice for: Implement chart selection logic based on NAV-path
+      rules for HTML output mode (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: 'Define scope for: Implement chart selection logic based on NAV-path rules
+      for PNG output mode (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'Implement focused slice for: Implement chart selection logic based on
+      NAV-path rules for PNG output mode (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: 'Validate focused slice for: Implement chart selection logic based on NAV-path
+      rules for PNG output mode (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: 'Ensure chart selection consistency between HTML (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: 'PNG modes using shared selection logic (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: Update `trend/cli/mc_viz.py` HTML output to inject required container markers
+      for the NAV-path-selected charts.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: Update `trend/cli/mc_viz.py` PNG output to generate PNGs only for NAV-path-selected
+      charts with stable naming (or stable filename pattern) consistent with the HTML-selected
+      set.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: Refactor `trend/viz/artifacts.py` to expose exactly one public artifact-extraction
+      function, route all extraction through it, and implement deterministic naming
+      with deterministic collision disambiguation (e.g., suffix `-1`, `-2`, ...).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: 'Design (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: 'Define scope for: implement the single public artifact-extraction function
+      interface in trend/viz/artifacts.py (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: 'Implement focused slice for: implement the single public artifact-extraction
+      function interface in trend/viz/artifacts.py (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: 'Validate focused slice for: implement the single public artifact-extraction
+      function interface in trend/viz/artifacts.py (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: 'Define scope for: Refactor all existing extraction code paths to route
+      through the new public function (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: 'Implement focused slice for: Refactor all existing extraction code paths
+      to route through the new public function (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: 'Validate focused slice for: Refactor all existing extraction code paths
+      to route through the new public function (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: 'Implement deterministic naming logic for extracted artifacts with stable
+      output filenames (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: 'Implement deterministic collision disambiguation using numeric suffixes
+      for duplicate filenames (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: Add unit tests for `trend/viz/artifacts.py` verifying deterministic extraction
+      naming across repeated runs and deterministic non-destructive collision handling.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: Fix all relevant write paths (mc_viz outputs and artifact writes) to create
+      parent output directories using `Path(...).mkdir(parents=True, exist_ok=True)`
+      before writing.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: 'Extend `tests/integration/test_mc_viz.py` to assert: HTML + PNG outputs
+      produced, HTML marker strings present, NAV-path chart selection consistent across
+      modes, deterministic collision handling end-to-end, and missing `nav_paths.parquet`
+      triggers the expected error/warning contract.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: Add integration test to verify that both HTML
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: 'PNG outputs are produced by mc_viz (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: 'Define scope for: Add integration test to assert that required HTML marker
+      strings are present in generated output (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: 'Implement focused slice for: Add integration test to assert that required
+      HTML marker strings are present in generated output (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: 'Validate focused slice for: Add integration test to assert that required
+      HTML marker strings are present in generated output (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: Add integration test to verify NAV-path chart selection consistency between
+      HTML
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: 'PNG modes (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: 'Define scope for: Add integration test to validate deterministic collision
+      handling produces stable non-overwriting filenames (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: 'Implement focused slice for: Add integration test to validate deterministic
+      collision handling produces stable non-overwriting filenames (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: 'Validate focused slice for: Add integration test to validate deterministic
+      collision handling produces stable non-overwriting filenames (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: 'Define scope for: Add integration test to verify missing nav_paths.parquet
+      triggers the documented error or warning behavior'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: 'Implement focused slice for: Add integration test to verify missing nav_paths.parquet
+      triggers the documented error or warning behavior'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: 'Validate focused slice for: Add integration test to verify missing nav_paths.parquet
+      triggers the documented error or warning behavior'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-56
+    title: Remove `coverage-ci-repro.xml` from the repository and add ignore rules
+      to `.gitignore` for `coverage-ci-repro.xml` and broader coverage artifacts (e.g.,
+      `coverage*.xml`).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-57
+    title: 'Update `README.md` with: NAV-path utilities usage (fenced code block),
+      mc_viz HTML/PNG behavior including exact container marker strings, missing `nav_paths.parquet`
+      contract (exact exception name or warning category/message substring), consolidated
+      artifact extraction behavior, and automatic output-directory creation semantics
+      (example nested path).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-58
+    title: '`trend/mc/io.py` defines callable `load_nav_paths(...)` and `validate_nav_paths_df(...)`,
+      and mc_viz imports/uses them for NAV-path handling (no duplicated loading/validation
+      logic in `trend/cli/mc_viz.py`).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-59
+    title: '`load_nav_paths(...)` attempts to read `nav_paths.parquet` from the expected
+      location, and when missing it follows the documented contract (specific exception
+      OR warning + sentinel/empty DataFrame), covered by unit tests.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-60
+    title: '`validate_nav_paths_df(...)` deterministically rejects invalid inputs
+      with asserted exception type and message substring for: non-DataFrame input,
+      empty DataFrame, and missing required columns.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-61
+    title: A module-level constant `NAV_PATH_REQUIRED_CHARTS` exists in the chart
+      selection/interpretation module(s) and is referenced by validation logic.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-62
+    title: When a chart in `NAV_PATH_REQUIRED_CHARTS` lacks required NAV-path inputs,
+      mc_viz follows the documented behavior (specific exception OR warning + skip),
+      and an integration test asserts the contract.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-63
+    title: In HTML mode, mc_viz generates exactly one HTML file and `tests/integration/test_mc_viz.py`
+      asserts required container marker strings are present for the NAV-path-selected
+      charts.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-64
+    title: In PNG mode, mc_viz produces PNG files only for NAV-path-selected charts,
+      and the integration test asserts expected PNG count and expected filenames (or
+      a stable filename pattern).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-65
+    title: 'Cross-mode consistency is asserted in an integration test: the selected
+      chart set is identical for HTML and PNG modes (HTML markers correspond one-to-one
+      with PNG outputs).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-66
+    title: '`trend/viz/artifacts.py` exposes exactly one public artifact-extraction
+      entry point, and existing callers route through it.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-67
+    title: 'Artifact naming is deterministic: repeated runs with the same ordered
+      inputs produce identical extracted filename lists (asserted in unit tests).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-68
+    title: 'Collision handling is deterministic and non-destructive: when two artifacts
+      map to the same filename, both files exist with stable disambiguated names (asserted
+      in unit tests).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-69
+    title: mc_viz write paths create parent output directories via `Path(...).mkdir(parents=True,
+      exist_ok=True)` before writing HTML/PNG outputs, covered by a test using a non-existent
+      nested output directory.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-70
+    title: '`trend/viz/artifacts.py` write paths create parent output directories
+      via `Path(...).mkdir(parents=True, exist_ok=True)` before writing extracted
+      artifacts, covered by a unit test using a non-existent nested output directory.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-71
+    title: '`tests/integration/test_mc_viz.py` asserts both modes produce files: at
+      least one PNG in PNG mode and exactly one `.html` file in HTML mode for the
+      same fixture inputs.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-72
+    title: '`tests/integration/test_mc_viz.py` asserts at least N exact marker occurrences
+      in the HTML output, where N is derived from the selected charts in the test
+      setup.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-73
+    title: '`tests/integration/test_mc_viz.py` covers deterministic collision handling
+      end-to-end by generating colliding outputs and asserting produced filenames
+      are stable and non-overwriting.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-74
+    title: '`tests/integration/test_mc_viz.py` covers missing `nav_paths.parquet`
+      by running mc_viz without the file present and asserting the specific error/warning
+      contract (exception type/message or warning category/message).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-75
+    title: '`coverage-ci-repro.xml` is removed from the repository.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-76
+    title: '`.gitignore` includes a rule matching `coverage-ci-repro.xml` and a broader
+      rule for common coverage artifacts (e.g., `coverage*.xml`) such that the removed
+      file would be ignored.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-77
+    title: '`README.md` contains a section describing NAV-path utilities and includes
+      at least one fenced code block showing `load_nav_paths(...)` and/or `validate_nav_paths_df(...)`.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-78
+    title: '`README.md` documents mc_viz HTML behavior by listing the exact container
+      marker string(s) that appear in generated HTML.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-79
+    title: '`README.md` documents missing `nav_paths.parquet` behavior and includes
+      the exact exception name OR warning category/message substring users should
+      expect.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-80
+    title: '`README.md` documents output-directory creation semantics (parent directories
+      created automatically for mc_viz outputs and artifact extraction) and includes
+      an example nested output path.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-81
+    title: Implement NAV-path loading + validation helpers in `trend/mc/io.py` (e.g.,
+      `load_nav_paths(...)`, `validate_nav_paths_df(...)`) and wire them to read `nav_paths.parquet`;
+      return a clear warning/error when the parquet file is missing.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-82
+    title: Add `NAV_PATH_REQUIRED_CHARTS` constant and implement required-chart validation
+      logic (fail or warn when required chart inputs are missing) in the module(s)
+      that interpret NAV-path values for chart generation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-83
+    title: 'Update `trend/cli/mc_viz.py` to be chart-aware using NAV-path values:
+      (1) for HTML output, inject the required container markers; (2) for PNG output,
+      generate charts according to the NAV-path-driven selection rules; keep behavior
+      consistent across output types.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-84
+    title: Refactor `trend/viz/artifacts.py` to consolidate artifact extraction into
+      a single code path (one public function) and make artifact naming deterministic
+      (including collision handling). Add unit tests covering extraction + deterministic
+      naming.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-85
+    title: 'Harden output directory handling: before any write, ensure the parent
+      output directory is created with `mkdir(parents=True, exist_ok=True)` in the
+      relevant write paths (mc_viz outputs + artifact writes). Add/adjust tests if
+      needed.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-86
+    title: 'Extend `tests/integration/test_mc_viz.py` to validate: (1) PNG and HTML
+      outputs are produced; (2) HTML contains container markers; (3) deterministic
+      filename collision handling; (4) missing `nav_paths.parquet` triggers the expected
+      warning/error path.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-87
+    title: Remove `coverage-ci-repro.xml` from the repository and add it (and similar
+      coverage artifacts) to `.gitignore`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-88
+    title: 'Update documentation to reflect: NAV-path utilities usage, mc_viz HTML/PNG
+      behavior changes (including container markers), consolidated artifact extraction,
+      and output-directory creation semantics; include minimal code examples and describe
+      expected warning/error behaviors.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-89
+    title: '`trend/mc/io.py` defines callable functions `load_nav_paths(...)` and
+      `validate_nav_paths_df(...)` and they are imported/used by mc_viz for NAV-path
+      handling (no duplicated loading/validation logic in mc_viz).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-90
+    title: '`load_nav_paths(...)` attempts to read `nav_paths.parquet` from the expected
+      location and when the parquet file is missing it follows the documented behavior:
+      (a) raises a specific exception type OR (b) emits a warning and returns a sentinel/empty
+      DataFrame, and this behavior is covered by unit tests.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-91
+    title: '`validate_nav_paths_df(...)` rejects invalid NAV-path inputs via a deterministic
+      failure mode (exception type and message substring are asserted) for at least:
+      (1) non-DataFrame input, (2) empty DataFrame, and (3) missing required columns
+      (as defined by the implementation).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-92
+    title: A module-level constant named `NAV_PATH_REQUIRED_CHARTS` exists (in the
+      module(s) responsible for interpreting NAV-path values for chart generation)
+      and is referenced by validation logic to enforce required chart inputs.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-93
+    title: 'When NAV-path-driven chart generation is requested and a chart listed
+      in `NAV_PATH_REQUIRED_CHARTS` is missing required NAV-path inputs, mc_viz follows
+      the documented behavior: it either fails with a specific exception OR emits
+      a warning and skips that chart; this behavior is exercised by an integration
+      test.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-94
+    title: For HTML output mode, mc_viz generates an HTML file that contains all required
+      container markers (exact marker strings asserted) corresponding to the charts
+      selected by NAV-path rules.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-95
+    title: For PNG output mode, mc_viz produces PNG files only for the charts selected
+      by NAV-path-driven selection rules, and the integration test asserts (1) expected
+      PNG count and (2) expected filenames (or stable filename pattern).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-96
+    title: 'The NAV-path-driven chart selection is consistent across HTML and PNG
+      modes: given the same inputs, the set of selected charts is identical (HTML
+      markers correspond one-to-one with PNG outputs) and this is asserted in an integration
+      test.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-97
+    title: '`trend/viz/artifacts.py` exposes exactly one public artifact-extraction
+      entry point (single function used by callers) and all previous extraction paths
+      are routed through it.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-98
+    title: 'Artifact naming is deterministic: given the same input artifacts in the
+      same order, the extracted filenames are exactly identical across repeated runs
+      (byte-for-byte filename list equality asserted in tests).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-99
+    title: 'Filename collision handling is deterministic and non-destructive: when
+      two artifacts would map to the same output filename, both are written with stable
+      disambiguated names and a unit test asserts both files exist and their names
+      follow the deterministic collision scheme.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-100
+    title: All write paths in mc_viz create the parent output directory via `Path(...).mkdir(parents=True,
+      exist_ok=True)` before writing any HTML/PNG outputs, and this behavior is covered
+      by an integration or unit test that passes a non-existent output directory.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-101
+    title: All write paths in `trend/viz/artifacts.py` create the parent output directory
+      via `Path(...).mkdir(parents=True, exist_ok=True)` before writing extracted
+      artifacts, and this behavior is covered by a unit test that uses a non-existent
+      output directory.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-102
+    title: 'Integration test asserts both output modes produce files: at least one
+      PNG file is produced in PNG mode and exactly one HTML file is produced in HTML
+      mode (with expected extension) for the same fixture inputs.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-103
+    title: Integration test validates HTML contains container markers by asserting
+      at least N exact marker occurrences (N derived from selected charts in the test
+      setup) and fails if markers are absent.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-104
+    title: Integration test covers deterministic filename collision handling end-to-end
+      by generating colliding artifact/chart outputs and asserting the produced filenames
+      are stable and non-overwriting.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-105
+    title: Integration test covers missing `nav_paths.parquet` by running mc_viz without
+      the file present and asserting the specific error/warning behavior (exception
+      type/message or warning category/message) matches the chosen contract.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-106
+    title: The file `coverage-ci-repro.xml` is removed from the repository.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-107
+    title: '`.gitignore` includes an ignore rule that matches `coverage-ci-repro.xml`
+      and a broader rule for common coverage artifacts (e.g., `coverage*.xml` or equivalent),
+      and a reviewer can confirm the patterns would ignore the removed file.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-108
+    title: '`README.md` contains a section describing NAV-path utilities and includes
+      at least one fenced code block demonstrating how to call `load_nav_paths(...)`
+      and/or `validate_nav_paths_df(...)`.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-109
+    title: '`README.md` documents mc_viz HTML behavior by explicitly listing the container
+      marker string(s) that will appear in the generated HTML (exact strings present
+      in README).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-110
+    title: '`README.md` documents the missing `nav_paths.parquet` behavior (warn vs
+      fail) and includes the exact exception name OR warning category/message substring
+      that users should expect.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-111
+    title: '`README.md` documents output-directory creation semantics by stating that
+      parent directories are created automatically for mc_viz outputs and artifact
+      extraction, and includes one example path showing nested directories.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []

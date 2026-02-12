@@ -10,6 +10,12 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+def _with_counter_suffix(relative_path: Path, counter: int) -> Path:
+    stem = relative_path.stem
+    suffix = relative_path.suffix
+    return relative_path.with_name(f"{stem}-{counter}{suffix}")
+
+
 def extract_bundle_zip(
     bundle_path: Path,
     destination_dir: Path,
@@ -29,7 +35,7 @@ def extract_bundle_zip(
 
     warning_messages = warnings if warnings is not None else []
     destination_dir.mkdir(parents=True, exist_ok=True)
-    seen_members: set[str] = set()
+    written_rel_paths: set[str] = set()
 
     with zipfile.ZipFile(bundle_path) as archive:
         for member in archive.infolist():
@@ -46,28 +52,27 @@ def extract_bundle_zip(
                 logger.warning(message)
                 continue
 
-            rel_key = relative_path.as_posix()
-            if rel_key in seen_members:
+            target_relative = relative_path
+            collision_counter = 0
+            while True:
+                rel_key = target_relative.as_posix()
+                target_path = destination_dir / target_relative
+                if rel_key not in written_rel_paths and not target_path.exists():
+                    break
+                collision_counter += 1
+                target_relative = _with_counter_suffix(relative_path, collision_counter)
+
+            if collision_counter:
                 message = (
-                    f"Skipped extracting duplicate entry '{rel_key}' because the filename "
-                    "already appeared in the archive."
+                    f"Renamed extracted '{relative_path.as_posix()}' to "
+                    f"'{target_relative.as_posix()}' to avoid collision."
                 )
                 warning_messages.append(message)
                 logger.warning(message)
-                continue
-            seen_members.add(rel_key)
 
-            target_path = destination_dir / relative_path
             target_path.parent.mkdir(parents=True, exist_ok=True)
-            if target_path.exists():
-                message = (
-                    f"Skipped extracting '{rel_key}' because the destination file already exists."
-                )
-                warning_messages.append(message)
-                logger.warning(message)
-                continue
-
             with archive.open(member) as source_file, target_path.open("wb") as target_file:
                 shutil.copyfileobj(source_file, target_file)
+            written_rel_paths.add(target_relative.as_posix())
 
     return warning_messages
