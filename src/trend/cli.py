@@ -352,6 +352,7 @@ _refresh_legacy_cli_module()
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
 
 DEFAULT_REPORT_FORMATS = ("csv", "json", "xlsx", "txt")
+NAV_PATH_REQUIRED_CHARTS = frozenset({"path_dist"})
 
 SCENARIO_WINDOWS: dict[str, tuple[tuple[str, str], tuple[str, str]]] = {
     "2008": (("2006-01", "2007-12"), ("2008-01", "2009-12")),
@@ -1874,7 +1875,7 @@ def _run_mc_viz_command(args: argparse.Namespace) -> int:
         validate_nav_paths_requirement(
             selected_charts,
             nav_paths_frame,
-            nav_path_required_charts=frozenset({"path_dist"}),
+            nav_path_required_charts=NAV_PATH_REQUIRED_CHARTS,
         )
     except MCNavPathsIOError as exc:
         raise TrendCLIError(str(exc)) from exc
