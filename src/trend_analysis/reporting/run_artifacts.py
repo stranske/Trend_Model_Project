@@ -265,9 +265,11 @@ def write_run_artifacts(
     manifest["run_directory"] = str(run_dir)
 
     manifest_path = run_dir / "manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(json.dumps(normalise_for_json(manifest), indent=2), encoding="utf-8")
 
     html_path = run_dir / "report.html"
+    html_path.parent.mkdir(parents=True, exist_ok=True)
     html_path.write_text(
         _render_html(run_id=run_id, created=created, manifest=manifest, summary_text=summary_text),
         encoding="utf-8",

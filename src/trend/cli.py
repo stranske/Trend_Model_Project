@@ -1871,6 +1871,7 @@ def _inject_mc_html_chart_markers(
                 updated_html = html_text.replace(body_token, f"{body_token}\n{marker}", 1)
             else:
                 updated_html = f"{marker}\n{html_text}"
+            html_path.parent.mkdir(parents=True, exist_ok=True)
             html_path.write_text(updated_html, encoding="utf-8")
         except Exception as exc:
             warnings.append(f"Unable to inject HTML chart marker for '{chart_id}': {exc}.")
