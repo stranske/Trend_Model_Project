@@ -103,3 +103,23 @@ def test_mc_viz_cli_end_to_end_generates_expected_outputs(tmp_path: Path) -> Non
     else:
         assert len(png_files) == 0
         assert "PNG export skipped" in result.stderr
+
+
+@pytest.mark.integration
+def test_mc_viz_cli_skips_existing_plot_file_without_overwrite(tmp_path: Path) -> None:
+    bundle_dir = _fixture_bundle_dir()
+    assert bundle_dir.is_dir()
+
+    out_dir = tmp_path / "out"
+    plots_dir = out_dir / "plots"
+    plots_dir.mkdir(parents=True, exist_ok=True)
+    existing_path = plots_dir / "risk_return.json"
+    original_bytes = b'{"preexisting": true}'
+    existing_path.write_bytes(original_bytes)
+
+    result = _run_mc_viz(bundle_dir, out_dir)
+
+    assert result.returncode == 0, result.stderr
+    assert existing_path.read_bytes() == original_bytes
+    assert "risk_return.json" in result.stderr
+    assert "destination file already exists" in result.stderr
