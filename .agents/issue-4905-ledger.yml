@@ -1,0 +1,347 @@
+version: 1
+issue: 4905
+base: phase-3
+branch: codex/issue-4905
+tasks:
+  - id: task-01
+    title: Create NAV-path validation and loading utility functions in `trend/mc/io.py`
+      with appropriate error handling and return types
+    status: doing
+    started_at: '2026-02-12T04:54:04Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Update `trend/cli/mc_viz.py` to import and call the new NAV-path utilities
+      from `trend/mc/io.py`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Remove NAV-path validation and loading logic from `src/trend/cli.py` after
+      verifying other modules use the shared utilities
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Replace hardcoded NAV-path-required chart logic with a constant (e.g.,
+      `NAV_PATH_REQUIRED_CHARTS`) in `trend/cli/mc_viz.py` and update all NAV-path
+      requirement checks to use it
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Add logic to determine which code path to execute based on intersection
+      of requested charts with `NAV_PATH_REQUIRED_CHARTS` constant
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Implement error path in `trend/cli/mc_viz.py` that exits non-zero with
+      message containing `"nav_paths.parquet"` when required charts are requested
+      and file is missing
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Implement warning path in `trend/cli/mc_viz.py` that emits warning containing
+      `"nav_paths.parquet"` and continues with exit 0 when no required charts are
+      requested and file is missing
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Create or update the artifact extraction utility function in `trend/viz/artifacts.py`
+      with a clear interface and parameter contract
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Implement deterministic filename collision handling in the artifact extraction
+      utility in `trend/viz/artifacts.py` that skips duplicate filenames after the
+      first occurrence and logs a warning
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Update `src/trend/cli.py` to call the artifact extraction utility from
+      `trend/viz/artifacts.py` and remove duplicate extraction logic
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Update `trend/cli/mc_viz.py` to call the artifact extraction utility from
+      `trend/viz/artifacts.py` and remove duplicate extraction logic
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Fix output/extraction directory creation to ensure destination directories
+      exist before any writes or `TemporaryDirectory` usage (add `mkdir(parents=True,
+      exist_ok=True)` where appropriate, including nested output paths)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Update the artifact extraction utility in `trend/viz/artifacts.py` to create
+      its destination directory with `mkdir(parents=True, exist_ok=True)` before writing
+      extracted files
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Add kaleido availability detection logic to `tests/integration/test_mc_viz.py`
+      test setup or fixtures
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Implement helper function to determine expected PNG file paths for each
+      requested chart type
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Add assertions in `tests/integration/test_mc_viz.py` that verify each expected
+      PNG file exists and has size greater than zero bytes when kaleido is available
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Update HTML generation in `trend/cli/mc_viz.py` to emit deterministic container
+      markers for each chart type with predictable id attributes (e.g., `id="chart-fan"`,
+      `id="chart-path_dist"`, `id="chart-risk_return"`)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Add test assertions in `tests/integration/test_mc_viz.py` that verify the
+      presence of expected HTML container markers for each requested chart
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Document the HTML container marker naming convention and chart type mapping
+      in code comments or module docstrings
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: NAV-path validation/loading utility functions exist in `trend/mc/io.py`
+      with documented parameters and return types
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: '`trend/cli/mc_viz.py` imports and calls NAV-path utilities from `trend/mc/io.py`
+      for all NAV-path operations'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: '`src/trend/cli.py` does not contain functions or code blocks that validate
+      NAV-path file existence, read NAV-path files, or parse NAV-path data structures;
+      all such operations are delegated to `trend/mc/io.py` utilities'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: '`trend/cli/mc_viz.py` defines a single constant `NAV_PATH_REQUIRED_CHARTS`
+      (set or frozenset) enumerating charts requiring NAV paths'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: The CLI uses only `NAV_PATH_REQUIRED_CHARTS` constant for NAV-path requirement
+      decisions (no remaining `_charts_requiring_nav_paths()` function or equivalent
+      decision logic)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: If `nav_paths.parquet` is missing and at least one requested chart is in
+      `NAV_PATH_REQUIRED_CHARTS`, running `trend.cli.mc_viz` exits with non-zero status
+      code and emits an error containing the literal string `"nav_paths.parquet"`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: If `nav_paths.parquet` is missing and no requested chart is in `NAV_PATH_REQUIRED_CHARTS`,
+      running `trend.cli.mc_viz` exits with status code `0` and emits a warning containing
+      the literal string `"nav_paths.parquet"` and referencing NAV-path-dependent
+      visuals only
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: Artifact extraction is performed via a single utility function in `trend/viz/artifacts.py`
+      with a documented function signature
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: Both `src/trend/cli.py` and `trend/cli/mc_viz.py` call the artifact extraction
+      utility from `trend/viz/artifacts.py`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: Neither `src/trend/cli.py` nor `trend/cli/mc_viz.py` contains duplicate
+      artifact extraction logic (no inline extraction code)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: When extraction inputs contain filename collisions (same relative path
+      appears more than once), the extraction utility skips duplicate filenames after
+      the first occurrence and logs a warning message
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: The extraction utility never overwrites an existing extracted file with
+      different contents (verified by hash comparison or skip-if-exists logic)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: Running `mc_viz` with a nested, non-existent plots output path (e.g., `a/b/c/plots/`)
+      creates the directory tree and produces outputs without errors
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: The artifact extraction utility creates its destination directory with
+      `mkdir(parents=True, exist_ok=True)` before writing any extracted files
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: All code paths that write to output directories or use `TemporaryDirectory`
+      ensure parent directories exist before operations
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: In `tests/integration/test_mc_viz.py`, kaleido availability is detected
+      via a fixture or test setup function
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: When kaleido is available, for each requested chart type (fan, path_dist,
+      risk_return, etc.) a corresponding PNG file exists at the expected output path
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: When kaleido is available, each PNG file has `stat().st_size > 0` bytes
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: The test fails with a descriptive error message if any requested chart
+      PNG is missing or empty under kaleido-available conditions
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: The HTML generated by `trend/cli/mc_viz.py` includes deterministic container
+      markers with id attributes for each chart (e.g., `id="chart-fan"`, `id="chart-path_dist"`,
+      `id="chart-risk_return"`)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: In `tests/integration/test_mc_viz.py`, HTML assertions verify the presence
+      of expected container markers using exact id attribute matching (e.g., `assert
+      'id="chart-fan"' in html_content`)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: The HTML container marker naming convention is documented in `trend/cli/mc_viz.py`
+      module docstring or inline comments
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
