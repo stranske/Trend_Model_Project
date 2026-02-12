@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=../../../../schemas/strategy_pack.schema.json
+# Strategy Pack: HF Macro Curated
+# Description: Curated strategy variants for macro Monte Carlo scenarios.
+
+curated: []
