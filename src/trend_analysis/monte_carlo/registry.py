@@ -59,9 +59,15 @@ def _load_yaml(path: Path) -> Mapping[str, object]:
 
 def _load_strategy_pack(path: Path) -> list[object]:
     payload = _load_yaml(path)
+    strategies = payload.get("strategies")
+    if strategies is not None:
+        if not isinstance(strategies, list):
+            raise ValueError(f"Strategy pack '{path}' must define 'strategies' as a list")
+        return strategies
+
     curated = payload.get("curated")
     if curated is None:
-        raise ValueError(f"Strategy pack '{path}' must define 'curated'")
+        raise ValueError(f"Strategy pack '{path}' must define 'strategies' or 'curated'")
     if not isinstance(curated, list):
         raise ValueError(f"Strategy pack '{path}' must define 'curated' as a list")
     return curated
