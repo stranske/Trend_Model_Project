@@ -253,6 +253,7 @@ Use this index to find the current contributor guides and to understand which ov
 ### Data and app flows
 - `README_DATA.md` for bundled data constraints and validation helpers.
 - `README_APP.md` for Streamlit app packaging and presets.
+- `docs/monte_carlo/visualization.md` for the `nav_paths` visualization schema contract and chart extension workflow.
 
 ### Repository hygiene
 - `docs/repository_housekeeping.md` for archiving rules, quarterly checklists, and folder ownership.
