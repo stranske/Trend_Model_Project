@@ -1,0 +1,1140 @@
+version: 1
+issue: 4903
+base: phase-3
+branch: codex/issue-4903
+tasks:
+  - id: task-01
+    title: Update `README.md` (preferred) or `docs/cli.md` to include the exact example
+      command `trend mc viz --bundle <path> --out <dir> --charts fan,path_dist,risk_return
+      --html --json --png` and add text describing `--bundle`, `--out`, `--charts`,
+      `--html`, `--json`, `--png` and where outputs are written (e.g., `<out>/plots/*.html`,
+      `<out>/plots/*.json`, `<out>/plots/*.png`).
+    status: doing
+    started_at: '2026-02-12T03:19:21Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Define scope for: Add the exact example command `trend mc viz --bundle
+      <path> --out <dir> --charts fan,path_dist,risk_return --html --json --png` to
+      README.md or docs/cli.md (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Implement focused slice for: Add the exact example command `trend mc viz
+      --bundle <path> --out <dir> --charts fan,path_dist,risk_return --html --json
+      --png` to README.md or docs/cli.md (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Validate focused slice for: Add the exact example command `trend mc viz
+      --bundle <path> --out <dir> --charts fan,path_dist,risk_return --html --json
+      --png` to README.md or docs/cli.md (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Document the --bundle flag explaining it specifies the input bundle path
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Define scope for: Document the --out flag explaining it specifies the
+      output directory where plots/ will be created (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Implement focused slice for: Document the --out flag explaining it specifies
+      the output directory where plots/ will be created (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Validate focused slice for: Document the --out flag explaining it specifies
+      the output directory where plots/ will be created (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Define scope for: Document the --charts flag explaining it accepts comma-separated
+      chart names like fan, path_dist, (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Implement focused slice for: Document the --charts flag explaining it
+      accepts comma-separated chart names like fan, path_dist, (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Validate focused slice for: Document the --charts flag explaining it accepts
+      comma-separated chart names like fan, path_dist, (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'risk_return (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Define scope for: Document the --html flag explaining it produces HTML
+      files in <out>/plots/*.html (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Implement focused slice for: Document the --html flag explaining it produces
+      HTML files in <out>/plots/*.html (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Validate focused slice for: Document the --html flag explaining it produces
+      HTML files in <out>/plots/*.html (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Define scope for: Document the --json flag explaining it produces JSON
+      files in <out>/plots/*.json (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Implement focused slice for: Document the --json flag explaining it produces
+      JSON files in <out>/plots/*.json (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Validate focused slice for: Document the --json flag explaining it produces
+      JSON files in <out>/plots/*.json (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Define scope for: Document the --png flag explaining it produces PNG files
+      in <out>/plots/*.png (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Implement focused slice for: Document the --png flag explaining it produces
+      PNG files in <out>/plots/*.png (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'Validate focused slice for: Document the --png flag explaining it produces
+      PNG files in <out>/plots/*.png (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Implement validation in `trend/cli/mc_viz.py` (and/or `trend/mc/io.py`)
+      to require `nav_paths.parquet` when `--charts` includes `path_dist` (or any
+      NAV-path-based chart) and to exit non-zero with a controlled error message referencing
+      `nav_paths.parquet` when missing.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: 'Define scope for: Add validation logic to detect when requested charts
+      require nav_paths.parquet based on chart type (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'Implement focused slice for: Add validation logic to detect when requested
+      charts require nav_paths.parquet based on chart type (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: 'Validate focused slice for: Add validation logic to detect when requested
+      charts require nav_paths.parquet based on chart type (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: 'Define scope for: Implement a check in the bundle loading code to verify
+      nav_paths.parquet exists when required'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: 'Implement focused slice for: Implement a check in the bundle loading code
+      to verify nav_paths.parquet exists when required'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: 'Validate focused slice for: Implement a check in the bundle loading code
+      to verify nav_paths.parquet exists when required'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: 'Define scope for: Create a controlled error message that references nav_paths.parquet
+      as required for NAV-path-based charts (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: 'Implement focused slice for: Create a controlled error message that references
+      nav_paths.parquet as required for NAV-path-based charts (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: 'Validate focused slice for: Create a controlled error message that references
+      nav_paths.parquet as required for NAV-path-based charts (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: 'Define scope for: Ensure the CLI exits with non-zero status code when
+      nav_paths.parquet validation fails (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: 'Implement focused slice for: Ensure the CLI exits with non-zero status
+      code when nav_paths.parquet validation fails (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: 'Validate focused slice for: Ensure the CLI exits with non-zero status
+      code when nav_paths.parquet validation fails (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: Implement validation in `trend/cli/mc_viz.py` (and/or `trend/mc/io.py`)
+      to detect `nav_paths.csv` or `nav_paths.json` in the bundle when `nav_paths.parquet`
+      is absent and raise a controlled non-zero CLI error stating only `nav_paths.parquet`
+      is supported and mentioning the unsupported extension/filename.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: 'Define scope for: Add logic to scan the bundle directory for nav_paths.csv
+      or nav_paths.json files (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: 'Implement focused slice for: Add logic to scan the bundle directory for
+      nav_paths.csv or nav_paths.json files (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: 'Validate focused slice for: Add logic to scan the bundle directory for
+      nav_paths.csv or nav_paths.json files (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: 'Create an error message template that mentions the detected unsupported
+      file extension (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: 'states only parquet is supported (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: 'Define scope for: Raise a controlled CLI error when unsupported nav_paths
+      formats are detected without a parquet alternative (verify: formatter passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: 'Implement focused slice for: Raise a controlled CLI error when unsupported
+      nav_paths formats are detected without a parquet alternative (verify: formatter
+      passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: 'Validate focused slice for: Raise a controlled CLI error when unsupported
+      nav_paths formats are detected without a parquet alternative (verify: formatter
+      passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: 'Define scope for: Verify the CLI exits with non-zero status when unsupported
+      nav_paths formats are found'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: 'Implement focused slice for: Verify the CLI exits with non-zero status
+      when unsupported nav_paths formats are found'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: 'Validate focused slice for: Verify the CLI exits with non-zero status
+      when unsupported nav_paths formats are found'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: Update `trend/mc/io.py` to wrap parquet reads (e.g., `pandas.read_parquet`)
+      in `try/except` and raise `TrendCLIError` (or existing CLI error type) that
+      includes the specific file name and a hint that it may be corrupted or not a
+      parquet file.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: 'Define scope for: Wrap all pandas.read_parquet calls in trend/mc/io.py
+      with try/except blocks (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: 'Implement focused slice for: Wrap all pandas.read_parquet calls in trend/mc/io.py
+      with try/except blocks (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: 'Validate focused slice for: Wrap all pandas.read_parquet calls in trend/mc/io.py
+      with try/except blocks (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: 'Define scope for: Determine the appropriate CLI error type to use for
+      parquet read failures (TrendCLIError or equivalent) (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: 'Implement focused slice for: Determine the appropriate CLI error type
+      to use for parquet read failures (TrendCLIError or equivalent) (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: 'Validate focused slice for: Determine the appropriate CLI error type to
+      use for parquet read failures (TrendCLIError or equivalent) (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: 'Construct error messages that include the failing filename (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: 'a corruption hint (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-56
+    title: 'Ensure parquet read exceptions are caught (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-57
+    title: 're-raised as the chosen CLI error type (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-58
+    title: Update `trend/cli/mc_viz.py` to ensure `TrendCLIError` (or equivalent)
+      is surfaced without printing a pandas traceback and exits with a non-zero status.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-59
+    title: 'Configure the CLI error handler to catch TrendCLIError (verify: config
+      validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-60
+    title: 'suppress pandas tracebacks (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-61
+    title: 'Ensure TrendCLIError exceptions result in clean user-facing error messages
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-62
+    title: 'Define scope for: Verify the CLI exits with non-zero status code when
+      TrendCLIError is raised'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-63
+    title: 'Implement focused slice for: Verify the CLI exits with non-zero status
+      code when TrendCLIError is raised'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-64
+    title: 'Validate focused slice for: Verify the CLI exits with non-zero status
+      code when TrendCLIError is raised'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-65
+    title: Add a warning in `trend/cli/mc_viz.py` when proceeding without `nav_paths.parquet`
+      using summary/results-derived fallback data; ensure the warning includes `nav_paths.parquet`,
+      the word `fallback`, and mentions charts may be less accurate/misleading.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-66
+    title: Fix artifact extraction in `trend/viz/artifacts.py` so extracting into
+      `<out>/plots/` does not overwrite existing files (e.g., extract to a temp dir
+      then move with collision checks, or deterministically rename/skip on collision
+      while logging a warning).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-67
+    title: 'Define scope for: Implement extraction to a temporary directory before
+      moving files to the final plots/ location (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-68
+    title: 'Implement focused slice for: Implement extraction to a temporary directory
+      before moving files to the final plots/ location (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-69
+    title: 'Validate focused slice for: Implement extraction to a temporary directory
+      before moving files to the final plots/ location (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-70
+    title: 'Define scope for: Add collision detection logic to check if target files
+      already exist in plots/ directory (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-71
+    title: 'Implement focused slice for: Add collision detection logic to check if
+      target files already exist in plots/ directory (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-72
+    title: 'Validate focused slice for: Add collision detection logic to check if
+      target files already exist in plots/ directory (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-73
+    title: 'Implement the collision resolution strategy to either skip or rename conflicting
+      files (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-74
+    title: 'Add warning log messages when file collisions are detected (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-75
+    title: 'resolved (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-76
+    title: Create `tests/integration/test_mc_viz.py` to run the real `trend mc viz`
+      CLI end-to-end (subprocess/CLI runner) against `tests/fixtures/mc_bundle/` requesting
+      `--charts fan,path_dist,risk_return --html --json --png`, and assert outputs
+      under `<out>/plots/`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-77
+    title: 'Define scope for: Create the test file tests/integration/test_mc_viz.py
+      with basic test structure (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-78
+    title: 'Implement focused slice for: Create the test file tests/integration/test_mc_viz.py
+      with basic test structure (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-79
+    title: 'Validate focused slice for: Create the test file tests/integration/test_mc_viz.py
+      with basic test structure (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-80
+    title: 'Define scope for: Implement a test helper function to invoke the trend
+      mc viz CLI via subprocess with specified arguments (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-81
+    title: 'Implement focused slice for: Implement a test helper function to invoke
+      the trend mc viz CLI via subprocess with specified arguments (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-82
+    title: 'Validate focused slice for: Implement a test helper function to invoke
+      the trend mc viz CLI via subprocess with specified arguments (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-83
+    title: 'Define scope for: Write a positive-path test that runs the CLI against
+      tests/fixtures/mc_bundle/ with all three chart types (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-84
+    title: 'Implement focused slice for: Write a positive-path test that runs the
+      CLI against tests/fixtures/mc_bundle/ with all three chart types (verify: tests
+      pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-85
+    title: 'Validate focused slice for: Write a positive-path test that runs the CLI
+      against tests/fixtures/mc_bundle/ with all three chart types (verify: tests
+      pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-86
+    title: 'Define scope for: Write a positive-path test that runs the CLI against
+      tests/fixtures/mc_bundle/ with all three output formats (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-87
+    title: 'Implement focused slice for: Write a positive-path test that runs the
+      CLI against tests/fixtures/mc_bundle/ with all three output formats (verify:
+      tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-88
+    title: 'Validate focused slice for: Write a positive-path test that runs the CLI
+      against tests/fixtures/mc_bundle/ with all three output formats (verify: tests
+      pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-89
+    title: Add assertions to verify the plots/ directory exists
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-90
+    title: 'contains expected output files (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-91
+    title: Add `tests/fixtures/mc_bundle/` (valid schema) sufficient to render `fan`,
+      `path_dist`, and `risk_return` and to produce HTML/JSON/PNG outputs.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-92
+    title: 'Create the tests/fixtures/mc_bundle/ directory structure (verify: tests
+      pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-93
+    title: 'Define scope for: Add a valid nav_paths.parquet fixture file with schema
+      sufficient for path_dist chart rendering (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-94
+    title: 'Implement focused slice for: Add a valid nav_paths.parquet fixture file
+      with schema sufficient for path_dist chart rendering (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-95
+    title: 'Validate focused slice for: Add a valid nav_paths.parquet fixture file
+      with schema sufficient for path_dist chart rendering (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-96
+    title: 'Add valid summary (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-97
+    title: 'results parquet files sufficient for fan chart rendering (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-98
+    title: 'Add valid data files sufficient for risk_return chart rendering (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-99
+    title: Verify all fixture files conform to the expected MC bundle schema
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-100
+    title: "Write negative-path integration tests in `tests/integration/test_mc_viz.py`\
+      \ for: missing `nav_paths.parquet` when requesting `path_dist`; unsupported\
+      \ `nav_paths.csv`/`nav_paths.json` without `nav_paths.parquet`; and a corrupted\
+      \ \u201C.parquet\u201D file (plain text) asserting no traceback is printed."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-101
+    title: 'Repository documentation contains an example invocation exactly including:
+      `trend mc viz --bundle <path> --out <dir> --charts fan,path_dist,risk_return
+      --html --json --png`.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-102
+    title: Immediately following the example command, documentation enumerates and
+      describes `--bundle`, `--out`, `--charts`, `--html`, `--json`, `--png`, and
+      each description states what artifact(s) it produces and/or where outputs are
+      written (e.g., `<out>/plots/*.html`, `<out>/plots/*.json`, `<out>/plots/*.png`).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-103
+    title: When `--charts` includes `path_dist` (or any NAV-path-based chart) and
+      the bundle does not contain `nav_paths.parquet`, the CLI exits non-zero and
+      prints an error that explicitly references `nav_paths.parquet` as required.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-104
+    title: If the bundle contains `nav_paths.csv` or `nav_paths.json` (and no `nav_paths.parquet`),
+      the CLI exits non-zero and prints a controlled error mentioning the unsupported
+      extension and stating that only `nav_paths.parquet` is supported.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-105
+    title: When reading any required parquet bundle input fails, the CLI exits non-zero
+      and prints a user-friendly error (TrendCLIError or equivalent) that includes
+      the failing file name and a hint that it may be corrupted or not a parquet file;
+      no pandas traceback is printed.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-106
+    title: When `nav_paths.parquet` is missing but the command proceeds using summary/results-derived
+      data, the CLI prints a warning indicating it is using fallback data because
+      `nav_paths.parquet` is missing and that charts may be less accurate/misleading;
+      the command exits with status code 0.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-107
+    title: Extracting chart artifacts into `<out>/plots/` does not overwrite an existing
+      file with the same name; on collision, extraction is skipped with a warning
+      mentioning the file name or written to a non-conflicting name, and the pre-existing
+      file bytes remain unchanged.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-108
+    title: An integration test exists at `tests/integration/test_mc_viz.py` that runs
+      the real CLI command end-to-end (no monkeypatching) against `tests/fixtures/mc_bundle/`
+      and requests charts `fan,path_dist,risk_return` with `--html --json --png`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-109
+    title: After a successful integration test run, `<out>/plots/` exists and contains
+      at least one `.html`, one `.json`, and one `.png` file for each requested chart
+      (`fan`, `path_dist`, `risk_return`).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-110
+    title: For JSON outputs, the integration test parses each generated chart JSON
+      file and asserts it includes a top-level key indicating chart content (e.g.,
+      `data` or `series`) with a non-empty array/list.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-111
+    title: For HTML outputs, the integration test asserts each generated HTML file
+      contains an identifiable chart container marker corresponding to the chart name
+      (e.g., contains `fan`, `path_dist`, `risk_return` in an element id/class or
+      known container marker string).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-112
+    title: For PNG outputs, the integration test asserts each requested chart has
+      a corresponding `.png` file with size > 0 bytes, and the PNG file count equals
+      the number of requested charts (or an explicitly asserted alternate count if
+      multiple PNGs per chart are intentionally emitted).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-113
+    title: Add a documentation snippet in the repo docs (e.g., `README.md` or `docs/cli.md`)
+      showing example usage of `trend mc viz --bundle <path> --out <dir> --charts
+      fan,path_dist,risk_return --html --json --png` and include a short explanation
+      of each flag/parameter.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-114
+    title: Tighten CLI validation so `nav_paths` inputs are accepted only when the
+      bundle contains `nav_paths.parquet`; if the user points to (or the bundle includes)
+      an unsupported format (e.g., `.csv`/`.json`), raise a controlled CLI error and
+      exit non-zero with a clear message.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-115
+    title: Wrap parquet reads (e.g., `pandas.read_parquet`) for bundle inputs in try/except
+      and re-raise a user-friendly `TrendCLIError` (or equivalent) that names the
+      file that failed to load and suggests the file may be corrupted or not a parquet
+      file.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-116
+    title: When `nav_paths.parquet` is missing and the command falls back to summary/results-derived
+      data, emit an explicit warning log/message that fallback is being used and that
+      charts may be less accurate/misleading.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-117
+    title: Update the zip extraction logic for chart artifacts so extraction into
+      `<out>/plots/` does not blindly overwrite existing files (e.g., extract to a
+      temp dir then move with collision checks, or skip/rename on conflict).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-118
+    title: 'Replace monkeypatched unit tests for `trend mc viz` with integration tests
+      that run the real pipeline on a fixture MC bundle (valid schema), then assert:
+      (1) `<out>/plots/` exists, (2) expected files for requested formats are created
+      (HTML/JSON/PNG), and (3) basic semantic checks (e.g., JSON contains expected
+      chart keys/series; HTML contains chart container ids; PNG files are non-empty
+      and count matches requested charts).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-119
+    title: 'The repository documentation contains an example invocation exactly including:
+      `trend mc viz --bundle <path> --out <dir> --charts fan,path_dist,risk_return
+      --html --json --png`.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-120
+    title: 'Immediately following the example command, the documentation enumerates
+      and describes all of these flags/parameters: `--bundle`, `--out`, `--charts`,
+      `--html`, `--json`, `--png`, and each description includes what output artifact(s)
+      it produces (or where outputs are written).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-121
+    title: When `--charts` includes `path_dist` (or any chart that requires NAV paths)
+      and the bundle does not contain `nav_paths.parquet`, the CLI exits with a non-zero
+      status code and prints an error message that explicitly references `nav_paths.parquet`
+      as required for NAV path-based charts.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-122
+    title: If the bundle contains `nav_paths.csv` or `nav_paths.json` (and no `nav_paths.parquet`),
+      the CLI exits with a non-zero status code and prints a controlled error that
+      mentions the unsupported extension and states that only `nav_paths.parquet`
+      is supported.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-123
+    title: When reading any required parquet bundle input fails (e.g., corrupted file
+      or wrong format), the CLI exits non-zero and prints a user-friendly error (TrendCLIError
+      or equivalent) that includes (1) the specific file name that failed and (2)
+      a hint that it may be corrupted or not a parquet file; no pandas traceback is
+      printed.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-124
+    title: When `nav_paths.parquet` is missing but the command is able to proceed
+      using summary/results-derived data, the CLI prints an explicit warning message
+      indicating it is using fallback data because `nav_paths.parquet` is missing
+      and that charts may be less accurate/misleading; the command still exits with
+      status code 0.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-125
+    title: Extracting chart artifacts into `<out>/plots/` does not overwrite an existing
+      file with the same name; on collision, the implementation must either (a) skip
+      extraction of the colliding file and log a warning mentioning the file name,
+      or (b) write to a different non-conflicting name, and in both cases the pre-existing
+      file content remains unchanged.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-126
+    title: An integration test exists at `tests/integration/test_mc_viz.py` that runs
+      the real CLI command (via subprocess/CLI runner without monkeypatching the pipeline)
+      against a fixture bundle directory under `tests/fixtures/mc_bundle/` and requests
+      charts `fan,path_dist,risk_return` with `--html --json --png`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-127
+    title: The integration test asserts that after a successful run, `<out>/plots/`
+      exists and contains at least one `.html`, one `.json`, and one `.png` file for
+      each requested chart (`fan`, `path_dist`, `risk_return`).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-128
+    title: 'For JSON outputs, the integration test validates semantic structure: each
+      generated chart JSON file parses successfully and includes a top-level key indicating
+      the chart content (e.g., `data` or `series`) with a non-empty array/list.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-129
+    title: For HTML outputs, the integration test validates that each generated HTML
+      file contains an identifiable chart container element or id corresponding to
+      the chart name (e.g., contains `fan`, `path_dist`, `risk_return` in an element
+      id/class or in a known container marker string).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-130
+    title: For PNG outputs, the integration test asserts each requested chart has
+      a corresponding `.png` file with file size > 0 bytes, and the number of PNG
+      files equals the number of requested charts (unless the implementation intentionally
+      emits multiple PNGs per chart, in which case the expected count is asserted
+      explicitly in the test).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
