@@ -124,6 +124,14 @@ def _run_mc_viz_without_kaleido(
 # ---------------------------------------------------------------------------
 
 
+def _marker_for(chart: str) -> str:
+    return f"<!-- mc-viz-chart:{chart} -->"
+
+
+def _expected_png_paths(plots_dir: Path, charts: tuple[str, ...]) -> list[Path]:
+    return [plots_dir / f"{chart}.png" for chart in charts]
+
+
 @pytest.mark.integration
 def test_mc_viz_cli_errors_when_nav_paths_missing_for_path_dist(tmp_path: Path) -> None:
     """Missing nav_paths.parquet for path_dist -> non-zero exit code."""
@@ -137,8 +145,121 @@ def test_mc_viz_cli_errors_when_nav_paths_missing_for_path_dist(tmp_path: Path) 
     result = _run_mc_viz(missing_nav_bundle, out_dir, charts="fan,path_dist", png=False)
 
     assert result.returncode != 0
-    assert "nav_paths.parquet" in result.stderr
-    assert "path_dist" in result.stderr
+    assert "Chart(s) path_dist require nav_paths.parquet in the MC bundle." in result.stderr
+    assert "Add nav_paths.parquet or remove these chart(s) from --charts." in result.stderr
+
+
+@pytest.mark.integration
+def test_mc_viz_cli_full_run_with_html_markers_and_chart_consistency(tmp_path: Path) -> None:
+    """Full run asserts HTML markers, JSON payloads, and chart-set consistency."""
+    bundle_dir = _fixture_bundle_dir()
+    assert bundle_dir.is_dir()
+
+    out_dir = tmp_path / "out"
+    result = _run_mc_viz(bundle_dir, out_dir)
+
+    assert result.returncode == 0, result.stderr
+
+    plots_dir = out_dir / "plots"
+    assert plots_dir.is_dir()
+
+    for chart in CHARTS:
+        html_path = plots_dir / f"{chart}.html"
+        json_path = plots_dir / f"{chart}.json"
+        assert html_path.is_file()
+        assert json_path.is_file()
+
+        payload = json.loads(json_path.read_text(encoding="utf-8"))
+        chart_data = payload.get("data") if "data" in payload else payload.get("series")
+        assert isinstance(chart_data, list)
+        assert len(chart_data) > 0
+
+        html_text = html_path.read_text(encoding="utf-8")
+        assert _marker_for(chart) in html_text
+        assert f'id="chart-{chart}"' in html_text
+
+    png_files = sorted(plots_dir.glob("*.png"))
+    expected_png = _expected_png_paths(plots_dir, CHARTS)
+    html_chart_ids = {path.stem for path in plots_dir.glob("*.html")}
+    assert html_chart_ids == set(CHARTS)
+    if _kaleido_available():
+        assert len(png_files) == len(CHARTS)
+        for png_path in expected_png:
+            assert png_path.is_file()
+            assert png_path.stat().st_size > 0, (
+                f"Expected non-empty PNG chart artifact at {png_path}, "
+                f"but file size was {png_path.stat().st_size} bytes."
+            )
+        png_chart_ids = {path.stem for path in png_files}
+        assert png_chart_ids == html_chart_ids
+    else:
+        assert len(png_files) == 0
+        assert "PNG export skipped" in result.stderr
+
+
+@pytest.mark.integration
+def test_mc_viz_cli_outputs_only_selected_chart_set_across_formats(tmp_path: Path) -> None:
+    bundle_dir = _fixture_bundle_dir()
+    assert bundle_dir.is_dir()
+
+    selected = ("fan", "risk_return")
+    out_dir = tmp_path / "out_selected"
+    result = _run_mc_viz(bundle_dir, out_dir, charts="fan,risk_return")
+
+    assert result.returncode == 0, result.stderr
+    plots_dir = out_dir / "plots"
+    assert plots_dir.is_dir()
+
+    html_chart_ids = {path.stem for path in plots_dir.glob("*.html")}
+    assert html_chart_ids == set(selected)
+    for chart in selected:
+        html_text = (plots_dir / f"{chart}.html").read_text(encoding="utf-8")
+        assert _marker_for(chart) in html_text
+        assert f'id="chart-{chart}"' in html_text
+
+    png_chart_ids = {path.stem for path in plots_dir.glob("*.png")}
+    if _kaleido_available():
+        assert png_chart_ids == set(selected)
+    else:
+        assert png_chart_ids == set()
+        assert "PNG export skipped" in result.stderr
+
+
+@pytest.mark.integration
+def test_mc_viz_cli_renames_existing_plot_file_collision_without_overwrite(tmp_path: Path) -> None:
+    bundle_dir = _fixture_bundle_dir()
+    assert bundle_dir.is_dir()
+
+    out_dir = tmp_path / "out"
+    plots_dir = out_dir / "plots"
+    plots_dir.mkdir(parents=True, exist_ok=True)
+    existing_path = plots_dir / "risk_return.json"
+    original_bytes = b'{"preexisting": true}'
+    existing_path.write_bytes(original_bytes)
+
+    result = _run_mc_viz(bundle_dir, out_dir)
+
+    assert result.returncode == 0, result.stderr
+    assert existing_path.read_bytes() == original_bytes
+    assert (plots_dir / "risk_return-1.json").is_file()
+    assert "risk_return.json" in result.stderr
+    assert "Renamed extracted 'risk_return.json' to 'risk_return-1.json'" in result.stderr
+
+
+@pytest.mark.integration
+def test_mc_viz_cli_errors_when_nav_paths_missing_for_required_chart(tmp_path: Path) -> None:
+    bundle_dir = _fixture_bundle_dir()
+    assert bundle_dir.is_dir()
+    missing_nav_bundle_dir = tmp_path / "bundle_no_nav_paths"
+    shutil.copytree(bundle_dir, missing_nav_bundle_dir)
+    (missing_nav_bundle_dir / "nav_paths.parquet").unlink()
+
+    out_dir = tmp_path / "out_required"
+    result = _run_mc_viz(missing_nav_bundle_dir, out_dir, charts="fan,path_dist")
+
+    assert result.returncode != 0
+    assert "Chart(s) path_dist require nav_paths.parquet in the MC bundle." in result.stderr
+    assert "Add nav_paths.parquet or remove these chart(s) from --charts." in result.stderr
 
 
 @pytest.mark.integration
@@ -296,28 +417,29 @@ def test_mc_viz_cli_generates_png_when_kaleido_available(tmp_path: Path) -> None
 
 @pytest.mark.integration
 def test_mc_viz_cli_fails_when_kaleido_missing_and_png_requested(tmp_path: Path) -> None:
-    """Non-zero exit when --png is requested but kaleido unavailable."""
+    """Graceful degradation when --png is requested but kaleido unavailable."""
     bundle_dir = _fixture_bundle_dir()
     out_dir = tmp_path / "out"
 
     result = _run_mc_viz_without_kaleido(bundle_dir, out_dir)
 
-    assert result.returncode != 0
+    assert result.returncode == 0, result.stderr
     assert "kaleido" in result.stderr.lower()
-    assert "pip install kaleido" in result.stderr
+    plots_dir = out_dir / "plots"
+    assert len(list(plots_dir.glob("*.png"))) == 0
 
 
 @pytest.mark.integration
 def test_mc_viz_cli_error_contains_install_hint_when_kaleido_missing(
     tmp_path: Path,
 ) -> None:
-    """Error message contains both 'kaleido' and 'pip install kaleido'."""
+    """Warning message contains both 'kaleido' and 'pip install kaleido'."""
     bundle_dir = _fixture_bundle_dir()
     out_dir = tmp_path / "out"
 
     result = _run_mc_viz_without_kaleido(bundle_dir, out_dir)
 
-    assert result.returncode != 0
+    assert result.returncode == 0, result.stderr
     assert "kaleido" in result.stderr
     assert "pip install kaleido" in result.stderr
 
@@ -355,7 +477,8 @@ def test_mc_viz_cli_warns_and_continues_when_nav_paths_missing_for_non_required_
     result = _run_mc_viz(missing_nav_bundle, out_dir, charts="fan,risk_return", png=False)
 
     assert result.returncode == 0, result.stderr
-    assert "nav_paths.parquet" in result.stderr
+    assert "Missing optional nav_paths.parquet file in MC bundle:" in result.stderr
+    assert "Continuing without NAV-path data." in result.stderr
     assert "NAV-path-dependent visuals" in result.stderr
     assert (out_dir / "plots" / "fan.html").is_file()
     assert (out_dir / "plots" / "risk_return.html").is_file()
@@ -379,7 +502,7 @@ def test_mc_viz_cli_creates_nested_output_directory_tree(tmp_path: Path) -> None
 
 @pytest.mark.integration
 def test_mc_viz_cli_skips_existing_plot_file_without_overwrite(tmp_path: Path) -> None:
-    """Pre-existing files in plots/ are not overwritten."""
+    """Pre-existing files in plots/ are renamed to avoid collision."""
     bundle_dir = _fixture_bundle_dir()
     out_dir = tmp_path / "out"
     plots_dir = out_dir / "plots"
@@ -393,4 +516,4 @@ def test_mc_viz_cli_skips_existing_plot_file_without_overwrite(tmp_path: Path) -
     assert result.returncode == 0, result.stderr
     assert existing_path.read_bytes() == original_bytes
     assert "risk_return.json" in result.stderr
-    assert "destination file already exists" in result.stderr
+    assert "Renamed extracted" in result.stderr or "collision" in result.stderr

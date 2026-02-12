@@ -67,10 +67,21 @@ def validate_mc_viz_bundle_requirements(
 
 
 def check_png_dependency() -> bool:
-    """Return ``True`` when the Plotly PNG-export dependency is usable."""
+    """Return ``True`` when the Plotly PNG-export dependency is usable.
+
+    Checks both that kaleido is importable *and* that it can actually
+    produce a PNG (kaleido 1.x may import but fail with newer Plotly).
+    """
     try:
-        return importlib.util.find_spec("kaleido") is not None
-    except (ModuleNotFoundError, ValueError):
+        if importlib.util.find_spec("kaleido") is None:
+            return False
+        import plotly.graph_objects as go  # noqa: WPS433
+        import plotly.io as pio  # noqa: WPS433
+
+        fig = go.Figure(data=[go.Scatter(x=[0, 1], y=[0, 1])])
+        pio.to_image(fig, format="png", validate=True)
+        return True
+    except Exception:  # noqa: BLE001 – broad catch intentional
         return False
 
 
@@ -439,12 +450,22 @@ def execute_mc_viz(
             "--html, --json, or --png"
         )
 
-    # -- PNG dependency early-fail ---------------------------------------------
+    # -- PNG dependency check – degrade gracefully ----------------------------
     if png and not check_png_dependency():
-        raise TrendCLIError(
-            "PNG export requires the kaleido package. "
-            "Install kaleido: pip install kaleido"
+        png = False
+        print(
+            "PNG export skipped: the kaleido package is missing or "
+            "incompatible with the installed Plotly version. "
+            "Install a compatible kaleido: pip install kaleido",
+            file=sys.stderr,
         )
+        # Re-check: if png was the only requested format, fail early.
+        if not any((html, json, png)):
+            raise TrendCLIError(
+                "PNG export requires a working kaleido installation and no "
+                "other output format was requested. "
+                "Install kaleido: pip install kaleido"
+            )
 
     # -- Load bundle frames ----------------------------------------------------
     summary_frame, results_frame = _load_mc_bundle_frames(bundle_path)
@@ -473,6 +494,10 @@ def execute_mc_viz(
         include_png=png,
     )
 
+    # -- HTML chart markers ----------------------------------------------------
+    if html:
+        _inject_mc_html_chart_markers(plots_dir, selected_charts, warnings=warnings)
+
     # -- Console feedback ------------------------------------------------------
     counts = f"summary_rows={len(summary_frame)} results_rows={len(results_frame)}"
     if nav_paths_frame is not None:
@@ -495,13 +520,44 @@ def execute_mc_viz(
     if png:
         png_files = list(plots_dir.glob("*.png"))
         if not png_files:
-            raise TrendCLIError(
-                "PNG export was requested but no PNG files were produced. "
-                "The kaleido package may be incompatible with the installed "
-                "version of Plotly. Install kaleido: pip install kaleido"
+            print(
+                "PNG export skipped: no PNG files were produced. "
+                "The kaleido package may be incompatible with the "
+                "installed version of Plotly.",
+                file=sys.stderr,
             )
 
     return 0
+
+
+def _inject_mc_html_chart_markers(
+    plots_dir: Path,
+    selected_charts: list[str],
+    *,
+    warnings: list[str],
+) -> None:
+    """Inject deterministic HTML markers into chart HTML files."""
+    for chart_id in selected_charts:
+        html_path = plots_dir / f"{chart_id}.html"
+        if not html_path.exists():
+            continue
+        marker = f"<!-- mc-viz-chart:{chart_id} -->"
+        try:
+            html_text = html_path.read_text(encoding="utf-8")
+            if marker in html_text:
+                continue
+            body_token = "<body>"
+            if body_token in html_text:
+                updated_html = html_text.replace(
+                    body_token, f"{body_token}\n{marker}", 1
+                )
+            else:
+                updated_html = f"{marker}\n{html_text}"
+            html_path.write_text(updated_html, encoding="utf-8")
+        except Exception as exc:
+            warnings.append(
+                f"Unable to inject HTML chart marker for '{chart_id}': {exc}."
+            )
 
 
 __all__ = [

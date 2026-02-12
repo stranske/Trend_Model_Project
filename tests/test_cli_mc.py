@@ -745,7 +745,7 @@ def test_mc_viz_errors_when_results_file_is_corrupted(
             str(bundle_dir),
             "--out",
             str(tmp_path / "exports"),
-            "--png",
+            "--html",
         ]
     )
 
@@ -846,6 +846,8 @@ def test_mc_viz_routes_selected_charts_and_exports_requested_formats(
 
     import trend.mc.viz as _mc_viz
 
+    monkeypatch.setattr(_mc_viz, "check_png_dependency", lambda: True)
+
     monkeypatch.setattr(
         _mc_viz,
         "_mc_chart_builders",
@@ -935,6 +937,8 @@ def test_mc_viz_acceptance_command_writes_plots_artifacts(
     )
 
     import trend.mc.viz as _mc_viz
+
+    monkeypatch.setattr(_mc_viz, "check_png_dependency", lambda: True)
 
     monkeypatch.setattr(
         _mc_viz,

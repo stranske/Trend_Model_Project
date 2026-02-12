@@ -302,7 +302,7 @@ def test_mc_viz_errors_when_results_file_is_corrupted(
             str(bundle_dir),
             "--out",
             str(tmp_path / "exports"),
-            "--png",
+            "--html",
         ]
     )
 
@@ -329,7 +329,7 @@ def test_mc_viz_errors_when_results_parquet_file_is_corrupted_without_traceback(
             str(bundle_dir),
             "--out",
             str(tmp_path / "exports"),
-            "--png",
+            "--html",
         ]
     )
 
@@ -506,6 +506,8 @@ def test_mc_viz_routes_selected_charts_and_exports_requested_formats(
 
     import trend.mc.viz as _mc_viz
 
+    monkeypatch.setattr(_mc_viz, "check_png_dependency", lambda: True)
+
     monkeypatch.setattr(
         _mc_viz,
         "_mc_chart_builders",
@@ -582,7 +584,7 @@ def test_mc_viz_routes_selected_charts_and_exports_requested_formats(
     assert not (plots_dir / "risk_return.html").exists()
 
 
-def test_mc_viz_skips_collision_without_overwriting_existing_plot_file(
+def test_mc_viz_renames_collision_without_overwriting_existing_plot_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     bundle_dir = tmp_path / "bundle"
@@ -658,9 +660,10 @@ def test_mc_viz_skips_collision_without_overwriting_existing_plot_file(
 
     assert exit_code == 0
     assert existing_file.read_bytes() == existing_bytes
+    assert (plots_dir / "risk_return-1.json").exists()
     err = capsys.readouterr().err
     assert "risk_return.json" in err
-    assert "destination file already exists" in err
+    assert "Renamed extracted 'risk_return.json' to 'risk_return-1.json'" in err
 
 
 def test_explain_parser_accepts_output_option(tmp_path: Path) -> None:
