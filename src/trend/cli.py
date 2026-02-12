@@ -24,6 +24,7 @@ from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 from trend.mc.io import (
     MCNavPathsIOError,
     load_nav_paths_frame,
+    validate_nav_paths_requirement,
 )
 from trend.reporting import generate_unified_report
 from trend.reporting.quick_summary import main as quick_summary_main
@@ -1854,19 +1855,15 @@ def _run_mc_viz_command(args: argparse.Namespace) -> int:
     _validate_mc_viz_output_flags(args)
     summary_frame, results_frame = _load_mc_bundle_frames(args.bundle)
     selected_charts = _parse_mc_chart_selection(args.charts)
-    nav_path_required_selection = sorted(
-        set(selected_charts).intersection(NAV_PATH_REQUIRED_CHARTS)
-    )
     try:
         nav_paths_frame = load_nav_paths_frame(args.bundle)
+        validate_nav_paths_requirement(
+            selected_charts,
+            nav_paths_frame,
+            nav_path_required_charts=NAV_PATH_REQUIRED_CHARTS,
+        )
     except MCNavPathsIOError as exc:
         raise TrendCLIError(str(exc)) from exc
-    if nav_paths_frame is None and nav_path_required_selection:
-        required_chart_text = ", ".join(nav_path_required_selection)
-        raise TrendCLIError(
-            f"Chart(s) {required_chart_text} require nav_paths.parquet in the MC bundle. "
-            "Add nav_paths.parquet or remove these chart(s) from --charts."
-        )
     uses_fallback_nav_data = nav_paths_frame is None
     chart_builders = _mc_chart_builders()
     generated_charts = {
