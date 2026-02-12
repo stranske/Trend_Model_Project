@@ -15,265 +15,265 @@ tasks:
     title: Define the public API interface for the shared module with a main function
       signature (e.g., `execute_mc_viz(bundle_path, out_dir, charts, html, json, png)`)
       and docstrings
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-03
     title: 'Define a chart-to-requirements mapping data structure (e.g., `CHART_REQUIREMENTS
       = {"path_dist": ["nav_paths.parquet"], ...}`) that specifies which files each
       chart type needs'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-04
     title: Implement the validation function that checks bundle contents against chart
       requirements and returns a list of missing files
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-05
     title: Add specific validation rule that `path_dist` chart requires exactly `nav_paths.parquet`
       format
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-06
     title: Add validation logic that rejects `nav_paths.csv` and `nav_paths.json`
       as satisfying `path_dist` requirements
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-07
     title: Write unit tests for the chart-driven validation logic covering all chart
       types and file format combinations
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-08
     title: Implement bundle loading logic in the shared module that reads and parses
       the required input files based on validation results
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-09
     title: Implement chart rendering logic in the shared module that generates visualization
       outputs for requested charts
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-10
     title: Implement error handling wrapper in the shared module that translates validation
       failures and exceptions to `TrendCLIError` with specific missing filenames
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-11
     title: Fix CLI validation failure paths to raise `TrendCLIError` (replace any
       `ValueError`/generic exception used for user-facing validation errors)
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-12
     title: Create a dependency check function that attempts to import `kaleido` and
       returns a boolean availability status
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-13
     title: 'Implement early validation that raises `TrendCLIError` with installation
       hint (e.g., "Install kaleido: pip install kaleido") when `--png` is requested
       but `kaleido` is unavailable'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-14
     title: Add the dependency check call at the appropriate point in the execution
       flow before PNG rendering attempts
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-15
     title: Remove any existing code paths that silently skip PNG generation without
       raising an error
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-16
     title: Write unit tests for the dependency check function using import mocking
       to simulate both available and missing scenarios
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-17
     title: Update `src/trend/cli.py` to import and delegate `mc viz` execution to
       the shared implementation (remove duplicated validation/loading/rendering/error-handling
       logic, keeping only argument parsing)
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-18
     title: Update `src/trend_analysis/cli.py` to import and delegate `mc viz` execution
       to the shared implementation (remove duplicated validation/loading/rendering/error-handling
       logic, keeping only argument parsing)
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-19
     title: Write integration test in `tests/integration/test_mc_viz.py` that verifies
       missing `nav_paths.parquet` for `path_dist` chart produces non-zero exit code
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-20
     title: Write integration test that verifies error message contains the exact string
       "nav_paths.parquet" when that file is missing
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-21
     title: Write integration test that verifies multiple missing files are all listed
       in the error message
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-22
     title: Write integration test that verifies `fan` chart with missing required
       inputs produces non-zero exit and appropriate error message
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-23
     title: Write integration test that verifies `risk_return` chart with missing required
       inputs produces non-zero exit and appropriate error message
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-24
     title: Write integration test that verifies the `plots/` directory is created
       under the specified output directory on successful run
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-25
     title: Write integration test that verifies HTML files matching patterns `*fan*.html`,
       `*path_dist*.html`, `*risk_return*.html` are generated when `--html` flag is
       set
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-26
     title: Write integration test that verifies JSON files matching patterns `*fan*.json`,
       `*path_dist*.json`, `*risk_return*.json` are generated when `--json` flag is
       set
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-27
     title: Write integration test that verifies the correct number of artifacts (3
       HTML + 3 JSON for `--charts fan,path_dist,risk_return --html --json`) are created
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-28
     title: Write integration test that verifies artifact filenames follow the expected
       naming convention for each chart type
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-29
     title: Implement test fixture or helper function that mocks `kaleido` availability
       for dependency-missing test scenarios
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-30
     title: Write integration test that verifies PNG files matching pattern `*.png`
       are generated (at least 3 total for `--charts fan,path_dist,risk_return`) when
       `kaleido` is available and `--png` flag is set
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-31
     title: Write integration test that verifies command exits with non-zero status
       when `kaleido` is missing and `--png` flag is set
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-32
     title: Write integration test that verifies error message contains both "kaleido"
       and "pip install kaleido" when dependency is missing
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-33
     title: Write integration test that verifies PNG generation does not occur when
       `--png` flag is not set regardless of `kaleido` availability
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-34
     title: Both CLI entrypoints import and call a function from the shared module
@@ -281,107 +281,107 @@ tasks:
       nor `src/trend_analysis/cli.py` contains validation, loading, or rendering logic
       beyond argument parsing and delegation (verified by code review showing <10
       lines of `mc viz` implementation per CLI file)
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-35
     title: When `--charts` includes `path_dist`, the bundle validator requires the
       file `nav_paths.parquet` to exist under `--bundle` and rejects `nav_paths.csv`
       and `nav_paths.json` as satisfying the requirement
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-36
     title: If required inputs are missing for the requested charts, the CLI raises
       `TrendCLIError` (not `ValueError` or a generic exception) and exits with a non-zero
       status code
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-37
     title: The error message for missing required inputs lists the exact missing filenames
       (e.g., includes the literal string "nav_paths.parquet" when that file is required
       and absent)
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-38
     title: On a successful run, the command `trend mc viz --bundle <valid_bundle>
       --out <out_dir> --charts fan,path_dist,risk_return --html --json` creates the
       directory `<out_dir>/plots/`
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-39
     title: For each requested chart in `--charts fan,path_dist,risk_return`, when
       `--html --json` are provided, the directory `<out_dir>/plots/` contains files
       matching the patterns `*fan*.html`, `*fan*.json`, `*path_dist*.html`, `*path_dist*.json`,
       `*risk_return*.html`, and `*risk_return*.json` (verified by glob matching)
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-40
     title: When `--png` is provided and `kaleido` import succeeds, the directory `<out_dir>/plots/`
       contains files matching the pattern `*.png` with at least 3 PNG files total
       for `--charts fan,path_dist,risk_return` (one per chart), and the command exits
       with status code 0
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-41
     title: When `--png` is provided and the Plotly PNG export dependency is NOT available,
       the command fails fast with `TrendCLIError`, exits non-zero, and prints an actionable
       message containing the missing dependency name (e.g., "kaleido") and an installation
       hint (e.g., "pip install kaleido")
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-42
     title: No code path silently skips PNG generation when `--png` is specified (i.e.,
       if PNGs are not produced, the command must exit non-zero with `TrendCLIError`)
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-43
     title: Integration tests exist in `tests/integration/test_mc_viz.py` (new or updated)
       covering (a) missing required inputs error behavior, (b) successful artifact
       generation, and (c) `--png` behavior for both dependency-present and dependency-missing
       scenarios
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-44
     title: All new unit tests pass with 100% coverage of the shared validation and
       dependency check functions
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
   - id: task-45
     title: All integration tests pass and can be run via `pytest tests/integration/test_mc_viz.py`
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-02-12T19:40:00Z'
+    finished_at: '2026-02-12T19:40:00Z'
+    commit: 74d852ca
     notes: []
