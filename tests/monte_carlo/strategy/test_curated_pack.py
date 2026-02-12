@@ -87,8 +87,7 @@ def _readme_table_rows_for_pack(pack_filename: str) -> list[tuple[str, str, str]
             continue
 
         strategy, intent, rationale = columns[:3]
-        if strategy and intent and rationale:
-            rows.append((strategy, intent, rationale))
+        rows.append((strategy, intent, rationale))
 
     assert rows, f"No strategy rows found for pack: {pack_filename}"
     return rows
@@ -350,6 +349,16 @@ def test_hf_macro_curated_docs_cover_all_strategies() -> None:
 
     assert documented_names == curated_names
     assert len(documented_names) == len(curated_names)
+
+
+def test_hf_macro_curated_docs_has_10_rows_with_intent_and_rationale() -> None:
+    rows = _readme_table_rows_for_pack("hf_macro_curated.yml")
+
+    assert len(rows) == 10
+    for strategy, intent, rationale in rows:
+        assert strategy.strip()
+        assert intent.strip()
+        assert rationale.strip()
 
 
 def test_hf_macro_20y_loads_curated_pack_variants() -> None:
