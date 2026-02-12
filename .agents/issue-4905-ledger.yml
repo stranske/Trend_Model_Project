@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Create NAV-path validation and loading utility functions in `trend/mc/io.py`
       with appropriate error handling and return types
-    status: doing
+    status: done
     started_at: '2026-02-12T04:54:04Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-12T04:54:12Z'
+    commit: 8f028c5a86698b09282ced629581cc8c92178a59
     notes: []
   - id: task-02
     title: Update `trend/cli/mc_viz.py` to import and call the new NAV-path utilities
