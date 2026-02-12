@@ -283,10 +283,8 @@ def test_main_missing_junit_reports_error(
 
     exit_code = ci_history.main()
 
-    assert exit_code == 0
-    record = json.loads(history_path.read_text(encoding="utf-8").strip())
-    assert record["status"] == "skipped"
-    assert record["reason"] == "missing-junit-report"
+    assert exit_code == 1
+    assert not history_path.exists()
     err = capsys.readouterr().err
     assert "JUnit report not found" in err
 
