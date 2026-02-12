@@ -23,7 +23,11 @@ import yaml
 
 from trend.config_schema import CoreConfigError, load_core_config
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
-from trend.mc.io import MCNavPathsIOError, load_nav_paths_frame, validate_nav_paths_requirement
+from trend.mc.io import (
+    MCNavPathsIOError,
+    load_nav_paths_frame,
+    validate_nav_paths_requirement,
+)
 from trend.reporting import generate_unified_report
 from trend.reporting.quick_summary import main as quick_summary_main
 from trend_analysis import export
