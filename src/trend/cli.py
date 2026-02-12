@@ -7,6 +7,7 @@ import logging
 import os
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 import zipfile
@@ -1652,7 +1653,13 @@ def _read_mc_frame(path: Path, *, label: str) -> pd.DataFrame:
     try:
         suffix = path.suffix.lower()
         if suffix == ".parquet":
-            frame = pd.read_parquet(path)
+            try:
+                frame = pd.read_parquet(path)
+            except Exception as exc:
+                raise TrendCLIError(
+                    f"Failed to read {label} parquet file '{path.name}'. "
+                    "The file may be corrupted or not a parquet file."
+                ) from exc
         elif suffix == ".csv":
             frame = pd.read_csv(path)
         elif suffix == ".json":
@@ -1725,6 +1732,16 @@ def _load_mc_nav_paths_frame(bundle: str | os.PathLike[str]) -> pd.DataFrame | N
     bundle_dir = Path(bundle).expanduser().resolve()
     nav_paths_path = bundle_dir / "nav_paths.parquet"
     if not nav_paths_path.exists():
+        unsupported_paths = tuple(bundle_dir / f"nav_paths.{ext}" for ext in ("csv", "json"))
+        detected_unsupported = [path for path in unsupported_paths if path.exists()]
+        if detected_unsupported:
+            unsupported_text = ", ".join(
+                f"'{path.name}' ({path.suffix.lower()})" for path in detected_unsupported
+            )
+            raise TrendCLIError(
+                "Unsupported nav_paths file format(s) detected in MC bundle: "
+                f"{unsupported_text}. Only nav_paths.parquet is supported."
+            )
         return None
     return _read_mc_frame(nav_paths_path, label="nav_paths")
 
@@ -1819,6 +1836,25 @@ def _mc_chart_builders() -> (
     }
 
 
+def _charts_requiring_nav_paths() -> frozenset[str]:
+    return frozenset({"path_dist"})
+
+
+def _validate_mc_nav_paths_requirement(
+    selected_charts: Iterable[str], nav_paths_frame: pd.DataFrame | None
+) -> None:
+    if nav_paths_frame is not None:
+        return
+    required = sorted(set(selected_charts).intersection(_charts_requiring_nav_paths()))
+    if not required:
+        return
+    chart_text = ", ".join(required)
+    raise TrendCLIError(
+        f"Chart(s) {chart_text} require nav_paths.parquet in the MC bundle. "
+        "Add nav_paths.parquet or remove these chart(s) from --charts."
+    )
+
+
 def _export_mc_chart_artifacts(
     charts: Mapping[str, Any],
     out_dir: Path,
@@ -1842,16 +1878,32 @@ def _export_mc_chart_artifacts(
         include_png=include_png,
         warnings=warnings,
     )
-    with zipfile.ZipFile(bundle_path) as archive:
-        archive.extractall(plots_dir)
+    with tempfile.TemporaryDirectory(prefix="mc_charts_extract_", dir=plots_dir) as extract_dir:
+        extract_root = Path(extract_dir)
+        with zipfile.ZipFile(bundle_path) as archive:
+            archive.extractall(extract_root)
+        for extracted_path in extract_root.rglob("*"):
+            if not extracted_path.is_file():
+                continue
+            rel_path = extracted_path.relative_to(extract_root)
+            target_path = plots_dir / rel_path
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            if target_path.exists():
+                warnings.append(
+                    f"Skipped extracting '{rel_path.as_posix()}' because the destination file already exists."
+                )
+                continue
+            extracted_path.replace(target_path)
     return plots_dir, warnings
 
 
 def _run_mc_viz_command(args: argparse.Namespace) -> int:
     _validate_mc_viz_output_flags(args)
     summary_frame, results_frame = _load_mc_bundle_frames(args.bundle)
-    nav_paths_frame = _load_mc_nav_paths_frame(args.bundle)
     selected_charts = _parse_mc_chart_selection(args.charts)
+    nav_paths_frame = _load_mc_nav_paths_frame(args.bundle)
+    _validate_mc_nav_paths_requirement(selected_charts, nav_paths_frame)
+    uses_fallback_nav_data = nav_paths_frame is None
     chart_builders = _mc_chart_builders()
     generated_charts = {
         chart_id: chart_builders[chart_id](summary_frame, results_frame, nav_paths_frame)
@@ -1869,6 +1921,12 @@ def _run_mc_viz_command(args: argparse.Namespace) -> int:
     if nav_paths_frame is not None:
         counts = f"{counts} nav_paths_rows={len(nav_paths_frame)}"
     print(f"Loaded MC bundle frames: {counts}")
+    if uses_fallback_nav_data:
+        print(
+            "Warning: nav_paths.parquet is missing; using fallback data derived from "
+            "summary/results. Charts may be less accurate or misleading.",
+            file=sys.stderr,
+        )
     print(f"Wrote MC chart artifacts to: {plots_dir}")
     for warning in warnings:
         print(f"Warning: {warning}", file=sys.stderr)

@@ -158,6 +158,8 @@ def test_mc_viz_loads_summary_and_results_frames(
             str(bundle_dir),
             "--out",
             str(tmp_path / "exports"),
+            "--charts",
+            "fan,risk_return",
             "--html",
         ]
     )
@@ -168,6 +170,41 @@ def test_mc_viz_loads_summary_and_results_frames(
     assert "summary_rows=1" in out
     assert "results_rows=2" in out
     assert (tmp_path / "exports" / "plots").is_dir()
+
+
+def test_mc_viz_warns_when_nav_paths_missing_and_using_fallback_data(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    pd.DataFrame({"path_id": [1, 2], "terminal_nav": [112.0, 98.4]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+
+    exit_code = main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--charts",
+            "fan,risk_return",
+            "--json",
+        ]
+    )
+
+    assert exit_code == 0
+    err = capsys.readouterr().err
+    err_lower = err.lower()
+    assert "nav_paths.parquet" in err
+    assert "fallback" in err_lower
+    assert "less accurate" in err_lower
+    assert "misleading" in err_lower
 
 
 def test_mc_viz_errors_when_summary_missing(
@@ -274,6 +311,35 @@ def test_mc_viz_errors_when_results_file_is_corrupted(
     assert "Failed to read results data" in err
 
 
+def test_mc_viz_errors_when_results_parquet_file_is_corrupted_without_traceback(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["vol"], "value": [0.09]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    (bundle_dir / "results.parquet").write_text("not parquet bytes", encoding="utf-8")
+
+    exit_code = main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--png",
+        ]
+    )
+
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert "results.parquet" in err
+    assert "corrupted or not a parquet file" in err
+    assert "Traceback" not in err
+
+
 def test_mc_viz_loads_optional_nav_paths_frame(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -304,6 +370,80 @@ def test_mc_viz_loads_optional_nav_paths_frame(
     assert exit_code == 0
     out = capsys.readouterr().out
     assert "nav_paths_rows=3" in out
+
+
+def test_mc_viz_errors_when_path_dist_requires_nav_paths_parquet(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    pd.DataFrame({"path_id": [1, 2], "terminal_nav": [112.0, 98.4]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+
+    exit_code = main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--charts",
+            "path_dist",
+            "--html",
+        ]
+    )
+
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert "nav_paths.parquet" in err
+    assert "path_dist" in err
+
+
+@pytest.mark.parametrize("suffix", ("csv", "json"))
+def test_mc_viz_errors_when_unsupported_nav_paths_format_detected_without_parquet(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], suffix: str
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    pd.DataFrame({"path_id": [1, 2], "terminal_nav": [112.0, 98.4]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+    if suffix == "csv":
+        pd.DataFrame({"path_id": [1, 2], "terminal_nav": [100.0, 101.0]}).to_csv(
+            bundle_dir / "nav_paths.csv", index=False
+        )
+    else:
+        (bundle_dir / "nav_paths.json").write_text(
+            '[{"path_id": 1, "terminal_nav": 100.0}]', encoding="utf-8"
+        )
+
+    exit_code = main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--charts",
+            "fan",
+            "--html",
+        ]
+    )
+
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert f"nav_paths.{suffix}" in err
+    assert f".{suffix}" in err
+    assert "Only nav_paths.parquet is supported" in err
 
 
 def test_mc_viz_errors_when_chart_identifier_is_invalid(
@@ -434,6 +574,85 @@ def test_mc_viz_routes_selected_charts_and_exports_requested_formats(
     assert (plots_dir / "risk_return.png").exists()
     assert (plots_dir / "fan.png").exists()
     assert not (plots_dir / "risk_return.html").exists()
+
+
+def test_mc_viz_skips_collision_without_overwriting_existing_plot_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    pd.DataFrame({"path_id": [1, 2], "terminal_nav": [112.0, 98.4]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "_mc_chart_builders",
+        lambda: {
+            "fan": lambda *_args, **_kwargs: object(),
+            "path_dist": lambda *_args, **_kwargs: object(),
+            "risk_return": lambda *_args, **_kwargs: object(),
+        },
+    )
+
+    def fake_save(
+        charts: dict[str, object],
+        destination: Path | str | None = None,
+        *,
+        include_json: bool = True,
+        include_html: bool = True,
+        include_png: bool = False,
+        warnings: list[str] | None = None,
+        **_kwargs: object,
+    ) -> Path:
+        assert destination is not None
+        dest_path = Path(destination)
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(dest_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for name in charts:
+                if include_json:
+                    archive.writestr(f"{name}.json", '{"new": true}')
+                if include_html:
+                    archive.writestr(f"{name}.html", "<html></html>")
+                if include_png:
+                    archive.writestr(f"{name}.png", b"PNG")
+        if warnings is not None:
+            warnings.append("stub warning")
+        return dest_path
+
+    from trend_analysis.monte_carlo import export_bundle as mc_export_bundle
+
+    monkeypatch.setattr(mc_export_bundle, "save", fake_save)
+
+    out_dir = tmp_path / "exports"
+    plots_dir = out_dir / "plots"
+    plots_dir.mkdir(parents=True, exist_ok=True)
+    existing_file = plots_dir / "risk_return.json"
+    existing_bytes = b'{"existing": true}'
+    existing_file.write_bytes(existing_bytes)
+
+    exit_code = main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(out_dir),
+            "--charts",
+            "risk_return",
+            "--json",
+        ]
+    )
+
+    assert exit_code == 0
+    assert existing_file.read_bytes() == existing_bytes
+    err = capsys.readouterr().err
+    assert "risk_return.json" in err
+    assert "destination file already exists" in err
 
 
 def test_explain_parser_accepts_output_option(tmp_path: Path) -> None:
