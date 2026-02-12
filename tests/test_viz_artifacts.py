@@ -9,9 +9,7 @@ import pytest
 from trend_analysis.viz.artifacts import extract_bundle_zip
 
 
-def test_extract_bundle_zip_skips_duplicate_archive_entries(
-    tmp_path: Path, caplog
-) -> None:
+def test_extract_bundle_zip_skips_duplicate_archive_entries(tmp_path: Path, caplog) -> None:
     bundle_path = tmp_path / "bundle.zip"
     with zipfile.ZipFile(bundle_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("fan.html", "<first>")

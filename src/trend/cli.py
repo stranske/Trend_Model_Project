@@ -86,8 +86,8 @@ from trend_analysis.signal_presets import (
     get_trend_spec_preset,
     list_trend_spec_presets,
 )
-from trend_analysis.viz.artifacts import extract_bundle_zip
 from trend_analysis.universe_catalog import NamedUniverse, load_universe
+from trend_analysis.viz.artifacts import extract_bundle_zip
 from trend_model.spec import ensure_run_spec
 from utils.paths import proj_path
 
