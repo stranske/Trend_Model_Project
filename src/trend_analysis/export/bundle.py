@@ -69,9 +69,7 @@ def export_bundle(run: Any, path: Path) -> Path:
             # Guard against non-pathlike types
             input_path = None
         input_sha256 = (
-            sha256_file(input_path)
-            if input_path is not None and input_path.exists()
-            else None
+            sha256_file(input_path) if input_path is not None and input_path.exists() else None
         )
         config_sha256 = sha256_config(config)
         run_id_src = "|".join(
@@ -96,9 +94,7 @@ def export_bundle(run: Any, path: Path) -> Path:
             # Attempt to preserve temporal structure if possible
             if isinstance(portfolio, dict):
                 # Use dict keys as index
-                portfolio = pd.Series(
-                    list(portfolio.values()), index=list(portfolio.keys())
-                )
+                portfolio = pd.Series(list(portfolio.values()), index=list(portfolio.keys()))
             elif isinstance(portfolio, (list, tuple)):
                 raise ValueError(
                     "Cannot convert portfolio of type list/tuple to pandas Series without an index. "
@@ -319,9 +315,7 @@ def export_bundle(run: Any, path: Path) -> Path:
             "environment": env,
             "git_hash": _git_hash(),
             "receipt": {
-                "created": _dt.datetime.now(_dt.timezone.utc)
-                .isoformat()
-                .replace("+00:00", "Z")
+                "created": _dt.datetime.now(_dt.timezone.utc).isoformat().replace("+00:00", "Z")
             },
             "input_sha256": input_sha256,
         }
@@ -353,8 +347,7 @@ def export_bundle(run: Any, path: Path) -> Path:
         commit_short = str(commit_hash)[:8]
         readme_path = bundle_dir / "README.txt"
         with open(readme_path, "w", encoding="utf-8") as f:
-            f.write(
-                f"""Trend Analysis Bundle
+            f.write(f"""Trend Analysis Bundle
 ====================
 
 This bundle contains the complete results of a trend analysis run, including data,
@@ -390,8 +383,7 @@ For more information about the Trend Analysis Project, visit:
 https://github.com/stranske/Trend_Model_Project
 
 Git commit: {commit_short}
-"""
-            )
+""")
 
         # Now that README.txt and receipt.txt exist, compute output hashes
         for fp in [*files_to_hash, readme_path, receipt_path]:

@@ -38,9 +38,7 @@ def save(
     returned.
     """
     if not include_json and not include_html and not include_png:
-        raise ValueError(
-            "At least one of include_json/include_html/include_png must be enabled."
-        )
+        raise ValueError("At least one of include_json/include_html/include_png must be enabled.")
 
     chart_items = _normalise_charts(charts)
     if not chart_items:
@@ -51,9 +49,7 @@ def save(
         warnings.append("PNG export skipped: Kaleido is not installed.")
 
     bundle_target = _resolve_destination(destination)
-    with zipfile.ZipFile(
-        bundle_target, mode="w", compression=zipfile.ZIP_DEFLATED
-    ) as bundle:
+    with zipfile.ZipFile(bundle_target, mode="w", compression=zipfile.ZIP_DEFLATED) as bundle:
         for name, chart in chart_items:
             stem = _safe_name(name)
             if include_json:
@@ -61,9 +57,7 @@ def save(
                     payload = pio.to_json(chart, validate=True, pretty=False)
                     json.loads(payload)
                 except Exception as exc:
-                    raise RuntimeError(
-                        f"Failed to serialize chart '{name}' to JSON."
-                    ) from exc
+                    raise RuntimeError(f"Failed to serialize chart '{name}' to JSON.") from exc
                 bundle.writestr(f"{stem}.json", payload.encode("utf-8"))
             if include_html:
                 try:
@@ -75,9 +69,7 @@ def save(
                         validate=True,
                     )
                 except Exception as exc:
-                    raise RuntimeError(
-                        f"Failed to render chart '{name}' to HTML."
-                    ) from exc
+                    raise RuntimeError(f"Failed to render chart '{name}' to HTML.") from exc
                 bundle.writestr(f"{stem}.html", html.encode("utf-8"))
             if png_enabled:
                 try:
@@ -106,9 +98,7 @@ def save_to_tempfile(
 ) -> Path:
     """Create a temporary chart bundle file and return its path."""
 
-    with tempfile.NamedTemporaryFile(
-        prefix="mc_charts_", suffix=suffix, delete=False
-    ) as handle:
+    with tempfile.NamedTemporaryFile(prefix="mc_charts_", suffix=suffix, delete=False) as handle:
         temp_path = Path(handle.name)
     save(
         charts,
