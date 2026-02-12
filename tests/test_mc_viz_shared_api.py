@@ -4,6 +4,7 @@ import inspect
 from pathlib import Path
 
 import pytest
+
 from trend.mc import execute_mc_viz
 from trend.mc.viz import CHART_REQUIREMENTS, validate_mc_viz_bundle_requirements
 
@@ -32,7 +33,9 @@ def _write_bundle_file(bundle_dir: Path, filename: str) -> None:
     (bundle_dir / filename).write_text("x", encoding="utf-8")
 
 
-def test_bundle_validation_accepts_supported_formats_for_summary_and_results(tmp_path: Path) -> None:
+def test_bundle_validation_accepts_supported_formats_for_summary_and_results(
+    tmp_path: Path,
+) -> None:
     bundle_dir = tmp_path / "bundle"
     bundle_dir.mkdir()
     _write_bundle_file(bundle_dir, "summary.csv")
