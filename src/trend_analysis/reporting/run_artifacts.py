@@ -204,7 +204,7 @@ def write_run_artifacts(
     run_root = base_dir / "runs"
     run_root.mkdir(parents=True, exist_ok=True)
     run_dir = run_root / f"{created.strftime('%Y%m%d_%H%M%S')}_{run_prefix}"
-    run_dir.mkdir(exist_ok=True)
+    run_dir.mkdir(parents=True, exist_ok=True)
 
     df = _coerce_frame(data_frame)
     metrics_df = _coerce_frame(metrics_frame)
