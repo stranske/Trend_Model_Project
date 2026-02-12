@@ -8,10 +8,10 @@ tasks:
       to read `nav_paths.parquet` and enforce validation rules, including an explicit
       missing-parquet behavior (raise specific exception OR `warnings.warn(...)` +
       sentinel/empty DataFrame).
-    status: doing
+    status: done
     started_at: '2026-02-12T14:16:09Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-12T14:16:22Z'
+    commit: 33362888682965518d836a3d247fd16dffa921fa
     notes: []
   - id: task-02
     title: 'Define scope for: Implement the load_nav_paths function in trend/mc/io.py
