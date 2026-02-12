@@ -9,10 +9,10 @@ tasks:
       --html --json --png` and add text describing `--bundle`, `--out`, `--charts`,
       `--html`, `--json`, `--png` and where outputs are written (e.g., `<out>/plots/*.html`,
       `<out>/plots/*.json`, `<out>/plots/*.png`).
-    status: doing
+    status: done
     started_at: '2026-02-12T03:19:21Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-12T03:19:31Z'
+    commit: b00c132781ad9f7d0871dbdf9a44480e46116483
     notes: []
   - id: task-02
     title: 'Define scope for: Add the exact example command `trend mc viz --bundle
