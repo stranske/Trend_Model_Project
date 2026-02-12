@@ -172,3 +172,21 @@ def test_mc_viz_cli_warns_and_continues_when_nav_paths_missing_for_non_required_
     assert "NAV-path-dependent visuals" in result.stderr
     assert (out_dir / "plots" / "fan.html").is_file()
     assert (out_dir / "plots" / "risk_return.html").is_file()
+
+
+@pytest.mark.integration
+def test_mc_viz_cli_creates_nested_output_directory_tree(tmp_path: Path) -> None:
+    bundle_dir = _fixture_bundle_dir()
+    assert bundle_dir.is_dir()
+
+    out_dir = tmp_path / "nested" / "a" / "b" / "c" / "plots_output"
+    assert not out_dir.exists()
+
+    result = _run_mc_viz(bundle_dir, out_dir, charts="fan")
+
+    assert result.returncode == 0, result.stderr
+    plots_dir = out_dir / "plots"
+    assert out_dir.is_dir()
+    assert plots_dir.is_dir()
+    assert (plots_dir / "fan.html").is_file()
+    assert (plots_dir / "fan.json").is_file()

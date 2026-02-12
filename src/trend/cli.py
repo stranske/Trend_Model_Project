@@ -898,6 +898,7 @@ def _write_bundle(
     bundle_path = bundle_path.resolve()
     if bundle_path.is_dir():
         bundle_path = bundle_path / "analysis_bundle.zip"
+    bundle_path.parent.mkdir(parents=True, exist_ok=True)
     # Attach metadata expected by export_bundle
     setattr(result, "config", getattr(cfg, "__dict__", {}))
     if source_path is not None:
