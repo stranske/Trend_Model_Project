@@ -2,8 +2,9 @@
 # Strategy Pack: HF Macro Curated
 # Description: Curated strategy variants for macro Monte Carlo scenarios.
 
-curated:
-  - name: Rank_8_Equal_TightTurnover
+strategies:
+  - identifier: macro_rank_8_equal_tight_turnover
+    name: Rank_8_Equal_TightTurnover
     tags: [macro, hf, rank, concentrated, equal_weight, tight_turnover]
     overrides:
       portfolio:
@@ -19,7 +20,8 @@ curated:
           max_weight: 0.22
           max_active_positions: 8
 
-  - name: TopPct_25_RiskParity_ModerateTurnover
+  - identifier: macro_toppct_25_riskparity_moderate_turnover
+    name: TopPct_25_RiskParity_ModerateTurnover
     tags: [macro, hf, rank, top_pct, risk_parity, moderate_turnover]
     overrides:
       portfolio:
@@ -34,7 +36,8 @@ curated:
         constraints:
           max_weight: 0.15
 
-  - name: Threshold_ZScore_HRP_Bayes_ModerateTurnover
+  - identifier: macro_threshold_zscore_hrp_bayes_moderate_turnover
+    name: Threshold_ZScore_HRP_Bayes_ModerateTurnover
     tags: [macro, hf, threshold, hrp, bayes, moderate_turnover]
     overrides:
       portfolio:
@@ -54,7 +57,8 @@ curated:
         constraints:
           max_active_positions: 14
 
-  - name: Rank_16_HRP_LooseTurnover
+  - identifier: macro_rank_16_hrp_loose_turnover
+    name: Rank_16_HRP_LooseTurnover
     tags: [macro, hf, rank, diversified, hrp, loose_turnover]
     overrides:
       portfolio:
@@ -70,7 +74,8 @@ curated:
           max_weight: 0.14
           max_active_positions: 16
 
-  - name: Rank_20_ERC_LooseTurnover
+  - identifier: macro_rank_20_erc_loose_turnover
+    name: Rank_20_ERC_LooseTurnover
     tags: [macro, hf, rank, diversified, erc, loose_turnover]
     overrides:
       portfolio:
@@ -86,7 +91,8 @@ curated:
           max_weight: 0.10
           max_active_positions: 20
 
-  - name: Rank_14_RobustMV_TightTurnover
+  - identifier: macro_rank_14_robustmv_tight_turnover
+    name: Rank_14_RobustMV_TightTurnover
     tags: [macro, hf, rank, robust_mv, tight_turnover, long_short]
     overrides:
       portfolio:
@@ -103,7 +109,8 @@ curated:
           long_only: false
           max_weight: 0.12
 
-  - name: Rank_12_RobustRiskParity_ModerateTurnover
+  - identifier: macro_rank_12_robustriskparity_moderate_turnover
+    name: Rank_12_RobustRiskParity_ModerateTurnover
     tags: [macro, hf, rank, robust_risk_parity, moderate_turnover]
     overrides:
       portfolio:
@@ -118,7 +125,8 @@ curated:
         constraints:
           max_weight: 0.15
 
-  - name: Random_12_Equal_LooseTurnover
+  - identifier: macro_random_12_equal_loose_turnover
+    name: Random_12_Equal_LooseTurnover
     tags: [macro, hf, random, stress_test, equal_weight, loose_turnover]
     overrides:
       portfolio:
@@ -132,7 +140,8 @@ curated:
       vol_adjust:
         enabled: false
 
-  - name: Manual_8_Equal_TightTurnover
+  - identifier: macro_manual_8_equal_tight_turnover
+    name: Manual_8_Equal_TightTurnover
     tags: [macro, hf, manual, concentrated, equal_weight, tight_turnover]
     overrides:
       portfolio:
@@ -152,7 +161,8 @@ curated:
           max_weight: 0.22
           max_active_positions: 8
 
-  - name: All_Equal_LowTurnover_LowVol
+  - identifier: macro_all_equal_low_turnover_low_vol
+    name: All_Equal_LowTurnover_LowVol
     tags: [macro, hf, all, equal_weight, low_turnover, low_vol]
     overrides:
       portfolio:

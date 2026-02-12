@@ -1,0 +1,163 @@
+version: 1
+issue: 4916
+base: phase-3
+branch: codex/issue-4916
+tasks:
+  - id: task-01
+    title: Create `tests/monte_carlo/strategy/test_curated_pack.py` with a pytest
+      that parses `config/scenarios/monte_carlo/strategies/hf_macro_curated.yml` via
+      `TrendConfig` and asserts `len(parsed_config.strategies) == 10`
+    status: done
+    started_at: '2026-02-12T15:02:27Z'
+    finished_at: '2026-02-12T15:02:45Z'
+    commit: 702078e5c7b645ac7675776dc6ca676f6260e016
+    notes: []
+  - id: task-02
+    title: Add pytest to `tests/monte_carlo/strategy/test_curated_pack.py` asserting
+      `len({s.identifier for s in strategies}) == 10` and `len({s.name for s in strategies})
+      == 10` (uniqueness validation)
+    status: done
+    started_at: '2026-02-12T15:14:14Z'
+    finished_at: '2026-02-12T15:14:14Z'
+    commit: 7c28e819ec6f8e8a6ce4f05a06c3d2e64ae1ce4f
+    notes: []
+  - id: task-03
+    title: Add pytest to `tests/monte_carlo/strategy/test_curated_pack.py` that validates
+      `hf_macro_curated.yml` via `TrendConfig` schema validation and fails on any
+      exception
+    status: done
+    started_at: '2026-02-12T15:14:14Z'
+    finished_at: '2026-02-12T15:14:14Z'
+    commit: 7c28e819ec6f8e8a6ce4f05a06c3d2e64ae1ce4f
+    notes: []
+  - id: task-04
+    title: Add pytest to `tests/monte_carlo/strategy/test_curated_pack.py` that asserts
+      the top-level key `strategies` exists in `hf_macro_curated.yml` with clear failure
+      message if missing/renamed
+    status: done
+    started_at: '2026-02-12T15:14:14Z'
+    finished_at: '2026-02-12T15:14:14Z'
+    commit: 7c28e819ec6f8e8a6ce4f05a06c3d2e64ae1ce4f
+    notes: []
+  - id: task-05
+    title: Create or update `tests/monte_carlo/scenario/test_hf_macro_20y_load.py`
+      with integration pytest that loads `hf_macro_20y` scenario, instantiates `hf_macro_curated`
+      pack strategies, and asserts `len(instantiated_strategies) == 10` with no exceptions
+    status: done
+    started_at: '2026-02-12T15:14:14Z'
+    finished_at: '2026-02-12T15:14:14Z'
+    commit: 576bfa101fd92481613dab102cde6ce0e2205478
+    notes: []
+  - id: task-06
+    title: Update `config/scenarios/monte_carlo/strategies/README.md` to add `hf_macro_curated`
+      table with exactly 10 non-header rows, non-empty Intent and Rationale per row,
+      matching identifiers/names in YAML
+    status: done
+    started_at: '2026-02-12T15:14:14Z'
+    finished_at: '2026-02-12T15:14:14Z'
+    commit: 7c28e819ec6f8e8a6ce4f05a06c3d2e64ae1ce4f
+    notes: []
+  - id: task-07
+    title: Remove `coverage-ci-repro.xml` from repository if present and add/confirm
+      `.gitignore` rule matching `coverage-ci-repro.xml`
+    status: done
+    started_at: '2026-02-12T15:14:14Z'
+    finished_at: '2026-02-12T15:14:14Z'
+    commit: 789ddc0684e7e66c1ec1ff80483b8fc43afaf00b
+    notes: []
+  - id: task-08
+    title: '`tests/monte_carlo/strategy/test_curated_pack.py` exists and contains
+      a pytest that parses `config/scenarios/monte_carlo/strategies/hf_macro_curated.yml`
+      using `TrendConfig` and asserts `len(parsed_config.strategies) == 10`'
+    status: done
+    started_at: '2026-02-12T15:14:14Z'
+    finished_at: '2026-02-12T15:14:14Z'
+    commit: 7c28e819ec6f8e8a6ce4f05a06c3d2e64ae1ce4f
+    notes: []
+  - id: task-09
+    title: '`tests/monte_carlo/strategy/test_curated_pack.py` contains a pytest that
+      asserts `len({s.identifier for s in strategies}) == len(strategies) == 10`'
+    status: done
+    started_at: '2026-02-12T15:14:14Z'
+    finished_at: '2026-02-12T15:14:14Z'
+    commit: 7c28e819ec6f8e8a6ce4f05a06c3d2e64ae1ce4f
+    notes: []
+  - id: task-10
+    title: '`tests/monte_carlo/strategy/test_curated_pack.py` contains a pytest that
+      asserts `len({s.name for s in strategies}) == len(strategies) == 10`'
+    status: done
+    started_at: '2026-02-12T15:14:14Z'
+    finished_at: '2026-02-12T15:14:14Z'
+    commit: 7c28e819ec6f8e8a6ce4f05a06c3d2e64ae1ce4f
+    notes: []
+  - id: task-11
+    title: '`tests/monte_carlo/strategy/test_curated_pack.py` contains a pytest that
+      validates `hf_macro_curated.yml` via `TrendConfig` schema validation without
+      raising any exception (test fails on any thrown exception)'
+    status: done
+    started_at: '2026-02-12T15:14:14Z'
+    finished_at: '2026-02-12T15:14:14Z'
+    commit: 7c28e819ec6f8e8a6ce4f05a06c3d2e64ae1ce4f
+    notes: []
+  - id: task-12
+    title: '`tests/monte_carlo/strategy/test_curated_pack.py` contains a pytest that
+      asserts the presence of top-level key `strategies` in `hf_macro_curated.yml`
+      and fails with message "Expected top-level key ''strategies'' in hf_macro_curated.yml;
+      renaming this key is a breaking change and requires migration" if missing'
+    status: done
+    started_at: '2026-02-12T15:14:14Z'
+    finished_at: '2026-02-12T15:14:14Z'
+    commit: 7c28e819ec6f8e8a6ce4f05a06c3d2e64ae1ce4f
+    notes: []
+  - id: task-13
+    title: '`tests/monte_carlo/scenario/test_hf_macro_20y_load.py` contains a pytest
+      integration test that loads `hf_macro_20y` scenario, instantiates `hf_macro_curated`
+      pack strategies, and asserts `len(instantiated_strategies) == 10` with no exceptions
+      thrown during load/instantiation'
+    status: done
+    started_at: '2026-02-12T15:14:14Z'
+    finished_at: '2026-02-12T15:14:14Z'
+    commit: 576bfa101fd92481613dab102cde6ce0e2205478
+    notes: []
+  - id: task-14
+    title: '`config/scenarios/monte_carlo/strategies/README.md` contains an `hf_macro_curated`
+      table with exactly 10 strategy rows (excluding header row)'
+    status: done
+    started_at: '2026-02-12T15:14:14Z'
+    finished_at: '2026-02-12T15:14:14Z'
+    commit: 7c28e819ec6f8e8a6ce4f05a06c3d2e64ae1ce4f
+    notes: []
+  - id: task-15
+    title: In `config/scenarios/monte_carlo/strategies/README.md`, each of the 10
+      `hf_macro_curated` rows has a non-empty Intent cell and a non-empty Rationale
+      cell (not blank/whitespace-only)
+    status: done
+    started_at: '2026-02-12T15:14:14Z'
+    finished_at: '2026-02-12T15:14:14Z'
+    commit: 7c28e819ec6f8e8a6ce4f05a06c3d2e64ae1ce4f
+    notes: []
+  - id: task-16
+    title: 'The `hf_macro_curated` table in `config/scenarios/monte_carlo/strategies/README.md`
+      has 1:1 match to `config/scenarios/monte_carlo/strategies/hf_macro_curated.yml`:
+      the set of `(identifier, name)` pairs in table equals the set parsed from YAML,
+      with no extras and no omissions'
+    status: done
+    started_at: '2026-02-12T15:14:14Z'
+    finished_at: '2026-02-12T15:14:14Z'
+    commit: 7c28e819ec6f8e8a6ce4f05a06c3d2e64ae1ce4f
+    notes: []
+  - id: task-17
+    title: '`coverage-ci-repro.xml` is not present in the repository after the change'
+    status: done
+    started_at: '2026-02-12T15:14:14Z'
+    finished_at: '2026-02-12T15:14:14Z'
+    commit: 789ddc0684e7e66c1ec1ff80483b8fc43afaf00b
+    notes: []
+  - id: task-18
+    title: '`.gitignore` contains a rule that matches `coverage-ci-repro.xml` exactly
+      (either `/coverage-ci-repro.xml` or `coverage-ci-repro.xml`)'
+    status: done
+    started_at: '2026-02-12T15:14:14Z'
+    finished_at: '2026-02-12T15:14:14Z'
+    commit: 789ddc0684e7e66c1ec1ff80483b8fc43afaf00b
+    notes: []
