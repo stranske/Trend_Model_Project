@@ -271,27 +271,27 @@ tasks:
   - id: task-34
     title: Add documentation snippet with example usage of `trend mc viz` including
       flags `--bundle`, `--out`, `--charts`, `--html`, `--json`, and `--png`.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T22:50:00Z'
+    finished_at: '2026-02-11T22:50:00Z'
     commit: ''
     notes: []
   - id: task-35
     title: Running `trend mc viz --bundle <path> --out <dir> --charts fan,path_dist,risk_return
       --html --json --png` against a sample MC output directory produces a `<dir>/plots/`
       folder containing chart artifacts.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T22:50:00Z'
+    finished_at: '2026-02-11T22:50:00Z'
     commit: ''
     notes: []
   - id: task-36
     title: When required inputs are missing from `--bundle <path>`, the command exits
       with a non-zero status code and prints an error message indicating which inputs
       are missing.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-11T22:50:00Z'
+    finished_at: '2026-02-11T22:50:00Z'
     commit: ''
     notes: []
   - id: task-37
