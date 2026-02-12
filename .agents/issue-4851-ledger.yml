@@ -1,0 +1,299 @@
+version: 1
+issue: 4851
+base: phase-3
+branch: codex/issue-4851
+tasks:
+  - id: task-01
+    title: Add test file(s) for visualization smoke tests covering that Plotly figures
+      create successfully and `fig.to_json()` works (e.g., `tests/test_visualization_smoke.py`).
+    status: done
+    started_at: '2026-02-11T22:26:00Z'
+    finished_at: '2026-02-11T22:26:10Z'
+    commit: 120d0016f8bce32ab8de42dd3654166a7e573cb7
+    notes: []
+  - id: task-02
+    title: 'Create the test file `tests/test_visualization_smoke.py` with basic structure
+      (verify: tests pass)'
+    status: done
+    started_at: '2026-02-11T22:39:30Z'
+    finished_at: '2026-02-11T22:39:30Z'
+    commit: 19ab5192ecf1c77f4258631ff0b56d20655c4ae9
+    notes: []
+  - id: task-03
+    title: 'Create the test file `tests/test_visualization_smoke.py` with imports.
+      (verify: tests pass)'
+    status: done
+    started_at: '2026-02-11T22:39:30Z'
+    finished_at: '2026-02-11T22:39:30Z'
+    commit: 19ab5192ecf1c77f4258631ff0b56d20655c4ae9
+    notes: []
+  - id: task-04
+    title: 'Define scope for: Add a test case verifying that Plotly figures can be
+      created successfully without errors. (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-11T22:39:30Z'
+    finished_at: '2026-02-11T22:39:30Z'
+    commit: 19ab5192ecf1c77f4258631ff0b56d20655c4ae9
+    notes: []
+  - id: task-05
+    title: 'Implement focused slice for: Add a test case verifying that Plotly figures
+      can be created successfully without errors. (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-11T22:39:30Z'
+    finished_at: '2026-02-11T22:39:30Z'
+    commit: 19ab5192ecf1c77f4258631ff0b56d20655c4ae9
+    notes: []
+  - id: task-06
+    title: 'Validate focused slice for: Add a test case verifying that Plotly figures
+      can be created successfully without errors. (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-11T22:39:30Z'
+    finished_at: '2026-02-11T22:39:30Z'
+    commit: 19ab5192ecf1c77f4258631ff0b56d20655c4ae9
+    notes: []
+  - id: task-07
+    title: 'Define scope for: Add a test case verifying that `fig.to_json()` returns
+      valid JSON output for created figures. (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-11T22:39:30Z'
+    finished_at: '2026-02-11T22:39:30Z'
+    commit: 19ab5192ecf1c77f4258631ff0b56d20655c4ae9
+    notes: []
+  - id: task-08
+    title: 'Implement focused slice for: Add a test case verifying that `fig.to_json()`
+      returns valid JSON output for created figures. (verify: confirm completion in
+      repo)'
+    status: done
+    started_at: '2026-02-11T22:39:30Z'
+    finished_at: '2026-02-11T22:39:30Z'
+    commit: 19ab5192ecf1c77f4258631ff0b56d20655c4ae9
+    notes: []
+  - id: task-09
+    title: 'Validate focused slice for: Add a test case verifying that `fig.to_json()`
+      returns valid JSON output for created figures. (verify: confirm completion in
+      repo)'
+    status: done
+    started_at: '2026-02-11T22:39:30Z'
+    finished_at: '2026-02-11T22:39:30Z'
+    commit: 19ab5192ecf1c77f4258631ff0b56d20655c4ae9
+    notes: []
+  - id: task-10
+    title: Add test(s) validating the `nav_paths` contract/schema used by the visualization
+      layer (e.g., `tests/test_nav_paths_contract.py`).
+    status: done
+    started_at: '2026-02-11T22:40:20Z'
+    finished_at: '2026-02-11T22:42:20Z'
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Add test(s) covering adapter behavior for `nav_paths` inputs/outputs (e.g.,
+      `tests/test_nav_paths_adapters.py`).
+    status: done
+    started_at: '2026-02-11T22:44:10Z'
+    finished_at: '2026-02-11T22:45:20Z'
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Add test(s) verifying export behavior works without Kaleido installed (e.g.,
+      `tests/test_export_without_kaleido.py`).
+    status: done
+    started_at: '2026-02-11T22:46:20Z'
+    finished_at: '2026-02-11T22:47:00Z'
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Create documentation at `docs/monte_carlo/visualization.md` describing
+      the `nav_paths` schema and chart extension points, including how to trigger
+      agent work post-creation.
+    status: done
+    started_at: '2026-02-11T22:50:10Z'
+    finished_at: '2026-02-11T22:50:40Z'
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Create the documentation file `docs/monte_carlo/visualization.md` with
+      basic structure (verify: docs updated)'
+    status: done
+    started_at: '2026-02-11T22:50:10Z'
+    finished_at: '2026-02-11T22:50:40Z'
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Create the documentation file `docs/monte_carlo/visualization.md` with
+      headings. (verify: docs updated)'
+    status: done
+    started_at: '2026-02-11T22:50:10Z'
+    finished_at: '2026-02-11T22:50:40Z'
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Document the `nav_paths` schema including field definitions (verify: confirm
+      completion in repo)'
+    status: done
+    started_at: '2026-02-11T22:50:10Z'
+    finished_at: '2026-02-11T22:50:40Z'
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Document the `nav_paths` schema including expected data types. (verify:
+      confirm completion in repo)'
+    status: done
+    started_at: '2026-02-11T22:50:10Z'
+    finished_at: '2026-02-11T22:50:40Z'
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Define scope for: Document the chart extension points with examples of
+      how to extend existing visualizations. (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-11T22:50:40Z'
+    finished_at: '2026-02-11T22:51:00Z'
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Implement focused slice for: Document the chart extension points with
+      examples of how to extend existing visualizations. (verify: confirm completion
+      in repo)'
+    status: done
+    started_at: '2026-02-11T22:50:40Z'
+    finished_at: '2026-02-11T22:51:00Z'
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Validate focused slice for: Document the chart extension points with examples
+      of how to extend existing visualizations. (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-11T22:50:40Z'
+    finished_at: '2026-02-11T22:51:00Z'
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'Define scope for: Document the process for triggering agent work after
+      chart creation with concrete examples. (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-11T22:51:00Z'
+    finished_at: '2026-02-11T22:51:20Z'
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'Implement focused slice for: Document the process for triggering agent
+      work after chart creation with concrete examples. (verify: confirm completion
+      in repo)'
+    status: done
+    started_at: '2026-02-11T22:51:00Z'
+    finished_at: '2026-02-11T22:51:20Z'
+    commit: ''
+    notes: []
+  - id: task-23
+    title: 'Validate focused slice for: Document the process for triggering agent
+      work after chart creation with concrete examples. (verify: confirm completion
+      in repo)'
+    status: done
+    started_at: '2026-02-11T22:51:00Z'
+    finished_at: '2026-02-11T22:51:20Z'
+    commit: ''
+    notes: []
+  - id: task-24
+    title: Update an existing docs index/README to link to `docs/monte_carlo/visualization.md`
+      from an obvious location (e.g., `docs/README.md` or `docs/index.md` if present).
+    status: done
+    started_at: '2026-02-11T22:51:20Z'
+    finished_at: '2026-02-11T22:51:40Z'
+    commit: ''
+    notes: []
+  - id: task-25
+    title: Running the test suite succeeds (e.g., `pytest` exits with code 0) and
+      includes smoke coverage that Plotly figures can be created and `fig.to_json()`
+      returns JSON.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: Tests verifying the `nav_paths` contract and adapters exist and pass (relevant
+      `tests/test_*.py` files present and `pytest` passes).
+    status: done
+    started_at: '2026-02-11T22:47:30Z'
+    finished_at: '2026-02-11T22:47:40Z'
+    commit: ''
+    notes: []
+  - id: task-27
+    title: Tests verifying export behavior without Kaleido exist and pass (e.g., `pytest
+      -k kaleido` passes on an environment without Kaleido).
+    status: done
+    started_at: '2026-02-11T22:47:50Z'
+    finished_at: '2026-02-11T22:48:10Z'
+    commit: ''
+    notes: []
+  - id: task-28
+    title: '`docs/monte_carlo/visualization.md` exists in the repo.'
+    status: done
+    started_at: '2026-02-11T22:50:10Z'
+    finished_at: '2026-02-11T22:50:40Z'
+    commit: ''
+    notes: []
+  - id: task-29
+    title: At least one docs entry point links to `docs/monte_carlo/visualization.md`
+      (link present in an inspected docs index file).
+    status: done
+    started_at: '2026-02-11T22:51:20Z'
+    finished_at: '2026-02-11T22:51:40Z'
+    commit: ''
+    notes: []
+  - id: task-30
+    title: 'Add viz smoke tests:'
+    status: done
+    started_at: '2026-02-11T22:39:30Z'
+    finished_at: '2026-02-11T22:39:30Z'
+    commit: 19ab5192ecf1c77f4258631ff0b56d20655c4ae9
+    notes: []
+  - id: task-31
+    title: figures create successfully
+    status: done
+    started_at: '2026-02-11T22:39:30Z'
+    finished_at: '2026-02-11T22:39:30Z'
+    commit: 19ab5192ecf1c77f4258631ff0b56d20655c4ae9
+    notes: []
+  - id: task-32
+    title: '`fig.to_json()` works'
+    status: done
+    started_at: '2026-02-11T22:39:30Z'
+    finished_at: '2026-02-11T22:39:30Z'
+    commit: 19ab5192ecf1c77f4258631ff0b56d20655c4ae9
+    notes: []
+  - id: task-33
+    title: 'Add docs:'
+    status: done
+    started_at: '2026-02-11T22:50:10Z'
+    finished_at: '2026-02-11T22:50:40Z'
+    commit: ''
+    notes: []
+  - id: task-34
+    title: '`docs/monte_carlo/visualization.md` describing schema + extension points'
+    status: done
+    started_at: '2026-02-11T22:50:10Z'
+    finished_at: '2026-02-11T22:50:40Z'
+    commit: ''
+    notes: []
+  - id: task-35
+    title: Ensure docs are linked from somewhere obvious.
+    status: done
+    started_at: '2026-02-11T22:51:20Z'
+    finished_at: '2026-02-11T22:51:40Z'
+    commit: ''
+    notes: []
+  - id: task-36
+    title: CI passes.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: Docs exist and are easy to find.
+    status: done
+    started_at: '2026-02-11T22:51:20Z'
+    finished_at: '2026-02-11T22:51:40Z'
+    commit: ''
+    notes: []

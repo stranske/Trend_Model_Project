@@ -6,8 +6,9 @@ chart components that expect predictable DataFrame schemas.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterable, Sequence
-from typing import Any, Callable, ParamSpec, TypeGuard, TypeVar, cast
+from typing import Any, Callable, ParamSpec, TypeVar, cast
 
 import numpy as np
 import pandas as pd
@@ -22,8 +23,6 @@ except Exception:  # pragma: no cover - streamlit is optional outside app runtim
 
 P = ParamSpec("P")
 R = TypeVar("R")
-_IntLike = int | np.integer[Any]
-
 SUMMARY_REQUIRED_COLUMNS: tuple[str, ...] = ("fold_id", "fold_label", "strategy", "paths")
 """Required columns for ``make_summary`` outputs."""
 
@@ -62,16 +61,30 @@ LOOKBACK_PERIODS_VALIDATION_MESSAGE = (
 )
 """Controlled validation error message for ``terminal_returns`` lookback input."""
 
+NO_VALID_LOOKBACK_PERIODS_MESSAGE = "No valid lookback_periods provided"
+"""Controlled validation error when iterable normalization produces no valid lookbacks."""
+
+CACHING_REQUIRED_UNAVAILABLE_MESSAGE = "Caching required but streamlit.cache_data is unavailable"
+"""Error raised when runtime requires caching but streamlit.cache_data cannot be used."""
+
 
 def _cache_data(*args: object, **kwargs: object) -> Callable[[Callable[P, R]], Callable[P, R]]:
     cache_data = getattr(st, "cache_data", None) if st is not None else None
     if callable(cache_data):
         return cast(Callable[[Callable[P, R]], Callable[P, R]], cache_data(*args, **kwargs))
+    if _is_caching_required():
+        raise RuntimeError(CACHING_REQUIRED_UNAVAILABLE_MESSAGE)
 
     def _identity(func: Callable[P, R]) -> Callable[P, R]:
         return func
 
     return _identity
+
+
+def _is_caching_required() -> bool:
+    if os.environ.get("TREND_VIZ_REQUIRE_CACHE", "").strip().lower() in {"1", "true", "yes", "on"}:
+        return True
+    return os.environ.get("TREND_ENV", "").strip().lower() in {"production", "prod"}
 
 
 @_cache_data(show_spinner=False)
@@ -186,9 +199,12 @@ def terminal_returns(
         Optional trailing window (in rows). If ``None``, uses first to last NAV
         over the full horizon. If provided as an integer, return is computed from
         ``t - lookback_periods`` to final ``t``.
-        If provided as an iterable, invalid entries are filtered out and the first
-        valid positive integer is used. Raises a controlled ``ValueError`` if no
-        valid positive integer remains.
+        If provided as an iterable, invalid entries are filtered out to include
+        only values where ``type(x) is int`` and ``x > 0``.
+        For iterable inputs, the first normalized lookback that fits the available
+        rows is used; if none fit, the maximum available lookback is used.
+        Raises ``ValueError("No valid lookback_periods provided")`` if iterable
+        normalization produces no valid lookbacks.
 
     Returns
     -------
@@ -207,16 +223,19 @@ def terminal_returns(
             }
         )
 
-    normalized_lookback = _normalize_lookback_periods(lookback_periods)
+    normalized_lookbacks = _normalize_lookback_periods(lookback_periods)
 
-    if normalized_lookback is None:
+    if normalized_lookbacks is None:
         base = wide.ffill().iloc[0]
         periods_used = max(len(wide.index) - 1, 0)
     else:
-        if len(wide.index) <= normalized_lookback:
-            raise ValueError("lookback_periods must be smaller than the number of rows")
-        base = wide.ffill().iloc[-(normalized_lookback + 1)]
-        periods_used = normalized_lookback
+        max_lookback = max(len(wide.index) - 1, 0)
+        selected_lookback = next(
+            (value for value in normalized_lookbacks if value <= max_lookback),
+            max_lookback,
+        )
+        base = wide.ffill().iloc[-(selected_lookback + 1)]
+        periods_used = selected_lookback
 
     terminal = wide.ffill().iloc[-1]
     returns = (terminal / base) - 1.0
@@ -228,24 +247,19 @@ def terminal_returns(
 
 def _normalize_lookback_periods(
     lookback_periods: int | Iterable[object] | None,
-) -> int | None:
+) -> list[int] | None:
     if lookback_periods is None:
         return None
-    if _is_valid_lookback_period(lookback_periods):
-        return int(lookback_periods)
+    if type(lookback_periods) is int and lookback_periods > 0:
+        return [lookback_periods]
     if isinstance(lookback_periods, (str, bytes)):
         raise ValueError(LOOKBACK_PERIODS_VALIDATION_MESSAGE)
     if isinstance(lookback_periods, Iterable):
-        valid_periods = [
-            int(value) for value in lookback_periods if _is_valid_lookback_period(value)
-        ]
+        valid_periods = [value for value in lookback_periods if type(value) is int and value > 0]
         if valid_periods:
-            return valid_periods[0]
+            return valid_periods
+        raise ValueError(NO_VALID_LOOKBACK_PERIODS_MESSAGE)
     raise ValueError(LOOKBACK_PERIODS_VALIDATION_MESSAGE)
-
-
-def _is_valid_lookback_period(value: object) -> TypeGuard[_IntLike]:
-    return isinstance(value, (int, np.integer)) and not isinstance(value, bool) and int(value) > 0
 
 
 def rolling_stats(
