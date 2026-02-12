@@ -23,6 +23,7 @@ import yaml
 
 from trend.config_schema import CoreConfigError, load_core_config
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
+from trend.mc.io import MCNavPathsIOError, load_nav_paths_frame, validate_nav_paths_requirement
 from trend.reporting import generate_unified_report
 from trend.reporting.quick_summary import main as quick_summary_main
 from trend_analysis import export
@@ -1728,24 +1729,6 @@ def _load_mc_bundle_frames(bundle: str | os.PathLike[str]) -> tuple[pd.DataFrame
     return _load_mc_summary_frame(bundle_dir), _load_mc_results_frame(bundle_dir)
 
 
-def _load_mc_nav_paths_frame(bundle: str | os.PathLike[str]) -> pd.DataFrame | None:
-    bundle_dir = Path(bundle).expanduser().resolve()
-    nav_paths_path = bundle_dir / "nav_paths.parquet"
-    if not nav_paths_path.exists():
-        unsupported_paths = tuple(bundle_dir / f"nav_paths.{ext}" for ext in ("csv", "json"))
-        detected_unsupported = [path for path in unsupported_paths if path.exists()]
-        if detected_unsupported:
-            unsupported_text = ", ".join(
-                f"'{path.name}' ({path.suffix.lower()})" for path in detected_unsupported
-            )
-            raise TrendCLIError(
-                "Unsupported nav_paths file format(s) detected in MC bundle: "
-                f"{unsupported_text}. Only nav_paths.parquet is supported."
-            )
-        return None
-    return _read_mc_frame(nav_paths_path, label="nav_paths")
-
-
 def _parse_mc_chart_selection(charts_value: str) -> list[str]:
     requested = [token.strip().lower() for token in charts_value.split(",") if token.strip()]
     if not requested:
@@ -1836,25 +1819,6 @@ def _mc_chart_builders() -> (
     }
 
 
-def _charts_requiring_nav_paths() -> frozenset[str]:
-    return frozenset({"path_dist"})
-
-
-def _validate_mc_nav_paths_requirement(
-    selected_charts: Iterable[str], nav_paths_frame: pd.DataFrame | None
-) -> None:
-    if nav_paths_frame is not None:
-        return
-    required = sorted(set(selected_charts).intersection(_charts_requiring_nav_paths()))
-    if not required:
-        return
-    chart_text = ", ".join(required)
-    raise TrendCLIError(
-        f"Chart(s) {chart_text} require nav_paths.parquet in the MC bundle. "
-        "Add nav_paths.parquet or remove these chart(s) from --charts."
-    )
-
-
 def _export_mc_chart_artifacts(
     charts: Mapping[str, Any],
     out_dir: Path,
@@ -1901,8 +1865,15 @@ def _run_mc_viz_command(args: argparse.Namespace) -> int:
     _validate_mc_viz_output_flags(args)
     summary_frame, results_frame = _load_mc_bundle_frames(args.bundle)
     selected_charts = _parse_mc_chart_selection(args.charts)
-    nav_paths_frame = _load_mc_nav_paths_frame(args.bundle)
-    _validate_mc_nav_paths_requirement(selected_charts, nav_paths_frame)
+    try:
+        nav_paths_frame = load_nav_paths_frame(args.bundle)
+        validate_nav_paths_requirement(
+            selected_charts,
+            nav_paths_frame,
+            nav_path_required_charts=frozenset({"path_dist"}),
+        )
+    except MCNavPathsIOError as exc:
+        raise TrendCLIError(str(exc)) from exc
     uses_fallback_nav_data = nav_paths_frame is None
     chart_builders = _mc_chart_builders()
     generated_charts = {
