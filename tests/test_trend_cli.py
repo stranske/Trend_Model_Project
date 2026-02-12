@@ -172,6 +172,41 @@ def test_mc_viz_loads_summary_and_results_frames(
     assert (tmp_path / "exports" / "plots").is_dir()
 
 
+def test_mc_viz_warns_when_nav_paths_missing_and_using_fallback_data(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    pd.DataFrame({"path_id": [1, 2], "terminal_nav": [112.0, 98.4]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+
+    exit_code = main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--charts",
+            "fan,risk_return",
+            "--json",
+        ]
+    )
+
+    assert exit_code == 0
+    err = capsys.readouterr().err
+    err_lower = err.lower()
+    assert "nav_paths.parquet" in err
+    assert "fallback" in err_lower
+    assert "less accurate" in err_lower
+    assert "misleading" in err_lower
+
+
 def test_mc_viz_errors_when_summary_missing(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

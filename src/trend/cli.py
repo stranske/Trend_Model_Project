@@ -1888,6 +1888,7 @@ def _run_mc_viz_command(args: argparse.Namespace) -> int:
     selected_charts = _parse_mc_chart_selection(args.charts)
     nav_paths_frame = _load_mc_nav_paths_frame(args.bundle)
     _validate_mc_nav_paths_requirement(selected_charts, nav_paths_frame)
+    uses_fallback_nav_data = nav_paths_frame is None
     chart_builders = _mc_chart_builders()
     generated_charts = {
         chart_id: chart_builders[chart_id](summary_frame, results_frame, nav_paths_frame)
@@ -1905,6 +1906,12 @@ def _run_mc_viz_command(args: argparse.Namespace) -> int:
     if nav_paths_frame is not None:
         counts = f"{counts} nav_paths_rows={len(nav_paths_frame)}"
     print(f"Loaded MC bundle frames: {counts}")
+    if uses_fallback_nav_data:
+        print(
+            "Warning: nav_paths.parquet is missing; using fallback data derived from "
+            "summary/results. Charts may be less accurate or misleading.",
+            file=sys.stderr,
+        )
     print(f"Wrote MC chart artifacts to: {plots_dir}")
     for warning in warnings:
         print(f"Warning: {warning}", file=sys.stderr)
