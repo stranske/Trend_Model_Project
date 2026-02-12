@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -28,7 +29,12 @@ def _kaleido_available() -> bool:
         return False
 
 
-def _run_mc_viz(bundle_dir: Path, out_dir: Path) -> subprocess.CompletedProcess[str]:
+def _run_mc_viz(
+    bundle_dir: Path,
+    out_dir: Path,
+    *,
+    charts: str = "fan,path_dist,risk_return",
+) -> subprocess.CompletedProcess[str]:
     project_root = _project_root()
     env = os.environ.copy()
     src_dir = project_root / "src"
@@ -46,7 +52,7 @@ def _run_mc_viz(bundle_dir: Path, out_dir: Path) -> subprocess.CompletedProcess[
         "--out",
         str(out_dir),
         "--charts",
-        "fan,path_dist,risk_return",
+        charts,
         "--html",
         "--json",
         "--png",
@@ -123,3 +129,39 @@ def test_mc_viz_cli_skips_existing_plot_file_without_overwrite(tmp_path: Path) -
     assert existing_path.read_bytes() == original_bytes
     assert "risk_return.json" in result.stderr
     assert "destination file already exists" in result.stderr
+
+
+@pytest.mark.integration
+def test_mc_viz_cli_errors_when_nav_paths_missing_for_required_chart(tmp_path: Path) -> None:
+    bundle_dir = _fixture_bundle_dir()
+    assert bundle_dir.is_dir()
+    missing_nav_bundle_dir = tmp_path / "bundle_no_nav_paths"
+    shutil.copytree(bundle_dir, missing_nav_bundle_dir)
+    (missing_nav_bundle_dir / "nav_paths.parquet").unlink()
+
+    out_dir = tmp_path / "out_required"
+    result = _run_mc_viz(missing_nav_bundle_dir, out_dir, charts="fan,path_dist")
+
+    assert result.returncode != 0
+    assert "nav_paths.parquet" in result.stderr
+    assert "path_dist" in result.stderr
+
+
+@pytest.mark.integration
+def test_mc_viz_cli_warns_and_continues_when_nav_paths_missing_for_non_required_charts(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _fixture_bundle_dir()
+    assert bundle_dir.is_dir()
+    missing_nav_bundle_dir = tmp_path / "bundle_no_nav_paths"
+    shutil.copytree(bundle_dir, missing_nav_bundle_dir)
+    (missing_nav_bundle_dir / "nav_paths.parquet").unlink()
+
+    out_dir = tmp_path / "out_non_required"
+    result = _run_mc_viz(missing_nav_bundle_dir, out_dir, charts="fan,risk_return")
+
+    assert result.returncode == 0, result.stderr
+    assert "nav_paths.parquet" in result.stderr
+    assert "NAV-path-dependent visuals" in result.stderr
+    assert (out_dir / "plots" / "fan.html").is_file()
+    assert (out_dir / "plots" / "risk_return.html").is_file()
