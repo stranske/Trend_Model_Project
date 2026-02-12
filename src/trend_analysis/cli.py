@@ -1818,36 +1818,20 @@ def _export_mc_chart_artifacts(
 
 
 def _run_mc_viz_command(args: argparse.Namespace) -> int:
-    _validate_mc_viz_output_flags(args)
-    summary_frame, results_frame = _load_mc_bundle_frames(args.bundle)
-    nav_paths_frame = _load_mc_nav_paths_frame(args.bundle)
-    selected_charts = _parse_mc_chart_selection(args.charts)
-    chart_builders = _mc_chart_builders()
-    generated_charts = {
-        chart_id: chart_builders[chart_id](summary_frame, results_frame, nav_paths_frame)
-        for chart_id in selected_charts
-    }
-    plots_dir, warnings = _export_mc_chart_artifacts(
-        generated_charts,
-        Path(args.out),
-        include_html=args.html,
-        include_json=args.json,
-        include_png=args.png,
-    )
+    from trend.mc.viz import execute_mc_viz
 
-    counts = f"summary_rows={len(summary_frame)} results_rows={len(results_frame)}"
-    if nav_paths_frame is not None:
-        counts = f"{counts} nav_paths_rows={len(nav_paths_frame)}"
-    print(f"Loaded MC bundle frames: {counts}")
-    print(f"Wrote MC chart artifacts to: {plots_dir}")
-    for warning in warnings:
-        print(f"Warning: {warning}", file=sys.stderr)
-    return 0
+    return execute_mc_viz(
+        bundle_path=args.bundle,
+        out_dir=args.out,
+        charts=args.charts,
+        html=args.html,
+        json=args.json,
+        png=args.png,
+    )
 
 
 def _handle_mc_command(args: argparse.Namespace) -> int:
     """Dispatch Monte Carlo CLI commands."""
-
     subcommand = getattr(args, "mc_command", None)
     if subcommand == "list":
         tags = _parse_mc_tags(getattr(args, "tags", None))
@@ -2049,6 +2033,11 @@ def _handle_mc_command(args: argparse.Namespace) -> int:
         try:
             return _run_mc_viz_command(args)
         except (ValueError, FileNotFoundError, NotADirectoryError) as exc:
+            print(f"Monte Carlo viz failed: {exc}", file=sys.stderr)
+            return 1
+        except RuntimeError as exc:
+            # Catches TrendCLIError (a RuntimeError subclass) raised by the
+            # shared mc viz module for user-facing validation errors.
             print(f"Monte Carlo viz failed: {exc}", file=sys.stderr)
             return 1
         except Exception as exc:

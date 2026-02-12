@@ -374,7 +374,9 @@ def test_main_reports_no_artifact(
 
 def test_module_entrypoint_triggers_main(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("TARGET_REPO", raising=False)
+    monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
     monkeypatch.delenv("GH_TOKEN", raising=False)
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
 
     with pytest.raises(SystemExit) as exc:
         runpy.run_path(SCRIPT_DIR / "restore_branch_snapshots.py", run_name="__main__")
