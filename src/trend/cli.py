@@ -7,10 +7,8 @@ import logging
 import os
 import subprocess
 import sys
-import tempfile
 import time
 import uuid
-import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,6 +21,11 @@ import yaml
 
 from trend.config_schema import CoreConfigError, load_core_config
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
+from trend.mc.io import (
+    MCNavPathsIOError,
+    load_nav_paths_frame,
+    validate_nav_paths_requirement,
+)
 from trend.reporting import generate_unified_report
 from trend.reporting.quick_summary import main as quick_summary_main
 from trend_analysis import export
@@ -85,6 +88,7 @@ from trend_analysis.signal_presets import (
     list_trend_spec_presets,
 )
 from trend_analysis.universe_catalog import NamedUniverse, load_universe
+from trend_analysis.viz.artifacts import extract_bundle_zip
 from trend_model.spec import ensure_run_spec
 from utils.paths import proj_path
 
@@ -347,6 +351,7 @@ _refresh_legacy_cli_module()
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
 
 DEFAULT_REPORT_FORMATS = ("csv", "json", "xlsx", "txt")
+NAV_PATH_REQUIRED_CHARTS = frozenset({"path_dist"})
 
 SCENARIO_WINDOWS: dict[str, tuple[tuple[str, str], tuple[str, str]]] = {
     "2008": (("2006-01", "2007-12"), ("2008-01", "2009-12")),
@@ -894,6 +899,7 @@ def _write_bundle(
     bundle_path = bundle_path.resolve()
     if bundle_path.is_dir():
         bundle_path = bundle_path / "analysis_bundle.zip"
+    bundle_path.parent.mkdir(parents=True, exist_ok=True)
     # Attach metadata expected by export_bundle
     setattr(result, "config", getattr(cfg, "__dict__", {}))
     if source_path is not None:
@@ -1728,24 +1734,6 @@ def _load_mc_bundle_frames(bundle: str | os.PathLike[str]) -> tuple[pd.DataFrame
     return _load_mc_summary_frame(bundle_dir), _load_mc_results_frame(bundle_dir)
 
 
-def _load_mc_nav_paths_frame(bundle: str | os.PathLike[str]) -> pd.DataFrame | None:
-    bundle_dir = Path(bundle).expanduser().resolve()
-    nav_paths_path = bundle_dir / "nav_paths.parquet"
-    if not nav_paths_path.exists():
-        unsupported_paths = tuple(bundle_dir / f"nav_paths.{ext}" for ext in ("csv", "json"))
-        detected_unsupported = [path for path in unsupported_paths if path.exists()]
-        if detected_unsupported:
-            unsupported_text = ", ".join(
-                f"'{path.name}' ({path.suffix.lower()})" for path in detected_unsupported
-            )
-            raise TrendCLIError(
-                "Unsupported nav_paths file format(s) detected in MC bundle: "
-                f"{unsupported_text}. Only nav_paths.parquet is supported."
-            )
-        return None
-    return _read_mc_frame(nav_paths_path, label="nav_paths")
-
-
 def _parse_mc_chart_selection(charts_value: str) -> list[str]:
     requested = [token.strip().lower() for token in charts_value.split(",") if token.strip()]
     if not requested:
@@ -1836,25 +1824,6 @@ def _mc_chart_builders() -> (
     }
 
 
-def _charts_requiring_nav_paths() -> frozenset[str]:
-    return frozenset({"path_dist"})
-
-
-def _validate_mc_nav_paths_requirement(
-    selected_charts: Iterable[str], nav_paths_frame: pd.DataFrame | None
-) -> None:
-    if nav_paths_frame is not None:
-        return
-    required = sorted(set(selected_charts).intersection(_charts_requiring_nav_paths()))
-    if not required:
-        return
-    chart_text = ", ".join(required)
-    raise TrendCLIError(
-        f"Chart(s) {chart_text} require nav_paths.parquet in the MC bundle. "
-        "Add nav_paths.parquet or remove these chart(s) from --charts."
-    )
-
-
 def _export_mc_chart_artifacts(
     charts: Mapping[str, Any],
     out_dir: Path,
@@ -1878,22 +1847,7 @@ def _export_mc_chart_artifacts(
         include_png=include_png,
         warnings=warnings,
     )
-    with tempfile.TemporaryDirectory(prefix="mc_charts_extract_", dir=plots_dir) as extract_dir:
-        extract_root = Path(extract_dir)
-        with zipfile.ZipFile(bundle_path) as archive:
-            archive.extractall(extract_root)
-        for extracted_path in extract_root.rglob("*"):
-            if not extracted_path.is_file():
-                continue
-            rel_path = extracted_path.relative_to(extract_root)
-            target_path = plots_dir / rel_path
-            target_path.parent.mkdir(parents=True, exist_ok=True)
-            if target_path.exists():
-                warnings.append(
-                    f"Skipped extracting '{rel_path.as_posix()}' because the destination file already exists."
-                )
-                continue
-            extracted_path.replace(target_path)
+    extract_bundle_zip(bundle_path, plots_dir, warnings=warnings)
     return plots_dir, warnings
 
 
@@ -1901,8 +1855,15 @@ def _run_mc_viz_command(args: argparse.Namespace) -> int:
     _validate_mc_viz_output_flags(args)
     summary_frame, results_frame = _load_mc_bundle_frames(args.bundle)
     selected_charts = _parse_mc_chart_selection(args.charts)
-    nav_paths_frame = _load_mc_nav_paths_frame(args.bundle)
-    _validate_mc_nav_paths_requirement(selected_charts, nav_paths_frame)
+    try:
+        nav_paths_frame = load_nav_paths_frame(args.bundle)
+        validate_nav_paths_requirement(
+            selected_charts,
+            nav_paths_frame,
+            nav_path_required_charts=NAV_PATH_REQUIRED_CHARTS,
+        )
+    except MCNavPathsIOError as exc:
+        raise TrendCLIError(str(exc)) from exc
     uses_fallback_nav_data = nav_paths_frame is None
     chart_builders = _mc_chart_builders()
     generated_charts = {
@@ -1922,9 +1883,12 @@ def _run_mc_viz_command(args: argparse.Namespace) -> int:
         counts = f"{counts} nav_paths_rows={len(nav_paths_frame)}"
     print(f"Loaded MC bundle frames: {counts}")
     if uses_fallback_nav_data:
+        nav_dependent_chart_text = ", ".join(sorted(NAV_PATH_REQUIRED_CHARTS))
         print(
-            "Warning: nav_paths.parquet is missing; using fallback data derived from "
-            "summary/results. Charts may be less accurate or misleading.",
+            "Warning: nav_paths.parquet is missing; requested charts do not include "
+            f"NAV-path-dependent visuals ({nav_dependent_chart_text}). "
+            "Continuing with fallback data derived from summary/results; "
+            "these fallback visuals may be less accurate or misleading.",
             file=sys.stderr,
         )
     print(f"Wrote MC chart artifacts to: {plots_dir}")

@@ -74,3 +74,14 @@ def test_main_ci_respects_explicit_min_validity(
         ["--ci", "--min-validity", "0.5", "--config", "config/demo.yml"]
     )
     assert exit_code == 0
+
+
+def test_main_help_renders_ci_percent_text_without_type_error(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        check_config_coverage.main(["--help"])
+
+    assert exc_info.value.code == 0
+    captured = capsys.readouterr()
+    assert "95% unless overridden" in captured.out
