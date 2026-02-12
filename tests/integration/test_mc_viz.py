@@ -119,7 +119,7 @@ def test_mc_viz_cli_end_to_end_generates_expected_outputs(tmp_path: Path) -> Non
 
 
 @pytest.mark.integration
-def test_mc_viz_cli_skips_existing_plot_file_without_overwrite(tmp_path: Path) -> None:
+def test_mc_viz_cli_renames_existing_plot_file_collision_without_overwrite(tmp_path: Path) -> None:
     bundle_dir = _fixture_bundle_dir()
     assert bundle_dir.is_dir()
 
@@ -134,8 +134,9 @@ def test_mc_viz_cli_skips_existing_plot_file_without_overwrite(tmp_path: Path) -
 
     assert result.returncode == 0, result.stderr
     assert existing_path.read_bytes() == original_bytes
+    assert (plots_dir / "risk_return-1.json").is_file()
     assert "risk_return.json" in result.stderr
-    assert "destination file already exists" in result.stderr
+    assert "Renamed extracted 'risk_return.json' to 'risk_return-1.json'" in result.stderr
 
 
 @pytest.mark.integration
