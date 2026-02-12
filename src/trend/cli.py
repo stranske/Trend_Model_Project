@@ -7,6 +7,7 @@ import logging
 import os
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 import zipfile
@@ -1877,8 +1878,22 @@ def _export_mc_chart_artifacts(
         include_png=include_png,
         warnings=warnings,
     )
-    with zipfile.ZipFile(bundle_path) as archive:
-        archive.extractall(plots_dir)
+    with tempfile.TemporaryDirectory(prefix="mc_charts_extract_", dir=plots_dir) as extract_dir:
+        extract_root = Path(extract_dir)
+        with zipfile.ZipFile(bundle_path) as archive:
+            archive.extractall(extract_root)
+        for extracted_path in extract_root.rglob("*"):
+            if not extracted_path.is_file():
+                continue
+            rel_path = extracted_path.relative_to(extract_root)
+            target_path = plots_dir / rel_path
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            if target_path.exists():
+                warnings.append(
+                    f"Skipped extracting '{rel_path.as_posix()}' because the destination file already exists."
+                )
+                continue
+            extracted_path.replace(target_path)
     return plots_dir, warnings
 
 
