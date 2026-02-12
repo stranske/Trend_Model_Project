@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from copy import deepcopy
 from pathlib import Path
 
@@ -14,10 +15,45 @@ from trend_analysis.monte_carlo.strategy import StrategyVariant
 def _load_curated_entries(path: Path, *, expected_count: int) -> list[dict[str, object]]:
     payload = yaml.safe_load(path.read_text(encoding="utf-8"))
     curated = payload.get("curated")
+    if curated is None:
+        curated = payload.get("strategies")
     assert isinstance(curated, list)
     assert len(curated) == expected_count
     assert all(isinstance(entry, dict) for entry in curated)
     return curated
+
+
+@dataclass(frozen=True)
+class ParsedCuratedStrategies:
+    strategies: list[TrendConfig]
+    identifiers: list[str]
+    names: list[str]
+
+
+def _parse_hf_macro_curated_via_trendconfig() -> ParsedCuratedStrategies:
+    base_path = Path("config/defaults.yml")
+    base_config = yaml.safe_load(base_path.read_text(encoding="utf-8"))
+    strategy_path = Path("config/scenarios/monte_carlo/strategies/hf_macro_curated.yml")
+    entries = _load_curated_entries(strategy_path, expected_count=10)
+
+    parsed: list[TrendConfig] = []
+    identifiers: list[str] = []
+    names: list[str] = []
+
+    for entry in entries:
+        identifier = str(entry.get("identifier", "")).strip()
+        name = str(entry.get("name", "")).strip()
+        variant = StrategyVariant(
+            name=name,
+            overrides=entry.get("overrides", {}),
+            tags=entry.get("tags", ()),
+            curated=True,
+        )
+        parsed.append(variant.to_trend_config(base_config, base_path=base_path.parent))
+        identifiers.append(identifier)
+        names.append(name)
+
+    return ParsedCuratedStrategies(strategies=parsed, identifiers=identifiers, names=names)
 
 
 def _readme_table_rows_for_pack(pack_filename: str) -> list[tuple[str, str, str]]:
@@ -83,7 +119,7 @@ def test_hf_equity_curated_strategies_validate_against_schema() -> None:
         assert base_config == baseline
 
 
-def test_hf_macro_curated_schema() -> None:
+def test_hf_macro_curated_validates_against_trendconfig() -> None:
     base_path = Path("config/defaults.yml")
     base_config = yaml.safe_load(base_path.read_text(encoding="utf-8"))
     baseline = deepcopy(base_config)
@@ -106,6 +142,19 @@ def test_hf_macro_curated_schema() -> None:
         validated = variant.to_trend_config(base_config, base_path=base_path.parent)
         assert isinstance(validated, TrendConfig)
         assert base_config == baseline
+
+
+def test_hf_macro_curated_has_10_strategies() -> None:
+    parsed_config = _parse_hf_macro_curated_via_trendconfig()
+    assert len(parsed_config.strategies) == 10
+
+
+def test_hf_macro_curated_has_unique_id_and_name() -> None:
+    parsed_config = _parse_hf_macro_curated_via_trendconfig()
+    assert all(identifier for identifier in parsed_config.identifiers)
+    assert all(name for name in parsed_config.names)
+    assert len(set(parsed_config.identifiers)) == len(parsed_config.identifiers)
+    assert len(set(parsed_config.names)) == len(parsed_config.names)
 
 
 def test_hf_equity_curated_strategies_do_not_mutate_defaults() -> None:
