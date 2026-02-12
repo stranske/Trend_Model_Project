@@ -149,6 +149,7 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     stub.form = lambda *_args, **_kwargs: Context()
     stub.form_submit_button = lambda *_args, **_kwargs: False
     stub.button = lambda *_args, **_kwargs: False
+    stub.spinner = lambda *_args, **_kwargs: Context()
     stub.download_button = _noop
     stub.dataframe = _noop
     stub.tabs = lambda labels: [Context() for _ in labels]
@@ -292,7 +293,7 @@ def test_render_config_chat_panel_stores_instruction(model_module: ModuleType) -
     stub.session_state.clear()
 
     stub.text_area = lambda *_args, **_kwargs: "Increase lookback to 24"
-    stub.button = lambda *_args, **_kwargs: True
+    stub.button = lambda *_args, **_kwargs: _kwargs.get("key") == "config_chat_send"
 
     model_module.render_config_chat_panel()
 

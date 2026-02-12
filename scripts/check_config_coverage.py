@@ -73,7 +73,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--ci",
         action="store_true",
-        help="Use CI defaults (min validity 95% unless overridden).",
+        help="Use CI defaults (min validity 95%% unless overridden).",
     )
     args = parser.parse_args(argv)
     if args.ci and args.min_validity == parser.get_default("min_validity"):

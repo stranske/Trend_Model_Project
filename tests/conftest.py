@@ -17,6 +17,7 @@ running ``pytest``.
 from __future__ import annotations
 
 import importlib.util
+import os
 import pathlib
 import socket
 import sys
@@ -31,6 +32,19 @@ except ImportError:
     yaml = None
 
 from ._autofix_diag import DiagnosticsRecorder, get_recorder
+
+# --- Ensure local ``src`` packages are importable ---------------------------------------
+ROOT = Path(__file__).resolve().parents[1]
+# Ensure repo root is importable for packages like "scripts".
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+_MPL_CONFIG_DIR = ROOT / ".pytest-mplconfig"
+_MPL_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+os.environ.setdefault("MPLCONFIGDIR", str(_MPL_CONFIG_DIR))
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -47,14 +61,12 @@ def pytest_configure(config) -> None:  # noqa: ARG001
         pytest_rerunfailures.HAS_PYTEST_HANDLECRASHITEM = False
 
 
-# --- Ensure local ``src`` packages are importable ---------------------------------------
-ROOT = Path(__file__).resolve().parents[1]
-# Ensure repo root is importable for packages like "scripts".
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-SRC = ROOT / "src"
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
+def pytest_xdist_auto_num_workers(config: pytest.Config) -> int | None:  # noqa: ARG001
+    """Keep CI runs deterministic by avoiding parallel xdist workers."""
+    if os.environ.get("CI", "").lower() == "true":
+        return 1
+    return None
+
 
 # Pre-import modules with lazy loaders to avoid race conditions in xdist parallel execution.
 # The trend_analysis package uses __getattr__ for lazy submodule loading, which can fail

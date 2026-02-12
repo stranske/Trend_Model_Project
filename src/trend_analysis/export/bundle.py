@@ -46,6 +46,7 @@ def export_bundle(run: Any, path: Path) -> Path:
         Location of the resulting ``.zip`` file.
     """
     path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
 
     # Use temporary directory for bundle assembly
     with tempfile.TemporaryDirectory(prefix="trend_bundle_") as tmpdir:

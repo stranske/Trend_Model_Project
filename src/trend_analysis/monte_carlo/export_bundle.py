@@ -29,9 +29,13 @@ def save(
     """Write Plotly charts into a ZIP bundle.
 
     The bundle is populated with one JSON file and one HTML file per chart by
-    default. When ``destination`` is omitted, an in-memory ``BytesIO`` buffer is
-    returned. When ``destination`` is a path-like value, the ZIP is written to
-    disk and the resolved path is returned.
+    default. HTML payloads use deterministic Plotly container IDs following the
+    ``chart-{safe_chart_name}`` convention (for example ``chart-fan`` and
+    ``chart-risk_return``), which allows downstream tests and tools to locate
+    chart containers without parsing dynamic attributes. When ``destination`` is
+    omitted, an in-memory ``BytesIO`` buffer is returned. When ``destination``
+    is a path-like value, the ZIP is written to disk and the resolved path is
+    returned.
     """
     if not include_json and not include_html and not include_png:
         raise ValueError("At least one of include_json/include_html/include_png must be enabled.")
@@ -61,6 +65,7 @@ def save(
                         chart,
                         full_html=True,
                         include_plotlyjs=html_include_plotlyjs,
+                        div_id=f"chart-{stem}",
                         validate=True,
                     )
                 except Exception as exc:

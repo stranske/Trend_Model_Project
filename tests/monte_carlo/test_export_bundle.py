@@ -37,6 +37,7 @@ def test_save_writes_plotly_json_and_html_to_bytesio() -> None:
         html_payload = bundle.read("Risk_Return.html").decode("utf-8")
         assert "<html" in html_payload.lower()
         assert "plotly" in html_payload.lower()
+        assert 'id="chart-Risk_Return"' in html_payload
 
 
 def test_save_writes_plotly_json_and_html_to_temp_path(tmp_path) -> None:
