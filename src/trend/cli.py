@@ -1725,6 +1725,16 @@ def _load_mc_nav_paths_frame(bundle: str | os.PathLike[str]) -> pd.DataFrame | N
     bundle_dir = Path(bundle).expanduser().resolve()
     nav_paths_path = bundle_dir / "nav_paths.parquet"
     if not nav_paths_path.exists():
+        unsupported_paths = tuple(bundle_dir / f"nav_paths.{ext}" for ext in ("csv", "json"))
+        detected_unsupported = [path for path in unsupported_paths if path.exists()]
+        if detected_unsupported:
+            unsupported_text = ", ".join(
+                f"'{path.name}' ({path.suffix.lower()})" for path in detected_unsupported
+            )
+            raise TrendCLIError(
+                "Unsupported nav_paths file format(s) detected in MC bundle: "
+                f"{unsupported_text}. Only nav_paths.parquet is supported."
+            )
         return None
     return _read_mc_frame(nav_paths_path, label="nav_paths")
 

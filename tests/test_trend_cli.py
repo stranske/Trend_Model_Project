@@ -340,6 +340,48 @@ def test_mc_viz_errors_when_path_dist_requires_nav_paths_parquet(
     assert "path_dist" in err
 
 
+@pytest.mark.parametrize("suffix", ("csv", "json"))
+def test_mc_viz_errors_when_unsupported_nav_paths_format_detected_without_parquet(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], suffix: str
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    pd.DataFrame({"path_id": [1, 2], "terminal_nav": [112.0, 98.4]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+    if suffix == "csv":
+        pd.DataFrame({"path_id": [1, 2], "terminal_nav": [100.0, 101.0]}).to_csv(
+            bundle_dir / "nav_paths.csv", index=False
+        )
+    else:
+        (bundle_dir / "nav_paths.json").write_text(
+            '[{"path_id": 1, "terminal_nav": 100.0}]', encoding="utf-8"
+        )
+
+    exit_code = main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--charts",
+            "fan",
+            "--html",
+        ]
+    )
+
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert f"nav_paths.{suffix}" in err
+    assert f".{suffix}" in err
+    assert "Only nav_paths.parquet is supported" in err
+
+
 def test_mc_viz_errors_when_chart_identifier_is_invalid(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
