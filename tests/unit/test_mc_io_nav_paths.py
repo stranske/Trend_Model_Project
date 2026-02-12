@@ -33,6 +33,33 @@ def test_load_nav_paths_raises_when_parquet_missing_and_required(tmp_path: Path)
         load_nav_paths(bundle_dir, missing_parquet=MISSING_NAV_PATHS_RAISE)
 
 
+def test_load_nav_paths_reads_bundle_nav_paths_parquet_location(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    expected_parquet = bundle_dir / "nav_paths.parquet"
+    expected_parquet.write_text("placeholder", encoding="utf-8")
+    (bundle_dir / "nav_paths.csv").write_text("placeholder", encoding="utf-8")
+    nested_dir = bundle_dir / "nested"
+    nested_dir.mkdir()
+    (nested_dir / "nav_paths.parquet").write_text("placeholder", encoding="utf-8")
+
+    observed_paths: list[Path] = []
+    expected_frame = pd.DataFrame({"path_0": [1.0, 1.1]})
+
+    def _fake_read_parquet(path: Path) -> pd.DataFrame:
+        observed_paths.append(path)
+        return expected_frame
+
+    monkeypatch.setattr(pd, "read_parquet", _fake_read_parquet)
+
+    loaded = load_nav_paths(bundle_dir)
+
+    assert observed_paths == [expected_parquet]
+    assert loaded is expected_frame
+
+
 def test_validate_nav_paths_df_rejects_non_dataframe() -> None:
     with pytest.raises(MCNavPathsIOError, match="must be a pandas DataFrame"):
         validate_nav_paths_df({"nav": [1, 2]})
