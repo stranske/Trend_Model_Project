@@ -7,10 +7,10 @@ tasks:
     title: Add a missing strategy entry to `config/scenarios/monte_carlo/strategies/hf_macro_curated.yml`
       so the top-level `strategies` list contains exactly 10 definitions with no duplicate
       `identifier` or `name`
-    status: doing
+    status: done
     started_at: '2026-02-12T14:22:40Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-12T14:22:56Z'
+    commit: 4d556b70f3269f4ab859ddc98e9e63ffd44e785b
     notes: []
   - id: task-02
     title: Implement `test_hf_macro_curated_validates_against_trendconfig` in `tests/monte_carlo/strategy/test_curated_pack.py`
