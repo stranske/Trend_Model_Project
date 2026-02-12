@@ -1889,7 +1889,8 @@ def _run_mc_viz_command(args: argparse.Namespace) -> int:
         print(
             "Warning: nav_paths.parquet is missing; requested charts do not include "
             f"NAV-path-dependent visuals ({nav_dependent_chart_text}). "
-            "Continuing with fallback data derived from summary/results.",
+            "Continuing with fallback data derived from summary/results; "
+            "these fallback visuals may be less accurate or misleading.",
             file=sys.stderr,
         )
     print(f"Wrote MC chart artifacts to: {plots_dir}")
