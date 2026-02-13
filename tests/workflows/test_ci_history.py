@@ -171,8 +171,12 @@ def test_ci_history_missing_junit(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
         monkeypatch.delenv("JUNIT_PATH", raising=False)
         monkeypatch.delenv("HISTORY_PATH", raising=False)
 
-    assert exit_code == 1
-    assert history_path.exists() is False
+    assert exit_code == 0
+    assert history_path.exists() is True
+    record = json.loads(history_path.read_text(encoding="utf-8").splitlines()[-1])
+    assert record["status"] == "skipped"
+    assert record["reason"] == "missing-junit-report"
+    assert record["junit_path"] == str(junit_path)
 
 
 def test_main_handles_load_metrics_error(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

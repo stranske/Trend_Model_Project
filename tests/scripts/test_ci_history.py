@@ -283,8 +283,12 @@ def test_main_missing_junit_reports_error(
 
     exit_code = ci_history.main()
 
-    assert exit_code == 1
-    assert history_path.exists() is False
+    assert exit_code == 0
+    assert history_path.exists() is True
+    record = json.loads(history_path.read_text(encoding="utf-8").splitlines()[-1])
+    assert record["status"] == "skipped"
+    assert record["reason"] == "missing-junit-report"
+    assert record["junit_path"].endswith("nonexistent.xml")
     err = capsys.readouterr().err
     assert "JUnit report not found" in err
 
