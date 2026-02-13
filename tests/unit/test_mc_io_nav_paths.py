@@ -7,10 +7,10 @@ import pytest
 
 from trend.mc.charts import NAV_PATH_REQUIRED_CHARTS
 from trend.mc.io import (
-    MCNavPathsIOError,
-    MCNavPathsWarning,
     MISSING_NAV_PATHS_RAISE,
     MISSING_NAV_PATHS_RETURN_NONE,
+    MCNavPathsIOError,
+    MCNavPathsWarning,
     load_nav_paths,
     validate_nav_paths_df,
     validate_nav_paths_requirement,
@@ -22,9 +22,7 @@ def test_load_nav_paths_returns_none_when_parquet_missing_and_optional(tmp_path:
     bundle_dir.mkdir()
 
     with pytest.warns(MCNavPathsWarning, match=r"Missing optional nav_paths\.parquet file"):
-        assert (
-            load_nav_paths(bundle_dir, missing_parquet=MISSING_NAV_PATHS_RETURN_NONE) is None
-        )
+        assert load_nav_paths(bundle_dir, missing_parquet=MISSING_NAV_PATHS_RETURN_NONE) is None
 
 
 def test_load_nav_paths_raises_when_parquet_missing_and_required(tmp_path: Path) -> None:
