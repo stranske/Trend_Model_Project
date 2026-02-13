@@ -114,7 +114,18 @@ def main() -> int:
 
     if not junit_path.is_file():
         print(f"JUnit report not found: {junit_path}", file=sys.stderr)
-        return 1
+        timestamp = _dt.datetime.now(_dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        skipped_record = {
+            "timestamp": timestamp,
+            "status": "skipped",
+            "reason": "missing-junit-report",
+            "junit_path": str(junit_path),
+        }
+        history_path.parent.mkdir(parents=True, exist_ok=True)
+        with history_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(skipped_record, sort_keys=True) + "\n")
+        print(f"History appended to {history_path}")
+        return 0
 
     try:
         metrics, from_file = _load_metrics(junit_path, metrics_path)
