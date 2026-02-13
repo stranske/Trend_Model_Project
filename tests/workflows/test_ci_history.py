@@ -172,7 +172,8 @@ def test_ci_history_missing_junit(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
         monkeypatch.delenv("HISTORY_PATH", raising=False)
 
     assert exit_code == 0
-    record = json.loads(history_path.read_text(encoding="utf-8").strip())
+    assert history_path.exists() is True
+    record = json.loads(history_path.read_text(encoding="utf-8").splitlines()[-1])
     assert record["status"] == "skipped"
     assert record["reason"] == "missing-junit-report"
     assert record["junit_path"] == str(junit_path)
