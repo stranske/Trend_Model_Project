@@ -14,7 +14,6 @@ from trend.mc.viz import (
     validate_mc_viz_bundle_requirements,
 )
 
-
 # ---------------------------------------------------------------------------
 # Signature / constant tests
 # ---------------------------------------------------------------------------
@@ -124,8 +123,10 @@ def test_bundle_validation_rejects_unknown_chart_identifier(tmp_path: Path) -> N
 
 def test_check_png_dependency_returns_true_when_kaleido_importable() -> None:
     fake_spec = mock.MagicMock()
-    with mock.patch("importlib.util.find_spec", return_value=fake_spec), \
-         mock.patch("plotly.io.to_image", return_value=b"PNG"):
+    with (
+        mock.patch("importlib.util.find_spec", return_value=fake_spec),
+        mock.patch("plotly.io.to_image", return_value=b"PNG"),
+    ):
         assert check_png_dependency() is True
 
 
@@ -152,9 +153,7 @@ def test_execute_mc_viz_raises_on_no_output_flags(tmp_path: Path) -> None:
 def test_execute_mc_viz_raises_on_png_without_kaleido(tmp_path: Path) -> None:
     with mock.patch("trend.mc.viz.check_png_dependency", return_value=False):
         with pytest.raises(TrendCLIError, match="kaleido"):
-            execute_mc_viz(
-                tmp_path, tmp_path / "out", "fan", html=False, json=False, png=True
-            )
+            execute_mc_viz(tmp_path, tmp_path / "out", "fan", html=False, json=False, png=True)
 
 
 def test_execute_mc_viz_raises_on_missing_bundle(tmp_path: Path) -> None:

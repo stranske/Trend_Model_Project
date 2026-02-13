@@ -355,7 +355,9 @@ def test_mc_viz_loads_optional_nav_paths_frame(
 
     import trend.mc.io as _mc_io
 
-    monkeypatch.setattr(_mc_io.pd, "read_parquet", lambda _path: pd.DataFrame({"path_id": [1, 2, 3]}))
+    monkeypatch.setattr(
+        _mc_io.pd, "read_parquet", lambda _path: pd.DataFrame({"path_id": [1, 2, 3]})
+    )
 
     exit_code = main(
         [

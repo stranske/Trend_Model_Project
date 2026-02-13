@@ -23,7 +23,9 @@ def test_extract_bundle_zip_renames_duplicate_archive_entries(tmp_path: Path, ca
     assert (destination / "fan.html").read_text(encoding="utf-8") == "<first>"
     assert (destination / "fan-1.html").read_text(encoding="utf-8") == "<second>"
     assert any("Renamed extracted 'fan.html' to 'fan-1.html'" in message for message in warnings)
-    assert any("Renamed extracted 'fan.html' to 'fan-1.html'" in message for message in caplog.messages)
+    assert any(
+        "Renamed extracted 'fan.html' to 'fan-1.html'" in message for message in caplog.messages
+    )
 
 
 def test_extract_bundle_zip_creates_destination_and_renames_on_existing_file_collision(

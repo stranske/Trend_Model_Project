@@ -117,10 +117,7 @@ def _collect_required_inputs(charts: Sequence[str] | str) -> list[str]:
 def _requirement_is_present(bundle_dir: Path, requirement: str) -> bool:
     if "." in requirement:
         return (bundle_dir / requirement).exists()
-    return any(
-        (bundle_dir / f"{requirement}.{ext}").exists()
-        for ext in _OPTIONAL_STEM_EXTENSIONS
-    )
+    return any((bundle_dir / f"{requirement}.{ext}").exists() for ext in _OPTIONAL_STEM_EXTENSIONS)
 
 
 def _missing_requirement_label(requirement: str) -> str:
@@ -188,9 +185,7 @@ def _load_mc_bundle_frames(bundle: str | Path) -> tuple[pd.DataFrame, pd.DataFra
     missing_inputs: list[str] = []
     expected_by_stem: dict[str, str] = {}
     for stem in required_stems:
-        candidates = tuple(
-            bundle_dir / f"{stem}.{ext}" for ext in _OPTIONAL_STEM_EXTENSIONS
-        )
+        candidates = tuple(bundle_dir / f"{stem}.{ext}" for ext in _OPTIONAL_STEM_EXTENSIONS)
         if not any(c.exists() for c in candidates):
             missing_inputs.append(stem)
             expected_by_stem[stem] = ", ".join(p.name for p in candidates)
@@ -203,9 +198,7 @@ def _load_mc_bundle_frames(bundle: str | Path) -> tuple[pd.DataFrame, pd.DataFra
                 f"Expected one of: {expected}"
             )
         missing_text = ", ".join(missing_inputs)
-        expected_text = "; ".join(
-            f"{stem}: {expected_by_stem[stem]}" for stem in missing_inputs
-        )
+        expected_text = "; ".join(f"{stem}: {expected_by_stem[stem]}" for stem in missing_inputs)
         raise TrendCLIError(
             f"Missing required MC input files in '{bundle_dir}': {missing_text}. "
             f"Expected one of each: {expected_text}"
@@ -234,9 +227,7 @@ def _parse_mc_chart_selection(charts_value: str | Sequence[str]) -> list[str]:
     else:
         requested = [str(t).strip().lower() for t in charts_value if str(t).strip()]
     if not requested:
-        raise TrendCLIError(
-            "The 'mc viz' command requires at least one chart in --charts."
-        )
+        raise TrendCLIError("The 'mc viz' command requires at least one chart in --charts.")
     seen: set[str] = set()
     ordered: list[str] = []
     for chart in requested:
@@ -314,18 +305,14 @@ def _build_mc_risk_return_chart(
     from trend_analysis.viz import risk_return
 
     nav_frame = _mc_nav_source_frame(summary_frame, results_frame, nav_paths_frame)
-    returns_frame = nav_frame.pct_change(fill_method=None).replace(
-        [np.inf, -np.inf], np.nan
-    )
+    returns_frame = nav_frame.pct_change(fill_method=None).replace([np.inf, -np.inf], np.nan)
     returns_frame = returns_frame.dropna(how="all")
     if returns_frame.empty:
         returns_frame = nav_frame.apply(pd.to_numeric, errors="coerce").dropna(how="all")
     return risk_return.make(returns_frame)
 
 
-def _mc_chart_builders() -> (
-    dict[str, Any]
-):
+def _mc_chart_builders() -> dict[str, Any]:
     return {
         "fan": _build_mc_fan_chart,
         "path_dist": _build_mc_path_dist_chart,
@@ -445,8 +432,7 @@ def execute_mc_viz(
     # -- Output flag validation ------------------------------------------------
     if not any((html, json, png)):
         raise TrendCLIError(
-            "The 'mc viz' command requires at least one output flag: "
-            "--html, --json, or --png"
+            "The 'mc viz' command requires at least one output flag: " "--html, --json, or --png"
         )
 
     # -- PNG dependency check – degrade gracefully ----------------------------
@@ -471,16 +457,12 @@ def execute_mc_viz(
     selected_charts = _parse_mc_chart_selection(charts)
 
     # -- Nav-paths validation --------------------------------------------------
-    nav_paths_frame, uses_fallback_nav_data = _validate_nav_paths(
-        bundle_path, selected_charts
-    )
+    nav_paths_frame, uses_fallback_nav_data = _validate_nav_paths(bundle_path, selected_charts)
 
     # -- Build charts ----------------------------------------------------------
     chart_builders = _mc_chart_builders()
     generated_charts = {
-        chart_id: chart_builders[chart_id](
-            summary_frame, results_frame, nav_paths_frame
-        )
+        chart_id: chart_builders[chart_id](summary_frame, results_frame, nav_paths_frame)
         for chart_id in selected_charts
     }
 
@@ -547,16 +529,12 @@ def _inject_mc_html_chart_markers(
                 continue
             body_token = "<body>"
             if body_token in html_text:
-                updated_html = html_text.replace(
-                    body_token, f"{body_token}\n{marker}", 1
-                )
+                updated_html = html_text.replace(body_token, f"{body_token}\n{marker}", 1)
             else:
                 updated_html = f"{marker}\n{html_text}"
             html_path.write_text(updated_html, encoding="utf-8")
         except Exception as exc:
-            warnings.append(
-                f"Unable to inject HTML chart marker for '{chart_id}': {exc}."
-            )
+            warnings.append(f"Unable to inject HTML chart marker for '{chart_id}': {exc}.")
 
 
 __all__ = [

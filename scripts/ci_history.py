@@ -28,6 +28,10 @@ _DEFAULT_HISTORY = "metrics-history.ndjson"
 _DEFAULT_CLASSIFICATION = "classification.json"
 
 
+def _iso_timestamp() -> str:
+    return _dt.datetime.now(_dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
 def _truthy(value: str | None) -> bool:
     if value is None:
         return False
@@ -55,12 +59,11 @@ def _build_history_record(
     metrics_path: Path,
     metrics_from_file: bool,
 ) -> dict[str, Any]:
-    timestamp = _dt.datetime.now(_dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     summary = metrics.get("summary", {})
     failures = metrics.get("failures", [])
 
     record: dict[str, Any] = {
-        "timestamp": timestamp,
+        "timestamp": _iso_timestamp(),
         "summary": summary,
         "failures": failures,
         "junit_path": str(junit_path),
@@ -81,11 +84,10 @@ def _build_history_record(
 
 
 def _build_classification_payload(metrics: dict[str, Any]) -> dict[str, Any]:
-    timestamp = _dt.datetime.now(_dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     failures = metrics.get("failures", []) or []
     counts = Counter(entry.get("status", "unknown") for entry in failures)
     payload: dict[str, Any] = {
-        "timestamp": timestamp,
+        "timestamp": _iso_timestamp(),
         "total": sum(counts.values()),
         "counts": dict(counts),
         "entries": [
@@ -116,6 +118,7 @@ def main() -> int:
         print(f"JUnit report not found: {junit_path}", file=sys.stderr)
         history_path.parent.mkdir(parents=True, exist_ok=True)
         skipped_record = {
+            "timestamp": _iso_timestamp(),
             "status": "skipped",
             "reason": "missing-junit-report",
             "junit_path": str(junit_path),
