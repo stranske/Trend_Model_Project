@@ -74,7 +74,7 @@ def check_png_dependency() -> bool:
     try:
         if importlib.util.find_spec("kaleido") is None:
             return False
-        import plotly.io as pio  # noqa: WPS433
+        import plotly.io as pio
 
         # Use a minimal figure dict (not `go.Figure`) to avoid triggering
         # template initialization during dependency checks.

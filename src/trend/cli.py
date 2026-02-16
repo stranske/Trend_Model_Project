@@ -524,8 +524,9 @@ def build_parser(
         "--fold",
         type=int,
         help=(
-            "Fold id to load fold-exported NAV paths (nav_paths_fold_<id>.parquet) when "
-            "nav_paths.parquet is absent."
+            "Fold id to load fold-exported NAV paths (nav_paths_fold_<id>.parquet) from "
+            "the bundle; when provided, this takes precedence over the bundle's "
+            "nav_paths.parquet."
         ),
     )
     nav_paths_group.add_argument(

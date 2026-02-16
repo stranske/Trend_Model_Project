@@ -183,12 +183,12 @@ def resolve_llm_provider_config(
         resolved_api_key = sanitize_api_key(os.environ.get("TS_STREAMLIT_API_KEY"))
     if not resolved_api_key:
         resolved_api_key = sanitize_api_key(os.environ.get("TREND_LLM_API_KEY"))
-    if not resolved_api_key and provider_name == "openai":
-        resolved_api_key = sanitize_api_key(read_secret("OPENAI_API_KEY"))
     if not resolved_api_key:
         resolved_api_key = sanitize_api_key(read_secret("TS_STREAMLIT_API_KEY"))
     if not resolved_api_key:
         resolved_api_key = sanitize_api_key(read_secret("TREND_LLM_API_KEY"))
+    if not resolved_api_key and provider_name == "openai":
+        resolved_api_key = sanitize_api_key(read_secret("OPENAI_API_KEY"))
     if (
         provider_name in {"openai", "anthropic"}
         and not resolved_api_key
