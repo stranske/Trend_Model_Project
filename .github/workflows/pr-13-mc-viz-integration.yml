@@ -1,0 +1,40 @@
+name: MC Viz Integration
+
+on:
+  pull_request:
+    paths:
+      - "pyproject.toml"
+      - "requirements.lock"
+      - "pytest.ini"
+      - "src/trend/mc/**"
+      - "src/trend/cli.py"
+      - "src/trend_analysis/monte_carlo/**"
+      - "src/trend_analysis/viz/**"
+      - "streamlit_app/pages/monte_carlo.py"
+      - "streamlit_app/components/mc_*.py"
+      - "tests/integration/test_mc_viz.py"
+      - "tests/fixtures/mc_bundle/**"
+      - ".github/workflows/pr-13-mc-viz-integration.yml"
+  push:
+    branches: [phase-3]
+  workflow_dispatch:
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number || github.ref_name }}-mc-viz-integration
+  cancel-in-progress: true
+
+jobs:
+  mc-viz-integration:
+    name: MC Viz Integration (py3.12)
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    with:
+      working-directory: "."
+      python-versions: '["3.12"]'
+      lint: false
+      format_check: false
+      typecheck: false
+      coverage: false
+      cache: true
+      pytest_markers: "mc_viz_integration"
+      pytest_args: "tests/integration/test_mc_viz.py"
+    secrets: inherit

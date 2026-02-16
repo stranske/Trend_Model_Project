@@ -101,6 +101,26 @@ For detailed docs, see **stranske/Workflows**:
 - `docs/keepalive/GoalsAndPlumbing.md` - Keepalive system design
 - `docs/keepalive/SETUP_CHECKLIST.md` - Required files and secrets
 
+## MC Viz Integration Tests (CI Performance)
+
+This repo has an integration-heavy suite in `tests/integration/test_mc_viz.py` that exercises the `trend mc viz` CLI end-to-end (bundle inputs → chart artifacts).
+
+To keep PR Gate latency reasonable:
+- The Gate workflow excludes these tests by default via the `mc_viz_integration` marker.
+- A dedicated workflow runs the suite only when MC-viz-related files change.
+
+**CI wiring**
+- Gate: `.github/workflows/pr-00-gate.yml` passes `pytest_markers: "not mc_viz_integration"` into the shared reusable workflow.
+- Dedicated run: `.github/workflows/pr-13-mc-viz-integration.yml` runs only `tests/integration/test_mc_viz.py` with `pytest_markers: "mc_viz_integration"`.
+
+**When it runs**
+- On PRs that touch MC-viz paths (see the `paths:` filter in `.github/workflows/pr-13-mc-viz-integration.yml`).
+- On pushes to `phase-3` (safety net).
+- Manually via `workflow_dispatch`.
+
+**Local run**
+- `PYTHONPATH=./src python -m pytest -m mc_viz_integration tests/integration/test_mc_viz.py`
+
 ## Quick Debug Commands
 
 ```bash
