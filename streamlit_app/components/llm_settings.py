@@ -146,7 +146,9 @@ def default_api_key(provider_name: str) -> str | None:
     if secrets_key:
         return secrets_key
     if provider_name == "anthropic":
-        secrets_anthropic = resolve_anthropic_api_key(include_secrets=True, include_env=False)
+        secrets_anthropic = resolve_anthropic_api_key(
+            include_secrets=True, include_env=False
+        )
         if secrets_anthropic:
             return secrets_anthropic
     return None
@@ -161,7 +163,9 @@ def resolve_llm_provider_config(
     organization: str | None = None,
     require_api_key: bool = True,
 ) -> LLMProviderConfig:
-    provider_name = (provider or os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
+    provider_name = (
+        provider or os.environ.get("TREND_LLM_PROVIDER") or "openai"
+    ).lower()
     supported = {"openai", "anthropic", "ollama"}
     if provider_name not in supported:
         raise ValueError(
@@ -169,21 +173,27 @@ def resolve_llm_provider_config(
             f"Expected one of: {', '.join(sorted(supported))}."
         )
     resolved_api_key = sanitize_api_key(api_key)
-    if not resolved_api_key:
-        resolved_api_key = sanitize_api_key(read_secret("TS_STREAMLIT_API_KEY"))
-    if not resolved_api_key:
-        resolved_api_key = sanitize_api_key(read_secret("OPENAI_API_KEY"))
-    if not resolved_api_key:
-        resolved_api_key = sanitize_api_key(read_secret("TREND_LLM_API_KEY"))
+    if not resolved_api_key and provider_name == "openai":
+        # Prefer explicit env override for OpenAI (useful for local runs and tests).
+        resolved_api_key = sanitize_api_key(os.environ.get("OPENAI_API_KEY"))
+    if not resolved_api_key and provider_name == "anthropic":
+        # Anthropic resolver already encodes secrets/env precedence rules.
+        resolved_api_key = resolve_anthropic_api_key()
     if not resolved_api_key:
         resolved_api_key = sanitize_api_key(os.environ.get("TS_STREAMLIT_API_KEY"))
     if not resolved_api_key:
-        resolved_api_key = sanitize_api_key(os.environ.get("OPENAI_API_KEY"))
-    if not resolved_api_key:
         resolved_api_key = sanitize_api_key(os.environ.get("TREND_LLM_API_KEY"))
-    if not resolved_api_key and provider_name == "anthropic":
-        resolved_api_key = resolve_anthropic_api_key()
-    if provider_name in {"openai", "anthropic"} and not resolved_api_key and require_api_key:
+    if not resolved_api_key and provider_name == "openai":
+        resolved_api_key = sanitize_api_key(read_secret("OPENAI_API_KEY"))
+    if not resolved_api_key:
+        resolved_api_key = sanitize_api_key(read_secret("TS_STREAMLIT_API_KEY"))
+    if not resolved_api_key:
+        resolved_api_key = sanitize_api_key(read_secret("TREND_LLM_API_KEY"))
+    if (
+        provider_name in {"openai", "anthropic"}
+        and not resolved_api_key
+        and require_api_key
+    ):
         env_hint = (
             "OPENAI_API_KEY"
             if provider_name == "openai"

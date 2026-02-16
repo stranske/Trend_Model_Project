@@ -74,10 +74,11 @@ def check_png_dependency() -> bool:
     try:
         if importlib.util.find_spec("kaleido") is None:
             return False
-        import plotly.graph_objects as go  # noqa: WPS433
         import plotly.io as pio  # noqa: WPS433
 
-        fig = go.Figure(data=[go.Scatter(x=[0, 1], y=[0, 1])])
+        # Use a minimal figure dict (not `go.Figure`) to avoid triggering
+        # template initialization during dependency checks.
+        fig = {"data": [{"type": "scatter", "x": [0, 1], "y": [0, 1]}]}
         pio.to_image(fig, format="png", validate=True)
         return True
     except Exception:  # noqa: BLE001 – broad catch intentional
@@ -91,7 +92,9 @@ def check_png_dependency() -> bool:
 
 def _normalize_chart_ids(charts: Sequence[str] | str) -> list[str]:
     if isinstance(charts, str):
-        normalized = [part.strip().lower() for part in charts.split(",") if part.strip()]
+        normalized = [
+            part.strip().lower() for part in charts.split(",") if part.strip()
+        ]
     else:
         normalized = [str(part).strip().lower() for part in charts if str(part).strip()]
     return normalized
@@ -99,7 +102,9 @@ def _normalize_chart_ids(charts: Sequence[str] | str) -> list[str]:
 
 def _collect_required_inputs(charts: Sequence[str] | str) -> list[str]:
     requested_charts = _normalize_chart_ids(charts)
-    unsupported = [chart for chart in requested_charts if chart not in CHART_REQUIREMENTS]
+    unsupported = [
+        chart for chart in requested_charts if chart not in CHART_REQUIREMENTS
+    ]
     if unsupported:
         invalid = ", ".join(sorted(set(unsupported)))
         raise ValueError(f"Unsupported chart identifier(s): {invalid}")
@@ -117,7 +122,10 @@ def _collect_required_inputs(charts: Sequence[str] | str) -> list[str]:
 def _requirement_is_present(bundle_dir: Path, requirement: str) -> bool:
     if "." in requirement:
         return (bundle_dir / requirement).exists()
-    return any((bundle_dir / f"{requirement}.{ext}").exists() for ext in _OPTIONAL_STEM_EXTENSIONS)
+    return any(
+        (bundle_dir / f"{requirement}.{ext}").exists()
+        for ext in _OPTIONAL_STEM_EXTENSIONS
+    )
 
 
 def _missing_requirement_label(requirement: str) -> str:
@@ -155,7 +163,9 @@ def _read_mc_frame(path: Path, *, label: str) -> pd.DataFrame:
     except TrendCLIError:
         raise
     except Exception as exc:
-        raise TrendCLIError(f"Failed to read {label} data from '{path}': {exc}") from exc
+        raise TrendCLIError(
+            f"Failed to read {label} data from '{path}': {exc}"
+        ) from exc
     if isinstance(frame, pd.Series):
         return frame.to_frame()
     if not isinstance(frame, pd.DataFrame):
@@ -164,7 +174,9 @@ def _read_mc_frame(path: Path, *, label: str) -> pd.DataFrame:
 
 
 def _load_mc_frame(bundle_dir: Path, *, stem: str) -> pd.DataFrame:
-    candidates = tuple(bundle_dir / f"{stem}.{ext}" for ext in _OPTIONAL_STEM_EXTENSIONS)
+    candidates = tuple(
+        bundle_dir / f"{stem}.{ext}" for ext in _OPTIONAL_STEM_EXTENSIONS
+    )
     existing = next((c for c in candidates if c.exists()), None)
     if existing is None:
         expected = ", ".join(p.name for p in candidates)
@@ -185,7 +197,9 @@ def _load_mc_bundle_frames(bundle: str | Path) -> tuple[pd.DataFrame, pd.DataFra
     missing_inputs: list[str] = []
     expected_by_stem: dict[str, str] = {}
     for stem in required_stems:
-        candidates = tuple(bundle_dir / f"{stem}.{ext}" for ext in _OPTIONAL_STEM_EXTENSIONS)
+        candidates = tuple(
+            bundle_dir / f"{stem}.{ext}" for ext in _OPTIONAL_STEM_EXTENSIONS
+        )
         if not any(c.exists() for c in candidates):
             missing_inputs.append(stem)
             expected_by_stem[stem] = ", ".join(p.name for p in candidates)
@@ -198,7 +212,9 @@ def _load_mc_bundle_frames(bundle: str | Path) -> tuple[pd.DataFrame, pd.DataFra
                 f"Expected one of: {expected}"
             )
         missing_text = ", ".join(missing_inputs)
-        expected_text = "; ".join(f"{stem}: {expected_by_stem[stem]}" for stem in missing_inputs)
+        expected_text = "; ".join(
+            f"{stem}: {expected_by_stem[stem]}" for stem in missing_inputs
+        )
         raise TrendCLIError(
             f"Missing required MC input files in '{bundle_dir}': {missing_text}. "
             f"Expected one of each: {expected_text}"
@@ -216,6 +232,36 @@ def _load_mc_nav_paths_frame(bundle: str | Path) -> pd.DataFrame | None:
     return _read_mc_frame(nav_path, label="nav_paths")
 
 
+def _available_fold_nav_paths(bundle_dir: Path) -> list[Path]:
+    return sorted(bundle_dir.glob("nav_paths_fold_*.parquet"))
+
+
+def _load_fold_nav_paths_frame(bundle_dir: Path, fold_id: int) -> pd.DataFrame:
+    nav_path = bundle_dir / f"nav_paths_fold_{fold_id}.parquet"
+    if not nav_path.exists():
+        available = _available_fold_nav_paths(bundle_dir)
+        available_text = ", ".join(p.name for p in available) if available else "(none)"
+        raise TrendCLIError(
+            f"Requested --fold {fold_id} but '{nav_path.name}' was not found in the bundle. "
+            f"Available fold nav paths: {available_text}."
+        )
+    return _read_mc_frame(nav_path, label=f"nav_paths_fold_{fold_id}")
+
+
+def _load_nav_paths_override(nav_paths: str | Path) -> pd.DataFrame:
+    nav_path = Path(nav_paths).expanduser().resolve()
+    if not nav_path.exists():
+        raise TrendCLIError(f"Requested --nav-paths file does not exist: {nav_path}")
+    if not nav_path.is_file():
+        raise TrendCLIError(f"Requested --nav-paths path is not a file: {nav_path}")
+    if nav_path.suffix.lower() != ".parquet":
+        raise TrendCLIError(
+            f"Unsupported --nav-paths format '{nav_path.suffix}' for '{nav_path.name}'. "
+            "Only parquet files are supported."
+        )
+    return _read_mc_frame(nav_path, label="nav_paths")
+
+
 # ---------------------------------------------------------------------------
 # Chart parsing / selection
 # ---------------------------------------------------------------------------
@@ -227,7 +273,9 @@ def _parse_mc_chart_selection(charts_value: str | Sequence[str]) -> list[str]:
     else:
         requested = [str(t).strip().lower() for t in charts_value if str(t).strip()]
     if not requested:
-        raise TrendCLIError("The 'mc viz' command requires at least one chart in --charts.")
+        raise TrendCLIError(
+            "The 'mc viz' command requires at least one chart in --charts."
+        )
     seen: set[str] = set()
     ordered: list[str] = []
     for chart in requested:
@@ -305,10 +353,14 @@ def _build_mc_risk_return_chart(
     from trend_analysis.viz import risk_return
 
     nav_frame = _mc_nav_source_frame(summary_frame, results_frame, nav_paths_frame)
-    returns_frame = nav_frame.pct_change(fill_method=None).replace([np.inf, -np.inf], np.nan)
+    returns_frame = nav_frame.pct_change(fill_method=None).replace(
+        [np.inf, -np.inf], np.nan
+    )
     returns_frame = returns_frame.dropna(how="all")
     if returns_frame.empty:
-        returns_frame = nav_frame.apply(pd.to_numeric, errors="coerce").dropna(how="all")
+        returns_frame = nav_frame.apply(pd.to_numeric, errors="coerce").dropna(
+            how="all"
+        )
     return risk_return.make(returns_frame)
 
 
@@ -361,6 +413,9 @@ def _export_mc_chart_artifacts(
 def _validate_nav_paths(
     bundle_path: str | Path,
     selected_charts: list[str],
+    *,
+    fold_id: int | None,
+    nav_paths: str | Path | None,
 ) -> tuple[pd.DataFrame | None, bool]:
     """Load nav_paths and validate against chart requirements.
 
@@ -372,11 +427,33 @@ def _validate_nav_paths(
     from trend.mc.io import (
         MCNavPathsIOError,
         load_nav_paths_frame,
+        validate_nav_paths_df,
         validate_nav_paths_requirement,
     )
 
     try:
-        nav_paths_frame = load_nav_paths_frame(bundle_path)
+        bundle_dir = Path(bundle_path).expanduser().resolve()
+        if nav_paths is not None:
+            nav_paths_frame = validate_nav_paths_df(_load_nav_paths_override(nav_paths))
+        elif fold_id is not None:
+            nav_paths_frame = validate_nav_paths_df(
+                _load_fold_nav_paths_frame(bundle_dir, fold_id)
+            )
+        else:
+            nav_paths_frame = load_nav_paths_frame(bundle_path)
+            if nav_paths_frame is None and set(selected_charts).intersection(
+                NAV_PATH_REQUIRED_CHARTS
+            ):
+                fold_paths = _available_fold_nav_paths(bundle_dir)
+                if fold_paths:
+                    names = ", ".join(p.name for p in fold_paths[:5])
+                    if len(fold_paths) > 5:
+                        names = f"{names}, ..."
+                    raise TrendCLIError(
+                        "nav_paths.parquet is missing, but fold-exported NAV-path files were found "
+                        f"({names}). Re-run with --fold <id> to select a fold, or provide "
+                        "--nav-paths <file> to point at a specific nav_paths parquet file."
+                    )
         validate_nav_paths_requirement(
             selected_charts,
             nav_paths_frame,
@@ -404,35 +481,48 @@ def execute_mc_viz(
 ) -> int:
     """Execute Monte Carlo visualization artifact generation.
 
-    This function is the shared API surface that both CLI entry points call
-    for ``mc viz`` execution.
+    Public API contract
+    -------------------
+    The parameter list for this function is intentionally stable because
+    downstream tooling (and tests) relies on it.
 
-    Parameters
-    ----------
-    bundle_path
-        Filesystem path to the Monte Carlo export bundle directory containing
-        required input artifacts.
-    out_dir
-        Destination output directory where visualization artifacts are written.
-    charts
-        Requested chart identifiers, provided as either a comma-separated string
-        (for CLI compatibility) or a sequence of individual chart IDs.
-    html
-        When ``True``, generate HTML chart artifacts.
-    json
-        When ``True``, generate JSON chart artifacts.
-    png
-        When ``True``, generate PNG chart artifacts.
+    For CLI-only extensions (for example fold-nav-path selection), prefer
+    calling :func:`execute_mc_viz_cli`.
+    """
 
-    Returns
-    -------
-    int
-        Conventional CLI status code where ``0`` represents success.
+    return execute_mc_viz_cli(
+        bundle_path=bundle_path,
+        out_dir=out_dir,
+        charts=charts,
+        fold_id=None,
+        nav_paths=None,
+        html=html,
+        json=json,
+        png=png,
+    )
+
+
+def execute_mc_viz_cli(
+    bundle_path: str | Path,
+    out_dir: str | Path,
+    charts: Sequence[str] | str,
+    *,
+    fold_id: int | None,
+    nav_paths: str | Path | None,
+    html: bool,
+    json: bool,
+    png: bool,
+) -> int:
+    """CLI-oriented Monte Carlo viz execution.
+
+    This entry point extends :func:`execute_mc_viz` with optional helpers used
+    by the ``trend mc viz`` CLI (for example selecting fold-exported NAV paths).
     """
     # -- Output flag validation ------------------------------------------------
     if not any((html, json, png)):
         raise TrendCLIError(
-            "The 'mc viz' command requires at least one output flag: " "--html, --json, or --png"
+            "The 'mc viz' command requires at least one output flag: "
+            "--html, --json, or --png"
         )
 
     # -- PNG dependency check – degrade gracefully ----------------------------
@@ -457,12 +547,19 @@ def execute_mc_viz(
     selected_charts = _parse_mc_chart_selection(charts)
 
     # -- Nav-paths validation --------------------------------------------------
-    nav_paths_frame, uses_fallback_nav_data = _validate_nav_paths(bundle_path, selected_charts)
+    nav_paths_frame, uses_fallback_nav_data = _validate_nav_paths(
+        bundle_path,
+        selected_charts,
+        fold_id=fold_id,
+        nav_paths=nav_paths,
+    )
 
     # -- Build charts ----------------------------------------------------------
     chart_builders = _mc_chart_builders()
     generated_charts = {
-        chart_id: chart_builders[chart_id](summary_frame, results_frame, nav_paths_frame)
+        chart_id: chart_builders[chart_id](
+            summary_frame, results_frame, nav_paths_frame
+        )
         for chart_id in selected_charts
     }
 
@@ -529,12 +626,16 @@ def _inject_mc_html_chart_markers(
                 continue
             body_token = "<body>"
             if body_token in html_text:
-                updated_html = html_text.replace(body_token, f"{body_token}\n{marker}", 1)
+                updated_html = html_text.replace(
+                    body_token, f"{body_token}\n{marker}", 1
+                )
             else:
                 updated_html = f"{marker}\n{html_text}"
             html_path.write_text(updated_html, encoding="utf-8")
         except Exception as exc:
-            warnings.append(f"Unable to inject HTML chart marker for '{chart_id}': {exc}.")
+            warnings.append(
+                f"Unable to inject HTML chart marker for '{chart_id}': {exc}."
+            )
 
 
 __all__ = [

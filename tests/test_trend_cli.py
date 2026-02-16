@@ -74,7 +74,9 @@ def _sample_config() -> SimpleNamespace:
 
 def _risky_patch() -> ConfigPatch:
     return ConfigPatch(
-        operations=[PatchOperation(op="remove", path="portfolio.constraints.max_weight")],
+        operations=[
+            PatchOperation(op="remove", path="portfolio.constraints.max_weight")
+        ],
         summary="Remove the max_weight constraint.",
     )
 
@@ -130,7 +132,9 @@ def test_mc_viz_parser_requires_out_flag() -> None:
     assert excinfo.value.code == 2
 
 
-def test_mc_viz_requires_at_least_one_output_flag(capsys: pytest.CaptureFixture[str]) -> None:
+def test_mc_viz_requires_at_least_one_output_flag(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     exit_code = main(["mc", "viz", "--bundle", "bundle_dir", "--out", "export_dir"])
 
     assert exit_code == 2
@@ -410,6 +414,87 @@ def test_mc_viz_errors_when_path_dist_requires_nav_paths_parquet(
     assert "path_dist" in err
 
 
+def test_mc_viz_loads_fold_nav_paths_when_requested(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    pd.DataFrame({"path_id": [1, 2], "terminal_nav": [112.0, 98.4]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+
+    (bundle_dir / "nav_paths_fold_2.parquet").write_text(
+        "placeholder", encoding="utf-8"
+    )
+
+    import trend.mc.viz as _mc_viz
+
+    monkeypatch.setattr(
+        _mc_viz.pd,
+        "read_parquet",
+        lambda _path: pd.DataFrame({0: [1.0, 1.1], 1: [1.0, 0.9]}),
+    )
+
+    exit_code = main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--charts",
+            "path_dist",
+            "--fold",
+            "2",
+            "--json",
+        ]
+    )
+
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "nav_paths_rows=2" in out
+
+
+def test_mc_viz_errors_when_fold_nav_paths_exist_but_no_selection_provided(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    pd.DataFrame({"path_id": [1, 2], "terminal_nav": [112.0, 98.4]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+    (bundle_dir / "nav_paths_fold_1.parquet").write_text(
+        "placeholder", encoding="utf-8"
+    )
+
+    exit_code = main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--charts",
+            "path_dist",
+            "--html",
+        ]
+    )
+
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert "nav_paths.parquet" in err
+    assert "nav_paths_fold_" in err
+    assert "--fold" in err
+
+
 @pytest.mark.parametrize("suffix", ("csv", "json"))
 def test_mc_viz_errors_when_unsupported_nav_paths_format_detected_without_parquet(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], suffix: str
@@ -539,7 +624,9 @@ def test_mc_viz_routes_selected_charts_and_exports_requested_formats(
         captured["include_json"] = include_json
         captured["include_html"] = include_html
         captured["include_png"] = include_png
-        with zipfile.ZipFile(dest_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        with zipfile.ZipFile(
+            dest_path, "w", compression=zipfile.ZIP_DEFLATED
+        ) as archive:
             for name in charts:
                 if include_json:
                     archive.writestr(f"{name}.json", "{}")
@@ -623,7 +710,9 @@ def test_mc_viz_renames_collision_without_overwriting_existing_plot_file(
         assert destination is not None
         dest_path = Path(destination)
         dest_path.parent.mkdir(parents=True, exist_ok=True)
-        with zipfile.ZipFile(dest_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        with zipfile.ZipFile(
+            dest_path, "w", compression=zipfile.ZIP_DEFLATED
+        ) as archive:
             for name in charts:
                 if include_json:
                     archive.writestr(f"{name}.json", '{"new": true}')
@@ -965,7 +1054,9 @@ def test_main_report_supports_output_file_only(monkeypatch, tmp_path: Path) -> N
     )
     monkeypatch.setattr(
         "trend.cli.generate_unified_report",
-        lambda *a, **k: SimpleNamespace(html="<html>report</html>", pdf_bytes=None, context={}),
+        lambda *a, **k: SimpleNamespace(
+            html="<html>report</html>", pdf_bytes=None, context={}
+        ),
     )
 
     target = tmp_path / "custom-report.html"
@@ -1003,7 +1094,9 @@ def test_main_report_writes_pdf_when_requested(monkeypatch, tmp_path: Path) -> N
 
     def fake_generate_unified_report(*a, **k):
         recorded.update(k)
-        return SimpleNamespace(html="<html>with-pdf</html>", pdf_bytes=pdf_bytes, context={})
+        return SimpleNamespace(
+            html="<html>with-pdf</html>", pdf_bytes=pdf_bytes, context={}
+        )
 
     monkeypatch.setattr(
         "trend.cli.generate_unified_report",
@@ -1045,7 +1138,9 @@ def test_main_report_pdf_dependency_error(monkeypatch, tmp_path: Path, capsys) -
     )
     monkeypatch.setattr(
         "trend.cli.generate_unified_report",
-        lambda *a, **k: SimpleNamespace(html="<html>ok</html>", pdf_bytes=None, context={}),
+        lambda *a, **k: SimpleNamespace(
+            html="<html>ok</html>", pdf_bytes=None, context={}
+        ),
     )
 
     target = tmp_path / "report-output.html"
@@ -1125,8 +1220,12 @@ def test_cli_report_matches_shared_generator(monkeypatch, tmp_path: Path) -> Non
         "trend_analysis.cli._ensure_dataframe",
         lambda _p: pd.DataFrame({"Date": ["2021-01-31"], "Value": [0.01]}),
     )
-    monkeypatch.setattr("trend_analysis.cli._print_summary", lambda *args, **kwargs: None)
-    monkeypatch.setattr("trend_analysis.cli._write_report_files", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "trend_analysis.cli._print_summary", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        "trend_analysis.cli._write_report_files", lambda *args, **kwargs: None
+    )
 
     def fake_run_pipeline(*args, **kwargs):  # type: ignore[override]
         return cli_result, "cli-run", None
@@ -1483,7 +1582,9 @@ def test_handle_exports_requires_both_directory_and_formats(monkeypatch) -> None
     result = RunResult(pd.DataFrame(), {}, 1, {})
 
     events: list[str] = []
-    monkeypatch.setattr(cli, "_legacy_maybe_log_step", lambda *a, **k: events.append("x"))
+    monkeypatch.setattr(
+        cli, "_legacy_maybe_log_step", lambda *a, **k: events.append("x")
+    )
 
     cli._handle_exports(cfg, result, structured_log=True, run_id="rid")
 
@@ -1518,7 +1619,9 @@ def test_write_bundle_appends_filename(monkeypatch, tmp_path: Path, capsys) -> N
     assert getattr(result, "config") == cfg.__dict__
 
 
-def test_write_bundle_accepts_explicit_file(monkeypatch, tmp_path: Path, capsys) -> None:
+def test_write_bundle_accepts_explicit_file(
+    monkeypatch, tmp_path: Path, capsys
+) -> None:
     cfg = SimpleNamespace(__dict__={"key": "value"})
     result = RunResult(pd.DataFrame(), {}, 1, {})
 
@@ -1571,7 +1674,9 @@ def test_print_summary_skips_empty_cache_stats(monkeypatch, capsys) -> None:
     assert "Cache statistics" not in out
 
 
-def test_write_report_files_creates_expected_outputs(monkeypatch, tmp_path: Path) -> None:
+def test_write_report_files_creates_expected_outputs(
+    monkeypatch, tmp_path: Path
+) -> None:
     metrics = pd.DataFrame({"value": [1.0]})
     result = RunResult(metrics, {"details": {}}, 1, {})
     cfg = SimpleNamespace(sample_split={})
@@ -1674,7 +1779,9 @@ def test_main_reports_unknown_command(monkeypatch, capsys) -> None:
         "_load_configuration",
         lambda path: (Path(path), SimpleNamespace(data={"csv_path": "returns.csv"})),
     )
-    monkeypatch.setattr(cli, "_resolve_returns_path", lambda *_args: Path("returns.csv"))
+    monkeypatch.setattr(
+        cli, "_resolve_returns_path", lambda *_args: Path("returns.csv")
+    )
     monkeypatch.setattr(cli, "_ensure_dataframe", lambda *_args: pd.DataFrame())
     monkeypatch.setattr(cli, "_determine_seed", lambda *_args: 0)
 
