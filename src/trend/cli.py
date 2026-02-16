@@ -91,9 +91,7 @@ LegacyExtractCacheStats = Callable[[object], dict[str, int] | None]
 
 
 class LegacyMaybeLogStep(Protocol):
-    def __call__(
-        self, enabled: bool, run_id: str, event: str, message: str, **fields: Any
-    ) -> None:
+    def __call__(self, enabled: bool, run_id: str, event: str, message: str, **fields: Any) -> None:
         # Protocol method intentionally empty; implementors provide behaviour.
         ...
 
@@ -162,9 +160,7 @@ def _apply_trend_spec_preset(cfg: Any, preset: TrendSpecPreset) -> None:
         object.__setattr__(cfg, "trend_spec_preset", preset.name)
 
 
-def _apply_universe_mask(
-    df: pd.DataFrame, mask: pd.DataFrame, *, date_column: str
-) -> pd.DataFrame:
+def _apply_universe_mask(df: pd.DataFrame, mask: pd.DataFrame, *, date_column: str) -> pd.DataFrame:
     """Apply a time-varying membership mask to returns data."""
 
     if mask.empty:
@@ -174,9 +170,7 @@ def _apply_universe_mask(
     try:
         date_col = lookup[date_column.lower()]
     except KeyError as exc:  # pragma: no cover - defensive guard
-        raise KeyError(
-            f"Date column '{date_column}' is missing from the returns data"
-        ) from exc
+        raise KeyError(f"Date column '{date_column}' is missing from the returns data") from exc
 
     working[date_col] = pd.to_datetime(working[date_col])
     working = working.set_index(date_col)
@@ -191,16 +185,12 @@ def _apply_universe_mask(
         )
 
     masked = working.copy()
-    masked.loc[:, aligned_mask.columns] = masked.loc[:, aligned_mask.columns].where(
-        aligned_mask
-    )
+    masked.loc[:, aligned_mask.columns] = masked.loc[:, aligned_mask.columns].where(aligned_mask)
     masked.reset_index(inplace=True)
     return masked
 
 
-def _attach_universe_paths(
-    cfg: Any, spec: NamedUniverse, *, csv_path: str | None
-) -> None:
+def _attach_universe_paths(cfg: Any, spec: NamedUniverse, *, csv_path: str | None) -> None:
     """Persist the selected universe paths onto ``cfg.data`` when possible."""
 
     membership_value = str(spec.membership_path)
@@ -231,9 +221,7 @@ def _attach_universe_paths(
         setattr(data_section, "universe_membership_path", membership_value)
     except Exception:
         try:
-            object.__setattr__(
-                data_section, "universe_membership_path", membership_value
-            )
+            object.__setattr__(data_section, "universe_membership_path", membership_value)
         except Exception:
             data_section = None
 
@@ -442,9 +430,7 @@ def build_parser(
         help="Report which config keys were validated vs read",
     )
 
-    report_p = sub.add_parser(
-        "report", help="Generate summary artefacts for a configuration"
-    )
+    report_p = sub.add_parser("report", help="Generate summary artefacts for a configuration")
     report_p.add_argument("-c", "--config", help="Path to YAML config")
     report_p.add_argument(
         "-i",
@@ -478,9 +464,7 @@ def build_parser(
         help="Report which config keys were validated vs read",
     )
 
-    stress_p = sub.add_parser(
-        "stress", help="Run the pipeline against a canned stress scenario"
-    )
+    stress_p = sub.add_parser("stress", help="Run the pipeline against a canned stress scenario")
     stress_p.add_argument("-c", "--config", help="Path to YAML config")
     stress_p.add_argument(
         "--scenario",
@@ -500,9 +484,7 @@ def build_parser(
 
     mc_p = sub.add_parser("mc", help="Monte Carlo visualization workflows")
     mc_sub = mc_p.add_subparsers(dest="mc_command", required=True)
-    mc_viz_p = mc_sub.add_parser(
-        "viz", help="Render Monte Carlo chart artifacts from a bundle"
-    )
+    mc_viz_p = mc_sub.add_parser("viz", help="Render Monte Carlo chart artifacts from a bundle")
     mc_viz_p.add_argument(
         "--bundle",
         required=True,
@@ -555,12 +537,8 @@ def build_parser(
     if include_gui_alias:
         sub.add_parser("gui", help="Launch the app (legacy alias for app)")
 
-    quick_p = sub.add_parser(
-        "quick-report", help="Build a compact HTML report from run artefacts"
-    )
-    quick_p.add_argument(
-        "--run-id", help="Run identifier (defaults to artefact inference)"
-    )
+    quick_p = sub.add_parser("quick-report", help="Build a compact HTML report from run artefacts")
+    quick_p.add_argument("--run-id", help="Run identifier (defaults to artefact inference)")
     quick_p.add_argument(
         "--artifacts",
         type=Path,
@@ -790,9 +768,7 @@ def _determine_seed(cfg: Any, override: int | None) -> int:
     return seed
 
 
-def _prepare_export_config(
-    cfg: Any, directory: Path | None, formats: Iterable[str] | None
-) -> None:
+def _prepare_export_config(cfg: Any, directory: Path | None, formats: Iterable[str] | None) -> None:
     if directory is None and formats is None:
         return
     export_cfg = dict(getattr(cfg, "export", {}) or {})
@@ -829,9 +805,7 @@ def _run_pipeline(
     if structured_log:
         log_path = log_file or run_logging.get_default_log_path(run_id)
         run_logging.init_run_logger(run_id, log_path)
-    _legacy_maybe_log_step(
-        structured_log, run_id, "start", "trend CLI execution started"
-    )
+    _legacy_maybe_log_step(structured_log, run_id, "start", "trend CLI execution started")
 
     result = run_simulation(cfg, returns_df)
     diagnostic = getattr(result, "diagnostic", None)
@@ -880,9 +854,7 @@ def _run_pipeline(
 _register_fallback("_run_pipeline", _run_pipeline)
 
 
-def _handle_exports(
-    cfg: Any, result: RunResult, structured_log: bool, run_id: str
-) -> None:
+def _handle_exports(cfg: Any, result: RunResult, structured_log: bool, run_id: str) -> None:
     export_cfg = getattr(cfg, "export", {}) or {}
     out_dir = export_cfg.get("directory")
     out_formats = export_cfg.get("formats")
@@ -977,9 +949,7 @@ def _print_summary(cfg: Any, result: RunResult) -> None:
 _register_fallback("_print_summary", _print_summary)
 
 
-def _write_report_files(
-    out_dir: Path, cfg: Any, result: RunResult, *, run_id: str
-) -> None:
+def _write_report_files(out_dir: Path, cfg: Any, result: RunResult, *, run_id: str) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     metrics_path = out_dir / f"metrics_{run_id}.csv"
     result.metrics.to_csv(metrics_path)
@@ -996,9 +966,7 @@ def _write_report_files(
     details_path = out_dir / f"details_{run_id}.json"
     with details_path.open("w", encoding="utf-8") as fh:
         json.dump(result.details, fh, default=_json_default, indent=2)
-    turnover_csv_result = _maybe_write_turnover_csv(
-        out_dir, getattr(result, "details", {})
-    )
+    turnover_csv_result = _maybe_write_turnover_csv(out_dir, getattr(result, "details", {}))
     if turnover_csv_result.diagnostic:
         logger.info(turnover_csv_result.diagnostic.message)
     print(f"Report artefacts written to {out_dir}")
@@ -1007,9 +975,7 @@ def _write_report_files(
 _register_fallback("_write_report_files", _write_report_files)
 
 
-def _resolve_report_output_path(
-    output: str | None, export_dir: Path | None, run_id: str
-) -> Path:
+def _resolve_report_output_path(output: str | None, export_dir: Path | None, run_id: str) -> Path:
     if output:
         base = Path(output).expanduser()
         if base.exists() and base.is_dir():
@@ -1116,13 +1082,9 @@ def _require_transaction_cost_controls(cfg: Any) -> None:
             try:
                 slip_value = float(slippage)
             except (TypeError, ValueError) as exc:
-                raise TrendCLIError(
-                    "portfolio.cost_model.slippage_bps must be numeric"
-                ) from exc
+                raise TrendCLIError("portfolio.cost_model.slippage_bps must be numeric") from exc
             if slip_value < 0:
-                raise TrendCLIError(
-                    "portfolio.cost_model.slippage_bps cannot be negative"
-                )
+                raise TrendCLIError("portfolio.cost_model.slippage_bps cannot be negative")
     if cost_value is None:
         raise TrendCLIError(
             "Configuration must define portfolio.transaction_cost_bps for honest costs."
@@ -1225,9 +1187,7 @@ def _load_configuration(path: str) -> Any:
         load_core_config(cfg_path)
     except CoreConfigError as exc:
         raise TrendCLIError(str(exc)) from exc
-    validation = validate_config(
-        payload, base_path=cfg_path.parent, skip_required_fields=True
-    )
+    validation = validate_config(payload, base_path=cfg_path.parent, skip_required_fields=True)
     if not validation.valid:
         details = "\n".join(format_validation_messages(validation))
         raise TrendCLIError(f"Config validation failed:\n{details}")
@@ -1396,9 +1356,7 @@ def _resolve_llm_provider_config(
     *,
     model: str | None = None,
 ) -> LLMProviderConfig:
-    provider_name = (
-        provider or os.environ.get("TREND_LLM_PROVIDER") or "openai"
-    ).lower()
+    provider_name = (provider or os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
     supported = {"openai", "anthropic", "ollama"}
     if provider_name not in supported:
         raise TrendCLIError(
@@ -1493,9 +1451,7 @@ def _replay_nl_entry(
 ) -> ReplayResult:
     from trend_analysis.llm.replay import replay_nl_entry
 
-    return replay_nl_entry(
-        entry, provider=provider, model=model, temperature=temperature
-    )
+    return replay_nl_entry(entry, provider=provider, model=model, temperature=temperature)
 
 
 def _build_nl_replay_parser() -> argparse.ArgumentParser:
@@ -1503,18 +1459,12 @@ def _build_nl_replay_parser() -> argparse.ArgumentParser:
         prog="trend nl replay",
         description="Replay a logged NL operation entry.",
     )
-    parser.add_argument(
-        "log_file", type=Path, help="Path to nl_ops_<date>.jsonl log file"
-    )
+    parser.add_argument("log_file", type=Path, help="Path to nl_ops_<date>.jsonl log file")
     parser.add_argument("--entry", type=int, required=True, help="1-based entry index")
     parser.add_argument("--provider", help="Override the logged LLM provider")
     parser.add_argument("--model", help="Override the logged LLM model")
-    parser.add_argument(
-        "--temperature", type=float, help="Override the logged temperature"
-    )
-    parser.add_argument(
-        "--show-prompt", action="store_true", help="Print the prompt text"
-    )
+    parser.add_argument("--temperature", type=float, help="Override the logged temperature")
+    parser.add_argument("--show-prompt", action="store_true", help="Print the prompt text")
     return parser
 
 
@@ -1634,9 +1584,7 @@ def _apply_nl_instruction(
 ) -> tuple[ConfigPatch, dict[str, Any], str, str, float]:
     chain = _build_nl_chain(provider, model=model, temperature=temperature)
     try:
-        patch = chain.run(
-            current_config=config, instruction=instruction, request_id=request_id
-        )
+        patch = chain.run(current_config=config, instruction=instruction, request_id=request_id)
     except Exception as exc:
         raise TrendCLIError(str(exc)) from exc
     apply_started = time.perf_counter()
@@ -1746,9 +1694,7 @@ def _read_mc_frame(path: Path, *, label: str) -> pd.DataFrame:
     except TrendCLIError:
         raise
     except Exception as exc:
-        raise TrendCLIError(
-            f"Failed to read {label} data from '{path}': {exc}"
-        ) from exc
+        raise TrendCLIError(f"Failed to read {label} data from '{path}': {exc}") from exc
     if isinstance(frame, pd.Series):
         return frame.to_frame()
     if not isinstance(frame, pd.DataFrame):
@@ -1757,9 +1703,7 @@ def _read_mc_frame(path: Path, *, label: str) -> pd.DataFrame:
 
 
 def _load_mc_frame(bundle_dir: Path, *, stem: str) -> pd.DataFrame:
-    candidates = tuple(
-        bundle_dir / f"{stem}.{ext}" for ext in ("parquet", "csv", "json")
-    )
+    candidates = tuple(bundle_dir / f"{stem}.{ext}" for ext in ("parquet", "csv", "json"))
     existing = next((candidate for candidate in candidates if candidate.exists()), None)
     if existing is None:
         expected = ", ".join(path.name for path in candidates)
@@ -1789,9 +1733,7 @@ def _load_mc_bundle_frames(
     missing_inputs: list[str] = []
     expected_by_stem: dict[str, str] = {}
     for stem in required_stems:
-        candidates = tuple(
-            bundle_dir / f"{stem}.{ext}" for ext in ("parquet", "csv", "json")
-        )
+        candidates = tuple(bundle_dir / f"{stem}.{ext}" for ext in ("parquet", "csv", "json"))
         if not any(candidate.exists() for candidate in candidates):
             missing_inputs.append(stem)
             expected_by_stem[stem] = ", ".join(path.name for path in candidates)
@@ -1803,9 +1745,7 @@ def _load_mc_bundle_frames(
                 f"Missing required MC {stem} file in '{bundle_dir}'. Expected one of: {expected}"
             )
         missing_text = ", ".join(missing_inputs)
-        expected_text = "; ".join(
-            f"{stem}: {expected_by_stem[stem]}" for stem in missing_inputs
-        )
+        expected_text = "; ".join(f"{stem}: {expected_by_stem[stem]}" for stem in missing_inputs)
         raise TrendCLIError(
             f"Missing required MC input files in '{bundle_dir}': {missing_text}. "
             f"Expected one of each: {expected_text}"
@@ -1814,13 +1754,9 @@ def _load_mc_bundle_frames(
 
 
 def _parse_mc_chart_selection(charts_value: str) -> list[str]:
-    requested = [
-        token.strip().lower() for token in charts_value.split(",") if token.strip()
-    ]
+    requested = [token.strip().lower() for token in charts_value.split(",") if token.strip()]
     if not requested:
-        raise TrendCLIError(
-            "The 'mc viz' command requires at least one chart in --charts."
-        )
+        raise TrendCLIError("The 'mc viz' command requires at least one chart in --charts.")
 
     seen: set[str] = set()
     ordered: list[str] = []
@@ -1890,14 +1826,10 @@ def _build_mc_risk_return_chart(
     from trend_analysis.viz import risk_return
 
     nav_frame = _mc_nav_source_frame(summary_frame, results_frame, nav_paths_frame)
-    returns_frame = nav_frame.pct_change(fill_method=None).replace(
-        [np.inf, -np.inf], np.nan
-    )
+    returns_frame = nav_frame.pct_change(fill_method=None).replace([np.inf, -np.inf], np.nan)
     returns_frame = returns_frame.dropna(how="all")
     if returns_frame.empty:
-        returns_frame = nav_frame.apply(pd.to_numeric, errors="coerce").dropna(
-            how="all"
-        )
+        returns_frame = nav_frame.apply(pd.to_numeric, errors="coerce").dropna(how="all")
     return risk_return.make(returns_frame)
 
 
@@ -1955,17 +1887,13 @@ def _inject_mc_html_chart_markers(
                 continue
             body_token = "<body>"
             if body_token in html_text:
-                updated_html = html_text.replace(
-                    body_token, f"{body_token}\n{marker}", 1
-                )
+                updated_html = html_text.replace(body_token, f"{body_token}\n{marker}", 1)
             else:
                 updated_html = f"{marker}\n{html_text}"
             html_path.parent.mkdir(parents=True, exist_ok=True)
             html_path.write_text(updated_html, encoding="utf-8")
         except Exception as exc:
-            warnings.append(
-                f"Unable to inject HTML chart marker for '{chart_id}': {exc}."
-            )
+            warnings.append(f"Unable to inject HTML chart marker for '{chart_id}': {exc}.")
 
 
 def _run_mc_viz_command(args: argparse.Namespace) -> int:
@@ -2100,9 +2028,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                 fallback = _fallback_explanation(metric_catalog)
                 fallback = append_discrepancy_log(fallback, claim_issues)
                 explanation_text = fallback
-            explanation_text = _finalize_explanation_text(
-                explanation_text, claim_issues
-            )
+            explanation_text = _finalize_explanation_text(explanation_text, claim_issues)
             if args.output:
                 payload = _build_explain_artifact_payload(
                     run_id=run_id,
@@ -2151,9 +2077,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                     print("No changes.")
                 return 0
             if args.dry_run:
-                sys.stdout.write(
-                    yaml.safe_dump(updated, sort_keys=False, default_flow_style=False)
-                )
+                sys.stdout.write(yaml.safe_dump(updated, sort_keys=False, default_flow_style=False))
                 return 0
             if args.run:
                 validate_started = time.perf_counter()
@@ -2183,9 +2107,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                     )
                     raise TrendCLIError(str(exc)) from exc
                 if not validation.valid:
-                    validation_details = "\n".join(
-                        format_validation_messages(validation)
-                    )
+                    validation_details = "\n".join(format_validation_messages(validation))
                     validation_error = f"validation failed: {validation_details}"
                 _log_nl_operation(
                     request_id=request_id,
@@ -2200,9 +2122,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                     timestamp=validate_timestamp,
                 )
                 if validation_error is not None:
-                    raise TrendCLIError(
-                        f"Config validation failed:\n{validation_details}"
-                    )
+                    raise TrendCLIError(f"Config validation failed:\n{validation_details}")
             _confirm_risky_patch(patch, no_confirm=args.no_confirm)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(
@@ -2266,18 +2186,14 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
             raise TrendCLIError(f"Unknown command: {command}")
 
         if command != "mc" and not args.config:
-            raise TrendCLIError(
-                f"The --config option is required for the '{command}' command"
-            )
+            raise TrendCLIError(f"The --config option is required for the '{command}' command")
 
         load_config_fn = _legacy_callable("_load_configuration", _load_configuration)
         cfg_path, cfg = load_config_fn(args.config)
         if coverage_tracker is not None:
             wrap_config_for_coverage(cfg, coverage_tracker)
         ensure_run_spec(cfg, base_path=cfg_path.parent)
-        resolve_returns = _legacy_callable(
-            "_resolve_returns_path", _resolve_returns_path
-        )
+        resolve_returns = _legacy_callable("_resolve_returns_path", _resolve_returns_path)
         returns_path = resolve_returns(cfg_path, cfg, getattr(args, "returns", None))
         ensure_df = _legacy_callable("_ensure_dataframe", _ensure_dataframe)
         returns_df = ensure_df(returns_path)
@@ -2298,9 +2214,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                     portfolio_preset = get_trend_preset(args.preset)
                 except KeyError:
                     available = ", ".join(list_preset_slugs())
-                    raise TrendCLIError(
-                        f"Unknown preset '{args.preset}'. Available: {available}"
-                    )
+                    raise TrendCLIError(f"Unknown preset '{args.preset}'. Available: {available}")
                 apply_trend_preset(cfg, portfolio_preset)
             if getattr(args, "universe", None):
                 mask, universe_spec = load_universe(args.universe, prices=returns_df)
@@ -2331,9 +2245,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                     "The 'report' command requires --out for artefacts or --output for the HTML report"
                 )
             formats = args.formats or DEFAULT_REPORT_FORMATS
-            _prepare_export_config(
-                cfg, export_dir, formats if export_dir is not None else None
-            )
+            _prepare_export_config(cfg, export_dir, formats if export_dir is not None else None)
             run_pipeline = _legacy_callable("_run_pipeline", _run_pipeline)
             result, run_id, _ = run_pipeline(
                 cfg,
@@ -2346,9 +2258,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
             print_summary = _legacy_callable("_print_summary", _print_summary)
             print_summary(cfg, result)
             if export_dir is not None:
-                write_report = _legacy_callable(
-                    "_write_report_files", _write_report_files
-                )
+                write_report = _legacy_callable("_write_report_files", _write_report_files)
                 write_report(export_dir, cfg, result, run_id=run_id)
             report_path = _resolve_report_output_path(args.output, export_dir, run_id)
             report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2377,9 +2287,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
 
         if command == "stress":
             if not args.scenario:
-                raise TrendCLIError(
-                    "The --scenario option is required for the 'stress' command"
-                )
+                raise TrendCLIError("The --scenario option is required for the 'stress' command")
             _adjust_for_scenario(cfg, args.scenario)
             export_dir = Path(args.out) if args.out else None
             _prepare_export_config(cfg, export_dir, None)
@@ -2396,9 +2304,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
             print_summary = _legacy_callable("_print_summary", _print_summary)
             print_summary(cfg, result)
             if export_dir:
-                write_report = _legacy_callable(
-                    "_write_report_files", _write_report_files
-                )
+                write_report = _legacy_callable("_write_report_files", _write_report_files)
                 write_report(export_dir, cfg, result, run_id=run_id)
             _finalize_config_coverage()
             return 0
