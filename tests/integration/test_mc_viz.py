@@ -11,6 +11,8 @@ import pytest
 
 CHARTS = ("fan", "path_dist", "risk_return")
 
+pytestmark = [pytest.mark.integration, pytest.mark.mc_viz_integration]
+
 
 def _fixture_bundle_dir() -> Path:
     return Path(__file__).resolve().parents[1] / "fixtures" / "mc_bundle"
@@ -145,12 +147,19 @@ def test_mc_viz_cli_errors_when_nav_paths_missing_for_path_dist(tmp_path: Path) 
     result = _run_mc_viz(missing_nav_bundle, out_dir, charts="fan,path_dist", png=False)
 
     assert result.returncode != 0
-    assert "Chart(s) path_dist require nav_paths.parquet in the MC bundle." in result.stderr
-    assert "Add nav_paths.parquet or remove these chart(s) from --charts." in result.stderr
+    assert (
+        "Chart(s) path_dist require nav_paths.parquet in the MC bundle."
+        in result.stderr
+    )
+    assert (
+        "Add nav_paths.parquet or remove these chart(s) from --charts." in result.stderr
+    )
 
 
 @pytest.mark.integration
-def test_mc_viz_cli_full_run_with_html_markers_and_chart_consistency(tmp_path: Path) -> None:
+def test_mc_viz_cli_full_run_with_html_markers_and_chart_consistency(
+    tmp_path: Path,
+) -> None:
     """Full run asserts HTML markers, JSON payloads, and chart-set consistency."""
     bundle_dir = _fixture_bundle_dir()
     assert bundle_dir.is_dir()
@@ -198,7 +207,9 @@ def test_mc_viz_cli_full_run_with_html_markers_and_chart_consistency(tmp_path: P
 
 
 @pytest.mark.integration
-def test_mc_viz_cli_outputs_only_selected_chart_set_across_formats(tmp_path: Path) -> None:
+def test_mc_viz_cli_outputs_only_selected_chart_set_across_formats(
+    tmp_path: Path,
+) -> None:
     bundle_dir = _fixture_bundle_dir()
     assert bundle_dir.is_dir()
 
@@ -226,7 +237,9 @@ def test_mc_viz_cli_outputs_only_selected_chart_set_across_formats(tmp_path: Pat
 
 
 @pytest.mark.integration
-def test_mc_viz_cli_renames_existing_plot_file_collision_without_overwrite(tmp_path: Path) -> None:
+def test_mc_viz_cli_renames_existing_plot_file_collision_without_overwrite(
+    tmp_path: Path,
+) -> None:
     bundle_dir = _fixture_bundle_dir()
     assert bundle_dir.is_dir()
 
@@ -243,11 +256,15 @@ def test_mc_viz_cli_renames_existing_plot_file_collision_without_overwrite(tmp_p
     assert existing_path.read_bytes() == original_bytes
     assert (plots_dir / "risk_return-1.json").is_file()
     assert "risk_return.json" in result.stderr
-    assert "Renamed extracted 'risk_return.json' to 'risk_return-1.json'" in result.stderr
+    assert (
+        "Renamed extracted 'risk_return.json' to 'risk_return-1.json'" in result.stderr
+    )
 
 
 @pytest.mark.integration
-def test_mc_viz_cli_errors_when_nav_paths_missing_for_required_chart(tmp_path: Path) -> None:
+def test_mc_viz_cli_errors_when_nav_paths_missing_for_required_chart(
+    tmp_path: Path,
+) -> None:
     bundle_dir = _fixture_bundle_dir()
     assert bundle_dir.is_dir()
     missing_nav_bundle_dir = tmp_path / "bundle_no_nav_paths"
@@ -258,8 +275,13 @@ def test_mc_viz_cli_errors_when_nav_paths_missing_for_required_chart(tmp_path: P
     result = _run_mc_viz(missing_nav_bundle_dir, out_dir, charts="fan,path_dist")
 
     assert result.returncode != 0
-    assert "Chart(s) path_dist require nav_paths.parquet in the MC bundle." in result.stderr
-    assert "Add nav_paths.parquet or remove these chart(s) from --charts." in result.stderr
+    assert (
+        "Chart(s) path_dist require nav_paths.parquet in the MC bundle."
+        in result.stderr
+    )
+    assert (
+        "Add nav_paths.parquet or remove these chart(s) from --charts." in result.stderr
+    )
 
 
 @pytest.mark.integration
@@ -416,7 +438,9 @@ def test_mc_viz_cli_generates_png_when_kaleido_available(tmp_path: Path) -> None
 
 
 @pytest.mark.integration
-def test_mc_viz_cli_fails_when_kaleido_missing_and_png_requested(tmp_path: Path) -> None:
+def test_mc_viz_cli_fails_when_kaleido_missing_and_png_requested(
+    tmp_path: Path,
+) -> None:
     """Graceful degradation when --png is requested but kaleido unavailable."""
     bundle_dir = _fixture_bundle_dir()
     out_dir = tmp_path / "out"
@@ -474,7 +498,9 @@ def test_mc_viz_cli_warns_and_continues_when_nav_paths_missing_for_non_required_
     (missing_nav_bundle / "nav_paths.parquet").unlink()
 
     out_dir = tmp_path / "out"
-    result = _run_mc_viz(missing_nav_bundle, out_dir, charts="fan,risk_return", png=False)
+    result = _run_mc_viz(
+        missing_nav_bundle, out_dir, charts="fan,risk_return", png=False
+    )
 
     assert result.returncode == 0, result.stderr
     assert "Missing optional nav_paths.parquet file in MC bundle:" in result.stderr
