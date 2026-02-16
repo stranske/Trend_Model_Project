@@ -29,7 +29,7 @@ classifiers = [
 dependencies = [
     "PyYAML==6.0.3",
     "fpdf2==2.8.5",
-    "hypothesis==6.151.5",
+    "hypothesis==6.151.8",
     "ipywidgets==8.1.8",
     "joblib==1.5.3",
     "jsonschema==4.26.0",
@@ -82,7 +82,7 @@ exclude = ["Old*", "retired*", "**/Old*", "**/retired*"]
 app = [
     "streamlit==1.54.0",
     "streamlit-sortables==0.3.1",
-    "fastapi==0.128.5",
+    "fastapi==0.129.0",
     "uvicorn[standard]==0.40.0",
     "httpx==0.28.1",
 ]
@@ -93,7 +93,7 @@ llm = [
     "langchain-openai>=0.3,<1.2",
     "langchain-anthropic>=0.3,<1.4",
     "langchain-ollama>=0.3,<1.1",
-    "langsmith==0.6.9",
+    "langsmith==0.7.3",
 ]
 notebooks = [
     "ipyfilechooser==0.6.0",
@@ -114,7 +114,7 @@ dev = [
     "pytest-xdist==3.8.0",
     "packaging==25.0",
     "streamlit==1.54.0",
-    "fastapi==0.128.5",
+    "fastapi==0.129.0",
     "types-PyYAML==6.0.12.20250915",
     "types-requests==2.32.4.20260107",
     "httpx==0.28.1",
