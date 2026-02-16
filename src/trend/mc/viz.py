@@ -74,10 +74,11 @@ def check_png_dependency() -> bool:
     try:
         if importlib.util.find_spec("kaleido") is None:
             return False
-        import plotly.graph_objects as go  # noqa: WPS433
-        import plotly.io as pio  # noqa: WPS433
+        import plotly.io as pio
 
-        fig = go.Figure(data=[go.Scatter(x=[0, 1], y=[0, 1])])
+        # Use a minimal figure dict (not `go.Figure`) to avoid triggering
+        # template initialization during dependency checks.
+        fig = {"data": [{"type": "scatter", "x": [0, 1], "y": [0, 1]}]}
         pio.to_image(fig, format="png", validate=True)
         return True
     except Exception:  # noqa: BLE001 – broad catch intentional
@@ -213,6 +214,36 @@ def _load_mc_nav_paths_frame(bundle: str | Path) -> pd.DataFrame | None:
     nav_path = bundle_dir / "nav_paths.parquet"
     if not nav_path.exists():
         return None
+    return _read_mc_frame(nav_path, label="nav_paths")
+
+
+def _available_fold_nav_paths(bundle_dir: Path) -> list[Path]:
+    return sorted(bundle_dir.glob("nav_paths_fold_*.parquet"))
+
+
+def _load_fold_nav_paths_frame(bundle_dir: Path, fold_id: int) -> pd.DataFrame:
+    nav_path = bundle_dir / f"nav_paths_fold_{fold_id}.parquet"
+    if not nav_path.exists():
+        available = _available_fold_nav_paths(bundle_dir)
+        available_text = ", ".join(p.name for p in available) if available else "(none)"
+        raise TrendCLIError(
+            f"Requested --fold {fold_id} but '{nav_path.name}' was not found in the bundle. "
+            f"Available fold nav paths: {available_text}."
+        )
+    return _read_mc_frame(nav_path, label=f"nav_paths_fold_{fold_id}")
+
+
+def _load_nav_paths_override(nav_paths: str | Path) -> pd.DataFrame:
+    nav_path = Path(nav_paths).expanduser().resolve()
+    if not nav_path.exists():
+        raise TrendCLIError(f"Requested --nav-paths file does not exist: {nav_path}")
+    if not nav_path.is_file():
+        raise TrendCLIError(f"Requested --nav-paths path is not a file: {nav_path}")
+    if nav_path.suffix.lower() != ".parquet":
+        raise TrendCLIError(
+            f"Unsupported --nav-paths format '{nav_path.suffix}' for '{nav_path.name}'. "
+            "Only parquet files are supported."
+        )
     return _read_mc_frame(nav_path, label="nav_paths")
 
 
@@ -361,6 +392,9 @@ def _export_mc_chart_artifacts(
 def _validate_nav_paths(
     bundle_path: str | Path,
     selected_charts: list[str],
+    *,
+    fold_id: int | None,
+    nav_paths: str | Path | None,
 ) -> tuple[pd.DataFrame | None, bool]:
     """Load nav_paths and validate against chart requirements.
 
@@ -372,11 +406,31 @@ def _validate_nav_paths(
     from trend.mc.io import (
         MCNavPathsIOError,
         load_nav_paths_frame,
+        validate_nav_paths_df,
         validate_nav_paths_requirement,
     )
 
     try:
-        nav_paths_frame = load_nav_paths_frame(bundle_path)
+        bundle_dir = Path(bundle_path).expanduser().resolve()
+        if nav_paths is not None:
+            nav_paths_frame = validate_nav_paths_df(_load_nav_paths_override(nav_paths))
+        elif fold_id is not None:
+            nav_paths_frame = validate_nav_paths_df(_load_fold_nav_paths_frame(bundle_dir, fold_id))
+        else:
+            nav_paths_frame = load_nav_paths_frame(bundle_path)
+            if nav_paths_frame is None and set(selected_charts).intersection(
+                NAV_PATH_REQUIRED_CHARTS
+            ):
+                fold_paths = _available_fold_nav_paths(bundle_dir)
+                if fold_paths:
+                    names = ", ".join(p.name for p in fold_paths[:5])
+                    if len(fold_paths) > 5:
+                        names = f"{names}, ..."
+                    raise TrendCLIError(
+                        "nav_paths.parquet is missing, but fold-exported NAV-path files were found "
+                        f"({names}). Re-run with --fold <id> to select a fold, or provide "
+                        "--nav-paths <file> to point at a specific nav_paths parquet file."
+                    )
         validate_nav_paths_requirement(
             selected_charts,
             nav_paths_frame,
@@ -404,30 +458,42 @@ def execute_mc_viz(
 ) -> int:
     """Execute Monte Carlo visualization artifact generation.
 
-    This function is the shared API surface that both CLI entry points call
-    for ``mc viz`` execution.
+    Public API contract
+    -------------------
+    The parameter list for this function is intentionally stable because
+    downstream tooling (and tests) relies on it.
 
-    Parameters
-    ----------
-    bundle_path
-        Filesystem path to the Monte Carlo export bundle directory containing
-        required input artifacts.
-    out_dir
-        Destination output directory where visualization artifacts are written.
-    charts
-        Requested chart identifiers, provided as either a comma-separated string
-        (for CLI compatibility) or a sequence of individual chart IDs.
-    html
-        When ``True``, generate HTML chart artifacts.
-    json
-        When ``True``, generate JSON chart artifacts.
-    png
-        When ``True``, generate PNG chart artifacts.
+    For CLI-only extensions (for example fold-nav-path selection), prefer
+    calling :func:`execute_mc_viz_cli`.
+    """
 
-    Returns
-    -------
-    int
-        Conventional CLI status code where ``0`` represents success.
+    return execute_mc_viz_cli(
+        bundle_path=bundle_path,
+        out_dir=out_dir,
+        charts=charts,
+        fold_id=None,
+        nav_paths=None,
+        html=html,
+        json=json,
+        png=png,
+    )
+
+
+def execute_mc_viz_cli(
+    bundle_path: str | Path,
+    out_dir: str | Path,
+    charts: Sequence[str] | str,
+    *,
+    fold_id: int | None,
+    nav_paths: str | Path | None,
+    html: bool,
+    json: bool,
+    png: bool,
+) -> int:
+    """CLI-oriented Monte Carlo viz execution.
+
+    This entry point extends :func:`execute_mc_viz` with optional helpers used
+    by the ``trend mc viz`` CLI (for example selecting fold-exported NAV paths).
     """
     # -- Output flag validation ------------------------------------------------
     if not any((html, json, png)):
@@ -457,7 +523,12 @@ def execute_mc_viz(
     selected_charts = _parse_mc_chart_selection(charts)
 
     # -- Nav-paths validation --------------------------------------------------
-    nav_paths_frame, uses_fallback_nav_data = _validate_nav_paths(bundle_path, selected_charts)
+    nav_paths_frame, uses_fallback_nav_data = _validate_nav_paths(
+        bundle_path,
+        selected_charts,
+        fold_id=fold_id,
+        nav_paths=nav_paths,
+    )
 
     # -- Build charts ----------------------------------------------------------
     chart_builders = _mc_chart_builders()

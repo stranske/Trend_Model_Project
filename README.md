@@ -151,6 +151,11 @@ trend mc viz --bundle <path> --out <dir> --charts fan,path_dist,risk_return --ht
 - `--json`: Write JSON chart files to `<out>/plots/*.json`.
 - `--png`: Write PNG chart files to `<out>/plots/*.png`.
 
+NAV-path selection options:
+
+- `--fold <id>`: Use fold-exported `nav_paths_fold_<id>.parquet` when the bundle comes from a fold run.
+- `--nav-paths <file>`: Use an explicit `*.parquet` NAV-path file instead of `<bundle>/nav_paths.parquet`.
+
 ### NAV-Path Utilities and `mc viz` Contracts
 
 Use the NAV-path helpers from `trend.mc.io` instead of re-implementing loading/validation logic:
@@ -165,9 +170,19 @@ from trend.mc.io import (
 nav_paths = load_nav_paths(
     "tests/fixtures/mc_bundle",
     missing_parquet=MISSING_NAV_PATHS_RAISE,
-    required_columns=("date", "path_id", "nav"),
 )
-validated = validate_nav_paths_df(nav_paths, required_columns=("date", "path_id", "nav"))
+validated = validate_nav_paths_df(nav_paths)
+
+# Canonical `nav_paths` shape:
+# - Wide DataFrame
+# - Datetime-like index
+# - One column per simulated path (optionally MultiIndex columns with levels like (path, asset="NAV"))
+# - Values normalized so each path starts at 1.0
+
+# Optional: convert wide NAV paths to long form for downstream charts/diagnostics.
+from trend_analysis.viz.adapters import make_paths
+
+paths_long = make_paths(validated)
 ```
 
 Missing `nav_paths.parquet` contract:
