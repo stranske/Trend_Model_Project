@@ -3,6 +3,9 @@ name: MC Viz Integration
 on:
   pull_request:
     paths:
+      - "pyproject.toml"
+      - "requirements.lock"
+      - "pytest.ini"
       - "src/trend/mc/**"
       - "src/trend/cli.py"
       - "src/trend_analysis/monte_carlo/**"

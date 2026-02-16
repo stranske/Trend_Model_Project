@@ -134,7 +134,6 @@ def _expected_png_paths(plots_dir: Path, charts: tuple[str, ...]) -> list[Path]:
     return [plots_dir / f"{chart}.png" for chart in charts]
 
 
-@pytest.mark.integration
 def test_mc_viz_cli_errors_when_nav_paths_missing_for_path_dist(tmp_path: Path) -> None:
     """Missing nav_paths.parquet for path_dist -> non-zero exit code."""
     bundle_dir = _fixture_bundle_dir()
@@ -156,7 +155,6 @@ def test_mc_viz_cli_errors_when_nav_paths_missing_for_path_dist(tmp_path: Path) 
     )
 
 
-@pytest.mark.integration
 def test_mc_viz_cli_full_run_with_html_markers_and_chart_consistency(
     tmp_path: Path,
 ) -> None:
@@ -206,7 +204,6 @@ def test_mc_viz_cli_full_run_with_html_markers_and_chart_consistency(
         assert "PNG export skipped" in result.stderr
 
 
-@pytest.mark.integration
 def test_mc_viz_cli_outputs_only_selected_chart_set_across_formats(
     tmp_path: Path,
 ) -> None:
@@ -236,7 +233,6 @@ def test_mc_viz_cli_outputs_only_selected_chart_set_across_formats(
         assert "PNG export skipped" in result.stderr
 
 
-@pytest.mark.integration
 def test_mc_viz_cli_renames_existing_plot_file_collision_without_overwrite(
     tmp_path: Path,
 ) -> None:
@@ -261,7 +257,6 @@ def test_mc_viz_cli_renames_existing_plot_file_collision_without_overwrite(
     )
 
 
-@pytest.mark.integration
 def test_mc_viz_cli_errors_when_nav_paths_missing_for_required_chart(
     tmp_path: Path,
 ) -> None:
@@ -284,7 +279,6 @@ def test_mc_viz_cli_errors_when_nav_paths_missing_for_required_chart(
     )
 
 
-@pytest.mark.integration
 def test_mc_viz_cli_error_message_lists_exact_missing_filename(tmp_path: Path) -> None:
     """Error message contains the literal string 'nav_paths.parquet'."""
     bundle_dir = _fixture_bundle_dir()
@@ -299,7 +293,6 @@ def test_mc_viz_cli_error_message_lists_exact_missing_filename(tmp_path: Path) -
     assert "nav_paths.parquet" in result.stderr
 
 
-@pytest.mark.integration
 def test_mc_viz_cli_error_lists_multiple_missing_files(tmp_path: Path) -> None:
     """When multiple required inputs are absent, all are listed."""
     empty_bundle = tmp_path / "empty_bundle"
@@ -313,7 +306,6 @@ def test_mc_viz_cli_error_lists_multiple_missing_files(tmp_path: Path) -> None:
     assert "results" in result.stderr
 
 
-@pytest.mark.integration
 def test_mc_viz_cli_fan_missing_required_inputs(tmp_path: Path) -> None:
     """fan chart with missing required inputs -> non-zero exit and error."""
     empty_bundle = tmp_path / "empty_bundle"
@@ -326,7 +318,6 @@ def test_mc_viz_cli_fan_missing_required_inputs(tmp_path: Path) -> None:
     assert "summary" in result.stderr or "results" in result.stderr
 
 
-@pytest.mark.integration
 def test_mc_viz_cli_risk_return_missing_required_inputs(tmp_path: Path) -> None:
     """risk_return chart with missing required inputs -> non-zero exit."""
     empty_bundle = tmp_path / "empty_bundle"
@@ -344,7 +335,6 @@ def test_mc_viz_cli_risk_return_missing_required_inputs(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.integration
 def test_mc_viz_cli_creates_plots_directory(tmp_path: Path) -> None:
     """On success, <out_dir>/plots/ is created."""
     bundle_dir = _fixture_bundle_dir()
@@ -356,7 +346,6 @@ def test_mc_viz_cli_creates_plots_directory(tmp_path: Path) -> None:
     assert (out_dir / "plots").is_dir()
 
 
-@pytest.mark.integration
 def test_mc_viz_cli_generates_html_artifacts(tmp_path: Path) -> None:
     """HTML files matching *fan*.html etc. are generated when --html is set."""
     bundle_dir = _fixture_bundle_dir()
@@ -371,7 +360,6 @@ def test_mc_viz_cli_generates_html_artifacts(tmp_path: Path) -> None:
         assert len(matches) >= 1, f"No HTML file found for chart '{chart}'"
 
 
-@pytest.mark.integration
 def test_mc_viz_cli_generates_json_artifacts(tmp_path: Path) -> None:
     """JSON files matching *fan*.json etc. are generated when --json is set."""
     bundle_dir = _fixture_bundle_dir()
@@ -386,7 +374,6 @@ def test_mc_viz_cli_generates_json_artifacts(tmp_path: Path) -> None:
         assert len(matches) >= 1, f"No JSON file found for chart '{chart}'"
 
 
-@pytest.mark.integration
 def test_mc_viz_cli_correct_artifact_count(tmp_path: Path) -> None:
     """3 HTML + 3 JSON for --charts fan,path_dist,risk_return --html --json."""
     bundle_dir = _fixture_bundle_dir()
@@ -402,7 +389,6 @@ def test_mc_viz_cli_correct_artifact_count(tmp_path: Path) -> None:
     assert len(json_files) == 3
 
 
-@pytest.mark.integration
 def test_mc_viz_cli_artifact_filenames(tmp_path: Path) -> None:
     """Artifact filenames follow the expected naming convention."""
     bundle_dir = _fixture_bundle_dir()
@@ -422,7 +408,6 @@ def test_mc_viz_cli_artifact_filenames(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.integration
 @pytest.mark.skipif(not _kaleido_available(), reason="kaleido not functional")
 def test_mc_viz_cli_generates_png_when_kaleido_available(tmp_path: Path) -> None:
     """PNGs generated (>=3) when kaleido works and --png is set."""
@@ -437,7 +422,6 @@ def test_mc_viz_cli_generates_png_when_kaleido_available(tmp_path: Path) -> None
     assert len(png_files) >= 3
 
 
-@pytest.mark.integration
 def test_mc_viz_cli_fails_when_kaleido_missing_and_png_requested(
     tmp_path: Path,
 ) -> None:
@@ -453,7 +437,6 @@ def test_mc_viz_cli_fails_when_kaleido_missing_and_png_requested(
     assert len(list(plots_dir.glob("*.png"))) == 0
 
 
-@pytest.mark.integration
 def test_mc_viz_cli_error_contains_install_hint_when_kaleido_missing(
     tmp_path: Path,
 ) -> None:
@@ -468,7 +451,6 @@ def test_mc_viz_cli_error_contains_install_hint_when_kaleido_missing(
     assert "pip install kaleido" in result.stderr
 
 
-@pytest.mark.integration
 def test_mc_viz_cli_no_png_when_flag_not_set(tmp_path: Path) -> None:
     """No PNG files when --png is not set, regardless of kaleido."""
     bundle_dir = _fixture_bundle_dir()
@@ -487,7 +469,6 @@ def test_mc_viz_cli_no_png_when_flag_not_set(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.integration
 def test_mc_viz_cli_warns_and_continues_when_nav_paths_missing_for_non_required_charts(
     tmp_path: Path,
 ) -> None:
@@ -510,7 +491,6 @@ def test_mc_viz_cli_warns_and_continues_when_nav_paths_missing_for_non_required_
     assert (out_dir / "plots" / "risk_return.html").is_file()
 
 
-@pytest.mark.integration
 def test_mc_viz_cli_creates_nested_output_directory_tree(tmp_path: Path) -> None:
     """Deeply nested output directories are created automatically."""
     bundle_dir = _fixture_bundle_dir()
@@ -526,7 +506,6 @@ def test_mc_viz_cli_creates_nested_output_directory_tree(tmp_path: Path) -> None
     assert (plots_dir / "fan.json").is_file()
 
 
-@pytest.mark.integration
 def test_mc_viz_cli_skips_existing_plot_file_without_overwrite(tmp_path: Path) -> None:
     """Pre-existing files in plots/ are renamed to avoid collision."""
     bundle_dir = _fixture_bundle_dir()
