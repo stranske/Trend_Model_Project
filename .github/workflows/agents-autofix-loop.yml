@@ -80,8 +80,6 @@ jobs:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
 
-
-
       - name: Security gate - prompt injection guard
         id: security_gate
         uses: actions/github-script@v8
