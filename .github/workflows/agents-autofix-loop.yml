@@ -529,7 +529,6 @@ jobs:
       - name: Checkout (for retry helpers)
         uses: actions/checkout@v6
         with:
-
           token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
             .github/scripts/github-api-with-retry.js
