@@ -64,7 +64,6 @@ jobs:
       - name: Checkout (for security gate)
         uses: actions/checkout@v6
         with:
-
           token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
             .github/agents/registry.yml
