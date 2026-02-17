@@ -422,7 +422,7 @@ rpds-py==0.30.0
     # via
     #   jsonschema
     #   referencing
-ruff==0.15.0
+ruff==0.15.1
     # via trend-model (pyproject.toml)
 scipy==1.17.0
     # via trend-model (pyproject.toml)
