@@ -64,6 +64,7 @@ jobs:
       - name: Checkout (for security gate)
         uses: actions/checkout@v6
         with:
+
           token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
             .github/agents/registry.yml
@@ -79,6 +80,8 @@ jobs:
         with:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
+
+
 
       - name: Security gate - prompt injection guard
         id: security_gate
@@ -269,10 +272,17 @@ jobs:
 
               routingLabelCandidates = entriesForRouting.map(({ label }) => label);
               routingAgentKeys = Array.from(
-                new Set(routingEntries.map(({ key }) => key).filter(Boolean)),
+                new Set(entriesForRouting.map(({ key }) => key).filter(Boolean)),
               );
             } catch (error) {
-              routingLabelCandidates = labelObjects;
+              routingLabelCandidates = labelObjects.filter((label) => {
+                const normalized = (label?.name || '').trim().toLowerCase();
+                if (!normalized.startsWith(agentPrefix)) {
+                  return false;
+                }
+                const key = normalized.slice(agentPrefix.length);
+                return key && !nonRoutingAgentKeys.has(key);
+              });
               routingAgentKeys = Array.from(
                 new Set(
                   labels
@@ -527,6 +537,7 @@ jobs:
       - name: Checkout (for retry helpers)
         uses: actions/checkout@v6
         with:
+
           token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
             .github/scripts/github-api-with-retry.js
@@ -614,6 +625,7 @@ jobs:
       - name: Checkout (for retry helpers)
         uses: actions/checkout@v6
         with:
+
           token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
             .github/scripts/github-api-with-retry.js
