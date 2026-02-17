@@ -64,6 +64,7 @@ jobs:
       - name: Checkout (for security gate)
         uses: actions/checkout@v6
         with:
+
           token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
             .github/agents/registry.yml
@@ -79,6 +80,8 @@ jobs:
         with:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
+
+
 
       - name: Security gate - prompt injection guard
         id: security_gate
@@ -527,6 +530,7 @@ jobs:
       - name: Checkout (for retry helpers)
         uses: actions/checkout@v6
         with:
+
           token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
             .github/scripts/github-api-with-retry.js
@@ -614,6 +618,7 @@ jobs:
       - name: Checkout (for retry helpers)
         uses: actions/checkout@v6
         with:
+
           token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
             .github/scripts/github-api-with-retry.js
