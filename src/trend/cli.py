@@ -501,6 +501,22 @@ def build_parser(
         default="fan,path_dist,risk_return",
         help="Comma-separated chart identifiers (fan,path_dist,risk_return)",
     )
+    nav_paths_group = mc_viz_p.add_mutually_exclusive_group()
+    nav_paths_group.add_argument(
+        "--fold",
+        type=int,
+        help=(
+            "Fold id to load fold-exported NAV paths (nav_paths_fold_<id>.parquet) from "
+            "the bundle; when provided, this takes precedence over the bundle's "
+            "nav_paths.parquet."
+        ),
+    )
+    nav_paths_group.add_argument(
+        "--nav-paths",
+        type=Path,
+        dest="nav_paths",
+        help="Explicit path to a nav_paths parquet file to use instead of bundle nav_paths.parquet.",
+    )
     mc_viz_p.add_argument(
         "--html",
         action="store_true",
@@ -1645,7 +1661,11 @@ def _confirm_risky_patch(patch: ConfigPatch, *, no_confirm: bool) -> None:
 
 def _validate_mc_viz_output_flags(args: argparse.Namespace) -> None:
     if not any(
-        (getattr(args, "html", False), getattr(args, "json", False), getattr(args, "png", False))
+        (
+            getattr(args, "html", False),
+            getattr(args, "json", False),
+            getattr(args, "png", False),
+        )
     ):
         raise TrendCLIError(
             "The 'mc viz' command requires at least one output flag: --html, --json, or --png"
@@ -1701,7 +1721,9 @@ def _load_mc_results_frame(bundle_dir: Path) -> pd.DataFrame:
     return _load_mc_frame(bundle_dir, stem="results")
 
 
-def _load_mc_bundle_frames(bundle: str | os.PathLike[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
+def _load_mc_bundle_frames(
+    bundle: str | os.PathLike[str],
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     bundle_dir = Path(bundle).expanduser().resolve()
     if not bundle_dir.exists():
         raise TrendCLIError(f"MC bundle directory does not exist: {bundle_dir}")
@@ -1875,12 +1897,14 @@ def _inject_mc_html_chart_markers(
 
 
 def _run_mc_viz_command(args: argparse.Namespace) -> int:
-    from trend.mc.viz import execute_mc_viz
+    from trend.mc.viz import execute_mc_viz_cli
 
-    return execute_mc_viz(
+    return execute_mc_viz_cli(
         bundle_path=args.bundle,
         out_dir=args.out,
         charts=args.charts,
+        fold_id=getattr(args, "fold", None),
+        nav_paths=getattr(args, "nav_paths", None),
         html=args.html,
         json=args.json,
         png=args.png,

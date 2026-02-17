@@ -130,7 +130,9 @@ def test_mc_viz_parser_requires_out_flag() -> None:
     assert excinfo.value.code == 2
 
 
-def test_mc_viz_requires_at_least_one_output_flag(capsys: pytest.CaptureFixture[str]) -> None:
+def test_mc_viz_requires_at_least_one_output_flag(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     exit_code = main(["mc", "viz", "--bundle", "bundle_dir", "--out", "export_dir"])
 
     assert exit_code == 2
@@ -408,6 +410,166 @@ def test_mc_viz_errors_when_path_dist_requires_nav_paths_parquet(
     err = capsys.readouterr().err
     assert "nav_paths.parquet" in err
     assert "path_dist" in err
+
+
+def test_mc_viz_loads_fold_nav_paths_when_requested(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    pd.DataFrame({"path_id": [1, 2], "terminal_nav": [112.0, 98.4]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+
+    (bundle_dir / "nav_paths_fold_2.parquet").write_text("placeholder", encoding="utf-8")
+
+    import trend.mc.viz as _mc_viz
+
+    monkeypatch.setattr(
+        _mc_viz.pd,
+        "read_parquet",
+        lambda _path: pd.DataFrame({0: [1.0, 1.1], 1: [1.0, 0.9]}),
+    )
+
+    exit_code = main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--charts",
+            "path_dist",
+            "--fold",
+            "2",
+            "--json",
+        ]
+    )
+
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "nav_paths_rows=2" in out
+
+
+def test_mc_viz_errors_when_fold_nav_paths_exist_but_no_selection_provided(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    pd.DataFrame({"path_id": [1, 2], "terminal_nav": [112.0, 98.4]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+    (bundle_dir / "nav_paths_fold_1.parquet").write_text("placeholder", encoding="utf-8")
+
+    exit_code = main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--charts",
+            "path_dist",
+            "--html",
+        ]
+    )
+
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert "nav_paths.parquet" in err
+    assert "nav_paths_fold_" in err
+    assert "--fold" in err
+
+
+def test_mc_viz_loads_nav_paths_override_when_requested(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    pd.DataFrame({"path_id": [1, 2], "terminal_nav": [112.0, 98.4]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+
+    nav_override = tmp_path / "override.parquet"
+    nav_override.write_text("placeholder", encoding="utf-8")
+
+    import trend.mc.viz as _mc_viz
+
+    monkeypatch.setattr(
+        _mc_viz.pd,
+        "read_parquet",
+        lambda _path: pd.DataFrame({0: [1.0, 1.1], 1: [1.0, 0.9]}),
+    )
+
+    exit_code = main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--charts",
+            "fan",
+            "--nav-paths",
+            str(nav_override),
+            "--json",
+        ]
+    )
+
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "nav_paths_rows=2" in out
+
+
+def test_mc_viz_errors_when_nav_paths_override_is_not_parquet(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    pd.DataFrame({"metric": ["cagr"], "value": [0.12]}).to_csv(
+        bundle_dir / "summary.csv", index=False
+    )
+    pd.DataFrame({"path_id": [1, 2], "terminal_nav": [112.0, 98.4]}).to_csv(
+        bundle_dir / "results.csv", index=False
+    )
+
+    nav_override = tmp_path / "override.txt"
+    nav_override.write_text("not parquet", encoding="utf-8")
+
+    exit_code = main(
+        [
+            "mc",
+            "viz",
+            "--bundle",
+            str(bundle_dir),
+            "--out",
+            str(tmp_path / "exports"),
+            "--charts",
+            "fan",
+            "--nav-paths",
+            str(nav_override),
+            "--html",
+        ]
+    )
+
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert "--nav-paths" in err
+    assert "Only parquet" in err
 
 
 @pytest.mark.parametrize("suffix", ("csv", "json"))

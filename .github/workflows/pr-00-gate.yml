@@ -47,6 +47,9 @@ jobs:
       format_check: false  # Using ruff for formatting
       working-directory: "."
       artifact-prefix: "gate-"
+      # Keep PR Gate fast: the MC-viz CLI integration suite runs in a dedicated
+      # workflow triggered by relevant file changes.
+      pytest_markers: "not mc_viz_integration"
       # Enable soft coverage gate for trend tracking and hotspot reporting
       enable-soft-gate: true
     secrets: inherit
