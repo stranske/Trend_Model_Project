@@ -131,7 +131,7 @@ httpx==0.28.1
     #   openai
 httpx-sse==0.4.3
     # via langchain-community
-hypothesis==6.151.5
+hypothesis==6.151.9
     # via trend-model (pyproject.toml)
 identify==2.6.16
     # via pre-commit
