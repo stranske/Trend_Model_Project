@@ -146,13 +146,8 @@ def test_mc_viz_cli_errors_when_nav_paths_missing_for_path_dist(tmp_path: Path) 
     result = _run_mc_viz(missing_nav_bundle, out_dir, charts="fan,path_dist", png=False)
 
     assert result.returncode != 0
-    assert (
-        "Chart(s) path_dist require nav_paths.parquet in the MC bundle."
-        in result.stderr
-    )
-    assert (
-        "Add nav_paths.parquet or remove these chart(s) from --charts." in result.stderr
-    )
+    assert "Chart(s) path_dist require nav_paths.parquet in the MC bundle." in result.stderr
+    assert "Add nav_paths.parquet or remove these chart(s) from --charts." in result.stderr
 
 
 def test_mc_viz_cli_full_run_with_html_markers_and_chart_consistency(
@@ -252,9 +247,7 @@ def test_mc_viz_cli_renames_existing_plot_file_collision_without_overwrite(
     assert existing_path.read_bytes() == original_bytes
     assert (plots_dir / "risk_return-1.json").is_file()
     assert "risk_return.json" in result.stderr
-    assert (
-        "Renamed extracted 'risk_return.json' to 'risk_return-1.json'" in result.stderr
-    )
+    assert "Renamed extracted 'risk_return.json' to 'risk_return-1.json'" in result.stderr
 
 
 def test_mc_viz_cli_errors_when_nav_paths_missing_for_required_chart(
@@ -270,13 +263,8 @@ def test_mc_viz_cli_errors_when_nav_paths_missing_for_required_chart(
     result = _run_mc_viz(missing_nav_bundle_dir, out_dir, charts="fan,path_dist")
 
     assert result.returncode != 0
-    assert (
-        "Chart(s) path_dist require nav_paths.parquet in the MC bundle."
-        in result.stderr
-    )
-    assert (
-        "Add nav_paths.parquet or remove these chart(s) from --charts." in result.stderr
-    )
+    assert "Chart(s) path_dist require nav_paths.parquet in the MC bundle." in result.stderr
+    assert "Add nav_paths.parquet or remove these chart(s) from --charts." in result.stderr
 
 
 def test_mc_viz_cli_error_message_lists_exact_missing_filename(tmp_path: Path) -> None:
@@ -479,9 +467,7 @@ def test_mc_viz_cli_warns_and_continues_when_nav_paths_missing_for_non_required_
     (missing_nav_bundle / "nav_paths.parquet").unlink()
 
     out_dir = tmp_path / "out"
-    result = _run_mc_viz(
-        missing_nav_bundle, out_dir, charts="fan,risk_return", png=False
-    )
+    result = _run_mc_viz(missing_nav_bundle, out_dir, charts="fan,risk_return", png=False)
 
     assert result.returncode == 0, result.stderr
     assert "Missing optional nav_paths.parquet file in MC bundle:" in result.stderr
