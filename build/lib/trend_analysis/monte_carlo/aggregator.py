@@ -1,0 +1,857 @@
+"""Distribution aggregation helpers for Monte Carlo results."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Iterable, Literal, Mapping, Sequence, TypedDict, cast
+
+import numpy as np
+import pandas as pd
+
+from .results import RESULT_BASE_COLUMNS
+
+__all__ = [
+    "AGGREGATION_PATH_COLUMNS",
+    "AggregationFrameSchemas",
+    "BREACH_COLUMNS",
+    "BREACH_FRAME_SCHEMA",
+    "EXPECTED_SHORTFALL_COLUMNS",
+    "EXPECTED_SHORTFALL_FRAME_SCHEMA",
+    "PATH_COLUMNS",
+    "QUANTILE_COLUMNS",
+    "QUANTILES_FRAME_SCHEMA",
+    "aggregation_frame_schemas",
+    "BreachAggregationRow",
+    "MonteCarloAggregationResults",
+    "ExpectedShortfallAggregationRow",
+    "PathAggregationRow",
+    "QuantilesAggregationRow",
+    "aggregate_monte_carlo_results",
+    "build_breach_frame",
+    "build_expected_shortfall_frame",
+    "build_path_frame",
+    "build_quantiles_frame",
+    "breach_frame_schema",
+    "expected_shortfall_frame_schema",
+    "path_frame_schema",
+    "quantiles_frame_schema",
+]
+
+_DEFAULT_QUANTILES = (0.05, 0.5, 0.95)
+_Direction = Literal["lower", "upper"]
+_Tail = Literal["lower", "upper"]
+PathFrameSchema = tuple[str, ...]
+QuantilesFrameSchema = tuple[str, ...]
+BreachFrameSchema = tuple[str, ...]
+ExpectedShortfallFrameSchema = tuple[str, ...]
+
+PATH_COLUMNS = (
+    "strategy",
+    "path",
+    "fold",
+)
+AGGREGATION_PATH_COLUMNS = PATH_COLUMNS
+
+
+class QuantilesAggregationRow(TypedDict):
+    """Schema for a single quantiles aggregation row."""
+
+    strategy: Any
+    fold_id: Any
+    metric: str
+    quantile: float
+    value: float
+    paths: int
+
+
+class PathAggregationRow(TypedDict, total=False):
+    """Schema for a single per-path aggregation row."""
+
+    strategy: Any
+    path: Any
+    fold: Any
+
+
+class BreachAggregationRow(TypedDict):
+    """Schema for a single breach probability aggregation row."""
+
+    strategy: Any
+    fold_id: Any
+    metric: str
+    threshold: float
+    direction: Literal["lower", "upper"]
+    breach_probability: float
+    paths: int
+
+
+class ExpectedShortfallAggregationRow(TypedDict):
+    """Schema for a single expected shortfall aggregation row."""
+
+    strategy: Any
+    fold_id: Any
+    metric: str
+    tail: Literal["lower", "upper"]
+    alpha: float
+    threshold: float
+    expected_shortfall: float
+    paths: int
+
+
+class AggregationFrameSchemas(TypedDict):
+    """Schema definitions for all aggregation outputs."""
+
+    path: PathFrameSchema
+    quantiles: QuantilesFrameSchema
+    breach: BreachFrameSchema
+    expected_shortfall: ExpectedShortfallFrameSchema
+
+
+QUANTILE_COLUMNS = (
+    "strategy",
+    "fold_id",
+    "metric",
+    "quantile",
+    "value",
+    "paths",
+)
+QUANTILES_FRAME_SCHEMA = tuple(QUANTILE_COLUMNS)
+
+BREACH_COLUMNS = (
+    "strategy",
+    "fold_id",
+    "metric",
+    "threshold",
+    "direction",
+    "breach_probability",
+    "paths",
+)
+BREACH_FRAME_SCHEMA = tuple(BREACH_COLUMNS)
+
+EXPECTED_SHORTFALL_COLUMNS = (
+    "strategy",
+    "fold_id",
+    "metric",
+    "tail",
+    "alpha",
+    "threshold",
+    "expected_shortfall",
+    "paths",
+)
+EXPECTED_SHORTFALL_FRAME_SCHEMA = tuple(EXPECTED_SHORTFALL_COLUMNS)
+
+
+@dataclass(frozen=True)
+class MonteCarloAggregationResults:
+    """Container for aggregated Monte Carlo distributions."""
+
+    path_frame: pd.DataFrame
+    quantiles_frame: pd.DataFrame
+    breach_frame: pd.DataFrame
+    expected_shortfall_frame: pd.DataFrame
+
+
+def aggregate_monte_carlo_results(
+    results_frame: pd.DataFrame,
+    *,
+    quantiles: Sequence[float] | float | int | str | None = None,
+    breach_spec: Mapping[str, Any] | Sequence[float] | None = None,
+    expected_shortfall_spec: Mapping[str, Any] | float | int | None = None,
+) -> MonteCarloAggregationResults:
+    """Compute distribution summaries for Monte Carlo results."""
+
+    path_frame = build_path_frame(results_frame)
+    quantiles_frame = build_quantiles_frame(path_frame, quantiles)
+    breach_frame = build_breach_frame(path_frame, breach_spec)
+    expected_shortfall_frame = build_expected_shortfall_frame(path_frame, expected_shortfall_spec)
+    return MonteCarloAggregationResults(
+        path_frame=path_frame,
+        quantiles_frame=quantiles_frame,
+        breach_frame=breach_frame,
+        expected_shortfall_frame=expected_shortfall_frame,
+    )
+
+
+def aggregation_frame_schemas(results_frame: pd.DataFrame) -> AggregationFrameSchemas:
+    """Return column schemas for each aggregation output frame."""
+
+    return {
+        "path": path_frame_schema(results_frame),
+        "quantiles": quantiles_frame_schema(),
+        "breach": breach_frame_schema(),
+        "expected_shortfall": expected_shortfall_frame_schema(),
+    }
+
+
+def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
+    """Return per-path metrics with strategy/path/fold identifiers."""
+
+    metric_cols = _metric_columns(results_frame)
+    if results_frame.empty:
+        return pd.DataFrame(columns=list(path_frame_schema(results_frame)))
+
+    data: dict[str, Any] = {
+        "strategy": _select_strategy_column(results_frame),
+        "path": _coerce_column(results_frame, ("path", "path_id", "path_hash")),
+        "fold": _coerce_column(results_frame, ("fold", "fold_id", "fold_label"), default=None),
+    }
+    frame = pd.DataFrame(data).reset_index(drop=True)
+    if metric_cols:
+        metrics_frame = results_frame[metric_cols].apply(pd.to_numeric, errors="coerce")
+        frame = pd.concat([frame, metrics_frame.reset_index(drop=True)], axis=1)
+    schema = path_frame_schema(results_frame)
+    if schema:
+        frame = frame[list(schema)]
+    return _sort_frame(frame, ("strategy", "fold", "path"))
+
+
+def path_frame_schema(results_frame: pd.DataFrame) -> PathFrameSchema:
+    """Return the schema (column order) for the per-path aggregation frame."""
+
+    metric_cols = _metric_columns(results_frame)
+    return tuple(AGGREGATION_PATH_COLUMNS) + tuple(metric_cols)
+
+
+def quantiles_frame_schema() -> QuantilesFrameSchema:
+    """Return the schema (column order) for the quantiles aggregation frame."""
+
+    return QUANTILES_FRAME_SCHEMA
+
+
+def breach_frame_schema() -> BreachFrameSchema:
+    """Return the schema (column order) for the breach probability frame."""
+
+    return BREACH_FRAME_SCHEMA
+
+
+def expected_shortfall_frame_schema() -> ExpectedShortfallFrameSchema:
+    """Return the schema (column order) for the expected shortfall frame."""
+
+    return EXPECTED_SHORTFALL_FRAME_SCHEMA
+
+
+def build_quantiles_frame(
+    path_frame: pd.DataFrame,
+    quantiles: Sequence[float] | float | int | str | None,
+) -> pd.DataFrame:
+    """Compute quantile summaries per strategy and fold_id."""
+
+    path_frame = _ensure_path_columns(path_frame)
+    quantile_list = _coerce_quantiles(quantiles)
+    metric_cols = _path_metric_columns(path_frame)
+    schema = quantiles_frame_schema()
+    if path_frame.empty or not metric_cols:
+        return pd.DataFrame(columns=list(schema))
+
+    numeric = path_frame[metric_cols].apply(pd.to_numeric, errors="coerce")
+    finite_mask = np.isfinite(numeric.to_numpy(dtype=float))
+    finite_frame = pd.DataFrame(finite_mask, columns=metric_cols, index=numeric.index)
+    numeric = numeric.where(finite_frame)
+    group_keys = [path_frame["strategy"], path_frame["fold_id"]]
+    counts = finite_frame.groupby(group_keys, dropna=False).sum().astype(int)
+    quantiles_frame = numeric.groupby(group_keys, dropna=False).quantile(quantile_list)
+    quantiles_frame = quantiles_frame.reset_index()
+    if "quantile" not in quantiles_frame.columns:
+        candidate_cols = [
+            col
+            for col in quantiles_frame.columns
+            if col not in {"strategy", "fold_id", *metric_cols}
+        ]
+        if len(candidate_cols) == 1:
+            quantiles_frame = quantiles_frame.rename(columns={candidate_cols[0]: "quantile"})
+        elif len(quantile_list) == 1:
+            quantiles_frame["quantile"] = quantile_list[0]
+        else:
+            raise KeyError("Quantile column missing after aggregation.")
+    quantiles_long = quantiles_frame.melt(
+        id_vars=["strategy", "fold_id", "quantile"],
+        value_vars=metric_cols,
+        var_name="metric",
+        value_name="value",
+    )
+    counts_long = counts.reset_index().melt(
+        id_vars=["strategy", "fold_id"],
+        value_vars=metric_cols,
+        var_name="metric",
+        value_name="paths",
+    )
+    merge_keys = ["strategy", "fold_id"]
+    sentinel = object()
+    quantiles_long = _fill_missing_merge_keys(quantiles_long, merge_keys, sentinel)
+    counts_long = _fill_missing_merge_keys(counts_long, merge_keys, sentinel)
+    frame = quantiles_long.merge(counts_long, on=[*merge_keys, "metric"], how="left")
+    for col in merge_keys:
+        if col in frame.columns:
+            frame[col] = frame[col].where(frame[col] != sentinel, pd.NA)
+    frame = frame[list(schema)]
+    frame["quantile"] = pd.to_numeric(frame["quantile"], errors="coerce")
+    frame["value"] = pd.to_numeric(frame["value"], errors="coerce")
+    frame["paths"] = pd.to_numeric(frame["paths"], errors="coerce").fillna(0).astype(int)
+    return _sort_frame(frame, ("strategy", "fold_id", "metric", "quantile"))
+
+
+def build_breach_frame(
+    path_frame: pd.DataFrame,
+    breach_spec: Mapping[str, Any] | Sequence[float] | None,
+) -> pd.DataFrame:
+    """Compute breach probabilities for configured thresholds per fold_id."""
+
+    path_frame = _ensure_path_columns(path_frame)
+    metric_cols = _path_metric_columns(path_frame)
+    schema = breach_frame_schema()
+    if path_frame.empty or not metric_cols:
+        return pd.DataFrame(columns=list(schema))
+
+    specs = _coerce_breach_specs(breach_spec, metric_cols)
+    if not specs:
+        return pd.DataFrame(columns=list(schema))
+
+    grouped = path_frame.groupby(["strategy", "fold_id"], dropna=False)
+    rows: list[BreachAggregationRow] = []
+    # Loop per metric/threshold spec to avoid large intermediate frames for mixed directions.
+    for (strategy, fold), group in grouped:
+        for metric, thresholds, direction in specs:
+            if metric not in group.columns:
+                continue
+            values = _numeric_values(group[metric])
+            values = values[np.isfinite(values)]
+            total = int(values.size)
+            for threshold in thresholds:
+                if total == 0:
+                    prob = np.nan
+                elif direction == "upper":
+                    prob = float(np.mean(values >= threshold))
+                else:
+                    prob = float(np.mean(values <= threshold))
+                rows.append(
+                    {
+                        "strategy": strategy,
+                        "fold_id": fold,
+                        "metric": metric,
+                        "threshold": float(threshold),
+                        "direction": direction,
+                        "breach_probability": prob,
+                        "paths": total,
+                    }
+                )
+    frame = pd.DataFrame(rows, columns=list(schema))
+    if not frame.empty:
+        frame["threshold"] = pd.to_numeric(frame["threshold"], errors="coerce")
+        frame["breach_probability"] = pd.to_numeric(frame["breach_probability"], errors="coerce")
+        frame["paths"] = pd.to_numeric(frame["paths"], errors="coerce").fillna(0).astype(int)
+    return _sort_frame(frame, ("strategy", "fold_id", "metric", "threshold", "direction"))
+
+
+def build_expected_shortfall_frame(
+    path_frame: pd.DataFrame,
+    expected_shortfall_spec: Mapping[str, Any] | float | int | None,
+) -> pd.DataFrame:
+    """Compute expected shortfall (tail mean) for configured metrics per fold_id."""
+
+    path_frame = _ensure_path_columns(path_frame)
+    metric_cols = _path_metric_columns(path_frame)
+    schema = expected_shortfall_frame_schema()
+    if path_frame.empty or not metric_cols:
+        return pd.DataFrame(columns=list(schema))
+
+    specs = _coerce_shortfall_specs(expected_shortfall_spec, metric_cols)
+    if not specs:
+        return pd.DataFrame(columns=list(schema))
+
+    grouped = path_frame.groupby(["strategy", "fold_id"], dropna=False)
+    rows: list[ExpectedShortfallAggregationRow] = []
+    # Loop per metric/tail spec to keep per-tail thresholds explicit and readable.
+    for (strategy, fold), group in grouped:
+        for metric, alpha, tail in specs:
+            if metric not in group.columns:
+                continue
+            values = _numeric_values(group[metric])
+            values = values[np.isfinite(values)]
+            total = int(values.size)
+            if total == 0:
+                rows.append(
+                    {
+                        "strategy": strategy,
+                        "fold_id": fold,
+                        "metric": metric,
+                        "tail": tail,
+                        "alpha": float(alpha),
+                        "threshold": np.nan,
+                        "expected_shortfall": np.nan,
+                        "paths": 0,
+                    }
+                )
+                continue
+            if tail == "upper":
+                threshold = float(np.nanquantile(values, 1.0 - alpha))
+                tail_values = values[values >= threshold]
+            else:
+                threshold = float(np.nanquantile(values, alpha))
+                tail_values = values[values <= threshold]
+            expected_shortfall = float(np.mean(tail_values)) if tail_values.size else np.nan
+            rows.append(
+                {
+                    "strategy": strategy,
+                    "fold_id": fold,
+                    "metric": metric,
+                    "tail": tail,
+                    "alpha": float(alpha),
+                    "threshold": threshold,
+                    "expected_shortfall": expected_shortfall,
+                    "paths": total,
+                }
+            )
+    frame = pd.DataFrame(rows, columns=list(schema))
+    if not frame.empty:
+        frame["alpha"] = pd.to_numeric(frame["alpha"], errors="coerce")
+        frame["threshold"] = pd.to_numeric(frame["threshold"], errors="coerce")
+        frame["expected_shortfall"] = pd.to_numeric(frame["expected_shortfall"], errors="coerce")
+        frame["paths"] = pd.to_numeric(frame["paths"], errors="coerce").fillna(0).astype(int)
+    return _sort_frame(frame, ("strategy", "fold_id", "metric", "tail", "alpha"))
+
+
+def _metric_columns(results_frame: pd.DataFrame) -> list[str]:
+    excluded = set(RESULT_BASE_COLUMNS)
+    excluded.update({"fold", "path", "paths", "folds", "strategy_name"})
+    metric_cols: list[str] = []
+    for col in results_frame.columns:
+        name = str(col)
+        if name in excluded:
+            continue
+        series = results_frame[col]
+        if _is_numeric_like(series):
+            metric_cols.append(name)
+    return metric_cols
+
+
+def _path_metric_columns(path_frame: pd.DataFrame) -> list[str]:
+    excluded = set(RESULT_BASE_COLUMNS)
+    excluded.update({"path", "fold", "paths", "folds", "strategy_name"})
+    metric_cols: list[str] = []
+    for col in path_frame.columns:
+        name = str(col)
+        if name in excluded:
+            continue
+        series = path_frame[col]
+        if _is_numeric_like(series):
+            metric_cols.append(name)
+    return metric_cols
+
+
+def _coerce_column(
+    frame: pd.DataFrame,
+    candidates: Iterable[str],
+    *,
+    default: Any | None = None,
+) -> pd.Series:
+    for col in candidates:
+        if col in frame.columns:
+            return frame[col]
+    return pd.Series([default] * len(frame), index=frame.index)
+
+
+def _select_strategy_column(frame: pd.DataFrame) -> pd.Series:
+    if "strategy" in frame.columns and "strategy_name" in frame.columns:
+        strategy = frame["strategy"]
+        strategy_name = frame["strategy_name"]
+        if _is_numeric_like(strategy) and not _is_numeric_like(strategy_name):
+            return strategy_name
+        if strategy.isna().any():
+            return strategy.where(strategy.notna(), strategy_name)
+        return strategy
+    return _coerce_column(frame, ("strategy", "strategy_name"), default=None)
+
+
+def _is_numeric_like(series: pd.Series) -> bool:
+    if pd.api.types.is_bool_dtype(series):
+        return False
+    if pd.api.types.is_numeric_dtype(series):
+        return True
+    if pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series):
+        non_null = series.dropna()
+        if (
+            not non_null.empty
+            and non_null.map(lambda value: isinstance(value, (bool, np.bool_))).all()
+        ):
+            return False
+        coerced = pd.to_numeric(series, errors="coerce")
+        values = cast(np.ndarray, coerced.to_numpy(dtype=float))
+        return bool(np.isfinite(values).any())
+    return False
+
+
+def _numeric_values(series: pd.Series) -> np.ndarray:
+    numeric = pd.to_numeric(series, errors="coerce")
+    return cast(np.ndarray, numeric.to_numpy(dtype=float))
+
+
+def _ensure_path_columns(path_frame: pd.DataFrame) -> pd.DataFrame:
+    expected_cols = set(AGGREGATION_PATH_COLUMNS)
+    required_cols = expected_cols | {"path_id", "fold_id"}
+    missing_cols = [col for col in required_cols if col not in path_frame.columns]
+    if not missing_cols:
+        return path_frame
+    frame = path_frame.copy()
+    if "path" in missing_cols:
+        if "path_id" in frame.columns:
+            frame["path"] = frame["path_id"]
+            missing_cols.remove("path")
+        elif "path_hash" in frame.columns:
+            frame["path"] = frame["path_hash"]
+            missing_cols.remove("path")
+    if "path_id" in missing_cols:
+        if "path" in frame.columns:
+            frame["path_id"] = frame["path"]
+            missing_cols.remove("path_id")
+        elif "path_hash" in frame.columns:
+            frame["path_id"] = frame["path_hash"]
+            missing_cols.remove("path_id")
+    if "fold" in missing_cols:
+        if "fold_id" in frame.columns:
+            frame["fold"] = frame["fold_id"]
+            missing_cols.remove("fold")
+        elif "fold_label" in frame.columns:
+            frame["fold"] = frame["fold_label"]
+            missing_cols.remove("fold")
+    if "fold_id" in missing_cols:
+        if "fold" in frame.columns:
+            frame["fold_id"] = frame["fold"]
+            missing_cols.remove("fold_id")
+        elif "fold_label" in frame.columns:
+            frame["fold_id"] = frame["fold_label"]
+            missing_cols.remove("fold_id")
+    for col in missing_cols:
+        frame[col] = pd.NA
+    return frame
+
+
+def _fill_missing_merge_keys(
+    frame: pd.DataFrame,
+    columns: Sequence[str],
+    sentinel: object,
+) -> pd.DataFrame:
+    updated = frame
+    for col in columns:
+        if col not in frame.columns:
+            continue
+        series = updated[col]
+        if not series.isna().any():
+            continue
+        if updated is frame:
+            updated = frame.copy()
+        updated[col] = series.astype("object").where(series.notna(), sentinel)
+    return updated
+
+
+def _sort_frame(frame: pd.DataFrame, sort_columns: Sequence[str]) -> pd.DataFrame:
+    if frame.empty:
+        return frame
+    try:
+        return frame.sort_values(list(sort_columns), kind="mergesort").reset_index(drop=True)
+    except TypeError:
+        return frame.sort_values(
+            list(sort_columns),
+            kind="mergesort",
+            key=lambda series: series.astype(str),
+        ).reset_index(drop=True)
+
+
+def _coerce_quantiles(quantiles: Sequence[float] | float | int | str | None) -> list[float]:
+    if quantiles is None:
+        values: list[Any] = list(_DEFAULT_QUANTILES)
+    elif isinstance(quantiles, str):
+        values = [item.strip() for item in quantiles.split(",") if item.strip()]
+    elif isinstance(quantiles, (int, float, np.integer, np.floating)) and not isinstance(
+        quantiles, bool
+    ):
+        values = [quantiles]
+    elif isinstance(quantiles, bool):
+        raise TypeError("Quantiles must be numeric values or a sequence of numerics.")
+    else:
+        values = list(quantiles)
+    cleaned: list[float] = []
+    for value in values:
+        if value is None:
+            continue
+        if isinstance(value, bool):
+            raise TypeError("Quantiles must be numeric values or a sequence of numerics.")
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                continue
+            if raw.endswith("%"):
+                raw = raw[:-1].strip()
+                if not raw:
+                    continue
+                try:
+                    q = float(raw) / 100.0
+                except ValueError:
+                    continue
+            else:
+                try:
+                    q = float(raw)
+                except ValueError:
+                    continue
+        else:
+            try:
+                q = float(value)
+            except (TypeError, ValueError):
+                continue
+        if not np.isfinite(q):
+            continue
+        if q < 0.0 or q > 1.0:
+            raise ValueError("Quantiles must be between 0 and 1")
+        cleaned.append(q)
+    if not cleaned:
+        cleaned = list(_DEFAULT_QUANTILES)
+    deduped: list[float] = []
+    seen: set[float] = set()
+    for value in cleaned:
+        if value in seen:
+            continue
+        seen.add(value)
+        deduped.append(value)
+    return deduped
+
+
+def _coerce_breach_specs(
+    breach_spec: Mapping[str, Any] | Sequence[float] | None,
+    metrics: Sequence[str],
+) -> list[tuple[str, list[float], _Direction]]:
+    def _dedupe(values: list[float]) -> list[float]:
+        deduped: list[float] = []
+        seen: set[float] = set()
+        for item in values:
+            if item in seen:
+                continue
+            seen.add(item)
+            deduped.append(item)
+        return deduped
+
+    def _coerce_threshold(value: Any) -> float | None:
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise TypeError("Breach thresholds must be numeric values or sequences of numerics.")
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return None
+            if raw.endswith("%"):
+                raw = raw[:-1].strip()
+                if not raw:
+                    return None
+                try:
+                    threshold = float(raw) / 100.0
+                except ValueError:
+                    return None
+            else:
+                try:
+                    threshold = float(raw)
+                except ValueError:
+                    return None
+        else:
+            try:
+                threshold = float(value)
+            except (TypeError, ValueError):
+                return None
+        if not np.isfinite(threshold):
+            return None
+        return threshold
+
+    def _parse_breach_mapping(raw: Mapping[str, Any]) -> tuple[list[float], _Direction]:
+        thresholds: list[float] = []
+        direction: _Direction = "lower"
+        raw_thresholds = raw.get("thresholds", raw.get("threshold"))
+        if raw_thresholds is None:
+            raw_thresholds = []
+        if isinstance(raw_thresholds, (list, tuple)):
+            thresholds = [
+                threshold
+                for value in raw_thresholds
+                if (threshold := _coerce_threshold(value)) is not None
+            ]
+        else:
+            threshold = _coerce_threshold(raw_thresholds)
+            if threshold is not None:
+                thresholds = [threshold]
+        raw_direction = raw.get("direction", raw.get("tail", "lower"))
+        if raw_direction is None:
+            raw_direction = "lower"
+        direction_value = str(raw_direction).lower()
+        if direction_value not in {"lower", "upper"}:
+            raise ValueError(f"Unsupported breach direction '{direction_value}'")
+        direction = cast(_Direction, direction_value)
+        return _dedupe(thresholds), direction
+
+    def _parse_breach_spec(raw: Any) -> tuple[list[float], _Direction]:
+        if isinstance(raw, Mapping):
+            return _parse_breach_mapping(raw)
+        if isinstance(raw, (list, tuple)):
+            thresholds = [
+                threshold for value in raw if (threshold := _coerce_threshold(value)) is not None
+            ]
+            return _dedupe(thresholds), "lower"
+        threshold = _coerce_threshold(raw)
+        if threshold is not None:
+            return [threshold], "lower"
+        return [], "lower"
+
+    if breach_spec is None:
+        return []
+    if isinstance(breach_spec, bool):
+        raise TypeError("Breach thresholds must be numeric values or sequences of numerics.")
+    if isinstance(breach_spec, (list, tuple)):
+        default_thresholds = [
+            threshold
+            for value in breach_spec
+            if (threshold := _coerce_threshold(value)) is not None
+        ]
+        default_thresholds = _dedupe(default_thresholds)
+        if not default_thresholds:
+            return []
+        return [(metric, default_thresholds, "lower") for metric in metrics]
+    if not isinstance(breach_spec, Mapping):
+        threshold = _coerce_threshold(breach_spec)
+        if threshold is None:
+            return []
+        return [(metric, [threshold], "lower") for metric in metrics]
+
+    specs: list[tuple[str, list[float], _Direction]] = []
+    default_raw: Any | None = None
+    default_keys = {"thresholds", "threshold", "direction"}
+    metrics_set = set(metrics)
+    if "default" in breach_spec and "default" not in metrics_set:
+        default_raw = breach_spec.get("default")
+    elif default_keys.intersection(breach_spec.keys()) and not default_keys.intersection(
+        metrics_set
+    ):
+        default_raw = {key: breach_spec[key] for key in default_keys if key in breach_spec}
+
+    for metric, raw in breach_spec.items():
+        if metric == "default" and default_raw is not None and "default" not in metrics_set:
+            continue
+        if metric in default_keys and default_raw is not None and metric not in metrics_set:
+            continue
+        metric_name = str(metric)
+        thresholds, direction = _parse_breach_spec(raw)
+        if thresholds:
+            specs.append((metric_name, thresholds, direction))
+
+    if default_raw is not None:
+        default_thresholds, default_direction = _parse_breach_spec(default_raw)
+        if default_thresholds:
+            covered = {metric for metric, _, _ in specs}
+            for metric in metrics:
+                if metric in covered:
+                    continue
+                specs.append((metric, default_thresholds, default_direction))
+    return specs
+
+
+def _coerce_shortfall_specs(
+    shortfall_spec: Mapping[str, Any] | float | int | None,
+    metrics: Sequence[str],
+) -> list[tuple[str, float, _Tail]]:
+    def _coerce_alpha(value: Any) -> float | None:
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise TypeError("Expected shortfall alpha must be numeric values or mappings.")
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return None
+            if raw.endswith("%"):
+                raw = raw[:-1].strip()
+                if not raw:
+                    return None
+                return float(raw) / 100.0
+            return float(raw)
+        return float(value)
+
+    if shortfall_spec is None:
+        return [(metric, 0.05, "lower") for metric in metrics]
+    if isinstance(shortfall_spec, bool):
+        raise TypeError("Expected shortfall alpha must be numeric values or mappings.")
+    if not isinstance(shortfall_spec, Mapping):
+        try:
+            alpha = _coerce_alpha(shortfall_spec)
+        except (TypeError, ValueError):
+            return []
+        if alpha is None:
+            return []
+        if not np.isfinite(alpha):
+            raise ValueError("Expected shortfall alpha must be between 0 and 1")
+        if alpha <= 0.0 or alpha >= 1.0:
+            raise ValueError("Expected shortfall alpha must be between 0 and 1")
+        return [(metric, alpha, "lower") for metric in metrics]
+
+    specs: list[tuple[str, float, _Tail]] = []
+
+    def _parse_shortfall_spec(raw: Any) -> tuple[float, _Tail] | None:
+        if raw is None:
+            return None
+        if isinstance(raw, bool):
+            raise TypeError("Expected shortfall alpha must be numeric values or mappings.")
+        alpha = 0.05
+        tail: _Tail = "lower"
+        if isinstance(raw, Mapping):
+            raw_alpha = raw.get("alpha")
+            if raw_alpha is not None:
+                parsed_alpha = _coerce_alpha(raw_alpha)
+                if parsed_alpha is None:
+                    return None
+                alpha = parsed_alpha
+            raw_tail = raw.get("tail", raw.get("direction", tail))
+            if raw_tail is None:
+                raw_tail = tail
+            tail_value = str(raw_tail).lower()
+            if tail_value not in {"lower", "upper"}:
+                raise ValueError(f"Unsupported shortfall tail '{tail_value}'")
+            tail = cast(_Tail, tail_value)
+        else:
+            parsed_alpha = _coerce_alpha(raw)
+            if parsed_alpha is None:
+                return None
+            alpha = parsed_alpha
+        if not np.isfinite(alpha):
+            raise ValueError("Expected shortfall alpha must be between 0 and 1")
+        if alpha <= 0.0 or alpha >= 1.0:
+            raise ValueError("Expected shortfall alpha must be between 0 and 1")
+        return alpha, tail
+
+    default_raw: Any | None = None
+    default_keys = {"alpha", "tail", "direction"}
+    metrics_set = set(metrics)
+    if "default" in shortfall_spec and "default" not in metrics_set:
+        default_raw = shortfall_spec.get("default")
+    elif default_keys.intersection(shortfall_spec.keys()) and not default_keys.intersection(
+        metrics_set
+    ):
+        default_raw = {key: shortfall_spec[key] for key in default_keys if key in shortfall_spec}
+
+    for metric, raw in shortfall_spec.items():
+        if metric == "default" and default_raw is not None and "default" not in metrics_set:
+            continue
+        if metric in default_keys and default_raw is not None and metric not in metrics_set:
+            continue
+        parsed = _parse_shortfall_spec(raw)
+        if parsed is None:
+            continue
+        metric_name = str(metric)
+        alpha, tail = parsed
+        specs.append((metric_name, alpha, tail))
+
+    if default_raw is not None:
+        parsed_default = _parse_shortfall_spec(default_raw)
+        if parsed_default is not None:
+            default_alpha, default_tail = parsed_default
+            covered = {metric for metric, _, _ in specs}
+            for metric in metrics:
+                if metric in covered:
+                    continue
+                specs.append((metric, default_alpha, default_tail))
+
+    if not specs and metrics:
+        specs = [(metric, 0.05, "lower") for metric in metrics]
+    return specs
