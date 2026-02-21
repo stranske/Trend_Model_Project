@@ -529,7 +529,7 @@ uvicorn==0.41.0
     # via trend-model (pyproject.toml)
 uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
     # via uvicorn
-virtualenv==20.37.0
+virtualenv==20.38.0
     # via pre-commit
 watchdog==6.0.0 ; sys_platform != 'darwin'
     # via streamlit
