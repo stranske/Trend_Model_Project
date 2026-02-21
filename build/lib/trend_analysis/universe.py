@@ -1,0 +1,306 @@
+"""Helpers for managing dated universe membership windows."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Iterable, Mapping, MutableMapping, Sequence
+
+import numpy as np
+import pandas as pd
+from pandas.api.types import is_datetime64_any_dtype
+
+
+@dataclass(frozen=True)
+class MembershipWindow:
+    """Inclusive membership window for a single fund."""
+
+    effective_date: pd.Timestamp
+    end_date: pd.Timestamp | None = None
+
+    def active_mask(self, index: pd.DatetimeIndex) -> pd.Series:
+        """Return a boolean mask marking active rows for ``index``."""
+
+        mask = index >= self.effective_date
+        if self.end_date is not None:
+            mask &= index <= self.end_date
+        return mask
+
+
+MembershipTable = Mapping[str, Sequence[MembershipWindow]]
+
+
+def _coerce_timestamp(value: object, *, column: str, fund: str) -> pd.Timestamp:
+    ts = pd.to_datetime(value, errors="coerce")
+    if pd.isna(ts):
+        raise ValueError(f"Universe membership for '{fund}' is missing a valid {column}.")
+    return ts
+
+
+def load_universe_membership(path: str | Path) -> MembershipTable:
+    """Load membership windows from ``path`` returning a mapping by fund."""
+
+    membership_csv = Path(path)
+    if not membership_csv.exists():
+        raise FileNotFoundError(str(membership_csv))
+
+    table = pd.read_csv(membership_csv)
+    required = {"fund", "effective_date"}
+    missing_cols = required - set(col.strip().lower() for col in table.columns)
+    if missing_cols:
+        joined = ", ".join(sorted(missing_cols))
+        raise ValueError(
+            f"Universe membership file '{membership_csv}' is missing columns: {joined}"
+        )
+
+    # Normalise column casing for lookups
+    rename_map = {col: col.strip().lower() for col in table.columns}
+    table = table.rename(columns=rename_map)
+
+    grouped: MutableMapping[str, list[MembershipWindow]] = {}
+    for row in table.itertuples(index=False):
+        fund = str(getattr(row, "fund", "")).strip()
+        if not fund:
+            raise ValueError("Universe membership entries must provide a fund name.")
+        effective = _coerce_timestamp(
+            getattr(row, "effective_date", None), column="effective_date", fund=fund
+        )
+        raw_end = getattr(row, "end_date", None)
+        end = pd.to_datetime(raw_end, errors="coerce") if raw_end not in (None, "") else None
+        grouped.setdefault(fund, []).append(MembershipWindow(effective, end))
+
+    ordered: dict[str, tuple[MembershipWindow, ...]] = {}
+    for fund, windows in grouped.items():
+        ordered[fund] = tuple(sorted(windows, key=lambda item: item.effective_date))
+    return ordered
+
+
+def apply_membership_windows(frame: pd.DataFrame, membership: MembershipTable) -> pd.DataFrame:
+    """Return ``frame`` with values outside membership windows nulled."""
+
+    if frame.empty or not membership:
+        return frame.copy() if frame.empty else frame
+
+    if not isinstance(frame.index, pd.DatetimeIndex):
+        try:
+            index = pd.to_datetime(frame.index)
+        except Exception as exc:  # pragma: no cover - defensive
+            raise TypeError("Membership masking requires a DatetimeIndex.") from exc
+        masked = frame.copy()
+        masked.index = index
+    else:
+        masked = frame.copy()
+
+    for fund, windows in membership.items():
+        if fund not in masked.columns:
+            continue
+        active = pd.Series(False, index=masked.index)
+        for window in windows:
+            active |= window.active_mask(masked.index)
+        masked.loc[~active, fund] = np.nan
+    return masked
+
+
+def _normalise_price_frame(prices: pd.DataFrame) -> pd.DataFrame:
+    if not isinstance(prices, pd.DataFrame):
+        raise TypeError("prices must be a pandas DataFrame")
+    frame = prices.copy()
+    lookup = {str(col).strip().lower(): col for col in frame.columns}
+    try:
+        date_col = lookup["date"]
+    except KeyError as exc:  # pragma: no cover - defensive guard
+        raise ValueError("prices must contain a 'date' column") from exc
+    try:
+        symbol_col = lookup["symbol"]
+    except KeyError as exc:  # pragma: no cover - defensive guard
+        raise ValueError("prices must contain a 'symbol' column") from exc
+    rename = {}
+    if date_col != "date":
+        rename[date_col] = "date"
+    if symbol_col != "symbol":
+        rename[symbol_col] = "symbol"
+    if rename:
+        frame = frame.rename(columns=rename)
+    if not is_datetime64_any_dtype(frame["date"]):
+        frame["date"] = pd.to_datetime(frame["date"])
+    frame["symbol"] = frame["symbol"].astype(str)
+    return frame
+
+
+def _normalise_membership_frame(
+    membership: pd.DataFrame | str | Path | Mapping[str, Sequence[Any]],
+) -> pd.DataFrame:
+    if isinstance(membership, (str, Path)):
+        table = pd.read_csv(membership)
+    elif isinstance(membership, pd.DataFrame):
+        table = membership.copy()
+    elif isinstance(membership, Mapping):
+        rows: list[dict[str, object]] = []
+        for symbol, windows in membership.items():
+            if not windows:
+                continue
+            for window in windows:
+                effective = getattr(window, "effective_date", None)
+                end = getattr(window, "end_date", None)
+                if effective is None and isinstance(window, Mapping):
+                    effective = window.get("effective_date")
+                    end = window.get("end_date")
+                rows.append(
+                    {
+                        "symbol": symbol,
+                        "effective_date": effective,
+                        "end_date": end,
+                    }
+                )
+        table = pd.DataFrame(rows)
+    else:  # pragma: no cover - defensive guard
+        raise TypeError("membership must be a DataFrame, path to a CSV file, or mapping")
+    if table.empty:
+        return pd.DataFrame(columns=["symbol", "effective_date", "end_date"])
+    lookup = {str(col).strip().lower(): col for col in table.columns}
+    name_col = lookup.get("symbol") or lookup.get("fund")
+    if name_col is None:
+        raise ValueError("membership must include a 'symbol' or 'fund' column")
+    eff_col = lookup.get("effective_date")
+    if eff_col is None:
+        raise ValueError("membership must include an 'effective_date' column")
+    end_col = lookup.get("end_date")
+    rename = {name_col: "symbol", eff_col: "effective_date"}
+    if end_col:
+        rename[end_col] = "end_date"
+    table = table.rename(columns=rename)
+    if "end_date" not in table.columns:
+        table["end_date"] = pd.NaT
+    table["effective_date"] = pd.to_datetime(table["effective_date"])
+    table["end_date"] = pd.to_datetime(table["end_date"])
+    if table["effective_date"].isna().any():
+        raise ValueError("membership entries must include valid effective dates")
+    table["symbol"] = table["symbol"].astype(str)
+    return table[["symbol", "effective_date", "end_date"]]
+
+
+def build_membership_mask(
+    dates: Iterable[pd.Timestamp | str],
+    membership: pd.DataFrame | str | Path | Mapping[str, Sequence[Any]],
+) -> pd.DataFrame:
+    """Return a boolean mask of active funds for every date in ``dates``."""
+
+    index = pd.DatetimeIndex(pd.to_datetime(list(dates)))
+    if index.empty:
+        return pd.DataFrame(index=index)
+
+    membership_frame = _normalise_membership_frame(membership)
+    if membership_frame.empty:
+        return pd.DataFrame(index=index)
+
+    unique_dates = pd.Index(index.unique()).sort_values()
+    active_pairs = _expand_active_pairs(membership_frame, unique_dates)
+
+    symbols = sorted(membership_frame["symbol"].unique())
+    if active_pairs.empty:
+        mask = pd.DataFrame(False, index=index, columns=symbols, dtype=bool)
+        mask.index.name = None
+        mask.columns.name = None
+        return mask
+
+    active = (
+        active_pairs.assign(active=True)
+        .pivot_table(index="date", columns="symbol", values="active", fill_value=False)
+        .astype(bool)
+    )
+    active = active.reindex(unique_dates, fill_value=False)
+    mask = active.reindex(index, method=None).fillna(False)
+    mask = mask.reindex(columns=symbols, fill_value=False)
+    mask.index.name = None
+    mask.columns.name = None
+    return mask.astype(bool)
+
+
+def _expand_active_pairs(membership: pd.DataFrame, dates: pd.Series | pd.Index) -> pd.DataFrame:
+    """Return the per-date membership pairs required for an inner join."""
+
+    if membership.empty:
+        return pd.DataFrame(columns=["date", "symbol"])
+
+    unique_dates = pd.Index(pd.to_datetime(dates)).unique().sort_values()
+    if unique_dates.empty:
+        return pd.DataFrame(columns=["date", "symbol"])
+
+    max_date = unique_dates[-1].to_datetime64()
+    date_values = unique_dates.to_numpy(dtype="datetime64[ns]")
+    effective = membership["effective_date"].to_numpy(dtype="datetime64[ns]")
+    end = membership["end_date"].to_numpy(dtype="datetime64[ns]")
+    end = np.where(np.isnat(end), max_date, np.minimum(end, max_date))
+
+    # Broadcast per-date activity mask: rows = dates, cols = membership windows.
+    active = (date_values[:, None] >= effective) & (date_values[:, None] <= end)
+    if not np.any(active):
+        return pd.DataFrame(columns=["date", "symbol"])
+
+    date_idx, membership_idx = np.nonzero(active)
+    pairs = pd.DataFrame(
+        {
+            "date": pd.to_datetime(date_values[date_idx]),
+            "symbol": membership["symbol"].to_numpy()[membership_idx],
+        }
+    )
+    return pairs.sort_values(["date", "symbol"], kind="mergesort").reset_index(drop=True)
+
+
+def gate_universe(
+    prices: pd.DataFrame,
+    membership: pd.DataFrame | str | Path,
+    as_of: pd.Timestamp | str,
+    *,
+    rebalance_only: bool = False,
+) -> pd.DataFrame:
+    """Filter ``prices`` so only active members remain as-of ``as_of``.
+
+    Parameters
+    ----------
+    prices:
+        Long-form price or return table containing ``date`` and ``symbol`` columns.
+    membership:
+        Either a DataFrame or a CSV path containing ``symbol``/``fund``,
+        ``effective_date`` and optional ``end_date`` columns.
+    as_of:
+        The rebalance date – rows beyond this timestamp are dropped to avoid
+        look-ahead bias.
+    rebalance_only:
+        When ``True`` the function only returns rows exactly matching ``as_of``.
+        Otherwise all rows up to and including ``as_of`` are kept.
+    """
+
+    frame = _normalise_price_frame(prices)
+    if frame.empty:
+        return frame.copy()
+    as_of_ts = pd.Timestamp(as_of)
+    if pd.isna(as_of_ts):
+        raise ValueError("as_of must be a valid timestamp")
+    membership_frame = _normalise_membership_frame(membership)
+    if membership_frame.empty:
+        return frame.iloc[0:0]
+    membership_frame = membership_frame[membership_frame["effective_date"] <= as_of_ts]
+    if membership_frame.empty:
+        return frame.iloc[0:0]
+    if rebalance_only:
+        window = frame[frame["date"] == as_of_ts]
+    else:
+        window = frame[frame["date"] <= as_of_ts]
+    if window.empty:
+        return window.copy()
+    active_pairs = _expand_active_pairs(membership_frame, window["date"])
+    if active_pairs.empty:
+        return window.iloc[0:0]
+    gated = window.merge(active_pairs, on=["date", "symbol"], how="inner")
+    return gated.sort_values(["date", "symbol"]).reset_index(drop=True)
+
+
+__all__ = [
+    "MembershipWindow",
+    "MembershipTable",
+    "load_universe_membership",
+    "apply_membership_windows",
+    "build_membership_mask",
+    "gate_universe",
+]
