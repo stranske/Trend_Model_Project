@@ -1,6 +1,7 @@
 [build-system]
-# Pin build dependencies to ensure reproducible installs during Docker builds
-requires = ["setuptools==82.0.0", "wheel==0.46.3"]
+# Avoid brittle exact pins for backend tooling so CI/install keeps working
+# when a single patch release is unavailable in an environment index.
+requires = ["setuptools>=69.5.1", "wheel>=0.43.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
