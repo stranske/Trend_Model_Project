@@ -5,10 +5,10 @@ branch: codex/issue-5033
 tasks:
   - id: task-01
     title: 'Create a feature branch that includes changes from PR #5011'
-    status: doing
+    status: done
     started_at: '2026-03-03T00:50:16Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-03-03T00:50:28Z'
+    commit: 3d61c5c82acd0a799bce5e7faea7fdc210ba47de
     notes: []
   - id: task-02
     title: Run the existing test suite on the pandas 3 branch and document any test
