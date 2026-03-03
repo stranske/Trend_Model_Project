@@ -1,0 +1,235 @@
+version: 1
+issue: 5033
+base: phase-3
+branch: codex/issue-5033
+tasks:
+  - id: task-01
+    title: 'Create a feature branch that includes changes from PR #5011'
+    status: done
+    started_at: '2026-03-03T00:50:16Z'
+    finished_at: '2026-03-03T00:50:28Z'
+    commit: 3d61c5c82acd0a799bce5e7faea7fdc210ba47de
+    notes: []
+  - id: task-02
+    title: Run the existing test suite on the pandas 3 branch and document any test
+      failures with error messages
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Execute extraction code paths in `src/extraction/` modules with pandas
+      3 and log any compatibility errors
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Execute quality validation code paths in `src/quality/` modules with pandas
+      3 and log any compatibility errors
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Execute query code paths in `src/query/` modules with pandas 3 and log
+      any compatibility errors
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Test I/O format compatibility by running CSV, Parquet, and Excel read/write
+      operations with sample data
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Test dtype handling by verifying integer, float, string, and categorical
+      column operations produce expected types
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Test datetime/timezone behavior by running date parsing, timezone conversion,
+      and date arithmetic operations
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Test groupby/aggregation semantics by executing existing groupby operations
+      and comparing output to pandas 2.x baseline
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Create a compatibility issues document listing all pandas 3 errors with
+      file paths, line numbers, and error messages
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Fix each documented pandas 3 compatibility issue without refactoring existing
+      architecture or changing public API signatures
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Update dependency pins in `pyproject.toml` to pandas 3.x with appropriate
+      version constraints
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Update dependency pins in `requirements.txt` (if exists) to match `pyproject.toml`
+      pandas version
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Update dependency pins in `requirements-dev.txt` (if exists) to match `pyproject.toml`
+      pandas version
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Run `pip-compile` or equivalent to verify all dependency pins remain compatible
+      with each other after pandas 3 upgrade
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Update `CHANGELOG.md` with pandas 3 upgrade entry listing any behavior
+      changes discovered during testing
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Update runbook documentation with any pandas 3-specific operational notes
+      or breaking changes
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Create PR description including the breaking-change test checklist with
+      pass/fail results for each category
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: '**Review CI pipeline results** - After pushing the pandas 3 branch, monitor
+      CI execution for tests, lint, typecheck, and gate summary. Document CI results
+      once available. (Agent cannot retry CI pipelines or guarantee CI execution)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: '**Approve and merge PR** - Final human review and approval required before
+      merging pandas 3 upgrade to main branch'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'A feature branch exists containing pandas 3 upgrade changes from PR #5011'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: All unit tests pass on the pandas 3 branch with zero failures
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: All integration tests targeting extraction, quality, and query modules
+      pass with zero failures
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: '`pyproject.toml` specifies pandas 3.x with appropriate version constraint
+      (e.g., `pandas>=3.0,<4.0`)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: All dependency files (`requirements.txt`, `requirements-dev.txt`) specify
+      pandas versions matching `pyproject.toml`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: '`pip check` reports zero dependency conflicts after pandas 3 upgrade'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: A PR exists that either merges the pandas 3 upgrade with passing CI, or
+      documents specific technical blockers preventing upgrade
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: PR description includes a completed checklist confirming each breaking-change
+      category (I/O formats, dtype handling, datetime/tz behavior, groupby/aggregation
+      semantics) was tested with pass/fail results and any issues found
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: '`CHANGELOG.md` contains an entry documenting the pandas 3 upgrade and
+      any behavior changes'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
