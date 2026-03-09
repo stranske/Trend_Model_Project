@@ -1,6 +1,6 @@
 [build-system]
 # Pin build dependencies to ensure reproducible installs during Docker builds
-requires = ["setuptools==82.0.0", "wheel==0.46.3"]
+requires = ["setuptools==82.0.1", "wheel==0.46.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -34,11 +34,11 @@ dependencies = [
     "joblib==1.5.3",
     "jsonschema==4.26.0",
     "matplotlib==3.10.8",
-    "numpy==2.4.2",
+    "numpy==2.4.3",
     "openpyxl==3.1.5",
     "pandas==2.3.3",
     "pandera==0.29.0",
-    "plotly==6.5.2",
+    "plotly==6.6.0",
     "pydantic==2.12.5",
     "requests==2.32.5",
     "scipy==1.17.1",
@@ -80,7 +80,7 @@ exclude = ["Old*", "retired*", "**/Old*", "**/retired*"]
 
 [project.optional-dependencies]
 app = [
-    "streamlit==1.54.0",
+    "streamlit==1.55.0",
     "streamlit-sortables==0.3.1",
     "fastapi==0.135.1",
     "uvicorn[standard]==0.41.0",
@@ -93,7 +93,7 @@ llm = [
     "langchain-openai>=0.3,<1.2",
     "langchain-anthropic>=0.3,<1.4",
     "langchain-ollama>=0.3,<1.1",
-    "langsmith==0.7.9",
+    "langsmith==0.7.14",
 ]
 notebooks = [
     "ipyfilechooser==0.6.0",
@@ -113,7 +113,7 @@ dev = [
     "pytest-rerunfailures==16.1",
     "pytest-xdist==3.8.0",
     "packaging==25.0",
-    "streamlit==1.54.0",
+    "streamlit==1.55.0",
     "fastapi==0.135.1",
     "types-PyYAML==6.0.12.20250915",
     "types-requests==2.32.4.20260107",
