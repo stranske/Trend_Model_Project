@@ -83,7 +83,7 @@ app = [
     "streamlit==1.55.0",
     "streamlit-sortables==0.3.1",
     "fastapi==0.135.1",
-    "uvicorn[standard]==0.41.0",
+    "uvicorn[standard]==0.42.0",
     "httpx==0.28.1",
 ]
 llm = [
@@ -93,7 +93,7 @@ llm = [
     "langchain-openai>=0.3,<1.2",
     "langchain-anthropic>=0.3,<1.4",
     "langchain-ollama>=0.3,<1.1",
-    "langsmith==0.7.14",
+    "langsmith==0.7.17",
 ]
 notebooks = [
     "ipyfilechooser==0.6.0",
