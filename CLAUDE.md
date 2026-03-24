@@ -1,171 +1,87 @@
 # CLAUDE.md - Consumer Repository Context
 
-> **READ THIS FIRST** before making workflow changes.
+> Read this before changing workflows, prompts, or synced automation files.
 
-## This is a Consumer Repo
+## This Is A Consumer Repo
 
-This repository uses the **stranske/Workflows** workflow library. Most workflow logic lives there, not here.
+Most workflow logic for this repository lives in `stranske/Workflows`. The consumer repo should only carry repo-specific configuration unless it has an explicitly documented exception.
 
-**DO NOT** modify agent workflow files directly - they are synced from Workflows and will be overwritten.
+## Source Of Truth
 
-## Architecture
+For infrastructure work, follow this order:
 
-```
-stranske/Workflows (central library)
-    │
-    │ reusable workflows called via:
-     │ uses: stranske/Workflows/.github/workflows/reusable-*.yml@v1
-    │
-    ▼
-This Repo (consumer)
-    .github/workflows/
-      ├── agents-*.yml      → SYNCED from Workflows (don't edit)
-      ├── autofix.yml       → SYNCED from Workflows (don't edit)
-      ├── pr-00-gate.yml    → SYNCED but customizable
-      ├── ci.yml            → REPO-SPECIFIC (can edit)
-      └── autofix-versions.env → REPO-SPECIFIC (can edit)
-```
+1. `stranske/Workflows` root docs: `README.md`, `docs/WORKFLOW_GUIDE.md`, `docs/ci/WORKFLOWS.md`
+2. `stranske/Workflows/docs/INTEGRATION_GUIDE.md` and `docs/ops/CONSUMER_REPO_MAINTENANCE.md`
+3. The consumer sync source in `stranske/Workflows/templates/consumer-repo/`
+4. This repo's local repo-specific files
 
-## Which Files Can Be Edited
+If a file is synced from Workflows, fix it in Workflows first.
 
-| File | Editable? | Notes |
-|------|-----------|-------|
-| `ci.yml` | ✅ Yes | Repo-specific CI configuration |
-| `autofix-versions.env` | ✅ Yes | Repo-specific dependency versions |
-| `pr-00-gate.yml` | ⚠️ Careful | Synced, but can customize if needed |
-| `agents-*.yml` | ❌ No | Synced from Workflows |
-| `autofix.yml` | ❌ No | Synced from Workflows |
+## Current Consumer Defaults
 
-## Keepalive System
+- First-party consumers currently reference reusable workflows with `@main`. Match that unless you are intentionally pinning to an exact commit SHA for a controlled reason.
+- `ci.yml` and `autofix-versions.env` are repo-specific.
+- `pr-00-gate.yml` is a create-only standard file. Keep it aligned with the standard gate unless this repo has a documented reason to diverge.
+- Synced workflows, prompts, scripts, and consumer docs are managed through `.github/sync-manifest.yml` in Workflows.
 
-When an issue is labeled `agent:codex`:
-1. `agents-63-issue-intake.yml` creates a PR with bootstrap file
-2. `agents-keepalive-loop.yml` runs Codex in iterations
-3. Codex works through tasks in PR body until all complete
+## Commonly Managed Files
 
-**Key prompts** (in `.github/codex/prompts/`):
-- `keepalive_next_task.md` - Normal work instructions
-- `fix_ci_failures.md` - CI fix instructions
+Usually edit locally only when the file is repo-specific:
 
-## Common Issues
+| File | Default owner | Notes |
+|------|---------------|-------|
+| `ci.yml` | Consumer repo | Repo-specific CI wiring |
+| `autofix-versions.env` | Consumer repo | Repo-specific dependency pins |
+| `pr-00-gate.yml` | Consumer repo, but should match Workflows standard by default | Create-only standard file |
+| `agents-*.yml` | Workflows | Fix in Workflows, not here |
+| `autofix.yml` | Workflows | Fix in Workflows, not here |
+| `.github/codex/` prompts | Workflows | Fix in Workflows, not here |
+| synced scripts/docs | Workflows | Fix in Workflows, not here |
 
-### Workflow fails with "workflow file issue"
-- A reusable workflow is being called that doesn't exist
-- Check Workflows repo has the required `reusable-*.yml` file
-- Consumer workflows call INTO Workflows repo, not local files
+## Current Workflow Surfaces
 
-### Workflow startup_failure (zero jobs)
+The current consumer default automation surface is centered on:
 
-**MANDATORY**: Before theorizing, find what changed:
+- `agents-issue-intake.yml`
+- `agents-80-pr-event-hub.yml`
+- `agents-81-gate-followups.yml`
+- `agents-verifier.yml`
+- `autofix.yml`
+- `ci.yml`
+- `pr-00-gate.yml`
 
-```bash
-# 1. Find boundary between success and failure
-gh run list --repo owner/repo --workflow="workflow.yml" --limit 100 --json databaseId,conclusion,createdAt \
-  --jq '[.[] | select(.conclusion == "success" or .conclusion == "startup_failure")] | group_by(.conclusion) | .[] | {conclusion: .[0].conclusion, first: .[-1].createdAt, last: .[0].createdAt}'
+Legacy compatibility workflows may still exist during migrations. Do not assume an older filename is canonical without checking the Workflows docs first.
 
-# 2. Find commits between last success and first failure
-git log --oneline --since="LAST_SUCCESS_DATE" --until="FIRST_FAILURE_DATE" -- path/to/workflow.yml
+## Cross-Repo Policy
 
-# 3. Fix ONLY what that diff changed
-git show COMMIT_SHA -- path/to/workflow.yml
-```
+Before editing local workflow infrastructure, ask:
 
-Common causes:
-- **Top-level `permissions:` on hybrid workflows** (workflow_call + workflow_dispatch)
-- Invalid YAML syntax
-- Invalid permission scopes
+**Does this work belong in `stranske/Workflows` instead?**
 
-See `docs/INTEGRATION_GUIDE.md` in Workflows repo.
+The answer is usually yes if the change affects any of these:
 
-### Agent not picking up changes
-- Check PR has `agent:codex` label
-- Check Gate workflow passed (green checkmark)
-- Check PR body has unchecked tasks
+- reusable workflows
+- agent prompts or routing
+- keepalive/autofix/verifier behavior
+- synced workflow files
+- synced scripts or docs
 
-### Need to update agent workflows
-- DON'T edit locally - changes will be overwritten
-- Fix in Workflows repo → sync will propagate here
-- Or request manual sync: `gh workflow run maint-68-sync-consumer-repos.yml --repo stranske/Workflows`
+If yes:
 
-## Reference Implementation
+1. Make the source-of-truth change in `stranske/Workflows`
+2. Update the sync manifest if a consumer-facing file changed
+3. Sync or manually align this repo afterward
 
-**Travel-Plan-Permission** is the reference consumer repo. When debugging:
-1. Check if it works there first
-2. Compare this repo's `.github/` with Travel-Plan-Permission
-3. Look for missing files or differences
+## Useful References
 
-## Workflows Documentation
+- `stranske/Workflows/README.md`
+- `stranske/Workflows/docs/WORKFLOW_GUIDE.md`
+- `stranske/Workflows/docs/ci/WORKFLOWS.md`
+- `stranske/Workflows/docs/INTEGRATION_GUIDE.md`
+- `stranske/Workflows/docs/ops/CONSUMER_REPO_MAINTENANCE.md`
+- `stranske/Workflows/docs/keepalive/Agents.md`
+- `stranske/Travel-Plan-Permission` as a reference consumer
 
-For detailed docs, see **stranske/Workflows**:
-- `docs/INTEGRATION_GUIDE.md` - How consumer repos work
-- `docs/keepalive/GoalsAndPlumbing.md` - Keepalive system design
-- `docs/keepalive/SETUP_CHECKLIST.md` - Required files and secrets
+## Claude-Specific Note
 
-## Quick Debug Commands
-
-```bash
-# Compare workflows with reference repo
-diff .github/workflows/autofix.yml \
-     <(gh api repos/stranske/Travel-Plan-Permission/contents/.github/workflows/autofix.yml --jq '.content' | base64 -d)
-
-# Check for missing files
-gh api repos/stranske/Travel-Plan-Permission/contents/.github/workflows --jq '.[].name' | sort > /tmp/tpp.txt
-ls .github/workflows/ | sort > /tmp/here.txt
-diff /tmp/tpp.txt /tmp/here.txt
-
-# Trigger workflow sync from Workflows repo
-gh workflow run maint-68-sync-consumer-repos.yml --repo stranske/Workflows
-```
-
----
-
-## �� POLICY: Cross-Repo Work
-
-> **CRITICAL**: Read this before ANY work that might affect the Workflows repo.
-
-### Policy Checkpoint Trigger
-
-When creating a todo list, ask:
-
-**"Does this work need changes in stranske/Workflows?"**
-
-Signs that you need Workflows changes:
-- Adding a new agent capability
-- Modifying how keepalive/autofix/verifier works
-- Needing a new Codex prompt
-- Bug in a reusable workflow
-
-### If YES → Work in Workflows First
-
-1. Clone/checkout stranske/Workflows
-2. Make changes there (following Workflows CLAUDE.md policy)
-3. Ensure sync manifest is updated
-4. Trigger sync to propagate to this repo
-5. Then verify in this repo
-
-**DO NOT** try to fix Workflows issues by editing local files - they will be overwritten on next sync.
-
-### Add Policy Verification Todo
-
-When your todo list involves cross-repo coordination, add as **FINAL** item:
-
-```
-✅ Verify cross-repo policy compliance:
-   - [ ] Changes made in correct repo (Workflows vs Consumer)
-   - [ ] Sync triggered if needed
-   - [ ] Both repos have passing CI
-```
-
-### Quick Commands
-
-```bash
-# Check if a file is synced (compare to template)
-diff .github/workflows/agents-keepalive-loop.yml \
-     <(gh api repos/stranske/Workflows/contents/templates/consumer-repo/.github/workflows/agents-keepalive-loop.yml --jq '.content' | base64 -d)
-
-# Trigger sync from Workflows
-gh workflow run maint-68-sync-consumer-repos.yml --repo stranske/Workflows -f repos="${{ github.repository }}"
-
-# Check sync manifest for what SHOULD be here
-gh api repos/stranske/Workflows/contents/.github/sync-manifest.yml --jq '.content' | base64 -d
-```
+Keep this file materially aligned with `AGENTS.md`. Differences between the two should only be agent-specific execution notes, not different repository rules.
