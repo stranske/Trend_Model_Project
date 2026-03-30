@@ -29,12 +29,12 @@ classifiers = [
 dependencies = [
     "PyYAML==6.0.3",
     "fpdf2==2.8.7",
-    "hypothesis==6.151.9",
+    "hypothesis==6.151.10",
     "ipywidgets==8.1.8",
     "joblib==1.5.3",
     "jsonschema==4.26.0",
     "matplotlib==3.10.8",
-    "numpy==2.4.3",
+    "numpy==2.4.4",
     "openpyxl==3.1.5",
     "pandas==2.3.3",
     "pandera==0.30.1",
@@ -82,7 +82,7 @@ exclude = ["Old*", "retired*", "**/Old*", "**/retired*"]
 app = [
     "streamlit==1.55.0",
     "streamlit-sortables==0.3.1",
-    "fastapi==0.135.1",
+    "fastapi==0.135.2",
     "uvicorn[standard]==0.42.0",
     "httpx==0.28.1",
 ]
@@ -114,9 +114,9 @@ dev = [
     "pytest-xdist==3.8.0",
     "packaging==25.0",
     "streamlit==1.55.0",
-    "fastapi==0.135.1",
+    "fastapi==0.135.2",
     "types-PyYAML==6.0.12.20250915",
-    "types-requests==2.32.4.20260107",
+    "types-requests==2.33.0.20260327",
     "httpx==0.28.1",
     "tomlkit==0.14.0",
 ]
