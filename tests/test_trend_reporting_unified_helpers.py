@@ -52,7 +52,7 @@ def test_series_and_stats_helpers():
 
     range_index = pd.RangeIndex(1)
     assert unified._periods_per_year(range_index) == 12.0
-    dt_index = pd.date_range("2024-01-01", periods=4, freq="Q")
+    dt_index = pd.date_range("2024-01-01", periods=4, freq="QE")
     assert unified._periods_per_year(dt_index) == 4.0
     irregular_index = pd.DatetimeIndex(["2024-01-01", "2024-02-01", "2024-08-01", "2025-08-01"])
     assert unified._periods_per_year(irregular_index) == 1.0
@@ -251,7 +251,7 @@ def test_periods_per_year_additional_frequencies():
 
 
 def test_periods_per_year_yearly_and_business(monkeypatch: pytest.MonkeyPatch):
-    yearly = pd.date_range("2020-01-01", periods=3, freq="A")
+    yearly = pd.date_range("2020-01-01", periods=3, freq="YE")
     assert unified._periods_per_year(yearly) == 1.0
 
     business = pd.date_range("2024-01-01", periods=4, freq="B")

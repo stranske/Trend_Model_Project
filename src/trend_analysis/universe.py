@@ -123,7 +123,8 @@ def _normalise_price_frame(prices: pd.DataFrame) -> pd.DataFrame:
         frame = frame.rename(columns=rename)
     if not is_datetime64_any_dtype(frame["date"]):
         frame["date"] = pd.to_datetime(frame["date"])
-    frame["symbol"] = frame["symbol"].astype(str)
+    frame["date"] = frame["date"].astype("datetime64[ns]")
+    frame["symbol"] = frame["symbol"].astype(object)
     return frame
 
 

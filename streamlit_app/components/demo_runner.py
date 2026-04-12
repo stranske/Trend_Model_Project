@@ -93,7 +93,8 @@ def _select_benchmark(columns: Iterable[str]) -> str | None:
 
 def _month_end(ts: pd.Timestamp) -> pd.Timestamp:
     period = pd.Period(ts, freq="M")
-    return period.to_timestamp("M", how="end")
+    month_end = period.to_timestamp("M").as_unit("ns")
+    return month_end.replace(hour=23, minute=59, second=59, microsecond=999999, nanosecond=999)
 
 
 def _derive_window(
