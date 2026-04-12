@@ -80,7 +80,7 @@ exclude = ["Old*", "retired*", "**/Old*", "**/retired*"]
 
 [project.optional-dependencies]
 app = [
-    "streamlit==1.55.0",
+    "streamlit==1.56.0",
     "streamlit-sortables==0.3.1",
     "fastapi==0.135.2",
     "uvicorn[standard]==0.42.0",
@@ -113,7 +113,7 @@ dev = [
     "pytest-rerunfailures==16.1",
     "pytest-xdist==3.8.0",
     "packaging==25.0",
-    "streamlit==1.55.0",
+    "streamlit==1.56.0",
     "fastapi==0.135.2",
     "types-PyYAML==6.0.12.20250915",
     "types-requests==2.33.0.20260327",

@@ -105,6 +105,22 @@ def _normalise_frequency(freq: str | None) -> str | None:
     return freq or None
 
 
+def _canonicalize_offset_alias(freq: str) -> str:
+    """Map legacy timestamp aliases to pandas 3.x-compatible offset aliases."""
+
+    freq_upper = freq.upper()
+    replacements = {"M": "ME", "BM": "BME", "Q": "QE", "A": "YE", "Y": "YE"}
+    for legacy, canonical in replacements.items():
+        if freq_upper.endswith(canonical):
+            return freq
+        if freq_upper.endswith(legacy):
+            prefix = freq_upper[: -len(legacy)]
+            if prefix and not prefix.isdigit():
+                continue
+            return prefix + canonical
+    return freq
+
+
 # Frequency groups that should be treated as equivalent for validation purposes.
 # For example, ME (Month End) and BME (Business Month End) are functionally
 # equivalent for financial data with monthly observations.
@@ -139,8 +155,8 @@ def _check_frequency(idx: pd.DatetimeIndex, freq: str | None) -> None:
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", FutureWarning)
-            expected_offset = to_offset(expected)
-            inferred_offset = to_offset(inferred)
+            expected_offset = to_offset(_canonicalize_offset_alias(expected))
+            inferred_offset = to_offset(_canonicalize_offset_alias(inferred))
     except ValueError as exc:  # pragma: no cover - defensive guard for invalid freq
         raise ValueError(f"Unknown frequency alias '{freq}'.") from exc
 
