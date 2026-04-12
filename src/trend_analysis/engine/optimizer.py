@@ -37,7 +37,7 @@ def _clip_series(
 ) -> pd.Series:
     """Clip series values using NumPy to avoid pandas mask reductions."""
 
-    values = w.to_numpy(dtype=float)
+    values = w.to_numpy(dtype=float, copy=True)
     if lower is not None:
         values = np.maximum(values, lower)
     if upper is not None:
@@ -52,7 +52,7 @@ def _redistribute(w: pd.Series, mask: pd.Series, amount: float) -> pd.Series:
     if amount <= 0:
         return w
     mask_arr = mask.to_numpy() if hasattr(mask, "to_numpy") else np.asarray(mask)
-    values = w.to_numpy(dtype=float)
+    values = w.to_numpy(dtype=float, copy=True)
     eligible_values = values[mask_arr]
     if eligible_values.size == 0:
         raise ConstraintViolation("No capacity to redistribute excess weight")
@@ -108,7 +108,7 @@ def _apply_cap(w: pd.Series, cap: float | None, total: float | None = None) -> p
 
     w = w.copy()
     while True:
-        values = w.to_numpy(dtype=float)
+        values = w.to_numpy(dtype=float, copy=True)
         excess_values = np.maximum(values - cap, 0.0)
         excess_amount = _safe_sum(excess_values)
         if excess_amount <= NUMERICAL_TOLERANCE_HIGH:
@@ -158,7 +158,7 @@ def _apply_group_caps(
         if total_cap < total_allocation - NUMERICAL_TOLERANCE_HIGH:
             raise ConstraintViolation("Group caps sum to less than required allocation")
 
-    values = w.to_numpy(dtype=float)
+    values = w.to_numpy(dtype=float, copy=True)
     for group, cap in normalized_caps.items():
         members_mask = np.array([grp == group for grp in group_list], dtype=bool)
         if not members_mask.any():
@@ -194,7 +194,7 @@ def _apply_cash_weight(w: pd.Series, cash_weight: float, max_weight: float | Non
 
     index = w.index
     non_cash_mask = index != "CASH"
-    values = w.to_numpy(dtype=float)
+    values = w.to_numpy(dtype=float, copy=True)
     non_cash_values = values[non_cash_mask]
     if non_cash_values.size == 0:
         raise ConstraintViolation("No assets available for non-CASH allocation")
