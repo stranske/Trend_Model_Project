@@ -435,6 +435,7 @@ def _prepare_input_data(
     work = df.copy()
     if not pd.api.types.is_datetime64_any_dtype(work[date_col].dtype):
         work[date_col] = pd.to_datetime(work[date_col])
+    work[date_col] = work[date_col].astype("datetime64[ns]")
     work.sort_values(date_col, inplace=True)
 
     freq_summary = detect_frequency(work[date_col])
@@ -478,7 +479,7 @@ def _prepare_input_data(
         monthly_df = pd.DataFrame(columns=[date_col])
     else:
         monthly_df = filled.reset_index().rename(columns={"index": date_col})
-        monthly_df[date_col] = pd.to_datetime(monthly_df[date_col])
+        monthly_df[date_col] = pd.to_datetime(monthly_df[date_col]).astype("datetime64[ns]")
         monthly_df.sort_values(date_col, inplace=True)
 
     return monthly_df, freq_summary, missing_result, normalised
