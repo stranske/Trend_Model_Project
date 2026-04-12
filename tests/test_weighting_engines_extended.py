@@ -51,7 +51,8 @@ def test_risk_parity_and_robust_variants_manage_degenerate_cases() -> None:
     cov = _make_covariance()
     cov.iloc[0, 0] = 0.0
     cov.iloc[1, 1] = -1e-6  # non-positive variance triggers guards
-    cov.values[:] = (cov.values + cov.values.T) / 2  # ensure symmetry
+    cov_values = cov.to_numpy(dtype=float, copy=True)
+    cov.iloc[:, :] = (cov_values + cov_values.T) / 2  # ensure symmetry
 
     base = RiskParity()
     base_weights = base.weight(cov)

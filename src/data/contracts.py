@@ -52,6 +52,7 @@ def coerce_to_utc(df: pd.DataFrame) -> pd.DataFrame:
         idx = idx.tz_localize(UTC)
     else:
         idx = idx.tz_convert(UTC)
+    idx = idx.as_unit("ns")
 
     coerced = df.copy()
     coerced.index = idx

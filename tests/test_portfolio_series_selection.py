@@ -24,7 +24,7 @@ def test_select_primary_portfolio_series_prefers_user_weight_combined() -> None:
 def test_select_primary_portfolio_series_falls_back_to_fund_weights() -> None:
     out_sample_scaled = pd.DataFrame(
         {"A": [0.1, 0.0], "B": [0.05, 0.02]},
-        index=pd.date_range("2024-01-31", periods=2, freq="M"),
+        index=pd.date_range("2024-01-31", periods=2, freq="ME"),
     )
     res = {
         "out_sample_scaled": out_sample_scaled,
@@ -54,7 +54,7 @@ def test_select_primary_portfolio_series_uses_equal_weight_combined() -> None:
 def test_select_primary_portfolio_series_uses_ew_weights_when_fund_missing() -> None:
     out_sample_scaled = pd.DataFrame(
         {"A": [0.1, 0.0], "B": [0.05, 0.02]},
-        index=pd.date_range("2024-01-31", periods=2, freq="M"),
+        index=pd.date_range("2024-01-31", periods=2, freq="ME"),
     )
     res = {
         "out_sample_scaled": out_sample_scaled,
@@ -71,7 +71,7 @@ def test_select_primary_portfolio_series_uses_ew_weights_when_fund_missing() -> 
 def test_select_primary_portfolio_series_defaults_to_equal_weights() -> None:
     out_sample_scaled = pd.DataFrame(
         {"A": [0.1, 0.0], "B": [0.05, 0.02]},
-        index=pd.date_range("2024-01-31", periods=2, freq="M"),
+        index=pd.date_range("2024-01-31", periods=2, freq="ME"),
     )
     res = {"out_sample_scaled": out_sample_scaled}
 
@@ -85,7 +85,7 @@ def test_select_primary_portfolio_series_defaults_to_equal_weights() -> None:
 def test_select_primary_portfolio_series_scales_for_cash_weight() -> None:
     out_sample_scaled = pd.DataFrame(
         {"A": [0.1, 0.0], "B": [0.05, 0.02]},
-        index=pd.date_range("2024-01-31", periods=2, freq="M"),
+        index=pd.date_range("2024-01-31", periods=2, freq="ME"),
     )
     res = {
         "out_sample_scaled": out_sample_scaled,
@@ -105,7 +105,7 @@ def test_select_primary_portfolio_series_scales_for_cash_weight() -> None:
 def test_select_primary_portfolio_series_accepts_numpy_cash_weight() -> None:
     out_sample_scaled = pd.DataFrame(
         {"A": [0.1, 0.0], "B": [0.05, 0.02]},
-        index=pd.date_range("2024-01-31", periods=2, freq="M"),
+        index=pd.date_range("2024-01-31", periods=2, freq="ME"),
     )
     res = {
         "out_sample_scaled": out_sample_scaled,

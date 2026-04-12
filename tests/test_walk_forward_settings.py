@@ -185,7 +185,7 @@ def test_load_returns_filters_columns_and_validates(tmp_path: Path) -> None:
 def test_infer_periods_per_year_handles_varied_frequencies() -> None:
     idx_daily = pd.date_range("2020-01-01", periods=5, freq="D")
     idx_weekly = pd.date_range("2020-01-03", periods=4, freq="W-FRI")
-    idx_monthly = pd.date_range("2020-01-31", periods=3, freq="M")
+    idx_monthly = pd.date_range("2020-01-31", periods=3, freq="ME")
 
     assert infer_periods_per_year(idx_daily) == 252
     assert infer_periods_per_year(idx_weekly) == 52
