@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -109,9 +110,15 @@ def test_run_raises_when_policy_drops_all(monkeypatch: pytest.MonkeyPatch) -> No
     def fake_load_csv(*_args, **_kwargs):
         return pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"]), "Alpha": [pd.NA]})
 
-    def fake_apply_missing_policy(frame: pd.DataFrame, *, policy: str | None, limit: int | None):
+    def fake_apply_missing_policy(
+        frame: pd.DataFrame,
+        *,
+        policy: str | None,
+        limit: int | None,
+        **_kwargs: object,
+    ):
         empty = frame.copy()
-        empty.iloc[:, :] = pd.NA
+        empty.iloc[:, :] = np.nan
         return empty, {"status": "dropped"}
 
     monkeypatch.setattr(mp_engine, "load_csv", fake_load_csv)

@@ -290,7 +290,7 @@ def test_window_metric_bundle_covariance_branch(monkeypatch):
 
     cached = bundle.ensure_metric("AvgCorr", cfg)
     assert calls["count"] == 1  # second call hits cache
-    assert cached is series
+    pd.testing.assert_series_equal(cached, series)
 
 
 def test_apply_transform_variants_and_errors():

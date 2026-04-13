@@ -336,7 +336,7 @@ def test_classify_frequency_irregular_spacing_raises() -> None:
 
 
 def test_classify_frequency_gap_tolerance_exceeded() -> None:
-    idx = pd.date_range("2020-01-31", periods=4, freq="2M")
+    idx = pd.date_range("2020-01-31", periods=4, freq="2ME")
     with pytest.raises(MarketDataValidationError):
         classify_frequency(idx, max_gap_limit=0)
 

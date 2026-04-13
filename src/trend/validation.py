@@ -41,6 +41,7 @@ def _coerce_price_schema(df: pd.DataFrame) -> pd.DataFrame:
     work["symbol"] = work["symbol"].astype("string")
     work["date"] = pd.to_datetime(work["date"], errors="raise")
     work["date"] = work["date"].dt.tz_localize(None)
+    work["date"] = work["date"].astype("datetime64[ns]")
     work["close"] = pd.to_numeric(work["close"], errors="raise").astype("float64")
     return work
 

@@ -15,7 +15,7 @@ def test_extract_narrative_metrics_from_report_payload():
             "Alpha": [0.02, -0.01, 0.03],
             "Beta": [0.01, 0.0, 0.01],
         },
-        index=pd.date_range("2020-01-31", periods=3, freq="M"),
+        index=pd.date_range("2020-01-31", periods=3, freq="ME"),
     )
     res = {
         "out_user_stats": (0.12, 0.2, 1.25, 1.8, 0.5, -0.1),
@@ -58,7 +58,7 @@ def test_build_narrative_sections_formats_templates():
         "out_user_stats": (0.1, 0.15, 1.1, 1.4, 0.4, -0.08),
         "out_sample_scaled": pd.DataFrame(
             {"Alpha": [0.01, 0.0], "Beta": [0.02, -0.01]},
-            index=pd.date_range("2021-01-31", periods=2, freq="M"),
+            index=pd.date_range("2021-01-31", periods=2, freq="ME"),
         ),
         "fund_weights": {"Alpha": 0.6, "Beta": 0.4},
         "metadata": {

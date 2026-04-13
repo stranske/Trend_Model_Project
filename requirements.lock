@@ -296,7 +296,7 @@ packaging==25.0
     #   pytest
     #   pytest-rerunfailures
     #   streamlit
-pandas==2.3.3
+pandas==3.0.2
     # via
     #   trend-model (pyproject.toml)
     #   streamlit
@@ -400,8 +400,6 @@ python-dotenv==1.2.2
     #   uvicorn
 pytokens==0.4.1
     # via black
-pytz==2026.1.post1
-    # via pandas
 pyyaml==6.0.3
     # via
     #   trend-model (pyproject.toml)
@@ -520,8 +518,6 @@ typing-inspection==0.4.2
     #   fastapi
     #   pydantic
     #   pydantic-settings
-tzdata==2026.1
-    # via pandas
 untokenize==0.1.1
     # via docformatter
 urllib3==2.6.3
