@@ -143,11 +143,10 @@ def load_returns(data_cfg: DataConfig) -> pd.DataFrame:
 def infer_periods_per_year(index: pd.DatetimeIndex) -> int:
     if len(index) < 2:
         return 1
-    diffs = np.diff(index.view("int64"))
-    median_ns = np.median(diffs)
-    if median_ns <= 0:
+    diffs_days = np.diff(index.to_numpy()) / np.timedelta64(1, "D")
+    if len(diffs_days) == 0:
         return 1
-    median_days = median_ns / (24 * 60 * 60 * 1e9)
+    median_days = float(np.median(diffs_days))
     if median_days <= 0:
         return 1
     approx = int(round(365 / median_days))

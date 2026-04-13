@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -14,17 +15,25 @@ logger = logging.getLogger(__name__)
 
 
 def _cov_to_corr(cov: pd.DataFrame) -> pd.DataFrame:
-    std: FloatArray = np.sqrt(np.diag(cov))
+    cov_values = cov.to_numpy(dtype=float, copy=True)
+    std: FloatArray = np.sqrt(np.diag(cov_values))
 
     # Check for zero standard deviations
     if np.any(std == 0):
         logger.warning("Zero standard deviations detected in correlation calculation")
+        warnings.warn(
+            "Zero standard deviations detected in correlation calculation",
+            RuntimeWarning,
+            stacklevel=2,
+        )
         std = np.maximum(std, np.max(std) * 1e-8)
 
     # Construct the outer product as a DataFrame to preserve types for mypy
     denom = pd.DataFrame(np.outer(std, std), index=cov.index, columns=cov.columns)
-    corr_df: pd.DataFrame = cov / denom
-    np.fill_diagonal(corr_df.values, 1.0)
+    corr_df: pd.DataFrame = pd.DataFrame(cov_values, index=cov.index, columns=cov.columns) / denom
+    corr_values = corr_df.to_numpy(dtype=float, copy=True)
+    np.fill_diagonal(corr_values, 1.0)
+    corr_df = pd.DataFrame(corr_values, index=cov.index, columns=cov.columns)
     return corr_df
 
 
@@ -46,13 +55,20 @@ class HierarchicalRiskParity(WeightEngine):
             corr = _cov_to_corr(cov)
 
             # Check for invalid correlations
-            if np.any(~np.isfinite(corr.values)):
+            corr_values = corr.to_numpy(dtype=float, copy=True)
+            if np.any(~np.isfinite(corr_values)):
                 logger.warning("Non-finite correlations detected in HRP calculation")
+                warnings.warn(
+                    "Non-finite correlations detected in HRP calculation",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
                 # Fall back to diagonal correlation matrix
                 corr = pd.DataFrame(np.eye(len(cov)), index=cov.index, columns=cov.columns)
+                corr_values = corr.to_numpy(dtype=float, copy=True)
 
             # Compute distance matrix as numpy array for typing clarity
-            dist_arr: FloatArray = np.sqrt(0.5 * (1.0 - corr.values))
+            dist_arr: FloatArray = np.sqrt(0.5 * (1.0 - corr_values))
 
             # Ensure distance matrix is valid
             if np.any(~np.isfinite(dist_arr)) or np.any(dist_arr < 0):
@@ -84,8 +100,10 @@ class HierarchicalRiskParity(WeightEngine):
                         inv_left /= inv_left.sum()
                         inv_right = 1 / np.diag(cov_right)
                         inv_right /= inv_right.sum()
-                        var_left = inv_left @ cov_left.values @ inv_left
-                        var_right = inv_right @ cov_right.values @ inv_right
+                        var_left = inv_left @ cov_left.to_numpy(dtype=float, copy=True) @ inv_left
+                        var_right = (
+                            inv_right @ cov_right.to_numpy(dtype=float, copy=True) @ inv_right
+                        )
 
                         # Avoid division by zero
                         total_var = var_left + var_right

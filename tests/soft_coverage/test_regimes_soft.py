@@ -24,7 +24,7 @@ class DummyCache:
         return func()
 
 
-def _sample_index(periods: int = 8, freq: str = "M") -> pd.DatetimeIndex:
+def _sample_index(periods: int = 8, freq: str = "ME") -> pd.DatetimeIndex:
     return pd.date_range("2024-01-31", periods=periods, freq=freq)
 
 

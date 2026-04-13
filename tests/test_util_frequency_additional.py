@@ -80,9 +80,9 @@ def test_detect_frequency_single_value_defaults_to_monthly():
     [
         ("W-FRI", "W"),
         ("B", "D"),
-        ("SM", "M"),
-        ("Q", "Q"),
-        ("A", "Y"),
+        ("SME", "M"),
+        ("QE", "Q"),
+        ("YE", "Y"),
     ],
 )
 def test_detect_frequency_maps_inferred_codes(freq_code, expected):

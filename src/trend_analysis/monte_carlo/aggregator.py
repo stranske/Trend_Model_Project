@@ -281,7 +281,9 @@ def build_quantiles_frame(
     frame = quantiles_long.merge(counts_long, on=[*merge_keys, "metric"], how="left")
     for col in merge_keys:
         if col in frame.columns:
-            frame[col] = frame[col].where(frame[col] != sentinel, pd.NA)
+            # Use identity checks instead of vectorized comparison so Arrow-backed
+            # string columns do not try to compare against an opaque object sentinel.
+            frame[col] = frame[col].map(lambda value: pd.NA if value is sentinel else value)
     frame = frame[list(schema)]
     frame["quantile"] = pd.to_numeric(frame["quantile"], errors="coerce")
     frame["value"] = pd.to_numeric(frame["value"], errors="coerce")

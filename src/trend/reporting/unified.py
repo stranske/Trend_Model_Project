@@ -120,6 +120,15 @@ def _periods_per_year(index: pd.Index) -> float:
         freq = pd.infer_freq(index)
         if freq:
             code = freq.upper()
+            replacements = {"SM": "SME", "M": "ME", "Q": "QE", "A": "YE", "Y": "YE"}
+            for legacy, canonical in replacements.items():
+                if code.endswith(canonical):
+                    break
+                if code.endswith(legacy):
+                    prefix = code[: -len(legacy)]
+                    if not prefix or prefix.isdigit():
+                        code = prefix + canonical
+                    break
             if code.startswith(("A", "Y")):
                 return 1.0
             if code.startswith("Q"):
@@ -131,7 +140,7 @@ def _periods_per_year(index: pd.Index) -> float:
             if code.startswith("D") or code.startswith("B"):
                 return 252.0
             try:
-                offset = pd.tseries.frequencies.to_offset(freq)
+                offset = pd.tseries.frequencies.to_offset(code)
                 avg_days = offset.nanos / 86400_000_000_000.0
             except (ValueError, AttributeError, TypeError):
                 avg_days = None

@@ -105,7 +105,7 @@ def test_comprehensive_api_integration():
         loaded_df = load_csv(str(csv_file))
         assert loaded_df is not None, "CSV loading should work"
         expected_df = test_df.copy()
-        expected_df["Date"] = expected_df["Date"].dt.tz_localize("UTC")
+        expected_df["Date"] = expected_df["Date"].dt.tz_localize("UTC").dt.as_unit("ns")
         pd.testing.assert_frame_equal(expected_df, loaded_df, "Loaded CSV should match original")
 
         # Validate that CLI would get same data
