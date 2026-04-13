@@ -13,7 +13,7 @@ def _sample_report_payload():
             "Alpha": [0.02, -0.01, 0.03],
             "Beta": [0.01, 0.0, 0.01],
         },
-        index=pd.date_range("2020-01-31", periods=3, freq="M"),
+        index=pd.date_range("2020-01-31", periods=3, freq="ME"),
     )
     return {
         "out_user_stats": (0.12, 0.2, 1.25, 1.8, 0.5, -0.1),

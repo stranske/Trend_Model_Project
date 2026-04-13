@@ -116,6 +116,7 @@ def test_validate_payload_success(monkeypatch):
     index = pd.to_datetime(["2024-01-01", "2024-01-02"], utc=True)
     validated_frame = pd.DataFrame({"alpha": [1000.0, 2000.0], "beta": [0.25, -0.5]}, index=index)
     validated_frame.index.name = "Date"
+    validated_frame.index = validated_frame.index.as_unit("ns")
     metadata = _build_metadata(index)
     validated = ValidatedMarketData(validated_frame, metadata)
 
