@@ -125,7 +125,7 @@ def diagonal_loading(cov: NDArrayFloat, loading_factor: float = 1e-6) -> NDArray
     if base.size == 0:
         return base
     scale = float(loading_factor) * float(np.trace(base)) / float(base.shape[0])
-    return base + scale * np.eye(base.shape[0], dtype=float)
+    return np.asarray(base + scale * np.eye(base.shape[0], dtype=float), dtype=np.float64)
 
 
 @weight_engine_registry.register("robust_mv")

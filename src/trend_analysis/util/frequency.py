@@ -73,7 +73,7 @@ def _map_inferred(freq: str | None) -> FrequencyCode | None:
 
 def _intervals_in_days(idx: pd.DatetimeIndex) -> NDArray[np.float64]:
     deltas = np.diff(idx.to_numpy())
-    return cast(NDArray[np.float64], deltas / np.timedelta64(1, "D"))
+    return np.asarray(deltas / np.timedelta64(1, "D"), dtype=np.float64)
 
 
 def _classify_from_diffs(diffs_days: NDArray[np.float64]) -> FrequencyCode:

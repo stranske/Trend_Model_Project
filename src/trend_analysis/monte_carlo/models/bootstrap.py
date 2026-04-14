@@ -139,7 +139,7 @@ class StationaryBootstrapModel:
         self._log_returns: pd.DataFrame | None = None
         self._log_returns_values: NDArray[np.float64] | None = None
         self._missingness_mask: pd.DataFrame | None = None
-        self._missingness_mask_values: NDArray[np.bool_[Any]] | None = None
+        self._missingness_mask_values: NDArray[np.bool_] | None = None
         self._start_prices: pd.Series | None = None
 
     @property

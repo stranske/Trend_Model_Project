@@ -7,6 +7,7 @@ from typing import Any, Iterable, Literal, Mapping, Sequence, TypedDict, cast
 
 import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
 
 from .results import RESULT_BASE_COLUMNS
 
@@ -476,14 +477,14 @@ def _is_numeric_like(series: pd.Series) -> bool:
         ):
             return False
         coerced = pd.to_numeric(series, errors="coerce")
-        values = cast(np.ndarray, coerced.to_numpy(dtype=float))
+        values = np.asarray(coerced.to_numpy(dtype=float), dtype=np.float64)
         return bool(np.isfinite(values).any())
     return False
 
 
-def _numeric_values(series: pd.Series) -> np.ndarray:
+def _numeric_values(series: pd.Series) -> NDArray[np.float64]:
     numeric = pd.to_numeric(series, errors="coerce")
-    return cast(np.ndarray, numeric.to_numpy(dtype=float))
+    return np.asarray(numeric.to_numpy(dtype=float), dtype=np.float64)
 
 
 def _ensure_path_columns(path_frame: pd.DataFrame) -> pd.DataFrame:
