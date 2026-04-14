@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -133,8 +132,8 @@ def _simulate_regime_path(
     *,
     n_periods: int,
     n_paths: int,
-    transition: np.ndarray,
-    initial_probs: np.ndarray,
+    transition: NDArray[np.float64],
+    initial_probs: NDArray[np.float64],
     rng: np.random.Generator,
 ) -> NDArray[np.int64]:
     transition = _normalize_transition_matrix(transition)
@@ -157,7 +156,7 @@ def _simulate_regime_path(
     return regimes
 
 
-def _normalize_transition_matrix(transition: np.ndarray) -> NDArray[np.float64]:
+def _normalize_transition_matrix(transition: NDArray[np.float64]) -> NDArray[np.float64]:
     matrix = np.asarray(transition, dtype=np.float64)
     if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
         raise ValueError("transition matrix must be square")
@@ -243,7 +242,7 @@ class RegimeConditionedBootstrapModel:
         self._log_returns: pd.DataFrame | None = None
         self._log_returns_values: NDArray[np.float64] | None = None
         self._missingness_mask: pd.DataFrame | None = None
-        self._missingness_mask_values: NDArray[np.bool_[Any]] | None = None
+        self._missingness_mask_values: NDArray[np.bool_] | None = None
         self._start_prices: pd.Series | None = None
         self._labels: pd.Series | None = None
         self._transition: pd.DataFrame | None = None
