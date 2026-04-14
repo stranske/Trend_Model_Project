@@ -23,6 +23,7 @@ from typing import Any, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
 
 __all__ = [
     "CostDistribution",
@@ -63,10 +64,10 @@ class CostDistribution:
     clip_min: float | None = None
     clip_max: float | None = None
 
-    def sample(self, rng: np.random.Generator, size: int) -> np.ndarray:
+    def sample(self, rng: np.random.Generator, size: int) -> NDArray[np.float64]:
         raise NotImplementedError
 
-    def _apply_clip(self, values: np.ndarray) -> np.ndarray:
+    def _apply_clip(self, values: NDArray[np.float64]) -> NDArray[np.float64]:
         if self.clip_min is not None:
             values = np.maximum(values, float(self.clip_min))
         if self.clip_max is not None:
@@ -78,7 +79,7 @@ class CostDistribution:
 class FixedCostDistribution(CostDistribution):
     value: float = 0.0
 
-    def sample(self, rng: np.random.Generator, size: int) -> np.ndarray:
+    def sample(self, rng: np.random.Generator, size: int) -> NDArray[np.float64]:
         if size <= 0:
             return np.array([], dtype=float)
         values = np.full(size, float(self.value), dtype=float)
@@ -90,7 +91,7 @@ class NormalCostDistribution(CostDistribution):
     mean: float = 0.0
     std: float = 0.0
 
-    def sample(self, rng: np.random.Generator, size: int) -> np.ndarray:
+    def sample(self, rng: np.random.Generator, size: int) -> NDArray[np.float64]:
         if size <= 0:
             return np.array([], dtype=float)
         values = rng.normal(loc=float(self.mean), scale=float(self.std), size=size)
@@ -102,7 +103,7 @@ class LognormalCostDistribution(CostDistribution):
     mean: float = 0.0
     sigma: float = 1.0
 
-    def sample(self, rng: np.random.Generator, size: int) -> np.ndarray:
+    def sample(self, rng: np.random.Generator, size: int) -> NDArray[np.float64]:
         if size <= 0:
             return np.array([], dtype=float)
         values = rng.lognormal(mean=float(self.mean), sigma=float(self.sigma), size=size)
