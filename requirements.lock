@@ -28,7 +28,7 @@ attrs==26.1.0
     #   aiohttp
     #   jsonschema
     #   referencing
-black==26.1.0
+black==26.3.1
     # via trend-model (pyproject.toml)
 blinker==1.9.0
     # via streamlit
@@ -54,7 +54,7 @@ comm==0.2.3
     # via ipywidgets
 contourpy==1.3.3
     # via matplotlib
-coverage==7.13.4
+coverage==7.13.5
     # via
     #   trend-model (pyproject.toml)
     #   pytest-cov
@@ -124,7 +124,7 @@ httpx==0.28.1
     #   openai
 httpx-sse==0.4.3
     # via langchain-community
-hypothesis==6.151.11
+hypothesis==6.151.14
     # via trend-model (pyproject.toml)
 identify==2.6.18
     # via pre-commit
@@ -146,7 +146,7 @@ ipywidgets==8.1.8
     # via
     #   trend-model (pyproject.toml)
     #   ipyfilechooser
-isort==7.0.0
+isort==8.0.1
     # via trend-model (pyproject.toml)
 jedi==0.19.2
     # via ipython
@@ -205,7 +205,7 @@ langchain-core==1.2.28
     #   langgraph
     #   langgraph-checkpoint
     #   langgraph-prebuilt
-langchain-ollama==1.0.1
+langchain-ollama==1.1.0
     # via trend-model (pyproject.toml)
 langchain-openai==1.1.12
     # via
@@ -223,7 +223,7 @@ langgraph-prebuilt==1.0.9
     # via langgraph
 langgraph-sdk==0.3.13
     # via langgraph
-langsmith==0.7.25
+langsmith==0.7.30
     # via
     #   trend-model (pyproject.toml)
     #   langchain-classic
@@ -245,7 +245,7 @@ multidict==6.7.1
     # via
     #   aiohttp
     #   yarl
-mypy==1.19.1
+mypy==1.20.1
     # via trend-model (pyproject.toml)
 mypy-extensions==1.1.0
     # via
@@ -300,7 +300,7 @@ pandas==3.0.2
     # via
     #   trend-model (pyproject.toml)
     #   streamlit
-pandera==0.30.1
+pandera==0.31.0
     # via trend-model (pyproject.toml)
 parso==0.8.6
     # via jedi
@@ -321,7 +321,7 @@ platformdirs==4.9.6
     #   jupyter-core
     #   python-discovery
     #   virtualenv
-plotly==6.6.0
+plotly==6.7.0
     # via trend-model (pyproject.toml)
 pluggy==1.6.0
     # via
@@ -345,7 +345,7 @@ pyarrow==23.0.1
     # via streamlit
 pycodestyle==2.14.0
     # via flake8
-pydantic==2.12.5
+pydantic==2.13.0
     # via
     #   -r tools/requirements-llm.txt
     #   trend-model (pyproject.toml)
@@ -361,7 +361,7 @@ pydantic==2.12.5
     #   openai
     #   pandera
     #   pydantic-settings
-pydantic-core==2.41.5
+pydantic-core==2.46.0
     # via pydantic
 pydantic-settings==2.13.1
     # via langchain-community
@@ -376,13 +376,13 @@ pygments==2.20.0
     #   pytest
 pyparsing==3.3.2
     # via matplotlib
-pytest==9.0.2
+pytest==9.0.3
     # via
     #   trend-model (pyproject.toml)
     #   pytest-cov
     #   pytest-rerunfailures
     #   pytest-xdist
-pytest-cov==7.0.0
+pytest-cov==7.1.0
     # via trend-model (pyproject.toml)
 pytest-rerunfailures==16.1
     # via trend-model (pyproject.toml)
@@ -430,7 +430,7 @@ rpds-py==0.30.0
     # via
     #   jsonschema
     #   referencing
-ruff==0.15.0
+ruff==0.15.10
     # via trend-model (pyproject.toml)
 scipy==1.17.1
     # via trend-model (pyproject.toml)
