@@ -21,9 +21,9 @@ def sample_runs() -> list[dict[str, object]]:
             "html_url": "https://example.test/gate/101",
             "jobs": [
                 {
-                    "name": "core tests (3.11)",
+                    "name": "core tests (3.13)",
                     "conclusion": "success",
-                    "html_url": "https://example.test/gate/101/py311",
+                    "html_url": "https://example.test/gate/101/py313",
                 },
                 {
                     "name": "core tests (3.12)",
@@ -55,9 +55,9 @@ def test_build_summary_comment_renders_expected_sections(
         "worst_delta": 1.02,
         "history_len": 12,
         "coverage_table_markdown": (
-            "| Runtime | Coverage | Δ vs 3.11 |\n"
+            "| Runtime | Coverage | Δ vs 3.13 |\n"
             "| --- | --- | --- |\n"
-            "| 3.11 | 91.23% | — |\n"
+            "| 3.13 | 91.23% | — |\n"
             "| 3.12 | 91.00% | -0.23 pp |"
         ),
     }
@@ -79,7 +79,7 @@ def test_build_summary_comment_renders_expected_sections(
         coverage_delta=coverage_delta,
         required_groups_env=json.dumps(
             [
-                {"label": "core tests (3.11)", "patterns": [r"^core tests \(3\.11\)$"]},
+                {"label": "core tests (3.13)", "patterns": [r"^core tests \(3\.13\)$"]},
                 {"label": "core tests (3.12)", "patterns": [r"^core tests \(3\.12\)$"]},
                 {"label": "docker smoke", "patterns": [r"^docker smoke$"]},
                 {"label": "gate", "patterns": [r"^gate$"]},
@@ -94,11 +94,11 @@ def test_build_summary_comment_renders_expected_sections(
         "**Required contexts:** Gate / gate, Health 45 Agents Guard / Enforce agents workflow protections"
         in body
     )
-    assert "core tests (3.11): ✅ success" in body
+    assert "core tests (3.13): ✅ success" in body
     assert "core tests (3.12): ✅ success" in body
     assert "docker smoke: ❌ failure" in body
     assert "gate: ❌ failure" in body
-    assert "| Gate / core tests (3.11) | ✅ success |" in body
+    assert "| Gate / core tests (3.13) | ✅ success |" in body
     assert "| Gate / core tests (3.12) | ✅ success |" in body
     assert "| **Gate / docker smoke** | ❌ failure |" in body
     assert "| **Gate / gate** | ❌ failure |" in body
@@ -111,7 +111,7 @@ def test_build_summary_comment_renders_expected_sections(
     assert "base 92.00%" in body
     assert "threshold 1.00 pp" in body
     assert "status alert" in body
-    assert "| Runtime | Coverage | Δ vs 3.11 |" in body
+    assert "| Runtime | Coverage | Δ vs 3.13 |" in body
     assert "| 3.12 | 91.00% | -0.23 pp |" in body
     assert coverage_section in body
 
@@ -126,7 +126,7 @@ def test_build_summary_comment_handles_missing_runs_and_defaults() -> None:
         required_groups_env=None,
     )
 
-    assert "core tests (3.11): ⏳ pending" in body
+    assert "core tests (3.13): ⏳ pending" in body
     assert "core tests (3.12): ⏳ pending" in body
     assert "docker smoke: ⏳ pending" in body
     assert "gate: ⏳ pending" in body
@@ -153,7 +153,7 @@ def test_docs_only_fast_pass_includes_context() -> None:
             "html_url": "https://example.test/gate/303",
             "jobs": [
                 {"name": "detect changed files", "conclusion": "success"},
-                {"name": "core tests (3.11)", "conclusion": "skipped"},
+                {"name": "core tests (3.13)", "conclusion": "skipped"},
                 {"name": "core tests (3.12)", "conclusion": "skipped"},
                 {"name": "docker smoke", "conclusion": "skipped"},
                 {"name": "gate", "conclusion": "success"},
@@ -172,7 +172,7 @@ def test_docs_only_fast_pass_includes_context() -> None:
 
     assert "Docs-only change detected; heavy checks skipped." in body
     assert "Docs-only fast-pass: coverage artifacts were not refreshed for this run." in body
-    assert "| Gate / core tests (3.11) | ⏭️ skipped |" in body
+    assert "| Gate / core tests (3.13) | ⏭️ skipped |" in body
     assert "| Gate / core tests (3.12) | ⏭️ skipped |" in body
     assert "| Gate / docker smoke | ⏭️ skipped |" in body
     assert "### Coverage Overview" in body
@@ -190,7 +190,7 @@ def test_docs_only_note_requires_all_heavy_jobs_skipped() -> None:
             "status": "completed",
             "html_url": "https://example.test/gate/404",
             "jobs": [
-                {"name": "core tests (3.11)", "conclusion": "skipped"},
+                {"name": "core tests (3.13)", "conclusion": "skipped"},
                 {"name": "core tests (3.12)", "conclusion": "success"},
                 {"name": "docker smoke", "conclusion": "skipped"},
                 {"name": "gate", "conclusion": "success"},
@@ -223,7 +223,7 @@ def test_docs_only_fast_pass_note_follows_coverage_lines() -> None:
             "status": "completed",
             "html_url": "https://example.test/gate/505",
             "jobs": [
-                {"name": "core tests (3.11)", "conclusion": "skipped"},
+                {"name": "core tests (3.13)", "conclusion": "skipped"},
                 {"name": "core tests (3.12)", "conclusion": "skipped"},
                 {"name": "docker smoke", "conclusion": "skipped"},
                 {"name": "gate", "conclusion": "success"},
@@ -363,7 +363,7 @@ def test_build_summary_comment_handles_irregular_run_data() -> None:
                 "jobs": [
                     None,
                     {"name": "", "conclusion": None, "html_url": None},
-                    {"name": "core tests (3.11)", "status": "queued"},
+                    {"name": "core tests (3.13)", "status": "queued"},
                 ],
             },
             "not-a-mapping",
@@ -375,8 +375,8 @@ def test_build_summary_comment_handles_irregular_run_data() -> None:
         required_groups_env=json.dumps(
             [
                 {
-                    "label": "core tests (3.11)",
-                    "patterns": [r"core\s*(tests?)?.*(3\.11|py\.?311)"],
+                    "label": "core tests (3.13)",
+                    "patterns": [r"core\s*(tests?)?.*(3\.13|py\.?313)"],
                 },
             ]
         ),
@@ -384,8 +384,8 @@ def test_build_summary_comment_handles_irregular_run_data() -> None:
 
     assert "**Head SHA:** def456" in body
     assert "**Latest Runs:** ⏳ pending — Gate" in body
-    assert "core tests (3.11): ⏳ queued" in body
-    assert "| Gate / core tests (3.11) | ⏳ queued | — |" in body
+    assert "core tests (3.13): ⏳ queued" in body
+    assert "| Gate / core tests (3.13) | ⏳ queued | — |" in body
     assert "### Coverage Overview" not in body
 
 
@@ -401,7 +401,7 @@ def test_build_summary_comment_defaults_on_invalid_required_groups(
         required_groups_env="{not-json}",
     )
 
-    assert "core tests (3.11): ✅ success" in body
+    assert "core tests (3.13): ✅ success" in body
     assert "core tests (3.12): ✅ success" in body
     assert "docker smoke: ❌ failure" in body
     assert "gate: ❌ failure" in body
@@ -420,9 +420,9 @@ def test_required_groups_follow_renamed_jobs() -> None:
             "html_url": "https://example.test/gate/202",
             "jobs": [
                 {
-                    "name": "Gate Suite :: Py311 core",
+                    "name": "Gate Suite :: Py313 core",
                     "conclusion": "success",
-                    "html_url": "https://example.test/gate/202/py311",
+                    "html_url": "https://example.test/gate/202/py313",
                 },
                 {
                     "name": "Gate Suite :: Py312 core",
@@ -452,16 +452,16 @@ def test_required_groups_follow_renamed_jobs() -> None:
         required_groups_env=None,
     )
 
-    assert "Gate Suite :: Py311 core: ✅ success" in body
+    assert "Gate Suite :: Py313 core: ✅ success" in body
     assert "Gate Suite :: Py312 core: ✅ success" in body
     assert "Dockerized smoke run: ✅ success" in body
     assert "Maint meta gate aggregator: ✅ success" in body
-    assert "core tests (3.11):" not in body
+    assert "core tests (3.13):" not in body
     assert "core tests (3.12):" not in body
     assert "docker smoke:" not in body
     assert "gate:" not in body
 
-    assert "| Gate / Gate Suite :: Py311 core | ✅ success |" in body
+    assert "| Gate / Gate Suite :: Py313 core | ✅ success |" in body
     assert "| Gate / Gate Suite :: Py312 core | ✅ success |" in body
     assert "| Gate / Dockerized smoke run | ✅ success |" in body
     assert "| Gate / Maint meta gate aggregator | ✅ success |" in body

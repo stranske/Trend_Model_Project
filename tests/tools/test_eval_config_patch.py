@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pytest
 
+pytest.importorskip("langchain_core")
+
 from tools import eval_config_patch, prompt_evaluator
 from tools.eval_config_patch import (
     DEFAULT_CASES,

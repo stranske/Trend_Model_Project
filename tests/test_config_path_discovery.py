@@ -50,7 +50,7 @@ def test_config_discovery_robustness():
             )
 
             found_config = mock_find_config()
-            assert found_config == mock_config
+            assert found_config.resolve() == mock_config.resolve()
             assert (found_config / "defaults.yml").exists()
 
 
@@ -86,7 +86,7 @@ def test_config_discovery_fallback():
 
             # Should find the fallback config
             found_config = mock_find_config()
-            assert found_config == fallback_config
+            assert found_config.resolve() == fallback_config.resolve()
 
 
 def test_config_discovery_failure():

@@ -6,6 +6,10 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
+import pytest
+
+pytest.importorskip("langchain_core")
+
 from trend_analysis.config.patch import ConfigPatch, PatchOperation
 from trend_analysis.config.validation import ValidationResult
 from trend_analysis.llm.nl_logging import NLOperationLog
