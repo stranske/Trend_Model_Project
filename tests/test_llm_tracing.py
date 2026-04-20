@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 
+import pytest
+
 from trend_analysis.llm import tracing as tracing_module
 from trend_analysis.llm.tracing import (
     langsmith_tracing_context,
@@ -82,7 +84,7 @@ def test_langsmith_tracing_context_invokes_trace(monkeypatch) -> None:
         ) -> bool:
             return False
 
-    import langsmith.run_helpers as run_helpers
+    run_helpers = pytest.importorskip("langsmith.run_helpers")
 
     monkeypatch.setattr(run_helpers, "trace", DummyTrace)
 
