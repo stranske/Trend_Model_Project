@@ -112,7 +112,7 @@ dev = [
     "coverage==7.13.5",
     "pytest-rerunfailures==16.1",
     "pytest-xdist==3.8.0",
-    "packaging==25.0",
+    "packaging==26.1",
     "streamlit==1.56.0",
     "fastapi==0.135.3",
     "types-PyYAML==6.0.12.20260408",
