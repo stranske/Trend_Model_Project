@@ -38,7 +38,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_TARGETS = [ROOT / "src", ROOT / "tests"]
 NAME_PATTERN = re.compile(r"Name ['\"](?P<name>[A-Za-z0-9_]+)['\"] is not defined")
 
-# Symbols that safely come from ``typing`` in Python 3.11+.
+# Symbols that safely come from ``typing`` in Python 3.12+.
 TYPING_SYMBOLS = {
     "Annotated",
     "Any",

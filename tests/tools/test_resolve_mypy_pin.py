@@ -106,19 +106,19 @@ def test_main_uses_matrix_version_fallback(tmp_path: Path, monkeypatch: pytest.M
 
     output_file = tmp_path / "output.txt"
     monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
-    monkeypatch.setenv("MATRIX_PYTHON_VERSION", "3.11")
+    monkeypatch.setenv("MATRIX_PYTHON_VERSION", "3.12")
 
     return_code = resolve_mypy_pin.main()
 
     assert return_code == 0
     content = output_file.read_text(encoding="utf-8")
-    assert "python-version=3.11" in content
+    assert "python-version=3.12" in content
 
 
-def test_main_defaults_to_311_without_any_config(
+def test_main_defaults_to_312_without_any_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Test main defaults to 3.11 when nothing is configured."""
+    """Test main defaults to 3.12 when nothing is configured."""
     monkeypatch.chdir(tmp_path)
 
     output_file = tmp_path / "output.txt"
@@ -129,4 +129,4 @@ def test_main_defaults_to_311_without_any_config(
 
     assert return_code == 0
     content = output_file.read_text(encoding="utf-8")
-    assert "python-version=3.11" in content
+    assert "python-version=3.12" in content
