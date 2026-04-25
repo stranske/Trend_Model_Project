@@ -8,12 +8,12 @@ a tracking issue when coverage falls below the threshold.
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
 import datetime as dt
 import json
 import math
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
