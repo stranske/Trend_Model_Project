@@ -1,6 +1,6 @@
 [build-system]
 # Pin build dependencies to ensure reproducible installs during Docker builds
-requires = ["setuptools==82.0.1", "wheel==0.46.3"]
+requires = ["setuptools==82.0.1", "wheel==0.47.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -29,11 +29,11 @@ classifiers = [
 dependencies = [
     "PyYAML==6.0.3",
     "fpdf2==2.8.7",
-    "hypothesis==6.152.1",
+    "hypothesis==6.152.3",
     "ipywidgets==8.1.8",
     "joblib==1.5.3",
     "jsonschema==4.26.0",
-    "matplotlib==3.10.8",
+    "matplotlib==3.10.9",
     "numpy==2.4.4",
     "openpyxl==3.1.5",
     "pandas==3.0.2",
@@ -82,25 +82,25 @@ exclude = ["Old*", "retired*", "**/Old*", "**/retired*"]
 app = [
     "streamlit==1.56.0",
     "streamlit-sortables==0.3.1",
-    "fastapi==0.136.0",
-    "uvicorn[standard]==0.44.0",
+    "fastapi==0.136.1",
+    "uvicorn[standard]==0.46.0",
     "httpx==0.28.1",
 ]
 llm = [
     "langchain>=1.2,<1.3",
     "langchain-core>=1.2,<1.4",
     "langchain-community>=0.4,<0.5",
-    "langchain-openai>=0.3,<1.2",
+    "langchain-openai>=0.3,<1.3",
     "langchain-anthropic>=0.3,<1.5",
     "langchain-ollama>=1.1.0,<1.2",
-    "langsmith==0.7.32",
+    "langsmith==0.7.37",
 ]
 notebooks = [
     "ipyfilechooser==0.6.0",
     "nbformat==5.10.4",
 ]
 dev = [
-    "pre-commit==4.5.1",
+    "pre-commit==4.6.0",
     "black==26.3.1",
     "ruff==0.15.10",
     "isort==8.0.1",
@@ -112,9 +112,9 @@ dev = [
     "coverage==7.13.5",
     "pytest-rerunfailures==16.1",
     "pytest-xdist==3.8.0",
-    "packaging==26.1",
+    "packaging==26.2",
     "streamlit==1.56.0",
-    "fastapi==0.136.0",
+    "fastapi==0.136.1",
     "types-PyYAML==6.0.12.20260408",
     "types-requests==2.33.0.20260408",
     "httpx==0.28.1",
