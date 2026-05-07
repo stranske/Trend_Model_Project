@@ -489,7 +489,7 @@ typeguard==4.5.1
     # via pandera
 types-pyyaml==6.0.12.20260408
     # via trend-model (pyproject.toml)
-types-requests==2.33.0.20260408
+types-requests==2.33.0.20260503
     # via trend-model (pyproject.toml)
 typing-extensions==4.15.0
     # via
