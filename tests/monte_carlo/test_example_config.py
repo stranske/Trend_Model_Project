@@ -85,3 +85,12 @@ def test_example_config_curated_variants_do_not_mutate_defaults() -> None:
     for variant in curated:
         _ = variant.to_trend_config(base_config, base_path=base_path.parent)
         assert base_config == base_snapshot
+
+
+def test_cost_regime_example_pins_cash_gate_settings() -> None:
+    scenario = load_scenario("cost_regime_example")
+
+    assert isinstance(scenario.raw, Mapping)
+    assert scenario.raw.get("data", {}).get("allow_risk_free_fallback") is True
+    assert scenario.raw.get("metrics", {}).get("rf_override_enabled") is True
+    assert scenario.raw.get("metrics", {}).get("rf_rate_annual") == 0.03
