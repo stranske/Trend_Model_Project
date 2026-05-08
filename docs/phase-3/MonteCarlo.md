@@ -627,7 +627,8 @@ outputs:
 `strategy_set`, `outputs`, and `costs` are optional top-level sections. Scenario
 authors may omit them or set them to `null` to document intentional absence; the
 loader treats both forms as absent. Required sections such as `scenario`,
-`base_config`, and `monte_carlo` remain strict and must contain valid values.
+`base_config`, and `monte_carlo` remain strict and must contain valid values
+(`monte_carlo: null` fails validation).
 
 ---
 
