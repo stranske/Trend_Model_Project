@@ -278,9 +278,7 @@ def test_load_scenario_treats_null_optional_sections_as_absent(tmp_path: Path) -
     )
     registry = tmp_path / "index.yml"
     registry.write_text(
-        "scenarios:\n"
-        "  - name: null_optional\n"
-        "    path: null_optional.yml\n",
+        "scenarios:\n" "  - name: null_optional\n" "    path: null_optional.yml\n",
         encoding="utf-8",
     )
 
@@ -289,6 +287,60 @@ def test_load_scenario_treats_null_optional_sections_as_absent(tmp_path: Path) -
     assert loaded.strategy_set is None
     assert loaded.outputs is None
     assert loaded.costs is None
+
+
+def test_load_scenario_null_optional_sections_match_omitted_sections(tmp_path: Path) -> None:
+    base_config = tmp_path / "base.yml"
+    base_config.write_text("{}", encoding="utf-8")
+
+    scenario_with_nulls = tmp_path / "with_nulls.yml"
+    scenario_with_nulls.write_text(
+        "scenario:\n"
+        "  name: with_nulls\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: two_layer\n"
+        "  n_paths: 25\n"
+        "  horizon_years: 1.0\n"
+        "  frequency: M\n"
+        "strategy_set: null\n"
+        "outputs: null\n"
+        "costs: null\n",
+        encoding="utf-8",
+    )
+
+    scenario_without_optionals = tmp_path / "without_optionals.yml"
+    scenario_without_optionals.write_text(
+        "scenario:\n"
+        "  name: without_optionals\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: two_layer\n"
+        "  n_paths: 25\n"
+        "  horizon_years: 1.0\n"
+        "  frequency: M\n",
+        encoding="utf-8",
+    )
+
+    registry = tmp_path / "index.yml"
+    registry.write_text(
+        "scenarios:\n"
+        "  - name: with_nulls\n"
+        "    path: with_nulls.yml\n"
+        "  - name: without_optionals\n"
+        "    path: without_optionals.yml\n",
+        encoding="utf-8",
+    )
+
+    with_nulls = load_scenario("with_nulls", registry_path=registry)
+    without_optionals = load_scenario("without_optionals", registry_path=registry)
+
+    assert with_nulls.strategy_set is None
+    assert with_nulls.outputs is None
+    assert with_nulls.costs is None
+    assert without_optionals.strategy_set is None
+    assert without_optionals.outputs is None
+    assert without_optionals.costs is None
 
 
 def test_load_scenario_rejects_null_required_monte_carlo(tmp_path: Path) -> None:
@@ -307,9 +359,7 @@ def test_load_scenario_rejects_null_required_monte_carlo(tmp_path: Path) -> None
     )
     registry = tmp_path / "index.yml"
     registry.write_text(
-        "scenarios:\n"
-        "  - name: null_required\n"
-        "    path: null_required.yml\n",
+        "scenarios:\n" "  - name: null_required\n" "    path: null_required.yml\n",
         encoding="utf-8",
     )
 
