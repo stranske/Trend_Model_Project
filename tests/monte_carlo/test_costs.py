@@ -9,7 +9,7 @@ import pandas as pd
 import trend_analysis.monte_carlo.runner as runner_module
 from trend_analysis.api import RunResult
 from trend_analysis.monte_carlo.costs import CostProcess
-from trend_analysis.monte_carlo.registry import load_scenario
+from trend_analysis.monte_carlo.registry import list_scenarios, load_scenario
 from trend_analysis.monte_carlo.runner import MonteCarloRunner
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario
 from trend_analysis.monte_carlo.strategy import StrategyVariant
@@ -206,6 +206,12 @@ def test_cost_regime_scenario_loads_from_registry() -> None:
     assert isinstance(scenario, MonteCarloScenario)
     assert scenario.name == "cost_regime_example"
     assert scenario.costs is not None
+
+
+def test_cost_regime_scenario_is_filterable_by_example_and_cost_tags() -> None:
+    for tag in ("example", "costs"):
+        names = {entry.name for entry in list_scenarios(tags=[tag])}
+        assert "cost_regime_example" in names
 
 
 def test_runner_injects_cash_series_when_override_enabled(monkeypatch: Any) -> None:
