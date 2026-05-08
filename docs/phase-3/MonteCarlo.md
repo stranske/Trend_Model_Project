@@ -342,7 +342,7 @@ Canonical schema (required):
 
 - `kind`: Must be `regime_stochastic`.
 - `trade_cost_bps`: Required under each regime; defines the basis-point cost distribution.
-- Top-level `regimes` structure: regime names (for example `calm`, `stress`) are top-level keys under `costs`, and each regime must include `trade_cost_bps`.
+- Top-level regime blocks: regime names (for example `calm`, `stress`) are direct keys under `costs`, and each regime block must include `trade_cost_bps`.
 
 Concrete canonical example:
 
