@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -212,6 +213,15 @@ def test_cost_regime_scenario_is_filterable_by_example_and_cost_tags() -> None:
     for tag in ("example", "costs"):
         names = {entry.name for entry in list_scenarios(tags=[tag])}
         assert "cost_regime_example" in names
+
+
+def test_cost_regime_scenario_documents_exact_dry_run_command() -> None:
+    scenario_file = Path("config/scenarios/monte_carlo/cost_regime_example.yml")
+    scenario_text = scenario_file.read_text(encoding="utf-8")
+    assert (
+        "# - Run with: trend mc run --scenario cost_regime_example --dry-run --n-paths 10"
+        in scenario_text
+    )
 
 
 def test_runner_injects_cash_series_when_override_enabled(monkeypatch: Any) -> None:
