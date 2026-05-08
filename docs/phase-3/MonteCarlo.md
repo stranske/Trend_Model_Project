@@ -62,23 +62,49 @@ This implies an **expected variance-reduction factor of ~100x** (independent var
 
 This meets the documented expectation of ~100x reduction for the benchmark configuration.
 
-### Mixture mode seeding
+### Mixture Mode Seeding
 
-Mixture mode remains deterministic when a scenario seed is set, but it has two valid execution modes:
+Mixture mode remains deterministic when a scenario seed is set, but it has two valid
+execution modes:
 
-1. **Shared-path bulk generation**: generate all paths in one bulk call, then evaluate one sampled strategy per path.
-2. **Per-path generation**: generate each path independently with that path's seed, then evaluate one sampled strategy for that path.
+1. **Shared-path bulk generation**: generate all paths in one bulk call, then evaluate
+   one sampled strategy per path.
+2. **Per-path generation**: generate each path independently with that path's seed,
+   then evaluate one sampled strategy for that path.
 
-The exact mode-selection condition is:
+The runner chooses between those modes from the effective per-path seeds:
 
-- Use **shared-path bulk generation** when per-path seeds match what the base `SeedManager` would produce for the run seed (or when all per-path seeds are `None`).
-- Use **per-path generation** when per-path seeds diverge from the base `SeedManager` sequence.
+- Use **shared-path bulk generation** when every path seed matches the value that
+  `SeedManager(<scenario seed>).get_path_seed(path_id)` would produce for that
+  path. This is the default for a seeded scenario because `_build_seeds()` derives
+  path seeds from the same base `SeedManager`.
+- Also use **shared-path bulk generation** when all path seeds are `None`. This
+  still uses one bulk model call with `seed=<monte_carlo.seed>`; when the scenario
+  itself is unseeded, that bulk-call seed is `None`.
+- Use **per-path generation** when any non-null per-path seed differs from the
+  base `SeedManager` sequence. This can happen in tests, debug harnesses, or any
+  future override that supplies explicit path seeds.
 
-Both modes are deterministic for fixed inputs and fixed seeds; they differ in how path generation work is scheduled.
+To predict the mode for a scenario, check `monte_carlo.seed` first. If it is set and
+the run uses the built-in seed builder, mixture mode will use shared-path bulk
+generation. If a caller overrides path seeds, compare each override with
+`SeedManager(seed).get_path_seed(path_id)`: one mismatch switches the run to
+per-path generation. Strategy seeds do not choose the path-generation mode; they only
+choose which strategy variant is sampled for each path.
 
-#### why is my mixture run slower?
+Both modes are deterministic for fixed inputs and fixed seeds; they differ only in
+how path generation work is scheduled. The mode-selection contract is covered by
+`tests/monte_carlo/test_runner.py::test_run_mixture_uses_shared_bulk_generation_when_path_seeds_match_base`,
+`test_run_mixture_uses_shared_bulk_generation_when_path_seeds_are_unset`, and
+`test_run_mixture_uses_per_path_generation_when_path_seeds_diverge`.
 
-If mixture mode selects **per-path generation**, the runner performs many small model calls (`n_paths=1`) instead of one bulk call (`n_paths=N`). This can be slower due to repeated setup overhead and reduced vectorization compared with shared-path bulk generation.
+#### Why Is My Mixture Run Slower?
+
+If mixture mode selects **per-path generation**, the runner performs many small
+model calls (`n_paths=1`) instead of one bulk call (`n_paths=N`). This can be slower
+due to repeated setup overhead and reduced vectorization compared with shared-path
+bulk generation. The debug log includes the phrase
+`Mixture mode selected per-path generation` when this slower path is selected.
 
 ---
 
