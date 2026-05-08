@@ -206,6 +206,10 @@ def test_cost_regime_scenario_loads_from_registry() -> None:
     assert isinstance(scenario, MonteCarloScenario)
     assert scenario.name == "cost_regime_example"
     assert scenario.costs is not None
+    assert scenario.costs["kind"] == "regime_stochastic"
+    assert "regimes" not in scenario.costs
+    for regime in ("calm", "stress"):
+        assert "trade_cost_bps" in scenario.costs[regime]
 
 
 def test_runner_injects_cash_series_when_override_enabled(monkeypatch: Any) -> None:
