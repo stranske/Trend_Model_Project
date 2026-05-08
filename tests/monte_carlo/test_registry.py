@@ -155,6 +155,11 @@ def test_list_scenarios_filters_by_tags(tmp_path: Path) -> None:
     filtered = list_scenarios(tags=["stress"], registry_path=registry)
     assert [entry.name for entry in filtered] == ["beta"]
 
+    # Also assert the real example scenario can be discovered by both registry tags.
+    for tag in ("example", "costs"):
+        names = {entry.name for entry in list_scenarios(tags=[tag])}
+        assert "cost_regime_example" in names
+
 
 def test_list_scenarios_filters_by_tags_sorted_by_path(tmp_path: Path) -> None:
     scenario_a = tmp_path / "b.yml"
