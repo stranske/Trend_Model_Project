@@ -132,3 +132,31 @@ def test_registry_scenario_rejects_null_required_monte_carlo(tmp_path: Path) -> 
 
     with pytest.raises(ValueError, match="Scenario config must define monte_carlo"):
         load_scenario(scenario_name, registry_path=registry_path)
+
+
+@pytest.mark.integration
+def test_registry_scenario_rejects_null_required_monte_carlo_without_optional_sections(
+    tmp_path: Path,
+) -> None:
+    scenario_name = "integration_null_required_minimal"
+    scenario_dir = tmp_path / "config" / "scenarios" / "monte_carlo"
+    scenario_dir.mkdir(parents=True, exist_ok=True)
+
+    registry_path = scenario_dir / "index.yml"
+    scenario_file = scenario_dir / "integration_null_required_minimal.yml"
+    base_config = scenario_dir / "base.yml"
+
+    base_config.write_text("{}", encoding="utf-8")
+    scenario_file.write_text(
+        "scenario:\n" f"  name: {scenario_name}\n" "base_config: base.yml\n" "monte_carlo: null\n",
+        encoding="utf-8",
+    )
+    registry_path.write_text(
+        "scenarios:\n"
+        f"  - name: {scenario_name}\n"
+        "    path: integration_null_required_minimal.yml\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Scenario config must define monte_carlo"):
+        load_scenario(scenario_name, registry_path=registry_path)
