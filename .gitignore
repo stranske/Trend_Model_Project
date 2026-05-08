@@ -138,6 +138,7 @@ residual-trend-history.ndjson
 # --- Keepalive Status Files (HIGH conflict risk) ---
 # Auto-generated status tracking, should not be committed
 keepalive_status.md
+workloop-state.md
 docs/keepalive/status/
 
 # PR-specific file - should not be tracked

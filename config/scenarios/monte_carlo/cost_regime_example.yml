@@ -9,11 +9,14 @@ scenario:
 
 base_config: config/defaults.yml
 
-# Override the default to enable CASH column injection when risk_free_column is
-# absent.  Without this the runner silently skips CASH injection because
-# defaults.yml sets allow_risk_free_fallback: false.
+# Keep risk-free fallback available for score-frame calculations, but do not
+# rely on it to create CASH.  CASH injection is gated by metrics.rf_override_enabled.
 data:
   allow_risk_free_fallback: true
+
+metrics:
+  rf_override_enabled: true
+  rf_rate_annual: 0.03
 
 monte_carlo:
   mode: two_layer

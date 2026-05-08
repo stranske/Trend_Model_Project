@@ -247,9 +247,10 @@ def test_inject_cash_warns_when_override_disabled(monkeypatch: Any, caplog: Any)
     scenario.monte_carlo.n_paths = 10
     scenario.strategy_set = {"curated": [StrategyVariant(name="StrategyA")]}
     scenario.costs = None
-    # Remove the scenario-level data override so the base_config value wins.
+    # Remove scenario-level overrides so the base_config value wins.
     if isinstance(scenario.raw, dict):
         scenario.raw.pop("data", None)
+        scenario.raw.pop("metrics", None)
 
     base_cfg = _base_config()
     base_cfg["metrics"]["rf_override_enabled"] = False
@@ -289,20 +290,16 @@ def test_inject_cash_warns_when_override_disabled(monkeypatch: Any, caplog: Any)
     ), f"Expected exactly 1 fallback warning but got {len(fallback_warnings)}"
 
 
-def test_scenario_data_override_merges_into_base_config(
-    monkeypatch: Any,
-) -> None:
-    """Scenario-level data overrides (e.g. allow_risk_free_fallback) should be
-    merged into the runner's base config even when the base config file sets
-    a different value."""
+def test_scenario_data_and_metrics_overrides_merge_into_base_config() -> None:
+    """Scenario-level risk-free overrides should reach the runner config."""
     scenario = load_scenario("cost_regime_example")
     scenario.monte_carlo.n_paths = 10
     scenario.strategy_set = {"curated": [StrategyVariant(name="StrategyA")]}
     scenario.costs = None
 
     # Do NOT pass base_config — let the runner load it from the scenario's
-    # base_config path.  The scenario YAML sets data.allow_risk_free_fallback:
-    # true which should override defaults.yml's false.
+    # base_config path. The scenario YAML pins both the fallback source and the
+    # explicit CASH-injection gate.
     runner = MonteCarloRunner(
         scenario,
         price_history=_price_history(),
@@ -312,3 +309,5 @@ def test_scenario_data_override_merges_into_base_config(
     assert (
         runner.base_config["data"]["allow_risk_free_fallback"] is True
     ), "Scenario-level data.allow_risk_free_fallback should override defaults"
+    assert runner.base_config["metrics"]["rf_override_enabled"] is True
+    assert abs(runner.base_config["metrics"]["rf_rate_annual"] - 0.03) < 1e-12
