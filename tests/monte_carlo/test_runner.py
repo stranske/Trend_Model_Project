@@ -1837,6 +1837,52 @@ def test_apply_cash_handling_returns_unchanged_when_legacy_lowercase_cash_presen
     pd.testing.assert_frame_equal(injected, returns)
 
 
+def test_issue_5171_cash_policy_gate_matrix(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Issue #5171: CASH injection is gated only by metrics.rf_override_enabled."""
+    cfg = _base_config()
+    cfg["data"]["allow_risk_free_fallback"] = True
+    cfg["metrics"] = {
+        "registry": ["sharpe_ratio"],
+        "rf_override_enabled": False,
+        "rf_rate_annual": 0.12,
+    }
+    returns = _returns_without_rf()
+
+    with caplog.at_level(logging.WARNING):
+        skipped = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)._apply_cash_handling(
+            returns
+        )
+
+    assert "CASH" not in skipped.columns
+    assert "gate=false" in caplog.text
+
+    cfg["metrics"]["rf_override_enabled"] = True
+    injected = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)._apply_cash_handling(
+        returns
+    )
+    expected = np.full(len(returns), (1.12 ** (1.0 / 12.0)) - 1.0, dtype=float)
+    np.testing.assert_allclose(injected["CASH"].to_numpy(dtype=float, copy=False), expected)
+
+    existing_cash = returns.copy()
+    existing_cash["CASH"] = 0.0042
+    preserved = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)._apply_cash_handling(
+        existing_cash
+    )
+    pd.testing.assert_frame_equal(preserved, existing_cash)
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.resolve_risk_free_source",
+        lambda *_args, **_kwargs: RiskFreeResolution(source="bad", risk_free=["bad"]),
+    )
+    unsupported = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)._apply_cash_handling(
+        returns
+    )
+    assert "CASH" not in unsupported.columns
+
+
 def test_apply_cash_handling_skips_when_base_config_invalid(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

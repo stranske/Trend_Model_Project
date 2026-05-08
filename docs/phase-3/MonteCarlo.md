@@ -322,11 +322,14 @@ Cash Earns = Risk-Free Rate (configurable source)
 
 - Trigger condition (boolean):
   - `inject_cash = bool(metrics.rf_override_enabled)`.
+- `data.risk_free_column` and `data.allow_risk_free_fallback` only choose or discover a risk-free series for metric calculations. They do not bypass the CASH injection gate.
 - Injected CASH rate:
   - If `metrics.rf_override_enabled` is `true`, use `metrics.rf_rate_annual`.
   - Convert to periodic simulation rate with `periods_per_year_from_code(data.frequency)`.
   - Formula: `rf_periodic = (1 + rf_rate_annual) ** (1 / periods_per_year) - 1`.
 - Skip behavior: if `metrics.rf_override_enabled` is disabled, no `CASH` column is injected (even when `data.risk_free_column` or `data.allow_risk_free_fallback` is set).
+- If `metrics.rf_override_enabled` is enabled but risk-free resolution fails, resolves to an unsupported type, or yields a series that cannot align cleanly to the simulated returns, the runner logs one warning and leaves the return frame unchanged.
+- If a `CASH` or legacy `cash` column is already present, the runner preserves it and does not overwrite the existing values.
 
 Example:
 - Config sets `data.frequency: "M"`, `metrics.rf_override_enabled: true`, and `metrics.rf_rate_annual: 0.12`.
