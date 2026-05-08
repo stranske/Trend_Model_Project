@@ -26,6 +26,8 @@ monte_carlo:
 costs:
   kind: regime_stochastic
   default_regime: calm
+  # Canonical schema: regime blocks live directly under `costs`.
+  # Use `costs.calm` / `costs.stress` (not `costs.regimes.calm`).
   calm:
     # Baseline all-in trading cost in basis points (bps) in normal markets.
     trade_cost_bps:

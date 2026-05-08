@@ -373,6 +373,16 @@ def test_load_scenario_includes_optional_sections() -> None:
     assert scenario.folds["enabled"] is True
 
 
+def test_load_scenario_cost_regime_example_uses_canonical_direct_regime_shape() -> None:
+    scenario = load_scenario("cost_regime_example")
+    assert scenario.costs is not None
+    assert scenario.costs.get("kind") == "regime_stochastic"
+    assert "regimes" not in scenario.costs
+    for regime in ("calm", "stress"):
+        assert regime in scenario.costs
+        assert "trade_cost_bps" in scenario.costs[regime]
+
+
 def test_load_scenario_rejects_null_return_model(tmp_path: Path) -> None:
     base_config = tmp_path / "base.yml"
     base_config.write_text("{}", encoding="utf-8")
