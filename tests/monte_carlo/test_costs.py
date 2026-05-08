@@ -207,8 +207,10 @@ def test_cost_regime_scenario_loads_from_registry() -> None:
     assert scenario.name == "cost_regime_example"
     assert scenario.costs is not None
     assert scenario.costs["kind"] == "regime_stochastic"
+    assert scenario.costs["default_regime"] == "calm"
     assert "regimes" not in scenario.costs
     for regime in ("calm", "stress"):
+        assert isinstance(scenario.costs[regime], dict)
         assert "trade_cost_bps" in scenario.costs[regime]
 
 
