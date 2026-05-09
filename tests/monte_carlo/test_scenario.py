@@ -212,7 +212,12 @@ def test_validate_mc_scenario_reports_misspelled_rf_override(tmp_path: Path) -> 
     scenario = MonteCarloScenario(
         name="typo_scenario",
         base_config=base_path,
-        monte_carlo={"mode": "mixture", "n_paths": 1, "horizon_years": 1.0, "frequency": "M"},
+        monte_carlo={
+            "mode": "mixture",
+            "n_paths": 1,
+            "horizon_years": 1.0,
+            "frequency": "M",
+        },
         return_model={"kind": "stationary_bootstrap"},
         strategy_set={"curated": []},
         raw={"metrics": {"rf_override_enbaled": True}},
@@ -438,7 +443,9 @@ def test_monte_carlo_scenario_missing_mapping_fields_raise_clear_errors() -> Non
         jobs=None,
     )
 
-    with pytest.raises(ValueError, match="return_model must be a mapping \\(null provided\\)"):
+    with pytest.raises(
+        ValueError, match="return_model must be a mapping \\(null provided\\)"
+    ):
         MonteCarloScenario(
             name="missing_mappings",
             description="Missing return_model mapping",

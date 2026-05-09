@@ -50,7 +50,9 @@ def test_schema_validation_accepts_regime_turnover_caps() -> None:
 
 def test_schema_validation_accepts_rf_override_enabled() -> None:
     schema = generate_schema()
-    metrics_schema = schema["properties"]["metrics"]["properties"]["rf_override_enabled"]
+    metrics_schema = schema["properties"]["metrics"]["properties"][
+        "rf_override_enabled"
+    ]
     assert metrics_schema["type"] == "boolean"
     assert metrics_schema["default"] is False
 
@@ -62,7 +64,9 @@ def test_schema_validation_rejects_misspelled_rf_override_enabled() -> None:
     schema = generate_schema()
     errors = validate_config_data({"metrics": {"rf_override_enbaled": True}}, schema)
     assert errors
-    assert any("metrics" in error and "rf_override_enbaled" in error for error in errors)
+    assert any(
+        "metrics" in error and "rf_override_enbaled" in error for error in errors
+    )
 
 
 def test_schema_validation_rejects_invalid_regime_turnover_caps() -> None:
