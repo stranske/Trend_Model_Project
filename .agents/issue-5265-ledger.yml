@@ -1,0 +1,223 @@
+version: 1
+issue: 5265
+base: phase-3
+branch: codex/issue-5265
+tasks:
+  - id: task-01
+    title: Identify all YAML code blocks in `docs/phase-3/MonteCarlo.md` that contain
+      a `costs:` key and document their current structure in a comment or temporary
+      file
+    status: doing
+    started_at: '2026-05-09T17:22:44Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Remove legacy-only fields from each `costs:` example in `docs/phase-3/MonteCarlo.md`
+      that are not in the canonical schema defined in `src/schemas/monte_carlo.py`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Update all `costs:` examples in `docs/phase-3/MonteCarlo.md` to use canonical
+      schema key names and nesting structure
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Verify each updated `costs:` example against the canonical Monte Carlo
+      schema definition by running schema validation if available, or by manual comparison
+      with `src/schemas/monte_carlo.py`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Identify all legacy Monte Carlo schema keys and aliases from `config/scenarios/monte_carlo/*.yaml`
+      files and git history of `docs/phase-3/MonteCarlo.md` from the past 3 releases
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Create a `## Backward Compatibility` section in `docs/phase-3/MonteCarlo.md`
+      with the exact heading specified
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Document each legacy key or alias in the Backward Compatibility section
+      with its corresponding status label of `supported` or `deprecated`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Add examples in the Backward Compatibility section showing how legacy keys
+      map to canonical schema equivalents where applicable
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Update at least one scenario file under `config/scenarios/monte_carlo/`
+      so its `costs:` block uses canonical Monte Carlo schema field names and structure
+      from `src/schemas/monte_carlo.py`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Add an automated integration test under `tests/` that loads the specific
+      updated scenario file from `config/scenarios/monte_carlo/` and asserts that
+      scenario parsing/loading completes without raising an exception
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Identify the current test invocation command that requires the `uv` executable
+      and document its purpose in a code comment
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Determine the repository-supported test runner command from `pyproject.toml`
+      or `Makefile` that should be used instead of `uv`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Update test helper setup or configuration files to use the repository-supported
+      test command (pytest, make test, etc.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Verify the updated test invocation runs successfully in the repository
+      test environment without `uv` by running the test locally
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Remove `docs/keepalive/PR5168_Status.md` from the change set if present
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Add `.gitignore` rules to exclude `docs/keepalive/` directory or `*_Status.md`
+      files so keepalive/status artifacts are not tracked by the repository
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Every YAML code block in `docs/phase-3/MonteCarlo.md` that contains a top-level
+      `costs:` key uses only keys defined in `src/schemas/monte_carlo.py` and contains
+      no legacy-only aliases or fields not present in that schema definition
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: For each `costs:` example in `docs/phase-3/MonteCarlo.md`, the key names
+      and nesting structure exactly match the canonical schema field names and hierarchy
+      defined in `src/schemas/monte_carlo.py`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: '`docs/phase-3/MonteCarlo.md` contains a section with the exact heading
+      `## Backward Compatibility`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: The `## Backward Compatibility` section in `docs/phase-3/MonteCarlo.md`
+      lists all legacy keys that appear in any scenario file under `config/scenarios/monte_carlo/`
+      or in git history of `MonteCarlo.md` from the past 3 releases, with status label
+      `supported` or `deprecated` for every listed item
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: At least one scenario file under `config/scenarios/monte_carlo/` is modified
+      in this change set so that its `costs:` block uses the canonical Monte Carlo
+      schema field names and structure from `src/schemas/monte_carlo.py`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: A new or updated automated integration test exists under `tests/` that
+      loads the specific updated scenario file from `config/scenarios/monte_carlo/`
+      and the test passes without raising an exception
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: The test invocation for the scenario-loading test uses commands documented
+      in `pyproject.toml`, `Makefile`, or `README.md` and does not require the `uv`
+      executable
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: Running `pytest tests/` (or the repository-standard test command) executes
+      the new scenario-loading test successfully
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: '`docs/keepalive/PR5168_Status.md` is not present in the git staging area
+      or committed changes'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: '`.gitignore` contains an entry that prevents `docs/keepalive/` or `*_Status.md`
+      files from being tracked'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
