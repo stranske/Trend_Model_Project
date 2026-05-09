@@ -1,0 +1,327 @@
+version: 1
+issue: 5267
+base: phase-3
+branch: codex/issue-5267
+tasks:
+  - id: task-01
+    title: Identify all modified files in config/ directory that are not cost-scenario
+      related and revert those changes
+    status: doing
+    started_at: '2026-05-09T17:23:14Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Identify all modified files in src/ directory that are not cost-scenario
+      related and revert those changes
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Identify all modified files in tests/ directory that are not cost-scenario
+      related and revert those changes
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Verify that only the allowed files remain modified after reverting unrelated
+      changes
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Remove the file `docs/keepalive/PR5168_Status.md` from the branch entirely
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Add the new cost scenario entry to `config/scenarios/monte_carlo/index.yml`
+      with discovery tags `cost` and `example`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Create or restore `config/scenarios/monte_carlo/cost_regime_example.yml`
+      with complete regime-stochastic cost scenario definition including all referenced
+      local fixture paths
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Check whether a registry-loading test already exists in `tests/**/test_registry.py`
+      for the cost scenario
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Create a new registry-loading test in `tests/**/test_registry.py` if no
+      existing test is found
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Complete the existing registry-loading test to assert discoverability with
+      `cost` and `example` tags if a partial test exists
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Verify the registry-loading test loads from the index rather than directly
+      instantiating the scenario file
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Check whether a deterministic cost test already exists in `tests/**/test_costs.py`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Create a new deterministic cost test in `tests/**/test_costs.py` if no
+      existing test is found
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Add assertions for exact expected slippage output values using local fixtures
+      only
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Add separate assertions for CASH injection behavior with explicit expected
+      values
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Add separate assertions for risk-free injection behavior with explicit
+      expected values
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Verify the test does not depend on network access or non-repository data
+      files
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Update `docs/**/MonteCarlo.md` to include an exact runnable CLI dry-run
+      command for the cost scenario example that references the registered scenario
+      name
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'The branch modifies only the following files: `config/scenarios/monte_carlo/index.yml`,
+      `config/scenarios/monte_carlo/cost_regime_example.yml`, `tests/**/test_registry.py`,
+      `tests/**/test_costs.py`, `tests/fixtures/**` (cost-related fixtures only),
+      and `docs/**/MonteCarlo.md`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: No other files in `config/`, `src/`, or `tests/` are modified
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: The file `docs/keepalive/PR5168_Status.md` is absent from the branch diff
+      and is not added or modified
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: '`config/scenarios/monte_carlo/index.yml` contains exactly one registry
+      entry for the new cost scenario'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: The registry entry includes discovery tags `cost` and `example`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: Loading the Monte Carlo registry from `config/scenarios/monte_carlo/index.yml`
+      exposes the new cost scenario as a discoverable scenario record without parse
+      or validation errors
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: Running `python -m yaml.safe_load config/scenarios/monte_carlo/cost_regime_example.yml`
+      completes without exceptions
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: Running the scenario loader's `validate()` method on `config/scenarios/monte_carlo/cost_regime_example.yml`
+      returns success with no validation errors logged
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: '`config/scenarios/monte_carlo/cost_regime_example.yml` defines the regime-stochastic
+      cost scenario used by tests and includes all referenced local fixture paths
+      required for deterministic execution'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: A registry test exists in `tests/**/test_registry.py` that loads the Monte
+      Carlo registry index
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: The registry test asserts that the new scenario is discoverable and tagged
+      with both `cost` and `example`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: The registry test verifies discoverability through the same registry path
+      used by listing/filtering behavior, rather than by directly instantiating the
+      scenario file alone
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: A deterministic cost test exists in `tests/**/test_costs.py` that executes
+      the cost scenario
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: The deterministic cost test uses only local fixtures under `tests/fixtures/**`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: The deterministic cost test asserts exact expected slippage output values
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: The deterministic cost test includes separate assertions for CASH injection
+      behavior with explicit expected values
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: The deterministic cost test includes separate assertions for risk-free
+      injection behavior with explicit expected values
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: The deterministic cost test does not depend on network access, live market
+      data, or non-repository data files
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: A Monte Carlo documentation file matching `docs/**/MonteCarlo.md` contains
+      an exact CLI dry-run command for the new cost scenario example
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: The CLI dry-run command text references the registered scenario name so
+      a user can run it without inferring missing arguments
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: The CLI dry-run command exits with status code 0 when executed from the
+      repository root with a clean virtual environment containing `requirements.txt`
+      dependencies
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: The CLI dry-run command produces output to stdout and does not write error
+      messages to stderr or raise unhandled exceptions
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
