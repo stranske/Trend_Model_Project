@@ -5,6 +5,7 @@ from pathlib import Path
 import yaml
 
 from trend_analysis import config
+from trend_analysis.config.validation import validate_config
 
 
 def _write_cfg(
@@ -136,3 +137,22 @@ def test_whitespace_version_rejected(tmp_path: Path) -> None:
     with pytest.raises(ValidationError) as exc_info:
         config.load(str(cfg_file))
     assert "Version field cannot be empty" in str(exc_info.value)
+
+
+def test_validate_config_rejects_misspelled_rf_override_enabled(tmp_path: Path) -> None:
+    payload = {
+        "version": "1",
+        "data": {"csv_path": "data.csv"},
+        "preprocessing": {},
+        "vol_adjust": {},
+        "sample_split": {},
+        "portfolio": {},
+        "metrics": {"rf_override_enbaled": True},
+        "export": {},
+        "run": {},
+    }
+
+    result = validate_config(payload, base_path=tmp_path, skip_required_fields=True)
+
+    assert not result.valid
+    assert any(error.path == "metrics.rf_override_enbaled" for error in result.errors)

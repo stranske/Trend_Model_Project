@@ -23,6 +23,7 @@
     },
     "export": {
       "directory": "results/",
+      "disable_narrative_generation": false,
       "excel": {
         "autofit_columns": true,
         "conditional_bands": {
@@ -66,6 +67,7 @@
         "information_ratio",
         "max_drawdown"
       ],
+      "rf_override_enabled": false,
       "rf_rate_annual": 0.02,
       "use_continuous": false
     },
@@ -506,6 +508,7 @@
       "constraints": {},
       "default": {
         "directory": "results/",
+        "disable_narrative_generation": false,
         "excel": {
           "autofit_columns": true,
           "conditional_bands": {
@@ -521,8 +524,7 @@
         ],
         "include_figures": false,
         "include_raw_returns": true,
-        "include_vol_adj": true,
-        "disable_narrative_generation": false
+        "include_vol_adj": true
       },
       "description": "Export settings for output artifacts.",
       "nl_editable": true,
@@ -533,6 +535,13 @@
           "description": "Directory to write export outputs.",
           "nl_editable": false,
           "type": "string"
+        },
+        "disable_narrative_generation": {
+          "constraints": {},
+          "default": false,
+          "description": "Disable narrative generation in exports.",
+          "nl_editable": true,
+          "type": "boolean"
         },
         "excel": {
           "additionalProperties": false,
@@ -636,13 +645,6 @@
           "description": "Include volatility-adjusted series in exports.",
           "nl_editable": true,
           "type": "boolean"
-        },
-        "disable_narrative_generation": {
-          "constraints": {},
-          "default": false,
-          "description": "Disable narrative generation in exports.",
-          "nl_editable": true,
-          "type": "boolean"
         }
       },
       "type": "object"
@@ -685,6 +687,7 @@
           "information_ratio",
           "max_drawdown"
         ],
+        "rf_override_enabled": false,
         "rf_rate_annual": 0.02,
         "use_continuous": false
       },
@@ -803,6 +806,13 @@
             "null",
             "number"
           ]
+        },
+        "rf_override_enabled": {
+          "constraints": {},
+          "default": false,
+          "description": "enable Monte Carlo CASH injection from rf_rate_annual",
+          "nl_editable": true,
+          "type": "boolean"
         },
         "rf_rate_annual": {
           "constraints": {
@@ -1436,20 +1446,20 @@
           "type": "array"
         },
         "max_turnover": {
+          "additionalProperties": {
+            "maximum": 2,
+            "minimum": 0,
+            "type": "number"
+          },
           "constraints": {
             "maximum": 2,
             "minimum": 0
           },
           "default": 1.0,
-          "description": "optional turnover cap (1.0 = no cap) or mapping of regime names to caps",
+          "description": "optional turnover cap (1.0 = no cap)",
           "maximum": 2,
           "minimum": 0,
           "nl_editable": true,
-          "additionalProperties": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 2
-          },
           "type": [
             "number",
             "object",

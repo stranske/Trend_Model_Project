@@ -21,6 +21,7 @@
     },
     "export": {
       "directory": "results/",
+      "disable_narrative_generation": false,
       "excel": {
         "autofit_columns": true,
         "conditional_bands": {
@@ -64,6 +65,7 @@
         "information_ratio",
         "max_drawdown"
       ],
+      "rf_override_enabled": false,
       "rf_rate_annual": 0.02,
       "use_continuous": false
     },
@@ -448,6 +450,7 @@
     "export": {
       "default": {
         "directory": "results/",
+        "disable_narrative_generation": false,
         "excel": {
           "autofit_columns": true,
           "conditional_bands": {
@@ -473,6 +476,12 @@
           "description": "Directory to write export outputs.",
           "nl_editable": false,
           "type": "string"
+        },
+        "disable_narrative_generation": {
+          "default": false,
+          "description": "Disable narrative generation in exports.",
+          "nl_editable": true,
+          "type": "boolean"
         },
         "excel": {
           "default": {
@@ -602,6 +611,7 @@
           "information_ratio",
           "max_drawdown"
         ],
+        "rf_override_enabled": false,
         "rf_rate_annual": 0.02,
         "use_continuous": false
       },
@@ -704,6 +714,12 @@
             "null",
             "number"
           ]
+        },
+        "rf_override_enabled": {
+          "default": false,
+          "description": "enable Monte Carlo CASH injection from rf_rate_annual",
+          "nl_editable": true,
+          "type": "boolean"
         },
         "rf_rate_annual": {
           "default": 0.02,
@@ -1256,13 +1272,8 @@
         },
         "max_turnover": {
           "default": 1.0,
-          "description": "optional turnover cap (1.0 = no cap) or mapping of regime names to caps",
+          "description": "optional turnover cap (1.0 = no cap)",
           "nl_editable": true,
-          "additionalProperties": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 2
-          },
           "type": [
             "number",
             "object",

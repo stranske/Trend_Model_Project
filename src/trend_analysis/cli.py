@@ -1379,6 +1379,16 @@ def _validate_mc_scenario(scenario: MonteCarloScenario) -> list[str]:
 
     base_config = runner.base_config
     base_path = _require_mc_base_config(scenario).parent
+    config_result = validate_config(
+        dict(base_config),
+        base_path=base_path,
+        skip_required_fields=True,
+    )
+    if not config_result.valid:
+        errors.extend(
+            f"base_config: {message}"
+            for message in format_validation_messages(config_result, include_warnings=False)
+        )
 
     return_model = scenario.return_model
     if isinstance(return_model, Mapping):
