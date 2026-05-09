@@ -226,6 +226,7 @@ def test_validate_mc_scenario_reports_misspelled_rf_override(tmp_path: Path) -> 
     errors = _validate_mc_scenario(scenario)
 
     assert any("metrics.rf_override_enbaled" in error for error in errors)
+    assert not any("Strategy 'base' config invalid" in error for error in errors)
 
 
 def test_monte_carlo_scenario_coerces_curated_variants() -> None:
@@ -443,9 +444,7 @@ def test_monte_carlo_scenario_missing_mapping_fields_raise_clear_errors() -> Non
         jobs=None,
     )
 
-    with pytest.raises(
-        ValueError, match="return_model must be a mapping \\(null provided\\)"
-    ):
+    with pytest.raises(ValueError, match="return_model must be a mapping \\(null provided\\)"):
         MonteCarloScenario(
             name="missing_mappings",
             description="Missing return_model mapping",
