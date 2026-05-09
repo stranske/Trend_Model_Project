@@ -226,6 +226,12 @@ outputs:
 def test_complete_schema_markdown_example_loads_through_registry(tmp_path: Path) -> None:
     payload = _extract_complete_schema_payload()
 
+    scenario_meta = payload.get("scenario")
+    assert isinstance(scenario_meta, dict)
+    assert "folds" in scenario_meta
+    assert "return_model" in scenario_meta
+    assert "costs" in scenario_meta
+
     monte_carlo = payload["monte_carlo"]
     assert isinstance(monte_carlo, dict)
     assert "folds" not in monte_carlo

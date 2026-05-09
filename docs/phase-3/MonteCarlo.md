@@ -539,6 +539,32 @@ scenario:
   name: hf_equity_ls_10y
   description: "Equity L/S hedge fund sleeve 10-year forecast"
   version: "1.0"
+  folds:
+    enabled: false
+    fold_starts: []
+    calibration_lookback_years: 10
+  return_model:
+    kind: stationary_bootstrap  # stationary_bootstrap | regime_conditioned_bootstrap
+    mean_block_len: 6
+    regime:
+      enabled: true
+      kind: proxy_vol_threshold
+      proxy_column: SPX
+      threshold_percentile: 75
+  costs:
+    kind: regime_stochastic
+    default_regime: calm
+    calm:
+      trade_cost_bps:
+        dist: lognormal
+        mean: 6
+        sigma: 0.25
+    stress:
+      trade_cost_bps:
+        dist: lognormal
+        mean: 18
+        sigma: 0.35
+      slippage_multiplier: 1.5
 
 # Reference to base pipeline config
 base_config: config/defaults.yml
@@ -551,38 +577,6 @@ monte_carlo:
   frequency: M                  # M | D
   seed: 12345
   jobs: 8                       # Parallel workers
-
-# Optional fold configuration
-folds:
-  enabled: false
-  fold_starts: []
-  calibration_lookback_years: 10
-
-# Return generation model
-return_model:
-  kind: stationary_bootstrap  # stationary_bootstrap | regime_conditioned_bootstrap
-  mean_block_len: 6
-  regime:
-    enabled: true
-    kind: proxy_vol_threshold
-    proxy_column: SPX
-    threshold_percentile: 75
-
-# Transaction cost model
-costs:
-  kind: regime_stochastic
-  default_regime: calm
-  calm:
-    trade_cost_bps:
-      dist: lognormal
-      mean: 6
-      sigma: 0.25
-  stress:
-    trade_cost_bps:
-      dist: lognormal
-      mean: 18
-      sigma: 0.35
-    slippage_multiplier: 1.5
 
 # Strategy configurations
 strategy_set:

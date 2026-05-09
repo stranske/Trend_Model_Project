@@ -369,6 +369,26 @@ def _parse_scenario(
     scenario_name, description, version = _extract_scenario_metadata(
         name, raw, source_path=source_path
     )
+    scenario_block = raw.get("scenario")
+    scenario_map: Mapping[str, object] | None = None
+    if scenario_block is not None:
+        scenario_map = _ensure_mapping(scenario_block, label="Scenario config 'scenario'")
+
+    def _from_top_or_scenario(key: str) -> object:
+        top_has = key in raw and raw.get(key) is not None
+        scenario_has = (
+            scenario_map is not None and key in scenario_map and scenario_map.get(key) is not None
+        )
+        if top_has and scenario_has and raw.get(key) != scenario_map.get(key):
+            raise ValueError(
+                f"Scenario config has conflicting '{key}' values between scenario block "
+                f"and top-level in '{source_path}'"
+            )
+        if top_has:
+            return raw.get(key)
+        if scenario_has and scenario_map is not None:
+            return scenario_map.get(key)
+        return None
 
     base_config_value = raw.get("base_config")
     if not base_config_value:
@@ -409,8 +429,9 @@ def _parse_scenario(
         outputs = _ensure_mapping(raw.get("outputs"), label="Scenario config 'outputs'")
 
     costs = None
-    if "costs" in raw and raw.get("costs") is not None:
-        costs = _ensure_mapping(raw.get("costs"), label="Scenario config 'costs'")
+    costs_value = _from_top_or_scenario("costs")
+    if costs_value is not None:
+        costs = _ensure_mapping(costs_value, label="Scenario config 'costs'")
 
     enable_fold_runs = raw.get("enable_fold_runs", _MISSING)
 
@@ -429,11 +450,21 @@ def _parse_scenario(
     if enable_fold_runs is not _MISSING:
         scenario_kwargs["enable_fold_runs"] = enable_fold_runs
 
-    folds_value = _optional_mapping(raw, key="folds", scenario_name=scenario_name)
+    folds_raw = dict(raw)
+    folds_source = _from_top_or_scenario("folds")
+    if folds_source is not None:
+        folds_raw["folds"] = folds_source
+    folds_value = _optional_mapping(folds_raw, key="folds", scenario_name=scenario_name)
     if folds_value is not None:
         scenario_kwargs["folds"] = folds_value
 
-    return_model_value = _optional_mapping(raw, key="return_model", scenario_name=scenario_name)
+    return_model_raw = dict(raw)
+    return_model_source = _from_top_or_scenario("return_model")
+    if return_model_source is not None:
+        return_model_raw["return_model"] = return_model_source
+    return_model_value = _optional_mapping(
+        return_model_raw, key="return_model", scenario_name=scenario_name
+    )
     if return_model_value is not None:
         scenario_kwargs["return_model"] = return_model_value
 
