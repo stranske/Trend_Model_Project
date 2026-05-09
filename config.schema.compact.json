@@ -1272,7 +1272,7 @@
         },
         "max_turnover": {
           "default": 1.0,
-          "description": "optional turnover cap (1.0 = no cap)",
+          "description": "optional turnover cap (1.0 = no cap); may be a scalar cap or a regime-to-cap mapping",
           "nl_editable": true,
           "type": [
             "number",
