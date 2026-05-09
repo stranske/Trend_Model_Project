@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Identify all modified files in config/ directory that are not cost-scenario
       related and revert those changes
-    status: doing
+    status: done
     started_at: '2026-05-09T17:23:14Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-05-09T17:23:26Z'
+    commit: 32cd3a4372be7e2d7771ea2ed07f499e3f776d32
     notes: []
   - id: task-02
     title: Identify all modified files in src/ directory that are not cost-scenario
