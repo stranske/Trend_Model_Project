@@ -1,0 +1,129 @@
+version: 1
+issue: 5264
+base: phase-3
+branch: codex/issue-5264
+tasks:
+  - id: task-01
+    title: Update scenario registry loader implementation to normalize `null` in optional
+      sections to the same resolved behavior as omitted sections
+    status: done
+    started_at: '2026-05-09T17:29:34Z'
+    finished_at: '2026-05-09T17:29:47Z'
+    commit: 3a3a6d47e5843c160a5e958514892c248d0efd4b
+    notes: []
+  - id: task-02
+    title: 'Add explicit required-field validation in registry loader to raise `ValueError`
+      with field-specific message mentioning `monte_carlo` when `monte_carlo: null`
+      is encountered'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Create unit test in `test_registry.py` that loads scenario fixture with
+      at least one optional section set to `null` and asserts loading succeeds and
+      returns scenario object
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Create integration test in `tests/integration/test_scenario_registration.py`
+      that registers/loads scenario with optional section set to `null` and asserts
+      successful registration/loading
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Create negative test (unit or integration) that loads scenario with `monte_carlo:
+      null` and asserts `ValueError` is raised with message including `monte_carlo`
+      and indicating `null` input'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Revert formatting-only edits in `scripts/validate_llm_deps.py` to match
+      target base branch
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Loading scenario definition where optional section is explicitly `null`
+      returns scenario object without raising exception
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: For each optional section covered by tests, loading scenario with section
+      omitted and loading same scenario with section set to `null` produce equivalent
+      resolved values/behavior
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Loading scenario definition with `monte_carlo: null` raises `ValueError`
+      and does not return scenario object'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: '`ValueError` message for `monte_carlo: null` includes field name `monte_carlo`
+      and indicates value is `null` or missing due to `null` input'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: '`test_registry.py` contains at least one test that passes with optional
+      section set to `null`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: '`tests/integration/test_scenario_registration.py` contains at least one
+      test that passes with optional section set to `null`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'At least one unit or integration negative test asserts both `ValueError`
+      exception type and field-specific message content for `monte_carlo: null`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: '`scripts/validate_llm_deps.py` has no diff changes relative to target
+      base branch'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: All existing tests continue to pass
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []

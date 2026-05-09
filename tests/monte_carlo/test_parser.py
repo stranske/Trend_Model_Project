@@ -43,16 +43,16 @@ def _write_scenario(tmp_path: Path, name: str, extra_payload: str) -> Path:
         ("folds", "folds: null\n"),
     ],
 )
-def test_parser_rejects_null_optional_mappings(tmp_path: Path, field: str, payload: str) -> None:
+def test_parser_treats_null_optional_mappings_as_omitted(
+    tmp_path: Path, field: str, payload: str
+) -> None:
     name = f"null_{field}"
     _write_scenario(tmp_path, name, payload)
     registry = _write_registry(tmp_path, name, f"{name}.yml")
 
-    with pytest.raises(
-        ValueError,
-        match=rf"Scenario '.+' config '{field}' must be a mapping \(null provided\)",
-    ):
-        load_scenario(name, registry_path=registry)
+    scenario = load_scenario(name, registry_path=registry)
+
+    assert getattr(scenario, field) is None
 
 
 @pytest.mark.parametrize(
@@ -62,24 +62,24 @@ def test_parser_rejects_null_optional_mappings(tmp_path: Path, field: str, paylo
         ("folds", "folds:\n"),
     ],
 )
-def test_parser_rejects_empty_optional_mappings(tmp_path: Path, field: str, payload: str) -> None:
+def test_parser_treats_empty_optional_mappings_as_omitted(
+    tmp_path: Path, field: str, payload: str
+) -> None:
     name = f"empty_{field}"
     _write_scenario(tmp_path, name, payload)
     registry = _write_registry(tmp_path, name, f"{name}.yml")
 
-    with pytest.raises(
-        ValueError,
-        match=rf"Scenario '.+' config '{field}' must be a mapping \(null provided\)",
-    ):
-        load_scenario(name, registry_path=registry)
+    scenario = load_scenario(name, registry_path=registry)
+
+    assert getattr(scenario, field) is None
 
 
-def test_parser_prefers_folds_error_when_both_null(tmp_path: Path) -> None:
+def test_parser_treats_multiple_null_optional_mappings_as_omitted(tmp_path: Path) -> None:
     name = "null_folds_and_return_model"
     _write_scenario(tmp_path, name, "folds: null\nreturn_model: null\n")
     registry = _write_registry(tmp_path, name, f"{name}.yml")
 
-    with pytest.raises(
-        ValueError, match=r"Scenario '.+' config 'folds' must be a mapping \(null provided\)"
-    ):
-        load_scenario(name, registry_path=registry)
+    scenario = load_scenario(name, registry_path=registry)
+
+    assert scenario.folds is None
+    assert scenario.return_model is None

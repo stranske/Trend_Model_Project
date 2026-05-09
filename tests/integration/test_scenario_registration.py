@@ -90,7 +90,9 @@ def test_registry_scenario_allows_null_optional_sections(tmp_path: Path) -> None
         "  frequency: M\n"
         "strategy_set: null\n"
         "outputs: null\n"
-        "costs: null\n",
+        "costs: null\n"
+        "folds: null\n"
+        "return_model: null\n",
         encoding="utf-8",
     )
     registry_path.write_text(
@@ -102,6 +104,8 @@ def test_registry_scenario_allows_null_optional_sections(tmp_path: Path) -> None
     assert scenario.strategy_set is None
     assert scenario.outputs is None
     assert scenario.costs is None
+    assert scenario.folds is None
+    assert scenario.return_model is None
 
 
 @pytest.mark.integration
@@ -130,7 +134,7 @@ def test_registry_scenario_rejects_null_required_monte_carlo(tmp_path: Path) -> 
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="Scenario config must define monte_carlo"):
+    with pytest.raises(ValueError, match="monte_carlo.*null provided"):
         load_scenario(scenario_name, registry_path=registry_path)
 
 
@@ -158,5 +162,5 @@ def test_registry_scenario_rejects_null_required_monte_carlo_without_optional_se
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="Scenario config must define monte_carlo"):
+    with pytest.raises(ValueError, match="monte_carlo.*null provided"):
         load_scenario(scenario_name, registry_path=registry_path)

@@ -99,10 +99,8 @@ def _optional_mapping(
         return None
     value = raw.get(key)
     if value is None:
-        raise ValueError(
-            f"Scenario '{scenario_name}' config '{key}' must be a mapping (null provided)"
-        )
-    return _ensure_mapping(value, label=f"Scenario config '{key}'")
+        return None
+    return _ensure_mapping(value, label=f"Scenario '{scenario_name}' config '{key}'")
 
 
 def _load_registry(registry_path: Path | None = None) -> list[ScenarioRegistryEntry]:
@@ -375,12 +373,12 @@ def _parse_scenario(
         scenario_map = _ensure_mapping(scenario_block, label="Scenario config 'scenario'")
 
     def _from_top_or_scenario(key: str) -> object:
-        top_has = key in raw and raw.get(key) is not None
+        top_has = key in raw
         scenario_value: object | None = None
         scenario_has = False
         if scenario_map is not None and key in scenario_map:
             scenario_value = scenario_map.get(key)
-            scenario_has = scenario_value is not None
+            scenario_has = True
         if top_has and scenario_has and raw.get(key) != scenario_value:
             raise ValueError(
                 f"Scenario config has conflicting '{key}' values between scenario block "
@@ -390,14 +388,17 @@ def _parse_scenario(
             return raw.get(key)
         if scenario_has:
             return scenario_value
-        return None
+        return _MISSING
 
     base_config_value = raw.get("base_config")
     if not base_config_value:
         raise ValueError("Scenario config must define base_config")
     base_config = _resolve_base_config(str(base_config_value), source_path=source_path)
 
+    monte_carlo_present = "monte_carlo" in raw
     monte_carlo = raw.get("monte_carlo")
+    if monte_carlo_present and monte_carlo is None:
+        raise ValueError("Scenario config 'monte_carlo' must be a mapping (null provided)")
     if monte_carlo is None:
         raise ValueError("Scenario config must define monte_carlo")
     monte_carlo_map = _ensure_mapping(monte_carlo, label="Scenario config 'monte_carlo'")
@@ -432,7 +433,7 @@ def _parse_scenario(
 
     costs = None
     costs_value = _from_top_or_scenario("costs")
-    if costs_value is not None:
+    if costs_value is not _MISSING and costs_value is not None:
         costs = _ensure_mapping(costs_value, label="Scenario config 'costs'")
 
     enable_fold_runs = raw.get("enable_fold_runs", _MISSING)
@@ -454,7 +455,7 @@ def _parse_scenario(
 
     folds_raw = dict(raw)
     folds_source = _from_top_or_scenario("folds")
-    if folds_source is not None:
+    if folds_source is not _MISSING:
         folds_raw["folds"] = folds_source
     folds_value = _optional_mapping(folds_raw, key="folds", scenario_name=scenario_name)
     if folds_value is not None:
@@ -462,7 +463,7 @@ def _parse_scenario(
 
     return_model_raw = dict(raw)
     return_model_source = _from_top_or_scenario("return_model")
-    if return_model_source is not None:
+    if return_model_source is not _MISSING:
         return_model_raw["return_model"] = return_model_source
     return_model_value = _optional_mapping(
         return_model_raw, key="return_model", scenario_name=scenario_name
