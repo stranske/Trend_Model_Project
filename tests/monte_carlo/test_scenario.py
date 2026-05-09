@@ -12,6 +12,7 @@ from trend_analysis.monte_carlo import (
     load_scenario,
 )
 from trend_analysis.monte_carlo.strategy import StrategyVariant
+from trend_analysis.cli import _validate_mc_scenario
 
 
 def _load_example_payload() -> dict:
@@ -269,6 +270,41 @@ def test_complete_schema_markdown_example_loads_through_registry(tmp_path: Path)
     assert scenario.costs["kind"] == "regime_stochastic"
     assert scenario.outputs is not None
     assert scenario.outputs["formats"] == ["parquet", "csv"]
+
+
+def test_validate_mc_scenario_reports_misspelled_rf_override(tmp_path: Path) -> None:
+    base_config = {
+        "version": "1",
+        "data": {},
+        "preprocessing": {},
+        "vol_adjust": {},
+        "sample_split": {},
+        "portfolio": {},
+        "metrics": {},
+        "benchmarks": {},
+        "export": {},
+        "run": {},
+    }
+    base_path = tmp_path / "base.yml"
+    base_path.write_text(yaml.safe_dump(base_config, sort_keys=False), encoding="utf-8")
+    scenario = MonteCarloScenario(
+        name="typo_scenario",
+        base_config=base_path,
+        monte_carlo={
+            "mode": "mixture",
+            "n_paths": 1,
+            "horizon_years": 1.0,
+            "frequency": "M",
+        },
+        return_model={"kind": "stationary_bootstrap"},
+        strategy_set={"curated": []},
+        raw={"metrics": {"rf_override_enbaled": True}},
+    )
+
+    errors = _validate_mc_scenario(scenario)
+
+    assert any("metrics.rf_override_enbaled" in error for error in errors)
+    assert not any("Strategy 'base' config invalid" in error for error in errors)
 
 
 def test_monte_carlo_scenario_coerces_curated_variants() -> None:
