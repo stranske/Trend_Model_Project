@@ -97,6 +97,8 @@ how path generation work is scheduled. The mode-selection contract is covered by
 `tests/monte_carlo/test_runner.py::test_run_mixture_uses_shared_bulk_generation_when_path_seeds_match_base`,
 `test_run_mixture_uses_shared_bulk_generation_when_path_seeds_are_unset`, and
 `test_run_mixture_uses_per_path_generation_when_path_seeds_diverge`.
+Completed runner output exposes the selected mode in
+`MonteCarloResults.metadata["path_generation_mode"]` as `shared` or `per-path`.
 
 #### Why Is My Mixture Run Slower?
 

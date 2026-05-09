@@ -200,6 +200,7 @@ class MonteCarloRunner:
         self._cost_process: CostProcess | None = None
         self._cost_process_init = False
         self._regime_cache: dict[tuple[object, ...], pd.Series] = {}
+        self._path_generation_mode: str | None = None
 
     def run(
         self,
@@ -210,6 +211,7 @@ class MonteCarloRunner:
         """Run the Monte Carlo simulation for the configured scenario."""
 
         settings = self._settings()
+        self._path_generation_mode = None
         strategies = self._resolve_strategies()
         history = self._resolve_price_history()
         folds = self._resolve_folds(history)
@@ -287,6 +289,8 @@ class MonteCarloRunner:
             "n_strategies": len(strategies),
             "seed": settings.seed,
         }
+        if mode == "mixture" and self._path_generation_mode is not None:
+            metadata["path_generation_mode"] = self._path_generation_mode
         if nav_paths is not None:
             metadata["nav_paths"] = nav_paths
         if nav_paths_by_fold is not None:
@@ -514,6 +518,7 @@ class MonteCarloRunner:
                 if seed is not None
             )
         shared_paths = seeds_match_base or all(seed is None for seed in path_seeds)
+        self._path_generation_mode = "shared" if shared_paths else "per-path"
 
         path_result = None
         if shared_paths:
