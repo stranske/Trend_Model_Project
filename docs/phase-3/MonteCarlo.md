@@ -649,6 +649,13 @@ outputs:
   formats: [parquet, csv]       # Output formats
 ```
 
+`strategy_set` and `outputs` are optional top-level sections. `costs`, `folds`, and
+`return_model` may be defined inside `scenario` as shown; `costs` may also be
+defined as a top-level compatibility section. Optional sections may be omitted or
+set to `null` to document intentional absence where allowed. Required sections such
+as `scenario`, `base_config`, and `monte_carlo` remain strict and must contain
+valid values (`monte_carlo: null` fails validation).
+
 ---
 
 ## Output Specifications

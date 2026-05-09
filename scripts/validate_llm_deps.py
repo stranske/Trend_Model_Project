@@ -101,9 +101,7 @@ def main() -> int:
                 f"{expected_major}.{expected_minor}.x"
                 for expected_major, expected_minor in expected
             )
-            incompatible_langchain.append(
-                f"{distribution}=={version} (expected {expected_ranges})"
-            )
+            incompatible_langchain.append(f"{distribution}=={version} (expected {expected_ranges})")
 
     if missing_langchain:
         print(

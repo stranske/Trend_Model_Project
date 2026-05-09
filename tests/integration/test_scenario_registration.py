@@ -66,3 +66,97 @@ def test_registry_includes_new_scenario_and_loads(tmp_path: Path) -> None:
     assert scenario.monte_carlo.frequency == "Q"
     assert scenario.outputs is not None
     assert scenario.outputs["directory"] == f"outputs/monte_carlo/{scenario_name}"
+
+
+@pytest.mark.integration
+def test_registry_scenario_allows_null_optional_sections(tmp_path: Path) -> None:
+    scenario_name = "integration_null_optional"
+    scenario_dir = tmp_path / "config" / "scenarios" / "monte_carlo"
+    scenario_dir.mkdir(parents=True, exist_ok=True)
+
+    registry_path = scenario_dir / "index.yml"
+    scenario_file = scenario_dir / "integration_null_optional.yml"
+    base_config = scenario_dir / "base.yml"
+
+    base_config.write_text("{}", encoding="utf-8")
+    scenario_file.write_text(
+        "scenario:\n"
+        f"  name: {scenario_name}\n"
+        "base_config: base.yml\n"
+        "monte_carlo:\n"
+        "  mode: mixture\n"
+        "  n_paths: 10\n"
+        "  horizon_years: 1.0\n"
+        "  frequency: M\n"
+        "strategy_set: null\n"
+        "outputs: null\n"
+        "costs: null\n",
+        encoding="utf-8",
+    )
+    registry_path.write_text(
+        "scenarios:\n" f"  - name: {scenario_name}\n" "    path: integration_null_optional.yml\n",
+        encoding="utf-8",
+    )
+
+    scenario = load_scenario(scenario_name, registry_path=registry_path)
+    assert scenario.strategy_set is None
+    assert scenario.outputs is None
+    assert scenario.costs is None
+
+
+@pytest.mark.integration
+def test_registry_scenario_rejects_null_required_monte_carlo(tmp_path: Path) -> None:
+    scenario_name = "integration_null_required"
+    scenario_dir = tmp_path / "config" / "scenarios" / "monte_carlo"
+    scenario_dir.mkdir(parents=True, exist_ok=True)
+
+    registry_path = scenario_dir / "index.yml"
+    scenario_file = scenario_dir / "integration_null_required.yml"
+    base_config = scenario_dir / "base.yml"
+
+    base_config.write_text("{}", encoding="utf-8")
+    scenario_file.write_text(
+        "scenario:\n"
+        f"  name: {scenario_name}\n"
+        "base_config: base.yml\n"
+        "monte_carlo: null\n"
+        "strategy_set: null\n"
+        "outputs: null\n"
+        "costs: null\n",
+        encoding="utf-8",
+    )
+    registry_path.write_text(
+        "scenarios:\n" f"  - name: {scenario_name}\n" "    path: integration_null_required.yml\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Scenario config must define monte_carlo"):
+        load_scenario(scenario_name, registry_path=registry_path)
+
+
+@pytest.mark.integration
+def test_registry_scenario_rejects_null_required_monte_carlo_without_optional_sections(
+    tmp_path: Path,
+) -> None:
+    scenario_name = "integration_null_required_minimal"
+    scenario_dir = tmp_path / "config" / "scenarios" / "monte_carlo"
+    scenario_dir.mkdir(parents=True, exist_ok=True)
+
+    registry_path = scenario_dir / "index.yml"
+    scenario_file = scenario_dir / "integration_null_required_minimal.yml"
+    base_config = scenario_dir / "base.yml"
+
+    base_config.write_text("{}", encoding="utf-8")
+    scenario_file.write_text(
+        "scenario:\n" f"  name: {scenario_name}\n" "base_config: base.yml\n" "monte_carlo: null\n",
+        encoding="utf-8",
+    )
+    registry_path.write_text(
+        "scenarios:\n"
+        f"  - name: {scenario_name}\n"
+        "    path: integration_null_required_minimal.yml\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Scenario config must define monte_carlo"):
+        load_scenario(scenario_name, registry_path=registry_path)
