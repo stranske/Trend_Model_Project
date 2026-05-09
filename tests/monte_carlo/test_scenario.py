@@ -26,6 +26,36 @@ def _load_example_payload() -> dict:
     return payload
 
 
+def _extract_complete_schema_payload() -> dict:
+    root = Path(__file__).resolve().parents[2]
+    docs_path = root / "docs" / "phase-3" / "MonteCarlo.md"
+    lines = docs_path.read_text(encoding="utf-8").splitlines()
+
+    in_section = False
+    in_fence = False
+    yaml_lines: list[str] = []
+    for line in lines:
+        if line == "### Complete Scenario Schema":
+            in_section = True
+            continue
+        if not in_section:
+            continue
+        if line.startswith("### "):
+            break
+        if line == "```yaml" and not in_fence:
+            in_fence = True
+            continue
+        if line == "```" and in_fence:
+            break
+        if in_fence:
+            yaml_lines.append(line)
+
+    assert yaml_lines, "Complete Scenario Schema YAML block was not found"
+    payload = yaml.safe_load("\n".join(yaml_lines))
+    assert isinstance(payload, dict)
+    return payload
+
+
 def test_monte_carlo_settings_validates_and_normalizes() -> None:
     settings = MonteCarloSettings(
         mode="Two_Layer",
@@ -192,6 +222,54 @@ outputs:
     assert curated[0].name == "trend_basic"
     assert scenario.folds["n_folds"] == 3
     assert scenario.outputs["directory"] == "outputs/monte_carlo/example"
+
+
+def test_complete_schema_markdown_example_loads_through_registry(tmp_path: Path) -> None:
+    payload = _extract_complete_schema_payload()
+
+    scenario_meta = payload.get("scenario")
+    assert isinstance(scenario_meta, dict)
+    assert "folds" in scenario_meta
+    assert "return_model" in scenario_meta
+    assert "costs" in scenario_meta
+
+    monte_carlo = payload["monte_carlo"]
+    assert isinstance(monte_carlo, dict)
+    assert "folds" not in monte_carlo
+    assert "return_model" not in monte_carlo
+    assert "costs" not in monte_carlo
+
+    scenario_path = tmp_path / "hf_equity_ls_10y.yml"
+    scenario_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+    registry_path = tmp_path / "index.yml"
+    registry_path.write_text(
+        yaml.safe_dump(
+            {
+                "scenarios": [
+                    {
+                        "name": "hf_equity_ls_10y",
+                        "path": str(scenario_path),
+                    }
+                ]
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    scenario = load_scenario("hf_equity_ls_10y", registry_path=registry_path)
+
+    assert scenario.name == "hf_equity_ls_10y"
+    assert scenario.monte_carlo.mode == "two_layer"
+    assert scenario.monte_carlo.n_paths == 2000
+    assert scenario.folds is not None
+    assert scenario.folds["enabled"] is False
+    assert scenario.return_model is not None
+    assert scenario.return_model["kind"] == "stationary_bootstrap"
+    assert scenario.costs is not None
+    assert scenario.costs["kind"] == "regime_stochastic"
+    assert scenario.outputs is not None
+    assert scenario.outputs["formats"] == ["parquet", "csv"]
 
 
 def test_validate_mc_scenario_reports_misspelled_rf_override(tmp_path: Path) -> None:
