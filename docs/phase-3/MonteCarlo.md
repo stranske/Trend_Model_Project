@@ -700,6 +700,9 @@ trend mc run --scenario hf_equity_ls_10y --n-paths 500 --jobs 4
 # Quick test run
 trend mc run --scenario hf_equity_ls_10y --dry-run --n-paths 10
 
+# Cost regime example dry-run (exact command)
+trend mc run --scenario cost_regime_example --dry-run --n-paths 10
+
 # Export MC charts from an existing bundle
 trend mc viz \
   --bundle outputs/mc_run_1 \
