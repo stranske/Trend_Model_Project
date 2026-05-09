@@ -156,7 +156,7 @@ def test_list_scenarios_filters_by_tags(tmp_path: Path) -> None:
     assert [entry.name for entry in filtered] == ["beta"]
 
     # Also assert the real example scenario can be discovered by both registry tags.
-    for tag in ("example", "costs"):
+    for tag in ("example", "cost"):
         names = {entry.name for entry in list_scenarios(tags=[tag])}
         assert "cost_regime_example" in names
 
@@ -339,8 +339,8 @@ def test_load_scenario_rejects_null_required_monte_carlo(tmp_path: Path) -> None
         load_scenario("null_required", registry_path=registry)
 
 
-def test_cost_regime_example_discoverable_by_example_and_costs_tags() -> None:
-    for tag in ("example", "costs"):
+def test_cost_regime_example_discoverable_by_example_and_cost_tags() -> None:
+    for tag in ("example", "cost"):
         names = {entry.name for entry in list_scenarios(tags=[tag])}
         assert "cost_regime_example" in names
 

@@ -32,4 +32,4 @@ scenarios:
   - name: cost_regime_example
     path: cost_regime_example.yml
     description: "Known-good example for regime-switching costs and slippage"
-    tags: [example, costs, regression]
+    tags: [example, cost, regression]
