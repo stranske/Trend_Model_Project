@@ -7,10 +7,10 @@ tasks:
     title: Identify all YAML code blocks in `docs/phase-3/MonteCarlo.md` that contain
       a `costs:` key and document their current structure in a comment or temporary
       file
-    status: doing
+    status: done
     started_at: '2026-05-09T17:22:44Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-05-09T17:22:54Z'
+    commit: cbe4b951f1135d0715a04ae08bf5cf30fb7d8907
     notes: []
   - id: task-02
     title: Remove legacy-only fields from each `costs:` example in `docs/phase-3/MonteCarlo.md`
