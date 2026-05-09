@@ -200,6 +200,7 @@ class MonteCarloRunner:
         self._cost_process: CostProcess | None = None
         self._cost_process_init = False
         self._regime_cache: dict[tuple[object, ...], pd.Series] = {}
+        self._path_generation_mode: str | None = None
 
     def run(
         self,
@@ -210,6 +211,7 @@ class MonteCarloRunner:
         """Run the Monte Carlo simulation for the configured scenario."""
 
         settings = self._settings()
+        self._path_generation_mode = None
         strategies = self._resolve_strategies()
         history = self._resolve_price_history()
         folds = self._resolve_folds(history)
@@ -287,6 +289,8 @@ class MonteCarloRunner:
             "n_strategies": len(strategies),
             "seed": settings.seed,
         }
+        if mode == "mixture" and self._path_generation_mode is not None:
+            metadata["path_generation_mode"] = self._path_generation_mode
         if nav_paths is not None:
             metadata["nav_paths"] = nav_paths
         if nav_paths_by_fold is not None:
@@ -508,12 +512,28 @@ class MonteCarloRunner:
         seed_manager = SeedManager(base_seed) if base_seed is not None else None
         seeds_match_base = False
         if seed_manager is not None:
+            # Seeding contract: keep shared bulk generation when explicit per-path
+            # seeds are equivalent to the deterministic SeedManager sequence.
             seeds_match_base = all(
                 seed == seed_manager.get_path_seed(path_id)
                 for path_id, seed in enumerate(path_seeds)
                 if seed is not None
             )
-        shared_paths = seeds_match_base or all(seed is None for seed in path_seeds)
+        # Seeding contract: when path seeds are all unset we must stay on shared
+        # bulk generation (including unseeded scenarios where base_seed is None).
+        all_unset_path_seeds = all(seed is None for seed in path_seeds)
+        shared_paths = seeds_match_base or all_unset_path_seeds
+        self._path_generation_mode = "shared" if shared_paths else "per-path"
+        mode_reason = (
+            "matching-base-path-seeds"
+            if seeds_match_base
+            else ("all-path-seeds-unset" if all_unset_path_seeds else "divergent-path-seeds")
+        )
+        self._logger.debug(
+            "Mixture mode path generation selected mode=%s reason=%s",
+            self._path_generation_mode,
+            mode_reason,
+        )
 
         path_result = None
         if shared_paths:
@@ -533,10 +553,6 @@ class MonteCarloRunner:
                         )
                     )
                 return evaluations, errors
-        else:
-            self._logger.debug(
-                "Mixture mode selected per-path generation because path seeds diverge from the base SeedManager"
-            )
 
         def _evaluate_path(
             path_id: int, seed: int | None
