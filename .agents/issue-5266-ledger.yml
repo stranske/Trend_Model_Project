@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Add a dedicated "Mixture-Mode Determinism" section to `docs/phase-3/MonteCarlo.md`
       with an explicit heading
-    status: doing
+    status: done
     started_at: '2026-05-09T17:23:36Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-05-09T17:23:48Z'
+    commit: 3798572b1e4673d1a9faf0c200a6bbfad2d2e156
     notes: []
   - id: task-02
     title: Document in `docs/phase-3/MonteCarlo.md` how shared-path vs per-path generation
