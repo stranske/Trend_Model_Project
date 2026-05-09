@@ -119,6 +119,7 @@ _MANUAL_DESCRIPTIONS: dict[str, str] = {
     "metrics": "Performance metrics configuration.",
     "metrics.compute": "Legacy metrics list for reporting exports.",
     "metrics.registry": "Metric registry identifiers for score frame.",
+    "metrics.rf_override_enabled": "Enable Monte Carlo CASH injection from rf_rate_annual.",
     "metrics.bootstrap_ci": "Bootstrap confidence interval settings.",
     "metrics.bootstrap_ci.enabled": "Enable bootstrap confidence intervals.",
     "metrics.bootstrap_ci.n_iter": "Number of bootstrap iterations.",

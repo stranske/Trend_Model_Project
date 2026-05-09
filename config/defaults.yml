@@ -149,6 +149,7 @@ regime:
 # ----------------------------------------------------------------------
 metrics:
   rf_rate_annual:     0.02            # flat rf or link to series
+  rf_override_enabled: false           # enable Monte Carlo CASH injection from rf_rate_annual
   use_continuous:     false           # geometric (default) vs. log
   alpha_reference:    "SP500TR"       # ticker in indices_glob
   # ---- new vectorised list drives score_frame v2 -----------------

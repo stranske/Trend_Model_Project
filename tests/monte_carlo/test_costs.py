@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -9,7 +10,7 @@ import pandas as pd
 import trend_analysis.monte_carlo.runner as runner_module
 from trend_analysis.api import RunResult
 from trend_analysis.monte_carlo.costs import CostProcess
-from trend_analysis.monte_carlo.registry import load_scenario
+from trend_analysis.monte_carlo.registry import list_scenarios, load_scenario
 from trend_analysis.monte_carlo.runner import MonteCarloRunner
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario
 from trend_analysis.monte_carlo.strategy import StrategyVariant
@@ -206,6 +207,27 @@ def test_cost_regime_scenario_loads_from_registry() -> None:
     assert isinstance(scenario, MonteCarloScenario)
     assert scenario.name == "cost_regime_example"
     assert scenario.costs is not None
+    assert scenario.costs["kind"] == "regime_stochastic"
+    assert scenario.costs["default_regime"] == "calm"
+    assert "regimes" not in scenario.costs
+    for regime in ("calm", "stress"):
+        assert isinstance(scenario.costs[regime], dict)
+        assert "trade_cost_bps" in scenario.costs[regime]
+
+
+def test_cost_regime_scenario_is_filterable_by_example_and_cost_tags() -> None:
+    for tag in ("example", "costs"):
+        names = {entry.name for entry in list_scenarios(tags=[tag])}
+        assert "cost_regime_example" in names
+
+
+def test_cost_regime_scenario_documents_exact_dry_run_command() -> None:
+    scenario_file = Path("config/scenarios/monte_carlo/cost_regime_example.yml")
+    scenario_text = scenario_file.read_text(encoding="utf-8")
+    assert (
+        "# - Run with: trend mc run --scenario cost_regime_example --dry-run --n-paths 10"
+        in scenario_text
+    )
 
 
 def test_runner_injects_cash_series_when_override_enabled(monkeypatch: Any) -> None:

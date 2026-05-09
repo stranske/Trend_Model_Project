@@ -62,23 +62,49 @@ This implies an **expected variance-reduction factor of ~100x** (independent var
 
 This meets the documented expectation of ~100x reduction for the benchmark configuration.
 
-### Mixture mode seeding
+### Mixture Mode Seeding
 
-Mixture mode remains deterministic when a scenario seed is set, but it has two valid execution modes:
+Mixture mode remains deterministic when a scenario seed is set, but it has two valid
+execution modes:
 
-1. **Shared-path bulk generation**: generate all paths in one bulk call, then evaluate one sampled strategy per path.
-2. **Per-path generation**: generate each path independently with that path's seed, then evaluate one sampled strategy for that path.
+1. **Shared-path bulk generation**: generate all paths in one bulk call, then evaluate
+   one sampled strategy per path.
+2. **Per-path generation**: generate each path independently with that path's seed,
+   then evaluate one sampled strategy for that path.
 
-The exact mode-selection condition is:
+The runner chooses between those modes from the effective per-path seeds:
 
-- Use **shared-path bulk generation** when per-path seeds match what the base `SeedManager` would produce for the run seed (or when all per-path seeds are `None`).
-- Use **per-path generation** when per-path seeds diverge from the base `SeedManager` sequence.
+- Use **shared-path bulk generation** when every non-null path seed matches the
+  value that `SeedManager(<scenario seed>).get_path_seed(path_id)` would produce
+  for that path. This is the default for a seeded scenario because `_build_seeds()`
+  derives path seeds from the same base `SeedManager`.
+- If all path seeds are `None`, also use **shared-path bulk generation**. This
+  still uses one bulk model call with `seed=<monte_carlo.seed>`; when the scenario
+  itself is unseeded, that bulk-call seed is `None`.
+- Use **per-path generation** when any non-null per-path seed differs from the
+  base `SeedManager` sequence. This can happen in tests, debug harnesses, or any
+  future override that supplies explicit path seeds.
 
-Both modes are deterministic for fixed inputs and fixed seeds; they differ in how path generation work is scheduled.
+To predict the mode for a scenario, check `monte_carlo.seed` first. If it is set and
+the run uses the built-in seed builder, mixture mode will use shared-path bulk
+generation. If a caller overrides path seeds, compare each non-null override with
+`SeedManager(seed).get_path_seed(path_id)`: one mismatch switches the run to
+per-path generation. Strategy seeds do not choose the path-generation mode; they only
+choose which strategy variant is sampled for each path.
 
-#### why is my mixture run slower?
+Both modes are deterministic for fixed inputs and fixed seeds; they differ only in
+how path generation work is scheduled. The mode-selection contract is covered by
+`tests/monte_carlo/test_runner.py::test_run_mixture_uses_shared_bulk_generation_when_path_seeds_match_base`,
+`test_run_mixture_uses_shared_bulk_generation_when_path_seeds_are_unset`, and
+`test_run_mixture_uses_per_path_generation_when_path_seeds_diverge`.
 
-If mixture mode selects **per-path generation**, the runner performs many small model calls (`n_paths=1`) instead of one bulk call (`n_paths=N`). This can be slower due to repeated setup overhead and reduced vectorization compared with shared-path bulk generation.
+#### Why Is My Mixture Run Slower?
+
+If mixture mode selects **per-path generation**, the runner performs many small
+model calls (`n_paths=1`) instead of one bulk call (`n_paths=N`). This can be slower
+due to repeated setup overhead and reduced vectorization compared with shared-path
+bulk generation. The debug log includes the phrase
+`Mixture mode selected per-path generation` when this slower path is selected.
 
 ---
 
@@ -322,11 +348,14 @@ Cash Earns = Risk-Free Rate (configurable source)
 
 - Trigger condition (boolean):
   - `inject_cash = bool(metrics.rf_override_enabled)`.
+- `data.risk_free_column` and `data.allow_risk_free_fallback` only choose or discover a risk-free series for metric calculations. They do not bypass the CASH injection gate.
 - Injected CASH rate:
   - If `metrics.rf_override_enabled` is `true`, use `metrics.rf_rate_annual`.
   - Convert to periodic simulation rate with `periods_per_year_from_code(data.frequency)`.
   - Formula: `rf_periodic = (1 + rf_rate_annual) ** (1 / periods_per_year) - 1`.
 - Skip behavior: if `metrics.rf_override_enabled` is disabled, no `CASH` column is injected (even when `data.risk_free_column` or `data.allow_risk_free_fallback` is set).
+- If `metrics.rf_override_enabled` is enabled but risk-free resolution fails, resolves to an unsupported type, or yields a series that cannot align cleanly to the simulated returns, the runner logs one warning and leaves the return frame unchanged.
+- If a `CASH` or legacy `cash` column is already present, the runner preserves it and does not overwrite the existing values.
 
 Example:
 - Config sets `data.frequency: "M"`, `metrics.rf_override_enabled: true`, and `metrics.rf_rate_annual: 0.12`.
@@ -339,7 +368,7 @@ Canonical schema (required):
 
 - `kind`: Must be `regime_stochastic`.
 - `trade_cost_bps`: Required under each regime; defines the basis-point cost distribution.
-- Top-level `regimes` structure: regime names (for example `calm`, `stress`) are top-level keys under `costs`, and each regime must include `trade_cost_bps`.
+- Top-level regime blocks: regime names (for example `calm`, `stress`) are direct keys under `costs`, and each regime block must include `trade_cost_bps`.
 
 Concrete canonical example:
 
@@ -536,6 +565,32 @@ scenario:
   name: hf_equity_ls_10y
   description: "Equity L/S hedge fund sleeve 10-year forecast"
   version: "1.0"
+  folds:
+    enabled: false
+    fold_starts: []
+    calibration_lookback_years: 10
+  return_model:
+    kind: stationary_bootstrap  # stationary_bootstrap | regime_conditioned_bootstrap
+    mean_block_len: 6
+    regime:
+      enabled: true
+      kind: proxy_vol_threshold
+      proxy_column: SPX
+      threshold_percentile: 75
+  costs:
+    kind: regime_stochastic
+    default_regime: calm
+    calm:
+      trade_cost_bps:
+        dist: lognormal
+        mean: 6
+        sigma: 0.25
+    stress:
+      trade_cost_bps:
+        dist: lognormal
+        mean: 18
+        sigma: 0.35
+      slippage_multiplier: 1.5
 
 # Reference to base pipeline config
 base_config: config/defaults.yml
@@ -548,36 +603,6 @@ monte_carlo:
   frequency: M                  # M | D
   seed: 12345
   jobs: 8                       # Parallel workers
-
-# Optional fold configuration
-folds:
-  enabled: false
-  fold_starts: []
-  calibration_lookback_years: 10
-
-# Return generation model
-return_model:
-  kind: stationary_bootstrap  # stationary_bootstrap | regime_conditioned_bootstrap
-  mean_block_len: 6
-  regime:
-    enabled: true
-    kind: proxy_vol_threshold
-    proxy_column: SPX
-    threshold_percentile: 75
-
-# Transaction cost model
-costs:
-  kind: regime_stochastic
-  calm:
-    trade_cost_bps:
-      dist: lognormal
-      mean: 6
-      sigma: 0.25
-  stress:
-    trade_cost_bps:
-      dist: lognormal
-      mean: 18
-      sigma: 0.35
 
 # Strategy configurations
 strategy_set:
@@ -624,11 +649,12 @@ outputs:
   formats: [parquet, csv]       # Output formats
 ```
 
-`strategy_set`, `outputs`, and `costs` are optional top-level sections. Scenario
-authors may omit them or set them to `null` to document intentional absence; the
-loader treats both forms as absent. Required sections such as `scenario`,
-`base_config`, and `monte_carlo` remain strict and must contain valid values
-(`monte_carlo: null` fails validation).
+`strategy_set` and `outputs` are optional top-level sections. `costs`, `folds`, and
+`return_model` may be defined inside `scenario` as shown; `costs` may also be
+defined as a top-level compatibility section. Optional sections may be omitted or
+set to `null` to document intentional absence where allowed. Required sections such
+as `scenario`, `base_config`, and `monte_carlo` remain strict and must contain
+valid values (`monte_carlo: null` fails validation).
 
 ---
 
@@ -702,6 +728,9 @@ trend mc run --scenario hf_equity_ls_10y --n-paths 500 --jobs 4
 
 # Quick test run
 trend mc run --scenario hf_equity_ls_10y --dry-run --n-paths 10
+
+# Cost regime example dry-run (exact command)
+trend mc run --scenario cost_regime_example --dry-run --n-paths 10
 
 # Export MC charts from an existing bundle
 trend mc viz \

@@ -100,6 +100,27 @@ monte_carlo:
     assert "base_config" in err
 
 
+def test_mc_validate_reports_misspelled_rf_override_key(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    scenario_path = tmp_path / "invalid_rf_override.yml"
+    _write_scenario(
+        scenario_path,
+        name="invalid_rf_override",
+        extra="""
+metrics:
+  rf_override_enbaled: true
+""".strip(),
+    )
+
+    rc = cli.main(["mc", "validate", str(scenario_path)])
+
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "base_config" in err
+    assert "metrics.rf_override_enbaled" in err
+
+
 def test_mc_run_overrides_and_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     scenario_path = tmp_path / "scenario.yml"
     data_path = tmp_path / "prices.csv"

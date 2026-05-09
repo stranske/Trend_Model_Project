@@ -155,6 +155,11 @@ def test_list_scenarios_filters_by_tags(tmp_path: Path) -> None:
     filtered = list_scenarios(tags=["stress"], registry_path=registry)
     assert [entry.name for entry in filtered] == ["beta"]
 
+    # Also assert the real example scenario can be discovered by both registry tags.
+    for tag in ("example", "costs"):
+        names = {entry.name for entry in list_scenarios(tags=[tag])}
+        assert "cost_regime_example" in names
+
 
 def test_list_scenarios_filters_by_tags_sorted_by_path(tmp_path: Path) -> None:
     scenario_a = tmp_path / "b.yml"
@@ -334,6 +339,12 @@ def test_load_scenario_rejects_null_required_monte_carlo(tmp_path: Path) -> None
         load_scenario("null_required", registry_path=registry)
 
 
+def test_cost_regime_example_discoverable_by_example_and_costs_tags() -> None:
+    for tag in ("example", "costs"):
+        names = {entry.name for entry in list_scenarios(tags=[tag])}
+        assert "cost_regime_example" in names
+
+
 def test_list_scenarios_missing_registry(tmp_path: Path) -> None:
     registry = tmp_path / "missing.yml"
     with pytest.raises(FileNotFoundError, match="Scenario registry"):
@@ -449,6 +460,16 @@ def test_load_scenario_includes_optional_sections() -> None:
     assert scenario.return_model["kind"] == "stationary_bootstrap"
     assert scenario.folds is not None
     assert scenario.folds["enabled"] is True
+
+
+def test_load_scenario_cost_regime_example_uses_canonical_direct_regime_shape() -> None:
+    scenario = load_scenario("cost_regime_example")
+    assert scenario.costs is not None
+    assert scenario.costs.get("kind") == "regime_stochastic"
+    assert "regimes" not in scenario.costs
+    for regime in ("calm", "stress"):
+        assert regime in scenario.costs
+        assert "trade_cost_bps" in scenario.costs[regime]
 
 
 def test_load_scenario_rejects_null_return_model(tmp_path: Path) -> None:
