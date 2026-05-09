@@ -1538,7 +1538,88 @@ def test_run_mixture_uses_per_path_generation_when_path_seeds_diverge(
     assert len(call_log) == total
     assert all(call["n_paths"] == 1 for call in call_log)
     assert [call["seed"] for call in call_log] == divergent_seeds
-    assert "Mixture mode selected per-path generation" in caplog.text
+    assert "Mixture mode path generation selected mode=per-path" in caplog.text
+
+
+def test_run_mixture_mode_selection_debug_log_is_deterministic(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    scenario = _scenario("mixture")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+    n_periods = runner._compute_n_periods()
+    strategies = runner._resolve_strategies()
+    path_seeds, strategy_seeds = runner._build_seeds()
+    assert path_seeds[0] is not None
+    divergent_seeds = list(path_seeds)
+    divergent_seeds[0] = int(path_seeds[0]) + 1
+    _stub_mixture_path_evaluation(monkeypatch, runner)
+
+    mode_messages: list[str] = []
+    with caplog.at_level(logging.DEBUG, logger="trend_analysis.monte_carlo"):
+        for _ in range(2):
+            model = _RecordingMonteCarloModel()
+            runner._run_mixture(
+                model=model,
+                n_periods=n_periods,
+                strategies=strategies,
+                path_seeds=divergent_seeds,
+                strategy_seeds=strategy_seeds,
+                progress_callback=None,
+                jobs=1,
+            )
+            message = next(
+                record.getMessage()
+                for record in reversed(caplog.records)
+                if "Mixture mode path generation selected mode=" in record.getMessage()
+            )
+            mode_messages.append(message)
+
+    assert mode_messages[0] == mode_messages[1]
+
+
+def test_run_mixture_mode_selection_debug_capture_does_not_change_outputs(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    scenario = _scenario("mixture")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+    n_periods = runner._compute_n_periods()
+    strategies = runner._resolve_strategies()
+    path_seeds, strategy_seeds = runner._build_seeds()
+    _stub_mixture_path_evaluation(monkeypatch, runner)
+
+    evals_without_log_capture, _ = runner._run_mixture(
+        model=_RecordingMonteCarloModel(),
+        n_periods=n_periods,
+        strategies=strategies,
+        path_seeds=path_seeds,
+        strategy_seeds=strategy_seeds,
+        progress_callback=None,
+        jobs=1,
+    )
+    with caplog.at_level(logging.DEBUG, logger="trend_analysis.monte_carlo"):
+        evals_with_log_capture, _ = runner._run_mixture(
+            model=_RecordingMonteCarloModel(),
+            n_periods=n_periods,
+            strategies=strategies,
+            path_seeds=path_seeds,
+            strategy_seeds=strategy_seeds,
+            progress_callback=None,
+            jobs=1,
+        )
+
+    frame_without_log_capture = _sorted_frame(build_results_frame(evals_without_log_capture))
+    frame_with_log_capture = _sorted_frame(build_results_frame(evals_with_log_capture))
+    pd.testing.assert_frame_equal(frame_without_log_capture, frame_with_log_capture)
 
 
 def test_run_mixture_strategy_seeds_do_not_control_path_generation_mode(

@@ -62,7 +62,7 @@ This implies an **expected variance-reduction factor of ~100x** (independent var
 
 This meets the documented expectation of ~100x reduction for the benchmark configuration.
 
-### Mixture Mode Seeding
+### Mixture-Mode Determinism
 
 Mixture mode remains deterministic when a scenario seed is set, but it has two valid
 execution modes:
@@ -100,13 +100,15 @@ how path generation work is scheduled. The mode-selection contract is covered by
 Completed runner output exposes the selected mode in
 `MonteCarloResults.metadata["path_generation_mode"]` as `shared` or `per-path`.
 
-#### Why Is My Mixture Run Slower?
+#### Troubleshooting and Performance Tradeoffs
 
 If mixture mode selects **per-path generation**, the runner performs many small
 model calls (`n_paths=1`) instead of one bulk call (`n_paths=N`). This can be slower
 due to repeated setup overhead and reduced vectorization compared with shared-path
-bulk generation. The debug log includes the phrase
-`Mixture mode selected per-path generation` when this slower path is selected.
+bulk generation. The debug log includes
+`Mixture mode path generation selected mode=<shared|per-path> reason=<...>`.
+Use `MonteCarloResults.metadata["path_generation_mode"]` to verify the selected mode
+programmatically for troubleshooting and test assertions.
 
 ---
 
