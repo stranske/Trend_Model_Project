@@ -126,6 +126,61 @@ def _sorted_frame(frame: pd.DataFrame) -> pd.DataFrame:
     return frame.sort_values(["path_id", "strategy"]).reset_index(drop=True)
 
 
+class _RecordingMonteCarloModel:
+    def __init__(self) -> None:
+        self.call_log: list[dict[str, Any]] = []
+
+    def sample_prices(
+        self,
+        *,
+        n_periods: int,
+        n_paths: int,
+        frequency: str,
+        seed: int | None,
+    ) -> Any:
+        self.call_log.append(
+            {
+                "n_periods": n_periods,
+                "n_paths": n_paths,
+                "frequency": frequency,
+                "seed": seed,
+            }
+        )
+        index = pd.date_range("2024-01-31", periods=n_periods, freq="ME")
+        columns = pd.MultiIndex.from_product(
+            [range(n_paths), ["AssetA", "AssetB"]],
+            names=["path", "asset"],
+        )
+        prices = pd.DataFrame(100.0, index=index, columns=columns)
+        log_returns = pd.DataFrame(0.0, index=index, columns=columns)
+        return type("PathResult", (), {"prices": prices, "log_returns": log_returns})()
+
+
+def _stub_mixture_path_evaluation(
+    monkeypatch: pytest.MonkeyPatch, runner: MonteCarloRunner
+) -> None:
+    monkeypatch.setattr(
+        runner,
+        "_compute_score_frame",
+        lambda _returns: pd.DataFrame({"score": [1.0]}, index=["AssetA"]),
+    )
+
+    def _fake_evaluate_strategy(
+        strategy: StrategyVariant, context: runner_module._PathContext
+    ) -> StrategyEvaluation:
+        return StrategyEvaluation(
+            fold_id=None,
+            path_id=context.path_id,
+            strategy_name=strategy.name,
+            metrics={"metric": 1.0},
+            metric_source="stub",
+            path_hash=context.path_hash,
+            seed=context.seed,
+        )
+
+    monkeypatch.setattr(runner, "_evaluate_strategy", _fake_evaluate_strategy)
+
+
 def _returns_with_rf() -> pd.DataFrame:
     dates = pd.date_range("2020-01-31", periods=6, freq="ME")
     return pd.DataFrame(
@@ -210,7 +265,9 @@ def test_two_layer_strategies_share_path_prices(
     assert len(seen_prices) == scenario.monte_carlo.n_paths
 
 
-def test_runner_exports_aggregation_outputs(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_runner_exports_aggregation_outputs(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     scenario = MonteCarloScenario(
         name="mc_export",
         base_config="config/defaults.yml",
@@ -281,7 +338,9 @@ def test_runner_exports_aggregation_outputs(tmp_path, monkeypatch: pytest.Monkey
         return {}
 
     monkeypatch.setattr(runner_module, "export_results", _fake_export_results)
-    monkeypatch.setattr(runner_module, "export_aggregation_results", _fake_export_aggregation)
+    monkeypatch.setattr(
+        runner_module, "export_aggregation_results", _fake_export_aggregation
+    )
 
     runner._maybe_export(results)
 
@@ -289,7 +348,9 @@ def test_runner_exports_aggregation_outputs(tmp_path, monkeypatch: pytest.Monkey
     assert captured["results_formats"] == captured["aggregation_formats"]
     aggregation = captured["aggregation"]
     assert {"strategy", "path", "fold"}.issubset(set(aggregation.path_frame.columns))
-    assert sorted(aggregation.quantiles_frame["quantile"].unique()) == pytest.approx([0.1, 0.9])
+    assert sorted(aggregation.quantiles_frame["quantile"].unique()) == pytest.approx(
+        [0.1, 0.9]
+    )
     assert not aggregation.breach_frame.empty
     assert not aggregation.expected_shortfall_frame.empty
 
@@ -355,7 +416,9 @@ def test_runner_uses_fold_calibration_window(monkeypatch: pytest.MonkeyPatch) ->
         )
         return object()
 
-    def _fake_run_mode(self: MonteCarloRunner, **_kwargs: Any) -> tuple[list[Any], list[Any]]:
+    def _fake_run_mode(
+        self: MonteCarloRunner, **_kwargs: Any
+    ) -> tuple[list[Any], list[Any]]:
         return [], []
 
     monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
@@ -401,7 +464,9 @@ def test_runner_uses_rolling_fold_calibration_windows(
         captured.append((calibration_start, calibration_end))
         return object()
 
-    def _fake_run_mode(self: MonteCarloRunner, **_kwargs: Any) -> tuple[list[Any], list[Any]]:
+    def _fake_run_mode(
+        self: MonteCarloRunner, **_kwargs: Any
+    ) -> tuple[list[Any], list[Any]]:
         return [], []
 
     monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
@@ -447,7 +512,9 @@ def test_runner_uses_count_spaced_fold_calibration_windows(
         captured.append((calibration_start, calibration_end))
         return object()
 
-    def _fake_run_mode(self: MonteCarloRunner, **_kwargs: Any) -> tuple[list[Any], list[Any]]:
+    def _fake_run_mode(
+        self: MonteCarloRunner, **_kwargs: Any
+    ) -> tuple[list[Any], list[Any]]:
         return [], []
 
     monkeypatch.setattr(MonteCarloRunner, "_build_price_model", _fake_build_price_model)
@@ -490,7 +557,9 @@ def test_build_price_model_rejects_empty_calibration_window() -> None:
         price_history=history,
     )
 
-    with pytest.raises(ValueError, match="fold calibration window produced no history data"):
+    with pytest.raises(
+        ValueError, match="fold calibration window produced no history data"
+    ):
         runner._build_price_model(
             history,
             calibration_start=pd.Timestamp("2019-01-01"),
@@ -525,12 +594,16 @@ def test_runner_respects_enable_fold_runs_flag(monkeypatch: pytest.MonkeyPatch) 
         captured_calibration.append((calibration_start, calibration_end))
         return object()
 
-    def _fake_run_mode(self: MonteCarloRunner, **kwargs: Any) -> tuple[list[Any], list[Any]]:
+    def _fake_run_mode(
+        self: MonteCarloRunner, **kwargs: Any
+    ) -> tuple[list[Any], list[Any]]:
         seen_fold_ids.append(kwargs.get("fold_id"))
         return [], []
 
     def _raise_from_config(cls: type[folds_module.FoldGenerator], _config: Any) -> Any:
-        raise AssertionError("FoldGenerator.from_config should not be called when disabled")
+        raise AssertionError(
+            "FoldGenerator.from_config should not be called when disabled"
+        )
 
     monkeypatch.setattr(
         folds_module.FoldGenerator,
@@ -592,7 +665,8 @@ def test_runner_logs_fold_context_for_errors(caplog: pytest.LogCaptureFixture) -
         )
 
     assert any(
-        "fold 2 (2022-01) path 3 strategy StrategyA" in record.message for record in caplog.records
+        "fold 2 (2022-01) path 3 strategy StrategyA" in record.message
+        for record in caplog.records
     )
 
 
@@ -620,7 +694,9 @@ def test_runner_builds_pooled_summary_when_enabled(
     ) -> object:
         return object()
 
-    def _fake_run_mode(self: MonteCarloRunner, **kwargs: Any) -> tuple[list[Any], list[Any]]:
+    def _fake_run_mode(
+        self: MonteCarloRunner, **kwargs: Any
+    ) -> tuple[list[Any], list[Any]]:
         fold_id = kwargs.get("fold_id")
         evaluation = StrategyEvaluation(
             fold_id=fold_id,
@@ -674,7 +750,9 @@ def test_runner_builds_cross_fold_summary_without_pooled_distributions(
     ) -> object:
         return object()
 
-    def _fake_run_mode(self: MonteCarloRunner, **kwargs: Any) -> tuple[list[Any], list[Any]]:
+    def _fake_run_mode(
+        self: MonteCarloRunner, **kwargs: Any
+    ) -> tuple[list[Any], list[Any]]:
         fold_id = int(kwargs.get("fold_id") or 0)
         seen_fold_ids.append(fold_id)
         evaluation = StrategyEvaluation(
@@ -703,10 +781,18 @@ def test_runner_builds_cross_fold_summary_without_pooled_distributions(
     assert pd.isna(cross_fold.loc[0, "fold_id"])
     assert cross_fold.loc[0, "folds"] == 2
     metric_values = [1.0 + (fold_id * 2.0) for fold_id in seen_fold_ids]
-    assert cross_fold.loc[0, "metric_mean"] == pytest.approx(float(np.mean(metric_values)))
-    assert cross_fold.loc[0, "metric_min"] == pytest.approx(float(np.min(metric_values)))
-    assert cross_fold.loc[0, "metric_max"] == pytest.approx(float(np.max(metric_values)))
-    assert cross_fold.loc[0, "metric_median"] == pytest.approx(float(np.median(metric_values)))
+    assert cross_fold.loc[0, "metric_mean"] == pytest.approx(
+        float(np.mean(metric_values))
+    )
+    assert cross_fold.loc[0, "metric_min"] == pytest.approx(
+        float(np.min(metric_values))
+    )
+    assert cross_fold.loc[0, "metric_max"] == pytest.approx(
+        float(np.max(metric_values))
+    )
+    assert cross_fold.loc[0, "metric_median"] == pytest.approx(
+        float(np.median(metric_values))
+    )
 
 
 def test_runner_populates_nav_paths_metadata(
@@ -729,7 +815,9 @@ def test_runner_populates_nav_paths_metadata(
     ) -> object:
         return object()
 
-    def _fake_run_mode(self: MonteCarloRunner, **_kwargs: Any) -> tuple[list[Any], list[Any]]:
+    def _fake_run_mode(
+        self: MonteCarloRunner, **_kwargs: Any
+    ) -> tuple[list[Any], list[Any]]:
         evals = [
             StrategyEvaluation(
                 fold_id=None,
@@ -810,7 +898,9 @@ def test_runner_populates_nav_paths_by_fold(
     ) -> object:
         return object()
 
-    def _fake_run_mode(self: MonteCarloRunner, **kwargs: Any) -> tuple[list[Any], list[Any]]:
+    def _fake_run_mode(
+        self: MonteCarloRunner, **kwargs: Any
+    ) -> tuple[list[Any], list[Any]]:
         fold_id = int(kwargs.get("fold_id") or 0)
         evals = [
             StrategyEvaluation(
@@ -821,7 +911,9 @@ def test_runner_populates_nav_paths_by_fold(
                 metric_source="unit_test",
                 path_hash=f"hash-{fold_id}-0",
                 seed=fold_id,
-                nav_series=pd.Series([1.0, 1.0 + (0.01 * fold_id)], index=nav_index, name="NAV"),
+                nav_series=pd.Series(
+                    [1.0, 1.0 + (0.01 * fold_id)], index=nav_index, name="NAV"
+                ),
             ),
             StrategyEvaluation(
                 fold_id=fold_id,
@@ -831,7 +923,9 @@ def test_runner_populates_nav_paths_by_fold(
                 metric_source="unit_test",
                 path_hash=f"hash-{fold_id}-1",
                 seed=fold_id + 1,
-                nav_series=pd.Series([1.0, 1.0 + (0.02 * fold_id)], index=nav_index, name="NAV"),
+                nav_series=pd.Series(
+                    [1.0, 1.0 + (0.02 * fold_id)], index=nav_index, name="NAV"
+                ),
             ),
         ]
         return evals, []
@@ -878,7 +972,9 @@ def test_runner_cross_fold_summary_stats_include_pooled_labels(
     ) -> object:
         return object()
 
-    def _fake_run_mode(self: MonteCarloRunner, **kwargs: Any) -> tuple[list[Any], list[Any]]:
+    def _fake_run_mode(
+        self: MonteCarloRunner, **kwargs: Any
+    ) -> tuple[list[Any], list[Any]]:
         fold_id = int(kwargs.get("fold_id") or 0)
         seen_fold_ids.append(fold_id)
         evaluation = StrategyEvaluation(
@@ -902,10 +998,18 @@ def test_runner_cross_fold_summary_stats_include_pooled_labels(
     assert cross_fold.loc[0, "scope"] == "cross_fold"
     assert cross_fold.loc[0, "folds"] == 2
     metric_values = [10.0 + fold_id for fold_id in seen_fold_ids]
-    assert cross_fold.loc[0, "metric_mean"] == pytest.approx(float(np.mean(metric_values)))
-    assert cross_fold.loc[0, "metric_min"] == pytest.approx(float(np.min(metric_values)))
-    assert cross_fold.loc[0, "metric_max"] == pytest.approx(float(np.max(metric_values)))
-    assert cross_fold.loc[0, "metric_median"] == pytest.approx(float(np.median(metric_values)))
+    assert cross_fold.loc[0, "metric_mean"] == pytest.approx(
+        float(np.mean(metric_values))
+    )
+    assert cross_fold.loc[0, "metric_min"] == pytest.approx(
+        float(np.min(metric_values))
+    )
+    assert cross_fold.loc[0, "metric_max"] == pytest.approx(
+        float(np.max(metric_values))
+    )
+    assert cross_fold.loc[0, "metric_median"] == pytest.approx(
+        float(np.median(metric_values))
+    )
 
     pooled = results.pooled_summary_frame
     assert pooled is not None
@@ -939,7 +1043,9 @@ def test_runner_pooled_summary_includes_fold_count_when_enabled(
     ) -> object:
         return object()
 
-    def _fake_run_mode(self: MonteCarloRunner, **kwargs: Any) -> tuple[list[Any], list[Any]]:
+    def _fake_run_mode(
+        self: MonteCarloRunner, **kwargs: Any
+    ) -> tuple[list[Any], list[Any]]:
         fold_id = int(kwargs.get("fold_id") or 0)
         evaluation = StrategyEvaluation(
             fold_id=fold_id,
@@ -995,7 +1101,9 @@ def test_runner_exports_pooled_summary_when_enabled(
     ) -> object:
         return object()
 
-    def _fake_run_mode(self: MonteCarloRunner, **kwargs: Any) -> tuple[list[Any], list[Any]]:
+    def _fake_run_mode(
+        self: MonteCarloRunner, **kwargs: Any
+    ) -> tuple[list[Any], list[Any]]:
         fold_id = kwargs.get("fold_id")
         evaluation = StrategyEvaluation(
             fold_id=fold_id,
@@ -1077,7 +1185,10 @@ def test_runner_includes_fold_ids_in_results_frame(
     results = runner.run(jobs=1)
 
     assert results.results_frame["fold_id"].dropna().tolist() == [1, 2]
-    assert results.results_frame["fold_label"].dropna().tolist() == ["2022-01", "2023-01"]
+    assert results.results_frame["fold_label"].dropna().tolist() == [
+        "2022-01",
+        "2023-01",
+    ]
 
 
 def test_resolve_strategies_includes_sampled_turnover_caps() -> None:
@@ -1330,57 +1441,11 @@ def test_run_mixture_uses_shared_bulk_generation_when_path_seeds_match_base(
     assert total is not None
     strategies = runner._resolve_strategies()
     path_seeds, strategy_seeds = runner._build_seeds()
-    call_log: list[dict[str, Any]] = []
-
-    class _RecordingModel:
-        def sample_prices(
-            self,
-            *,
-            n_periods: int,
-            n_paths: int,
-            frequency: str,
-            seed: int | None,
-        ) -> Any:
-            call_log.append(
-                {
-                    "n_periods": n_periods,
-                    "n_paths": n_paths,
-                    "frequency": frequency,
-                    "seed": seed,
-                }
-            )
-            index = pd.date_range("2024-01-31", periods=n_periods, freq="ME")
-            columns = pd.MultiIndex.from_product(
-                [range(n_paths), ["AssetA", "AssetB"]],
-                names=["path", "asset"],
-            )
-            prices = pd.DataFrame(100.0, index=index, columns=columns)
-            log_returns = pd.DataFrame(0.0, index=index, columns=columns)
-            return type("PathResult", (), {"prices": prices, "log_returns": log_returns})()
-
-    monkeypatch.setattr(
-        runner,
-        "_compute_score_frame",
-        lambda _returns: pd.DataFrame({"score": [1.0]}, index=["AssetA"]),
-    )
-
-    def _fake_evaluate_strategy(
-        strategy: StrategyVariant, context: runner_module._PathContext
-    ) -> StrategyEvaluation:
-        return StrategyEvaluation(
-            fold_id=None,
-            path_id=context.path_id,
-            strategy_name=strategy.name,
-            metrics={"metric": 1.0},
-            metric_source="stub",
-            path_hash=context.path_hash,
-            seed=context.seed,
-        )
-
-    monkeypatch.setattr(runner, "_evaluate_strategy", _fake_evaluate_strategy)
+    model = _RecordingMonteCarloModel()
+    _stub_mixture_path_evaluation(monkeypatch, runner)
 
     evals, errors = runner._run_mixture(
-        model=_RecordingModel(),
+        model=model,
         n_periods=n_periods,
         strategies=strategies,
         path_seeds=path_seeds,
@@ -1391,6 +1456,79 @@ def test_run_mixture_uses_shared_bulk_generation_when_path_seeds_match_base(
 
     assert not errors
     assert len(evals) == total
+    call_log = model.call_log
+    assert len(call_log) == 1
+    assert call_log[0]["n_paths"] == total
+    assert call_log[0]["seed"] == scenario.monte_carlo.seed
+
+
+def test_run_mixture_uses_shared_bulk_generation_when_path_seeds_are_unset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenario = _scenario("mixture")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+    n_periods = runner._compute_n_periods()
+    total = scenario.monte_carlo.n_paths
+    assert total is not None
+    strategies = runner._resolve_strategies()
+    _, strategy_seeds = runner._build_seeds()
+    path_seeds = [None] * total
+    model = _RecordingMonteCarloModel()
+    _stub_mixture_path_evaluation(monkeypatch, runner)
+
+    evals, errors = runner._run_mixture(
+        model=model,
+        n_periods=n_periods,
+        strategies=strategies,
+        path_seeds=path_seeds,
+        strategy_seeds=strategy_seeds,
+        progress_callback=None,
+        jobs=1,
+    )
+
+    assert not errors
+    assert len(evals) == total
+    call_log = model.call_log
+    assert len(call_log) == 1
+    assert call_log[0]["n_paths"] == total
+    assert call_log[0]["seed"] == scenario.monte_carlo.seed
+
+
+def test_run_mixture_uses_shared_bulk_generation_when_path_seeds_are_unset_with_explicit_strategy_seeds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenario = _scenario("mixture")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+    n_periods = runner._compute_n_periods()
+    total = scenario.monte_carlo.n_paths
+    assert total is not None
+    strategies = runner._resolve_strategies()
+    path_seeds = [None] * total
+    strategy_seeds = list(range(10_000, 10_000 + total))
+    model = _RecordingMonteCarloModel()
+    _stub_mixture_path_evaluation(monkeypatch, runner)
+
+    evals, errors = runner._run_mixture(
+        model=model,
+        n_periods=n_periods,
+        strategies=strategies,
+        path_seeds=path_seeds,
+        strategy_seeds=strategy_seeds,
+        progress_callback=None,
+        jobs=1,
+    )
+
+    assert not errors
+    assert len(evals) == total
+    call_log = model.call_log
     assert len(call_log) == 1
     assert call_log[0]["n_paths"] == total
     assert call_log[0]["seed"] == scenario.monte_carlo.seed
@@ -1414,58 +1552,12 @@ def test_run_mixture_uses_per_path_generation_when_path_seeds_diverge(
     assert path_seeds[0] is not None
     divergent_seeds = list(path_seeds)
     divergent_seeds[0] = int(path_seeds[0]) + 1
-    call_log: list[dict[str, Any]] = []
-
-    class _RecordingModel:
-        def sample_prices(
-            self,
-            *,
-            n_periods: int,
-            n_paths: int,
-            frequency: str,
-            seed: int | None,
-        ) -> Any:
-            call_log.append(
-                {
-                    "n_periods": n_periods,
-                    "n_paths": n_paths,
-                    "frequency": frequency,
-                    "seed": seed,
-                }
-            )
-            index = pd.date_range("2024-01-31", periods=n_periods, freq="ME")
-            columns = pd.MultiIndex.from_product(
-                [range(n_paths), ["AssetA", "AssetB"]],
-                names=["path", "asset"],
-            )
-            prices = pd.DataFrame(100.0, index=index, columns=columns)
-            log_returns = pd.DataFrame(0.0, index=index, columns=columns)
-            return type("PathResult", (), {"prices": prices, "log_returns": log_returns})()
-
-    monkeypatch.setattr(
-        runner,
-        "_compute_score_frame",
-        lambda _returns: pd.DataFrame({"score": [1.0]}, index=["AssetA"]),
-    )
-
-    def _fake_evaluate_strategy(
-        strategy: StrategyVariant, context: runner_module._PathContext
-    ) -> StrategyEvaluation:
-        return StrategyEvaluation(
-            fold_id=None,
-            path_id=context.path_id,
-            strategy_name=strategy.name,
-            metrics={"metric": 1.0},
-            metric_source="stub",
-            path_hash=context.path_hash,
-            seed=context.seed,
-        )
-
-    monkeypatch.setattr(runner, "_evaluate_strategy", _fake_evaluate_strategy)
+    model = _RecordingMonteCarloModel()
+    _stub_mixture_path_evaluation(monkeypatch, runner)
 
     with caplog.at_level(logging.DEBUG, logger="trend_analysis.monte_carlo"):
         evals, errors = runner._run_mixture(
-            model=_RecordingModel(),
+            model=model,
             n_periods=n_periods,
             strategies=strategies,
             path_seeds=divergent_seeds,
@@ -1476,10 +1568,86 @@ def test_run_mixture_uses_per_path_generation_when_path_seeds_diverge(
 
     assert not errors
     assert len(evals) == total
+    call_log = model.call_log
     assert len(call_log) == total
     assert all(call["n_paths"] == 1 for call in call_log)
     assert [call["seed"] for call in call_log] == divergent_seeds
     assert "Mixture mode selected per-path generation" in caplog.text
+
+
+def test_run_mixture_strategy_seeds_do_not_control_path_generation_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenario = _scenario("mixture")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+    n_periods = runner._compute_n_periods()
+    total = scenario.monte_carlo.n_paths
+    assert total is not None
+    strategies = runner._resolve_strategies()
+    path_seeds, _ = runner._build_seeds()
+    divergent_strategy_seeds = [idx + 10_000 for idx in range(total)]
+    model = _RecordingMonteCarloModel()
+    _stub_mixture_path_evaluation(monkeypatch, runner)
+
+    evals, errors = runner._run_mixture(
+        model=model,
+        n_periods=n_periods,
+        strategies=strategies,
+        path_seeds=path_seeds,
+        strategy_seeds=divergent_strategy_seeds,
+        progress_callback=None,
+        jobs=1,
+    )
+
+    assert not errors
+    assert len(evals) == total
+    call_log = model.call_log
+    assert len(call_log) == 1
+    assert call_log[0]["n_paths"] == total
+    assert call_log[0]["seed"] == scenario.monte_carlo.seed
+
+
+def test_run_mixture_divergent_path_seeds_ignore_strategy_seed_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenario = _scenario("mixture")
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=_base_config(),
+        price_history=_price_history(),
+    )
+    n_periods = runner._compute_n_periods()
+    total = scenario.monte_carlo.n_paths
+    assert total is not None
+    strategies = runner._resolve_strategies()
+    path_seeds, _ = runner._build_seeds()
+    divergent_path_seeds = [
+        (seed + 1 if seed is not None else 1) for seed in path_seeds
+    ]
+    uniform_strategy_seeds = [7] * total
+    model = _RecordingMonteCarloModel()
+    _stub_mixture_path_evaluation(monkeypatch, runner)
+
+    evals, errors = runner._run_mixture(
+        model=model,
+        n_periods=n_periods,
+        strategies=strategies,
+        path_seeds=divergent_path_seeds,
+        strategy_seeds=uniform_strategy_seeds,
+        progress_callback=None,
+        jobs=1,
+    )
+
+    assert not errors
+    assert len(evals) == total
+    call_log = model.call_log
+    assert len(call_log) == total
+    assert all(call["n_paths"] == 1 for call in call_log)
+    assert [call["seed"] for call in call_log] == divergent_path_seeds
 
 
 def test_score_frame_uses_rf_override(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1608,7 +1776,10 @@ def test_should_resolve_risk_free_treats_blank_column_as_unset() -> None:
 
     assert (
         runner._should_resolve_risk_free(
-            data_settings={"risk_free_column": "   ", "allow_risk_free_fallback": False},
+            data_settings={
+                "risk_free_column": "   ",
+                "allow_risk_free_fallback": False,
+            },
             metrics_settings={"rf_override_enabled": False},
         )
         is False
@@ -1618,10 +1789,19 @@ def test_should_resolve_risk_free_treats_blank_column_as_unset() -> None:
 def test_should_inject_cash_is_gated_by_override_flag() -> None:
     runner = MonteCarloRunner(_scenario("two_layer"), base_config=_base_config())
 
-    assert runner._should_inject_cash(metrics_settings={"rf_override_enabled": True}) is True
-    assert runner._should_inject_cash(metrics_settings={"rf_override_enabled": False}) is False
+    assert (
+        runner._should_inject_cash(metrics_settings={"rf_override_enabled": True})
+        is True
+    )
+    assert (
+        runner._should_inject_cash(metrics_settings={"rf_override_enabled": False})
+        is False
+    )
     assert runner._should_inject_cash(metrics_settings={}) is False
-    assert runner._should_inject_cash(metrics_settings={"rf_override_enabled": None}) is False
+    assert (
+        runner._should_inject_cash(metrics_settings={"rf_override_enabled": None})
+        is False
+    )
 
 
 def test_apply_cash_handling_injects_cash_when_override_gate_enabled() -> None:
@@ -1658,7 +1838,9 @@ def test_cash_injection_when_condition_met() -> None:
     assert "CASH" in injected.columns
 
 
-def test_apply_cash_handling_skips_when_override_disabled_even_with_risk_free_column() -> None:
+def test_apply_cash_handling_skips_when_override_disabled_even_with_risk_free_column() -> (
+    None
+):
     cfg = _base_config()
     cfg["metrics"] = {
         "registry": ["sharpe_ratio"],
@@ -1674,7 +1856,9 @@ def test_apply_cash_handling_skips_when_override_disabled_even_with_risk_free_co
     assert "CASH" not in injected.columns
 
 
-def test_apply_cash_handling_skips_when_override_disabled_even_with_fallback_enabled() -> None:
+def test_apply_cash_handling_skips_when_override_disabled_even_with_fallback_enabled() -> (
+    None
+):
     cfg = _base_config()
     cfg["metrics"] = {
         "registry": ["sharpe_ratio"],
@@ -1791,7 +1975,9 @@ def test_cash_uses_correct_risk_free_rate() -> None:
     injected = runner._apply_cash_handling(_returns_without_rf())
 
     expected = np.full(6, (1.12 ** (1.0 / 12.0)) - 1.0, dtype=float)
-    np.testing.assert_allclose(injected["CASH"].to_numpy(dtype=float, copy=False), expected)
+    np.testing.assert_allclose(
+        injected["CASH"].to_numpy(dtype=float, copy=False), expected
+    )
 
 
 def test_apply_cash_handling_handles_missing_metrics_nulls_and_empty_inputs() -> None:
@@ -1825,7 +2011,9 @@ def test_apply_cash_handling_returns_unchanged_when_cash_already_present() -> No
     pd.testing.assert_frame_equal(injected, returns)
 
 
-def test_apply_cash_handling_returns_unchanged_when_legacy_lowercase_cash_present() -> None:
+def test_apply_cash_handling_returns_unchanged_when_legacy_lowercase_cash_present() -> (
+    None
+):
     cfg = _base_config()
     cfg["metrics"] = {"registry": ["sharpe_ratio"], "rf_override_enabled": True}
     runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
@@ -1931,7 +2119,9 @@ def test_apply_cash_handling_skips_when_rf_resolution_raises(
     def _boom(*_args: Any, **_kwargs: Any) -> Any:
         raise RuntimeError("resolver failed")
 
-    monkeypatch.setattr("trend_analysis.monte_carlo.runner.resolve_risk_free_source", _boom)
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.resolve_risk_free_source", _boom
+    )
 
     injected = runner._apply_cash_handling(_returns_without_rf())
 
@@ -1967,7 +2157,9 @@ def test_apply_cash_handling_skips_when_rf_series_alignment_introduces_nan(
 
     monkeypatch.setattr(
         "trend_analysis.monte_carlo.runner.resolve_risk_free_source",
-        lambda *_args, **_kwargs: RiskFreeResolution(source="test", risk_free=bad_series),
+        lambda *_args, **_kwargs: RiskFreeResolution(
+            source="test", risk_free=bad_series
+        ),
     )
 
     injected = runner._apply_cash_handling(returns)
@@ -1986,7 +2178,9 @@ def test_apply_cash_handling_skips_when_rf_series_contains_nan(
 
     monkeypatch.setattr(
         "trend_analysis.monte_carlo.runner.resolve_risk_free_source",
-        lambda *_args, **_kwargs: RiskFreeResolution(source="test", risk_free=nan_series),
+        lambda *_args, **_kwargs: RiskFreeResolution(
+            source="test", risk_free=nan_series
+        ),
     )
 
     injected = runner._apply_cash_handling(returns)
@@ -2010,7 +2204,9 @@ def test_apply_cash_handling_aligns_rf_series_by_returns_index(
 
     monkeypatch.setattr(
         "trend_analysis.monte_carlo.runner.resolve_risk_free_source",
-        lambda *_args, **_kwargs: RiskFreeResolution(source="test", risk_free=rf_values),
+        lambda *_args, **_kwargs: RiskFreeResolution(
+            source="test", risk_free=rf_values
+        ),
     )
 
     injected = runner._apply_cash_handling(returns)
@@ -2069,7 +2265,9 @@ def test_execute_paths_handles_unexpected_failure() -> None:
     )
     path_seeds = [101, 202]
 
-    def _boom(path_id: int, seed: int | None) -> tuple[list[Any], list[MonteCarloPathError]]:
+    def _boom(
+        path_id: int, seed: int | None
+    ) -> tuple[list[Any], list[MonteCarloPathError]]:
         if path_id == 1:
             raise RuntimeError("boom")
         return [], []
