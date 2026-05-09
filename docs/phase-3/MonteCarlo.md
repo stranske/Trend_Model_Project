@@ -549,35 +549,35 @@ monte_carlo:
   seed: 12345
   jobs: 8                       # Parallel workers
 
-  # Optional fold configuration
-  folds:
-    enabled: false
-    fold_starts: []
-    calibration_lookback_years: 10
+# Optional fold configuration
+folds:
+  enabled: false
+  fold_starts: []
+  calibration_lookback_years: 10
 
-  # Return generation model
-  return_model:
-    kind: stationary_bootstrap  # stationary_bootstrap | regime_conditioned_bootstrap
-    mean_block_len: 6
-    regime:
-      enabled: true
-      kind: proxy_vol_threshold
-      proxy_column: SPX
-      threshold_percentile: 75
+# Return generation model
+return_model:
+  kind: stationary_bootstrap  # stationary_bootstrap | regime_conditioned_bootstrap
+  mean_block_len: 6
+  regime:
+    enabled: true
+    kind: proxy_vol_threshold
+    proxy_column: SPX
+    threshold_percentile: 75
 
-  # Transaction cost model
-  costs:
-    kind: regime_stochastic
-    calm:
-      trade_cost_bps:
-        dist: lognormal
-        mean: 6
-        sigma: 0.25
-    stress:
-      trade_cost_bps:
-        dist: lognormal
-        mean: 18
-        sigma: 0.35
+# Transaction cost model
+costs:
+  kind: regime_stochastic
+  calm:
+    trade_cost_bps:
+      dist: lognormal
+      mean: 6
+      sigma: 0.25
+  stress:
+    trade_cost_bps:
+      dist: lognormal
+      mean: 18
+      sigma: 0.35
 
 # Strategy configurations
 strategy_set:

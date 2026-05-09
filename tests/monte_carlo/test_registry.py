@@ -256,39 +256,6 @@ def test_list_scenarios_filters_by_tags_ignores_case_and_whitespace(
     assert [entry.name for entry in filtered] == ["alpha"]
 
 
-def test_load_scenario_treats_null_optional_sections_as_absent(tmp_path: Path) -> None:
-    base_config = tmp_path / "base.yml"
-    base_config.write_text("{}", encoding="utf-8")
-    scenario = tmp_path / "null_optional.yml"
-    scenario.write_text(
-        "scenario:\n"
-        "  name: null_optional\n"
-        "  description: Optional null scenario.\n"
-        '  version: "1.0"\n'
-        "base_config: base.yml\n"
-        "monte_carlo:\n"
-        "  mode: two_layer\n"
-        "  n_paths: 25\n"
-        "  horizon_years: 1.0\n"
-        "  frequency: M\n"
-        "strategy_set: null\n"
-        "outputs: null\n"
-        "costs: null\n",
-        encoding="utf-8",
-    )
-    registry = tmp_path / "index.yml"
-    registry.write_text(
-        "scenarios:\n" "  - name: null_optional\n" "    path: null_optional.yml\n",
-        encoding="utf-8",
-    )
-
-    loaded = load_scenario("null_optional", registry_path=registry)
-
-    assert loaded.strategy_set is None
-    assert loaded.outputs is None
-    assert loaded.costs is None
-
-
 def test_load_scenario_null_optional_sections_match_omitted_sections(tmp_path: Path) -> None:
     base_config = tmp_path / "base.yml"
     base_config.write_text("{}", encoding="utf-8")
