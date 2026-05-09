@@ -74,11 +74,11 @@ execution modes:
 
 The runner chooses between those modes from the effective per-path seeds:
 
-- Use **shared-path bulk generation** when every path seed matches the value that
-  `SeedManager(<scenario seed>).get_path_seed(path_id)` would produce for that
-  path. This is the default for a seeded scenario because `_build_seeds()` derives
-  path seeds from the same base `SeedManager`.
-- Also use **shared-path bulk generation** when all path seeds are `None`. This
+- Use **shared-path bulk generation** when every non-null path seed matches the
+  value that `SeedManager(<scenario seed>).get_path_seed(path_id)` would produce
+  for that path. This is the default for a seeded scenario because `_build_seeds()`
+  derives path seeds from the same base `SeedManager`.
+- If all path seeds are `None`, also use **shared-path bulk generation**. This
   still uses one bulk model call with `seed=<monte_carlo.seed>`; when the scenario
   itself is unseeded, that bulk-call seed is `None`.
 - Use **per-path generation** when any non-null per-path seed differs from the
@@ -87,7 +87,7 @@ The runner chooses between those modes from the effective per-path seeds:
 
 To predict the mode for a scenario, check `monte_carlo.seed` first. If it is set and
 the run uses the built-in seed builder, mixture mode will use shared-path bulk
-generation. If a caller overrides path seeds, compare each override with
+generation. If a caller overrides path seeds, compare each non-null override with
 `SeedManager(seed).get_path_seed(path_id)`: one mismatch switches the run to
 per-path generation. Strategy seeds do not choose the path-generation mode; they only
 choose which strategy variant is sampled for each path.
