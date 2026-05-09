@@ -99,9 +99,7 @@ def _optional_mapping(
         return None
     value = raw.get(key)
     if value is None:
-        raise ValueError(
-            f"Scenario '{scenario_name}' config '{key}' must be a mapping (null provided)"
-        )
+        return None
     return _ensure_mapping(value, label=f"Scenario '{scenario_name}' config '{key}'")
 
 
