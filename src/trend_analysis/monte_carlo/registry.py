@@ -99,9 +99,7 @@ def _optional_mapping(
         return None
     value = raw.get(key)
     if value is None:
-        raise ValueError(
-            f"Scenario '{scenario_name}' config '{key}' must be a mapping (null provided)"
-        )
+        return None
     return _ensure_mapping(value, label=f"Scenario config '{key}'")
 
 
@@ -397,7 +395,10 @@ def _parse_scenario(
         raise ValueError("Scenario config must define base_config")
     base_config = _resolve_base_config(str(base_config_value), source_path=source_path)
 
+    monte_carlo_present = "monte_carlo" in raw
     monte_carlo = raw.get("monte_carlo")
+    if monte_carlo_present and monte_carlo is None:
+        raise ValueError("Scenario config 'monte_carlo' must be a mapping (null provided)")
     if monte_carlo is None:
         raise ValueError("Scenario config must define monte_carlo")
     monte_carlo_map = _ensure_mapping(monte_carlo, label="Scenario config 'monte_carlo'")

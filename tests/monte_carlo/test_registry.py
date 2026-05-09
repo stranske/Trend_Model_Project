@@ -335,7 +335,7 @@ def test_load_scenario_rejects_null_required_monte_carlo(tmp_path: Path) -> None
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="Scenario config must define monte_carlo"):
+    with pytest.raises(ValueError, match="monte_carlo.*null provided"):
         load_scenario("null_required", registry_path=registry)
 
 
@@ -472,7 +472,7 @@ def test_load_scenario_cost_regime_example_uses_canonical_direct_regime_shape() 
         assert "trade_cost_bps" in scenario.costs[regime]
 
 
-def test_load_scenario_rejects_null_return_model(tmp_path: Path) -> None:
+def test_load_scenario_treats_null_return_model_as_omitted(tmp_path: Path) -> None:
     base_config = tmp_path / "base.yml"
     base_config.write_text("{}", encoding="utf-8")
     scenario_path = tmp_path / "null_return.yml"
@@ -495,11 +495,11 @@ def test_load_scenario_rejects_null_return_model(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="return_model.*null provided"):
-        load_scenario("null_return", registry_path=registry)
+    scenario = load_scenario("null_return", registry_path=registry)
+    assert scenario.return_model is None
 
 
-def test_load_scenario_rejects_null_folds(tmp_path: Path) -> None:
+def test_load_scenario_treats_null_folds_as_omitted(tmp_path: Path) -> None:
     base_config = tmp_path / "base.yml"
     base_config.write_text("{}", encoding="utf-8")
     scenario_path = tmp_path / "null_folds.yml"
@@ -522,8 +522,8 @@ def test_load_scenario_rejects_null_folds(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="folds.*null provided"):
-        load_scenario("null_folds", registry_path=registry)
+    scenario = load_scenario("null_folds", registry_path=registry)
+    assert scenario.folds is None
 
 
 def test_load_scenario_example_config_path() -> None:
@@ -787,7 +787,9 @@ def test_load_scenario_accepts_null_optional_mappings(tmp_path: Path) -> None:
         "  frequency: M\n"
         "strategy_set: null\n"
         "outputs: null\n"
-        "costs: null\n",
+        "costs: null\n"
+        "folds: null\n"
+        "return_model: null\n",
         encoding="utf-8",
     )
     registry = tmp_path / "index.yml"
@@ -800,9 +802,11 @@ def test_load_scenario_accepts_null_optional_mappings(tmp_path: Path) -> None:
     assert scenario.strategy_set is None
     assert scenario.outputs is None
     assert scenario.costs is None
+    assert scenario.folds is None
+    assert scenario.return_model is None
 
 
-def test_load_scenario_rejects_null_folds_mapping(tmp_path: Path) -> None:
+def test_load_scenario_treats_null_folds_mapping_as_omitted(tmp_path: Path) -> None:
     base_config = tmp_path / "base.yml"
     base_config.write_text("{}", encoding="utf-8")
     scenario_path = tmp_path / "null_folds.yml"
@@ -825,14 +829,11 @@ def test_load_scenario_rejects_null_folds_mapping(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(
-        ValueError,
-        match="Scenario '.+' config 'folds' must be a mapping \\(null provided\\)",
-    ):
-        load_scenario("null_folds", registry_path=registry)
+    scenario = load_scenario("null_folds", registry_path=registry)
+    assert scenario.folds is None
 
 
-def test_load_scenario_rejects_null_return_model_mapping(tmp_path: Path) -> None:
+def test_load_scenario_treats_null_return_model_mapping_as_omitted(tmp_path: Path) -> None:
     base_config = tmp_path / "base.yml"
     base_config.write_text("{}", encoding="utf-8")
     scenario_path = tmp_path / "null_return_model.yml"
@@ -855,11 +856,8 @@ def test_load_scenario_rejects_null_return_model_mapping(tmp_path: Path) -> None
         encoding="utf-8",
     )
 
-    with pytest.raises(
-        ValueError,
-        match="Scenario '.+' config 'return_model' must be a mapping \\(null provided\\)",
-    ):
-        load_scenario("null_return_model", registry_path=registry)
+    scenario = load_scenario("null_return_model", registry_path=registry)
+    assert scenario.return_model is None
 
 
 def test_load_scenario_rejects_null_scenario_block(tmp_path: Path) -> None:
