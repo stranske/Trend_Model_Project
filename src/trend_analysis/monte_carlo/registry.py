@@ -376,18 +376,20 @@ def _parse_scenario(
 
     def _from_top_or_scenario(key: str) -> object:
         top_has = key in raw and raw.get(key) is not None
-        scenario_has = (
-            scenario_map is not None and key in scenario_map and scenario_map.get(key) is not None
-        )
-        if top_has and scenario_has and raw.get(key) != scenario_map.get(key):
+        scenario_value: object | None = None
+        scenario_has = False
+        if scenario_map is not None and key in scenario_map:
+            scenario_value = scenario_map.get(key)
+            scenario_has = scenario_value is not None
+        if top_has and scenario_has and raw.get(key) != scenario_value:
             raise ValueError(
                 f"Scenario config has conflicting '{key}' values between scenario block "
                 f"and top-level in '{source_path}'"
             )
         if top_has:
             return raw.get(key)
-        if scenario_has and scenario_map is not None:
-            return scenario_map.get(key)
+        if scenario_has:
+            return scenario_value
         return None
 
     base_config_value = raw.get("base_config")
