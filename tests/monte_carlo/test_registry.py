@@ -161,6 +161,13 @@ def test_list_scenarios_filters_by_tags(tmp_path: Path) -> None:
         assert "cost_regime_example" in names
 
 
+def test_cost_regime_example_entry_has_both_discovery_tags_in_index() -> None:
+    registry_path = proj_path("config", "scenarios", "monte_carlo", "index.yml")
+    entries = list_scenarios(registry_path=registry_path)
+    record = next(entry for entry in entries if entry.name == "cost_regime_example")
+    assert {"cost", "example"}.issubset(set(record.tags))
+
+
 def test_list_scenarios_filters_by_tags_sorted_by_path(tmp_path: Path) -> None:
     scenario_a = tmp_path / "b.yml"
     scenario_b = tmp_path / "a.yml"

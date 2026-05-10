@@ -43,6 +43,13 @@ def _price_history() -> pd.DataFrame:
     return pd.DataFrame({"AssetA": base, "AssetB": base * 1.05}, index=dates)
 
 
+def _cost_fixture_frame() -> pd.DataFrame:
+    fixture_path = Path("tests/fixtures/costs/cost_regime_fixture.csv")
+    frame = pd.read_csv(fixture_path)
+    frame["date"] = pd.to_datetime(frame["date"])
+    return frame.set_index("date")
+
+
 def test_cost_process_fixed_distribution_applies_slippage() -> None:
     config = {
         "default_regime": "calm",
@@ -228,6 +235,37 @@ def test_cost_regime_scenario_documents_exact_dry_run_command() -> None:
     assert (
         "# - Run with: python -m trend_analysis.cli mc run --scenario cost_regime_example --dry-run --n-paths 10"
         in scenario_text
+    )
+
+
+def test_cost_regime_example_fixture_produces_exact_deterministic_outputs() -> None:
+    scenario = load_scenario("cost_regime_example")
+    assert scenario.costs is not None
+
+    fixture = _cost_fixture_frame()
+    regimes = fixture["regime"].astype("string")
+    turnover = fixture["turnover"].astype(float)
+    process = CostProcess.from_config(scenario.costs)
+    assert process is not None
+    sampled = process.sample(
+        regimes=regimes,
+        turnover=turnover,
+        index=None,
+        rng=np.random.default_rng(2026),
+    )
+
+    assert sampled.slippage_multiplier.tolist() == [1.0, 1.8, 1.0]
+    np.testing.assert_allclose(
+        sampled.cost_bps.to_numpy(dtype=float, copy=False),
+        np.array([126.64343064753369, 249828634.21277088, 155.7285234063499]),
+        rtol=0.0,
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        sampled.transaction_costs.to_numpy(dtype=float, copy=False),
+        np.array([0.001266434306475337, 8993.830831659752, 0.004671855702190497]),
+        rtol=0.0,
+        atol=1e-12,
     )
 
 
