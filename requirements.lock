@@ -80,7 +80,7 @@ distro==1.9.0
     # via
     #   anthropic
     #   openai
-docformatter==1.7.7
+docformatter==1.7.8
     # via trend-model (pyproject.toml)
 docstring-parser==0.18.0
     # via anthropic
@@ -234,7 +234,7 @@ langsmith==0.7.38
     #   langchain-classic
     #   langchain-community
     #   langchain-core
-librt==0.9.0 ; platform_python_implementation != 'PyPy'
+librt==0.10.0 ; platform_python_implementation != 'PyPy'
     # via mypy
 markupsafe==3.0.3
     # via jinja2
@@ -250,7 +250,7 @@ multidict==6.7.1
     # via
     #   aiohttp
     #   yarl
-mypy==1.20.2
+mypy==2.0.0
     # via trend-model (pyproject.toml)
 mypy-extensions==1.1.0
     # via
