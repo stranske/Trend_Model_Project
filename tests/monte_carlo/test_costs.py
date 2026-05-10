@@ -187,10 +187,10 @@ def test_runner_integration_records_costs(monkeypatch: Any) -> None:
     transaction_costs = costs["transaction_costs"]
     assert isinstance(transaction_costs, pd.Series)
     assert len(transaction_costs) == 3
+    assert costs["slippage_multiplier"].tolist() == [1.0, 1.8, 1.0]
     cost_bps = pd.Series(costs["cost_bps"], index=transaction_costs.index, dtype=float)
     assert (cost_bps > 0.0).all()
     assert float(cost_bps.iloc[1]) > float(max(cost_bps.iloc[0], cost_bps.iloc[2]))
-    assert costs["slippage_multiplier"].tolist() == [1.0, 1.8, 1.0]
     expected_costs = (
         pd.Series([0.1, 0.2, 0.3], index=transaction_costs.index, name="turnover")
         * (cost_bps / 10000.0)
