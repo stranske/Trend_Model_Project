@@ -720,21 +720,21 @@ Rank_12_Equal,max_dd,-0.52,-0.41,-0.35,-0.28,-0.21,-0.15,-0.11,-0.09,-0.06
 
 ```bash
 # List available scenarios
-trend mc list
-trend mc list --tags hedge_fund
+python -m trend_analysis.cli mc list
+python -m trend_analysis.cli mc list --tags hedge_fund
 
 # Validate scenario configuration
-trend mc validate config/scenarios/monte_carlo/hf_equity_ls_10y.yml
+python -m trend_analysis.cli mc validate config/scenarios/monte_carlo/hf_equity_ls_10y.yml
 
 # Run scenario
-trend mc run --scenario hf_equity_ls_10y --out outputs/mc_run_1
-trend mc run --scenario hf_equity_ls_10y --n-paths 500 --jobs 4
+python -m trend_analysis.cli mc run --scenario hf_equity_ls_10y --out outputs/mc_run_1
+python -m trend_analysis.cli mc run --scenario hf_equity_ls_10y --n-paths 500 --jobs 4
 
 # Quick test run
-trend mc run --scenario hf_equity_ls_10y --dry-run --n-paths 10
+python -m trend_analysis.cli mc run --scenario hf_equity_ls_10y --dry-run --n-paths 10
 
 # Cost regime example dry-run (exact command)
-trend mc run --scenario cost_regime_example --dry-run --n-paths 10
+python -m trend_analysis.cli mc run --scenario cost_regime_example --dry-run --n-paths 10
 
 # Export MC charts from an existing bundle
 trend mc viz \

@@ -2,7 +2,7 @@
 # - Demonstrates stochastic calm/stress switching for transaction costs.
 # - Demonstrates regime-specific slippage multipliers.
 # - Intended as a known-good reference for regression tests and CLI examples.
-# - Run with: trend mc run --scenario cost_regime_example --dry-run --n-paths 10
+# - Run with: python -m trend_analysis.cli mc run --scenario cost_regime_example --dry-run --n-paths 10
 scenario:
   name: cost_regime_example
   description: "Example scenario exercising regime-switching costs and slippage."

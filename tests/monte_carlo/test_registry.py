@@ -343,6 +343,8 @@ def test_cost_regime_example_discoverable_by_example_and_cost_tags() -> None:
     for tag in ("example", "cost"):
         names = {entry.name for entry in list_scenarios(tags=[tag])}
         assert "cost_regime_example" in names
+    combined = {entry.name for entry in list_scenarios(tags=["example", "cost"])}
+    assert "cost_regime_example" in combined
 
 
 def test_list_scenarios_missing_registry(tmp_path: Path) -> None:
