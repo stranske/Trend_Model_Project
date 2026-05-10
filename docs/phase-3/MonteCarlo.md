@@ -400,48 +400,28 @@ costs:
 
 ### Backward Compatibility
 
-Accepted legacy formats and aliases:
+The parser in `src/trend_analysis/monte_carlo/costs.py` still accepts these legacy
+keys and aliases. New scenario files and documentation examples should use the
+canonical direct-regime shape above.
 
-- `regimes:` mapping format
-```yaml
-costs:
-  kind: regime_stochastic
-  default_regime: calm
-  calm:
-    trade_cost_bps:
-      dist: fixed
-      value: 6
-  stress:
-    trade_cost_bps:
-      dist: fixed
-      value: 18
-    slippage_multiplier: 1.5
-```
+| Legacy key or alias | Status | Canonical equivalent |
+|---------------------|--------|----------------------|
+| `costs.regimes.<name>` | `supported` | `costs.<name>` |
+| `costs.regimes.<name>.distribution` | `supported` | `costs.<name>.trade_cost_bps` |
+| `costs.<name>.distribution` | `supported` | `costs.<name>.trade_cost_bps` |
+| `costs.<name>.trade_cost_bps.dist` | `supported` | `costs.<name>.trade_cost_bps.kind` |
+| `costs.<name>.trade_cost_bps.std` | `supported` | `costs.<name>.trade_cost_bps.sigma` for lognormal costs, or `std` for normal costs |
+| `costs.regimes.<name>: <number>` | `supported` | `costs.<name>.trade_cost_bps.kind: fixed` plus `value: <number>` |
+| `costs.default` | `deprecated` | Use `costs.default_regime` for the selected regime label and an explicit direct-regime block for its cost distribution |
 
-- `dist` alias for distribution kind
-```yaml
-costs:
-  kind: regime_stochastic
-  calm:
-    trade_cost_bps:
-      dist: normal
-      mean: 6
-      std: 1.5
-```
+Mapping examples:
 
-- Numeric shorthand (fixed cost in bps)
-```yaml
-costs:
-  kind: regime_stochastic
-  calm:
-    trade_cost_bps:
-      dist: fixed
-      value: 6
-  stress:
-    trade_cost_bps:
-      dist: fixed
-      value: 18
-```
+| Legacy shape | Canonical shape |
+|--------------|-----------------|
+| `costs.regimes.calm.distribution.kind: fixed` | `costs.calm.trade_cost_bps.kind: fixed` |
+| `costs.regimes.calm.distribution.value: 6` | `costs.calm.trade_cost_bps.value: 6` |
+| `costs.regimes.stress.slippage_multiplier: 1.5` | `costs.stress.slippage_multiplier: 1.5` |
+| `costs.regimes.calm: 6` | `costs.calm.trade_cost_bps.kind: fixed` and `costs.calm.trade_cost_bps.value: 6` |
 
 ### Turnover Constraints Under MC
 

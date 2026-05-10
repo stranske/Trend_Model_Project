@@ -3,6 +3,7 @@
 # - Demonstrates regime-specific slippage multipliers.
 # - Intended as a known-good reference for regression tests and CLI examples.
 # - Run with: python -m trend_analysis.cli mc run --scenario cost_regime_example --dry-run --n-paths 10
+# - Validate with: python -m pytest tests/monte_carlo/test_costs.py tests/monte_carlo/test_registry.py -q --no-cov
 scenario:
   name: cost_regime_example
   description: "Example scenario exercising regime-switching costs and slippage."
