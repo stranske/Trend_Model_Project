@@ -211,6 +211,8 @@ def test_runner_integration_records_costs(monkeypatch: Any) -> None:
 
 
 def test_cost_regime_scenario_loads_from_registry() -> None:
+    # Repository-supported invocation for this scenario coverage:
+    # python -m pytest tests/monte_carlo/test_costs.py -q --no-cov
     scenario = load_scenario("cost_regime_example")
     assert isinstance(scenario, MonteCarloScenario)
     assert scenario.name == "cost_regime_example"
@@ -234,6 +236,11 @@ def test_cost_regime_scenario_documents_exact_dry_run_command() -> None:
     scenario_text = scenario_file.read_text(encoding="utf-8")
     assert (
         "# - Run with: python -m trend_analysis.cli mc run --scenario cost_regime_example --dry-run --n-paths 10"
+        in scenario_text
+    )
+    assert (
+        "# - Validate with: python -m pytest tests/monte_carlo/test_costs.py "
+        "tests/monte_carlo/test_registry.py -q --no-cov"
         in scenario_text
     )
 
