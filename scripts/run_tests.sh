@@ -4,8 +4,8 @@
 
 set -euo pipefail
 
-# Ensure we are operating inside a writable virtual environment so uv can
-# install dependencies without requiring elevated permissions.
+# Ensure we are operating inside a writable virtual environment so dependency
+# installs do not require elevated permissions.
 if [[ -z "${VIRTUAL_ENV:-}" ]]; then
   VENV_DIR="${VENV_DIR:-.venv}"
   if [[ ! -d "$VENV_DIR" ]]; then
@@ -22,8 +22,9 @@ pip install --upgrade pip
 if [[ -z "${TREND_MODEL_SITE_CUSTOMIZE:-}" ]]; then
   export TREND_MODEL_SITE_CUSTOMIZE=1
 fi
-pip install uv
-uv pip sync requirements.lock
+# Historically this used `uv pip sync requirements.lock` to enforce lockfile-pinned
+# dependencies; use pip here so test execution does not require a uv executable.
+pip install -r requirements.lock
 pip install --no-deps -e ".[dev]"
 
 # Select coverage profile (defaults to "core" if not provided)
