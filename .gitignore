@@ -142,6 +142,7 @@ workloop-state.md
 docs/keepalive/
 docs/keepalive/status/
 *_Status.md
+*.tmp.md
 
 # PR-specific file - should not be tracked
 pr_body.md
