@@ -14,6 +14,7 @@ from trend_analysis.monte_carlo.registry import list_scenarios, load_scenario
 from trend_analysis.monte_carlo.runner import MonteCarloRunner
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario
 from trend_analysis.monte_carlo.strategy import StrategyVariant
+from trend_analysis.risk import periods_per_year_from_code
 
 
 def _base_config() -> dict[str, Any]:
@@ -216,7 +217,7 @@ def test_cost_regime_scenario_loads_from_registry() -> None:
 
 
 def test_cost_regime_scenario_is_filterable_by_example_and_cost_tags() -> None:
-    for tag in ("example", "costs"):
+    for tag in ("example", "cost"):
         names = {entry.name for entry in list_scenarios(tags=[tag])}
         assert "cost_regime_example" in names
 
@@ -256,11 +257,17 @@ def test_runner_injects_cash_series_when_override_enabled(monkeypatch: Any) -> N
     _ = runner.run(jobs=1)
 
     assert captured_returns
+    frequency = str(runner.base_config["data"].get("frequency", "M"))
+    expected_periodic_rf = (1.0 + 0.03) ** (
+        1.0 / float(periods_per_year_from_code(frequency))
+    ) - 1.0
     for returns in captured_returns:
         assert "CASH" in returns.columns
         cash_series = returns["CASH"]
         assert pd.api.types.is_numeric_dtype(cash_series)
         assert np.isfinite(cash_series.to_numpy(dtype=float, copy=False)).all()
+        expected = pd.Series(expected_periodic_rf, index=returns.index, name="CASH", dtype=float)
+        pd.testing.assert_series_equal(cash_series, expected)
 
 
 def test_inject_cash_warns_when_override_disabled(monkeypatch: Any, caplog: Any) -> None:
@@ -333,3 +340,12 @@ def test_scenario_data_and_metrics_overrides_merge_into_base_config() -> None:
     ), "Scenario-level data.allow_risk_free_fallback should override defaults"
     assert runner.base_config["metrics"]["rf_override_enabled"] is True
     assert abs(runner.base_config["metrics"]["rf_rate_annual"] - 0.03) < 1e-12
+    frequency = str(runner.base_config["data"].get("frequency", "M"))
+    expected_periodic_rf = (1.0 + 0.03) ** (
+        1.0 / float(periods_per_year_from_code(frequency))
+    ) - 1.0
+    returns = runner._inject_cash_returns(
+        pd.DataFrame({"AssetA": [0.01, 0.02]}, index=_price_history().index[:2])
+    )
+    assert "CASH" in returns.columns
+    assert returns["CASH"].tolist() == [expected_periodic_rf, expected_periodic_rf]
