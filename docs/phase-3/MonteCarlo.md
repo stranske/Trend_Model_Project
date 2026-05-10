@@ -405,36 +405,42 @@ Accepted legacy formats and aliases:
 - `regimes:` mapping format
 ```yaml
 costs:
+  kind: regime_stochastic
   default_regime: calm
-  regimes:
-    calm:
-      distribution:
-        kind: fixed
-        value: 6
-    stress:
-      distribution:
-        kind: fixed
-        value: 18
-      slippage_multiplier: 1.5
+  calm:
+    trade_cost_bps:
+      dist: fixed
+      value: 6
+  stress:
+    trade_cost_bps:
+      dist: fixed
+      value: 18
+    slippage_multiplier: 1.5
 ```
 
 - `dist` alias for distribution kind
 ```yaml
 costs:
-  regimes:
-    calm:
-      trade_cost_bps:
-        dist: normal
-        mean: 6
-        std: 1.5
+  kind: regime_stochastic
+  calm:
+    trade_cost_bps:
+      dist: normal
+      mean: 6
+      std: 1.5
 ```
 
 - Numeric shorthand (fixed cost in bps)
 ```yaml
 costs:
-  regimes:
-    calm: 6
-    stress: 18
+  kind: regime_stochastic
+  calm:
+    trade_cost_bps:
+      dist: fixed
+      value: 6
+  stress:
+    trade_cost_bps:
+      dist: fixed
+      value: 18
 ```
 
 ### Turnover Constraints Under MC
