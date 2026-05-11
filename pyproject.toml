@@ -115,7 +115,7 @@ dev = [
     "packaging==26.2",
     "streamlit==1.57.0",
     "fastapi==0.136.1",
-    "types-PyYAML==6.0.12.20260408",
+    "types-PyYAML==6.0.12.20260510",
     "types-requests==2.33.0.20260503",
     "httpx==0.28.1",
     "tomlkit==0.14.0",
