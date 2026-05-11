@@ -36,7 +36,7 @@ costs:
   calm:
     # Baseline all-in trading cost in basis points (bps) in normal markets.
     trade_cost_bps:
-      dist: lognormal
+      kind: lognormal
       mean: 5
       sigma: 0.20
     # Multiplies modeled slippage under calm liquidity conditions.
@@ -44,7 +44,7 @@ costs:
   stress:
     # Elevated all-in trading cost in basis points (bps) during stress regimes.
     trade_cost_bps:
-      dist: lognormal
+      kind: lognormal
       mean: 20
       sigma: 0.35
     # Multiplies modeled slippage when liquidity worsens in stress.

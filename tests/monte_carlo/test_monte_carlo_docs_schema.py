@@ -67,12 +67,13 @@ def test_monte_carlo_cost_examples_use_canonical_shape() -> None:
             assert "trade_cost_bps" in regime_block
             distribution = regime_block["trade_cost_bps"]
             assert isinstance(distribution, dict)
-            assert {"dist", "mean", "sigma"} <= set(distribution)
+            assert {"kind", "mean", "sigma"} <= set(distribution)
+            assert "dist" not in distribution
 
 
 def test_backward_compatibility_table_lists_legacy_keys_with_statuses() -> None:
     text = DOC_PATH.read_text(encoding="utf-8")
-    assert "### Backward Compatibility" in text
+    assert "\n## Backward Compatibility\n" in text
 
     required_rows = {
         "`costs.regimes.<name>`": "`supported`",

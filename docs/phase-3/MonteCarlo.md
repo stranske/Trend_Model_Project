@@ -382,12 +382,12 @@ costs:
   default_regime: calm
   calm:
     trade_cost_bps:
-      dist: lognormal
+      kind: lognormal
       mean: 6
       sigma: 0.25
   stress:
     trade_cost_bps:
-      dist: lognormal
+      kind: lognormal
       mean: 18
       sigma: 0.35
     slippage_multiplier: 1.5  # Optional
@@ -398,7 +398,7 @@ costs:
 - Optional slippage multiplier
 - Applied to portfolio turnover
 
-### Backward Compatibility
+## Backward Compatibility
 
 The parser in `src/trend_analysis/monte_carlo/costs.py` still accepts these legacy
 keys and aliases. New scenario files and documentation examples should use the
@@ -572,12 +572,12 @@ scenario:
     default_regime: calm
     calm:
       trade_cost_bps:
-        dist: lognormal
+        kind: lognormal
         mean: 6
         sigma: 0.25
     stress:
       trade_cost_bps:
-        dist: lognormal
+        kind: lognormal
         mean: 18
         sigma: 0.35
       slippage_multiplier: 1.5
