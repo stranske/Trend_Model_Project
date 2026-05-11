@@ -6,6 +6,8 @@ from trend_analysis.monte_carlo.registry import load_scenario
 
 
 def test_cost_regime_example_loads_without_exception() -> None:
+    # Repository-supported invocation:
+    # python -m pytest tests/monte_carlo/scenario/test_cost_regime_example_load.py -q --no-cov
     scenario = load_scenario("cost_regime_example")
 
     assert scenario.name == "cost_regime_example"
