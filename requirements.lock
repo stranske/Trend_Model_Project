@@ -22,6 +22,8 @@ anyio==4.13.0
     #   starlette
     #   streamlit
     #   watchfiles
+ast-serialize==0.3.0
+    # via mypy
 asttokens==3.0.1
     # via stack-data
 attrs==26.1.0
@@ -136,7 +138,7 @@ httpx==0.28.1
     #   openai
 httpx-sse==0.4.3
     # via langchain-community
-hypothesis==6.152.4
+hypothesis==6.152.6
     # via trend-model (pyproject.toml)
 identify==2.6.19
     # via pre-commit
@@ -228,7 +230,7 @@ langgraph-prebuilt==1.0.10
     # via langgraph
 langgraph-sdk==0.3.13
     # via langgraph
-langsmith==0.7.38
+langsmith==0.8.3
     # via
     #   trend-model (pyproject.toml)
     #   langchain-classic
@@ -301,7 +303,7 @@ packaging==26.2
     #   pytest
     #   pytest-rerunfailures
     #   streamlit
-pandas==3.0.2
+pandas==3.0.3
     # via
     #   trend-model (pyproject.toml)
     #   streamlit
@@ -350,7 +352,7 @@ pyarrow==23.0.1
     # via streamlit
 pycodestyle==2.14.0
     # via flake8
-pydantic==2.13.3
+pydantic==2.13.4
     # via
     #   trend-model (pyproject.toml)
     #   anthropic
@@ -365,7 +367,7 @@ pydantic==2.13.3
     #   openai
     #   pandera
     #   pydantic-settings
-pydantic-core==2.46.3
+pydantic-core==2.46.4
     # via pydantic
 pydantic-settings==2.14.0
     # via langchain-community
@@ -420,7 +422,7 @@ referencing==0.37.0
     #   jsonschema-specifications
 regex==2026.4.4
     # via tiktoken
-requests==2.33.1
+requests==2.34.0
     # via
     #   trend-model (pyproject.toml)
     #   langchain-classic
@@ -474,7 +476,7 @@ tiktoken==0.12.0
     # via langchain-openai
 toml==0.10.2
     # via streamlit
-tomlkit==0.14.0
+tomlkit==0.15.0
     # via trend-model (pyproject.toml)
 tqdm==4.67.3
     # via openai
@@ -522,8 +524,6 @@ typing-inspection==0.4.2
     #   pydantic-settings
 tzdata==2026.1 ; sys_platform == 'emscripten' or sys_platform == 'win32'
     # via pandas
-untokenize==0.1.1
-    # via docformatter
 urllib3==2.6.3
     # via
     #   requests
