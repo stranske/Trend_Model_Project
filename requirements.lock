@@ -489,7 +489,7 @@ traitlets==5.14.3
     #   nbformat
 typeguard==4.5.1
     # via pandera
-types-pyyaml==6.0.12.20260408
+types-pyyaml==6.0.12.20260510
     # via trend-model (pyproject.toml)
 types-requests==2.33.0.20260503
     # via trend-model (pyproject.toml)
