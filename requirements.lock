@@ -22,6 +22,8 @@ anyio==4.13.0
     #   starlette
     #   streamlit
     #   watchfiles
+ast-serialize==0.3.0
+    # via mypy
 asttokens==3.0.1
     # via stack-data
 attrs==26.1.0
@@ -522,8 +524,6 @@ typing-inspection==0.4.2
     #   pydantic-settings
 tzdata==2026.1 ; sys_platform == 'emscripten' or sys_platform == 'win32'
     # via pandas
-untokenize==0.1.1
-    # via docformatter
 urllib3==2.6.3
     # via
     #   requests
