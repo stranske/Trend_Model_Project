@@ -73,15 +73,26 @@ uvicorn trend_analysis.api_server:app --host 0.0.0.0 --port 8000
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/health` | GET | Health check |
-| `/analyze` | POST | Run analysis with config |
+| `/` | GET | API metadata (version, links) |
+| `/config/patch` | POST | Apply a config patch with risk confirmation |
+| `/config/patch/preview` | POST | Preview a config patch (returns updated config + diff) |
 | `/docs` | GET | OpenAPI documentation |
+
+The REST surface is scoped to config-patch preview and apply. Running an
+analysis is not exposed over HTTP — use the [`trend-run`](CLI.md) CLI
+(`trend-run -c <config>`) or the Python API at the top of this document
+instead.
 
 ### Example Request
 
 ```bash
-curl -X POST http://localhost:8000/analyze \
+curl -X POST http://localhost:8000/config/patch/preview \
   -H "Content-Type: application/json" \
-  -d '{"config_path": "config/demo.yml"}'
+  -d '{
+        "config": {},
+        "patch": {"set": {"portfolio.top_n": 10}},
+        "confirm_risky": false
+      }'
 ```
 
 ## CLI Interface
