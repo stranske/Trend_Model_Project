@@ -73,15 +73,40 @@ uvicorn trend_analysis.api_server:app --host 0.0.0.0 --port 8000
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/health` | GET | Health check |
-| `/analyze` | POST | Run analysis with config |
+| `/` | GET | API metadata (version, links) |
+| `/config/patch` | POST | Apply a config patch with risk confirmation |
+| `/config/patch/preview` | POST | Preview a config patch (returns updated config + diff) |
 | `/docs` | GET | OpenAPI documentation |
+
+The REST surface is scoped to config-patch preview and apply. Running an
+analysis is not exposed over HTTP — use the [`trend-run`](CLI.md) CLI
+(`trend-run -c <config>`) or the Python API at the top of this document
+instead.
 
 ### Example Request
 
+The `patch` body must match the
+[`ConfigPatch`](../src/trend_analysis/config/patch.py) schema: a list of
+`operations` (each with `op`, `path`, and a `value` for `set`/`append`/`merge`)
+plus a non-empty `summary`. Extra keys at the patch root are rejected. Patches
+that trigger risk flags (constraint removals, leverage increases, validation
+removals, broad-scope edits) or `needs_review` must be sent with
+`confirm_risky: true`.
+
 ```bash
-curl -X POST http://localhost:8000/analyze \
+curl -X POST http://localhost:8000/config/patch/preview \
   -H "Content-Type: application/json" \
-  -d '{"config_path": "config/demo.yml"}'
+  -d '{
+        "config": {"analysis": {"top_n": 10}},
+        "patch": {
+          "operations": [
+            {"op": "set", "path": "analysis.top_n", "value": 12}
+          ],
+          "summary": "Update selection count to 12.",
+          "needs_review": true
+        },
+        "confirm_risky": true
+      }'
 ```
 
 ## CLI Interface
