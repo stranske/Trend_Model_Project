@@ -64,7 +64,7 @@ comm==0.2.3
     # via ipywidgets
 contourpy==1.3.3
     # via matplotlib
-coverage==7.13.5
+coverage==7.14.0
     # via
     #   trend-model (pyproject.toml)
     #   pytest-cov
@@ -236,7 +236,7 @@ langsmith==0.8.3
     #   langchain-classic
     #   langchain-community
     #   langchain-core
-librt==0.10.0 ; platform_python_implementation != 'PyPy'
+librt==0.11.0 ; platform_python_implementation != 'PyPy'
     # via mypy
 markupsafe==3.0.3
     # via jinja2
@@ -252,7 +252,7 @@ multidict==6.7.1
     # via
     #   aiohttp
     #   yarl
-mypy==2.0.0
+mypy==2.1.0
     # via trend-model (pyproject.toml)
 mypy-extensions==1.1.0
     # via
@@ -437,7 +437,7 @@ rpds-py==0.30.0
     # via
     #   jsonschema
     #   referencing
-ruff==0.15.12
+ruff==0.15.13
     # via trend-model (pyproject.toml)
 scipy==1.17.1
     # via trend-model (pyproject.toml)
