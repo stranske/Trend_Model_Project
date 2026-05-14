@@ -85,13 +85,27 @@ instead.
 
 ### Example Request
 
+The `patch` body must match the
+[`ConfigPatch`](../src/trend_analysis/config/patch.py) schema: a list of
+`operations` (each with `op`, `path`, and a `value` for `set`/`append`/`merge`)
+plus a non-empty `summary`. Extra keys at the patch root are rejected. Patches
+that trigger risk flags (constraint removals, leverage increases, validation
+removals, broad-scope edits) or `needs_review` must be sent with
+`confirm_risky: true`.
+
 ```bash
 curl -X POST http://localhost:8000/config/patch/preview \
   -H "Content-Type: application/json" \
   -d '{
-        "config": {},
-        "patch": {"set": {"portfolio.top_n": 10}},
-        "confirm_risky": false
+        "config": {"analysis": {"top_n": 10}},
+        "patch": {
+          "operations": [
+            {"op": "set", "path": "analysis.top_n", "value": 12}
+          ],
+          "summary": "Update selection count to 12.",
+          "needs_review": true
+        },
+        "confirm_risky": true
       }'
 ```
 
