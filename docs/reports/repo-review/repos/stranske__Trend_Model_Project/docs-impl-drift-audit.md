@@ -16,7 +16,7 @@ rg --files-with-matches -g '*.md' '(\[ \]|Pending|TODO|POST /|GET /|Status:)' do
 
 ## Findings Summary
 
-- Confirmed drift already covered by converged per-instance issues: `docs/phase-3/MonteCarlo.md`, `docs/api.md`.
+- Confirmed drift already covered by converged per-instance issues: `docs/phase-3/MonteCarlo.md`.
 - New confirmed drift filed during this audit: `docs/issues/raise_test_coverage_to_89.md` -> https://github.com/stranske/Trend_Model_Project/issues/5296.
 - No additional source-code changes are included in this audit PR.
 
@@ -92,9 +92,9 @@ Evidence: the document still marks the framework as pending and lists unchecked 
 
 ### `docs/api.md`
 
-Disposition: `confirmed-drift/already-covered`
+Disposition: `already-correct`
 
-Evidence: the document claims `POST /analyze`, but the current app registers `GET /health`, `GET /`, `POST /config/patch`, and `POST /config/patch/preview`, plus FastAPI framework docs routes. No new issue was filed from this audit because the phantom-endpoint per-instance issue already covers it.
+Evidence: the current document no longer claims `POST /analyze`; it lists the implemented FastAPI surface (`GET /health`, `GET /`, `POST /config/patch`, `POST /config/patch/preview`) plus FastAPI framework docs routes. No new issue was filed from this audit because the former phantom-endpoint drift is already corrected.
 
 ### `docs/issues/raise_test_coverage_to_89.md`
 
