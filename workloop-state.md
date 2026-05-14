@@ -23,7 +23,15 @@
   - `git diff --check` -> passed.
   - `python -m pytest tests/monte_carlo/ tests/streamlit/ -q --no-cov` initially hit two sandbox cache-write failures under `/Users/teacher/.cache/trend_model/rolling`.
   - `TREND_ROLLING_CACHE=/Users/teacher/.codex/automations/pd-workloop-resume/cache/trend-model-5290/rolling python -m pytest tests/monte_carlo/ tests/streamlit/ -q --no-cov` -> 630 passed, 197 warnings.
-- Next action: commit, push, open ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`; then hand off to keepalive.
+- Commit: `38b59dbb` (`Issue #5290: mark Monte Carlo milestones complete`).
+- PR: [stranske/Trend_Model_Project#5294](https://github.com/stranske/Trend_Model_Project/pull/5294), opened ready-for-review (`isDraft=false`) with labels `agent:codex`, `agents:keepalive`, and `autofix`; branch `codex/issue-5290-montecarlo-doc-status`.
+- Relay:
+  - `pr_opened active.source_repo=stranske/Trend_Model_Project active.source_issue=5290 active.source_pr=5294 active.next_action=wait_for_keepalive`
+- Post-open cap/health:
+  - Raw opener cap reached: `total_opener_owned=5`, `raw_cap_reached=true`.
+  - PR `#5294` had fresh Gate and Agents Gate Followups runs queued/in progress after initial cancelled superseded runs, so it is actively moving.
+  - Existing cap blocker: `Pension-Data#427` remains outside opener quick-recovery scope. Audit at `2026-05-14T05:58:06Z` found green checks but `mergeStateStatus=BEHIND` and a durable closer comment documenting four product-decision review threads; next owner is closer/human disposition, not opener branch-local recovery.
+- Next action: keepalive owns CI/check follow-up for PR `#5294`; closer/workflow-health needs to drain at least one cap PR before opener can open another issue.
 
 ## 2026-05-13T21:50:00Z - opener lane materialized issue #5291
 
