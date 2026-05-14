@@ -1,6 +1,30 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
+## 2026-05-14T05:55:06Z - opener lane materialized issue #5290
+
+- Automation: `pd-workloop-resume` / `codex` opener lane.
+- Source repo: `stranske/Trend_Model_Project`.
+- Source issue: `#5290` `Mark docs/phase-3/MonteCarlo.md milestones complete: status header and checklist are stale` (`priority:low`, `repo-review-approved`).
+- Selection:
+  - ACTION A succeeded from the neutral Code workspace; cross-lane `active.*` was treated as informational.
+  - Required live priority discovery ran for `priority:high`, `priority:normal`, and `priority:low`.
+  - High-priority queue contained only Workflows `#2073` auth-expiry ops alert, skipped by opener policy.
+  - Normal-priority issues were already linked/in-flight or previously classified satisfied (`Counter_Risk#594` current docs already list the macros); the oldest eligible unlinked issue was low-priority Trend_Model_Project `#5290`.
+  - Initial cap-health at `2026-05-14T05:51:06Z`: `total_opener_owned=4`, `raw_cap_reached=false`, `normal_cap_reached=false`, `non_drainable_cap_blocker=false`.
+  - Infra repair helper removed stale `needs-human` from Pension-Data `#430`, added `agent:retry`, and fresh cap-health at `2026-05-14T05:51:45Z` showed `#430` draining with queued Gate/Gate Followups. Raw cap remained below 5, so opener continued to new issue selection.
+- Implementation worktree: `/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/trend-model-5290`, branch `codex/issue-5290-montecarlo-doc-status`, base `origin/phase-3` `b86057ed`.
+- Changes:
+  - `docs/phase-3/MonteCarlo.md`: changed the Phase 3 Monte Carlo status header from `Implementation Pending` to `Implementation Complete`.
+  - Checked all Implementation Milestones and added concise source/config file anchors for each shipped milestone surface.
+- Validation:
+  - `rg -- 'Implementation Pending' docs/phase-3/MonteCarlo.md` -> no matches.
+  - `rg -- '- \[ \]' docs/phase-3/MonteCarlo.md` -> no matches.
+  - `git diff --check` -> passed.
+  - `python -m pytest tests/monte_carlo/ tests/streamlit/ -q --no-cov` initially hit two sandbox cache-write failures under `/Users/teacher/.cache/trend_model/rolling`.
+  - `TREND_ROLLING_CACHE=/Users/teacher/.codex/automations/pd-workloop-resume/cache/trend-model-5290/rolling python -m pytest tests/monte_carlo/ tests/streamlit/ -q --no-cov` -> 630 passed, 197 warnings.
+- Next action: commit, push, open ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`; then hand off to keepalive.
+
 ## 2026-05-13T21:50:00Z - opener lane materialized issue #5291
 
 - Automation: `pd-workloop-resume` / `handoff-claude-opener` (claude_code opener lane).
