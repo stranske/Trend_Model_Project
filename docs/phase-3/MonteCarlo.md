@@ -1,6 +1,6 @@
 # Phase 3: Monte Carlo Framework
 
-> **Status**: Design Complete | Implementation Complete
+> **Status**: Design Complete | Implementation Complete<br>
 > **Target**: Multi-path simulation for portfolio forecasting and risk quantification
 
 ---
@@ -758,7 +758,7 @@ New tab: **Monte Carlo Simulation**
 ### Milestone 2: Return Models
 - [x] Price-path model interface + utilities (`src/trend_analysis/monte_carlo/models/base.py`)
 - [x] Multivariate stationary bootstrap implementation (`src/trend_analysis/monte_carlo/models/bootstrap.py`)
-- [x] Regime labeling + regime-conditioned bootstrap (`src/trend_analysis/monte_carlo/models/bootstrap.py`)
+- [x] Regime labeling + regime-conditioned bootstrap (`src/trend_analysis/monte_carlo/models/regime.py`)
 
 ### Milestone 3: Strategy Sets
 - [x] Strategy variant representation + config merge (`src/trend_analysis/monte_carlo/strategy/variant.py`)

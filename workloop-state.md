@@ -25,7 +25,7 @@
   - Normal-priority issues were already linked/in-flight or previously classified satisfied (`Counter_Risk#594` current docs already list the macros); the oldest eligible unlinked issue was low-priority Trend_Model_Project `#5290`.
   - Initial cap-health at `2026-05-14T05:51:06Z`: `total_opener_owned=4`, `raw_cap_reached=false`, `normal_cap_reached=false`, `non_drainable_cap_blocker=false`.
   - Infra repair helper removed stale `needs-human` from Pension-Data `#430`, added `agent:retry`, and fresh cap-health at `2026-05-14T05:51:45Z` showed `#430` draining with queued Gate/Gate Followups. Raw cap remained below 5, so opener continued to new issue selection.
-- Implementation worktree: `/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/trend-model-5290`, branch `codex/issue-5290-montecarlo-doc-status`, base `origin/phase-3` `b86057ed`.
+- Implementation worktree: automation-managed `trend-model-5290` worktree, branch `codex/issue-5290-montecarlo-doc-status`, base `origin/phase-3` `b86057ed`.
 - Changes:
   - `docs/phase-3/MonteCarlo.md`: changed the Phase 3 Monte Carlo status header from `Implementation Pending` to `Implementation Complete`.
   - Checked all Implementation Milestones and added concise source/config file anchors for each shipped milestone surface.
@@ -33,8 +33,8 @@
   - `rg -- 'Implementation Pending' docs/phase-3/MonteCarlo.md` -> no matches.
   - `rg -- '- \[ \]' docs/phase-3/MonteCarlo.md` -> no matches.
   - `git diff --check` -> passed.
-  - `python -m pytest tests/monte_carlo/ tests/streamlit/ -q --no-cov` initially hit two sandbox cache-write failures under `/Users/teacher/.cache/trend_model/rolling`.
-  - `TREND_ROLLING_CACHE=/Users/teacher/.codex/automations/pd-workloop-resume/cache/trend-model-5290/rolling python -m pytest tests/monte_carlo/ tests/streamlit/ -q --no-cov` -> 630 passed, 197 warnings.
+  - `python -m pytest tests/monte_carlo/ tests/streamlit/ -q --no-cov` initially hit two sandbox cache-write failures under the default user cache path.
+  - `TREND_ROLLING_CACHE=<automation-cache>/trend-model-5290/rolling python -m pytest tests/monte_carlo/ tests/streamlit/ -q --no-cov` -> 630 passed, 197 warnings.
 - Commit: `38b59dbb` (`Issue #5290: mark Monte Carlo milestones complete`).
 - PR: [stranske/Trend_Model_Project#5294](https://github.com/stranske/Trend_Model_Project/pull/5294), opened ready-for-review (`isDraft=false`) with labels `agent:codex`, `agents:keepalive`, and `autofix`; branch `codex/issue-5290-montecarlo-doc-status`.
 - Relay:
