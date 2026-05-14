@@ -1,6 +1,6 @@
 # Phase 3: Monte Carlo Framework
 
-> **Status**: Design Complete | Implementation Pending  
+> **Status**: Design Complete | Implementation Complete<br>
 > **Target**: Multi-path simulation for portfolio forecasting and risk quantification
 
 ---
@@ -752,34 +752,34 @@ New tab: **Monte Carlo Simulation**
 ## Implementation Milestones
 
 ### Milestone 1: Scenario + Config Foundations
-- [ ] Monte Carlo scenario schema + loader
-- [ ] Scenario library registry + discovery
+- [x] Monte Carlo scenario schema + loader (`src/trend_analysis/monte_carlo/scenario.py`)
+- [x] Scenario library registry + discovery (`src/trend_analysis/monte_carlo/registry.py`)
 
 ### Milestone 2: Return Models
-- [ ] Price-path model interface + utilities
-- [ ] Multivariate stationary bootstrap implementation
-- [ ] Regime labeling + regime-conditioned bootstrap
+- [x] Price-path model interface + utilities (`src/trend_analysis/monte_carlo/models/base.py`)
+- [x] Multivariate stationary bootstrap implementation (`src/trend_analysis/monte_carlo/models/bootstrap.py`)
+- [x] Regime labeling + regime-conditioned bootstrap (`src/trend_analysis/monte_carlo/models/regime.py`)
 
 ### Milestone 3: Strategy Sets
-- [ ] Strategy variant representation + config merge
-- [ ] Sampled strategy generator
-- [ ] Initial curated strategy packs
+- [x] Strategy variant representation + config merge (`src/trend_analysis/monte_carlo/strategy/variant.py`)
+- [x] Sampled strategy generator (`src/trend_analysis/monte_carlo/strategy/sampler.py`)
+- [x] Initial curated strategy packs (`config/scenarios/monte_carlo/strategies/`)
 
 ### Milestone 4: MC Runner + Caching
-- [ ] MonteCarloRunner (two-layer + mixture modes)
-- [ ] Path-context caching (score frames)
-- [ ] Common random numbers support
+- [x] MonteCarloRunner (two-layer + mixture modes) (`src/trend_analysis/monte_carlo/runner.py`)
+- [x] Path-context caching (score frames) (`src/trend_analysis/monte_carlo/runner.py`)
+- [x] Common random numbers support (`src/trend_analysis/monte_carlo/runner.py`)
 
 ### Milestone 5: Costs, Turnover, Cash
-- [ ] Explicit cash handling + RF accrual
-- [ ] Regime-dependent stochastic costs
-- [ ] Turnover constraint variation under MC
+- [x] Explicit cash handling + RF accrual (`src/trend_analysis/monte_carlo/runner.py`)
+- [x] Regime-dependent stochastic costs (`src/trend_analysis/monte_carlo/costs.py`)
+- [x] Turnover constraint variation under MC (`src/trend_analysis/monte_carlo/runner.py`)
 
 ### Milestone 6: Folds + UX
-- [ ] Fold/vintage support
-- [ ] Aggregation outputs + distributions
-- [ ] CLI commands
-- [ ] Streamlit MC tab
+- [x] Fold/vintage support (`src/trend_analysis/monte_carlo/folds.py`)
+- [x] Aggregation outputs + distributions (`src/trend_analysis/monte_carlo/aggregator.py`)
+- [x] CLI commands (`src/trend_analysis/cli.py`)
+- [x] Streamlit MC tab (`streamlit_app/pages/monte_carlo.py`)
 
 ---
 
