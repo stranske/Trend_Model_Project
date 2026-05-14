@@ -12,5 +12,5 @@ Once overall test coverage meets or exceeds **89%**, restore the original covera
 - Increase `--cov-fail-under` in CI back to 89% when coverage improves.
 
 ## Reference
-- Current threshold: 74% (temporary)
+- Current threshold: 80% (temporary). Set by `coverage-min: "80"` in `.github/workflows/pr-00-gate.yml` and `coverage-min: '80'` in `.github/workflows/ci.yml`.
 - Target threshold: 89%
