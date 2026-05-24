@@ -136,6 +136,34 @@ def append_fleet_record(record: dict[str, Any], *, path: str | Path | None = Non
         handle.write(f"{line}\n")
 
 
+def iter_fleet_records(
+    *, path: str | Path | None = None, schema_version: str = FLEET_SCHEMA_VERSION
+) -> Iterator[dict[str, Any]]:
+    input_path = Path(path) if path is not None else default_fleet_artifact_path()
+    if not input_path.exists():
+        return
+    with input_path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            payload = line.strip()
+            if not payload:
+                continue
+            try:
+                record = json.loads(payload)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(record, dict):
+                continue
+            if record.get("schema_version") != schema_version:
+                continue
+            yield record
+
+
+def load_fleet_records(
+    *, path: str | Path | None = None, schema_version: str = FLEET_SCHEMA_VERSION
+) -> list[dict[str, Any]]:
+    return list(iter_fleet_records(path=path, schema_version=schema_version))
+
+
 def record_fleet_event(**kwargs: Any) -> dict[str, Any]:
     record = build_fleet_record(**kwargs)
     try:
@@ -204,7 +232,9 @@ __all__ = [
     "append_fleet_record",
     "build_fleet_record",
     "default_fleet_artifact_path",
+    "iter_fleet_records",
     "langsmith_tracing_context",
+    "load_fleet_records",
     "maybe_enable_langsmith_tracing",
     "record_fleet_event",
     "resolve_trace_url",

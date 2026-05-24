@@ -6,7 +6,9 @@ import pytest
 
 from trend_analysis.llm import tracing as tracing_module
 from trend_analysis.llm.tracing import (
+    append_fleet_record,
     langsmith_tracing_context,
+    load_fleet_records,
     maybe_enable_langsmith_tracing,
     resolve_trace_url,
 )
@@ -115,3 +117,24 @@ def test_resolve_trace_url_falls_back_to_method() -> None:
             return "https://example.test/run/456"
 
     assert resolve_trace_url(DummyRun()) == "https://example.test/run/456"
+
+
+def test_load_fleet_records_filters_schema_and_invalid_lines(tmp_path) -> None:
+    fleet_path = tmp_path / "fleet.ndjson"
+    append_fleet_record(
+        {
+            "schema_version": "langsmith-fleet/v1",
+            "operation": "nl_to_patch",
+            "status": "success",
+        },
+        path=fleet_path,
+    )
+    with fleet_path.open("a", encoding="utf-8") as handle:
+        handle.write('{"schema_version":"langsmith-fleet/v0","operation":"old"}\n')
+        handle.write("{not-json}\n")
+        handle.write("\n")
+
+    records = load_fleet_records(path=fleet_path)
+
+    assert len(records) == 1
+    assert records[0]["operation"] == "nl_to_patch"
