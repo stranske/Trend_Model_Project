@@ -94,7 +94,9 @@ def _default_variant_patches() -> ConfigPatchVariants:
         variants=[
             ConfigPatchVariant(
                 label=label,
-                patch=ConfigPatch(operations=[], summary=DEFAULT_BLOCK_SUMMARY, risk_flags=[]),
+                patch=ConfigPatch(
+                    operations=[], summary=DEFAULT_BLOCK_SUMMARY, risk_flags=[]
+                ),
             )
             for label in VARIANT_LABELS
         ]
@@ -290,7 +292,9 @@ class _BaseConfigPatchChain:
         supports_attr = getattr(base_llm, "supports_structured_output", None)
         if supports_attr is not None:
             try:
-                supports = supports_attr() if callable(supports_attr) else bool(supports_attr)
+                supports = (
+                    supports_attr() if callable(supports_attr) else bool(supports_attr)
+                )
             except Exception as exc:
                 logger.info(
                     "Structured output availability check failed; falling back to text output: %s",
@@ -304,7 +308,9 @@ class _BaseConfigPatchChain:
         try:
             structured_llm = base_llm.with_structured_output(schema)
         except Exception as exc:
-            logger.info("Structured output unavailable; falling back to text output: %s", exc)
+            logger.info(
+                "Structured output unavailable; falling back to text output: %s", exc
+            )
             return None
         if structured_llm is None:
             return None
@@ -454,6 +460,7 @@ class ConfigPatchChain(_BaseConfigPatchChain):
         trace_url: str | None = None
         patch: ConfigPatch | None = None
         error: str | None = None
+        error_category: str | None = None
 
         config_text = (
             current_config
@@ -487,7 +494,9 @@ class ConfigPatchChain(_BaseConfigPatchChain):
                     "Prompt injection detected (%s); skipping LLM call.",
                     ", ".join(sorted(set(injection_hits))),
                 )
-                patch = ConfigPatch(operations=[], summary=DEFAULT_BLOCK_SUMMARY, risk_flags=[])
+                patch = ConfigPatch(
+                    operations=[], summary=DEFAULT_BLOCK_SUMMARY, risk_flags=[]
+                )
                 return patch
             structured_llm = self._structured_output_llm()
             if structured_llm is not None:
@@ -537,7 +546,9 @@ class ConfigPatchChain(_BaseConfigPatchChain):
                             ) from exc
             else:
 
-                def _response_provider(attempt: int, last_error: Exception | None) -> str:
+                def _response_provider(
+                    attempt: int, last_error: Exception | None
+                ) -> str:
                     nonlocal response_text, trace_url
                     prompt = (
                         prompt_text
@@ -565,7 +576,9 @@ class ConfigPatchChain(_BaseConfigPatchChain):
                     retries=max(1, self.retries + 1),
                     logger=logger,
                 )
-            assert patch is not None  # appease mypy; patch is set unless an exception is raised
+            assert (
+                patch is not None
+            )  # appease mypy; patch is set unless an exception is raised
             schema = self._schema_for_validation(allowed_schema, instruction)
             unknown_keys = flag_unknown_keys(patch, schema, logger=logger)
             self._filter_unknown_keys(patch, unknown_keys)
@@ -573,6 +586,7 @@ class ConfigPatchChain(_BaseConfigPatchChain):
             return patch
         except Exception as exc:
             error = str(exc) or type(exc).__name__
+            error_category = type(exc).__name__
             raise
         finally:
             if log_operation:
@@ -606,7 +620,10 @@ class ConfigPatchChain(_BaseConfigPatchChain):
                     elapsed_ms=elapsed_ms,
                     response_text=response_text,
                     error=error,
-                    validation_status="blocked" if injection_hits else ("error" if error else "ok"),
+                    error_category=error_category,
+                    validation_status=(
+                        "blocked" if injection_hits else ("error" if error else "ok")
+                    ),
                 )
 
 
@@ -659,6 +676,7 @@ class ConfigPatchVariantsChain(_BaseConfigPatchChain):
         trace_url: str | None = None
         variants: ConfigPatchVariants | None = None
         error: str | None = None
+        error_category: str | None = None
 
         config_text = (
             current_config
@@ -743,7 +761,9 @@ class ConfigPatchVariantsChain(_BaseConfigPatchChain):
                             ) from exc
             else:
 
-                def _response_provider(attempt: int, last_error: Exception | None) -> str:
+                def _response_provider(
+                    attempt: int, last_error: Exception | None
+                ) -> str:
                     nonlocal response_text, trace_url
                     prompt = (
                         prompt_text
@@ -779,6 +799,7 @@ class ConfigPatchVariantsChain(_BaseConfigPatchChain):
             return variants
         except Exception as exc:
             error = str(exc) or type(exc).__name__
+            error_category = type(exc).__name__
             raise
         finally:
             if log_operation:
@@ -812,7 +833,10 @@ class ConfigPatchVariantsChain(_BaseConfigPatchChain):
                     elapsed_ms=elapsed_ms,
                     response_text=response_text,
                     error=error,
-                    validation_status="blocked" if injection_hits else ("error" if error else "ok"),
+                    error_category=error_category,
+                    validation_status=(
+                        "blocked" if injection_hits else ("error" if error else "ok")
+                    ),
                 )
 
 
@@ -886,11 +910,14 @@ class ResultSummaryChain:
     ) -> ResultSummaryResponse:
         questions_text = questions
         if metric_entries is not None:
-            missing_metrics = detect_unavailable_metric_requests(questions, metric_entries)
+            missing_metrics = detect_unavailable_metric_requests(
+                questions, metric_entries
+            )
             if missing_metrics:
                 missing_text = ", ".join(missing_metrics)
                 response_text = (
-                    "Requested data is unavailable in the analysis output for: " f"{missing_text}."
+                    "Requested data is unavailable in the analysis output for: "
+                    f"{missing_text}."
                 )
                 return ResultSummaryResponse(
                     text=ensure_result_disclaimer(response_text),
@@ -992,20 +1019,27 @@ def _record_config_fleet_event(
     elapsed_ms: float,
     response_text: str | None,
     error: str | None,
+    error_category: str | None,
     validation_status: str,
 ) -> None:
     from trend_analysis.llm.tracing import record_fleet_event, stable_hash
 
-    config_payload = current_config if isinstance(current_config, dict) else {"text": current_config}
+    config_payload = (
+        current_config if isinstance(current_config, dict) else {"text": current_config}
+    )
     record_fleet_event(
         operation=operation,
-        status="error" if error else ("blocked" if validation_status == "blocked" else "success"),
+        status=(
+            "error"
+            if error
+            else ("blocked" if validation_status == "blocked" else "success")
+        ),
         provider=os.environ.get("TREND_LLM_PROVIDER"),
         model=model,
         temperature=temperature,
         trace_url=trace_url,
         latency_ms=round(elapsed_ms, 3),
-        error_category=type(error).__name__ if error else None,
+        error_category=error_category,
         domain={
             "request_id": request_id,
             "dataset_id": stable_hash(config_payload),
@@ -1013,7 +1047,9 @@ def _record_config_fleet_event(
             "scenario_id": _scenario_id(config_payload),
             "config_fingerprint": stable_hash(config_payload),
             "prompt_hash": stable_hash(instruction),
-            "output_hash": stable_hash(response_text) if response_text is not None else None,
+            "output_hash": (
+                stable_hash(response_text) if response_text is not None else None
+            ),
             "replay_diff_summary": None,
             "match_score": None,
             "validation_status": validation_status,

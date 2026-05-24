@@ -33,6 +33,14 @@ class InvokingLLM(DummyLLM):
         )
 
 
+class FailingLLM(DummyLLM):
+    def __call__(self, payload):
+        return self.invoke(payload)
+
+    def invoke(self, _payload):
+        raise RuntimeError("provider unavailable")
+
+
 def test_chain_from_env_uses_temperature_and_model(monkeypatch) -> None:
     monkeypatch.setenv("TREND_LLM_TEMPERATURE", "0.42")
     monkeypatch.setenv("TREND_LLM_MODEL", "unit-test-model")
@@ -80,3 +88,31 @@ def test_config_patch_chain_emits_fleet_record(monkeypatch, tmp_path) -> None:
     assert record["domain"]["scenario_id"] == "base"
     assert record["domain"]["config_fingerprint"].startswith("sha256:")
     assert "Set top_n" not in json.dumps(record)
+
+
+def test_config_patch_chain_preserves_error_category(monkeypatch, tmp_path) -> None:
+    fleet_path = tmp_path / "fleet.ndjson"
+    monkeypatch.setenv("TREND_LANGSMITH_FLEET_PATH", str(fleet_path))
+
+    chain = ConfigPatchChain.from_env(
+        llm=FailingLLM(),
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+        model="gpt-test",
+    )
+
+    try:
+        chain.run(
+            current_config={"analysis": {"top_n": 10}},
+            instruction="Set top_n to 12.",
+            request_id="req-error",
+            log_operation=True,
+        )
+    except RuntimeError:
+        pass
+    else:  # pragma: no cover - defensive assertion
+        raise AssertionError("expected provider failure")
+
+    record = json.loads(fleet_path.read_text(encoding="utf-8").splitlines()[0])
+    assert record["status"] == "error"
+    assert record["error_category"] == "RuntimeError"

@@ -117,6 +117,19 @@ def test_replay_nl_entry_emits_fleet_record(monkeypatch, tmp_path) -> None:
     assert "different" not in json.dumps(record)
 
 
+def test_replay_nl_entry_records_resolved_provider(monkeypatch, tmp_path) -> None:
+    entry = _make_entry("req-provider", output="match")
+    fake_llm = FakeLLM("match")
+    fleet_path = tmp_path / "fleet.ndjson"
+    monkeypatch.setenv("TREND_LANGSMITH_FLEET_PATH", str(fleet_path))
+    monkeypatch.setenv("TREND_LLM_PROVIDER", "anthropic")
+
+    replay_nl_entry(entry, llm=fake_llm)
+
+    record = json.loads(fleet_path.read_text(encoding="utf-8").splitlines()[0])
+    assert record["provider"] == "anthropic"
+
+
 def test_replay_nl_entry_logs_langsmith_trace_url(monkeypatch, caplog) -> None:
     entry = _make_entry("req-6", output="match")
     fake_llm = FakeLLM("match")
