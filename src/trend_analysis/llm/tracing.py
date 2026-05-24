@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 from contextlib import contextmanager
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any, Iterator, Literal
 
 _LANGSMITH_ENABLED: bool | None = None
 _TRUTHY = {"1", "true", "yes", "on"}
+FLEET_SCHEMA_VERSION = "langsmith-fleet/v1"
+FLEET_SOURCE_REPO = "stranske/Trend_Model_Project"
+DEFAULT_FLEET_ARTIFACT_PATH = "artifacts/langsmith/langsmith-fleet.ndjson"
 
 
 def _truthy_env(name: str) -> bool:
@@ -67,6 +74,112 @@ def resolve_trace_url(run: Any) -> str | None:
     return None
 
 
+def stable_hash(value: Any, *, prefix: str = "sha256:") -> str:
+    """Return a deterministic digest for metadata without storing raw content."""
+
+    serialized = json.dumps(_json_safe(value), sort_keys=True, separators=(",", ":"))
+    return f"{prefix}{hashlib.sha256(serialized.encode('utf-8')).hexdigest()}"
+
+
+def default_fleet_artifact_path() -> Path:
+    return Path(
+        os.environ.get("TREND_LANGSMITH_FLEET_PATH", DEFAULT_FLEET_ARTIFACT_PATH)
+    )
+
+
+def _json_safe(value: Any) -> Any:
+    if value is None or isinstance(value, str | int | float | bool):
+        return value
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (set, frozenset)):
+        items = [_json_safe(item) for item in value]
+        return sorted(
+            items,
+            key=lambda item: json.dumps(item, sort_keys=True, separators=(",", ":")),
+        )
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    return str(value)
+
+
+def build_fleet_record(
+    *,
+    operation: str,
+    status: str,
+    provider: str | None = None,
+    model: str | None = None,
+    temperature: float | None = None,
+    trace_url: str | None = None,
+    latency_ms: float | None = None,
+    error_category: str | None = None,
+    domain: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build a dashboard-compatible LangSmith fleet record."""
+
+    return {
+        "schema_version": FLEET_SCHEMA_VERSION,
+        "source_repo": FLEET_SOURCE_REPO,
+        "timestamp": datetime.now(UTC).isoformat(),
+        "operation": operation,
+        "status": status,
+        "provider": provider or "unknown",
+        "model": model or "unknown",
+        "temperature": temperature,
+        "trace_url": trace_url,
+        "latency_ms": latency_ms,
+        "error_category": error_category,
+        "domain": _json_safe(domain or {}),
+    }
+
+
+def append_fleet_record(
+    record: dict[str, Any], *, path: str | Path | None = None
+) -> None:
+    output_path = Path(path) if path is not None else default_fleet_artifact_path()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    line = json.dumps(_json_safe(record), sort_keys=True, separators=(",", ":"))
+    with output_path.open("a", encoding="utf-8") as handle:
+        handle.write(f"{line}\n")
+
+
+def iter_fleet_records(
+    *, path: str | Path | None = None, schema_version: str = FLEET_SCHEMA_VERSION
+) -> Iterator[dict[str, Any]]:
+    input_path = Path(path) if path is not None else default_fleet_artifact_path()
+    if not input_path.exists():
+        return
+    with input_path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            payload = line.strip()
+            if not payload:
+                continue
+            try:
+                record = json.loads(payload)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(record, dict):
+                continue
+            if record.get("schema_version") != schema_version:
+                continue
+            yield record
+
+
+def load_fleet_records(
+    *, path: str | Path | None = None, schema_version: str = FLEET_SCHEMA_VERSION
+) -> list[dict[str, Any]]:
+    return list(iter_fleet_records(path=path, schema_version=schema_version))
+
+
+def record_fleet_event(**kwargs: Any) -> dict[str, Any]:
+    record = build_fleet_record(**kwargs)
+    try:
+        append_fleet_record(record)
+    except Exception:
+        pass
+    return record
+
+
 @contextmanager
 def langsmith_tracing_context(
     *,
@@ -79,7 +192,9 @@ def langsmith_tracing_context(
 ) -> Iterator[Any]:
     """Provide a LangSmith tracing context and optional run metadata."""
 
-    if os.environ.get("PYTEST_CURRENT_TEST") and not _truthy_env("TREND_LANGSMITH_TRACE_TESTS"):
+    if os.environ.get("PYTEST_CURRENT_TEST") and not _truthy_env(
+        "TREND_LANGSMITH_TRACE_TESTS"
+    ):
         yield None
         return
     if not maybe_enable_langsmith_tracing():
@@ -121,4 +236,16 @@ def langsmith_tracing_context(
                 yield run
 
 
-__all__ = ["langsmith_tracing_context", "maybe_enable_langsmith_tracing", "resolve_trace_url"]
+__all__ = [
+    "FLEET_SCHEMA_VERSION",
+    "append_fleet_record",
+    "build_fleet_record",
+    "default_fleet_artifact_path",
+    "iter_fleet_records",
+    "langsmith_tracing_context",
+    "load_fleet_records",
+    "maybe_enable_langsmith_tracing",
+    "record_fleet_event",
+    "resolve_trace_url",
+    "stable_hash",
+]
