@@ -20,6 +20,20 @@ This guide explains how to configure and use the LLM provider abstraction built 
 5. Validate the provider by running a simple request (or a dry run) before integrating
    it into larger workflows.
 
+## LangSmith Fleet Records
+
+NL config patch and replay calls append sanitized `langsmith-fleet/v1` records for
+the shared fleet dashboard. By default the NDJSON artifact is written to
+`artifacts/langsmith/langsmith-fleet.ndjson`; set `TREND_LANGSMITH_FLEET_PATH` to
+override the path in local runs or CI.
+
+Records include provider/model, temperature, trace URL when available, latency,
+status, replay match state, validation status, config fingerprints, run/request
+IDs, prompt/output hashes, and safe artifact references. They intentionally do
+not include raw prompts, raw model outputs, proprietary datasets, or credentials.
+Missing `LANGSMITH_API_KEY` keeps LangSmith tracing as a no-op while fleet
+records can still be emitted for offline replay and validation checks.
+
 ## Configuration examples
 
 The provider config accepts the following common fields:

@@ -39,6 +39,7 @@ test_output.log
 *.log
 node_modules/
 /.trend_nl_logs/
+artifacts/langsmith/
 
 # auto-generated virtual environments
 .autofix-venv/

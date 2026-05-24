@@ -595,6 +595,19 @@ class ConfigPatchChain(_BaseConfigPatchChain):
                     trace_url=trace_url,
                 )
                 write_nl_log(entry)
+                _record_config_fleet_event(
+                    operation="nl_to_patch",
+                    request_id=request_id,
+                    current_config=current_config,
+                    instruction=instruction,
+                    model=self.model,
+                    temperature=self.temperature,
+                    trace_url=trace_url,
+                    elapsed_ms=elapsed_ms,
+                    response_text=response_text,
+                    error=error,
+                    validation_status="blocked" if injection_hits else ("error" if error else "ok"),
+                )
 
 
 class ConfigPatchVariantsChain(_BaseConfigPatchChain):
@@ -788,6 +801,19 @@ class ConfigPatchVariantsChain(_BaseConfigPatchChain):
                     trace_url=trace_url,
                 )
                 write_nl_log(entry)
+                _record_config_fleet_event(
+                    operation="nl_to_patch_variants",
+                    request_id=request_id,
+                    current_config=current_config,
+                    instruction=instruction,
+                    model=self.model,
+                    temperature=self.temperature,
+                    trace_url=trace_url,
+                    elapsed_ms=elapsed_ms,
+                    response_text=response_text,
+                    error=error,
+                    validation_status="blocked" if injection_hits else ("error" if error else "ok"),
+                )
 
 
 @dataclass(slots=True)
@@ -952,3 +978,55 @@ def _read_env_float(name: str, *, default: float) -> float:
 def _hash_payload(payload: dict[str, Any]) -> str:
     text = json.dumps(payload, sort_keys=True, ensure_ascii=True, separators=(",", ":"))
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _record_config_fleet_event(
+    *,
+    operation: str,
+    request_id: str,
+    current_config: str | dict[str, Any],
+    instruction: str,
+    model: str | None,
+    temperature: float,
+    trace_url: str | None,
+    elapsed_ms: float,
+    response_text: str | None,
+    error: str | None,
+    validation_status: str,
+) -> None:
+    from trend_analysis.llm.tracing import record_fleet_event, stable_hash
+
+    config_payload = current_config if isinstance(current_config, dict) else {"text": current_config}
+    record_fleet_event(
+        operation=operation,
+        status="error" if error else ("blocked" if validation_status == "blocked" else "success"),
+        provider=os.environ.get("TREND_LLM_PROVIDER"),
+        model=model,
+        temperature=temperature,
+        trace_url=trace_url,
+        latency_ms=round(elapsed_ms, 3),
+        error_category=type(error).__name__ if error else None,
+        domain={
+            "request_id": request_id,
+            "dataset_id": stable_hash(config_payload),
+            "run_id": request_id,
+            "scenario_id": _scenario_id(config_payload),
+            "config_fingerprint": stable_hash(config_payload),
+            "prompt_hash": stable_hash(instruction),
+            "output_hash": stable_hash(response_text) if response_text is not None else None,
+            "replay_diff_summary": None,
+            "match_score": None,
+            "validation_status": validation_status,
+            "artifact_refs": {"nl_log_request_id": request_id},
+        },
+    )
+
+
+def _scenario_id(config_payload: Any) -> str | None:
+    if not isinstance(config_payload, dict):
+        return None
+    for key in ("scenario", "scenario_id", "name"):
+        value = config_payload.get(key)
+        if isinstance(value, str):
+            return value
+    return None
