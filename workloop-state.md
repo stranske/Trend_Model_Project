@@ -1,6 +1,32 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
+## 2026-05-25T15:01:13Z - opener lane issue #2933 PR materializing
+
+- Repo: stranske/Trend_Model_Project
+- Issue: #2933 `[coverage] baseline breach`
+- Branch: codex/issue-2933-coverage-guard-artifacts
+- PR: #5333 https://github.com/stranske/Trend_Model_Project/pull/5333
+- Agent: codex
+- Selection:
+  - Opener cap-health reported `total_opener_owned=0`, so cap was not blocking.
+  - All-open liveness found Trend_Model_Project #2933 as the oldest non-generated open supported issue after priority LMS issues were accounted for as merged-awaiting-verifier or scoped dependency blockers.
+  - Latest coverage guard runs were green but left #2933 open; run `26390421210` selected Gate run `26387928708`, which had no coverage artifacts, then exited `No coverage trend payload found; skipping coverage guard update`.
+  - A newer search found Gate run `26356812365` with `gate-coverage-trend` and `gate-coverage-trend-history` artifacts, so the guard's Gate-run selection was the repo-local defect.
+- Changes:
+  - Added `.github/scripts/select_coverage_gate_run.js` to choose the newest successful/neutral Gate run that actually published required coverage artifacts.
+  - Added Node tests for completed-run ordering, success/neutral filtering, artifact-backed selection, and no-artifact fallback.
+  - Updated `.github/workflows/maint-coverage-guard.yml` to use the helper before downloading coverage artifacts.
+- Validation:
+  - `node --test .github/scripts/__tests__/select-coverage-gate-run.test.js` -> 4 passed.
+  - `node --check .github/scripts/select_coverage_gate_run.js` -> passed.
+  - Workflow reference smoke check for `selectCoverageGateRun`, `gate-coverage-trend`, and the artifact-missing warning -> passed.
+  - `git diff --check` -> passed.
+- PR status: opened ready-for-review (`isDraft=false`) with labels `agent:codex`, `agents:keepalive`, and `autofix`.
+- Relay:
+  - `pr_opened active.source_repo=stranske/Trend_Model_Project active.source_issue=2933 active.source_pr=5333 active.next_action=wait_for_keepalive`
+- Next action: keepalive owns CI/check follow-up. Initial Gate run `26406953602` was superseded/cancelled almost immediately after PR creation, so the next run should be evaluated by keepalive rather than blocking opener.
+
 ## 2026-05-24T06:13:51Z - opener lane issue #5311 PR materializing
 
 - Repo: stranske/Trend_Model_Project
