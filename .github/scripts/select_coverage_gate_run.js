@@ -2,6 +2,8 @@
 
 const DEFAULT_ARTIFACT_NAMES = ['gate-coverage-trend'];
 const DEFAULT_WORKFLOW_ID = '.github/workflows/pr-00-gate.yml';
+const DEFAULT_PER_PAGE = 100;
+const DEFAULT_MAX_PAGES = 5;
 
 function runStartedAt(run) {
   return new Date(run?.run_started_at || run?.created_at || 0).getTime();
@@ -42,23 +44,58 @@ async function listArtifactsForRun({ github, owner, repo, runId }) {
   return response?.data?.artifacts || [];
 }
 
+async function listCompletedGateRuns({
+  github,
+  owner,
+  repo,
+  workflowId,
+  perPage,
+  maxPages,
+}) {
+  const params = {
+    owner,
+    repo,
+    workflow_id: workflowId,
+    status: 'completed',
+    per_page: perPage,
+  };
+  const listRuns = github.rest.actions.listWorkflowRuns;
+  const iterator = github.paginate?.iterator;
+  if (typeof iterator === 'function') {
+    const collected = [];
+    let pagesFetched = 0;
+    for await (const response of iterator.call(github.paginate, listRuns, params)) {
+      const pageRuns = response?.data?.workflow_runs || [];
+      collected.push(...pageRuns);
+      pagesFetched += 1;
+      if (maxPages && pagesFetched >= maxPages) {
+        break;
+      }
+    }
+    return collected;
+  }
+  const response = await listRuns(params);
+  return response?.data?.workflow_runs || [];
+}
+
 async function selectCoverageGateRun({
   github,
   context,
   core,
   workflowId = DEFAULT_WORKFLOW_ID,
   requiredArtifacts = DEFAULT_ARTIFACT_NAMES,
-  perPage = 50,
+  perPage = DEFAULT_PER_PAGE,
+  maxPages = DEFAULT_MAX_PAGES,
 } = {}) {
   const { owner, repo } = context.repo;
-  const response = await github.rest.actions.listWorkflowRuns({
+  const runs = await listCompletedGateRuns({
+    github,
     owner,
     repo,
-    workflow_id: workflowId,
-    status: 'completed',
-    per_page: perPage,
+    workflowId,
+    perPage,
+    maxPages,
   });
-  const runs = response?.data?.workflow_runs || [];
   const candidates = successfulGateRuns(runs);
 
   if (!candidates.length) {
@@ -101,6 +138,7 @@ async function selectCoverageGateRun({
 module.exports = {
   artifactNames,
   listArtifactsForRun,
+  listCompletedGateRuns,
   selectCoverageGateRun,
   sortCompletedGateRuns,
   successfulGateRuns,
