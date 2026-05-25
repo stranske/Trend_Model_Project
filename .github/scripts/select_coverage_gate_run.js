@@ -21,6 +21,7 @@ function successfulGateRuns(runs) {
 function artifactNames(artifacts) {
   return new Set(
     (artifacts || [])
+      .filter((artifact) => artifact && artifact.expired !== true)
       .map((artifact) => String(artifact?.name || '').trim())
       .filter(Boolean),
   );

@@ -122,3 +122,47 @@ test('selectCoverageGateRun returns null when no run has required coverage artif
   assert.equal(selected, null);
   assert.match(core.warnings.at(-1), /No recent Gate workflow run/);
 });
+
+test('selectCoverageGateRun ignores expired coverage artifacts', async () => {
+  const core = createCore();
+  const artifactByRun = new Map([
+    [44, [{ name: 'gate-coverage-trend', expired: true }]],
+    [43, [{ name: 'gate-coverage-trend', expired: false }]],
+  ]);
+  const github = {
+    rest: {
+      actions: {
+        listWorkflowRuns: async () => ({
+          data: {
+            workflow_runs: [
+              {
+                id: 44,
+                status: 'completed',
+                conclusion: 'success',
+                created_at: '2026-03-02T00:00:00Z',
+              },
+              {
+                id: 43,
+                status: 'completed',
+                conclusion: 'success',
+                created_at: '2026-03-01T00:00:00Z',
+              },
+            ],
+          },
+        }),
+        listWorkflowRunArtifacts: async ({ run_id }) => ({
+          data: { artifacts: artifactByRun.get(run_id) || [] },
+        }),
+      },
+    },
+  };
+
+  const selected = await selectCoverageGateRun({
+    github,
+    context: { repo: { owner: 'octo', repo: 'demo' } },
+    core,
+  });
+
+  assert.equal(selected.run.id, 43);
+  assert.match(core.infos[0], /Skipping Gate run 44/);
+});
