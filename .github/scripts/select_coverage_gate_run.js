@@ -66,6 +66,8 @@ async function selectCoverageGateRun({
     return null;
   }
 
+  const skippedRunIds = [];
+
   for (const run of candidates) {
     let artifacts = [];
     try {
@@ -77,8 +79,14 @@ async function selectCoverageGateRun({
     const names = artifactNames(artifacts);
     const missing = requiredArtifacts.filter((name) => !names.has(name));
     if (!missing.length) {
-      return { run, artifacts: [...names].sort() };
+      return {
+        run,
+        artifacts: [...names].sort(),
+        requiredArtifacts: [...requiredArtifacts],
+        skippedRunIds,
+      };
     }
+    skippedRunIds.push(run.id);
     core?.info?.(
       `Skipping Gate run ${run.id}: missing coverage artifact(s): ${missing.join(', ')}`,
     );

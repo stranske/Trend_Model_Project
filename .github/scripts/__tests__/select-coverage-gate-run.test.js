@@ -88,6 +88,8 @@ test('selectCoverageGateRun skips newer Gate runs without coverage artifacts', a
 
   assert.equal(selected.run.id, 20);
   assert.deepEqual(selected.artifacts, ['gate-coverage-trend', 'gate-coverage-trend-history']);
+  assert.deepEqual(selected.requiredArtifacts, ['gate-coverage-trend']);
+  assert.deepEqual(selected.skippedRunIds, [30]);
   assert.match(core.infos[0], /Skipping Gate run 30/);
 });
 
@@ -164,5 +166,6 @@ test('selectCoverageGateRun ignores expired coverage artifacts', async () => {
   });
 
   assert.equal(selected.run.id, 43);
+  assert.deepEqual(selected.skippedRunIds, [44]);
   assert.match(core.infos[0], /Skipping Gate run 44/);
 });
