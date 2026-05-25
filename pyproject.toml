@@ -29,18 +29,18 @@ classifiers = [
 dependencies = [
     "PyYAML==6.0.3",
     "fpdf2==2.8.7",
-    "hypothesis==6.152.6",
+    "hypothesis==6.152.9",
     "ipywidgets==8.1.8",
     "joblib==1.5.3",
     "jsonschema==4.26.0",
     "matplotlib==3.10.9",
-    "numpy==2.4.4",
+    "numpy==2.4.6",
     "openpyxl==3.1.5",
     "pandas==3.0.3",
     "pandera==0.31.1",
     "plotly==6.7.0",
     "pydantic==2.13.4",
-    "requests==2.34.0",
+    "requests==2.34.2",
     "scipy==1.17.1",
     "xlsxwriter==3.2.9",
 ]
@@ -82,8 +82,8 @@ exclude = ["Old*", "retired*", "**/Old*", "**/retired*"]
 app = [
     "streamlit==1.57.0",
     "streamlit-sortables==0.3.1",
-    "fastapi==0.136.1",
-    "uvicorn[standard]==0.46.0",
+    "fastapi==0.136.3",
+    "uvicorn[standard]==0.48.0",
     "httpx==0.28.1",
 ]
 llm = [
@@ -93,7 +93,7 @@ llm = [
     "langchain-openai>=0.3,<1.2",
     "langchain-anthropic>=0.3,<1.5",
     "langchain-ollama>=1.1.0,<1.2",
-    "langsmith==0.8.3",
+    "langsmith==0.8.5",
 ]
 notebooks = [
     "ipyfilechooser==0.6.0",
@@ -110,11 +110,11 @@ dev = [
     "pytest==9.0.3",
     "pytest-cov==7.1.0",
     "coverage>=7.14.0",
-    "pytest-rerunfailures==16.1",
+    "pytest-rerunfailures==16.3",
     "pytest-xdist==3.8.0",
     "packaging==26.2",
     "streamlit==1.57.0",
-    "fastapi==0.136.1",
+    "fastapi==0.136.3",
     "types-PyYAML==6.0.12.20260510",
     "types-requests==2.33.0.20260508",
     "httpx==0.28.1",
