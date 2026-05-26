@@ -125,19 +125,65 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { owner, repo } = context.repo;
             const workflowId = '.github/workflows/pr-00-gate.yml';
-            const { selectCoverageGateRun } = require('./.github/scripts/select_coverage_gate_run');
-            const selected = await selectCoverageGateRun({
-              github,
-              context,
-              core,
-              workflowId,
-              requiredArtifacts: ['gate-coverage-trend'],
-            });
-            const candidate = selected?.run;
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (githubInstance, method, params) =>
+                    githubInstance.paginate(method, params),
+                };
+            const { paginateWithRetry, withRetry } = retryHelpers;
+
+            const runs = await paginateWithRetry(
+              github, github.rest.actions.listWorkflowRuns,
+              {
+                owner,
+                repo,
+                workflow_id: workflowId,
+                status: 'completed',
+                per_page: 50,
+              },
+            );
+
+            if (!runs.length) {
+              core.warning('No Gate workflow runs found.');
+              core.setOutput('run_id', '');
+              return;
+            }
+
+            runs.sort(
+              (a, b) =>
+                new Date(b.run_started_at || b.created_at || 0) -
+                new Date(a.run_started_at || a.created_at || 0),
+            );
+            let candidate = null;
+            for (const run of runs) {
+              const artifacts = await withRetry(() =>
+                github.rest.actions.listWorkflowRunArtifacts({
+                  owner,
+                  repo,
+                  run_id: run.id,
+                  per_page: 100,
+                }),
+              );
+              const hasCoverageTrend = artifacts.data.artifacts.some(
+                (artifact) =>
+                  artifact.name === 'gate-coverage-trend' && !artifact.expired,
+              );
+              if (hasCoverageTrend) {
+                candidate = run;
+                break;
+              }
+            }
 
             if (!candidate) {
-              core.warning('Unable to locate a completed Gate workflow run with coverage artifacts.');
+              core.warning(
+                'Unable to locate a completed Gate workflow run with coverage artifacts.',
+              );
               core.setOutput('run_id', '');
               return;
             }
@@ -146,8 +192,7 @@ jobs:
             core.setOutput('run_number', String(candidate.run_number || ''));
             core.setOutput('run_url', candidate.html_url || '');
             const url = candidate.html_url || 'no url';
-            const artifacts = selected.artifacts.join(', ') || 'none';
-            core.notice(`Using Gate workflow run ${candidate.id} (${url}); artifacts: ${artifacts}`);
+            core.notice(`Using Gate workflow run ${candidate.id} (${url})`);
 
       - name: Download coverage trend artifact
         if: ${{ steps.discover.outputs.run_id }}
