@@ -9,19 +9,19 @@ then review the diff and commit the updated baseline files.
 from __future__ import annotations
 
 import pytest
+from baseline_kit import DEFAULT_TOLERANCE, check_metrics
 
 from .conftest import load_catalog
 from .harness import run_scenario
 
-TOL = dict(atol=1e-9, rtol=1e-6)
+TOL = DEFAULT_TOLERANCE
 _SCENARIOS = load_catalog()["scenarios"]
 _SCEN_IDS = [s["id"] for s in _SCENARIOS]
 
 
 def test_baseline_derived_metrics(baseline_output, num_regression):
     """Economic summary stats of the reference run."""
-    d = baseline_output.derived()
-    num_regression.check({k: [float(v)] for k, v in d.items()}, default_tolerance=TOL)
+    check_metrics(num_regression, baseline_output.derived())
 
 
 def test_baseline_metric_columns(baseline_output, num_regression):
@@ -44,5 +44,4 @@ def test_scenario_variant_golden(scen, num_regression):
     baseline)."""
     patch = {**(scen.get("base") or {}), **(scen.get("vary") or {})}
     out = run_scenario("config/demo.yml", patch)
-    d = out.derived()
-    num_regression.check({k: [float(v)] for k, v in d.items()}, default_tolerance=TOL)
+    check_metrics(num_regression, out.derived())

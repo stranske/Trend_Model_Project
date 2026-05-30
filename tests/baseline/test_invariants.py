@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import warnings
-
 import pytest
+from baseline_kit import assert_invariants
 
 from . import invariants
 from .conftest import load_catalog
@@ -18,15 +17,9 @@ def _effective(patch: dict, key: str, default):
     return patch.get(key, default)
 
 
-def _assert_invariants(out, *, long_only, max_weight):
+def _assert_invariants(out, *, long_only, max_weight, context=""):
     results = invariants.check_all(out, long_only=long_only, max_weight=max_weight)
-    errors = [r for r in results if r.severity == "error" and not r.ok]
-    for r in results:
-        if r.severity == "warn" and not r.ok:
-            warnings.warn(f"[soft] {r.name}: {r.detail}", stacklevel=2)
-    assert not errors, "Invariant violations:\n" + "\n".join(
-        f"  - {r.name}: {r.detail}" for r in errors
-    )
+    assert_invariants(results, context=context)
 
 
 def test_baseline_invariants(baseline_output):
@@ -39,4 +32,4 @@ def test_scenario_invariants(scen):
     out = run_scenario("config/demo.yml", patch)
     long_only = bool(_effective(patch, "portfolio.constraints.long_only", True))
     max_weight = _effective(patch, "portfolio.constraints.max_weight", 0.25)
-    _assert_invariants(out, long_only=long_only, max_weight=max_weight)
+    _assert_invariants(out, long_only=long_only, max_weight=max_weight, context=scen["id"])

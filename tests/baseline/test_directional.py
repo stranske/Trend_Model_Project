@@ -9,9 +9,8 @@ promoting them to enforced.
 
 from __future__ import annotations
 
-import math
-
 import pytest
+from baseline_kit import evaluate_direction
 
 from .conftest import load_catalog
 from .harness import run_scenario
@@ -19,14 +18,6 @@ from .harness import run_scenario
 _TOL = 1e-9
 _SCENARIOS = load_catalog()["scenarios"]
 _SCEN_IDS = [s["id"] for s in _SCENARIOS]
-
-_OPS = {
-    "increase": lambda v, c: v > c + _TOL,
-    "decrease": lambda v, c: v < c - _TOL,
-    "increase_or_equal": lambda v, c: v >= c - _TOL,
-    "decrease_or_equal": lambda v, c: v <= c + _TOL,
-    "change": lambda v, c: abs(v - c) > _TOL,
-}
 
 
 def _metric(scen, patch):
@@ -42,9 +33,8 @@ def test_directional(scen, record_property):
     v = _metric(scen, vary_patch)
 
     direction = scen["direction"]
-    op = _OPS[direction]
     observed = "↑" if v > c + _TOL else "↓" if v < c - _TOL else "≈"
-    holds = op(v, c) if math.isfinite(c) and math.isfinite(v) else False
+    holds = evaluate_direction(direction, v, c, _TOL)
 
     msg = (
         f"{scen['id']}: {scen['metric']} control={c:.6g} variant={v:.6g} "

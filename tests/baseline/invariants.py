@@ -12,7 +12,7 @@ economic understanding of the model sharpens.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from baseline_kit import InvariantResult
 
 from .harness import ScenarioOutput
 
@@ -21,14 +21,6 @@ WEIGHT_SUM_TOL = 0.02          # weights should sum to ~1 (allow small slack)
 MAX_WEIGHT_TOL = 1e-6          # tolerance when checking the max-weight cap
 SHARPE_SOFT_CAP = 5.0          # soft flag: meaningful-length Sharpe rarely > 5
 LEVERAGE_CAP_DEFAULT = 2.0     # gross exposure ceiling when not otherwise set
-
-
-@dataclass
-class InvariantResult:
-    name: str
-    ok: bool
-    severity: str  # "error" | "warn"
-    detail: str
 
 
 def check_all(

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-import yaml
+from baseline_kit import load_catalog as _load_catalog
 
 HERE = Path(__file__).resolve().parent
 CATALOG_PATH = HERE / "catalog.yaml"
@@ -15,8 +15,7 @@ CATALOG_PATH = HERE / "catalog.yaml"
 
 @functools.lru_cache(maxsize=1)
 def load_catalog() -> dict[str, Any]:
-    with CATALOG_PATH.open() as fh:
-        return yaml.safe_load(fh)
+    return _load_catalog(CATALOG_PATH)
 
 
 @pytest.fixture(scope="session")

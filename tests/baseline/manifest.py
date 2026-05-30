@@ -18,9 +18,10 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from baseline_kit import CoverageManifest
 
 from .harness import REPO_ROOT
 
@@ -69,59 +70,18 @@ def catalog_touched_keys(catalog: Mapping[str, Any]) -> set[str]:
     return keys
 
 
-@dataclass
-class CoverageManifest:
-    schema_keys: set[str]
-    touched_keys: set[str]
-    read_keys: set[str]
-    priority_params: list[str]
-
-    @property
-    def unknown_catalog_keys(self) -> set[str]:
-        """Catalog keys that are NOT valid schema leaves (typo guard)."""
-        return {k for k in self.touched_keys if k not in self.schema_keys}
-
-    @property
-    def priority_gaps(self) -> list[str]:
-        """Priority params with no scenario/toggle exercising them."""
-        return [p for p in self.priority_params if p not in self.touched_keys]
-
-    @property
-    def scenario_coverage_pct(self) -> float:
-        if not self.schema_keys:
-            return 0.0
-        return 100.0 * len(self.touched_keys & self.schema_keys) / len(self.schema_keys)
-
-    def to_markdown(self) -> str:
-        lines = [
-            "# Baseline coverage manifest",
-            "",
-            f"- Schema parameters: **{len(self.schema_keys)}**",
-            f"- Exercised by a scenario/toggle: **{len(self.touched_keys & self.schema_keys)}** "
-            f"({self.scenario_coverage_pct:.1f}%)",
-            f"- Observed read at runtime (baseline): **{len(self.read_keys)}**",
-            "",
-            "## Priority parameters",
-            "",
-        ]
-        for p in self.priority_params:
-            mark = "x" if p in self.touched_keys else " "
-            lines.append(f"- [{mark}] `{p}`")
-        if self.priority_gaps:
-            lines += ["", "## Priority gaps (no scenario yet)", ""]
-            lines += [f"- `{p}`" for p in self.priority_gaps]
-        if self.unknown_catalog_keys:
-            lines += ["", "## Catalog keys not found in schema (check spelling)", ""]
-            lines += [f"- `{k}`" for k in sorted(self.unknown_catalog_keys)]
-        return "\n".join(lines) + "\n"
-
-
 def build_manifest(
     catalog: Mapping[str, Any], read_keys: set[str] | None = None
 ) -> CoverageManifest:
+    """Build the generic coverage manifest from TMP's schema + catalog.
+
+    The schema-walk (``schema_leaf_keys``) and catalog-key extraction
+    (``catalog_touched_keys``) are TMP-specific; the manifest itself is the
+    shared ``baseline_kit.CoverageManifest``.
+    """
     return CoverageManifest(
-        schema_keys=schema_leaf_keys(),
+        all_keys=schema_leaf_keys(),
         touched_keys=catalog_touched_keys(catalog),
-        read_keys=set(read_keys or set()),
         priority_params=list(catalog.get("priority_params", []) or []),
+        read_keys=set(read_keys or set()),
     )
