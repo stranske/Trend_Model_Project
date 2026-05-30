@@ -12,6 +12,7 @@ from typing import Any, Mapping, Sequence
 
 import pandas as pd
 
+from trend_analysis.identity import IdentityMap
 from trend_analysis.util.hash import normalise_for_json, sha256_config, sha256_file
 
 _METRIC_FIELDS = (
@@ -194,6 +195,7 @@ def write_run_artifacts(
     run_details: Mapping[str, Any] | None,
     exported_files: Sequence[Path],
     summary_text: str,
+    identity_map: IdentityMap | None = None,
 ) -> Path:
     """Copy exported files into a timestamped directory with manifest + HTML."""
 
@@ -238,6 +240,10 @@ def write_run_artifacts(
         selected_list = []
     else:
         selected_list = [selected]
+    resolver = identity_map or (
+        IdentityMap.from_config(config) if isinstance(config, Mapping) else IdentityMap()
+    )
+    selected_entities = _selected_entities(selected_list, resolver)
 
     manifest: dict[str, Any] = {
         "schema_version": "trend.run_artifacts/1",
@@ -251,6 +257,7 @@ def write_run_artifacts(
         "metrics": _serialise_stats(details.get("out_ew_stats")) or _summarise_metrics(metrics_df),
         "metrics_overview": _summarise_metrics(metrics_df),
         "selected_funds": selected_list,
+        "selected_entities": selected_entities,
         "artifacts": copied,
     }
     if config is not None:
@@ -279,3 +286,20 @@ def write_run_artifacts(
 
 
 __all__ = ["write_run_artifacts"]
+
+
+def _selected_entities(
+    selected_labels: Sequence[Any], identity_map: IdentityMap
+) -> list[dict[str, Any]]:
+    by_id: dict[str, dict[str, Any]] = {}
+    for raw_label in selected_labels:
+        label = str(raw_label)
+        entity = identity_map.resolve(label)
+        item = by_id.get(entity.canonical_id)
+        if item is None:
+            by_id[entity.canonical_id] = entity.to_manifest(label=label, labels=[label])
+            continue
+        labels = item.setdefault("labels", [])
+        if label not in labels:
+            labels.append(label)
+    return list(by_id.values())
