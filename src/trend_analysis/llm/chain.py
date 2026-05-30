@@ -319,6 +319,8 @@ class _BaseConfigPatchChain:
     def _bind_llm_with(self, llm: Any) -> Any:
         if not hasattr(llm, "bind"):
             return llm
+        if llm.__class__.__module__.startswith("langchain_core.runnables."):
+            return llm
         params: dict[str, Any] = {"temperature": self.temperature}
         if self.model is not None:
             params["model"] = self.model
