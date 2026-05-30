@@ -6,7 +6,7 @@ import os
 import runpy
 from pathlib import Path
 
-os.environ.setdefault("TREND_DEMO_MODE", "1")
+os.environ["TREND_DEMO_MODE"] = "1"
 
 
 if __name__ == "__main__":
