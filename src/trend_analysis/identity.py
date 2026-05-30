@@ -38,9 +38,13 @@ def normalize_identity_label(label: str) -> str:
 class IdentityMap:
     def __init__(self, entities: list[EntityId] | None = None) -> None:
         self._entities = list(entities or [])
+        self._exact_lookup: dict[str, EntityId] = {}
         self._lookup: dict[str, EntityId] = {}
         for entity in self._entities:
             for alias in (entity.display_name, entity.canonical_id, *entity.aliases):
+                raw_alias = str(alias)
+                if raw_alias:
+                    self._exact_lookup.setdefault(raw_alias, entity)
                 normalized = normalize_identity_label(alias)
                 if normalized:
                     self._lookup.setdefault(normalized, entity)
@@ -62,11 +66,14 @@ class IdentityMap:
         return cls(entities)
 
     def resolve(self, label: str) -> EntityId:
+        raw = str(label)
+        entity = self._exact_lookup.get(raw)
+        if entity is not None:
+            return entity
         normalized = normalize_identity_label(label)
         entity = self._lookup.get(normalized)
         if entity is not None:
             return entity
-        raw = str(label)
         return EntityId(
             canonical_id=f"unknown:{raw}",
             display_name=raw,

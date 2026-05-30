@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from trend_analysis.identity import IdentityMap
+from trend_analysis.config.schema_validation import load_schema, validate_config_data
 from trend_analysis.reporting.run_artifacts import write_run_artifacts
 
 
@@ -89,3 +90,47 @@ def test_identity_resolution_is_deterministic(tmp_path: Path) -> None:
     )
 
     assert first["selected_entities"] == second["selected_entities"]
+
+
+def test_identity_resolution_prefers_exact_alias_before_normalized_collision() -> None:
+    resolver = IdentityMap.from_config(
+        {
+            "identity": {
+                "entities": [
+                    {"canonical_id": "fund:upper", "display_name": "ABC Fund"},
+                    {"canonical_id": "fund:lower", "display_name": "abc fund"},
+                ]
+            }
+        }
+    )
+
+    assert resolver.resolve("ABC Fund").canonical_id == "fund:upper"
+    assert resolver.resolve("abc fund").canonical_id == "fund:lower"
+
+
+def test_identity_config_validates_against_schema() -> None:
+    schema = load_schema()
+    payload = {
+        "version": "1",
+        "identity": {
+            "entities": [
+                {
+                    "canonical_id": "fund:aqr-managed-futures",
+                    "display_name": "AQR Managed Futures",
+                    "aliases": ["AQR MF"],
+                }
+            ],
+            "universes": ["universe/core.yml"],
+        },
+    }
+
+    assert validate_config_data(payload, schema) == []
+
+
+def test_identity_universe_docs_path_resolves_from_config_dir() -> None:
+    resolver = IdentityMap.from_config(
+        {"identity": {"universes": ["universe/core.yml"]}},
+        base_path=Path("config"),
+    )
+
+    assert resolver.resolve("AHL Dimension").canonical_id == "fund:ahl-dimension"

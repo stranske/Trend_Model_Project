@@ -12,7 +12,7 @@ identity:
         - AQR MF
         - AQR Managed Futures
   universes:
-    - config/universe/core.yml
+    - universe/core.yml
 ```
 
 Resolution is exact after case and whitespace normalization. The resolver checks
