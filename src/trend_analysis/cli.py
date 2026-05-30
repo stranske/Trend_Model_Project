@@ -818,6 +818,42 @@ def _execute_analysis_run(
                     "Run manifest written",
                     directory=str(manifest_dir),
                 )
+                # Emit the single replayable run-envelope JSON that references
+                # (does not duplicate) the manifest just written.
+                try:
+                    from .api import RunResult as _RR
+                    from .export.run_envelope import write_run_envelope
+
+                    envelope_result = locals().get("run_result")
+                    if envelope_result is None:  # pragma: no cover - legacy path
+                        envelope_result = _RR(
+                            metrics_df,
+                            dict(res) if isinstance(res, Mapping) else {},
+                            run_seed,
+                            {
+                                "python": sys.version.split()[0],
+                                "numpy": np.__version__,
+                                "pandas": pd.__version__,
+                            },
+                        )
+                    envelope_path = write_run_envelope(
+                        envelope_result,
+                        config=config_payload,
+                        manifest_path=manifest_dir / "manifest.json",
+                        run_dir=manifest_dir,
+                    )
+                except Exception as exc:  # pragma: no cover - defensive guard
+                    logging.getLogger(__name__).warning(
+                        "Failed to write run envelope: %s", exc
+                    )
+                else:
+                    maybe_log_step(
+                        structured_log,
+                        run_id,
+                        "run_envelope",
+                        "Run envelope written",
+                        path=str(envelope_path),
+                    )
 
     if bundle:
         from .api import RunResult as _RR

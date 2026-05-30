@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import random
 import sys
+import time
 from collections.abc import Mapping, Sized
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, SupportsInt, cast
@@ -34,6 +35,7 @@ from .pipeline import (
     _run_analysis_with_diagnostics,
 )
 from .risk import periods_per_year_from_code
+from .util.hash import normalise_for_json as _normalise_for_json
 from .util.risk_free import resolve_risk_free_settings
 from .util.weights import normalize_weights
 from .weights.robust_config import weight_engine_params_from_robustness
@@ -127,6 +129,12 @@ class RunResult:
     # Multi-period specific fields
     period_results: list[dict[str, Any]] | None = None
     period_count: int = 0
+    # Wall-clock timing of the pipeline dispatch (e.g. ``{"wall_ms": 12.3}``).
+    # Optional/``None``-defaulted so existing positional constructors stay valid.
+    timings: dict[str, float] | None = None
+    # Structured warnings collected during the run (e.g. weight-engine
+    # fallback, missing-data policy). Each entry carries at least a ``code``.
+    warnings: list[dict[str, Any]] | None = None
 
 
 def _run_multi_period_simulation(
@@ -159,6 +167,7 @@ def _run_multi_period_simulation(
     run_id = getattr(config, "run_id", None) or "api_multi_run"
     _log_step(run_id, "multi_period_start", "Starting multi-period simulation")
 
+    _dispatch_start = time.perf_counter()
     try:
         period_results = run_multi_period(config, returns)
     except Exception as exc:
@@ -168,7 +177,9 @@ def _run_multi_period_simulation(
             details={"error": str(exc)},
             seed=seed,
             environment=env,
+            timings={"wall_ms": (time.perf_counter() - _dispatch_start) * 1000.0},
         )
+    timings: dict[str, float] = {"wall_ms": (time.perf_counter() - _dispatch_start) * 1000.0}
 
     if not period_results:
         logger.warning("Multi-period simulation returned no results")
@@ -177,6 +188,7 @@ def _run_multi_period_simulation(
             details={},
             seed=seed,
             environment=env,
+            timings=timings,
         )
 
     _log_step(
@@ -239,6 +251,7 @@ def _run_multi_period_simulation(
         portfolio=portfolio_series,
         period_results=period_results,
         period_count=len(period_results),
+        timings=timings,
     )
 
     if structured is not None:
@@ -506,6 +519,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     _log_step(run_id, "analysis_start", "_run_analysis dispatch")
     resolved_split = _resolve_sample_split(returns, split)
 
+    _dispatch_start = time.perf_counter()
     pipeline_output = _run_analysis(
         returns,
         resolved_split["in_start"],
@@ -541,6 +555,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         risk_free_override=risk_free_override,
         weight_engine_params=weight_engine_params,
     )
+    timings: dict[str, float] = {"wall_ms": (time.perf_counter() - _dispatch_start) * 1000.0}
     diag_hint = cast(DiagnosticPayload | None, getattr(pipeline_output, "diagnostic", None))
     try:
         payload, diag = coerce_pipeline_result(pipeline_output)
@@ -549,7 +564,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             "Unexpected pipeline result type (%s); returning empty payload",
             exc,
         )
-        return RunResult(pd.DataFrame(), {}, seed, env, diagnostic=diag_hint)
+        return RunResult(pd.DataFrame(), {}, seed, env, diagnostic=diag_hint, timings=timings)
     if payload is None:
         # Prefer NO_FUNDS_SELECTED when the input has no investable fund columns
         # (e.g. Date + RF only), even if the configured split yields an empty
@@ -578,7 +593,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             )
         else:
             logger.warning("run_simulation produced no result (unknown reason)")
-        return RunResult(pd.DataFrame(), {}, seed, env, diagnostic=diag)
+        return RunResult(pd.DataFrame(), {}, seed, env, diagnostic=diag, timings=timings)
     res_dict = cast(dict[str, Any], payload)
     if isinstance(res_dict, dict):
         _attach_reporting_metadata(res_dict, config)
@@ -598,6 +613,9 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             {k: v for k, v in ir_map.items() if k not in {"equal_weight", "user_weight"}}
         )
 
+    # Collect structured warnings rather than only logging them, so they can be
+    # surfaced in the replayable run envelope (see export/run_envelope.py).
+    collected_warnings: list[dict[str, Any]] = []
     fallback_raw = res_dict.get("weight_engine_fallback")
     fallback_info: dict[str, Any] | None = fallback_raw if isinstance(fallback_raw, dict) else None
     if fallback_info:
@@ -608,6 +626,25 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             fallback_info.get("safe_mode"),
             fallback_info.get("condition_number"),
             fallback_info.get("condition_threshold"),
+        )
+        collected_warnings.append(
+            {
+                "code": "weight_engine_fallback",
+                "engine": fallback_info.get("engine"),
+                "safe_mode": fallback_info.get("safe_mode"),
+                "condition_number": fallback_info.get("condition_number"),
+                "condition_threshold": fallback_info.get("condition_threshold"),
+            }
+        )
+    # Fold in the missing-data policy summary recorded on the returns frame at
+    # ingestion (``data.py``: ``market_data_missing_policy_summary``) when present.
+    try:
+        policy_summary = returns.attrs.get("market_data_missing_policy_summary")
+    except AttributeError:  # pragma: no cover - defensive (non-frame input)
+        policy_summary = None
+    if policy_summary:
+        collected_warnings.append(
+            {"code": "missing_data_policy", "summary": _normalise_for_json(policy_summary)}
         )
     # Granular logging (best-effort; keys may vary by configuration)
     try:  # pragma: no cover - observational logging
@@ -707,6 +744,8 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         fallback_info=fallback_info,
         analysis=structured,
         diagnostic=diag,
+        timings=timings,
+        warnings=collected_warnings,
     )
 
     if structured is not None:
