@@ -21,6 +21,14 @@ from streamlit_app.components.demo_runner import (  # noqa: E402
     load_preset_config,
     run_demo_with_overrides,
 )
+from streamlit_app.demo_mode import demo_mode_enabled  # noqa: E402
+
+
+def _page_path(page_name: str) -> str:
+    if demo_mode_enabled():
+        return f"streamlit_app/pages/{page_name}"
+    return f"pages/{page_name}"
+
 
 st.set_page_config(
     page_title="Portfolio Simulator",
@@ -213,24 +221,25 @@ if st.button("🚀 Run Demo", type="primary", use_container_width=True):
 
     if success:
         st.success("Demo complete! Viewing results...")
-        st.switch_page("pages/3_Results.py")
+        st.switch_page(_page_path("3_Results.py"))
     else:
         st.error("Demo failed. Check the error message above.")
 
-st.markdown("---")
+if not demo_mode_enabled():
+    st.markdown("---")
 
-# =============================================================================
-# CUSTOM ANALYSIS SECTION
-# =============================================================================
-st.subheader("🔧 Custom Analysis")
-st.markdown("""
-    For full control over all parameters, use the manual workflow:
-    1. **Data** - Load your own CSV/Excel file
-    2. **Model** - Configure all analysis parameters
-    3. **Results** - View and export results
-    """)
+    # =============================================================================
+    # CUSTOM ANALYSIS SECTION
+    # =============================================================================
+    st.subheader("🔧 Custom Analysis")
+    st.markdown("""
+        For full control over all parameters, use the manual workflow:
+        1. **Data** - Load your own CSV/Excel file
+        2. **Model** - Configure all analysis parameters
+        3. **Results** - View and export results
+        """)
 
-if st.button("📂 Go to Data Upload", use_container_width=True):
-    st.switch_page("pages/1_Data.py")
+    if st.button("📂 Go to Data Upload", use_container_width=True):
+        st.switch_page(_page_path("1_Data.py"))
 
-st.caption("The Model page uses a different analysis pipeline with more configuration options.")
+    st.caption("The Model page uses a different analysis pipeline with more configuration options.")

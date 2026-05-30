@@ -15,6 +15,7 @@ import streamlit as st
 
 from streamlit_app.components.llm_settings import (
     default_api_key,
+    demo_mode_disables_llm,
     llm_zone_disabled,
     resolve_api_key_input,
     resolve_llm_provider_config,
@@ -198,6 +199,9 @@ def render_comparison_llm(
     config_diff: str,
     run_key: str,
 ) -> None:
+    if demo_mode_disables_llm():
+        return
+
     if llm_zone_disabled():
         st.info(
             "LLM features are disabled for this deployment zone "

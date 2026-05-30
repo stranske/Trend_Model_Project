@@ -96,6 +96,21 @@ trend app
 
 Then open http://localhost:8501 in your browser.
 
+### 5. Try the Synthetic Demo in Your Browser
+
+The public demo entrypoint is `streamlit_app.py`. It enables
+`TREND_DEMO_MODE=1`, locks the app to bundled synthetic data, hides custom
+uploads, and hides LLM panels:
+
+Public demo URL: https://trend-model-project.streamlit.app/
+
+```bash
+streamlit run streamlit_app.py
+```
+
+Use the internal/on-prem deployment path for proprietary data or LLM-enabled
+analysis.
+
 ## Usage Options
 
 | Interface | Command | Best For |

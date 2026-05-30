@@ -421,6 +421,152 @@ def test_run_page_imports_successfully(monkeypatch: pytest.MonkeyPatch):
                 sys.modules.pop(name, None)
 
 
+def test_demo_mode_disables_llm_and_upload(monkeypatch: pytest.MonkeyPatch):
+    """Demo mode hides LLM panels and the custom-upload path."""
+
+    import importlib
+    import importlib.util
+    from unittest.mock import Mock
+
+    monkeypatch.setenv("TREND_DEMO_MODE", "1")
+    streamlit_mock = Mock()
+    streamlit_mock.session_state = {}
+    streamlit_mock.sidebar = Mock()
+    streamlit_mock.sidebar.__enter__ = Mock(return_value=streamlit_mock.sidebar)
+    streamlit_mock.sidebar.__exit__ = Mock(return_value=False)
+    monkeypatch.setitem(sys.modules, "streamlit", streamlit_mock)
+    existing_streamlit_app = {name for name in sys.modules if name.startswith("streamlit_app")}
+
+    try:
+        llm_settings = importlib.import_module("streamlit_app.components.llm_settings")
+        assert llm_settings.demo_mode_disables_llm()
+
+        model_page_path = Path(__file__).parent.parent / "streamlit_app" / "pages" / "2_Model.py"
+        results_page_path = Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
+        for module_name, module_path in (
+            ("model_page_demo_mode", model_page_path),
+            ("results_page_demo_mode", results_page_path),
+        ):
+            spec = importlib.util.spec_from_file_location(module_name, module_path)
+            assert spec is not None and spec.loader is not None
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+
+        explain_results = importlib.import_module("streamlit_app.components.explain_results")
+        comparison_llm = importlib.import_module("streamlit_app.components.comparison_llm")
+        nl_operation_viewer = importlib.import_module("streamlit_app.components.nl_operation_viewer")
+
+        result = Mock()
+        result.details = {"metrics": []}
+        explain_results.render_explain_results(result, run_key="demo")
+        comparison_llm.render_comparison_llm(
+            result_a=result,
+            result_b=result,
+            label_a="A",
+            label_b="B",
+            config_diff="",
+            run_key="demo",
+        )
+        nl_operation_viewer.render_nl_operation_viewer(base_dir=Path(".trend_nl_logs"))
+
+        assert not streamlit_mock.subheader.called
+        data_page = (Path(__file__).parent.parent / "streamlit_app" / "pages" / "1_Data.py").read_text()
+        assert "if not demo_mode:" in data_page
+        assert "options.append(\"Upload your own\")" in data_page
+    finally:
+        for name in list(sys.modules):
+            if name.startswith("streamlit_app") and name not in existing_streamlit_app:
+                sys.modules.pop(name, None)
+
+
+def test_demo_mode_comparison_results_hide_llm_tab(monkeypatch: pytest.MonkeyPatch):
+    """Demo comparison results render only the deterministic overview tab."""
+
+    import importlib.util
+    from unittest.mock import Mock
+
+    class _Tab:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+    monkeypatch.setenv("TREND_DEMO_MODE", "1")
+    streamlit_mock = Mock()
+    streamlit_mock.session_state = {}
+    captured_tabs: list[list[str]] = []
+
+    def _tabs(names):
+        captured_tabs.append(list(names))
+        return [_Tab() for _ in names]
+
+    streamlit_mock.tabs.side_effect = _tabs
+    monkeypatch.setitem(sys.modules, "streamlit", streamlit_mock)
+    existing_streamlit_app = {name for name in sys.modules if name.startswith("streamlit_app")}
+    results_page_path = Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
+    try:
+        spec = importlib.util.spec_from_file_location("results_page_demo_tabs", results_page_path)
+        assert spec is not None and spec.loader is not None
+        results_page = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(results_page)
+
+        empty = pd.DataFrame()
+        monkeypatch.setattr(results_page.app_state, "diff_model_states", lambda *_args: {})
+        monkeypatch.setattr(
+            results_page.app_state,
+            "format_model_state_diff",
+            lambda *_args, **_kwargs: "",
+        )
+        monkeypatch.setattr(results_page.comparison, "metric_delta_frame", lambda *_args, **_kwargs: empty)
+        monkeypatch.setattr(results_page.comparison, "period_delta", lambda *_args, **_kwargs: empty)
+        monkeypatch.setattr(
+            results_page.comparison,
+            "manager_change_delta",
+            lambda *_args, **_kwargs: empty,
+        )
+        monkeypatch.setattr(results_page.comparison, "build_comparison_bundle", lambda **_kwargs: b"zip")
+        render_llm = Mock()
+        monkeypatch.setattr(results_page.comparison_llm, "render_comparison_llm", render_llm)
+
+        results_page._render_comparison_results(
+            "A",
+            "B",
+            Mock(),
+            Mock(),
+            {},
+            {},
+            data_hash="demo",
+        )
+
+        assert captured_tabs == [["Overview"]]
+        render_llm.assert_not_called()
+    finally:
+        for name in list(sys.modules):
+            if name.startswith("streamlit_app") and name not in existing_streamlit_app:
+                sys.modules.pop(name, None)
+
+
+def test_demo_entrypoint_import_has_no_llm_side_effects(monkeypatch: pytest.MonkeyPatch):
+    """Importing the public demo entrypoint sets demo mode without importing LangChain."""
+
+    import importlib.util
+
+    monkeypatch.delenv("TREND_DEMO_MODE", raising=False)
+    for name in list(sys.modules):
+        if name.startswith("langchain"):
+            sys.modules.pop(name, None)
+
+    entrypoint = Path(__file__).parent.parent / "streamlit_app.py"
+    spec = importlib.util.spec_from_file_location("trend_streamlit_demo_entrypoint", entrypoint)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    assert os.environ["TREND_DEMO_MODE"] == "1"
+    assert not any(name.startswith("langchain") for name in sys.modules)
+
+
 if __name__ == "__main__":
     # Run basic smoke tests when called directly
     print("Running Streamlit app smoke tests...")

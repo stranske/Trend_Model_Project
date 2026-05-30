@@ -18,6 +18,7 @@ from streamlit_app.components.llm_settings import (
     default_api_key as _default_api_key,
 )
 from streamlit_app.components.llm_settings import (
+    demo_mode_disables_llm as _demo_mode_disables_llm,
     llm_zone_disabled as _llm_zone_disabled,
 )
 from streamlit_app.components.llm_settings import (
@@ -238,6 +239,9 @@ def render_explain_results(
     run_key: str,
     provider: str | None = None,
 ) -> None:
+    if _demo_mode_disables_llm():
+        return
+
     if _llm_zone_disabled():
         st.info(
             "LLM features are disabled for this deployment zone "
