@@ -45,6 +45,7 @@ from .io.market_data import (
     load_market_data_parquet as load_mc_market_data_parquet,
 )
 from .io.ui_ingest import inspect_ui_date_issues, load_ui_dataset
+from .identity import IdentityMap
 from .logging_setup import setup_logging
 from .monte_carlo.registry import (
     ScenarioRegistryEntry,
@@ -788,6 +789,7 @@ def _execute_analysis_run(
             config_payload = cfg
         if config_path is not None and input_path is not None:
             try:
+                raw_config_payload = load_config_yaml(config_path)
                 manifest_dir = write_run_artifacts(
                     output_dir=out_dir_path,
                     run_id=run_id,
@@ -799,6 +801,10 @@ def _execute_analysis_run(
                     run_details=res if isinstance(res, Mapping) else {},
                     exported_files=artifact_paths,
                     summary_text=text,
+                    identity_map=IdentityMap.from_config(
+                        raw_config_payload,
+                        base_path=config_path.parent,
+                    ),
                 )
             except Exception as exc:  # pragma: no cover - defensive guard
                 logging.getLogger(__name__).warning(
