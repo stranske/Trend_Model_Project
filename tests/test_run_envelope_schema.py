@@ -165,3 +165,56 @@ def test_run_envelope_cost_latency_and_fallback_warning(tmp_path: Path) -> None:
 
     codes = {w.get("code") for w in envelope["warnings"]}
     assert "weight_engine_fallback" in codes
+
+
+def test_run_envelope_writes_strict_json_for_non_finite_warning(tmp_path: Path) -> None:
+    """Non-finite diagnostic values are preserved without invalid JSON tokens."""
+
+    cfg = _make_robust_cfg()
+    result = api.run_simulation(cfg, _make_ill_conditioned_df())
+    result.warnings = [{"code": "condition", "condition_number": float("inf")}]
+
+    config_payload = dict(vars(cfg)) if not hasattr(cfg, "model_dump") else cfg.model_dump()
+    manifest_path = _write_manifest(tmp_path, config=config_payload)
+    out_path = write_run_envelope(result, config=config_payload, manifest_path=manifest_path)
+    raw = out_path.read_text(encoding="utf-8")
+
+    assert "Infinity" in raw
+    assert '"condition_number": "Infinity"' in raw
+    jsonschema.validate(json.loads(raw), _schema())
+
+
+def test_run_envelope_fails_fast_for_bad_manifest(tmp_path: Path) -> None:
+    """A missing or corrupted manifest must not produce a partial envelope."""
+
+    cfg = _make_robust_cfg()
+    result = api.run_simulation(cfg, _make_ill_conditioned_df())
+
+    with pytest.raises(FileNotFoundError):
+        to_run_envelope(result, config=cfg, manifest_path=tmp_path / "missing.json")
+
+    bad_manifest = tmp_path / "bad-manifest.json"
+    bad_manifest.write_text("[1, 2, 3]", encoding="utf-8")
+    with pytest.raises(ValueError, match="manifest must be a JSON object"):
+        to_run_envelope(result, config=cfg, manifest_path=bad_manifest)
+
+
+def test_run_envelope_manifest_reference_is_relative_to_run_dir(tmp_path: Path) -> None:
+    """A non-adjacent run_dir keeps a valid cross-link to the manifest."""
+
+    cfg = _make_robust_cfg()
+    result = api.run_simulation(cfg, _make_ill_conditioned_df())
+    config_payload = dict(vars(cfg)) if not hasattr(cfg, "model_dump") else cfg.model_dump()
+    manifest_path = _write_manifest(tmp_path, config=config_payload)
+    envelope_dir = tmp_path / "envelopes"
+
+    out_path = write_run_envelope(
+        result,
+        config=config_payload,
+        manifest_path=manifest_path,
+        run_dir=envelope_dir,
+    )
+    envelope = json.loads(out_path.read_text(encoding="utf-8"))
+
+    assert envelope["outputs"]["manifest"] == "../runs/20200101_000000_demoabcd/manifest.json"
+    assert (out_path.parent / envelope["outputs"]["manifest"]).resolve() == manifest_path.resolve()

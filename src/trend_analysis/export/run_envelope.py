@@ -17,9 +17,11 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import math
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Mapping, cast
 
 from trend_analysis.util.hash import normalise_for_json, sha256_config, sha256_text
 
@@ -27,6 +29,33 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from trend_analysis.api import RunResult
 
 SCHEMA_VERSION = "trend.run_envelope/1"
+
+
+def _strict_json_value(value: Any) -> Any:
+    """Return a JSON value that can be written with ``allow_nan=False``."""
+
+    normalised = normalise_for_json(value)
+    if isinstance(normalised, Mapping):
+        return {k: _strict_json_value(v) for k, v in normalised.items()}
+    if isinstance(normalised, list):
+        return [_strict_json_value(item) for item in normalised]
+    if isinstance(normalised, tuple):
+        return [_strict_json_value(item) for item in normalised]
+    if isinstance(normalised, float) and not math.isfinite(normalised):
+        if math.isnan(normalised):
+            return "NaN"
+        return "Infinity" if normalised > 0 else "-Infinity"
+    return normalised
+
+
+def _manifest_reference(manifest_path: Path, target_dir: Path) -> str:
+    """Return the manifest path as it should appear inside the envelope."""
+
+    try:
+        relative = Path(os.path.relpath(manifest_path, start=target_dir))
+    except ValueError:  # pragma: no cover - different drives on Windows
+        return str(manifest_path)
+    return relative.as_posix()
 
 
 @dataclass
@@ -75,21 +104,20 @@ def _serialise_diagnostic(diagnostic: Any) -> dict[str, Any] | None:
     if diagnostic is None:
         return None
     if dataclasses.is_dataclass(diagnostic) and not isinstance(diagnostic, type):
-        return cast("dict[str, Any]", normalise_for_json(dataclasses.asdict(diagnostic)))
+        return cast("dict[str, Any]", _strict_json_value(dataclasses.asdict(diagnostic)))
     if hasattr(diagnostic, "model_dump"):
-        return cast("dict[str, Any]", normalise_for_json(diagnostic.model_dump()))
+        return cast("dict[str, Any]", _strict_json_value(diagnostic.model_dump()))
     if isinstance(diagnostic, dict):
-        return cast("dict[str, Any]", normalise_for_json(diagnostic))
+        return cast("dict[str, Any]", _strict_json_value(diagnostic))
     return {"message": str(diagnostic)}
 
 
 def _load_manifest(manifest_path: Path) -> dict[str, Any]:
-    try:
-        with open(manifest_path, "r", encoding="utf-8") as fh:
-            data = json.load(fh)
-        return data if isinstance(data, dict) else {}
-    except (OSError, ValueError):  # pragma: no cover - defensive
-        return {}
+    with open(manifest_path, "r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    if not isinstance(data, dict):
+        raise ValueError(f"manifest must be a JSON object: {manifest_path}")
+    return data
 
 
 def to_run_envelope(
@@ -101,6 +129,7 @@ def to_run_envelope(
     warnings: list[dict[str, Any]] | None = None,
     actor: str | None = None,
     intent: str | None = None,
+    manifest_reference: str | None = None,
 ) -> dict[str, Any]:
     """Build the run-envelope ``dict`` for *result*, cross-linking the manifest.
 
@@ -126,6 +155,7 @@ def to_run_envelope(
 
     manifest_path = Path(manifest_path)
     manifest = _load_manifest(manifest_path)
+    manifest_ref = manifest_reference or manifest_path.name
 
     config_sha256 = sha256_config(config)
     input_sha256 = manifest.get("input_sha256")
@@ -164,13 +194,13 @@ def to_run_envelope(
     envelope = RunEnvelope(
         run_id=run_id,
         inputs={"config_sha256": config_sha256, "input_sha256": input_sha256},
-        outputs={"manifest": manifest_path.name, "artifacts": artifact_names},
+        outputs={"manifest": manifest_ref, "artifacts": artifact_names},
         provenance={
             "git_hash": manifest.get("git_hash"),
-            "environment": normalise_for_json(getattr(result, "environment", {}) or {}),
+            "environment": _strict_json_value(getattr(result, "environment", {}) or {}),
         },
         cost_latency=cost_latency,
-        warnings=[normalise_for_json(w) for w in effective_warnings],
+        warnings=[_strict_json_value(w) for w in effective_warnings],
         diagnostic=_serialise_diagnostic(getattr(result, "diagnostic", None)),
         actor=actor,
         intent=intent,
@@ -193,6 +223,7 @@ def write_run_envelope(
 
     manifest_path = Path(manifest_path)
     target_dir = Path(run_dir) if run_dir is not None else manifest_path.parent
+    manifest_ref = _manifest_reference(manifest_path, target_dir)
     envelope = to_run_envelope(
         result,
         config=config,
@@ -201,8 +232,9 @@ def write_run_envelope(
         warnings=warnings,
         actor=actor,
         intent=intent,
+        manifest_reference=manifest_ref,
     )
     out_path = target_dir / "run_envelope.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(envelope, indent=2), encoding="utf-8")
+    out_path.write_text(json.dumps(envelope, indent=2, allow_nan=False), encoding="utf-8")
     return out_path

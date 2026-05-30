@@ -822,7 +822,7 @@ def _execute_analysis_run(
                     if envelope_result is None:  # pragma: no cover - legacy path
                         envelope_result = _RR(
                             metrics_df,
-                            res if isinstance(res, dict) else {},
+                            dict(res) if isinstance(res, Mapping) else {},
                             run_seed,
                             {
                                 "python": sys.version.split()[0],
