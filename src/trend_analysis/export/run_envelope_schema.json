@@ -73,6 +73,9 @@
         }
       }
     },
+    "data_reality": {
+      "type": ["object", "null"]
+    },
     "diagnostic": {
       "type": ["object", "null"]
     }

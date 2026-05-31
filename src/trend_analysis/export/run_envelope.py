@@ -73,6 +73,7 @@ class RunEnvelope:
     provenance: dict[str, Any]
     cost_latency: dict[str, Any]
     warnings: list[dict[str, Any]] = field(default_factory=list)
+    data_reality: dict[str, Any] | None = None
     diagnostic: dict[str, Any] | None = None
     actor: str | None = None
     intent: str | None = None
@@ -89,6 +90,7 @@ class RunEnvelope:
             "provenance": self.provenance,
             "cost_latency": self.cost_latency,
             "warnings": self.warnings,
+            "data_reality": self.data_reality,
             "diagnostic": self.diagnostic,
         }
         if self.actor is not None:
@@ -104,7 +106,9 @@ def _serialise_diagnostic(diagnostic: Any) -> dict[str, Any] | None:
     if diagnostic is None:
         return None
     if dataclasses.is_dataclass(diagnostic) and not isinstance(diagnostic, type):
-        return cast("dict[str, Any]", _strict_json_value(dataclasses.asdict(diagnostic)))
+        return cast(
+            "dict[str, Any]", _strict_json_value(dataclasses.asdict(diagnostic))
+        )
     if hasattr(diagnostic, "model_dump"):
         return cast("dict[str, Any]", _strict_json_value(diagnostic.model_dump()))
     if isinstance(diagnostic, dict):
@@ -180,9 +184,13 @@ def to_run_envelope(
         if isinstance(a, dict) and a.get("name") is not None
     ]
 
-    effective_timings = timings if timings is not None else (getattr(result, "timings", None) or {})
+    effective_timings = (
+        timings if timings is not None else (getattr(result, "timings", None) or {})
+    )
     wall_ms = effective_timings.get("wall_ms")
-    cost_latency: dict[str, Any] = {"wall_ms": float(wall_ms) if wall_ms is not None else None}
+    cost_latency: dict[str, Any] = {
+        "wall_ms": float(wall_ms) if wall_ms is not None else None
+    }
     peak_rss_kb = effective_timings.get("peak_rss_kb")
     if peak_rss_kb is not None:
         cost_latency["peak_rss_kb"] = peak_rss_kb
@@ -201,6 +209,14 @@ def to_run_envelope(
         },
         cost_latency=cost_latency,
         warnings=[_strict_json_value(w) for w in effective_warnings],
+        data_reality=cast(
+            "dict[str, Any] | None",
+            (
+                _strict_json_value(manifest.get("data_reality"))
+                if isinstance(manifest.get("data_reality"), dict)
+                else None
+            ),
+        ),
         diagnostic=_serialise_diagnostic(getattr(result, "diagnostic", None)),
         actor=actor,
         intent=intent,
@@ -236,5 +252,7 @@ def write_run_envelope(
     )
     out_path = target_dir / "run_envelope.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(envelope, indent=2, allow_nan=False), encoding="utf-8")
+    out_path.write_text(
+        json.dumps(envelope, indent=2, allow_nan=False), encoding="utf-8"
+    )
     return out_path

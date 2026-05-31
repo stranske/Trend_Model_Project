@@ -35,6 +35,26 @@
   - Trend PR #5353 remains the known scoped product/CI blocker on #5343: owner decision needed on no-LLM demo CI scope vs langchain pinning before a safe fix.
 - Next action: keepalive owns CI/check follow-up for PR #5359; closer/workflow-health owns #5353 product-blocker disposition after an owner decision.
 
+## 2026-05-31T06:09:00Z - opener lane issue #5350 PR materializing
+
+- Repo: stranske/Trend_Model_Project
+- Issue: #5350 `Promote missingness into the run manifest as a first-class data_reality block (data_reality_layer)`
+- Branch: codex/issue-5350-data-reality
+- Agent: codex
+- Selection:
+  - Opener cap-health showed raw cap below 5. Existing opener PRs were classified before selection: Trend #5359 active-moving, Trend #5353 scoped product/CI blocker, TPP #1133 repaired by dispatching Gate Followups, and PAEM #1847 scoped as a non-registry branch/routing human blocker.
+  - High-priority candidates were linked, merged-awaiting-verifier, or scoped-blocked. Older normal candidates #1833/#1837/#1128 were merged, #1129 and #5345 were linked to open PRs, and #5350 had no all-state linked PR.
+- Changes:
+  - Added `data_reality` manifest projection in `run_artifacts.py`, sourced from existing market-data frame attrs/metadata.
+  - Added run-envelope pass-through for manifest `data_reality`.
+  - Added focused tests covering partial missingness, all-good empty lists, demo fixture policy projection, and run-envelope projection.
+- Validation:
+  - `python -m pytest tests/test_data_reality_manifest.py tests/test_run_artifacts.py tests/test_run_envelope_schema.py -q` -> 18 passed.
+  - `python -m ruff check src/trend_analysis/reporting/run_artifacts.py src/trend_analysis/export/run_envelope.py tests/test_data_reality_manifest.py tests/test_run_artifacts.py tests/test_run_envelope_schema.py` -> passed.
+  - `python -m black --check --fast src/trend_analysis/reporting/run_artifacts.py src/trend_analysis/export/run_envelope.py tests/test_data_reality_manifest.py` -> passed.
+  - `git diff --check` -> passed.
+- Next action: commit, push, open a ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`.
+
 ## 2026-05-25T15:01:13Z - opener lane issue #2933 PR materializing
 
 - Repo: stranske/Trend_Model_Project
