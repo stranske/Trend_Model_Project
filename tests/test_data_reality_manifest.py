@@ -103,6 +103,40 @@ def test_all_good_run_emits_empty_lists(tmp_path: Path) -> None:
     assert reality["instruments"][0]["disposition"] == "kept"
 
 
+def test_dropped_instrument_is_projected_with_dropped_disposition(
+    tmp_path: Path,
+) -> None:
+    frame = pd.DataFrame(
+        {
+            "Date": pd.date_range("2021-01-31", periods=3, freq="ME"),
+            "Mgr_A": [0.01, 0.03, 0.02],
+        }
+    )
+    frame.attrs["market_data_missing_policy"] = "drop"
+    frame.attrs["market_data"] = {
+        "metadata": {
+            "missing_policy_dropped": ["Mgr_B"],
+        }
+    }
+
+    manifest = _write_manifest(tmp_path, frame)
+
+    reality = manifest["data_reality"]
+    dropped_item = next(
+        item for item in reality["instruments"] if item["label"] == "Mgr_B"
+    )
+    assert dropped_item["disposition"] == "dropped"
+    assert dropped_item["reason"] == "missing_policy_dropped"
+    assert dropped_item["missing_count"] == 0
+    assert reality["dropped"] == [
+        {
+            "label": "Mgr_B",
+            "disposition": "dropped",
+            "reason": "missing_policy_dropped",
+        }
+    ]
+
+
 def test_demo_fixture_manifest_records_configured_missing_policy(
     tmp_path: Path,
 ) -> None:
