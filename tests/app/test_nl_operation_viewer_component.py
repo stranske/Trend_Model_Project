@@ -380,7 +380,11 @@ def test_render_replay_stores_result_and_renders_redacted(
 
     replay_mock.assert_called_once()
     assert st_stub.session_state["nl_replay_result_1"]["output"] == replay_result.output
-    assert st_stub.expander.call_args_list[-1].args[0] == "Replay Results"
+    # Replay results render under a markdown header inside a bordered container,
+    # NOT a nested st.expander (which Streamlit forbids when this viewer is shown
+    # inside the Config Chat expander). See nl_operation_viewer #6 fix.
+    markdown_calls = [call.args[0] for call in st_stub.markdown.call_args_list if call.args]
+    assert "**Replay Results**" in markdown_calls
     code_calls = [call.args[0] for call in st_stub.code.call_args_list]
     redacted_output = module._redact_text(replay_result.output)
     redacted_diff = module._redact_text(replay_result.diff)

@@ -1559,16 +1559,26 @@ def combined_summary_result(
     # portfolio-level stats above, not a hardcoded zero -- otherwise a configured
     # risk-free override (metrics.rf_rate_annual) never reaches the reported
     # per-fund Sharpe/Sortino. Align rf to each fund's concatenated index.
+    # Align the risk-free series onto a fund's concatenated multi-period index in
+    # a way that tolerates DUPLICATE date labels: the same month recurs across
+    # overlapping in/out periods, so ``joined.index`` (and possibly ``rf_*``) is
+    # non-unique. ``Series.reindex`` rejects duplicate labels ("cannot reindex on
+    # an axis with duplicate labels"), which previously broke multi-period
+    # aggregation; map each label through a de-duplicated lookup instead.
+    def _align_rf(rf_src: Any, index: Any) -> Any:
+        lookup = rf_src[~rf_src.index.duplicated(keep="last")]
+        return pd.Series(index.map(lookup), index=index, dtype="float64").fillna(0.0)
+
     in_stats: dict[str, Any] = {}
     for f, series_list in fund_in.items():
         joined = pd.concat(series_list)
-        rf = rf_in.reindex(joined.index).fillna(0.0)
+        rf = _align_rf(rf_in, joined.index)
         in_stats[f] = _compute_stats(pd.DataFrame({f: joined}), rf)[f]
 
     out_stats: dict[str, Any] = {}
     for f, series_list in fund_out.items():
         joined = pd.concat(series_list)
-        rf = rf_out.reindex(joined.index).fillna(0.0)
+        rf = _align_rf(rf_out, joined.index)
         out_stats[f] = _compute_stats(pd.DataFrame({f: joined}), rf)[f]
 
     fund_weights = {f: weight_sum[f] / periods for f in weight_sum}
