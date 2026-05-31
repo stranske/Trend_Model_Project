@@ -43,19 +43,29 @@ jobs:
           pip install -e ".[dev]"
           pip install "app-baseline-kit @ git+https://x-access-token:${{ secrets.AGENTS_AUTOMATION_PAT }}@github.com/stranske/Workflows.git#subdirectory=packages/app-baseline-kit"
 
-      - name: Run baseline suite (regenerates the coverage report)
+      - name: Refresh coverage manifest report
         env:
           PYTHONHASHSEED: "0"
-        run: pytest tests/baseline/ -n0 -q
+        # Non-aborting: a golden drift must not stop the regression report below.
+        run: pytest tests/baseline/test_coverage_manifest.py -n0 -q || true
 
-      - name: Commit refreshed report if changed
+      - name: Emit baseline-regression report on golden drift
+        env:
+          PYTHONHASHSEED: "0"
+        # Runs the golden suite; on drift writes docs/reports/baseline-regression.md
+        # for the weekly repo-review evaluator to turn into an "investigate drift"
+        # issue. Removes the report when goldens are clean. Always exits 0.
+        run: python scripts/baseline_regression_report.py
+
+      - name: Commit refreshed reports if changed
         run: |
-          if ! git diff --quiet -- docs/reports/baseline-coverage.md; then
+          if ! git diff --quiet -- docs/reports/baseline-coverage.md docs/reports/baseline-regression.md \
+             || [ -n "$(git status --porcelain docs/reports/baseline-regression.md)" ]; then
             git config user.name "stranske-bot"
             git config user.email "bot@stranskemo.com"
-            git add docs/reports/baseline-coverage.md
-            git commit -m "chore(baseline): refresh coverage report [skip ci]"
-            git push
+            git add -A docs/reports/baseline-coverage.md docs/reports/baseline-regression.md
+            git commit -m "chore(baseline): refresh coverage + regression reports [skip ci]" || echo "nothing to commit"
+            git push || echo "nothing to push"
           else
-            echo "Coverage report already current."
+            echo "Baseline reports already current."
           fi
