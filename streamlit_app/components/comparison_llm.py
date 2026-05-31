@@ -15,6 +15,7 @@ import streamlit as st
 
 from streamlit_app.components.llm_settings import (
     default_api_key,
+    llm_zone_disabled,
     resolve_api_key_input,
     resolve_llm_provider_config,
     sanitize_api_key,
@@ -197,6 +198,14 @@ def render_comparison_llm(
     config_diff: str,
     run_key: str,
 ) -> None:
+    if llm_zone_disabled():
+        st.info(
+            "LLM features are disabled for this deployment zone "
+            "(TREND_LLM_ZONE=disabled). The deterministic analysis engine is "
+            "unaffected; set an authorized no-train endpoint and "
+            "TREND_LLM_ZONE=internal_authorized to enable comparisons."
+        )
+        return
     st.subheader("LLM Comparison")
     st.caption(
         "Use an LLM to analyze why the two simulations differ, focusing on parameter changes."

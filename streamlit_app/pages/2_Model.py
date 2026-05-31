@@ -26,6 +26,9 @@ from streamlit_app.components.llm_settings import (
     anthropic_api_key_status as _anthropic_api_key_status,
 )
 from streamlit_app.components.llm_settings import (
+    llm_zone_disabled as _llm_zone_disabled,
+)
+from streamlit_app.components.llm_settings import (
     resolve_llm_provider_config as _resolve_llm_provider_config_shared,
 )
 from streamlit_app.components.llm_settings import (
@@ -2091,6 +2094,13 @@ def render_config_chat_panel(
 ) -> None:
     """Render the Config Chat panel for natural-language config tweaks."""
 
+    if _llm_zone_disabled():
+        st.info(
+            "Natural-language config editing is disabled for this deployment zone "
+            "(TREND_LLM_ZONE=disabled)."
+        )
+        return
+
     if location == "sidebar":
         sidebar_ctx = st.sidebar
         if not (hasattr(sidebar_ctx, "__enter__") and hasattr(sidebar_ctx, "__exit__")):
@@ -2113,6 +2123,12 @@ def _render_variant_what_if_panel(
     benchmark: str | None,
 ) -> None:
     st.subheader("🔀 What-if (3 variants)")
+    if _llm_zone_disabled():
+        st.info(
+            "LLM what-if generation is disabled for this deployment zone "
+            "(TREND_LLM_ZONE=disabled)."
+        )
+        return
     st.caption(
         "Generate conservative, baseline, and aggressive variants from one instruction, "
         "then compare their analysis metrics side-by-side."

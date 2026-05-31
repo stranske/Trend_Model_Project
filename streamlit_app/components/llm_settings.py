@@ -10,6 +10,34 @@ import streamlit as st
 from trend_analysis.llm import LLMProviderConfig
 
 logger = logging.getLogger(__name__)
+
+LLM_ZONE_ENV = "TREND_LLM_ZONE"
+LLM_ZONE_INTERNAL = "internal_authorized"
+LLM_ZONE_DISABLED = "disabled"
+
+
+def llm_zone() -> str:
+    """Resolve the deployment LLM zone from ``TREND_LLM_ZONE``.
+
+    Returns ``"disabled"`` only when the env var is explicitly set to
+    ``disabled`` (case-insensitive); any other value — including unset —
+    resolves to ``"internal_authorized"``. This keeps a proprietary on-prem
+    zone that has no authorized LLM endpoint running the deterministic engine
+    while suppressing Streamlit LLM entry points.
+    """
+
+    raw = (os.environ.get(LLM_ZONE_ENV) or "").strip().lower()
+    if raw == LLM_ZONE_DISABLED:
+        return LLM_ZONE_DISABLED
+    return LLM_ZONE_INTERNAL
+
+
+def llm_zone_disabled() -> bool:
+    """Return ``True`` when LLM features must be hidden for this zone."""
+
+    return llm_zone() == LLM_ZONE_DISABLED
+
+
 _PLACEHOLDER_PREFIXES = ("YOUR_", "CHANGE_ME", "REPLACE_ME")
 _ALLOWED_KEY_NAMES = {
     "TS_STREAMLIT_API_KEY",
@@ -116,8 +144,8 @@ def anthropic_api_key_status(
 
 
 def default_api_key(provider_name: str) -> str | None:
-    proxy_url = os.environ.get("TS_LLM_PROXY_URL")
-    if proxy_url:
+    proxy_url = os.environ.get("TS_LLM_PROXY_URL") or os.environ.get("TREND_LLM_BASE_URL")
+    if proxy_url and "llm-proxy" in proxy_url:
         token = os.environ.get("TS_LLM_PROXY_TOKEN")
         token = sanitize_api_key(token)
         if token:
@@ -185,6 +213,10 @@ def resolve_llm_provider_config(
         resolved_api_key = sanitize_api_key(read_secret("TREND_LLM_API_KEY"))
     if not resolved_api_key and provider_name == "openai":
         resolved_api_key = sanitize_api_key(read_secret("OPENAI_API_KEY"))
+    if not resolved_api_key:
+        resolved_base_url = base_url or os.environ.get("TREND_LLM_BASE_URL")
+        if resolved_base_url and "llm-proxy" in resolved_base_url:
+            resolved_api_key = sanitize_api_key(os.environ.get("TS_LLM_PROXY_TOKEN"))
     if provider_name in {"openai", "anthropic"} and not resolved_api_key and require_api_key:
         env_hint = (
             "OPENAI_API_KEY"
@@ -211,8 +243,13 @@ def resolve_llm_provider_config(
 
 
 __all__ = [
+    "LLM_ZONE_DISABLED",
+    "LLM_ZONE_ENV",
+    "LLM_ZONE_INTERNAL",
     "anthropic_api_key_status",
     "default_api_key",
+    "llm_zone",
+    "llm_zone_disabled",
     "read_secret",
     "resolve_api_key_input",
     "resolve_anthropic_api_key",
