@@ -23,7 +23,9 @@ def _assert_invariants(out, *, long_only, max_weight, context=""):
 
 
 def test_baseline_invariants(baseline_output):
-    _assert_invariants(baseline_output, long_only=True, max_weight=0.25)
+    # The demo configures no max_weight cap (constraints: None), so don't assert one;
+    # the configured rank-top-5 portfolio's natural max weight is not a cap violation.
+    _assert_invariants(baseline_output, long_only=True, max_weight=None)
 
 
 @pytest.mark.parametrize("scen", _SCENARIOS, ids=_SCEN_IDS)
@@ -31,5 +33,6 @@ def test_scenario_invariants(scen):
     patch = {**(scen.get("base") or {}), **(scen.get("vary") or {})}
     out = run_scenario("config/demo.yml", patch)
     long_only = bool(_effective(patch, "portfolio.constraints.long_only", True))
-    max_weight = _effective(patch, "portfolio.constraints.max_weight", 0.25)
+    # Only assert the max_weight cap when the scenario actually configures one.
+    max_weight = _effective(patch, "portfolio.constraints.max_weight", None)
     _assert_invariants(out, long_only=long_only, max_weight=max_weight, context=scen["id"])
