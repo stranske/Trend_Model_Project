@@ -6,8 +6,8 @@ the LLM inside the org perimeter):
 * ``test_app_uses_base_url_from_env`` locks the contract that the Streamlit LLM
   settings honor ``TREND_LLM_BASE_URL`` so the app talks to the in-perimeter
   proxy instead of the public API.
-* ``test_zone_disabled_hides_llm`` proves the LLM components construct no
-  provider and render no panels when ``TREND_LLM_ZONE=disabled``.
+* ``test_zone_disabled_hides_llm`` proves the guarded LLM components construct
+  no provider and render no panels when ``TREND_LLM_ZONE=disabled``.
 * ``test_proxy_request_body_within_limit`` proves the proxy's data-egress
   ceiling (``TS_LLM_PROXY_MAX_BODY_BYTES``) bounds what leaves the perimeter.
 """
@@ -32,6 +32,8 @@ _ENV_KEYS = (
     "ANTHROPIC_API_KEY",
     "CLAUDE_API_STRANSKE",
     "TS_LLM_PROXY_MAX_BODY_BYTES",
+    "TS_LLM_PROXY_TOKEN",
+    "TS_LLM_PROXY_URL",
 )
 
 
@@ -50,6 +52,23 @@ def test_app_uses_base_url_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     config = resolve_llm_provider_config("openai", api_key="sk-test")
 
     assert config.base_url == "http://llm-proxy:8799/v1"
+
+
+def test_proxy_token_used_for_internal_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Internal proxy routing uses the proxy token as the client API key."""
+
+    from streamlit_app.components.llm_settings import (
+        default_api_key,
+        resolve_llm_provider_config,
+    )
+
+    monkeypatch.setenv("TREND_LLM_BASE_URL", "http://llm-proxy:8799/v1")
+    monkeypatch.setenv("TS_LLM_PROXY_TOKEN", "proxy-token")
+
+    assert default_api_key("openai") == "proxy-token"
+    config = resolve_llm_provider_config("openai")
+    assert config.base_url == "http://llm-proxy:8799/v1"
+    assert config.api_key == "proxy-token"
 
 
 def _reload_with_stub(module_name: str, monkeypatch: pytest.MonkeyPatch) -> Any:

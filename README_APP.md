@@ -60,8 +60,8 @@ route LLM traffic only through the bundled no-egress proxy. The deterministic
 engine and uploaded data never leave the host; LLM calls go through
 `trend-llm-proxy` pointed at an authorized no-train upstream (an on-prem Ollama
 endpoint keeps prompts in-perimeter too). Set `TREND_LLM_ZONE=disabled` to hide
-all LLM panels in a zone that has no authorized endpoint while still running the
-deterministic engine.
+Streamlit LLM entry points in a zone that has no authorized endpoint while still
+running the deterministic engine.
 
 See [`docs/deployment/INTERNAL_HOSTING.md`](docs/deployment/INTERNAL_HOSTING.md)
 for the Docker Compose recipe (`docker compose --profile internal up`) and the

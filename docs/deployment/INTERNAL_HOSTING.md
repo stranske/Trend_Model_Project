@@ -35,8 +35,8 @@ perimeter at all.
   `src/trend_analysis/llm/providers.py` (`base_url` override), so the app talks
   to the proxy instead of the public API.
 - `TREND_LLM_ZONE` switch (new): `internal_authorized` routes via the proxy;
-  `disabled` hides every LLM panel so a zone with no authorized endpoint still
-  runs the deterministic engine.
+  `disabled` hides the Streamlit LLM entry points so a zone with no authorized
+  endpoint still runs the deterministic engine.
 
 ## Run it (Docker Compose)
 
@@ -75,8 +75,9 @@ TREND_LLM_ZONE=disabled docker compose --profile internal up app-internal
 ## What is and isn't sent upstream
 
 - **Sent upstream (only when zone is `internal_authorized`):** the LLM
-  request bodies the app constructs for the Explain Results / LLM Comparison
-  panels, forwarded by `llm-proxy` to `TS_LLM_PROXY_UPSTREAM`.
+  request bodies the app constructs for Explain Results, LLM Comparison,
+  natural-language config edits, and LLM what-if variants, forwarded by
+  `llm-proxy` to `TS_LLM_PROXY_UPSTREAM`.
 - **Never sent:** uploaded returns files, the analysis cache, and the API key
   (the proxy injects the key server-side; the browser and app never hold the
   upstream key when a proxy token is used).
@@ -110,9 +111,8 @@ the acceptance gate for issue #5344.
    proxy URL and make **no direct call** to `api.openai.com` (verify with host
    egress monitoring / firewall logs). Restart the proxy to restore.
 4. **Deterministic features still work with zone `disabled`.** Restart with
-   `TREND_LLM_ZONE=disabled`; confirm the LLM panels are hidden (a single
-   "LLM features are disabled" notice appears) and that analysis runs still
-   complete.
+   `TREND_LLM_ZONE=disabled`; confirm the LLM entry points show disabled-zone
+   notices and that analysis runs still complete.
 
 ## Security notes
 

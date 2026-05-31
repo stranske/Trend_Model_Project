@@ -32,7 +32,7 @@ services:
     environment:
       # Operator supplies an authorized no-train upstream at deploy time
       # (e.g. an on-prem Ollama endpoint for the lowest-egress option).
-      - TS_LLM_PROXY_UPSTREAM=${TS_LLM_PROXY_UPSTREAM:?set TS_LLM_PROXY_UPSTREAM to your authorized no-train endpoint}
+      - TS_LLM_PROXY_UPSTREAM=${TS_LLM_PROXY_UPSTREAM:-}
       - TS_LLM_PROXY_TOKEN=${TS_LLM_PROXY_TOKEN:-}
       - TREND_LLM_API_KEY=${TREND_LLM_API_KEY:-}
       # Optional data-egress ceiling (bytes); unset means no limit.
@@ -47,10 +47,9 @@ services:
     environment:
       # Route all LLM traffic through the in-perimeter proxy, never the public API.
       - TREND_LLM_BASE_URL=http://llm-proxy:8799/v1
-      # internal_authorized routes via the proxy; disabled hides all LLM panels.
+      - TS_LLM_PROXY_URL=http://llm-proxy:8799/v1
+      # internal_authorized routes via the proxy; disabled hides LLM entry points.
       - TREND_LLM_ZONE=${TREND_LLM_ZONE:-internal_authorized}
       - TS_LLM_PROXY_TOKEN=${TS_LLM_PROXY_TOKEN:-}
-    depends_on:
-      - llm-proxy
     volumes:
       - ./data:/app/data
