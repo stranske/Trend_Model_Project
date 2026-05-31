@@ -50,14 +50,10 @@ def test_page_renders_without_exception(page):
     assert produced > 0, f"{page} rendered nothing"
 
 
-@pytest.mark.xfail(
-    reason="Finding (2026-05-30): 2_Model.py raises StreamlitAPIException "
-    "'Expanders may not be nested inside other expanders' at "
-    "_render_config_chat_contents (2_Model.py:2078) on cold render. "
-    "Remove this xfail once the nested-expander is fixed.",
-    strict=True,
-)
 def test_model_page_renders_without_exception():
+    # Regression guard for the nested-expander crash fixed 2026-05-30
+    # (_render_config_chat_contents previously opened expanders inside the
+    # "Config Chat" expander). Cold render shows the data guard, not an exception.
     at = _run_page("streamlit_app/pages/2_Model.py")
     assert not at.exception, f"2_Model raised: {[e.value for e in at.exception]}"
 
