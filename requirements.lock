@@ -349,7 +349,9 @@ ptyprocess==0.7.0 ; sys_platform != 'emscripten' and sys_platform != 'win32'
 pure-eval==0.2.3
     # via stack-data
 pyarrow==23.0.1
-    # via streamlit
+    # via
+    #   trend-model (pyproject.toml)
+    #   streamlit
 pycodestyle==2.14.0
     # via flake8
 pydantic==2.13.4
