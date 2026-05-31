@@ -13,10 +13,10 @@ import pandas as pd
 
 from trend_analysis.backtesting import BacktestResult, CostModel, bootstrap_equity
 from trend_analysis.util.hash import (
+    content_run_id,
     normalise_for_json,
     sha256_config,
     sha256_file,
-    sha256_text,
 )
 
 
@@ -72,13 +72,7 @@ def export_bundle(run: Any, path: Path) -> Path:
             sha256_file(input_path) if input_path is not None and input_path.exists() else None
         )
         config_sha256 = sha256_config(config)
-        run_id_src = "|".join(
-            filter(
-                None,
-                [input_sha256, config_sha256, str(seed) if seed is not None else ""],
-            )
-        )
-        run_id = sha256_text(run_id_src)
+        run_id = content_run_id(input_sha256, config_sha256, seed)
 
         # ------------------------------------------------------------------
         # Results CSVs

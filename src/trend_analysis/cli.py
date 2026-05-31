@@ -59,7 +59,8 @@ from .monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
 from .perf.rolling_cache import set_cache_enabled
 from .presets import apply_trend_preset, get_trend_preset, list_preset_slugs
 from .reporting.portfolio_series import select_primary_portfolio_series
-from .reporting.run_artifacts import write_run_artifacts
+from .reporting.run_artifacts import find_existing_run, write_run_artifacts
+from .util.hash import working_run_id
 from .signal_presets import (
     TrendSpecPreset,
     get_trend_spec_preset,
@@ -603,6 +604,39 @@ def _run_from_ui_payload(
     )
 
 
+def _resolve_run_output_dir(cfg: Any) -> Path | None:
+    """Resolve the run-artifacts output directory the export path would use.
+
+    Mirrors the ``out_dir``/``out_formats`` resolution in
+    :func:`_execute_analysis_run` so the ``--skip-if-exists`` lookup checks the
+    same location run artifacts are written to.
+    """
+
+    export_cfg = getattr(cfg, "export", None)
+    out_dir = out_formats = None
+    if isinstance(export_cfg, Mapping):
+        out_dir = export_cfg.get("directory")
+        out_formats = export_cfg.get("formats")
+    elif export_cfg is not None:
+        out_dir = getattr(export_cfg, "directory", None)
+        out_formats = getattr(export_cfg, "formats", None)
+    if not out_dir and not out_formats:
+        out_dir = DEFAULT_OUTPUT_DIRECTORY
+        out_formats = DEFAULT_OUTPUT_FORMATS
+    if out_dir and out_formats:
+        return Path(out_dir)
+    return None
+
+
+def find_prior_run(cfg: Any, run_id: str) -> Path | None:
+    """Return the manifest path of a prior completed run for *run_id*, if any."""
+
+    out_dir = _resolve_run_output_dir(cfg)
+    if out_dir is None:
+        return None
+    return find_existing_run(out_dir, run_id)
+
+
 def _execute_analysis_run(
     cfg: Any,
     df: pd.DataFrame,
@@ -612,13 +646,12 @@ def _execute_analysis_run(
     log_file: Path | None,
     structured_log: bool,
     bundle: Path | None,
+    skip_if_exists: bool = False,
 ) -> int:
-    import uuid
-
     split = cfg.sample_split
     required_keys = {"in_start", "in_end", "out_start", "out_end"}
 
-    run_id = getattr(cfg, "run_id", None) or uuid.uuid4().hex[:12]
+    run_id = working_run_id(cfg, input_path)
     try:
         setattr(cfg, "run_id", run_id)
     except Exception:
@@ -633,6 +666,20 @@ def _execute_analysis_run(
         "CLI run initialised",
         config_path=str(config_path) if config_path else None,
     )
+
+    if skip_if_exists:
+        existing_manifest = find_prior_run(cfg, run_id)
+        if existing_manifest is not None:
+            maybe_log_step(
+                structured_log,
+                run_id,
+                "already_done",
+                f"already-done: run_id={run_id}",
+                manifest=str(existing_manifest),
+            )
+            print(f"already-done: run_id={run_id}")
+            print(f"Existing manifest: {existing_manifest}")
+            return 0
 
     res: Any = None
     pipeline_diagnostic: DiagnosticPayload | None = None
@@ -952,6 +999,14 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Skip interactive confirmation for date corrections",
     )
+    run_p.add_argument(
+        "--skip-if-exists",
+        action="store_true",
+        help=(
+            "Reuse a prior completed run for the content-addressed run_id "
+            "instead of recomputing; reports the existing manifest path"
+        ),
+    )
 
     run_ui_p = sub.add_parser(
         "run-ui",
@@ -1254,6 +1309,7 @@ def main(argv: list[str] | None = None) -> int:
                 log_file=Path(args.log_file) if args.log_file else None,
                 structured_log=not args.no_structured_log,
                 bundle=Path(args.bundle) if args.bundle else None,
+                skip_if_exists=getattr(args, "skip_if_exists", False),
             )
         finally:
             if coverage_tracker is not None:

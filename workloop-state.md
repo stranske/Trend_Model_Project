@@ -1,6 +1,44 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
+## 2026-05-31T08:25:28Z - closer lane fixed PR #5362 Gate export regression
+
+- Repo: stranske/Trend_Model_Project
+- Issue/PR: #5351 / #5362 (`claude/issue-5351-content-run-id`)
+- Agent: codex closer, neutral Code workspace; persistent checkout used at `~/.codex/automations/imi-merge-verify-closer/worktrees/trend-5351-reviewfix`.
+- Batch sweep before this lane: merged learning-management-system #212 for issue #182, applied `verify:compare`, reopened #182 for verifier sequencing, and emitted `pr_merged` plus `verify_label_applied`. trip-planner #1270 was green/thread-clear but not batch-merged because the body uses `Implements #1261` rather than a closing reference. Workflows #2196/#2182 has verifier CONCERNS/CONCERNS and remains an audit candidate.
+- Selection: PR #5362 had all five review threads resolved from the prior closer fix, but fresh Gate failed `Python CI / python 3.12`, `Python CI / python 3.13`, and `Gate / gate` on head `a8256903`.
+- Failure evidence: CI run `26707252407`; both Python jobs failed only `tests/test_trend_cli.py::test_main_run_invokes_pipeline`, `tests/test_trend_cli.py::test_main_run_without_structured_log`, and `tests/test_trend_cli_entrypoints.py::test_main_run_command` with `KeyError: 'in_sample_stats'` in `src/trend_analysis/export/__init__.py:923`.
+- Fix: `format_summary_text()` now treats per-fund `in_sample_stats`/`out_sample_stats`/`fund_weights` as optional and skips the per-fund export rows when aggregate-only mocked results are passed through the CLI export path. Real pipeline payloads with per-fund maps still render those rows.
+- Validation:
+  - `python -m pytest tests/test_trend_cli.py::test_main_run_invokes_pipeline tests/test_trend_cli.py::test_main_run_without_structured_log tests/test_trend_cli_entrypoints.py::test_main_run_command -q --tb=short` -> 3 passed.
+  - `python -m pytest tests/test_trend_cli.py::test_main_run_invokes_pipeline tests/test_trend_cli.py::test_main_run_without_structured_log tests/test_trend_cli_entrypoints.py::test_main_run_command tests/test_export_formatter.py -q --tb=short` -> 23 passed.
+  - `python -m ruff check src/trend_analysis/export/__init__.py tests/test_trend_cli.py tests/test_trend_cli_entrypoints.py` -> passed.
+  - `python -m black --check --fast --line-length 100 src/trend_analysis/export/__init__.py` -> passed.
+  - `git diff --check` -> passed.
+  - Broader `python -m pytest tests/test_trend_cli.py tests/test_trend_cli_entrypoints.py tests/test_export_formatter.py tests/test_idempotency_cli.py tests/test_run_artifacts.py -q --tb=short` -> 141 passed, 1 failed: `test_mc_viz_errors_when_results_parquet_file_is_corrupted_without_traceback` saw an environment-level PyArrow/NumPy traceback in stderr. This is unrelated to the `in_sample_stats` Gate failure; the exact failed CI tests pass after the patch.
+- Current state before push: local patch ready on top of `a8256903`; next action is commit, push to `claude/issue-5351-content-run-id`, post evidence, then re-check PR #5362 in the next closer round when fresh checks complete.
+
+## 2026-05-31T08:06:11Z - closer lane advanced PR #5362 review fixes
+
+- Repo: stranske/Trend_Model_Project
+- Issue/PR: #5351 / #5362 (`claude/issue-5351-content-run-id`)
+- Agent: codex closer, neutral Code workspace; persistent checkout used at `~/.codex/automations/imi-merge-verify-closer/worktrees/trend-5351-reviewfix`.
+- Selection: fresh fleet discovery found no batch-safe terminal actions. Excluded scoped blockers and maintenance/sync PRs. Selected Trend #5362 because Gate was green but five unresolved Codex/Copilot review threads identified real idempotency/index defects.
+- Fix pushed: commit `a8256903` (`Fix run idempotency review issues`) on the PR branch.
+  - Run-artifact directories now include microseconds plus a suffix fallback so deterministic run IDs cannot collide on same-second recomputation.
+  - Run index entries store absolute manifest/run-directory paths, and `find_existing_run()` resolves legacy relative manifest pointers against `output_dir`.
+  - Unified `trend run` now writes the run manifest/index that its `--skip-if-exists` lookup reads, so repeated unified CLI runs can short-circuit.
+- Review handling: posted evidence comment on PR #5362 and resolved all five review threads (`PRRT_kwDOO0LrSc6F6_tr`, `PRRT_kwDOO0LrSc6F6_ts`, `PRRT_kwDOO0LrSc6F7AF1`, `PRRT_kwDOO0LrSc6F7AF7`, `PRRT_kwDOO0LrSc6F7AF9`).
+- Validation:
+  - `python -m pytest tests/test_idempotency_cli.py tests/test_run_artifacts.py -q --tb=short` -> 13 passed.
+  - `python -m pytest tests/test_idempotency_cli.py tests/test_determinism_cli.py tests/test_run_artifacts.py tests/test_export_bundle.py tests/test_util_hash.py tests/test_hash_utils.py tests/test_cli.py -q --tb=short` -> 52 passed.
+  - `python -m ruff check src/trend/cli.py src/trend_analysis/reporting/run_artifacts.py tests/test_idempotency_cli.py tests/test_run_artifacts.py` -> passed.
+  - `python -m black --check --fast --line-length 100 src/trend/cli.py src/trend_analysis/reporting/run_artifacts.py tests/test_idempotency_cli.py tests/test_run_artifacts.py` -> passed.
+  - `git diff --check` -> passed.
+- Current state: head `a8256903`; fresh GitHub checks are legitimately in progress after push (Python CI 3.12/3.13, typecheck, MC Viz, Backplane, claude-review). No merge yet.
+- Next action: re-check PR #5362 when fresh checks complete. If checks are green and no new review threads appear, merge, apply `verify:compare`, and keep #5351 open for verifier sequencing.
+
 ## 2026-05-31T05:58:12Z - opener lane issue #5345 PR materializing
 
 - Repo: stranske/Trend_Model_Project

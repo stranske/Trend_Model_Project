@@ -920,9 +920,14 @@ def format_summary_text(
 
     rows.append([None] * len(columns))
 
-    for fund, stat_in in res["in_sample_stats"].items():
-        stat_out = res["out_sample_stats"][fund]
-        weight = res["fund_weights"][fund] * 100
+    in_sample_stats = res.get("in_sample_stats", {})
+    out_sample_stats = res.get("out_sample_stats", {})
+    fund_weights = res.get("fund_weights", {})
+    for fund, stat_in in in_sample_stats.items():
+        stat_out = out_sample_stats.get(fund)
+        if stat_out is None:
+            continue
+        weight = fund_weights.get(fund, 0.0) * 100
         extra = [
             res.get("benchmark_ir", {}).get(b, {}).get(fund, float("nan")) for b in bench_labels
         ]

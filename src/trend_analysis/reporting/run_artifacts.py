@@ -315,8 +315,8 @@ def write_run_artifacts(
     run_prefix = run_id[:8] or "run"
     run_root = base_dir / "runs"
     run_root.mkdir(parents=True, exist_ok=True)
-    run_dir = run_root / f"{created.strftime('%Y%m%d_%H%M%S')}_{run_prefix}"
-    run_dir.mkdir(parents=True, exist_ok=True)
+    run_dir = _unique_run_dir(run_root / f"{created.strftime('%Y%m%d_%H%M%S_%f')}_{run_prefix}")
+    run_dir.mkdir(parents=True, exist_ok=False)
 
     df = _coerce_frame(data_frame)
     metrics_df = _coerce_frame(metrics_frame)
@@ -385,7 +385,7 @@ def write_run_artifacts(
             pass
     manifest["summary_text"] = summary_text
     manifest["html_report"] = "report.html"
-    manifest["run_directory"] = str(run_dir)
+    manifest["run_directory"] = str(run_dir.resolve())
 
     manifest_path = run_dir / "manifest.json"
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -402,10 +402,71 @@ def write_run_artifacts(
         encoding="utf-8",
     )
 
+    # Stable per-run-id index so a prior run for a given run_id is discoverable
+    # regardless of its timestamped directory name. This is what powers the
+    # CLI ``--skip-if-exists`` short-circuit.
+    index_path = _run_index_path(base_dir, run_id)
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    index_path.write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "run_directory": str(run_dir.resolve()),
+                "manifest": str(manifest_path.resolve()),
+                "created": manifest["created"],
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
     return run_dir
 
 
-__all__ = ["write_run_artifacts"]
+def _run_index_path(base_dir: Path, run_id: str) -> Path:
+    """Return the path of the stable per-run-id index pointer file."""
+
+    return Path(base_dir) / "runs" / "index" / f"{run_id}.json"
+
+
+def _unique_run_dir(base_path: Path) -> Path:
+    """Return a non-existing run directory path based on *base_path*."""
+
+    if not base_path.exists():
+        return base_path
+    suffix = 1
+    while True:
+        candidate = base_path.with_name(f"{base_path.name}-{suffix}")
+        if not candidate.exists():
+            return candidate
+        suffix += 1
+
+
+def find_existing_run(output_dir: Path | str, run_id: str) -> Path | None:
+    """Return the manifest path for a previously completed run, if present.
+
+    Looks up the stable per-run-id index written by :func:`write_run_artifacts`
+    and returns the recorded manifest path when it still exists. Returns
+    ``None`` when no prior run is recorded or its artifacts have been removed.
+    """
+
+    index_path = _run_index_path(Path(output_dir), run_id)
+    if not index_path.exists():
+        return None
+    try:
+        payload = json.loads(index_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    manifest = payload.get("manifest") if isinstance(payload, Mapping) else None
+    if not manifest:
+        return None
+    manifest_path = Path(manifest)
+    if not manifest_path.is_absolute():
+        manifest_path = Path(output_dir) / manifest_path
+    return manifest_path if manifest_path.exists() else None
+
+
+__all__ = ["write_run_artifacts", "find_existing_run"]
 
 
 def _selected_entities(
