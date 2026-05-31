@@ -90,6 +90,9 @@ def _run_mc_viz_without_kaleido(
     out_dir: Path,
     *,
     charts: str = "fan,path_dist,risk_return",
+    html: bool = True,
+    json_flag: bool = True,
+    png: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     """Run mc viz with kaleido hidden from the import system."""
     project_root = _project_root()
@@ -97,6 +100,14 @@ def _run_mc_viz_without_kaleido(
     src_dir = project_root / "src"
     existing = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = f"{src_dir}{os.pathsep}{existing}" if existing else str(src_dir)
+    output_flags = []
+    if html:
+        output_flags.append("--html")
+    if json_flag:
+        output_flags.append("--json")
+    if png:
+        output_flags.append("--png")
+    output_flags_literal = ", ".join(repr(flag) for flag in output_flags)
 
     # Use a wrapper that blocks kaleido imports before invoking the CLI.
     wrapper = (
@@ -108,7 +119,7 @@ def _run_mc_viz_without_kaleido(
         f"'--bundle', {str(bundle_dir)!r},"
         f"'--out', {str(out_dir)!r},"
         f"'--charts', {charts!r},"
-        "'--html', '--json', '--png'];"
+        f"{output_flags_literal}];"
         "from trend.cli import main; sys.exit(main())"
     )
     return subprocess.run(
@@ -437,6 +448,28 @@ def test_mc_viz_cli_error_contains_install_hint_when_kaleido_missing(
     assert result.returncode == 0, result.stderr
     assert "kaleido" in result.stderr
     assert "pip install kaleido" in result.stderr
+
+
+def test_mc_viz_cli_fails_when_png_only_and_kaleido_missing(
+    tmp_path: Path,
+) -> None:
+    """PNG-only output fails early when kaleido is unavailable."""
+    bundle_dir = _fixture_bundle_dir()
+    out_dir = tmp_path / "out"
+
+    result = _run_mc_viz_without_kaleido(
+        bundle_dir,
+        out_dir,
+        charts="fan",
+        html=False,
+        json_flag=False,
+        png=True,
+    )
+
+    assert result.returncode == 2
+    assert "PNG export requires a working kaleido installation" in result.stderr
+    assert "pip install kaleido" in result.stderr
+    assert not (out_dir / "plots").exists()
 
 
 def test_mc_viz_cli_no_png_when_flag_not_set(tmp_path: Path) -> None:
