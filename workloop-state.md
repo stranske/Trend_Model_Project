@@ -1,6 +1,15 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
+## 2026-05-31T16:53:37Z - opener (claude_code) materialized PR for #5347 (pyarrow base dep)
+
+- Repo: stranske/Trend_Model_Project
+- Issue/PR: #5347 -> new PR (branch `claude/issue-5347-pyarrow-dep`, base `phase-3`)
+- Agent: claude_code opener, neutral Code workspace; isolated worktree at `~/.codex/automations/pd-workloop-resume/worktrees/trend-5347-pyarrow-dep`.
+- Change: declared `pyarrow==23.0.1` in `[project].dependencies` (was only transitive via streamlit, absent from base `pip install -e .`); surgically updated `requirements.lock` so pyarrow is now sourced from `trend-model (pyproject.toml)` (version already pinned, no churn); added `tests/integration/test_mc_bundle_parquet.py` (integration + mc_viz_integration) exercising the parquet bundle loaders on `tests/fixtures/mc_bundle`.
+- Validation: built isolated `/tmp/trend5347-venv` (numpy 2.4.6 / pandas 3.0.3 / pyarrow 23.0.1 / pytest 9.0.3 / pytest-xdist 3.8.0); new test passes 3/3. Lock kept surgical to avoid uv-version drift (`>=3.12` project; full `uv pip compile` emitted spurious `<3.12` marker lines + header path pollution).
+- Next action: ready-for-review PR labeled `agent:claude`/`agents:keepalive`/`autofix`; keepalive owns CI from here.
+
 ## 2026-05-31T08:25:28Z - closer lane fixed PR #5362 Gate export regression
 
 - Repo: stranske/Trend_Model_Project
