@@ -69,3 +69,61 @@ def sha256_config(cfg: Mapping[str, Any] | Any) -> str:
     normalised = normalise_for_json(cfg)
     text = json.dumps(normalised, sort_keys=True, separators=(",", ":"))
     return sha256_text(text)
+
+
+def content_run_id(
+    input_sha256: str | None,
+    config_sha256: str | None,
+    seed: Any = None,
+) -> str:
+    """Return a deterministic, content-addressed run identifier.
+
+    The available components (input-file digest, config digest and seed) are
+    joined in a stable order and hashed. This is the single implementation
+    shared by the reproducibility bundle and the working CLI so that identical
+    inputs always produce the same ``run_id``.
+    """
+    run_id_src = "|".join(
+        filter(
+            None,
+            [input_sha256, config_sha256, str(seed) if seed is not None else ""],
+        )
+    )
+    return sha256_text(run_id_src)
+
+
+def _config_payload(cfg: Any) -> Any:
+    """Best-effort conversion of a config object to a hashable payload."""
+
+    if hasattr(cfg, "model_dump"):
+        try:
+            return cfg.model_dump()
+        except Exception:  # pragma: no cover - defensive for exotic configs
+            pass
+    if hasattr(cfg, "__dict__"):
+        return dict(getattr(cfg, "__dict__"))
+    return cfg
+
+
+def working_run_id(cfg: Any, input_path: PathLike | None) -> str:
+    """Resolve a deterministic working ``run_id`` for a CLI run.
+
+    Returns ``cfg.run_id`` when it is already set; otherwise a
+    content-addressed id derived from the input-file digest, config digest and
+    seed when a source input file exists. Falls back to a random 12-char id for
+    the genuinely-unknown case (in-memory/library callers without a source
+    path), mirroring the historical ``uuid.uuid4().hex[:12]`` behaviour.
+    """
+    existing = getattr(cfg, "run_id", None)
+    if existing:
+        return str(existing)
+    path = Path(input_path) if input_path else None
+    if path is not None and path.exists():
+        return content_run_id(
+            sha256_file(path),
+            sha256_config(_config_payload(cfg)),
+            getattr(cfg, "seed", None),
+        )
+    import uuid
+
+    return uuid.uuid4().hex[:12]

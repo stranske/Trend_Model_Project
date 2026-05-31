@@ -282,10 +282,56 @@ def write_run_artifacts(
         encoding="utf-8",
     )
 
+    # Stable per-run-id index so a prior run for a given run_id is discoverable
+    # regardless of its timestamped directory name. This is what powers the
+    # CLI ``--skip-if-exists`` short-circuit.
+    index_path = _run_index_path(base_dir, run_id)
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    index_path.write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "run_directory": str(run_dir),
+                "manifest": str(manifest_path),
+                "created": manifest["created"],
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
     return run_dir
 
 
-__all__ = ["write_run_artifacts"]
+def _run_index_path(base_dir: Path, run_id: str) -> Path:
+    """Return the path of the stable per-run-id index pointer file."""
+
+    return Path(base_dir) / "runs" / "index" / f"{run_id}.json"
+
+
+def find_existing_run(output_dir: Path | str, run_id: str) -> Path | None:
+    """Return the manifest path for a previously completed run, if present.
+
+    Looks up the stable per-run-id index written by :func:`write_run_artifacts`
+    and returns the recorded manifest path when it still exists. Returns
+    ``None`` when no prior run is recorded or its artifacts have been removed.
+    """
+
+    index_path = _run_index_path(Path(output_dir), run_id)
+    if not index_path.exists():
+        return None
+    try:
+        payload = json.loads(index_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    manifest = payload.get("manifest") if isinstance(payload, Mapping) else None
+    if not manifest:
+        return None
+    manifest_path = Path(manifest)
+    return manifest_path if manifest_path.exists() else None
+
+
+__all__ = ["write_run_artifacts", "find_existing_run"]
 
 
 def _selected_entities(

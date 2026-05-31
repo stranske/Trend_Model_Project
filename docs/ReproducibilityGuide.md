@@ -193,6 +193,40 @@ diff <(unzip -p first.zip run_meta.json | jq -S .) <(unzip -p second.zip run_met
 If the diff is non-empty, inspect `run_meta.json` differences (look for
 unexpected version or ordering changes) and open an issue.
 
+## Content-Addressed Run IDs and Idempotent Reruns
+
+When the CLI is not given an explicit `run_id`, it now derives a
+**content-addressed** working `run_id` from the same components used by the
+reproducibility bundle: the SHA-256 of the input returns file, the SHA-256 of
+the resolved config, and the seed. The shared implementation lives in
+`trend_analysis.util.hash.content_run_id` (used by both the bundle and the
+working CLI via `working_run_id`), so identical inputs always produce the same
+`run_id` and the working id agrees with the bundle id.
+
+The random-UUID fallback is preserved only for the genuinely-unknown case — an
+in-memory DataFrame with no source file path (library callers) — so those runs
+still receive a unique id.
+
+### Skipping an already-computed run
+
+Because the `run_id` is stable for identical inputs, a prior completed run is
+discoverable. `write_run_artifacts` records a stable per-run-id pointer under
+`<export.directory>/runs/index/<run_id>.json` alongside the timestamped run
+directory. Pass `--skip-if-exists` to short-circuit a rerun when a completed
+manifest already exists for the computed `run_id`:
+
+```bash
+# First run computes and writes artifacts under demo/exports/runs/...
+./scripts/trend-model run -c config/demo.yml -i demo/demo_returns.csv
+
+# Second identical run with --skip-if-exists reuses the prior result instead of
+# recomputing, printing "already-done: run_id=<id>" and the existing manifest.
+./scripts/trend-model run -c config/demo.yml -i demo/demo_returns.csv --skip-if-exists
+```
+
+Without `--skip-if-exists` the run always recomputes; the flag only changes
+whether an existing run is reused, not how the `run_id` is derived.
+
 ### Docker Usage
 
 ```bash

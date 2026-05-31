@@ -26,6 +26,7 @@ from trend.reporting.quick_summary import main as quick_summary_main
 from trend_analysis import export
 from trend_analysis import logging as run_logging
 from trend_analysis.api import RunResult, run_simulation
+from trend_analysis.util.hash import working_run_id
 from trend_analysis.config import (
     DEFAULTS,
     ConfigPatch,
@@ -429,6 +430,14 @@ def build_parser(
         action="store_true",
         help="Report which config keys were validated vs read",
     )
+    run_p.add_argument(
+        "--skip-if-exists",
+        action="store_true",
+        help=(
+            "Reuse a prior completed run for the content-addressed run_id "
+            "instead of recomputing; reports the existing manifest path"
+        ),
+    )
 
     report_p = sub.add_parser("report", help="Generate summary artefacts for a configuration")
     report_p.add_argument("-c", "--config", help="Path to YAML config")
@@ -798,7 +807,7 @@ def _run_pipeline(
     perf_log_result = _init_perf_logger()
     if perf_log_result.diagnostic:
         logger.info(perf_log_result.diagnostic.message)
-    run_id = getattr(cfg, "run_id", None) or uuid.uuid4().hex[:12]
+    run_id = working_run_id(cfg, source_path)
     try:
         setattr(cfg, "run_id", run_id)
     except Exception:
@@ -2225,6 +2234,16 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                     returns_df, mask, date_column=universe_spec.date_column
                 )
                 _attach_universe_paths(cfg, universe_spec, csv_path=str(returns_path))
+            if getattr(args, "skip_if_exists", False):
+                from trend_analysis.cli import find_prior_run
+
+                candidate_run_id = working_run_id(cfg, returns_path)
+                existing_manifest = find_prior_run(cfg, candidate_run_id)
+                if existing_manifest is not None:
+                    print(f"already-done: run_id={candidate_run_id}")
+                    print(f"Existing manifest: {existing_manifest}")
+                    _finalize_config_coverage()
+                    return 0
             run_pipeline = _legacy_callable("_run_pipeline", _run_pipeline)
             result, run_id, log_path = run_pipeline(
                 cfg,
