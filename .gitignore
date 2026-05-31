@@ -69,6 +69,9 @@ results/
 !data/raw/indices/*.csv
 !archives/notebooks/**/*.csv
 !archives/notebooks/**/*.xlsx
+# Golden-master baselines for the app-behavior baseline kit MUST be committed
+# (they are the regression reference; the repo-wide *.csv ignore would drop them).
+!tests/baseline/test_golden/*.csv
 *.json
 !config.schema.json
 !config.schema.compact.json
