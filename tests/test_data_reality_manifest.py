@@ -111,7 +111,9 @@ def test_demo_fixture_manifest_records_configured_missing_policy(
         str(repo_root / "demo" / "demo_returns.csv"),
         missing_policy="drop",
         missing_limit=None,
+        errors="raise",
     )
+    assert frame is not None
 
     manifest = _write_manifest(tmp_path, frame)
 

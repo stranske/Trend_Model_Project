@@ -12,7 +12,6 @@ from typing import Any, Mapping, Sequence
 
 import pandas as pd
 
-from trend_analysis.diagnostics import PipelineReasonCode
 from trend_analysis.identity import IdentityMap
 from trend_analysis.util.hash import normalise_for_json, sha256_config, sha256_file
 
@@ -91,9 +90,14 @@ def _data_window(df: pd.DataFrame) -> dict[str, Any]:
 
 
 def _metadata_attr(df: pd.DataFrame, name: str, default: Any = None) -> Any:
-    metadata = df.attrs.get("market_data", {}).get("metadata")
+    market_data = df.attrs.get("market_data", {})
+    metadata = market_data.get("metadata") if isinstance(market_data, Mapping) else None
+    if isinstance(metadata, Mapping) and name in metadata:
+        return metadata[name]
     if metadata is not None and hasattr(metadata, name):
         return getattr(metadata, name)
+    if isinstance(market_data, Mapping) and name in market_data:
+        return market_data[name]
     attr_name = f"market_data_{name}"
     return df.attrs.get(attr_name, default)
 
@@ -121,12 +125,13 @@ def _data_reality(df: pd.DataFrame) -> dict[str, Any]:
     instruments: list[dict[str, Any]] = []
     for column in instrument_cols:
         label = str(column)
-        missing_count = int(pd.to_numeric(df[column], errors="coerce").isna().sum())
         fill_details = filled.get(label)
         if fill_details is not None:
+            missing_count = int(fill_details.get("count") or 0)
             disposition = "filled"
             reason = fill_details.get("method") or "missing_policy_filled"
         else:
+            missing_count = int(df[column].isna().sum())
             disposition = "kept"
             reason = "complete" if missing_count == 0 else "missing_values_present"
         instruments.append(
@@ -142,7 +147,7 @@ def _data_reality(df: pd.DataFrame) -> dict[str, Any]:
         {
             "label": label,
             "disposition": "dropped",
-            "reason": PipelineReasonCode.NO_VALUE_COLUMNS.value,
+            "reason": "missing_policy_dropped",
         }
         for label in dropped_labels
     ]
