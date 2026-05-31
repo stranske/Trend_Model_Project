@@ -89,6 +89,116 @@ def _data_window(df: pd.DataFrame) -> dict[str, Any]:
     return summary
 
 
+def _metadata_attr(df: pd.DataFrame, name: str, default: Any = None) -> Any:
+    market_data = df.attrs.get("market_data", {})
+    metadata = market_data.get("metadata") if isinstance(market_data, Mapping) else None
+    if isinstance(metadata, Mapping) and name in metadata:
+        return metadata[name]
+    if metadata is not None and hasattr(metadata, name):
+        return getattr(metadata, name)
+    if isinstance(market_data, Mapping) and name in market_data:
+        return market_data[name]
+    attr_name = f"market_data_{name}"
+    return df.attrs.get(attr_name, default)
+
+
+def _serialise_fill_details(value: Any) -> dict[str, Any]:
+    if hasattr(value, "model_dump"):
+        raw = value.model_dump()
+    elif isinstance(value, Mapping):
+        raw = dict(value)
+    else:
+        raw = {"method": str(value)}
+    return {str(k): v for k, v in raw.items() if v is not None}
+
+
+def _coerce_label_mapping(value: Any) -> dict[str, Any]:
+    if isinstance(value, Mapping):
+        return {str(label): details for label, details in value.items()}
+    return {}
+
+
+def _coerce_label_list(value: Any) -> list[str]:
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return [str(label) for label in value]
+    return []
+
+
+def _data_reality(df: pd.DataFrame) -> dict[str, Any]:
+    instrument_cols = [c for c in df.columns if str(c).lower() != "date"]
+    instrument_lookup = {str(column): column for column in instrument_cols}
+    filled_raw = _coerce_label_mapping(
+        _metadata_attr(df, "missing_policy_filled", {}) or {}
+    )
+    dropped_labels = _coerce_label_list(
+        _metadata_attr(df, "missing_policy_dropped", []) or []
+    )
+    dropped_set = set(dropped_labels)
+    filled = {
+        str(label): _serialise_fill_details(details)
+        for label, details in filled_raw.items()
+    }
+
+    instruments: list[dict[str, Any]] = []
+    labels_in_order = list(instrument_lookup.keys())
+    for dropped_label in dropped_labels:
+        if dropped_label not in instrument_lookup:
+            labels_in_order.append(dropped_label)
+
+    for label in labels_in_order:
+        column = instrument_lookup.get(label)
+        fill_details = filled.get(label)
+        if fill_details is not None:
+            missing_count = int(fill_details.get("count") or 0)
+            disposition = "filled"
+            reason = fill_details.get("method") or "missing_policy_filled"
+        elif label in dropped_set:
+            missing_count = int(df[column].isna().sum()) if column is not None else 0
+            disposition = "dropped"
+            reason = "missing_policy_dropped"
+        else:
+            missing_count = int(df[column].isna().sum()) if column is not None else 0
+            disposition = "kept"
+            reason = "complete" if missing_count == 0 else "missing_values_present"
+        instruments.append(
+            {
+                "label": label,
+                "missing_count": missing_count,
+                "disposition": disposition,
+                "reason": str(reason),
+            }
+        )
+
+    dropped = [
+        {
+            "label": label,
+            "disposition": "dropped",
+            "reason": "missing_policy_dropped",
+        }
+        for label in dropped_labels
+    ]
+
+    return {
+        "policy": _metadata_attr(df, "missing_policy"),
+        "policy_limit": _metadata_attr(df, "missing_policy_limit"),
+        "policy_summary": _metadata_attr(df, "missing_policy_summary"),
+        "frequency_missing_periods": _metadata_attr(df, "frequency_missing_periods", 0),
+        "frequency_max_gap_periods": _metadata_attr(df, "frequency_max_gap_periods", 0),
+        "instruments": instruments,
+        "filled": [
+            {
+                "label": label,
+                "disposition": "filled",
+                "reason": str(details.get("method") or "missing_policy_filled"),
+                **details,
+            }
+            for label, details in filled.items()
+        ],
+        "dropped": dropped,
+        "unknown": [],
+    }
+
+
 def _summarise_metrics(df: pd.DataFrame) -> dict[str, float]:
     summary: dict[str, float] = {}
     if df.empty:
@@ -234,14 +344,18 @@ def write_run_artifacts(
         )
 
     selected = details.get("selected_funds")
-    if isinstance(selected, Sequence) and not isinstance(selected, (str, bytes, bytearray)):
+    if isinstance(selected, Sequence) and not isinstance(
+        selected, (str, bytes, bytearray)
+    ):
         selected_list = list(selected)
     elif selected is None:
         selected_list = []
     else:
         selected_list = [selected]
     resolver = identity_map or (
-        IdentityMap.from_config(config) if isinstance(config, Mapping) else IdentityMap()
+        IdentityMap.from_config(config)
+        if isinstance(config, Mapping)
+        else IdentityMap()
     )
     selected_entities = _selected_entities(selected_list, resolver)
 
@@ -254,7 +368,9 @@ def write_run_artifacts(
         "config_sha256": sha256_config(config),
         "git_hash": _git_hash(),
         "data_window": _data_window(df),
-        "metrics": _serialise_stats(details.get("out_ew_stats")) or _summarise_metrics(metrics_df),
+        "data_reality": _data_reality(df),
+        "metrics": _serialise_stats(details.get("out_ew_stats"))
+        or _summarise_metrics(metrics_df),
         "metrics_overview": _summarise_metrics(metrics_df),
         "selected_funds": selected_list,
         "selected_entities": selected_entities,
@@ -273,12 +389,16 @@ def write_run_artifacts(
 
     manifest_path = run_dir / "manifest.json"
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.write_text(json.dumps(normalise_for_json(manifest), indent=2), encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(normalise_for_json(manifest), indent=2), encoding="utf-8"
+    )
 
     html_path = run_dir / "report.html"
     html_path.parent.mkdir(parents=True, exist_ok=True)
     html_path.write_text(
-        _render_html(run_id=run_id, created=created, manifest=manifest, summary_text=summary_text),
+        _render_html(
+            run_id=run_id, created=created, manifest=manifest, summary_text=summary_text
+        ),
         encoding="utf-8",
     )
 
