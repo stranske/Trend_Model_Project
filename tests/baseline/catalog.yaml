@@ -72,13 +72,13 @@ scenarios:
   - id: rf_up
     tier: 1
     param: metrics.rf_rate_annual
-    description: A higher risk-free rate should lower the Sharpe ratio.
+    description: A higher risk-free rate should lower the reported Sharpe ratio.
     base: {metrics.rf_override_enabled: true}
     control: {metrics.rf_rate_annual: 0.02}
     vary: {metrics.rf_rate_annual: 0.05}
-    metric: sharpe
+    metric: reported_sharpe
     direction: decrease
-    enforce: false   # depends on how rf flows into the reported Sharpe
+    enforce: true   # fixed 2026-05-30: rf override now flows into per-fund Sharpe
 
   - id: long_only_off
     tier: 1

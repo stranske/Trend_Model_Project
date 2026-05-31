@@ -105,6 +105,11 @@ class ScenarioOutput:
             float(self.turnover.max()) if len(self.turnover) else float("nan")
         )
         out.update(_ann_stats(self.portfolio, rf_annual=rf_annual))
+        # Mean of the *reported* per-fund Sharpe (from the metrics table). Unlike
+        # the portfolio-derived `sharpe` above, this reflects the rf override that
+        # flows into the reported metrics, so it's the right lever for rf checks.
+        if "sharpe" in self.metrics.columns:
+            out["reported_sharpe"] = float(self.metrics["sharpe"].mean())
         return out
 
 

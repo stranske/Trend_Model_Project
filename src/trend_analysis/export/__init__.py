@@ -1555,16 +1555,20 @@ def combined_summary_result(
     # concatenated return index to avoid shape mismatches when a fund is
     # not present in every period.
     # Use a broad type to avoid import cycles and undefined-name issues during linting.
+    # Per-fund stats must use the SAME aggregated risk-free series as the
+    # portfolio-level stats above, not a hardcoded zero -- otherwise a configured
+    # risk-free override (metrics.rf_rate_annual) never reaches the reported
+    # per-fund Sharpe/Sortino. Align rf to each fund's concatenated index.
     in_stats: dict[str, Any] = {}
     for f, series_list in fund_in.items():
         joined = pd.concat(series_list)
-        rf = pd.Series(0.0, index=joined.index)
+        rf = rf_in.reindex(joined.index).fillna(0.0)
         in_stats[f] = _compute_stats(pd.DataFrame({f: joined}), rf)[f]
 
     out_stats: dict[str, Any] = {}
     for f, series_list in fund_out.items():
         joined = pd.concat(series_list)
-        rf = pd.Series(0.0, index=joined.index)
+        rf = rf_out.reindex(joined.index).fillna(0.0)
         out_stats[f] = _compute_stats(pd.DataFrame({f: joined}), rf)[f]
 
     fund_weights = {f: weight_sum[f] / periods for f in weight_sum}
