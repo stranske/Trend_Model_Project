@@ -10,7 +10,6 @@ issue automation can later read to raise "untested input element" issues.
 
 from __future__ import annotations
 
-from pathlib import Path
 
 from . import manifest
 from .conftest import load_catalog
@@ -31,16 +30,14 @@ def test_catalog_keys_exist_in_schema():
 
 def test_priority_params_are_covered():
     m = manifest.build_manifest(load_catalog())
-    assert not m.priority_gaps, (
-        "Priority parameters with no scenario/toggle: " + ", ".join(m.priority_gaps)
+    assert not m.priority_gaps, "Priority parameters with no scenario/toggle: " + ", ".join(
+        m.priority_gaps
     )
 
 
 def test_emit_coverage_report(baseline_output):
     """Write the coverage manifest, folding in runtime read-coverage."""
-    m = manifest.build_manifest(
-        load_catalog(), read_keys=baseline_output.config_keys_read
-    )
+    m = manifest.build_manifest(load_catalog(), read_keys=baseline_output.config_keys_read)
     REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
     REPORT_PATH.write_text(m.to_markdown())
     assert REPORT_PATH.exists()

@@ -66,9 +66,7 @@ def test_langsmith_tracing_context_invokes_trace(monkeypatch) -> None:
         def __init__(self) -> None:
             self.outputs: dict[str, str] | None = None
 
-        def end(
-            self, *, outputs: dict[str, str] | None = None, error: str | None = None
-        ) -> None:
+        def end(self, *, outputs: dict[str, str] | None = None, error: str | None = None) -> None:
             self.outputs = outputs
             assert error is None
 

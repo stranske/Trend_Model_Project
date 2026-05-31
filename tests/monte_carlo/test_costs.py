@@ -240,8 +240,7 @@ def test_cost_regime_scenario_documents_exact_dry_run_command() -> None:
     )
     assert (
         "# - Validate with: python -m pytest tests/monte_carlo/test_costs.py "
-        "tests/monte_carlo/test_registry.py -q --no-cov"
-        in scenario_text
+        "tests/monte_carlo/test_registry.py -q --no-cov" in scenario_text
     )
 
 

@@ -27,9 +27,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEMO_CONFIG = REPO_ROOT / "config" / "demo.yml"
 DEMO_RETURNS = REPO_ROOT / "demo" / "demo_returns.csv"
 
-SCHEMA_PATH = (
-    REPO_ROOT / "src" / "trend_analysis" / "export" / "run_envelope_schema.json"
-)
+SCHEMA_PATH = REPO_ROOT / "src" / "trend_analysis" / "export" / "run_envelope_schema.json"
 
 
 def _schema() -> dict:

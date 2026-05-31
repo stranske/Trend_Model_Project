@@ -122,9 +122,7 @@ def test_dropped_instrument_is_projected_with_dropped_disposition(
     manifest = _write_manifest(tmp_path, frame)
 
     reality = manifest["data_reality"]
-    dropped_item = next(
-        item for item in reality["instruments"] if item["label"] == "Mgr_B"
-    )
+    dropped_item = next(item for item in reality["instruments"] if item["label"] == "Mgr_B")
     assert dropped_item["disposition"] == "dropped"
     assert dropped_item["reason"] == "missing_policy_dropped"
     assert dropped_item["missing_count"] == 0

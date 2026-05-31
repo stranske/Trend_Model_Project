@@ -17,10 +17,10 @@ from baseline_kit import InvariantResult
 from .harness import ScenarioOutput
 
 # Confirmed bounds.
-WEIGHT_SUM_TOL = 0.02          # weights should sum to ~1 (allow small slack)
-MAX_WEIGHT_TOL = 1e-6          # tolerance when checking the max-weight cap
-SHARPE_SOFT_CAP = 5.0          # soft flag: meaningful-length Sharpe rarely > 5
-LEVERAGE_CAP_DEFAULT = 2.0     # gross exposure ceiling when not otherwise set
+WEIGHT_SUM_TOL = 0.02  # weights should sum to ~1 (allow small slack)
+MAX_WEIGHT_TOL = 1e-6  # tolerance when checking the max-weight cap
+SHARPE_SOFT_CAP = 5.0  # soft flag: meaningful-length Sharpe rarely > 5
+LEVERAGE_CAP_DEFAULT = 2.0  # gross exposure ceiling when not otherwise set
 
 
 def check_all(

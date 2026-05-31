@@ -12,13 +12,11 @@ will later be extracted into the shared kit.
 
 from __future__ import annotations
 
-import copy
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -101,9 +99,7 @@ class ScenarioOutput:
         out["min_weight"] = float(w.min()) if len(w) else float("nan")
         out["num_selected"] = int((w.abs() > _WEIGHT_EPS).sum())
         out["num_negative_weights"] = int((w < -_WEIGHT_EPS).sum())
-        out["max_turnover"] = (
-            float(self.turnover.max()) if len(self.turnover) else float("nan")
-        )
+        out["max_turnover"] = float(self.turnover.max()) if len(self.turnover) else float("nan")
         out.update(_ann_stats(self.portfolio, rf_annual=rf_annual))
         # Mean of the *reported* per-fund Sharpe (from the metrics table). Unlike
         # the portfolio-derived `sharpe` above, this reflects the rf override that
@@ -125,10 +121,10 @@ def _ann_stats(returns: pd.Series, rf_annual: float = 0.0) -> dict[str, float]:
     n = len(r)
     std = float(r.std(ddof=1))
     ann_return = float((1.0 + r).prod() ** (PERIODS_PER_YEAR / n) - 1.0)
-    ann_vol = std * (PERIODS_PER_YEAR ** 0.5)
+    ann_vol = std * (PERIODS_PER_YEAR**0.5)
     rf_periodic = (1.0 + rf_annual) ** (1.0 / PERIODS_PER_YEAR) - 1.0
     sharpe = (
-        ((float(r.mean()) - rf_periodic) / std) * (PERIODS_PER_YEAR ** 0.5)
+        ((float(r.mean()) - rf_periodic) / std) * (PERIODS_PER_YEAR**0.5)
         if std > 0
         else float("nan")
     )

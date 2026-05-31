@@ -44,8 +44,14 @@ def test_page_renders_without_exception(page):
     assert not at.exception, f"{page} raised: {[e.value for e in at.exception]}"
     # Sanity: the page produced *some* output (widget, error, or markdown).
     produced = (
-        len(at.number_input) + len(at.selectbox) + len(at.button) + len(at.radio)
-        + len(at.checkbox) + len(at.error) + len(at.markdown) + len(at.title)
+        len(at.number_input)
+        + len(at.selectbox)
+        + len(at.button)
+        + len(at.radio)
+        + len(at.checkbox)
+        + len(at.error)
+        + len(at.markdown)
+        + len(at.title)
     )
     assert produced > 0, f"{page} rendered nothing"
 
