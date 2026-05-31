@@ -366,7 +366,13 @@ class PortfolioSettings(BaseModel):
     cooldown_periods: int | None = None
     cooldown_months: int | None = None
 
-    model_config = ConfigDict(extra="ignore")
+    # extra="allow" (not "ignore"): the engine reads many portfolio sub-keys that
+    # are not declared as fields here -- selection_mode, rank, selector,
+    # custom_weights, weighting, weighting_scheme, constraints, robustness,
+    # manual_list, etc. With "ignore" those were SILENTLY DROPPED on load, so
+    # YAML-configured selection/weighting/constraints never reached the engine
+    # (it fell back to selection_mode="all"). "allow" preserves them.
+    model_config = ConfigDict(extra="allow")
 
     @model_validator(mode="before")
     @classmethod
