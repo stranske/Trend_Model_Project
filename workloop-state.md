@@ -23,7 +23,17 @@
   - `grep -Rin 'kaleido' pyproject.toml requirements.lock || true` -> no dependency declaration, matching the optional policy.
   - `git diff --check` -> passed.
   - Broader missing-kaleido integration pair currently fails on this Mac before chart export because the global Python has NumPy 2.4.6 with older compiled `pyarrow`/`numexpr`/`bottleneck`; this is the same local environment incompatibility previously observed in this repo, not introduced by this change.
-- Next action: commit, push, open a ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`.
+- Commit: `6ee0d095` (`Issue #5345: document optional kaleido PNG export`).
+- PR: [stranske/Trend_Model_Project#5359](https://github.com/stranske/Trend_Model_Project/pull/5359), opened ready-for-review (`isDraft=false`) with labels `agent:codex`, `agents:keepalive`, `autofix`, `priority:normal`, and `repo-review-approved`; branch `codex/issue-5345-kaleido-optional`.
+- Relay:
+  - `issue_created active.source_repo=stranske/Trend_Model_Project active.source_issue=5345`
+  - `pr_opened active.source_pr=5359 active.next_action=wait_for_keepalive`
+- Post-open cap/health:
+  - Raw opener cap below limit: `total_opener_owned=4`, `raw_cap_reached=false`.
+  - PR #5359 has a fresh Gate run in progress after initial superseded runs and is classified `draining`.
+  - Fleet hygiene also repaired/dispatched PAEM #1847 and TPP #1133; fresh cap-health at `2026-05-31T06:00:19Z` shows #1847 `draining` with fresh Autofix/Gate evidence and #1133 re-dispatched after the helper still reported stale keepalive-skip evidence.
+  - Trend PR #5353 remains the known scoped product/CI blocker on #5343: owner decision needed on no-LLM demo CI scope vs langchain pinning before a safe fix.
+- Next action: keepalive owns CI/check follow-up for PR #5359; closer/workflow-health owns #5353 product-blocker disposition after an owner decision.
 
 ## 2026-05-25T15:01:13Z - opener lane issue #2933 PR materializing
 
