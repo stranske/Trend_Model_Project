@@ -525,11 +525,33 @@ def run_variant_analysis(
     return results
 
 
+def _assert_config_feasible(config: Any) -> None:
+    """Refuse to run on infeasible parameter sets (see config.validation).
+
+    The Streamlit payload validation only covers a minimal subset, so we check
+    the full built config here: it carries portfolio constraints, selection, and
+    vol_adjust settings the feasibility gate needs.
+    """
+    from trend_analysis.config.validation import collect_feasibility_errors
+
+    config_view = {
+        "portfolio": dict(getattr(config, "portfolio", {}) or {}),
+        "multi_period": dict(getattr(config, "multi_period", {}) or {}),
+        "vol_adjust": dict(getattr(config, "vol_adjust", {}) or {}),
+        "data": dict(getattr(config, "data", {}) or {}),
+    }
+    errors = collect_feasibility_errors(config_view)
+    if errors:
+        detail = "\n".join(f"- {e.message} {e.suggestion}" for e in errors)
+        raise ValueError(f"Infeasible configuration; the simulation was not run:\n{detail}")
+
+
 def _execute_analysis(payload: AnalysisPayload):
     from trend_analysis.api import run_simulation
 
     config = _build_config(payload)
     _validate_streamlit_payload(payload)
+    _assert_config_feasible(config)
     returns = _prepare_returns(payload.returns)
     return run_simulation(config, returns)
 
