@@ -110,6 +110,10 @@ dev = [
     "flake8==7.3.0",
     "pytest==9.0.3",
     "pytest-cov==7.1.0",
+    "pytest-regressions==2.11.0",
+    # Shared app behavior baseline harness (also pulls pytest-regressions). Pinned to
+    # the Workflows default branch; move to a tagged ref once the package is versioned.
+    "app-baseline-kit @ git+https://github.com/stranske/Workflows.git#subdirectory=packages/app-baseline-kit",
     "coverage>=7.14.0",
     "pytest-rerunfailures==16.3",
     "pytest-xdist==3.8.0",

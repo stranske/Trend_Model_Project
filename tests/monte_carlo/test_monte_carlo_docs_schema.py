@@ -6,7 +6,6 @@ from typing import Any
 
 import yaml
 
-
 DOC_PATH = Path("docs/phase-3/MonteCarlo.md")
 
 
@@ -19,9 +18,7 @@ def _cost_blocks(text: str) -> list[dict[str, Any]]:
     for block in _yaml_blocks(text):
         if not re.search(r"(^|\n)\s+costs:|(^|\n)costs:", block):
             continue
-        cleaned = "\n".join(
-            line for line in block.splitlines() if line.strip() not in {"..."}
-        )
+        cleaned = "\n".join(line for line in block.splitlines() if line.strip() not in {"..."})
         parsed = yaml.safe_load(cleaned)
         if not isinstance(parsed, dict):
             continue

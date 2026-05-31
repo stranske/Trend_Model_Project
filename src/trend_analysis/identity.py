@@ -100,7 +100,11 @@ def _entities_from_identity_block(identity_cfg: Mapping[str, Any]) -> list[Entit
             continue
         display_name = str(entry.get("display_name") or entry.get("name") or canonical_id).strip()
         aliases_raw = entry.get("aliases") or []
-        aliases = tuple(str(alias).strip() for alias in aliases_raw if str(alias).strip()) if isinstance(aliases_raw, list) else ()
+        aliases = (
+            tuple(str(alias).strip() for alias in aliases_raw if str(alias).strip())
+            if isinstance(aliases_raw, list)
+            else ()
+        )
         entities.append(
             EntityId(
                 canonical_id=canonical_id,
@@ -112,9 +116,7 @@ def _entities_from_identity_block(identity_cfg: Mapping[str, Any]) -> list[Entit
     return entities
 
 
-def _entities_from_universe_paths(
-    universe_paths: Any, *, base_path: Path | None
-) -> list[EntityId]:
+def _entities_from_universe_paths(universe_paths: Any, *, base_path: Path | None) -> list[EntityId]:
     if universe_paths is None:
         return []
     paths = universe_paths if isinstance(universe_paths, list) else [universe_paths]

@@ -119,6 +119,10 @@ PROJECT_MODULES = {
     "fallback_split",
     "parse_chatgpt_topics",
     "health_summarize",  # .github/scripts/health_summarize.py
+    # Local modules of the app-behavior baseline kit (tests/baseline/), reached
+    # via relative imports (from .conftest / from .harness import ...).
+    "conftest",
+    "harness",
 }
 
 
@@ -225,6 +229,8 @@ def test_all_test_imports_are_declared() -> None:
         "PIL": "pillow",
         "sklearn": "scikit_learn",
         "cv2": "opencv_python",
+        # Shared baseline kit: import name `baseline_kit`, package `app-baseline-kit`.
+        "baseline_kit": "app_baseline_kit",
     }
 
     # Remove imports that have known package mappings and are declared

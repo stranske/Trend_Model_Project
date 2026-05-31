@@ -26,7 +26,6 @@ from trend.reporting.quick_summary import main as quick_summary_main
 from trend_analysis import export
 from trend_analysis import logging as run_logging
 from trend_analysis.api import RunResult, run_simulation
-from trend_analysis.util.hash import working_run_id
 from trend_analysis.config import (
     DEFAULTS,
     ConfigPatch,
@@ -38,13 +37,13 @@ from trend_analysis.config import (
     apply_patch as apply_config_patch,
 )
 from trend_analysis.config import load as load_config
-from trend_analysis.config.schema_validation import load_config as load_config_yaml
 from trend_analysis.config.coverage import (
     ConfigCoverageTracker,
     activate_config_coverage,
     deactivate_config_coverage,
     wrap_config_for_coverage,
 )
+from trend_analysis.config.schema_validation import load_config as load_config_yaml
 from trend_analysis.config.schema_validation import load_config as load_schema_config
 from trend_analysis.config.validation import ValidationResult
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
@@ -87,6 +86,7 @@ from trend_analysis.signal_presets import (
     list_trend_spec_presets,
 )
 from trend_analysis.universe_catalog import NamedUniverse, load_universe
+from trend_analysis.util.hash import working_run_id
 from trend_analysis.viz.artifacts import extract_bundle_zip
 from trend_model.spec import ensure_run_spec
 from utils.paths import proj_path

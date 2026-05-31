@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from trend_analysis.identity import IdentityMap
 from trend_analysis.config.schema_validation import load_schema, validate_config_data
+from trend_analysis.identity import IdentityMap
 from trend_analysis.reporting.run_artifacts import write_run_artifacts
 
 
@@ -33,9 +33,7 @@ def _write_manifest(
 ) -> dict[str, object]:
     tmp_path.mkdir(parents=True, exist_ok=True)
     input_path = tmp_path / "returns.csv"
-    pd.DataFrame({"AQR MF": [0.01], "AQR Managed Futures": [0.02]}).to_csv(
-        input_path, index=False
-    )
+    pd.DataFrame({"AQR MF": [0.01], "AQR Managed Futures": [0.02]}).to_csv(input_path, index=False)
     run_dir = write_run_artifacts(
         output_dir=tmp_path / "out",
         run_id=run_id,

@@ -6,13 +6,13 @@ from typing import Mapping
 import pytest
 import yaml
 
+from trend_analysis.cli import _validate_mc_scenario
 from trend_analysis.monte_carlo import (
     MonteCarloScenario,
     MonteCarloSettings,
     load_scenario,
 )
 from trend_analysis.monte_carlo.strategy import StrategyVariant
-from trend_analysis.cli import _validate_mc_scenario
 
 
 def _load_example_payload() -> dict:

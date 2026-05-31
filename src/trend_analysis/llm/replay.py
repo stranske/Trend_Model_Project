@@ -61,14 +61,10 @@ def replay_nl_entry(
 ) -> ReplayResult:
     started = time.perf_counter()
     prompt_text = render_prompt(entry)
-    active_provider = _normalize_provider(
-        provider or os.environ.get("TREND_LLM_PROVIDER")
-    )
+    active_provider = _normalize_provider(provider or os.environ.get("TREND_LLM_PROVIDER"))
     active_llm = llm or _create_llm_from_env(entry, provider=provider, model=model)
     active_model = model or entry.model_name
-    active_temperature = (
-        entry.temperature if temperature is None else float(temperature)
-    )
+    active_temperature = entry.temperature if temperature is None else float(temperature)
     output_text, trace_url = _invoke_llm(
         prompt_text,
         active_llm,
@@ -113,12 +109,8 @@ def _create_llm_from_env(
     provider: str | None = None,
     model: str | None = None,
 ) -> Any:
-    provider_name = _normalize_provider(
-        provider or os.environ.get("TREND_LLM_PROVIDER")
-    )
-    model_name = (
-        model or entry.model_name or os.environ.get("TREND_LLM_MODEL", "gpt-4o-mini")
-    )
+    provider_name = _normalize_provider(provider or os.environ.get("TREND_LLM_PROVIDER"))
+    model_name = model or entry.model_name or os.environ.get("TREND_LLM_MODEL", "gpt-4o-mini")
     config = LLMProviderConfig(provider=provider_name, model=model_name)
     return create_llm(config)
 

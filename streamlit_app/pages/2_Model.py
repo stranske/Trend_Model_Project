@@ -2074,12 +2074,14 @@ def _render_config_chat_contents(model_state: Mapping[str, Any] | None) -> None:
     _render_config_diff_preview(model_state)
     st.markdown("---")
     _render_config_change_history()
+    # NOTE: this panel always renders inside the "Config Chat" expander, so these
+    # sub-sections must NOT be expanders (Streamlit forbids nested expanders).
     st.markdown("---")
-    with st.expander("Preview timing log", expanded=False):
-        _render_preview_timing_history()
+    st.markdown("**Preview timing log**")
+    _render_preview_timing_history()
     st.markdown("---")
-    with st.expander("NL operation log", expanded=False):
-        nl_operation_viewer.render_nl_operation_viewer()
+    st.markdown("**NL operation log**")
+    nl_operation_viewer.render_nl_operation_viewer()
 
 
 def render_config_chat_panel(

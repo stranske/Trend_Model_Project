@@ -1,0 +1,8 @@
+# Local test modules + baseline_kit (provided by the app-baseline-kit package)
+# that the synced dep-sync check should treat as known. tests/baseline uses
+# relative imports (from .harness/.conftest import ...) of these local modules.
+baseline_kit
+conftest
+harness
+invariants
+manifest
