@@ -128,8 +128,8 @@ trend run -c config/demo.yml --returns data/returns.csv
 # Use a preset strategy
 trend run -c config/demo.yml --returns data/returns.csv --preset conservative
 
-# Generate a report from previous results
-trend report --last-run demo/portfolio_test_results/last_run_results.json
+# Generate a unified HTML report from a config and returns
+trend report -c config/demo.yml -i demo/demo_returns.csv --output report.html
 
 # Run stress test scenarios
 trend stress -c config/demo.yml
