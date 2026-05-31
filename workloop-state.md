@@ -1,6 +1,40 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
+## 2026-05-31T05:58:12Z - opener lane issue #5345 PR materializing
+
+- Repo: stranske/Trend_Model_Project
+- Issue: #5345 ``trend mc viz --png`` is documented but silently never produces PNGs (`kaleido` absent from every install path)
+- Branch: codex/issue-5345-kaleido-optional
+- Agent: codex
+- Selection:
+  - Mandatory cap/liveness discovery ran from the neutral Code workspace. Raw opener cap was below 5.
+  - Infra repair helper fixed Travel-Plan-Permission #1133 by adding `agent:retry` and dispatching Gate Followups; fresh evidence showed #1133 draining with an active Gate run.
+  - Portable-Alpha-Extension-Model #1847 initially appeared as a routing defect on `feat/app-baseline-kit`, then fresh PR evidence showed `autofix`/`autofix:patch`, a runner-dispatch comment, and a newer Gate run in progress; classified active-moving.
+  - Trend_Model_Project #5353 remains a scoped product/CI blocker on issue #5343, with a durable comment requiring an owner decision on LLM eval CI scope vs langchain pinning; not a bounded opener quick-recovery.
+  - Higher-priority candidates were linked, merged-awaiting-verifier, or scoped-blocked. Issue #5345 was the oldest eligible unlinked normal-priority implementation issue outside the #5353 dependency cone.
+- Implementation:
+  - Chose the optional-kaleido path because the repo already implements graceful missing-kaleido degradation and does not declare `kaleido` in `pyproject.toml` or `requirements.lock`.
+  - Updated `README.md` and CLI help in `src/trend/cli.py` and `src/trend_analysis/cli.py` to state `--png` is best-effort and requires `pip install kaleido`.
+  - Extended `tests/integration/test_mc_viz.py` so the missing-kaleido helper can request output formats individually, and added a PNG-only test that asserts the early `TrendCLIError` path and no `plots/` output.
+- Validation:
+  - `python -m pytest tests/integration/test_mc_viz.py::test_mc_viz_cli_fails_when_png_only_and_kaleido_missing tests/test_mc_viz_shared_api.py::test_execute_mc_viz_raises_on_png_without_kaleido -q` -> 2 passed.
+  - `python -m ruff check README.md src/trend/cli.py src/trend_analysis/cli.py tests/integration/test_mc_viz.py tests/test_mc_viz_shared_api.py` -> passed.
+  - `grep -Rin 'kaleido' pyproject.toml requirements.lock || true` -> no dependency declaration, matching the optional policy.
+  - `git diff --check` -> passed.
+  - Broader missing-kaleido integration pair currently fails on this Mac before chart export because the global Python has NumPy 2.4.6 with older compiled `pyarrow`/`numexpr`/`bottleneck`; this is the same local environment incompatibility previously observed in this repo, not introduced by this change.
+- Commit: `6ee0d095` (`Issue #5345: document optional kaleido PNG export`).
+- PR: [stranske/Trend_Model_Project#5359](https://github.com/stranske/Trend_Model_Project/pull/5359), opened ready-for-review (`isDraft=false`) with labels `agent:codex`, `agents:keepalive`, `autofix`, `priority:normal`, and `repo-review-approved`; branch `codex/issue-5345-kaleido-optional`.
+- Relay:
+  - `issue_created active.source_repo=stranske/Trend_Model_Project active.source_issue=5345`
+  - `pr_opened active.source_pr=5359 active.next_action=wait_for_keepalive`
+- Post-open cap/health:
+  - Raw opener cap below limit: `total_opener_owned=4`, `raw_cap_reached=false`.
+  - PR #5359 has a fresh Gate run in progress after initial superseded runs and is classified `draining`.
+  - Fleet hygiene also repaired/dispatched PAEM #1847 and TPP #1133; fresh cap-health at `2026-05-31T06:00:19Z` shows #1847 `draining` with fresh Autofix/Gate evidence and #1133 re-dispatched after the helper still reported stale keepalive-skip evidence.
+  - Trend PR #5353 remains the known scoped product/CI blocker on #5343: owner decision needed on no-LLM demo CI scope vs langchain pinning before a safe fix.
+- Next action: keepalive owns CI/check follow-up for PR #5359; closer/workflow-health owns #5353 product-blocker disposition after an owner decision.
+
 ## 2026-05-25T15:01:13Z - opener lane issue #2933 PR materializing
 
 - Repo: stranske/Trend_Model_Project

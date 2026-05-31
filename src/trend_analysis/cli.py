@@ -1093,7 +1093,10 @@ def main(argv: list[str] | None = None) -> int:
     mc_viz_p.add_argument(
         "--png",
         action="store_true",
-        help="Export chart artifacts as PNG",
+        help=(
+            "Best-effort PNG export; requires a working kaleido install "
+            "(pip install kaleido)"
+        ),
     )
 
     # Handle --check flag before parsing subcommands

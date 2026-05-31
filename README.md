@@ -149,7 +149,10 @@ trend mc viz --bundle <path> --out <dir> --charts fan,path_dist,risk_return --ht
 - `--charts`: Comma-separated chart names to render, for example `fan,path_dist,risk_return`.
 - `--html`: Write HTML chart files to `<out>/plots/*.html`.
 - `--json`: Write JSON chart files to `<out>/plots/*.json`.
-- `--png`: Write PNG chart files to `<out>/plots/*.png`.
+- `--png`: Best-effort PNG export to `<out>/plots/*.png`; requires a working
+  `kaleido` installation (`pip install kaleido`). When `kaleido` is missing or
+  incompatible, `trend mc viz` skips PNGs if HTML or JSON output was also
+  requested, and fails early when PNG is the only requested output.
 
 NAV-path selection options:
 
