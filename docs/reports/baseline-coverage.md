@@ -1,8 +1,8 @@
 # Baseline coverage manifest
 
-- Schema parameters: **186**
-- Exercised by a scenario/toggle: **12** (6.5%)
-- Observed read at runtime (baseline): **48**
+- Input parameters: **186**
+- Exercised by a scenario: **12** (6.5%)
+- Observed read at runtime: **48**
 
 ## Priority parameters
 

@@ -66,12 +66,12 @@ test_coverage_manifest.py # emits coverage.md; guards catalog quality
 
 | # | Finding | Verdict |
 |---|---|---|
-| 1 | Holdings fixed at 20 regardless of `rank.n` / `selector.top_n` / `selection_mode` | **Design question (open)** — selection appears inert in the multi-period path (per-period `selected_funds`=21 always). Needs owner intent: should multi-period honor `rank.n`, or is it governed by `multi_period.max_funds`/all-funds-equal by design? `rank_n_down` stays report-only until decided. |
+| 1 | Holdings fixed at 20 regardless of `rank.n` / `selector.top_n` / `selection_mode` | **Open — intent clarified, fix pending.** Owner policy: in *fixed-count* mode `rank.n` is irrelevant (the fixed count governs); in *variable-count* mode the ranked selection count must MATCH that period's target holdings. Current multi-period path applies neither (holds all 20). Root cause not yet definitively pinned (the multi-period selection-count linkage); needs a careful, results-affecting fix to core selection logic. `rank_n_down` stays report-only until fixed. |
 | 2 | `regime.enabled` toggle is a no-op | **Not a bug** — regime overrides apply only when regime=="Risk-Off" (pipeline_helpers.py:277); demo data never triggers it. Add a forced-Risk-Off scenario. |
 | 3 | `rf_rate_annual` doesn't move Sharpe | **FIXED 2026-05-30** — per-fund metrics hardcoded rf=0 (export/__init__.py); now use aggregated rf_in/rf_out. `rf_up` scenario enforced. |
-| 4 | `max_weight=0.03` → max weight 0.0476 | **Not a bug / design question (open)** — re-verified: the cap is honored exactly whenever *feasible*; 0.03 is infeasible for 20 funds (cap×N<1), so the model exceeds it to stay invested. Whether to instead hold more cash is owner intent. Invariant now only enforces for feasible caps. |
+| 4 | `max_weight=0.03` → max weight 0.0476 | **Open — needs scope decision.** When `max_weight × N < 1` the model silently scales weights *past* the cap instead of holding cash. A hard "infeasible → error" guard was tried but reverted: it breaks ~47 tests and blocks legitimately small portfolios (e.g. 2 funds at 25% cap, which should just hold ~50% cash). Choice: (a) error only when full investment is explicitly required, (b) respect cap + hold cash, (c) error on all cap×N<1. Invariant stays feasibility-aware. |
 | 5 | Fund weights sum to ~0.95 | **Not a bug** — intentional cash allocation, tracked as `cash_weight` (portfolio.py:558). |
-| 6 | Model page crashes on cold render | **FIXED 2026-05-30** (caught by AppTest) — nested-expander crash at 2_Model.py; demoted inner expanders to sections. Now a passing regression guard. |
+| 6 | Model page crashes on cold render | **FIXED 2026-05-30** (caught by AppTest) — nested-expander crash inside the "Config Chat" expander. Demoted the timing/NL-log expanders in `2_Model.py` AND the Replay expanders in `components/nl_operation_viewer.py` to `st.container`. (The state-dependent second pair was missed on the first pass; the AppTest guard now covers it.) Passing regression guard. |
 
 ### Harness refinements queued (from findings)
 - rf check should read the *reported* Sharpe, not the rf=0 derived one (Finding 3).

@@ -313,7 +313,10 @@ def _render_replay(entry: NLOperationLog, *, entry_id: str, run_replay: bool) ->
         st.success("Replay completed.")
     replay_payload = st.session_state.get(f"nl_replay_result_{entry_id}")
     if replay_payload:
-        with st.expander("Replay Results", expanded=True):
+        # container, not expander: this viewer can render inside the Config Chat
+        # expander, and Streamlit forbids nested expanders.
+        st.markdown("**Replay Results**")
+        with st.container(border=True):
             st.markdown("**Replay output**")
             st.code(_redact_text(replay_payload.get("output") or ""), language="text")
             trace_url = replay_payload.get("trace_url")
@@ -403,7 +406,10 @@ def render_nl_operation_viewer(
     replay_clicked = st.button("Replay selected entry", key=f"nl_replay_open_btn_{entry_id}")
     if replay_clicked:
         st.session_state[replay_open_key] = True
-    with st.expander("Replay entry", expanded=bool(st.session_state.get(replay_open_key))):
+    # container, not expander: avoids nested-expander crash when the viewer is
+    # rendered inside the Config Chat expander.
+    st.markdown("**Replay entry**")
+    with st.container(border=True):
         _render_replay(entry, entry_id=entry_id, run_replay=replay_clicked)
 
 
