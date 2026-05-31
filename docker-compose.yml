@@ -19,3 +19,38 @@ services:
       - "8000:8000"
     volumes:
       - ./data:/app/data
+
+  # --- Internal / on-prem deployment (proprietary data + LLM stay in-perimeter) ---
+  # Start with: docker compose --profile internal up
+  # See docs/deployment/INTERNAL_HOSTING.md for the full recipe and live-verification gate.
+  llm-proxy:
+    image: *trend-image
+    profiles: ["internal"]
+    command: ["trend-llm-proxy", "--host", "0.0.0.0", "--port", "8799"]
+    expose:
+      - "8799"
+    environment:
+      # Operator supplies an authorized no-train upstream at deploy time
+      # (e.g. an on-prem Ollama endpoint for the lowest-egress option).
+      - TS_LLM_PROXY_UPSTREAM=${TS_LLM_PROXY_UPSTREAM:?set TS_LLM_PROXY_UPSTREAM to your authorized no-train endpoint}
+      - TS_LLM_PROXY_TOKEN=${TS_LLM_PROXY_TOKEN:-}
+      - TREND_LLM_API_KEY=${TREND_LLM_API_KEY:-}
+      # Optional data-egress ceiling (bytes); unset means no limit.
+      - TS_LLM_PROXY_MAX_BODY_BYTES=${TS_LLM_PROXY_MAX_BODY_BYTES:-}
+  app-internal:
+    image: *trend-image
+    profiles: ["internal"]
+    # Bind to the loopback interface only by default; change the host portion
+    # to the internal NIC address for LAN-internal access.
+    ports:
+      - "127.0.0.1:8501:8501"
+    environment:
+      # Route all LLM traffic through the in-perimeter proxy, never the public API.
+      - TREND_LLM_BASE_URL=http://llm-proxy:8799/v1
+      # internal_authorized routes via the proxy; disabled hides all LLM panels.
+      - TREND_LLM_ZONE=${TREND_LLM_ZONE:-internal_authorized}
+      - TS_LLM_PROXY_TOKEN=${TS_LLM_PROXY_TOKEN:-}
+    depends_on:
+      - llm-proxy
+    volumes:
+      - ./data:/app/data

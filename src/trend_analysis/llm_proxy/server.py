@@ -68,6 +68,34 @@ def _resolve_upstream_key() -> str | None:
     )
 
 
+def _max_request_bytes() -> int | None:
+    """Resolve the data-egress payload ceiling from the environment.
+
+    ``TS_LLM_PROXY_MAX_BODY_BYTES`` lets an internal-deployment operator bound
+    how much data can leave the perimeter through the LLM boundary. Unset, a
+    non-numeric value, or a non-positive value means "no limit" so the proxy's
+    default behavior is unchanged.
+    """
+
+    raw = os.environ.get("TS_LLM_PROXY_MAX_BODY_BYTES")
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
+def request_body_within_limit(body: bytes) -> bool:
+    """Return ``True`` when ``body`` is within the configured egress ceiling."""
+
+    limit = _max_request_bytes()
+    if limit is None:
+        return True
+    return len(body) <= limit
+
+
 def _filter_response_headers(headers: dict[str, Any]) -> dict[str, str]:
     hop_by_hop = {
         "connection",
@@ -143,6 +171,12 @@ class LLMProxy:
         headers.pop("content-length", None)
         headers["authorization"] = f"Bearer {upstream_key}"
         body = await request.body()
+
+        if not request_body_within_limit(body):
+            raise HTTPException(
+                status_code=413,
+                detail="Request body exceeds the configured proxy egress limit",
+            )
 
         try:
             response = await self.client.request(

@@ -10,6 +10,34 @@ import streamlit as st
 from trend_analysis.llm import LLMProviderConfig
 
 logger = logging.getLogger(__name__)
+
+LLM_ZONE_ENV = "TREND_LLM_ZONE"
+LLM_ZONE_INTERNAL = "internal_authorized"
+LLM_ZONE_DISABLED = "disabled"
+
+
+def llm_zone() -> str:
+    """Resolve the deployment LLM zone from ``TREND_LLM_ZONE``.
+
+    Returns ``"disabled"`` only when the env var is explicitly set to
+    ``disabled`` (case-insensitive); any other value — including unset —
+    resolves to ``"internal_authorized"``. This keeps a proprietary on-prem
+    zone that has no authorized LLM endpoint running the deterministic engine
+    while suppressing every LLM panel.
+    """
+
+    raw = (os.environ.get(LLM_ZONE_ENV) or "").strip().lower()
+    if raw == LLM_ZONE_DISABLED:
+        return LLM_ZONE_DISABLED
+    return LLM_ZONE_INTERNAL
+
+
+def llm_zone_disabled() -> bool:
+    """Return ``True`` when LLM features must be hidden for this zone."""
+
+    return llm_zone() == LLM_ZONE_DISABLED
+
+
 _PLACEHOLDER_PREFIXES = ("YOUR_", "CHANGE_ME", "REPLACE_ME")
 _ALLOWED_KEY_NAMES = {
     "TS_STREAMLIT_API_KEY",
@@ -211,8 +239,13 @@ def resolve_llm_provider_config(
 
 
 __all__ = [
+    "LLM_ZONE_DISABLED",
+    "LLM_ZONE_ENV",
+    "LLM_ZONE_INTERNAL",
     "anthropic_api_key_status",
     "default_api_key",
+    "llm_zone",
+    "llm_zone_disabled",
     "read_secret",
     "resolve_api_key_input",
     "resolve_anthropic_api_key",

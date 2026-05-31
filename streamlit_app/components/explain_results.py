@@ -18,6 +18,9 @@ from streamlit_app.components.llm_settings import (
     default_api_key as _default_api_key,
 )
 from streamlit_app.components.llm_settings import (
+    llm_zone_disabled as _llm_zone_disabled,
+)
+from streamlit_app.components.llm_settings import (
     resolve_api_key_input as _resolve_api_key_input,
 )
 from streamlit_app.components.llm_settings import (
@@ -235,6 +238,14 @@ def render_explain_results(
     run_key: str,
     provider: str | None = None,
 ) -> None:
+    if _llm_zone_disabled():
+        st.info(
+            "LLM features are disabled for this deployment zone "
+            "(TREND_LLM_ZONE=disabled). The deterministic analysis engine is "
+            "unaffected; set an authorized no-train endpoint and "
+            "TREND_LLM_ZONE=internal_authorized to enable explanations."
+        )
+        return
     st.subheader("Explain Results")
     st.caption("Generate a natural-language explanation of the latest analysis run.")
 

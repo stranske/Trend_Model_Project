@@ -42,13 +42,30 @@ Quick setup script (writes the file and locks permissions):
 ```
 ./scripts/setup_streamlit_secrets.sh
 ```
-**Streamlit Cloud (hosted)**
+**Streamlit Cloud (hosted) — synthetic / non-proprietary data only**
   - `OPENAI_API_KEY = "..."`
+  - Streamlit Community Cloud is external SaaS. Do **not** use it for real
+    proprietary returns. For sharing with synthetic data, use the stlite
+    browser demo (issue #5343).
 
 **How Streamlit Cloud differs**
 - Local: you control the environment on your machine.
 - Cloud: Streamlit runs the app on their infrastructure and loads secrets from
   the app settings (not from repo files).
+
+### Proprietary data: internal / on-prem hosting
+
+To run on **real proprietary returns**, host the app inside your perimeter and
+route LLM traffic only through the bundled no-egress proxy. The deterministic
+engine and uploaded data never leave the host; LLM calls go through
+`trend-llm-proxy` pointed at an authorized no-train upstream (an on-prem Ollama
+endpoint keeps prompts in-perimeter too). Set `TREND_LLM_ZONE=disabled` to hide
+all LLM panels in a zone that has no authorized endpoint while still running the
+deterministic engine.
+
+See [`docs/deployment/INTERNAL_HOSTING.md`](docs/deployment/INTERNAL_HOSTING.md)
+for the Docker Compose recipe (`docker compose --profile internal up`) and the
+operator live-verification checklist.
 
 The legacy launcher (`scripts/run_streamlit.sh`) still works, but the packaged
 command keeps the environment consistent across machines and enforces the
