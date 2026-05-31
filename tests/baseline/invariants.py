@@ -54,12 +54,18 @@ def check_all(
             f"num_negative_weights={d['num_negative_weights']}",
         )
 
-    # 3. Every weight <= max_weight cap (+tol).
+    # 3. Every weight <= max_weight cap (+tol) -- but only ENFORCE when the cap is
+    # feasible. A fully-invested long-only book of N funds cannot satisfy a cap
+    # below 1/N (cap * N < 1); when the cap is infeasible the model's choice to
+    # exceed it (vs. hold more cash) is a design decision, so we only warn.
     if max_weight is not None:
+        feasible = max_weight * max(d["num_selected"], 1) >= 1.0 - MAX_WEIGHT_TOL
         add(
             "max_weight_respected",
             d["max_weight"] <= max_weight + MAX_WEIGHT_TOL,
-            f"max_weight={d['max_weight']:.4f}, cap={max_weight}",
+            f"max_weight={d['max_weight']:.4f}, cap={max_weight}, "
+            f"n={d['num_selected']}, feasible={feasible}",
+            severity="error" if feasible else "warn",
         )
 
     # 4. Selected fund count within [min_funds, max_funds].

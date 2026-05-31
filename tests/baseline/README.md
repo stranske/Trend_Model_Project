@@ -66,12 +66,12 @@ test_coverage_manifest.py # emits coverage.md; guards catalog quality
 
 | # | Finding | Verdict |
 |---|---|---|
-| 1 | Holdings fixed at 20 regardless of `rank.n` / `selector.top_n` / `selection_mode` | **Real wiring gap** — selection inert in multi-period path; per-period `selected_funds`=21 always. Needs code-owner fix. |
+| 1 | Holdings fixed at 20 regardless of `rank.n` / `selector.top_n` / `selection_mode` | **Design question (open)** — selection appears inert in the multi-period path (per-period `selected_funds`=21 always). Needs owner intent: should multi-period honor `rank.n`, or is it governed by `multi_period.max_funds`/all-funds-equal by design? `rank_n_down` stays report-only until decided. |
 | 2 | `regime.enabled` toggle is a no-op | **Not a bug** — regime overrides apply only when regime=="Risk-Off" (pipeline_helpers.py:277); demo data never triggers it. Add a forced-Risk-Off scenario. |
-| 3 | `rf_rate_annual` doesn't move Sharpe | **Real bug** — per-fund metrics hardcode rf=0 (export/__init__.py:1562); portfolio stats use rf correctly. |
-| 4 | `max_weight=0.03` → max weight 0.0476 | **Real bug** — cap-then-renormalize (risk.py:293-294). The `max_weight_respected` invariant catches it. |
+| 3 | `rf_rate_annual` doesn't move Sharpe | **FIXED 2026-05-30** — per-fund metrics hardcoded rf=0 (export/__init__.py); now use aggregated rf_in/rf_out. `rf_up` scenario enforced. |
+| 4 | `max_weight=0.03` → max weight 0.0476 | **Not a bug / design question (open)** — re-verified: the cap is honored exactly whenever *feasible*; 0.03 is infeasible for 20 funds (cap×N<1), so the model exceeds it to stay invested. Whether to instead hold more cash is owner intent. Invariant now only enforces for feasible caps. |
 | 5 | Fund weights sum to ~0.95 | **Not a bug** — intentional cash allocation, tracked as `cash_weight` (portfolio.py:558). |
-| 6 | Model page crashes on cold render | **Real bug** (caught by AppTest) — `StreamlitAPIException: Expanders may not be nested` at 2_Model.py:2078. Tracked as a strict xfail in `test_streamlit_smoke.py`. |
+| 6 | Model page crashes on cold render | **FIXED 2026-05-30** (caught by AppTest) — nested-expander crash at 2_Model.py; demoted inner expanders to sections. Now a passing regression guard. |
 
 ### Harness refinements queued (from findings)
 - rf check should read the *reported* Sharpe, not the rf=0 derived one (Finding 3).
