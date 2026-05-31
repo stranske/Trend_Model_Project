@@ -62,6 +62,33 @@ def _run_cli(config: Path, *extra: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def _run_unified_cli(config: Path, *extra: str) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    env["PYTHONPATH"] = f"{REPO_ROOT / 'src'}{os.pathsep}{env.get('PYTHONPATH', '')}"
+    env["PYTHONHASHSEED"] = "0"
+    cmd = [
+        sys.executable,
+        "-m",
+        "trend.cli",
+        "run",
+        "-c",
+        str(config),
+        "-i",
+        str(DEMO_RETURNS),
+        "--seed",
+        "777",
+        *extra,
+    ]
+    return subprocess.run(
+        cmd,
+        cwd=str(REPO_ROOT),
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+
 def _run_dirs(export_dir: Path) -> list[Path]:
     runs = export_dir / "runs"
     if not runs.exists():
@@ -115,3 +142,24 @@ def test_content_run_id_stable_without_flag(tmp_path: Path) -> None:
     # On a random-UUID run_id (pre-change) the two runs would land in distinct
     # directories with distinct ids; content-addressing collapses them to one.
     assert len(run_ids) == 1, f"working run_id not stable across runs: {run_ids}"
+
+
+@pytest.mark.skipif(not DEMO_RETURNS.exists(), reason="Demo returns fixture missing")
+def test_unified_trend_run_skip_if_exists_reuses_own_manifest(tmp_path: Path) -> None:
+    export_dir = tmp_path / "exports"
+    config = _write_config(tmp_path, export_dir)
+
+    first = _run_unified_cli(config, "--skip-if-exists")
+    assert first.returncode == 0, first.stderr
+    run_dirs = _run_dirs(export_dir)
+    assert len(run_dirs) == 1, f"expected one run dir, got {run_dirs}"
+    first_run_id = _manifest_run_id(run_dirs[0])
+    manifest = run_dirs[0] / "manifest.json"
+    first_mtime = manifest.stat().st_mtime_ns
+
+    second = _run_unified_cli(config, "--skip-if-exists")
+    assert second.returncode == 0, second.stderr
+    assert _run_dirs(export_dir) == run_dirs
+    assert manifest.stat().st_mtime_ns == first_mtime
+    assert "already-done" in second.stdout
+    assert first_run_id in second.stdout

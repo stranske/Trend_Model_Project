@@ -205,8 +205,8 @@ def write_run_artifacts(
     run_prefix = run_id[:8] or "run"
     run_root = base_dir / "runs"
     run_root.mkdir(parents=True, exist_ok=True)
-    run_dir = run_root / f"{created.strftime('%Y%m%d_%H%M%S')}_{run_prefix}"
-    run_dir.mkdir(parents=True, exist_ok=True)
+    run_dir = _unique_run_dir(run_root / f"{created.strftime('%Y%m%d_%H%M%S_%f')}_{run_prefix}")
+    run_dir.mkdir(parents=True, exist_ok=False)
 
     df = _coerce_frame(data_frame)
     metrics_df = _coerce_frame(metrics_frame)
@@ -269,7 +269,7 @@ def write_run_artifacts(
             pass
     manifest["summary_text"] = summary_text
     manifest["html_report"] = "report.html"
-    manifest["run_directory"] = str(run_dir)
+    manifest["run_directory"] = str(run_dir.resolve())
 
     manifest_path = run_dir / "manifest.json"
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -291,8 +291,8 @@ def write_run_artifacts(
         json.dumps(
             {
                 "run_id": run_id,
-                "run_directory": str(run_dir),
-                "manifest": str(manifest_path),
+                "run_directory": str(run_dir.resolve()),
+                "manifest": str(manifest_path.resolve()),
                 "created": manifest["created"],
             },
             indent=2,
@@ -307,6 +307,19 @@ def _run_index_path(base_dir: Path, run_id: str) -> Path:
     """Return the path of the stable per-run-id index pointer file."""
 
     return Path(base_dir) / "runs" / "index" / f"{run_id}.json"
+
+
+def _unique_run_dir(base_path: Path) -> Path:
+    """Return a non-existing run directory path based on *base_path*."""
+
+    if not base_path.exists():
+        return base_path
+    suffix = 1
+    while True:
+        candidate = base_path.with_name(f"{base_path.name}-{suffix}")
+        if not candidate.exists():
+            return candidate
+        suffix += 1
 
 
 def find_existing_run(output_dir: Path | str, run_id: str) -> Path | None:
@@ -328,6 +341,8 @@ def find_existing_run(output_dir: Path | str, run_id: str) -> Path | None:
     if not manifest:
         return None
     manifest_path = Path(manifest)
+    if not manifest_path.is_absolute():
+        manifest_path = Path(output_dir) / manifest_path
     return manifest_path if manifest_path.exists() else None
 
 

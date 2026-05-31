@@ -114,6 +114,58 @@ def test_write_run_artifacts_creates_nested_output_directory_tree(tmp_path: Path
     assert (run_dir / "report.html").is_file()
 
 
+def test_write_run_artifacts_uses_unique_directory_for_same_timestamp(
+    tmp_path: Path, monkeypatch
+) -> None:
+    class FixedDateTime(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 5, 31, 7, 15, 0, 123456, tzinfo=tz)
+
+    monkeypatch.setattr(run_artifacts._dt, "datetime", FixedDateTime)
+    kwargs = {
+        "output_dir": tmp_path / "out",
+        "run_id": "stable-run-id",
+        "config": {},
+        "config_path": "cfg.yml",
+        "input_path": tmp_path / "missing.csv",
+        "data_frame": pd.DataFrame({"Date": pd.date_range("2023-01-31", periods=1)}),
+        "metrics_frame": pd.DataFrame(),
+        "run_details": {},
+        "exported_files": [],
+        "summary_text": "",
+    }
+
+    first = write_run_artifacts(**kwargs)
+    second = write_run_artifacts(**kwargs)
+
+    assert first != second
+    assert first.name == "20260531_071500_123456_stable-r"
+    assert second.name == "20260531_071500_123456_stable-r-1"
+    index = json.loads(
+        (tmp_path / "out" / "runs" / "index" / "stable-run-id.json").read_text(encoding="utf-8")
+    )
+    assert Path(index["manifest"]).is_absolute()
+    assert Path(index["run_directory"]).is_absolute()
+
+
+def test_find_existing_run_resolves_legacy_relative_manifest_path(tmp_path: Path) -> None:
+    output_dir = tmp_path / "out"
+    manifest = output_dir / "runs" / "20260531_071500_abcdef12" / "manifest.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text("{}", encoding="utf-8")
+    index = output_dir / "runs" / "index" / "legacy-run.json"
+    index.parent.mkdir(parents=True)
+    index.write_text(
+        json.dumps(
+            {"run_id": "legacy-run", "manifest": "runs/20260531_071500_abcdef12/manifest.json"}
+        ),
+        encoding="utf-8",
+    )
+
+    assert run_artifacts.find_existing_run(output_dir, "legacy-run") == manifest
+
+
 def test_serialise_stats_handles_mapping_and_invalid_values() -> None:
     stats = {"cagr": "0.5", "vol": "n/a", "ignored": "x"}
 

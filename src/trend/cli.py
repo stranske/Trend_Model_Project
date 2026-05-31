@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, Iterable, Mapping, Protocol, cast
+from typing import Any, Callable, Iterable, Mapping, Protocol, Sequence, cast
 
 import numpy as np
 import pandas as pd
@@ -38,6 +38,7 @@ from trend_analysis.config import (
     apply_patch as apply_config_patch,
 )
 from trend_analysis.config import load as load_config
+from trend_analysis.config.schema_validation import load_config as load_config_yaml
 from trend_analysis.config.coverage import (
     ConfigCoverageTracker,
     activate_config_coverage,
@@ -48,6 +49,7 @@ from trend_analysis.config.schema_validation import load_config as load_schema_c
 from trend_analysis.config.validation import ValidationResult
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from trend_analysis.data import load_csv
+from trend_analysis.identity import IdentityMap
 from trend_analysis.llm import (
     ConfigPatchChain,
     LLMProviderConfig,
@@ -78,6 +80,7 @@ from trend_analysis.presets import (
     list_preset_slugs,
 )
 from trend_analysis.reporting.portfolio_series import select_primary_portfolio_series
+from trend_analysis.reporting.run_artifacts import write_run_artifacts
 from trend_analysis.signal_presets import (
     TrendSpecPreset,
     get_trend_spec_preset,
@@ -540,8 +543,7 @@ def build_parser(
         "--png",
         action="store_true",
         help=(
-            "Best-effort PNG export; requires a working kaleido install "
-            "(pip install kaleido)"
+            "Best-effort PNG export; requires a working kaleido install " "(pip install kaleido)"
         ),
     )
 
@@ -909,6 +911,111 @@ def _handle_exports(cfg: Any, result: RunResult, structured_log: bool, run_id: s
             formats=out_formats,
         )
     _legacy_maybe_log_step(structured_log, run_id, "export_complete", "Export done")
+
+
+def _resolve_export_artifact_paths(
+    out_dir: Path, filename: str, keys: Sequence[str], formats: Sequence[str]
+) -> list[Path]:
+    """Return the export artifact paths expected from ``export.export_data``."""
+
+    seen: set[Path] = set()
+    paths: list[Path] = []
+    for fmt in formats:
+        fmt_norm = (fmt or "").lower()
+        fmt_norm = "xlsx" if fmt_norm == "excel" else fmt_norm
+        if not fmt_norm:
+            continue
+        if fmt_norm == "xlsx":
+            candidate = out_dir / f"{filename}.xlsx"
+            if candidate not in seen:
+                paths.append(candidate)
+                seen.add(candidate)
+            continue
+        for key in keys:
+            candidate = out_dir / f"{filename}_{key}.{fmt_norm}"
+            if candidate in seen:
+                continue
+            paths.append(candidate)
+            seen.add(candidate)
+    return paths
+
+
+def _write_trend_run_artifacts(
+    *,
+    cfg: Any,
+    result: RunResult,
+    config_path: Path,
+    input_path: Path,
+    data_frame: pd.DataFrame,
+    run_id: str,
+    structured_log: bool,
+) -> Path | None:
+    """Write the manifest/index used by ``trend run --skip-if-exists``."""
+
+    export_cfg = getattr(cfg, "export", {}) or {}
+    out_dir = export_cfg.get("directory")
+    out_formats = export_cfg.get("formats")
+    filename = export_cfg.get("filename", "analysis")
+    if not out_dir and not out_formats:
+        out_dir = DEFAULT_OUTPUT_DIRECTORY
+        out_formats = DEFAULT_OUTPUT_FORMATS
+    if not out_dir or not out_formats:
+        return None
+
+    out_dir_path = Path(out_dir)
+    fmt_list = list(out_formats)
+    data_keys = ["metrics"]
+    if isinstance(result.details, Mapping):
+        narrative_data: dict[str, Any] = {"metrics": result.metrics}
+        export.append_narrative_section(narrative_data, result.details, config=cfg)
+        data_keys = list(narrative_data.keys())
+        if any(fmt.lower() in {"excel", "xlsx"} for fmt in fmt_list):
+            data_keys.append("summary")
+    artifact_paths = _resolve_export_artifact_paths(out_dir_path, filename, data_keys, fmt_list)
+    split = getattr(cfg, "sample_split", {})
+    summary_text = export.format_summary_text(
+        result.details,
+        str(split.get("in_start", "")),
+        str(split.get("in_end", "")),
+        str(split.get("out_start", "")),
+        str(split.get("out_end", "")),
+    )
+    try:
+        raw_config_payload = load_config_yaml(config_path)
+        config_payload: Any
+        if hasattr(cfg, "model_dump"):
+            config_payload = cfg.model_dump()
+        elif hasattr(cfg, "__dict__"):
+            config_payload = dict(getattr(cfg, "__dict__"))
+        else:
+            config_payload = cfg
+        manifest_dir = write_run_artifacts(
+            output_dir=out_dir_path,
+            run_id=run_id,
+            config=config_payload,
+            config_path=str(config_path),
+            input_path=input_path,
+            data_frame=data_frame,
+            metrics_frame=result.metrics,
+            run_details=result.details if isinstance(result.details, Mapping) else {},
+            exported_files=artifact_paths,
+            summary_text=summary_text,
+            identity_map=IdentityMap.from_config(
+                raw_config_payload,
+                base_path=config_path.parent,
+            ),
+        )
+    except Exception as exc:  # pragma: no cover - defensive parity with legacy CLI
+        logger.warning("Failed to write run artifacts: %s", exc)
+        return None
+    _legacy_maybe_log_step(
+        structured_log,
+        run_id,
+        "run_artifacts",
+        "Run manifest written",
+        directory=str(manifest_dir),
+    )
+    return manifest_dir
 
 
 def _write_bundle(
@@ -2252,6 +2359,15 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                 log_file=Path(args.log_file) if args.log_file else None,
                 structured_log=not args.no_structured_log,
                 bundle=Path(args.bundle) if args.bundle else None,
+            )
+            _write_trend_run_artifacts(
+                cfg=cfg,
+                result=result,
+                config_path=cfg_path,
+                input_path=returns_path,
+                data_frame=returns_df,
+                run_id=run_id,
+                structured_log=not args.no_structured_log,
             )
             print_summary = _legacy_callable("_print_summary", _print_summary)
             print_summary(cfg, result)
