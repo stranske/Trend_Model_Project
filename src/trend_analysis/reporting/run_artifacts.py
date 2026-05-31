@@ -112,15 +112,23 @@ def _serialise_fill_details(value: Any) -> dict[str, Any]:
     return {str(k): v for k, v in raw.items() if v is not None}
 
 
+def _coerce_label_mapping(value: Any) -> dict[str, Any]:
+    if isinstance(value, Mapping):
+        return {str(label): details for label, details in value.items()}
+    return {}
+
+
+def _coerce_label_list(value: Any) -> list[str]:
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return [str(label) for label in value]
+    return []
+
+
 def _data_reality(df: pd.DataFrame) -> dict[str, Any]:
     instrument_cols = [c for c in df.columns if str(c).lower() != "date"]
-    filled_raw = _metadata_attr(df, "missing_policy_filled", {}) or {}
-    dropped_raw = _metadata_attr(df, "missing_policy_dropped", []) or []
-    filled = {
-        str(label): _serialise_fill_details(details)
-        for label, details in dict(filled_raw).items()
-    }
-    dropped_labels = [str(label) for label in dropped_raw]
+    filled_raw = _coerce_label_mapping(_metadata_attr(df, "missing_policy_filled", {}) or {})
+    dropped_labels = _coerce_label_list(_metadata_attr(df, "missing_policy_dropped", []) or [])
+    filled = {str(label): _serialise_fill_details(details) for label, details in filled_raw.items()}
 
     instruments: list[dict[str, Any]] = []
     for column in instrument_cols:
@@ -318,18 +326,14 @@ def write_run_artifacts(
         )
 
     selected = details.get("selected_funds")
-    if isinstance(selected, Sequence) and not isinstance(
-        selected, (str, bytes, bytearray)
-    ):
+    if isinstance(selected, Sequence) and not isinstance(selected, (str, bytes, bytearray)):
         selected_list = list(selected)
     elif selected is None:
         selected_list = []
     else:
         selected_list = [selected]
     resolver = identity_map or (
-        IdentityMap.from_config(config)
-        if isinstance(config, Mapping)
-        else IdentityMap()
+        IdentityMap.from_config(config) if isinstance(config, Mapping) else IdentityMap()
     )
     selected_entities = _selected_entities(selected_list, resolver)
 
@@ -343,8 +347,7 @@ def write_run_artifacts(
         "git_hash": _git_hash(),
         "data_window": _data_window(df),
         "data_reality": _data_reality(df),
-        "metrics": _serialise_stats(details.get("out_ew_stats"))
-        or _summarise_metrics(metrics_df),
+        "metrics": _serialise_stats(details.get("out_ew_stats")) or _summarise_metrics(metrics_df),
         "metrics_overview": _summarise_metrics(metrics_df),
         "selected_funds": selected_list,
         "selected_entities": selected_entities,
@@ -363,16 +366,12 @@ def write_run_artifacts(
 
     manifest_path = run_dir / "manifest.json"
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.write_text(
-        json.dumps(normalise_for_json(manifest), indent=2), encoding="utf-8"
-    )
+    manifest_path.write_text(json.dumps(normalise_for_json(manifest), indent=2), encoding="utf-8")
 
     html_path = run_dir / "report.html"
     html_path.parent.mkdir(parents=True, exist_ok=True)
     html_path.write_text(
-        _render_html(
-            run_id=run_id, created=created, manifest=manifest, summary_text=summary_text
-        ),
+        _render_html(run_id=run_id, created=created, manifest=manifest, summary_text=summary_text),
         encoding="utf-8",
     )
 

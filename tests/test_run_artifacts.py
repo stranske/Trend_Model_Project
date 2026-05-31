@@ -194,3 +194,17 @@ def test_coerce_frame_gracefully_handles_unexpected_input() -> None:
 
     assert isinstance(result, pd.DataFrame)
     assert result.empty
+
+
+def test_data_reality_tolerates_non_mapping_fill_metadata() -> None:
+    df = pd.DataFrame({"Date": pd.date_range("2021-01-31", periods=2, freq="ME"), "A": [0.1, 0.2]})
+    df.attrs["market_data_missing_policy"] = "ffill"
+    df.attrs["market_data_missing_policy_filled"] = "unexpected-shape"
+    df.attrs["market_data_missing_policy_dropped"] = "not-a-list"
+
+    reality = run_artifacts._data_reality(df)
+
+    assert reality["policy"] == "ffill"
+    assert reality["filled"] == []
+    assert reality["dropped"] == []
+    assert reality["unknown"] == []
