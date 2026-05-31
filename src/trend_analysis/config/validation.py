@@ -151,6 +151,7 @@ def _run_portfolio_validation(
     _check_rank_inclusion_requirements(config, errors)
     _check_rank_value_ranges(config, errors)
     _check_rank_fund_count(config, errors, warnings, base)
+    _check_portfolio_feasibility(config, errors, warnings, base)
 
 
 def format_validation_messages(
@@ -668,6 +669,178 @@ def _check_rank_fund_count(
             suggestion=f"Reduce top_n to {available} or fewer.",
         )
         _append_issue(errors, issue)
+
+
+def collect_feasibility_errors(
+    config: Mapping[str, Any], *, base_path: Path | None = None
+) -> list[ValidationError]:
+    """Run ONLY the parameter-feasibility checks and return any errors.
+
+    Lets non-CLI entry points (e.g. the Streamlit app, which validates a minimal
+    payload subset) reuse the same infeasibility gate on a full config without
+    running the rest of config validation.
+    """
+    errors: list[ValidationError] = []
+    warnings: list[ValidationError] = []
+    _check_portfolio_feasibility(config, errors, warnings, base_path or Path("."))
+    return errors
+
+
+def _coerce_float(value: Any) -> float | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _coerce_pos_int(value: Any) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value if value > 0 else None
+
+
+def _effective_holding_count(
+    config: Mapping[str, Any], portfolio: Mapping[str, Any], base: Path
+) -> int | None:
+    """Upper bound on the number of funds that will be held.
+
+    Used to test whether a long-only, fully-invested book can satisfy weight
+    caps. Prefer an explicitly configured selection cap (rank top_n,
+    multi_period.max_funds); fall back to the available universe size.
+    """
+    rank_cfg = portfolio.get("rank")
+    if portfolio.get("selection_mode") == "rank" and isinstance(rank_cfg, Mapping):
+        if rank_cfg.get("inclusion_approach") == "top_n":
+            top_n = _coerce_pos_int(rank_cfg.get("n"))
+            if top_n is not None:
+                return top_n
+    multi_period = config.get("multi_period")
+    if isinstance(multi_period, Mapping):
+        max_funds = _coerce_pos_int(multi_period.get("max_funds"))
+        if max_funds is not None:
+            return max_funds
+    return _count_available_funds(config, base)
+
+
+def _check_portfolio_feasibility(
+    config: Mapping[str, Any],
+    errors: list[ValidationError],
+    warnings: list[ValidationError],
+    base: Path,
+) -> None:
+    """Reject internally contradictory / infeasible parameter sets.
+
+    Policy: a simulation must not run on parameters that cannot describe a valid
+    portfolio. The only escape for a capacity shortfall is an EXPLICIT cash
+    allocation (constraints.cash_weight) -- never a silent residual.
+    """
+    portfolio = config.get("portfolio")
+    if not isinstance(portfolio, Mapping):
+        return
+    constraints = portfolio.get("constraints")
+    constraints = constraints if isinstance(constraints, Mapping) else {}
+
+    long_only = bool(constraints.get("long_only", True))
+    max_w = _coerce_float(constraints.get("max_weight"))
+    min_w = _coerce_float(constraints.get("min_weight"))
+    cash_w = _coerce_float(constraints.get("cash_weight")) or 0.0
+    explicit_cash = cash_w > 1e-9
+
+    # 1. max_weight must not be below min_weight.
+    if max_w is not None and min_w is not None and max_w < min_w - 1e-12:
+        _append_issue(
+            errors,
+            ValidationError(
+                path="portfolio.constraints.max_weight",
+                message="max_weight is below min_weight.",
+                expected=f">= min_weight ({min_w})",
+                actual=max_w,
+                suggestion="Raise max_weight or lower min_weight.",
+            ),
+        )
+
+    # 2. multi_period.min_funds must not exceed max_funds.
+    multi_period = config.get("multi_period")
+    if isinstance(multi_period, Mapping):
+        min_funds = _coerce_pos_int(multi_period.get("min_funds"))
+        max_funds = _coerce_pos_int(multi_period.get("max_funds"))
+        if min_funds is not None and max_funds is not None and min_funds > max_funds:
+            _append_issue(
+                errors,
+                ValidationError(
+                    path="multi_period.min_funds",
+                    message="min_funds exceeds max_funds.",
+                    expected=f"<= max_funds ({max_funds})",
+                    actual=min_funds,
+                    suggestion="Set min_funds <= max_funds.",
+                ),
+            )
+
+    # 3. vol_adjust.floor_vol must be below target_vol when targeting is enabled.
+    vol_adjust = config.get("vol_adjust")
+    if isinstance(vol_adjust, Mapping) and bool(vol_adjust.get("enabled", True)):
+        floor_v = _coerce_float(vol_adjust.get("floor_vol"))
+        target_v = _coerce_float(vol_adjust.get("target_vol"))
+        if (
+            floor_v is not None
+            and target_v is not None
+            and target_v > 0
+            and floor_v >= target_v - 1e-12
+        ):
+            _append_issue(
+                errors,
+                ValidationError(
+                    path="vol_adjust.floor_vol",
+                    message="floor_vol must be below target_vol.",
+                    expected=f"< target_vol ({target_v})",
+                    actual=floor_v,
+                    suggestion="Lower floor_vol below target_vol.",
+                ),
+            )
+
+    # 4 & 5. Capacity vs weight bounds for a long-only, fully-invested book.
+    # Only enforced when no explicit cash absorbs the slack.
+    if not long_only or explicit_cash or (max_w is None and min_w is None):
+        return
+    n_funds = _effective_holding_count(config, portfolio, base)
+    if n_funds is None or n_funds <= 0:
+        return  # cannot determine capacity; do not guess
+
+    if max_w is not None and max_w > 0 and max_w * n_funds < 1.0 - 1e-9:
+        _append_issue(
+            errors,
+            ValidationError(
+                path="portfolio.constraints.max_weight",
+                message=(
+                    "Infeasible: a long-only, fully-invested book of "
+                    f"{n_funds} funds cannot satisfy max_weight "
+                    f"(max_weight * n_funds = {max_w * n_funds:.3f} < 1)."
+                ),
+                expected=f">= {1.0 / n_funds:.4f} for {n_funds} funds",
+                actual=max_w,
+                suggestion=(
+                    f"Raise max_weight to >= {1.0 / n_funds:.4f}, hold more funds, "
+                    "or set an explicit constraints.cash_weight to absorb the remainder."
+                ),
+            ),
+        )
+
+    if min_w is not None and min_w > 0 and min_w * n_funds > 1.0 + 1e-9:
+        _append_issue(
+            errors,
+            ValidationError(
+                path="portfolio.constraints.min_weight",
+                message=(
+                    f"Infeasible: {n_funds} funds each >= min_weight cannot sum to "
+                    f"<= 1 (min_weight * n_funds = {min_w * n_funds:.3f} > 1)."
+                ),
+                expected=f"<= {1.0 / n_funds:.4f} for {n_funds} funds",
+                actual=min_w,
+                suggestion=f"Lower min_weight to <= {1.0 / n_funds:.4f} or hold fewer funds.",
+            ),
+        )
 
 
 def _check_portfolio_selection_requirements(
