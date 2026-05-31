@@ -130,12 +130,15 @@ jobs:
 
       - name: Run config coverage check
         run: |
-          # Note: Threshold set to 72 due to incomplete instrumentation
-          # Only lightweight schema (data.*, portfolio.cost_model.*) is currently tracked
-          # TODO: Reduce threshold as more config sections are instrumented
+          # "Ignored keys" here counts config keys READ during the demo run
+          # (validated-key tracking is not yet wired, so ignored == read count).
+          # Raised 72 -> 80: the config-loader fix (PortfolioSettings extra="allow")
+          # makes the demo honor selection_mode/rank/selector/custom_weights/weighting,
+          # so the engine now legitimately reads ~5 more keys (72 -> 77).
+          # TODO: tighten once validated-key tracking is instrumented.
           python scripts/check_config_coverage.py \
             --config config/demo.yml \
-            --ignored-threshold 72
+            --ignored-threshold 80
 
   summary:
     name: gate-summary
