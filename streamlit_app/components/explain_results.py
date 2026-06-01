@@ -18,6 +18,7 @@ from streamlit_app.components.llm_settings import (
     default_api_key as _default_api_key,
 )
 from streamlit_app.components.llm_settings import (
+    demo_mode_disables_llm as _demo_mode_disables_llm,
     llm_zone_disabled as _llm_zone_disabled,
 )
 from streamlit_app.components.llm_settings import (
@@ -191,7 +192,9 @@ def generate_result_explanation(
     )
     metric_catalog = format_metric_catalog(compacted_entries)
     if not all_entries:
-        text = ensure_result_disclaimer("No metrics were detected in the analysis output.")
+        text = ensure_result_disclaimer(
+            "No metrics were detected in the analysis output."
+        )
         return ExplanationResult(
             text=text,
             trace_url=None,
@@ -245,6 +248,8 @@ def render_explain_results(
             "unaffected; set an authorized no-train endpoint and "
             "TREND_LLM_ZONE=internal_authorized to enable explanations."
         )
+        return
+    if _demo_mode_disables_llm():
         return
     st.subheader("Explain Results")
     st.caption("Generate a natural-language explanation of the latest analysis run.")

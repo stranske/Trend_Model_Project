@@ -7,6 +7,7 @@ import os
 
 import streamlit as st
 
+from streamlit_app.demo_mode import demo_mode_enabled
 from trend_analysis.llm import LLMProviderConfig
 
 logger = logging.getLogger(__name__)
@@ -242,12 +243,19 @@ def resolve_llm_provider_config(
     return LLMProviderConfig(**kwargs)
 
 
+def demo_mode_disables_llm() -> bool:
+    """Return True when demo mode must hide every LLM surface."""
+
+    return demo_mode_enabled() or llm_zone_disabled()
+
+
 __all__ = [
     "LLM_ZONE_DISABLED",
     "LLM_ZONE_ENV",
     "LLM_ZONE_INTERNAL",
     "anthropic_api_key_status",
     "default_api_key",
+    "demo_mode_disables_llm",
     "llm_zone",
     "llm_zone_disabled",
     "read_secret",

@@ -30,6 +30,7 @@ from streamlit_app.components.upload_guard import (
     guard_and_buffer_upload,
     hash_path,
 )
+from streamlit_app.demo_mode import demo_mode_enabled
 from trend.input_validation import InputValidationError
 from trend_analysis.io.market_data import MarketDataValidationError
 
@@ -466,17 +467,26 @@ def render_data_page() -> None:
     if success_msg:
         st.success(success_msg)
 
-    st.write("Upload a CSV or Excel file, or start from the bundled sample dataset.")
+    demo_mode = demo_mode_enabled()
+    if demo_mode:
+        st.write("Start from the bundled synthetic sample dataset.")
+    else:
+        st.write("Upload a CSV or Excel file, or start from the bundled sample dataset.")
 
     samples = data_cache.dataset_choices()
     options: list[str] = []
     if samples:
         options.append("Sample dataset")
-    options.append("Upload your own")
+    if not demo_mode:
+        options.append("Upload your own")
 
+    if demo_mode:
+        st.session_state["data_source"] = "Sample dataset"
     default_index = (
         0 if st.session_state.get("data_source", "Sample dataset") == "Sample dataset" else 1
     )
+    if default_index >= len(options):
+        default_index = 0
     source = st.radio("Data source", options, index=default_index)
     st.session_state["data_source"] = source
 
