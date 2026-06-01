@@ -31,7 +31,7 @@ attrs==26.1.0
     #   aiohttp
     #   jsonschema
     #   referencing
-black==26.3.1
+black==26.5.1
     # via trend-model (pyproject.toml)
 blinker==1.9.0
     # via streamlit
@@ -450,7 +450,7 @@ rpds-py==0.30.0
     # via
     #   jsonschema
     #   referencing
-ruff==0.15.13
+ruff==0.15.14
     # via trend-model (pyproject.toml)
 scipy==1.17.1
     # via trend-model (pyproject.toml)
