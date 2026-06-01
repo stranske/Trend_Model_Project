@@ -50,7 +50,10 @@ def test_resolve_profile_precedence() -> None:
         dp.resolve_profile(session=None, query_param="public_llm_demo", env="presentation_safe")
         == dp.PUBLIC_LLM_DEMO
     )
-    assert dp.resolve_profile(session=None, query_param=None, env="public_llm_demo") == dp.PUBLIC_LLM_DEMO
+    assert (
+        dp.resolve_profile(session=None, query_param=None, env="public_llm_demo")
+        == dp.PUBLIC_LLM_DEMO
+    )
     assert dp.resolve_profile() == dp.PRESENTATION_SAFE
 
 
@@ -60,7 +63,10 @@ def test_resolve_profile_ignores_invalid_and_falls_through() -> None:
         dp.resolve_profile(session="bogus", query_param="public_llm_demo", env=None)
         == dp.PUBLIC_LLM_DEMO
     )
-    assert dp.resolve_profile(session="bogus", query_param="", env="also-bogus") == dp.PRESENTATION_SAFE
+    assert (
+        dp.resolve_profile(session="bogus", query_param="", env="also-bogus")
+        == dp.PRESENTATION_SAFE
+    )
 
 
 def test_gating_helpers_presentation_safe() -> None:

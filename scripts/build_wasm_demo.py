@@ -46,9 +46,7 @@ SOURCE_DIRS = (
 )
 
 #: Bundled synthetic data shipped with the demo (presentation-safe default).
-DATA_FILES = (
-    "demo/demo_returns.csv",
-)
+DATA_FILES = ("demo/demo_returns.csv",)
 
 #: Python requirements installed under Pyodide, per runtime profile. The
 #: presentation-safe set intentionally omits LangChain so the default load is
