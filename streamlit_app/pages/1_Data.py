@@ -474,8 +474,9 @@ def render_data_page() -> None:
         options.append("Sample dataset")
     options.append("Upload your own")
 
+    requested_source = st.session_state.get("data_source", "Sample dataset")
     default_index = (
-        0 if st.session_state.get("data_source", "Sample dataset") == "Sample dataset" else 1
+        options.index(requested_source) if requested_source in options else 0
     )
     source = st.radio("Data source", options, index=default_index)
     st.session_state["data_source"] = source
