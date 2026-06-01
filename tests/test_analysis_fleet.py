@@ -7,6 +7,8 @@ import pandas as pd
 
 from trend_analysis import api
 from trend_analysis.config import Config
+from trend_analysis.config.coverage import ConfigCoverageTracker, wrap_config_for_coverage
+from trend_analysis.llm.analysis_fleet import _config_fingerprint
 from trend_analysis.llm.tracing import load_fleet_records
 
 
@@ -96,6 +98,15 @@ def test_run_simulation_fleet_record_is_best_effort(monkeypatch, tmp_path) -> No
     result = api.run_simulation(_config(), _returns_frame())
 
     assert not result.metrics.empty
+
+
+def test_config_fingerprint_does_not_inflate_config_coverage() -> None:
+    cfg = _config()
+    tracker = ConfigCoverageTracker()
+    wrap_config_for_coverage(cfg, tracker)
+
+    assert _config_fingerprint(cfg).startswith("sha256:")
+    assert tracker.generate_report().read == set()
 
 
 def test_run_simulation_fleet_ids_are_stable_with_column_reordering(monkeypatch, tmp_path) -> None:

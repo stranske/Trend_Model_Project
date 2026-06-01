@@ -12,6 +12,9 @@ from trend_analysis.llm.tracing import record_fleet_event, stable_hash
 
 
 def _safe_mapping(value: Any) -> dict[str, Any]:
+    raw_data = getattr(value, "_data", None)
+    if isinstance(raw_data, Mapping):
+        return {str(key): item for key, item in raw_data.items()}
     if isinstance(value, Mapping):
         return {str(key): item for key, item in value.items()}
     return {}
