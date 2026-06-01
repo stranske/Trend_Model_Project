@@ -572,7 +572,12 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             "Unexpected pipeline result type (%s); returning empty payload",
             exc,
         )
-        result = RunResult(pd.DataFrame(), {}, seed, env, diagnostic=diag_hint, timings=timings)
+        diagnostic = diag_hint or DiagnosticPayload(
+            reason_code="PIPELINE_UNEXPECTED_RESULT_TYPE",
+            message="Analysis pipeline returned an unsupported result type.",
+            context={"error": str(exc), "result_type": type(pipeline_output).__name__},
+        )
+        result = RunResult(pd.DataFrame(), {}, seed, env, diagnostic=diagnostic, timings=timings)
         record_analysis_run(
             config=config,
             returns=returns,

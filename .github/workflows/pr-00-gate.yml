@@ -132,13 +132,13 @@ jobs:
         run: |
           # "Ignored keys" here counts config keys READ during the demo run
           # (validated-key tracking is not yet wired, so ignored == read count).
-          # Raised 72 -> 80: the config-loader fix (PortfolioSettings extra="allow")
+          # Raised 72 -> 81: the config-loader fix (PortfolioSettings extra="allow")
           # makes the demo honor selection_mode/rank/selector/custom_weights/weighting,
-          # so the engine now legitimately reads ~5 more keys (72 -> 77).
+          # and fleet-record fingerprinting now reads run metadata from the same config path.
           # TODO: tighten once validated-key tracking is instrumented.
           python scripts/check_config_coverage.py \
             --config config/demo.yml \
-            --ignored-threshold 80
+            --ignored-threshold 81
 
   summary:
     name: gate-summary

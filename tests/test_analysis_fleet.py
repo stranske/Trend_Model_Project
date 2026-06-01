@@ -120,3 +120,25 @@ def test_run_simulation_fleet_ids_are_stable_with_column_reordering(monkeypatch,
         first_record["domain"]["artifact_refs"]["analysis_summary"]
         == second_record["domain"]["artifact_refs"]["analysis_summary"]
     )
+
+
+def test_run_simulation_fleet_record_marks_unexpected_pipeline_result_error(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    fleet_path = tmp_path / "langsmith-fleet.ndjson"
+    monkeypatch.setenv("TREND_LANGSMITH_FLEET_PATH", str(fleet_path))
+    monkeypatch.delenv("LANGSMITH_API_KEY", raising=False)
+    monkeypatch.setattr(api, "_run_analysis", lambda *_args, **_kwargs: object())
+
+    result = api.run_simulation(_config(), _returns_frame())
+
+    assert result.metrics.empty
+    assert result.diagnostic is not None
+    assert result.diagnostic.reason_code == "PIPELINE_UNEXPECTED_RESULT_TYPE"
+
+    records = load_fleet_records(path=fleet_path)
+    assert len(records) == 1
+    record = records[0]
+    assert record["status"] == "error"
+    assert record["domain"]["analysis_status"] == "PIPELINE_UNEXPECTED_RESULT_TYPE"
