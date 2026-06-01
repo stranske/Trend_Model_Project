@@ -27,6 +27,7 @@ from trend.validation import (
 
 from .diagnostics import PipelineReasonCode, coerce_pipeline_result
 from .logging import log_step as _log_step  # lightweight import
+from .llm.analysis_fleet import record_analysis_run
 from .pipeline import (
     _build_trend_spec,
     _policy_from_config,
@@ -442,7 +443,14 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     # Check for multi-period mode and delegate if enabled
     multi_period_cfg = getattr(config, "multi_period", None)
     if multi_period_cfg is not None and isinstance(multi_period_cfg, dict):
-        return _run_multi_period_simulation(config, returns, env, seed)
+        result = _run_multi_period_simulation(config, returns, env, seed)
+        record_analysis_run(
+            config=config,
+            returns=returns,
+            result=result,
+            latency_ms=(result.timings or {}).get("wall_ms"),
+        )
+        return result
 
     validation_frame = validate_prices_frame(build_validation_frame(returns))
 
@@ -564,7 +572,14 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             "Unexpected pipeline result type (%s); returning empty payload",
             exc,
         )
-        return RunResult(pd.DataFrame(), {}, seed, env, diagnostic=diag_hint, timings=timings)
+        result = RunResult(pd.DataFrame(), {}, seed, env, diagnostic=diag_hint, timings=timings)
+        record_analysis_run(
+            config=config,
+            returns=returns,
+            result=result,
+            latency_ms=timings.get("wall_ms"),
+        )
+        return result
     if payload is None:
         # Prefer NO_FUNDS_SELECTED when the input has no investable fund columns
         # (e.g. Date + RF only), even if the configured split yields an empty
@@ -593,7 +608,14 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             )
         else:
             logger.warning("run_simulation produced no result (unknown reason)")
-        return RunResult(pd.DataFrame(), {}, seed, env, diagnostic=diag, timings=timings)
+        result = RunResult(pd.DataFrame(), {}, seed, env, diagnostic=diag, timings=timings)
+        record_analysis_run(
+            config=config,
+            returns=returns,
+            result=result,
+            latency_ms=timings.get("wall_ms"),
+        )
+        return result
     res_dict = cast(dict[str, Any], payload)
     if isinstance(res_dict, dict):
         _attach_reporting_metadata(res_dict, config)
@@ -803,4 +825,10 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         rr.details_sanitized = _sanitize_keys(rr.details)
     except Exception:  # pragma: no cover
         pass
+    record_analysis_run(
+        config=config,
+        returns=returns,
+        result=rr,
+        latency_ms=timings.get("wall_ms"),
+    )
     return rr

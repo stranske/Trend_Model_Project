@@ -1,6 +1,27 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
+## 2026-06-01T02:00:41Z - opener lane issue #5368 PR materializing
+
+- Repo: stranske/Trend_Model_Project
+- Issue: #5368 `Emit Trend analysis-run fleet records from the deterministic run path`
+- Branch: `codex/issue-5368-trend-fleet-records`
+- Agent: codex opener, neutral Code workspace; persistent worktree used at `~/.codex/automations/pd-workloop-resume/worktrees/trend-5368-fleet-records`.
+- Selection:
+  - ACTION A succeeded and full opener discovery ran. Cap-health initially showed raw cap 3/5 with PA #1856 and trip-planner #1283 lacking fresh dispatch evidence, plus Trend #5353 runner-failed.
+  - `opener-repair-infra-stalls.py` added `agent:retry` and dispatched Gate Followups for PA #1856 and trip-planner #1283. Fresh cap-health at 2026-06-01T01:56:31Z showed both draining with active Gate evidence. Trend #5353 remains blocked by the owner stlite/Pyodide demo decision/rework, not a bounded opener fix.
+  - Liveness guard reported nine candidates. #1854 and #1281 were already linked to open PRs (#1856/#1283); #5368 was the oldest unlinked implementation candidate outside scoped blockers, so it was selected.
+- Implementation:
+  - Added `trend_analysis.llm.analysis_fleet.record_analysis_run`, reusing the existing `langsmith-fleet/v1` writer without enabling LangSmith tracing or external clients.
+  - Wired `api.run_simulation` completion paths to emit deterministic `analysis-run` fleet records for normal, empty/diagnostic, type-error, and multi-period results.
+  - Fleet records contain only hashed/safe domain fields: dataset id, config fingerprint, deterministic analysis status, aggregate match score, latency, and artifact summary hash. Raw manager names and return values are excluded.
+- Validation:
+  - `python -m pytest tests/test_analysis_fleet.py tests/test_unified_api_integration.py -q --tb=short` -> 3 passed, 15 warnings (existing Pandas4/data-file warnings).
+  - `python -m ruff check src/trend_analysis/api.py src/trend_analysis/llm/analysis_fleet.py tests/test_analysis_fleet.py` -> passed.
+  - `python -m black --check --fast --line-length 100 src/trend_analysis/api.py src/trend_analysis/llm/analysis_fleet.py tests/test_analysis_fleet.py` -> passed.
+  - `python -m mypy src/trend_analysis/llm/analysis_fleet.py src/trend_analysis/api.py` -> passed.
+- Current state before push: local patch ready; next action is commit, push, open ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`, then relay `pr_opened`.
+
 ## 2026-05-31T08:25:28Z - closer lane fixed PR #5362 Gate export regression
 
 - Repo: stranske/Trend_Model_Project
