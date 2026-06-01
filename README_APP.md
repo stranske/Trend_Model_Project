@@ -31,41 +31,17 @@ Place the `src/` and `streamlit_app/` folders at the root of your repo (next to 
 trend app
 ```
 
-## Synthetic Public Demo
+## Secrets (local dev + Streamlit Cloud)
 
-The public browser demo runs through the root entrypoint:
-
-```bash
-streamlit run streamlit_app.py
-```
-
-That entrypoint sets `TREND_DEMO_MODE=1`. In demo mode the app uses only the
-bundled synthetic dataset, hides the custom-upload path, and hides every LLM
-panel. The checked-in `requirements.txt` intentionally contains no `langchain*`
-packages; proprietary data and LLM features belong only in the internal/on-prem
-deployment path tracked separately.
-
-Public demo URL: https://trend-model-project.streamlit.app/
-
-Live verification checklist for the public demo URL:
-
-- [ ] Home, Data, Model, Results, and Monte Carlo load without exceptions.
-- [ ] No LLM panels are visible.
-- [ ] No custom-upload widget is visible.
-- [ ] Preset selection, Run Demo, and Results complete on synthetic data only.
-
-## Secrets (local dev only)
-
-**Local dev**
+**Local dev (safe)**
   - `.streamlit/secrets.toml`
   - `OPENAI_API_KEY = "..."`
 
-Quick setup script for local development (writes the file and locks permissions):
+Quick setup script (writes the file and locks permissions):
 
 ```
 ./scripts/setup_streamlit_secrets.sh
 ```
-
 **Streamlit Cloud (hosted) — synthetic / non-proprietary data only**
   - `OPENAI_API_KEY = "..."`
   - Streamlit Community Cloud is external SaaS. Do **not** use it for real

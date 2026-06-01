@@ -19,7 +19,6 @@ from streamlit_app.components import (
     comparison_llm,
     explain_results,
 )
-from streamlit_app.demo_mode import demo_mode_enabled
 from trend_analysis.util.weights import normalize_weights
 
 # =============================================================================
@@ -256,8 +255,7 @@ def _render_comparison_results(
     )
     llm_run_key = hashlib.sha256(run_payload.encode("utf-8")).hexdigest()[:16]
 
-    tab_names = ["Overview"] if demo_mode_enabled() else ["Overview", "LLM Analysis"]
-    tabs = st.tabs(tab_names)
+    tabs = st.tabs(["Overview", "LLM Analysis"])
     with tabs[0]:
         metrics = comparison.metric_delta_frame(
             result_a, result_b, label_a=config_a_name, label_b=config_b_name
@@ -304,16 +302,15 @@ def _render_comparison_results(
             "Bundle includes configs A/B, config diff text, and comparison CSVs for metrics, periods, and manager changes."
         )
 
-    if not demo_mode_enabled():
-        with tabs[1]:
-            comparison_llm.render_comparison_llm(
-                result_a=result_a,
-                result_b=result_b,
-                label_a=config_a_name,
-                label_b=config_b_name,
-                config_diff=diff_text,
-                run_key=llm_run_key,
-            )
+    with tabs[1]:
+        comparison_llm.render_comparison_llm(
+            result_a=result_a,
+            result_b=result_b,
+            label_a=config_a_name,
+            label_b=config_b_name,
+            config_diff=diff_text,
+            run_key=llm_run_key,
+        )
 
 
 def _prepare_equity_series(returns: pd.Series) -> pd.Series:

@@ -81,6 +81,10 @@ class DummyStreamlit:
         self.subheaders.append(text)
 
     def radio(self, *args: Any, **kwargs: Any) -> str:
+        options = kwargs.get("options") or args[1]
+        index = kwargs.get("index", 0)
+        if index >= len(options):
+            raise IndexError("radio index out of range")
         return self.radio_value
 
     def selectbox(self, *args: Any, **kwargs: Any) -> Any:
@@ -249,8 +253,12 @@ def test_data_page_autoloads_sample(monkeypatch: pytest.MonkeyPatch, data_page) 
     sample = page.data_cache.SampleDataset("demo.csv", Path("demo/demo_returns.csv"))
 
     monkeypatch.setattr(page.data_cache, "default_sample_dataset", lambda: sample)
-    monkeypatch.setattr(page.data_cache, "dataset_choices", lambda: {sample.label: sample})
-    monkeypatch.setattr(page.data_cache, "load_dataset_from_path", lambda path: (df, meta))
+    monkeypatch.setattr(
+        page.data_cache, "dataset_choices", lambda: {sample.label: sample}
+    )
+    monkeypatch.setattr(
+        page.data_cache, "load_dataset_from_path", lambda path: (df, meta)
+    )
 
     stub.selectbox_map["Choose a sample"] = sample.label
     stub.selectbox_map["Benchmark column (optional)"] = "SPX Index"
@@ -297,6 +305,26 @@ def test_data_page_upload_failure(monkeypatch: pytest.MonkeyPatch, data_page) ->
     assert page.st.session_state["returns_df"] is None
     assert page.st.session_state["validation_report"]["issues"] == ["unsorted index"]
     assert stub.clear_calls == initial_clears
+
+
+def test_data_page_clamps_data_source_when_samples_are_missing(
+    monkeypatch: pytest.MonkeyPatch, data_page
+) -> None:
+    page, stub = data_page
+
+    stub.session_state.clear()
+    stub.session_state["data_source"] = "Upload your own"
+    stub.radio_value = "Upload your own"
+
+    monkeypatch.setattr(page.data_cache, "default_sample_dataset", lambda: None)
+    monkeypatch.setattr(page.data_cache, "dataset_choices", lambda: {})
+
+    page.render_data_page()
+
+    assert (
+        stub.info_messages[-1]
+        == "No dataset loaded yet. Switch to the sample tab for a quick start."
+    )
 
 
 def test_data_page_handles_generic_failure_with_plain_message(

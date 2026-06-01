@@ -100,9 +100,7 @@ def _validate_constraints(constraints: list[str], patch: ConfigPatch) -> list[st
                 errors.append(f"Constraint failed: {constraint}")
             continue
         if normalized.startswith("patch.operations"):
-            match = re.match(
-                r"patch\.operations\s*\|\s*length\s*==\s*(\d+)$", normalized
-            )
+            match = re.match(r"patch\.operations\s*\|\s*length\s*==\s*(\d+)$", normalized)
             if match is None:
                 errors.append(f"Unsupported constraint: {constraint}")
                 continue
@@ -279,7 +277,6 @@ def evaluate_prompt(
             allowed_schema=_serialize_schema(case.get("allowed_schema")),
             system_prompt=case.get("system_prompt"),
             safety_rules=case.get("safety_rules"),
-            log_operation=mode_value != "mock",
         )
     except Exception as exc:  # pragma: no cover - surfaced in report
         error_text = str(exc)
@@ -289,17 +286,13 @@ def evaluate_prompt(
                     f"Expected error containing '{expected_error_contains}', got '{error_text}'."
                 )
             errors.extend(
-                _validate_log_expectations(
-                    log_messages, expected_log_fragments, expected_log_count
-                )
+                _validate_log_expectations(log_messages, expected_log_fragments, expected_log_count)
             )
         else:
             errors.append(error_text)
     else:
         errors.extend(
-            _validate_log_expectations(
-                log_messages, expected_log_fragments, expected_log_count
-            )
+            _validate_log_expectations(log_messages, expected_log_fragments, expected_log_count)
         )
         if expected is not None:
             errors.extend(_compare_patch(expected, patch))
@@ -317,10 +310,7 @@ def evaluate_prompt(
 
     if start_time is not None:
         elapsed = time.perf_counter() - start_time
-        enforce_mock_timeout = (
-            bool(case.get("enforce_mock_timeout")) or case_id == "risk_parity_weighting"
-        )
-        if mode_value == "mock" and enforce_mock_timeout and elapsed > 10.0:
+        if mode_value == "mock" and elapsed > 10.0:
             errors.append(f"Mock mode execution exceeded 10 seconds ({elapsed:.3f}s).")
 
     return EvalResult(

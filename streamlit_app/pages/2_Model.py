@@ -26,7 +26,6 @@ from streamlit_app.components.llm_settings import (
     anthropic_api_key_status as _anthropic_api_key_status,
 )
 from streamlit_app.components.llm_settings import (
-    demo_mode_disables_llm as _demo_mode_disables_llm,
     llm_zone_disabled as _llm_zone_disabled,
 )
 from streamlit_app.components.llm_settings import (
@@ -2095,9 +2094,6 @@ def render_config_chat_panel(
 ) -> None:
     """Render the Config Chat panel for natural-language config tweaks."""
 
-    if _demo_mode_disables_llm():
-        return
-
     if _llm_zone_disabled():
         st.info(
             "Natural-language config editing is disabled for this deployment zone "
@@ -2126,9 +2122,6 @@ def _render_variant_what_if_panel(
     returns: pd.DataFrame | None,
     benchmark: str | None,
 ) -> None:
-    if _demo_mode_disables_llm():
-        return
-
     st.subheader("🔀 What-if (3 variants)")
     if _llm_zone_disabled():
         st.info(
