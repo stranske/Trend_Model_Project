@@ -11,7 +11,6 @@ from urllib.parse import urlsplit, urlunsplit
 
 import streamlit as st
 
-from streamlit_app.demo_mode import demo_mode_enabled
 from trend_analysis.config.patch import ConfigPatch
 from trend_analysis.llm.nl_logging import NLOperationLog
 from trend_analysis.llm.replay import render_prompt, replay_nl_entry
@@ -342,9 +341,6 @@ def render_nl_operation_viewer(
     max_entries: int = _DEFAULT_MAX_ENTRIES,
 ) -> None:
     """Render a viewer for recent NL operation logs."""
-
-    if demo_mode_enabled():
-        return
 
     log_dir = base_dir or Path(".trend_nl_logs")
     if not log_dir.exists():
