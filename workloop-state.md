@@ -1,6 +1,36 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
+## 2026-06-01T07:00:12Z - closer lane addressed PR #5374 review blockers
+
+- Repo/issue/PR: stranske/Trend_Model_Project #5343 / #5374 (`claude/issue-5343-stlite-demo`).
+- Agent: codex closer from neutral Code workspace; opener cap pressure active; selected #5374 as the complex lane after batch sweep found no safe terminal actions.
+- Review evidence: GraphQL review-thread audit showed current unresolved threads on WASM importability, missing LangChain provider packages, generated manifest help text, injected Streamlit profile resolution, and presentation-safe access to the Model/LLM page.
+- Fix: added `src` to the Streamlit app import path for stlite, included `src/trend` and `src/utils` in the generated WASM manifest, added `langchain-openai`, `langchain-anthropic`, and `langchain-ollama` to the `public_llm_demo` requirement set, clarified `--check` help text, made `render_profile_controls(st_module=...)` resolve/store state through the injected module, and added a presentation-safe guard to the Model page during real Streamlit rendering.
+- Validation:
+  - `uv run pytest tests/test_demo_profile.py tests/app/test_model_page_helpers.py tests/unit/test_streamlit_model_cache_keys.py tests/baseline/test_streamlit_smoke.py::test_model_page_renders_without_exception -q` -> 95 passed, 6 warnings.
+  - `uv run ruff check streamlit_app/app.py streamlit_app/demo_profile.py streamlit_app/pages/2_Model.py scripts/build_wasm_demo.py tests/test_demo_profile.py` -> passed.
+  - `git diff --check` -> passed.
+  - Broader AppTest smoke sweep still has unrelated local environment failures in Anaconda NumPy 2.x compatibility (`pyarrow` on `1_Data.py`, `xarray`/Plotly on `monte_carlo.py`); not caused by this review fix.
+- Current state: changes ready to commit/push to `claude/issue-5343-stlite-demo`; after push, re-check #5374 review threads/checks before merge.
+
+## 2026-06-01T06:32:55Z - closer lane advanced PR #5374 CI fix
+
+- Repo/issue/PR: stranske/Trend_Model_Project #5343 / #5374 (`claude/issue-5343-stlite-demo`).
+- Agent: codex closer from neutral Code workspace; used automation worktree `~/.codex/automations/imi-merge-verify-closer/worktrees/trend-5374-ci-fix`.
+- Batch sweep: no safe terminal actions. Selected #5374 as the complex lane because opener cap pressure is active, PR is in-scope/high-priority, and fresh Gate failed.
+- Failure evidence: Gate run `26738299831`; Python CI 3.12 job `78796230895` and Python CI 3.13 job `78796230914` failed the same four tests: three `tests/app/test_data_page.py` upload/data-source expectations and `tests/app/test_results_page.py::test_results_page_renders_explain_results`. Coverage minimum passed.
+- Fix: set `TREND_DEMO_PROFILE=public_llm_demo` in the existing Data and Results page test fixtures so tests that exercise upload and LLM surfaces run under the profile where those surfaces are intentionally visible. This preserves the new production default `presentation_safe`, which intentionally hides upload and LLM controls.
+- Commit pushed: `2cf4dd4a` (`Fix demo profile expectations in app tests`) to `claude/issue-5343-stlite-demo`.
+- Validation:
+  - `uv run pytest tests/app/test_data_page.py::test_data_page_upload_failure tests/app/test_data_page.py::test_data_page_clamps_data_source_when_samples_are_missing tests/app/test_data_page.py::test_data_page_handles_generic_failure_with_plain_message tests/app/test_results_page.py::test_results_page_renders_explain_results -q` -> 4 passed, 4 warnings.
+  - `uv run pytest tests/app/test_data_page.py tests/app/test_results_page.py -q` -> 9 passed, 4 warnings.
+  - `uv run ruff check tests/app/test_data_page.py tests/app/test_results_page.py` -> passed.
+  - `git diff --check` -> passed.
+- Issue audit: `run-issue-audit-safe.sh --repo stranske/Trend_Model_Project --hours 24` timed out the full audit after 240s and rebuilt the degraded live queue via GraphQL fallback.
+- Current state: PR #5374 is open at head `2cf4dd4a`; fresh post-push checks are legitimately pending (`Resolve review target`, `classify changed paths`, `claude-review`, `guard`, and downstream Gate jobs not complete yet).
+- Next action: re-check #5374 after fresh checks complete; if green and review-thread clear, merge, apply `verify:compare`, and keep issue #5343 open for verifier disposition.
+
 ## 2026-06-01T03:20:57Z - opener quick-recovery for PR #5370 config coverage
 
 - Repo/PR: stranske/Trend_Model_Project#5370 (`codex/issue-5368-trend-fleet-records`)

@@ -91,9 +91,7 @@ def test_zone_disabled_hides_llm(monkeypatch: pytest.MonkeyPatch) -> None:
     details = {"out_sample_stats": {"Portfolio": (0.1, 0.2, 0.3, 0.4, 0.5, 0.6)}}
 
     # explain_results component
-    explain, explain_st = _reload_with_stub(
-        "streamlit_app.components.explain_results", monkeypatch
-    )
+    explain, explain_st = _reload_with_stub("streamlit_app.components.explain_results", monkeypatch)
     provider_calls: list[Any] = []
     monkeypatch.setattr(
         explain, "_resolve_llm_provider_config", lambda *a, **k: provider_calls.append((a, k))

@@ -96,12 +96,29 @@ trend app
 
 Then open http://localhost:8501 in your browser.
 
+### 5. Browser demo (stlite / Pyodide — no install)
+
+A zero-install browser build runs the real app and the deterministic engine in
+the browser via [stlite](https://github.com/whitphx/stlite) / Pyodide.
+
+- **Live demo:** _published URL — see `demo/wasm/README.md` (TODO: fill in after deploy)_
+- **Build:** `python scripts/build_wasm_demo.py`
+- **Modes** (via the sidebar switcher or `?profile=`):
+  - `presentation_safe` (default): bundled synthetic data only; LLM,
+    custom-analysis, and upload surfaces hidden; no LLM dependency footprint.
+  - `public_llm_demo`: adds the LangChain UI (no secrets bundled; provider keys
+    are runtime-only).
+
+See [`demo/wasm/README.md`](demo/wasm/README.md) for deploy steps and the
+verification checklist (live URL, screenshots, network evidence).
+
 ## Usage Options
 
 | Interface | Command | Best For |
 |-----------|---------|----------|
 | **CLI** | `trend run -c config.yml` | Scripted/automated analysis |
 | **Streamlit App** | `trend app` | Interactive exploration |
+| **Browser demo** | `demo/wasm/index.html` (stlite/Pyodide) | Zero-install demos & presentations |
 | **Jupyter GUI** | `from trend_analysis.gui import launch; launch()` | Notebook workflows |
 
 ## CLI Migration (Legacy -> trend)

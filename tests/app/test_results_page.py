@@ -115,6 +115,7 @@ class ColumnContext:
 
 @pytest.fixture()
 def results_page(monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType, DummyStreamlit]:
+    monkeypatch.setenv("TREND_DEMO_PROFILE", "public_llm_demo")
     stub = DummyStreamlit()
 
     module = ModuleType("streamlit")

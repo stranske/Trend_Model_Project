@@ -31,6 +31,29 @@ Place the `src/` and `streamlit_app/` folders at the root of your repo (next to 
 trend app
 ```
 
+## Browser demo (stlite / Pyodide)
+
+A zero-install browser build of this app lives in [`demo/wasm/`](demo/wasm/). It
+runs the real Streamlit UI and the deterministic engine in the browser via
+stlite/Pyodide — not Streamlit Community Cloud (per the owner decision in issue
+#5343).
+
+```bash
+python scripts/build_wasm_demo.py   # (re)generate demo/wasm/manifest.json
+```
+
+Runtime modes are selected with the sidebar **Demo mode** switcher or the
+`?profile=` URL parameter and enforced by `streamlit_app/demo_profile.py`:
+
+- `presentation_safe` (default): bundled synthetic data only; LLM,
+  custom-analysis, and upload surfaces are hidden; no LangChain in the
+  requirement set, so a presentation/locked-down PC load has no LLM footprint.
+- `public_llm_demo`: exposes the LangChain LLM UI; provider keys/endpoints are
+  runtime-only and never bundled.
+
+See [`demo/wasm/README.md`](demo/wasm/README.md) for build/deploy steps and the
+live-URL/screenshot/network-evidence verification checklist.
+
 ## Secrets (local dev + Streamlit Cloud)
 
 **Local dev (safe)**

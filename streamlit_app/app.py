@@ -7,15 +7,17 @@ from pathlib import Path
 
 def _ensure_repo_root_on_path() -> None:
     repo_root = Path(__file__).resolve().parents[1]
-    repo_root_str = str(repo_root)
-    if repo_root_str not in sys.path:
-        sys.path.insert(0, repo_root_str)
+    for path in (repo_root / "src", repo_root):
+        path_str = str(path)
+        if path_str not in sys.path:
+            sys.path.insert(0, path_str)
 
 
 _ensure_repo_root_on_path()
 
 import streamlit as st  # noqa: E402
 
+from streamlit_app import demo_profile  # noqa: E402
 from streamlit_app.components.demo_runner import (  # noqa: E402
     list_presets,
     load_preset_config,
@@ -27,6 +29,13 @@ st.set_page_config(
     page_icon=":chart_with_upwards_trend:",
     layout="wide",
 )
+
+# Resolve the active demo profile and render the sidebar mode switcher. In
+# ``presentation_safe`` (the default) LLM, custom-analysis, and upload surfaces
+# are hidden; ``public_llm_demo`` exposes the LangChain UI. See
+# ``streamlit_app/demo_profile.py`` and ``demo/wasm/``.
+_active_profile = demo_profile.render_profile_controls(st)
+
 st.title("Portfolio Simulator")
 st.markdown("""
 Welcome! This app analyzes trend-following fund portfolios with volatility adjustment.
@@ -222,15 +231,25 @@ st.markdown("---")
 # =============================================================================
 # CUSTOM ANALYSIS SECTION
 # =============================================================================
-st.subheader("🔧 Custom Analysis")
-st.markdown("""
-    For full control over all parameters, use the manual workflow:
-    1. **Data** - Load your own CSV/Excel file
-    2. **Model** - Configure all analysis parameters
-    3. **Results** - View and export results
-    """)
+# The custom-analysis flow loads user-supplied data and exposes the full
+# parameter/LLM surface. It is hidden in ``presentation_safe`` so a presentation
+# or locked-down PC only ever sees the deterministic synthetic-data demo above.
+if demo_profile.custom_analysis_enabled(_active_profile):
+    st.subheader("🔧 Custom Analysis")
+    st.markdown("""
+        For full control over all parameters, use the manual workflow:
+        1. **Data** - Load your own CSV/Excel file
+        2. **Model** - Configure all analysis parameters
+        3. **Results** - View and export results
+        """)
 
-if st.button("📂 Go to Data Upload", use_container_width=True):
-    st.switch_page("pages/1_Data.py")
+    if st.button("📂 Go to Data Upload", use_container_width=True):
+        st.switch_page("pages/1_Data.py")
 
-st.caption("The Model page uses a different analysis pipeline with more configuration options.")
+    st.caption("The Model page uses a different analysis pipeline with more configuration options.")
+else:
+    st.subheader("🔒 Presentation-safe mode")
+    st.caption(
+        "Custom data upload and LLM analysis are disabled in this mode. "
+        "Switch to **public_llm_demo** in the sidebar to enable them."
+    )

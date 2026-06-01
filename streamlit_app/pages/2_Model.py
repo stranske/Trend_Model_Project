@@ -20,6 +20,7 @@ import pandas as pd
 import streamlit as st
 import yaml
 
+from streamlit_app import demo_profile
 from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner, nl_operation_viewer
 from streamlit_app.components.llm_settings import (
@@ -2751,6 +2752,14 @@ for the covariance matrix.
 
 def render_model_page() -> None:
     app_state.initialize_session_state()
+    if _should_auto_render() and not demo_profile.custom_analysis_enabled():
+        st.title("Model Configuration")
+        st.info(
+            "Model configuration is unavailable in presentation-safe mode. "
+            "Switch to the public LLM demo profile to enable custom analysis controls."
+        )
+        return
+
     model_state = st.session_state.setdefault("model_state", _initial_model_state())
     render_config_chat_panel(model_state=model_state)
     st.title("Model Configuration")

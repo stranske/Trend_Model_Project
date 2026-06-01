@@ -164,6 +164,7 @@ class DummyStreamlit:
 
 @pytest.fixture
 def data_page(monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType, DummyStreamlit]:
+    monkeypatch.setenv("TREND_DEMO_PROFILE", "public_llm_demo")
     stub = DummyStreamlit()
     module = ModuleType("streamlit")
 
@@ -253,12 +254,8 @@ def test_data_page_autoloads_sample(monkeypatch: pytest.MonkeyPatch, data_page) 
     sample = page.data_cache.SampleDataset("demo.csv", Path("demo/demo_returns.csv"))
 
     monkeypatch.setattr(page.data_cache, "default_sample_dataset", lambda: sample)
-    monkeypatch.setattr(
-        page.data_cache, "dataset_choices", lambda: {sample.label: sample}
-    )
-    monkeypatch.setattr(
-        page.data_cache, "load_dataset_from_path", lambda path: (df, meta)
-    )
+    monkeypatch.setattr(page.data_cache, "dataset_choices", lambda: {sample.label: sample})
+    monkeypatch.setattr(page.data_cache, "load_dataset_from_path", lambda path: (df, meta))
 
     stub.selectbox_map["Choose a sample"] = sample.label
     stub.selectbox_map["Benchmark column (optional)"] = "SPX Index"
