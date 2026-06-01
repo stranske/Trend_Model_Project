@@ -38,7 +38,7 @@ def _dataset_id(frame: pd.DataFrame) -> str:
                 "start": dates.min().date().isoformat(),
                 "end": dates.max().date().isoformat(),
             }
-    column_hashes = [stable_hash(str(column)) for column in frame.columns]
+    column_hashes = sorted(stable_hash(str(column)) for column in frame.columns)
     return stable_hash(
         {
             "rows": int(frame.shape[0]),
@@ -69,7 +69,7 @@ def _artifact_ref(result: Any) -> str:
         payload["metrics"] = {
             "rows": int(metrics.shape[0]),
             "columns": [str(column) for column in metrics.columns],
-            "index_hashes": [stable_hash(str(index)) for index in metrics.index],
+            "index_hashes": sorted(stable_hash(str(index)) for index in metrics.index),
         }
     if isinstance(details, Mapping):
         payload["detail_keys"] = sorted(str(key) for key in details.keys())

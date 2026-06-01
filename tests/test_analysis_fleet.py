@@ -96,3 +96,27 @@ def test_run_simulation_fleet_record_is_best_effort(monkeypatch, tmp_path) -> No
     result = api.run_simulation(_config(), _returns_frame())
 
     assert not result.metrics.empty
+
+
+def test_run_simulation_fleet_ids_are_stable_with_column_reordering(monkeypatch, tmp_path) -> None:
+    monkeypatch.delenv("LANGSMITH_API_KEY", raising=False)
+
+    first_path = tmp_path / "fleet-first.ndjson"
+    second_path = tmp_path / "fleet-second.ndjson"
+
+    first_frame = _returns_frame()
+    second_frame = first_frame[["Date", "RF", "SPX", "Manager_B", "Manager_A"]].copy()
+
+    monkeypatch.setenv("TREND_LANGSMITH_FLEET_PATH", str(first_path))
+    api.run_simulation(_config(), first_frame)
+    first_record = load_fleet_records(path=first_path)[0]
+
+    monkeypatch.setenv("TREND_LANGSMITH_FLEET_PATH", str(second_path))
+    api.run_simulation(_config(), second_frame)
+    second_record = load_fleet_records(path=second_path)[0]
+
+    assert first_record["domain"]["dataset_id"] == second_record["domain"]["dataset_id"]
+    assert (
+        first_record["domain"]["artifact_refs"]["analysis_summary"]
+        == second_record["domain"]["artifact_refs"]["analysis_summary"]
+    )
