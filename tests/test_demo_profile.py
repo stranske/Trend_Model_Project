@@ -116,6 +116,7 @@ def test_render_profile_controls_switch_to_llm() -> None:
     fake = _FakeStreamlit(dp.PUBLIC_LLM_DEMO)
     active = dp.render_profile_controls(fake)
     assert active == dp.PUBLIC_LLM_DEMO
+    assert fake.session_state[dp.PROFILE_SESSION_KEY] == dp.PUBLIC_LLM_DEMO
     assert any("LLM" in c for c in fake.sidebar.captions)
 
 
@@ -161,9 +162,14 @@ def test_manifest_builder_well_formed() -> None:
     llm_reqs = " ".join(fresh["requirements"]["public_llm_demo"]).lower()
     assert "langchain" not in safe_reqs
     assert "langchain" in llm_reqs
+    assert "langchain-openai" in llm_reqs
+    assert "langchain-anthropic" in llm_reqs
+    assert "langchain-ollama" in llm_reqs
     # The entrypoint and bundled synthetic data must be in the file list.
     assert "streamlit_app/app.py" in fresh["files"]
     assert "streamlit_app/demo_profile.py" in fresh["files"]
+    assert "src/trend/__init__.py" in fresh["files"]
+    assert "src/utils/__init__.py" in fresh["files"]
     assert "demo/demo_returns.csv" in fresh["files"]
 
     # The manifest is JSON-serialisable and stable across a round-trip.

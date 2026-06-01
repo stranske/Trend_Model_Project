@@ -135,6 +135,30 @@ def get_active_profile() -> str:
     )
 
 
+def _active_profile_from_module(st_module) -> str:
+    """Resolve the active profile from an injected Streamlit-like module."""
+
+    session_value: Optional[str] = None
+    try:
+        session_value = st_module.session_state.get(PROFILE_SESSION_KEY)
+    except (AttributeError, TypeError):
+        session_value = None
+    return resolve_profile(
+        session=session_value,
+        query_param=_query_param_value(st_module),
+        env=os.environ.get(PROFILE_ENV_VAR),
+    )
+
+
+def _store_profile_on_module(st_module, profile: str) -> str:
+    resolved = normalize_profile(profile)
+    try:
+        st_module.session_state[PROFILE_SESSION_KEY] = resolved
+    except (AttributeError, TypeError):
+        pass
+    return resolved
+
+
 def profile_label(profile: Optional[str] = None) -> str:
     """Return a human-readable label for ``profile`` (or the active one)."""
 
@@ -197,7 +221,7 @@ def render_profile_controls(st_module=None) -> str:
         except ModuleNotFoundError:
             return get_active_profile()
 
-    active = get_active_profile()
+    active = _active_profile_from_module(st_module)
     sidebar = getattr(st_module, "sidebar", st_module)
     try:
         index = VALID_PROFILES.index(active)
@@ -215,7 +239,7 @@ def render_profile_controls(st_module=None) -> str:
         key="demo_profile_selectbox",
     )
     if selected != active:
-        active = set_active_profile(selected)
+        active = _store_profile_on_module(st_module, selected)
     if llm_enabled(active):
         sidebar.caption("🔓 LLM/LangChain UI enabled. Provider keys are runtime-only.")
     else:

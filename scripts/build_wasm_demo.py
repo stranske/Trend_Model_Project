@@ -22,7 +22,7 @@ deterministic engine").
 Usage::
 
     python scripts/build_wasm_demo.py            # writes demo/wasm/manifest.json
-    python scripts/build_wasm_demo.py --check     # verify the manifest is fresh
+    python scripts/build_wasm_demo.py --check     # verify generated manifest freshness
 """
 
 from __future__ import annotations
@@ -43,6 +43,8 @@ ENTRYPOINT = "streamlit_app/app.py"
 SOURCE_DIRS = (
     "streamlit_app",
     "src/trend_analysis",
+    "src/trend",
+    "src/utils",
 )
 
 #: Bundled synthetic data shipped with the demo (presentation-safe default).
@@ -65,6 +67,9 @@ REQUIREMENTS = {
         "langchain>=1.2,<1.3",
         "langchain-core>=1.2,<1.4",
         "langchain-community>=0.4,<0.5",
+        "langchain-openai>=1.0,<1.1",
+        "langchain-anthropic>=1.2,<1.3",
+        "langchain-ollama>=1.0,<1.1",
     ],
 }
 
@@ -107,7 +112,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Verify the committed manifest matches a fresh build; do not write.",
+        help="Verify the generated manifest artifact matches a fresh build; do not write.",
     )
     args = parser.parse_args(argv)
 

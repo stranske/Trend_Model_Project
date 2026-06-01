@@ -7,9 +7,10 @@ from pathlib import Path
 
 def _ensure_repo_root_on_path() -> None:
     repo_root = Path(__file__).resolve().parents[1]
-    repo_root_str = str(repo_root)
-    if repo_root_str not in sys.path:
-        sys.path.insert(0, repo_root_str)
+    for path in (repo_root / "src", repo_root):
+        path_str = str(path)
+        if path_str not in sys.path:
+            sys.path.insert(0, path_str)
 
 
 _ensure_repo_root_on_path()
