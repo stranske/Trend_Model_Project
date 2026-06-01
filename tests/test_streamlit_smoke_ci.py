@@ -442,7 +442,9 @@ def test_demo_mode_disables_llm_and_upload(monkeypatch: pytest.MonkeyPatch):
         assert llm_settings.demo_mode_disables_llm()
 
         model_page_path = Path(__file__).parent.parent / "streamlit_app" / "pages" / "2_Model.py"
-        results_page_path = Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
+        results_page_path = (
+            Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
+        )
         for module_name, module_path in (
             ("model_page_demo_mode", model_page_path),
             ("results_page_demo_mode", results_page_path),
@@ -454,7 +456,9 @@ def test_demo_mode_disables_llm_and_upload(monkeypatch: pytest.MonkeyPatch):
 
         explain_results = importlib.import_module("streamlit_app.components.explain_results")
         comparison_llm = importlib.import_module("streamlit_app.components.comparison_llm")
-        nl_operation_viewer = importlib.import_module("streamlit_app.components.nl_operation_viewer")
+        nl_operation_viewer = importlib.import_module(
+            "streamlit_app.components.nl_operation_viewer"
+        )
 
         result = Mock()
         result.details = {"metrics": []}
@@ -470,9 +474,11 @@ def test_demo_mode_disables_llm_and_upload(monkeypatch: pytest.MonkeyPatch):
         nl_operation_viewer.render_nl_operation_viewer(base_dir=Path(".trend_nl_logs"))
 
         assert not streamlit_mock.subheader.called
-        data_page = (Path(__file__).parent.parent / "streamlit_app" / "pages" / "1_Data.py").read_text()
+        data_page = (
+            Path(__file__).parent.parent / "streamlit_app" / "pages" / "1_Data.py"
+        ).read_text()
         assert "if not demo_mode:" in data_page
-        assert "options.append(\"Upload your own\")" in data_page
+        assert 'options.append("Upload your own")' in data_page
     finally:
         for name in list(sys.modules):
             if name.startswith("streamlit_app") and name not in existing_streamlit_app:
@@ -518,14 +524,20 @@ def test_demo_mode_comparison_results_hide_llm_tab(monkeypatch: pytest.MonkeyPat
             "format_model_state_diff",
             lambda *_args, **_kwargs: "",
         )
-        monkeypatch.setattr(results_page.comparison, "metric_delta_frame", lambda *_args, **_kwargs: empty)
-        monkeypatch.setattr(results_page.comparison, "period_delta", lambda *_args, **_kwargs: empty)
+        monkeypatch.setattr(
+            results_page.comparison, "metric_delta_frame", lambda *_args, **_kwargs: empty
+        )
+        monkeypatch.setattr(
+            results_page.comparison, "period_delta", lambda *_args, **_kwargs: empty
+        )
         monkeypatch.setattr(
             results_page.comparison,
             "manager_change_delta",
             lambda *_args, **_kwargs: empty,
         )
-        monkeypatch.setattr(results_page.comparison, "build_comparison_bundle", lambda **_kwargs: b"zip")
+        monkeypatch.setattr(
+            results_page.comparison, "build_comparison_bundle", lambda **_kwargs: b"zip"
+        )
         render_llm = Mock()
         monkeypatch.setattr(results_page.comparison_llm, "render_comparison_llm", render_llm)
 

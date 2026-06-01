@@ -482,7 +482,9 @@ def render_data_page() -> None:
 
     if demo_mode:
         st.session_state["data_source"] = "Sample dataset"
-    default_index = 0 if st.session_state.get("data_source", "Sample dataset") == "Sample dataset" else 1
+    default_index = (
+        0 if st.session_state.get("data_source", "Sample dataset") == "Sample dataset" else 1
+    )
     if default_index >= len(options):
         default_index = 0
     source = st.radio("Data source", options, index=default_index)
