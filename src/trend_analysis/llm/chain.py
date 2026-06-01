@@ -94,7 +94,9 @@ def _default_variant_patches() -> ConfigPatchVariants:
         variants=[
             ConfigPatchVariant(
                 label=label,
-                patch=ConfigPatch(operations=[], summary=DEFAULT_BLOCK_SUMMARY, risk_flags=[]),
+                patch=ConfigPatch(
+                    operations=[], summary=DEFAULT_BLOCK_SUMMARY, risk_flags=[]
+                ),
             )
             for label in VARIANT_LABELS
         ]
@@ -287,10 +289,14 @@ class _BaseConfigPatchChain:
 
     def _structured_output_llm_for(self, schema: type[BaseModel]) -> Any | None:
         base_llm = self.llm
+        if base_llm.__class__.__module__.startswith("langchain_core.runnables."):
+            return None
         supports_attr = getattr(base_llm, "supports_structured_output", None)
         if supports_attr is not None:
             try:
-                supports = supports_attr() if callable(supports_attr) else bool(supports_attr)
+                supports = (
+                    supports_attr() if callable(supports_attr) else bool(supports_attr)
+                )
             except Exception as exc:
                 logger.info(
                     "Structured output availability check failed; falling back to text output: %s",
@@ -304,7 +310,9 @@ class _BaseConfigPatchChain:
         try:
             structured_llm = base_llm.with_structured_output(schema)
         except Exception as exc:
-            logger.info("Structured output unavailable; falling back to text output: %s", exc)
+            logger.info(
+                "Structured output unavailable; falling back to text output: %s", exc
+            )
             return None
         if structured_llm is None:
             return None
@@ -490,7 +498,9 @@ class ConfigPatchChain(_BaseConfigPatchChain):
                     "Prompt injection detected (%s); skipping LLM call.",
                     ", ".join(sorted(set(injection_hits))),
                 )
-                patch = ConfigPatch(operations=[], summary=DEFAULT_BLOCK_SUMMARY, risk_flags=[])
+                patch = ConfigPatch(
+                    operations=[], summary=DEFAULT_BLOCK_SUMMARY, risk_flags=[]
+                )
                 return patch
             structured_llm = self._structured_output_llm()
             if structured_llm is not None:
@@ -540,7 +550,9 @@ class ConfigPatchChain(_BaseConfigPatchChain):
                             ) from exc
             else:
 
-                def _response_provider(attempt: int, last_error: Exception | None) -> str:
+                def _response_provider(
+                    attempt: int, last_error: Exception | None
+                ) -> str:
                     nonlocal response_text, trace_url
                     prompt = (
                         prompt_text
@@ -568,7 +580,9 @@ class ConfigPatchChain(_BaseConfigPatchChain):
                     retries=max(1, self.retries + 1),
                     logger=logger,
                 )
-            assert patch is not None  # appease mypy; patch is set unless an exception is raised
+            assert (
+                patch is not None
+            )  # appease mypy; patch is set unless an exception is raised
             schema = self._schema_for_validation(allowed_schema, instruction)
             unknown_keys = flag_unknown_keys(patch, schema, logger=logger)
             self._filter_unknown_keys(patch, unknown_keys)
@@ -751,7 +765,9 @@ class ConfigPatchVariantsChain(_BaseConfigPatchChain):
                             ) from exc
             else:
 
-                def _response_provider(attempt: int, last_error: Exception | None) -> str:
+                def _response_provider(
+                    attempt: int, last_error: Exception | None
+                ) -> str:
                     nonlocal response_text, trace_url
                     prompt = (
                         prompt_text
@@ -898,11 +914,14 @@ class ResultSummaryChain:
     ) -> ResultSummaryResponse:
         questions_text = questions
         if metric_entries is not None:
-            missing_metrics = detect_unavailable_metric_requests(questions, metric_entries)
+            missing_metrics = detect_unavailable_metric_requests(
+                questions, metric_entries
+            )
             if missing_metrics:
                 missing_text = ", ".join(missing_metrics)
                 response_text = (
-                    "Requested data is unavailable in the analysis output for: " f"{missing_text}."
+                    "Requested data is unavailable in the analysis output for: "
+                    f"{missing_text}."
                 )
                 return ResultSummaryResponse(
                     text=ensure_result_disclaimer(response_text),
@@ -1014,7 +1033,11 @@ def _record_config_fleet_event(
     )
     record_fleet_event(
         operation=operation,
-        status=("error" if error else ("blocked" if validation_status == "blocked" else "success")),
+        status=(
+            "error"
+            if error
+            else ("blocked" if validation_status == "blocked" else "success")
+        ),
         provider=os.environ.get("TREND_LLM_PROVIDER"),
         model=model,
         temperature=temperature,
@@ -1028,7 +1051,9 @@ def _record_config_fleet_event(
             "scenario_id": _scenario_id(config_payload),
             "config_fingerprint": stable_hash(config_payload),
             "prompt_hash": stable_hash(instruction),
-            "output_hash": (stable_hash(response_text) if response_text is not None else None),
+            "output_hash": (
+                stable_hash(response_text) if response_text is not None else None
+            ),
             "replay_diff_summary": None,
             "match_score": None,
             "validation_status": validation_status,

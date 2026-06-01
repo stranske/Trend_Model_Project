@@ -192,7 +192,9 @@ def generate_result_explanation(
     )
     metric_catalog = format_metric_catalog(compacted_entries)
     if not all_entries:
-        text = ensure_result_disclaimer("No metrics were detected in the analysis output.")
+        text = ensure_result_disclaimer(
+            "No metrics were detected in the analysis output."
+        )
         return ExplanationResult(
             text=text,
             trace_url=None,
@@ -239,9 +241,6 @@ def render_explain_results(
     run_key: str,
     provider: str | None = None,
 ) -> None:
-    if _demo_mode_disables_llm():
-        return
-
     if _llm_zone_disabled():
         st.info(
             "LLM features are disabled for this deployment zone "
@@ -249,6 +248,8 @@ def render_explain_results(
             "unaffected; set an authorized no-train endpoint and "
             "TREND_LLM_ZONE=internal_authorized to enable explanations."
         )
+        return
+    if _demo_mode_disables_llm():
         return
     st.subheader("Explain Results")
     st.caption("Generate a natural-language explanation of the latest analysis run.")

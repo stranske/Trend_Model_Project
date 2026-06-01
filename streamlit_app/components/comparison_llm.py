@@ -79,7 +79,9 @@ def _render_analysis_output(details: Mapping[str, Any], label: str) -> str:
     return "\n".join(parts)
 
 
-def _prefix_metric_entries(entries: list[MetricEntry], prefix: str) -> list[MetricEntry]:
+def _prefix_metric_entries(
+    entries: list[MetricEntry], prefix: str
+) -> list[MetricEntry]:
     prefixed: list[MetricEntry] = []
     for entry in entries:
         prefixed.append(
@@ -148,8 +150,12 @@ def generate_comparison_explanation(
     prefixed_b = _prefix_metric_entries(compact_b, "B")
     combined_entries = prefixed_a + prefixed_b
 
-    metrics_a = format_metric_catalog(prefixed_a) if prefixed_a else "No metrics available."
-    metrics_b = format_metric_catalog(prefixed_b) if prefixed_b else "No metrics available."
+    metrics_a = (
+        format_metric_catalog(prefixed_a) if prefixed_a else "No metrics available."
+    )
+    metrics_b = (
+        format_metric_catalog(prefixed_b) if prefixed_b else "No metrics available."
+    )
 
     analysis_output_a = "\n\n".join(
         [
@@ -199,9 +205,6 @@ def render_comparison_llm(
     config_diff: str,
     run_key: str,
 ) -> None:
-    if demo_mode_disables_llm():
-        return
-
     if llm_zone_disabled():
         st.info(
             "LLM features are disabled for this deployment zone "
@@ -209,6 +212,8 @@ def render_comparison_llm(
             "unaffected; set an authorized no-train endpoint and "
             "TREND_LLM_ZONE=internal_authorized to enable comparisons."
         )
+        return
+    if demo_mode_disables_llm():
         return
     st.subheader("LLM Comparison")
     st.caption(
@@ -238,7 +243,9 @@ def render_comparison_llm(
         org_key = f"comparison_llm_org::{run_key}"
 
         provider_default = (
-            st.session_state.get(provider_key) or os.environ.get("TREND_LLM_PROVIDER") or "openai"
+            st.session_state.get(provider_key)
+            or os.environ.get("TREND_LLM_PROVIDER")
+            or "openai"
         )
         provider_default = str(provider_default).lower()
 
@@ -303,7 +310,9 @@ def render_comparison_llm(
                 raw_key = st.session_state.get(api_key_key)
                 resolved_key = resolve_api_key_input(raw_key)
                 if not resolved_key:
-                    resolved_key = default_api_key(st.session_state.get(provider_key) or "openai")
+                    resolved_key = default_api_key(
+                        st.session_state.get(provider_key) or "openai"
+                    )
                 cached = generate_comparison_explanation(
                     details_a,
                     details_b,
