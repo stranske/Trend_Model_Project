@@ -253,9 +253,7 @@ class _BaseConfigPatchChain:
             resolve_trace_url,
         )
 
-        template = ChatPromptTemplate.from_messages([("system", "{prompt}")])
         llm = llm_override or self._bind_llm()
-        chain = template | llm
         metadata = {
             "request_id": request_id,
             "operation": operation or "nl_operation",
@@ -269,7 +267,12 @@ class _BaseConfigPatchChain:
             inputs={"prompt": prompt_text},
             metadata=metadata,
         ) as run:
-            response = chain.invoke({"prompt": prompt_text})
+            if llm.__class__.__module__.startswith("langchain_core.runnables."):
+                response = llm.invoke(prompt_text)
+            else:
+                template = ChatPromptTemplate.from_messages([("system", "{prompt}")])
+                chain = template | llm
+                response = chain.invoke({"prompt": prompt_text})
             if structured_output:
                 response_text = self._serialize_structured_response(response)
             else:
