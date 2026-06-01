@@ -9,6 +9,7 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
+from streamlit_app import demo_profile
 from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner, data_cache
 from streamlit_app.components.csv_validation import (
@@ -450,6 +451,16 @@ def render_data_page() -> None:
     app_state.initialize_session_state()
     _maybe_autoload_sample()
     st.title("Data")
+
+    # In presentation_safe mode the custom-data/upload surface is disabled so a
+    # presentation or locked-down PC stays on the bundled synthetic data only.
+    if not demo_profile.uploads_enabled():
+        st.info(
+            "🔒 Custom data upload is disabled in **presentation_safe** mode. "
+            "Switch to **public_llm_demo** in the sidebar to upload your own data, "
+            "or use the bundled synthetic demo on the home page."
+        )
+        return
 
     # Check if there's a pending date correction that needs user approval
     pending_correction = st.session_state.get("pending_date_correction")

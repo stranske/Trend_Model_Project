@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+from streamlit_app import demo_profile
 from streamlit_app import state as app_state
 from streamlit_app.components import (
     analysis_runner,
@@ -255,7 +256,12 @@ def _render_comparison_results(
     )
     llm_run_key = hashlib.sha256(run_payload.encode("utf-8")).hexdigest()[:16]
 
-    tabs = st.tabs(["Overview", "LLM Analysis"])
+    # The LLM Analysis tab is only shown when the active demo profile enables
+    # LLM/LangChain surfaces (``public_llm_demo``). In ``presentation_safe`` the
+    # comparison view stays on the deterministic Overview only.
+    _llm_tab_enabled = demo_profile.llm_enabled()
+    tab_labels = ["Overview", "LLM Analysis"] if _llm_tab_enabled else ["Overview"]
+    tabs = st.tabs(tab_labels)
     with tabs[0]:
         metrics = comparison.metric_delta_frame(
             result_a, result_b, label_a=config_a_name, label_b=config_b_name
@@ -302,15 +308,16 @@ def _render_comparison_results(
             "Bundle includes configs A/B, config diff text, and comparison CSVs for metrics, periods, and manager changes."
         )
 
-    with tabs[1]:
-        comparison_llm.render_comparison_llm(
-            result_a=result_a,
-            result_b=result_b,
-            label_a=config_a_name,
-            label_b=config_b_name,
-            config_diff=diff_text,
-            run_key=llm_run_key,
-        )
+    if _llm_tab_enabled:
+        with tabs[1]:
+            comparison_llm.render_comparison_llm(
+                result_a=result_a,
+                result_b=result_b,
+                label_a=config_a_name,
+                label_b=config_b_name,
+                config_diff=diff_text,
+                run_key=llm_run_key,
+            )
 
 
 def _prepare_equity_series(returns: pd.Series) -> pd.Series:
@@ -2099,8 +2106,11 @@ def render_results_page() -> None:
         st.header("Total Portfolio Performance")
         st.caption("Aggregated statistics computed from all out-of-sample returns")
 
-        explain_results.render_explain_results(result, run_key=run_key)
-        st.divider()
+        # The narrative explainer is LLM-backed, so only render it when the
+        # active profile enables LLM surfaces (``public_llm_demo``).
+        if demo_profile.llm_enabled():
+            explain_results.render_explain_results(result, run_key=run_key)
+            st.divider()
 
         # Selection criteria used
         st.subheader("🎯 Selection Criteria Used")
