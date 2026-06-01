@@ -387,11 +387,16 @@ pyparsing==3.3.2
 pytest==9.0.3
     # via
     #   trend-model (pyproject.toml)
+    #   app-baseline-kit
     #   pytest-cov
+    #   pytest-datadir
+    #   pytest-regressions
     #   pytest-rerunfailures
     #   pytest-xdist
 pytest-cov==7.1.0
     # via trend-model (pyproject.toml)
+pytest-datadir==1.8.0
+    # via pytest-regressions
 pytest-regressions==2.11.0
     # via
     #   trend-model (pyproject.toml)
@@ -417,10 +422,12 @@ pytokens==0.4.1
 pyyaml==6.0.3
     # via
     #   trend-model (pyproject.toml)
+    #   app-baseline-kit
     #   langchain-classic
     #   langchain-community
     #   langchain-core
     #   pre-commit
+    #   pytest-regressions
     #   uvicorn
 referencing==0.37.0
     # via
@@ -568,3 +575,6 @@ yarl==1.23.0
     # via aiohttp
 zstandard==0.25.0
     # via langsmith
+
+# The following packages were excluded from the output:
+# app-baseline-kit
