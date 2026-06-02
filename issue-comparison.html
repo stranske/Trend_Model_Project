@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Trend Model — Issue Comparison & Selection</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#171f2a; --panel2:#1e2836; --line:#2b3949; --txt:#e6edf3; --muted:#9bb0c3;
+    --mine:#4cc2ff; --theirs:#ffb454; --both:#7ee787; --conflict:#ff7b72; --comp:#d2a8ff;
+    --p0:#ff7b72; --p1:#ffb454; --p2:#9bb0c3; --epic:#d2a8ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--txt)}
+  header{padding:22px 26px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#13202e,#0f1419)}
+  h1{margin:0 0 4px;font-size:21px}
+  .sub{color:var(--muted);font-size:13px;max-width:1100px}
+  .wrap{padding:20px 26px;max-width:1500px}
+  .grid{display:grid;gap:16px}
+  .cards{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:8px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .card .n{font-size:26px;font-weight:700}
+  .card .l{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+  .mineC{color:var(--mine)} .theirsC{color:var(--theirs)} .bothC{color:var(--both)}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:18px}
+  .panel h2{margin:0 0 12px;font-size:16px}
+  .venn{display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+  .vennimg{position:relative;width:330px;height:170px;flex:0 0 auto}
+  .circle{position:absolute;top:10px;width:170px;height:150px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;mix-blend-mode:screen;opacity:.55}
+  .c-mine{left:0;background:var(--mine)} .c-theirs{right:0;background:var(--theirs)}
+  .vlabel{position:absolute;font-weight:700;text-align:center;font-size:13px;color:#04121d}
+  .vl-mine{left:24px;top:74px;width:110px} .vl-both{left:120px;top:78px;width:90px;color:#06210d} .vl-theirs{right:24px;top:74px;width:110px}
+  .legend{font-size:12.5px;color:var(--muted)} .legend b{color:var(--txt)}
+  .bars{display:flex;flex-direction:column;gap:7px;min-width:280px;flex:1}
+  .bar{display:grid;grid-template-columns:140px 1fr 40px;align-items:center;gap:8px;font-size:12.5px}
+  .track{height:14px;background:var(--panel2);border-radius:7px;overflow:hidden;display:flex}
+  .seg{height:100%}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  input[type=search]{background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:8px 11px;border-radius:8px;min-width:230px}
+  .chip{background:var(--panel2);border:1px solid var(--line);color:var(--muted);padding:6px 11px;border-radius:20px;cursor:pointer;font-size:12.5px;user-select:none}
+  .chip.on{background:var(--mine);color:#04121d;border-color:var(--mine);font-weight:600}
+  .btn{background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:7px 13px;border-radius:8px;cursor:pointer;font-size:13px}
+  .btn:hover{border-color:var(--mine)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{position:sticky;top:0;background:var(--panel2);z-index:2;font-size:11.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);cursor:pointer}
+  tr:hover td{background:#19222e}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+  .b-mine{background:rgba(76,194,255,.16);color:var(--mine);border:1px solid rgba(76,194,255,.4)}
+  .b-theirs{background:rgba(255,180,84,.16);color:var(--theirs);border:1px solid rgba(255,180,84,.4)}
+  .b-both{background:rgba(126,231,135,.16);color:var(--both);border:1px solid rgba(126,231,135,.4)}
+  .p{font-weight:700} .p0{color:var(--p0)} .p1{color:var(--p1)} .p2{color:var(--p2)} .pE{color:var(--epic)}
+  .flag{font-size:11px;padding:1px 6px;border-radius:5px;margin-left:5px}
+  .f-conflict{background:rgba(255,123,114,.18);color:var(--conflict);border:1px solid rgba(255,123,114,.4)}
+  .f-comp{background:rgba(210,168,255,.16);color:var(--comp);border:1px solid rgba(210,168,255,.4)}
+  .dupdot{color:var(--theirs);font-weight:700}
+  .note{color:var(--muted);font-size:12px;max-width:430px}
+  .own{font-size:11px;color:var(--conflict)}
+  td.sel{text-align:center;width:34px}
+  input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:var(--both)}
+  .selbar{position:sticky;bottom:0;background:var(--panel2);border-top:1px solid var(--line);padding:12px 26px;display:flex;gap:14px;align-items:center;z-index:5}
+  .selbar .count{font-weight:700;color:var(--both)}
+  .decision{border-left:3px solid var(--conflict);padding:10px 14px;margin:10px 0;background:var(--panel2);border-radius:0 8px 8px 0}
+  .decision h4{margin:0 0 6px;font-size:14px}
+  .decision .factors{font-size:12.5px;color:var(--muted)}
+  details summary{cursor:pointer;font-weight:600;margin:6px 0}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:10}
+  .modal.on{display:flex}
+  .modal .box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:min(760px,92vw);max-height:84vh;overflow:auto}
+  textarea{width:100%;height:330px;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:10px;font:12px/1.5 ui-monospace,Menlo,monospace}
+  .hl{color:var(--mine)} code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:12px}
+  a{color:var(--mine)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Trend Model Project — Two-Review Issue Comparison &amp; Selection</h1>
+  <div class="sub">
+    Cross-comparison of <b class="mineC">this audit's proposed issues</b> (<code>audit-proposed-issues.md</code>, A#)
+    against the <b class="theirsC">iamkayleb parallel review</b> (<code>review-suggested-issues.md</code>, "Issue #") derived from the
+    <code>.docx</code> compendium. <b>Thesis: the two reviews are highly complementary</b> — theirs is line-level
+    correctness + specific copy-paste duplication; mine is behavioral/economic wiring + strategy + UX breadth.
+    Tick the issues you want; use <b>Export selected</b> to copy a filing-ready Markdown list.
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="grid cards" id="cards"></div>
+
+  <div class="panel">
+    <h2>Overlap at a glance</h2>
+    <div class="venn">
+      <div class="vennimg">
+        <div class="circle c-mine"></div>
+        <div class="circle c-theirs"></div>
+        <div class="vlabel vl-mine">Mine<br><span id="vmine">35</span> only</div>
+        <div class="vlabel vl-both">Both<br><span id="vboth">2</span></div>
+        <div class="vlabel vl-theirs">Theirs<br><span id="vtheirs">18</span> only</div>
+      </div>
+      <div class="legend">
+        <p style="margin:.2em 0"><b>Direct same-issue overlap: 2</b> — the dead <code>8_Validation.py</code> page and the CI/autofix fixtures in <code>src/</code>.</p>
+        <p style="margin:.2em 0"><b>+ ~5 complementary/adjacent pairs</b> (<span style="color:var(--comp)">🔗</span>) that touch the same area from different angles — e.g. my "consolidate the parallel <code>backtesting/harness.py</code> engine" ↔ their specific <i>Sortino bug</i> + duplicated <code>_infer_periods_per_year</code> inside it.</p>
+        <p style="margin:.2em 0"><b>1 direct conflict</b> (<span style="color:var(--conflict)">⚖</span>) — <code>run_analysis.py</code>/<code>run_multi_analysis.py</code>: I proposed <i>refactor/dedupe</i>; they found them <i>unwired → delete</i>.</p>
+        <p style="margin:.2em 0;color:var(--txt)"><b>≈ 85–90% of each list is unique to it.</b> Filing both, deduped, gives the most complete backlog.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Where each review is strong (category mix)</h2>
+    <div class="bars" id="catbars"></div>
+    <p class="legend" style="margin-top:10px">Theirs clusters in <b>correctness bugs</b> + <b>duplication/dead-code</b> (its stated "main ask"); mine clusters in <b>config/economic wiring</b>, <b>UX</b>, and <b>methodology/feature</b> (items 5–7) that a syntactic review can't surface.</p>
+  </div>
+
+  <div class="controls">
+    <input type="search" id="q" placeholder="Search title / id / area…"/>
+    <span class="chip on" data-f="src" data-v="all">All sources</span>
+    <span class="chip" data-f="src" data-v="mine">Mine</span>
+    <span class="chip" data-f="src" data-v="theirs">Theirs</span>
+    <span class="chip" data-f="src" data-v="both">Both</span>
+    <span class="chip" data-f="dup" data-v="1">Duplication only ●</span>
+    <span class="chip" data-f="pri" data-v="P0">P0</span>
+    <span class="chip" data-f="pri" data-v="P1">P1</span>
+    <span class="chip" data-f="pri" data-v="P2">P2</span>
+    <span class="chip" data-f="flag" data-v="conflict">⚖ Conflicts</span>
+    <span class="btn" id="selvis">✓ Select all visible</span>
+    <span class="btn" id="clearall">Clear</span>
+  </div>
+
+  <table id="tbl">
+    <thead><tr>
+      <th>✓</th><th data-k="id">ID</th><th data-k="t">Issue</th><th data-k="s">Source</th>
+      <th data-k="p">Pri</th><th data-k="c">Category</th><th data-k="dup">Dup</th><th>Notes / competing-approach factors</th>
+    </tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <div class="panel" style="margin-top:20px">
+    <h2>⚖ Competing approaches — factors for the choice</h2>
+
+    <div class="decision">
+      <h4>1. <code>run_analysis.py</code> / <code>run_multi_analysis.py</code> — refactor (mine A23) vs delete (theirs Issue 10)</h4>
+      <div class="factors">
+        <b>Factors:</b> Their review did the wiring check I didn't — they report these modules are <i>not</i> in <code>[project.scripts]</code>, not imported in <code>src/</code>, and only referenced by tests. <b>If that holds, delete &gt; refactor</b> (don't dedupe dead code). My "extract shared CLI skeleton" only applies if the modules are live. <b>Decision rule:</b> verify wiring first; delete if confirmed dead, otherwise apply my skeleton extraction. <b>Lesson adopted:</b> confirm a module is reachable before proposing to refactor it.
+      </div>
+    </div>
+
+    <div class="decision">
+      <h4>2. CLI helper dedup — "8 duplicates" vs "only 3 are real copies" (theirs Issue 9 + Appendix A)</h4>
+      <div class="factors">
+        <b>Factors:</b> Their Appendix A debunks an over-eager dedup: only <code>_apply_trend_spec_preset</code>, <code>_apply_universe_mask</code>, <code>_attach_universe_paths</code> are byte-equivalent; the other five are thin <i>delegators</i> and deduping them mechanically would break working code. <b>Decision rule:</b> dedupe only verified copies; leave delegators. <b>Lesson adopted:</b> my coarser dedup items (A7 harness, A22 cost-primitive) should be split into "verified copy → merge" vs "intentional indirection → leave."
+      </div>
+    </div>
+
+    <div class="decision">
+      <h4>3. Config validation — forbid unknown keys (mine A1) vs run Tier-2 in the bridge (theirs Issue 3)</h4>
+      <div class="factors">
+        <b>Factors:</b> These are <i>complementary, not competing</i>. A1 makes inert/unknown keys fail loudly (<code>extra="forbid"</code>); Issue 3 makes the Streamlit bridge actually run Tier-2 validation so <code>vol_adjust</code>/<code>max_turnover</code>/<code>selection_mode</code> are checked. <b>Decision rule:</b> do <b>both</b> — they close different halves of the same gap. Sequence behind tests (tightening validation may reject configs silently accepted today).
+      </div>
+    </div>
+
+    <div class="decision">
+      <h4>4. "Silent coercion" theme — bfill→ffill (theirs Issue 5) joins frequency→monthly &amp; weighting→equal (mine A3/A6)</h4>
+      <div class="factors">
+        <b>Factors:</b> Three independent instances of the same anti-pattern (a config value silently mapped to something else with no error). <b>Decision rule:</b> adopt a project-wide policy — <i>honor the value or reject it; never silently coerce</i> — and fix all three under one banner. Their Issue 5 is the instance I missed.
+      </div>
+    </div>
+
+    <div class="decision">
+      <h4>5. Consumer-repo ownership (theirs Appendix B) — fix here vs upstream in <code>stranske/Workflows</code></h4>
+      <div class="factors">
+        <b>Factors:</b> Their review flags that <code>tools/*</code>, <code>.github/codex/*</code>, and some <code>scripts/langchain/*</code> are synced from Workflows — fix upstream, not here. My audit scoped these out but didn't add the caveat. <b>Decision rule:</b> before filing any issue touching synced paths (e.g. their Issues 8 &amp; 19), confirm ownership via the sync manifest. <b>Lesson adopted:</b> tag each issue with repo-vs-upstream ownership.
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Material each review uniquely contributes (the "missed" question)</h2>
+    <details open><summary>What the iamkayleb review caught that my audit missed (incorporate these)</summary>
+      <ul>
+        <li><b>A wrong-number bug:</b> the <span class="dupdot">Sortino</span> annualization in <code>backtesting/harness</code> (~3.46× too small) — I flagged the harness as a parallel engine with "divergent formulas" but did not pin this specific defect. <b>High value.</b></li>
+        <li><b>Granular, byte-level duplication</b> I didn't enumerate: <code>portfolio_series</code> ×3, <code>_to_nav_wide</code> ×2, <code>_git_hash</code> ×2, <code>_infer_periods_per_year</code> ×2, <code>NAV_PATH_REQUIRED_CHARTS</code> ×2, <code>_init_matplotlib</code>, the LLM-chain ~200-line near-dup, <code>_read_env_float</code> ×2.</li>
+        <li><b>Specific bugs in scripts/state:</b> <code>check_branch.sh</code> syntax error, <code>run_real_model.py</code> <code>.loc</code> KeyError, <code>state.py::_values_equal</code> int/float phantom diffs, <code>missing_policy</code> bfill→ffill coercion.</li>
+        <li><b>Import-time side effects</b> in <code>metrics/__init__.py</code> (monkey-patching <code>builtins</code>); deprecated-shim imports still live in Streamlit; <code>gui/app.py</code> leading-space CSS theme no-op.</li>
+        <li><b>Security/hardening</b> (<code>0.0.0.0</code> bind, injection-guard regex) and a <b>portability/deprecation sweep</b>.</li>
+        <li><b>Discernment discipline</b> (Appendix A) and <b>consumer-repo ownership</b> (Appendix B) — process lessons worth adopting wholesale.</li>
+      </ul>
+    </details>
+    <details open><summary>What my audit caught that their review did not cover</summary>
+      <ul>
+        <li><b>The entire config/economic-wiring layer:</b> ~19 inert config keys, <code>data.frequency</code> monthly coercion, <code>data.date_column</code> main-path gap, <code>data.missing_fill_limit</code> dead alias, the two-weighting-keys bifurcation, <code>cost_model.*</code> dead on the main path, regime degeneracies, rf-ignored-for-ranking, undocumented <code>monthly_cost</code>.</li>
+        <li><b>Structural complexity:</b> the ~3,150-line <code>engine.run()</code> function.</li>
+        <li><b>Items 5–7 entirely:</b> competitive landscape, adjacent-problem extensions, generalization roadmap, and the statistical-rigor / data-snooping / survivorship questions to ask before presenting to colleagues.</li>
+        <li><b>UX breadth:</b> Monte-Carlo IA disconnect, the over-dense Model page, dev diagnostics in the production UI, preset-vocabulary confusion (beyond their dead-Validation-page overlap).</li>
+      </ul>
+    </details>
+  </div>
+
+  <div class="panel" id="propPanel">
+    <h2>Relative proportions</h2>
+    <p class="legend">
+      <b>Their list:</b> 20 filed issues — <b>8 P0 correctness bugs</b>, <b>9 P1 duplication/dead-code</b>, 3 P2 hygiene (+5 deliberately-not-filed in Appendix A). Heavily line-level &amp; syntactic, with precise <code>file:line</code>.<br>
+      <b>My list:</b> 37 issues — dominated by <b>config/economic wiring</b> (≈15), <b>UX</b> (6), <b>methodology/feature epics</b> (5), with fewer specific byte-level duplicates.<br>
+      <b>On duplicative code specifically:</b> theirs is <i>deeper at the function level</i> (specific copies + what <i>not</i> to dedupe); mine is <i>broader at the architectural level</i> (parallel <code>harness</code> engine, transaction-cost primitive fanned across ≥5 sites, duplicate config mechanisms). Forest vs trees — combine for the best dedup backlog.<br>
+      <span id="compendiumNote" style="color:var(--muted)"><b>Compendium completeness check (vs the raw <code>.docx</code>):</b> the source holds <b>~195 distinct actionable findings</b> (~70 bugs, <b>~45 duplication</b>, ~40 quality, ~16 dead-code, plus config/test/perf), but is <b>~80% descriptive documentation / ~20% findings</b> by volume (≈70/30 if de-duplicated — early PRs #8–#29 re-submit the same <code>cli.md</code> brief 14× with incremental growth). <code>review-suggested-issues.md</code> filed only ~20 of those ~195 — a <b>~10% curated distillation</b> (the rest were judged stale, minor, or intentional). Notably, the compendium contains duplication that <i>neither</i> review filed as issues — e.g. <code>_json_default</code> ×4, <code>_load_configuration</code> ×3 (trend/trend_analysis/trend_model), <code>load_csv</code>/<code>load_parquet</code> ~50-line overlap, <code>apply_missing_policy</code> two-contracts, and <code>DataSettings</code>/<code>ValidationError</code> name collisions — candidates for a future pass if you want to go deeper on dedup.</i></span>
+    </p>
+  </div>
+
+</div>
+
+<div class="selbar">
+  <span class="count"><span id="selN">0</span> selected</span>
+  <span class="btn" id="export">⇩ Export selected (Markdown)</span>
+  <span class="legend" style="margin-left:auto">Tip: filter, "Select all visible", then export. Selection persists across filters.</span>
+</div>
+
+<div class="modal" id="modal"><div class="box">
+  <h2 style="margin-top:0">Selected issues — Markdown</h2>
+  <p class="legend">Copy into a tracker, or hand to <code>gh issue create</code>. Sources tagged so you can see provenance.</p>
+  <textarea id="md" readonly></textarea>
+  <div style="margin-top:10px;display:flex;gap:10px">
+    <span class="btn" id="copy">Copy to clipboard</span>
+    <span class="btn" id="closeM">Close</span>
+  </div>
+</div></div>
+
+<script>
+const ISSUES=[
+ // ---- BOTH (direct overlap) ----
+ {id:"A11/T4",t:"Fix the dead 8_Validation.py page (never renders; reads a session key nothing writes)",s:"both",p:"P0",c:"ux",dup:0,own:"repo",flag:"",note:"Direct match. Theirs is more precise (3 compounding defects incl. set_page_config inside the render fn; app stores 'returns_df' not 'app_data'). Adopt their detail."},
+ {id:"A8/T11",t:"Move 6 CI/autofix test-fixture modules out of src/trend_analysis (they ship in the wheel)",s:"both",p:"P1",c:"dead_code",dup:0,own:"repo",flag:"",note:"Direct match. Placement choice: theirs _ci_fixtures/, mine tests/fixtures/. ~5 tests/workflows imports to update."},
+ // ---- THEIRS ----
+ {id:"T1",t:"Sortino annualization bug in backtesting/harness._compute_metrics (~3.46× too small)",s:"theirs",p:"P0",c:"bug",dup:0,own:"repo",flag:"comp",note:"🔗 Complements my A7 (the harness is a parallel engine with divergent formulas). Their specific wrong-number bug is the strongest single catch I missed."},
+ {id:"T2",t:"scripts/check_branch.sh fails bash syntax (duplicate `then`)",s:"theirs",p:"P0",c:"bug",dup:0,own:"repo",flag:"",note:"Dev gate script; add `bash -n scripts/*.sh` lint. Missed by me."},
+ {id:"T3",t:"config/bridge.py::validate_payload only runs Tier-1 validation",s:"theirs",p:"P0",c:"config",dup:0,own:"repo",flag:"comp",note:"🔗 Complements my A1. Do both: run Tier-2 in the bridge AND forbid unknown keys."},
+ {id:"T5",t:"missing_policy bfill/backfill silently coerced to ffill",s:"theirs",p:"P0",c:"bug",dup:0,own:"repo",flag:"comp",note:"🔗 Same silent-coercion anti-pattern as my A3 (freq→monthly) & A6 (weighting→equal). Honor or reject — never coerce."},
+ {id:"T6",t:"scripts/run_real_model.py crashes on RF/portfolio date mismatch (.loc→.reindex)",s:"theirs",p:"P0",c:"bug",dup:0,own:"repo",flag:"",note:"Trivial reindex fix. Missed by me (scripts/)."},
+ {id:"T7",t:"state.py::_values_equal reports phantom int↔float diffs",s:"theirs",p:"P0",c:"bug",dup:0,own:"repo",flag:"",note:"JSON round-trip false 'type changed' diffs. Missed by me."},
+ {id:"T8",t:"scripts/langchain/pr_verifier.py unimportable (missing api_client)",s:"theirs",p:"P0",c:"bug",dup:0,own:"check",flag:"",note:"⚠ Likely Workflows-owned — confirm sync ownership before filing here (their Appendix B)."},
+ {id:"T9",t:"Consolidate the 3 byte-equivalent CLI helpers (NOT the other 5 delegators)",s:"theirs",p:"P1",c:"duplication",dup:1,own:"repo",flag:"",note:"Only _apply_trend_spec_preset/_apply_universe_mask/_attach_universe_paths are real copies. Discernment lesson for my dedup items."},
+ {id:"T10",t:"Remove orphaned/unwired CLI modules + dead stub (run_analysis, run_multi_analysis, src/cli.py, trend_portfolio_app)",s:"theirs",p:"P1",c:"dead_code",dup:0,own:"repo",flag:"conflict",note:"⚖ CONFLICTS with my A23 (refactor). If their wiring analysis holds (only test-imported), DELETE beats refactor. Verify first."},
+ {id:"T12",t:"De-duplicate helpers in export/__init__.py & viz/ (portfolio_series ×3, _to_nav_wide ×2, _git_hash ×2, dead branch, openpyxl pairs)",s:"theirs",p:"P1",c:"duplication",dup:1,own:"repo",flag:"",note:"Granular byte-level copies I did not enumerate (I only flagged export/__init__.py as oversized). High-value dedup."},
+ {id:"T13",t:"De-duplicate trend/mc & reporting helpers (NAV_PATH_REQUIRED_CHARTS ×2, _init_matplotlib)",s:"theirs",p:"P1",c:"duplication",dup:1,own:"repo",flag:"",note:"Missed by me."},
+ {id:"T14",t:"Refactor LLM chain duplication in llm/chain.py (~200-line near-dup run()s, _read_env_float ×2)",s:"theirs",p:"P1",c:"duplication",dup:1,own:"check",flag:"",note:"Missed by me. Confirm llm/* is repo-owned (appears so)."},
+ {id:"T15",t:"Remove import-time side effects in metrics/__init__.py (builtins monkey-patch, synthetic tests.legacy_metrics)",s:"theirs",p:"P1",c:"quality",dup:0,own:"repo",flag:"",note:"Missed by me. Real tech-debt / import-order hazard."},
+ {id:"T16",t:"Hoist duplicated _infer_periods_per_year and reconcile drift (harness vs engine/walkforward)",s:"theirs",p:"P1",c:"duplication",dup:1,own:"repo",flag:"comp",note:"🔗 A specific instance inside my A7 harness-consolidation. The two copies have drifted guards."},
+ {id:"T17",t:"Stop importing deprecated shims from live Streamlit modules (config_bridge, date_correction)",s:"theirs",p:"P1",c:"dead_code",dup:0,own:"repo",flag:"",note:"App emits its own DeprecationWarnings at startup. Missed by me."},
+ {id:"T18",t:"Deprecation & portability sweep (applymap→map, ast.Str, sed -i, echo backticks, $?-after-pipeline)",s:"theirs",p:"P2",c:"quality",dup:0,own:"repo",flag:"",note:"Repo-local .sh items safe to fix here; some review items already fixed (they note it). Missed by me."},
+ {id:"T19",t:"Tighten network-bind (0.0.0.0→127.0.0.1) & injection-guard regex (re.DOTALL)",s:"theirs",p:"P2",c:"security",dup:0,own:"check",flag:"",note:"⚠ injection_guard/llm_proxy may be Workflows-owned. Missed by me."},
+ {id:"T20",t:"Small UI correctness fixes (gui/app.py leading-space CSS theme no-op; ipywidgets unconditional import)",s:"theirs",p:"P2",c:"bug",dup:0,own:"repo",flag:"",note:"Theme toggle silently no-ops. Missed by me."},
+ // ---- MINE ----
+ {id:"A1",t:"Make config honest: extra=\"forbid\" (or declared-vs-consumed key lint) so inert/unknown keys fail loudly",s:"mine",p:"P1",c:"config",dup:0,own:"repo",flag:"comp",note:"🔗 Pairs with their T3 (different half of the same validation gap)."},
+ {id:"A2",t:"Remove-or-wire the ~19 inert config keys (metrics.*, export.excel.*, run.*, preprocessing.steps)",s:"mine",p:"P1",c:"config",dup:0,own:"repo",flag:"",note:"Behavioral finding their syntactic review did not surface. The biggest config-contract issue."},
+ {id:"A3",t:"data.frequency silently coerces all data to monthly (√12 regardless) — honor end-to-end or hard-reject",s:"mine",p:"P1",c:"config",dup:0,own:"repo",flag:"comp",note:"🔗 Silent-coercion theme with their T5."},
+ {id:"A4",t:"data.date_column ignored on the main CSV load path (only walk-forward/MC honor it)",s:"mine",p:"P1",c:"config",dup:0,own:"repo",flag:"",note:"Missed by their review."},
+ {id:"A5",t:"data.missing_fill_limit is a dead alias shadowing the real data.missing_limit",s:"mine",p:"P1",c:"config",dup:0,own:"repo",flag:"",note:"Missed by their review."},
+ {id:"A6",t:"Unify the two weighting keys (weighting.name vs weighting_scheme); reject unsupported values; make ScorePropSimple reachable",s:"mine",p:"P1",c:"config",dup:1,own:"repo",flag:"comp",note:"🔗 Duplicate config mechanism + silent equal-weight fallback (YAML/CLI). Missed by their review."},
+ {id:"A7",t:"Consolidate backtesting/harness.py parallel engine (own CostModel/calendar/metrics, divergent formulas) — reuse or retire",s:"mine",p:"P1",c:"duplication",dup:1,own:"repo",flag:"comp",note:"🔗 The architectural frame around their T1 (Sortino) + T16 (_infer_periods). Forest to their trees."},
+ {id:"A9",t:"Refactor multi_period/engine.py::run() — a single ~3,150-line, ~10-deep function",s:"mine",p:"P1",c:"complexity",dup:0,own:"repo",flag:"",note:"Missed by their review (they focused on duplication, not complexity)."},
+ {id:"A10",t:"Add value-level numeric assertions to tests (harness + smoke tests check keys, not values)",s:"mine",p:"P1",c:"testing",dup:0,own:"repo",flag:"comp",note:"🔗 Both reviews note this; theirs ties it to T1. Make it a cross-cutting test-quality policy."},
+ {id:"A12",t:"Add statistical-rigor layer: deflated Sharpe / multiple-testing / OOS significance",s:"mine",p:"P1",c:"methodology",dup:0,own:"repo",flag:"",note:"Item 7. Biggest pre-presentation credibility upgrade. Out of their scope."},
+ {id:"A13",t:"portfolio.cost_model.* is dead on the main pipeline (engine reads top-level transaction_cost_bps/slippage_bps)",s:"mine",p:"P2",c:"config",dup:0,own:"repo",flag:"",note:"Missed by their review."},
+ {id:"A14",t:"Single-period path ignores transaction_cost_bps (only monthly_cost + turnover cap apply)",s:"mine",p:"P2",c:"config",dup:0,own:"repo",flag:"",note:"Missed by their review."},
+ {id:"A15",t:"regime.threshold=0.0 degenerate in volatility mode (≈all Risk-Off); validate/reject",s:"mine",p:"P2",c:"config",dup:0,own:"repo",flag:"",note:"Missed by their review."},
+ {id:"A16",t:"regime.annualise_volatility silently rescales the decision boundary by √ppy",s:"mine",p:"P2",c:"config",dup:0,own:"repo",flag:"",note:"Missed by their review."},
+ {id:"A17",t:"regime.min_observations default mismatch (code 6 vs defaults.yml 4)",s:"mine",p:"P2",c:"config",dup:0,own:"repo",flag:"",note:"Missed by their review."},
+ {id:"A18",t:"metrics.rf_rate_annual ignored for ranking unless rf_override_enabled (ranking Sharpe uses rf=0)",s:"mine",p:"P2",c:"config",dup:0,own:"repo",flag:"",note:"Affects which funds are selected. Missed by their review."},
+ {id:"A19",t:"run.monthly_cost is an undocumented, material flat cost lever (absent from defaults.yml)",s:"mine",p:"P2",c:"config",dup:0,own:"repo",flag:"",note:"Missed by their review."},
+ {id:"A20",t:"Consolidate the 3 parallelism keys (run.jobs canonical, jobs deprecated alias, delete dead run.n_jobs)",s:"mine",p:"P2",c:"duplication",dup:1,own:"repo",flag:"",note:"Duplicate/dead config mechanism. Missed by their review."},
+ {id:"A21",t:"sample_split.in_end boundary convention mismatch (validator=month-start, slicer=month-end)",s:"mine",p:"P2",c:"config",dup:0,own:"repo",flag:"",note:"Missed by their review."},
+ {id:"A22",t:"Consolidate transaction-cost logic fanned across ≥5 implementations into one primitive",s:"mine",p:"P2",c:"duplication",dup:1,own:"repo",flag:"",note:"Architectural dedup beyond their function-level finds. Apply their discernment (verify copy vs intentional)."},
+ {id:"A23",t:"Extract the shared CLI skeleton from run_analysis.py / run_multi_analysis.py",s:"mine",p:"P2",c:"duplication",dup:1,own:"repo",flag:"conflict",note:"⚖ Superseded-if-dead by their T10. Only valid if the modules are actually wired."},
+ {id:"A24",t:"Remove the dead rebalancing.py back-compat shim (shadowed by rebalancing/ package)",s:"mine",p:"P2",c:"dead_code",dup:0,own:"repo",flag:"",note:"Aligned in spirit with their dead-code cleanup; specific file they didn't list."},
+ {id:"A25",t:"Refactor cli.main()/_handle_mc_command; narrow ~40 broad excepts; log swallowed config errors",s:"mine",p:"P2",c:"quality",dup:0,own:"repo",flag:"",note:"Missed by their review."},
+ {id:"A26",t:"_apply_weight_bounds may not sum to 1.0 (no warn) + mixes magic 1e-9 with named tolerance",s:"mine",p:"P2",c:"quality",dup:0,own:"repo",flag:"",note:"Mildly economic. Missed by their review."},
+ {id:"A27",t:"Encapsulate module-global mutable cache counters in rank_selection",s:"mine",p:"P2",c:"quality",dup:0,own:"repo",flag:"",note:"Test-pollution/thread-safety. Missed by their review."},
+ {id:"A28",t:"Monte-Carlo page: numeric filename prefix + connect to Data→Model→Results state",s:"mine",p:"P2",c:"ux",dup:0,own:"repo",flag:"",note:"UX/IA. Missed by their review."},
+ {id:"A29",t:"Model page: progressive disclosure + remove internal 'Phase N' labels (~4,500-line form)",s:"mine",p:"P2",c:"ux",dup:0,own:"repo",flag:"",note:"Missed by their review."},
+ {id:"A30",t:"Surface the multi-period weighting silent-fallback (create_weight_engine failure → equal, fallback_info unset)",s:"mine",p:"P2",c:"ux",dup:0,own:"repo",flag:"",note:"Missed by their review."},
+ {id:"A31",t:"Gate developer perf diagnostics out of the production UI (1_Data.py)",s:"mine",p:"P2",c:"ux",dup:0,own:"repo",flag:"",note:"Missed by their review."},
+ {id:"A32",t:"Reconcile the two preset vocabularies (home vs model presets)",s:"mine",p:"P2",c:"ux",dup:0,own:"repo",flag:"",note:"Missed by their review."},
+ {id:"A33",t:"Make the 'Apply selection' commit step clearer",s:"mine",p:"P2",c:"ux",dup:0,own:"repo",flag:"",note:"Missed by their review."},
+ {id:"A34",t:"Survivorship / point-in-time universe handling (as-of membership)",s:"mine",p:"P2",c:"methodology",dup:0,own:"repo",flag:"",note:"Item 7. Out of their scope."},
+ {id:"A35",t:"General convex-constraint optimization backend (CVXPY / Riskfolio-Lib) behind the weighting interface",s:"mine",p:"P2",c:"feature",dup:0,own:"repo",flag:"",note:"Item 7.1 epic. Out of their scope."},
+ {id:"A36",t:"Factor attribution / returns decomposition (trend purity)",s:"mine",p:"P2",c:"feature",dup:0,own:"repo",flag:"",note:"Item 6. Out of their scope."},
+ {id:"A37",t:"Generalize beyond trend (manager-of-managers framing); daily cadence; pluggable cost/regime; benchmark indices",s:"mine",p:"P2",c:"feature",dup:0,own:"repo",flag:"",note:"Items 6/7.1 epic. Out of their scope."}
+];
+
+const SRC={mine:"b-mine",theirs:"b-theirs",both:"b-both"};
+const SRCL={mine:"Mine",theirs:"Theirs",both:"Both"};
+const CATC={correctness:"#ff7b72"};
+const sel=new Set();
+let filt={src:"all",dup:null,pri:null,flag:null}, qstr="", sortk=null, sortdir=1;
+
+function passes(it){
+  if(filt.src!=="all" && it.s!==filt.src) return false;
+  if(filt.dup && !it.dup) return false;
+  if(filt.pri && it.p!==filt.pri) return false;
+  if(filt.flag && it.flag!==filt.flag) return false;
+  if(qstr){const h=(it.id+" "+it.t+" "+it.c+" "+it.note).toLowerCase();if(!h.includes(qstr))return false;}
+  return true;
+}
+function render(){
+  let list=ISSUES.filter(passes);
+  if(sortk){list=[...list].sort((a,b)=>String(a[sortk]).localeCompare(String(b[sortk]))*sortdir);}
+  const rows=document.getElementById("rows");
+  rows.innerHTML=list.map(it=>{
+    const pc=it.p==="P0"?"p0":it.p==="P1"?"p1":it.c==="feature"||it.c==="methodology"?"pE":"p2";
+    const fl=it.flag==="conflict"?'<span class="flag f-conflict">⚖ conflict</span>':it.flag==="comp"?'<span class="flag f-comp">🔗 comp</span>':'';
+    return `<tr>
+      <td class="sel"><input type="checkbox" data-id="${it.id}" ${sel.has(it.id)?"checked":""}></td>
+      <td><b>${it.id}</b></td>
+      <td>${it.t}${fl}${it.own==="check"?' <span class="own">⚠ ownership</span>':''}</td>
+      <td><span class="badge ${SRC[it.s]}">${SRCL[it.s]}</span></td>
+      <td class="p ${pc}">${it.p}</td>
+      <td>${it.c}</td>
+      <td style="text-align:center">${it.dup?'<span class="dupdot">●</span>':''}</td>
+      <td class="note">${it.note}</td>
+    </tr>`;
+  }).join("");
+  document.querySelectorAll('#rows input[type=checkbox]').forEach(cb=>cb.onchange=()=>{cb.checked?sel.add(cb.dataset.id):sel.delete(cb.dataset.id);updateSel();});
+  document.getElementById("visN")&&(document.getElementById("visN").textContent=list.length);
+}
+function updateSel(){document.getElementById("selN").textContent=sel.size;}
+function summary(){
+  const by=s=>ISSUES.filter(i=>i.s===s).length;
+  document.getElementById("cards").innerHTML=[
+    ["Total distinct issues",ISSUES.length,""],
+    ["Mine",by("mine"),"mineC"],["Theirs",by("theirs"),"theirsC"],["Both (direct)",by("both"),"bothC"],
+    ["Duplication-tagged",ISSUES.filter(i=>i.dup).length,""],
+    ["P0 / P1",ISSUES.filter(i=>i.p==="P0").length+" / "+ISSUES.filter(i=>i.p==="P1").length,""]
+  ].map(([l,n,c])=>`<div class="card"><div class="n ${c}">${n}</div><div class="l">${l}</div></div>`).join("");
+  document.getElementById("vmine").textContent=by("mine");
+  document.getElementById("vtheirs").textContent=by("theirs");
+  document.getElementById("vboth").textContent=by("both");
+  // category bars (mine vs theirs split)
+  const cats=[...new Set(ISSUES.map(i=>i.c))];
+  document.getElementById("catbars").innerHTML=cats.map(c=>{
+    const m=ISSUES.filter(i=>i.c===c&&(i.s==="mine"||i.s==="both")).length;
+    const t=ISSUES.filter(i=>i.c===c&&(i.s==="theirs"||i.s==="both")).length;
+    const tot=m+t||1;
+    return `<div class="bar"><span>${c}</span><span class="track">
+      <span class="seg" style="width:${m/tot*100}%;background:var(--mine)"></span>
+      <span class="seg" style="width:${t/tot*100}%;background:var(--theirs)"></span>
+    </span><span>${m+t}</span></div>`;
+  }).join("");
+}
+// controls
+document.querySelectorAll(".chip").forEach(ch=>ch.onclick=()=>{
+  const f=ch.dataset.f,v=ch.dataset.v;
+  if(f==="src"){filt.src=v;document.querySelectorAll('.chip[data-f=src]').forEach(c=>c.classList.toggle("on",c===ch));}
+  else{const key=f;filt[key]=filt[key]===v?null:v;ch.classList.toggle("on",filt[key]===v);}
+  render();
+});
+document.getElementById("q").oninput=e=>{qstr=e.target.value.toLowerCase();render();};
+document.getElementById("selvis").onclick=()=>{ISSUES.filter(passes).forEach(i=>sel.add(i.id));render();updateSel();};
+document.getElementById("clearall").onclick=()=>{sel.clear();render();updateSel();};
+document.querySelectorAll("th[data-k]").forEach(th=>th.onclick=()=>{const k=th.dataset.k;sortdir=sortk===k?-sortdir:1;sortk=k;render();});
+document.getElementById("export").onclick=()=>{
+  const chosen=ISSUES.filter(i=>sel.has(i.id));
+  const md=chosen.length? chosen.map(i=>`- [ ] **${i.id}** (${SRCL[i.s]}, ${i.p}${i.dup?", duplication":""}) — ${i.t}`).join("\n")
+    : "_No issues selected._";
+  document.getElementById("md").value=`# Selected issues (${chosen.length})\n\n`+md;
+  document.getElementById("modal").classList.add("on");
+};
+document.getElementById("closeM").onclick=()=>document.getElementById("modal").classList.remove("on");
+document.getElementById("copy").onclick=()=>{const ta=document.getElementById("md");ta.select();document.execCommand("copy");document.getElementById("copy").textContent="Copied!";setTimeout(()=>document.getElementById("copy").textContent="Copy to clipboard",1200);};
+summary();render();updateSel();
+</script>
+</body>
+</html>
