@@ -200,6 +200,7 @@ performance:
 run:
   log_level: "INFO" # DEBUG | INFO | WARNING | ERROR
   log_file: "logs/phase1.log"
+  monthly_cost: 0.0 # flat decimal return subtracted from each fund every period
   n_jobs: -1 # ‑1 ⇒ all CPUs
   cache_dir: ".cache/"
   deterministic: true # sets NumPy & pandas options

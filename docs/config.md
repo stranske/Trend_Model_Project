@@ -56,6 +56,9 @@ model is constructed:
 - `portfolio.transaction_cost_bps` and every linear `cost_model` field (bps per
   trade, slippage, per-trade bps, half-spread) remain non-negative and must
   round-trip unchanged through `CoreConfig.to_payload()` into `TrendConfig`.
+- `run.monthly_cost` is a flat decimal per-period fee. It is subtracted from
+  every fund return before statistics are calculated and is not scaled by
+  turnover or exposure.
 - Relative paths must resolve to the same absolute targets in both layers when
   the same `base_path` is supplied.
 
@@ -117,6 +120,14 @@ output:
   format: excel               # csv, json, excel
   path: outputs/analysis      # Output directory/prefix
   include_raw_metrics: true   # Include detailed metrics
+```
+
+### Run Section
+
+```yaml
+run:
+  monthly_cost: 0.0            # flat decimal per-period fee, e.g. 0.001 = 10 bps
+  n_jobs: -1                   # parallel worker count
 ```
 
 ### Walk-Forward Section
