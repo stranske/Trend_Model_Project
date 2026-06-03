@@ -439,8 +439,9 @@ def _check_data_required_fields(data: Mapping[str, Any], errors: list[Validation
         "data",
         "frequency",
         expected="non-empty string",
-        suggestion="Set data.frequency to one of the supported values (e.g., 'M').",
+        suggestion="Set data.frequency to 'M' or 'ME'.",
     )
+    _check_data_frequency_supported(data, errors)
     if not _is_present(csv_path) and not _is_present(managers_glob):
         issue = ValidationError(
             path="data.csv_path",
@@ -448,6 +449,41 @@ def _check_data_required_fields(data: Mapping[str, Any], errors: list[Validation
             expected="csv_path or managers_glob",
             actual="missing",
             suggestion="Set data.csv_path to a CSV file or data.managers_glob to a CSV glob.",
+        )
+        _append_issue(errors, issue)
+
+
+def _check_data_frequency_supported(
+    data: Mapping[str, Any], errors: list[ValidationError]
+) -> None:
+    value = data.get("frequency")
+    if not _is_present(value):
+        return
+    if not isinstance(value, str):
+        issue = ValidationError(
+            path="data.frequency",
+            message="Frequency must be a string.",
+            expected="'M' or 'ME'",
+            actual=type(value).__name__,
+            suggestion="Set data.frequency to 'M' or 'ME'.",
+        )
+        _append_issue(errors, issue)
+        return
+
+    frequency = value.strip().upper()
+    if frequency not in {"M", "ME"}:
+        issue = ValidationError(
+            path="data.frequency",
+            message=(
+                "Only monthly data.frequency values are currently supported; "
+                f"'{value}' would be silently resampled to monthly."
+            ),
+            expected="'M' or 'ME'",
+            actual=value,
+            suggestion=(
+                "Use data.frequency: M for the current monthly pipeline, or add "
+                "full non-monthly periods-per-year support before using D/W."
+            ),
         )
         _append_issue(errors, issue)
 
