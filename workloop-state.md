@@ -1,6 +1,14 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
+## 2026-06-03T07:05Z - closer lane rebasing PR #5449 after #5451 merge
+
+- Repo/issue/PR: stranske/Trend_Model_Project #5396 / #5449 (`codex/issue-5396-regime-annualise-volatility`).
+- Agent: codex closer from neutral Code workspace; selected as the complex lane after batch-merging #5451 and leaving #5450/#5397 waiting on post-merge verifier.
+- Conflict evidence: live PR state became `DIRTY` after current `origin/phase-3` moved through adjacent regime PR merges; the rebase conflict was limited to `workloop-state.md`.
+- Fix in progress: preserve the prior #5450 and #5449 workloop evidence while rebasing the annualized-volatility neutral-band fix and regression onto current `origin/phase-3`.
+- Current state: rebase conflict resolved locally; next action is to continue the rebase, validate the focused regime tests/lint/type checks, then force-with-lease push the refreshed PR head.
+
 ## 2026-06-03T06:40Z - closer lane rebased PR #5450 after regime merges
 
 - Repo/issue/PR: stranske/Trend_Model_Project #5397 / #5450 (`codex/issue-5397-min-obs-default`).
@@ -8,6 +16,14 @@
 - Conflict evidence: live PR state was `DIRTY` after #5448 and #5449 touched `src/trend_analysis/regimes.py` and `workloop-state.md`.
 - Fix: rebased onto current `origin/phase-3`, kept the min-observation default change and test, and dropped the opener workloop-state churn from the PR branch.
 - Current state: rebase/conflict fix validated locally; after force-with-lease push, fresh GitHub checks should rerun on the rebased branch.
+
+## 2026-06-03T06:30Z - closer lane advanced PR #5449 review and CI fixes
+
+- Repo/issue/PR: stranske/Trend_Model_Project #5396 / #5449 (`codex/issue-5396-regime-annualise-volatility`).
+- Agent: codex closer from neutral Code workspace; selected after batch-merging #5448 and deferring #5450 on transient `UNKNOWN` mergeability.
+- Review evidence: GraphQL review-thread audit showed two unresolved threads: annualized volatility mode scaled the signal and threshold but not `neutral_band`, and the PR carried an out-of-scope opener workloop log entry.
+- Fix: rebased onto current `origin/phase-3`, dropped the opener workloop churn from the PR branch, and scaled `neutral_band` by `sqrt(periods_per_year)` alongside the volatility threshold when annualization is active. Added a regression with a distinct `Neutral` label proving annualized and non-annualized classification stay invariant around the neutral band.
+- Current state: review fix validated and pushed at `7aeb8124`; review threads are ready to resolve and fresh GitHub checks should rerun on the rebased branch.
 
 ## 2026-06-03T06:01:06Z - closer lane advanced PR #5448 review fixes
 
