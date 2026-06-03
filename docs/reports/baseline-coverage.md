@@ -2,7 +2,7 @@
 
 - Input parameters: **189**
 - Exercised by a scenario: **12** (6.3%)
-- Observed read at runtime: **56**
+- Observed read at runtime: **58**
 
 ## Priority parameters
 
