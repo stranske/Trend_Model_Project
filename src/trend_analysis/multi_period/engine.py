@@ -33,6 +33,7 @@ from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv
 from ..diagnostics import PipelineResult, coerce_pipeline_result
+from ..metrics.turnover import linear_turnover_cost
 from ..pipeline import (
     _build_trend_spec,
     _compute_stats,
@@ -194,6 +195,16 @@ def _resolve_pipeline_monthly_cost(
         return float(run_cfg.get("monthly_cost", 0.0) or 0.0)
     except (TypeError, ValueError) as exc:
         raise CoreConfigError("run.monthly_cost must be numeric") from exc
+
+
+def _period_turnover_cost(
+    turnover: float,
+    *,
+    tc_bps: float,
+    slippage_bps: float,
+) -> float:
+    """Return the multi-period engine's linear turnover cost."""
+    return float(linear_turnover_cost(turnover, tc_bps + slippage_bps))
 
 
 _resolve_risk_free_settings = resolve_risk_free_settings
@@ -3706,7 +3717,11 @@ def run(
             abs_diff = float((effective_w - last_effective).abs().sum())
             period_turnover = 0.5 * abs_diff
 
-        period_cost = period_turnover * ((tc_bps + slippage_bps) / 10000.0)
+        period_cost = _period_turnover_cost(
+            period_turnover,
+            tc_bps=tc_bps,
+            slippage_bps=slippage_bps,
+        )
 
         # Reconcile manager change log to the realised holdings delta.
         actual_before = set(last_effective[last_effective.abs() > eps].index)

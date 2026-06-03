@@ -1,6 +1,16 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
+## 2026-06-03T09:08:49Z - opener lane issue #5403 PR materializing
+
+- Repo/issue: stranske/Trend_Model_Project #5403 (`A22 - Consolidate transaction-cost logic fanned across >=5 implementations`).
+- Branch: `codex/issue-5403-transaction-cost-logic`; base `origin/phase-3`.
+- Agent: codex opener from neutral Code workspace; used persistent automation worktree `~/.codex/automations/pd-workloop-resume/worktrees/trend-5403-transaction-cost-logic`.
+- Selection: approved queue entries were stale/scoped/closed/merged; liveness fallback selected #5403 as the oldest unlinked implementation issue outside scoped blockers. No open PR or remote branch matched #5403 before implementation.
+- Implementation: added `metrics.turnover.linear_turnover_cost` as the shared primitive, kept `turnover_cost()` as the vector wrapper, and routed confirmed plain-linear scalar cost sites through it: `backtesting.harness.CostModel.apply`, `rebalancing.strategies.TurnoverCapStrategy._calculate_cost`, and the multi-period engine period-cost path. Monte Carlo regime-aware costs remain separate because they also apply sampled regime cost and slippage multipliers.
+- Validation: `tests/test_cost_primitive_shared.py` -> 2 passed; adjacent turnover/rebalancing/backtesting/engine slice -> 36 passed; focused `ruff` on touched files -> passed; `git diff --check` -> passed. Deliberate-break gate: temporarily changed the rebalancer bps by +1 and confirmed `test_linear_cost_sites_share_canonical_primitive` failed, then restored and reran green.
+- Current state: implementation validated locally; next action is commit, push, open ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`, then relay `pr_opened`.
+
 ## 2026-06-03T07:31Z - closer lane advanced PR #5452 schema/docs CI and review fixes
 
 - Repo/issue/PR: stranske/Trend_Model_Project #5399 / #5452 (`codex/issue-5399-monthly-cost-doc`).
