@@ -1,6 +1,6 @@
-"""Regression guard against inert config keys in ``config/defaults.yml`` (A2 / #5400).
+"""Regression guard against inert keys in shipped YAML configs (A2 / #5400).
 
-A key is *inert* when it is shipped in ``config/defaults.yml`` but no engine code
+A key is *inert* when it is shipped in a config YAML source but no engine code
 path under ``src/`` ever reads it, so setting it is a silent no-op. A2 removed the
 specific inert keys enumerated in issue #5400; this test keeps them from creeping
 back and makes any future inert key visible (it must be either wired to a consumer
@@ -42,6 +42,13 @@ SCHEMA_GENERATOR = SRC / "trend_analysis" / "config" / "schema_generator.py"
 # fixed schema keys. We do not descend into these, but we still require the
 # section key itself to have a consumer.
 FREEFORM_SECTIONS: frozenset[str] = frozenset(schema_generator._FREEFORM_MAPS)
+DYNAMIC_VALUE_SECTIONS: frozenset[str] = frozenset(
+    {
+        # Asset-name -> group-name mapping. The section is consumed as a mapping;
+        # its children are user-supplied asset labels, not fixed config keys.
+        "portfolio.constraints.groups",
+    }
+)
 
 # Declared config surface that no engine path currently reads, retained outside
 # A2's (#5400) enumerated inert-key deletion set. Keyed by exact dotted path so a
@@ -58,11 +65,15 @@ ALLOWLIST_PATHS: dict[str, str] = {
     "data.currency": "Declared ingestion key; A1/#5389 strict-config owner decision pending.",
     "data.lookback_required": "Declared ingestion key; A1/#5389 strict-config owner decision pending.",
     # Declared feature flags retained as config surface (not in A2's enumerated set).
+    "data.missing_fill_limit": "A5/#5418 owns migration to missing_limit; retained until that issue lands.",
+    "preprocessing.winsorise.limits": "Declared winsorisation settings; not in A2's enumerated inert set.",
     "preprocessing.de_duplicate": "Declared preprocessing flag; not in A2's enumerated inert set.",
     "preprocessing.log_prices": "Declared preprocessing flag; not in A2's enumerated inert set.",
     "preprocessing.resample.business_only": "Declared resample flag; not in A2's enumerated inert set.",
     "sample_split.rolling_walk": "Declared future-phase feature flag (see inline comment in defaults.yml).",
     "export.include_figures": "Declared Phase-2 export flag (see inline comment in defaults.yml).",
+    "multi_period.weight_curve.anchors": "Declared multi-period weighting surface; not in A2's enumerated inert set.",
+    "portfolio.rank.limit_one_per_firm": "Legacy universe-config ranking toggle; wiring/removal is outside A2/#5400.",
 }
 
 
@@ -74,7 +85,7 @@ def _leaf_paths(node: Any, prefix: str = "") -> Iterator[tuple[str, str]]:
     mapping sections are not descended into either.
     """
 
-    if prefix in FREEFORM_SECTIONS:
+    if prefix in FREEFORM_SECTIONS or prefix in DYNAMIC_VALUE_SECTIONS:
         yield prefix, prefix.rsplit(".", 1)[-1]
         return
     if isinstance(node, dict) and node:
@@ -122,7 +133,7 @@ def test_every_shipped_config_key_is_consumed() -> None:
     for path, dotted_path, leaf in leaves:
         if dotted_path in ALLOWLIST_PATHS:
             continue
-        if leaf in string_literals:
+        if leaf in string_literals or dotted_path in string_literals:
             continue
         inert.append(f"{path.relative_to(REPO_ROOT)}:{dotted_path}")
 
