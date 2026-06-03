@@ -135,10 +135,11 @@ jobs:
           # Raised 72 -> 81: the config-loader fix (PortfolioSettings extra="allow")
           # makes the demo honor selection_mode/rank/selector/custom_weights/weighting,
           # and fleet-record fingerprinting now reads run metadata from the same config path.
-          # TODO: tighten once validated-key tracking is instrumented.
+          # Lowered 81 -> 76: A2 (#5400) deleted the ~19 documented-but-unconsumed keys,
+          # reducing the ignored count from ~81 to 76.
           python scripts/check_config_coverage.py \
             --config config/demo.yml \
-            --ignored-threshold 81
+            --ignored-threshold 76
 
   summary:
     name: gate-summary
