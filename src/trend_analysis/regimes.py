@@ -79,9 +79,9 @@ def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
     lookback = _coerce_positive_int(cfg.get("lookback"), 126)
     smoothing = _coerce_positive_int(cfg.get("smoothing"), 3)
     threshold = _coerce_float(cfg.get("threshold"), 0.0)
-    if method == "volatility" and threshold <= 0:
+    if enabled and method == "volatility" and (not np.isfinite(threshold) or threshold <= 0):
         raise ValueError(
-            "regime.threshold must be positive when regime.method is 'volatility' "
+            "regime.threshold must be finite and positive when regime.method is 'volatility' "
             "(signal = threshold - volatility, and volatility is non-negative, so a "
             "non-positive threshold collapses the split to all Risk-Off)"
         )

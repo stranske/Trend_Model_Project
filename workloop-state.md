@@ -1,6 +1,19 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
+## 2026-06-03T06:01:06Z - closer lane advanced PR #5448 review fixes
+
+- Repo/issue/PR: stranske/Trend_Model_Project #5395 / #5448 (`claude/issue-5395-regime-threshold-validation`).
+- Agent: codex closer from neutral Code workspace; selected #5448 as the complex lane after the batch sweep found no safe terminal actions and #5446/#5447 were legitimately waiting on post-merge verifier jobs.
+- Review evidence: GraphQL review-thread audit showed two unresolved threads on head `c65ff5e6`: disabled volatility regimes should not raise before callers honor `regime.enabled: false`, and volatility thresholds should reject NaN/inf as well as non-positive values.
+- Fix: `normalise_settings()` now applies the volatility threshold guard only when regimes are enabled and requires the threshold to be finite and positive. Added regressions for disabled volatility configs and NaN/inf thresholds.
+- Validation:
+  - `PYTHONPATH=src MPLCONFIGDIR=/private/tmp/mplconfig-trend-5448 python -m pytest tests/test_regime_threshold.py -q` -> 7 passed.
+  - `python -m ruff check src/trend_analysis/regimes.py tests/test_regime_threshold.py` -> passed.
+  - `git diff --check` -> passed.
+  - Initial broader regime-suite run hit pre-existing local cache/ABI noise while reading stale `~/.cache/trend_model/rolling` files (`pyarrow` built for NumPy 1.x under local NumPy 2.4.6, then sandbox denied unlink). Rerun with isolated writable cache succeeded: `TREND_ROLLING_CACHE=/Users/teacher/.codex/automations/imi-merge-verify-closer/tmp-cache/trend-5448 PYTHONPATH=src MPLCONFIGDIR=/private/tmp/mplconfig-trend-5448 python -m pytest tests/test_regime_threshold.py tests/test_regimes_additional.py tests/trend_analysis/test_regimes.py tests/test_multi_period_regime_wiring.py -q` -> 65 passed, 16 warnings.
+- Current state before push: local review-fix patch ready on `closer-5448-reviewfix`; next action is race-check remote `origin/claude/issue-5395-regime-threshold-validation`, push to the PR branch, resolve the two review threads, and let fresh GitHub checks rerun.
+
 ## 2026-06-03T04:44:33Z - opener quick-recovery for PR #5444 dependency enforcement
 
 - Repo/issue/PR: stranske/Trend_Model_Project #5392 / #5444 (`codex/issue-5392-deflated-sharpe`).
