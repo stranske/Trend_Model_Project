@@ -13,8 +13,6 @@ from typing import Any, Iterable, Mapping
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-
-from streamlit_app.components import mc_plots, mc_tables
 from streamlit_app.components.data_cache import cache_key_for_frame
 from streamlit_app.components.guardrails import infer_frequency
 from streamlit_app.components.progress_eta import progress_ratio_and_remaining
@@ -28,14 +26,10 @@ from trend_analysis.monte_carlo.registry import (
 )
 from trend_analysis.monte_carlo.runner import MonteCarloRunner
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
-from trend_analysis.viz import sharpe_ladder as sharpe_ladder_chart
 from trend_analysis.viz.adapters import (
     make_paths,
     make_summary,
 )
-from trend_analysis.viz.charts import corr_heatmap as corr_heatmap_chart
-from trend_analysis.viz.charts import rolling_panel as rolling_panel_chart
-from trend_analysis.viz.charts import seasonality_heatmap as seasonality_heatmap_chart
 
 
 def _should_auto_render() -> bool:
@@ -311,6 +305,11 @@ def _render_diagnostic_charts(summary: pd.DataFrame, paths: pd.DataFrame) -> dic
         st.warning("Diagnostics unavailable: canonical paths are empty.")
         return charts
 
+    from trend_analysis.viz import sharpe_ladder as sharpe_ladder_chart
+    from trend_analysis.viz.charts import corr_heatmap as corr_heatmap_chart
+    from trend_analysis.viz.charts import rolling_panel as rolling_panel_chart
+    from trend_analysis.viz.charts import seasonality_heatmap as seasonality_heatmap_chart
+
     try:
         sharpe_fig = sharpe_ladder_chart.make(summary, metric="sharpe")
     except Exception:
@@ -394,6 +393,8 @@ def _render_results(
     if filtered_results.empty:
         st.warning("No results available for the selected fold.")
         return
+
+    from streamlit_app.components import mc_plots, mc_tables
 
     adapter_fold_selection = _fold_selection_for_adapters(fold_selection)
     summary = _cached_make_summary(results_frame, adapter_fold_selection)
