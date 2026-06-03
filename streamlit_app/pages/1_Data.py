@@ -772,19 +772,12 @@ def render_data_page() -> None:
             elif st.session_state.get("fund_columns") != new_selection_list:
                 st.session_state["fund_columns"] = list(new_selection_list)
 
-            # Explicitly apply/lock the selection for downstream pages.
-            apply_cols = st.columns([1, 3])
-            with apply_cols[0]:
-                if st.button("Apply selection", key=f"btn_apply_funds::{data_key}"):
-                    prohibited = system_columns
-                    sanitized = [c for c in new_selection_list if c not in prohibited]
-                    st.session_state["analysis_fund_columns"] = list(sanitized)
-                    analysis_runner.clear_cached_analysis()
-                    st.success("Fund selection applied for analysis.")
-            with apply_cols[1]:
-                applied = st.session_state.get("analysis_fund_columns")
-                if isinstance(applied, list):
-                    st.caption(f"Applied selection: {len(applied)} funds")
+            # Keep downstream analysis aligned with the visible checkbox state.
+            sanitized_selection = [c for c in new_selection_list if c not in system_columns]
+            if st.session_state.get("analysis_fund_columns") != sanitized_selection:
+                st.session_state["analysis_fund_columns"] = list(sanitized_selection)
+                analysis_runner.clear_cached_analysis()
+            st.caption(f"Applied automatically for analysis: {len(sanitized_selection)} funds")
 
             # Show current configuration summary
             st.markdown("---")

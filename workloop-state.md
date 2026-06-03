@@ -1,6 +1,17 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
+## 2026-06-03T15:07:15Z - opener lane issue #5413 PR materializing after cap routing repair
+
+- Repo/issue: stranske/Trend_Model_Project #5413 (`A33 - Make the "Apply selection" commit step clearer`).
+- Branch: `codex/issue-5413-selection-commit`; base `origin/phase-3`.
+- Agent: codex opener from neutral Code workspace; used persistent automation worktree `~/.codex/automations/pd-workloop-resume/worktrees/trend-5413-selection-commit`.
+- Cap hygiene before selection: repaired #5470 by adding `agent:retry` and dispatching Gate Followups; rehomed stuck Claude-routed PR #5469 to replacement PR #5472 on `codex/issue-5411-data-perf-caption` with the same head SHA (`e61b005f`), concrete `agent:codex` routing, `agents:keepalive`, `autofix`, and `agent:retry`, then closed #5469 as superseded. #5470 and #5472 had fresh active Gate/Gate Followups evidence; #5440 remains scoped to the #5389 strict-config design blocker.
+- Selection: raw opener cap remained below 5 after repair. Priority high issues were scoped owner-evidence blockers (#5343, LMS #180); no priority normal/low remote issue was open. Liveness selected #5413 as the oldest unlinked implementation issue outside scoped blockers and already-linked #5410/#5411/#5412.
+- Implementation: replaced the separate Apply-selection commit step with automatic downstream commit from the visible fund checkbox state. `analysis_fund_columns` now mirrors the sanitized checkbox selection immediately, and analysis cache is cleared only when that committed list changes. The UI now reports the applied count as automatic instead of requiring a separate button.
+- Validation: `python -m pytest tests/app/test_data_page.py::test_fund_selection_commits_visible_checkbox_state -q` -> passed; deliberate-break gate temporarily removed the `analysis_fund_columns` assignment and the focused test failed with `KeyError: 'analysis_fund_columns'`, then restored -> passed; `python -m pytest tests/app/test_data_page.py -q` -> 5 passed; focused `ruff`, focused `mypy`, and `git diff --check` passed.
+- Current state before commit/push: implementation validated locally; next action is commit, push, open a ready-for-review PR with `agent:codex`, `agents:keepalive`, `autofix`, and relay `pr_opened`.
+
 ## 2026-06-03T09:08:49Z - opener lane issue #5403 PR materializing
 
 - Repo/issue: stranske/Trend_Model_Project #5403 (`A22 - Consolidate transaction-cost logic fanned across >=5 implementations`).

@@ -270,7 +270,7 @@ def test_data_page_autoloads_sample(monkeypatch: pytest.MonkeyPatch, data_page) 
     assert page.app_state.has_valid_upload()
     assert page.st.session_state["selected_benchmark"] == "SPX Index"
     assert page.st.session_state["data_loaded_key"].startswith("sample::")
-    assert stub.clear_calls == initial_clears + 1
+    assert stub.clear_calls == initial_clears + 2
     for key in ["analysis_result", "analysis_result_key", "analysis_error"]:
         assert key not in page.st.session_state
 
@@ -302,6 +302,45 @@ def test_data_page_upload_failure(monkeypatch: pytest.MonkeyPatch, data_page) ->
     assert page.st.session_state["returns_df"] is None
     assert page.st.session_state["validation_report"]["issues"] == ["unsorted index"]
     assert stub.clear_calls == initial_clears
+
+
+def test_fund_selection_commits_visible_checkbox_state(
+    monkeypatch: pytest.MonkeyPatch, data_page
+) -> None:
+    page, stub = data_page
+
+    stub.session_state.clear()
+    stub.clear_calls = 0
+
+    df = pd.DataFrame(
+        {
+            "FundA": [0.01, 0.02, -0.01],
+            "FundB": [0.02, 0.01, 0.00],
+            "SPX Index": [0.03, -0.02, 0.01],
+        },
+        index=pd.date_range("2024-01-31", periods=3, freq="ME"),
+    )
+    meta = {"validation": {"issues": [], "warnings": []}, "frequency_label": "monthly"}
+    sample_path = Path("demo/demo_returns.csv")
+    sample = page.data_cache.SampleDataset("demo.csv", sample_path)
+
+    monkeypatch.setattr(page.data_cache, "default_sample_dataset", lambda: sample)
+    monkeypatch.setattr(page.data_cache, "dataset_choices", lambda: {sample.label: sample})
+    monkeypatch.setattr(page.data_cache, "load_dataset_from_path", lambda path: (df, meta))
+    monkeypatch.setattr(page, "infer_benchmarks", lambda columns: ["SPX Index"])
+
+    stub.selectbox_map["Choose a sample"] = sample.label
+    data_key = f"sample::{sample_path.resolve()}"
+    stub.session_state[f"fund_include::{data_key}::FundA"] = True
+    stub.session_state[f"fund_include::{data_key}::FundB"] = False
+
+    page.render_data_page()
+
+    assert page.st.session_state["selected_fund_columns"] == ["FundA"]
+    assert page.st.session_state["fund_columns"] == ["FundA"]
+    assert page.st.session_state["analysis_fund_columns"] == ["FundA"]
+    assert any("Applied automatically for analysis: 1 funds" in text for text in stub.captions)
+    assert stub.clear_calls == 2
 
 
 def test_data_page_clamps_data_source_when_samples_are_missing(
