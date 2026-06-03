@@ -409,6 +409,12 @@ annualize_sharpe_ratio = sharpe_ratio
 annualize_sortino_ratio = sortino_ratio
 info_ratio = information_ratio  # ← old short name
 
+from .deflated_sharpe import (  # noqa: E402
+    deflated_sharpe_ratio,
+    estimate_sharpe_moments,
+    probabilistic_sharpe_ratio,
+)
+
 _legacy = types.ModuleType("tests.legacy_metrics")
 for _name in (
     "annualize_return",
@@ -437,3 +443,22 @@ attribution = import_module(".attribution", __name__)
 rolling = import_module(".rolling", __name__)
 summary = import_module(".summary", __name__)
 turnover = import_module(".turnover", __name__)
+
+__all__ = [
+    "METRIC_REGISTRY",
+    "annual_return",
+    "annualize_return",
+    "annualize_sharpe_ratio",
+    "annualize_sortino_ratio",
+    "annualize_volatility",
+    "available_metrics",
+    "deflated_sharpe_ratio",
+    "estimate_sharpe_moments",
+    "info_ratio",
+    "information_ratio",
+    "max_drawdown",
+    "probabilistic_sharpe_ratio",
+    "sharpe_ratio",
+    "sortino_ratio",
+    "volatility",
+]
