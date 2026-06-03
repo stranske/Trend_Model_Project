@@ -169,7 +169,6 @@ class WindowMetricBundle:
         canonical = _METRIC_ALIASES.get(metric_name, metric_name)
         if canonical in self._metrics.columns:
             _WINDOW_METRIC_CACHE.record_hit()
-            _sync_cache_counters()
             return self._metrics[canonical]
         if canonical in {"AvgCorr", "__COV_VAR__"}:
             payload = self.cov_payload
@@ -200,7 +199,6 @@ class WindowMetricBundle:
         series = series.astype(float)
         self._metrics[canonical] = series
         _WINDOW_METRIC_CACHE.record_miss()
-        _sync_cache_counters()
         return self._metrics[canonical]
 
 
@@ -273,9 +271,22 @@ class WindowMetricCache:
 _CACHE_SCOPE: ContextVar[str] = ContextVar("RANK_SELECTOR_CACHE_SCOPE", default="default")
 _WINDOW_METRIC_CACHE = WindowMetricCache()
 
-# Backwards compatibility counters exposed in tests.
-selector_cache_hits = 0
-selector_cache_misses = 0
+# Backwards-compatibility read-only views. ``selector_cache_hits`` and
+# ``selector_cache_misses`` are derived live from the active cache instance's
+# ``stats()`` via module ``__getattr__`` (PEP 562) instead of being mirrored into
+# mutable module globals. This keeps the counters from persisting across cache
+# instances or leaking state between tests sharing a process.
+#
+# Declared (not assigned) so static tooling and ``__all__`` see the names while
+# ``__getattr__`` still serves them live -- a real assignment would shadow it.
+selector_cache_hits: int
+selector_cache_misses: int
+
+
+def __getattr__(name: str) -> int:
+    if name in ("selector_cache_hits", "selector_cache_misses"):
+        return _WINDOW_METRIC_CACHE.stats()[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 @contextmanager
@@ -293,7 +304,6 @@ def set_window_metric_cache_limit(max_entries: int | None) -> int | None:
     """Set the selector cache size limit, returning the previous value."""
 
     previous = _WINDOW_METRIC_CACHE.set_limit(max_entries)
-    _sync_cache_counters()
     return previous
 
 
@@ -336,22 +346,6 @@ def _compute_covariance_payload(
     )
 
 
-_SELECTOR_CACHE_HITS = 0
-_SELECTOR_CACHE_MISSES = 0
-
-
-def _sync_cache_counters() -> None:
-    """Mirror internal cache counters to public module attributes."""
-
-    global selector_cache_hits, selector_cache_misses
-    stats = _WINDOW_METRIC_CACHE.stats()
-    selector_cache_hits = stats["selector_cache_hits"]
-    selector_cache_misses = stats["selector_cache_misses"]
-    _globals = globals()
-    _globals["_SELECTOR_CACHE_HITS"] = selector_cache_hits
-    _globals["_SELECTOR_CACHE_MISSES"] = selector_cache_misses
-
-
 def make_window_key(
     start: str, end: str, universe: Iterable[str], stats_cfg: "RiskStatsConfig"
 ) -> WindowKey:
@@ -368,14 +362,8 @@ def make_window_key(
 
 def get_window_metric_bundle(window_key: WindowKey) -> WindowMetricBundle | None:
     """Return the cached bundle for *window_key* if present."""
-    # Declare globals because we mutate (_SELECTOR_CACHE_HITS += 1) below.
 
-    bundle = _WINDOW_METRIC_CACHE.get(window_key)
-    if bundle is None:
-        _sync_cache_counters()
-        return None
-    _sync_cache_counters()
-    return bundle
+    return _WINDOW_METRIC_CACHE.get(window_key)
 
 
 def store_window_metric_bundle(window_key: WindowKey | None, bundle: WindowMetricBundle) -> None:
@@ -392,7 +380,6 @@ def clear_window_metric_cache(scope: str | None = None) -> None:
     """
 
     _WINDOW_METRIC_CACHE.clear(scope)
-    _sync_cache_counters()
 
 
 def reset_selector_cache(scope: str | None = None) -> None:
@@ -404,10 +391,7 @@ def reset_selector_cache(scope: str | None = None) -> None:
 def selector_cache_stats() -> dict[str, int]:
     """Return selector cache instrumentation counters."""
 
-    stats = _WINDOW_METRIC_CACHE.stats()
-    stats["selector_cache_hits"] = _SELECTOR_CACHE_HITS
-    stats["selector_cache_misses"] = _SELECTOR_CACHE_MISSES
-    return stats
+    return _WINDOW_METRIC_CACHE.stats()
 
 
 # ──────────────────────────────────────────────────────────────────
