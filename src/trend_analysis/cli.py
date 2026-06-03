@@ -113,7 +113,9 @@ def _maybe_validate_config(
             payload = dict(cfg)
         elif hasattr(cfg, "model_dump"):
             try:
-                payload = cfg.model_dump(exclude_none=True, exclude_unset=True, mode="json")
+                payload = cfg.model_dump(
+                    exclude_none=True, exclude_unset=True, mode="json"
+                )
             except TypeError:
                 try:
                     payload = cfg.model_dump(exclude_none=True, exclude_unset=True)
@@ -156,7 +158,11 @@ def _maybe_track_config_coverage(config_path: Path, input_path: str) -> bool:
         return True
 
     data_section = dict(payload.get("data") or {})
-    if input_path and not data_section.get("csv_path") and not data_section.get("managers_glob"):
+    if (
+        input_path
+        and not data_section.get("csv_path")
+        and not data_section.get("managers_glob")
+    ):
         data_section["csv_path"] = input_path
         payload = dict(payload)
         payload["data"] = data_section
@@ -220,7 +226,9 @@ def _apply_trend_spec_preset(cfg: Any, preset: TrendSpecPreset) -> None:
         object.__setattr__(cfg, "trend_spec_preset", preset.name)
 
 
-def _log_step(run_id: str, event: str, message: str, level: str = "INFO", **fields: Any) -> None:
+def _log_step(
+    run_id: str, event: str, message: str, level: str = "INFO", **fields: Any
+) -> None:
     """Internal indirection for structured logging.
 
     Tests monkeypatch this symbol directly (`_log_step`) rather than the public
@@ -274,7 +282,9 @@ def _extract_cache_stats(payload: object) -> dict[str, int] | None:
     return found[-1] if found else None
 
 
-def _apply_universe_mask(df: pd.DataFrame, mask: pd.DataFrame, *, date_column: str) -> pd.DataFrame:
+def _apply_universe_mask(
+    df: pd.DataFrame, mask: pd.DataFrame, *, date_column: str
+) -> pd.DataFrame:
     """Apply a time-varying membership mask to returns data."""
 
     if mask.empty:
@@ -284,7 +294,9 @@ def _apply_universe_mask(df: pd.DataFrame, mask: pd.DataFrame, *, date_column: s
     try:
         date_col = lookup[date_column.lower()]
     except KeyError as exc:  # pragma: no cover - defensive guard
-        raise KeyError(f"Date column '{date_column}' is missing from the returns data") from exc
+        raise KeyError(
+            f"Date column '{date_column}' is missing from the returns data"
+        ) from exc
 
     working[date_col] = pd.to_datetime(working[date_col])
     working = working.set_index(date_col)
@@ -299,12 +311,16 @@ def _apply_universe_mask(df: pd.DataFrame, mask: pd.DataFrame, *, date_column: s
         )
 
     masked = working.copy()
-    masked.loc[:, aligned_mask.columns] = masked.loc[:, aligned_mask.columns].where(aligned_mask)
+    masked.loc[:, aligned_mask.columns] = masked.loc[:, aligned_mask.columns].where(
+        aligned_mask
+    )
     masked.reset_index(inplace=True)
     return masked
 
 
-def _attach_universe_paths(cfg: Any, spec: NamedUniverse, *, csv_path: str | None) -> None:
+def _attach_universe_paths(
+    cfg: Any, spec: NamedUniverse, *, csv_path: str | None
+) -> None:
     """Persist the selected universe paths onto ``cfg.data`` when possible."""
 
     membership_value = str(spec.membership_path)
@@ -317,7 +333,7 @@ def _attach_universe_paths(cfg: Any, spec: NamedUniverse, *, csv_path: str | Non
             merged.setdefault("csv_path", csv_value)
         try:
             setattr(cfg, "data", merged)
-        except Exception:
+        except (AttributeError, TypeError):
             object.__setattr__(cfg, "data", merged)
         return
 
@@ -327,26 +343,33 @@ def _attach_universe_paths(cfg: Any, spec: NamedUniverse, *, csv_path: str | Non
             payload["csv_path"] = csv_value
         try:
             setattr(cfg, "data", payload)
-        except Exception:
+        except (AttributeError, TypeError):
             object.__setattr__(cfg, "data", payload)
         return
 
     try:
         setattr(data_section, "universe_membership_path", membership_value)
-    except Exception:
+    except (AttributeError, TypeError):
         try:
-            object.__setattr__(data_section, "universe_membership_path", membership_value)
-        except Exception:
+            object.__setattr__(
+                data_section, "universe_membership_path", membership_value
+            )
+        except (AttributeError, TypeError) as exc:
+            logging.getLogger(__name__).debug(
+                "Could not attach universe membership path to config data: %s", exc
+            )
             data_section = None
 
     if csv_value and data_section is not None:
         try:
             setattr(data_section, "csv_path", csv_value)
-        except Exception:
+        except (AttributeError, TypeError):
             try:
                 object.__setattr__(data_section, "csv_path", csv_value)
-            except Exception:
-                pass
+            except (AttributeError, TypeError) as exc:
+                logging.getLogger(__name__).debug(
+                    "Could not attach universe csv path to config data: %s", exc
+                )
 
 
 def _resolve_artifact_paths(
@@ -414,7 +437,9 @@ def check_environment(lock_path: Path | None = None) -> int:
     return 0
 
 
-def maybe_log_step(enabled: bool, run_id: str, event: str, message: str, **fields: Any) -> None:
+def maybe_log_step(
+    enabled: bool, run_id: str, event: str, message: str, **fields: Any
+) -> None:
     """Log a structured step when ``enabled`` is True."""
     if enabled:
         _log_step(run_id, event, message, **fields)
@@ -699,7 +724,9 @@ def _execute_analysis_run(
             if isinstance(bench_map, dict) and bench_map:
                 first_bench = next(iter(bench_map.values()))
                 setattr(run_result, "benchmark", first_bench)
-            weights_user = res.get("weights_user_weight") if isinstance(res, dict) else None
+            weights_user = (
+                res.get("weights_user_weight") if isinstance(res, dict) else None
+            )
             if weights_user is not None:
                 setattr(run_result, "weights", weights_user)
     else:  # pragma: no cover - legacy fallback
@@ -793,7 +820,9 @@ def _execute_analysis_run(
             formats=target_formats,
         )
         data_keys = list(data.keys())
-        artifact_paths = _resolve_artifact_paths(out_dir_path, filename, data_keys, fmt_list)
+        artifact_paths = _resolve_artifact_paths(
+            out_dir_path, filename, data_keys, fmt_list
+        )
         maybe_log_step(
             structured_log,
             run_id,
@@ -830,7 +859,9 @@ def _execute_analysis_run(
                     ),
                 )
             except Exception as exc:  # pragma: no cover - defensive guard
-                logging.getLogger(__name__).warning("Failed to write run artifacts: %s", exc)
+                logging.getLogger(__name__).warning(
+                    "Failed to write run artifacts: %s", exc
+                )
             else:
                 maybe_log_step(
                     structured_log,
@@ -864,7 +895,9 @@ def _execute_analysis_run(
                         run_dir=manifest_dir,
                     )
                 except Exception as exc:  # pragma: no cover - defensive guard
-                    logging.getLogger(__name__).warning("Failed to write run envelope: %s", exc)
+                    logging.getLogger(__name__).warning(
+                        "Failed to write run envelope: %s", exc
+                    )
                 else:
                     maybe_log_step(
                         structured_log,
@@ -915,7 +948,9 @@ def main(argv: list[str] | None = None) -> int:
     """Entry point for the ``trend-model`` command."""
 
     parser = argparse.ArgumentParser(prog="trend-model")
-    parser.add_argument("--check", action="store_true", help="Print environment info and exit")
+    parser.add_argument(
+        "--check", action="store_true", help="Print environment info and exit"
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("gui", help="Launch Streamlit interface")
@@ -923,7 +958,9 @@ def main(argv: list[str] | None = None) -> int:
     run_p = sub.add_parser("run", help="Run analysis pipeline")
     run_p.add_argument("-c", "--config", required=True, help="Path to YAML config")
     run_p.add_argument("-i", "--input", required=True, help="Path to returns CSV")
-    run_p.add_argument("--seed", type=int, help="Override random seed (takes precedence)")
+    run_p.add_argument(
+        "--seed", type=int, help="Override random seed (takes precedence)"
+    )
     run_p.add_argument(
         "--bundle",
         nargs="?",
@@ -980,7 +1017,9 @@ def main(argv: list[str] | None = None) -> int:
         "run-ui",
         help="Deprecated: use 'run' with Streamlit JSON params",
     )
-    run_ui_p.add_argument("--params", required=True, help="Path to Streamlit JSON params")
+    run_ui_p.add_argument(
+        "--params", required=True, help="Path to Streamlit JSON params"
+    )
     run_ui_p.add_argument("--data", required=True, help="Path to returns CSV or Excel")
     run_ui_p.add_argument(
         "--auto-fix-dates",
@@ -1050,7 +1089,9 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     mc_run_p = mc_sub.add_parser("run", help="Run Monte Carlo scenarios")
-    mc_run_p.add_argument("--scenario", required=True, help="Scenario name or config path")
+    mc_run_p.add_argument(
+        "--scenario", required=True, help="Scenario name or config path"
+    )
     mc_run_p.add_argument(
         "--data",
         help="CSV/Parquet path for price or returns history (overrides base config)",
@@ -1062,7 +1103,9 @@ def main(argv: list[str] | None = None) -> int:
         default=[],
         help="Output formats (csv, json, parquet). Repeatable or comma-separated.",
     )
-    mc_run_p.add_argument("--n-paths", type=int, help="Override number of Monte Carlo paths")
+    mc_run_p.add_argument(
+        "--n-paths", type=int, help="Override number of Monte Carlo paths"
+    )
     mc_run_p.add_argument("--jobs", type=int, help="Override parallel job count")
     mc_run_p.add_argument("--seed", type=int, help="Override Monte Carlo seed")
     mc_run_p.add_argument(
@@ -1079,7 +1122,9 @@ def main(argv: list[str] | None = None) -> int:
         "--registry",
         help="Override the scenario registry path",
     )
-    mc_viz_p = mc_sub.add_parser("viz", help="Render Monte Carlo chart artifacts from a bundle")
+    mc_viz_p = mc_sub.add_parser(
+        "viz", help="Render Monte Carlo chart artifacts from a bundle"
+    )
     mc_viz_p.add_argument(
         "--bundle",
         required=True,
@@ -1109,7 +1154,8 @@ def main(argv: list[str] | None = None) -> int:
         "--png",
         action="store_true",
         help=(
-            "Best-effort PNG export; requires a working kaleido install " "(pip install kaleido)"
+            "Best-effort PNG export; requires a working kaleido install "
+            "(pip install kaleido)"
         ),
     )
 
@@ -1136,165 +1182,177 @@ def main(argv: list[str] | None = None) -> int:
         return check_environment()
 
     if args.command == "gui":
-        proc = subprocess.run(["streamlit", "run", str(APP_PATH)])
-        return proc.returncode
+        return _handle_gui_command()
 
     if args.command == "run":
-        coverage_tracker: ConfigCoverageTracker | None = None
-        if getattr(args, "config_coverage", False):
-            coverage_tracker = ConfigCoverageTracker()
-            activate_config_coverage(coverage_tracker)
-        try:
-            config_path = Path(args.config).resolve()
-            if _should_handle_as_ui_config(config_path):
-                return _run_from_ui_payload(
-                    params_path=config_path,
-                    data_path=Path(args.input),
-                    auto_fix_dates=args.auto_fix_dates,
-                    yes=args.yes,
-                    no_cache=args.no_cache,
-                    log_file=Path(args.log_file) if args.log_file else None,
-                    structured_log=not args.no_structured_log,
-                    bundle=Path(args.bundle) if args.bundle else None,
-                )
-            cfg = load_config(args.config)
-            if coverage_tracker is not None:
-                if not _maybe_track_config_coverage(config_path, args.input):
-                    return 1
-                wrap_config_for_coverage(cfg, coverage_tracker)
-            if not _maybe_validate_config(
-                cfg, base_path=config_path.parent, config_path=config_path
-            ):
-                return 1
-            if args.preset:
-                try:
-                    spec_preset = get_trend_spec_preset(args.preset)
-                except KeyError:
-                    available = ", ".join(list_trend_spec_presets())
-                    print(
-                        f"Unknown preset '{args.preset}'. Available presets: {available}",
-                        file=sys.stderr,
-                    )
-                    return 2
-                _apply_trend_spec_preset(cfg, spec_preset)
-            set_cache_enabled(not args.no_cache)
-            if getattr(args, "preset", None):
-                try:
-                    portfolio_preset = get_trend_preset(args.preset)
-                except KeyError:
-                    available = ", ".join(list_preset_slugs())
-                    print(
-                        f"Unknown preset '{args.preset}'. Available: {available}",
-                        file=sys.stderr,
-                    )
-                    return 2
-                apply_trend_preset(cfg, portfolio_preset)
-            cli_seed = args.seed
-            env_seed = os.getenv("TREND_SEED")
-            # Precedence: CLI flag > TREND_SEED > config.seed > default 42
-            if cli_seed is not None:
-                setattr(cfg, "seed", int(cli_seed))
-            elif env_seed is not None and env_seed.isdigit():
-                setattr(cfg, "seed", int(env_seed))
-            data_section = getattr(cfg, "data", None)
-            missing_policy = None
-            missing_limit = None
-            if isinstance(data_section, Mapping):
-                missing_policy = data_section.get("missing_policy")
-                missing_limit = data_section.get("missing_limit")
-            else:
-                missing_policy = getattr(data_section, "missing_policy", None)
-                missing_limit = getattr(data_section, "missing_limit", None)
-
-            if args.auto_fix_dates:
-                try:
-                    issues = inspect_ui_date_issues(args.input)
-                except MarketDataValidationError as exc:
-                    print(exc.user_message, file=sys.stderr)
-                    for issue in exc.issues:
-                        print(f"- {issue}", file=sys.stderr)
-                    return 1
-                has_fixable = issues.has_corrections or issues.total_droppable_rows > 0
-                if has_fixable and not args.yes:
-                    if not sys.stdin.isatty():
-                        print(
-                            "Date corrections require confirmation. Re-run with --yes to approve.",
-                            file=sys.stderr,
-                        )
-                        return 1
-                    prompt = (
-                        f"Apply {len(issues.corrections)} date correction(s) and "
-                        f"drop {issues.total_droppable_rows} row(s)? [y/N]: "
-                    )
-                    response = input(prompt).strip().lower()
-                    if response not in {"y", "yes"}:
-                        print("Cancelled date corrections.")
-                        return 1
-
-            try:
-                loaded_frame, _, summary = load_ui_dataset(
-                    args.input,
-                    auto_fix_dates=args.auto_fix_dates,
-                    missing_policy=missing_policy or "drop",
-                    missing_limit=missing_limit,
-                )
-            except MarketDataValidationError as exc:
-                print(exc.user_message, file=sys.stderr)
-                for issue in exc.issues:
-                    print(f"- {issue}", file=sys.stderr)
-                return 1
-            if summary.corrected_dates or summary.dropped_rows:
-                parts: list[str] = []
-                if summary.corrected_dates:
-                    parts.append(f"{summary.corrected_dates} date correction(s)")
-                if summary.dropped_rows:
-                    parts.append(f"{summary.dropped_rows} row(s) dropped")
-                print(f"Applied UI-style date fixes: {', '.join(parts)}")
-
-            df = loaded_frame.reset_index()
-            universe_spec: NamedUniverse | None = None
-            if getattr(args, "universe", None):
-                mask, universe_spec = load_universe(args.universe, prices=df)
-                df = _apply_universe_mask(df, mask, date_column=universe_spec.date_column)
-            if universe_spec is not None:
-                _attach_universe_paths(cfg, universe_spec, csv_path=args.input)
-            return _execute_analysis_run(
-                cfg,
-                df,
-                config_path=config_path,
-                input_path=Path(args.input),
-                log_file=Path(args.log_file) if args.log_file else None,
-                structured_log=not args.no_structured_log,
-                bundle=Path(args.bundle) if args.bundle else None,
-                skip_if_exists=getattr(args, "skip_if_exists", False),
-            )
-        finally:
-            if coverage_tracker is not None:
-                print(coverage_tracker.format_report())
-                deactivate_config_coverage()
+        return _handle_run_command(args)
 
     if args.command == "run-ui":
-        print(
-            "WARNING: 'trend-model run-ui' is deprecated. "
-            "Use 'trend-model run' with the same --params JSON file instead.",
-            file=sys.stderr,
-        )
-        return _run_from_ui_payload(
-            params_path=Path(args.params),
-            data_path=Path(args.data),
-            auto_fix_dates=args.auto_fix_dates,
-            yes=args.yes,
-            no_cache=args.no_cache,
-            log_file=Path(args.log_file) if args.log_file else None,
-            structured_log=not args.no_structured_log,
-            bundle=Path(args.bundle) if args.bundle else None,
-        )
+        return _handle_run_ui_command(args)
 
     if args.command == "mc":
         return _handle_mc_command(args)
 
     # This shouldn't be reached with required=True.
     return 0
+
+
+def _handle_gui_command() -> int:
+    proc = subprocess.run(["streamlit", "run", str(APP_PATH)])
+    return proc.returncode
+
+
+def _handle_run_command(args: argparse.Namespace) -> int:
+    coverage_tracker: ConfigCoverageTracker | None = None
+    if getattr(args, "config_coverage", False):
+        coverage_tracker = ConfigCoverageTracker()
+        activate_config_coverage(coverage_tracker)
+    try:
+        config_path = Path(args.config).resolve()
+        if _should_handle_as_ui_config(config_path):
+            return _run_from_ui_payload(
+                params_path=config_path,
+                data_path=Path(args.input),
+                auto_fix_dates=args.auto_fix_dates,
+                yes=args.yes,
+                no_cache=args.no_cache,
+                log_file=Path(args.log_file) if args.log_file else None,
+                structured_log=not args.no_structured_log,
+                bundle=Path(args.bundle) if args.bundle else None,
+            )
+        cfg = load_config(args.config)
+        if coverage_tracker is not None:
+            if not _maybe_track_config_coverage(config_path, args.input):
+                return 1
+            wrap_config_for_coverage(cfg, coverage_tracker)
+        if not _maybe_validate_config(
+            cfg, base_path=config_path.parent, config_path=config_path
+        ):
+            return 1
+        if args.preset:
+            try:
+                spec_preset = get_trend_spec_preset(args.preset)
+            except KeyError:
+                available = ", ".join(list_trend_spec_presets())
+                print(
+                    f"Unknown preset '{args.preset}'. Available presets: {available}",
+                    file=sys.stderr,
+                )
+                return 2
+            _apply_trend_spec_preset(cfg, spec_preset)
+        set_cache_enabled(not args.no_cache)
+        if getattr(args, "preset", None):
+            try:
+                portfolio_preset = get_trend_preset(args.preset)
+            except KeyError:
+                available = ", ".join(list_preset_slugs())
+                print(
+                    f"Unknown preset '{args.preset}'. Available: {available}",
+                    file=sys.stderr,
+                )
+                return 2
+            apply_trend_preset(cfg, portfolio_preset)
+        cli_seed = args.seed
+        env_seed = os.getenv("TREND_SEED")
+        # Precedence: CLI flag > TREND_SEED > config.seed > default 42
+        if cli_seed is not None:
+            setattr(cfg, "seed", int(cli_seed))
+        elif env_seed is not None and env_seed.isdigit():
+            setattr(cfg, "seed", int(env_seed))
+        data_section = getattr(cfg, "data", None)
+        missing_policy = None
+        missing_limit = None
+        if isinstance(data_section, Mapping):
+            missing_policy = data_section.get("missing_policy")
+            missing_limit = data_section.get("missing_limit")
+        else:
+            missing_policy = getattr(data_section, "missing_policy", None)
+            missing_limit = getattr(data_section, "missing_limit", None)
+
+        if args.auto_fix_dates:
+            try:
+                issues = inspect_ui_date_issues(args.input)
+            except MarketDataValidationError as exc:
+                print(exc.user_message, file=sys.stderr)
+                for issue in exc.issues:
+                    print(f"- {issue}", file=sys.stderr)
+                return 1
+            has_fixable = issues.has_corrections or issues.total_droppable_rows > 0
+            if has_fixable and not args.yes:
+                if not sys.stdin.isatty():
+                    print(
+                        "Date corrections require confirmation. Re-run with --yes to approve.",
+                        file=sys.stderr,
+                    )
+                    return 1
+                prompt = (
+                    f"Apply {len(issues.corrections)} date correction(s) and "
+                    f"drop {issues.total_droppable_rows} row(s)? [y/N]: "
+                )
+                response = input(prompt).strip().lower()
+                if response not in {"y", "yes"}:
+                    print("Cancelled date corrections.")
+                    return 1
+
+        try:
+            loaded_frame, _, summary = load_ui_dataset(
+                args.input,
+                auto_fix_dates=args.auto_fix_dates,
+                missing_policy=missing_policy or "drop",
+                missing_limit=missing_limit,
+            )
+        except MarketDataValidationError as exc:
+            print(exc.user_message, file=sys.stderr)
+            for issue in exc.issues:
+                print(f"- {issue}", file=sys.stderr)
+            return 1
+        if summary.corrected_dates or summary.dropped_rows:
+            parts: list[str] = []
+            if summary.corrected_dates:
+                parts.append(f"{summary.corrected_dates} date correction(s)")
+            if summary.dropped_rows:
+                parts.append(f"{summary.dropped_rows} row(s) dropped")
+            print(f"Applied UI-style date fixes: {', '.join(parts)}")
+
+        df = loaded_frame.reset_index()
+        universe_spec: NamedUniverse | None = None
+        if getattr(args, "universe", None):
+            mask, universe_spec = load_universe(args.universe, prices=df)
+            df = _apply_universe_mask(df, mask, date_column=universe_spec.date_column)
+        if universe_spec is not None:
+            _attach_universe_paths(cfg, universe_spec, csv_path=args.input)
+        return _execute_analysis_run(
+            cfg,
+            df,
+            config_path=config_path,
+            input_path=Path(args.input),
+            log_file=Path(args.log_file) if args.log_file else None,
+            structured_log=not args.no_structured_log,
+            bundle=Path(args.bundle) if args.bundle else None,
+            skip_if_exists=getattr(args, "skip_if_exists", False),
+        )
+    finally:
+        if coverage_tracker is not None:
+            print(coverage_tracker.format_report())
+            deactivate_config_coverage()
+
+
+def _handle_run_ui_command(args: argparse.Namespace) -> int:
+    print(
+        "WARNING: 'trend-model run-ui' is deprecated. "
+        "Use 'trend-model run' with the same --params JSON file instead.",
+        file=sys.stderr,
+    )
+    return _run_from_ui_payload(
+        params_path=Path(args.params),
+        data_path=Path(args.data),
+        auto_fix_dates=args.auto_fix_dates,
+        yes=args.yes,
+        no_cache=args.no_cache,
+        log_file=Path(args.log_file) if args.log_file else None,
+        structured_log=not args.no_structured_log,
+        bundle=Path(args.bundle) if args.bundle else None,
+    )
 
 
 def _parse_mc_tags(raw_tags: Sequence[str] | None) -> list[str]:
@@ -1338,7 +1396,9 @@ def _render_mc_table(entries: Sequence[ScenarioRegistryEntry]) -> str:
     divider = "  ".join("-" * widths[col] for col in columns)
     lines = [header, divider]
     for row in rows:
-        lines.append("  ".join(str(row.get(col, "")).ljust(widths[col]) for col in columns))
+        lines.append(
+            "  ".join(str(row.get(col, "")).ljust(widths[col]) for col in columns)
+        )
     return "\n".join(lines)
 
 
@@ -1348,7 +1408,9 @@ def _resolve_mc_registry_path(raw: str | None) -> Path | None:
     return Path(raw).expanduser().resolve()
 
 
-def _load_mc_scenario_value(raw: str, *, registry_path: Path | None) -> MonteCarloScenario:
+def _load_mc_scenario_value(
+    raw: str, *, registry_path: Path | None
+) -> MonteCarloScenario:
     if not raw:
         raise ValueError("Scenario name is required")
     candidate = Path(raw).expanduser()
@@ -1483,7 +1545,9 @@ def _validate_mc_scenario(scenario: MonteCarloScenario) -> list[str]:
         skip_required_fields=True,
     )
     schema_key_errors = [
-        issue for issue in config_result.errors if issue.message.startswith("Unexpected field")
+        issue
+        for issue in config_result.errors
+        if issue.message.startswith("Unexpected field")
     ]
     if schema_key_errors:
         messages = format_validation_messages(
@@ -1503,11 +1567,15 @@ def _validate_mc_scenario(scenario: MonteCarloScenario) -> list[str]:
             "regime_conditioned",
         }
         if kind not in allowed:
-            errors.append(f"return_model.kind must be one of: {', '.join(sorted(allowed))}")
+            errors.append(
+                f"return_model.kind must be one of: {', '.join(sorted(allowed))}"
+            )
 
     outputs = scenario.outputs
     if isinstance(outputs, Mapping):
-        errors.extend(_validate_mc_formats(outputs.get("formats", outputs.get("format"))))
+        errors.extend(
+            _validate_mc_formats(outputs.get("formats", outputs.get("format")))
+        )
 
     try:
         strategies = runner.resolve_strategies()
@@ -1742,7 +1810,9 @@ def _validate_mc_viz_output_flags(args: argparse.Namespace) -> None:
 def _read_mc_frame(path: Path, *, label: str) -> pd.DataFrame:
     suffix = path.suffix.lower()
     if suffix not in {".parquet", ".csv", ".json"}:
-        raise ValueError(f"Unsupported {label} file format '{path.suffix}' for '{path.name}'.")
+        raise ValueError(
+            f"Unsupported {label} file format '{path.suffix}' for '{path.name}'."
+        )
     try:
         if suffix == ".parquet":
             frame = pd.read_parquet(path)
@@ -1760,7 +1830,9 @@ def _read_mc_frame(path: Path, *, label: str) -> pd.DataFrame:
 
 
 def _load_mc_frame(bundle_dir: Path, *, stem: str) -> pd.DataFrame:
-    candidates = tuple(bundle_dir / f"{stem}.{ext}" for ext in ("parquet", "csv", "json"))
+    candidates = tuple(
+        bundle_dir / f"{stem}.{ext}" for ext in ("parquet", "csv", "json")
+    )
     existing = next((candidate for candidate in candidates if candidate.exists()), None)
     if existing is None:
         expected = ", ".join(path.name for path in candidates)
@@ -1790,7 +1862,9 @@ def _load_mc_bundle_frames(
     missing_inputs: list[str] = []
     expected_by_stem: dict[str, str] = {}
     for stem in required_stems:
-        candidates = tuple(bundle_dir / f"{stem}.{ext}" for ext in ("parquet", "csv", "json"))
+        candidates = tuple(
+            bundle_dir / f"{stem}.{ext}" for ext in ("parquet", "csv", "json")
+        )
         if not any(candidate.exists() for candidate in candidates):
             missing_inputs.append(stem)
             expected_by_stem[stem] = ", ".join(path.name for path in candidates)
@@ -1802,7 +1876,9 @@ def _load_mc_bundle_frames(
                 f"Missing required MC {stem} file in '{bundle_dir}'. Expected one of: {expected}"
             )
         missing_text = ", ".join(missing_inputs)
-        expected_text = "; ".join(f"{stem}: {expected_by_stem[stem]}" for stem in missing_inputs)
+        expected_text = "; ".join(
+            f"{stem}: {expected_by_stem[stem]}" for stem in missing_inputs
+        )
         raise FileNotFoundError(
             f"Missing required MC input files in '{bundle_dir}': {missing_text}. "
             f"Expected one of each: {expected_text}"
@@ -1819,9 +1895,13 @@ def _load_mc_nav_paths_frame(bundle: str | os.PathLike[str]) -> pd.DataFrame | N
 
 
 def _parse_mc_chart_selection(charts_value: str) -> list[str]:
-    requested = [token.strip().lower() for token in charts_value.split(",") if token.strip()]
+    requested = [
+        token.strip().lower() for token in charts_value.split(",") if token.strip()
+    ]
     if not requested:
-        raise ValueError("The 'mc viz' command requires at least one chart in --charts.")
+        raise ValueError(
+            "The 'mc viz' command requires at least one chart in --charts."
+        )
 
     seen: set[str] = set()
     ordered: list[str] = []
@@ -1891,16 +1971,20 @@ def _build_mc_risk_return_chart(
     from trend_analysis.viz import risk_return
 
     nav_frame = _mc_nav_source_frame(summary_frame, results_frame, nav_paths_frame)
-    returns_frame = nav_frame.pct_change(fill_method=None).replace([np.inf, -np.inf], np.nan)
+    returns_frame = nav_frame.pct_change(fill_method=None).replace(
+        [np.inf, -np.inf], np.nan
+    )
     returns_frame = returns_frame.dropna(how="all")
     if returns_frame.empty:
-        returns_frame = nav_frame.apply(pd.to_numeric, errors="coerce").dropna(how="all")
+        returns_frame = nav_frame.apply(pd.to_numeric, errors="coerce").dropna(
+            how="all"
+        )
     return risk_return.make(returns_frame)
 
 
-def _mc_chart_builders() -> (
-    dict[str, Callable[[pd.DataFrame, pd.DataFrame, pd.DataFrame | None], Any]]
-):
+def _mc_chart_builders() -> dict[
+    str, Callable[[pd.DataFrame, pd.DataFrame, pd.DataFrame | None], Any]
+]:
     return {
         "fan": _build_mc_fan_chart,
         "path_dist": _build_mc_path_dist_chart,
@@ -1985,7 +2069,9 @@ def _handle_mc_command(args: argparse.Namespace) -> int:
         scenarios: list[MonteCarloScenario] = []
         if scenario_arg:
             try:
-                scenarios = [_load_mc_scenario_value(scenario_arg, registry_path=registry_path)]
+                scenarios = [
+                    _load_mc_scenario_value(scenario_arg, registry_path=registry_path)
+                ]
             except (ValueError, FileNotFoundError, IsADirectoryError) as exc:
                 print(f"Scenario validation failed: {exc}", file=sys.stderr)
                 return 1
@@ -2003,7 +2089,9 @@ def _handle_mc_command(args: argparse.Namespace) -> int:
                 return 2
             for entry in entries:
                 try:
-                    scenarios.append(load_scenario(entry.name, registry_path=registry_path))
+                    scenarios.append(
+                        load_scenario(entry.name, registry_path=registry_path)
+                    )
                 except (ValueError, FileNotFoundError, IsADirectoryError) as exc:
                     print(
                         f"Scenario '{entry.name}' failed to load: {exc}",
@@ -2032,7 +2120,9 @@ def _handle_mc_command(args: argparse.Namespace) -> int:
         registry_path = _resolve_mc_registry_path(getattr(args, "registry", None))
         scenario_arg = getattr(args, "scenario", None) or ""
         try:
-            scenario = _load_mc_scenario_value(scenario_arg, registry_path=registry_path)
+            scenario = _load_mc_scenario_value(
+                scenario_arg, registry_path=registry_path
+            )
         except (ValueError, FileNotFoundError, IsADirectoryError) as exc:
             print(f"Scenario run failed: {exc}", file=sys.stderr)
             return 1

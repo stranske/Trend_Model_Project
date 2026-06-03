@@ -1,6 +1,16 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
+## 2026-06-03T10:12Z - opener lane issue #5405 PR materializing
+
+- Repo/issue: stranske/Trend_Model_Project #5405 (`A25 - Refactor cli.main()/_handle_mc_command; narrow broad excepts; log swallowed config errors`).
+- Branch: `codex/issue-5405-cli-excepts`; base `origin/phase-3`.
+- Agent: codex opener from neutral Code workspace; used persistent automation worktree `~/.codex/automations/pd-workloop-resume/worktrees/trend-5405-cli-excepts`.
+- Selection: raw opener cap was below 5. Existing opener PR #5459 was repaired with `agent:retry` + Gate Followups dispatch and then showed fresh Gate activity; #5440 remains scoped/terminal on #5389 design decision. Priority-high candidates were scoped or already closed/merged, so liveness fallback selected #5405 as the oldest unlinked implementation issue outside scoped blockers.
+- Implementation: extracted `gui`, `run`, and deprecated `run-ui` command execution from `main()` into handlers so `main()` parses and dispatches; narrowed the named `_attach_universe_paths` broad catches to attribute/type failures with debug logging; added warning logging for invalid Monte Carlo base config before `_compute_score_frame()` returns an empty frame; replaced two silent pandas string-coercion fallbacks with debug logs.
+- Validation: `PYTHONPATH=src python -m pytest tests/test_compute_score_frame_logs.py` passed; deliberate-break gate removed the warning and the new test failed, then the warning was restored; focused runner slice `tests/test_compute_score_frame_logs.py tests/monte_carlo/test_runner.py -k 'score_frame or should_resolve_risk_free'` passed (7 passed); focused CLI suite `tests/test_cli.py tests/test_trend_model_cli.py tests/test_trend_cli_entrypoints.py` passed (62 passed); focused `ruff check`/`ruff format --check` and `git diff --check` passed. Full requested `tests/ -k cli` collection is blocked in this local environment by pre-existing NumPy 2.x incompatibilities in xarray/pyarrow plus Streamlit upload-page import behavior.
+- Current state: branch ready to commit and open as a ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`. Next action after PR open belongs to keepalive/Gate.
+
 ## 2026-06-03T09:08:49Z - opener lane issue #5403 PR materializing
 
 - Repo/issue: stranske/Trend_Model_Project #5403 (`A22 - Consolidate transaction-cost logic fanned across >=5 implementations`).

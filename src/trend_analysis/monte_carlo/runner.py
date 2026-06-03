@@ -110,7 +110,9 @@ def _coerce_optional_bool(value: Any, field: str) -> bool:
 
 def _coerce_turnover_guard(value: Any) -> float:
     if isinstance(value, bool):
-        raise ValueError(f"{_TURNOVER_GUARD_PATH} must be numeric or a distribution mapping")
+        raise ValueError(
+            f"{_TURNOVER_GUARD_PATH} must be numeric or a distribution mapping"
+        )
     try:
         return float(value)
     except (TypeError, ValueError) as exc:
@@ -160,9 +162,12 @@ def evaluate_strategies_for_path(
     results: dict[str, object] = {}
     columns_lookup = columns_by_strategy or {}
     try:
-        context_cache.compute_score_frames(path_id, rebalance_dates, compute_score_frame)
+        context_cache.compute_score_frames(
+            path_id, rebalance_dates, compute_score_frame
+        )
         base_frames = {
-            date: context_cache.select_score_frame(path_id, date, None) for date in rebalance_dates
+            date: context_cache.select_score_frame(path_id, date, None)
+            for date in rebalance_dates
         }
         for name, strategy in strategies.items():
             columns = columns_lookup.get(name)
@@ -305,9 +310,13 @@ class MonteCarloRunner:
                 outputs.get("pooled_distributions"),
                 "outputs.pooled_distributions",
             )
-        cross_fold_summary_frame = build_cross_fold_summary_frame(results_frame) if folds else None
+        cross_fold_summary_frame = (
+            build_cross_fold_summary_frame(results_frame) if folds else None
+        )
         pooled_summary_frame = (
-            build_pooled_summary_frame(results_frame) if folds and pooled_distributions else None
+            build_pooled_summary_frame(results_frame)
+            if folds and pooled_distributions
+            else None
         )
         pooled_distribution_frame = (
             build_pooled_distribution_frame(results_frame)
@@ -428,7 +437,9 @@ class MonteCarloRunner:
                 )
             except Exception as exc:
                 for path_id in range(total):
-                    self._log_path_error(path_id, None, exc, fold_id=fold_id, fold_label=fold_label)
+                    self._log_path_error(
+                        path_id, None, exc, fold_id=fold_id, fold_label=fold_label
+                    )
                     errors.append(
                         self._error_record(
                             path_id, None, exc, fold_id=fold_id, fold_label=fold_label
@@ -451,9 +462,13 @@ class MonteCarloRunner:
                     fold_label=fold_label,
                 )
             except Exception as exc:
-                self._log_path_error(path_id, None, exc, fold_id=fold_id, fold_label=fold_label)
+                self._log_path_error(
+                    path_id, None, exc, fold_id=fold_id, fold_label=fold_label
+                )
                 return [], [
-                    self._error_record(path_id, None, exc, fold_id=fold_id, fold_label=fold_label)
+                    self._error_record(
+                        path_id, None, exc, fold_id=fold_id, fold_label=fold_label
+                    )
                 ]
 
             path_evals: list[StrategyEvaluation] = []
@@ -482,11 +497,15 @@ class MonteCarloRunner:
             return path_evals, path_errors
 
         completed = 0
-        for path_id, path_eval, path_err in self._execute_paths(path_seeds, _evaluate_path, jobs):
+        for path_id, path_eval, path_err in self._execute_paths(
+            path_seeds, _evaluate_path, jobs
+        ):
             evaluations.extend(path_eval)
             errors.extend(path_err)
             completed += 1
-            self._emit_progress(progress_callback, completed, total, path_id, "two_layer")
+            self._emit_progress(
+                progress_callback, completed, total, path_id, "two_layer"
+            )
 
         return evaluations, errors
 
@@ -527,7 +546,11 @@ class MonteCarloRunner:
         mode_reason = (
             "matching-base-path-seeds"
             if seeds_match_base
-            else ("all-path-seeds-unset" if all_unset_path_seeds else "divergent-path-seeds")
+            else (
+                "all-path-seeds-unset"
+                if all_unset_path_seeds
+                else "divergent-path-seeds"
+            )
         )
         self._logger.debug(
             "Mixture mode path generation selected mode=%s reason=%s",
@@ -546,7 +569,9 @@ class MonteCarloRunner:
                 )
             except Exception as exc:
                 for path_id in range(total):
-                    self._log_path_error(path_id, None, exc, fold_id=fold_id, fold_label=fold_label)
+                    self._log_path_error(
+                        path_id, None, exc, fold_id=fold_id, fold_label=fold_label
+                    )
                     errors.append(
                         self._error_record(
                             path_id, None, exc, fold_id=fold_id, fold_label=fold_label
@@ -570,9 +595,13 @@ class MonteCarloRunner:
                     fold_label=fold_label,
                 )
             except Exception as exc:
-                self._log_path_error(path_id, None, exc, fold_id=fold_id, fold_label=fold_label)
+                self._log_path_error(
+                    path_id, None, exc, fold_id=fold_id, fold_label=fold_label
+                )
                 return [], [
-                    self._error_record(path_id, None, exc, fold_id=fold_id, fold_label=fold_label)
+                    self._error_record(
+                        path_id, None, exc, fold_id=fold_id, fold_label=fold_label
+                    )
                 ]
 
             try:
@@ -597,7 +626,9 @@ class MonteCarloRunner:
                 ]
 
         completed = 0
-        for path_id, path_eval, path_err in self._execute_paths(path_seeds, _evaluate_path, jobs):
+        for path_id, path_eval, path_err in self._execute_paths(
+            path_seeds, _evaluate_path, jobs
+        ):
             evaluations.extend(path_eval)
             errors.extend(path_err)
             completed += 1
@@ -681,11 +712,13 @@ class MonteCarloRunner:
         regime_settings = (
             normalise_settings(regime_cfg) if isinstance(regime_cfg, Mapping) else None
         )
-        turnover_series, binding, cap_series, cap_regimes = self._resolve_turnover_diagnostics(
-            run_result,
-            context,
-            max_turnover=max_turnover,
-            regime_settings=regime_settings,
+        turnover_series, binding, cap_series, cap_regimes = (
+            self._resolve_turnover_diagnostics(
+                run_result,
+                context,
+                max_turnover=max_turnover,
+                regime_settings=regime_settings,
+            )
         )
         if turnover_series is not None or binding is not None:
             if diagnostic is None:
@@ -727,7 +760,9 @@ class MonteCarloRunner:
             nav_series=nav_series,
         )
 
-    def _apply_regime_turnover_caps(self, config: ConfigType, context: _PathContext) -> None:
+    def _apply_regime_turnover_caps(
+        self, config: ConfigType, context: _PathContext
+    ) -> None:
         """Apply turnover-cap regime overrides to ``portfolio.max_turnover``.
 
         Supported shapes for ``portfolio.max_turnover`` are a numeric scalar or a
@@ -762,7 +797,9 @@ class MonteCarloRunner:
         if multi_period_enabled:
             resolved: float | Mapping[str, Any] | None = max_turnover
         else:
-            resolved = self._resolve_turnover_cap_for_context(config, context, max_turnover)
+            resolved = self._resolve_turnover_cap_for_context(
+                config, context, max_turnover
+            )
         if resolved is None or resolved is max_turnover:
             return
         if isinstance(portfolio, dict):
@@ -796,7 +833,11 @@ class MonteCarloRunner:
             freq = data_cfg.get("frequency")
         freq_label = str(freq or "M")
         periods_per_year = periods_per_year_from_code(freq_label)
-        proxy_window = (proxy_series.index[0], proxy_series.index[-1], len(proxy_series))
+        proxy_window = (
+            proxy_series.index[0],
+            proxy_series.index[-1],
+            len(proxy_series),
+        )
         cache_key = self._regime_cache_key(
             context,
             proxy_col,
@@ -818,7 +859,9 @@ class MonteCarloRunner:
             return max_turnover
         regime_label = str(regimes.iloc[-1])
         parsed = parse_regime_turnover_caps(max_turnover, settings)
-        resolved = self._resolve_turnover_cap_from_parsed(parsed, regime_label, settings)
+        resolved = self._resolve_turnover_cap_from_parsed(
+            parsed, regime_label, settings
+        )
         if resolved is None:
             return max_turnover
         return resolved
@@ -905,7 +948,9 @@ class MonteCarloRunner:
                 return str(col)
         return None
 
-    def _build_regime_proxy_series(self, returns: pd.DataFrame, proxy_col: str) -> pd.Series | None:
+    def _build_regime_proxy_series(
+        self, returns: pd.DataFrame, proxy_col: str
+    ) -> pd.Series | None:
         if proxy_col not in returns.columns:
             return None
         if "Date" in returns.columns:
@@ -975,7 +1020,9 @@ class MonteCarloRunner:
         try:
             n_strategies = int(n_value)
         except (TypeError, ValueError) as exc:
-            raise ValueError("strategy_set.sampled.n_strategies must be an integer") from exc
+            raise ValueError(
+                "strategy_set.sampled.n_strategies must be an integer"
+            ) from exc
         if n_strategies < 1:
             raise ValueError("strategy_set.sampled.n_strategies must be >= 1")
 
@@ -989,7 +1036,9 @@ class MonteCarloRunner:
             try:
                 seed = int(seed)
             except (TypeError, ValueError) as exc:
-                raise ValueError("strategy_set.sampled.seed must be an integer") from exc
+                raise ValueError(
+                    "strategy_set.sampled.seed must be an integer"
+                ) from exc
 
         max_rejection_attempts = sampled.get("max_rejection_attempts", 1000)
         try:
@@ -1048,9 +1097,13 @@ class MonteCarloRunner:
         else:
             raise ValueError(f"Unsupported return model '{kind}'")
 
-        resolved_history = history if history is not None else self._resolve_price_history()
+        resolved_history = (
+            history if history is not None else self._resolve_price_history()
+        )
         if calibration_start is not None or calibration_end is not None:
-            normalized, _summary = normalize_price_frequency(resolved_history, frequency)
+            normalized, _summary = normalize_price_frequency(
+                resolved_history, frequency
+            )
             windowed = normalized.loc[calibration_start:calibration_end]
             if windowed.empty:
                 raise ValueError(
@@ -1085,7 +1138,9 @@ class MonteCarloRunner:
         csv_path = data_cfg.get("csv_path")
         if csv_path:
             return self._load_history_from_path(Path(str(csv_path)))
-        raise ValueError("price_history must be provided or data.csv_path must be configured")
+        raise ValueError(
+            "price_history must be provided or data.csv_path must be configured"
+        )
 
     def _load_history_from_path(self, path: Path) -> pd.DataFrame:
         suffix = path.suffix.lower()
@@ -1124,7 +1179,9 @@ class MonteCarloRunner:
         ]
         return path_seeds, strategy_seeds
 
-    def _build_strategy_config(self, strategy: StrategyVariant, seed: int | None) -> ConfigType:
+    def _build_strategy_config(
+        self, strategy: StrategyVariant, seed: int | None
+    ) -> ConfigType:
         merged = strategy.apply_to(self._base_config)
         self._apply_strategy_guards(merged)
         self._apply_turnover_guard_distribution(merged, strategy, seed)
@@ -1196,7 +1253,10 @@ class MonteCarloRunner:
     def _compute_score_frame(self, returns: pd.DataFrame) -> pd.DataFrame:
         try:
             config = Config(**self._base_config)
-        except Exception:
+        except (TypeError, ValueError) as exc:
+            self._logger.warning(
+                "Invalid Monte Carlo base config; score frame omitted: %s", exc
+            )
             return pd.DataFrame()
         try:
             split = _resolve_sample_split(returns, config.sample_split)
@@ -1206,7 +1266,9 @@ class MonteCarloRunner:
             metrics = canonical_metric_list(metrics_raw)
             data_settings = config.data or {}
             metrics_settings = config.metrics or {}
-            use_resolver = self._should_resolve_risk_free(data_settings, metrics_settings)
+            use_resolver = self._should_resolve_risk_free(
+                data_settings, metrics_settings
+            )
             risk_free_value: float | pd.Series | None = None
             if use_resolver:
                 resolution = resolve_risk_free_source(returns, config)
@@ -1222,9 +1284,13 @@ class MonteCarloRunner:
             stats_cfg = RiskStatsConfig(
                 metrics_to_run=metrics,
                 risk_free=(
-                    float(risk_free_value) if isinstance(risk_free_value, (int, float)) else 0.0
+                    float(risk_free_value)
+                    if isinstance(risk_free_value, (int, float))
+                    else 0.0
                 ),
-                periods_per_year=int(periods_per_year_from_code(config.data.get("frequency"))),
+                periods_per_year=int(
+                    periods_per_year_from_code(config.data.get("frequency"))
+                ),
             )
             return single_period_run(
                 returns,
@@ -1324,7 +1390,9 @@ class MonteCarloRunner:
         """Backward-compatible alias for cash injection behavior."""
         return self._apply_cash_handling(returns)
 
-    def _extract_metrics(self, metrics_df: pd.DataFrame) -> tuple[dict[str, float], str | None]:
+    def _extract_metrics(
+        self, metrics_df: pd.DataFrame
+    ) -> tuple[dict[str, float], str | None]:
         if metrics_df is None or metrics_df.empty:
             return {}, None
         source = None
@@ -1364,7 +1432,9 @@ class MonteCarloRunner:
             rng=rng,
         )
 
-    def _resolve_cost_index(self, run_result: Any, context: _PathContext) -> pd.Index | None:
+    def _resolve_cost_index(
+        self, run_result: Any, context: _PathContext
+    ) -> pd.Index | None:
         details = getattr(run_result, "details", None)
         if isinstance(details, Mapping):
             out_scaled = details.get("out_sample_scaled")
@@ -1379,11 +1449,16 @@ class MonteCarloRunner:
         turnover_attr = getattr(run_result, "turnover", None)
         if isinstance(turnover_attr, pd.Series):
             return turnover_attr.index
-        if isinstance(context.returns, pd.DataFrame) and "Date" in context.returns.columns:
+        if (
+            isinstance(context.returns, pd.DataFrame)
+            and "Date" in context.returns.columns
+        ):
             return pd.DatetimeIndex(context.returns["Date"]).copy()
         return None
 
-    def _resolve_regime_labels(self, run_result: Any, out_index: pd.Index) -> pd.Series | None:
+    def _resolve_regime_labels(
+        self, run_result: Any, out_index: pd.Index
+    ) -> pd.Series | None:
         details = getattr(run_result, "details", None)
         if isinstance(details, Mapping):
             labels = details.get("regime_labels_out")
@@ -1392,7 +1467,9 @@ class MonteCarloRunner:
             labels = details.get("regime_labels")
             if isinstance(labels, pd.Series):
                 return labels.reindex(out_index)
-            period_labels = self._period_results_regimes(details.get("period_results"), out_index)
+            period_labels = self._period_results_regimes(
+                details.get("period_results"), out_index
+            )
             if period_labels is not None:
                 return period_labels
         return None
@@ -1406,9 +1483,13 @@ class MonteCarloRunner:
                 return turnover_attr
             if len(turnover_attr) == 1 and len(out_index) > 1:
                 value = float(turnover_attr.iloc[0])
-                return pd.Series(value, index=out_index, name=turnover_attr.name or "turnover")
+                return pd.Series(
+                    value, index=out_index, name=turnover_attr.name or "turnover"
+                )
             return turnover_attr.reindex(out_index).fillna(0.0)
-        turnover_value = turnover_attr if isinstance(turnover_attr, (float, int)) else None
+        turnover_value = (
+            turnover_attr if isinstance(turnover_attr, (float, int)) else None
+        )
         details = getattr(run_result, "details", None)
         if isinstance(details, Mapping):
             turnover = details.get("turnover")
@@ -1417,7 +1498,9 @@ class MonteCarloRunner:
                     return turnover
                 if len(turnover) == 1 and len(out_index) > 1:
                     value = float(turnover.iloc[0])
-                    return pd.Series(value, index=out_index, name=turnover.name or "turnover")
+                    return pd.Series(
+                        value, index=out_index, name=turnover.name or "turnover"
+                    )
                 return turnover.reindex(out_index).fillna(0.0)
             if isinstance(turnover, (float, int)):
                 return float(turnover)
@@ -1492,7 +1575,9 @@ class MonteCarloRunner:
         returns = returns.replace([np.inf, -np.inf], np.nan).dropna()
         if returns.empty:
             return None
-        nav_index = self._coerce_nav_index(returns.index, run_result, context, len(returns))
+        nav_index = self._coerce_nav_index(
+            returns.index, run_result, context, len(returns)
+        )
         if nav_index is None:
             self._logger.debug(
                 "nav_paths: non-datetime index for path %s; skipping NAV series",
@@ -1523,10 +1608,14 @@ class MonteCarloRunner:
         *,
         max_turnover: object | None,
         regime_settings: Any | None,
-    ) -> tuple[pd.Series | None, pd.Series | None, pd.Series | float | None, pd.Series | None]:
+    ) -> tuple[
+        pd.Series | None, pd.Series | None, pd.Series | float | None, pd.Series | None
+    ]:
         out_index = self._resolve_cost_index(run_result, context)
         regimes = (
-            self._resolve_regime_labels(run_result, out_index) if out_index is not None else None
+            self._resolve_regime_labels(run_result, out_index)
+            if out_index is not None
+            else None
         )
         turnover_raw = self._resolve_turnover_series(run_result, out_index)
         turnover_series = self._coerce_turnover_series(turnover_raw, out_index)
@@ -1536,7 +1625,9 @@ class MonteCarloRunner:
             regimes,
             out_index,
         )
-        cap_regimes = self._resolve_turnover_cap_regimes(parsed_caps, regimes, out_index)
+        cap_regimes = self._resolve_turnover_cap_regimes(
+            parsed_caps, regimes, out_index
+        )
         binding = self._turnover_cap_binding_indicator(turnover_series, cap_series)
         return turnover_series, binding, cap_series, cap_regimes
 
@@ -1577,7 +1668,8 @@ class MonteCarloRunner:
             # Enforce canonical NAV normalization: each path must start at 1.0.
             if not np.isclose(nav.iloc[0], 1.0, atol=NUMERICAL_TOLERANCE_LOW):
                 self._logger.debug(
-                    "nav_paths: path %s did not normalize to 1.0; skipping", evaluation.path_id
+                    "nav_paths: path %s did not normalize to 1.0; skipping",
+                    evaluation.path_id,
                 )
                 continue
             if index_ref is None:
@@ -1585,7 +1677,8 @@ class MonteCarloRunner:
             # All NAV series must share the same datetime-like index.
             elif not nav.index.equals(index_ref):
                 self._logger.debug(
-                    "nav_paths: index mismatch for path %s; skipping", evaluation.path_id
+                    "nav_paths: index mismatch for path %s; skipping",
+                    evaluation.path_id,
                 )
                 continue
             paths[int(evaluation.path_id)] = nav
@@ -1609,7 +1702,11 @@ class MonteCarloRunner:
             if len(names) <= path_level:
                 names.extend([None] * (path_level + 1 - len(names)))
             names[path_level] = "path"
-            asset_level = names.index("asset") if "asset" in names else (1 if nlevels > 1 else None)
+            asset_level = (
+                names.index("asset")
+                if "asset" in names
+                else (1 if nlevels > 1 else None)
+            )
             if asset_level is None:
                 # Append an "asset" level containing NAV when absent.
                 arrays = [frame.columns.get_level_values(i) for i in range(nlevels)]
@@ -1626,7 +1723,9 @@ class MonteCarloRunner:
                 # Force asset labels to NAV for fan chart compatibility.
                 arrays = [frame.columns.get_level_values(i) for i in range(nlevels)]
                 arrays[asset_level] = pd.Index(["NAV"] * len(frame.columns))
-                frame.columns = pd.MultiIndex.from_arrays(arrays, names=frame.columns.names)
+                frame.columns = pd.MultiIndex.from_arrays(
+                    arrays, names=frame.columns.names
+                )
             try:
                 # Keep paths ordered for deterministic fan chart exports.
                 frame = frame.sort_index(axis=1, level=path_level)
@@ -1670,8 +1769,10 @@ class MonteCarloRunner:
         series = pd.Series(labels, index=pd.Index(values, name="period"), name="regime")
         try:
             series = series.astype("string")
-        except Exception:
-            pass
+        except (TypeError, ValueError) as exc:
+            self._logger.debug(
+                "Could not coerce regime labels to string dtype: %s", exc
+            )
         if out_index is None:
             return series
         return series.reindex(out_index)
@@ -1767,8 +1868,10 @@ class MonteCarloRunner:
         resolved = labels.map(_canonical_label)
         try:
             resolved = resolved.astype("string")
-        except Exception:
-            pass
+        except (TypeError, ValueError) as exc:
+            self._logger.debug(
+                "Could not coerce turnover-cap regimes to string dtype: %s", exc
+            )
         return resolved.rename("turnover_cap_regime")
 
     def _turnover_cap_binding_indicator(
@@ -1805,7 +1908,9 @@ class MonteCarloRunner:
             "total_cost_drag": payload.total_cost_drag,
         }
 
-    def _extract_path_frame(self, frame: pd.DataFrame, path_index: int = 0) -> pd.DataFrame:
+    def _extract_path_frame(
+        self, frame: pd.DataFrame, path_index: int = 0
+    ) -> pd.DataFrame:
         if isinstance(frame.columns, pd.MultiIndex) and "path" in frame.columns.names:
             return frame.xs(path_index, level="path", axis=1)
         return frame.copy()
@@ -1947,7 +2052,9 @@ class MonteCarloRunner:
             expected_shortfall_spec = aggregation_config.get("expected_shortfall")
         quantiles = outputs.get("quantiles", quantiles)
         breach_spec = outputs.get("breach", breach_spec)
-        expected_shortfall_spec = outputs.get("expected_shortfall", expected_shortfall_spec)
+        expected_shortfall_spec = outputs.get(
+            "expected_shortfall", expected_shortfall_spec
+        )
         aggregation = aggregate_monte_carlo_results(
             results.results_frame,
             quantiles=quantiles,
@@ -1961,7 +2068,9 @@ class MonteCarloRunner:
         rendered = template.format(scenario_name=self.scenario.name, timestamp=now)
         return Path(rendered)
 
-    def _coerce_base_config(self, base_config: Mapping[str, Any] | None) -> dict[str, Any]:
+    def _coerce_base_config(
+        self, base_config: Mapping[str, Any] | None
+    ) -> dict[str, Any]:
         if base_config is None:
             path = self._base_config_path()
             if not path.exists():
