@@ -7,6 +7,7 @@ from typing import Any
 import pandas as pd
 import pytest
 
+from trend.config_schema import CoreConfigError
 from trend_analysis.multi_period import engine as mp_engine
 
 
@@ -140,3 +141,39 @@ def test_cost_model_bps_feed_multi_period_transaction_cost(
     assert len(results) == 1
     assert results[0]["turnover"] == pytest.approx(0.7)
     assert results[0]["transaction_cost"] == pytest.approx(0.7 * 50.0 / 10000.0)
+
+
+def test_cost_model_bps_feed_non_threshold_pipeline_cost(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = CostModelConfig()
+    cfg.portfolio["policy"] = "rank"
+    periods = [
+        types.SimpleNamespace(
+            in_start="2020-01-31",
+            in_end="2020-02-29",
+            out_start="2020-03-31",
+            out_end="2020-03-31",
+        )
+    ]
+    monthly_costs: list[float] = []
+
+    monkeypatch.setattr(mp_engine, "generate_periods", lambda *_: periods)
+
+    def fake_run_analysis(*args: Any, **_kwargs: Any) -> dict[str, Any]:
+        monthly_costs.append(float(args[6]))
+        return {"out_user_stats": {}, "out_ew_stats": {}}
+
+    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+
+    results = mp_engine.run(cfg, df=_returns_frame())
+
+    assert len(results) == 1
+    assert monthly_costs == [pytest.approx(50.0 / 10000.0)]
+
+
+def test_invalid_cost_model_bps_raises_core_config_error() -> None:
+    with pytest.raises(CoreConfigError, match="portfolio.cost_model.bps_per_trade cannot be negative"):
+        mp_engine._resolve_portfolio_cost_bps(
+            {"cost_model": {"bps_per_trade": -1.0, "slippage_bps": 0.0}}
+        )

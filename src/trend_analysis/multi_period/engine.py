@@ -144,9 +144,9 @@ def _optional_cost_bps(value: Any, *, field: str) -> float | None:
     try:
         parsed = float(value)
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"portfolio.{field} must be numeric") from exc
+        raise CoreConfigError(f"portfolio.{field} must be numeric") from exc
     if parsed < 0:
-        raise ValueError(f"portfolio.{field} cannot be negative")
+        raise CoreConfigError(f"portfolio.{field} cannot be negative")
     return parsed
 
 
@@ -177,6 +177,23 @@ def _resolve_portfolio_cost_bps(portfolio_cfg: Mapping[str, Any]) -> tuple[float
             field="slippage_bps",
         )
     return float(bps_per_trade or 0.0), float(slippage_bps or 0.0)
+
+
+def _resolve_pipeline_monthly_cost(
+    run_cfg: Mapping[str, Any],
+    portfolio_cfg: Mapping[str, Any],
+    *,
+    tc_bps: float,
+    slippage_bps: float,
+) -> float:
+    """Return decimal per-period cost for delegated non-threshold analysis."""
+
+    if any(key in portfolio_cfg for key in ("cost_model", "transaction_cost_bps", "slippage_bps")):
+        return (tc_bps + slippage_bps) / 10000.0
+    try:
+        return float(run_cfg.get("monthly_cost", 0.0) or 0.0)
+    except (TypeError, ValueError) as exc:
+        raise CoreConfigError("run.monthly_cost must be numeric") from exc
 
 
 _resolve_risk_free_settings = resolve_risk_free_settings
@@ -1081,6 +1098,13 @@ def run(
         "missing_policy_spec": policy_spec,
         "missing_policy_message": missing_policy_diagnostic.get("message"),
     }
+    tc_bps, slippage_bps = _resolve_portfolio_cost_bps(cfg.portfolio)
+    resolved_monthly_cost = _resolve_pipeline_monthly_cost(
+        getattr(cfg, "run", {}) or {},
+        cfg.portfolio,
+        tc_bps=tc_bps,
+        slippage_bps=slippage_bps,
+    )
 
     if str(cfg.portfolio.get("policy", "").lower()) != "threshold_hold":
         cfg_dump: dict[str, Any] = {}
@@ -1118,7 +1142,7 @@ def run(
                 pt.out_start[:7],
                 pt.out_end[:7],
                 _resolve_target_vol(getattr(cfg, "vol_adjust", {})),
-                getattr(cfg, "run", {}).get("monthly_cost", 0.0),
+                resolved_monthly_cost,
                 floor_vol=cfg.vol_adjust.get("floor_vol"),
                 warmup_periods=int(cfg.vol_adjust.get("warmup_periods", 0) or 0),
                 selection_mode=cfg.portfolio.get("selection_mode", "all"),
@@ -1728,7 +1752,6 @@ def run(
     prev_weights: pd.Series | None = None
     prev_final_weights: pd.Series | None = None
     # Transaction cost and turnover-cap controls (Issue #429, #5393)
-    tc_bps, slippage_bps = _resolve_portfolio_cost_bps(cfg.portfolio)
     lambda_tc = float(cfg.portfolio.get("lambda_tc", 0.0) or 0.0)
     low_weight_strikes: dict[str, int] = {}
     cooldown_book: dict[str, int] = {}
