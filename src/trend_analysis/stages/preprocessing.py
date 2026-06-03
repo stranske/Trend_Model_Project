@@ -7,7 +7,7 @@ import pandas as pd
 
 from ..diagnostics import PipelineReasonCode, PipelineResult, pipeline_failure
 from ..risk import periods_per_year_from_code
-from ..time_utils import align_calendar
+from ..time_utils import align_calendar, resolve_period_bound
 from ..timefreq import MONTHLY_DATE_FREQ
 from ..util.frequency import FrequencySummary, detect_frequency
 from ..util.missing import MissingPolicyResult, apply_missing_policy
@@ -330,24 +330,15 @@ def _build_sample_windows(
             return reindexed
         return reindexed
 
-    def _is_month_label(label: str) -> bool:
-        text = str(label).strip()
-        return len(text) == 7 and text.count("-") == 1
-
     def _resolve_bound(label: str, *, bound: str) -> pd.Timestamp:
         text = str(label).strip()
         if not text:
             raise ValueError("Period label must be non-empty")
         try:
-            if _is_month_label(text):
-                period = pd.Period(text, freq="M")
-                ts = period.start_time if bound == "start" else period.end_time
-            else:
-                ts = pd.to_datetime(text)
+            return resolve_period_bound(text, bound=bound)
         except Exception as exc:  # pragma: no cover - defensive
             msg = f"Failed to parse period label '{label}': {exc}"
             raise ValueError(msg) from exc
-        return pd.Timestamp(ts).normalize()
 
     in_sdate = _resolve_bound(in_start, bound="start")
     in_edate = _resolve_bound(in_end, bound="end")
