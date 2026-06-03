@@ -91,31 +91,17 @@ benchmarks:
 
 metrics:
   rf_rate_annual: 0.02
-  use_continuous: false
   registry:
     - annual_return
     - volatility
     - sharpe_ratio
     - max_drawdown
-  compute:
-    - CAGR
-    - Volatility
-    - Sharpe
-    - Max_Drawdown
-  bootstrap_ci:
-    enabled: false  # Disable for faster demo
 
 export:
   directory: "results/robust_demo/"
   formats: ["xlsx", "csv"]
-  include_raw_returns: true
-  include_vol_adj: false
 
 run:
-  log_level: "DEBUG"  # Enable detailed logging for robustness features
-  log_file: "logs/robust_demo.log"
   n_jobs: 1  # Single-threaded for clearer logging
-  cache_dir: ".cache/"
-  deterministic: true
 
 seed: 42
