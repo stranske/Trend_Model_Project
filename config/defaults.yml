@@ -200,7 +200,6 @@ performance:
 run:
   log_level: "INFO" # DEBUG | INFO | WARNING | ERROR
   log_file: "logs/phase1.log"
-  n_jobs: -1 # ‑1 ⇒ all CPUs
   cache_dir: ".cache/"
   deterministic: true # sets NumPy & pandas options
 

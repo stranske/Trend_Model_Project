@@ -749,6 +749,16 @@ REQUIRED_SECTIONS = (
 )
 
 
+def _resolve_deprecated_jobs_alias(data: dict[str, Any]) -> None:
+    """Map legacy top-level jobs into the canonical run.jobs setting."""
+    if "jobs" not in data or data["jobs"] is None:
+        return
+    run_section = data.setdefault("run", {})
+    if not isinstance(run_section, dict):
+        return
+    run_section.setdefault("jobs", data["jobs"])
+
+
 def load_config(cfg: Mapping[str, Any] | str | Path) -> ConfigProtocol:
     """Load configuration from a mapping or file path."""
     if isinstance(cfg, (str, Path)):
@@ -756,6 +766,7 @@ def load_config(cfg: Mapping[str, Any] | str | Path) -> ConfigProtocol:
     if not isinstance(cfg, Mapping):
         raise TypeError("cfg must be a mapping or path")
     cfg_dict = dict(cfg)
+    _resolve_deprecated_jobs_alias(cfg_dict)
     # Early version validation for mapping-based load to surface version
     # errors directly (tests accept ValueError here) regardless of Pydantic.
     if "version" in cfg_dict:
@@ -809,6 +820,8 @@ def load(path: str | Path | None = None) -> ConfigProtocol:
             data = yaml.safe_load(fh)
             if not isinstance(data, dict):
                 raise TypeError("Config file must contain a mapping")
+
+    _resolve_deprecated_jobs_alias(data)
 
     out_cfg = data.pop("output", None)
     if isinstance(out_cfg, dict):

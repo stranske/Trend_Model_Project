@@ -114,7 +114,7 @@ export:
 run:
   log_level: "DEBUG"  # Enable detailed logging for robustness features
   log_file: "logs/robust_demo.log"
-  n_jobs: 1  # Single-threaded for clearer logging
+  jobs: 1  # Single-threaded for clearer logging
   cache_dir: ".cache/"
   deterministic: true
 

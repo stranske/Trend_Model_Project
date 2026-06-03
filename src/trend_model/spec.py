@@ -104,6 +104,14 @@ def _cfg_value(cfg: Any, key: str, default: Any = None) -> Any:
     return getattr(cfg, key, default)
 
 
+def _run_jobs_value(cfg: Any, run_cfg: Mapping[str, Any]) -> Any:
+    """Return canonical run.jobs, falling back to deprecated top-level jobs."""
+    value = _section_get(run_cfg, "jobs", None)
+    if value is not None:
+        return value
+    return _cfg_value(cfg, "jobs", None)
+
+
 def _cfg_section(cfg: Any, key: str) -> Mapping[str, Any]:
     section = _cfg_value(cfg, key, {})
     return _as_mapping(section)
@@ -247,7 +255,7 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
         regime=_cfg_section(cfg, "regime"),
         metrics=_as_tuple(_section_get(metrics, "registry", ())),
         seed=_coerce_int(_cfg_value(cfg, "seed", _section_get(run_cfg, "seed", 42)), default=42),
-        jobs=_coerce_int(_section_get(run_cfg, "jobs", None), default=0) or None,
+        jobs=_coerce_int(_run_jobs_value(cfg, run_cfg), default=0) or None,
         checkpoint_dir=checkpoint,
         export_directory=export_dir,
         export_formats=_as_tuple(_section_get(export_cfg, "formats", ())),
