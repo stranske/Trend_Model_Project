@@ -33,6 +33,7 @@ from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv
 from ..diagnostics import PipelineResult, coerce_pipeline_result
+from ..metrics.turnover import linear_turnover_cost
 from ..pipeline import (
     _build_trend_spec,
     _compute_stats,
@@ -3706,7 +3707,7 @@ def run(
             abs_diff = float((effective_w - last_effective).abs().sum())
             period_turnover = 0.5 * abs_diff
 
-        period_cost = period_turnover * ((tc_bps + slippage_bps) / 10000.0)
+        period_cost = linear_turnover_cost(period_turnover, tc_bps + slippage_bps)
 
         # Reconcile manager change log to the realised holdings delta.
         actual_before = set(last_effective[last_effective.abs() > eps].index)

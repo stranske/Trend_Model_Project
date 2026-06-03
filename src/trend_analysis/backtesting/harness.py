@@ -15,6 +15,7 @@ from pandas.tseries.frequencies import to_offset
 from backtest import shift_by_execution_lag
 
 from ..metrics import sortino_ratio
+from ..metrics.turnover import linear_turnover_cost
 from ..universe import MembershipTable, build_membership_mask
 
 logger = logging.getLogger(__name__)
@@ -65,10 +66,10 @@ class CostModel:
         return float(base)
 
     def apply(self, turnover: float) -> float:
-        if turnover <= 0:
-            return 0.0
-        multiplier = (self.effective_per_trade_bps + self.effective_half_spread_bps) / 10000.0
-        return float(turnover) * multiplier
+        return linear_turnover_cost(
+            turnover,
+            self.effective_per_trade_bps + self.effective_half_spread_bps,
+        )
 
     def as_dict(self) -> Dict[str, float]:
         return {

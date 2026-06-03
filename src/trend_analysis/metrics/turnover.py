@@ -50,7 +50,14 @@ def turnover_cost(
         Linear transaction cost in basis points applied to turnover.
     """
     turn_df = realized_turnover(weights)
-    return turn_df["turnover"] * (cost_bps / 10000.0)
+    return turn_df["turnover"].map(lambda turnover: linear_turnover_cost(turnover, cost_bps))
 
 
-__all__ = ["realized_turnover", "turnover_cost"]
+def linear_turnover_cost(turnover: float, cost_bps: float) -> float:
+    """Return the linear cost deduction for turnover and basis points."""
+    if turnover <= 0:
+        return 0.0
+    return float(turnover) * (float(cost_bps) / 10000.0)
+
+
+__all__ = ["linear_turnover_cost", "realized_turnover", "turnover_cost"]
