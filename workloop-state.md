@@ -20,6 +20,25 @@
 - Validation: `python -m pytest tests/test_constrained_optimization.py tests/test_weight_engines.py -q` -> 5 passed; focused `ruff` -> passed; focused `mypy` -> passed; `git diff --check` -> clean. Deliberate-break gate: temporarily removed the group upper-bound inequality and confirmed `test_group_upper_bound_is_honored` failed with low-vol group sum about 0.90 > 0.30, then restored and reran green.
 - Current state: ready-for-review PR #5474 opened at https://github.com/stranske/Trend_Model_Project/pull/5474 from `codex/issue-5414-convex-constraints`, non-draft, with `agent:codex`, `agents:keepalive`, and `autofix`. Cap-health shows fresh Gate and Agents Gate Followups runs active after the branch update. Next action belongs to keepalive/Gate.
 
+## 2026-06-03T16:46:30Z - closer (codex) PR #5473 CI fixture recovery
+
+- Selected closer lane: `stranske/Trend_Model_Project` PR **#5473** (`codex/issue-5413-selection-commit`), source issue **#5413**.
+- Failure inspected: Gate run `26897048074`, Python CI jobs `79338910290` / `79338910501`, failed because `tests/app/test_fund_selection_commit.py` moved the fund-selection regressions into a new module but `data_page` remained scoped to `tests/app/test_data_page.py`; CI reported `fixture 'data_page' not found`.
+- Fix pushed: `d17f8395` (`Fix fund selection test fixture scope`). Replaced module plugin loading with a typed local fixture wrapper that reuses the shared `tests.app.test_data_page.data_page` wrapped implementation, making the fixture visible during full-suite/xdist collection.
+- Validation: `PYTHONPATH=. python -m pytest tests/app/test_fund_selection_commit.py tests/app/test_data_page.py -q` -> 6 passed; `PYTHONPATH=. python -m pytest tests/app/test_fund_selection_commit.py -q -n auto --dist=loadgroup` -> 2 passed with local NumPy/PyArrow ABI warnings only; focused ruff passed; focused mypy passed; `git diff --check` passed.
+- PR evidence: posted comment `#issuecomment-4614595731`; removed stale `agent:needs-attention`. Current state: PR **#5473** head `d17f8395`, open/non-draft, labels `[agent:codex, autofix, agents:keepalive, agent:retry]`, waiting on fresh post-push checks (`claude-review`, Gate jobs, guard).
+
+## 2026-06-03T15:07:15Z - opener lane issue #5413 PR materializing after cap routing repair
+
+- Repo/issue: stranske/Trend_Model_Project #5413 (`A33 - Make the "Apply selection" commit step clearer`).
+- Branch: `codex/issue-5413-selection-commit`; base `origin/phase-3`.
+- Agent: codex opener from neutral Code workspace; used persistent automation worktree `~/.codex/automations/pd-workloop-resume/worktrees/trend-5413-selection-commit`.
+- Cap hygiene before selection: repaired #5470 by adding `agent:retry` and dispatching Gate Followups; rehomed stuck Claude-routed PR #5469 to replacement PR #5472 on `codex/issue-5411-data-perf-caption` with the same head SHA (`e61b005f`), concrete `agent:codex` routing, `agents:keepalive`, `autofix`, and `agent:retry`, then closed #5469 as superseded. #5470 and #5472 had fresh active Gate/Gate Followups evidence; #5440 remains scoped to the #5389 strict-config design blocker.
+- Selection: raw opener cap remained below 5 after repair. Priority high issues were scoped owner-evidence blockers (#5343, LMS #180); no priority normal/low remote issue was open. Liveness selected #5413 as the oldest unlinked implementation issue outside scoped blockers and already-linked #5410/#5411/#5412.
+- Implementation: replaced the separate Apply-selection commit step with automatic downstream commit from the visible fund checkbox state. `analysis_fund_columns` now mirrors the sanitized checkbox selection immediately, and analysis cache is cleared only when that committed list changes. The UI now reports the applied count as automatic instead of requiring a separate button.
+- Validation: `python -m pytest tests/app/test_data_page.py::test_fund_selection_commits_visible_checkbox_state -q` -> passed; deliberate-break gate temporarily removed the `analysis_fund_columns` assignment and the focused test failed with `KeyError: 'analysis_fund_columns'`, then restored -> passed; `python -m pytest tests/app/test_data_page.py -q` -> 5 passed; focused `ruff`, focused `mypy`, and `git diff --check` passed.
+- Current state: ready-for-review PR #5473 opened at https://github.com/stranske/Trend_Model_Project/pull/5473 from `codex/issue-5413-selection-commit`, non-draft, with `agent:codex`, `agents:keepalive`, and `autofix`. `pr_opened` was relayed with `active.source_repo=stranske/Trend_Model_Project`, `active.source_issue=5413`, `active.source_pr=5473`, and `active.next_action=wait_for_keepalive`. Next action belongs to keepalive/Gate.
+
 ## 2026-06-03T14:15Z - opener lane issue #5412 PR materializing
 
 - Repo/issue: stranske/Trend_Model_Project #5412 (`A32 - Reconcile the two preset vocabularies`).
