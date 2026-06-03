@@ -19,6 +19,8 @@ import streamlit as st  # noqa: E402
 
 from streamlit_app import demo_profile  # noqa: E402
 from streamlit_app.components.demo_runner import (  # noqa: E402
+    DEMO_PRESET_SELECTOR_HELP,
+    DEMO_PRESET_SELECTOR_LABEL,
     list_presets,
     load_preset_config,
     run_demo_with_overrides,
@@ -67,7 +69,7 @@ if "demo_settings_expanded" not in st.session_state:
 
 # Preset selector
 selected_preset = st.selectbox(
-    "Strategy Preset",
+    DEMO_PRESET_SELECTOR_LABEL,
     preset_names,
     index=(
         preset_names.index(st.session_state["demo_preset"])
@@ -75,7 +77,7 @@ selected_preset = st.selectbox(
         else 0
     ),
     key="demo_preset_selector",
-    help="Choose a pre-configured strategy profile",
+    help=DEMO_PRESET_SELECTOR_HELP,
 )
 st.session_state["demo_preset"] = selected_preset
 
