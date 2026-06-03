@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from trend_analysis.pipeline import run_analysis
 
@@ -30,3 +31,5 @@ def test_single_period_smoke() -> None:
     assert "selected_funds" in res
     assert "score_frame" in res  # FAILS if Phase 1 isn't done
     assert len(res["selected_funds"]) > 0
+    score_frame = res["score_frame"]
+    assert score_frame.loc["FundB", "Sharpe"] == pytest.approx(3.50092455024259)

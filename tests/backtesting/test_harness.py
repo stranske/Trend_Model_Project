@@ -176,6 +176,20 @@ def test_transaction_costs_applied_to_turnover() -> None:
     assert result.turnover.iloc[0] == 1.0
     assert result.turnover.iloc[1] == 2.0
 
+    expected_costs = result.turnover * 0.005
+    pdt.assert_series_equal(result.transaction_costs, expected_costs)
+    assert result.turnover.gt(0).all()
+    assert result.transaction_costs.gt(0).all()
+
+    active_returns = result.returns.dropna()
+    downside = active_returns[active_returns < 0]
+    periods_per_year = _infer_periods_per_year(pd.DatetimeIndex(active_returns.index))
+    expected_sortino = active_returns.mean() / (
+        downside.std(ddof=0) * np.sqrt(periods_per_year)
+    )
+    summary = result.summary()
+    assert summary["metrics"]["sortino"] == pytest.approx(expected_sortino)
+
 
 def test_cost_model_zero_cost_matches_baseline() -> None:
     returns = _synthetic_returns("2021-01-01", 80)
