@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 
 from ..cash_policy import CashPolicy
+from ..metrics.turnover import linear_turnover_cost
 from ..plugins import Rebalancer, create_rebalancer, rebalancer_registry
 
 # Backwards compatibility name
@@ -199,7 +200,7 @@ class TurnoverCapStrategy(Rebalancer):
     def _calculate_cost(self, turnover: float) -> float:
         """Calculate transaction cost based on turnover and cost basis
         points."""
-        return turnover * (self.cost_bps / 10000.0)
+        return float(linear_turnover_cost(turnover, self.cost_bps))
 
 
 @rebalancer_registry.register("periodic_rebalance")
