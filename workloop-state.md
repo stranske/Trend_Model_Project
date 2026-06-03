@@ -1,6 +1,16 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
+## 2026-06-03T22:06Z - opener lane issue #5415 PR materializing
+
+- Repo/issue: stranske/Trend_Model_Project #5415 (`A36 - Factor attribution / returns decomposition`).
+- Branch: `codex/issue-5415-factor-attribution`; base `origin/phase-3`.
+- Agent: codex opener from neutral Code workspace; used persistent automation worktree `~/.codex/automations/pd-workloop-resume/worktrees/trend-5415-factor-attribution`.
+- Selection: raw opener cap was below 5. Cap/drain sweep found only opener-owned PR #5440, already scoped/product-blocked on strict config key design. Priority high issues #5343 and LMS #180 remain scoped outside automation reach; #5476 and #5414 are already merged and awaiting closer/verifier source-issue disposition; #5415 was the oldest unlinked implementation candidate outside scoped blockers.
+- Implementation: added `metrics.factor_attribution.factor_exposures`, a pure numpy/pandas OLS regression helper that aligns returns and factor frames by index, drops NaN rows, enforces at least `n_factors + 2` observations, and returns per-manager factor betas, `alpha`, and `r_squared`. Exported it from `trend_analysis.metrics` while leaving existing PnL contribution attribution untouched.
+- Validation: `python -m pytest tests/test_factor_attribution.py tests/test_metrics_attribution.py -q` -> 11 passed; `python -m pytest tests/test_factor_attribution.py::test_recovers_planted_betas -q` -> passed after restoration; `git diff --check` -> passed. Deliberate-break gate: temporarily ignored `add_intercept` inside `factor_exposures`; `test_recovers_planted_betas` failed because recovered `equity` beta was `-0.18518518518518517` instead of `0.6`, then restored and reran green.
+- Current state: implementation ready to commit, push, and open as a ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`.
+
 ## 2026-06-03T20:06Z - opener cap-drain repair for PR #5474
 
 - Repo/issue/PR: stranske/Trend_Model_Project #5414 / #5474 (`codex/issue-5414-convex-constraints`).
