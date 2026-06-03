@@ -1196,7 +1196,8 @@ class MonteCarloRunner:
     def _compute_score_frame(self, returns: pd.DataFrame) -> pd.DataFrame:
         try:
             config = Config(**self._base_config)
-        except Exception:
+        except (TypeError, ValueError) as exc:
+            self._logger.warning("Failed to parse base config for score frame: %s", exc)
             return pd.DataFrame()
         try:
             split = _resolve_sample_split(returns, config.sample_split)
@@ -1670,8 +1671,8 @@ class MonteCarloRunner:
         series = pd.Series(labels, index=pd.Index(values, name="period"), name="regime")
         try:
             series = series.astype("string")
-        except Exception:
-            pass
+        except (TypeError, ValueError) as exc:
+            self._logger.debug("Failed to coerce regime labels to string dtype: %s", exc)
         if out_index is None:
             return series
         return series.reindex(out_index)
@@ -1767,8 +1768,11 @@ class MonteCarloRunner:
         resolved = labels.map(_canonical_label)
         try:
             resolved = resolved.astype("string")
-        except Exception:
-            pass
+        except (TypeError, ValueError) as exc:
+            self._logger.debug(
+                "Failed to coerce turnover-cap regime labels to string dtype: %s",
+                exc,
+            )
         return resolved.rename("turnover_cap_regime")
 
     def _turnover_cap_binding_indicator(
