@@ -4,6 +4,7 @@ import logging
 import random
 import sys
 import time
+import warnings
 from collections.abc import Mapping, Sized
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, SupportsInt, cast
@@ -451,6 +452,28 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             latency_ms=(result.timings or {}).get("wall_ms"),
         )
         return result
+
+    # Single-period path: ``run.monthly_cost``, ``portfolio.max_turnover``, and
+    # ``portfolio.lambda_tc`` affect costs/turnover here (see stages/portfolio.py).
+    # ``portfolio.transaction_cost_bps`` is a turnover-based lever that is only
+    # charged by the multi-period engine, so a value set on a single-period run is
+    # silently ignored. Warn loudly rather than leaving the no-op undocumented
+    # (issue #5394 / A14).
+    portfolio_cfg = getattr(config, "portfolio", {}) or {}
+    try:
+        _tc_bps = float(portfolio_cfg.get("transaction_cost_bps", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        _tc_bps = 0.0
+    if _tc_bps > 0.0:
+        _tc_msg = (
+            "portfolio.transaction_cost_bps=%s is ignored on the single-period analysis "
+            "path; turnover-based transaction costs are only charged by the multi-period "
+            "engine. Single-period runs apply run.monthly_cost, portfolio.max_turnover, "
+            "and portfolio.lambda_tc. Enable multi_period or use run.monthly_cost to model "
+            "single-period costs."
+        ) % _tc_bps
+        warnings.warn(_tc_msg, UserWarning, stacklevel=2)
+        logger.warning(_tc_msg)
 
     validation_frame = validate_prices_frame(build_validation_frame(returns))
 
