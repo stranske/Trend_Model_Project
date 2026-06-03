@@ -650,6 +650,65 @@
       },
       "type": "object"
     },
+    "identity": {
+      "additionalProperties": false,
+      "constraints": {},
+      "default": null,
+      "description": "Deterministic entity identity aliases for run manifest selected_entities.",
+      "nl_editable": true,
+      "properties": {
+        "entities": {
+          "default": [],
+          "description": "Explicit canonical entities and aliases.",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "aliases": {
+                "default": [],
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "canonical_id": {
+                "type": "string"
+              },
+              "display_name": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "canonical_id"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "universe": {
+          "description": "Universe file path or paths, resolved relative to the config file.",
+          "type": [
+            "string",
+            "array",
+            "null"
+          ]
+        },
+        "universes": {
+          "description": "Universe file path or paths, resolved relative to the config file.",
+          "type": [
+            "string",
+            "array",
+            "null"
+          ]
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    },
     "jobs": {
       "constraints": {},
       "default": -1,
