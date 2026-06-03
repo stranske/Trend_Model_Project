@@ -79,6 +79,12 @@ def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
     lookback = _coerce_positive_int(cfg.get("lookback"), 126)
     smoothing = _coerce_positive_int(cfg.get("smoothing"), 3)
     threshold = _coerce_float(cfg.get("threshold"), 0.0)
+    if enabled and method == "volatility" and (not np.isfinite(threshold) or threshold <= 0):
+        raise ValueError(
+            "regime.threshold must be finite and positive when regime.method is 'volatility' "
+            "(signal = threshold - volatility, and volatility is non-negative, so a "
+            "non-positive threshold collapses the split to all Risk-Off)"
+        )
     neutral_band = abs(_coerce_float(cfg.get("neutral_band"), 0.001))
     min_obs = _coerce_positive_int(cfg.get("min_observations"), 6, minimum=1)
     cache = bool(cfg.get("cache", True))
