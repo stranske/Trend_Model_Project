@@ -1,13 +1,15 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
-## 2026-06-03T07:05Z - closer lane rebasing PR #5449 after #5451 merge
+## 2026-06-03T07:05Z - closer lane rebased PR #5449 after #5451 merge
 
 - Repo/issue/PR: stranske/Trend_Model_Project #5396 / #5449 (`codex/issue-5396-regime-annualise-volatility`).
 - Agent: codex closer from neutral Code workspace; selected as the complex lane after batch-merging #5451 and leaving #5450/#5397 waiting on post-merge verifier.
 - Conflict evidence: live PR state became `DIRTY` after current `origin/phase-3` moved through adjacent regime PR merges; the rebase conflict was limited to `workloop-state.md`.
-- Fix in progress: preserve the prior #5450 and #5449 workloop evidence while rebasing the annualized-volatility neutral-band fix and regression onto current `origin/phase-3`.
-- Current state: rebase conflict resolved locally; next action is to continue the rebase, validate the focused regime tests/lint/type checks, then force-with-lease push the refreshed PR head.
+- Fix: preserved the prior #5450 and #5449 workloop evidence while rebasing the annualized-volatility neutral-band fix and regression onto current `origin/phase-3`.
+- Validation before push: `pytest tests/soft_coverage/test_regimes_soft.py tests/test_regime_annualise.py -q` -> 24 passed; focused `ruff`, focused `mypy`, and `git diff --check` passed.
+- Current state: branch refreshed from old remote head `02da1f42`; PR is mergeable but `UNSTABLE` while fresh Gate/guard/review checks run on the rebased head.
+- Next action: re-check #5449 after fresh checks complete; merge and label `verify:compare` if checks are green and review threads remain resolved, otherwise repair the concrete failing check/thread.
 
 ## 2026-06-03T06:40Z - closer lane rebased PR #5450 after regime merges
 
