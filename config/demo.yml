@@ -55,6 +55,7 @@ benchmarks:
 regime:
   enabled: true
   proxy: "SPX"
+  model: "binary_threshold"
   method: rolling_return
   lookback: 24            # two-year lookback keeps demo responsive
   smoothing: 3

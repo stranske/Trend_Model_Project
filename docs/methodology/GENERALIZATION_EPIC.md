@@ -7,7 +7,7 @@ Issue #5416 decomposes the manager-of-managers generalization work into bounded 
 - Cadence aliases for monthly, quarterly, and annual runs already map to pandas end-of-period codes in `src/trend_analysis/multi_period/scheduler.py:17`.
 - Dated universe membership and survivorship handling already live in `src/trend_analysis/universe.py`.
 - Benchmark labels already map to data columns through `config/defaults.yml:123`.
-- The default regime path is the binary threshold classifier in `src/trend_analysis/regimes.py:173` and remains registered as `binary_threshold`.
+- The default regime path is implemented by `_compute_regime_series` in `src/trend_analysis/regimes.py`, and remains registered as `binary_threshold` on `BinaryThresholdRegimeModel`.
 
 ## Children
 
@@ -27,7 +27,7 @@ Issue #5416 decomposes the manager-of-managers generalization work into bounded 
 
 ### Pluggable Regime Interface
 
-- Current evidence: `src/trend_analysis/regimes.py:173` implements the binary return/volatility threshold classifier directly.
+- Current evidence: `src/trend_analysis/regimes.py` implements the binary return/volatility threshold classifier in `_compute_regime_series`.
 - Proposed seam: `RegimeModel` plus `regime_registry`, with the existing classifier registered as `binary_threshold`.
 - Acceptance shape: `tests/test_regime_registry.py::test_default_binary_regime_unchanged` proves default output is unchanged, and `tests/test_regime_registry.py::test_registry_dispatches_named_model` proves named dispatch works.
 - Dependencies: none.
