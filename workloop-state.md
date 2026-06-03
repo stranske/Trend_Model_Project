@@ -1,6 +1,14 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
+## 2026-06-03T16:46:30Z - closer (codex) PR #5473 CI fixture recovery
+
+- Selected closer lane: `stranske/Trend_Model_Project` PR **#5473** (`codex/issue-5413-selection-commit`), source issue **#5413**.
+- Failure inspected: Gate run `26897048074`, Python CI jobs `79338910290` / `79338910501`, failed because `tests/app/test_fund_selection_commit.py` moved the fund-selection regressions into a new module but `data_page` remained scoped to `tests/app/test_data_page.py`; CI reported `fixture 'data_page' not found`.
+- Fix pushed: `d17f8395` (`Fix fund selection test fixture scope`). Replaced module plugin loading with a typed local fixture wrapper that reuses the shared `tests.app.test_data_page.data_page` wrapped implementation, making the fixture visible during full-suite/xdist collection.
+- Validation: `PYTHONPATH=. python -m pytest tests/app/test_fund_selection_commit.py tests/app/test_data_page.py -q` -> 6 passed; `PYTHONPATH=. python -m pytest tests/app/test_fund_selection_commit.py -q -n auto --dist=loadgroup` -> 2 passed with local NumPy/PyArrow ABI warnings only; focused ruff passed; focused mypy passed; `git diff --check` passed.
+- PR evidence: posted comment `#issuecomment-4614595731`; removed stale `agent:needs-attention`. Current state: PR **#5473** head `d17f8395`, open/non-draft, labels `[agent:codex, autofix, agents:keepalive, agent:retry]`, waiting on fresh post-push checks (`claude-review`, Gate jobs, guard).
+
 ## 2026-06-03T15:07:15Z - opener lane issue #5413 PR materializing after cap routing repair
 
 - Repo/issue: stranske/Trend_Model_Project #5413 (`A33 - Make the "Apply selection" commit step clearer`).
