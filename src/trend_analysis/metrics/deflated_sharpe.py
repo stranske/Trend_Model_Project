@@ -7,8 +7,6 @@ from statistics import NormalDist
 
 import pandas as pd
 
-from trend_analysis.metrics import sharpe_ratio
-
 _NORMAL = NormalDist()
 _EULER_GAMMA = 0.5772156649015329
 
@@ -49,6 +47,7 @@ def probabilistic_sharpe_ratio(
     kurtosis: float,
     *,
     sharpe_benchmark: float = 0.0,
+    sharpe_variance: float | None = None,
 ) -> float:
     """Return Bailey-Lopez de Prado's probabilistic Sharpe ratio.
 
@@ -62,7 +61,12 @@ def probabilistic_sharpe_ratio(
     if not math.isfinite(sharpe_benchmark):
         raise ValueError("sharpe_benchmark must be finite")
 
-    variance = _sharpe_standard_error_variance(sharpe, n_obs, skew, kurtosis)
+    if sharpe_variance is None:
+        variance = _sharpe_standard_error_variance(sharpe, n_obs, skew, kurtosis)
+    else:
+        variance = float(sharpe_variance)
+        if not math.isfinite(variance) or variance <= 0.0:
+            raise ValueError("sharpe_variance must be a finite positive value")
     z_score = (sharpe - sharpe_benchmark) / math.sqrt(variance)
     return float(_NORMAL.cdf(z_score))
 
@@ -103,21 +107,20 @@ def deflated_sharpe_ratio(
         skew,
         kurtosis,
         sharpe_benchmark=expected_max_sharpe,
+        sharpe_variance=sharpe_variance if sharpe_variance > 0.0 else None,
     )
 
 
-def estimate_sharpe_moments(
-    returns: pd.Series,
-    periods_per_year: int = 12,
-) -> tuple[float, int, float, float]:
-    """Estimate annualised Sharpe, observation count, skew, and kurtosis."""
+def estimate_sharpe_moments(returns: pd.Series) -> tuple[float, int, float, float]:
+    """Estimate period Sharpe, observation count, skew, and kurtosis."""
 
     if not isinstance(returns, pd.Series):
         raise TypeError("estimate_sharpe_moments expects a pandas Series")
     clean = returns.dropna()
     if clean.empty:
         return float("nan"), 0, float("nan"), float("nan")
-    sharpe = float(sharpe_ratio(clean, periods_per_year=periods_per_year))
+    volatility = float(clean.std(ddof=1))
+    sharpe = float("nan") if volatility == 0.0 else float(clean.mean() / volatility)
     return (
         sharpe,
         int(clean.shape[0]),
