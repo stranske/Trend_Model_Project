@@ -35,6 +35,7 @@ _CONSUMED_PORTFOLIO_KEYS = {
     "selection_mode",
     "random_n",
     "manual_list",
+    "indices_list",
     "weighting_scheme",
     "leverage_cap",
     "rank",
@@ -54,6 +55,7 @@ _CONSUMED_PORTFOLIO_KEYS = {
     "weighting.params",
     "constraints",
     "constraints.long_only",
+    "constraints.max_funds",
     "constraints.max_weight",
     "constraints.min_weight",
     "constraints.max_active_positions",
@@ -77,8 +79,10 @@ _CONSUMED_PORTFOLIO_KEYS = {
 
 _DYNAMIC_PORTFOLIO_SUBTREES = {
     "custom_weights",
+    "rank",
     "rank.blended_weights",
     "selector.params",
+    "threshold_hold",
     "weighting.params",
     "constraints.group_caps",
     "constraints.allowed_assets",

@@ -619,13 +619,14 @@ def _resolve_config_path(candidate: str | os.PathLike[str] | None) -> Path:
     )
 
 
-def validate_trend_config(data: dict[str, Any], *, base_path: Path) -> TrendConfig:
+def validate_trend_config(data: Any, *, base_path: Path) -> TrendConfig:
     """Validate ``data`` against :class:`TrendConfig` with helpful errors."""
 
-    lint_errors = lint_portfolio_keys(data)
-    if lint_errors:
-        first_error = lint_errors[0]
-        raise ValueError(f"{first_error}: unexpected or inert portfolio key")
+    if isinstance(data, Mapping):
+        lint_errors = lint_portfolio_keys(data)
+        if lint_errors:
+            first_error = lint_errors[0]
+            raise ValueError(f"{first_error}: unexpected or inert portfolio key")
 
     try:
         return TrendConfig.model_validate(data, context={"base_path": base_path})
@@ -633,7 +634,7 @@ def validate_trend_config(data: dict[str, Any], *, base_path: Path) -> TrendConf
         errors = exc.errors()
         message = str(exc)
         if errors:
-            first_validation_error = errors[0]
+            first_validation_error: Any = errors[0]
             message = str(first_validation_error.get("msg") or message)
             loc = first_validation_error.get("loc") or ()
             if loc:
