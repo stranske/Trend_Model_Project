@@ -1,6 +1,16 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
+## 2026-06-03T18:12Z - opener lane issue #5414 PR materializing
+
+- Repo/issue: stranske/Trend_Model_Project #5414 (`A35 - General convex-constraint optimization backend behind the weighting interface`).
+- Branch: `codex/issue-5414-convex-constraints`; base `origin/phase-3`.
+- Agent: codex opener from neutral Code workspace; used persistent automation worktree `~/.codex/automations/pd-workloop-resume/worktrees/trend-5414-convex-constraints`.
+- Selection: raw opener cap was below 5. Cap sweep classified #5440 as scoped/product-blocked on strict config keys, #5470/#5473 as green-Gate but needing keepalive/closer drain, and #5472 as runner-failed with no branch-local deterministic opener patch target. Liveness fallback selected #5414 as the oldest unlinked implementation issue outside scoped blockers after #5411/#5412/#5413 were already linked to open PRs.
+- Implementation: added `ConstrainedConvexWeighting`, registered as `convex_constrained`, solving minimum-variance weights with SLSQP under full-investment, per-asset min/max, and named group lower/upper sum bounds. Added tests proving the group upper bound is binding and the unconstrained solution matches analytic minimum variance.
+- Validation: `python -m pytest tests/test_constrained_optimization.py tests/test_weight_engines.py -q` -> 5 passed; focused `ruff` -> passed; focused `mypy` -> passed; `git diff --check` -> clean. Deliberate-break gate: temporarily removed the group upper-bound inequality and confirmed `test_group_upper_bound_is_honored` failed with low-vol group sum about 0.90 > 0.30, then restored and reran green.
+- Current state: implementation validated locally; next action is commit, push, open a ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`, then relay `pr_opened`.
+
 ## 2026-06-03T09:08:49Z - opener lane issue #5403 PR materializing
 
 - Repo/issue: stranske/Trend_Model_Project #5403 (`A22 - Consolidate transaction-cost logic fanned across >=5 implementations`).
