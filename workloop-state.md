@@ -1,6 +1,14 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
+## 2026-06-03T06:40Z - closer lane rebased PR #5450 after regime merges
+
+- Repo/issue/PR: stranske/Trend_Model_Project #5397 / #5450 (`codex/issue-5397-min-obs-default`).
+- Agent: codex closer from neutral Code workspace; selected as a second complex lane after #5449 was advanced and #5393/#5394 were closed on verifier PASS.
+- Conflict evidence: live PR state was `DIRTY` after #5448 and #5449 touched `src/trend_analysis/regimes.py` and `workloop-state.md`.
+- Fix: rebased onto current `origin/phase-3`, kept the min-observation default change and test, and dropped the opener workloop-state churn from the PR branch.
+- Current state: rebase/conflict fix validated locally; after force-with-lease push, fresh GitHub checks should rerun on the rebased branch.
+
 ## 2026-06-03T06:01:06Z - closer lane advanced PR #5448 review fixes
 
 - Repo/issue/PR: stranske/Trend_Model_Project #5395 / #5448 (`claude/issue-5395-regime-threshold-validation`).

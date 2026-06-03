@@ -26,7 +26,7 @@ class RegimeSettings:
     smoothing: int = 3
     threshold: float = 0.0
     neutral_band: float = 0.001
-    min_obs: int = 6
+    min_obs: int = 4
     risk_on_label: str = "Risk-On"
     risk_off_label: str = "Risk-Off"
     default_label: str = "Risk-On"
@@ -86,7 +86,7 @@ def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
             "non-positive threshold collapses the split to all Risk-Off)"
         )
     neutral_band = abs(_coerce_float(cfg.get("neutral_band"), 0.001))
-    min_obs = _coerce_positive_int(cfg.get("min_observations"), 6, minimum=1)
+    min_obs = _coerce_positive_int(cfg.get("min_observations"), 4, minimum=1)
     cache = bool(cfg.get("cache", True))
     annualise_volatility = bool(cfg.get("annualise_volatility", True))
 
