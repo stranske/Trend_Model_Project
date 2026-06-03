@@ -19,6 +19,7 @@ from trend_analysis.time_utils import resolve_period_bound
 from utils.paths import proj_path
 
 _PATH_PATTERN = re.compile(r"^([A-Za-z0-9_.\[\]-]+)(:|\s+)(.+)$")
+_MONTHLY_DATA_FREQUENCIES = {"M", "ME"}
 
 
 class ValidationError(BaseModel):
@@ -131,6 +132,7 @@ def _run_required_validation(
     if not skip_required_fields:
         _check_required_fields(config, errors)
     _check_version_field(config, errors)
+    _check_data_frequency_supported(config, errors)
 
 
 def _run_sample_split_validation(
@@ -363,6 +365,34 @@ def _check_version_field(config: Mapping[str, Any], errors: list[ValidationError
             suggestion="Provide a non-empty version string.",
         )
         _append_issue(errors, issue)
+
+
+def _check_data_frequency_supported(
+    config: Mapping[str, Any],
+    errors: list[ValidationError],
+) -> None:
+    data = config.get("data")
+    if not isinstance(data, Mapping):
+        return
+    frequency = data.get("frequency")
+    if frequency is None:
+        return
+    if isinstance(frequency, str) and not frequency.strip():
+        return
+    normalized = str(frequency).strip().upper()
+    if normalized in _MONTHLY_DATA_FREQUENCIES:
+        return
+    issue = ValidationError(
+        path="data.frequency",
+        message="Only monthly data.frequency is currently supported.",
+        expected="M or ME",
+        actual=frequency,
+        suggestion=(
+            "Set data.frequency to 'M' until daily/weekly preprocessing and "
+            "annualisation are wired end-to-end."
+        ),
+    )
+    _append_issue(errors, issue)
 
 
 def _require_field(
