@@ -1,6 +1,23 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
+## 2026-06-03T04:01:25Z - opener lane issue #5391 PR materializing
+
+- Repo/issue: stranske/Trend_Model_Project #5391 `A11 - Fix the dead pages/8_Validation.py`.
+- Branch: `codex/issue-5391-validation-page`.
+- Agent: codex opener from neutral Code workspace; raw opener cap below 5, #5442 already merged by closer, #5440 remains scoped-blocked on #5389 strict-key owner decision. Selected #5391 as the highest-priority/oldest unlinked implementation candidate outside scoped blockers.
+- Implementation:
+  - Moved Validation page `set_page_config` to module top level and replaced the `__main__` guard with the active Streamlit `_should_auto_render()` pattern used by other pages.
+  - Switched page data loading from stale `st.session_state["app_data"]` to `app_state.get_uploaded_data()` / `returns_df`.
+  - Replaced private `analysis_runner._execute_analysis(...)` usage with public cached `analysis_runner.run_analysis(...)`.
+  - Added `tests/app/test_validation_page_renders.py` to prove auto-render invokes the page under an active Streamlit context, reads `returns_df`, does not read `app_data`, and uses the public analysis API.
+- Validation:
+  - `PYTHONPATH=src python -m pytest tests/app/test_validation_page_renders.py -q` -> 2 passed, 1 deprecation warning.
+  - Deliberate-break gate: temporarily restored the bad `app_data` read; the new test failed because the page stopped despite `returns_df` being present; reverted before commit.
+  - `python -m ruff check streamlit_app/pages/8_Validation.py tests/app/test_validation_page_renders.py` -> passed.
+  - `git diff --check` -> passed.
+- Current state: changes ready to commit/push and open ready-for-review PR for #5391; keepalive owns post-open CI/check follow-up.
+
 ## 2026-06-01T07:00:12Z - closer lane addressed PR #5374 review blockers
 
 - Repo/issue/PR: stranske/Trend_Model_Project #5343 / #5374 (`claude/issue-5343-stlite-demo`).

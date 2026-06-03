@@ -20,7 +20,14 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner
+
+st.set_page_config(
+    page_title="Settings Validation",
+    page_icon="🔧",
+    layout="wide",
+)
 
 # =============================================================================
 # Setting Definitions
@@ -495,7 +502,11 @@ def run_test_analysis(
             model_state=model_state,
             benchmark=None,
         )
-        result = analysis_runner._execute_analysis(payload)
+        result = analysis_runner.run_analysis(
+            payload.returns,
+            payload.model_state,
+            payload.benchmark,
+        )
         return {"status": "success", "result": result}
     except Exception as e:
         return {"status": "error", "error": str(e)}
@@ -526,12 +537,7 @@ def format_value(value: Any) -> str:
 def render_validation_page() -> None:
     """Render the Settings Validation page."""
 
-    st.set_page_config(
-        page_title="Settings Validation",
-        page_icon="🔧",
-        layout="wide",
-    )
-
+    app_state.initialize_session_state()
     st.title("🔧 Settings Validation")
     st.markdown("""
     This page systematically tests each UI setting to verify it's properly
@@ -540,12 +546,10 @@ def render_validation_page() -> None:
     """)
 
     # Check if we have data loaded
-    app_data = st.session_state.get("app_data")
-    if app_data is None or app_data.get("returns") is None:
+    returns, _meta = app_state.get_uploaded_data()
+    if returns is None:
         st.warning("⚠️ Please load data on the Data page first.")
         st.stop()
-
-    returns = app_data["returns"]
 
     # Organize settings by category
     categories = {}
@@ -890,5 +894,14 @@ def render_validation_page() -> None:
             )
 
 
-if __name__ == "__main__":
+def _should_auto_render() -> bool:
+    """Return True when running inside an active Streamlit session."""
+    try:
+        from streamlit.runtime.scriptrunner import get_script_run_ctx
+    except Exception:
+        return False
+    return get_script_run_ctx() is not None
+
+
+if _should_auto_render():
     render_validation_page()
