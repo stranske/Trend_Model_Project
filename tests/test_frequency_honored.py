@@ -35,7 +35,7 @@ def _base_config(tmp_path: Path, frequency: str) -> dict[str, Any]:
 
 
 def _frequency_errors(config: dict[str, Any]) -> list[str]:
-    result = validate_config(config)
+    result = validate_config(config, skip_required_fields=True)
     return [issue.message for issue in result.errors if issue.path == "data.frequency"]
 
 
