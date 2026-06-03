@@ -736,6 +736,13 @@ _MODEL_WIDGET_KEYS = {
     "mp_min_funds_input",
     "mp_max_funds_input",
     "benchmark_selector",
+    # Advanced Settings expander (progressive disclosure) widgets.
+    "adv_cooldown_periods_input",
+    "adv_max_turnover_input",
+    "adv_rebalance_freq_select",
+    "adv_transaction_cost_bps_input",
+    "adv_min_tenure_periods_input",
+    "adv_max_changes_per_period_input",
 }
 
 
@@ -2246,7 +2253,7 @@ PRESET_CONFIGS = {
         "rf_rate_annual": 0.0,
         "vol_floor": 0.015,
         "warmup_periods": 0,
-        # Volatility adjustment details (Phase 10)
+        # Volatility adjustment details
         "vol_adjust_enabled": True,
         "vol_window_length": 63,
         "vol_window_decay": "ewma",
@@ -2258,30 +2265,30 @@ PRESET_CONFIGS = {
         "rebalance_freq": "M",
         "max_turnover": 1.0,
         "transaction_cost_bps": 0,
-        # Fund holding rules (Phase 3)
+        # Fund holding rules
         "min_tenure_periods": 3,
         "max_changes_per_period": 0,  # 0 = unlimited
         "max_active_positions": 0,  # 0 = unlimited (uses selection_count)
-        # Portfolio signal parameters (Phase 4)
+        # Portfolio signal parameters
         "trend_window": 63,
         "trend_lag": 1,
         "trend_min_periods": None,
         "trend_zscore": False,
         "trend_vol_adjust": False,
         "trend_vol_target": None,
-        # Regime analysis (Phase 6)
+        # Regime analysis
         "regime_enabled": False,
         "regime_proxy": "SPX",
-        # Robustness & Expert settings (Phase 7)
+        # Robustness & Expert settings
         "shrinkage_enabled": True,
         "shrinkage_method": "ledoit_wolf",
         "random_seed": 42,
-        # Robustness fallbacks (Phase 14)
+        # Robustness fallbacks
         "condition_threshold": 1.0e12,
         "safe_mode": "hrp",
-        # Constraints (Phase 15)
+        # Constraints
         "long_only": True,
-        # Entry/Exit thresholds (Phase 5)
+        # Entry/Exit thresholds
         "z_entry_soft": 1.0,
         "z_exit_soft": -1.0,
         "soft_strikes": 2,
@@ -2290,18 +2297,18 @@ PRESET_CONFIGS = {
         "sticky_add_periods": 1,
         "sticky_drop_periods": 1,
         "ci_level": 0.0,
-        # Multi-period & Selection settings (Phase 8)
+        # Multi-period & Selection settings
         "multi_period_enabled": True,
         "multi_period_frequency": "A",
         "inclusion_approach": "threshold",
         "slippage_bps": 0,
         "bottom_k": 0,
-        # Selection approach details (Phase 9)
+        # Selection approach details
         "rank_pct": 0.10,
-        # Multi-period bounds (Phase 12)
+        # Multi-period bounds
         "mp_min_funds": 10,
         "mp_max_funds": 25,
-        # Hard thresholds (Phase 13)
+        # Hard thresholds
         "z_entry_hard": None,
         "z_exit_hard": None,
     },
@@ -2353,10 +2360,10 @@ PRESET_CONFIGS = {
         "shrinkage_enabled": True,
         "shrinkage_method": "ledoit_wolf",
         "random_seed": 42,
-        # Robustness fallbacks (Phase 14) - conservative: stricter threshold
+        # Robustness fallbacks - conservative: stricter threshold
         "condition_threshold": 1.0e10,
         "safe_mode": "risk_parity",
-        # Constraints (Phase 15)
+        # Constraints
         "long_only": True,
         # Entry/Exit thresholds - conservative: stricter entry, lenient exit
         "z_entry_soft": 1.5,
@@ -2367,18 +2374,18 @@ PRESET_CONFIGS = {
         "sticky_add_periods": 2,
         "sticky_drop_periods": 1,
         "ci_level": 0.0,
-        # Multi-period & Selection settings (Phase 8) - conservative: longer periods
+        # Multi-period & Selection settings - conservative: longer periods
         "multi_period_enabled": True,
         "multi_period_frequency": "A",
         "inclusion_approach": "threshold",
         "slippage_bps": 5,
         "bottom_k": 0,
-        # Selection approach details (Phase 9)
+        # Selection approach details
         "rank_pct": 0.10,
-        # Multi-period bounds (Phase 12) - conservative: narrower range
+        # Multi-period bounds - conservative: narrower range
         "mp_min_funds": 8,
         "mp_max_funds": 15,
-        # Hard thresholds (Phase 13) - conservative: enabled, stricter
+        # Hard thresholds - conservative: enabled, stricter
         "z_entry_hard": 2.5,
         "z_exit_hard": -2.5,
     },
@@ -2430,10 +2437,10 @@ PRESET_CONFIGS = {
         "shrinkage_enabled": True,
         "shrinkage_method": "ledoit_wolf",
         "random_seed": 42,
-        # Robustness fallbacks (Phase 14) - aggressive: higher tolerance
+        # Robustness fallbacks - aggressive: higher tolerance
         "condition_threshold": 1.0e14,
         "safe_mode": "hrp",
-        # Constraints (Phase 15)
+        # Constraints
         "long_only": True,
         # Entry/Exit thresholds - aggressive: lenient entry, quick exit
         "z_entry_soft": 0.5,
@@ -2444,18 +2451,18 @@ PRESET_CONFIGS = {
         "sticky_add_periods": 1,
         "sticky_drop_periods": 1,
         "ci_level": 0.0,
-        # Multi-period & Selection settings (Phase 8) - aggressive: shorter periods
+        # Multi-period & Selection settings - aggressive: shorter periods
         "multi_period_enabled": True,
         "multi_period_frequency": "Q",
         "inclusion_approach": "threshold",
         "slippage_bps": 0,
         "bottom_k": 0,
-        # Selection approach details (Phase 9)
+        # Selection approach details
         "rank_pct": 0.15,  # more aggressive percentage
-        # Multi-period bounds (Phase 12) - aggressive: wider range
+        # Multi-period bounds - aggressive: wider range
         "mp_min_funds": 15,
         "mp_max_funds": 40,
-        # Hard thresholds (Phase 13) - aggressive: disabled
+        # Hard thresholds - aggressive: disabled
         "z_entry_hard": None,
         "z_exit_hard": None,
     },
@@ -2502,7 +2509,7 @@ HELP_TEXT = {
         "Initial periods where returns are zeroed out to allow volatility estimates to "
         "stabilize before calculating performance metrics."
     ),
-    # Phase 10: Volatility adjustment details
+    # Volatility adjustment details
     "vol_adjust_enabled": "Enable volatility adjustment to scale returns to target vol.",
     "vol_window_length": "Rolling window for volatility estimation (periods). ~63 = 3 months.",
     "vol_window_decay": "EWMA weights recent data more; Simple uses equal weights.",
@@ -2514,25 +2521,25 @@ HELP_TEXT = {
     "rebalance_freq": "How often to rebalance the portfolio weights.",
     "max_turnover": "Maximum portfolio turnover allowed per rebalance (1.0 = 100%).",
     "transaction_cost_bps": "Transaction cost in basis points (0.01% = 1 bp) applied per trade.",
-    # Phase 3: Fund holding rules
+    # Fund holding rules
     "min_tenure": "Minimum periods a fund must be held before it can be removed.",
     "max_changes": "Maximum number of fund additions/removals per rebalance. 0 = unlimited.",
     "max_active": "Maximum active positions in portfolio. 0 = use selection count.",
-    # Phase 4: Trend signal parameters
+    # Trend signal parameters
     "trend_window": "Rolling window size for computing trend signals (in periods).",
     "trend_lag": "Number of periods to lag the signal (minimum 1 for causality).",
     "trend_min_periods": "Minimum observations required in rolling window. Blank = use window.",
     "trend_zscore": "Cross-sectionally standardize signals at each time step.",
     "trend_vol_adjust": "Scale signals by volatility to normalize across assets.",
     "trend_vol_target": "Target volatility for vol-adjusted signals.",
-    # Phase 6: Regime analysis
+    # Regime analysis
     "regime_enabled": "Enable regime detection to adjust behavior in risk-on/risk-off environments.",
     "regime_proxy": "Market index used to detect risk-on/risk-off regimes.",
-    # Phase 7: Robustness & Expert settings
+    # Robustness & Expert settings
     "shrinkage_enabled": "Apply covariance matrix shrinkage to improve stability.",
     "shrinkage_method": "Shrinkage method: Ledoit-Wolf or Oracle Approximating Shrinkage.",
     "random_seed": "Random seed for reproducibility. Change for different random selections.",
-    # Phase 5: Entry/Exit thresholds
+    # Entry/Exit thresholds
     "z_entry_soft": "Z-score threshold for fund entry consideration. Higher = stricter entry.",
     "z_exit_soft": "Z-score threshold for fund exit consideration. Lower = stricter exit.",
     "soft_strikes": "Consecutive periods below exit threshold before removing a fund.",
@@ -2544,7 +2551,7 @@ HELP_TEXT = {
     "sticky_add_periods": "Periods a fund must rank highly before being added to portfolio.",
     "sticky_drop_periods": "Periods a fund must rank poorly before being removed from portfolio.",
     "ci_level": "Confidence interval level for reporting only (0 = disabled, 0.9 = 90% CI).",
-    # Phase 8: Multi-period & Selection settings
+    # Multi-period & Selection settings
     "multi_period_enabled": "Enable rolling multi-period walk-forward analysis.",
     "multi_period_frequency": "Period frequency: Monthly (M), Quarterly (Q), or Annual (A).",
     "lookback_periods": "Number of periods for in-sample (training) window.",
@@ -2555,18 +2562,18 @@ HELP_TEXT = {
     "buy_hold_initial": "Initial selection method for Buy & Hold mode.",
     "slippage_bps": "Additional slippage cost in basis points (market impact).",
     "bottom_k": "Number of bottom-ranked funds to always exclude (0 = none).",
-    # Phase 9: Selection approach details
+    # Selection approach details
     "rank_pct": "Percentage of funds to include (0.10 = top 10%). Used with Top Percentage approach.",
-    # Phase 12: Multi-period bounds
+    # Multi-period bounds
     "mp_min_funds": "Minimum number of funds to hold in multi-period analysis.",
     "mp_max_funds": "Maximum number of funds to hold in multi-period analysis.",
-    # Phase 13: Hard entry/exit thresholds
+    # Hard entry/exit thresholds
     "z_entry_hard": "Hard entry: Z-score for immediate addition (bypasses strikes).",
     "z_exit_hard": "Hard exit: Z-score for immediate removal (bypasses strikes).",
-    # Phase 14: Robustness fallbacks
+    # Robustness fallbacks
     "condition_threshold": "Maximum acceptable condition number for covariance matrix.",
     "safe_mode": "Fallback weighting method when matrix is ill-conditioned.",
-    # Phase 15: Constraints
+    # Constraints
     "long_only": (
         "Enforce long-only positions (no short selling). Built-in schemes (equal, "
         "score-prop, risk parity, HRP, ERC, robust_* defaults) are already non-negative "
@@ -2649,30 +2656,30 @@ def _initial_model_state() -> dict[str, Any]:
         "rebalance_freq": baseline["rebalance_freq"],
         "max_turnover": baseline["max_turnover"],
         "transaction_cost_bps": baseline["transaction_cost_bps"],
-        # Fund holding rules (Phase 3)
+        # Fund holding rules
         "min_tenure_periods": baseline["min_tenure_periods"],
         "max_changes_per_period": baseline["max_changes_per_period"],
         "max_active_positions": baseline["max_active_positions"],
-        # Portfolio signal parameters (Phase 4)
+        # Portfolio signal parameters
         "trend_window": baseline["trend_window"],
         "trend_lag": baseline["trend_lag"],
         "trend_min_periods": baseline["trend_min_periods"],
         "trend_zscore": baseline["trend_zscore"],
         "trend_vol_adjust": baseline["trend_vol_adjust"],
         "trend_vol_target": baseline["trend_vol_target"],
-        # Regime analysis (Phase 6)
+        # Regime analysis
         "regime_enabled": baseline["regime_enabled"],
         "regime_proxy": baseline["regime_proxy"],
-        # Robustness & Expert settings (Phase 7)
+        # Robustness & Expert settings
         "shrinkage_enabled": baseline["shrinkage_enabled"],
         "shrinkage_method": baseline["shrinkage_method"],
         "random_seed": baseline["random_seed"],
-        # Robustness fallbacks (Phase 14)
+        # Robustness fallbacks
         "condition_threshold": baseline["condition_threshold"],
         "safe_mode": baseline["safe_mode"],
-        # Constraints (Phase 15)
+        # Constraints
         "long_only": baseline["long_only"],
-        # Entry/Exit thresholds (Phase 5)
+        # Entry/Exit thresholds
         "z_entry_soft": baseline["z_entry_soft"],
         "z_exit_soft": baseline["z_exit_soft"],
         "soft_strikes": baseline["soft_strikes"],
@@ -2681,18 +2688,18 @@ def _initial_model_state() -> dict[str, Any]:
         "sticky_add_periods": baseline["sticky_add_periods"],
         "sticky_drop_periods": baseline["sticky_drop_periods"],
         "ci_level": baseline["ci_level"],
-        # Multi-period & Selection settings (Phase 8)
+        # Multi-period & Selection settings
         "multi_period_enabled": baseline["multi_period_enabled"],
         "multi_period_frequency": baseline["multi_period_frequency"],
         "inclusion_approach": baseline["inclusion_approach"],
         "slippage_bps": baseline["slippage_bps"],
         "bottom_k": baseline["bottom_k"],
-        # Selection approach details (Phase 9)
+        # Selection approach details
         "rank_pct": baseline["rank_pct"],
-        # Multi-period bounds (Phase 12)
+        # Multi-period bounds
         "mp_min_funds": baseline["mp_min_funds"],
         "mp_max_funds": baseline["mp_max_funds"],
-        # Hard thresholds (Phase 13)
+        # Hard thresholds
         "z_entry_hard": baseline["z_entry_hard"],
         "z_exit_hard": baseline["z_exit_hard"],
     }
@@ -3356,25 +3363,25 @@ def render_model_page() -> None:
                 "rebalance_freq": preset_config["rebalance_freq"],
                 "max_turnover": preset_config["max_turnover"],
                 "transaction_cost_bps": preset_config["transaction_cost_bps"],
-                # Fund holding rules (Phase 3)
+                # Fund holding rules
                 "min_tenure_periods": preset_config["min_tenure_periods"],
                 "max_changes_per_period": preset_config["max_changes_per_period"],
                 "max_active_positions": preset_config["max_active_positions"],
-                # Portfolio signal parameters (Phase 4)
+                # Portfolio signal parameters
                 "trend_window": preset_config["trend_window"],
                 "trend_lag": preset_config["trend_lag"],
                 "trend_min_periods": preset_config["trend_min_periods"],
                 "trend_zscore": preset_config["trend_zscore"],
                 "trend_vol_adjust": preset_config["trend_vol_adjust"],
                 "trend_vol_target": preset_config["trend_vol_target"],
-                # Regime analysis (Phase 6)
+                # Regime analysis
                 "regime_enabled": preset_config["regime_enabled"],
                 "regime_proxy": preset_config["regime_proxy"],
-                # Robustness & Expert settings (Phase 7)
+                # Robustness & Expert settings
                 "shrinkage_enabled": preset_config["shrinkage_enabled"],
                 "shrinkage_method": preset_config["shrinkage_method"],
                 "random_seed": preset_config["random_seed"],
-                # Entry/Exit thresholds (Phase 5)
+                # Entry/Exit thresholds
                 "z_entry_soft": preset_config["z_entry_soft"],
                 "z_exit_soft": preset_config["z_exit_soft"],
                 "soft_strikes": preset_config["soft_strikes"],
@@ -3865,7 +3872,7 @@ def render_model_page() -> None:
                 help=HELP_TEXT["warmup_periods"],
             )
 
-        # Volatility Adjustment Settings (Phase 10) - collapsible
+        # Volatility Adjustment Settings - collapsible
         with st.expander("📊 Volatility Adjustment Details", expanded=False):
             st.caption(
                 "Configure how volatility scaling is applied to returns. "
@@ -3937,84 +3944,97 @@ def render_model_page() -> None:
         model_state["vol_window_decay"] = vol_window_decay
         model_state["vol_ewma_lambda"] = vol_ewma_lambda
 
-        # Section 5: Advanced Settings
+        # Advanced Settings — turnover, transaction costs and fund-holding
+        # rules. Hidden behind an expander (progressive disclosure) so the
+        # common configuration path above stays visible for first-time users.
+        # The widgets keep the same value sources and produce the same config
+        # keys; only their presentation moved inside the expander.
         st.divider()
-        st.subheader("⚙️ Advanced Settings")
-        st.caption("Fine-tune fund addition/removal rules and transaction costs.")
+        with st.expander(
+            "⚙️ Advanced Settings — turnover, costs & holding rules",
+            expanded=False,
+        ):
+            st.caption("Fine-tune fund addition/removal rules and transaction costs.")
 
-        adv_c1, adv_c2 = st.columns(2)
-        with adv_c1:
-            cooldown_periods = st.number_input(
-                "Cooldown Period",
-                min_value=0,
-                max_value=20,
-                value=int(model_state.get("cooldown_periods", 1)),
-                help=HELP_TEXT["cooldown_periods"],
-            )
-            max_turnover = st.number_input(
-                "Maximum Turnover",
-                min_value=0.0,
-                max_value=2.0,
-                value=float(model_state.get("max_turnover", 1.0)),
-                step=0.1,
-                format="%.1f",
-                help=HELP_TEXT["max_turnover"],
-            )
+            adv_c1, adv_c2 = st.columns(2)
+            with adv_c1:
+                cooldown_periods = st.number_input(
+                    "Cooldown Period",
+                    min_value=0,
+                    max_value=20,
+                    value=int(model_state.get("cooldown_periods", 1)),
+                    help=HELP_TEXT["cooldown_periods"],
+                    key="adv_cooldown_periods_input",
+                )
+                max_turnover = st.number_input(
+                    "Maximum Turnover",
+                    min_value=0.0,
+                    max_value=2.0,
+                    value=float(model_state.get("max_turnover", 1.0)),
+                    step=0.1,
+                    format="%.1f",
+                    help=HELP_TEXT["max_turnover"],
+                    key="adv_max_turnover_input",
+                )
 
-        with adv_c2:
-            rebalance_options = ["M", "Q", "A"]
-            rebalance_labels = {"M": "Monthly", "Q": "Quarterly", "A": "Annually"}
-            current_rebal = model_state.get("rebalance_freq", "M")
-            rebalance_freq = st.selectbox(
-                "Rebalance Frequency",
-                options=rebalance_options,
-                format_func=lambda x: rebalance_labels.get(x, x),
-                index=(
-                    rebalance_options.index(current_rebal)
-                    if current_rebal in rebalance_options
-                    else 0
-                ),
-                help=HELP_TEXT["rebalance_freq"],
-            )
-            transaction_cost_bps = st.number_input(
-                "Transaction Cost (bps)",
-                min_value=0,
-                max_value=100,
-                value=int(model_state.get("transaction_cost_bps", 0)),
-                help=HELP_TEXT["transaction_cost_bps"],
-            )
-            if transaction_cost_bps > 0:
-                st.caption(f"Each trade incurs a {transaction_cost_bps} bp cost.")
+            with adv_c2:
+                rebalance_options = ["M", "Q", "A"]
+                rebalance_labels = {"M": "Monthly", "Q": "Quarterly", "A": "Annually"}
+                current_rebal = model_state.get("rebalance_freq", "M")
+                rebalance_freq = st.selectbox(
+                    "Rebalance Frequency",
+                    options=rebalance_options,
+                    format_func=lambda x: rebalance_labels.get(x, x),
+                    index=(
+                        rebalance_options.index(current_rebal)
+                        if current_rebal in rebalance_options
+                        else 0
+                    ),
+                    help=HELP_TEXT["rebalance_freq"],
+                    key="adv_rebalance_freq_select",
+                )
+                transaction_cost_bps = st.number_input(
+                    "Transaction Cost (bps)",
+                    min_value=0,
+                    max_value=100,
+                    value=int(model_state.get("transaction_cost_bps", 0)),
+                    help=HELP_TEXT["transaction_cost_bps"],
+                    key="adv_transaction_cost_bps_input",
+                )
+                if transaction_cost_bps > 0:
+                    st.caption(f"Each trade incurs a {transaction_cost_bps} bp cost.")
 
-        # Section 6: Fund Holding Rules (Phase 3)
-        st.divider()
-        st.subheader("🔒 Fund Holding Rules")
-        st.caption("Control fund tenure and portfolio churn limits.")
+            # Fund holding rules: tenure and portfolio-churn limits.
+            st.divider()
+            st.markdown("**🔒 Fund Holding Rules**")
+            st.caption("Control fund tenure and portfolio churn limits.")
 
-        hold_c1, hold_c2 = st.columns(2)
-        with hold_c1:
-            min_tenure_periods = st.number_input(
-                "Min Tenure (periods)",
-                min_value=0,
-                max_value=24,
-                value=int(model_state.get("min_tenure_periods", 3)),
-                help=HELP_TEXT["min_tenure"],
-            )
-            if min_tenure_periods > 0:
-                st.caption(f"Funds held for at least {min_tenure_periods} periods")
+            hold_c1, hold_c2 = st.columns(2)
+            with hold_c1:
+                min_tenure_periods = st.number_input(
+                    "Min Tenure (periods)",
+                    min_value=0,
+                    max_value=24,
+                    value=int(model_state.get("min_tenure_periods", 3)),
+                    help=HELP_TEXT["min_tenure"],
+                    key="adv_min_tenure_periods_input",
+                )
+                if min_tenure_periods > 0:
+                    st.caption(f"Funds held for at least {min_tenure_periods} periods")
 
-        with hold_c2:
-            max_changes_per_period = st.number_input(
-                "Max Changes/Period",
-                min_value=0,
-                max_value=50,
-                value=int(model_state.get("max_changes_per_period", 0)),
-                help=HELP_TEXT["max_changes"],
-            )
-            if max_changes_per_period == 0:
-                st.caption("Unlimited changes allowed")
-            else:
-                st.caption(f"Max {max_changes_per_period} adds/removes")
+            with hold_c2:
+                max_changes_per_period = st.number_input(
+                    "Max Changes/Period",
+                    min_value=0,
+                    max_value=50,
+                    value=int(model_state.get("max_changes_per_period", 0)),
+                    help=HELP_TEXT["max_changes"],
+                    key="adv_max_changes_per_period_input",
+                )
+                if max_changes_per_period == 0:
+                    st.caption("Unlimited changes allowed")
+                else:
+                    st.caption(f"Max {max_changes_per_period} adds/removes")
 
         # NOTE: Legacy "max_active_positions" UI control removed.
         # Portfolio sizing should be configured via:
@@ -4034,7 +4054,7 @@ def render_model_page() -> None:
         trend_vol_adjust = bool(model_state.get("trend_vol_adjust", False))
         trend_vol_target_out = model_state.get("trend_vol_target")
 
-        # Section 8: Regime Analysis (Phase 6) - collapsible
+        # Section 8: Regime Analysis - collapsible
         st.divider()
         with st.expander("🔄 Regime Analysis (Advanced)", expanded=False):
             st.caption(
@@ -4076,7 +4096,7 @@ def render_model_page() -> None:
                     f"based on {regime_proxy} returns and volatility."
                 )
 
-        # Section 9: Expert Settings (Phase 7) - collapsible
+        # Section 9: Expert Settings - collapsible
         st.divider()
         with st.expander("🔧 Expert Settings", expanded=False):
             st.caption(
@@ -4115,7 +4135,7 @@ def render_model_page() -> None:
                     disabled=not shrinkage_enabled,
                 )
 
-            # Phase 14: Robustness fallbacks
+            # Robustness fallbacks
             st.markdown("**Numerical Stability & Fallback**")
             rob_c1, rob_c2 = st.columns(2)
             with rob_c1:
@@ -4161,7 +4181,7 @@ def render_model_page() -> None:
                 help=HELP_TEXT["random_seed"],
             )
 
-            # Phase 15: Constraints
+            # Constraints
             st.markdown("**Constraints**")
             long_only = st.checkbox(
                 "Long-Only Portfolio",
@@ -4180,7 +4200,7 @@ def render_model_page() -> None:
                 )
 
         # =====================================================================
-        # Section 10: Entry/Exit Rules (Phase 5) - conditional on selection mode
+        # Section 10: Entry/Exit Rules - conditional on selection mode
         # =====================================================================
         st.divider()
         with st.expander("🚪 Entry/Exit Rules", expanded=False):
@@ -4515,30 +4535,30 @@ def render_model_page() -> None:
                 "rebalance_freq": rebalance_freq,
                 "max_turnover": max_turnover,
                 "transaction_cost_bps": transaction_cost_bps,
-                # Fund holding rules (Phase 3)
+                # Fund holding rules
                 "min_tenure_periods": min_tenure_periods,
                 "max_changes_per_period": max_changes_per_period,
                 "max_active_positions": max_active_positions,
-                # Portfolio signal parameters (Phase 4)
+                # Portfolio signal parameters
                 "trend_window": trend_window,
                 "trend_lag": trend_lag,
                 "trend_min_periods": trend_min_periods_out,
                 "trend_zscore": trend_zscore,
                 "trend_vol_adjust": trend_vol_adjust,
                 "trend_vol_target": trend_vol_target_out,
-                # Regime analysis (Phase 6)
+                # Regime analysis
                 "regime_enabled": regime_enabled,
                 "regime_proxy": regime_proxy,
-                # Robustness & Expert settings (Phase 7)
+                # Robustness & Expert settings
                 "shrinkage_enabled": shrinkage_enabled,
                 "shrinkage_method": shrinkage_method,
                 "random_seed": random_seed,
-                # Robustness fallbacks (Phase 14)
+                # Robustness fallbacks
                 "condition_threshold": condition_threshold,
                 "safe_mode": safe_mode,
-                # Constraints (Phase 15)
+                # Constraints
                 "long_only": long_only,
-                # Entry/Exit thresholds (Phase 5)
+                # Entry/Exit thresholds
                 "z_entry_soft": z_entry_soft,
                 "z_exit_soft": z_exit_soft,
                 "soft_strikes": soft_strikes,
@@ -4547,18 +4567,18 @@ def render_model_page() -> None:
                 "sticky_add_periods": sticky_add_periods,
                 "sticky_drop_periods": sticky_drop_periods,
                 "ci_level": ci_level,
-                # Multi-period & Selection settings (Phase 8)
+                # Multi-period & Selection settings
                 "multi_period_enabled": multi_period_enabled,
                 "inclusion_approach": inclusion_approach,
                 "buy_hold_initial": buy_hold_initial,
                 "slippage_bps": slippage_bps,
                 "bottom_k": bottom_k,
-                # Selection approach details (Phase 9)
+                # Selection approach details
                 "rank_pct": rank_pct,
-                # Multi-period bounds (Phase 12)
+                # Multi-period bounds
                 "mp_min_funds": mp_min_funds,
                 "mp_max_funds": mp_max_funds,
-                # Hard thresholds (Phase 13)
+                # Hard thresholds
                 "z_entry_hard": z_entry_hard,
                 "z_exit_hard": z_exit_hard,
                 # Reporting options
