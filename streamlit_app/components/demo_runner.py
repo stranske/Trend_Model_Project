@@ -29,6 +29,11 @@ DEMO_DATA_CANDIDATES = (
 )
 
 DEFAULT_PRESET = "Balanced"
+DEMO_PRESET_SELECTOR_LABEL = "Demo Dataset Preset"
+DEMO_PRESET_SELECTOR_HELP = (
+    "Choose the built-in demo dataset preset; model configuration presets live "
+    "on the Model page."
+)
 
 UI_METRIC_ALIASES: Mapping[str, str] = {
     "sharpe_ratio": "sharpe",
