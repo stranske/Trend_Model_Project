@@ -171,8 +171,17 @@ def _store_dataset(
         selected_bench = st.session_state.get("selected_benchmark")
         system_cols = {selected_rf, selected_bench, "Date"} - {None}
         fund_cols = [c for c in all_columns if c not in system_cols]
-        st.session_state["selected_fund_columns"] = list(fund_cols)
-        st.session_state["fund_columns"] = list(fund_cols)
+        restored_funds = st.session_state.get("analysis_fund_columns") or st.session_state.get(
+            "fund_columns"
+        )
+        if isinstance(restored_funds, list):
+            selected_funds = [c for c in restored_funds if c in fund_cols]
+        else:
+            selected_funds = []
+        if not selected_funds:
+            selected_funds = list(fund_cols)
+        st.session_state["selected_fund_columns"] = list(selected_funds)
+        st.session_state["fund_columns"] = list(selected_funds)
         st.session_state["_editor_version"] = 0
 
 
@@ -621,9 +630,15 @@ def render_data_page() -> None:
 
             # Initialize fund selection if needed (list for order stability)
             if "selected_fund_columns" not in st.session_state:
-                st.session_state["selected_fund_columns"] = list(available_funds)
+                restored_selection = st.session_state.get("fund_columns")
+                if isinstance(restored_selection, list):
+                    st.session_state["selected_fund_columns"] = [
+                        f for f in restored_selection if f in available_funds
+                    ]
+                else:
+                    st.session_state["selected_fund_columns"] = list(available_funds)
             if "fund_columns" not in st.session_state:
-                st.session_state["fund_columns"] = list(available_funds)
+                st.session_state["fund_columns"] = list(st.session_state["selected_fund_columns"])
 
             # Current valid selection (respect available funds)
             current_selection = [
@@ -632,10 +647,12 @@ def render_data_page() -> None:
 
             # Default: select all funds (everything except system/index columns).
             # Do this once per dataset key so we don't overwrite user choices.
-            if not st.session_state.get(init_key):
+            if not st.session_state.get(init_key) and not current_selection:
                 st.session_state["selected_fund_columns"] = list(default_selected_funds)
                 st.session_state["fund_columns"] = list(default_selected_funds)
                 current_selection = list(default_selected_funds)
+                st.session_state[init_key] = True
+            elif not st.session_state.get(init_key):
                 st.session_state[init_key] = True
 
             if not st.session_state.get("fund_columns"):
@@ -774,10 +791,13 @@ def render_data_page() -> None:
 
             # Keep downstream analysis aligned with the visible checkbox state.
             sanitized_selection = [c for c in new_selection_list if c not in system_columns]
-            if st.session_state.get("analysis_fund_columns") != sanitized_selection:
+            previous_analysis_selection = st.session_state.get("analysis_fund_columns")
+            if previous_analysis_selection != sanitized_selection:
                 st.session_state["analysis_fund_columns"] = list(sanitized_selection)
-                analysis_runner.clear_cached_analysis()
-            st.caption(f"Applied automatically for analysis: {len(sanitized_selection)} funds")
+                if previous_analysis_selection is not None:
+                    analysis_runner.clear_cached_analysis()
+            fund_label = "fund" if len(sanitized_selection) == 1 else "funds"
+            st.caption(f"Applied automatically for analysis: {len(sanitized_selection)} {fund_label}")
 
             # Show current configuration summary
             st.markdown("---")
