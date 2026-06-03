@@ -29,6 +29,7 @@ from trend_analysis.backtesting.harness import (
     _to_float,
     _weights_to_dict,
 )
+from trend_analysis.metrics import sortino_ratio
 
 
 class MeanWinnerStrategy:
@@ -181,11 +182,10 @@ def test_transaction_costs_applied_to_turnover() -> None:
     assert result.turnover.gt(0).all()
     assert result.transaction_costs.gt(0).all()
 
-    active_returns = result.returns.dropna()
-    downside = active_returns[active_returns < 0]
     periods_per_year = _infer_periods_per_year(pd.DatetimeIndex(active_returns.index))
-    expected_sortino = active_returns.mean() / (
-        downside.std(ddof=0) * np.sqrt(periods_per_year)
+    expected_sortino = sortino_ratio(
+        active_returns,
+        periods_per_year=periods_per_year,
     )
     summary = result.summary()
     assert summary["metrics"]["sortino"] == pytest.approx(expected_sortino)
