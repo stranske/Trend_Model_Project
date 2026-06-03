@@ -1,6 +1,15 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
+## 2026-06-03T07:31Z - closer lane advanced PR #5452 schema/docs CI and review fixes
+
+- Repo/issue/PR: stranske/Trend_Model_Project #5399 / #5452 (`codex/issue-5399-monthly-cost-doc`).
+- Agent: codex closer from neutral Code workspace; selected as the complex lane after batch-merging #5449, reopening #5396 pending verifier, and closing #5397/#5398 on verifier PASS.
+- Failure/review evidence: live PR state was `UNSTABLE` with failing Python CI 3.12/3.13, and GraphQL showed three unresolved threads: `run.monthly_cost` was added to `config/defaults.yml` but not regenerated into `config.schema.json` / `config.schema.compact.json`, and `docs/config.md` documented inert `run.n_jobs` instead of live `run.jobs`.
+- Fix: regenerated schema artifacts with `scripts/generate_config_schema.py`, updated the Run Section docs example to `jobs`, and added tests proving the checked-in schema accepts `run.monthly_cost` and the docs no longer advertise `run.n_jobs`.
+- Validation before push: `pytest tests/test_monthly_cost_documented.py tests/test_config_schema_generation.py tests/monte_carlo/strategy/test_validation.py -q` -> 35 passed; `scripts/validate_config.py config/defaults.yml` -> valid; focused `ruff` and `git diff --check` passed.
+- Current state: local branch `closer-5452-reviewfix` rebased onto current `origin/phase-3`; next action is race-check, push to `codex/issue-5399-monthly-cost-doc`, resolve the three review threads, and let fresh GitHub checks rerun.
+
 ## 2026-06-03T07:05Z - closer lane rebased PR #5449 after #5451 merge
 
 - Repo/issue/PR: stranske/Trend_Model_Project #5396 / #5449 (`codex/issue-5396-regime-annualise-volatility`).

@@ -220,6 +220,7 @@
       "deterministic": true,
       "log_file": "logs/phase1.log",
       "log_level": "INFO",
+      "monthly_cost": 0.0,
       "n_jobs": -1
     },
     "sample_split": {
@@ -1194,13 +1195,13 @@
               "default": 0,
               "description": "overrides transaction_cost_bps when provided",
               "nl_editable": true,
-              "type": "integer"
+              "type": "number"
             },
             "slippage_bps": {
               "default": 0,
               "description": "additional penalty applied on turnover",
               "nl_editable": true,
-              "type": "integer"
+              "type": "number"
             }
           },
           "type": "object"
@@ -1272,7 +1273,7 @@
         },
         "max_turnover": {
           "default": 1.0,
-          "description": "optional turnover cap (1.0 = no cap); may be a scalar cap or a regime-to-cap mapping",
+          "description": "optional turnover cap (1.0 = no cap)",
           "nl_editable": true,
           "type": [
             "number",
@@ -2028,6 +2029,7 @@
         "deterministic": true,
         "log_file": "logs/phase1.log",
         "log_level": "INFO",
+        "monthly_cost": 0.0,
         "n_jobs": -1
       },
       "description": "Runtime execution settings.",
@@ -2074,6 +2076,12 @@
           "description": "DEBUG | INFO | WARNING | ERROR",
           "nl_editable": true,
           "type": "string"
+        },
+        "monthly_cost": {
+          "default": 0.0,
+          "description": "flat decimal return subtracted from each fund every period",
+          "nl_editable": true,
+          "type": "number"
         },
         "n_jobs": {
           "default": -1,
