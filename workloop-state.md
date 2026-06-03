@@ -1,3 +1,13 @@
+## 2026-06-03T23:04Z - opener (codex): issue #5416 regime registry slice
+
+- Repo: `stranske/Trend_Model_Project`
+- Issue: `#5416` (`A37 - Umbrella: generalize beyond trend`)
+- Branch: `codex/issue-5416-regime-registry`
+- Worktree: `/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/trend-5416-regime-registry`
+- Selection: high-priority remaining liveness candidates were scoped on owner evidence; priority-normal #5476 already has PR #5477/source disposition pending; #5416 is the oldest unlinked implementation candidate with a bounded first-child deliverable.
+- Implementation: added `docs/methodology/GENERALIZATION_EPIC.md`, introduced `RegimeModel`/`regime_registry`, registered default `binary_threshold`, and added `tests/test_regime_registry.py`.
+- Validation so far: `python -m pytest tests/test_regime_registry.py -q` passed; deliberate-break dispatch check failed as expected when forced to `binary_threshold`; `HOME=/tmp/trend-test-home python -m pytest tests/test_regimes.py tests/test_pipeline_helpers.py -q` passed; focused ruff and `git diff --check` passed. Plain `tests/ -k regime` hit local NumPy 2.x vs xarray/pyarrow ABI/cache issues before code assertions.
+
 # stranske/Trend_Model_Project
 # Workloop State
 
