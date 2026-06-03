@@ -20,6 +20,16 @@
 - Validation: `python -m pytest tests/app/test_data_page.py::test_fund_selection_commits_visible_checkbox_state -q` -> passed; deliberate-break gate temporarily removed the `analysis_fund_columns` assignment and the focused test failed with `KeyError: 'analysis_fund_columns'`, then restored -> passed; `python -m pytest tests/app/test_data_page.py -q` -> 5 passed; focused `ruff`, focused `mypy`, and `git diff --check` passed.
 - Current state: ready-for-review PR #5473 opened at https://github.com/stranske/Trend_Model_Project/pull/5473 from `codex/issue-5413-selection-commit`, non-draft, with `agent:codex`, `agents:keepalive`, and `autofix`. `pr_opened` was relayed with `active.source_repo=stranske/Trend_Model_Project`, `active.source_issue=5413`, `active.source_pr=5473`, and `active.next_action=wait_for_keepalive`. Next action belongs to keepalive/Gate.
 
+## 2026-06-03T14:15Z - opener lane issue #5412 PR materializing
+
+- Repo/issue: stranske/Trend_Model_Project #5412 (`A32 - Reconcile the two preset vocabularies`).
+- Branch: `codex/issue-5412-preset-vocabulary`; base `origin/phase-3`.
+- Agent: codex opener from neutral Code workspace; used persistent automation worktree `~/.codex/automations/pd-workloop-resume/worktrees/trend-5412-preset-vocabulary`.
+- Selection: raw opener cap was below 5. Existing opener PRs were classified first: #5469 active-moving with an in-progress Gate, #5468 green/merge-clean but carrying stale attention/keepalive failure state and review history as a closer-drain candidate, and #5440 scoped to the #5389 strict-config design blocker. Priority high issues #5343 and LMS #180 remained scoped outside automation reach; #5412 was the oldest unlinked implementation issue outside scoped blockers after #5410/#5411 were already linked to open PRs.
+- Implementation: chose the issue-authorized label route rather than changing preset behavior. Added `DEMO_PRESET_SELECTOR_LABEL` / `DEMO_PRESET_SELECTOR_HELP` in `streamlit_app.components.demo_runner` and changed the home selector from ambiguous `Strategy Preset` to `Demo Dataset Preset`, explicitly distinguishing it from Model page configuration presets.
+- Validation: `python -m pytest tests/app/test_preset_vocabulary.py -q` -> 1 passed; deliberate-break gate temporarily restored `"Strategy Preset"` in `streamlit_app/app.py` and the new test failed, then restored and reran green. `python -m ruff check streamlit_app/app.py streamlit_app/components/demo_runner.py tests/app/test_preset_vocabulary.py` -> passed. `python -m mypy streamlit_app/app.py streamlit_app/components/demo_runner.py tests/app/test_preset_vocabulary.py` -> passed. `git diff --check` -> passed.
+- Current state: ready-for-review PR #5470 opened at https://github.com/stranske/Trend_Model_Project/pull/5470 from `codex/issue-5412-preset-vocabulary`, non-draft, with `agent:codex`, `agents:keepalive`, and `autofix`. Next action belongs to keepalive/Gate.
+
 ## 2026-06-03T09:08:49Z - opener lane issue #5403 PR materializing
 
 - Repo/issue: stranske/Trend_Model_Project #5403 (`A22 - Consolidate transaction-cost logic fanned across >=5 implementations`).

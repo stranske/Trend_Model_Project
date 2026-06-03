@@ -759,22 +759,25 @@ def render_data_page() -> None:
 
             _t_render_done = time.perf_counter()
 
-            # Always-visible measurements (so you don't need to open Debug).
-            st.caption(
-                " | ".join(
-                    [
-                        f"Perf: total {(_t_render_done - _t_fund_start) * 1000:.0f}ms",
-                        f"render {(_t_render_done - _t_render_start) * 1000:.0f}ms",
-                        f"seed {(_t_seed_done - _t_seed_start) * 1000:.0f}ms",
-                        f"funds {len(available_funds)}",
-                        f"selected {n_selected}",
-                        f"default_selected {len(default_selected_funds)}",
-                        f"init_applied {bool(st.session_state.get(init_key))}",
-                        f"defaults_seeded {len(defaults)}",
-                        f"range {len(range_funds)}",
-                    ]
+            # Perf diagnostics are developer-only; gate behind a debug flag so the
+            # production UI does not leak raw timings/internal counters (issue #5411).
+            # The same measurements remain available in the Debug expander below.
+            if st.session_state.get("show_perf_diagnostics"):
+                st.caption(
+                    " | ".join(
+                        [
+                            f"Perf: total {(_t_render_done - _t_fund_start) * 1000:.0f}ms",
+                            f"render {(_t_render_done - _t_render_start) * 1000:.0f}ms",
+                            f"seed {(_t_seed_done - _t_seed_start) * 1000:.0f}ms",
+                            f"funds {len(available_funds)}",
+                            f"selected {n_selected}",
+                            f"default_selected {len(default_selected_funds)}",
+                            f"init_applied {bool(st.session_state.get(init_key))}",
+                            f"defaults_seeded {len(defaults)}",
+                            f"range {len(range_funds)}",
+                        ]
+                    )
                 )
-            )
 
             new_selection_list = [
                 fund
