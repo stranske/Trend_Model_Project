@@ -16,7 +16,9 @@ import streamlit as st
 
 from streamlit_app.components import mc_plots, mc_tables
 from streamlit_app.components.data_cache import cache_key_for_frame
+from streamlit_app.components.guardrails import infer_frequency
 from streamlit_app.components.progress_eta import progress_ratio_and_remaining
+from trend_analysis.config.ui_mapping import build_config_from_ui_state
 from trend_analysis.monte_carlo.aggregator import aggregate_monte_carlo_results
 from trend_analysis.monte_carlo.export_bundle import save as save_chart_bundle
 from trend_analysis.monte_carlo.registry import (
@@ -50,6 +52,91 @@ MC_RUNNING_KEY = "mc_running"
 MC_CANCEL_KEY = "mc_cancel_requested"
 MC_LAST_ERROR_KEY = "mc_last_error"
 MC_LAST_VALIDATION_KEY = "mc_last_validation"
+
+
+def _session_frequency(returns: pd.DataFrame) -> str:
+    meta = st.session_state.get("schema_meta")
+    if isinstance(meta, Mapping):
+        freq = meta.get("frequency_code") or meta.get("frequency")
+        if isinstance(freq, str) and freq.strip():
+            return freq.strip().upper()
+    return infer_frequency(returns.index)
+
+
+def _session_csv_path() -> str | None:
+    for key in ("data_saved_path", "uploaded_file_path"):
+        candidate = st.session_state.get(key)
+        if isinstance(candidate, str) and candidate:
+            path = Path(candidate)
+            if path.exists() and path.suffix.lower() == ".csv":
+                return str(path)
+    return None
+
+
+def _analysis_frame_from_session(
+    returns: pd.DataFrame,
+    model_state: Mapping[str, Any],
+    benchmark: str | None,
+) -> pd.DataFrame:
+    applied_funds = st.session_state.get("analysis_fund_columns")
+    if not isinstance(applied_funds, list):
+        applied_funds = st.session_state.get("fund_columns")
+    if not isinstance(applied_funds, list):
+        applied_funds = []
+
+    selected_rf = st.session_state.get("selected_risk_free")
+    info_ratio_benchmark = model_state.get("info_ratio_benchmark")
+    regime_proxy = None
+    if bool(model_state.get("regime_enabled", False)):
+        regime_proxy = model_state.get("regime_proxy")
+    prohibited = {selected_rf, benchmark, info_ratio_benchmark, regime_proxy} - {None}
+
+    sanitized_funds = [c for c in applied_funds if c in returns.columns and c not in prohibited]
+    keep_cols = list(sanitized_funds)
+    for extra in (selected_rf, benchmark, regime_proxy):
+        if extra and extra in returns.columns and extra not in keep_cols:
+            keep_cols.append(extra)
+    return returns[keep_cols].copy() if keep_cols else returns.copy()
+
+
+def _returns_to_price_history(returns: pd.DataFrame) -> pd.DataFrame:
+    numeric = returns.apply(pd.to_numeric, errors="coerce").dropna(axis=1, how="all")
+    if numeric.empty:
+        raise ValueError("session returns contain no numeric columns")
+    if (numeric <= -1.0).any().any():
+        raise ValueError("session returns contain values <= -1")
+    return (1.0 + numeric).cumprod() * 100.0
+
+
+def _session_runner_kwargs() -> tuple[dict[str, Any], str | None]:
+    returns = st.session_state.get("returns_df")
+    model_state = st.session_state.get("model_state")
+    if not isinstance(returns, pd.DataFrame) or not isinstance(model_state, Mapping):
+        return {}, None
+
+    benchmark = st.session_state.get("selected_benchmark")
+    selected_rf = st.session_state.get("selected_risk_free")
+    effective_model_state = dict(model_state)
+    if selected_rf:
+        effective_model_state["risk_free_column"] = selected_rf
+
+    try:
+        analysis_frame = _analysis_frame_from_session(
+            returns,
+            effective_model_state,
+            benchmark if isinstance(benchmark, str) else None,
+        )
+        base_config = build_config_from_ui_state(
+            returns=analysis_frame,
+            model_state=effective_model_state,
+            benchmark=benchmark if isinstance(benchmark, str) else None,
+            frequency=_session_frequency(analysis_frame),
+            csv_path=_session_csv_path(),
+        )
+        price_history = _returns_to_price_history(analysis_frame)
+    except Exception as exc:
+        return {}, str(exc)
+    return {"base_config": base_config, "price_history": price_history}, None
 
 
 class _RunCancelled(RuntimeError):
@@ -502,6 +589,11 @@ def render() -> None:
     if not isinstance(settings, MonteCarloSettings):
         st.error("Scenario settings are not resolved.")
         return
+    runner_kwargs, session_error = _session_runner_kwargs()
+    if session_error:
+        st.warning("Current Data/Model state could not be applied to Monte Carlo.")
+        with st.expander("Details"):
+            st.write(session_error)
 
     st.subheader("Run Overrides")
     override_cols = st.columns(2)
@@ -579,7 +671,7 @@ def render() -> None:
                 st.session_state[MC_CANCEL_KEY] = True
 
     if validate_clicked:
-        runner = MonteCarloRunner(scenario)
+        runner = MonteCarloRunner(scenario, **runner_kwargs)
         if hasattr(runner, "validate") and callable(getattr(runner, "validate")):
             try:
                 issues = runner.validate()
@@ -614,7 +706,7 @@ def render() -> None:
                 seed=seed,
                 jobs=jobs,
             )
-            runner = MonteCarloRunner(run_scenario)
+            runner = MonteCarloRunner(run_scenario, **runner_kwargs)
             progress_callback = _progress_callback_factory(
                 progress_bar=progress_bar,
                 elapsed_slot=elapsed_slot,
@@ -640,7 +732,3 @@ def render() -> None:
     if results is not None:
         st.divider()
         _render_results(results, fold_selection=fold_selection)
-
-
-if _should_auto_render():
-    render()

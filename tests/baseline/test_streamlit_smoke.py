@@ -27,7 +27,7 @@ _CLEAN_PAGES = [
     "streamlit_app/pages/3_Results.py",
     "streamlit_app/pages/4_Help.py",
     "streamlit_app/pages/8_Validation.py",
-    "streamlit_app/pages/monte_carlo.py",
+    "streamlit_app/pages/5_Monte_Carlo.py",
 ]
 
 
