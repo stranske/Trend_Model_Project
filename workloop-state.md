@@ -13,6 +13,27 @@
   - `git diff --check` -> passed.
 - Current state: recovery ready to commit/push; after push, fresh Gate should rerun asynchronously.
 
+## 2026-06-03T04:34:03Z - opener lane issue #5393 PR materializing
+
+- Repo: stranske/Trend_Model_Project
+- Issue: #5393 `A13 - portfolio.cost_model.* is dead on the main pipeline`
+- Branch: `codex/issue-5393-cost-model-wiring`
+- Agent: codex opener from neutral Code workspace; used an automation-owned worktree outside the canonical repo.
+- Selection:
+  - ACTION A succeeded and full opener discovery ran. Cap-health showed raw cap below 5 with #5443/#5444 active-moving and #5440 still scoped-blocked on #5389.
+  - The approved queue's high-priority trip-planner items and normal Inv-Man/Manager items were stale: matching closed issues/merged PRs exist. A duplicate trip-planner issue #1302 was materialized from the stale queue, then closed with durable evidence pointing to #1240/#1241.
+  - Liveness fallback selected #5393 as the oldest unlinked implementation issue outside scoped blockers; no open PR matched #5393 or `portfolio.cost_model`.
+- Implementation:
+  - Added `_resolve_portfolio_cost_bps()` in `multi_period/engine.py` so `portfolio.cost_model.bps_per_trade` and `portfolio.cost_model.slippage_bps` feed the existing turnover-cost formula, with top-level `transaction_cost_bps` / `slippage_bps` as fallbacks.
+  - Updated `schema_generator.py` so `portfolio.cost_model` bps fields are typed as non-negative numbers instead of inferred integers.
+  - Added `tests/test_cost_model_wired.py` and schema-generator coverage for float cost-model bps.
+- Validation:
+  - `PYTHONPATH=src MPLCONFIGDIR=/private/tmp/mplconfig-trend-5393 python -m pytest tests/test_cost_model_wired.py tests/test_config_schema_generation.py -q` -> 8 passed, 2 existing Pandas4 warnings.
+  - `PYTHONPATH=src python -m ruff check src/trend_analysis/multi_period/engine.py src/trend_analysis/config/schema_generator.py tests/test_cost_model_wired.py tests/test_config_schema_generation.py` -> passed.
+  - `git diff --check` -> passed.
+  - Deliberate-break gate: temporarily reverted the engine to top-level-only costs; `tests/test_cost_model_wired.py` failed with `transaction_cost == 0.0` vs expected `0.0035`; restored implementation and reran successfully.
+- Current state: local implementation ready to commit and push. Next action is open a ready-for-review PR with labels `agent:codex`, `agents:keepalive`, and `autofix`, then relay `pr_opened`.
+
 ## 2026-06-01T07:00:12Z - closer lane addressed PR #5374 review blockers
 
 - Repo/issue/PR: stranske/Trend_Model_Project #5343 / #5374 (`claude/issue-5343-stlite-demo`).
