@@ -119,3 +119,84 @@ contract checks.
 
 The deprecated `trend-model run-ui` command continues to work but will be
 removed in a future release.
+
+## Monte Carlo Commands
+
+Use `trend mc` for the Monte Carlo scenario workflow: discover registered
+scenarios, validate scenario files, execute simulations, and export charts from
+completed bundles. Scenario authoring and output interpretation stay in
+`docs/phase-3/MonteCarlo.md`.
+
+### List Scenarios (`trend mc list`)
+
+List registered scenarios from the default registry.
+
+```bash
+trend mc list
+```
+
+Filter by tags with `--tags`. The option accepts comma-separated values and can
+be repeated. Use `--format json` when another tool should consume the registry
+listing; the default format is `table`. Use `--registry PATH` to point at a
+custom scenario registry.
+
+```bash
+trend mc list --tags hedge_fund --format json
+trend mc list --tags hedge_fund,example --registry config/scenarios/registry.yml
+```
+
+### Validate Scenarios (`trend mc validate`)
+
+Validate all registered scenarios:
+
+```bash
+trend mc validate
+```
+
+Pass a scenario name or a config path to validate a single scenario. Use
+`--tags` to validate a subset of registered scenarios and `--registry PATH` to
+override the registry location.
+
+```bash
+trend mc validate config/scenarios/monte_carlo/hf_equity_ls_10y.yml
+trend mc validate hf_equity_ls_10y --registry config/scenarios/registry.yml
+```
+
+### Run Scenarios (`trend mc run`)
+
+Run a scenario by name or config path with `--scenario`, and optionally choose
+the output bundle directory with `--out`.
+
+```bash
+trend mc run --scenario hf_equity_ls_10y --out outputs/mc_run_1
+```
+
+Runtime overrides include `--data` for an alternate CSV/Parquet input,
+`--formats` for output formats (`csv`, `json`, `parquet`; comma-separated or
+repeatable), `--n-paths`, `--jobs`, `--seed`, `--dry-run`, `--no-progress`, and
+`--registry`.
+
+```bash
+trend mc run --scenario hf_equity_ls_10y --n-paths 500 --jobs 4 --seed 123
+trend mc run --scenario cost_regime_example --dry-run --n-paths 10
+```
+
+### Export Charts (`trend mc viz`)
+
+Render chart artifacts from an existing Monte Carlo bundle. `--bundle` points
+to the bundle directory and `--out` points to the export directory.
+
+```bash
+trend mc viz \
+  --bundle outputs/mc_run_1 \
+  --out outputs/mc_run_1_exports \
+  --charts fan,path_dist,risk_return \
+  --html --json --png
+```
+
+`--charts` is comma-separated and defaults to `fan,path_dist,risk_return`.
+Choose at least one export format with `--html`, `--json`, or `--png`; PNG
+export requires a working Kaleido installation.
+
+For scenario authoring and output interpretation, see
+`docs/phase-3/MonteCarlo.md`.

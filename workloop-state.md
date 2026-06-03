@@ -1,6 +1,18 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
+## 2026-06-03T21:10:00Z - opener lane issue #5476 PR materializing
+
+- Repo/issue: stranske/Trend_Model_Project #5476 (`docs/CLI.md missing Monte Carlo CLI commands section (mc run/list/validate/viz)`).
+- Branch: `codex/issue-5476-mc-cli-docs`; base `origin/phase-3`.
+- Agent: codex opener from neutral Code workspace; used persistent automation worktree `/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/trend-5476-mc-cli-docs`.
+- Cap/drain before selection: raw opener cap below 5. #5440 remains scoped/product-blocked on #5389 strict-config key design with failing Gate and DIRTY merge state. #5474 has green Gate/Python/guard/conformance evidence and only a non-required Claude review failure, so it is a closer-drain candidate, not an opener patch target.
+- Selection: priority-high remote issues were scoped (#5343, LMS #180); priority normal/low remote issue searches were empty. Created approved queue issue #5476 because no matching open issue or PR existed for the approved Trend docs/CLI Monte Carlo item.
+- Implementation: added a `## Monte Carlo Commands` section to `docs/CLI.md` documenting `trend mc list`, `trend mc validate`, `trend mc run`, and `trend mc viz`, including flags/defaults, runnable examples, and a cross-reference to `docs/phase-3/MonteCarlo.md`.
+- Validation: `grep -n 'mc list\|mc validate\|mc run\|mc viz' docs/CLI.md` returned distinct matches; `PYTHONPATH=src python -m trend_analysis.cli mc --help | grep -E 'list|validate|run|viz'` returned all four subcommands; `PYTHONPATH=src python -m trend_analysis.cli mc run --help` and `mc viz --help` matched documented flags, with pre-existing local NumPy optional-extension warnings only; `PYTHONPATH=src python -m pytest tests/test_cli_mc.py -q` -> 26 passed, 3 warnings; `git diff --check` passed.
+- Deliberate-break gate: temporarily renamed parser flag `--n-paths` to `--num-paths`; `PYTHONPATH=src python -m pytest tests/test_cli_mc.py::test_mc_run_overrides_and_manifest -q` failed with `unrecognized arguments: --n-paths 3`; reverted and reran full `tests/test_cli_mc.py` green.
+- Current state: ready to commit, push, open ready-for-review PR, and relay `pr_opened` with `active.source_repo=stranske/Trend_Model_Project`, `active.source_issue=5476`, and the new PR number. Next action after PR creation belongs to keepalive/Gate.
+
 ## 2026-06-03T16:46:30Z - closer (codex) PR #5473 CI fixture recovery
 
 - Selected closer lane: `stranske/Trend_Model_Project` PR **#5473** (`codex/issue-5413-selection-commit`), source issue **#5413**.
