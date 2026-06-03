@@ -1718,6 +1718,10 @@ def run(
         "robust_risk_parity",
     }
     risk_weight_engine: Any = None
+    # Records why we silently fell back to equal weight when a risk-weighting
+    # engine fails to construct, so the Results page banner (and the run
+    # envelope) can surface it instead of silently delivering equal weights.
+    weight_engine_fallback: dict[str, Any] | None = None
     if use_risk_weighting:
         try:
             from ..plugins import create_weight_engine
@@ -1730,9 +1734,20 @@ def run(
                 robustness_cfg if isinstance(robustness_cfg, Mapping) else None,
             )
             risk_weight_engine = create_weight_engine(weighting_scheme, **weight_engine_params)
-        except Exception:  # pragma: no cover - best-effort only
+        except Exception as exc:
             use_risk_weighting = False
             risk_weight_engine = None
+            weight_engine_fallback = {
+                "engine": weighting_scheme,
+                "error_type": exc.__class__.__name__,
+                "error": str(exc) or exc.__class__.__name__,
+            }
+            logger.warning(
+                "Risk-weighting engine %r failed to construct (%s); falling back "
+                "to equal weight for this multi-period run.",
+                weighting_scheme,
+                exc,
+            )
 
     policy_cfg = cast(dict[str, Any], cfg.portfolio.get("weight_policy", {}))
     policy_mode = str(policy_cfg.get("mode", policy_cfg.get("policy", "drop"))).lower()
@@ -3946,6 +3961,7 @@ def run(
             pt.out_end,
         )
         res_dict["missing_policy_diagnostic"] = dict(missing_policy_diagnostic)
+        res_dict["weight_engine_fallback"] = weight_engine_fallback
         # Attach per-period manager change log and execution stats
         res_dict["manager_changes"] = events
         res_dict["turnover"] = period_turnover

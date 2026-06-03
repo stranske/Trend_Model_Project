@@ -236,6 +236,25 @@ def _run_multi_period_simulation(
     if turnover_series is not None:
         details["turnover"] = turnover_series
 
+    # Surface a silent risk-weighting -> equal-weight fallback recorded by the
+    # multi-period engine so the Results page banner fires (see
+    # multi_period/engine.py and 3_Results.py).
+    mp_fallback: dict[str, Any] | None = next(
+        (
+            res["weight_engine_fallback"]
+            for res in period_results
+            if isinstance(res, dict) and isinstance(res.get("weight_engine_fallback"), dict)
+        ),
+        None,
+    )
+    if mp_fallback is not None:
+        logger.warning(
+            "Multi-period weight engine fallback used (engine=%s, error=%s); "
+            "equal weights applied.",
+            mp_fallback.get("engine"),
+            mp_fallback.get("error") or mp_fallback.get("error_type"),
+        )
+
     # Build structured Results object if possible
     structured: Results | None = None
     try:
@@ -254,6 +273,7 @@ def _run_multi_period_simulation(
         period_results=period_results,
         period_count=len(period_results),
         timings=timings,
+        fallback_info=mp_fallback,
     )
 
     if structured is not None:
