@@ -1,5 +1,4 @@
 import math
-from statistics import NormalDist
 
 import pandas as pd
 import pytest
@@ -11,8 +10,12 @@ from trend_analysis.metrics import (
 )
 
 
+def _standard_normal_cdf(value: float) -> float:
+    return 0.5 * (1.0 + math.erf(value / math.sqrt(2.0)))
+
+
 def test_psr_matches_known_fixture() -> None:
-    expected = NormalDist().cdf(
+    expected = _standard_normal_cdf(
         (0.8 - 0.25) * math.sqrt(47) / math.sqrt(1 + (((3 - 1) / 4) * 0.8**2))
     )
 
