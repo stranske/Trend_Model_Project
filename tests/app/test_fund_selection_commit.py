@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import ModuleType
 
 import pandas as pd
 import pytest
 
-pytest_plugins = ("tests.app.test_data_page",)
+from tests.app.test_data_page import DummyStreamlit, data_page as _shared_data_page
+
+
+@pytest.fixture(name="data_page")
+def data_page_fixture(monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType, DummyStreamlit]:
+    return _shared_data_page.__wrapped__(monkeypatch)
 
 
 def _sample_frame() -> pd.DataFrame:
