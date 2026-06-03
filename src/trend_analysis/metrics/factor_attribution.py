@@ -14,40 +14,45 @@ def factor_exposures(
 ) -> pd.DataFrame:
     """Estimate per-manager factor exposures with ordinary least squares.
 
-    Rows are aligned by index, then any row containing a missing manager return
-    or factor value is dropped before fitting each manager column independently.
+    Rows are aligned by index, then missing manager returns are dropped per
+    manager together with factor rows before fitting each manager independently.
     """
 
     if not isinstance(returns, pd.DataFrame):
         raise TypeError("returns must be a pandas DataFrame")
     if not isinstance(factors, pd.DataFrame):
         raise TypeError("factors must be a pandas DataFrame")
-    if returns.empty:
+    if len(returns.columns) == 0:
         raise ValueError("returns must contain at least one manager column")
-    if factors.empty:
+    if len(factors.columns) == 0:
         raise ValueError("factors must contain at least one factor column")
 
-    joined = returns.join(factors, how="inner", lsuffix="__return")
-    aligned = joined.dropna(axis=0, how="any")
-    clean_returns = aligned.loc[:, returns.columns]
-    clean_factors = aligned.loc[:, factors.columns]
-
     min_observations = len(factors.columns) + 2
-    if len(aligned) < min_observations:
-        raise ValueError(
-            "insufficient observations after alignment: "
-            f"need at least {min_observations}, got {len(aligned)}"
-        )
-
-    factor_matrix = clean_factors.to_numpy(dtype=float)
-    if add_intercept:
-        design = np.column_stack([np.ones(len(clean_factors), dtype=float), factor_matrix])
-    else:
-        design = factor_matrix
+    aligned_index = returns.index.intersection(factors.index)
+    aligned_returns = returns.loc[aligned_index]
+    aligned_factors = factors.loc[aligned_index]
 
     rows: list[dict[str, float]] = []
-    for manager in clean_returns.columns:
-        y = clean_returns[manager].to_numpy(dtype=float)
+    for manager in aligned_returns.columns:
+        manager_returns = aligned_returns.loc[:, manager]
+        valid_rows = manager_returns.notna() & aligned_factors.notna().all(axis=1)
+        clean_factors = aligned_factors.loc[valid_rows]
+        clean_returns = manager_returns.loc[valid_rows]
+        if len(clean_factors) < min_observations:
+            raise ValueError(
+                f"insufficient observations after alignment for {manager}: "
+                f"need at least {min_observations}, got {len(clean_factors)}"
+            )
+
+        factor_matrix = clean_factors.to_numpy(dtype=float)
+        if add_intercept:
+            design = np.column_stack(
+                [np.ones(len(clean_factors), dtype=float), factor_matrix]
+            )
+        else:
+            design = factor_matrix
+
+        y = clean_returns.to_numpy(dtype=float)
         coefficients, *_ = np.linalg.lstsq(design, y, rcond=None)
         if add_intercept:
             alpha = float(coefficients[0])
@@ -71,8 +76,8 @@ def factor_exposures(
         row["r_squared"] = float(r_squared)
         rows.append(row)
 
-    columns = list(clean_factors.columns) + ["alpha", "r_squared"]
-    return pd.DataFrame(rows, index=clean_returns.columns, columns=columns)
+    columns = list(aligned_factors.columns) + ["alpha", "r_squared"]
+    return pd.DataFrame(rows, index=aligned_returns.columns, columns=columns)
 
 
 __all__ = ["factor_exposures"]
