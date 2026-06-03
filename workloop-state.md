@@ -1,6 +1,18 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
+## 2026-06-03T04:44:33Z - opener quick-recovery for PR #5444 dependency enforcement
+
+- Repo/issue/PR: stranske/Trend_Model_Project #5392 / #5444 (`codex/issue-5392-deflated-sharpe`).
+- Agent: codex opener quick-recovery from neutral Code workspace; reused persistent worktree `~/.codex/automations/pd-workloop-resume/worktrees/trend-5392-deflated-sharpe`.
+- Failure evidence: Gate run `26863647231` failed Python CI on both 3.12 and 3.13 at `tests/test_dependency_enforcement.py::test_all_test_imports_are_declared`; the only undeclared import was stdlib `statistics` from `tests/test_deflated_sharpe.py`.
+- Fix: replaced `statistics.NormalDist().cdf(...)` in the focused fixture with the equivalent standard-normal CDF formula using `math.erf`, avoiding a dependency-scanner false positive without changing production code.
+- Validation:
+  - `PYTHONPATH=src MPLCONFIGDIR=/private/tmp/mplconfig-trend-5444 python -m pytest tests/test_dependency_enforcement.py::test_all_test_imports_are_declared tests/test_deflated_sharpe.py -q` -> 5 passed.
+  - `PYTHONPATH=src python -m ruff check tests/test_deflated_sharpe.py` -> passed.
+  - `git diff --check` -> passed.
+- Current state: recovery ready to commit/push; after push, fresh Gate should rerun asynchronously.
+
 ## 2026-06-01T07:00:12Z - closer lane addressed PR #5374 review blockers
 
 - Repo/issue/PR: stranske/Trend_Model_Project #5343 / #5374 (`claude/issue-5343-stlite-demo`).
