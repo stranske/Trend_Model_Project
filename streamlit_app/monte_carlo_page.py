@@ -133,6 +133,10 @@ def _session_runner_kwargs() -> tuple[dict[str, Any], str | None]:
             frequency=_session_frequency(analysis_frame),
             csv_path=_session_csv_path(),
         )
+        if isinstance(benchmark, str) and benchmark in analysis_frame.columns:
+            indices = list(base_config.portfolio.get("indices_list") or [])
+            if benchmark not in indices:
+                base_config.portfolio["indices_list"] = [*indices, benchmark]
         price_history = _returns_to_price_history(analysis_frame)
     except Exception as exc:
         return {}, str(exc)

@@ -78,3 +78,5 @@ def test_mc_page_uses_session_model_when_available(monkeypatch: pytest.MonkeyPat
     assert price_history.loc[dates[0], "FundA"] == pytest.approx(101.0)
     assert price_history.loc[dates[1], "FundA"] == pytest.approx(103.02)
     assert kwargs["base_config"].portfolio["rank"]["n"] == 2
+    assert kwargs["base_config"].benchmarks == {"Bench": "Bench"}
+    assert kwargs["base_config"].portfolio["indices_list"] == ["Bench"]

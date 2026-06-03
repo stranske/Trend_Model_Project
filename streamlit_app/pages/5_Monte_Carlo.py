@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from streamlit_app.monte_carlo_page import _should_auto_render, render
+from streamlit_app.monte_carlo_page import render
 
 
-if _should_auto_render():
-    render()
+render()
