@@ -10,6 +10,7 @@ import yaml
 
 from trend_analysis import api
 from trend_analysis.config import Config
+from trend_analysis.config.schema_validation import load_schema, validate_config_data
 
 
 def _make_df() -> pd.DataFrame:
@@ -53,6 +54,23 @@ def test_defaults_document_run_monthly_cost() -> None:
 
     assert "monthly_cost" in defaults["run"]
     assert defaults["run"]["monthly_cost"] == pytest.approx(0.0)
+
+
+def test_schema_accepts_documented_run_monthly_cost() -> None:
+    schema = load_schema()
+
+    assert "monthly_cost" in schema["properties"]["run"]["properties"]
+    assert validate_config_data({"run": {"monthly_cost": 0.001}}, schema) == []
+
+
+def test_run_section_documents_live_jobs_key() -> None:
+    config_doc = Path("docs/config.md").read_text()
+    run_section = config_doc.split("### Run Section", maxsplit=1)[1].split(
+        "### Walk-Forward Section", maxsplit=1
+    )[0]
+
+    assert "jobs: -1" in run_section
+    assert "n_jobs:" not in run_section
 
 
 def test_run_monthly_cost_lowers_net_periodic_returns() -> None:

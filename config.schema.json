@@ -222,6 +222,7 @@
       "deterministic": true,
       "log_file": "logs/phase1.log",
       "log_level": "INFO",
+      "monthly_cost": 0.0,
       "n_jobs": -1
     },
     "sample_split": {
@@ -283,65 +284,6 @@
       "nl_editable": true,
       "type": [
         "string",
-        "null"
-      ]
-    },
-    "identity": {
-      "additionalProperties": false,
-      "constraints": {},
-      "default": null,
-      "description": "Deterministic entity identity aliases for run manifest selected_entities.",
-      "nl_editable": true,
-      "properties": {
-        "entities": {
-          "default": [],
-          "description": "Explicit canonical entities and aliases.",
-          "items": {
-            "additionalProperties": false,
-            "properties": {
-              "aliases": {
-                "default": [],
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              "canonical_id": {
-                "type": "string"
-              },
-              "display_name": {
-                "type": "string"
-              },
-              "name": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "canonical_id"
-            ],
-            "type": "object"
-          },
-          "type": "array"
-        },
-        "universe": {
-          "description": "Universe file path or paths, resolved relative to the config file.",
-          "type": [
-            "string",
-            "array",
-            "null"
-          ]
-        },
-        "universes": {
-          "description": "Universe file path or paths, resolved relative to the config file.",
-          "type": [
-            "string",
-            "array",
-            "null"
-          ]
-        }
-      },
-      "type": [
-        "object",
         "null"
       ]
     },
@@ -1409,18 +1351,24 @@
           "nl_editable": true,
           "properties": {
             "bps_per_trade": {
-              "constraints": {},
+              "constraints": {
+                "minimum": 0
+              },
               "default": 0,
               "description": "overrides transaction_cost_bps when provided",
+              "minimum": 0,
               "nl_editable": true,
-              "type": "integer"
+              "type": "number"
             },
             "slippage_bps": {
-              "constraints": {},
+              "constraints": {
+                "minimum": 0
+              },
               "default": 0,
               "description": "additional penalty applied on turnover",
+              "minimum": 0,
               "nl_editable": true,
-              "type": "integer"
+              "type": "number"
             }
           },
           "type": "object"
@@ -1515,7 +1463,7 @@
             "minimum": 0
           },
           "default": 1.0,
-          "description": "optional turnover cap (1.0 = no cap); may be a scalar cap or a regime-to-cap mapping",
+          "description": "optional turnover cap (1.0 = no cap)",
           "maximum": 2,
           "minimum": 0,
           "nl_editable": true,
@@ -2498,6 +2446,7 @@
         "deterministic": true,
         "log_file": "logs/phase1.log",
         "log_level": "INFO",
+        "monthly_cost": 0.0,
         "n_jobs": -1
       },
       "description": "Runtime execution settings.",
@@ -2550,6 +2499,13 @@
           "description": "DEBUG | INFO | WARNING | ERROR",
           "nl_editable": true,
           "type": "string"
+        },
+        "monthly_cost": {
+          "constraints": {},
+          "default": 0.0,
+          "description": "flat decimal return subtracted from each fund every period",
+          "nl_editable": true,
+          "type": "number"
         },
         "n_jobs": {
           "constraints": {},

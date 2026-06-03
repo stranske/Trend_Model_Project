@@ -127,7 +127,7 @@ output:
 ```yaml
 run:
   monthly_cost: 0.0            # flat decimal per-period fee, e.g. 0.001 = 10 bps
-  n_jobs: -1                   # parallel worker count
+  jobs: -1                     # parallel worker count
 ```
 
 ### Walk-Forward Section
