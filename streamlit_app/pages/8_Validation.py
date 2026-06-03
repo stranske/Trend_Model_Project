@@ -20,14 +20,18 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from streamlit_app import state as app_state
-from streamlit_app.components import analysis_runner
-
+# ``st.set_page_config`` must be the first Streamlit command executed on the
+# page. The ``streamlit_app`` imports below pull in ``analysis_runner``, which
+# evaluates an ``@st.cache_data`` decorator at import time, so configure the
+# page before importing them.
 st.set_page_config(
     page_title="Settings Validation",
     page_icon="🔧",
     layout="wide",
 )
+
+from streamlit_app import state as app_state  # noqa: E402
+from streamlit_app.components import analysis_runner  # noqa: E402
 
 # =============================================================================
 # Setting Definitions

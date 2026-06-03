@@ -1,32 +1,6 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
-## 2026-06-03T04:03:37Z - opener lane issue #5391 PR opened
-
-- Repo/issue/PR: stranske/Trend_Model_Project #5391 / #5443.
-- Branch: `codex/issue-5391-validation-page`; head commit `377a6ef1` opened ready-for-review against `phase-3`.
-- PR routing: labels `agent:codex`, `agents:keepalive`, and `autofix`; `codex-automation` label was unavailable in this repo.
-- Relay: `pr_opened active.source_repo=stranske/Trend_Model_Project active.source_issue=5391 active.source_pr=5443 active.next_action=wait_for_keepalive`.
-- Post-open cap health at 2026-06-03T04:03:17Z: total opener-owned PRs 2, raw cap false, #5443 state `draining` with active Gate evidence after latest branch update; #5440 remains `runner-failed` / scoped-blocked on #5389 owner strict-key decision.
-- Next action: keepalive owns CI/check follow-up for PR #5443; opener can continue selecting future unlinked issues while cap remains below 5.
-
-## 2026-06-03T04:01:25Z - opener lane issue #5391 PR materializing
-
-- Repo/issue: stranske/Trend_Model_Project #5391 `A11 - Fix the dead pages/8_Validation.py`.
-- Branch: `codex/issue-5391-validation-page`.
-- Agent: codex opener from neutral Code workspace; raw opener cap below 5, #5442 already merged by closer, #5440 remains scoped-blocked on #5389 strict-key owner decision. Selected #5391 as the highest-priority/oldest unlinked implementation candidate outside scoped blockers.
-- Implementation:
-  - Moved Validation page `set_page_config` to module top level and replaced the `__main__` guard with the active Streamlit `_should_auto_render()` pattern used by other pages.
-  - Switched page data loading from stale `st.session_state["app_data"]` to `app_state.get_uploaded_data()` / `returns_df`.
-  - Replaced private `analysis_runner._execute_analysis(...)` usage with public cached `analysis_runner.run_analysis(...)`.
-  - Added `tests/app/test_validation_page_renders.py` to prove auto-render invokes the page under an active Streamlit context, reads `returns_df`, does not read `app_data`, and uses the public analysis API.
-- Validation:
-  - `PYTHONPATH=src python -m pytest tests/app/test_validation_page_renders.py -q` -> 2 passed, 1 deprecation warning.
-  - Deliberate-break gate: temporarily restored the bad `app_data` read; the new test failed because the page stopped despite `returns_df` being present; reverted before commit.
-  - `python -m ruff check streamlit_app/pages/8_Validation.py tests/app/test_validation_page_renders.py` -> passed.
-  - `git diff --check` -> passed.
-- Current state: changes ready to commit/push and open ready-for-review PR for #5391; keepalive owns post-open CI/check follow-up.
-
 ## 2026-06-01T07:00:12Z - closer lane addressed PR #5374 review blockers
 
 - Repo/issue/PR: stranske/Trend_Model_Project #5343 / #5374 (`claude/issue-5343-stlite-demo`).
