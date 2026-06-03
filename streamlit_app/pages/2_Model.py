@@ -3391,6 +3391,7 @@ def render_model_page() -> None:
                 "sticky_drop_periods": preset_config["sticky_drop_periods"],
                 "ci_level": preset_config["ci_level"],
             }
+            _reset_model_widget_state()
             st.rerun()
 
     # Weighting scheme selector (outside form for dynamic description updates)
