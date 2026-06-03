@@ -633,9 +633,9 @@ def validate_trend_config(data: dict[str, Any], *, base_path: Path) -> TrendConf
         errors = exc.errors()
         message = str(exc)
         if errors:
-            first_error = errors[0]
-            message = str(first_error.get("msg") or message)
-            loc = first_error.get("loc") or ()
+            first_validation_error = errors[0]
+            message = str(first_validation_error.get("msg") or message)
+            loc = first_validation_error.get("loc") or ()
             if loc:
                 joined = ".".join(str(part) for part in loc)
                 if joined:
