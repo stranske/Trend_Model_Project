@@ -108,12 +108,17 @@ def test_compute_regime_series_volatility_and_cache(
 ) -> None:
     dates = _sample_index(6)
     proxy = pd.Series([0.0, 0.01, 0.015, 0.2, 0.18, 0.22], index=dates)
+    # threshold is expressed on the effective (periodic) scale; after #5396 the
+    # volatility-mode boundary is invariant to ``annualise_volatility`` because the
+    # threshold is rescaled by sqrt(periods) alongside the annualized vol. 0.05 sits
+    # between the calm windows and the mid-series vol spike so the fixture still
+    # exercises a genuine Risk-On/Risk-Off split under the corrected semantics.
     settings = regimes.RegimeSettings(
         enabled=True,
         method="volatility",
         lookback=2,
         smoothing=1,
-        threshold=0.12,
+        threshold=0.05,
         neutral_band=0.0,
         cache=True,
         annualise_volatility=True,

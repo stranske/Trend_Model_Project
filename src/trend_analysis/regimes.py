@@ -216,14 +216,21 @@ def _compute_regime_series(
             periods_per_year=periods,
             annualise=settings.annualise_volatility,
         )
-        signal = settings.threshold - signal
+        threshold = settings.threshold
+        neutral_band = settings.neutral_band
+        if settings.annualise_volatility and periods and periods > 0:
+            scale = float(np.sqrt(periods))
+            threshold = threshold * scale
+            neutral_band = neutral_band * scale
+        signal = threshold - signal
     else:
         signal = _rolling_return_signal(clean, window=window, smoothing=smoothing)
         signal = signal - settings.threshold
+        neutral_band = settings.neutral_band
 
     labels = pd.Series(settings.default_label, index=clean.index, dtype="string")
-    upper = settings.neutral_band
-    lower = -settings.neutral_band
+    upper = neutral_band
+    lower = -neutral_band
     if upper <= 0:
         labels.loc[signal >= 0] = settings.risk_on_label
         labels.loc[signal < 0] = settings.risk_off_label
