@@ -122,17 +122,18 @@ removed in a future release.
 
 ## Monte Carlo Commands
 
-Use `trend mc` for the Monte Carlo scenario workflow: discover registered
+Use the Monte Carlo module CLI for the scenario workflow: discover registered
 scenarios, validate scenario files, execute simulations, and export charts from
-completed bundles. Scenario authoring and output interpretation stay in
-`docs/phase-3/MonteCarlo.md`.
+completed bundles. These commands are exposed by `trend_analysis.cli`; run them
+with `python -m trend_analysis.cli mc ...` from an installed checkout. Scenario
+authoring and output interpretation stay in `docs/phase-3/MonteCarlo.md`.
 
-### List Scenarios (`trend mc list`)
+### List Scenarios (`python -m trend_analysis.cli mc list`)
 
 List registered scenarios from the default registry.
 
 ```bash
-trend mc list
+python -m trend_analysis.cli mc list
 ```
 
 Filter by tags with `--tags`. The option accepts comma-separated values and can
@@ -141,16 +142,17 @@ listing; the default format is `table`. Use `--registry PATH` to point at a
 custom scenario registry.
 
 ```bash
-trend mc list --tags hedge_fund --format json
-trend mc list --tags hedge_fund,example --registry config/scenarios/registry.yml
+python -m trend_analysis.cli mc list --tags hedge_fund --format json
+python -m trend_analysis.cli mc list --tags hedge_fund,example \
+  --registry config/scenarios/monte_carlo/index.yml
 ```
 
-### Validate Scenarios (`trend mc validate`)
+### Validate Scenarios (`python -m trend_analysis.cli mc validate`)
 
 Validate all registered scenarios:
 
 ```bash
-trend mc validate
+python -m trend_analysis.cli mc validate
 ```
 
 Pass a scenario name or a config path to validate a single scenario. Use
@@ -158,17 +160,18 @@ Pass a scenario name or a config path to validate a single scenario. Use
 override the registry location.
 
 ```bash
-trend mc validate config/scenarios/monte_carlo/hf_equity_ls_10y.yml
-trend mc validate hf_equity_ls_10y --registry config/scenarios/registry.yml
+python -m trend_analysis.cli mc validate config/scenarios/monte_carlo/cost_regime_example.yml
+python -m trend_analysis.cli mc validate cost_regime_example \
+  --registry config/scenarios/monte_carlo/index.yml
 ```
 
-### Run Scenarios (`trend mc run`)
+### Run Scenarios (`python -m trend_analysis.cli mc run`)
 
 Run a scenario by name or config path with `--scenario`, and optionally choose
 the output bundle directory with `--out`.
 
 ```bash
-trend mc run --scenario hf_equity_ls_10y --out outputs/mc_run_1
+python -m trend_analysis.cli mc run --scenario cost_regime_example --out outputs/mc_run_1
 ```
 
 Runtime overrides include `--data` for an alternate CSV/Parquet input,
@@ -177,17 +180,19 @@ repeatable), `--n-paths`, `--jobs`, `--seed`, `--dry-run`, `--no-progress`, and
 `--registry`.
 
 ```bash
-trend mc run --scenario hf_equity_ls_10y --n-paths 500 --jobs 4 --seed 123
-trend mc run --scenario cost_regime_example --dry-run --n-paths 10
+python -m trend_analysis.cli mc run --scenario cost_regime_example \
+  --n-paths 500 --jobs 4 --seed 123
+python -m trend_analysis.cli mc run --scenario cost_regime_example \
+  --dry-run --n-paths 10
 ```
 
-### Export Charts (`trend mc viz`)
+### Export Charts (`python -m trend_analysis.cli mc viz`)
 
 Render chart artifacts from an existing Monte Carlo bundle. `--bundle` points
 to the bundle directory and `--out` points to the export directory.
 
 ```bash
-trend mc viz \
+python -m trend_analysis.cli mc viz \
   --bundle outputs/mc_run_1 \
   --out outputs/mc_run_1_exports \
   --charts fan,path_dist,risk_return \
