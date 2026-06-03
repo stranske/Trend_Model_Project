@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from trend_analysis.config.model import validate_trend_config
 from trend_analysis.config.models import Config
 from trend_analysis.config.schema_validation import load_schema
+from trend_analysis.time_utils import resolve_period_bound
 from utils.paths import proj_path
 
 _PATH_PATTERN = re.compile(r"^([A-Za-z0-9_.\[\]-]+)(:|\s+)(.+)$")
@@ -520,12 +521,17 @@ def _check_date_ranges(config: Mapping[str, Any], errors: list[ValidationError])
     if not all(key in split for key in required):
         return
 
+    # Resolve each label to the same instant the window slicer uses
+    # (stages/preprocessing.py): start labels -> month start, end labels ->
+    # month end. Resolving uniformly to month start here would let the
+    # validator and slicer disagree on what an `*_end` label denotes.
+    bound_roles = {"in_start": "start", "in_end": "end", "out_start": "start", "out_end": "end"}
     parsed: dict[str, pd.Timestamp] = {}
     invalid_fields: set[str] = set()
     for key in required:
         raw = split.get(key)
         try:
-            parsed[key] = pd.to_datetime(raw)
+            parsed[key] = resolve_period_bound(raw, bound=bound_roles[key])
         except Exception:
             issue = ValidationError(
                 path=f"sample_split.{key}",
