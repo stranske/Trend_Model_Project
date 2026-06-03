@@ -68,6 +68,7 @@ STDLIB_MODULES = {
     "textwrap",
     "threading",
     "time",
+    "tokenize",
     "tomllib",
     "typing",
     "unittest",
