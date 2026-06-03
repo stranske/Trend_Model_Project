@@ -25,6 +25,7 @@ from pydantic import (
     model_validator,
 )
 
+from trend_analysis.config.lint_keys import lint_portfolio_keys
 from utils.paths import proj_path
 
 # ---------------------------------------------------------------------------
@@ -187,16 +188,22 @@ class DataSettings(BaseModel):
     """Data input configuration validated at startup."""
 
     csv_path: Path | None = Field(default=None)
+    indices_glob: str | None = Field(default=None)
     universe_membership_path: Path | None = Field(default=None)
     managers_glob: str | None = Field(default=None)
     date_column: str = Field()
+    price_column: str | None = Field(default=None)
     frequency: Literal["D", "W", "M", "ME"] = Field()
+    timezone: str | None = Field(default=None)
+    currency: str | None = Field(default=None)
     missing_policy: str | Mapping[str, str] | None = Field(default=None)
     missing_limit: int | Mapping[str, int | None] | None = Field(default=None)
+    missing_fill_limit: int | Mapping[str, int | None] | None = Field(default=None)
     risk_free_column: str | None = Field(default=None)
     allow_risk_free_fallback: bool | None = Field(default=None)
+    lookback_required: int | None = Field(default=None)
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="before")
     @classmethod
@@ -301,7 +308,7 @@ class DataSettings(BaseModel):
             return value
         raise ValueError("data.missing_policy must be a string or mapping.")
 
-    @field_validator("missing_limit", mode="before")
+    @field_validator("missing_limit", "missing_fill_limit", mode="before")
     @classmethod
     def _validate_missing_limit(cls, value: Any) -> int | Mapping[str, int | None] | None:
         if value in (None, "", "null"):
@@ -332,7 +339,7 @@ class CostModelSettings(BaseModel):
     per_trade_bps: float | None = Field(default=None)
     half_spread_bps: float | None = Field(default=None)
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     @field_validator("bps_per_trade", "slippage_bps", mode="before")
     @classmethod
@@ -530,11 +537,13 @@ class PortfolioSettings(BaseModel):
 class RiskSettings(BaseModel):
     """Risk target configuration for volatility control."""
 
+    enabled: bool | None = Field(default=None)
     target_vol: float = Field()
+    window: Mapping[str, Any] | None = Field(default=None)
     floor_vol: float = Field(default=0.015)
     warmup_periods: int = Field(default=0)
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     @field_validator("target_vol", mode="before")
     @classmethod
@@ -612,6 +621,11 @@ def _resolve_config_path(candidate: str | os.PathLike[str] | None) -> Path:
 
 def validate_trend_config(data: dict[str, Any], *, base_path: Path) -> TrendConfig:
     """Validate ``data`` against :class:`TrendConfig` with helpful errors."""
+
+    lint_errors = lint_portfolio_keys(data)
+    if lint_errors:
+        first_error = lint_errors[0]
+        raise ValueError(f"{first_error}: unexpected or inert portfolio key")
 
     try:
         return TrendConfig.model_validate(data, context={"base_path": base_path})
