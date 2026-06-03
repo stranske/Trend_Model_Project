@@ -29,9 +29,9 @@ DEMO_DATA_CANDIDATES = (
 )
 
 DEFAULT_PRESET = "Balanced"
-DEMO_PRESET_SELECTOR_LABEL = "Demo Dataset Preset"
+DEMO_PRESET_SELECTOR_LABEL = "Demo Settings Preset"
 DEMO_PRESET_SELECTOR_HELP = (
-    "Choose the built-in demo dataset preset; model configuration presets live "
+    "Choose the built-in demo settings preset; model configuration presets live "
     "on the Model page."
 )
 
