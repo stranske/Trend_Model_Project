@@ -1739,7 +1739,8 @@ def run(
             risk_weight_engine = None
             weight_engine_fallback = {
                 "engine": weighting_scheme,
-                "reason": str(exc) or exc.__class__.__name__,
+                "error_type": exc.__class__.__name__,
+                "error": str(exc) or exc.__class__.__name__,
             }
             logger.warning(
                 "Risk-weighting engine %r failed to construct (%s); falling back "

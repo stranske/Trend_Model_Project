@@ -184,7 +184,8 @@ def test_multi_period_engine_surfaces_weight_engine_fallback(
     assert fallbacks, "silent fallback to equal weight was not surfaced"
     fb = fallbacks[0]
     assert fb["engine"] == "risk_parity"
-    assert "synthetic engine failure" in fb["reason"]
+    assert fb["error_type"] == "RuntimeError"
+    assert "synthetic engine failure" in fb["error"]
 
 
 def test_run_simulation_propagates_fallback_info(
@@ -211,3 +212,5 @@ def test_run_simulation_propagates_fallback_info(
 
     assert isinstance(result.fallback_info, dict)
     assert result.fallback_info["engine"] == "risk_parity"
+    assert result.fallback_info["error_type"] == "RuntimeError"
+    assert "synthetic engine failure" in result.fallback_info["error"]

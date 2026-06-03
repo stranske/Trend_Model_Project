@@ -249,10 +249,10 @@ def _run_multi_period_simulation(
     )
     if mp_fallback is not None:
         logger.warning(
-            "Multi-period weight engine fallback used (engine=%s, reason=%s); "
+            "Multi-period weight engine fallback used (engine=%s, error=%s); "
             "equal weights applied.",
             mp_fallback.get("engine"),
-            mp_fallback.get("reason"),
+            mp_fallback.get("error") or mp_fallback.get("error_type"),
         )
 
     # Build structured Results object if possible
