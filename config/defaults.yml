@@ -176,7 +176,7 @@ performance:
     metrics: false  # scalar metric series memoization (Issue #1156)
 run:
   monthly_cost: 0.0 # flat decimal return subtracted from each fund every period
-  n_jobs: -1 # ‑1 ⇒ all CPUs (parallelism-key consolidation tracked separately in A20 / #5401)
+  jobs: -1 # -1 => all CPUs
 
 
 # ---------------------------------------------------------------------------
@@ -199,5 +199,4 @@ multi_period:
       - [50,  1.00]
       - [100, 0.80]
 checkpoint_dir: "outputs/checkpoints/"
-jobs: -1                  # -1 = use all logical cores
 seed: 42

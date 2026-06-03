@@ -185,9 +185,9 @@ _MANUAL_DESCRIPTIONS: dict[str, str] = {
     "output.path": "Output path or prefix for legacy single-file runners.",
     "run": "Runtime execution settings.",
     "run.seed": "Random seed used for deterministic runs.",
-    "run.jobs": "Parallel worker count for a run.",
+    "run.jobs": "Canonical parallel worker count for a run.",
     "run.checkpoint_dir": "Directory for saving checkpoints.",
-    "jobs": "Legacy top-level worker count override.",
+    "jobs": "Deprecated top-level alias for run.jobs; ignored when run.jobs is set.",
     "checkpoint_dir": "Legacy top-level checkpoint directory override.",
     "multi_period.frequency": "Frequency for multi-period windows.",
     "multi_period.in_sample_len": "Length of the in-sample window.",
@@ -587,6 +587,17 @@ def generate_schema(
             comment_map=comment_map,
             samples=samples,
             model_overrides=model_overrides,
+        )
+    for key in ("jobs",):
+        properties_dict.setdefault(
+            key,
+            build_schema(
+                None,
+                path=[key],
+                comment_map=comment_map,
+                samples=samples,
+                model_overrides=model_overrides,
+            ),
         )
     return schema
 

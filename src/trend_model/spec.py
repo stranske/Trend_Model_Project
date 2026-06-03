@@ -113,6 +113,14 @@ def _section_get(section: Mapping[str, Any], key: str, default: Any = None) -> A
     return section.get(key, default)
 
 
+def _resolve_parallel_jobs(cfg: Any, run_cfg: Mapping[str, Any]) -> int | None:
+    """Resolve canonical ``run.jobs`` with top-level ``jobs`` as a legacy alias."""
+
+    run_jobs = _section_get(run_cfg, "jobs", None)
+    value = run_jobs if run_jobs is not None else _cfg_value(cfg, "jobs", None)
+    return _coerce_int(value, default=0) or None
+
+
 def _coerce_int(value: Any, default: int = 0) -> int:
     try:
         return int(value)
@@ -247,7 +255,7 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
         regime=_cfg_section(cfg, "regime"),
         metrics=_as_tuple(_section_get(metrics, "registry", ())),
         seed=_coerce_int(_cfg_value(cfg, "seed", _section_get(run_cfg, "seed", 42)), default=42),
-        jobs=_coerce_int(_section_get(run_cfg, "jobs", None), default=0) or None,
+        jobs=_resolve_parallel_jobs(cfg, run_cfg),
         checkpoint_dir=checkpoint,
         export_directory=export_dir,
         export_formats=_as_tuple(_section_get(export_cfg, "formats", ())),

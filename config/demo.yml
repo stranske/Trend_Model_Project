@@ -81,7 +81,6 @@ run:
   jobs: 1
   checkpoint_dir: demo/checkpoints
 
-jobs: 1
 checkpoint_dir: demo/checkpoints
 
 multi_period:
