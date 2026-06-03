@@ -283,7 +283,7 @@ selector_cache_hits: int
 selector_cache_misses: int
 
 
-def __getattr__(name: str) -> int:
+def __getattr__(name: str) -> Any:
     if name in ("selector_cache_hits", "selector_cache_misses"):
         return _WINDOW_METRIC_CACHE.stats()[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
