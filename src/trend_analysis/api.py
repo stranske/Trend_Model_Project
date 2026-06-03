@@ -493,12 +493,18 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     rf_override_enabled = bool(config.metrics.get("rf_override_enabled", False))
     rf_rate_annual = float(config.metrics.get("rf_rate_annual", 0.0) or 0.0)
     risk_free_override: float | None = None
-    rf_rate_fallback = 0.0
+    # Fund ranking honours the configured ``metrics.rf_rate_annual`` (converted to
+    # a periodic rate) regardless of ``rf_override_enabled``. Previously the
+    # ranking risk-free was 0.0 unless the override was on, so a configured annual
+    # RF was silently ignored for ranking Sharpe and could change *which* funds
+    # were selected versus user expectation (issue #5398 / A18). ``rf_override_enabled``
+    # only controls whether the manual rate also overrides the data RF column on the
+    # portfolio-stats path -- that ``risk_free_override`` wiring is left untouched.
+    frequency = str(data_settings.get("frequency") or "M")
+    periods_per_year = float(periods_per_year_from_code(frequency))
+    rf_rate_periodic = (1.0 + rf_rate_annual) ** (1.0 / periods_per_year) - 1.0
+    rf_rate_fallback = float(rf_rate_periodic)
     if rf_override_enabled:
-        frequency = str(data_settings.get("frequency") or "M")
-        periods_per_year = float(periods_per_year_from_code(frequency))
-        rf_rate_periodic = (1.0 + rf_rate_annual) ** (1.0 / periods_per_year) - 1.0
-        rf_rate_fallback = float(rf_rate_periodic)
         risk_free_override = float(rf_rate_periodic)
     stats_cfg = None
     if metrics_list:
