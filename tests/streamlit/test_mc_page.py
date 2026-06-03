@@ -208,6 +208,18 @@ def _altair_stub() -> ModuleType:
     return module
 
 
+def _plotly_express_stub() -> ModuleType:
+    import plotly.graph_objects as go
+
+    module = ModuleType("plotly.express")
+    module.histogram = lambda *args, **_kwargs: go.Figure()
+    module.box = lambda *args, **_kwargs: go.Figure()
+    module.line = lambda *args, **_kwargs: go.Figure()
+    module.scatter = lambda *args, **_kwargs: go.Figure()
+    module.imshow = lambda *args, **_kwargs: go.Figure()
+    return module
+
+
 def _install_streamlit_stub(monkeypatch: pytest.MonkeyPatch) -> DummyStreamlit:
     stub = DummyStreamlit()
     module = ModuleType("streamlit")
@@ -219,6 +231,7 @@ def _install_streamlit_stub(monkeypatch: pytest.MonkeyPatch) -> DummyStreamlit:
 
     monkeypatch.setitem(sys.modules, "streamlit", module)
     monkeypatch.setitem(sys.modules, "altair", _altair_stub())
+    monkeypatch.setitem(sys.modules, "plotly.express", _plotly_express_stub())
     return stub
 
 
@@ -226,7 +239,7 @@ def _load_page(monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType, DummyStream
     stub = _install_streamlit_stub(monkeypatch)
     importlib.reload(importlib.import_module("streamlit_app.components.mc_tables"))
     importlib.reload(importlib.import_module("streamlit_app.components.mc_plots"))
-    page = importlib.reload(importlib.import_module("streamlit_app.pages.monte_carlo"))
+    page = importlib.reload(importlib.import_module("streamlit_app.monte_carlo_page"))
     return page, stub
 
 

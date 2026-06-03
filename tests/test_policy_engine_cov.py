@@ -10,6 +10,17 @@ from streamlit_app.components.policy_engine import (
 )
 
 
+def _patch_rank_scores(monkeypatch, replacement):
+    """Patch the rank scorer used by the imported function under test.
+
+    Some Streamlit smoke tests evict and re-import ``streamlit_app`` modules.
+    Patching by module path can then target a fresh module while this file's
+    direct-imported ``decide_hires_fires`` still points at its original globals.
+    """
+
+    monkeypatch.setitem(decide_hires_fires.__globals__, "rank_scores", replacement)
+
+
 def test_policy_config_dict_cooldown_and_zscore():
     policy = PolicyConfig(metrics=[MetricSpec("m", 1.0)])
     cfg = policy.dict()
@@ -87,7 +98,7 @@ def test_decide_hires_fires_diversification_and_turnover(monkeypatch):
     def fake_rank_scores(sf, metric_weights, metric_directions):
         return pd.Series({"a": 2.0, "b": 1.2, "c": -0.5, "d": 1.0}, index=sf.index)
 
-    monkeypatch.setattr("streamlit_app.components.policy_engine.rank_scores", fake_rank_scores)
+    _patch_rank_scores(monkeypatch, fake_rank_scores)
 
     decisions = decide_hires_fires(
         pd.Timestamp("2020-01-31"),
@@ -126,7 +137,7 @@ def test_decide_hires_fires_turnover_budget_prioritises(monkeypatch):
     def fake_rank_scores(sf, metric_weights, metric_directions):
         return pd.Series({"a": -1.0, "b": 2.0, "c": 1.5}, index=sf.index)
 
-    monkeypatch.setattr("streamlit_app.components.policy_engine.rank_scores", fake_rank_scores)
+    _patch_rank_scores(monkeypatch, fake_rank_scores)
 
     decisions = decide_hires_fires(
         pd.Timestamp("2020-01-31"),
@@ -161,7 +172,7 @@ def test_decide_hires_fires_turnover_budget_mixed_moves(monkeypatch):
     def fake_rank_scores(sf, metric_weights, metric_directions):  # noqa: ARG001
         return pd.Series({"hire1": 2.0, "hire2": 1.0, "drop": -1.5}, index=sf.index)
 
-    monkeypatch.setattr("streamlit_app.components.policy_engine.rank_scores", fake_rank_scores)
+    _patch_rank_scores(monkeypatch, fake_rank_scores)
 
     decisions = decide_hires_fires(
         pd.Timestamp("2020-01-31"),
@@ -197,7 +208,7 @@ def test_decide_hires_fires_turnover_budget_trims_mixed(monkeypatch):
     def fake_rank_scores(sf, metric_weights, metric_directions):  # noqa: ARG001
         return pd.Series({"a": 1.0, "b": 2.0, "c": -1.0}, index=sf.index)
 
-    monkeypatch.setattr("streamlit_app.components.policy_engine.rank_scores", fake_rank_scores)
+    _patch_rank_scores(monkeypatch, fake_rank_scores)
 
     decisions = decide_hires_fires(
         pd.Timestamp("2020-01-31"),
@@ -232,7 +243,7 @@ def test_decide_hires_fires_turnover_budget_mixes_hires_and_fires(monkeypatch):
     def fake_rank_scores(sf, metric_weights, metric_directions):  # noqa: ARG001
         return pd.Series({"a": -0.5, "b": 1.5, "c": 1.0}, index=sf.index)
 
-    monkeypatch.setattr("streamlit_app.components.policy_engine.rank_scores", fake_rank_scores)
+    _patch_rank_scores(monkeypatch, fake_rank_scores)
 
     decisions = decide_hires_fires(
         pd.Timestamp("2020-01-31"),
@@ -269,7 +280,7 @@ def test_decide_hires_fires_bucket_skip_and_nan_priorities(monkeypatch):
     def fake_rank_scores(sf, metric_weights, metric_directions):  # noqa: ARG001
         return pd.Series({"a": 5.0, "b": 4.0, "c": 3.0, "d": np.nan}, index=sf.index)
 
-    monkeypatch.setattr("streamlit_app.components.policy_engine.rank_scores", fake_rank_scores)
+    _patch_rank_scores(monkeypatch, fake_rank_scores)
 
     decisions = decide_hires_fires(
         pd.Timestamp("2020-01-31"),
@@ -306,7 +317,7 @@ def test_decide_hires_fires_unknown_bucket_defaults_to_name(monkeypatch):
     def fake_rank_scores(sf, metric_weights, metric_directions):  # noqa: ARG001
         return pd.Series({"known": 0.5, "mystery": 2.0}, index=sf.index)
 
-    monkeypatch.setattr("streamlit_app.components.policy_engine.rank_scores", fake_rank_scores)
+    _patch_rank_scores(monkeypatch, fake_rank_scores)
 
     decisions = decide_hires_fires(
         pd.Timestamp("2020-01-31"),
