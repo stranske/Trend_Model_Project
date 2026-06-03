@@ -216,7 +216,10 @@ def _compute_regime_series(
             periods_per_year=periods,
             annualise=settings.annualise_volatility,
         )
-        signal = settings.threshold - signal
+        threshold = settings.threshold
+        if settings.annualise_volatility and periods and periods > 0:
+            threshold = threshold * float(np.sqrt(periods))
+        signal = threshold - signal
     else:
         signal = _rolling_return_signal(clean, window=window, smoothing=smoothing)
         signal = signal - settings.threshold
