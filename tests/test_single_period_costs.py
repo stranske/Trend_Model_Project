@@ -1,9 +1,10 @@
 """Tests for single-period transaction-cost handling (issue #5394 / A14).
 
-The single-period analysis path only charges ``run.monthly_cost`` (and caps via
-``portfolio.max_turnover``); it never applies ``portfolio.transaction_cost_bps``,
-which is a multi-period-only turnover lever. Setting it on a single-period run is
-therefore a silent no-op. ``run_simulation`` must warn loudly instead.
+The single-period analysis path charges ``run.monthly_cost`` and still supports
+``portfolio.max_turnover`` / ``portfolio.lambda_tc`` turnover controls; it never
+applies ``portfolio.transaction_cost_bps``, which is a multi-period-only turnover
+lever. Setting it on a single-period run is therefore a silent no-op.
+``run_simulation`` must warn loudly instead.
 """
 
 from __future__ import annotations
@@ -73,6 +74,7 @@ def test_single_period_warns_when_transaction_cost_bps_set() -> None:
         f"got categories/messages: {[(type(r.message).__name__, str(r.message)) for r in records]}"
     )
     assert "25.0" in str(matches[0].message)
+    assert "portfolio.lambda_tc" in str(matches[0].message)
 
 
 def test_single_period_silent_when_transaction_cost_bps_unset() -> None:
