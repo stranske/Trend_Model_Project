@@ -1,6 +1,15 @@
 # stranske/Trend_Model_Project
 # Workloop State
 
+## 2026-06-03T20:06Z - opener cap-drain repair for PR #5474
+
+- Repo/issue/PR: stranske/Trend_Model_Project #5414 / #5474 (`codex/issue-5414-convex-constraints`).
+- Agent: codex opener from neutral Code workspace; used persistent automation worktree `~/.codex/automations/pd-workloop-resume/worktrees/trend-5414-convex-constraints`.
+- Repair evidence: cap-health showed raw opener cap below 5 but PR #5474 was infra-stalled with stale `agent:needs-attention`, skipped keepalive runner evidence, and `DIRTY` merge state despite green Gate/Python checks on the prior head. Direct PR audit showed the review fixes were already pushed and Gate was green; the remaining opener-safe repair was merge recovery plus stale-label cleanup.
+- Fix: merged current `origin/phase-3` into the PR branch. The only conflict was `workloop-state.md`; preserved both the #5414 and #5412 durable entries. Removed stale `agent:needs-attention` after pushing and forced `agents-81-gate-followups.yml` with `force_retry=true`.
+- Validation before push: `python -m pytest tests/test_constrained_optimization.py tests/test_weighting_fallback_surfaced.py tests/monte_carlo/strategy/test_variant.py::test_to_trend_config_rejects_invalid_weighting_scheme_value tests/test_config_schema_generation.py tests/monte_carlo/strategy/test_validation.py::test_validate_strategy_pack_rejects_invalid_weighting_scheme -q` -> 13 passed; focused `ruff` -> passed; focused `mypy` -> passed; `git diff --check` -> passed.
+- Current state: merge-recovery commit pushed; fresh Gate/Gate Followups should evaluate asynchronously. Next action belongs to keepalive/closer after checks settle.
+
 ## 2026-06-03T18:12Z - opener lane issue #5414 PR materializing
 
 - Repo/issue: stranske/Trend_Model_Project #5414 (`A35 - General convex-constraint optimization backend behind the weighting interface`).
