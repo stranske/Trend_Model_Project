@@ -307,6 +307,7 @@ def _apply_universe_mask(df: pd.DataFrame, mask: pd.DataFrame, *, date_column: s
 def _attach_universe_paths(cfg: Any, spec: NamedUniverse, *, csv_path: str | None) -> None:
     """Persist the selected universe paths onto ``cfg.data`` when possible."""
 
+    logger = logging.getLogger(__name__)
     membership_value = str(spec.membership_path)
     csv_value = csv_path
     data_section = getattr(cfg, "data", None)
@@ -317,7 +318,7 @@ def _attach_universe_paths(cfg: Any, spec: NamedUniverse, *, csv_path: str | Non
             merged.setdefault("csv_path", csv_value)
         try:
             setattr(cfg, "data", merged)
-        except Exception:
+        except (AttributeError, TypeError, ValueError):
             object.__setattr__(cfg, "data", merged)
         return
 
@@ -327,26 +328,41 @@ def _attach_universe_paths(cfg: Any, spec: NamedUniverse, *, csv_path: str | Non
             payload["csv_path"] = csv_value
         try:
             setattr(cfg, "data", payload)
-        except Exception:
+        except (AttributeError, TypeError, ValueError):
             object.__setattr__(cfg, "data", payload)
         return
 
     try:
         setattr(data_section, "universe_membership_path", membership_value)
-    except Exception:
+    except (AttributeError, TypeError, ValueError) as exc:
+        logger.debug(
+            "Unable to attach universe membership path with setattr; trying object.__setattr__: %s",
+            exc,
+        )
         try:
             object.__setattr__(data_section, "universe_membership_path", membership_value)
-        except Exception:
+        except (AttributeError, TypeError, ValueError) as fallback_exc:
+            logger.debug(
+                "Unable to attach universe membership path to config data section: %s",
+                fallback_exc,
+            )
             data_section = None
 
     if csv_value and data_section is not None:
         try:
             setattr(data_section, "csv_path", csv_value)
-        except Exception:
+        except (AttributeError, TypeError, ValueError) as exc:
+            logger.debug(
+                "Unable to attach universe csv path with setattr; trying object.__setattr__: %s",
+                exc,
+            )
             try:
                 object.__setattr__(data_section, "csv_path", csv_value)
-            except Exception:
-                pass
+            except (AttributeError, TypeError, ValueError) as fallback_exc:
+                logger.debug(
+                    "Unable to attach universe csv path to config data section: %s",
+                    fallback_exc,
+                )
 
 
 def _resolve_artifact_paths(
@@ -1135,166 +1151,187 @@ def main(argv: list[str] | None = None) -> int:
     if args.check:
         return check_environment()
 
-    if args.command == "gui":
-        proc = subprocess.run(["streamlit", "run", str(APP_PATH)])
-        return proc.returncode
+    return _dispatch_cli_command(args)
 
-    if args.command == "run":
-        coverage_tracker: ConfigCoverageTracker | None = None
-        if getattr(args, "config_coverage", False):
-            coverage_tracker = ConfigCoverageTracker()
-            activate_config_coverage(coverage_tracker)
-        try:
-            config_path = Path(args.config).resolve()
-            if _should_handle_as_ui_config(config_path):
-                return _run_from_ui_payload(
-                    params_path=config_path,
-                    data_path=Path(args.input),
-                    auto_fix_dates=args.auto_fix_dates,
-                    yes=args.yes,
-                    no_cache=args.no_cache,
-                    log_file=Path(args.log_file) if args.log_file else None,
-                    structured_log=not args.no_structured_log,
-                    bundle=Path(args.bundle) if args.bundle else None,
-                )
-            cfg = load_config(args.config)
-            if coverage_tracker is not None:
-                if not _maybe_track_config_coverage(config_path, args.input):
-                    return 1
-                wrap_config_for_coverage(cfg, coverage_tracker)
-            if not _maybe_validate_config(
-                cfg, base_path=config_path.parent, config_path=config_path
-            ):
+
+def _dispatch_cli_command(args: argparse.Namespace) -> int:
+    """Dispatch a parsed top-level CLI command."""
+
+    handlers: dict[str, Callable[[argparse.Namespace], int]] = {
+        "gui": _handle_gui_command,
+        "run": _handle_run_command,
+        "run-ui": _handle_run_ui_command,
+        "mc": _handle_mc_command,
+    }
+    handler = handlers.get(str(getattr(args, "command", "")))
+    if handler is None:
+        return 0
+    return handler(args)
+
+
+def _handle_gui_command(args: argparse.Namespace) -> int:
+    """Launch the Streamlit interface."""
+
+    del args
+    proc = subprocess.run(["streamlit", "run", str(APP_PATH)])
+    return proc.returncode
+
+
+def _handle_run_command(args: argparse.Namespace) -> int:
+    """Run the analysis pipeline from CLI arguments."""
+
+    coverage_tracker: ConfigCoverageTracker | None = None
+    if getattr(args, "config_coverage", False):
+        coverage_tracker = ConfigCoverageTracker()
+        activate_config_coverage(coverage_tracker)
+    try:
+        config_path = Path(args.config).resolve()
+        if _should_handle_as_ui_config(config_path):
+            return _run_from_ui_payload(
+                params_path=config_path,
+                data_path=Path(args.input),
+                auto_fix_dates=args.auto_fix_dates,
+                yes=args.yes,
+                no_cache=args.no_cache,
+                log_file=Path(args.log_file) if args.log_file else None,
+                structured_log=not args.no_structured_log,
+                bundle=Path(args.bundle) if args.bundle else None,
+            )
+        cfg = load_config(args.config)
+        if coverage_tracker is not None:
+            if not _maybe_track_config_coverage(config_path, args.input):
                 return 1
-            if args.preset:
-                try:
-                    spec_preset = get_trend_spec_preset(args.preset)
-                except KeyError:
-                    available = ", ".join(list_trend_spec_presets())
-                    print(
-                        f"Unknown preset '{args.preset}'. Available presets: {available}",
-                        file=sys.stderr,
-                    )
-                    return 2
-                _apply_trend_spec_preset(cfg, spec_preset)
-            set_cache_enabled(not args.no_cache)
-            if getattr(args, "preset", None):
-                try:
-                    portfolio_preset = get_trend_preset(args.preset)
-                except KeyError:
-                    available = ", ".join(list_preset_slugs())
-                    print(
-                        f"Unknown preset '{args.preset}'. Available: {available}",
-                        file=sys.stderr,
-                    )
-                    return 2
-                apply_trend_preset(cfg, portfolio_preset)
-            cli_seed = args.seed
-            env_seed = os.getenv("TREND_SEED")
-            # Precedence: CLI flag > TREND_SEED > config.seed > default 42
-            if cli_seed is not None:
-                setattr(cfg, "seed", int(cli_seed))
-            elif env_seed is not None and env_seed.isdigit():
-                setattr(cfg, "seed", int(env_seed))
-            data_section = getattr(cfg, "data", None)
-            missing_policy = None
-            missing_limit = None
-            if isinstance(data_section, Mapping):
-                missing_policy = data_section.get("missing_policy")
-                missing_limit = data_section.get("missing_limit")
-            else:
-                missing_policy = getattr(data_section, "missing_policy", None)
-                missing_limit = getattr(data_section, "missing_limit", None)
-
-            if args.auto_fix_dates:
-                try:
-                    issues = inspect_ui_date_issues(args.input)
-                except MarketDataValidationError as exc:
-                    print(exc.user_message, file=sys.stderr)
-                    for issue in exc.issues:
-                        print(f"- {issue}", file=sys.stderr)
-                    return 1
-                has_fixable = issues.has_corrections or issues.total_droppable_rows > 0
-                if has_fixable and not args.yes:
-                    if not sys.stdin.isatty():
-                        print(
-                            "Date corrections require confirmation. Re-run with --yes to approve.",
-                            file=sys.stderr,
-                        )
-                        return 1
-                    prompt = (
-                        f"Apply {len(issues.corrections)} date correction(s) and "
-                        f"drop {issues.total_droppable_rows} row(s)? [y/N]: "
-                    )
-                    response = input(prompt).strip().lower()
-                    if response not in {"y", "yes"}:
-                        print("Cancelled date corrections.")
-                        return 1
-
+            wrap_config_for_coverage(cfg, coverage_tracker)
+        if not _maybe_validate_config(
+            cfg, base_path=config_path.parent, config_path=config_path
+        ):
+            return 1
+        if args.preset:
             try:
-                loaded_frame, _, summary = load_ui_dataset(
-                    args.input,
-                    auto_fix_dates=args.auto_fix_dates,
-                    missing_policy=missing_policy or "drop",
-                    missing_limit=missing_limit,
+                spec_preset = get_trend_spec_preset(args.preset)
+            except KeyError:
+                available = ", ".join(list_trend_spec_presets())
+                print(
+                    f"Unknown preset '{args.preset}'. Available presets: {available}",
+                    file=sys.stderr,
                 )
+                return 2
+            _apply_trend_spec_preset(cfg, spec_preset)
+        set_cache_enabled(not args.no_cache)
+        if getattr(args, "preset", None):
+            try:
+                portfolio_preset = get_trend_preset(args.preset)
+            except KeyError:
+                available = ", ".join(list_preset_slugs())
+                print(
+                    f"Unknown preset '{args.preset}'. Available: {available}",
+                    file=sys.stderr,
+                )
+                return 2
+            apply_trend_preset(cfg, portfolio_preset)
+        cli_seed = args.seed
+        env_seed = os.getenv("TREND_SEED")
+        # Precedence: CLI flag > TREND_SEED > config.seed > default 42
+        if cli_seed is not None:
+            setattr(cfg, "seed", int(cli_seed))
+        elif env_seed is not None and env_seed.isdigit():
+            setattr(cfg, "seed", int(env_seed))
+        data_section = getattr(cfg, "data", None)
+        missing_policy = None
+        missing_limit = None
+        if isinstance(data_section, Mapping):
+            missing_policy = data_section.get("missing_policy")
+            missing_limit = data_section.get("missing_limit")
+        else:
+            missing_policy = getattr(data_section, "missing_policy", None)
+            missing_limit = getattr(data_section, "missing_limit", None)
+
+        if args.auto_fix_dates:
+            try:
+                issues = inspect_ui_date_issues(args.input)
             except MarketDataValidationError as exc:
                 print(exc.user_message, file=sys.stderr)
                 for issue in exc.issues:
                     print(f"- {issue}", file=sys.stderr)
                 return 1
-            if summary.corrected_dates or summary.dropped_rows:
-                parts: list[str] = []
-                if summary.corrected_dates:
-                    parts.append(f"{summary.corrected_dates} date correction(s)")
-                if summary.dropped_rows:
-                    parts.append(f"{summary.dropped_rows} row(s) dropped")
-                print(f"Applied UI-style date fixes: {', '.join(parts)}")
+            has_fixable = issues.has_corrections or issues.total_droppable_rows > 0
+            if has_fixable and not args.yes:
+                if not sys.stdin.isatty():
+                    print(
+                        "Date corrections require confirmation. Re-run with --yes to approve.",
+                        file=sys.stderr,
+                    )
+                    return 1
+                prompt = (
+                    f"Apply {len(issues.corrections)} date correction(s) and "
+                    f"drop {issues.total_droppable_rows} row(s)? [y/N]: "
+                )
+                response = input(prompt).strip().lower()
+                if response not in {"y", "yes"}:
+                    print("Cancelled date corrections.")
+                    return 1
 
-            df = loaded_frame.reset_index()
-            universe_spec: NamedUniverse | None = None
-            if getattr(args, "universe", None):
-                mask, universe_spec = load_universe(args.universe, prices=df)
-                df = _apply_universe_mask(df, mask, date_column=universe_spec.date_column)
-            if universe_spec is not None:
-                _attach_universe_paths(cfg, universe_spec, csv_path=args.input)
-            return _execute_analysis_run(
-                cfg,
-                df,
-                config_path=config_path,
-                input_path=Path(args.input),
-                log_file=Path(args.log_file) if args.log_file else None,
-                structured_log=not args.no_structured_log,
-                bundle=Path(args.bundle) if args.bundle else None,
-                skip_if_exists=getattr(args, "skip_if_exists", False),
+        try:
+            loaded_frame, _, summary = load_ui_dataset(
+                args.input,
+                auto_fix_dates=args.auto_fix_dates,
+                missing_policy=missing_policy or "drop",
+                missing_limit=missing_limit,
             )
-        finally:
-            if coverage_tracker is not None:
-                print(coverage_tracker.format_report())
-                deactivate_config_coverage()
+        except MarketDataValidationError as exc:
+            print(exc.user_message, file=sys.stderr)
+            for issue in exc.issues:
+                print(f"- {issue}", file=sys.stderr)
+            return 1
+        if summary.corrected_dates or summary.dropped_rows:
+            parts: list[str] = []
+            if summary.corrected_dates:
+                parts.append(f"{summary.corrected_dates} date correction(s)")
+            if summary.dropped_rows:
+                parts.append(f"{summary.dropped_rows} row(s) dropped")
+            print(f"Applied UI-style date fixes: {', '.join(parts)}")
 
-    if args.command == "run-ui":
-        print(
-            "WARNING: 'trend-model run-ui' is deprecated. "
-            "Use 'trend-model run' with the same --params JSON file instead.",
-            file=sys.stderr,
-        )
-        return _run_from_ui_payload(
-            params_path=Path(args.params),
-            data_path=Path(args.data),
-            auto_fix_dates=args.auto_fix_dates,
-            yes=args.yes,
-            no_cache=args.no_cache,
+        df = loaded_frame.reset_index()
+        universe_spec: NamedUniverse | None = None
+        if getattr(args, "universe", None):
+            mask, universe_spec = load_universe(args.universe, prices=df)
+            df = _apply_universe_mask(df, mask, date_column=universe_spec.date_column)
+        if universe_spec is not None:
+            _attach_universe_paths(cfg, universe_spec, csv_path=args.input)
+        return _execute_analysis_run(
+            cfg,
+            df,
+            config_path=config_path,
+            input_path=Path(args.input),
             log_file=Path(args.log_file) if args.log_file else None,
             structured_log=not args.no_structured_log,
             bundle=Path(args.bundle) if args.bundle else None,
+            skip_if_exists=getattr(args, "skip_if_exists", False),
         )
+    finally:
+        if coverage_tracker is not None:
+            print(coverage_tracker.format_report())
+            deactivate_config_coverage()
 
-    if args.command == "mc":
-        return _handle_mc_command(args)
 
-    # This shouldn't be reached with required=True.
-    return 0
+def _handle_run_ui_command(args: argparse.Namespace) -> int:
+    """Run a deprecated Streamlit JSON-params payload."""
+
+    print(
+        "WARNING: 'trend-model run-ui' is deprecated. "
+        "Use 'trend-model run' with the same --params JSON file instead.",
+        file=sys.stderr,
+    )
+    return _run_from_ui_payload(
+        params_path=Path(args.params),
+        data_path=Path(args.data),
+        auto_fix_dates=args.auto_fix_dates,
+        yes=args.yes,
+        no_cache=args.no_cache,
+        log_file=Path(args.log_file) if args.log_file else None,
+        structured_log=not args.no_structured_log,
+        bundle=Path(args.bundle) if args.bundle else None,
+    )
 
 
 def _parse_mc_tags(raw_tags: Sequence[str] | None) -> list[str]:
