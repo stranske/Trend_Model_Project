@@ -804,7 +804,7 @@ def launch() -> widgets.Widget:
         store.dirty = True
         theme_val = change["new"]
         js = cast(Any, Javascript)(
-            f"document.documentElement.style.setProperty(" f"' --trend-theme','{theme_val}')"
+            f"document.documentElement.style.setProperty('--trend-theme','{theme_val}')"
         )
         cast(Any, display)(js)
 
