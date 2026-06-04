@@ -14,7 +14,12 @@ services:
       - ./data:/app/data
   api:
     image: *trend-image
-    command: python -m trend_analysis.api_server
+    command:
+      [
+        "python",
+        "-c",
+        "from trend_analysis.api_server import run; run(host='0.0.0.0', port=8000)",
+      ]
     ports:
       - "8000:8000"
     volumes:

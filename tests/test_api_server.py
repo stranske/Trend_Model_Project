@@ -554,4 +554,4 @@ def test_api_server_module_entrypoint(monkeypatch):
 
     runpy.run_module("trend_analysis.api_server.__main__", run_name="__main__")
 
-    assert called["args"] == ("0.0.0.0", 8000)
+    assert called["args"] == ("127.0.0.1", 8000)

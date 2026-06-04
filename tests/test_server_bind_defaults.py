@@ -13,6 +13,13 @@ from trend_analysis.proxy import cli as streamlit_proxy_cli
 from trend_analysis.proxy import server as streamlit_proxy_server
 
 
+def test_docker_compose_api_service_uses_explicit_external_bind() -> None:
+    compose = Path("docker-compose.yml").read_text()
+
+    assert "from trend_analysis.api_server import run" in compose
+    assert "run(host='0.0.0.0', port=8000)" in compose
+
+
 def test_streamlit_proxy_default_bind_is_localhost(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
