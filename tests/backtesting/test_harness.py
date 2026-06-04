@@ -704,6 +704,28 @@ def test_compute_drawdown_and_metrics_variants() -> None:
     assert math.isnan(empty_metrics["cagr"])
 
 
+def test_compute_metrics_sortino_matches_canonical_metric() -> None:
+    index = pd.date_range("2024-01-31", periods=6, freq="ME")
+    active_returns = pd.Series(
+        [0.012, -0.018, 0.006, -0.009, 0.015, 0.004],
+        index=index,
+    )
+    equity = (1.0 + active_returns).cumprod()
+    drawdown = _compute_drawdown(equity)
+
+    metrics = _compute_metrics(
+        active_returns,
+        equity,
+        drawdown,
+        periods_per_year=12,
+        active_mask=pd.Series(True, index=index),
+    )
+
+    assert metrics["sortino"] == pytest.approx(
+        sortino_ratio(active_returns, periods_per_year=12)
+    )
+
+
 def test_rolling_sharpe_and_series_weights_dict_helpers() -> None:
     idx = pd.date_range("2020-01-01", periods=5)
     returns = pd.Series([0.0, 0.01, -0.01, 0.02, -0.02], index=idx)
