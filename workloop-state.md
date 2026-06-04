@@ -7,7 +7,9 @@
 - Tests: added warning-as-error coverage for the weights formatter and portability/source guards for the script fixes.
 - Validation: `PYTHONPATH=src python -m pytest tests/app/test_results_page.py::test_weight_pivot_formatter_avoids_applymap_futurewarning tests/app/test_results_page.py::test_results_page_recomputes_when_benchmark_changes tests/scripts/test_deprecation_portability_sweep.py tests/scripts/test_evaluate_settings_effectiveness.py -q` -> 10 passed with one existing deprecated shim warning. `bash -n scripts/test-release.sh scripts/open_pr_from_issue.sh scripts/quick_check.sh`, focused `ruff`, and `git diff --check` passed.
 - Deliberate-break gate: temporarily restored `pivot.applymap(...)`; `tests/app/test_results_page.py::test_weight_pivot_formatter_avoids_applymap_futurewarning` failed because pandas no longer exposes `DataFrame.applymap` in this environment. Restored `pivot.map(...)` and reran focused validation green.
-- Current state: ready to commit, push, and open a ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`; after PR creation, run cap-health and dispatch Gate Followups if fresh evidence is needed.
+- PR/routing: ready-for-review PR #5498 opened at https://github.com/stranske/Trend_Model_Project/pull/5498, non-draft, closing #5431, with `agent:codex`, `agents:keepalive`, and `autofix`.
+- Post-open cap hygiene: initial cap-health at `2026-06-04T16:08:49Z` classified #5498 as `needs-dispatch-evidence`. `opener-repair-infra-stalls.py` added `agent:retry` and dispatched Gate Followups; it also removed stale `agent:needs-attention` from #5497 after keepalive completion evidence. Cap-health at `2026-06-04T16:09:52Z` classified #5498 as `draining` with fresh Gate pending and successful Gate Followups/Autofix evidence.
+- Current state: PR #5498 is open and waiting on asynchronous Gate/keepalive checks. Next action belongs to keepalive/closer after checks settle.
 
 ## 2026-06-04T10:18Z - closer (codex): PR #5490 full-suite stale test repair
 
