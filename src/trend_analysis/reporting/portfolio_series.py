@@ -95,9 +95,14 @@ def _weighted_portfolio(
                 target_total = 1.0 - cash_value
             elif math.isfinite(cash_value) and cash_value >= 1:
                 target_total = 0.0
-        series = _normalise_weights(weights, target_total=target_total)
-        if not series.empty:
-            aligned = series.reindex(out_df.columns, fill_value=0.0)
+        raw_series = _normalise_weights(weights)
+        if not raw_series.empty:
+            aligned_weights = raw_series.reindex(out_df.columns, fill_value=0.0)
+            aligned = _normalise_weights(
+                aligned_weights.to_dict(),
+                target_total=target_total,
+            )
+            aligned = aligned.reindex(out_df.columns, fill_value=0.0)
             portfolio = out_df.mul(aligned, axis=1).sum(axis=1)
             if isinstance(cash_weight, numbers.Real) and isinstance(risk_free, pd.Series):
                 cash_series = risk_free.reindex(out_df.index).fillna(0.0)
@@ -111,6 +116,12 @@ def _weighted_portfolio(
         cash_series = risk_free.reindex(out_df.index).fillna(0.0)
         portfolio = portfolio + cash_series * float(cash_weight)
     return portfolio
+
+
+def weighted_sum(df: pd.DataFrame | None, weights: Mapping[str, float] | None) -> pd.Series | None:
+    """Return a weighted row-wise portfolio series with equal-weight fallback."""
+
+    return _weighted_portfolio(df, weights)
 
 
 @overload

@@ -25,6 +25,7 @@ from ..reporting.narrative import (
     narrative_generation_enabled,
     validate_narrative_quality,
 )
+from ..reporting.portfolio_series import weighted_sum
 from . import bundle as bundle  # noqa: F401  # re-exported module for tests/compat
 from .bundle import export_bundle
 
@@ -87,9 +88,14 @@ def _maybe_remove_openpyxl_default_sheet(book: Any) -> str | None:
         return None
     try:
         cell = ws.cell(row=1, column=1)
+    except TypeError:
+        try:
+            cell = ws.cell(1, 1)
+        except Exception:  # pragma: no cover - defensive guard
+            return None
     except Exception:  # pragma: no cover - defensive guard
         return None
-    if getattr(cell, "value", None) is None:
+    if getattr(cell, "value", None) in (None, ""):
         try:
             book.remove(ws)
             return title
@@ -108,6 +114,10 @@ class _OpenpyxlWorksheetProxy:
     @property
     def name(self) -> str:
         return getattr(self._ws, "title", "")
+
+    @property
+    def native(self) -> Any:
+        return self._ws
 
     def write(self, row: int, col: int, value: Any, fmt: Any | None = None) -> None:
         cell = self._ws.cell(row=row + 1, column=col + 1)
@@ -160,10 +170,10 @@ class _OpenpyxlWorkbookProxy:
     def _book(self) -> Any:
         return self._writer.book
 
-    def add_format(self, spec: Mapping[str, Any]) -> Mapping[str, Any]:
+    def add_format(self, spec: Mapping[str, Any] | None) -> Mapping[str, Any]:
         # Formatting support is best-effort under openpyxl; return the spec so
         # callers can still pass it back to ``write``.
-        return dict(spec)
+        return dict(spec or {})
 
     def add_worksheet(self, name: str) -> _OpenpyxlWorksheetProxy:
         book = self._book
@@ -171,94 +181,38 @@ class _OpenpyxlWorkbookProxy:
         if removed:
             self._writer.sheets.pop(removed, None)
         ws = book.create_sheet(title=name)
+        if getattr(ws, "title", name) != name:
+            ws.title = name
         return _OpenpyxlWorksheetProxy(ws)
 
     def __getattr__(self, name: str) -> Any:  # pragma: no cover - simple proxy
         return getattr(self._book, name)
 
-
-class _OpenpyxlWorksheetAdapter:
-    """Lightweight adapter exposing a subset of the xlsxwriter worksheet
-    API."""
-
-    __slots__ = ("_ws",)
-
-    def __init__(self, worksheet: Any) -> None:
-        self._ws = worksheet
-
-    @property
-    def native(self) -> Any:
-        return self._ws
-
-    def write(
-        self, row: int, col: int, value: object, fmt: object | None = None
-    ) -> None:  # noqa: ARG002
-        # The `fmt` parameter is ignored because openpyxl's formatting model is
-        # different from xlsxwriter's, and this adapter does not support cell formatting.
-        self._ws.cell(row=row + 1, column=col + 1, value=value)
-
-    def write_row(
-        self,
-        row: int,
-        col: int,
-        data: Iterable[object],
-        fmt: object | None = None,  # noqa: ARG002
-    ) -> None:
-        for offset, value in enumerate(data):
-            self.write(row, col + offset, value)
-
-    def set_column(self, first_col: int, last_col: int, width: float) -> None:
-        from openpyxl.utils import get_column_letter
-
-        for idx in range(first_col, last_col + 1):
-            letter = get_column_letter(idx + 1)
-            self._ws.column_dimensions[letter].width = width
-
-    def freeze_panes(self, row: int, col: int) -> None:
-        self._ws.freeze_panes = self._ws.cell(row=row + 1, column=col + 1)
-
-    def autofilter(self, fr: int, fc: int, lr: int, lc: int) -> None:
-        from openpyxl.utils import get_column_letter
-
-        start = f"{get_column_letter(fc + 1)}{fr + 1}"
-        end = f"{get_column_letter(lc + 1)}{lr + 1}"
-        self._ws.auto_filter.ref = f"{start}:{end}"
-
-
-class _OpenpyxlWorkbookAdapter:
-    """Adapter that exposes minimal workbook hooks expected by formatters."""
-
-    __slots__ = ("_wb",)
-
-    def __init__(self, workbook: Any) -> None:
-        self._wb = workbook
-        self._prune_default_sheet()
-
-    def _prune_default_sheet(self) -> None:
-        sheets = getattr(self._wb, "worksheets", [])
-        if len(sheets) == 1:
-            sheet = sheets[0]
-            title = getattr(sheet, "title", "")
-            value = sheet.cell(1, 1).value if hasattr(sheet, "cell") else None
-            if title == "Sheet" and value in (None, "") and hasattr(self._wb, "remove"):
-                self._wb.remove(sheet)
-
-    def add_worksheet(self, name: str) -> _OpenpyxlWorksheetAdapter:
-        ws = self._wb.create_sheet(title=name)
-        if getattr(ws, "title", name) != name:
-            ws.title = name
-        return _OpenpyxlWorksheetAdapter(ws)
-
-    def add_format(self, spec: Mapping[str, Any] | None) -> Mapping[str, Any]:
-        return dict(spec or {})
-
     def rename_last_sheet(self, name: str) -> None:
-        sheets = getattr(self._wb, "worksheets", [])
+        sheets = getattr(self._book, "worksheets", [])
         if sheets:
             sheets[-1].title = name
 
-    def __getattr__(self, attr: str) -> Any:
-        return getattr(self._wb, attr)
+
+class _BookWriterShim:
+    """Minimal writer-like wrapper for compatibility adapter construction."""
+
+    def __init__(self, book: Any) -> None:
+        self.book = book
+        self.sheets = {
+            getattr(sheet, "title", ""): sheet for sheet in getattr(book, "worksheets", [])
+        }
+
+
+class _OpenpyxlWorkbookAdapter(_OpenpyxlWorkbookProxy):
+    """Compatibility alias around the shared openpyxl workbook proxy."""
+
+    def __init__(self, workbook: Any) -> None:
+        _maybe_remove_openpyxl_default_sheet(workbook)
+        super().__init__(_BookWriterShim(workbook))
+
+
+_OpenpyxlWorksheetAdapter = _OpenpyxlWorksheetProxy
 
 
 def register_formatter_excel(
@@ -590,22 +544,6 @@ def _build_summary_formatter(
             total = float((1.0 + s.astype(float)).prod() - 1.0)
             return (total, int(s.shape[0]))
 
-        def portfolio_series(
-            df: pd.DataFrame | None, weights: Mapping[str, float] | None
-        ) -> pd.Series | None:
-            if df is None or df.empty:
-                return None
-            if weights:
-                w = pd.Series({c: float(weights.get(c, 0.0)) for c in df.columns})
-                s = float(w.sum())
-                if s > 0:
-                    w = w / s
-                else:
-                    w = pd.Series(1.0 / float(len(df.columns)), index=df.columns)
-            else:
-                w = pd.Series(1.0 / float(len(df.columns)), index=df.columns)
-            return df.mul(w, axis=1).sum(axis=1)
-
         row = header_row + 1
         for label, ins, outs in [
             ("Equal Weight", res["in_ew_stats"], res["out_ew_stats"]),
@@ -616,8 +554,8 @@ def _build_summary_formatter(
             weights = None
             if label == "User Weight":
                 weights = cast(Mapping[str, float], res.get("fund_weights", {}))
-            os_tr, os_m = total_return_months(portfolio_series(out_df, weights))
-            is_tr, is_m = total_return_months(portfolio_series(in_df, weights))
+            os_tr, os_m = total_return_months(weighted_sum(out_df, weights))
+            is_tr, is_m = total_return_months(weighted_sum(in_df, weights))
             ins_vals = metrics_list(ins)
             outs_vals = metrics_list(outs)
             vals = [os_tr, os_m, *outs_vals[:5]]
@@ -870,22 +808,6 @@ def format_summary_text(
         total = float((1.0 + s.astype(float)).prod() - 1.0)
         return (total * 100.0, int(s.shape[0]))
 
-    def portfolio_series(
-        df: pd.DataFrame | None, weights: Mapping[str, float] | None
-    ) -> pd.Series | None:
-        if df is None or df.empty:
-            return None
-        if weights:
-            w = pd.Series({c: float(weights.get(c, 0.0)) for c in df.columns})
-            s = float(w.sum())
-            if s > 0:
-                w = w / s
-            else:
-                w = pd.Series(1.0 / float(len(df.columns)), index=df.columns)
-        else:
-            w = pd.Series(1.0 / float(len(df.columns)), index=df.columns)
-        return df.mul(w, axis=1).sum(axis=1)
-
     rows: list[list[str | float | None]] = []
 
     base_rows: list[tuple[str, Any, Any]] = []
@@ -902,8 +824,8 @@ def format_summary_text(
         weights = None
         if label == "User Weight":
             weights = cast(Mapping[str, float], res.get("fund_weights", {}))
-        os_tr, os_m = total_return_months(portfolio_series(out_df, weights))
-        is_tr, is_m = total_return_months(portfolio_series(in_df, weights))
+        os_tr, os_m = total_return_months(weighted_sum(out_df, weights))
+        is_tr, is_m = total_return_months(weighted_sum(in_df, weights))
         os_vals = pct(outs)
         is_vals = pct(ins)
         extra = [
@@ -1111,8 +1033,6 @@ def export_to_excel(
                 proxy = None
         else:
             proxy = None
-        if proxy is not None:
-            pass
         # Iterate over frames and either let a registered sheet formatter
         # render the entire sheet (preferred), or fall back to writing the
         # DataFrame directly when no formatter is available.
@@ -1368,22 +1288,6 @@ def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
         total = float((1.0 + s.astype(float)).prod() - 1.0)
         return (total * 100.0, int(s.shape[0]))
 
-    def portfolio_series(
-        df: pd.DataFrame | None, weights: Mapping[str, float] | None
-    ) -> pd.Series | None:
-        if df is None or df.empty:
-            return None
-        if weights:
-            w = pd.Series({c: float(weights.get(c, 0.0)) for c in df.columns})
-            s = float(w.sum())
-            if s > 0:
-                w = w / s
-            else:
-                w = pd.Series(1.0 / float(len(df.columns)), index=df.columns)
-        else:
-            w = pd.Series(1.0 / float(len(df.columns)), index=df.columns)
-        return df.mul(w, axis=1).sum(axis=1)
-
     base_rows: list[tuple[str, Any, Any]] = []
     in_ew = res.get("in_ew_stats")
     out_ew = res.get("out_ew_stats")
@@ -1398,8 +1302,8 @@ def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
         weights = None
         if label == "User Weight":
             weights = cast(Mapping[str, float], res.get("fund_weights", {}))
-        os_tr, os_m = total_return_months(portfolio_series(out_df, weights))
-        is_tr, is_m = total_return_months(portfolio_series(in_df, weights))
+        os_tr, os_m = total_return_months(weighted_sum(out_df, weights))
+        is_tr, is_m = total_return_months(weighted_sum(in_df, weights))
         os_vals = pct(outs)
         is_vals = pct(ins)
         extra = [

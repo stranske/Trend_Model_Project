@@ -7,7 +7,7 @@ from typing import Any, Callable, TypeVar, cast
 import pandas as pd
 import plotly.graph_objects as go
 
-from trend_analysis.viz.adapters import rolling_stats
+from trend_analysis.viz.adapters import _paths_to_wide_nav, rolling_stats
 
 st: Any | None
 try:
@@ -31,16 +31,6 @@ def _cache_data(*args: object, **kwargs: object) -> Callable[[F], F]:
     return _identity
 
 
-def _to_nav_wide(paths: pd.DataFrame) -> pd.DataFrame:
-    if paths.empty:
-        return pd.DataFrame()
-    nav = pd.to_numeric(paths["nav"], errors="coerce")
-    wide = nav.unstack("path")
-    wide.index = pd.to_datetime(wide.index, errors="coerce")
-    wide = wide[wide.index.notna()]
-    return wide.sort_index()
-
-
 @_cache_data(show_spinner=False)
 def _prepare_panel_series(
     paths: pd.DataFrame,
@@ -53,7 +43,7 @@ def _prepare_panel_series(
     if rolling.empty:
         return pd.DataFrame()
 
-    wide_nav = _to_nav_wide(paths).ffill()
+    wide_nav = _paths_to_wide_nav(paths).ffill()
     if wide_nav.empty:
         return pd.DataFrame()
 

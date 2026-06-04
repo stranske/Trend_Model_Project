@@ -6,13 +6,13 @@ import datetime as _dt
 import html
 import json
 import shutil
-import subprocess
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 import pandas as pd
 
 from trend_analysis.identity import IdentityMap
+from trend_analysis.util.git import git_hash
 from trend_analysis.util.hash import normalise_for_json, sha256_config, sha256_file
 
 _METRIC_FIELDS = (
@@ -25,15 +25,7 @@ _METRIC_FIELDS = (
 )
 
 
-def _git_hash() -> str:
-    """Return the current git commit hash when available."""
-
-    try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], encoding="utf-8", shell=False
-        ).strip()
-    except Exception:
-        return "unknown"
+_git_hash = git_hash
 
 
 def _serialise_stats(stats: Any) -> dict[str, float]:
