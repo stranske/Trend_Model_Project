@@ -8,7 +8,8 @@
 - Implementation: moved the six CI/autofix fixtures out of `src/trend_analysis` into `tests/workflows/fixtures`, updated direct workflow tests to import those fixtures from the test-only package, kept synthetic autofix integration tests able to copy the fixture into their temporary broken package, and added `tests/test_no_ci_fixtures_in_package.py` to guard the real package path.
 - Validation: `PYTHONPATH=src python -m pytest tests/test_no_ci_fixtures_in_package.py tests/workflows -q` -> 211 passed, 6 existing deprecation warnings. Focused `ruff` passed; focused `mypy` passed; `git diff --check` passed. `PYTHONPATH=src python -c "import trend_analysis"` exited 0 while printing the known local NumPy optional-extension ABI warnings.
 - Deliberate-break gate: temporarily re-created `src/trend_analysis/_ci_probe_faults.py`; `tests/test_no_ci_fixtures_in_package.py` failed on the reintroduced module spec. Removed the temporary file and reran the workflow suite green.
-- Current state: implementation ready to commit, push, and open a ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`.
+- PR/routing: ready-for-review PR #5488 opened at https://github.com/stranske/Trend_Model_Project/pull/5488, non-draft, closing #5421, with `agent:codex`, `agents:keepalive`, and `autofix`. Post-open cap-health initially classified it as `needs-dispatch-evidence`; `opener-repair-infra-stalls.py` added `agent:retry` and dispatched Gate Followups.
+- Current state: cap-health at 2026-06-04T07:13:59Z classifies PR #5488 as `draining` with fresh active Gate evidence. Next action belongs to asynchronous Gate/keepalive/closer after checks settle.
 
 ## 2026-06-04T06:06Z - opener (codex): issue #5420 harness canonical schedule
 
