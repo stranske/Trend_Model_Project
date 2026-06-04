@@ -65,7 +65,6 @@ ALLOWLIST_PATHS: dict[str, str] = {
     "data.currency": "Declared ingestion key; A1/#5389 strict-config owner decision pending.",
     "data.lookback_required": "Declared ingestion key; A1/#5389 strict-config owner decision pending.",
     # Declared feature flags retained as config surface (not in A2's enumerated set).
-    "data.missing_fill_limit": "A5/#5418 owns migration to missing_limit; retained until that issue lands.",
     "preprocessing.winsorise.limits": "Declared winsorisation settings; not in A2's enumerated inert set.",
     "preprocessing.de_duplicate": "Declared preprocessing flag; not in A2's enumerated inert set.",
     "preprocessing.log_prices": "Declared preprocessing flag; not in A2's enumerated inert set.",
