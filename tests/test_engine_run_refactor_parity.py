@@ -96,6 +96,14 @@ def test_run_refactor_preserves_period_parity(monkeypatch) -> None:
         "create_selector_by_name",
         lambda *_args, **_kwargs: SelectorStub(),
     )
+    original_setup_period = engine._setup_period
+    setup_period_calls: list[str] = []
+
+    def wrapped_setup_period(pt: Any, **kwargs: Any) -> engine._PeriodSetup:
+        setup_period_calls.append(pt.out_end)
+        return original_setup_period(pt, **kwargs)
+
+    monkeypatch.setattr(engine, "_setup_period", wrapped_setup_period)
 
     pipeline_calls: list[
         tuple[str, tuple[str, ...], tuple[tuple[str, float], ...]]
@@ -141,6 +149,7 @@ def test_run_refactor_preserves_period_parity(monkeypatch) -> None:
     ]
     assert len(pipeline_calls) == 3
     assert [call[0] for call in pipeline_calls] == ["2020-03", "2020-04", "2020-05"]
+    assert setup_period_calls == ["2020-03", "2020-04", "2020-05"]
     assert all(len(call[1]) == 2 for call in pipeline_calls)
     assert [tuple(result["selected_funds"]) for result in results] == [
         call[1] for call in pipeline_calls

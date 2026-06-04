@@ -6,12 +6,16 @@ tasks:
   - id: task-01
     title: Extract the period setup logic from the loop body into a new module-level
       function named `_setup_period` in `engine.py`
-    status: todo
+    status: done
     started_at: '2026-06-04T09:46:28Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-06-04T19:29:27Z'
+    commit: pending-push
     notes:
       - Reopened by closer: prior ledger-only commit did not implement `_setup_period`.
+      - Closer implemented module-level `_setup_period`, routed `run()` through it,
+        and added parity coverage proving the helper is called once per period.
+        Validation passed with `PYTHONPATH=src python -m pytest tests/test_engine_run_refactor_parity.py -q`,
+        focused Ruff, and `git diff --check origin/phase-3`.
   - id: task-02
     title: Extract the weighting calculation logic from the loop body into a new module-level
       function named `_weight_period` in `engine.py`

@@ -361,6 +361,53 @@ def _period_turnover_cost(
 _resolve_risk_free_settings = resolve_risk_free_settings
 
 
+@dataclass
+class _PeriodSetup:
+    period_ts: pd.Timestamp
+    in_df: pd.DataFrame
+    out_df: pd.DataFrame
+    fund_cols: list[str]
+
+
+def _setup_period(
+    pt: Any,
+    *,
+    cooldown_periods: int,
+    cooldown_book: dict[str, int],
+    valid_universe: Callable[..., tuple[pd.DataFrame, pd.DataFrame, list[str], str | None]],
+    df: pd.DataFrame,
+) -> _PeriodSetup:
+    """Prepare per-period date, cooldown, and universe state."""
+
+    period_ts = pd.to_datetime(pt.out_end)
+
+    if cooldown_periods > 0 and cooldown_book:
+        for key in list(cooldown_book.keys()):
+            remaining = int(cooldown_book.get(key, 0)) - 1
+            if remaining <= 0:
+                cooldown_book.pop(key, None)
+            else:
+                cooldown_book[key] = remaining
+
+    in_df, out_df, fund_cols, _rf_col = valid_universe(
+        df,
+        pt.in_start[:7],
+        pt.in_end[:7],
+        pt.out_start[:7],
+        pt.out_end[:7],
+        # For threshold_hold, include all funds with valid in-sample data
+        # in the score frame so they can be considered for hiring. The
+        # out-of-sample check is applied later when deciding actual holdings.
+        require_out_sample=False,
+    )
+    return _PeriodSetup(
+        period_ts=period_ts,
+        in_df=in_df,
+        out_df=out_df,
+        fund_cols=fund_cols,
+    )
+
+
 class MissingPriceDataError(FileNotFoundError, ValueError):
     """Raised when CSV fallback loading fails in ``run``."""
 
@@ -2516,27 +2563,17 @@ def run(
             return weighting.weight(sf.loc[holdings], date)
 
     for pt in periods:
-        period_ts = pd.to_datetime(pt.out_end)
-
-        if cooldown_periods > 0 and cooldown_book:
-            for key in list(cooldown_book.keys()):
-                remaining = int(cooldown_book.get(key, 0)) - 1
-                if remaining <= 0:
-                    cooldown_book.pop(key, None)
-                else:
-                    cooldown_book[key] = remaining
-
-        in_df, out_df, fund_cols, _rf_col = _valid_universe(
-            df,
-            pt.in_start[:7],
-            pt.in_end[:7],
-            pt.out_start[:7],
-            pt.out_end[:7],
-            # For threshold_hold, include all funds with valid in-sample data
-            # in the score frame so they can be considered for hiring. The
-            # out-of-sample check is applied later when deciding actual holdings.
-            require_out_sample=False,
+        period_setup = _setup_period(
+            pt,
+            cooldown_periods=cooldown_periods,
+            cooldown_book=cooldown_book,
+            valid_universe=_valid_universe,
+            df=df,
         )
+        period_ts = period_setup.period_ts
+        in_df = period_setup.in_df
+        out_df = period_setup.out_df
+        fund_cols = period_setup.fund_cols
         # Even with relaxed in-sample filtering, if no fund has OOS data,
         # we cannot form a portfolio, so produce a placeholder.
         if fund_cols and isinstance(out_df, pd.DataFrame) and not out_df.empty:
