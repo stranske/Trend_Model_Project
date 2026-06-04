@@ -2,8 +2,9 @@ from types import SimpleNamespace
 
 import pandas as pd
 import pytest
+from trend.diagnostics import DiagnosticResult
 
-from trend_analysis import pipeline_entrypoints, run_analysis
+from trend_analysis import pipeline_entrypoints
 from trend_analysis.data import load_csv
 from trend_analysis.io.market_data import MarketDataValidationError
 from trend_analysis.multi_period import engine as multi_period_engine
@@ -13,6 +14,54 @@ from trend_analysis.multi_period import loaders as multi_period_loaders
 class DummyResult(SimpleNamespace):
     metrics: pd.DataFrame
     details: dict
+
+
+def _section_get(section, key, default=None):
+    if isinstance(section, dict):
+        return section.get(key, default)
+    return getattr(section, key, default)
+
+
+def _cfg_section(cfg, key):
+    return _section_get(cfg, key, {})
+
+
+def _pipeline_bindings(captured: dict[str, object]) -> pipeline_entrypoints.ConfigBindings:
+    def fake_load_csv(path, *, errors="raise", date_column="Date", **kwargs):
+        captured.update(
+            {
+                "path": path,
+                "errors": errors,
+                "date_column": date_column,
+                "kwargs": kwargs,
+            }
+        )
+        return pd.DataFrame({"Date": pd.to_datetime(["2024-01-31"]), "ManagerA": [0.01]})
+
+    def fake_invoke_analysis(*args, **kwargs):
+        del args, kwargs
+        return DiagnosticResult.success(
+            {
+                "out_sample_stats": {"ManagerA": SimpleNamespace(total_return=0.01)},
+                "benchmark_ir": {},
+            }
+        )
+
+    return pipeline_entrypoints.ConfigBindings(
+        load_csv=fake_load_csv,
+        attach_calendar_settings=lambda *_args, **_kwargs: None,
+        unwrap_cfg=lambda cfg: cfg,
+        cfg_section=_cfg_section,
+        section_get=_section_get,
+        cfg_value=lambda cfg, key, default=None: _section_get(cfg, key, default),
+        resolve_sample_split=lambda _df, split: split,
+        policy_from_config=lambda _missing: (None, None),
+        build_trend_spec=lambda *_args, **_kwargs: None,
+        resolve_target_vol=lambda _vol_adjust: None,
+        invoke_analysis_with_diag=fake_invoke_analysis,
+        weight_engine_params_from_robustness=lambda *_args, **_kwargs: None,
+        RiskStatsConfig=lambda **kwargs: SimpleNamespace(**kwargs),
+    )
 
 
 def test_load_csv_honors_configured_date_column(tmp_path):
@@ -60,7 +109,7 @@ def test_accepts_keyword_is_conservative_when_signature_fails():
     assert multi_period_engine._accepts_keyword(marker, "date_column") is False
 
 
-def test_run_analysis_passes_configured_date_column(monkeypatch, tmp_path):
+def test_pipeline_entrypoint_passes_configured_date_column(tmp_path):
     csv_path = tmp_path / "returns.csv"
     csv_path.write_text("Timestamp,ManagerA\n2024-01-31,0.01\n")
     cfg = SimpleNamespace(
@@ -74,34 +123,17 @@ def test_run_analysis_passes_configured_date_column(monkeypatch, tmp_path):
         export={"directory": str(tmp_path), "formats": ["json"], "filename": "report"},
     )
 
-    monkeypatch.setattr(run_analysis, "load", lambda path: cfg)
     captured: dict[str, object] = {}
 
-    def fake_load_csv(path, *, errors="raise", date_column="Date", **kwargs):
-        captured.update(
-            {
-                "path": path,
-                "errors": errors,
-                "date_column": date_column,
-                "kwargs": kwargs,
-            }
-        )
-        return pd.DataFrame({"Date": pd.to_datetime(["2024-01-31"]), "ManagerA": [0.01]})
+    result = pipeline_entrypoints.run_from_config(cfg, bindings=_pipeline_bindings(captured))
 
-    monkeypatch.setattr(run_analysis, "load_csv", fake_load_csv)
-    monkeypatch.setattr(
-        run_analysis.api,
-        "run_simulation",
-        lambda config, df: DummyResult(metrics=pd.DataFrame(), details={}),
-    )
-
-    assert run_analysis.main(["--config", "config.yml"]) == 0
+    assert not result.empty
     assert captured["path"] == str(csv_path)
     assert captured["errors"] == "raise"
     assert captured["date_column"] == "Timestamp"
 
 
-def test_run_analysis_without_date_column_keeps_default(monkeypatch, tmp_path):
+def test_pipeline_entrypoint_without_date_column_keeps_default(tmp_path):
     csv_path = tmp_path / "returns.csv"
     csv_path.write_text("Date,ManagerA\n2024-01-31,0.01\n")
     cfg = SimpleNamespace(
@@ -115,19 +147,9 @@ def test_run_analysis_without_date_column_keeps_default(monkeypatch, tmp_path):
         export={"directory": str(tmp_path), "formats": ["json"], "filename": "report"},
     )
 
-    monkeypatch.setattr(run_analysis, "load", lambda path: cfg)
     captured: dict[str, object] = {}
 
-    def fake_load_csv(path, *, errors="raise", date_column="Date", **kwargs):
-        captured["date_column"] = date_column
-        return pd.DataFrame({"Date": pd.to_datetime(["2024-01-31"]), "ManagerA": [0.01]})
+    result = pipeline_entrypoints.run_from_config(cfg, bindings=_pipeline_bindings(captured))
 
-    monkeypatch.setattr(run_analysis, "load_csv", fake_load_csv)
-    monkeypatch.setattr(
-        run_analysis.api,
-        "run_simulation",
-        lambda config, df: DummyResult(metrics=pd.DataFrame(), details={}),
-    )
-
-    assert run_analysis.main(["--config", "config.yml"]) == 0
+    assert not result.empty
     assert captured["date_column"] == "Date"

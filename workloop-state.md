@@ -1,3 +1,23 @@
+## 2026-06-04T10:18Z - closer (codex): PR #5490 full-suite stale test repair
+
+- Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5423`, PR `#5490`, branch `codex/issue-5423-legacy-runners`.
+- Lane: closer / same-lane Python CI recovery after prior review-thread fix.
+- Live failure evidence: current head `12f785c8` Gate run `26944880699` failed Python 3.12 and 3.13 because `tests/test_date_column_main_path.py` imported deleted `trend_analysis.run_analysis`, and `tests/golden/test_demo.py` still invoked `python -m trend_analysis.run_analysis -c config/demo.yml`.
+- Fix: migrated the date-column tests to the supported `pipeline_entrypoints.run_from_config` binding surface so they still assert configured/default `date_column` behavior, and changed golden demo subprocesses to `python -m trend_analysis.cli run -c config/demo.yml -i demo/demo_returns.csv --no-structured-log`.
+- Validation: `PYTHONPATH=src python -m pytest tests/test_date_column_main_path.py tests/golden/test_demo.py::TestDemoGoldenMaster::test_demo_pipeline_end_to_end tests/golden/test_demo.py::TestDemoGoldenMaster::test_demo_pipeline_deterministic -q` -> 8 passed. `PYTHONPATH=src python -m pytest tests/test_legacy_runners_removed.py tests/test_compat_entrypoints.py tests/test_trend_analysis_init_module.py tests/test_joblib_import.py tests/test_constants.py tests/test_date_column_main_path.py -q` -> 34 passed, 4 existing warnings. `python -m ruff check tests/test_date_column_main_path.py tests/golden/test_demo.py`, `python -m mypy tests/test_date_column_main_path.py`, and `git diff --check` passed.
+- Current state: ready to push one repair commit; after push, PR should wait fresh Gate/Python checks before merge/apply `verify:compare`.
+
+## 2026-06-04T09:32Z - closer (codex): PR #5490 review/CI recovery pushed
+
+- Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5423`, PR `#5490`, branch `codex/issue-5423-legacy-runners`.
+- Lane: closer / review-thread and Python CI recovery after opener implementation removed legacy `run_analysis.py` / `run_multi_analysis.py`.
+- Batch context: same closer round first closed issue `#5421` after #5488 verifier PASS/PASS, then merged PR `#5489`, applied `verify:compare`, and reopened issue `#5422` pending verifier.
+- Failure/review evidence: Python CI 3.12/3.13 failed on head `4c0fd49c`; unresolved review threads identified broken `scripts/trend-reproducible` target/import guard, `scripts/run_multi_demo.py` calls to `trend_analysis.cli` without the required `run` subcommand or `-i/--input`, stale unsupported `--detailed` CLI flags, and a weak legacy-runner guard test.
+- Fix pushed: commit `12f785c8` updates `scripts/trend-reproducible` to default to `trend_analysis.cli` while preserving direct `trend_analysis.*` module override compatibility, updates demo CLI calls to pass `run -c config/demo.yml -i <config csv>`, and strengthens `tests/test_legacy_runners_removed.py` to check source-package resolution plus parsed lazy exports.
+- Review handling: posted PR evidence comment and resolved all seven existing review threads (`PRRT_kwDOO0LrSc6HBSDj`, `PRRT_kwDOO0LrSc6HBSDm`, `PRRT_kwDOO0LrSc6HBSDp`, `PRRT_kwDOO0LrSc6HBUyM`, `PRRT_kwDOO0LrSc6HBUyu`, `PRRT_kwDOO0LrSc6HBUzA`, `PRRT_kwDOO0LrSc6HBUzU`) after the fix.
+- Validation: `PYTHONPATH=src python -m pytest tests/test_legacy_runners_removed.py tests/test_compat_entrypoints.py tests/test_trend_analysis_init_module.py tests/test_joblib_import.py tests/test_constants.py -q` -> 28 passed, 4 existing warnings. `PYTHONPATH=src python -m trend_analysis.cli run -c config/demo.yml -i <config csv> --no-structured-log` completed locally; local Anaconda prints known NumPy optional-extension warnings. `PYTHONPATH=src scripts/trend-reproducible --help` completed. `bash -n scripts/trend-reproducible`, `python -m ruff check scripts/run_multi_demo.py tests/test_legacy_runners_removed.py`, `python -m mypy tests/test_legacy_runners_removed.py`, and `git diff --check` passed.
+- Current state: PR `#5490` is open on head `12f785c8`, review threads resolved, fresh Gate/Backplane/guard/Claude checks are queued or in progress. Next closer action: re-check fresh required checks; merge and apply `verify:compare` if clean, or fix any new concrete failure.
+
 ## 2026-06-04T09:10Z - opener (codex): issue #5423 legacy runner removal
 
 - Repo/issue: `stranske/Trend_Model_Project` #5423 (`C1 - Remove orphaned legacy runners run_analysis.py / run_multi_analysis.py`).
