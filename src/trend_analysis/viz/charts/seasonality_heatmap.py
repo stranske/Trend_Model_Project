@@ -34,6 +34,8 @@ def _cache_data(*args: object, **kwargs: object) -> Callable[[F], F]:
 
 @_cache_data(show_spinner=False)
 def _prepare_seasonality_matrix(paths: pd.DataFrame) -> pd.DataFrame:
+    if paths.empty:
+        return pd.DataFrame()
     wide_nav = _paths_to_wide_nav(paths).ffill()
     if wide_nav.empty:
         return pd.DataFrame()

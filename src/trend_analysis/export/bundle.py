@@ -1,6 +1,7 @@
 import datetime as _dt
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import zipfile
@@ -20,7 +21,8 @@ from trend_analysis.util.hash import (
 from trend_analysis.util.git import git_hash
 
 
-_git_hash = git_hash
+def _git_hash() -> str:
+    return git_hash(subprocess_module=subprocess)
 
 
 def export_bundle(run: Any, path: Path) -> Path:
