@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Extract the period setup logic from the loop body into a new module-level
       function named `_setup_period` in `engine.py`
-    status: doing
+    status: done
     started_at: '2026-06-04T09:46:28Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-06-04T09:46:40Z'
+    commit: afd3618b672463051b3d78d95fd67da05e7a1e5a
     notes: []
   - id: task-02
     title: Extract the weighting calculation logic from the loop body into a new module-level
