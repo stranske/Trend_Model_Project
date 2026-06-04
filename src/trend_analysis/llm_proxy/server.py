@@ -204,7 +204,7 @@ class LLMProxy:
             headers=filtered,
         )
 
-    async def start(self, host: str = "0.0.0.0", port: int = 8799) -> None:  # noqa: D401
+    async def start(self, host: str = "127.0.0.1", port: int = 8799) -> None:  # noqa: D401
         _assert_deps()
         if uvicorn is None:
             raise RuntimeError("uvicorn dependency is required to start the proxy server")
@@ -221,7 +221,7 @@ class LLMProxy:
 
 def run_proxy(
     upstream_base: str | None = None,
-    host: str = "0.0.0.0",
+    host: str = "127.0.0.1",
     port: int = 8799,
 ) -> None:
     """Run the LLM proxy synchronously (convenience wrapper)."""

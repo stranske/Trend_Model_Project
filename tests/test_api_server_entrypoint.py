@@ -28,7 +28,7 @@ def test_api_server_entrypoint_invokes_run(monkeypatch):
 
     runpy.run_module("trend_analysis.api_server.__main__", run_name="__main__")
 
-    assert called == {"host": "0.0.0.0", "port": 8000}
+    assert called == {"host": "127.0.0.1", "port": 8000}
 
 
 def test_api_server_package_main_invokes_run(monkeypatch):
