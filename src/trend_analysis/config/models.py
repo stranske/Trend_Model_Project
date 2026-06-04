@@ -753,7 +753,10 @@ def _config_from_validated(data: dict[str, Any], validated: Any | None) -> Confi
     if isinstance(validated, Config):
         return validated
     if hasattr(validated, "model_dump"):
-        dumped = cast(Any, validated).model_dump()
+        try:
+            dumped = cast(Any, validated).model_dump(mode="json")
+        except TypeError:
+            dumped = cast(Any, validated).model_dump()
         if isinstance(dumped, Mapping):
             merged: dict[str, Any] = dict(data)
             for key, value in dumped.items():
