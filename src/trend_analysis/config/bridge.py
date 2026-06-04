@@ -87,9 +87,22 @@ def validate_payload(
     }
     semantic_portfolio["transaction_cost_bps"] = core.costs.transaction_cost_bps
     semantic_portfolio["max_turnover"] = trend_config.portfolio.max_turnover
+    semantic_data = dict(payload.get("data") or {})
+    semantic_data["csv_path"] = (
+        str(core.data.csv_path) if core.data.csv_path is not None else None
+    )
+    semantic_data["universe_membership_path"] = (
+        str(core.data.universe_membership_path)
+        if core.data.universe_membership_path is not None
+        else None
+    )
+    semantic_data["managers_glob"] = core.data.managers_glob
+    semantic_data["date_column"] = core.data.date_column
+    semantic_data["frequency"] = core.data.frequency
     semantic_payload: Dict[str, Any] = {
         **{section: dict(defaults) for section, defaults in _REQUIRED_SECTION_DEFAULTS.items()},
         **payload,
+        "data": semantic_data,
         "portfolio": semantic_portfolio,
         "vol_adjust": {"target_vol": trend_config.vol_adjust.target_vol},
     }
