@@ -1,3 +1,14 @@
+## 2026-06-04T05:08Z - opener (codex): issue #5429 frequency inference helper
+
+- Repo: `stranske/Trend_Model_Project`
+- Issue: `#5429` (`T16 - Hoist duplicated _infer_periods_per_year and reconcile drift`)
+- Branch: `codex/issue-5429-frequency-inference`
+- Worktree: `~/.codex/automations/pd-workloop-resume/worktrees/trend-5429-frequency-inference`
+- Selection: raw opener cap was below 5 after required cap discovery and an infra repair dispatch for PR #5485. The oldest unlinked issue #5420 explicitly depends on T16, so #5429 was selected as the nearest bounded upstream implementation issue outside scoped blockers.
+- Implementation: added shared `trend_analysis.util.frequency.infer_periods_per_year`, imported it into `backtesting.harness` and `engine.walkforward` under their existing private `_infer_periods_per_year` names, and removed the two duplicated local implementations.
+- Validation: `PYTHONPATH=src python -m pytest tests/test_infer_periods_per_year.py tests/test_walkforward_engine.py tests/backtesting/test_harness.py -q` -> 45 passed. Deliberate-break gate changed the shared helper to return raw `approx`; `tests/test_infer_periods_per_year.py::test_infer_periods_per_year_combines_branch_guards` failed with sparse cadence returning `0` instead of `1`, then the floor was restored. Focused ruff passed; focused mypy passed; `git diff --check` passed.
+- Current state: ready to commit, push, and open a ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`.
+
 ## 2026-06-04T03:06Z - opener (codex): issue #5419 weighting config resolver
 
 - Repo: `stranske/Trend_Model_Project`

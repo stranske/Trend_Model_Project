@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 from trend_analysis.metrics import information_ratio
+from trend_analysis.util.frequency import infer_periods_per_year as _infer_periods_per_year
 
 
 @dataclass
@@ -105,36 +106,6 @@ def _information_ratio_frame(
         ser = pd.Series(data)
     ser.name = "information_ratio"
     return ser.to_frame().T
-
-
-def _infer_periods_per_year(index: pd.DatetimeIndex) -> int:
-    if len(index) < 2:
-        return 1
-
-    diffs = np.diff(index.values.astype("datetime64[ns]").astype(np.int64))
-    if len(diffs) == 0:
-        return 1
-
-    median_ns = np.median(diffs)
-    if median_ns <= 0:
-        return 1
-
-    median_days = median_ns / (24 * 60 * 60 * 1e9)
-    if median_days <= 0:
-        return 1
-
-    approx = int(round(365 / median_days))
-    if approx >= 300:
-        return 252
-    if 45 <= approx <= 60:
-        return 52
-    if 10 <= approx <= 14:
-        return 12
-    if 3 <= approx <= 5:
-        return 4
-    if approx <= 0:
-        return 1
-    return approx
 
 
 def _agg_label(agg: Any) -> str:
