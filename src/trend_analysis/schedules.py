@@ -46,6 +46,27 @@ def get_rebalance_dates(
     return custom.intersection(index)
 
 
+def rebalance_calendar(index: pd.DatetimeIndex, freq: str) -> pd.DatetimeIndex:
+    """Return a rebalance calendar for ``index`` using the shared schedule rules."""
+    return get_rebalance_dates(index, freq)
+
+
+def normalize_frequency(freq: str) -> str:
+    """Normalize legacy pandas period aliases to explicit end-based aliases."""
+    freq_clean = freq.strip()
+    freq_upper = freq_clean.upper()
+    replacements = {"M": "ME", "Q": "QE", "A": "YE", "Y": "YE"}
+    for suffix, replacement in replacements.items():
+        if freq_upper.endswith(replacement):
+            return freq_clean
+        if freq_upper.endswith(suffix):
+            prefix = freq_upper[: -len(suffix)]
+            if prefix and not prefix.isdigit():
+                continue
+            return prefix + replacement
+    return freq_clean
+
+
 def normalize_positions(
     positions: pd.DataFrame,
     *,
@@ -163,7 +184,7 @@ def apply_rebalance_schedule(
 
 
 def _offset_from_frequency(freq: str) -> DateOffset:
-    freq_clean = freq.strip()
+    freq_clean = normalize_frequency(freq)
     if not freq_clean:
         raise ValueError("freq must be a non-empty string")
 
@@ -200,4 +221,10 @@ def _match_timezone(idx: pd.DatetimeIndex, template: pd.DatetimeIndex) -> pd.Dat
     return idx.tz_convert(template.tz)
 
 
-__all__ = ["get_rebalance_dates", "apply_rebalance_schedule", "normalize_positions"]
+__all__ = [
+    "get_rebalance_dates",
+    "rebalance_calendar",
+    "normalize_frequency",
+    "apply_rebalance_schedule",
+    "normalize_positions",
+]

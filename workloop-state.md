@@ -1,3 +1,16 @@
+## 2026-06-04T06:06Z - opener (codex): issue #5420 harness canonical schedule
+
+- Repo: `stranske/Trend_Model_Project`
+- Issue: `#5420` (`A7 - Consolidate the parallel backtesting/harness.py engine`)
+- Branch: `codex/issue-5420-harness-canonical`
+- Worktree: `~/.codex/automations/pd-workloop-resume/worktrees/trend-5420-harness-canonical`
+- Selection: raw opener cap was below 5. Scoped-blocked #5389/#5440 on strict-config product decision. Closed upstream source issues #5424 and #5429 after merged-key verifier disposition, unblocking #5420 for a bounded consolidation slice.
+- Implementation: moved harness rebalance calendar and frequency normalization to shared `trend_analysis.schedules` helpers, kept harness private aliases as compatibility shims, and added regression coverage proving the harness aliases use the shared schedule helpers. Existing harness metrics already route Sortino through canonical `metrics.sortino_ratio` and period inference through `util.frequency`.
+- Validation: `PYTHONPATH=src python -m pytest tests/backtesting/test_harness.py tests/test_infer_periods_per_year.py -q` -> 31 passed. Broader schedule/harness run `PYTHONPATH=src python -m pytest tests/test_rebalance_schedule.py tests/test_rebalance_frequency_wiring.py tests/backtesting/test_harness.py tests/test_backtesting_harness_additional.py tests/test_backtesting_harness_membership.py -q` -> 64 passed with existing Pandas/user-warning noise. Focused ruff, focused mypy, and `git diff --check` passed.
+- Deliberate-break gate: temporarily reintroduced a harness-local `_normalise_frequency` returning raw `freq.strip()`. `tests/backtesting/test_harness.py::test_harness_calendar_uses_shared_schedule_helpers` failed with `AssertionError: assert 'M' == 'ME'`; restored the shared import and reran green.
+- PR/routing: ready-for-review PR #5487 opened at https://github.com/stranske/Trend_Model_Project/pull/5487, non-draft, closing #5420, with `agent:codex`, `agents:keepalive`, and `autofix`. Post-open cap-health initially classified it as infra-stalled because the first Gate Followups evaluator skipped; `opener-repair-infra-stalls.py` added `agent:retry` and dispatched Gate Followups.
+- Current state: cap-health at 2026-06-04T06:07:59Z classifies PR #5487 as `draining` with fresh active Gate evidence after the repair dispatch. Initial canceled/failed checks are stale run noise; next action belongs to asynchronous Gate/keepalive/closer after checks settle.
+
 ## 2026-06-04T05:08Z - opener (codex): issue #5429 frequency inference helper
 
 - Repo: `stranske/Trend_Model_Project`
