@@ -30,6 +30,7 @@ from trend_analysis.backtesting.harness import (
     _weights_to_dict,
 )
 from trend_analysis.metrics import sortino_ratio
+from trend_analysis.schedules import normalize_frequency, rebalance_calendar
 
 
 class MeanWinnerStrategy:
@@ -745,6 +746,13 @@ def test_rolling_sharpe_and_series_weights_dict_helpers() -> None:
     weights_dict = _weights_to_dict(weights)
     assert list(weights_dict.keys()) == [idx[0].isoformat()]
     assert _weights_to_dict(pd.DataFrame()) == {}
+
+
+def test_harness_calendar_uses_shared_schedule_helpers() -> None:
+    idx = pd.bdate_range("2020-01-01", periods=45)
+
+    assert _normalise_frequency("M") == normalize_frequency("M")
+    pdt.assert_index_equal(_rebalance_calendar(idx, "M"), rebalance_calendar(idx, "M"))
 
 
 def test_json_default_and_to_float_helpers() -> None:

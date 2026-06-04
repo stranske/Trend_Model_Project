@@ -10,12 +10,12 @@ from typing import Any, Callable, Dict, Literal, Mapping, Sequence, cast
 
 import numpy as np
 import pandas as pd
-from pandas.tseries.frequencies import to_offset
 
 from backtest import shift_by_execution_lag
 
 from ..metrics.turnover import linear_turnover_cost
 from ..metrics import sortino_ratio
+from ..schedules import normalize_frequency, rebalance_calendar as _rebalance_calendar
 from ..universe import MembershipTable, build_membership_mask
 from ..util.frequency import infer_periods_per_year as _infer_periods_per_year
 
@@ -28,6 +28,8 @@ _LOOKAHEAD_ERROR = (
     "window_size/execution_lag combination leaves no eligible rebalance dates "
     "without violating the execution-lag (look-ahead) constraint."
 )
+
+_normalise_frequency = normalize_frequency
 
 
 @dataclass(frozen=True)
@@ -533,28 +535,6 @@ def _format_list_preview(items: Sequence[str], limit: int = 5) -> str:
     if len(items) > limit:
         preview += f", … (+{len(items) - limit} more)"
     return preview
-
-
-def _rebalance_calendar(index: pd.DatetimeIndex, freq: str) -> pd.DatetimeIndex:
-    offset = to_offset(_normalise_frequency(freq))
-    resampled = index.to_series().resample(offset).last().dropna()
-    calendar = pd.DatetimeIndex(resampled, name="rebalance_date")
-    return calendar.intersection(index)
-
-
-def _normalise_frequency(freq: str) -> str:
-    freq_clean = freq.strip()
-    freq_upper = freq_clean.upper()
-    replacements = {"M": "ME", "Q": "QE", "A": "YE", "Y": "YE"}
-    for suffix, replacement in replacements.items():
-        if freq_upper.endswith(replacement):
-            return freq_clean
-        if freq_upper.endswith(suffix):
-            prefix = freq_upper[: -len(suffix)]
-            if prefix and not prefix.isdigit():
-                continue
-            return prefix + replacement
-    return freq_clean
 
 
 def _initial_weights(columns: Sequence[str], initial: Mapping[str, float] | None) -> pd.Series:
