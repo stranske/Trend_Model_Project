@@ -198,6 +198,15 @@ class DataSettings(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
+    @model_validator(mode="before")
+    @classmethod
+    def _alias_missing_fill_limit(cls, data: Any) -> Any:
+        if not isinstance(data, Mapping):
+            return data
+        if "missing_fill_limit" not in data or "missing_limit" in data:
+            return data
+        return {**data, "missing_limit": data["missing_fill_limit"]}
+
     @field_validator("csv_path", mode="before")
     @classmethod
     def _validate_csv_path(cls, value: Any, info: Any) -> Path | None:
