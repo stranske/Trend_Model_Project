@@ -205,7 +205,17 @@ class TestDemoGoldenMaster:
 
         # Step 2: Run main demo analysis
         result = subprocess.run(
-            ["python", "-m", "trend_analysis.run_analysis", "-c", "config/demo.yml"],
+            [
+                "python",
+                "-m",
+                "trend_analysis.cli",
+                "run",
+                "-c",
+                "config/demo.yml",
+                "-i",
+                "demo/demo_returns.csv",
+                "--no-structured-log",
+            ],
             cwd=Path.cwd(),
             capture_output=True,
             text=True,
@@ -329,9 +339,13 @@ class TestDemoGoldenMaster:
                 [
                     "python",
                     "-m",
-                    "trend_analysis.run_analysis",
+                    "trend_analysis.cli",
+                    "run",
                     "-c",
                     "config/demo.yml",
+                    "-i",
+                    "demo/demo_returns.csv",
+                    "--no-structured-log",
                 ],
                 cwd=Path.cwd(),
                 capture_output=True,

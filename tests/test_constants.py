@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from trend_analysis import cli, run_analysis, run_multi_analysis
+from trend_analysis import cli
 from trend_analysis.constants import (
     DEFAULT_OUTPUT_DIRECTORY,
     DEFAULT_OUTPUT_FORMATS,
@@ -29,24 +29,6 @@ def test_numerical_tolerance_constants_hierarchy():
     """Test that tolerance constants maintain the expected hierarchy."""
     assert NUMERICAL_TOLERANCE_HIGH < NUMERICAL_TOLERANCE_MEDIUM
     assert NUMERICAL_TOLERANCE_MEDIUM < NUMERICAL_TOLERANCE_LOW
-
-
-def test_constants_are_used_in_run_analysis():
-    """Test that run_analysis uses the constants."""
-    # Check that the constants are imported and available in the module
-    assert hasattr(run_analysis, "DEFAULT_OUTPUT_DIRECTORY")
-    assert hasattr(run_analysis, "DEFAULT_OUTPUT_FORMATS")
-    assert run_analysis.DEFAULT_OUTPUT_DIRECTORY == DEFAULT_OUTPUT_DIRECTORY
-    assert run_analysis.DEFAULT_OUTPUT_FORMATS == DEFAULT_OUTPUT_FORMATS
-
-
-def test_constants_are_used_in_run_multi_analysis():
-    """Test that run_multi_analysis uses the constants."""
-    # Check that the constants are imported and available in the module
-    assert hasattr(run_multi_analysis, "DEFAULT_OUTPUT_DIRECTORY")
-    assert hasattr(run_multi_analysis, "DEFAULT_OUTPUT_FORMATS")
-    assert run_multi_analysis.DEFAULT_OUTPUT_DIRECTORY == DEFAULT_OUTPUT_DIRECTORY
-    assert run_multi_analysis.DEFAULT_OUTPUT_FORMATS == DEFAULT_OUTPUT_FORMATS
 
 
 def test_constants_are_used_in_cli():
@@ -92,8 +74,8 @@ def test_constants_default_behavior_unchanged(tmp_path, monkeypatch):
     _write_cfg(cfg, csv)
     monkeypatch.chdir(tmp_path)
 
-    # Run analysis with empty export config (should use constants for defaults)
-    rc = run_analysis.main(["-c", str(cfg)])
+    # Run the public CLI with empty export config (should use constants for defaults).
+    rc = cli.main(["run", "-c", str(cfg), "-i", str(csv)])
     assert rc == 0
 
     # Check that the default output directory and file are created
