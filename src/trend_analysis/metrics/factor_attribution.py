@@ -14,8 +14,8 @@ def factor_exposures(
 ) -> pd.DataFrame:
     """Estimate per-manager factor exposures with ordinary least squares.
 
-    Rows are aligned by index, then missing manager returns are dropped per
-    manager together with factor rows before fitting each manager independently.
+    Rows are aligned by index, then any row with a missing manager return or
+    factor value is dropped before fitting every manager on the same sample.
     """
 
     if not isinstance(returns, pd.DataFrame):
@@ -31,13 +31,15 @@ def factor_exposures(
     aligned_index = returns.index.intersection(factors.index)
     aligned_returns = returns.loc[aligned_index]
     aligned_factors = factors.loc[aligned_index]
+    valid_rows = aligned_returns.notna().all(axis=1) & aligned_factors.notna().all(
+        axis=1
+    )
+    clean_returns_all = aligned_returns.loc[valid_rows]
+    clean_factors = aligned_factors.loc[valid_rows]
 
     rows: list[dict[str, float]] = []
-    for manager in aligned_returns.columns:
-        manager_returns = aligned_returns.loc[:, manager]
-        valid_rows = manager_returns.notna() & aligned_factors.notna().all(axis=1)
-        clean_factors = aligned_factors.loc[valid_rows]
-        clean_returns = manager_returns.loc[valid_rows]
+    for manager in clean_returns_all.columns:
+        clean_returns = clean_returns_all.loc[:, manager]
         if len(clean_factors) < min_observations:
             raise ValueError(
                 f"insufficient observations after alignment for {manager}: "
@@ -77,7 +79,7 @@ def factor_exposures(
         rows.append(row)
 
     columns = list(aligned_factors.columns) + ["alpha", "r_squared"]
-    return pd.DataFrame(rows, index=aligned_returns.columns, columns=columns)
+    return pd.DataFrame(rows, index=clean_returns_all.columns, columns=columns)
 
 
 __all__ = ["factor_exposures"]
