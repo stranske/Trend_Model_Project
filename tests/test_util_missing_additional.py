@@ -5,6 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+from trend_analysis.io.market_data import _normalise_policy_value
 from trend_analysis.util import missing
 
 
@@ -40,13 +41,27 @@ def test_missing_policy_result_get_returns_default() -> None:
     assert result.get("missing", "fallback") == "fallback"
 
 
-@pytest.mark.parametrize("value", ["invalid", "", None])
+@pytest.mark.parametrize(
+    "value",
+    ["invalid", "bfill", "backfill", "both", "zero_fill", "zeros", "fillzero"],
+)
 def test_coerce_policy_rejects_unknown(value: str | None) -> None:
-    if value in {"", None}:
-        assert missing._coerce_policy(value) == "drop"
-    else:
-        with pytest.raises(ValueError, match="Unsupported missing-data policy"):
-            missing._coerce_policy(value)
+    with pytest.raises(ValueError, match="Unsupported missing-data policy"):
+        missing._coerce_policy(value)
+
+
+@pytest.mark.parametrize("value", ["", None])
+def test_coerce_policy_defaults_empty_to_drop(value: str | None) -> None:
+    assert missing._coerce_policy(value) == "drop"
+
+
+@pytest.mark.parametrize("value", ["bfill", "backfill", "both", "zero_fill"])
+def test_missing_policy_layers_reject_undocumented_aliases(value: str) -> None:
+    with pytest.raises(ValueError, match="Unsupported missing-data policy"):
+        missing._coerce_policy(value)
+
+    with pytest.raises(ValueError, match="Unknown missing-data policy"):
+        _normalise_policy_value(value)
 
 
 @pytest.mark.parametrize("limit", [-1, -5])
