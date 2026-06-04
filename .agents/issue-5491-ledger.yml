@@ -19,11 +19,14 @@ tasks:
   - id: task-02
     title: Extract the weighting calculation logic from the loop body into a new module-level
       function named `_weight_period` in `engine.py`
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-06-04T20:31:00Z'
+    finished_at: '2026-06-04T20:31:00Z'
+    commit: pending-push
+    notes:
+      - Closer extracted repeated per-period weighting calculation into module-level
+        `_weight_period`, routed the seed/rebalance/replacement/min-funds paths through it,
+        and extended parity coverage to prove the helper is called once per generated period.
   - id: task-03
     title: Extract the turnover and cost application logic from the loop body into
       a new module-level function named `_apply_turnover_and_cost` in `engine.py`

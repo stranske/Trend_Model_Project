@@ -408,6 +408,48 @@ def _setup_period(
     )
 
 
+@dataclass
+class _PeriodWeights:
+    weights_df: pd.DataFrame
+    raw_weight_series: pd.Series
+    weight_series: pd.Series
+
+
+def _weight_period(
+    *,
+    score_frame: pd.DataFrame,
+    holdings: list[str],
+    period_ts: pd.Timestamp,
+    returns_window: pd.DataFrame | None,
+    metric: str,
+    min_weight: float,
+    compute_weights: Callable[
+        [pd.DataFrame, list[str], pd.Timestamp, pd.DataFrame | None],
+        pd.DataFrame,
+    ],
+    apply_policy_to_weights_fn: Callable[[pd.DataFrame, pd.Series | None], pd.Series],
+    ensure_holdings_weights_fn: Callable[..., pd.Series],
+) -> _PeriodWeights:
+    """Compute and policy-normalize per-period portfolio weights."""
+
+    weights_df = compute_weights(score_frame, holdings, period_ts, returns_window)
+    raw_weight_series = _as_weight_series(weights_df)
+    signal_slice = (
+        score_frame.loc[holdings, metric] if metric in score_frame.columns else None
+    )
+    weight_series = apply_policy_to_weights_fn(weights_df, signal_slice)
+    weight_series = ensure_holdings_weights_fn(
+        weight_series,
+        holdings,
+        min_weight=min_weight,
+    )
+    return _PeriodWeights(
+        weights_df=weight_series.to_frame("weight"),
+        raw_weight_series=raw_weight_series,
+        weight_series=weight_series.astype(float),
+    )
+
+
 class MissingPriceDataError(FileNotFoundError, ValueError):
     """Raised when CSV fallback loading fails in ``run``."""
 
@@ -3044,20 +3086,19 @@ def run(
                         holdings = [h for h in holdings if h != resolved_rf_col]
                         holdings.append(replacement)
 
-            # Compute weights using risk engine or fallback to legacy weighting
-            weights_df = _compute_weights(
-                sf, holdings, period_ts, in_df.reindex(columns=fund_cols)
-            )
-            raw_weight_series = _as_weight_series(weights_df)
-            signal_slice = sf.loc[holdings, metric] if metric in sf.columns else None
-            weight_series = _apply_policy_to_weights(weights_df, signal_slice)
-            weight_series = _ensure_holdings_weights(
-                weight_series,
-                holdings,
+            period_weights = _weight_period(
+                score_frame=sf,
+                holdings=holdings,
+                period_ts=period_ts,
+                returns_window=in_df.reindex(columns=fund_cols),
+                metric=metric,
                 min_weight=min_w_bound,
+                compute_weights=_compute_weights,
+                apply_policy_to_weights_fn=_apply_policy_to_weights,
+                ensure_holdings_weights_fn=_ensure_holdings_weights,
             )
-            weights_df = weight_series.to_frame("weight")
-            prev_weights = weight_series.astype(float)
+            raw_weight_series = period_weights.raw_weight_series
+            prev_weights = period_weights.weight_series
             # Log seed additions
             for f in holdings:
                 events.append(
@@ -3764,20 +3805,19 @@ def run(
                     }
                 )
 
-            # Compute weights using risk engine or fallback to legacy weighting
-            weights_df = _compute_weights(
-                sf, holdings, period_ts, in_df.reindex(columns=fund_cols)
-            )
-            raw_weight_series = _as_weight_series(weights_df)
-            signal_slice = sf.loc[holdings, metric] if metric in sf.columns else None
-            weight_series = _apply_policy_to_weights(weights_df, signal_slice)
-            weight_series = _ensure_holdings_weights(
-                weight_series,
-                holdings,
+            period_weights = _weight_period(
+                score_frame=sf,
+                holdings=holdings,
+                period_ts=period_ts,
+                returns_window=in_df.reindex(columns=fund_cols),
+                metric=metric,
                 min_weight=min_w_bound,
+                compute_weights=_compute_weights,
+                apply_policy_to_weights_fn=_apply_policy_to_weights,
+                ensure_holdings_weights_fn=_ensure_holdings_weights,
             )
-            weights_df = weight_series.to_frame("weight")
-            prev_weights = weight_series.astype(float)
+            raw_weight_series = period_weights.raw_weight_series
+            prev_weights = period_weights.weight_series
 
         # Natural weights (pre-bounds) for strikes on min threshold
         nat_w = raw_weight_series.reindex(prev_weights.index).fillna(0.0)
@@ -3858,22 +3898,19 @@ def run(
                         }
                     )
             if holdings:
-                # Compute weights using risk engine or fallback to legacy weighting
-                weights_df = _compute_weights(
-                    sf, holdings, period_ts, in_df.reindex(columns=fund_cols)
-                )
-                raw_weight_series = _as_weight_series(weights_df)
-                signal_slice = (
-                    sf.loc[holdings, metric] if metric in sf.columns else None
-                )
-                weight_series = _apply_policy_to_weights(weights_df, signal_slice)
-                weight_series = _ensure_holdings_weights(
-                    weight_series,
-                    holdings,
+                period_weights = _weight_period(
+                    score_frame=sf,
+                    holdings=holdings,
+                    period_ts=period_ts,
+                    returns_window=in_df.reindex(columns=fund_cols),
+                    metric=metric,
                     min_weight=min_w_bound,
+                    compute_weights=_compute_weights,
+                    apply_policy_to_weights_fn=_apply_policy_to_weights,
+                    ensure_holdings_weights_fn=_ensure_holdings_weights,
                 )
-                weights_df = weight_series.to_frame("weight")
-                prev_weights = weight_series.astype(float)
+                raw_weight_series = period_weights.raw_weight_series
+                prev_weights = period_weights.weight_series
                 nat_w = raw_weight_series.reindex(prev_weights.index).fillna(0.0)
 
         # Enforce minimum holdings after low-weight removals/replacements.
@@ -3889,22 +3926,19 @@ def run(
                 events=events,
             )
             if holdings and prev_weights is not None:
-                # Compute weights using risk engine or fallback to legacy weighting
-                weights_df = _compute_weights(
-                    sf, holdings, period_ts, in_df.reindex(columns=fund_cols)
-                )
-                raw_weight_series = _as_weight_series(weights_df)
-                signal_slice = (
-                    sf.loc[holdings, metric] if metric in sf.columns else None
-                )
-                weight_series = _apply_policy_to_weights(weights_df, signal_slice)
-                weight_series = _ensure_holdings_weights(
-                    weight_series,
-                    holdings,
+                period_weights = _weight_period(
+                    score_frame=sf,
+                    holdings=holdings,
+                    period_ts=period_ts,
+                    returns_window=in_df.reindex(columns=fund_cols),
+                    metric=metric,
                     min_weight=min_w_bound,
+                    compute_weights=_compute_weights,
+                    apply_policy_to_weights_fn=_apply_policy_to_weights,
+                    ensure_holdings_weights_fn=_ensure_holdings_weights,
                 )
-                weights_df = weight_series.to_frame("weight")
-                prev_weights = weight_series.astype(float)
+                raw_weight_series = period_weights.raw_weight_series
+                prev_weights = period_weights.weight_series
                 nat_w = raw_weight_series.reindex(prev_weights.index).fillna(0.0)
 
         # Apply weight bounds and renormalise
