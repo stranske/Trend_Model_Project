@@ -14,10 +14,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="OpenAI-compatible LLM proxy")
     parser.add_argument(
         "--host",
-        default="0.0.0.0",
+        default="127.0.0.1",
         help=(
-            "Host to bind the proxy server (default: 0.0.0.0). "
-            "Use 127.0.0.1 for local-only access."
+            "Host to bind the proxy server (default: 127.0.0.1). "
+            "Pass 0.0.0.0 explicitly to listen on all interfaces."
         ),
     )
     parser.add_argument(

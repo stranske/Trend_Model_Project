@@ -32,7 +32,7 @@ def test_proxy_cli_main_invocation(monkeypatch, capsys):
     assert call_args == {
         "streamlit_host": "localhost",
         "streamlit_port": 1234,
-        "proxy_host": "0.0.0.0",
+        "proxy_host": "127.0.0.1",
         "proxy_port": 5678,
     }
     captured = capsys.readouterr()

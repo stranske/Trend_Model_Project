@@ -1,3 +1,14 @@
+## 2026-06-04T17:15Z - opener (codex): issue #5432 localhost bind defaults
+
+- Repo/issue: `stranske/Trend_Model_Project` issue `#5432` (`T19a - Tighten default network bind to 127.0.0.1`).
+- Branch/worktree: `codex/issue-5432-localhost-bind-defaults` in `~/.codex/automations/pd-workloop-resume/worktrees/trend-5432-localhost-bind-defaults`.
+- Selection: raw opener cap was below 5. Scoped blockers refreshed for `#5343`, `#5389/#5440`, and LMS `#180`. Existing opener-owned PRs were classified as #5440 terminal/scoped strict-config decision, #5492 draining with green Gate/Followups evidence, and #5498 green Gate after closer recovery but still with non-required Claude review failure. #5432 was the oldest unlinked implementation candidate outside the scoped blockers and already-linked issues.
+- Implementation: changed repo-owned Streamlit proxy, LLM proxy, and API server entrypoint defaults from `0.0.0.0` to `127.0.0.1`, while preserving explicit `0.0.0.0` override support. Included the LLM proxy CLI default/help so the public entry point matches the server helper.
+- Tests: added `tests/test_server_bind_defaults.py` covering default localhost binds for Streamlit proxy CLI/helper, LLM proxy CLI/helper, and API server module entrypoint, plus explicit all-interface override coverage.
+- Validation: `PYTHONPATH=src python -m pytest tests/test_server_bind_defaults.py tests/test_proxy_cli_entrypoint.py tests/test_api_server_entrypoint.py tests/test_proxy_cli.py tests/test_proxy_server_additional.py::test_streamlit_proxy_start_invokes_uvicorn tests/test_proxy_server_additional.py::test_run_proxy_starts_and_closes tests/proxy/test_server.py::test_start_invokes_uvicorn tests/proxy/test_server.py::test_run_proxy_closes_on_start_failure tests/test_api_server.py::test_run_invokes_uvicorn -q` -> 18 passed, 1 existing runpy warning. Focused `ruff` passed. `git diff --check` passed.
+- Deliberate-break gate: temporarily restored `src/trend_analysis/proxy/cli.py` `--proxy-host` default to `0.0.0.0`; `tests/test_server_bind_defaults.py::test_streamlit_proxy_default_bind_is_localhost` failed on the expected default-host assertion. Restored localhost default and reran focused validation green.
+- Current state: ready to commit/push/open a ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`.
+
 ## 2026-06-04T10:18Z - closer (codex): PR #5490 full-suite stale test repair
 
 - Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5423`, PR `#5490`, branch `codex/issue-5423-legacy-runners`.

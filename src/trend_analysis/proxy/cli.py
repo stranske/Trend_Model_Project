@@ -27,8 +27,11 @@ def main() -> int:
     )
     parser.add_argument(
         "--proxy-host",
-        default="0.0.0.0",
-        help="Host to bind the proxy server (default: 0.0.0.0)",
+        default="127.0.0.1",
+        help=(
+            "Host to bind the proxy server (default: 127.0.0.1; "
+            "pass 0.0.0.0 explicitly to listen on all interfaces)"
+        ),
     )
     parser.add_argument(
         "--proxy-port",

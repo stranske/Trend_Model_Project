@@ -234,7 +234,7 @@ class StreamlitProxy:
             logger.error("HTTP proxy error: %s", e)
             return {"error": str(e), "status_code": 502}
 
-    async def start(self, host: str = "0.0.0.0", port: int = 8500) -> None:  # noqa: D401
+    async def start(self, host: str = "127.0.0.1", port: int = 8500) -> None:  # noqa: D401
         _assert_deps()
         if uvicorn is None:
             raise RuntimeError("uvicorn dependency is required to start the proxy server")
@@ -252,7 +252,7 @@ class StreamlitProxy:
 def run_proxy(
     streamlit_host: str = "localhost",
     streamlit_port: int = 8501,
-    proxy_host: str = "0.0.0.0",
+    proxy_host: str = "127.0.0.1",
     proxy_port: int = 8500,
 ) -> None:
     """Run the proxy synchronously (convenience wrapper)."""
