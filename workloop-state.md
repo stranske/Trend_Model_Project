@@ -1,5 +1,166 @@
+## 2026-06-03T23:04Z - opener (codex): issue #5416 regime registry slice
+
+- Repo: `stranske/Trend_Model_Project`
+- Issue: `#5416` (`A37 - Umbrella: generalize beyond trend`)
+- Branch: `codex/issue-5416-regime-registry`
+- PR: `#5479` (`https://github.com/stranske/Trend_Model_Project/pull/5479`)
+- Worktree: `~/.codex/automations/pd-workloop-resume/worktrees/trend-5416-regime-registry`
+- Selection: high-priority remaining liveness candidates were scoped on owner evidence; priority-normal #5476 already has PR #5477/source disposition pending; #5416 is the oldest unlinked implementation candidate with a bounded first-child deliverable.
+- Implementation: added `docs/methodology/GENERALIZATION_EPIC.md`, introduced `RegimeModel`/`regime_registry`, registered default `binary_threshold`, and added `tests/test_regime_registry.py`.
+- Validation so far: `python -m pytest tests/test_regime_registry.py -q` passed; deliberate-break dispatch check failed as expected when forced to `binary_threshold`; `HOME=/tmp/trend-test-home python -m pytest tests/test_regimes.py tests/test_pipeline_helpers.py -q` passed; focused ruff and `git diff --check` passed. Plain `tests/ -k regime` hit local NumPy 2.x vs xarray/pyarrow ABI/cache issues before code assertions.
+- Routing: PR opened ready-for-review/non-draft with `agent:codex`, `agents:keepalive`, and `autofix`; after initial cancelled runs, added `agent:retry` and dispatched `agents-81-gate-followups.yml` with `force_retry=true` (run `26918773577`). Cap-health at `2026-06-03T23:09:07Z` classified #5479 as `draining` with active Gate and Agents Gate Followups evidence.
+
 # stranske/Trend_Model_Project
 # Workloop State
+
+## 2026-06-03T22:06Z - opener lane issue #5415 PR materializing
+
+- Repo/issue: stranske/Trend_Model_Project #5415 (`A36 - Factor attribution / returns decomposition`).
+- Branch: `codex/issue-5415-factor-attribution`; base `origin/phase-3`.
+- Agent: codex opener from neutral Code workspace; used persistent automation worktree `~/.codex/automations/pd-workloop-resume/worktrees/trend-5415-factor-attribution`.
+- Selection: raw opener cap was below 5. Cap/drain sweep found only opener-owned PR #5440, already scoped/product-blocked on strict config key design. Priority high issues #5343 and LMS #180 remain scoped outside automation reach; #5476 and #5414 are already merged and awaiting closer/verifier source-issue disposition; #5415 was the oldest unlinked implementation candidate outside scoped blockers.
+- Implementation: added `metrics.factor_attribution.factor_exposures`, a pure numpy/pandas OLS regression helper that aligns returns and factor frames by index, drops NaN rows, enforces at least `n_factors + 2` observations, and returns per-manager factor betas, `alpha`, and `r_squared`. Exported it from `trend_analysis.metrics` while leaving existing PnL contribution attribution untouched.
+- Validation: `python -m pytest tests/test_factor_attribution.py tests/test_metrics_attribution.py -q` -> 11 passed; `python -m pytest tests/test_factor_attribution.py::test_recovers_planted_betas -q` -> passed after restoration; `git diff --check` -> passed. Deliberate-break gate: temporarily ignored `add_intercept` inside `factor_exposures`; `test_recovers_planted_betas` failed because recovered `equity` beta was `-0.18518518518518517` instead of `0.6`, then restored and reran green.
+- Current state: implementation ready to commit, push, and open as a ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`.
+
+## 2026-06-03T20:06Z - opener cap-drain repair for PR #5474
+
+- Repo/issue/PR: stranske/Trend_Model_Project #5414 / #5474 (`codex/issue-5414-convex-constraints`).
+- Agent: codex opener from neutral Code workspace; used persistent automation worktree `~/.codex/automations/pd-workloop-resume/worktrees/trend-5414-convex-constraints`.
+- Repair evidence: cap-health showed raw opener cap below 5 but PR #5474 was infra-stalled with stale `agent:needs-attention`, skipped keepalive runner evidence, and `DIRTY` merge state despite green Gate/Python checks on the prior head. Direct PR audit showed the review fixes were already pushed and Gate was green; the remaining opener-safe repair was merge recovery plus stale-label cleanup.
+- Fix: merged current `origin/phase-3` into the PR branch. The only conflict was `workloop-state.md`; preserved both the #5414 and #5412 durable entries. Removed stale `agent:needs-attention` after pushing and forced `agents-81-gate-followups.yml` with `force_retry=true`.
+- Validation before push: `python -m pytest tests/test_constrained_optimization.py tests/test_weighting_fallback_surfaced.py tests/monte_carlo/strategy/test_variant.py::test_to_trend_config_rejects_invalid_weighting_scheme_value tests/test_config_schema_generation.py tests/monte_carlo/strategy/test_validation.py::test_validate_strategy_pack_rejects_invalid_weighting_scheme -q` -> 13 passed; focused `ruff` -> passed; focused `mypy` -> passed; `git diff --check` -> passed.
+- Current state: merge-recovery commit pushed; fresh Gate/Gate Followups should evaluate asynchronously. Next action belongs to keepalive/closer after checks settle.
+
+## 2026-06-03T18:12Z - opener lane issue #5414 PR materializing
+
+- Repo/issue: stranske/Trend_Model_Project #5414 (`A35 - General convex-constraint optimization backend behind the weighting interface`).
+- Branch: `codex/issue-5414-convex-constraints`; base `origin/phase-3`.
+- Agent: codex opener from neutral Code workspace; used persistent automation worktree `~/.codex/automations/pd-workloop-resume/worktrees/trend-5414-convex-constraints`.
+- Selection: raw opener cap was below 5. Cap sweep classified #5440 as scoped/product-blocked on strict config keys, #5470/#5473 as green-Gate but needing keepalive/closer drain, and #5472 as runner-failed with no branch-local deterministic opener patch target. Liveness fallback selected #5414 as the oldest unlinked implementation issue outside scoped blockers after #5411/#5412/#5413 were already linked to open PRs.
+- Implementation: added `ConstrainedConvexWeighting`, registered as `convex_constrained`, solving minimum-variance weights with SLSQP under full-investment, per-asset min/max, and named group lower/upper sum bounds. Added tests proving the group upper bound is binding and the unconstrained solution matches analytic minimum variance.
+- Validation: `python -m pytest tests/test_constrained_optimization.py tests/test_weight_engines.py -q` -> 5 passed; focused `ruff` -> passed; focused `mypy` -> passed; `git diff --check` -> clean. Deliberate-break gate: temporarily removed the group upper-bound inequality and confirmed `test_group_upper_bound_is_honored` failed with low-vol group sum about 0.90 > 0.30, then restored and reran green.
+- Current state: ready-for-review PR #5474 opened at https://github.com/stranske/Trend_Model_Project/pull/5474 from `codex/issue-5414-convex-constraints`, non-draft, with `agent:codex`, `agents:keepalive`, and `autofix`. Cap-health shows fresh Gate and Agents Gate Followups runs active after the branch update. Next action belongs to keepalive/Gate.
+
+## 2026-06-03T16:46:30Z - closer (codex) PR #5473 CI fixture recovery
+
+- Selected closer lane: `stranske/Trend_Model_Project` PR **#5473** (`codex/issue-5413-selection-commit`), source issue **#5413**.
+- Failure inspected: Gate run `26897048074`, Python CI jobs `79338910290` / `79338910501`, failed because `tests/app/test_fund_selection_commit.py` moved the fund-selection regressions into a new module but `data_page` remained scoped to `tests/app/test_data_page.py`; CI reported `fixture 'data_page' not found`.
+- Fix pushed: `d17f8395` (`Fix fund selection test fixture scope`). Replaced module plugin loading with a typed local fixture wrapper that reuses the shared `tests.app.test_data_page.data_page` wrapped implementation, making the fixture visible during full-suite/xdist collection.
+- Validation: `PYTHONPATH=. python -m pytest tests/app/test_fund_selection_commit.py tests/app/test_data_page.py -q` -> 6 passed; `PYTHONPATH=. python -m pytest tests/app/test_fund_selection_commit.py -q -n auto --dist=loadgroup` -> 2 passed with local NumPy/PyArrow ABI warnings only; focused ruff passed; focused mypy passed; `git diff --check` passed.
+- PR evidence: posted comment `#issuecomment-4614595731`; removed stale `agent:needs-attention`. Current state: PR **#5473** head `d17f8395`, open/non-draft, labels `[agent:codex, autofix, agents:keepalive, agent:retry]`, waiting on fresh post-push checks (`claude-review`, Gate jobs, guard).
+
+## 2026-06-03T15:07:15Z - opener lane issue #5413 PR materializing after cap routing repair
+
+- Repo/issue: stranske/Trend_Model_Project #5413 (`A33 - Make the "Apply selection" commit step clearer`).
+- Branch: `codex/issue-5413-selection-commit`; base `origin/phase-3`.
+- Agent: codex opener from neutral Code workspace; used persistent automation worktree `~/.codex/automations/pd-workloop-resume/worktrees/trend-5413-selection-commit`.
+- Cap hygiene before selection: repaired #5470 by adding `agent:retry` and dispatching Gate Followups; rehomed stuck Claude-routed PR #5469 to replacement PR #5472 on `codex/issue-5411-data-perf-caption` with the same head SHA (`e61b005f`), concrete `agent:codex` routing, `agents:keepalive`, `autofix`, and `agent:retry`, then closed #5469 as superseded. #5470 and #5472 had fresh active Gate/Gate Followups evidence; #5440 remains scoped to the #5389 strict-config design blocker.
+- Selection: raw opener cap remained below 5 after repair. Priority high issues were scoped owner-evidence blockers (#5343, LMS #180); no priority normal/low remote issue was open. Liveness selected #5413 as the oldest unlinked implementation issue outside scoped blockers and already-linked #5410/#5411/#5412.
+- Implementation: replaced the separate Apply-selection commit step with automatic downstream commit from the visible fund checkbox state. `analysis_fund_columns` now mirrors the sanitized checkbox selection immediately, and analysis cache is cleared only when that committed list changes. The UI now reports the applied count as automatic instead of requiring a separate button.
+- Validation: `python -m pytest tests/app/test_data_page.py::test_fund_selection_commits_visible_checkbox_state -q` -> passed; deliberate-break gate temporarily removed the `analysis_fund_columns` assignment and the focused test failed with `KeyError: 'analysis_fund_columns'`, then restored -> passed; `python -m pytest tests/app/test_data_page.py -q` -> 5 passed; focused `ruff`, focused `mypy`, and `git diff --check` passed.
+- Current state: ready-for-review PR #5473 opened at https://github.com/stranske/Trend_Model_Project/pull/5473 from `codex/issue-5413-selection-commit`, non-draft, with `agent:codex`, `agents:keepalive`, and `autofix`. `pr_opened` was relayed with `active.source_repo=stranske/Trend_Model_Project`, `active.source_issue=5413`, `active.source_pr=5473`, and `active.next_action=wait_for_keepalive`. Next action belongs to keepalive/Gate.
+
+## 2026-06-03T14:15Z - opener lane issue #5412 PR materializing
+
+- Repo/issue: stranske/Trend_Model_Project #5412 (`A32 - Reconcile the two preset vocabularies`).
+- Branch: `codex/issue-5412-preset-vocabulary`; base `origin/phase-3`.
+- Agent: codex opener from neutral Code workspace; used persistent automation worktree `~/.codex/automations/pd-workloop-resume/worktrees/trend-5412-preset-vocabulary`.
+- Selection: raw opener cap was below 5. Existing opener PRs were classified first: #5469 active-moving with an in-progress Gate, #5468 green/merge-clean but carrying stale attention/keepalive failure state and review history as a closer-drain candidate, and #5440 scoped to the #5389 strict-config design blocker. Priority high issues #5343 and LMS #180 remained scoped outside automation reach; #5412 was the oldest unlinked implementation issue outside scoped blockers after #5410/#5411 were already linked to open PRs.
+- Implementation: chose the issue-authorized label route rather than changing preset behavior. Added `DEMO_PRESET_SELECTOR_LABEL` / `DEMO_PRESET_SELECTOR_HELP` in `streamlit_app.components.demo_runner` and changed the home selector from ambiguous `Strategy Preset` to `Demo Dataset Preset`, explicitly distinguishing it from Model page configuration presets.
+- Validation: `python -m pytest tests/app/test_preset_vocabulary.py -q` -> 1 passed; deliberate-break gate temporarily restored `"Strategy Preset"` in `streamlit_app/app.py` and the new test failed, then restored and reran green. `python -m ruff check streamlit_app/app.py streamlit_app/components/demo_runner.py tests/app/test_preset_vocabulary.py` -> passed. `python -m mypy streamlit_app/app.py streamlit_app/components/demo_runner.py tests/app/test_preset_vocabulary.py` -> passed. `git diff --check` -> passed.
+- Current state: ready-for-review PR #5470 opened at https://github.com/stranske/Trend_Model_Project/pull/5470 from `codex/issue-5412-preset-vocabulary`, non-draft, with `agent:codex`, `agents:keepalive`, and `autofix`. Next action belongs to keepalive/Gate.
+
+## 2026-06-03T09:08:49Z - opener lane issue #5403 PR materializing
+
+- Repo/issue: stranske/Trend_Model_Project #5403 (`A22 - Consolidate transaction-cost logic fanned across >=5 implementations`).
+- Branch: `codex/issue-5403-transaction-cost-logic`; base `origin/phase-3`.
+- Agent: codex opener from neutral Code workspace; used persistent automation worktree `~/.codex/automations/pd-workloop-resume/worktrees/trend-5403-transaction-cost-logic`.
+- Selection: approved queue entries were stale/scoped/closed/merged; liveness fallback selected #5403 as the oldest unlinked implementation issue outside scoped blockers. No open PR or remote branch matched #5403 before implementation.
+- Implementation: added `metrics.turnover.linear_turnover_cost` as the shared primitive, kept `turnover_cost()` as the vector wrapper, and routed confirmed plain-linear scalar cost sites through it: `backtesting.harness.CostModel.apply`, `rebalancing.strategies.TurnoverCapStrategy._calculate_cost`, and the multi-period engine period-cost path. Monte Carlo regime-aware costs remain separate because they also apply sampled regime cost and slippage multipliers.
+- Validation: `tests/test_cost_primitive_shared.py` -> 2 passed; adjacent turnover/rebalancing/backtesting/engine slice -> 36 passed; focused `ruff` on touched files -> passed; `git diff --check` -> passed. Deliberate-break gate: temporarily changed the rebalancer bps by +1 and confirmed `test_linear_cost_sites_share_canonical_primitive` failed, then restored and reran green.
+- Current state: ready-for-review PR #5458 opened at https://github.com/stranske/Trend_Model_Project/pull/5458 from `codex/issue-5403-transaction-cost-logic`, non-draft, with `agent:codex`, `agents:keepalive`, and `autofix`. `pr_opened` was relayed with `active.source_repo=stranske/Trend_Model_Project`, `active.source_issue=5403`, `active.source_pr=5458`, and `active.next_action=wait_for_keepalive`. Next action belongs to keepalive/Gate.
+
+## 2026-06-03T07:31Z - closer lane advanced PR #5452 schema/docs CI and review fixes
+
+- Repo/issue/PR: stranske/Trend_Model_Project #5399 / #5452 (`codex/issue-5399-monthly-cost-doc`).
+- Agent: codex closer from neutral Code workspace; selected as the complex lane after batch-merging #5449, reopening #5396 pending verifier, and closing #5397/#5398 on verifier PASS.
+- Failure/review evidence: live PR state was `UNSTABLE` with failing Python CI 3.12/3.13, and GraphQL showed three unresolved threads: `run.monthly_cost` was added to `config/defaults.yml` but not regenerated into `config.schema.json` / `config.schema.compact.json`, and `docs/config.md` documented inert `run.n_jobs` instead of live `run.jobs`.
+- Fix: regenerated schema artifacts with `scripts/generate_config_schema.py`, updated the Run Section docs example to `jobs`, and added tests proving the checked-in schema accepts `run.monthly_cost` and the docs no longer advertise `run.n_jobs`.
+- Validation before push: `pytest tests/test_monthly_cost_documented.py tests/test_config_schema_generation.py tests/monte_carlo/strategy/test_validation.py -q` -> 35 passed; `scripts/validate_config.py config/defaults.yml` -> valid; focused `ruff` and `git diff --check` passed.
+- Current state: local branch `closer-5452-reviewfix` rebased onto current `origin/phase-3`; next action is race-check, push to `codex/issue-5399-monthly-cost-doc`, resolve the three review threads, and let fresh GitHub checks rerun.
+
+## 2026-06-03T07:05Z - closer lane rebased PR #5449 after #5451 merge
+
+- Repo/issue/PR: stranske/Trend_Model_Project #5396 / #5449 (`codex/issue-5396-regime-annualise-volatility`).
+- Agent: codex closer from neutral Code workspace; selected as the complex lane after batch-merging #5451 and leaving #5450/#5397 waiting on post-merge verifier.
+- Conflict evidence: live PR state became `DIRTY` after current `origin/phase-3` moved through adjacent regime PR merges; the rebase conflict was limited to `workloop-state.md`.
+- Fix: preserved the prior #5450 and #5449 workloop evidence while rebasing the annualized-volatility neutral-band fix and regression onto current `origin/phase-3`.
+- Validation before push: `pytest tests/soft_coverage/test_regimes_soft.py tests/test_regime_annualise.py -q` -> 24 passed; focused `ruff`, focused `mypy`, and `git diff --check` passed.
+- Current state: branch refreshed from old remote head `02da1f42`; PR is mergeable but `UNSTABLE` while fresh Gate/guard/review checks run on the rebased head.
+- Next action: re-check #5449 after fresh checks complete; merge and label `verify:compare` if checks are green and review threads remain resolved, otherwise repair the concrete failing check/thread.
+
+## 2026-06-03T06:40Z - closer lane rebased PR #5450 after regime merges
+
+- Repo/issue/PR: stranske/Trend_Model_Project #5397 / #5450 (`codex/issue-5397-min-obs-default`).
+- Agent: codex closer from neutral Code workspace; selected as a second complex lane after #5449 was advanced and #5393/#5394 were closed on verifier PASS.
+- Conflict evidence: live PR state was `DIRTY` after #5448 and #5449 touched `src/trend_analysis/regimes.py` and `workloop-state.md`.
+- Fix: rebased onto current `origin/phase-3`, kept the min-observation default change and test, and dropped the opener workloop-state churn from the PR branch.
+- Current state: rebase/conflict fix validated locally; after force-with-lease push, fresh GitHub checks should rerun on the rebased branch.
+
+## 2026-06-03T06:30Z - closer lane advanced PR #5449 review and CI fixes
+
+- Repo/issue/PR: stranske/Trend_Model_Project #5396 / #5449 (`codex/issue-5396-regime-annualise-volatility`).
+- Agent: codex closer from neutral Code workspace; selected after batch-merging #5448 and deferring #5450 on transient `UNKNOWN` mergeability.
+- Review evidence: GraphQL review-thread audit showed two unresolved threads: annualized volatility mode scaled the signal and threshold but not `neutral_band`, and the PR carried an out-of-scope opener workloop log entry.
+- Fix: rebased onto current `origin/phase-3`, dropped the opener workloop churn from the PR branch, and scaled `neutral_band` by `sqrt(periods_per_year)` alongside the volatility threshold when annualization is active. Added a regression with a distinct `Neutral` label proving annualized and non-annualized classification stay invariant around the neutral band.
+- Current state: review fix validated and pushed at `7aeb8124`; review threads are ready to resolve and fresh GitHub checks should rerun on the rebased branch.
+
+## 2026-06-03T06:01:06Z - closer lane advanced PR #5448 review fixes
+
+- Repo/issue/PR: stranske/Trend_Model_Project #5395 / #5448 (`claude/issue-5395-regime-threshold-validation`).
+- Agent: codex closer from neutral Code workspace; selected #5448 as the complex lane after the batch sweep found no safe terminal actions and #5446/#5447 were legitimately waiting on post-merge verifier jobs.
+- Review evidence: GraphQL review-thread audit showed two unresolved threads on head `c65ff5e6`: disabled volatility regimes should not raise before callers honor `regime.enabled: false`, and volatility thresholds should reject NaN/inf as well as non-positive values.
+- Fix: `normalise_settings()` now applies the volatility threshold guard only when regimes are enabled and requires the threshold to be finite and positive. Added regressions for disabled volatility configs and NaN/inf thresholds.
+- Validation:
+  - `PYTHONPATH=src MPLCONFIGDIR=/private/tmp/mplconfig-trend-5448 python -m pytest tests/test_regime_threshold.py -q` -> 7 passed.
+  - `python -m ruff check src/trend_analysis/regimes.py tests/test_regime_threshold.py` -> passed.
+  - `git diff --check` -> passed.
+  - Initial broader regime-suite run hit pre-existing local cache/ABI noise while reading stale `~/.cache/trend_model/rolling` files (`pyarrow` built for NumPy 1.x under local NumPy 2.4.6, then sandbox denied unlink). Rerun with isolated writable cache succeeded: `TREND_ROLLING_CACHE=/Users/teacher/.codex/automations/imi-merge-verify-closer/tmp-cache/trend-5448 PYTHONPATH=src MPLCONFIGDIR=/private/tmp/mplconfig-trend-5448 python -m pytest tests/test_regime_threshold.py tests/test_regimes_additional.py tests/trend_analysis/test_regimes.py tests/test_multi_period_regime_wiring.py -q` -> 65 passed, 16 warnings.
+- Current state before push: local review-fix patch ready on `closer-5448-reviewfix`; next action is race-check remote `origin/claude/issue-5395-regime-threshold-validation`, push to the PR branch, resolve the two review threads, and let fresh GitHub checks rerun.
+
+## 2026-06-03T04:44:33Z - opener quick-recovery for PR #5444 dependency enforcement
+
+- Repo/issue/PR: stranske/Trend_Model_Project #5392 / #5444 (`codex/issue-5392-deflated-sharpe`).
+- Agent: codex opener quick-recovery from neutral Code workspace; reused persistent worktree `~/.codex/automations/pd-workloop-resume/worktrees/trend-5392-deflated-sharpe`.
+- Failure evidence: Gate run `26863647231` failed Python CI on both 3.12 and 3.13 at `tests/test_dependency_enforcement.py::test_all_test_imports_are_declared`; the only undeclared import was stdlib `statistics` from `tests/test_deflated_sharpe.py`.
+- Fix: replaced `statistics.NormalDist().cdf(...)` in the focused fixture with the equivalent standard-normal CDF formula using `math.erf`, avoiding a dependency-scanner false positive without changing production code.
+- Validation:
+  - `PYTHONPATH=src MPLCONFIGDIR=/private/tmp/mplconfig-trend-5444 python -m pytest tests/test_dependency_enforcement.py::test_all_test_imports_are_declared tests/test_deflated_sharpe.py -q` -> 5 passed.
+  - `PYTHONPATH=src python -m ruff check tests/test_deflated_sharpe.py` -> passed.
+  - `git diff --check` -> passed.
+- Current state: recovery ready to commit/push; after push, fresh Gate should rerun asynchronously.
+
+## 2026-06-03T04:34:03Z - opener lane issue #5393 PR materializing
+
+- Repo: stranske/Trend_Model_Project
+- Issue: #5393 `A13 - portfolio.cost_model.* is dead on the main pipeline`
+- Branch: `codex/issue-5393-cost-model-wiring`
+- Agent: codex opener from neutral Code workspace; used an automation-owned worktree outside the canonical repo.
+- Selection:
+  - ACTION A succeeded and full opener discovery ran. Cap-health showed raw cap below 5 with #5443/#5444 active-moving and #5440 still scoped-blocked on #5389.
+  - The approved queue's high-priority trip-planner items and normal Inv-Man/Manager items were stale: matching closed issues/merged PRs exist. A duplicate trip-planner issue #1302 was materialized from the stale queue, then closed with durable evidence pointing to #1240/#1241.
+  - Liveness fallback selected #5393 as the oldest unlinked implementation issue outside scoped blockers; no open PR matched #5393 or `portfolio.cost_model`.
+- Implementation:
+  - Added `_resolve_portfolio_cost_bps()` in `multi_period/engine.py` so `portfolio.cost_model.bps_per_trade` and `portfolio.cost_model.slippage_bps` feed the existing turnover-cost formula, with top-level `transaction_cost_bps` / `slippage_bps` as fallbacks.
+  - Updated `schema_generator.py` so `portfolio.cost_model` bps fields are typed as non-negative numbers instead of inferred integers.
+  - Added `tests/test_cost_model_wired.py` and schema-generator coverage for float cost-model bps.
+- Validation:
+  - `PYTHONPATH=src MPLCONFIGDIR=/private/tmp/mplconfig-trend-5393 python -m pytest tests/test_cost_model_wired.py tests/test_config_schema_generation.py -q` -> 8 passed, 2 existing Pandas4 warnings.
+  - `PYTHONPATH=src python -m ruff check src/trend_analysis/multi_period/engine.py src/trend_analysis/config/schema_generator.py tests/test_cost_model_wired.py tests/test_config_schema_generation.py` -> passed.
+  - `git diff --check` -> passed.
+  - Deliberate-break gate: temporarily reverted the engine to top-level-only costs; `tests/test_cost_model_wired.py` failed with `transaction_cost == 0.0` vs expected `0.0035`; restored implementation and reran successfully.
+- Current state: commit `0b0f4cfd` was pushed and ready-for-review PR #5446 was opened at https://github.com/stranske/Trend_Model_Project/pull/5446 with labels `agent:codex`, `agents:keepalive`, and `autofix`; `pr_opened` was relayed with source repo/issue/PR. Next action belongs to keepalive/Gate.
 
 ## 2026-06-01T07:00:12Z - closer lane addressed PR #5374 review blockers
 

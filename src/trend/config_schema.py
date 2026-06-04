@@ -269,6 +269,15 @@ def validate_core_config(
     if tracker is not None:
         tracker.track_validated("data.frequency")
 
+    regime_section = _as_mapping(payload.get("regime", {}), field="regime")
+    _normalise_string(
+        regime_section.get("model", "binary_threshold"),
+        field="regime.model",
+        default="binary_threshold",
+    )
+    if tracker is not None:
+        tracker.track_validated("regime.model")
+
     portfolio_section = _as_mapping(payload.get("portfolio"), field="portfolio")
     transaction_cost = _coerce_float(
         portfolio_section.get("transaction_cost_bps", _DEFAULT_TRANSACTION_COST),

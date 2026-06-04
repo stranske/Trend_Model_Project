@@ -1,22 +1,11 @@
-import importlib.util
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 import pytest
 
-import trend_analysis
+import trend_analysis.rebalancing as reb_module
 from trend_analysis.plugins import rebalancer_registry
 from trend_analysis.rebalancing import CashPolicy
 from trend_analysis.rebalancing import strategies as strat_mod
-
-# Load the rebalancing.py module which is shadowed by the package
-MODULE_PATH = Path(trend_analysis.__file__).with_name("rebalancing.py")
-SPEC = importlib.util.spec_from_file_location("trend_analysis.rebalancing_file", MODULE_PATH)
-if SPEC is None or SPEC.loader is None:
-    raise AssertionError("Unable to load rebalancing module spec")
-reb_module = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(reb_module)
 
 # Restore registry to point to canonical strategy implementations
 rebalancer_registry.register("turnover_cap")(strat_mod.TurnoverCapStrategy)

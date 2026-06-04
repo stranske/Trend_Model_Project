@@ -324,6 +324,11 @@ realistic implementation:
 - `portfolio.cost_model.slippage_bps` – optional extra spread per turnover
    event to mimic fill slippage. Defaults to `0`. Positive values reduce the
    first post-rebalance return by the specified number of basis points.
+- `run.monthly_cost` – flat decimal per-period fee subtracted from every fund
+   return before portfolio statistics are calculated. For example, `0.001`
+   subtracts 10 bps from each monthly return. This is not scaled by turnover or
+   exposure; use `portfolio.transaction_cost_bps` / `portfolio.cost_model` for
+   turnover-based trading costs.
 - `portfolio.max_turnover` – soft cap on total turnover (sum of absolute
    weight changes) for a single rebalance expressed as a fraction of gross
    notional. Accepted range is `0.0` to `2.0` where `1.0` effectively means
@@ -334,7 +339,7 @@ Validation rules:
 
 - Negative values for any cost control raises a configuration error.
 - Values are coerced from numeric strings when possible (e.g. `"15"`).
-- Omitting both keys preserves previous behaviour (no costs, no cap).
+- Omitting these keys preserves previous behaviour (no costs, no cap).
 
 Multi‑period runs attach per‑period `turnover` and `transaction_cost` figures
 to each result dictionary. These appear in a separate execution metrics export

@@ -131,6 +131,7 @@ benchmarks:
 regime:
   enabled: true
   proxy: "SPX"
+  model: "binary_threshold"
   method: "rolling_return"
   lookback: 126
   smoothing: 3
@@ -150,8 +151,6 @@ regime:
 metrics:
   rf_rate_annual:     0.02            # flat rf or link to series
   rf_override_enabled: false           # enable Monte Carlo CASH injection from rf_rate_annual
-  use_continuous:     false           # geometric (default) vs. log
-  alpha_reference:    "SP500TR"       # ticker in indices_glob
   # ---- new vectorised list drives score_frame v2 -----------------
   registry:
     - annual_return
@@ -160,33 +159,12 @@ metrics:
     - sortino_ratio
     - information_ratio
     - max_drawdown
-  compute:
-    - CAGR
-    - Volatility
-    - Sharpe
-    - Sortino
-    - Max_Drawdown
-    - Calmar
-    - Hit_Rate
-    - Skew
-  bootstrap_ci:
-    enabled: true
-    n_iter: 2000
-    ci_level: 0.95
 # ----------------------------------------------------------------------
 # 8. EXPORT OPTIONS
 # ----------------------------------------------------------------------
 export:
   directory: "results/"
   formats: ["xlsx", "csv", "json"]
-  excel:
-    autofit_columns: true
-    number_format: "0.00%"
-    conditional_bands:
-      enabled: true
-      palette: "RdYlGn"
-  include_raw_returns: true
-  include_vol_adj: true
   disable_narrative_generation: false
   include_figures: false # Phase-2
 # ----------------------------------------------------------------------
@@ -198,11 +176,8 @@ performance:
   cache:
     metrics: false  # scalar metric series memoization (Issue #1156)
 run:
-  log_level: "INFO" # DEBUG | INFO | WARNING | ERROR
-  log_file: "logs/phase1.log"
-  n_jobs: -1 # ‑1 ⇒ all CPUs
-  cache_dir: ".cache/"
-  deterministic: true # sets NumPy & pandas options
+  monthly_cost: 0.0 # flat decimal return subtracted from each fund every period
+  jobs: -1 # -1 => all CPUs
 
 
 # ---------------------------------------------------------------------------
@@ -225,5 +200,4 @@ multi_period:
       - [50,  1.00]
       - [100, 0.80]
 checkpoint_dir: "outputs/checkpoints/"
-jobs: -1                  # -1 = use all logical cores
 seed: 42

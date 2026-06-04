@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from abc import abstractmethod
 from dataclasses import asdict, dataclass
 from typing import Any, Mapping
 
@@ -11,6 +12,7 @@ import pandas as pd
 
 from .metrics import annual_return, max_drawdown, sharpe_ratio
 from .perf.rolling_cache import compute_dataset_hash, get_cache
+from .plugins import Plugin, PluginRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -21,12 +23,13 @@ class RegimeSettings:
 
     enabled: bool = False
     proxy: str | None = None
+    model: str = "binary_threshold"
     method: str = "rolling_return"
     lookback: int = 126
     smoothing: int = 3
     threshold: float = 0.0
     neutral_band: float = 0.001
-    min_obs: int = 6
+    min_obs: int = 4
     risk_on_label: str = "Risk-On"
     risk_off_label: str = "Risk-Off"
     default_label: str = "Risk-On"
@@ -64,6 +67,9 @@ def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
     proxy = cfg.get("proxy")
     if proxy is not None:
         proxy = str(proxy).strip() or None
+    model = str(cfg.get("model", "binary_threshold") or "binary_threshold").strip()
+    if not model:
+        model = "binary_threshold"
 
     method_raw = str(cfg.get("method", "rolling_return") or "rolling_return").strip().lower()
     method_lookup = {
@@ -79,8 +85,14 @@ def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
     lookback = _coerce_positive_int(cfg.get("lookback"), 126)
     smoothing = _coerce_positive_int(cfg.get("smoothing"), 3)
     threshold = _coerce_float(cfg.get("threshold"), 0.0)
+    if enabled and method == "volatility" and (not np.isfinite(threshold) or threshold <= 0):
+        raise ValueError(
+            "regime.threshold must be finite and positive when regime.method is 'volatility' "
+            "(signal = threshold - volatility, and volatility is non-negative, so a "
+            "non-positive threshold collapses the split to all Risk-Off)"
+        )
     neutral_band = abs(_coerce_float(cfg.get("neutral_band"), 0.001))
-    min_obs = _coerce_positive_int(cfg.get("min_observations"), 6, minimum=1)
+    min_obs = _coerce_positive_int(cfg.get("min_observations"), 4, minimum=1)
     cache = bool(cfg.get("cache", True))
     annualise_volatility = bool(cfg.get("annualise_volatility", True))
 
@@ -97,6 +109,7 @@ def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
     return RegimeSettings(
         enabled=enabled,
         proxy=proxy,
+        model=model,
         method=method,
         lookback=lookback,
         smoothing=smoothing,
@@ -210,14 +223,21 @@ def _compute_regime_series(
             periods_per_year=periods,
             annualise=settings.annualise_volatility,
         )
-        signal = settings.threshold - signal
+        threshold = settings.threshold
+        neutral_band = settings.neutral_band
+        if settings.annualise_volatility and periods and periods > 0:
+            scale = float(np.sqrt(periods))
+            threshold = threshold * scale
+            neutral_band = neutral_band * scale
+        signal = threshold - signal
     else:
         signal = _rolling_return_signal(clean, window=window, smoothing=smoothing)
         signal = signal - settings.threshold
+        neutral_band = settings.neutral_band
 
     labels = pd.Series(settings.default_label, index=clean.index, dtype="string")
-    upper = settings.neutral_band
-    lower = -settings.neutral_band
+    upper = neutral_band
+    lower = -neutral_band
     if upper <= 0:
         labels.loc[signal >= 0] = settings.risk_on_label
         labels.loc[signal < 0] = settings.risk_off_label
@@ -250,6 +270,44 @@ def _compute_regime_series(
     return cache.get_or_compute(dataset_hash, window, freq, method_tag, _compute)
 
 
+class RegimeModel(Plugin):
+    """Base class for pluggable regime classifiers."""
+
+    @abstractmethod
+    def classify(
+        self,
+        proxy: pd.Series,
+        settings: RegimeSettings,
+        *,
+        freq: str,
+        periods_per_year: float | None,
+    ) -> pd.Series:
+        """Return per-period regime labels for ``proxy``."""
+
+
+regime_registry: PluginRegistry[RegimeModel] = PluginRegistry()
+
+
+@regime_registry.register("binary_threshold")
+class BinaryThresholdRegimeModel(RegimeModel):
+    """Existing binary return/volatility threshold classifier."""
+
+    def classify(
+        self,
+        proxy: pd.Series,
+        settings: RegimeSettings,
+        *,
+        freq: str,
+        periods_per_year: float | None,
+    ) -> pd.Series:
+        return _compute_regime_series(
+            proxy,
+            settings,
+            freq=freq,
+            periods_per_year=periods_per_year,
+        )
+
+
 def compute_regimes(
     proxy: pd.Series,
     settings: RegimeSettings,
@@ -262,7 +320,8 @@ def compute_regimes(
 
     if not settings.enabled:
         return pd.Series(dtype="string")
-    return _compute_regime_series(proxy, settings, freq=freq, periods_per_year=periods_per_year)
+    model = regime_registry.create(settings.model)
+    return model.classify(proxy, settings, freq=freq, periods_per_year=periods_per_year)
 
 
 def _format_hit_rate(series: pd.Series) -> float:

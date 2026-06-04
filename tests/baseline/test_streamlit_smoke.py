@@ -12,6 +12,8 @@ correct behavior -- it's a guard, not a crash.
 
 from __future__ import annotations
 
+import sys
+
 import pytest
 
 from .harness import REPO_ROOT
@@ -27,11 +29,22 @@ _CLEAN_PAGES = [
     "streamlit_app/pages/3_Results.py",
     "streamlit_app/pages/4_Help.py",
     "streamlit_app/pages/8_Validation.py",
-    "streamlit_app/pages/monte_carlo.py",
+    "streamlit_app/pages/5_Monte_Carlo.py",
 ]
 
 
 def _run_page(rel_path: str) -> AppTest:
+    # Evict any cached ``streamlit_app`` modules so the page is imported fresh
+    # against the *real* Streamlit runtime. Sibling unit tests
+    # (e.g. tests/streamlit/test_mc_page.py via ``_load_page``) ``importlib.reload``
+    # these modules bound to a DummyStreamlit stub and never restore them --
+    # ``monkeypatch`` reverts ``sys.modules["streamlit"]`` but not the in-place
+    # reloaded page modules. If that stubbed state leaked in here, the page would
+    # render into the dummy and produce zero real elements ("rendered nothing").
+    for name in [
+        m for m in list(sys.modules) if m == "streamlit_app" or m.startswith("streamlit_app.")
+    ]:
+        del sys.modules[name]
     at = AppTest.from_file(str(REPO_ROOT / rel_path), default_timeout=120)
     at.run()
     return at

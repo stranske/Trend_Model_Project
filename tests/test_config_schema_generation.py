@@ -58,6 +58,31 @@ def test_schema_validation_accepts_rf_override_enabled() -> None:
     assert errors == []
 
 
+def test_schema_validation_accepts_regime_model() -> None:
+    schema = generate_schema()
+    regime_schema = schema["properties"]["regime"]["properties"]["model"]
+    assert regime_schema["type"] == "string"
+    assert regime_schema["default"] == "binary_threshold"
+
+    errors = validate_config_data({"regime": {"model": "binary_threshold"}}, schema)
+    assert errors == []
+
+
+def test_schema_validation_accepts_cost_model_float_bps() -> None:
+    schema = generate_schema()
+    cost_schema = schema["properties"]["portfolio"]["properties"]["cost_model"]["properties"]
+    assert cost_schema["bps_per_trade"]["type"] == "number"
+    assert cost_schema["bps_per_trade"]["minimum"] == 0
+    assert cost_schema["slippage_bps"]["type"] == "number"
+    assert cost_schema["slippage_bps"]["minimum"] == 0
+
+    errors = validate_config_data(
+        {"portfolio": {"cost_model": {"bps_per_trade": 2.5, "slippage_bps": 0.75}}},
+        schema,
+    )
+    assert errors == []
+
+
 def test_schema_validation_rejects_misspelled_rf_override_enabled() -> None:
     schema = generate_schema()
     errors = validate_config_data({"metrics": {"rf_override_enbaled": True}}, schema)

@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from trend_analysis.config.model import validate_trend_config
 from trend_analysis.config.models import Config
 from trend_analysis.config.schema_validation import load_schema
+from trend_analysis.time_utils import resolve_period_bound
 from utils.paths import proj_path
 
 _PATH_PATTERN = re.compile(r"^([A-Za-z0-9_.\[\]-]+)(:|\s+)(.+)$")
@@ -100,6 +101,7 @@ def validate_config(
 
     _run_schema_validation(config, errors, warnings)
     _run_required_validation(config, errors, skip_required_fields)
+    _run_data_semantic_validation(config, errors)
     if include_model_validation:
         _collect_trend_model_errors(config, errors, base)
     _run_sample_split_validation(config, errors)
@@ -130,6 +132,15 @@ def _run_required_validation(
     if not skip_required_fields:
         _check_required_fields(config, errors)
     _check_version_field(config, errors)
+
+
+def _run_data_semantic_validation(
+    config: Mapping[str, Any],
+    errors: list[ValidationError],
+) -> None:
+    data = config.get("data")
+    if isinstance(data, Mapping):
+        _check_data_frequency_supported(data, errors)
 
 
 def _run_sample_split_validation(
@@ -438,7 +449,7 @@ def _check_data_required_fields(data: Mapping[str, Any], errors: list[Validation
         "data",
         "frequency",
         expected="non-empty string",
-        suggestion="Set data.frequency to one of the supported values (e.g., 'M').",
+        suggestion="Set data.frequency to 'M' or 'ME'.",
     )
     if not _is_present(csv_path) and not _is_present(managers_glob):
         issue = ValidationError(
@@ -447,6 +458,41 @@ def _check_data_required_fields(data: Mapping[str, Any], errors: list[Validation
             expected="csv_path or managers_glob",
             actual="missing",
             suggestion="Set data.csv_path to a CSV file or data.managers_glob to a CSV glob.",
+        )
+        _append_issue(errors, issue)
+
+
+def _check_data_frequency_supported(
+    data: Mapping[str, Any], errors: list[ValidationError]
+) -> None:
+    value = data.get("frequency")
+    if not _is_present(value):
+        return
+    if not isinstance(value, str):
+        issue = ValidationError(
+            path="data.frequency",
+            message="Frequency must be a string.",
+            expected="'M' or 'ME'",
+            actual=type(value).__name__,
+            suggestion="Set data.frequency to 'M' or 'ME'.",
+        )
+        _append_issue(errors, issue)
+        return
+
+    frequency = value.strip().upper()
+    if frequency not in {"M", "ME"}:
+        issue = ValidationError(
+            path="data.frequency",
+            message=(
+                "Only monthly data.frequency values are currently supported; "
+                f"'{value}' would be silently resampled to monthly."
+            ),
+            expected="'M' or 'ME'",
+            actual=value,
+            suggestion=(
+                "Use data.frequency: M for the current monthly pipeline, or add "
+                "full non-monthly periods-per-year support before using D/W."
+            ),
         )
         _append_issue(errors, issue)
 
@@ -520,12 +566,17 @@ def _check_date_ranges(config: Mapping[str, Any], errors: list[ValidationError])
     if not all(key in split for key in required):
         return
 
+    # Resolve each label to the same instant the window slicer uses
+    # (stages/preprocessing.py): start labels -> month start, end labels ->
+    # month end. Resolving uniformly to month start here would let the
+    # validator and slicer disagree on what an `*_end` label denotes.
+    bound_roles = {"in_start": "start", "in_end": "end", "out_start": "start", "out_end": "end"}
     parsed: dict[str, pd.Timestamp] = {}
     invalid_fields: set[str] = set()
     for key in required:
         raw = split.get(key)
         try:
-            parsed[key] = pd.to_datetime(raw)
+            parsed[key] = resolve_period_bound(raw, bound=bound_roles[key])
         except Exception:
             issue = ValidationError(
                 path=f"sample_split.{key}",

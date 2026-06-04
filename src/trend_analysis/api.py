@@ -4,6 +4,7 @@ import logging
 import random
 import sys
 import time
+import warnings
 from collections.abc import Mapping, Sized
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, SupportsInt, cast
@@ -235,6 +236,25 @@ def _run_multi_period_simulation(
     if turnover_series is not None:
         details["turnover"] = turnover_series
 
+    # Surface a silent risk-weighting -> equal-weight fallback recorded by the
+    # multi-period engine so the Results page banner fires (see
+    # multi_period/engine.py and 3_Results.py).
+    mp_fallback: dict[str, Any] | None = next(
+        (
+            res["weight_engine_fallback"]
+            for res in period_results
+            if isinstance(res, dict) and isinstance(res.get("weight_engine_fallback"), dict)
+        ),
+        None,
+    )
+    if mp_fallback is not None:
+        logger.warning(
+            "Multi-period weight engine fallback used (engine=%s, error=%s); "
+            "equal weights applied.",
+            mp_fallback.get("engine"),
+            mp_fallback.get("error") or mp_fallback.get("error_type"),
+        )
+
     # Build structured Results object if possible
     structured: Results | None = None
     try:
@@ -253,6 +273,7 @@ def _run_multi_period_simulation(
         period_results=period_results,
         period_count=len(period_results),
         timings=timings,
+        fallback_info=mp_fallback,
     )
 
     if structured is not None:
@@ -452,6 +473,28 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         )
         return result
 
+    # Single-period path: ``run.monthly_cost``, ``portfolio.max_turnover``, and
+    # ``portfolio.lambda_tc`` affect costs/turnover here (see stages/portfolio.py).
+    # ``portfolio.transaction_cost_bps`` is a turnover-based lever that is only
+    # charged by the multi-period engine, so a value set on a single-period run is
+    # silently ignored. Warn loudly rather than leaving the no-op undocumented
+    # (issue #5394 / A14).
+    portfolio_cfg = getattr(config, "portfolio", {}) or {}
+    try:
+        _tc_bps = float(portfolio_cfg.get("transaction_cost_bps", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        _tc_bps = 0.0
+    if _tc_bps > 0.0:
+        _tc_msg = (
+            "portfolio.transaction_cost_bps=%s is ignored on the single-period analysis "
+            "path; turnover-based transaction costs are only charged by the multi-period "
+            "engine. Single-period runs apply run.monthly_cost, portfolio.max_turnover, "
+            "and portfolio.lambda_tc. Enable multi_period or use run.monthly_cost to model "
+            "single-period costs."
+        ) % _tc_bps
+        warnings.warn(_tc_msg, UserWarning, stacklevel=2)
+        logger.warning(_tc_msg)
+
     validation_frame = validate_prices_frame(build_validation_frame(returns))
 
     data_settings = getattr(config, "data", {}) or {}
@@ -470,12 +513,18 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     rf_override_enabled = bool(config.metrics.get("rf_override_enabled", False))
     rf_rate_annual = float(config.metrics.get("rf_rate_annual", 0.0) or 0.0)
     risk_free_override: float | None = None
-    rf_rate_fallback = 0.0
+    # Fund ranking honours the configured ``metrics.rf_rate_annual`` (converted to
+    # a periodic rate) regardless of ``rf_override_enabled``. Previously the
+    # ranking risk-free was 0.0 unless the override was on, so a configured annual
+    # RF was silently ignored for ranking Sharpe and could change *which* funds
+    # were selected versus user expectation (issue #5398 / A18). ``rf_override_enabled``
+    # only controls whether the manual rate also overrides the data RF column on the
+    # portfolio-stats path -- that ``risk_free_override`` wiring is left untouched.
+    frequency = str(data_settings.get("frequency") or "M")
+    periods_per_year = float(periods_per_year_from_code(frequency))
+    rf_rate_periodic = (1.0 + rf_rate_annual) ** (1.0 / periods_per_year) - 1.0
+    rf_rate_fallback = float(rf_rate_periodic)
     if rf_override_enabled:
-        frequency = str(data_settings.get("frequency") or "M")
-        periods_per_year = float(periods_per_year_from_code(frequency))
-        rf_rate_periodic = (1.0 + rf_rate_annual) ** (1.0 / periods_per_year) - 1.0
-        rf_rate_fallback = float(rf_rate_periodic)
         risk_free_override = float(rf_rate_periodic)
     stats_cfg = None
     if metrics_list:

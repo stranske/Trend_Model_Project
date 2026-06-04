@@ -102,6 +102,9 @@ def _load_weight_engines() -> None:  # pragma: no cover - tiny import shim
     """
     # Local import scope prevents premature evaluation during type checking
     from ..weights import (
+        constrained_optimization as _constrained_optimization,
+    )  # noqa: F401
+    from ..weights import (
         equal_risk_contribution as _equal_risk_contribution,
     )  # noqa: F401
     from ..weights import (
@@ -114,6 +117,7 @@ def _load_weight_engines() -> None:  # pragma: no cover - tiny import shim
     globals().update(
         {
             "_equal_risk_contribution": _equal_risk_contribution,
+            "_constrained_optimization": _constrained_optimization,
             "_hierarchical_risk_parity": _hierarchical_risk_parity,
             "_risk_parity": _risk_parity,
             "_robust_weighting": _robust_weighting,
@@ -151,6 +155,7 @@ __all__ = [
     "create_selector",
     "create_rebalancer",
     "create_weight_engine",
+    "_constrained_optimization",
     "_equal_risk_contribution",
     "_hierarchical_risk_parity",  # ensures HRP is exported
     "_risk_parity",

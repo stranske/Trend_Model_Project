@@ -12,6 +12,39 @@ DEFAULT_FREQUENCY = "B"
 DEFAULT_CALENDAR = "simple"
 
 
+def is_month_label(label: str) -> bool:
+    """Return ``True`` for a bare month label of the form ``YYYY-MM``."""
+    text = str(label).strip()
+    return len(text) == 7 and text.count("-") == 1
+
+
+def resolve_period_bound(label: object, *, bound: str) -> pd.Timestamp:
+    """Resolve a sample-split boundary label to a single timestamp.
+
+    A boundary label denotes one instant everywhere it is used. For a bare
+    month label (``YYYY-MM``) the instant depends on which side of a window it
+    bounds: ``bound="start"`` resolves to the month start and ``bound="end"``
+    resolves to the month end. Finer-grained labels are parsed directly. The
+    result is normalised to midnight so it matches the inclusive ``<=`` mask the
+    window slicer applies.
+
+    Both the ordering validator (``config/validation.py``) and the window
+    slicer (``stages/preprocessing.py``) resolve boundaries through this helper
+    so a given label means the same instant in validation and slicing.
+    """
+    if bound not in ("start", "end"):
+        raise ValueError(f"bound must be 'start' or 'end', got {bound!r}")
+    text = str(label).strip()
+    if not text:
+        raise ValueError("Period label must be non-empty")
+    if is_month_label(text):
+        period = pd.Period(text, freq="M")
+        ts = period.start_time if bound == "start" else period.end_time
+    else:
+        ts = pd.to_datetime(text)
+    return pd.Timestamp(ts).normalize()
+
+
 def _normalise_calendar_name(calendar_name: str | None) -> str:
     cal = (calendar_name or DEFAULT_CALENDAR).lower()
     if cal not in {"simple", "nyse", "us"}:
@@ -223,4 +256,4 @@ def align_calendar(
     return aligned
 
 
-__all__ = ["align_calendar"]
+__all__ = ["align_calendar", "is_month_label", "resolve_period_bound"]

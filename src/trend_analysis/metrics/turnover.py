@@ -36,6 +36,20 @@ def realized_turnover(
     return to
 
 
+def linear_turnover_cost(
+    turnover: float | pd.Series,
+    cost_bps: float,
+) -> float | pd.Series:
+    """Return linear transaction cost for turnover and basis points."""
+    multiplier = float(cost_bps) / 10000.0
+    if isinstance(turnover, pd.Series):
+        return turnover.clip(lower=0.0) * multiplier
+    turnover_value = float(turnover)
+    if turnover_value <= 0.0:
+        return 0.0
+    return turnover_value * multiplier
+
+
 def turnover_cost(
     weights: Mapping[pd.Timestamp, pd.Series] | pd.DataFrame,
     cost_bps: float,
@@ -50,7 +64,9 @@ def turnover_cost(
         Linear transaction cost in basis points applied to turnover.
     """
     turn_df = realized_turnover(weights)
-    return turn_df["turnover"] * (cost_bps / 10000.0)
+    costs = linear_turnover_cost(turn_df["turnover"], cost_bps)
+    assert isinstance(costs, pd.Series)
+    return costs
 
 
-__all__ = ["realized_turnover", "turnover_cost"]
+__all__ = ["linear_turnover_cost", "realized_turnover", "turnover_cost"]
