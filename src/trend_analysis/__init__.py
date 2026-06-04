@@ -165,7 +165,6 @@ _LAZY_SUBMODULES = {
     "weighting": "trend_analysis.weighting",
     "weights": "trend_analysis.weights",
     "presets": "trend_analysis.presets",
-    "run_multi_analysis": "trend_analysis.run_multi_analysis",
     "engine": "trend_analysis.engine",
     "perf": "trend_analysis.perf",
     "regimes": "trend_analysis.regimes",
@@ -219,7 +218,6 @@ api: Any
 selector: Any
 weighting: Any
 presets: Any
-run_multi_analysis: Any
 engine: Any
 perf: Any
 regimes: Any
@@ -294,7 +292,6 @@ __all__ = [
     "export_phase1_multi_metrics",
     "export_multi_period_metrics",
     "export_bundle",
-    "run_multi_analysis",
     "engine",
     "perf",
     "regimes",

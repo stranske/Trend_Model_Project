@@ -1,3 +1,14 @@
+## 2026-06-04T09:10Z - opener (codex): issue #5423 legacy runner removal
+
+- Repo/issue: `stranske/Trend_Model_Project` #5423 (`C1 - Remove orphaned legacy runners run_analysis.py / run_multi_analysis.py`).
+- Branch/worktree: `codex/issue-5423-legacy-runners` in `~/.codex/automations/pd-workloop-resume/worktrees/trend-5423-legacy-runners`.
+- Selection: raw opener cap was below 5. Scoped blockers remained Trend #5343, LMS #180, and Trend #5389/#5440. Trend #5489 was classified ready-for-closer by direct evidence (green Gate/Python/conformance; only non-required Claude review failure). #5421/#5422 were already linked to opener PRs, making #5423 the oldest unlinked implementation candidate outside blockers.
+- Implementation: deleted orphaned `src/trend_analysis/run_analysis.py` and `src/trend_analysis/run_multi_analysis.py`; removed the `run_multi_analysis` lazy export/type hint; updated `scripts/run_multi_demo.py` to use public `trend_analysis.cli` and multi-period public API paths; removed legacy-helper tests that only exercised the deleted private modules; added `tests/test_legacy_runners_removed.py` as the guard.
+- Validation: `PYTHONPATH=<worktree>/src python -m pytest tests/test_legacy_runners_removed.py tests/test_compat_entrypoints.py tests/test_trend_analysis_init_module.py tests/test_joblib_import.py tests/test_constants.py -q` -> 28 passed. `python -m ruff check ...` -> passed. Focused `python -m mypy ...` -> passed. `git diff --check` -> passed.
+- Deliberate-break gate: temporarily re-created `src/trend_analysis/run_analysis.py`; `tests/test_legacy_runners_removed.py::test_legacy_runner_modules_gone` failed on the reintroduced file. Removed it again and reran focused validation green.
+- Broad selector note: the literal `PYTHONPATH=src python -m pytest tests/ -k "run_analysis or run_multi_analysis" -q` still fails during collection on existing Streamlit/Plotly/PyArrow NumPy 2.x ABI issues before selected tests run; this matches prior local environment blockers and is not caused by this diff.
+- Current state: ready to commit/push/open PR with `agent:codex`, `agents:keepalive`, and `autofix`; post-open action is Gate Followups dispatch if cap-health needs evidence.
+
 ## 2026-06-04T07:26Z - closer (codex): PR #5488 CI recovery
 
 - Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5421`, PR `#5488`, branch `codex/issue-5421-ci-fixtures-package`.

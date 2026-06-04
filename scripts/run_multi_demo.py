@@ -41,8 +41,6 @@ try:
         gui,
         metrics,
         pipeline,
-        run_analysis,
-        run_multi_analysis,
     )
     from trend_analysis.config import Config, load
     from trend_analysis.config.models import ConfigProtocol as _ConfigProto
@@ -367,37 +365,17 @@ def _check_selection_modes(cfg: Config) -> None:
 
 
 def _check_cli_env(cfg_path: str) -> None:
-    """Invoke the CLI using the TREND_CFG environment variable."""
-    env = os.environ.copy()
-    env["TREND_CFG"] = cfg_path
-    subprocess.run(
-        [sys.executable, "-m", "trend_analysis.run_analysis", "--detailed"],
-        check=True,
-        env=env,
-        shell=False,
-    )
-    os.environ["TREND_CFG"] = cfg_path
-    rc = run_analysis.main([])
-    os.environ.pop("TREND_CFG", None)
+    """Invoke the public CLI against an explicit config path."""
+    rc = cli.main(["run", "-c", cfg_path])
     if rc != 0:
-        raise SystemExit("run_analysis.main env failed")
+        raise SystemExit("trend run config smoke failed")
 
 
 def _check_cli_env_multi(cfg_path: str) -> None:
-    """Invoke the multi-period CLI using the TREND_CFG variable."""
-    env = os.environ.copy()
-    env["TREND_CFG"] = cfg_path
-    subprocess.run(
-        [sys.executable, "-m", "trend_analysis.run_multi_analysis", "--detailed"],
-        check=True,
-        env=env,
-        shell=False,
-    )
-    os.environ["TREND_CFG"] = cfg_path
-    rc = run_multi_analysis.main([])
-    os.environ.pop("TREND_CFG", None)
-    if rc != 0:
-        raise SystemExit("run_multi_analysis.main env failed")
+    """Exercise the public multi-period API with an explicit config path."""
+    cfg = load(cfg_path)
+    if not run_mp(cfg):
+        raise SystemExit("multi-period public API smoke failed")
 
 
 def _check_cli(cfg_path: str | os.PathLike[str], csv_path: str | os.PathLike[str]) -> None:
@@ -2070,7 +2048,6 @@ def _check_package_exports() -> None:
         "export",
         "selector",
         "weighting",
-        "run_multi_analysis",
     }
     missing = expected - set(ta.__all__)
     if missing:
@@ -2212,14 +2189,7 @@ _check_module_exports()
 def _check_cli_help() -> None:
     """Ensure the CLI entry points print help and exit cleanly."""
     subprocess.run(
-        [sys.executable, "-m", "trend_analysis.run_analysis", "--help"],
-        check=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        shell=False,
-    )
-    subprocess.run(
-        [sys.executable, "-m", "trend_analysis.run_multi_analysis", "--help"],
+        [sys.executable, "-m", "trend_analysis.cli", "--help"],
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -2285,11 +2255,9 @@ summary_pkg = ta.combined_summary_result(results)
 if ta.metrics_from_result(summary_pkg).empty:
     raise SystemExit("Package metrics_from_result failed")
 
-# run_analysis.main directly
-if run_analysis.main(["-c", "config/demo.yml"]) != 0:
-    raise SystemExit("run_analysis.main failed")
-if run_analysis.main(["-c", "config/demo.yml", "--detailed"]) != 0:
-    raise SystemExit("run_analysis.main detailed failed")
+# Public CLI path formerly covered by the removed run_analysis helper.
+if cli.main(["run", "-c", "config/demo.yml"]) != 0:
+    raise SystemExit("trend run failed")
 
 # Run the multi-period CLI using a temporary config file
 cli_cfg = Path("demo/exports/mp_cli_cfg.yml")
@@ -2299,14 +2267,17 @@ data.setdefault("export", {})["directory"] = str(cli_out)
 data["export"]["formats"] = ["csv"]
 with cli_cfg.open("w", encoding="utf-8") as fh:
     yaml.safe_dump(_yaml_friendly(data), fh)
-rc = run_multi_analysis.main(["-c", str(cli_cfg)])
-if rc != 0:
-    raise SystemExit("run_multi_analysis CLI failed")
+mp_results = run_mp(load(str(cli_cfg)))
+if not mp_results:
+    raise SystemExit("multi-period public API failed")
+export.export_phase1_multi_metrics(
+    mp_results,
+    str(cli_out / "analysis"),
+    formats=["csv"],
+    include_metrics=True,
+)
 if not list(cli_out.glob("*.csv")):
-    raise SystemExit("run_multi_analysis CLI produced no output")
-rc = run_multi_analysis.main(["-c", str(cli_cfg), "--detailed"])
-if rc != 0:
-    raise SystemExit("run_multi_analysis CLI detailed failed")
+    raise SystemExit("multi-period public API produced no output")
 cli_cfg.unlink()
 
 
@@ -2317,7 +2288,7 @@ subprocess.run(
     [
         sys.executable,
         "-m",
-        "trend_analysis.run_analysis",
+        "trend_analysis.cli",
         "-c",
         "config/demo.yml",
     ],
@@ -2328,7 +2299,7 @@ subprocess.run(
     [
         sys.executable,
         "-m",
-        "trend_analysis.run_analysis",
+        "trend_analysis.cli",
         "-c",
         "config/demo.yml",
         "--detailed",
@@ -2340,7 +2311,7 @@ subprocess.run(
     [
         sys.executable,
         "-m",
-        "trend_analysis.run_multi_analysis",
+        "trend_analysis.cli",
         "-c",
         "config/demo.yml",
         "--detailed",

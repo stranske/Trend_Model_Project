@@ -78,7 +78,6 @@ def _reload_with_stubs(
         "weighting",
         "weights",
         "presets",
-        "run_multi_analysis",
         "engine",
         "perf",
         "regimes",
