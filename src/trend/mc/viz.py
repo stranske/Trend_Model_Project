@@ -11,9 +11,9 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-_OPTIONAL_STEM_EXTENSIONS: tuple[str, ...] = ("parquet", "csv", "json")
+from trend.mc.charts import NAV_PATH_REQUIRED_CHARTS
 
-NAV_PATH_REQUIRED_CHARTS: frozenset[str] = frozenset({"path_dist"})
+_OPTIONAL_STEM_EXTENSIONS: tuple[str, ...] = ("parquet", "csv", "json")
 
 CHART_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "fan": ("summary", "results"),
