@@ -366,7 +366,8 @@ def _check_selection_modes(cfg: Config) -> None:
 
 def _check_cli_env(cfg_path: str) -> None:
     """Invoke the public CLI against an explicit config path."""
-    rc = cli.main(["run", "-c", cfg_path])
+    cfg = load(cfg_path)
+    rc = cli.main(["run", "-c", cfg_path, "-i", os.fspath(cfg.data["csv_path"])])
     if rc != 0:
         raise SystemExit("trend run config smoke failed")
 
@@ -2256,7 +2257,7 @@ if ta.metrics_from_result(summary_pkg).empty:
     raise SystemExit("Package metrics_from_result failed")
 
 # Public CLI path formerly covered by the removed run_analysis helper.
-if cli.main(["run", "-c", "config/demo.yml"]) != 0:
+if cli.main(["run", "-c", "config/demo.yml", "-i", os.fspath(pkg_cfg.data["csv_path"])]) != 0:
     raise SystemExit("trend run failed")
 
 # Run the multi-period CLI using a temporary config file
@@ -2289,8 +2290,11 @@ subprocess.run(
         sys.executable,
         "-m",
         "trend_analysis.cli",
+        "run",
         "-c",
         "config/demo.yml",
+        "-i",
+        os.fspath(pkg_cfg.data["csv_path"]),
     ],
     check=True,
     shell=False,
@@ -2300,9 +2304,11 @@ subprocess.run(
         sys.executable,
         "-m",
         "trend_analysis.cli",
+        "run",
         "-c",
         "config/demo.yml",
-        "--detailed",
+        "-i",
+        os.fspath(pkg_cfg.data["csv_path"]),
     ],
     check=True,
     shell=False,
@@ -2312,9 +2318,11 @@ subprocess.run(
         sys.executable,
         "-m",
         "trend_analysis.cli",
+        "run",
         "-c",
         "config/demo.yml",
-        "--detailed",
+        "-i",
+        os.fspath(pkg_cfg.data["csv_path"]),
     ],
     check=True,
     shell=False,
