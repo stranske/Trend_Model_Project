@@ -50,13 +50,13 @@ TMPFILE=$(mktemp)
   echo "- After Codex replies with the checklist, post the execution command below to begin delivery and enable keepalive."
   echo
   echo "Execution command (copy into a standalone PR comment):"
-  echo '\`\`\`markdown'
+  echo '```markdown'
   echo '@codex plan-and-execute'
   echo
   echo 'Codex, reuse the scope, acceptance criteria, and task list from the source issue.'
   echo 'Post those sections on this PR using markdown checklists (- [ ]) so the keepalive workflow continues nudging until everything is complete.'
   echo 'Work through the tasks, checking them off only after each acceptance criterion is satisfied.'
-  echo '\`\`\`'
+  echo '```'
 } >"$TMPFILE"
 
 # Create the PR as the current user
