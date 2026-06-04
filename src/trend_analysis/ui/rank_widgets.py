@@ -10,8 +10,8 @@ from ..core.rank_selection import METRIC_REGISTRY
 from ..data import ensure_datetime, load_csv
 from ..export import Formatter
 
-if TYPE_CHECKING:  # pragma: no cover
-    import ipywidgets as widgets
+if TYPE_CHECKING:
+    import ipywidgets as ipyw
 
 # ===============================================================
 #  UI SCAFFOLD (very condensed – Codex expands)
@@ -21,12 +21,12 @@ if TYPE_CHECKING:  # pragma: no cover
 def _load_widgets() -> Any:
     try:
         import ipywidgets as widgets
-    except ImportError as exc:  # pragma: no cover - covered via mocked import
+    except ImportError as exc:
         raise ImportError("ipywidgets is required for rank widget UI") from exc
     return widgets
 
 
-def build_ui() -> widgets.VBox:  # pragma: no cover - UI wiring exercised manually
+def build_ui() -> ipyw.VBox:  # pragma: no cover - UI wiring exercised manually
     widgets = _load_widgets()
 
     # -------------------- Step 1: data source & periods --------------------
@@ -66,7 +66,7 @@ def build_ui() -> widgets.VBox:  # pragma: no cover - UI wiring exercised manual
         ]
     )
 
-    def _load_action(_btn: widgets.Button) -> None:
+    def _load_action(_btn: ipyw.Button) -> None:
         with load_out:
             load_out.clear_output()
             try:
@@ -198,8 +198,8 @@ def build_ui() -> widgets.VBox:  # pragma: no cover - UI wiring exercised manual
     # -------------------- Step 3: manual override --------------------
     manual_box = widgets.VBox()
     manual_scores_html = widgets.HTML()
-    manual_checks: list[widgets.Checkbox] = []
-    manual_weights: list[widgets.FloatText] = []
+    manual_checks: list[ipyw.Checkbox] = []
+    manual_weights: list[ipyw.FloatText] = []
     manual_total_lbl = widgets.Label("Total weight: 0 %")
 
     def _update_manual() -> None:
@@ -224,7 +224,7 @@ def build_ui() -> widgets.VBox:  # pragma: no cover - UI wiring exercised manual
             scores = res.value["scores"]
             manual_checks.clear()
             manual_weights.clear()
-            rows: list[widgets.Widget] = []
+            rows: list[ipyw.Widget] = []
             manual_funds: list[str] = []
             for f, score in scores.items():
                 chk = widgets.Checkbox(value=False, description=f)
@@ -295,7 +295,7 @@ def build_ui() -> widgets.VBox:  # pragma: no cover - UI wiring exercised manual
     def _on_manual_change(_change: dict[str, Any]) -> None:
         _collect_manual_weights()
 
-    def _on_next(_: widgets.Button) -> None:
+    def _on_next(_: ipyw.Button) -> None:
         _collect_manual_weights()
         _update_manual()
 
@@ -306,7 +306,7 @@ def build_ui() -> widgets.VBox:  # pragma: no cover - UI wiring exercised manual
 
     next_btn_1.on_click(_on_next)
 
-    def _run_action(_btn: widgets.Button) -> None:
+    def _run_action(_btn: ipyw.Button) -> None:
         manual_funds.clear()
         custom_weights.clear()
         for chk, wt in zip(manual_checks, manual_weights):

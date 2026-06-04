@@ -1,13 +1,3 @@
-## 2026-06-04T20:08Z - opener (codex): issue #5434 UI correctness fixes
-
-- Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5434`, PR `#5502`, branch `codex/issue-5434-ui-correctness`.
-- Selection: raw opener cap was below 5 after required discovery. Scoped blockers remained LMS #180, Trend #5343, and Trend #5389/#5440. Existing opener PR #5492 was classified draining/keepalive-side with green Gate and non-required review noise; #5440 remains terminal/scoped on strict-config product decision. #5434 was the oldest unlinked implementation candidate outside blockers after prior issues were already linked/merged/source-disposition lanes.
-- Implementation: fixed the notebook theme toggle JavaScript to call `setProperty('--trend-theme', ...)` without the leading-space CSS custom-property typo; made `trend_analysis.ui.rank_widgets` import `ipywidgets` lazily inside `build_ui()` so the module imports in headless/CI environments; added headless import/build regression coverage and tightened the existing theme interaction assertion.
-- Validation: `PYTHONPATH=src python -m pytest tests/test_rank_widgets_headless_import.py tests/test_rank_widgets.py tests/test_app_coverage.py::test_launch_interactions tests/test_optional_notebook_deps.py::test_rank_ui_loader_requires_widgets -q` -> 6 passed, 2 existing warnings. `python -m ruff check src/trend_analysis/gui/app.py src/trend_analysis/ui/rank_widgets.py tests/test_rank_widgets_headless_import.py tests/test_app_coverage.py tests/test_optional_notebook_deps.py` passed. `git diff --check` passed.
-- Deliberate-break gate: temporarily restored a top-level `import ipywidgets as widgets`; `tests/test_rank_widgets_headless_import.py::test_rank_widgets_imports_without_ipywidgets` failed on the mocked missing dependency. Reverted the temporary import and reran focused validation green.
-- PR/routing: opened ready-for-review PR #5502 at https://github.com/stranske/Trend_Model_Project/pull/5502, non-draft, closes #5434, labels `agent:codex`, `agents:keepalive`, `autofix`. Post-open cap-health initially reported `needs-dispatch-evidence`; `opener-repair-infra-stalls.py` added `agent:retry` and dispatched Gate Followups. Fresh cap-health at 2026-06-04T20:07:37Z classifies #5502 as `draining` with active Gate evidence.
-- Current state: PR #5502 is waiting on asynchronous Gate/keepalive/guard checks after the repair dispatch/state update. Next action belongs to keepalive/closer after checks settle.
-
 ## 2026-06-04T10:18Z - closer (codex): PR #5490 full-suite stale test repair
 
 - Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5423`, PR `#5490`, branch `codex/issue-5423-legacy-runners`.
