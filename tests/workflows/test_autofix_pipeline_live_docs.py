@@ -82,6 +82,10 @@ def test_autofix_pipeline_repairs_live_documents(
     )
 
     automation_path = src_dir / "trend_analysis" / "automation_multifailure.py"
+    shutil.copy2(
+        real_root / "tests" / "workflows" / "fixtures" / "automation_multifailure.py",
+        automation_path,
+    )
     automation_original = automation_path.read_text(encoding="utf-8")
     automation_path.write_text(
         automation_original.replace('" | ".join', '",".join'),
@@ -89,6 +93,20 @@ def test_autofix_pipeline_repairs_live_documents(
     )
 
     expectation_original = expectation_module_target.read_text(encoding="utf-8")
+    expectation_original = expectation_original.replace(
+        "from tests.workflows.fixtures.automation_multifailure import aggregate_numbers",
+        "from trend_analysis.automation_multifailure import aggregate_numbers",
+    )
+    expectation_original = expectation_original.replace(
+        "from trend_analysis.constants import NUMERICAL_TOLERANCE_MEDIUM\n"
+        "from trend_analysis.selector import RankSelector\n"
+        "from trend_analysis.weighting import EqualWeight\n"
+        "from trend_analysis.automation_multifailure import aggregate_numbers",
+        "from trend_analysis.automation_multifailure import aggregate_numbers\n"
+        "from trend_analysis.constants import NUMERICAL_TOLERANCE_MEDIUM\n"
+        "from trend_analysis.selector import RankSelector\n"
+        "from trend_analysis.weighting import EqualWeight",
+    )
     modified_lines: list[str] = []
     optional_removed = False
     numpy_rewritten = False
@@ -131,7 +149,12 @@ def summarise_payload(values: Iterable[int]) -> int:
     monkeypatch.syspath_prepend(str(tests_dir))
     importlib.invalidate_caches()
     for name in list(sys.modules):
-        if name == "tests" or name.startswith("tests."):
+        if (
+            name == "tests"
+            or name.startswith("tests.")
+            or name == "trend_analysis"
+            or name.startswith("trend_analysis.")
+        ):
             sys.modules.pop(name, None)
 
     for module in (

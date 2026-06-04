@@ -7,10 +7,10 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from trend_analysis.automation_multifailure import aggregate_numbers
 from trend_analysis.constants import NUMERICAL_TOLERANCE_MEDIUM
 from trend_analysis.selector import RankSelector
 from trend_analysis.weighting import EqualWeight
+from tests.workflows.fixtures.automation_multifailure import aggregate_numbers
 
 EXPECTED_AUTOFIX_SELECTED_FUNDS = 2
 EXPECTED_AGGREGATE_OUTPUT = "1 | 2 | 3"

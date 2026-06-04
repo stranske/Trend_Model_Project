@@ -1,3 +1,25 @@
+## 2026-06-04T07:26Z - closer (codex): PR #5488 CI recovery
+
+- Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5421`, PR `#5488`, branch `codex/issue-5421-ci-fixtures-package`.
+- Selection: closer batch sweep first closed source issue `#5420` after merged PR `#5487` received durable provider-comparison PASS/PASS. The only unblocked open agent PR was `#5488`; scoped blockers remained `#5343`, `#5389/#5440`, and LMS `#180`.
+- Failure evidence: GitHub Python CI 3.12 and 3.13 failed on head `dcfb9940` with `tests/test_dependency_enforcement.py::test_all_test_imports_are_declared` reporting undeclared `fixtures`, and `tests/workflows/test_autofix_pipeline_live_docs.py::test_autofix_pipeline_repairs_live_documents` raising `ModuleNotFoundError: No module named 'trend_analysis.automation_multifailure'`.
+- Fix: dependency enforcement now ignores relative `ImportFrom` imports as internal test/package imports. The live-docs integration test now clears cached `trend_analysis` modules before importing the temporary copied package so `trend_analysis.automation_multifailure` resolves from the temp source tree.
+- Validation: `PYTHONPATH=src python -m pytest tests/test_dependency_enforcement.py::test_all_test_imports_are_declared tests/workflows/test_autofix_pipeline_live_docs.py::test_autofix_pipeline_repairs_live_documents -q` -> 2 passed. `PYTHONPATH=src python -m pytest tests/test_no_ci_fixtures_in_package.py tests/workflows/test_autofix_pipeline_live_docs.py tests/workflows/test_autofix_probe_module.py tests/workflows/test_autofix_repo_regressions.py tests/workflows/test_autofix_samples.py tests/workflows/test_ci_probe_faults.py -q` -> 25 passed. Focused ruff and `git diff --check` passed.
+- Current state: ready to commit/push a CI-recovery commit to PR `#5488`; next closer action after push is to re-check fresh Python CI, remove stale `agent:needs-attention` if green, then merge/apply `verify:compare` when review/check signals are clean.
+
+## 2026-06-04T07:11Z - opener (codex): issue #5421 CI fixtures packaging
+
+- Repo: `stranske/Trend_Model_Project`
+- Issue: `#5421` (`A8 - Move CI/autofix test-fixture modules out of src/trend_analysis`)
+- Branch: `codex/issue-5421-ci-fixtures-package`
+- Worktree: `~/.codex/automations/pd-workloop-resume/worktrees/trend-5421-ci-fixtures-package`
+- Selection: raw opener cap was below 5. Trend #5420 is already merged and open only for verifier/source-issue disposition; #5440/#5389 remains scoped on the strict-config product decision. #5421 was the oldest unlinked implementation candidate outside scoped blockers.
+- Implementation: moved the six CI/autofix fixtures out of `src/trend_analysis` into `tests/workflows/fixtures`, updated direct workflow tests to import those fixtures from the test-only package, kept synthetic autofix integration tests able to copy the fixture into their temporary broken package, and added `tests/test_no_ci_fixtures_in_package.py` to guard the real package path.
+- Validation: `PYTHONPATH=src python -m pytest tests/test_no_ci_fixtures_in_package.py tests/workflows -q` -> 211 passed, 6 existing deprecation warnings. Focused `ruff` passed; focused `mypy` passed; `git diff --check` passed. `PYTHONPATH=src python -c "import trend_analysis"` exited 0 while printing the known local NumPy optional-extension ABI warnings.
+- Deliberate-break gate: temporarily re-created `src/trend_analysis/_ci_probe_faults.py`; `tests/test_no_ci_fixtures_in_package.py` failed on the reintroduced module spec. Removed the temporary file and reran the workflow suite green.
+- PR/routing: ready-for-review PR #5488 opened at https://github.com/stranske/Trend_Model_Project/pull/5488, non-draft, closing #5421, with `agent:codex`, `agents:keepalive`, and `autofix`. Post-open cap-health initially classified it as `needs-dispatch-evidence`; `opener-repair-infra-stalls.py` added `agent:retry` and dispatched Gate Followups.
+- Current state: cap-health at 2026-06-04T07:13:59Z classifies PR #5488 as `draining` with fresh active Gate evidence. Next action belongs to asynchronous Gate/keepalive/closer after checks settle.
+
 ## 2026-06-04T06:06Z - opener (codex): issue #5420 harness canonical schedule
 
 - Repo: `stranske/Trend_Model_Project`

@@ -1,6 +1,6 @@
 import pytest
 
-from trend_analysis import _ci_probe_faults as probe
+from tests.workflows.fixtures import _ci_probe_faults as probe
 
 
 @pytest.mark.parametrize("a,b,expected", [(1, 2, 3), (-5, 7, 2), (0, 0, 0)])

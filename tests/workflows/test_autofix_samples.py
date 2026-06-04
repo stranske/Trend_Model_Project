@@ -3,10 +3,11 @@ from __future__ import annotations
 import ast
 import runpy
 import sys  # Added: required for module cache manipulation in script test
+from pathlib import Path
 
 import pytest
 
-from trend_analysis import (
+from tests.workflows.fixtures import (
     _autofix_trigger_sample,
     _autofix_violation_case2,
     _autofix_violation_case3,
@@ -36,14 +37,15 @@ def test_violation_case2_compute_and_helpers() -> None:
 def test_violation_case2_runs_as_script(capsys: "pytest.CaptureFixture[str]") -> None:
     """Ensure the module's ``__main__`` branch emits the expected payload."""
 
-    module_name = "trend_analysis._autofix_violation_case2"
+    module_path = Path(_autofix_violation_case2.__file__).resolve()
+    module_name = _autofix_violation_case2.__name__
 
     # Guard: ensure module is present before popping; capture original for restoration
     original = sys.modules.get(module_name)
     sys.modules.pop(module_name, None)
 
     try:
-        runpy.run_module(module_name, run_name="__main__")
+        runpy.run_path(str(module_path), run_name="__main__")
     finally:
         if original is not None:
             sys.modules[module_name] = original
@@ -56,12 +58,13 @@ def test_violation_case2_runs_as_script(capsys: "pytest.CaptureFixture[str]") ->
 
 
 def test_violation_case2_runs_as_a_script(capsys: "pytest.CaptureFixture[str]") -> None:
-    module_name = "trend_analysis._autofix_violation_case2"
+    module_path = Path(_autofix_violation_case2.__file__).resolve()
+    module_name = _autofix_violation_case2.__name__
     original = sys.modules.get(module_name)
     sys.modules.pop(module_name, None)
 
     try:
-        runpy.run_module(module_name, run_name="__main__")
+        runpy.run_path(str(module_path), run_name="__main__")
     finally:
         if original is not None:
             sys.modules[module_name] = original

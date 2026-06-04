@@ -163,6 +163,8 @@ def extract_imports_from_file(file_path: Path) -> Set[str]:
                 module = alias.name.split(".")[0]
                 imports.add(module)
         elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                continue
             if node.module:
                 # Get top-level module name
                 module = node.module.split(".")[0]
