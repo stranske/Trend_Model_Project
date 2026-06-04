@@ -1,13 +1,3 @@
-## 2026-06-04T18:14Z - opener (codex): issue #5433 shell parse check
-
-- Repo/issue: `stranske/Trend_Model_Project` #5433 (`# Why`, shell syntax/parse-check issue).
-- Branch/worktree: `codex/issue-5433-shell-parse-check` in `~/.codex/automations/pd-workloop-resume/worktrees/trend-5433-shell-parse-check`.
-- Selection: raw opener cap was below 5. Approved queue items Inv-Man #524 and Trend #5500 were materialized then closed as already implemented/stale queue work with durable comments. Existing opener PRs #5492/#5499 were draining and #5440 remained scoped on the strict-config product decision, so #5433 was the oldest unlinked implementation issue outside blockers.
-- Implementation: removed the duplicated `then` from `scripts/check_branch.sh` coverage validation, fixed an existing here-doc `then` parse error in `scripts/test_health_retry.sh`, added `scripts/lint_shell.sh` to run `bash -n` over every tracked `scripts/*.sh`, and added `tests/scripts/test_lint_shell.py`.
-- Validation: `bash -n scripts/check_branch.sh` -> exit 0; `bash -n scripts/test_health_retry.sh` -> exit 0; `scripts/lint_shell.sh` -> passed for 26 tracked shell scripts; `PYTHONPATH=src python -m pytest tests/scripts/test_lint_shell.py -q` -> 1 passed; `git diff --check` -> passed.
-- Deliberate-break gate: temporarily reintroduced `; then then` on the original `scripts/check_branch.sh` coverage line; `scripts/lint_shell.sh` failed and named `scripts/check_branch.sh`; restored the line and reran the parse checker/test green.
-- Current state: ready to commit, push, and open a ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`; post-open action is Gate Followups dispatch if cap-health needs fresh evidence.
-
 ## 2026-06-04T10:18Z - closer (codex): PR #5490 full-suite stale test repair
 
 - Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5423`, PR `#5490`, branch `codex/issue-5423-legacy-runners`.
