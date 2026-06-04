@@ -19,7 +19,7 @@ from typing import Iterable, List, Tuple
 
 import pandas as pd
 
-from streamlit_app.config_bridge import build_config_payload, validate_payload
+from trend_analysis.config.bridge import build_config_payload, validate_payload
 from utils.paths import proj_path
 
 MAX_DRY_RUN_LOOKBACK_PERIODS = 12

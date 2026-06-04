@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from streamlit_app.components.date_correction import (
+from trend_analysis.io.date_correction import (
     DateCorrection,
     analyze_date_column,
     apply_date_corrections,
