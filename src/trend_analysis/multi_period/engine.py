@@ -415,6 +415,13 @@ class _PeriodWeights:
     weight_series: pd.Series
 
 
+@dataclass
+class _TurnoverCostApplication:
+    final_weights: pd.Series
+    manual_funds: list[str]
+    custom_weights: dict[str, float]
+
+
 def _weight_period(
     *,
     score_frame: pd.DataFrame,
@@ -447,6 +454,136 @@ def _weight_period(
         weights_df=weight_series.to_frame("weight"),
         raw_weight_series=raw_weight_series,
         weight_series=weight_series.astype(float),
+    )
+
+
+def _apply_turnover_and_cost(
+    *,
+    bounded_weights: pd.Series,
+    prev_final_weights: pd.Series | None,
+    lambda_tc: float,
+    min_w_bound: float,
+    max_w_bound: float,
+    forced_exits: set[str],
+    min_funds: int,
+    holdings: list[str],
+    in_df: pd.DataFrame,
+    max_turnover_cfg: Any,
+    regime_settings: Any,
+    benchmarks_cfg: Mapping[str, Any] | None,
+    regime_frequency: str,
+    regime_ppy: float,
+    max_active_positions: int | None,
+    min_tenure_guard: set[str],
+    manual_holdings: list[str],
+) -> _TurnoverCostApplication:
+    """Apply turnover penalty/cap controls and build manual pipeline weights."""
+
+    target_w = bounded_weights.copy()
+    if prev_final_weights is None:
+        last_aligned = pd.Series(0.0, index=target_w.index)
+    else:
+        union_ix = prev_final_weights.index.union(target_w.index)
+        last_aligned = prev_final_weights.reindex(union_ix, fill_value=0.0)
+        target_w = target_w.reindex(union_ix, fill_value=0.0)
+
+    if (
+        lambda_tc > NUMERICAL_TOLERANCE_HIGH
+        and prev_final_weights is not None
+        and float(last_aligned.abs().sum()) > NUMERICAL_TOLERANCE_HIGH
+    ):
+        target_w = _apply_turnover_penalty(
+            target_w, last_aligned, lambda_tc, min_w_bound, max_w_bound
+        )
+
+    # Forced exits must not be diluted by turnover-penalty shrinkage.
+    # Ensure any holdings flagged for z_exit/z_exit_hard are targeted to 0.
+    if forced_exits:
+        for mgr in forced_exits:
+            if mgr in target_w.index:
+                target_w.loc[mgr] = 0.0
+        target_w = _apply_weight_bounds(target_w, min_w_bound, max_w_bound)
+
+    desired_trades = target_w - last_aligned
+    desired_turnover = float(desired_trades.abs().sum())
+    final_w = target_w.copy()
+    mandatory_entries: set[object] = set()
+    if min_funds > 0 and holdings:
+        desired_holdings_set = {str(h) for h in holdings}
+        mandatory_entries = {
+            ix
+            for ix in desired_trades.index
+            if str(ix) in desired_holdings_set
+            and abs(last_aligned.loc[ix]) <= NUMERICAL_TOLERANCE_HIGH
+            and abs(target_w.loc[ix]) > NUMERICAL_TOLERANCE_HIGH
+        }
+    max_turnover_cap = _resolve_max_turnover_cap(
+        in_df,
+        max_turnover_cfg=max_turnover_cfg,
+        regime_settings=regime_settings,
+        benchmarks_cfg=benchmarks_cfg,
+        regime_frequency=regime_frequency,
+        regime_ppy=regime_ppy,
+    )
+    if (
+        max_turnover_cap < 1.0 - NUMERICAL_TOLERANCE_HIGH
+        and desired_turnover > max_turnover_cap + NUMERICAL_TOLERANCE_HIGH
+    ):
+        # Respect turnover cap, but prioritise forced exits (soft/hard z exits).
+        # This prevents below-threshold holdings from lingering indefinitely
+        # solely because turnover is capped.
+        forced_ix = [
+            ix
+            for ix in desired_trades.index
+            if str(ix) in forced_exits or ix in mandatory_entries
+        ]
+        mandatory = desired_trades.copy()
+        if forced_ix:
+            # Keep only forced exit trades in mandatory bucket
+            mandatory.loc[[ix for ix in mandatory.index if ix not in forced_ix]] = 0.0
+        else:
+            mandatory[:] = 0.0
+
+        mandatory_turnover = float(mandatory.abs().sum())
+        optional = desired_trades - mandatory
+        optional_turnover = float(optional.abs().sum())
+
+        if mandatory_turnover >= max_turnover_cap - NUMERICAL_TOLERANCE_HIGH:
+            # Forced exits alone consume (or exceed) the cap; execute forced exits
+            # and skip all other trades.
+            final_w = last_aligned + mandatory
+        else:
+            remaining_turnover = max_turnover_cap - mandatory_turnover
+            scale = remaining_turnover / optional_turnover if optional_turnover > 0 else 0.0
+            scale = max(0.0, min(1.0, scale))
+            final_w = last_aligned + mandatory + optional * scale
+    # Ensure bounds and normalisation remain satisfied
+    final_w = _apply_weight_bounds(final_w, min_w_bound, max_w_bound)
+    final_w = _enforce_max_active_positions(
+        final_w, max_active_positions, protected=min_tenure_guard
+    )
+
+    # Prepare custom weights mapping in percent for _run_analysis.
+    # We keep the internal turnover-cap/bounds logic here, but reconcile the
+    # change log against the *actual* weights returned by the pipeline.
+    eps = 1e-12
+    final_w = final_w[final_w.abs() > eps]
+    if not final_w.empty:
+        total = float(final_w.sum())
+        # Preserve infeasible bound outcomes:
+        # - total > 1.0: min_weight floors too large
+        # - total < 1.0: max_weight caps too tight
+        # Only renormalise when the weights already sum (approximately) to 1.
+        if total > eps and abs(total - 1.0) <= 1e-8:
+            final_w = final_w / total
+    # Only pass the selected holdings (if still present after filtering).
+    manual_funds = [str(h) for h in manual_holdings if h in final_w.index]
+    custom = {str(k): float(v) * 100.0 for k, v in final_w.items()}
+
+    return _TurnoverCostApplication(
+        final_weights=final_w,
+        manual_funds=manual_funds,
+        custom_weights=custom,
     )
 
 
@@ -3954,117 +4091,29 @@ def run(
             else [str(x) for x in bounded_w.index.tolist()]
         )
 
-        # Enforce optional turnover cap by scaling trades towards target
-        target_w = bounded_w.copy()
-        if prev_final_weights is None:
-            last_aligned = pd.Series(0.0, index=target_w.index)
-        else:
-            union_ix = prev_final_weights.index.union(target_w.index)
-            last_aligned = prev_final_weights.reindex(union_ix, fill_value=0.0)
-            target_w = target_w.reindex(union_ix, fill_value=0.0)
-
-        if (
-            lambda_tc > NUMERICAL_TOLERANCE_HIGH
-            and prev_final_weights is not None
-            and float(last_aligned.abs().sum()) > NUMERICAL_TOLERANCE_HIGH
-        ):
-            target_w = _apply_turnover_penalty(
-                target_w, last_aligned, lambda_tc, min_w_bound, max_w_bound
-            )
-
-        # Forced exits must not be diluted by turnover-penalty shrinkage.
-        # Ensure any holdings flagged for z_exit/z_exit_hard are targeted to 0.
-        if forced_exits:
-            for mgr in forced_exits:
-                if mgr in target_w.index:
-                    target_w.loc[mgr] = 0.0
-            target_w = _apply_weight_bounds(target_w, min_w_bound, max_w_bound)
-
-        desired_trades = target_w - last_aligned
-        desired_turnover = float(desired_trades.abs().sum())
-        final_w = target_w.copy()
-        mandatory_entries: set[object] = set()
-        if min_funds > 0 and holdings:
-            desired_holdings_set = {str(h) for h in holdings}
-            mandatory_entries = {
-                ix
-                for ix in desired_trades.index
-                if str(ix) in desired_holdings_set
-                and abs(last_aligned.loc[ix]) <= NUMERICAL_TOLERANCE_HIGH
-                and abs(target_w.loc[ix]) > NUMERICAL_TOLERANCE_HIGH
-            }
-        max_turnover_cap = _resolve_max_turnover_cap(
-            in_df,
+        turnover_cost = _apply_turnover_and_cost(
+            bounded_weights=bounded_w,
+            prev_final_weights=prev_final_weights,
+            lambda_tc=lambda_tc,
+            min_w_bound=min_w_bound,
+            max_w_bound=max_w_bound,
+            forced_exits=forced_exits,
+            min_funds=min_funds,
+            holdings=holdings,
+            in_df=in_df,
             max_turnover_cfg=max_turnover_cfg,
             regime_settings=regime_settings,
             benchmarks_cfg=benchmarks_cfg_mapping,
             regime_frequency=regime_frequency,
             regime_ppy=regime_ppy,
+            max_active_positions=max_active_positions,
+            min_tenure_guard=min_tenure_guard,
+            manual_holdings=manual_holdings,
         )
-        if (
-            max_turnover_cap < 1.0 - NUMERICAL_TOLERANCE_HIGH
-            and desired_turnover > max_turnover_cap + NUMERICAL_TOLERANCE_HIGH
-        ):
-            # Respect turnover cap, but prioritise forced exits (soft/hard z exits).
-            # This prevents below-threshold holdings from lingering indefinitely
-            # solely because turnover is capped.
-            forced_ix = [
-                ix
-                for ix in desired_trades.index
-                if str(ix) in forced_exits or ix in mandatory_entries
-            ]
-            mandatory = desired_trades.copy()
-            if forced_ix:
-                # Keep only forced exit trades in mandatory bucket
-                mandatory.loc[[ix for ix in mandatory.index if ix not in forced_ix]] = (
-                    0.0
-                )
-            else:
-                mandatory[:] = 0.0
-
-            mandatory_turnover = float(mandatory.abs().sum())
-            optional = desired_trades - mandatory
-            optional_turnover = float(optional.abs().sum())
-
-            if mandatory_turnover >= max_turnover_cap - NUMERICAL_TOLERANCE_HIGH:
-                # Forced exits alone consume (or exceed) the cap; execute forced exits
-                # and skip all other trades.
-                final_w = last_aligned + mandatory
-            else:
-                remaining_turnover = max_turnover_cap - mandatory_turnover
-                scale = (
-                    remaining_turnover / optional_turnover
-                    if optional_turnover > 0
-                    else 0.0
-                )
-                scale = max(0.0, min(1.0, scale))
-                final_w = last_aligned + mandatory + optional * scale
-        # Ensure bounds and normalisation remain satisfied
-        final_w = _apply_weight_bounds(final_w, min_w_bound, max_w_bound)
-        final_w = _enforce_max_active_positions(
-            final_w, max_active_positions, protected=min_tenure_guard
-        )
-
-        # Prepare custom weights mapping in percent for _run_analysis.
-        # We keep the internal turnover-cap/bounds logic here, but reconcile the
-        # change log against the *actual* weights returned by the pipeline.
+        final_w = turnover_cost.final_weights
+        manual_funds = turnover_cost.manual_funds
+        custom = turnover_cost.custom_weights
         eps = 1e-12
-        final_w = final_w[final_w.abs() > eps]
-        if not final_w.empty:
-            total = float(final_w.sum())
-            # Preserve infeasible bound outcomes:
-            # - total > 1.0: min_weight floors too large
-            # - total < 1.0: max_weight caps too tight
-            # Only renormalise when the weights already sum (approximately) to 1.
-            if total > eps and abs(total - 1.0) <= 1e-8:
-                final_w = final_w / total
-        # Only pass the selected holdings (if still present after filtering).
-        manual_funds: list[str] = [
-            str(h) for h in manual_holdings if h in final_w.index
-        ]
-        custom: dict[str, float] = {
-            str(k): float(v) * 100.0 for k, v in final_w.items()
-        }
 
         res = _call_pipeline_with_diag(
             df,

@@ -30,11 +30,17 @@ tasks:
   - id: task-03
     title: Extract the turnover and cost application logic from the loop body into
       a new module-level function named `_apply_turnover_and_cost` in `engine.py`
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-06-04T22:27:07Z'
+    finished_at: '2026-06-04T22:27:07Z'
+    commit: pending-push
+    notes:
+      - Closer extracted the existing pre-pipeline turnover penalty, turnover-cap,
+        bounds, and custom manual-weight mapping path into module-level
+        `_apply_turnover_and_cost`, then routed `run()` through it after
+        `_weight_period`.
+      - Extended the refactor parity test to wrap `_apply_turnover_and_cost` and
+        prove it is called once per generated period.
   - id: task-04
     title: Extract the period result assembly logic from the loop body into a new
       module-level function named `_assemble_period_result` in `engine.py`

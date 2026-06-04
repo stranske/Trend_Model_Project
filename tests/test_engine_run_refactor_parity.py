@@ -98,8 +98,10 @@ def test_run_refactor_preserves_period_parity(monkeypatch) -> None:
     )
     original_setup_period = engine._setup_period
     original_weight_period = engine._weight_period
+    original_apply_turnover_and_cost = engine._apply_turnover_and_cost
     setup_period_calls: list[str] = []
     weight_period_calls: list[tuple[str, ...]] = []
+    turnover_cost_calls: list[tuple[str, ...]] = []
 
     def wrapped_setup_period(pt: Any, **kwargs: Any) -> engine._PeriodSetup:
         setup_period_calls.append(pt.out_end)
@@ -112,6 +114,16 @@ def test_run_refactor_preserves_period_parity(monkeypatch) -> None:
         return original_weight_period(**kwargs)
 
     monkeypatch.setattr(engine, "_weight_period", wrapped_weight_period)
+
+    def wrapped_apply_turnover_and_cost(
+        **kwargs: Any,
+    ) -> engine._TurnoverCostApplication:
+        turnover_cost_calls.append(tuple(kwargs["manual_holdings"]))
+        return original_apply_turnover_and_cost(**kwargs)
+
+    monkeypatch.setattr(
+        engine, "_apply_turnover_and_cost", wrapped_apply_turnover_and_cost
+    )
 
     pipeline_calls: list[
         tuple[str, tuple[str, ...], tuple[tuple[str, float], ...]]
@@ -159,8 +171,10 @@ def test_run_refactor_preserves_period_parity(monkeypatch) -> None:
     assert [call[0] for call in pipeline_calls] == ["2020-03", "2020-04", "2020-05"]
     assert setup_period_calls == ["2020-03", "2020-04", "2020-05"]
     assert len(weight_period_calls) == 3
+    assert len(turnover_cost_calls) == 3
     assert all(len(call[1]) == 2 for call in pipeline_calls)
     assert all(len(call) == 2 for call in weight_period_calls)
+    assert all(len(call) == 2 for call in turnover_cost_calls)
     assert [tuple(result["selected_funds"]) for result in results] == [
         call[1] for call in pipeline_calls
     ]
