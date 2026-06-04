@@ -1,16 +1,3 @@
-## 2026-06-04T16:07Z - opener (codex): issue #5431 deprecation/portability sweep
-
-- Repo/issue: `stranske/Trend_Model_Project` #5431 (`T18 - Deprecation & portability sweep (repo-local)`).
-- Branch/worktree: `codex/issue-5431-deprecation-portability` in `/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/trend-5431-deprecation-portability`, based on `origin/phase-3`.
-- Selection: raw opener cap below 5 after cap discovery. #5440/#5389 remains scoped on strict-config product decision; #5492 is draining; #5497 had a skipped keepalive evaluator and was repaired by dispatching Gate Followups, with direct Gate/Python checks green afterward. Earlier liveness candidates were linked, merged awaiting verifier/source disposition, scoped, or follow-up lanes, making #5431 the oldest unlinked implementation candidate outside blockers.
-- Implementation: replaced the results-page `DataFrame.applymap` use with a testable `_format_weights_pivot()` using `DataFrame.map`; changed `scripts/test-release.sh` to `sed -i.bak`; fixed `scripts/open_pr_from_issue.sh` to emit real markdown fences; made `scripts/quick_check.sh` use `pipefail` and direct pipeline-status capture; removed the dead `ast.Str` fallback from `scripts/evaluate_settings_effectiveness.py`.
-- Tests: added warning-as-error coverage for the weights formatter and portability/source guards for the script fixes.
-- Validation: `PYTHONPATH=src python -m pytest tests/app/test_results_page.py::test_weight_pivot_formatter_avoids_applymap_futurewarning tests/app/test_results_page.py::test_results_page_recomputes_when_benchmark_changes tests/scripts/test_deprecation_portability_sweep.py tests/scripts/test_evaluate_settings_effectiveness.py -q` -> 10 passed with one existing deprecated shim warning. `bash -n scripts/test-release.sh scripts/open_pr_from_issue.sh scripts/quick_check.sh`, focused `ruff`, and `git diff --check` passed.
-- Deliberate-break gate: temporarily restored `pivot.applymap(...)`; `tests/app/test_results_page.py::test_weight_pivot_formatter_avoids_applymap_futurewarning` failed because pandas no longer exposes `DataFrame.applymap` in this environment. Restored `pivot.map(...)` and reran focused validation green.
-- PR/routing: ready-for-review PR #5498 opened at https://github.com/stranske/Trend_Model_Project/pull/5498, non-draft, closing #5431, with `agent:codex`, `agents:keepalive`, and `autofix`.
-- Post-open cap hygiene: initial cap-health at `2026-06-04T16:08:49Z` classified #5498 as `needs-dispatch-evidence`. `opener-repair-infra-stalls.py` added `agent:retry` and dispatched Gate Followups; it also removed stale `agent:needs-attention` from #5497 after keepalive completion evidence. Cap-health at `2026-06-04T16:09:52Z` classified #5498 as `draining` with fresh Gate pending and successful Gate Followups/Autofix evidence.
-- Current state: PR #5498 is open and waiting on asynchronous Gate/keepalive checks. Next action belongs to keepalive/closer after checks settle.
-
 ## 2026-06-04T10:18Z - closer (codex): PR #5490 full-suite stale test repair
 
 - Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5423`, PR `#5490`, branch `codex/issue-5423-legacy-runners`.

@@ -20,14 +20,22 @@ if [[ -z "$VIRTUAL_ENV" && -f ".venv/bin/activate" ]]; then
 fi
 
 # Determine changed Python files (latest commit + working tree)
-if ! CHANGED_FILES=$(
-    git diff --name-only HEAD~1 2>/dev/null \
-        | grep -E '\.(py)$' 2>/dev/null \
-        | grep -v -E '^(Old/|notebooks/old/|archives/legacy_assets/)' 2>/dev/null \
-        | head -5
-); then
+DIFF_FILES=$(git diff --name-only HEAD~1 2>/dev/null)
+if [[ $? -ne 0 ]]; then
     echo "::warning::git diff command failed, but continuing. Recent changes check may be incomplete."
     CHANGED_FILES=""
+else
+    CHANGED_FILES=""
+    while IFS= read -r changed_file; do
+        [[ -n "$changed_file" ]] || continue
+        [[ "$changed_file" == *.py ]] || continue
+        [[ "$changed_file" =~ ^(Old/|notebooks/old/|archives/legacy_assets/) ]] && continue
+        CHANGED_FILES+="${changed_file}"$'\n'
+        if [[ $(printf '%s' "$CHANGED_FILES" | wc -l | tr -d ' ') -ge 5 ]]; then
+            break
+        fi
+    done <<< "$DIFF_FILES"
+    CHANGED_FILES="${CHANGED_FILES%$'\n'}"
 fi
 if [[ -n "$CHANGED_FILES" ]]; then
     readarray -t CHANGED_FILES_ARRAY <<< "$CHANGED_FILES"
