@@ -348,7 +348,7 @@ ptyprocess==0.7.0 ; sys_platform != 'emscripten' and sys_platform != 'win32'
     # via pexpect
 pure-eval==0.2.3
     # via stack-data
-pyarrow==23.0.1
+pyarrow==24.0.0
     # via
     #   trend-model (pyproject.toml)
     #   streamlit
