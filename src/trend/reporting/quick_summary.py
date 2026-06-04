@@ -25,24 +25,11 @@ if TYPE_CHECKING:
 import pandas as pd
 
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
+from trend.reporting._matplotlib import init_matplotlib
 from trend_analysis.reporting.portfolio_series import select_primary_portfolio_series
 
 
-def _init_matplotlib() -> Any:  # pragma: no cover - thin wrapper
-    import matplotlib
-
-    matplotlib.use("Agg")
-    from matplotlib import pyplot as plt
-
-    matplotlib.rcParams["savefig.facecolor"] = "white"
-    matplotlib.rcParams["savefig.edgecolor"] = "white"
-    matplotlib.rcParams["savefig.bbox"] = "tight"
-    matplotlib.rcParams["savefig.pad_inches"] = 0.1
-    matplotlib.rcParams["savefig.dpi"] = 160
-    return plt
-
-
-plt = _init_matplotlib()
+plt = init_matplotlib()
 
 
 def _coerce_series(obj: Any) -> pd.Series:

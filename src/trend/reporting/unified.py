@@ -12,10 +12,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal, Mapping, Sequence, cast
 
-import matplotlib
 import pandas as pd
 
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
+from trend.reporting._matplotlib import init_matplotlib
 from trend_analysis.backtesting import BacktestResult, CostModel
 from trend_analysis.reporting.narrative import (
     STANDARD_NARRATIVE_DISCLAIMER,
@@ -24,21 +24,7 @@ from trend_analysis.reporting.narrative import (
 from trend_analysis.reporting.portfolio_series import select_primary_portfolio_series
 
 
-def _init_matplotlib() -> Any:
-    matplotlib.use("Agg")
-    from matplotlib import pyplot as _pyplot  # noqa: E402
-
-    matplotlib.rcParams["savefig.facecolor"] = "white"
-    matplotlib.rcParams["savefig.edgecolor"] = "white"
-    matplotlib.rcParams["savefig.bbox"] = "tight"
-    matplotlib.rcParams["savefig.pad_inches"] = 0.1
-    matplotlib.rcParams["savefig.dpi"] = 160
-    matplotlib.rcParams["savefig.transparent"] = False
-    matplotlib.rcParams["savefig.format"] = "png"
-    return _pyplot
-
-
-plt = _init_matplotlib()
+plt = init_matplotlib()
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from trend_model.spec import TrendRunSpec
