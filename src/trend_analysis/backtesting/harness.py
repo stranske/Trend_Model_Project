@@ -17,6 +17,7 @@ from backtest import shift_by_execution_lag
 from ..metrics.turnover import linear_turnover_cost
 from ..metrics import sortino_ratio
 from ..universe import MembershipTable, build_membership_mask
+from ..util.frequency import infer_periods_per_year as _infer_periods_per_year
 
 logger = logging.getLogger(__name__)
 
@@ -554,28 +555,6 @@ def _normalise_frequency(freq: str) -> str:
                 continue
             return prefix + replacement
     return freq_clean
-
-
-def _infer_periods_per_year(index: pd.DatetimeIndex) -> int:
-    if len(index) < 2:
-        return 1
-    diffs = np.diff(index.values.astype("datetime64[ns]").astype(np.int64))
-    if len(diffs) == 0:
-        return 1
-    median_ns = np.median(diffs)
-    if median_ns <= 0:
-        return 1
-    median_days = median_ns / (24 * 60 * 60 * 1e9)
-    approx = int(round(365 / median_days)) if median_days else 1
-    if approx >= 300:
-        return 252
-    if 45 <= approx <= 60:
-        return 52
-    if 10 <= approx <= 14:
-        return 12
-    if 3 <= approx <= 5:
-        return 4
-    return max(1, approx)
 
 
 def _initial_weights(columns: Sequence[str], initial: Mapping[str, float] | None) -> pd.Series:

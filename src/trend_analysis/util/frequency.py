@@ -14,6 +14,7 @@ __all__ = [
     "FrequencySummary",
     "FREQUENCY_LABELS",
     "detect_frequency",
+    "infer_periods_per_year",
 ]
 
 FrequencyCode = Literal["D", "W", "M", "Q", "Y"]
@@ -153,3 +154,33 @@ def detect_frequency(index: Iterable[object]) -> FrequencySummary:
     diffs_days = _intervals_in_days(idx)
     code = _classify_from_diffs(diffs_days)
     return _summary_from_code(code)
+
+
+def infer_periods_per_year(index: pd.DatetimeIndex) -> int:
+    """Infer annualization periods from a datetime cadence."""
+
+    if len(index) < 2:
+        return 1
+
+    diffs = np.diff(index.values.astype("datetime64[ns]").astype(np.int64))
+    if len(diffs) == 0:
+        return 1
+
+    median_ns = np.median(diffs)
+    if median_ns <= 0:
+        return 1
+
+    median_days = median_ns / (24 * 60 * 60 * 1e9)
+    if median_days <= 0:
+        return 1
+
+    approx = int(round(365 / median_days))
+    if approx >= 300:
+        return 252
+    if 45 <= approx <= 60:
+        return 52
+    if 10 <= approx <= 14:
+        return 12
+    if 3 <= approx <= 5:
+        return 4
+    return max(1, approx)
