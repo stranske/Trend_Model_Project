@@ -1,5 +1,6 @@
 import importlib
 import sys
+import warnings
 from types import ModuleType, SimpleNamespace
 
 import pandas as pd
@@ -263,6 +264,18 @@ def test_results_page_recomputes_when_benchmark_changes(
     page.render_results_page()
 
     assert run_calls == ["BenchA", "BenchB"]
+
+
+def test_weight_pivot_formatter_avoids_applymap_futurewarning(results_page) -> None:
+    page, _stub = results_page
+    pivot = pd.DataFrame({"FundA": [0.1234], "FundB": [0.0]}, index=["2024-01-31"])
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        formatted = page._format_weights_pivot(pivot)
+
+    assert formatted.loc["2024-01-31", "FundA"] == "12.3%"
+    assert formatted.loc["2024-01-31", "FundB"] == "0.0%"
 
 
 def test_results_page_includes_regime_proxy_in_analysis_input(

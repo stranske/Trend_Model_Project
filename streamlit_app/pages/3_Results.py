@@ -1374,7 +1374,7 @@ def _render_period_breakdown(result) -> None:
                     aggfunc="first",
                     fill_value=0.0,
                 ).sort_index()
-                pivot_fmt = pivot.applymap(lambda x: _fmt_pct(float(x), 1))
+                pivot_fmt = _format_weights_pivot(pivot)
                 st.dataframe(pivot_fmt, use_container_width=True)
     except Exception:
         # Defensive: weights visibility should not break the results page.
@@ -1456,6 +1456,10 @@ def _build_period_weights_df(result) -> pd.DataFrame:
 
     df = pd.DataFrame(rows)
     return df
+
+
+def _format_weights_pivot(pivot: pd.DataFrame) -> pd.DataFrame:
+    return pivot.map(lambda x: _fmt_pct(float(x), 1))
 
 
 def _build_period_returns_df(result) -> pd.DataFrame:
