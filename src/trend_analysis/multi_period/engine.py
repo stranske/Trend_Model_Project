@@ -155,6 +155,7 @@ _SUPPORTED_WEIGHTING_NAMES = (
 _SUPPORTED_NORMALISED_WEIGHTING_NAMES = {
     _WEIGHTING_NAME_ALIASES.get(name, name) for name in _SUPPORTED_WEIGHTING_NAMES
 }
+_WEIGHTING_SCHEME_PLACEHOLDERS = {"equal", "custom"}
 
 
 def _normalise_weighting_name(value: Any) -> str:
@@ -167,18 +168,33 @@ def _resolve_portfolio_weighting(
 ) -> tuple[BaseWeighting, bool, Any, dict[str, Any] | None, str]:
     """Resolve portfolio weighting from either public weighting config key."""
 
-    w_cfg = cast(dict[str, Any], portfolio_cfg.get("weighting", {}) or {})
-    w_params = cast(dict[str, Any], w_cfg.get("params", {}) or {})
-    if "weighting_scheme" in portfolio_cfg and portfolio_cfg.get("weighting_scheme") not in (
+    raw_weighting = portfolio_cfg.get("weighting")
+    if raw_weighting is None:
+        raw_weighting = {}
+    if not isinstance(raw_weighting, Mapping):
+        raise ValueError("portfolio.weighting must be a mapping")
+    w_cfg = cast(Mapping[str, Any], raw_weighting)
+    raw_params = w_cfg.get("params")
+    if raw_params is None:
+        raw_params = {}
+    if not isinstance(raw_params, Mapping):
+        raise ValueError("portfolio.weighting.params must be a mapping")
+    w_params = cast(Mapping[str, Any], raw_params)
+    weighting_scheme = portfolio_cfg.get("weighting_scheme")
+    if "weighting_scheme" in portfolio_cfg and weighting_scheme not in (
         None,
         "",
     ):
-        weighting_name = _normalise_weighting_name(portfolio_cfg.get("weighting_scheme"))
+        scheme_name = _normalise_weighting_name(weighting_scheme)
+        if scheme_name in _WEIGHTING_SCHEME_PLACEHOLDERS and w_cfg.get("name"):
+            weighting_name = _normalise_weighting_name(w_cfg.get("name"))
+        else:
+            weighting_name = scheme_name
     else:
         weighting_name = _normalise_weighting_name(w_cfg.get("name", "equal"))
 
     if weighting_name not in _SUPPORTED_NORMALISED_WEIGHTING_NAMES:
-        allowed = ", ".join(sorted(_SUPPORTED_NORMALISED_WEIGHTING_NAMES))
+        allowed = ", ".join(sorted(_SUPPORTED_WEIGHTING_NAMES))
         raise ValueError(
             f"Unknown portfolio weighting scheme {weighting_name!r}. "
             f"Supported values: {allowed}."

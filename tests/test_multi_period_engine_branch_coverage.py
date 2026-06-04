@@ -44,7 +44,7 @@ class MinimalConfig:
                 "max_weight": 0.6,
                 "min_weight_strikes": 1,
             },
-            "weighting": {"name": "mystery", "params": {}},
+            "weighting": {"name": "equal", "params": {}},
             "indices_list": None,
         }
     )
