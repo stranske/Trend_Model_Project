@@ -28,7 +28,6 @@ except ModuleNotFoundError:  # pragma: no cover - shell wrapper guard
     sys.exit(1)
 sys.exit(0)
 PY
-then
     echo "trend-portfolio-app package not installed. Run 'pip install -e .[app]' first." >&2
     exit 1
 fi
