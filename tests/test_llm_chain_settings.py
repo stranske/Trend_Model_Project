@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import json
 
-from trend_analysis.llm.chain import ConfigPatchChain
-from trend_analysis.llm.prompts import build_config_patch_prompt
+from trend_analysis.llm.chain import ConfigPatchChain, ResultSummaryChain
+from trend_analysis.llm.prompts import (
+    build_config_patch_prompt,
+    build_result_summary_prompt,
+)
 
 
 class DummyLLM:
@@ -15,6 +18,13 @@ class DummyLLM:
     def bind(self, **kwargs):
         self.bound = kwargs
         return self
+
+
+class RunnableLikeLLM(DummyLLM):
+    pass
+
+
+RunnableLikeLLM.__module__ = "langchain_core.runnables.base"
 
 
 class InvokingLLM(DummyLLM):
@@ -57,6 +67,42 @@ def test_chain_from_env_uses_temperature_and_model(monkeypatch) -> None:
 
     chain._bind_llm()
     assert llm.bound == {"temperature": 0.42, "model": "unit-test-model"}
+
+
+def test_result_summary_chain_reuses_shared_llm_binding(monkeypatch) -> None:
+    monkeypatch.setenv("TREND_LLM_TEMPERATURE", "0.37")
+    monkeypatch.setenv("TREND_LLM_MODEL", "summary-model")
+
+    llm = DummyLLM()
+    chain = ResultSummaryChain.from_env(
+        llm=llm,
+        prompt_builder=build_result_summary_prompt,
+    )
+
+    assert chain.temperature == 0.37
+    assert chain.model == "summary-model"
+
+    chain._bind_llm()
+    assert llm.bound == {"temperature": 0.37, "model": "summary-model"}
+
+
+def test_result_summary_chain_binds_runnable_llms(monkeypatch) -> None:
+    monkeypatch.setenv("TREND_LLM_TEMPERATURE", "0.29")
+    monkeypatch.setenv("TREND_LLM_MODEL", "summary-runnable-model")
+
+    llm = RunnableLikeLLM()
+    chain = ResultSummaryChain.from_env(
+        llm=llm,
+        prompt_builder=build_result_summary_prompt,
+        max_tokens=512,
+    )
+
+    assert chain._bind_llm() is llm
+    assert llm.bound == {
+        "temperature": 0.29,
+        "model": "summary-runnable-model",
+        "max_tokens": 512,
+    }
 
 
 def test_config_patch_chain_emits_fleet_record(monkeypatch, tmp_path) -> None:
