@@ -1395,6 +1395,8 @@ def test_launch_interactions(monkeypatch, tmp_path):
 
     theme.set_value("dark")
     assert store.theme == "dark" and theme_calls
+    assert "setProperty('--trend-theme','dark')" in theme_calls[-1]
+    assert "' --trend-theme'" not in theme_calls[-1]
 
     run_btn.click()
     assert json_calls and save_calls and not store.dirty

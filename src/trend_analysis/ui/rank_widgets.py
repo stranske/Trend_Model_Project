@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import io
-from typing import Any, Callable, cast
+from typing import TYPE_CHECKING, Any, Callable, cast
 
-import ipywidgets as widgets
 import pandas as pd
 
 from .. import export, pipeline
@@ -11,12 +10,25 @@ from ..core.rank_selection import METRIC_REGISTRY
 from ..data import ensure_datetime, load_csv
 from ..export import Formatter
 
+if TYPE_CHECKING:  # pragma: no cover
+    import ipywidgets as widgets
+
 # ===============================================================
 #  UI SCAFFOLD (very condensed – Codex expands)
 # ===============================================================
 
 
+def _load_widgets() -> Any:
+    try:
+        import ipywidgets as widgets
+    except ImportError as exc:  # pragma: no cover - covered via mocked import
+        raise ImportError("ipywidgets is required for rank widget UI") from exc
+    return widgets
+
+
 def build_ui() -> widgets.VBox:  # pragma: no cover - UI wiring exercised manually
+    widgets = _load_widgets()
+
     # -------------------- Step 1: data source & periods --------------------
     source_tb = widgets.ToggleButtons(
         options=["Path/URL", "Browse"],
