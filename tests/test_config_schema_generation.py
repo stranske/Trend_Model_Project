@@ -58,6 +58,16 @@ def test_schema_validation_accepts_rf_override_enabled() -> None:
     assert errors == []
 
 
+def test_schema_validation_accepts_regime_model() -> None:
+    schema = generate_schema()
+    regime_schema = schema["properties"]["regime"]["properties"]["model"]
+    assert regime_schema["type"] == "string"
+    assert regime_schema["default"] == "binary_threshold"
+
+    errors = validate_config_data({"regime": {"model": "binary_threshold"}}, schema)
+    assert errors == []
+
+
 def test_schema_validation_accepts_cost_model_float_bps() -> None:
     schema = generate_schema()
     cost_schema = schema["properties"]["portfolio"]["properties"]["cost_model"]["properties"]

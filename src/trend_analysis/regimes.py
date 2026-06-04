@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from abc import abstractmethod
 from dataclasses import asdict, dataclass
 from typing import Any, Mapping
 
@@ -11,6 +12,7 @@ import pandas as pd
 
 from .metrics import annual_return, max_drawdown, sharpe_ratio
 from .perf.rolling_cache import compute_dataset_hash, get_cache
+from .plugins import Plugin, PluginRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +23,7 @@ class RegimeSettings:
 
     enabled: bool = False
     proxy: str | None = None
+    model: str = "binary_threshold"
     method: str = "rolling_return"
     lookback: int = 126
     smoothing: int = 3
@@ -64,6 +67,9 @@ def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
     proxy = cfg.get("proxy")
     if proxy is not None:
         proxy = str(proxy).strip() or None
+    model = str(cfg.get("model", "binary_threshold") or "binary_threshold").strip()
+    if not model:
+        model = "binary_threshold"
 
     method_raw = str(cfg.get("method", "rolling_return") or "rolling_return").strip().lower()
     method_lookup = {
@@ -103,6 +109,7 @@ def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
     return RegimeSettings(
         enabled=enabled,
         proxy=proxy,
+        model=model,
         method=method,
         lookback=lookback,
         smoothing=smoothing,
@@ -263,6 +270,44 @@ def _compute_regime_series(
     return cache.get_or_compute(dataset_hash, window, freq, method_tag, _compute)
 
 
+class RegimeModel(Plugin):
+    """Base class for pluggable regime classifiers."""
+
+    @abstractmethod
+    def classify(
+        self,
+        proxy: pd.Series,
+        settings: RegimeSettings,
+        *,
+        freq: str,
+        periods_per_year: float | None,
+    ) -> pd.Series:
+        """Return per-period regime labels for ``proxy``."""
+
+
+regime_registry: PluginRegistry[RegimeModel] = PluginRegistry()
+
+
+@regime_registry.register("binary_threshold")
+class BinaryThresholdRegimeModel(RegimeModel):
+    """Existing binary return/volatility threshold classifier."""
+
+    def classify(
+        self,
+        proxy: pd.Series,
+        settings: RegimeSettings,
+        *,
+        freq: str,
+        periods_per_year: float | None,
+    ) -> pd.Series:
+        return _compute_regime_series(
+            proxy,
+            settings,
+            freq=freq,
+            periods_per_year=periods_per_year,
+        )
+
+
 def compute_regimes(
     proxy: pd.Series,
     settings: RegimeSettings,
@@ -275,7 +320,8 @@ def compute_regimes(
 
     if not settings.enabled:
         return pd.Series(dtype="string")
-    return _compute_regime_series(proxy, settings, freq=freq, periods_per_year=periods_per_year)
+    model = regime_registry.create(settings.model)
+    return model.classify(proxy, settings, freq=freq, periods_per_year=periods_per_year)
 
 
 def _format_hit_rate(series: pd.Series) -> float:

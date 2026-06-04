@@ -180,6 +180,7 @@
       "lookback": 126,
       "method": "rolling_return",
       "min_observations": 4,
+      "model": "binary_threshold",
       "neutral_band": 0.001,
       "proxy": "SPX",
       "risk_off_fund_count_multiplier": 0.5,
@@ -2180,6 +2181,7 @@
         "lookback": 126,
         "method": "rolling_return",
         "min_observations": 4,
+        "model": "binary_threshold",
         "neutral_band": 0.001,
         "proxy": "SPX",
         "risk_off_fund_count_multiplier": 0.5,
@@ -2233,6 +2235,13 @@
           "description": "Minimum observations for regime signals.",
           "nl_editable": true,
           "type": "integer"
+        },
+        "model": {
+          "constraints": {},
+          "default": "binary_threshold",
+          "description": "Registered regime classifier model name.",
+          "nl_editable": true,
+          "type": "string"
         },
         "neutral_band": {
           "constraints": {},

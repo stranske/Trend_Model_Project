@@ -170,6 +170,7 @@ _MANUAL_DESCRIPTIONS: dict[str, str] = {
     "regime": "Market regime detection settings.",
     "regime.enabled": "Enable regime detection.",
     "regime.proxy": "Benchmark proxy used for regime detection.",
+    "regime.model": "Registered regime classifier model name.",
     "regime.method": "Regime detection method.",
     "regime.lookback": "Lookback window for regime detection.",
     "regime.smoothing": "Smoothing window for regime signal.",
