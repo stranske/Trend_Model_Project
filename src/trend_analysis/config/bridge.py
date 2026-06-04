@@ -7,8 +7,17 @@ from typing import Any, Dict, Tuple
 
 from trend.config_schema import CoreConfigError, validate_core_config
 from trend_analysis.config.model import validate_trend_config
+from trend_analysis.config.validation import format_validation_messages, validate_config
 
 __all__ = ["build_config_payload", "validate_payload"]
+
+_REQUIRED_SECTION_DEFAULTS: dict[str, dict[str, Any]] = {
+    "preprocessing": {},
+    "sample_split": {},
+    "metrics": {},
+    "export": {},
+    "run": {},
+}
 
 
 def build_config_payload(
@@ -70,6 +79,27 @@ def validate_payload(
         trend_config = validate_trend_config(payload, base_path=base_path)
     except (CoreConfigError, ValueError) as exc:
         return None, str(exc)
+
+    semantic_portfolio = {
+        key: value
+        for key, value in dict(payload.get("portfolio") or {}).items()
+        if key != "cost_model"
+    }
+    semantic_portfolio["transaction_cost_bps"] = core.costs.transaction_cost_bps
+    semantic_portfolio["max_turnover"] = trend_config.portfolio.max_turnover
+    semantic_payload: Dict[str, Any] = {
+        **{section: dict(defaults) for section, defaults in _REQUIRED_SECTION_DEFAULTS.items()},
+        **payload,
+        "portfolio": semantic_portfolio,
+        "vol_adjust": {"target_vol": trend_config.vol_adjust.target_vol},
+    }
+    semantic_result = validate_config(
+        semantic_payload,
+        base_path=base_path,
+        skip_required_fields=True,
+    )
+    if semantic_result.errors:
+        return None, "; ".join(format_validation_messages(semantic_result, include_warnings=False))
 
     validated: Dict[str, Any] = dict(payload)
     data_section = dict(validated.get("data") or {})

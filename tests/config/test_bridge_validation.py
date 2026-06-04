@@ -48,6 +48,26 @@ def test_rejects_oversized_max_turnover(tmp_path: Path) -> None:
     assert "portfolio.max_turnover" in error
 
 
+def test_rejects_manual_selection_without_manual_list(tmp_path: Path) -> None:
+    payload = _payload(tmp_path, portfolio={"selection_mode": "manual"})
+
+    validated, error = validate_payload(payload, base_path=tmp_path)
+
+    assert validated is None
+    assert error is not None
+    assert "portfolio.manual_list" in error
+
+
+def test_rejects_rank_selection_without_rank_settings(tmp_path: Path) -> None:
+    payload = _payload(tmp_path, portfolio={"selection_mode": "rank"})
+
+    validated, error = validate_payload(payload, base_path=tmp_path)
+
+    assert validated is None
+    assert error is not None
+    assert "portfolio.rank" in error
+
+
 def test_accepts_valid_demo_payload(tmp_path: Path) -> None:
     payload = _payload(tmp_path, portfolio={"max_turnover": "0.75"})
 
