@@ -12,6 +12,9 @@ The format is based on Keep a Changelog (https://keepachangelog.com/) and this p
 - Reusable `agents-64-verify-agent-assignment.yml` workflow that checks `agent:codex` issues for valid automation assignees and emits markdown summaries, available via manual dispatch or reusable calls (Issue #2386).
 
 ### Changed
+- Backtesting harness Sortino reporting now follows the canonical annualized
+  `metrics.sortino_ratio` calculation, preventing understated values in harness
+  summaries (Issue #5424).
 - `compute_signal` now returns a strictly causal rolling mean shifted by one period (previously included the current row). Prevents subtle look‑ahead bias in downstream position construction (Issue #1438).
 - Documented the continued manual use of `docker-compose.yml` and `scripts/test_docker.sh` for local smoke tests and GHCR release verification, avoiding archival after confirming no CI dependencies.
 
