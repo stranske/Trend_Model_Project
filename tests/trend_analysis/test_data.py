@@ -58,8 +58,8 @@ def validated_payload(sample_metadata: MarketDataMetadata) -> ValidatedMarketDat
 def test_normalise_policy_alias_variants():
     assert data._normalise_policy_alias(None) == data.DEFAULT_POLICY_FALLBACK
     assert data._normalise_policy_alias("  ") == data.DEFAULT_POLICY_FALLBACK
-    assert data._normalise_policy_alias("Both") == "ffill"
-    assert data._normalise_policy_alias("zero_fill") == "zero"
+    assert data._normalise_policy_alias("Both") == "both"
+    assert data._normalise_policy_alias("zero_fill") == "zero_fill"
     assert data._normalise_policy_alias("DROP") == "drop"
 
 
@@ -235,7 +235,7 @@ def test_validate_payload_success(monkeypatch, validated_payload):
     ) -> ValidatedMarketData:
         assert source == "origin.csv"
         assert isinstance(missing_policy, dict)
-        assert missing_policy["AAA"] == "ffill"
+        assert missing_policy["AAA"] == "bfill"
         assert missing_policy["*"] == data.DEFAULT_POLICY_FALLBACK
         assert isinstance(missing_limit, dict)
         assert missing_limit["AAA"] is None
@@ -326,7 +326,7 @@ def test_validate_payload_missing_policy_string(monkeypatch, validated_payload):
     payload = pd.DataFrame({"Date": ["2024-01-01"], "AAA": ["3"]})
 
     def fake_validate(frame: pd.DataFrame, *, source: str, **kwargs):
-        assert kwargs["missing_policy"] == "ffill"
+        assert kwargs["missing_policy"] == "both"
         assert kwargs["missing_limit"] == 2
         return validated_payload
 

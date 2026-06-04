@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
+from trend_analysis.data import load_csv
+from trend_analysis.io.market_data import MarketDataValidationError
 from trend_analysis.io.market_data import _normalise_policy_value
 from trend_analysis.util import missing
 
@@ -62,6 +66,20 @@ def test_missing_policy_layers_reject_undocumented_aliases(value: str) -> None:
 
     with pytest.raises(ValueError, match="Unknown missing-data policy"):
         _normalise_policy_value(value)
+
+
+@pytest.mark.parametrize("value", ["bfill", "backfill", "both", "zero_fill", "zeros"])
+def test_load_csv_rejects_undocumented_missing_policy_aliases(
+    tmp_path: Path, value: str
+) -> None:
+    csv_path = tmp_path / "returns.csv"
+    csv_path.write_text(
+        "Date,Fund\n2024-01-31,1.0\n2024-02-29,\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(MarketDataValidationError, match="Unknown missing-data policy"):
+        load_csv(str(csv_path), errors="raise", missing_policy=value)
 
 
 @pytest.mark.parametrize("limit", [-1, -5])

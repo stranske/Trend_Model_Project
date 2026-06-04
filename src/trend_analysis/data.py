@@ -36,10 +36,6 @@ def _normalise_policy_alias(value: str | None) -> str:
     policy = value.strip().lower()
     if not policy:
         return DEFAULT_POLICY_FALLBACK
-    if policy in {"both", "bfill", "backfill"}:
-        return "ffill"
-    if policy in {"zeros", "zero_fill", "fillzero"}:
-        return "zero"
     return policy
 
 
@@ -340,13 +336,15 @@ def _validate_payload(
             missing_policy=policy_param,
             missing_limit=limit_param,
         )
-    except MarketDataValidationError as exc:
+    except (MarketDataValidationError, ValueError) as exc:
         if errors == "raise":
-            raise
-        msg_lower = exc.user_message.lower()
-        message = exc.user_message
+            if isinstance(exc, MarketDataValidationError):
+                raise
+            raise MarketDataValidationError(str(exc)) from exc
+        message = exc.user_message if isinstance(exc, MarketDataValidationError) else str(exc)
+        msg_lower = message.lower()
         if "could not be parsed" in msg_lower or "unable to parse" in msg_lower:
-            message = f"{exc.user_message}\nUnable to parse Date values in {origin}"
+            message = f"{message}\nUnable to parse Date values in {origin}"
         logger.error("Validation failed (%s): %s", origin, message)
         return None
 

@@ -46,8 +46,8 @@ def sample_frame() -> pd.DataFrame:
 
 def test_normalise_policy_alias_variants() -> None:
     assert data_mod._normalise_policy_alias(None) == "drop"
-    assert data_mod._normalise_policy_alias("  BOTH  ") == "ffill"
-    assert data_mod._normalise_policy_alias("zeros") == "zero"
+    assert data_mod._normalise_policy_alias("  BOTH  ") == "both"
+    assert data_mod._normalise_policy_alias("zeros") == "zeros"
     assert data_mod._normalise_policy_alias(" custom ") == "custom"
 
 
@@ -169,7 +169,7 @@ def test_validate_payload_builds_policy_and_limit_maps(
 
     assert result is not None
     assert isinstance(result, pd.DataFrame)
-    assert captured["missing_policy"] == {"Fund": "ffill", "*": "zero"}
+    assert captured["missing_policy"] == {"Fund": "both", "*": "zeros"}
     assert captured["missing_limit"] == {"Fund": 5, "*": None}
     assert list(result.columns) == ["Date", "Fund"]
 

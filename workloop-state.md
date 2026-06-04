@@ -1,13 +1,3 @@
-## 2026-06-04T23:10Z - opener (codex): issue #5436 missing-policy aliases
-
-- Repo/issue: `stranske/Trend_Model_Project` #5436 (`# Why`, missing-policy alias divergence).
-- Branch/worktree: `codex/issue-5436-missing-policy` in `~/.codex/automations/pd-workloop-resume/worktrees/trend-5436-missing-policy`.
-- Selection: raw opener cap below 5. Scoped blockers remained Trend #5343, LMS #180, and Trend #5389/#5440. Trend #5435 is already linked to merged PR #5503 and awaiting verifier disposition; Trend #5422 is linked to active PR #5492. #5436 was the oldest unlinked implementation candidate outside scoped blockers.
-- Implementation: removed undocumented `_coerce_policy` alias coercions for `both`/`bfill`/`backfill` -> `ffill` and `zeros`/`zero_fill`/`fillzero` -> `zero`, leaving only documented `drop`/`ffill`/`zero` plus empty/None defaulting to `drop`. Added util/io cross-layer regression coverage for alias rejection.
-- Validation: `PYTHONPATH=src python -m pytest tests/test_util_missing_additional.py -q` -> 22 passed. `python -m ruff check src/trend_analysis/util/missing.py tests/test_util_missing_additional.py` -> passed. `git diff --check` -> passed. `.venv/bin/python` was unavailable in this worktree, so the focused pytest used the available project Python with `PYTHONPATH=src`.
-- Deliberate-break gate: temporarily restored the `bfill`/`backfill`/`both` -> `ffill` branch; `tests/test_util_missing_additional.py::test_missing_policy_layers_reject_undocumented_aliases` failed for those aliases, then the temporary alias was removed and the focused suite reran green.
-- Current state: ready to commit, push, and open a ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`; post-open action is cap-health/infra repair if dispatch evidence is missing.
-
 ## 2026-06-04T10:18Z - closer (codex): PR #5490 full-suite stale test repair
 
 - Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5423`, PR `#5490`, branch `codex/issue-5423-legacy-runners`.

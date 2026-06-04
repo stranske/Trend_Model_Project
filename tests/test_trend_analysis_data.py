@@ -73,11 +73,11 @@ class ValidationProbe:
         return ValidatedMarketData(frame=frame, metadata=metadata)
 
 
-def test_normalise_policy_alias_handles_aliases() -> None:
+def test_normalise_policy_alias_strips_without_aliasing() -> None:
     assert _normalise_policy_alias(None) == DEFAULT_POLICY_FALLBACK
     assert _normalise_policy_alias("") == DEFAULT_POLICY_FALLBACK
-    assert _normalise_policy_alias(" backfill ") == "ffill"
-    assert _normalise_policy_alias("zeros") == "zero"
+    assert _normalise_policy_alias(" backfill ") == "backfill"
+    assert _normalise_policy_alias("zeros") == "zeros"
     assert _normalise_policy_alias("drop") == "drop"
 
 
@@ -194,7 +194,7 @@ def test_validate_payload_normalises_strings_and_applies_defaults(
     assert probe.calls
     call = probe.calls[-1]
     assert call["source"] == "input.csv"
-    assert call["missing_policy"] == {"Rate": "ffill", "*": DEFAULT_POLICY_FALLBACK}
+    assert call["missing_policy"] == {"Rate": "backfill", "*": DEFAULT_POLICY_FALLBACK}
     assert call["missing_limit"] == {"Rate": 10, "*": None}
 
 
@@ -210,7 +210,7 @@ def test_validate_payload_accepts_scalar_policy_and_limit(
         origin="payload",
         errors="log",
         include_date_column=True,
-        missing_policy=" zeros ",
+        missing_policy=" zero ",
         missing_limit="5",
     )
 
@@ -319,7 +319,7 @@ def test_load_csv_reads_file_and_applies_legacy_kwargs(
 
     result = load_csv(
         str(csv_path),
-        nan_policy="zeros",
+        nan_policy="zero",
         nan_limit="7",
     )
 
@@ -601,7 +601,7 @@ def test_load_parquet_applies_legacy_kwargs(
 
     result = load_parquet(
         str(parquet_path),
-        nan_policy={"Value": "BackFill"},
+        nan_policy={"Value": "ffill"},
         nan_limit={"Value": "4"},
     )
 

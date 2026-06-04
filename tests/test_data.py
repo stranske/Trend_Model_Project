@@ -123,8 +123,8 @@ def test_identify_risk_free_fund_no_numeric() -> None:
 
 def test_normalise_policy_alias_variants() -> None:
     assert data_mod._normalise_policy_alias(None) == "drop"
-    assert data_mod._normalise_policy_alias("  BOTH  ") == "ffill"
-    assert data_mod._normalise_policy_alias("zeros") == "zero"
+    assert data_mod._normalise_policy_alias("  BOTH  ") == "both"
+    assert data_mod._normalise_policy_alias("zeros") == "zeros"
     assert data_mod._normalise_policy_alias("custom") == "custom"
 
 
@@ -251,7 +251,7 @@ def test_validate_payload_coerces_policy_and_limit(
     def fake_validate(payload: pd.DataFrame, **kwargs: Any) -> ValidatedMarketData:
         recorded.update(kwargs)
         assert isinstance(kwargs["missing_policy"], dict)
-        assert kwargs["missing_policy"]["A"] == "ffill"
+        assert kwargs["missing_policy"]["A"] == "both"
         assert kwargs["missing_policy"]["B"] == "drop"
         assert kwargs["missing_policy"]["C"] == "2"
         assert kwargs["missing_policy"]["*"] == "drop"
