@@ -22,7 +22,7 @@ from streamlit_app.components.data_schema import (
     infer_benchmarks,
     infer_risk_free_candidates,
 )
-from streamlit_app.components.date_correction import (
+from trend_analysis.io.date_correction import (
     apply_date_corrections,
     format_corrections_for_display,
 )

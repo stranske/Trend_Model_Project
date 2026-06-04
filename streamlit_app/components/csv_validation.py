@@ -15,7 +15,7 @@ from streamlit_app.components.data_schema import (
     apply_original_headers,
     extract_headers_from_bytes,
 )
-from streamlit_app.components.date_correction import (
+from trend_analysis.io.date_correction import (
     DateCorrection,
     analyze_date_column,
 )
