@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import inspect
 from dataclasses import dataclass
 from typing import Any, Mapping, cast
 
@@ -31,6 +32,16 @@ class ConfigBindings:
     RiskStatsConfig: Any
 
 
+def _accepts_keyword(func: Any, keyword: str) -> bool:
+    try:
+        params = inspect.signature(func).parameters
+    except (TypeError, ValueError):
+        return False
+    return keyword in params or any(
+        param.kind is inspect.Parameter.VAR_KEYWORD for param in params.values()
+    )
+
+
 def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
     """Run the analysis pipeline using a config-like object.
 
@@ -56,13 +67,18 @@ def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
     missing_limit_cfg = bindings.section_get(data_settings, "missing_limit")
     if missing_limit_cfg is None:
         missing_limit_cfg = bindings.section_get(data_settings, "nan_limit")
+    date_column_cfg = bindings.section_get(data_settings, "date_column")
+    if date_column_cfg is None:
+        date_column_cfg = "Date"
 
-    df = bindings.load_csv(
-        csv_path,
-        errors="raise",
-        missing_policy=missing_policy_cfg,
-        missing_limit=missing_limit_cfg,
-    )
+    load_kwargs: dict[str, Any] = {
+        "errors": "raise",
+        "missing_policy": missing_policy_cfg,
+        "missing_limit": missing_limit_cfg,
+    }
+    if _accepts_keyword(bindings.load_csv, "date_column"):
+        load_kwargs["date_column"] = date_column_cfg
+    df = bindings.load_csv(csv_path, **load_kwargs)
     df = cast(pd.DataFrame, df)
 
     bindings.attach_calendar_settings(df, cfg)
@@ -188,13 +204,18 @@ def run_full_from_config(cfg: Any, *, bindings: ConfigBindings) -> PipelineResul
     missing_limit_cfg = bindings.section_get(data_settings, "missing_limit")
     if missing_limit_cfg is None:
         missing_limit_cfg = bindings.section_get(data_settings, "nan_limit")
+    date_column_cfg = bindings.section_get(data_settings, "date_column")
+    if date_column_cfg is None:
+        date_column_cfg = "Date"
 
-    df = bindings.load_csv(
-        csv_path,
-        errors="raise",
-        missing_policy=missing_policy_cfg,
-        missing_limit=missing_limit_cfg,
-    )
+    load_kwargs: dict[str, Any] = {
+        "errors": "raise",
+        "missing_policy": missing_policy_cfg,
+        "missing_limit": missing_limit_cfg,
+    }
+    if _accepts_keyword(bindings.load_csv, "date_column"):
+        load_kwargs["date_column"] = date_column_cfg
+    df = bindings.load_csv(csv_path, **load_kwargs)
     df = cast(pd.DataFrame, df)
 
     bindings.attach_calendar_settings(df, cfg)

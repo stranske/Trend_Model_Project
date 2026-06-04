@@ -17,6 +17,7 @@ multi-period run path. When ``cfg.portfolio.policy == 'threshold_hold'`` we:
 
 from __future__ import annotations  # mypy: ignore-errors
 
+import inspect
 import logging
 import os
 from dataclasses import dataclass, field
@@ -877,6 +878,7 @@ def run(
             raise ValueError("price_frames is empty - no data to process")
 
     data_settings = getattr(cfg, "data", {}) or {}
+    date_column_cfg = data_settings.get("date_column", "Date")
     missing_policy_cfg, missing_limit_cfg = _get_missing_policy_settings(data_settings)
     (
         risk_free_column_cfg,
@@ -889,13 +891,15 @@ def run(
         csv_path = data_settings.get("csv_path")
         if not csv_path:
             raise KeyError("cfg.data['csv_path'] must be provided")
+        load_kwargs: dict[str, Any] = {
+            "errors": "raise",
+            "missing_policy": missing_policy_cfg,
+            "missing_limit": missing_limit_cfg,
+        }
+        if _accepts_keyword(load_csv, "date_column"):
+            load_kwargs["date_column"] = date_column_cfg
         try:
-            df = load_csv(
-                csv_path,
-                errors="raise",
-                missing_policy=missing_policy_cfg,
-                missing_limit=missing_limit_cfg,
-            )
+            df = load_csv(csv_path, **load_kwargs)
         except FileNotFoundError as exc:
             raise MissingPriceDataError(
                 "multi_period.run requires either a pre-loaded DataFrame or "
@@ -3996,3 +4000,13 @@ def run_from_config(cfg: Any) -> List[MultiPeriodPeriodResult]:
         inputs_meta["benchmarks"] = benchmarks
     membership_arg = membership_df if not membership_df.empty else None
     return run(cfg, df=prices, membership=membership_arg)
+
+
+def _accepts_keyword(func: Any, keyword: str) -> bool:
+    try:
+        params = inspect.signature(func).parameters
+    except (TypeError, ValueError):
+        return False
+    return keyword in params or any(
+        param.kind is inspect.Parameter.VAR_KEYWORD for param in params.values()
+    )

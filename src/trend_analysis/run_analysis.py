@@ -39,6 +39,7 @@ def main(argv: list[str] | None = None) -> int:
     csv_path = str(csv_path)
 
     data_settings = getattr(cfg, "data", {}) or {}
+    date_column_cfg = data_settings.get("date_column", "Date")
     missing_policy_cfg = data_settings.get("missing_policy")
     if missing_policy_cfg is None:
         missing_policy_cfg = data_settings.get("nan_policy")
@@ -52,6 +53,8 @@ def main(argv: list[str] | None = None) -> int:
     load_kwargs: dict[str, Any] = {}
     if "errors" in load_csv_params:
         load_kwargs["errors"] = "raise"
+    if "date_column" in load_csv_params:
+        load_kwargs["date_column"] = date_column_cfg
     if missing_policy_cfg is not None:
         if "missing_policy" in load_csv_params:
             load_kwargs["missing_policy"] = missing_policy_cfg
