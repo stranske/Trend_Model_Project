@@ -1,17 +1,3 @@
-## 2026-06-04T02:09Z - opener (codex): issue #5418 missing_fill_limit alias
-
-- Repo: `stranske/Trend_Model_Project`
-- Issue: `#5418` (`A5 - data.missing_fill_limit is a dead alias shadowing data.missing_limit`)
-- Branch: `codex/issue-5418-missing-fill-limit`
-- PR: `#5483` (`https://github.com/stranske/Trend_Model_Project/pull/5483`)
-- Worktree: `~/.codex/automations/pd-workloop-resume/worktrees/trend-5418-missing-fill-limit`
-- Selection: raw opener cap was below 5. High-priority #5343 and LMS #180 remain scoped on owner evidence; #5389/#5440 remains scoped on strict-config product decision. Approved normal queue entries were stale/completed: Inv-Man #518/#519 and duplicate #521 are closed/merged, and Trend #5476/#5477 is closed/merged. #5415 is merged/follow-up disposition work and #5417 is linked to PR #5481, so #5418 was the highest eligible unlinked implementation issue.
-- Drain sweep evidence: #5481 has green Gate evidence and is closer-drain/ready-for-closer; #5440 remains terminal/scoped for opener with failing Gate and documented strict-config owner decision. Neither blocked opening #5418 while cap was below five.
-- Implementation: added a `DataSettings` pre-validation alias that maps `data.missing_fill_limit` to canonical `data.missing_limit` before `extra="ignore"` drops unknown keys, while preserving canonical `missing_limit` precedence when both are set. Removed `data.missing_fill_limit` from the inert-key allowlist and added `tests/config/test_missing_fill_limit.py`.
-- Validation: `python -m pytest tests/config/test_missing_fill_limit.py tests/config/test_no_inert_keys.py -q` -> 3 passed; `python -m ruff check src/trend_analysis/config/model.py tests/config/test_missing_fill_limit.py tests/config/test_no_inert_keys.py` -> passed; `python -m mypy src/trend_analysis/config/model.py tests/config/test_missing_fill_limit.py` -> passed; `git diff --check` -> passed.
-- Deliberate-break gate: temporarily removed the alias validator; `python -m pytest tests/config/test_missing_fill_limit.py::test_missing_fill_limit_alias_populates_missing_limit -q` failed with `assert None == 2`; restored and reran green.
-- Routing: PR #5483 is open/non-draft, closes #5418, labels `[agent:codex, agents:keepalive, autofix]`. Handoff event `pr_opened` recorded with `active.source_repo=stranske/Trend_Model_Project`, `active.source_issue=5418`, `active.source_pr=5483`, `active.next_action=wait_for_keepalive`. Cap-health at `2026-06-04T02:08:52Z` classified #5483 as `draining` with an active queued Gate run.
-
 ## 2026-06-03T23:04Z - opener (codex): issue #5416 regime registry slice
 
 - Repo: `stranske/Trend_Model_Project`

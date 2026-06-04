@@ -749,6 +749,23 @@ REQUIRED_SECTIONS = (
 )
 
 
+def _config_from_validated(data: dict[str, Any], validated: Any | None) -> ConfigProtocol:
+    if isinstance(validated, Config):
+        return validated
+    if hasattr(validated, "model_dump"):
+        dumped = cast(Any, validated).model_dump()
+        if isinstance(dumped, Mapping):
+            merged: dict[str, Any] = dict(data)
+            for key, value in dumped.items():
+                merged[key] = value
+            if "version" not in merged and "version" in data:
+                merged["version"] = data["version"]
+            return Config(**merged)
+    if isinstance(validated, Mapping):
+        return Config(**dict(validated))
+    return Config(**data)
+
+
 def load_config(cfg: Mapping[str, Any] | str | Path) -> ConfigProtocol:
     """Load configuration from a mapping or file path."""
     if isinstance(cfg, (str, Path)):
@@ -771,17 +788,18 @@ def load_config(cfg: Mapping[str, Any] | str | Path) -> ConfigProtocol:
             # Preserve type-specific message
             raise ValueError(f"{section} must be a dictionary")
     pydantic_present = sys.modules.get("pydantic") is not None
+    validated: Any | None = None
     if _HAS_PYDANTIC:
         # Allow ValidationError to propagate (tests expect this)
-        validate_trend_config(cfg_dict, base_path=proj_path())
+        validated = validate_trend_config(cfg_dict, base_path=proj_path())
     else:
         validator_module = str(getattr(validate_trend_config, "__module__", ""))
         if (not pydantic_present) or validator_module.startswith("trend_analysis.config"):
             try:
-                validate_trend_config(cfg_dict, base_path=proj_path())
+                validated = validate_trend_config(cfg_dict, base_path=proj_path())
             except Exception:
                 pass
-    return Config(**cfg_dict)
+    return _config_from_validated(cfg_dict, validated)
 
 
 def load(path: str | Path | None = None) -> ConfigProtocol:
@@ -858,20 +876,7 @@ def load(path: str | Path | None = None) -> ConfigProtocol:
             except Exception:
                 validated = None
 
-    if isinstance(validated, Config):
-        return validated
-    if hasattr(validated, "model_dump"):
-        dumped = cast(Any, validated).model_dump()
-        if isinstance(dumped, Mapping):
-            merged: dict[str, Any] = dict(data)
-            for key, value in dumped.items():
-                merged[key] = value
-            if "version" not in merged and "version" in data:
-                merged["version"] = data["version"]
-            return Config(**merged)
-    if isinstance(validated, Mapping):
-        return Config(**dict(validated))
-    return Config(**data)
+    return _config_from_validated(data, validated)
 
 
 __all__ = [
