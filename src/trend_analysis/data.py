@@ -368,8 +368,10 @@ def _canonicalise_date_column(payload: pd.DataFrame, date_column: str) -> pd.Dat
     if configured == "Date":
         return payload
     if configured not in payload.columns:
-        return payload
-    normalised = payload.copy()
+        raise MarketDataValidationError(
+            f"Configured date column '{configured}' is missing from the input data"
+        )
+    normalised = payload
     if "Date" in normalised.columns:
         normalised = normalised.drop(columns=["Date"])
     return normalised.rename(columns={configured: "Date"})

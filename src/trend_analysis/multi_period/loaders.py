@@ -27,7 +27,7 @@ def _accepts_keyword(func: Any, keyword: str) -> bool:
     try:
         params = inspect.signature(func).parameters
     except (TypeError, ValueError):
-        return True
+        return False
     return keyword in params or any(
         param.kind is inspect.Parameter.VAR_KEYWORD for param in params.values()
     )
