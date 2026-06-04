@@ -7,7 +7,9 @@
 - Tests: added `tests/test_server_bind_defaults.py` covering default localhost binds for Streamlit proxy CLI/helper, LLM proxy CLI/helper, and API server module entrypoint, plus explicit all-interface override coverage.
 - Validation: `PYTHONPATH=src python -m pytest tests/test_server_bind_defaults.py tests/test_proxy_cli_entrypoint.py tests/test_api_server_entrypoint.py tests/test_proxy_cli.py tests/test_proxy_server_additional.py::test_streamlit_proxy_start_invokes_uvicorn tests/test_proxy_server_additional.py::test_run_proxy_starts_and_closes tests/proxy/test_server.py::test_start_invokes_uvicorn tests/proxy/test_server.py::test_run_proxy_closes_on_start_failure tests/test_api_server.py::test_run_invokes_uvicorn -q` -> 18 passed, 1 existing runpy warning. Focused `ruff` passed. `git diff --check` passed.
 - Deliberate-break gate: temporarily restored `src/trend_analysis/proxy/cli.py` `--proxy-host` default to `0.0.0.0`; `tests/test_server_bind_defaults.py::test_streamlit_proxy_default_bind_is_localhost` failed on the expected default-host assertion. Restored localhost default and reran focused validation green.
-- Current state: ready to commit/push/open a ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`.
+- PR/routing: ready-for-review PR `#5499` opened at https://github.com/stranske/Trend_Model_Project/pull/5499, non-draft, closes `#5432`, with `agent:codex`, `agents:keepalive`, and `autofix`. Handoff `pr_opened` event recorded with `active.next_action=wait_for_keepalive`.
+- Post-open cap repair: initial cap-health classified `#5499` as `needs-dispatch-evidence`; `opener-repair-infra-stalls.py` added `agent:retry` and dispatched Gate Followups. Refreshed cap-health at 2026-06-04T17:09:36Z showed total_opener_owned=4/raw_cap_reached=false/non_drainable_cap_blocker=false and `#5499` as `draining` with active Gate evidence.
+- Current state: PR `#5499` is open and waiting on asynchronous Gate/keepalive checks. Next action belongs to keepalive/closer after checks settle.
 
 ## 2026-06-04T10:18Z - closer (codex): PR #5490 full-suite stale test repair
 
