@@ -1,7 +1,6 @@
 import datetime as _dt
 import json
 import os
-import subprocess
 import sys
 import tempfile
 import zipfile
@@ -18,19 +17,10 @@ from trend_analysis.util.hash import (
     sha256_config,
     sha256_file,
 )
+from trend_analysis.util.git import git_hash
 
 
-def _git_hash() -> str:
-    try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], encoding="utf-8", shell=False
-        ).strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        # Ensure a non-empty fallback so callers always receive at least a
-        # short hash.  This prevents downstream checks from failing when the
-        # repository metadata isn't available (e.g. in a zipped release
-        # environment where the ``.git`` directory is absent).
-        return "unknown"
+_git_hash = git_hash
 
 
 def export_bundle(run: Any, path: Path) -> Path:

@@ -113,6 +113,14 @@ def _weighted_portfolio(
     return portfolio
 
 
+def weighted_sum(
+    df: pd.DataFrame | None, weights: Mapping[str, float] | None
+) -> pd.Series | None:
+    """Return a weighted row-wise portfolio series with equal-weight fallback."""
+
+    return _weighted_portfolio(df, weights)
+
+
 @overload
 def select_primary_portfolio_series(
     res: Mapping[str, Any], *, prefer_raw: Literal[False] = False
