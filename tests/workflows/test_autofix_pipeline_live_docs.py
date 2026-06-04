@@ -149,7 +149,12 @@ def summarise_payload(values: Iterable[int]) -> int:
     monkeypatch.syspath_prepend(str(tests_dir))
     importlib.invalidate_caches()
     for name in list(sys.modules):
-        if name == "tests" or name.startswith("tests."):
+        if (
+            name == "tests"
+            or name.startswith("tests.")
+            or name == "trend_analysis"
+            or name.startswith("trend_analysis.")
+        ):
             sys.modules.pop(name, None)
 
     for module in (
