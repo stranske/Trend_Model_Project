@@ -66,6 +66,7 @@ from ..weighting import (
     BaseWeighting,
     EqualWeight,
     ScorePropBayesian,
+    ScorePropSimple,
 )
 from ..weights.robust_config import weight_engine_params_from_robustness
 from .loaders import load_benchmarks, load_membership, load_prices
@@ -116,6 +117,132 @@ def _coerce_previous_weights(
     if not normalized:
         return None
     return normalized
+
+
+_SCORE_WEIGHTING_NAMES = {
+    "score_prop",
+    "score_prop_simple",
+    "score",
+}
+_BAYES_WEIGHTING_NAMES = {
+    "score_prop_bayes",
+    "bayes",
+    "score_bayes",
+}
+_ADAPTIVE_BAYES_WEIGHTING_NAMES = {
+    "adaptive_bayes",
+    "adaptive",
+}
+_RISK_WEIGHTING_NAMES = {
+    "risk_parity",
+    "hrp",
+    "erc",
+    "robust_mv",
+    "robust_mean_variance",
+    "robust_risk_parity",
+}
+_WEIGHTING_NAME_ALIASES = {
+    "ew": "equal",
+    "robust": "robust_mv",
+}
+_SUPPORTED_WEIGHTING_NAMES = (
+    {"equal", "ew", "robust"}
+    | _SCORE_WEIGHTING_NAMES
+    | _BAYES_WEIGHTING_NAMES
+    | _ADAPTIVE_BAYES_WEIGHTING_NAMES
+    | _RISK_WEIGHTING_NAMES
+)
+_SUPPORTED_NORMALISED_WEIGHTING_NAMES = {
+    _WEIGHTING_NAME_ALIASES.get(name, name) for name in _SUPPORTED_WEIGHTING_NAMES
+}
+
+
+def _normalise_weighting_name(value: Any) -> str:
+    name = str(value or "equal").strip().lower()
+    return _WEIGHTING_NAME_ALIASES.get(name, name)
+
+
+def _resolve_portfolio_weighting(
+    portfolio_cfg: Mapping[str, Any],
+) -> tuple[BaseWeighting, bool, Any, dict[str, Any] | None, str]:
+    """Resolve portfolio weighting from either public weighting config key."""
+
+    w_cfg = cast(dict[str, Any], portfolio_cfg.get("weighting", {}) or {})
+    w_params = cast(dict[str, Any], w_cfg.get("params", {}) or {})
+    if "weighting_scheme" in portfolio_cfg and portfolio_cfg.get("weighting_scheme") not in (
+        None,
+        "",
+    ):
+        weighting_name = _normalise_weighting_name(portfolio_cfg.get("weighting_scheme"))
+    else:
+        weighting_name = _normalise_weighting_name(w_cfg.get("name", "equal"))
+
+    if weighting_name not in _SUPPORTED_NORMALISED_WEIGHTING_NAMES:
+        allowed = ", ".join(sorted(_SUPPORTED_NORMALISED_WEIGHTING_NAMES))
+        raise ValueError(
+            f"Unknown portfolio weighting scheme {weighting_name!r}. "
+            f"Supported values: {allowed}."
+        )
+
+    w_column = cast(str, w_params.get("column", "Sharpe"))
+    if weighting_name == "equal":
+        return EqualWeight(), False, None, None, weighting_name
+    if weighting_name in _SCORE_WEIGHTING_NAMES:
+        return ScorePropSimple(column=w_column), False, None, None, weighting_name
+    if weighting_name in _BAYES_WEIGHTING_NAMES:
+        return (
+            ScorePropBayesian(
+                column=w_column,
+                shrink_tau=float(w_params.get("shrink_tau", 0.25)),
+            ),
+            False,
+            None,
+            None,
+            weighting_name,
+        )
+    if weighting_name in _ADAPTIVE_BAYES_WEIGHTING_NAMES:
+        return (
+            AdaptiveBayesWeighting(
+                half_life=int(w_params.get("half_life", 90)),
+                obs_sigma=float(w_params.get("obs_sigma", 0.25)),
+                max_w=w_params.get("max_w"),
+                prior_mean=w_params.get("prior_mean", "equal"),
+                prior_tau=float(w_params.get("prior_tau", 1.0)),
+            ),
+            False,
+            None,
+            None,
+            weighting_name,
+        )
+
+    try:
+        from ..plugins import create_weight_engine
+
+        robustness_cfg = portfolio_cfg.get("robustness")
+        weight_engine_params = weight_engine_params_from_robustness(
+            weighting_name,
+            robustness_cfg if isinstance(robustness_cfg, Mapping) else None,
+        )
+        return (
+            EqualWeight(),
+            True,
+            create_weight_engine(weighting_name, **weight_engine_params),
+            None,
+            weighting_name,
+        )
+    except Exception as exc:
+        fallback = {
+            "engine": weighting_name,
+            "error_type": exc.__class__.__name__,
+            "error": str(exc) or exc.__class__.__name__,
+        }
+        logger.warning(
+            "Risk-weighting engine %r failed to construct (%s); falling back "
+            "to equal weight for this multi-period run.",
+            weighting_name,
+            exc,
+        )
+        return EqualWeight(), False, None, fallback, weighting_name
 
 
 def _get_missing_policy_settings(
@@ -1686,72 +1813,19 @@ def run(
         except (TypeError, ValueError):
             low_min_strikes_req = 2
 
-    w_cfg = cast(dict[str, Any], cfg.portfolio.get("weighting", {}))
-    w_name = str(w_cfg.get("name", "equal")).lower()
-    w_params = cast(dict[str, Any], w_cfg.get("params", {}))
-    # Column for score‑proportional weightings defaults to Sharpe
-    w_column = cast(str, w_params.get("column", "Sharpe"))
-    if w_name in {"equal", "ew"}:
-        weighting: BaseWeighting = EqualWeight()
-    elif w_name in {"score_prop_bayes", "bayes", "score_bayes"}:
-        weighting = ScorePropBayesian(
-            column=w_column, shrink_tau=float(w_params.get("shrink_tau", 0.25))
-        )
-    elif w_name in {"adaptive_bayes", "adaptive"}:
-        weighting = AdaptiveBayesWeighting(
-            half_life=int(w_params.get("half_life", 90)),
-            obs_sigma=float(w_params.get("obs_sigma", 0.25)),
-            max_w=w_params.get("max_w"),
-            prior_mean=w_params.get("prior_mean", "equal"),
-            prior_tau=float(w_params.get("prior_tau", 1.0)),
-        )
-    else:
-        weighting = EqualWeight()
+    portfolio_for_weighting = dict(cast(Mapping[str, Any], cfg.portfolio))
+    if not isinstance(portfolio_for_weighting.get("robustness"), Mapping):
+        root_robustness = getattr(cfg, "robustness", None)
+        if isinstance(root_robustness, Mapping):
+            portfolio_for_weighting["robustness"] = root_robustness
 
-    # Risk-based weighting scheme (risk_parity, hrp) from weighting_scheme config.
-    # This overrides the legacy `portfolio.weighting` dict config for primary weights.
-    weighting_scheme = str(cfg.portfolio.get("weighting_scheme", "equal") or "equal").lower()
-    if weighting_scheme == "robust":
-        weighting_scheme = "robust_mv"
-    use_risk_weighting = weighting_scheme in {
-        "risk_parity",
-        "hrp",
-        "erc",
-        "robust_mv",
-        "robust_mean_variance",
-        "robust_risk_parity",
-    }
-    risk_weight_engine: Any = None
-    # Records why we silently fell back to equal weight when a risk-weighting
-    # engine fails to construct, so the Results page banner (and the run
-    # envelope) can surface it instead of silently delivering equal weights.
-    weight_engine_fallback: dict[str, Any] | None = None
-    if use_risk_weighting:
-        try:
-            from ..plugins import create_weight_engine
-
-            robustness_cfg = cfg.portfolio.get("robustness")
-            if not isinstance(robustness_cfg, Mapping):
-                robustness_cfg = getattr(cfg, "robustness", None)
-            weight_engine_params = weight_engine_params_from_robustness(
-                weighting_scheme,
-                robustness_cfg if isinstance(robustness_cfg, Mapping) else None,
-            )
-            risk_weight_engine = create_weight_engine(weighting_scheme, **weight_engine_params)
-        except Exception as exc:
-            use_risk_weighting = False
-            risk_weight_engine = None
-            weight_engine_fallback = {
-                "engine": weighting_scheme,
-                "error_type": exc.__class__.__name__,
-                "error": str(exc) or exc.__class__.__name__,
-            }
-            logger.warning(
-                "Risk-weighting engine %r failed to construct (%s); falling back "
-                "to equal weight for this multi-period run.",
-                weighting_scheme,
-                exc,
-            )
+    (
+        weighting,
+        use_risk_weighting,
+        risk_weight_engine,
+        weight_engine_fallback,
+        weighting_scheme,
+    ) = _resolve_portfolio_weighting(portfolio_for_weighting)
 
     policy_cfg = cast(dict[str, Any], cfg.portfolio.get("weight_policy", {}))
     policy_mode = str(policy_cfg.get("mode", policy_cfg.get("policy", "drop"))).lower()

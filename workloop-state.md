@@ -1,3 +1,14 @@
+## 2026-06-04T03:06Z - opener (codex): issue #5419 weighting config resolver
+
+- Repo: `stranske/Trend_Model_Project`
+- Issue: `#5419` (`A6 - Unify the two weighting config keys; reject unsupported values; make ScorePropSimple reachable`)
+- Branch: `codex/issue-5419-weighting-config`
+- Worktree: `~/.codex/automations/pd-workloop-resume/worktrees/trend-5419-weighting-config`
+- Selection: raw opener cap below 5 after cap sweep. #5440 remains scoped/product-blocked on strict config key design; #5483 was repaired with `agent:retry` plus Gate Followups dispatch and now has fresh active Gate evidence. #5417 is merged awaiting verifier disposition and #5418 is linked to active PR #5483, so #5419 was the highest eligible unlinked implementation candidate outside scoped blockers.
+- Implementation: added a shared multi-period portfolio weighting resolver so `portfolio.weighting.name` and `portfolio.weighting_scheme` share the same value space. `risk_parity` now reaches the risk-engine path through either key, `score_prop` reaches `ScorePropSimple`, and unknown weighting names raise `ValueError` instead of silently falling back to `EqualWeight`. Existing risk-engine construction failure fallback remains surfaced through `weight_engine_fallback`.
+- Validation: `PYTHONPATH=src python -m pytest tests/test_weighting_resolution.py -q` -> 4 passed. Deliberate-break gate restored the old unknown-name equal-weight fallback and `tests/test_weighting_resolution.py::test_unknown_weighting_raises` failed with `DID NOT RAISE`, then the fix was restored. `PYTHONPATH=src python -m pytest tests/test_weighting_resolution.py tests/test_weighting.py tests/test_weight_engine_logging.py -q` -> 15 passed. Focused ruff passed, focused mypy passed, `git diff --check` passed. `PYTHONPATH=src python -m trend.cli run -c config/demo.yml --returns demo/demo_returns.csv` exited 0 while printing known local NumPy/optional-extension warnings.
+- Current state: ready to commit, push, and open a ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`.
+
 ## 2026-06-03T23:04Z - opener (codex): issue #5416 regime registry slice
 
 - Repo: `stranske/Trend_Model_Project`
