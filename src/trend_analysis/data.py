@@ -363,6 +363,18 @@ def _validate_payload(
     return priced
 
 
+def _canonicalise_date_column(payload: pd.DataFrame, date_column: str) -> pd.DataFrame:
+    configured = str(date_column or "Date")
+    if configured == "Date":
+        return payload
+    if configured not in payload.columns:
+        return payload
+    normalised = payload.copy()
+    if "Date" in normalised.columns:
+        normalised = normalised.drop(columns=["Date"])
+    return normalised.rename(columns={configured: "Date"})
+
+
 def _is_readable(mode: int) -> bool:
     """Check if a file mode indicates the file is readable.
 
@@ -385,11 +397,12 @@ def load_csv(
     *,
     errors: ValidationErrorMode = "log",
     include_date_column: bool = True,
+    date_column: str = "Date",
     missing_policy: str | Mapping[str, str] | None = None,
     missing_limit: MissingLimitArg = None,
     **_legacy_kwargs: object,
 ) -> Optional[pd.DataFrame]:
-    """Load and validate a CSV expecting a ``Date`` column."""
+    """Load and validate a CSV using ``date_column`` as the date field."""
 
     if missing_policy is None and "nan_policy" in _legacy_kwargs:
         missing_policy = _coerce_policy_kwarg(_legacy_kwargs.pop("nan_policy"))
@@ -419,7 +432,7 @@ def load_csv(
             logger.error(f"Permission denied accessing file: {path}")
             return None
 
-        raw = pd.read_csv(str(p))
+        raw = _canonicalise_date_column(pd.read_csv(str(p)), date_column)
         result = _validate_payload(
             raw,
             origin=str(p),

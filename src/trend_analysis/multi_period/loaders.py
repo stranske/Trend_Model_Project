@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import inspect
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -20,6 +21,16 @@ __all__ = [
     "load_benchmarks",
     "detect_index_columns",
 ]
+
+
+def _accepts_keyword(func: Any, keyword: str) -> bool:
+    try:
+        params = inspect.signature(func).parameters
+    except (TypeError, ValueError):
+        return True
+    return keyword in params or any(
+        param.kind is inspect.Parameter.VAR_KEYWORD for param in params.values()
+    )
 
 
 def _coerce_path(value: Any, *, field: str) -> Path:
@@ -63,12 +74,15 @@ def load_prices(cfg: Any) -> pd.DataFrame:
     missing_limit = data.get("missing_limit")
     if missing_limit is None:
         missing_limit = data.get("nan_limit")
-    frame = load_csv(
-        str(resolved),
-        errors="raise",
-        missing_policy=missing_policy,
-        missing_limit=missing_limit,
-    )
+    date_column = str(data.get("date_column") or "Date")
+    load_kwargs: dict[str, Any] = {
+        "errors": "raise",
+        "missing_policy": missing_policy,
+        "missing_limit": missing_limit,
+    }
+    if _accepts_keyword(load_csv, "date_column"):
+        load_kwargs["date_column"] = date_column
+    frame = load_csv(str(resolved), **load_kwargs)
     if frame is None:
         raise FileNotFoundError(str(resolved))
     frame = coerce_to_utc(frame)
