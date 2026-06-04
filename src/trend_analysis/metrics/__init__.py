@@ -7,9 +7,6 @@ Legacy *annualize_* wrappers are kept for back-compat with the test-suite.
 
 from __future__ import annotations
 
-import builtins as _bi
-import sys
-import types
 from importlib import import_module
 from typing import Any, Callable, cast
 
@@ -400,9 +397,6 @@ def information_ratio(
         return ann_act / tr_error
 
 
-# ------------------------------------------------------------------ #
-# 2A.  Ensure tests.legacy_metrics exists and exposes the old names. #
-# ------------------------------------------------------------------ #
 annualize_return = annual_return
 annualize_volatility = volatility
 annualize_sharpe_ratio = sharpe_ratio
@@ -415,28 +409,6 @@ from .deflated_sharpe import (  # noqa: E402
     probabilistic_sharpe_ratio,
 )
 from .factor_attribution import factor_exposures  # noqa: E402
-
-_legacy = types.ModuleType("tests.legacy_metrics")
-for _name in (
-    "annualize_return",
-    "annualize_volatility",
-    "sharpe_ratio",
-    "sortino_ratio",
-    "max_drawdown",
-    "information_ratio",
-    "info_ratio",
-    "volatility",
-):
-    _legacy.__dict__[_name] = globals()[
-        _name if _name in globals() else _name.replace("info_", "information_")
-    ]
-sys.modules.setdefault("tests.legacy_metrics", _legacy)
-
-# trend_analysis/metrics.py  (append near the bottom ­– after all definitions)
-# ---------------------------------------------------------------------------
-
-setattr(_bi, "annualize_return", annualize_return)
-setattr(_bi, "annualize_volatility", annualize_volatility)
 
 # Public submodules exposed via attribute assignment for compatibility while
 # keeping Ruff satisfied about unused imports.
