@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, Tuple
 
 from trend.config_schema import CoreConfigError, validate_core_config
+from trend_analysis.config.model import validate_trend_config
 
 __all__ = ["build_config_payload", "validate_payload"]
 
@@ -66,7 +67,8 @@ def validate_payload(
 
     try:
         core = validate_core_config(payload, base_path=base_path)
-    except CoreConfigError as exc:
+        trend_config = validate_trend_config(payload, base_path=base_path)
+    except (CoreConfigError, ValueError) as exc:
         return None, str(exc)
 
     validated: Dict[str, Any] = dict(payload)
@@ -84,6 +86,7 @@ def validate_payload(
 
     portfolio = dict(validated.get("portfolio") or {})
     portfolio["transaction_cost_bps"] = core.costs.transaction_cost_bps
+    portfolio["max_turnover"] = trend_config.portfolio.max_turnover
     cost_model = dict(portfolio.get("cost_model") or {})
     cost_model["bps_per_trade"] = core.costs.bps_per_trade
     cost_model["slippage_bps"] = core.costs.slippage_bps
@@ -91,4 +94,7 @@ def validate_payload(
     cost_model["half_spread_bps"] = core.costs.half_spread_bps
     portfolio["cost_model"] = cost_model
     validated["portfolio"] = portfolio
+    vol_adjust = dict(validated.get("vol_adjust") or {})
+    vol_adjust["target_vol"] = trend_config.vol_adjust.target_vol
+    validated["vol_adjust"] = vol_adjust
     return validated, None

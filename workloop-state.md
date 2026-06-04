@@ -1,3 +1,13 @@
+## 2026-06-04T21:05Z - opener (codex): issue #5435 bridge Tier-2 validation
+
+- Repo/issue: `stranske/Trend_Model_Project` #5435 (`T3 - config/bridge.py::validate_payload only runs Tier-1 validation`).
+- Branch/worktree: `codex/issue-5435-bridge-tier2-validation` in `~/.codex/automations/pd-workloop-resume/worktrees/trend-5435-bridge-tier2-validation`.
+- Selection: raw opener cap was below 5. Scoped blockers remain Trend #5343, Trend #5389/#5440, and LMS #180. Trend #5422 is already covered by follow-up issue #5491 / PR #5492, and #5492 received a fresh Gate Followups dispatch (`26979414787`) before new issue materialization. #5435 was the oldest unlinked implementation candidate outside those blocker/linkage lanes.
+- Implementation: `validate_payload()` now composes Tier-1 `validate_core_config()` with Tier-2 `validate_trend_config()` so Streamlit bridge payloads reject invalid `vol_adjust.target_vol` and `portfolio.max_turnover`, while preserving existing data and cost normalization.
+- Validation: `PYTHONPATH=src python -m pytest tests/config/test_bridge_validation.py -q` -> 3 passed. `PYTHONPATH=src python -m pytest tests/config/test_bridge_validation.py tests/test_trend_config_model.py tests/test_trend_config_model_negative_paths.py -q` -> 47 passed. `python -m ruff check src/trend_analysis/config/bridge.py tests/config/test_bridge_validation.py` and `git diff --check` passed.
+- Deliberate-break gate: temporarily bypassed `validate_trend_config()` in `validate_payload()`; `tests/config/test_bridge_validation.py::test_rejects_negative_target_vol` failed because the invalid negative target was accepted. Restored Tier-2 validation and reran focused tests green.
+- Current state: ready to commit, push, and open a ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`.
+
 ## 2026-06-04T10:18Z - closer (codex): PR #5490 full-suite stale test repair
 
 - Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5423`, PR `#5490`, branch `codex/issue-5423-legacy-runners`.
