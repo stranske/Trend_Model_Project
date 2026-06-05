@@ -27,6 +27,17 @@ def _ensure_dir(path: str | Path) -> None:
     Path(path).mkdir(parents=True, exist_ok=True)
 
 
+def _align_risk_free_to_portfolio(
+    rf_series: pd.Series | None,
+    portfolio_index: pd.Index,
+) -> pd.Series | float:
+    if rf_series is None:
+        return 0.0
+    # Missing RF observations should not crash or leak NaNs into Sharpe.
+    # Treat absent dates as a zero risk-free baseline for the stitched OOS series.
+    return rf_series.reindex(portfolio_index).fillna(0.0)
+
+
 def main(cfg_path: str = "config/long_backtest.yml") -> int:
     setup_script_logging(app_name="real-model", module_file=__file__)
     cfg: ConfigProtocol = load(cfg_path)
@@ -118,9 +129,9 @@ def main(cfg_path: str = "config/long_backtest.yml") -> int:
         from trend_analysis.metrics import annual_return, sharpe_ratio, volatility
 
         rf_series = df_all.get("Risk-Free Rate")
-        rf_aligned = rf_series.loc[portfolio.index] if rf_series is not None else 0.0
         cagr = annual_return(portfolio)
         vol = volatility(portfolio)
+        rf_aligned = _align_risk_free_to_portfolio(rf_series, portfolio.index)
         sr = sharpe_ratio(portfolio, rf_aligned)
         msg = f"OOS CAGR: {cagr * 100:.2f}%  Vol: {vol * 100:.2f}%  Sharpe: {sr:.2f}"
         print(msg)
