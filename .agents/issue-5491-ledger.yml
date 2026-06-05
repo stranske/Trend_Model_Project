@@ -44,11 +44,16 @@ tasks:
   - id: task-04
     title: Extract the period result assembly logic from the loop body into a new
       module-level function named `_assemble_period_result` in `engine.py`
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-06-05T00:24:00Z'
+    finished_at: '2026-06-05T00:24:00Z'
+    commit: pending-push
+    notes:
+      - Closer extracted final per-period result metadata, manager-change stats,
+        tenure update, and next-period realised-weight state into module-level
+        `_assemble_period_result`.
+      - Extended the refactor parity test to wrap `_assemble_period_result` and
+        prove it is called once per generated period.
   - id: task-05
     title: Update the `run()` function to call the four extracted helper functions
       in sequence within the per-period loop

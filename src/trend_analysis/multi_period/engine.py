@@ -422,6 +422,14 @@ class _TurnoverCostApplication:
     custom_weights: dict[str, float]
 
 
+@dataclass
+class _PeriodResultAssembly:
+    result: dict[str, Any]
+    holdings_tenure: dict[str, int]
+    prev_final_weights: pd.Series
+    prev_weights: pd.Series
+
+
 def _weight_period(
     *,
     score_frame: pd.DataFrame,
@@ -584,6 +592,50 @@ def _apply_turnover_and_cost(
         final_weights=final_w,
         manual_funds=manual_funds,
         custom_weights=custom,
+    )
+
+
+def _assemble_period_result(
+    *,
+    result: dict[str, Any],
+    realised_holdings: list[str],
+    period: Any,
+    missing_policy_diagnostic: Mapping[str, Any],
+    weight_engine_fallback: Any,
+    manager_changes: list[dict[str, object]],
+    period_turnover: float,
+    period_cost: float,
+    holdings_tenure: Mapping[str, int],
+    effective_weights: pd.Series,
+    eps: float,
+) -> _PeriodResultAssembly:
+    """Attach final per-period metadata and prepare next-period state."""
+
+    result["selected_funds"] = realised_holdings
+    result["period"] = (
+        period.in_start,
+        period.in_end,
+        period.out_start,
+        period.out_end,
+    )
+    result["missing_policy_diagnostic"] = dict(missing_policy_diagnostic)
+    result["weight_engine_fallback"] = weight_engine_fallback
+    result["manager_changes"] = manager_changes
+    result["turnover"] = period_turnover
+    result["transaction_cost"] = float(period_cost)
+
+    updated_tenure: dict[str, int] = {}
+    for mgr in realised_holdings:
+        mgr_str = str(mgr)
+        updated_tenure[mgr_str] = int(holdings_tenure.get(mgr_str, 0)) + 1
+    result["holding_tenure"] = dict(updated_tenure)
+
+    prev_final_weights = effective_weights[effective_weights.abs() > eps].copy()
+    return _PeriodResultAssembly(
+        result=result,
+        holdings_tenure=updated_tenure,
+        prev_final_weights=prev_final_weights,
+        prev_weights=prev_final_weights.copy(),
     )
 
 
@@ -4419,31 +4471,23 @@ def run(
                         pd.DataFrame({"user": rebalance_raw}), rf_out
                     )["user"]
 
-        res_dict["selected_funds"] = realised_holdings
-        res_dict["period"] = (
-            pt.in_start,
-            pt.in_end,
-            pt.out_start,
-            pt.out_end,
+        period_result = _assemble_period_result(
+            result=res_dict,
+            realised_holdings=realised_holdings,
+            period=pt,
+            missing_policy_diagnostic=missing_policy_diagnostic,
+            weight_engine_fallback=weight_engine_fallback,
+            manager_changes=events,
+            period_turnover=period_turnover,
+            period_cost=period_cost,
+            holdings_tenure=holdings_tenure,
+            effective_weights=effective_w,
+            eps=eps,
         )
-        res_dict["missing_policy_diagnostic"] = dict(missing_policy_diagnostic)
-        res_dict["weight_engine_fallback"] = weight_engine_fallback
-        # Attach per-period manager change log and execution stats
-        res_dict["manager_changes"] = events
-        res_dict["turnover"] = period_turnover
-        res_dict["transaction_cost"] = float(period_cost)
-        updated_tenure: dict[str, int] = {}
-        for mgr in realised_holdings:
-            mgr_str = str(mgr)
-            updated_tenure[mgr_str] = int(holdings_tenure.get(mgr_str, 0)) + 1
-        holdings_tenure = updated_tenure
-        res_dict["holding_tenure"] = dict(holdings_tenure)
-
-        # Persist realised weights for next-period turnover logic.
-        # Store only non-zero holdings so indices do not accumulate across the
-        # union-alignment used for turnover computations.
-        prev_final_weights = effective_w[effective_w.abs() > eps].copy()
-        prev_weights = prev_final_weights.copy()
+        res_dict = period_result.result
+        holdings_tenure = period_result.holdings_tenure
+        prev_final_weights = period_result.prev_final_weights
+        prev_weights = period_result.prev_weights
         # Append this period's result (was incorrectly outside loop causing only last period kept)
         results.append(res_dict)
     # Update complete for this period; next loop will use prev_weights
