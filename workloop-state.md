@@ -1,3 +1,15 @@
+## 2026-06-05T00:08Z - opener (codex): issue #5437 risk-free alignment
+
+- Repo: `stranske/Trend_Model_Project`
+- Issue: `#5437` (`Risk-Free Rate` alignment in `scripts/run_real_model.py` can crash when stitched OOS dates exceed RF coverage)
+- Branch/worktree: `codex/issue-5437-rf-alignment` in `/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/trend-5437-rf-alignment`
+- Selection: raw opener cap was below 5 after cap-drain preflight. Existing opener PRs were classified as: #5440 scoped/terminal on strict-config product decision, #5492 draining follow-up refactor lane, and #5504 active-moving after infra repair dispatched Gate Followups. #5437 was the oldest unlinked implementation candidate outside scoped blockers and existing linked PRs.
+- Implementation: added `_align_risk_free_to_portfolio()` in `scripts/run_real_model.py` and replaced label-based `rf_series.loc[portfolio.index]` with `rf_series.reindex(portfolio.index).fillna(0.0)`, documenting missing RF dates as a zero risk-free baseline so Sharpe inputs remain finite.
+- Validation: `PYTHONPATH=src python -m pytest tests/test_run_real_model.py -q` -> 1 passed. `python -m ruff check scripts/run_real_model.py tests/test_run_real_model.py` -> passed. `git diff --check` -> passed.
+- Deliberate-break gate: temporarily restored `.loc[portfolio_index]`; `tests/test_run_real_model.py::test_align_risk_free_reindexes_missing_portfolio_dates_without_nan` failed with `KeyError` for missing `2020-03-31`, then the reindex/fill behavior was restored and the focused test reran green.
+- PR/routing: ready-for-review PR #5505 opened at https://github.com/stranske/Trend_Model_Project/pull/5505, non-draft, closing #5437, with `agent:codex`, `agents:keepalive`, and `autofix`. Handoff event `pr_opened active.source_repo=stranske/Trend_Model_Project active.source_issue=5437 active.source_pr=5505 active.next_action=wait_for_keepalive` was recorded.
+- Current state: post-open cap-health/infra repair should verify Gate Followups evidence for #5505 and add `agent:retry`/dispatch if needed. Next action belongs to async Gate/keepalive/closer after checks settle.
+
 ## 2026-06-04T10:18Z - closer (codex): PR #5490 full-suite stale test repair
 
 - Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5423`, PR `#5490`, branch `codex/issue-5423-legacy-runners`.
