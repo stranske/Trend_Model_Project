@@ -1,3 +1,13 @@
+## 2026-06-05T01:06Z - opener (codex): issue #5438 numeric state diff
+
+- Repo/issue: `stranske/Trend_Model_Project` #5438 (`int/float model-state diff phantom change`).
+- Branch/worktree: `codex/issue-5438-numeric-state-diff` in `~/.codex/automations/pd-workloop-resume/worktrees/trend-5438-numeric-state-diff`.
+- Selection: raw opener cap was below 5 after cap/drain sweep. Scoped blockers remained LMS #180, Trend #5343, and Trend #5389/#5440. Trend #5436/#5504 had stale `agent:needs-attention` removed after direct evidence showed the review-path concern was fixed and Gate was green; cap-health then classified #5504 as draining. #5437 is linked to merged PR #5505 and awaiting verifier/source-issue disposition, so #5438 was the oldest unlinked implementation candidate outside blockers.
+- Implementation: moved numeric comparison before strict type equality in `streamlit_app/state.py` while excluding booleans from numeric equivalence, so `10` and `10.0` compare equal but real type changes still report. Added regression coverage for `_values_equal(10, 10.0)` and `diff_model_states({"k": 10}, {"k": 10.0}) == []`, plus string-vs-int type-change preservation.
+- Validation: `.venv/bin/python -m pytest tests/app/test_streamlit_state.py -q` was unavailable because `.venv/bin/python` does not exist in this worktree. `PYTHONPATH=src python -m pytest tests/app/test_streamlit_state.py -q` -> 22 passed with 2 existing protobuf deprecation warnings. `python -m ruff check streamlit_app/state.py tests/app/test_streamlit_state.py` -> passed. `git diff --check` -> passed.
+- Deliberate-break gate: temporarily restored the early `if type(left) is not type(right): return False` before the numeric branch; `tests/app/test_streamlit_state.py::test_diff_model_states_ignores_equal_int_float_numbers` failed on `_values_equal(10, 10.0)`. Restored the fix and reran focused validation green.
+- Current state: ready to commit, push, and open a ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`; post-open action is asynchronous Gate/keepalive.
+
 ## 2026-06-04T10:18Z - closer (codex): PR #5490 full-suite stale test repair
 
 - Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5423`, PR `#5490`, branch `codex/issue-5423-legacy-runners`.

@@ -331,6 +331,18 @@ def test_diff_model_states_flags_type_changes_and_float_tolerance() -> None:
     assert diffs[0].type_changed is True
 
 
+def test_diff_model_states_ignores_equal_int_float_numbers() -> None:
+    assert state._values_equal(10, 10.0, 1e-9) is True
+    assert state.diff_model_states({"k": 10}, {"k": 10.0}) == []
+
+    string_diff = state.diff_model_states({"k": 10}, {"k": "10"})
+
+    assert len(string_diff) == 1
+    assert string_diff[0].path == "k"
+    assert string_diff[0].change_type == "changed"
+    assert string_diff[0].type_changed is True
+
+
 def test_format_model_state_diff_returns_copy_ready_text() -> None:
     diffs = [
         state.ModelStateDiff(
