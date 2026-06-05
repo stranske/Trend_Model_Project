@@ -25,6 +25,7 @@ from pydantic import (
     model_validator,
 )
 
+from trend_analysis.config.lint_keys import lint_portfolio_keys
 from utils.paths import proj_path
 
 # ---------------------------------------------------------------------------
@@ -193,19 +194,30 @@ class DataSettings(BaseModel):
     frequency: Literal["D", "W", "M", "ME"] = Field()
     missing_policy: str | Mapping[str, str] | None = Field(default=None)
     missing_limit: int | Mapping[str, int | None] | None = Field(default=None)
+    missing_fill_limit: int | Mapping[str, int | None] | None = Field(default=None)
+    na_as_zero: Mapping[str, Any] | None = Field(default=None)
     risk_free_column: str | None = Field(default=None)
     allow_risk_free_fallback: bool | None = Field(default=None)
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="before")
     @classmethod
     def _alias_missing_fill_limit(cls, data: Any) -> Any:
         if not isinstance(data, Mapping):
             return data
-        if "missing_fill_limit" not in data or "missing_limit" in data:
-            return data
-        return {**data, "missing_limit": data["missing_fill_limit"]}
+        cleaned = dict(data)
+        for legacy_key in (
+            "indices_glob",
+            "price_column",
+            "timezone",
+            "currency",
+            "lookback_required",
+        ):
+            cleaned.pop(legacy_key, None)
+        if "missing_fill_limit" not in cleaned or "missing_limit" in cleaned:
+            return cleaned
+        return {**cleaned, "missing_limit": cleaned["missing_fill_limit"]}
 
     @field_validator("csv_path", mode="before")
     @classmethod
@@ -301,7 +313,7 @@ class DataSettings(BaseModel):
             return value
         raise ValueError("data.missing_policy must be a string or mapping.")
 
-    @field_validator("missing_limit", mode="before")
+    @field_validator("missing_limit", "missing_fill_limit", mode="before")
     @classmethod
     def _validate_missing_limit(cls, value: Any) -> int | Mapping[str, int | None] | None:
         if value in (None, "", "null"):
@@ -332,7 +344,7 @@ class CostModelSettings(BaseModel):
     per_trade_bps: float | None = Field(default=None)
     half_spread_bps: float | None = Field(default=None)
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     @field_validator("bps_per_trade", "slippage_bps", mode="before")
     @classmethod
@@ -534,7 +546,17 @@ class RiskSettings(BaseModel):
     floor_vol: float = Field(default=0.015)
     warmup_periods: int = Field(default=0)
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_legacy_runtime_flags(cls, data: Any) -> Any:
+        if not isinstance(data, Mapping):
+            return data
+        cleaned = dict(data)
+        cleaned.pop("enabled", None)
+        cleaned.pop("window", None)
+        return cleaned
 
     @field_validator("target_vol", mode="before")
     @classmethod
@@ -610,8 +632,14 @@ def _resolve_config_path(candidate: str | os.PathLike[str] | None) -> Path:
     )
 
 
-def validate_trend_config(data: dict[str, Any], *, base_path: Path) -> TrendConfig:
+def validate_trend_config(data: Any, *, base_path: Path) -> TrendConfig:
     """Validate ``data`` against :class:`TrendConfig` with helpful errors."""
+
+    if isinstance(data, Mapping):
+        lint_errors = lint_portfolio_keys(data)
+        if lint_errors:
+            first_error = lint_errors[0]
+            raise ValueError(f"{first_error}: unexpected or inert portfolio key")
 
     try:
         return TrendConfig.model_validate(data, context={"base_path": base_path})
@@ -619,9 +647,9 @@ def validate_trend_config(data: dict[str, Any], *, base_path: Path) -> TrendConf
         errors = exc.errors()
         message = str(exc)
         if errors:
-            first_error = errors[0]
-            message = str(first_error.get("msg") or message)
-            loc = first_error.get("loc") or ()
+            first_validation_error: Any = errors[0]
+            message = str(first_validation_error.get("msg") or message)
+            loc = first_validation_error.get("loc") or ()
             if loc:
                 joined = ".".join(str(part) for part in loc)
                 if joined:

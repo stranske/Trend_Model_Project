@@ -1,0 +1,122 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+import yaml
+from pydantic import ValidationError
+
+from trend_analysis.config import model as config_model
+from trend_analysis.config.lint_keys import _load_defaults, lint_portfolio_keys
+
+
+def _write_returns_csv(base_dir: Path) -> Path:
+    csv_path = base_dir / "returns.csv"
+    csv_path.write_text("Date,FundA\n2024-01-31,0.01\n", encoding="utf-8")
+    return csv_path
+
+
+def test_unknown_data_key_rejected(tmp_path: Path) -> None:
+    csv_path = _write_returns_csv(tmp_path)
+
+    with pytest.raises(ValidationError) as exc_info:
+        config_model.DataSettings.model_validate(
+            {
+                "csv_path": str(csv_path),
+                "date_column": "Date",
+                "frequency": "M",
+                "bogus": 1,
+            },
+            context={"base_path": tmp_path},
+        )
+
+    assert "Extra inputs are not permitted" in str(exc_info.value)
+    assert "bogus" in str(exc_info.value)
+
+
+def test_portfolio_keylint_flags_unknown() -> None:
+    errors = lint_portfolio_keys(
+        {
+            "portfolio": {
+                "selection_mode": "all",
+                "rebalance_calendar": "NYSE",
+                "max_turnover": 1.0,
+                "transaction_cost_bps": 0,
+                "bogus_key": True,
+            }
+        }
+    )
+
+    assert errors == ["portfolio.bogus_key"]
+
+
+def test_validate_trend_config_rejects_unknown_portfolio_key(tmp_path: Path) -> None:
+    csv_path = _write_returns_csv(tmp_path)
+    payload = {
+        "data": {
+            "csv_path": str(csv_path),
+            "date_column": "Date",
+            "frequency": "M",
+        },
+        "portfolio": {
+            "selection_mode": "all",
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 1.0,
+            "transaction_cost_bps": 0,
+            "bogus_key": True,
+        },
+        "vol_adjust": {
+            "target_vol": 0.1,
+        },
+    }
+
+    with pytest.raises(ValueError, match=r"portfolio\.bogus_key"):
+        config_model.validate_trend_config(payload, base_path=tmp_path)
+
+
+@pytest.mark.parametrize(
+    "config_path",
+    [
+        Path("config/long_backtest.yml"),
+        Path("config/trend_universe_2004.yml"),
+        Path("config/trend_concentrated_2004.yml"),
+    ],
+)
+def test_existing_backtest_configs_have_no_strict_key_lint_errors(config_path: Path) -> None:
+    payload = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+
+    assert lint_portfolio_keys(payload) == []
+
+
+def test_data_settings_preserves_na_as_zero(tmp_path: Path) -> None:
+    csv_path = _write_returns_csv(tmp_path)
+
+    config = config_model.DataSettings.model_validate(
+        {
+            "csv_path": str(csv_path),
+            "date_column": "Date",
+            "frequency": "M",
+            "na_as_zero": {
+                "enabled": True,
+                "max_missing_per_window": 1,
+                "max_consecutive_gap": 1,
+            },
+        },
+        context={"base_path": tmp_path},
+    )
+
+    assert config.na_as_zero == {
+        "enabled": True,
+        "max_missing_per_window": 1,
+        "max_consecutive_gap": 1,
+    }
+
+
+def test_load_defaults_is_cached() -> None:
+    lint_portfolio_keys({"portfolio": {"rebalance_calendar": "NYSE"}})
+    before = _load_defaults.cache_info()
+
+    lint_portfolio_keys({"portfolio": {"rebalance_calendar": "NYSE"}})
+    after = _load_defaults.cache_info()
+
+    assert after.hits == before.hits + 1

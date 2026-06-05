@@ -761,6 +761,11 @@ def _config_from_validated(data: dict[str, Any], validated: Any | None) -> Confi
             merged: dict[str, Any] = dict(data)
             for key, value in dumped.items():
                 merged[key] = value
+            data_section = merged.get("data")
+            if isinstance(data_section, dict):
+                data_section.pop("missing_fill_limit", None)
+                if data_section.get("na_as_zero") is None:
+                    data_section.pop("na_as_zero", None)
             if "version" not in merged and "version" in data:
                 merged["version"] = data["version"]
             return Config(**merged)
