@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import inspect
 from types import SimpleNamespace
 from typing import Any
 
 import pandas as pd
+import pytest
 
 from trend_analysis.multi_period import engine
 
@@ -96,6 +98,46 @@ def test_run_refactor_preserves_period_parity(monkeypatch) -> None:
         "create_selector_by_name",
         lambda *_args, **_kwargs: SelectorStub(),
     )
+    original_setup_period = engine._setup_period
+    original_weight_period = engine._weight_period
+    original_apply_turnover_and_cost = engine._apply_turnover_and_cost
+    original_assemble_period_result = engine._assemble_period_result
+    setup_period_calls: list[str] = []
+    weight_period_calls: list[tuple[str, ...]] = []
+    turnover_cost_calls: list[tuple[str, ...]] = []
+    assemble_period_calls: list[tuple[str, ...]] = []
+
+    def wrapped_setup_period(pt: Any, **kwargs: Any) -> engine._PeriodSetup:
+        setup_period_calls.append(pt.out_end)
+        return original_setup_period(pt, **kwargs)
+
+    monkeypatch.setattr(engine, "_setup_period", wrapped_setup_period)
+
+    def wrapped_weight_period(**kwargs: Any) -> engine._PeriodWeights:
+        weight_period_calls.append(tuple(kwargs["holdings"]))
+        return original_weight_period(**kwargs)
+
+    monkeypatch.setattr(engine, "_weight_period", wrapped_weight_period)
+
+    def wrapped_apply_turnover_and_cost(
+        **kwargs: Any,
+    ) -> engine._TurnoverCostApplication:
+        turnover_cost_calls.append(tuple(kwargs["manual_holdings"]))
+        return original_apply_turnover_and_cost(**kwargs)
+
+    monkeypatch.setattr(
+        engine, "_apply_turnover_and_cost", wrapped_apply_turnover_and_cost
+    )
+
+    def wrapped_assemble_period_result(
+        **kwargs: Any,
+    ) -> engine._PeriodResultAssembly:
+        assemble_period_calls.append(tuple(kwargs["realised_holdings"]))
+        return original_assemble_period_result(**kwargs)
+
+    monkeypatch.setattr(
+        engine, "_assemble_period_result", wrapped_assemble_period_result
+    )
 
     pipeline_calls: list[
         tuple[str, tuple[str, ...], tuple[tuple[str, float], ...]]
@@ -141,7 +183,146 @@ def test_run_refactor_preserves_period_parity(monkeypatch) -> None:
     ]
     assert len(pipeline_calls) == 3
     assert [call[0] for call in pipeline_calls] == ["2020-03", "2020-04", "2020-05"]
+    assert setup_period_calls == ["2020-03", "2020-04", "2020-05"]
+    assert len(weight_period_calls) == 3
+    assert len(turnover_cost_calls) == 3
+    assert len(assemble_period_calls) == 3
     assert all(len(call[1]) == 2 for call in pipeline_calls)
+    assert all(len(call) == 2 for call in weight_period_calls)
+    assert all(len(call) == 2 for call in turnover_cost_calls)
+    assert all(len(call) == 2 for call in assemble_period_calls)
     assert [tuple(result["selected_funds"]) for result in results] == [
         call[1] for call in pipeline_calls
     ]
+
+
+def test_run_signature_matches_pre_refactor_contract() -> None:
+    signature = inspect.signature(engine.run)
+
+    assert list(signature.parameters) == ["cfg", "df", "price_frames", "membership"]
+    assert signature.parameters["cfg"].kind is inspect.Parameter.POSITIONAL_OR_KEYWORD
+    assert signature.parameters["df"].default is None
+    assert signature.parameters["price_frames"].default is None
+    assert signature.parameters["membership"].kind is inspect.Parameter.KEYWORD_ONLY
+    assert signature.parameters["membership"].default is None
+
+
+def test_extracted_helpers_are_called_in_required_order() -> None:
+    source_lines, start_line = inspect.getsourcelines(engine.run)
+    call_lines: dict[str, int] = {}
+    for offset, line in enumerate(source_lines):
+        for helper in (
+            "_setup_period",
+            "_weight_period",
+            "_apply_turnover_and_cost",
+            "_assemble_period_result",
+        ):
+            if helper not in call_lines and f"{helper}(" in line:
+                call_lines[helper] = start_line + offset
+
+    assert list(call_lines) == [
+        "_setup_period",
+        "_weight_period",
+        "_apply_turnover_and_cost",
+        "_assemble_period_result",
+    ]
+    assert call_lines["_setup_period"] < call_lines["_weight_period"]
+    assert call_lines["_weight_period"] < call_lines["_apply_turnover_and_cost"]
+    assert call_lines["_apply_turnover_and_cost"] < call_lines["_assemble_period_result"]
+
+
+def test_run_refactor_output_schema_and_deliberate_break(monkeypatch) -> None:
+    periods = [
+        SimpleNamespace(
+            in_start="2020-01", in_end="2020-02", out_start="2020-03", out_end="2020-03"
+        ),
+        SimpleNamespace(
+            in_start="2020-02", in_end="2020-03", out_start="2020-04", out_end="2020-04"
+        ),
+    ]
+    monkeypatch.setattr(engine, "generate_periods", lambda _cfg: periods)
+    monkeypatch.setattr(
+        engine, "apply_missing_policy", lambda frame, **_kwargs: (frame, {})
+    )
+    monkeypatch.setattr(
+        engine, "Rebalancer", lambda *_args, **_kwargs: RebalancerStub()
+    )
+
+    from trend_analysis import selector as selector_mod
+
+    monkeypatch.setattr(
+        selector_mod,
+        "create_selector_by_name",
+        lambda *_args, **_kwargs: SelectorStub(),
+    )
+
+    def fake_run_analysis(
+        _df_arg: pd.DataFrame,
+        _in_start: str,
+        _in_end: str,
+        out_start: str,
+        _out_end: str,
+        *_args: Any,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        return {
+            "fund_weights": dict(kwargs["custom_weights"]),
+            "out_sample_scaled": pd.DataFrame(
+                index=pd.date_range(f"{out_start}-28", periods=1)
+            ),
+            "score_frame": pd.DataFrame(index=tuple(kwargs["manual_funds"])),
+        }
+
+    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+
+    df = pd.DataFrame(
+        {
+            "Date": pd.date_range("2020-01-31", periods=4, freq="ME"),
+            "FundA": [0.01, 0.02, 0.03, 0.04],
+            "FundB": [0.02, 0.01, 0.02, 0.01],
+            "FundC": [0.03, 0.03, 0.01, 0.01],
+        }
+    )
+    results = engine.run(RefactorParityConfig(), df=df)
+
+    assert [result["period"] for result in results] == [
+        ("2020-01", "2020-02", "2020-03", "2020-03"),
+        ("2020-02", "2020-03", "2020-04", "2020-04"),
+    ]
+    assert set(results[0]) >= {
+        "period",
+        "selected_funds",
+        "score_frame",
+        "turnover",
+        "transaction_cost",
+        "fund_weights",
+        "manager_changes",
+        "holding_tenure",
+    }
+    assert all(isinstance(result["period"], tuple) for result in results)
+    assert all(len(result["period"]) == 4 for result in results)
+    assert all(len(result["selected_funds"]) == 2 for result in results)
+    assert all("fund_weights" in result for result in results)
+
+    original_assemble_period_result = engine._assemble_period_result
+
+    def drop_final_period(**kwargs: Any) -> engine._PeriodResultAssembly:
+        assembled = original_assemble_period_result(**kwargs)
+        if kwargs["period"].out_end == periods[-1].out_end:
+            return engine._PeriodResultAssembly(
+                result={},
+                holdings_tenure=assembled.holdings_tenure,
+                prev_final_weights=assembled.prev_final_weights,
+                prev_weights=assembled.prev_weights,
+            )
+        return assembled
+
+    monkeypatch.setattr(engine, "_assemble_period_result", drop_final_period)
+    broken_results = engine.run(RefactorParityConfig(), df=df)
+
+    with pytest.raises(AssertionError):
+        assert all("period" in result for result in broken_results)
+        assert [result["period"] for result in broken_results] == [
+            ("2020-01", "2020-02", "2020-03", "2020-03"),
+            ("2020-02", "2020-03", "2020-04", "2020-04"),
+        ]

@@ -361,6 +361,284 @@ def _period_turnover_cost(
 _resolve_risk_free_settings = resolve_risk_free_settings
 
 
+@dataclass
+class _PeriodSetup:
+    period_ts: pd.Timestamp
+    in_df: pd.DataFrame
+    out_df: pd.DataFrame
+    fund_cols: list[str]
+
+
+def _setup_period(
+    pt: Any,
+    *,
+    cooldown_periods: int,
+    cooldown_book: dict[str, int],
+    valid_universe: Callable[..., tuple[pd.DataFrame, pd.DataFrame, list[str], str | None]],
+    df: pd.DataFrame,
+) -> _PeriodSetup:
+    """Prepare per-period date, cooldown, and universe state."""
+
+    period_ts = pd.to_datetime(pt.out_end)
+
+    if cooldown_periods > 0 and cooldown_book:
+        for key in list(cooldown_book.keys()):
+            remaining = int(cooldown_book.get(key, 0)) - 1
+            if remaining <= 0:
+                cooldown_book.pop(key, None)
+            else:
+                cooldown_book[key] = remaining
+
+    in_df, out_df, fund_cols, _rf_col = valid_universe(
+        df,
+        pt.in_start[:7],
+        pt.in_end[:7],
+        pt.out_start[:7],
+        pt.out_end[:7],
+        # For threshold_hold, include all funds with valid in-sample data
+        # in the score frame so they can be considered for hiring. The
+        # out-of-sample check is applied later when deciding actual holdings.
+        require_out_sample=False,
+    )
+    return _PeriodSetup(
+        period_ts=period_ts,
+        in_df=in_df,
+        out_df=out_df,
+        fund_cols=fund_cols,
+    )
+
+
+@dataclass
+class _PeriodWeights:
+    weights_df: pd.DataFrame
+    raw_weight_series: pd.Series
+    weight_series: pd.Series
+
+
+@dataclass
+class _TurnoverCostApplication:
+    final_weights: pd.Series
+    manual_funds: list[str]
+    custom_weights: dict[str, float]
+
+
+@dataclass
+class _PeriodResultAssembly:
+    result: dict[str, Any]
+    holdings_tenure: dict[str, int]
+    prev_final_weights: pd.Series
+    prev_weights: pd.Series
+
+
+def _weight_period(
+    *,
+    score_frame: pd.DataFrame,
+    holdings: list[str],
+    period_ts: pd.Timestamp,
+    returns_window: pd.DataFrame | None,
+    metric: str,
+    min_weight: float,
+    compute_weights: Callable[
+        [pd.DataFrame, list[str], pd.Timestamp, pd.DataFrame | None],
+        pd.DataFrame,
+    ],
+    apply_policy_to_weights_fn: Callable[[pd.DataFrame, pd.Series | None], pd.Series],
+    ensure_holdings_weights_fn: Callable[..., pd.Series],
+) -> _PeriodWeights:
+    """Compute and policy-normalize per-period portfolio weights."""
+
+    weights_df = compute_weights(score_frame, holdings, period_ts, returns_window)
+    raw_weight_series = _as_weight_series(weights_df)
+    signal_slice = (
+        score_frame.loc[holdings, metric] if metric in score_frame.columns else None
+    )
+    weight_series = apply_policy_to_weights_fn(weights_df, signal_slice)
+    weight_series = ensure_holdings_weights_fn(
+        weight_series,
+        holdings,
+        min_weight=min_weight,
+    )
+    return _PeriodWeights(
+        weights_df=weight_series.to_frame("weight"),
+        raw_weight_series=raw_weight_series,
+        weight_series=weight_series.astype(float),
+    )
+
+
+def _apply_turnover_and_cost(
+    *,
+    bounded_weights: pd.Series,
+    prev_final_weights: pd.Series | None,
+    lambda_tc: float,
+    min_w_bound: float,
+    max_w_bound: float,
+    forced_exits: set[str],
+    min_funds: int,
+    holdings: list[str],
+    in_df: pd.DataFrame,
+    max_turnover_cfg: Any,
+    regime_settings: Any,
+    benchmarks_cfg: Mapping[str, Any] | None,
+    regime_frequency: str,
+    regime_ppy: float,
+    max_active_positions: int | None,
+    min_tenure_guard: set[str],
+    manual_holdings: list[str],
+) -> _TurnoverCostApplication:
+    """Apply turnover penalty/cap controls and build manual pipeline weights."""
+
+    target_w = bounded_weights.copy()
+    if prev_final_weights is None:
+        last_aligned = pd.Series(0.0, index=target_w.index)
+    else:
+        union_ix = prev_final_weights.index.union(target_w.index)
+        last_aligned = prev_final_weights.reindex(union_ix, fill_value=0.0)
+        target_w = target_w.reindex(union_ix, fill_value=0.0)
+
+    if (
+        lambda_tc > NUMERICAL_TOLERANCE_HIGH
+        and prev_final_weights is not None
+        and float(last_aligned.abs().sum()) > NUMERICAL_TOLERANCE_HIGH
+    ):
+        target_w = _apply_turnover_penalty(
+            target_w, last_aligned, lambda_tc, min_w_bound, max_w_bound
+        )
+
+    # Forced exits must not be diluted by turnover-penalty shrinkage.
+    # Ensure any holdings flagged for z_exit/z_exit_hard are targeted to 0.
+    if forced_exits:
+        for mgr in forced_exits:
+            if mgr in target_w.index:
+                target_w.loc[mgr] = 0.0
+        target_w = _apply_weight_bounds(target_w, min_w_bound, max_w_bound)
+
+    desired_trades = target_w - last_aligned
+    desired_turnover = float(desired_trades.abs().sum())
+    final_w = target_w.copy()
+    mandatory_entries: set[object] = set()
+    if min_funds > 0 and holdings:
+        desired_holdings_set = {str(h) for h in holdings}
+        mandatory_entries = {
+            ix
+            for ix in desired_trades.index
+            if str(ix) in desired_holdings_set
+            and abs(last_aligned.loc[ix]) <= NUMERICAL_TOLERANCE_HIGH
+            and abs(target_w.loc[ix]) > NUMERICAL_TOLERANCE_HIGH
+        }
+    max_turnover_cap = _resolve_max_turnover_cap(
+        in_df,
+        max_turnover_cfg=max_turnover_cfg,
+        regime_settings=regime_settings,
+        benchmarks_cfg=benchmarks_cfg,
+        regime_frequency=regime_frequency,
+        regime_ppy=regime_ppy,
+    )
+    if (
+        max_turnover_cap < 1.0 - NUMERICAL_TOLERANCE_HIGH
+        and desired_turnover > max_turnover_cap + NUMERICAL_TOLERANCE_HIGH
+    ):
+        # Respect turnover cap, but prioritise forced exits (soft/hard z exits).
+        # This prevents below-threshold holdings from lingering indefinitely
+        # solely because turnover is capped.
+        forced_ix = [
+            ix
+            for ix in desired_trades.index
+            if str(ix) in forced_exits or ix in mandatory_entries
+        ]
+        mandatory = desired_trades.copy()
+        if forced_ix:
+            # Keep only forced exit trades in mandatory bucket
+            mandatory.loc[[ix for ix in mandatory.index if ix not in forced_ix]] = 0.0
+        else:
+            mandatory[:] = 0.0
+
+        mandatory_turnover = float(mandatory.abs().sum())
+        optional = desired_trades - mandatory
+        optional_turnover = float(optional.abs().sum())
+
+        if mandatory_turnover >= max_turnover_cap - NUMERICAL_TOLERANCE_HIGH:
+            # Forced exits alone consume (or exceed) the cap; execute forced exits
+            # and skip all other trades.
+            final_w = last_aligned + mandatory
+        else:
+            remaining_turnover = max_turnover_cap - mandatory_turnover
+            scale = remaining_turnover / optional_turnover if optional_turnover > 0 else 0.0
+            scale = max(0.0, min(1.0, scale))
+            final_w = last_aligned + mandatory + optional * scale
+    # Ensure bounds and normalisation remain satisfied
+    final_w = _apply_weight_bounds(final_w, min_w_bound, max_w_bound)
+    final_w = _enforce_max_active_positions(
+        final_w, max_active_positions, protected=min_tenure_guard
+    )
+
+    # Prepare custom weights mapping in percent for _run_analysis.
+    # We keep the internal turnover-cap/bounds logic here, but reconcile the
+    # change log against the *actual* weights returned by the pipeline.
+    eps = 1e-12
+    final_w = final_w[final_w.abs() > eps]
+    if not final_w.empty:
+        total = float(final_w.sum())
+        # Preserve infeasible bound outcomes:
+        # - total > 1.0: min_weight floors too large
+        # - total < 1.0: max_weight caps too tight
+        # Only renormalise when the weights already sum (approximately) to 1.
+        if total > eps and abs(total - 1.0) <= 1e-8:
+            final_w = final_w / total
+    # Only pass the selected holdings (if still present after filtering).
+    manual_funds = [str(h) for h in manual_holdings if h in final_w.index]
+    custom = {str(k): float(v) * 100.0 for k, v in final_w.items()}
+
+    return _TurnoverCostApplication(
+        final_weights=final_w,
+        manual_funds=manual_funds,
+        custom_weights=custom,
+    )
+
+
+def _assemble_period_result(
+    *,
+    result: dict[str, Any],
+    realised_holdings: list[str],
+    period: Any,
+    missing_policy_diagnostic: Mapping[str, Any],
+    weight_engine_fallback: Any,
+    manager_changes: list[dict[str, object]],
+    period_turnover: float,
+    period_cost: float,
+    holdings_tenure: Mapping[str, int],
+    effective_weights: pd.Series,
+    eps: float,
+) -> _PeriodResultAssembly:
+    """Attach final per-period metadata and prepare next-period state."""
+
+    result["selected_funds"] = realised_holdings
+    result["period"] = (
+        period.in_start,
+        period.in_end,
+        period.out_start,
+        period.out_end,
+    )
+    result["missing_policy_diagnostic"] = dict(missing_policy_diagnostic)
+    result["weight_engine_fallback"] = weight_engine_fallback
+    result["manager_changes"] = manager_changes
+    result["turnover"] = period_turnover
+    result["transaction_cost"] = float(period_cost)
+
+    updated_tenure: dict[str, int] = {}
+    for mgr in realised_holdings:
+        mgr_str = str(mgr)
+        updated_tenure[mgr_str] = int(holdings_tenure.get(mgr_str, 0)) + 1
+    result["holding_tenure"] = dict(updated_tenure)
+
+    prev_final_weights = effective_weights[effective_weights.abs() > eps].copy()
+    return _PeriodResultAssembly(
+        result=result,
+        holdings_tenure=updated_tenure,
+        prev_final_weights=prev_final_weights,
+        prev_weights=prev_final_weights.copy(),
+    )
+
+
 class MissingPriceDataError(FileNotFoundError, ValueError):
     """Raised when CSV fallback loading fails in ``run``."""
 
@@ -2516,27 +2794,17 @@ def run(
             return weighting.weight(sf.loc[holdings], date)
 
     for pt in periods:
-        period_ts = pd.to_datetime(pt.out_end)
-
-        if cooldown_periods > 0 and cooldown_book:
-            for key in list(cooldown_book.keys()):
-                remaining = int(cooldown_book.get(key, 0)) - 1
-                if remaining <= 0:
-                    cooldown_book.pop(key, None)
-                else:
-                    cooldown_book[key] = remaining
-
-        in_df, out_df, fund_cols, _rf_col = _valid_universe(
-            df,
-            pt.in_start[:7],
-            pt.in_end[:7],
-            pt.out_start[:7],
-            pt.out_end[:7],
-            # For threshold_hold, include all funds with valid in-sample data
-            # in the score frame so they can be considered for hiring. The
-            # out-of-sample check is applied later when deciding actual holdings.
-            require_out_sample=False,
+        period_setup = _setup_period(
+            pt,
+            cooldown_periods=cooldown_periods,
+            cooldown_book=cooldown_book,
+            valid_universe=_valid_universe,
+            df=df,
         )
+        period_ts = period_setup.period_ts
+        in_df = period_setup.in_df
+        out_df = period_setup.out_df
+        fund_cols = period_setup.fund_cols
         # Even with relaxed in-sample filtering, if no fund has OOS data,
         # we cannot form a portfolio, so produce a placeholder.
         if fund_cols and isinstance(out_df, pd.DataFrame) and not out_df.empty:
@@ -3007,20 +3275,19 @@ def run(
                         holdings = [h for h in holdings if h != resolved_rf_col]
                         holdings.append(replacement)
 
-            # Compute weights using risk engine or fallback to legacy weighting
-            weights_df = _compute_weights(
-                sf, holdings, period_ts, in_df.reindex(columns=fund_cols)
-            )
-            raw_weight_series = _as_weight_series(weights_df)
-            signal_slice = sf.loc[holdings, metric] if metric in sf.columns else None
-            weight_series = _apply_policy_to_weights(weights_df, signal_slice)
-            weight_series = _ensure_holdings_weights(
-                weight_series,
-                holdings,
+            period_weights = _weight_period(
+                score_frame=sf,
+                holdings=holdings,
+                period_ts=period_ts,
+                returns_window=in_df.reindex(columns=fund_cols),
+                metric=metric,
                 min_weight=min_w_bound,
+                compute_weights=_compute_weights,
+                apply_policy_to_weights_fn=_apply_policy_to_weights,
+                ensure_holdings_weights_fn=_ensure_holdings_weights,
             )
-            weights_df = weight_series.to_frame("weight")
-            prev_weights = weight_series.astype(float)
+            raw_weight_series = period_weights.raw_weight_series
+            prev_weights = period_weights.weight_series
             # Log seed additions
             for f in holdings:
                 events.append(
@@ -3727,20 +3994,19 @@ def run(
                     }
                 )
 
-            # Compute weights using risk engine or fallback to legacy weighting
-            weights_df = _compute_weights(
-                sf, holdings, period_ts, in_df.reindex(columns=fund_cols)
-            )
-            raw_weight_series = _as_weight_series(weights_df)
-            signal_slice = sf.loc[holdings, metric] if metric in sf.columns else None
-            weight_series = _apply_policy_to_weights(weights_df, signal_slice)
-            weight_series = _ensure_holdings_weights(
-                weight_series,
-                holdings,
+            period_weights = _weight_period(
+                score_frame=sf,
+                holdings=holdings,
+                period_ts=period_ts,
+                returns_window=in_df.reindex(columns=fund_cols),
+                metric=metric,
                 min_weight=min_w_bound,
+                compute_weights=_compute_weights,
+                apply_policy_to_weights_fn=_apply_policy_to_weights,
+                ensure_holdings_weights_fn=_ensure_holdings_weights,
             )
-            weights_df = weight_series.to_frame("weight")
-            prev_weights = weight_series.astype(float)
+            raw_weight_series = period_weights.raw_weight_series
+            prev_weights = period_weights.weight_series
 
         # Natural weights (pre-bounds) for strikes on min threshold
         nat_w = raw_weight_series.reindex(prev_weights.index).fillna(0.0)
@@ -3821,22 +4087,19 @@ def run(
                         }
                     )
             if holdings:
-                # Compute weights using risk engine or fallback to legacy weighting
-                weights_df = _compute_weights(
-                    sf, holdings, period_ts, in_df.reindex(columns=fund_cols)
-                )
-                raw_weight_series = _as_weight_series(weights_df)
-                signal_slice = (
-                    sf.loc[holdings, metric] if metric in sf.columns else None
-                )
-                weight_series = _apply_policy_to_weights(weights_df, signal_slice)
-                weight_series = _ensure_holdings_weights(
-                    weight_series,
-                    holdings,
+                period_weights = _weight_period(
+                    score_frame=sf,
+                    holdings=holdings,
+                    period_ts=period_ts,
+                    returns_window=in_df.reindex(columns=fund_cols),
+                    metric=metric,
                     min_weight=min_w_bound,
+                    compute_weights=_compute_weights,
+                    apply_policy_to_weights_fn=_apply_policy_to_weights,
+                    ensure_holdings_weights_fn=_ensure_holdings_weights,
                 )
-                weights_df = weight_series.to_frame("weight")
-                prev_weights = weight_series.astype(float)
+                raw_weight_series = period_weights.raw_weight_series
+                prev_weights = period_weights.weight_series
                 nat_w = raw_weight_series.reindex(prev_weights.index).fillna(0.0)
 
         # Enforce minimum holdings after low-weight removals/replacements.
@@ -3852,22 +4115,19 @@ def run(
                 events=events,
             )
             if holdings and prev_weights is not None:
-                # Compute weights using risk engine or fallback to legacy weighting
-                weights_df = _compute_weights(
-                    sf, holdings, period_ts, in_df.reindex(columns=fund_cols)
-                )
-                raw_weight_series = _as_weight_series(weights_df)
-                signal_slice = (
-                    sf.loc[holdings, metric] if metric in sf.columns else None
-                )
-                weight_series = _apply_policy_to_weights(weights_df, signal_slice)
-                weight_series = _ensure_holdings_weights(
-                    weight_series,
-                    holdings,
+                period_weights = _weight_period(
+                    score_frame=sf,
+                    holdings=holdings,
+                    period_ts=period_ts,
+                    returns_window=in_df.reindex(columns=fund_cols),
+                    metric=metric,
                     min_weight=min_w_bound,
+                    compute_weights=_compute_weights,
+                    apply_policy_to_weights_fn=_apply_policy_to_weights,
+                    ensure_holdings_weights_fn=_ensure_holdings_weights,
                 )
-                weights_df = weight_series.to_frame("weight")
-                prev_weights = weight_series.astype(float)
+                raw_weight_series = period_weights.raw_weight_series
+                prev_weights = period_weights.weight_series
                 nat_w = raw_weight_series.reindex(prev_weights.index).fillna(0.0)
 
         # Apply weight bounds and renormalise
@@ -3883,117 +4143,29 @@ def run(
             else [str(x) for x in bounded_w.index.tolist()]
         )
 
-        # Enforce optional turnover cap by scaling trades towards target
-        target_w = bounded_w.copy()
-        if prev_final_weights is None:
-            last_aligned = pd.Series(0.0, index=target_w.index)
-        else:
-            union_ix = prev_final_weights.index.union(target_w.index)
-            last_aligned = prev_final_weights.reindex(union_ix, fill_value=0.0)
-            target_w = target_w.reindex(union_ix, fill_value=0.0)
-
-        if (
-            lambda_tc > NUMERICAL_TOLERANCE_HIGH
-            and prev_final_weights is not None
-            and float(last_aligned.abs().sum()) > NUMERICAL_TOLERANCE_HIGH
-        ):
-            target_w = _apply_turnover_penalty(
-                target_w, last_aligned, lambda_tc, min_w_bound, max_w_bound
-            )
-
-        # Forced exits must not be diluted by turnover-penalty shrinkage.
-        # Ensure any holdings flagged for z_exit/z_exit_hard are targeted to 0.
-        if forced_exits:
-            for mgr in forced_exits:
-                if mgr in target_w.index:
-                    target_w.loc[mgr] = 0.0
-            target_w = _apply_weight_bounds(target_w, min_w_bound, max_w_bound)
-
-        desired_trades = target_w - last_aligned
-        desired_turnover = float(desired_trades.abs().sum())
-        final_w = target_w.copy()
-        mandatory_entries: set[object] = set()
-        if min_funds > 0 and holdings:
-            desired_holdings_set = {str(h) for h in holdings}
-            mandatory_entries = {
-                ix
-                for ix in desired_trades.index
-                if str(ix) in desired_holdings_set
-                and abs(last_aligned.loc[ix]) <= NUMERICAL_TOLERANCE_HIGH
-                and abs(target_w.loc[ix]) > NUMERICAL_TOLERANCE_HIGH
-            }
-        max_turnover_cap = _resolve_max_turnover_cap(
-            in_df,
+        turnover_cost = _apply_turnover_and_cost(
+            bounded_weights=bounded_w,
+            prev_final_weights=prev_final_weights,
+            lambda_tc=lambda_tc,
+            min_w_bound=min_w_bound,
+            max_w_bound=max_w_bound,
+            forced_exits=forced_exits,
+            min_funds=min_funds,
+            holdings=holdings,
+            in_df=in_df,
             max_turnover_cfg=max_turnover_cfg,
             regime_settings=regime_settings,
             benchmarks_cfg=benchmarks_cfg_mapping,
             regime_frequency=regime_frequency,
             regime_ppy=regime_ppy,
+            max_active_positions=max_active_positions,
+            min_tenure_guard=min_tenure_guard,
+            manual_holdings=manual_holdings,
         )
-        if (
-            max_turnover_cap < 1.0 - NUMERICAL_TOLERANCE_HIGH
-            and desired_turnover > max_turnover_cap + NUMERICAL_TOLERANCE_HIGH
-        ):
-            # Respect turnover cap, but prioritise forced exits (soft/hard z exits).
-            # This prevents below-threshold holdings from lingering indefinitely
-            # solely because turnover is capped.
-            forced_ix = [
-                ix
-                for ix in desired_trades.index
-                if str(ix) in forced_exits or ix in mandatory_entries
-            ]
-            mandatory = desired_trades.copy()
-            if forced_ix:
-                # Keep only forced exit trades in mandatory bucket
-                mandatory.loc[[ix for ix in mandatory.index if ix not in forced_ix]] = (
-                    0.0
-                )
-            else:
-                mandatory[:] = 0.0
-
-            mandatory_turnover = float(mandatory.abs().sum())
-            optional = desired_trades - mandatory
-            optional_turnover = float(optional.abs().sum())
-
-            if mandatory_turnover >= max_turnover_cap - NUMERICAL_TOLERANCE_HIGH:
-                # Forced exits alone consume (or exceed) the cap; execute forced exits
-                # and skip all other trades.
-                final_w = last_aligned + mandatory
-            else:
-                remaining_turnover = max_turnover_cap - mandatory_turnover
-                scale = (
-                    remaining_turnover / optional_turnover
-                    if optional_turnover > 0
-                    else 0.0
-                )
-                scale = max(0.0, min(1.0, scale))
-                final_w = last_aligned + mandatory + optional * scale
-        # Ensure bounds and normalisation remain satisfied
-        final_w = _apply_weight_bounds(final_w, min_w_bound, max_w_bound)
-        final_w = _enforce_max_active_positions(
-            final_w, max_active_positions, protected=min_tenure_guard
-        )
-
-        # Prepare custom weights mapping in percent for _run_analysis.
-        # We keep the internal turnover-cap/bounds logic here, but reconcile the
-        # change log against the *actual* weights returned by the pipeline.
+        final_w = turnover_cost.final_weights
+        manual_funds = turnover_cost.manual_funds
+        custom = turnover_cost.custom_weights
         eps = 1e-12
-        final_w = final_w[final_w.abs() > eps]
-        if not final_w.empty:
-            total = float(final_w.sum())
-            # Preserve infeasible bound outcomes:
-            # - total > 1.0: min_weight floors too large
-            # - total < 1.0: max_weight caps too tight
-            # Only renormalise when the weights already sum (approximately) to 1.
-            if total > eps and abs(total - 1.0) <= 1e-8:
-                final_w = final_w / total
-        # Only pass the selected holdings (if still present after filtering).
-        manual_funds: list[str] = [
-            str(h) for h in manual_holdings if h in final_w.index
-        ]
-        custom: dict[str, float] = {
-            str(k): float(v) * 100.0 for k, v in final_w.items()
-        }
 
         res = _call_pipeline_with_diag(
             df,
@@ -4299,31 +4471,23 @@ def run(
                         pd.DataFrame({"user": rebalance_raw}), rf_out
                     )["user"]
 
-        res_dict["selected_funds"] = realised_holdings
-        res_dict["period"] = (
-            pt.in_start,
-            pt.in_end,
-            pt.out_start,
-            pt.out_end,
+        period_result = _assemble_period_result(
+            result=res_dict,
+            realised_holdings=realised_holdings,
+            period=pt,
+            missing_policy_diagnostic=missing_policy_diagnostic,
+            weight_engine_fallback=weight_engine_fallback,
+            manager_changes=events,
+            period_turnover=period_turnover,
+            period_cost=period_cost,
+            holdings_tenure=holdings_tenure,
+            effective_weights=effective_w,
+            eps=eps,
         )
-        res_dict["missing_policy_diagnostic"] = dict(missing_policy_diagnostic)
-        res_dict["weight_engine_fallback"] = weight_engine_fallback
-        # Attach per-period manager change log and execution stats
-        res_dict["manager_changes"] = events
-        res_dict["turnover"] = period_turnover
-        res_dict["transaction_cost"] = float(period_cost)
-        updated_tenure: dict[str, int] = {}
-        for mgr in realised_holdings:
-            mgr_str = str(mgr)
-            updated_tenure[mgr_str] = int(holdings_tenure.get(mgr_str, 0)) + 1
-        holdings_tenure = updated_tenure
-        res_dict["holding_tenure"] = dict(holdings_tenure)
-
-        # Persist realised weights for next-period turnover logic.
-        # Store only non-zero holdings so indices do not accumulate across the
-        # union-alignment used for turnover computations.
-        prev_final_weights = effective_w[effective_w.abs() > eps].copy()
-        prev_weights = prev_final_weights.copy()
+        res_dict = period_result.result
+        holdings_tenure = period_result.holdings_tenure
+        prev_final_weights = period_result.prev_final_weights
+        prev_weights = period_result.prev_weights
         # Append this period's result (was incorrectly outside loop causing only last period kept)
         results.append(res_dict)
     # Update complete for this period; next loop will use prev_weights
