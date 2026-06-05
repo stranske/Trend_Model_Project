@@ -188,21 +188,16 @@ class DataSettings(BaseModel):
     """Data input configuration validated at startup."""
 
     csv_path: Path | None = Field(default=None)
-    indices_glob: str | None = Field(default=None)
     universe_membership_path: Path | None = Field(default=None)
     managers_glob: str | None = Field(default=None)
     date_column: str = Field()
-    price_column: str | None = Field(default=None)
     frequency: Literal["D", "W", "M", "ME"] = Field()
-    timezone: str | None = Field(default=None)
-    currency: str | None = Field(default=None)
     missing_policy: str | Mapping[str, str] | None = Field(default=None)
     missing_limit: int | Mapping[str, int | None] | None = Field(default=None)
     missing_fill_limit: int | Mapping[str, int | None] | None = Field(default=None)
     na_as_zero: Mapping[str, Any] | None = Field(default=None)
     risk_free_column: str | None = Field(default=None)
     allow_risk_free_fallback: bool | None = Field(default=None)
-    lookback_required: int | None = Field(default=None)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -211,9 +206,18 @@ class DataSettings(BaseModel):
     def _alias_missing_fill_limit(cls, data: Any) -> Any:
         if not isinstance(data, Mapping):
             return data
-        if "missing_fill_limit" not in data or "missing_limit" in data:
-            return data
-        return {**data, "missing_limit": data["missing_fill_limit"]}
+        cleaned = dict(data)
+        for legacy_key in (
+            "indices_glob",
+            "price_column",
+            "timezone",
+            "currency",
+            "lookback_required",
+        ):
+            cleaned.pop(legacy_key, None)
+        if "missing_fill_limit" not in cleaned or "missing_limit" in cleaned:
+            return cleaned
+        return {**cleaned, "missing_limit": cleaned["missing_fill_limit"]}
 
     @field_validator("csv_path", mode="before")
     @classmethod
@@ -538,13 +542,21 @@ class PortfolioSettings(BaseModel):
 class RiskSettings(BaseModel):
     """Risk target configuration for volatility control."""
 
-    enabled: bool | None = Field(default=None)
     target_vol: float = Field()
-    window: Mapping[str, Any] | None = Field(default=None)
     floor_vol: float = Field(default=0.015)
     warmup_periods: int = Field(default=0)
 
     model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_legacy_runtime_flags(cls, data: Any) -> Any:
+        if not isinstance(data, Mapping):
+            return data
+        cleaned = dict(data)
+        cleaned.pop("enabled", None)
+        cleaned.pop("window", None)
+        return cleaned
 
     @field_validator("target_vol", mode="before")
     @classmethod
