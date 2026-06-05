@@ -48,9 +48,9 @@ def _build_metadata(index: pd.DatetimeIndex) -> MarketDataMetadata:
 def test_normalise_policy_alias_variants():
     assert _normalise_policy_alias(None) == DEFAULT_POLICY_FALLBACK
     assert _normalise_policy_alias(" ") == DEFAULT_POLICY_FALLBACK
-    assert _normalise_policy_alias("both") == "ffill"
-    assert _normalise_policy_alias("BackFill") == "ffill"
-    assert _normalise_policy_alias("zero_fill") == "zero"
+    assert _normalise_policy_alias("both") == "both"
+    assert _normalise_policy_alias("BackFill") == "backfill"
+    assert _normalise_policy_alias("zero_fill") == "zero_fill"
     assert _normalise_policy_alias("custom") == "custom"
 
 
@@ -136,7 +136,7 @@ def test_validate_payload_success(monkeypatch):
         origin="fixture.csv",
         errors="log",
         include_date_column=False,
-        missing_policy={"alpha": "both", "*": None},
+        missing_policy={"alpha": "ffill", "*": None},
         missing_limit={"alpha": "10", "beta": "none"},
     )
 
@@ -234,7 +234,7 @@ def test_load_csv_validates_payload(tmp_path, monkeypatch):
 
     result = data_module.load_csv(
         str(path),
-        nan_policy="zeros",
+        nan_policy="zero",
         nan_limit="3",
         missing_limit=None,
     )
