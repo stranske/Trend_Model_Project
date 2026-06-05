@@ -313,11 +313,15 @@ def _stringify_value(value: Any) -> str:
         return str(value)
 
 
+def _is_numeric_value(value: Any) -> bool:
+    return isinstance(value, numbers.Number) and not isinstance(value, bool)
+
+
 def _values_equal(left: Any, right: Any, float_tol: float) -> bool:
+    if _is_numeric_value(left) and _is_numeric_value(right):
+        return math.isclose(left, right, rel_tol=float_tol, abs_tol=float_tol)
     if type(left) is not type(right):
         return False
-    if isinstance(left, numbers.Number) and isinstance(right, numbers.Number):
-        return math.isclose(left, right, rel_tol=float_tol, abs_tol=float_tol)
     if isinstance(left, Mapping) and isinstance(right, Mapping):
         if set(left.keys()) != set(right.keys()):
             return False
