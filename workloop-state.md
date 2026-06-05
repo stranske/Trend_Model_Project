@@ -1,16 +1,3 @@
-## 2026-06-05T02:14Z - opener (codex): issue #5439 shared CLI helpers
-
-- Repo/issue: `stranske/Trend_Model_Project` issue `#5439` (`T9 - Consolidate the 3 byte-equivalent CLI helpers`).
-- Branch/worktree: `codex/issue-5439-cli-helpers` in `/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/trend-5439-cli-helpers`, based on `origin/phase-3` at `44cb93c0`.
-- Selection: required priority search found only scoped high-priority Trend #5343 and LMS #180; normal/low priority searches were empty. Liveness guard still had candidates, raw opener cap was below 5, and the approved queue's remaining Trend CLI-docs item was already closed/merged via #5476/#5477. #5439 was the oldest unlinked implementation candidate outside scoped blockers and existing linked/merged PRs.
-- Cap/drain preflight: cap-health after infra repair showed opener-owned PRs #5440 runner-failed/scoped on #5389 strict-config product decision, #5492 with green Gate/source-complete evidence and closer-drain candidate status, and #5506 draining after `opener-repair-infra-stalls.py` added `agent:retry` and dispatched Gate Followups.
-- Verification before touch: `_apply_trend_spec_preset`, `_apply_universe_mask`, and `_attach_universe_paths` were present in both `src/trend/cli.py` and `src/trend_analysis/cli.py`; the five named non-target helpers in `trend_analysis/cli.py` are already compatibility delegates into `trend.cli`. The three target helpers were functionally aligned, with minor defensive-diagnostics differences retained in the shared implementation.
-- Implementation: added `src/trend/cli_helpers.py`, imported the three shared helper objects from both CLI modules, removed the duplicate local bodies, and added `tests/test_cli_helpers_shared.py` identity coverage proving both CLIs expose the same function objects.
-- Validation: `PYTHONPATH=src python -m pytest tests/test_cli_helpers.py tests/test_cli_helpers_shared.py -q` -> 6 passed. `PYTHONPATH=src python -m pytest tests/test_cli.py tests/test_cli_module.py tests/test_cli_helpers_shared.py -q` -> 20 passed. Focused `ruff` and `git diff --check` passed.
-- Deliberate-break gate: temporarily reintroduced a local `_apply_universe_mask` in `trend_analysis/cli.py`; `tests/test_cli_helpers_shared.py::test_cli_helpers_are_shared_objects` failed on the identity assertion. Removed the temporary shadow and reran validation green.
-- Known validation limitation: literal old issue paths `tests/test_run_analysis_cli.py tests/test_run_multi_analysis_cli.py` are absent in this checkout; attempting them caused pytest to load conftest and hit the existing local NumPy 2.x/compiled-extension ABI warnings before reporting the missing files.
-- Current state: ready to commit, push, and open a ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`; post-open action is cap-health/infra repair if Gate Followups evidence is missing.
-
 ## 2026-06-04T10:18Z - closer (codex): PR #5490 full-suite stale test repair
 
 - Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5423`, PR `#5490`, branch `codex/issue-5423-legacy-runners`.
