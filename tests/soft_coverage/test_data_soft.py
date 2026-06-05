@@ -58,9 +58,9 @@ def sample_metadata() -> MarketDataMetadata:
 def test_normalise_policy_alias_variants() -> None:
     assert _normalise_policy_alias(None) == DEFAULT_POLICY_FALLBACK
     assert _normalise_policy_alias("  ") == DEFAULT_POLICY_FALLBACK
-    assert _normalise_policy_alias("both") == "ffill"
-    assert _normalise_policy_alias("Backfill") == "ffill"
-    assert _normalise_policy_alias("zeros") == "zero"
+    assert _normalise_policy_alias("both") == "both"
+    assert _normalise_policy_alias("Backfill") == "backfill"
+    assert _normalise_policy_alias("zeros") == "zeros"
     assert _normalise_policy_alias("Custom") == "custom"
 
 
@@ -191,7 +191,7 @@ def test_validate_payload_normalises_inputs(
     assert result["FundA"].tolist() == [10.0, -2.0, 0.5]
     assert captured["source"] == "upload.csv"
     assert captured["policy"] == {
-        "FundA": "ffill",
+        "FundA": "both",
         "FundB": DEFAULT_POLICY_FALLBACK,
     }
     assert captured["limit"] == {"FundA": 7, "FundB": None, "*": 2}
