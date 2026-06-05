@@ -78,14 +78,18 @@ from trend_analysis.presets import (
     get_trend_preset,
     list_preset_slugs,
 )
+from trend.cli_helpers import (
+    _apply_trend_spec_preset,
+    _apply_universe_mask,
+    _attach_universe_paths,
+)
 from trend_analysis.reporting.portfolio_series import select_primary_portfolio_series
 from trend_analysis.reporting.run_artifacts import write_run_artifacts
 from trend_analysis.signal_presets import (
-    TrendSpecPreset,
     get_trend_spec_preset,
     list_trend_spec_presets,
 )
-from trend_analysis.universe_catalog import NamedUniverse, load_universe
+from trend_analysis.universe_catalog import load_universe
 from trend_analysis.util.hash import working_run_id
 from trend_analysis.viz.artifacts import extract_bundle_zip
 from trend_model.spec import ensure_run_spec
@@ -133,110 +137,6 @@ def _report_legacy_pipeline_diagnostic(
         reason_code=diagnostic.reason_code,
         **safe_fields,
     )
-
-
-def _apply_trend_spec_preset(cfg: Any, preset: TrendSpecPreset) -> None:
-    """Merge TrendSpec preset parameters into ``cfg`` in-place."""
-
-    payload = preset.as_signal_config()
-    if isinstance(cfg, dict):
-        existing = cfg.get("signals")
-        merged = dict(existing) if isinstance(existing, Mapping) else {}
-        merged.update(payload)
-        cfg["signals"] = merged
-        cfg["trend_spec_preset"] = preset.name
-        return
-
-    existing = getattr(cfg, "signals", None)
-    if isinstance(existing, Mapping):
-        merged = dict(existing)
-        merged.update(payload)
-    else:
-        merged = dict(payload)
-
-    try:
-        setattr(cfg, "signals", merged)
-    except ValueError:
-        object.__setattr__(cfg, "signals", merged)
-    try:
-        setattr(cfg, "trend_spec_preset", preset.name)
-    except ValueError:
-        object.__setattr__(cfg, "trend_spec_preset", preset.name)
-
-
-def _apply_universe_mask(df: pd.DataFrame, mask: pd.DataFrame, *, date_column: str) -> pd.DataFrame:
-    """Apply a time-varying membership mask to returns data."""
-
-    if mask.empty:
-        return df
-    working = df.copy()
-    lookup = {str(col).lower(): col for col in working.columns}
-    try:
-        date_col = lookup[date_column.lower()]
-    except KeyError as exc:  # pragma: no cover - defensive guard
-        raise KeyError(f"Date column '{date_column}' is missing from the returns data") from exc
-
-    working[date_col] = pd.to_datetime(working[date_col])
-    working = working.set_index(date_col)
-    aligned_mask = mask.reindex(index=working.index, fill_value=False)
-
-    missing = [col for col in aligned_mask.columns if col not in working.columns]
-    if missing:
-        preview = ", ".join(missing[:3])
-        raise KeyError(
-            "Universe members missing from returns data: "
-            f"{preview}" + ("..." if len(missing) > 3 else "")
-        )
-
-    masked = working.copy()
-    masked.loc[:, aligned_mask.columns] = masked.loc[:, aligned_mask.columns].where(aligned_mask)
-    masked.reset_index(inplace=True)
-    return masked
-
-
-def _attach_universe_paths(cfg: Any, spec: NamedUniverse, *, csv_path: str | None) -> None:
-    """Persist the selected universe paths onto ``cfg.data`` when possible."""
-
-    membership_value = str(spec.membership_path)
-    csv_value = csv_path
-    data_section = getattr(cfg, "data", None)
-    if isinstance(data_section, Mapping):
-        merged = dict(data_section)
-        merged["universe_membership_path"] = membership_value
-        if csv_value:
-            merged.setdefault("csv_path", csv_value)
-        try:
-            setattr(cfg, "data", merged)
-        except Exception:
-            object.__setattr__(cfg, "data", merged)
-        return
-
-    if data_section is None:
-        payload: dict[str, str] = {"universe_membership_path": membership_value}
-        if csv_value:
-            payload["csv_path"] = csv_value
-        try:
-            setattr(cfg, "data", payload)
-        except Exception:
-            object.__setattr__(cfg, "data", payload)
-        return
-
-    try:
-        setattr(data_section, "universe_membership_path", membership_value)
-    except Exception:
-        try:
-            object.__setattr__(data_section, "universe_membership_path", membership_value)
-        except Exception:
-            data_section = None
-
-    if csv_value and data_section is not None:
-        try:
-            setattr(data_section, "csv_path", csv_value)
-        except Exception:
-            try:
-                object.__setattr__(data_section, "csv_path", csv_value)
-            except Exception:
-                pass
 
 
 def _run_environment_check() -> int:
