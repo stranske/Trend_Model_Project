@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -32,7 +33,11 @@ _DECLARED_PORTFOLIO_KEYS = {
 }
 
 _CONSUMED_PORTFOLIO_KEYS = {
+    "policy",
     "selection_mode",
+    "target_n",
+    "entry_soft_strikes",
+    "entry_eligible_strikes",
     "random_n",
     "manual_list",
     "indices_list",
@@ -46,6 +51,7 @@ _CONSUMED_PORTFOLIO_KEYS = {
     "rank.bottom_k",
     "rank.score_by",
     "rank.transform",
+    "rank.limit_one_per_firm",
     "rank.blended_weights",
     "selector",
     "selector.name",
@@ -116,6 +122,7 @@ def lint_portfolio_keys(
     return sorted(f"portfolio.{path}" for path in unknown)
 
 
+@lru_cache(maxsize=None)
 def _load_defaults(path: Path) -> Mapping[str, Any]:
     payload = yaml.safe_load(path.read_text(encoding="utf-8"))
     return payload if isinstance(payload, Mapping) else {}
