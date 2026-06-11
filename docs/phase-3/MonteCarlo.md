@@ -652,11 +652,14 @@ valid values (`monte_carlo: null` fails validation).
 
 ### Output Bundle Structure
 
-`mc run` uses a flat output bundle. The exporter writes every result table into
-the bundle root and `manifest.json` records the exact file map under
-`outputs.files`. It does not write a separate frozen scenario YAML file; the
-manifest records scenario metadata, runtime overrides, data path, settings, row
-counts, and the exported filenames.
+`mc run` uses a flat output bundle. The CLI export writes `results.<fmt>` and
+`summary.<fmt>` into the bundle root, and `manifest.json` records that exact CLI
+file map under `outputs.files`. Scenario-configured runner exports may also
+write optional diagnostics, pooled/cross-fold summaries, aggregation files, and
+NAV-path artifacts into a root-level bundle. The command does not write a
+separate frozen scenario YAML file; the manifest records scenario metadata,
+runtime overrides, data path, settings, row counts, and the CLI-exported
+filenames.
 
 ```
 outputs/monte_carlo/hf_equity_ls_10y/2026-01-03_143052/

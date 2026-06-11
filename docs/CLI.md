@@ -179,15 +179,13 @@ Runtime overrides include `--data` for an alternate CSV/Parquet input,
 repeatable), `--n-paths`, `--jobs`, `--seed`, `--dry-run`, `--no-progress`, and
 `--registry`.
 
-`mc run` writes a flat bundle into the output directory. The canonical root-level
-files are `manifest.json`, `results.<fmt>`, `summary.<fmt>`, optional
-`diagnostics.<fmt>`, optional pooled/cross-fold summaries, and optional
-`nav_paths.parquet` or `nav_paths_fold_<id>.parquet` files. Aggregation exports
-also use root-level files: `path_summary.<fmt>`, `per_strategy_stats.<fmt>`,
-`per_strategy_path.<fmt>`, `quantiles.<fmt>`, `summary_quantiles.<fmt>`,
-`breach_probabilities.<fmt>`, and `expected_shortfall.<fmt>`. The manifest's
-`outputs.files` map is the file index for the bundle; no separate frozen
-scenario YAML file is produced.
+`mc run` writes a flat bundle into the output directory. The CLI-managed bundle
+contains `manifest.json`, `results.<fmt>`, and `summary.<fmt>` files at the root;
+the manifest's `outputs.files` map indexes those CLI exports. Scenario-configured
+runner exports may also write optional root-level diagnostics, pooled/cross-fold
+summaries, aggregation files such as `path_summary.<fmt>` and
+`summary_quantiles.<fmt>`, and `nav_paths.parquet` or
+`nav_paths_fold_<id>.parquet`. No separate frozen scenario YAML file is produced.
 
 ```bash
 python -m trend_analysis.cli mc run --scenario cost_regime_example \
