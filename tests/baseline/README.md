@@ -67,7 +67,7 @@ test_coverage_manifest.py # emits coverage.md; guards catalog quality
 | # | Finding | Verdict |
 |---|---|---|
 | 1 | Holdings fixed at 20 regardless of `rank.n` / `selector.top_n` / `selection_mode` | **Open — intent clarified, fix pending.** Owner policy: in *fixed-count* mode `rank.n` is irrelevant (the fixed count governs); in *variable-count* mode the ranked selection count must MATCH that period's target holdings. Current multi-period path applies neither (holds all 20). Root cause not yet definitively pinned (the multi-period selection-count linkage); needs a careful, results-affecting fix to core selection logic. `rank_n_down` stays report-only until fixed. |
-| 2 | `regime.enabled` toggle is a no-op | **Not a bug** — regime overrides apply only when regime=="Risk-Off" (pipeline_helpers.py:277); demo data never triggers it. Add a forced-Risk-Off scenario. |
+| 2 | `regime.enabled` toggle is a no-op in the demo fixture | **Fixture gap** — scalar `portfolio.max_turnover` only bypasses regime-specific cap lookup; it does not disable regime-aware selection or weight overrides. The demo fixture does not yet exercise a regime-sensitive allocation path, so this toggle remains report-only until a regime-conditional scenario is added. |
 | 3 | `rf_rate_annual` doesn't move Sharpe | **FIXED 2026-05-30** — per-fund metrics hardcoded rf=0 (export/__init__.py); now use aggregated rf_in/rf_out. `rf_up` scenario enforced. |
 | 4 | `max_weight=0.03` → max weight 0.0476 | **Open — needs scope decision.** When `max_weight × N < 1` the model silently scales weights *past* the cap instead of holding cash. A hard "infeasible → error" guard was tried but reverted: it breaks ~47 tests and blocks legitimately small portfolios (e.g. 2 funds at 25% cap, which should just hold ~50% cash). Choice: (a) error only when full investment is explicitly required, (b) respect cap + hold cash, (c) error on all cap×N<1. Invariant stays feasibility-aware. |
 | 5 | Fund weights sum to ~0.95 | **Not a bug** — intentional cash allocation, tracked as `cash_weight` (portfolio.py:558). |
@@ -76,7 +76,8 @@ test_coverage_manifest.py # emits coverage.md; guards catalog quality
 ### Harness refinements queued (from findings)
 - rf check should read the *reported* Sharpe, not the rf=0 derived one (Finding 3).
 - weight-sum invariant should be cash-aware: `weight_sum + cash_weight ≈ 1` (Finding 5).
-- add a forced-Risk-Off regime scenario so regime wiring is exercised (Finding 2).
+- add a regime-sensitive scenario so multi-period regime allocation and
+  turnover-cap wiring are exercised (Finding 2).
 
 ## Not yet done (planned)
 

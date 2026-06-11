@@ -146,7 +146,7 @@ Volatility targeting and basic constraints live under the `vol_adjust` and
 | `vol_adjust.window.lambda` | float | EWMA decay factor when `decay: ewma` (0 < λ < 1). |
 | `vol_adjust.floor_vol` | float | Minimum annualised volatility per asset to avoid excessive leverage. |
 | `vol_adjust.warmup_periods` | integer | Number of initial rows with zero exposure after re-scaling. |
-| `portfolio.max_turnover` | float | Turnover cap (fraction of the book) enforced at each rebalance. |
+| `portfolio.max_turnover` | float or mapping | Turnover cap (fraction of the book) enforced at each rebalance. A mapping may provide regime-specific caps keyed by labels such as `Risk-On` and `Risk-Off`. |
 | `portfolio.constraints.long_only` | bool | Clip negative weights before normalisation; relevant for `custom_weights` or weight engines configured to allow shorts (e.g., `robust_mv` with `min_weight < 0`). |
 | `portfolio.constraints.max_weight` | float | Maximum weight per asset before normalisation. |
 
@@ -305,6 +305,14 @@ column to the input data or pointing `regime.proxy` at a custom series in the
 indices bundle. When using the volatility method the threshold is interpreted as
 annualised volatility when `annualise_volatility: true` (set to `false` to work
 with per-period figures).
+
+In multi-period portfolio runs, regime detection changes allocation behavior
+through regime-aware selection, weighting, and turnover-cap paths. A
+regime-conditional `portfolio.max_turnover` mapping, such as separate Risk-On
+and Risk-Off caps, resolves to the current in-sample regime before each
+rebalance. Scalar `portfolio.max_turnover` values are applied directly instead
+of looking up a regime-specific cap; they do not disable the other regime-aware
+allocation paths.
 
 ## 15. Further help
 
