@@ -2241,16 +2241,19 @@ def run(
             return None
         return parsed if parsed > 0 else None
 
+    inclusion_approach = str(rank_cfg.get("inclusion_approach", "top_n"))
     rank_n = _parse_positive_int(rank_cfg.get("n"))
-    target_n = int(
-        th_cfg.get(
-            "target_n",
-            portfolio_cfg.get(
-                "target_n",
-                rank_n if rank_n is not None else cfg.portfolio.get("random_n", 8),
-            ),
-        )
-    )
+    explicit_target_n = th_cfg.get("target_n")
+    if explicit_target_n is None:
+        explicit_target_n = portfolio_cfg.get("target_n")
+    if explicit_target_n is not None:
+        target_n_source = explicit_target_n
+    elif inclusion_approach == "top_n" and rank_n is not None:
+        target_n_source = rank_n
+    else:
+        target_n_source = cfg.portfolio.get("random_n", 8)
+    target_n = int(target_n_source)
+    target_n_is_explicit = explicit_target_n is not None or inclusion_approach == "top_n"
     seed_metric = cast(
         str,
         (cfg.portfolio.get("selector", {}) or {})
@@ -2259,7 +2262,6 @@ def run(
     )
     selector = create_selector_by_name("rank", top_n=target_n, rank_column=seed_metric)
 
-    inclusion_approach = str(rank_cfg.get("inclusion_approach", "top_n"))
     rank_pct = float(rank_cfg.get("pct", 0.10))  # For top_pct mode
     rank_threshold = float(rank_cfg.get("threshold", 1.0))  # For threshold mode
     rank_score_by = str(rank_cfg.get("score_by", "blended"))
@@ -2365,7 +2367,7 @@ def run(
         weighting_scheme,
     ) = _resolve_portfolio_weighting(portfolio_for_weighting)
 
-    policy_cfg = cast(dict[str, Any], cfg.portfolio.get("weight_policy", {}))
+    policy_cfg = cast(dict[str, Any], cfg.portfolio.get("weight_policy") or {})
     policy_mode = str(policy_cfg.get("mode", policy_cfg.get("policy", "drop"))).lower()
     min_assets_policy = int(policy_cfg.get("min_assets", 1) or 0)
 
@@ -3224,13 +3226,16 @@ def run(
                             pass
 
                 # Cap to the requested target size before applying other constraints.
-                if len(holdings) > target_n:
+                # ``portfolio.rank.n`` is only a target for top_n mode; serialized
+                # top_pct/threshold configs may carry an inert ``n`` field.
+                if target_n_is_explicit and len(holdings) > target_n:
                     holdings = holdings[:target_n]
                 # Enforce one-per-firm on seed
                 holdings = _dedupe_one_per_firm_with_events(
                     sf, holdings, metric, events
                 )
-                desired_seed = min(max_funds, target_n)
+                desired_target = target_n if target_n_is_explicit else max_funds
+                desired_seed = min(max_funds, desired_target)
                 # If we're still above the desired size, trim by zscore (best-first).
                 if len(holdings) > desired_seed:
                     zsorted = (
@@ -4291,28 +4296,6 @@ def run(
                 labels=[c for c in effective_w.index if str(c) not in manual_set],
                 errors="ignore",
             )
-
-        # The downstream single-period pipeline may return a non-empty manual
-        # weight mapping even when it retained only a small subset of the
-        # multi-period selector's holdings. In that case preserve the
-        # multi-period selection contract by using the bounded intended weights.
-        if used_pipeline_weights and manual_holdings:
-            manual_set = {str(x) for x in manual_holdings}
-            realised_manual = {
-                str(x) for x in effective_w.index if str(x) in manual_set
-            }
-            if len(realised_manual) < len(manual_set):
-                effective_w = final_w.copy()
-                effective_w = effective_w[effective_w.abs() > eps]
-                if drop_cols:
-                    effective_w = effective_w.drop(
-                        labels=list(drop_cols), errors="ignore"
-                    )
-                effective_w = effective_w.drop(
-                    labels=[c for c in effective_w.index if str(c) not in manual_set],
-                    errors="ignore",
-                )
-                used_pipeline_weights = False
 
         # Some pipeline fallbacks can yield a populated-but-zero weight mapping.
         # Treat that as unusable and fall back to the intended weights.

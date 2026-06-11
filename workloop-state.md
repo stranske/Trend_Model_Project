@@ -1,13 +1,3 @@
-## 2026-06-11T07:18:24Z - opener (codex): issue #5531 multi-period rank fund-count limits
-
-- Repo/issue: `stranske/Trend_Model_Project` #5531 (`Wire portfolio.rank.n (and multi_period.max_funds) into the multi-period fund-selection path`).
-- Branch/worktree: `codex/issue-5531-rank-n` in `~/.codex/automations/pd-workloop-resume/worktrees/trend-5531-rank-n`.
-- Selection: raw opener cap was below 5 after cap-health classified existing opener PRs #5530 and Manager-Database #1154 as draining. Scoped blockers remained Trend #5343 and LMS #180. Earlier high/normal queue items were already linked, merged, or closed; Travel-Plan-Permission #1185 was created then closed as a duplicate of already-merged PR #1180. #5531 was the next unlinked approved implementation candidate outside scoped blockers.
-- Implementation: wired `portfolio.rank.n` into the multi-period target-count resolver alongside `multi_period.max_funds`, preserved explicit threshold/target overrides, added a fallback that keeps realised weight output bounded to the selected manual holdings, promoted the `rank_n_down` baseline to enforced, and taught the baseline harness to count selected multi-period funds even when the output includes zero-weight selected entries.
-- Validation: `PYTHONPATH=src python -m pytest 'tests/baseline/test_directional.py::test_directional[rank_n_down]' tests/baseline/test_rank_fund_count_limits.py -v` -> 3 passed. `python -m ruff check src/trend_analysis/multi_period/engine.py tests/baseline/harness.py tests/baseline/test_rank_fund_count_limits.py` passed. `git diff --check` passed. A temporary break that bypassed one rank fallback did not trip the directional test because another direct rank path still honored `portfolio.rank.n`; the added direct regression tests cover the selected-fund counts and max-funds cap.
-- PR/routing: ready-for-review PR #5532 opened at https://github.com/stranske/Trend_Model_Project/pull/5532, non-draft, closing #5531, with `agent:codex`, `agents:keepalive`, `autofix`, `repo-review-approved`, and `priority:normal`. Post-open cap-health at 2026-06-11T07:20:31Z classified #5532 as `draining` with an active Gate run; `opener-repair-infra-stalls.py` found no repairable infra stalls.
-- Current state: PR #5532 is open and waiting on asynchronous Gate/keepalive checks. Next action belongs to keepalive/closer after checks settle.
-
 ## 2026-06-04T10:18Z - closer (codex): PR #5490 full-suite stale test repair
 
 - Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5423`, PR `#5490`, branch `codex/issue-5423-legacy-runners`.

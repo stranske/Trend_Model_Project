@@ -102,7 +102,7 @@ class ScenarioOutput:
         out["num_selected"] = (
             self.selected_count
             if self.selected_count is not None
-            else (len(w) if len(w) > nonzero_count else nonzero_count)
+            else nonzero_count
         )
         out["num_negative_weights"] = int((w < -_WEIGHT_EPS).sum())
         out["max_turnover"] = float(self.turnover.max()) if len(self.turnover) else float("nan")
@@ -220,9 +220,13 @@ def run_scenario(
     costs = res.costs if isinstance(res.costs, dict) else {}
 
     selected_count = None
+    details = getattr(res, "details", None)
+    if isinstance(details, Mapping):
+        selected_funds = details.get("selected_funds")
+        if isinstance(selected_funds, list):
+            selected_count = len(selected_funds)
     period_results = getattr(res, "period_results", None)
     if not isinstance(period_results, list):
-        details = getattr(res, "details", None)
         if isinstance(details, Mapping):
             period_results = details.get("period_results")
     if isinstance(period_results, list):
