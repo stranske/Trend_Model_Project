@@ -37,8 +37,10 @@ def _outputs_differ(a, b, tol: float = 1e-8) -> bool:
 @pytest.mark.parametrize("tog", _TOGGLES, ids=_TOG_IDS)
 def test_flag_is_wired(tog):
     flag = tog["flag"]
-    out_on = run_scenario("config/demo.yml", {flag: True})
-    out_off = run_scenario("config/demo.yml", {flag: False})
+    config_path = tog.get("config", "config/demo.yml")
+    base_patch = tog.get("base") or {}
+    out_on = run_scenario(config_path, {**base_patch, flag: True})
+    out_off = run_scenario(config_path, {**base_patch, flag: False})
     differ = _outputs_differ(out_on, out_off)
     msg = f"{flag} produced identical output on/off -> appears UNWIRED"
     if tog.get("enforce", True):

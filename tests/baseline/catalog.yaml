@@ -133,8 +133,9 @@ toggles:
     enforce: false
   - id: shrinkage_toggle
     flag: portfolio.robustness.shrinkage.enabled
-    description: Toggling covariance shrinkage must change output.
-    enforce: false   # may be a no-op on the small, well-conditioned demo set
+    config: config/robust_demo.yml
+    description: Toggling covariance shrinkage under robust mean-variance must change output.
+    enforce: true
 
 # Priority parameters (the confirmed top-impact set). The coverage manifest
 # asserts each is exercised by at least one scenario or toggle above.

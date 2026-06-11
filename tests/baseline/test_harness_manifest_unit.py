@@ -119,12 +119,18 @@ def test_catalog_touched_keys_collects_scenarios_and_toggles() -> None:
                 "param": "selection.selection_count",
             }
         ],
-        "toggles": [{"flag": "vol_adjust.enabled"}],
+        "toggles": [
+            {
+                "base": {"portfolio.weighting_scheme": "robust_mv"},
+                "flag": "vol_adjust.enabled",
+            }
+        ],
     }
 
     touched = manifest.catalog_touched_keys(catalog)
     assert "portfolio.constraints.max_weight" in touched
     assert "selection.selection_count" in touched
+    assert "portfolio.weighting_scheme" in touched
     assert "vol_adjust.enabled" in touched
 
 
