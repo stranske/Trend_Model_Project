@@ -1,11 +1,13 @@
 ## 2026-06-11T12:11Z - opener (codex): issue #5538 shrinkage wiring PR materializing
 
-- Repo/issue: `stranske/Trend_Model_Project` issue `#5538` (`Verify multi-period shrinkage wiring under robust weighting fixture`).
+- Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5538`, PR `#5541` (`Enforce shrinkage wiring under robust fixture (#5538)`).
 - Branch/worktree: `codex/issue-5538-shrinkage-wiring` in `~/.codex/automations/pd-workloop-resume/worktrees/trend-5538-shrinkage-wiring`, based on `origin/phase-3`.
 - Selection: raw opener cap was below 5. Cap-health found only PR `#5540` as opener-owned and actively draining on a fresh Gate run. Scoped blockers remain Trend `#5343` and LMS `#180`; Workflows `#2242` is an operational alert; trip-planner `#1306` is an epic; Trend `#5537` is already linked to PR `#5540`. `#5538` was the highest-priority unlinked implementation candidate.
 - Implementation: `shrinkage_toggle` now runs against `config/robust_demo.yml` with `enforce: true`, and Tier-2 toggle execution can use a per-toggle `config` plus optional `base` patch. This verifies `portfolio.robustness.shrinkage.enabled` where `portfolio.weighting_scheme: robust_mv` flows through `weight_engine_params_from_robustness` into the robust mean-variance engine instead of the insensitive equal/manual demo fixture. The README records the fixture limitation and fix.
 - Validation: `PYTHONPATH=src python -m pytest tests/baseline/test_wiring.py tests/baseline/test_harness_manifest_unit.py tests/baseline/test_coverage_manifest.py -q -rA` -> 10 passed, 1 expected report-only skip for `regime_toggle`. `python -m ruff check tests/baseline/test_wiring.py tests/baseline/test_harness_manifest_unit.py tests/baseline/manifest.py` passed. `git diff --check origin/phase-3..HEAD` passed.
-- Current state: implementation commit `c5cbdea0` exists and is ready to push with this state entry, then open a ready-for-review PR with `agent:codex`, `agents:keepalive`, `autofix`, `repo-review-approved`, and `priority:normal`; post-open action belongs to Gate/keepalive unless cap-health needs a mechanical dispatch repair.
+- PR/routing: ready-for-review PR `#5541` opened from `codex/issue-5538-shrinkage-wiring`, non-draft, closing `#5538`, with labels `agent:codex`, `agents:keepalive`, `autofix`, `repo-review-approved`, and `priority:normal`. Recorded `pr_opened active.source_pr=5541 active.next_action=wait_for_keepalive`.
+- Post-open cap hygiene: initial post-open cap-health found `#5540` needing dispatch evidence after a failed Gate; `opener-repair-infra-stalls.py --json` added `agent:retry` and dispatched Gate Followups. Final cap-health at `2026-06-11T12:06:00Z` showed `#5540` and `#5541` both `draining`, `raw_cap_reached=false`, `non_drainable_count=0`.
+- Current state: PR `#5541` is open and waiting on asynchronous Gate/keepalive checks. Next action belongs to keepalive/closer unless a later run finds a bounded branch-local failure.
 
 ## 2026-06-11T12:04Z - opener (codex): issue #5538 -> PR #5541 (new_issue)
 
