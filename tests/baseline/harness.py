@@ -89,6 +89,8 @@ class ScenarioOutput:
     costs: dict[str, float]
     seed: int
     config_keys_read: set[str] = field(default_factory=set)
+    selected_count: int | None = None
+    declared_selected_count: int | None = None
 
     def derived(self, rf_annual: float = 0.0) -> dict[str, float]:
         """Economic summary stats computed from the constructed portfolio."""
@@ -97,7 +99,12 @@ class ScenarioOutput:
         out["weight_sum"] = float(w.sum())
         out["max_weight"] = float(w.max()) if len(w) else float("nan")
         out["min_weight"] = float(w.min()) if len(w) else float("nan")
-        out["num_selected"] = int((w.abs() > _WEIGHT_EPS).sum())
+        nonzero_count = int((w.abs() > _WEIGHT_EPS).sum())
+        out["num_selected"] = (
+            self.selected_count
+            if self.selected_count is not None
+            else nonzero_count
+        )
         out["num_negative_weights"] = int((w < -_WEIGHT_EPS).sum())
         out["max_turnover"] = float(self.turnover.max()) if len(self.turnover) else float("nan")
         out.update(_ann_stats(self.portfolio, rf_annual=rf_annual))
@@ -151,6 +158,19 @@ def _benchmark_labels(cfg: Any) -> set[str]:
     if isinstance(bench, Mapping):
         return {str(v) for v in bench.values()}
     return set()
+
+
+def _selected_fund_count(
+    selected_funds: Any,
+    fund_weights: pd.Series,
+) -> int | None:
+    if not isinstance(selected_funds, list):
+        return None
+    labels = [str(fund) for fund in selected_funds]
+    matched = [label for label in labels if label in fund_weights.index]
+    if not matched:
+        return len(labels)
+    return sum(1 for label in matched if abs(float(fund_weights[label])) > _WEIGHT_EPS)
 
 
 # --------------------------------------------------------------------------- #
@@ -213,6 +233,39 @@ def run_scenario(
     fund_weights = weights[[i for i in weights.index if i not in bench]]
     costs = res.costs if isinstance(res.costs, dict) else {}
 
+    selected_count = None
+    declared_selected_count = None
+    details = getattr(res, "details", None)
+    if isinstance(details, Mapping):
+        selected_funds = details.get("selected_funds")
+        if isinstance(selected_funds, list):
+            declared_selected_count = len(selected_funds)
+        selected_count = _selected_fund_count(
+            selected_funds,
+            fund_weights,
+        )
+    period_results = getattr(res, "period_results", None)
+    if not isinstance(period_results, list):
+        if isinstance(details, Mapping):
+            period_results = details.get("period_results")
+    if selected_count is None and isinstance(period_results, list):
+        for period_result in reversed(period_results):
+            if not isinstance(period_result, Mapping):
+                continue
+            selected_count = _selected_fund_count(
+                period_result.get("selected_funds"),
+                fund_weights,
+            )
+            if selected_count is not None:
+                break
+            metadata = period_result.get("metadata")
+            universe = metadata.get("universe") if isinstance(metadata, Mapping) else None
+            if isinstance(universe, Mapping):
+                selected_count_raw = universe.get("selected_count")
+                if isinstance(selected_count_raw, int):
+                    selected_count = selected_count_raw
+                    break
+
     return ScenarioOutput(
         metrics=res.metrics.copy(),
         weights=weights,
@@ -222,4 +275,6 @@ def run_scenario(
         costs={str(k): float(v) for k, v in costs.items()},
         seed=int(getattr(res, "seed", 42)),
         config_keys_read=keys_read,
+        selected_count=selected_count,
+        declared_selected_count=declared_selected_count,
     )

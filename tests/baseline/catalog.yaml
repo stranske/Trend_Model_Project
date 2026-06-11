@@ -47,16 +47,15 @@ scenarios:
   - id: rank_n_down
     tier: 1
     param: portfolio.rank.n
-    # FINDING (2026-05-30): in the demo's multi-period path, holdings stay at 20
-    # regardless of rank.n, multi_period.max_funds, or min_funds. Left report-only
-    # until we confirm whether the fund-count knobs are wired into multi-period.
-    description: Selecting fewer funds should reduce the number of holdings (currently does not in multi-period).
+    # Fixed (2026-06-11): the multi-period selection path now resolves its
+    # target size from portfolio.rank.n before applying max_funds caps.
+    description: Selecting fewer funds should reduce the number of holdings.
     base: {}
     control: {portfolio.rank.n: 10}
     vary: {portfolio.rank.n: 5}
     metric: num_selected
     direction: decrease
-    enforce: false
+    enforce: true
 
   - id: cost_up
     tier: 1

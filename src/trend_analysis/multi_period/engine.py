@@ -1602,6 +1602,38 @@ def _build_rebalance_frame(
         return None
 
 
+def _parse_positive_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
+def _resolve_rank_target(
+    portfolio_cfg: Mapping[str, Any],
+    th_cfg: Mapping[str, Any],
+) -> tuple[dict[str, Any], str, int, bool]:
+    rank_cfg = cast(dict[str, Any], portfolio_cfg.get("rank", {}) or {})
+    inclusion_approach = str(rank_cfg.get("inclusion_approach", "top_n"))
+    explicit_target_n = th_cfg.get("target_n", portfolio_cfg.get("target_n"))
+    rank_n = _parse_positive_int(rank_cfg.get("n"))
+    if explicit_target_n is not None:
+        target_n_source = explicit_target_n
+    elif inclusion_approach == "top_n" and rank_n is not None:
+        target_n_source = rank_n
+    else:
+        target_n_source = portfolio_cfg.get("random_n", 8)
+    return (
+        rank_cfg,
+        inclusion_approach,
+        int(target_n_source),
+        explicit_target_n is not None or inclusion_approach == "top_n",
+    )
+
+
 def run(
     cfg: Any,
     df: pd.DataFrame | None = None,
@@ -2229,10 +2261,9 @@ def run(
 
     z_exit_hard = _parse_optional_float(th_cfg.get("z_exit_hard"))
 
-    target_n = int(
-        th_cfg.get(
-            "target_n", portfolio_cfg.get("target_n", cfg.portfolio.get("random_n", 8))
-        )
+    rank_cfg, inclusion_approach, target_n, target_n_is_explicit = _resolve_rank_target(
+        portfolio_cfg,
+        th_cfg,
     )
     seed_metric = cast(
         str,
@@ -2242,9 +2273,6 @@ def run(
     )
     selector = create_selector_by_name("rank", top_n=target_n, rank_column=seed_metric)
 
-    # Extract inclusion approach from rank config (top_n, top_pct, threshold)
-    rank_cfg = cast(dict[str, Any], portfolio_cfg.get("rank", {}) or {})
-    inclusion_approach = str(rank_cfg.get("inclusion_approach", "top_n"))
     rank_pct = float(rank_cfg.get("pct", 0.10))  # For top_pct mode
     rank_threshold = float(rank_cfg.get("threshold", 1.0))  # For threshold mode
     rank_score_by = str(rank_cfg.get("score_by", "blended"))
@@ -2350,7 +2378,7 @@ def run(
         weighting_scheme,
     ) = _resolve_portfolio_weighting(portfolio_for_weighting)
 
-    policy_cfg = cast(dict[str, Any], cfg.portfolio.get("weight_policy", {}))
+    policy_cfg = cast(dict[str, Any], cfg.portfolio.get("weight_policy") or {})
     policy_mode = str(policy_cfg.get("mode", policy_cfg.get("policy", "drop"))).lower()
     min_assets_policy = int(policy_cfg.get("min_assets", 1) or 0)
 
@@ -3209,13 +3237,16 @@ def run(
                             pass
 
                 # Cap to the requested target size before applying other constraints.
-                if len(holdings) > target_n:
+                # ``portfolio.rank.n`` is only a target for top_n mode; serialized
+                # top_pct/threshold configs may carry an inert ``n`` field.
+                if target_n_is_explicit and len(holdings) > target_n:
                     holdings = holdings[:target_n]
                 # Enforce one-per-firm on seed
                 holdings = _dedupe_one_per_firm_with_events(
                     sf, holdings, metric, events
                 )
-                desired_seed = min(max_funds, target_n)
+                desired_target = target_n if target_n_is_explicit else max_funds
+                desired_seed = min(max_funds, desired_target)
                 # If we're still above the desired size, trim by zscore (best-first).
                 if len(holdings) > desired_seed:
                     zsorted = (
