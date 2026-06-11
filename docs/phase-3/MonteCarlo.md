@@ -652,23 +652,30 @@ valid values (`monte_carlo: null` fails validation).
 
 ### Output Bundle Structure
 
+`mc run` uses a flat output bundle. The exporter writes every result table into
+the bundle root and `manifest.json` records the exact file map under
+`outputs.files`. It does not write a separate frozen scenario YAML file; the
+manifest records scenario metadata, runtime overrides, data path, settings, row
+counts, and the exported filenames.
+
 ```
 outputs/monte_carlo/hf_equity_ls_10y/2026-01-03_143052/
 ├── manifest.json              # Run metadata + file index
-├── config_snapshot.yml        # Frozen scenario config
-├── distributions/
-│   ├── sharpe_dist.parquet   # Sharpe distribution by strategy
-│   ├── maxdd_dist.parquet    # Max drawdown distribution
-│   ├── terminal_wealth.parquet
-│   └── summary_quantiles.csv  # Human-readable summary
-├── paths/
-│   ├── nav_samples.parquet   # NAV for representative paths
-│   └── path_metadata.csv     # Path IDs + seeds
-├── strategies/
-│   ├── strategy_configs.json # All strategy definitions
-│   └── per_strategy_stats.parquet
-└── logs/
-    └── run.log
+├── results.csv                # Per-path, per-strategy simulation results
+├── summary.csv                # Strategy summary statistics
+├── diagnostics.csv            # Optional diagnostics table
+├── cross_fold_summary.csv     # Optional cross-fold summary table
+├── pooled_summary.csv         # Optional pooled summary table
+├── pooled_distributions.csv   # Optional pooled distribution table
+├── nav_paths.parquet          # Optional root-level NAV paths for mc viz
+├── nav_paths_fold_1.parquet   # Optional fold-specific NAV paths
+├── path_summary.csv           # Aggregation path summary
+├── per_strategy_stats.csv     # Backward-compatible path summary alias
+├── per_strategy_path.csv      # Backward-compatible path summary alias
+├── quantiles.csv              # Distribution quantiles
+├── summary_quantiles.csv      # Human-readable quantile summary
+├── breach_probabilities.csv   # Drawdown/metric breach probabilities
+└── expected_shortfall.csv     # Tail-risk expected shortfall
 ```
 
 ### Key Output Tables

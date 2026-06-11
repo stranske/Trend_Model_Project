@@ -161,7 +161,11 @@ python scripts/walk_forward.py --config config/walk_forward.yml
 trend mc viz --bundle <path> --out <dir> --charts fan,path_dist,risk_return --html --json --png
 ```
 
-- `--bundle`: Path to the Monte Carlo bundle directory used as input.
+- `--bundle`: Path to the flat Monte Carlo bundle directory used as input. The
+  bundle root contains `manifest.json`, `results.<fmt>`, `summary.<fmt>`,
+  optional diagnostics/pooled summaries, aggregation files such as
+  `summary_quantiles.<fmt>` and `per_strategy_stats.<fmt>`, and root-level
+  `nav_paths.parquet` when NAV paths were exported.
 - `--out`: Output directory where `plots/` is created (for example `<out>/plots/`).
 - `--charts`: Comma-separated chart names to render, for example `fan,path_dist,risk_return`.
 - `--html`: Write HTML chart files to `<out>/plots/*.html`.

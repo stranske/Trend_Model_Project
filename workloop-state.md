@@ -1,3 +1,12 @@
+## 2026-06-11T06:09Z - opener (codex): issue #5529 Monte Carlo output contract
+
+- Repo/issue: `stranske/Trend_Model_Project` #5529 (`Reconcile Monte Carlo output bundle docs with flat exporter contract`).
+- Branch/worktree: `codex/issue-5529-mc-output-contract` in `/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/trend-5529-mc-output-contract`, based on `origin/phase-3`.
+- Selection: raw opener cap was below 5 after repairing `Manager-Database#1154` with `agent:retry` plus Gate Followups dispatch. High-priority liveness candidates `Trend_Model_Project#5343` and `learning-management-system#180` are scoped owner/deployment-evidence blockers; open `Manager-Database` issues are linked/merged-awaiting-verifier; `trip-planner#1306` is an epic tracker. This was the first unmaterialized approved normal-priority implementation queue item.
+- Implementation: documented the existing flat Monte Carlo bundle as canonical in `docs/phase-3/MonteCarlo.md`, `docs/CLI.md`, and `README.md`; added `tests/monte_carlo/test_output_contract.py` asserting the root-level filenames from `export_results` and `export_aggregation_results`, and asserting the old hierarchy/config snapshot files are absent.
+- Validation: `PYTHONPATH=src python -m pytest tests/monte_carlo/test_output_contract.py -v` -> 2 passed. Deliberate-break gate temporarily renamed `results.{ext}` to `results_renamed.{ext}` and the contract test failed on the expected `results.csv` path mismatch; reverted and reran green. `PYTHONPATH=src python -m pytest tests/monte_carlo/test_results.py -v` -> 21 passed, 2 skipped for missing parquet engine. `python -m ruff check tests/monte_carlo/test_output_contract.py` and `git diff --check` passed. `rg "config_snapshot" docs/phase-3/MonteCarlo.md src/trend_analysis/cli.py` returned no matches.
+- Current state: ready to commit, push, and open a ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`; post-open action belongs to Gate/keepalive.
+
 ## 2026-06-04T10:18Z - closer (codex): PR #5490 full-suite stale test repair
 
 - Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5423`, PR `#5490`, branch `codex/issue-5423-legacy-runners`.
