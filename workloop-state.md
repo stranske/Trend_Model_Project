@@ -1,3 +1,11 @@
+## 2026-06-11T11:10Z - opener (codex): PR #5539 opened and Gate Followups dispatched
+
+- Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5536`, PR `#5539`, branch `codex/issue-5536-multi-period-wiring-audit`.
+- PR state: ready-for-review, non-draft, labels `agent:codex`, `agents:keepalive`, `autofix`, `repo-review-approved`, `priority:normal`; opener repair added `agent:retry` after cap-health reported missing dispatch evidence.
+- Dispatch evidence: `opener-repair-infra-stalls.py --json` dispatched Gate Followups for #5539; final cap-health at 2026-06-11T11:10:19Z classified #5539 as `draining` with active `Gate`, `Autofix`, and `Agents Gate Followups` runs and `non_drainable_count=0`.
+- Validation before PR: `PYTHONPATH=src python -m pytest tests/baseline/test_directional.py tests/baseline/test_wiring.py -q -rA` -> 8 passed, 3 expected report-only skips; `git diff --check` passed.
+- Next action: wait for asynchronous Gate/keepalive; closer should drain once checks and review signals are ready.
+
 ## 2026-06-11T11:20Z - opener (codex): issue #5536 wiring audit materialization
 
 - Repo: `stranske/Trend_Model_Project`
