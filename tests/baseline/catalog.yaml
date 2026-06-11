@@ -120,9 +120,9 @@ toggles:
   - id: regime_toggle
     flag: regime.enabled
     # FINDING TRACKED (2026-06-11): scalar max_turnover only bypasses
-    # regime-specific cap lookup; it does not make regime.enabled globally
-    # allocation-neutral. The demo fixture lacks a regime-sensitive allocation
-    # path, so this remains report-only until a stronger scenario is added.
+    # regime-specific cap lookup for the turnover cap. This fixture does not
+    # yet exercise a regime-conditional turnover-cap mapping, so this remains
+    # report-only until such a scenario is added.
     description: Toggling regime detection is a no-op for the current scalar-turnover demo fixture.
     enforce: false
   - id: shrinkage_toggle
