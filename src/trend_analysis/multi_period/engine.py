@@ -2229,9 +2229,26 @@ def run(
 
     z_exit_hard = _parse_optional_float(th_cfg.get("z_exit_hard"))
 
+    # Extract inclusion approach from rank config (top_n, top_pct, threshold)
+    rank_cfg = cast(dict[str, Any], portfolio_cfg.get("rank", {}) or {})
+
+    def _parse_positive_int(value: Any) -> int | None:
+        if value is None:
+            return None
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            return None
+        return parsed if parsed > 0 else None
+
+    rank_n = _parse_positive_int(rank_cfg.get("n"))
     target_n = int(
         th_cfg.get(
-            "target_n", portfolio_cfg.get("target_n", cfg.portfolio.get("random_n", 8))
+            "target_n",
+            portfolio_cfg.get(
+                "target_n",
+                rank_n if rank_n is not None else cfg.portfolio.get("random_n", 8),
+            ),
         )
     )
     seed_metric = cast(
@@ -2242,8 +2259,6 @@ def run(
     )
     selector = create_selector_by_name("rank", top_n=target_n, rank_column=seed_metric)
 
-    # Extract inclusion approach from rank config (top_n, top_pct, threshold)
-    rank_cfg = cast(dict[str, Any], portfolio_cfg.get("rank", {}) or {})
     inclusion_approach = str(rank_cfg.get("inclusion_approach", "top_n"))
     rank_pct = float(rank_cfg.get("pct", 0.10))  # For top_pct mode
     rank_threshold = float(rank_cfg.get("threshold", 1.0))  # For threshold mode
@@ -4276,6 +4291,28 @@ def run(
                 labels=[c for c in effective_w.index if str(c) not in manual_set],
                 errors="ignore",
             )
+
+        # The downstream single-period pipeline may return a non-empty manual
+        # weight mapping even when it retained only a small subset of the
+        # multi-period selector's holdings. In that case preserve the
+        # multi-period selection contract by using the bounded intended weights.
+        if used_pipeline_weights and manual_holdings:
+            manual_set = {str(x) for x in manual_holdings}
+            realised_manual = {
+                str(x) for x in effective_w.index if str(x) in manual_set
+            }
+            if len(realised_manual) < len(manual_set):
+                effective_w = final_w.copy()
+                effective_w = effective_w[effective_w.abs() > eps]
+                if drop_cols:
+                    effective_w = effective_w.drop(
+                        labels=list(drop_cols), errors="ignore"
+                    )
+                effective_w = effective_w.drop(
+                    labels=[c for c in effective_w.index if str(c) not in manual_set],
+                    errors="ignore",
+                )
+                used_pipeline_weights = False
 
         # Some pipeline fallbacks can yield a populated-but-zero weight mapping.
         # Treat that as unusable and fall back to the intended weights.
