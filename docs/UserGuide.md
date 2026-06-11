@@ -306,6 +306,13 @@ indices bundle. When using the volatility method the threshold is interpreted as
 annualised volatility when `annualise_volatility: true` (set to `false` to work
 with per-period figures).
 
+In multi-period portfolio runs, regime detection changes allocation behavior
+only when it is paired with a regime-conditional `portfolio.max_turnover`
+mapping, such as separate Risk-On and Risk-Off caps. Scalar
+`portfolio.max_turnover` values are applied directly, so toggling
+`regime.enabled` is intentionally allocation-neutral for configs such as
+`config/demo.yml` that use `portfolio.max_turnover: 1.0`.
+
 ## 15. Further help
 
 See `README.md` for a short overview of the repository structure and the example notebooks for end‑to‑end demonstrations.

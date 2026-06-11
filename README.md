@@ -333,6 +333,17 @@ Trend_Model_Project/
 - Group-level allocation caps
 - Turnover limits and transaction cost modeling
 
+### Multi-period regime scope
+
+Multi-period runs consume `regime.enabled` for regime-conditional turnover-cap
+resolution. When `portfolio.max_turnover` is a mapping keyed by regime labels,
+the engine resolves the current in-sample regime and applies the matching cap
+before the rebalance. When `portfolio.max_turnover` is a scalar, the scalar cap
+is used directly and the regime flag is intentionally allocation-neutral. The
+demo config uses scalar `portfolio.max_turnover: 1.0`, so toggling
+`regime.enabled` does not change the multi-period demo's selected funds,
+weights, or summary metrics.
+
 ### Output Formats
 
 - **Excel** – Formatted workbook with summary sheet
