@@ -6,7 +6,8 @@
 - Implementation: traced `regime_cfg` in the multi-period engine and documented the confirmed scope boundary: multi-period `regime.enabled` affects allocation only through regime-conditional `portfolio.max_turnover` mappings. Scalar `portfolio.max_turnover` values, including `config/demo.yml`'s `1.0`, intentionally bypass regime lookup and leave selected funds, weights, and summary metrics unchanged.
 - Files changed: `README.md`, `docs/UserGuide.md`, `tests/baseline/README.md`, and `tests/baseline/catalog.yaml`.
 - Validation: `PYTHONPATH=src python -m pytest 'tests/baseline/test_wiring.py::test_flag_is_wired[regime_toggle]' -v` skipped with the expected report-only scalar-turnover no-op; `rg` confirmed the boundary language in README/UserGuide/catalog/baseline README; `git diff --check` passed.
-- Current state: ready to commit, push, and open a ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`.
+- PR/routing: ready-for-review PR #5534 opened at `https://github.com/stranske/Trend_Model_Project/pull/5534`, non-draft, closing #5533, with `agent:codex`, `agents:keepalive`, `autofix`, `repo-review-approved`, and `priority:normal`.
+- Current state: waiting on asynchronous Gate/keepalive checks after PR creation.
 
 ## 2026-06-04T10:18Z - closer (codex): PR #5490 full-suite stale test repair
 
