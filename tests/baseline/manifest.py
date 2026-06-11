@@ -79,6 +79,7 @@ def catalog_touched_keys(
         if scen.get("param"):
             raw.add(scen["param"])
     for tog in catalog.get("toggles", []) or []:
+        raw.update((tog.get("base") or {}).keys())
         if tog.get("flag"):
             raw.add(tog["flag"])
 
