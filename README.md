@@ -340,11 +340,10 @@ resolution. When `portfolio.max_turnover` is a mapping keyed by regime labels,
 the engine resolves the current in-sample regime and applies the matching cap
 before the rebalance. When `portfolio.max_turnover` is a scalar, the scalar
 max_turnover value is used directly instead of looking up a regime-specific cap.
-In the current multi-period engine path, that scalar max_turnover setup is
-allocation-neutral for the `regime.enabled` toggle: it affects only
-regime-conditional turnover-cap lookup and bypasses only
-regime-specific cap lookup and does not otherwise change selected funds,
-weights, or summary metrics.
+That scalar max_turnover setup bypasses only the regime-conditional
+turnover-cap mapping: `regime.enabled` does not change which cap is used when
+the cap is scalar. Other regime-sensitive controls, when configured, remain
+separate from this turnover-cap lookup boundary.
 
 ### Output Formats
 

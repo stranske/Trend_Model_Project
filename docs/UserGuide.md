@@ -311,10 +311,10 @@ behavior through regime-conditional turnover-cap lookup. A regime-conditional
 `portfolio.max_turnover` mapping, such as separate Risk-On and Risk-Off caps,
 resolves to the current in-sample regime before each rebalance. Scalar
 `portfolio.max_turnover` values are applied directly instead of looking up a
-regime-specific cap. In that scalar max_turnover setup, `regime.enabled` is
-allocation-neutral in the current multi-period engine path: it bypasses only
-regime-specific cap lookup and does not otherwise change selected funds,
-weights, or summary metrics.
+regime-specific cap. In that scalar max_turnover setup, `regime.enabled`
+bypasses only the regime-conditional turnover-cap mapping; it does not choose a
+different turnover cap. Other regime-sensitive controls, when configured,
+remain separate from this turnover-cap lookup boundary.
 
 ## 15. Further help
 
