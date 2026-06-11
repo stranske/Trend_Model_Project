@@ -179,6 +179,14 @@ Runtime overrides include `--data` for an alternate CSV/Parquet input,
 repeatable), `--n-paths`, `--jobs`, `--seed`, `--dry-run`, `--no-progress`, and
 `--registry`.
 
+`mc run` writes a flat bundle into the output directory. The CLI-managed bundle
+contains `manifest.json`, `results.<fmt>`, and `summary.<fmt>` files at the root;
+the manifest's `outputs.files` map indexes those CLI exports. Scenario-configured
+runner exports may also write optional root-level diagnostics, pooled/cross-fold
+summaries, aggregation files such as `path_summary.<fmt>` and
+`summary_quantiles.<fmt>`, and `nav_paths.parquet` or
+`nav_paths_fold_<id>.parquet`. No separate frozen scenario YAML file is produced.
+
 ```bash
 python -m trend_analysis.cli mc run --scenario cost_regime_example \
   --n-paths 500 --jobs 4 --seed 123
