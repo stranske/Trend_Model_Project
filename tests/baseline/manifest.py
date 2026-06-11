@@ -56,17 +56,42 @@ def _walk(node: Any, prefix: str, leaves: set[str]) -> None:
             _walk(sub, prefix, leaves)
 
 
-def catalog_touched_keys(catalog: Mapping[str, Any]) -> set[str]:
-    """Every parameter key referenced by any scenario or toggle."""
-    keys: set[str] = set()
+def catalog_touched_keys(
+    catalog: Mapping[str, Any],
+    schema_leaves: set[str] | None = None,
+) -> set[str]:
+    """Every parameter key referenced by any scenario or toggle.
+
+    A scenario may patch an *object-valued* config key -- e.g. clearing
+    ``portfolio.custom_weights`` to null so ``portfolio.weighting_scheme`` can
+    actually drive the allocation (see catalog ``weighting_risk_parity`` /
+    issue #5537). The schema enumerates such objects only at their leaves
+    (``portfolio.custom_weights.Mgr_01`` ...), so when ``schema_leaves`` is
+    given, an object-parent key is expanded to its leaf children. That keeps
+    coverage credit on the real leaves and avoids a false "unknown key" flag,
+    while still surfacing genuine typos (a key that is neither a leaf nor the
+    parent of one is left untouched so the schema guard still catches it).
+    """
+    raw: set[str] = set()
     for scen in catalog.get("scenarios", []) or []:
         for block in ("base", "control", "vary"):
-            keys.update((scen.get(block) or {}).keys())
+            raw.update((scen.get(block) or {}).keys())
         if scen.get("param"):
-            keys.add(scen["param"])
+            raw.add(scen["param"])
     for tog in catalog.get("toggles", []) or []:
         if tog.get("flag"):
-            keys.add(tog["flag"])
+            raw.add(tog["flag"])
+
+    if not schema_leaves:
+        return raw
+
+    keys: set[str] = set()
+    for key in raw:
+        if key in schema_leaves:
+            keys.add(key)
+            continue
+        children = {leaf for leaf in schema_leaves if leaf.startswith(f"{key}.")}
+        keys.update(children or {key})
     return keys
 
 
@@ -79,9 +104,10 @@ def build_manifest(
     (``catalog_touched_keys``) are TMP-specific; the manifest itself is the
     shared ``baseline_kit.CoverageManifest``.
     """
+    leaves = schema_leaf_keys()
     return CoverageManifest(
-        all_keys=schema_leaf_keys(),
-        touched_keys=catalog_touched_keys(catalog),
+        all_keys=leaves,
+        touched_keys=catalog_touched_keys(catalog, leaves),
         priority_params=list(catalog.get("priority_params", []) or []),
         read_keys=set(read_keys or set()),
     )

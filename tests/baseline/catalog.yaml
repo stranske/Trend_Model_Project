@@ -94,12 +94,18 @@ scenarios:
     tier: 1
     param: portfolio.weighting_scheme
     description: Risk-parity weighting should produce a different allocation than equal.
-    base: {}
+    # fixed 2026-06-11 (#5537): the demo fixture pins portfolio.custom_weights,
+    # which takes precedence over weighting_scheme -- the weight engine only runs
+    # when custom_weights is None (src/trend_analysis/stages/portfolio.py:288).
+    # Clearing custom_weights here lets weighting_scheme actually drive the
+    # allocation, so equal vs risk_parity now diverges (max_weight 0.2565 -> 0.3176)
+    # and the scenario can be enforced.
+    base: {portfolio.custom_weights: null}
     control: {portfolio.weighting_scheme: equal}
     vary: {portfolio.weighting_scheme: risk_parity}
     metric: max_weight
     direction: change   # only require the allocation to differ
-    enforce: false
+    enforce: true
 
   - id: turnover_cap_down
     tier: 1
