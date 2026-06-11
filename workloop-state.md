@@ -1,3 +1,23 @@
+## 2026-06-11T12:11Z - opener (codex): issue #5538 shrinkage wiring PR materializing
+
+- Repo/issue: `stranske/Trend_Model_Project` issue `#5538` (`Verify multi-period shrinkage wiring under robust weighting fixture`).
+- Branch/worktree: `codex/issue-5538-shrinkage-wiring` in `~/.codex/automations/pd-workloop-resume/worktrees/trend-5538-shrinkage-wiring`, based on `origin/phase-3`.
+- Selection: raw opener cap was below 5. Cap-health found only PR `#5540` as opener-owned and actively draining on a fresh Gate run. Scoped blockers remain Trend `#5343` and LMS `#180`; Workflows `#2242` is an operational alert; trip-planner `#1306` is an epic; Trend `#5537` is already linked to PR `#5540`. `#5538` was the highest-priority unlinked implementation candidate.
+- Implementation: `shrinkage_toggle` now runs against `config/robust_demo.yml` with `enforce: true`, and Tier-2 toggle execution can use a per-toggle `config` plus optional `base` patch. This verifies `portfolio.robustness.shrinkage.enabled` where `portfolio.weighting_scheme: robust_mv` flows through `weight_engine_params_from_robustness` into the robust mean-variance engine instead of the insensitive equal/manual demo fixture. The README records the fixture limitation and fix.
+- Validation: `PYTHONPATH=src python -m pytest tests/baseline/test_wiring.py tests/baseline/test_harness_manifest_unit.py tests/baseline/test_coverage_manifest.py -q -rA` -> 10 passed, 1 expected report-only skip for `regime_toggle`. `python -m ruff check tests/baseline/test_wiring.py tests/baseline/test_harness_manifest_unit.py tests/baseline/manifest.py` passed. `git diff --check origin/phase-3..HEAD` passed.
+- Current state: implementation commit `c5cbdea0` exists and is ready to push with this state entry, then open a ready-for-review PR with `agent:codex`, `agents:keepalive`, `autofix`, `repo-review-approved`, and `priority:normal`; post-open action belongs to Gate/keepalive unless cap-health needs a mechanical dispatch repair.
+
+## 2026-06-11T12:04Z - opener (codex): issue #5538 -> PR #5541 (new_issue)
+
+- Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5538`, PR `#5541`, branch `codex/issue-5538-shrinkage-wiring`, base `phase-3`.
+- Lane: opener materialization from neutral Code workspace. Worktree `~/.codex/automations/pd-workloop-resume/worktrees/trend-5538-shrinkage-wiring`.
+- Discovery: raw opener cap was below 5. The only opener-owned PR before selection was `#5540`, classified by cap-health as `draining` with an active Gate run. Liveness candidates were scoped blockers `#5343`/LMS `#180`, policy-excluded trip-planner epic `#1306`, linked issue `#5537` via PR `#5540`, and unlinked implementation issue `#5538`; selected `#5538`.
+- Finding: `portfolio.robustness.shrinkage.enabled` was report-only because the default demo fixture uses equal/manual weighting, so shrinkage settings cannot reach a robust weight engine. `config/robust_demo.yml` uses `portfolio.weighting_scheme: robust_mv`, and shrinkage on/off changes allocation there.
+- Change: Tier-2 wiring toggles now accept optional `config` and `base` fixture fields; `shrinkage_toggle` runs against `config/robust_demo.yml` with `enforce: true`. `catalog_touched_keys` includes toggle base patches, README Finding #7 documents the fixture resolution, and `docs/reports/baseline-coverage.md` was regenerated.
+- Validation: `MPLCONFIGDIR=/private/tmp/mpl-cache PYTHONPATH=src python -m pytest tests/baseline/test_wiring.py tests/baseline/test_coverage_manifest.py tests/baseline/test_harness_manifest_unit.py -q -rA` -> 10 passed, 1 skipped. Broader `tests/baseline/{test_directional,test_wiring,test_coverage_manifest,test_harness_manifest_unit,test_invariants}.py -q -rA` -> 26 passed, 2 skipped (existing `regime.enabled` fixture gap and `weighting_risk_parity` on base `phase-3`; the latter is separately covered by PR #5540). `python -m ruff check tests/baseline/test_wiring.py tests/baseline/manifest.py tests/baseline/test_harness_manifest_unit.py` passed. `git diff --check` passed.
+- PR/routing: PR `#5541` is non-draft, closes `#5538`, and has labels `agent:codex`, `agents:keepalive`, `autofix`, `repo-review-approved`, and `priority:normal`.
+- Current state: push this state-note commit, then keepalive/Gate owns PR `#5541`; opener should not duplicate `#5538`.
+
 ## 2026-06-04T10:18Z - closer (codex): PR #5490 full-suite stale test repair
 
 - Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5423`, PR `#5490`, branch `codex/issue-5423-legacy-runners`.
