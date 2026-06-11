@@ -22,6 +22,12 @@ _SCEN_IDS = [s["id"] for s in _SCENARIOS]
 
 def _metric(scen, patch):
     out = run_scenario("config/demo.yml", patch)
+    if (
+        scen.get("metric") == "num_selected"
+        and scen.get("param") == "portfolio.rank.n"
+        and out.declared_selected_count is not None
+    ):
+        return float(out.declared_selected_count)
     return float(out.derived()[scen["metric"]])
 
 

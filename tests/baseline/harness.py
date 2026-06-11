@@ -90,6 +90,7 @@ class ScenarioOutput:
     seed: int
     config_keys_read: set[str] = field(default_factory=set)
     selected_count: int | None = None
+    declared_selected_count: int | None = None
 
     def derived(self, rf_annual: float = 0.0) -> dict[str, float]:
         """Economic summary stats computed from the constructed portfolio."""
@@ -159,6 +160,19 @@ def _benchmark_labels(cfg: Any) -> set[str]:
     return set()
 
 
+def _selected_fund_count(
+    selected_funds: Any,
+    fund_weights: pd.Series,
+) -> int | None:
+    if not isinstance(selected_funds, list):
+        return None
+    labels = [str(fund) for fund in selected_funds]
+    matched = [label for label in labels if label in fund_weights.index]
+    if not matched:
+        return len(labels)
+    return sum(1 for label in matched if abs(float(fund_weights[label])) > _WEIGHT_EPS)
+
+
 # --------------------------------------------------------------------------- #
 # Run
 # --------------------------------------------------------------------------- #
@@ -220,22 +234,29 @@ def run_scenario(
     costs = res.costs if isinstance(res.costs, dict) else {}
 
     selected_count = None
+    declared_selected_count = None
     details = getattr(res, "details", None)
     if isinstance(details, Mapping):
         selected_funds = details.get("selected_funds")
         if isinstance(selected_funds, list):
-            selected_count = len(selected_funds)
+            declared_selected_count = len(selected_funds)
+        selected_count = _selected_fund_count(
+            selected_funds,
+            fund_weights,
+        )
     period_results = getattr(res, "period_results", None)
     if not isinstance(period_results, list):
         if isinstance(details, Mapping):
             period_results = details.get("period_results")
-    if isinstance(period_results, list):
+    if selected_count is None and isinstance(period_results, list):
         for period_result in reversed(period_results):
             if not isinstance(period_result, Mapping):
                 continue
-            selected_funds = period_result.get("selected_funds")
-            if isinstance(selected_funds, list):
-                selected_count = len(selected_funds)
+            selected_count = _selected_fund_count(
+                period_result.get("selected_funds"),
+                fund_weights,
+            )
+            if selected_count is not None:
                 break
             metadata = period_result.get("metadata")
             universe = metadata.get("universe") if isinstance(metadata, Mapping) else None
@@ -244,17 +265,6 @@ def run_scenario(
                 if isinstance(selected_count_raw, int):
                     selected_count = selected_count_raw
                     break
-    if selected_count is None:
-        try:
-            period_results_direct = (getattr(res, "details", {}) or {}).get(
-                "period_results", []
-            )
-            latest_period = period_results_direct[-1]
-            selected_funds = latest_period.get("selected_funds", [])
-            if isinstance(selected_funds, list):
-                selected_count = len(selected_funds)
-        except (AttributeError, IndexError, KeyError, TypeError):
-            selected_count = None
 
     return ScenarioOutput(
         metrics=res.metrics.copy(),
@@ -266,4 +276,5 @@ def run_scenario(
         seed=int(getattr(res, "seed", 42)),
         config_keys_read=keys_read,
         selected_count=selected_count,
+        declared_selected_count=declared_selected_count,
     )

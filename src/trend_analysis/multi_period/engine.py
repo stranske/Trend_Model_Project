@@ -1602,6 +1602,38 @@ def _build_rebalance_frame(
         return None
 
 
+def _parse_positive_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
+def _resolve_rank_target(
+    portfolio_cfg: Mapping[str, Any],
+    th_cfg: Mapping[str, Any],
+) -> tuple[dict[str, Any], str, int, bool]:
+    rank_cfg = cast(dict[str, Any], portfolio_cfg.get("rank", {}) or {})
+    inclusion_approach = str(rank_cfg.get("inclusion_approach", "top_n"))
+    explicit_target_n = th_cfg.get("target_n", portfolio_cfg.get("target_n"))
+    rank_n = _parse_positive_int(rank_cfg.get("n"))
+    if explicit_target_n is not None:
+        target_n_source = explicit_target_n
+    elif inclusion_approach == "top_n" and rank_n is not None:
+        target_n_source = rank_n
+    else:
+        target_n_source = portfolio_cfg.get("random_n", 8)
+    return (
+        rank_cfg,
+        inclusion_approach,
+        int(target_n_source),
+        explicit_target_n is not None or inclusion_approach == "top_n",
+    )
+
+
 def run(
     cfg: Any,
     df: pd.DataFrame | None = None,
@@ -2229,31 +2261,10 @@ def run(
 
     z_exit_hard = _parse_optional_float(th_cfg.get("z_exit_hard"))
 
-    # Extract inclusion approach from rank config (top_n, top_pct, threshold)
-    rank_cfg = cast(dict[str, Any], portfolio_cfg.get("rank", {}) or {})
-
-    def _parse_positive_int(value: Any) -> int | None:
-        if value is None:
-            return None
-        try:
-            parsed = int(value)
-        except (TypeError, ValueError):
-            return None
-        return parsed if parsed > 0 else None
-
-    inclusion_approach = str(rank_cfg.get("inclusion_approach", "top_n"))
-    rank_n = _parse_positive_int(rank_cfg.get("n"))
-    explicit_target_n = th_cfg.get("target_n")
-    if explicit_target_n is None:
-        explicit_target_n = portfolio_cfg.get("target_n")
-    if explicit_target_n is not None:
-        target_n_source = explicit_target_n
-    elif inclusion_approach == "top_n" and rank_n is not None:
-        target_n_source = rank_n
-    else:
-        target_n_source = cfg.portfolio.get("random_n", 8)
-    target_n = int(target_n_source)
-    target_n_is_explicit = explicit_target_n is not None or inclusion_approach == "top_n"
+    rank_cfg, inclusion_approach, target_n, target_n_is_explicit = _resolve_rank_target(
+        portfolio_cfg,
+        th_cfg,
+    )
     seed_metric = cast(
         str,
         (cfg.portfolio.get("selector", {}) or {})
