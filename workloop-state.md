@@ -1,3 +1,17 @@
+## 2026-06-11T11:20Z - opener (codex): issue #5536 wiring audit materialization
+
+- Repo: `stranske/Trend_Model_Project`
+- Issue: `#5536` Audit multi-period engine configuration parameter wiring for silent pass-through
+- Branch: `codex/issue-5536-multi-period-wiring-audit`
+- Worktree: `/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/trend-5536-wiring-audit`
+- Scope: Create `docs/reports/multi-period-wiring-audit.md`, classify the `_call_pipeline_with_diag` config-derived parameters, and file follow-up issues for newly confirmed catalog gaps outside existing `portfolio.rank.n` / `regime.enabled` work.
+- Follow-ups filed:
+  - `#5537` Investigate multi-period `portfolio.weighting_scheme` risk-parity no-op in baseline fixture
+  - `#5538` Investigate multi-period `portfolio.robustness.shrinkage.enabled` no-op in baseline fixture
+- Validation:
+  - `PYTHONPATH=src python -m pytest tests/baseline/test_directional.py tests/baseline/test_wiring.py -q -rA` passed with 8 passed, 3 expected report-only skips.
+- Next action: commit, push, open a ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`, then hand off to keepalive.
+
 ## 2026-06-04T10:18Z - closer (codex): PR #5490 full-suite stale test repair
 
 - Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5423`, PR `#5490`, branch `codex/issue-5423-legacy-runners`.
