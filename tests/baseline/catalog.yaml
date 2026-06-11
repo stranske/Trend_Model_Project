@@ -120,11 +120,11 @@ toggles:
     enforce: true
   - id: regime_toggle
     flag: regime.enabled
-    # FINDING RESOLVED (2026-06-11): multi-period regime settings are wired only
-    # into regime-conditional portfolio.max_turnover mappings. The demo uses a
-    # scalar max_turnover, so toggling regime.enabled leaves output identical by
-    # design; see README.md "Multi-period regime scope" and docs/UserGuide.md.
-    description: Toggling regime detection is a no-op for scalar max_turnover in the multi-period demo.
+    # FINDING TRACKED (2026-06-11): scalar max_turnover only bypasses
+    # regime-specific cap lookup; it does not make regime.enabled globally
+    # allocation-neutral. The demo fixture lacks a regime-sensitive allocation
+    # path, so this remains report-only until a stronger scenario is added.
+    description: Toggling regime detection is a no-op for the current scalar-turnover demo fixture.
     enforce: false
   - id: shrinkage_toggle
     flag: portfolio.robustness.shrinkage.enabled
