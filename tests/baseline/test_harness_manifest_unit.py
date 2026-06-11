@@ -126,3 +126,45 @@ def test_catalog_touched_keys_collects_scenarios_and_toggles() -> None:
     assert "portfolio.constraints.max_weight" in touched
     assert "selection.selection_count" in touched
     assert "vol_adjust.enabled" in touched
+
+
+def test_catalog_touched_keys_expands_object_parent_to_leaves() -> None:
+    # A scenario that clears an object-valued config key (e.g. null-ing
+    # portfolio.custom_weights so weighting_scheme can take effect; #5537)
+    # references only the parent path, but the schema enumerates that object
+    # at its leaves. With schema_leaves provided, the parent expands to its
+    # leaf children so the schema typo-guard does not flag it as unknown.
+    catalog = {
+        "scenarios": [
+            {
+                "base": {"portfolio.custom_weights": None},
+                "control": {"portfolio.weighting_scheme": "equal"},
+                "vary": {"portfolio.weighting_scheme": "risk_parity"},
+                "param": "portfolio.weighting_scheme",
+            }
+        ]
+    }
+    leaves = {
+        "portfolio.custom_weights.Mgr_01",
+        "portfolio.custom_weights.Mgr_02",
+        "portfolio.weighting_scheme",
+    }
+
+    touched = manifest.catalog_touched_keys(catalog, leaves)
+
+    assert "portfolio.custom_weights" not in touched
+    assert {"portfolio.custom_weights.Mgr_01", "portfolio.custom_weights.Mgr_02"} <= touched
+    assert "portfolio.weighting_scheme" in touched
+    # touched keys are all real schema leaves -> no false "unknown" flag.
+    assert touched <= leaves
+
+
+def test_catalog_touched_keys_keeps_unknown_keys_for_typo_guard() -> None:
+    # A key that is neither a leaf nor the parent of one is left as-is so the
+    # schema guard still surfaces genuine typos.
+    catalog = {"scenarios": [{"base": {"portfolio.custom_wieghts": None}}]}
+    leaves = {"portfolio.custom_weights.Mgr_01"}
+
+    touched = manifest.catalog_touched_keys(catalog, leaves)
+
+    assert "portfolio.custom_wieghts" in touched
