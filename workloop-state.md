@@ -1,3 +1,13 @@
+## 2026-06-13T08:04Z - closer (codex): PR #5549 review recovery audited, waiting on fresh Gate matrix
+
+- Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5546`, PR `#5549`, branch `codex/issue-5546-run-decomposition`.
+- Batch context: no terminal sweep action was safe this round. Merged PRs `#5547` and `#5548` both already have `verify:compare`, but their Agents Verifier runs (`27460238442` and `27460884508`) were still `in_progress`, so issues `#5544`/`#5545`/`#5543` remain open pending durable verifier PASS.
+- Complex lane selection: live discovery initially saw PR `#5549` as `DIRTY` with two unresolved Copilot review threads. Fresh fetch showed opener recovery commit `bd04c452` already rebased the PR onto current `origin/phase-3` (`d99d7fc1`) and changed the two tests to address the review concerns.
+- Review-thread audit: GraphQL review-thread read shows both Copilot threads resolved (`PRRT_kwDOO0LrSc6JTrOT` on AST helper-order detection and `PRRT_kwDOO0LrSc6JTrOW` on tokenizer-based indentation depth; second thread is also outdated). PR is non-draft, head `bd04c4520e733f1231536ff5f9ee9389c5e0de4c`, `mergeable=MERGEABLE`, `mergeStateStatus=UNSTABLE` only because fresh Gate Python matrix jobs are still running.
+- Local validation in closer worktree `~/.codex/automations/imi-merge-verify-closer/worktrees/trend-5549-conflict-reviewfix`: `UV_CACHE_DIR=/private/tmp/uv-cache-trend-5549 PYTHONPATH=src uv run --extra dev python -m pytest tests/test_engine_run_refactor_parity.py tests/test_engine_run_size.py -q -rA` -> 5 passed, 14 existing Pandas4 warnings. `UV_CACHE_DIR=/private/tmp/uv-cache-trend-5549 uv run --extra dev ruff check src/trend_analysis/multi_period/engine.py tests/test_engine_run_refactor_parity.py tests/test_engine_run_size.py` -> passed.
+- Current async blocker: Gate run `27461032044` has Python CI 3.12 job `81174748460` and Python CI 3.13 job `81174748470` still `IN_PROGRESS`; other fresh checks read as green, including `claude-review`, guard, ruff, mypy, config coverage, Backplane conformance, and LLM dependency compatibility.
+- Next closer action: re-check PR `#5549`; if Python 3.12/3.13 finish green and merge state remains mergeable with no unresolved review threads, squash-merge, apply `verify:compare`, emit `pr_merged` and `verify_label_applied`, and keep issue `#5546` open until verifier PASS.
+
 ## 2026-06-13T07:57Z - opener (codex): PR #5549 rebase and review robustness recovery
 
 - Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5546`, PR `#5549`, branch `codex/issue-5546-run-decomposition`.
