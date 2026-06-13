@@ -56,6 +56,9 @@ model is constructed:
 - `portfolio.transaction_cost_bps` and every linear `cost_model` field (bps per
   trade, slippage, per-trade bps, half-spread) remain non-negative and must
   round-trip unchanged through `CoreConfig.to_payload()` into `TrendConfig`.
+  Note: `transaction_cost_bps` is a turnover-based lever charged only by the
+  multi-period engine; single-period runs ignore it and emit a `UserWarning`
+  (use `run.monthly_cost` for single-period cost modeling).
 - `run.monthly_cost` is a flat decimal per-period fee. It is subtracted from
   every fund return before statistics are calculated and is not scaled by
   turnover or exposure.
