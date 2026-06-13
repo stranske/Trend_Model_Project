@@ -94,20 +94,21 @@ _DYNAMIC_PORTFOLIO_SUBTREES = {
     "constraints.allowed_assets",
 }
 
-# Top-level config sections recognised by the engine. Sourced from the generated
-# ``config.schema.json`` ``properties`` plus every top-level section shipped in
-# ``config/*.yml`` (those keys are guarded as consumed by
-# ``tests/config/test_no_inert_keys.py``). Unknown top-level sections are silent
-# no-ops, so ``lint_config_sections`` rejects them (#5543, follow-up to A1/#5389).
+# Top-level config sections recognised by the engine. This mirrors the generated
+# ``config.schema.json`` ``properties`` plus consumed legacy/preset sections.
+# Unknown top-level sections are silent no-ops, so ``lint_config_sections``
+# rejects them (#5543, follow-up to A1/#5389).
 _DECLARED_TOP_LEVEL_SECTIONS = {
     "benchmarks",
     "checkpoint_dir",
     "data",
     "export",
+    "extra",
     "identity",
     "jobs",
     "metrics",
     "multi_period",
+    "output",
     "performance",
     "portfolio",
     "preprocessing",
@@ -115,6 +116,7 @@ _DECLARED_TOP_LEVEL_SECTIONS = {
     "run",
     "sample_split",
     "seed",
+    "signals",
     "strategy",
     "version",
     "vol_adjust",
@@ -139,7 +141,6 @@ _DECLARED_RUN_KEYS = {
     "checkpoint_dir",
     "jobs",
     "monthly_cost",
-    "n_jobs",
     "name",
     "output_dir",
     "seed",

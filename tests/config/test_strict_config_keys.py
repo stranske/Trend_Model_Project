@@ -160,12 +160,37 @@ def test_unknown_run_key_rejected(tmp_path: Path) -> None:
         config_model.validate_trend_config(payload, base_path=tmp_path)
 
 
+def test_dead_run_n_jobs_alias_rejected(tmp_path: Path) -> None:
+    payload = _valid_payload(tmp_path)
+    payload["run"] = {"n_jobs": 1}
+
+    with pytest.raises(ValueError, match=r"run\.n_jobs"):
+        config_model.validate_trend_config(payload, base_path=tmp_path)
+
+
+def test_unknown_export_key_rejected(tmp_path: Path) -> None:
+    payload = _valid_payload(tmp_path)
+    payload["export"] = {"formats": ["csv"], "bogus": True}
+
+    with pytest.raises(ValueError, match=r"export\.bogus"):
+        config_model.validate_trend_config(payload, base_path=tmp_path)
+
+
 def test_unknown_top_level_section_rejected(tmp_path: Path) -> None:
     payload = _valid_payload(tmp_path)
     payload["bogus"] = {"anything": 1}
 
     with pytest.raises(ValueError, match=r"bogus"):
         config_model.validate_trend_config(payload, base_path=tmp_path)
+
+
+def test_consumed_legacy_top_level_sections_allowed(tmp_path: Path) -> None:
+    payload = _valid_payload(tmp_path)
+    payload["signals"] = {"window": 10, "lag": 1}
+    payload["output"] = {"path": "report.html", "format": "csv"}
+    payload["extra"] = {"scenario": "smoke"}
+
+    config_model.validate_trend_config(payload, base_path=tmp_path)
 
 
 def test_shipped_demo_and_defaults_have_no_section_lint_errors() -> None:
