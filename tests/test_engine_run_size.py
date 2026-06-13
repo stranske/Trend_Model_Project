@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import ast
+import io
+import tokenize
 from pathlib import Path
 
 
@@ -32,14 +34,19 @@ def _run_body_line_count() -> int:
 def _run_max_indent_depth() -> int:
     node = _run_function_node()
     assert node.end_lineno is not None
-    lines = ENGINE_PATH.read_text().splitlines()[node.lineno - 1 : node.end_lineno]
-    base_indent = len(lines[0]) - len(lines[0].lstrip())
+    source = ENGINE_PATH.read_text()
+    tokens = tokenize.generate_tokens(io.StringIO(source).readline)
+    current_depth = 0
     max_depth = 0
-    for line in lines[1:]:
-        if not line.strip():
+    for token in tokens:
+        line_no = token.start[0]
+        if line_no <= node.lineno or line_no > node.end_lineno:
             continue
-        indent = len(line) - len(line.lstrip())
-        max_depth = max(max_depth, (indent - base_indent) // 4)
+        if token.type == tokenize.INDENT:
+            current_depth += 1
+            max_depth = max(max_depth, current_depth)
+        elif token.type == tokenize.DEDENT:
+            current_depth = max(0, current_depth - 1)
     return max_depth
 
 

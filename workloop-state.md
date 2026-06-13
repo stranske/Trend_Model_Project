@@ -1,3 +1,12 @@
+## 2026-06-13T07:57Z - opener (codex): PR #5549 rebase and review robustness recovery
+
+- Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5546`, PR `#5549`, branch `codex/issue-5546-run-decomposition`.
+- Cap-drain trigger: opener cap was below 5, but cap sweep found PR `#5549` opener-owned with `mergeStateStatus=DIRTY` after `origin/phase-3` advanced from `416c3285` to `d99d7fc1`, plus two actionable Copilot review comments on brittle tests.
+- Rebase recovery: rebased onto current `origin/phase-3`; the only conflict was `workloop-state.md`, resolved by preserving both the newer #5548 closer entry and the older #5546 opener entry.
+- Review fixes: changed `test_threshold_path_extracted_helpers_are_called_in_required_order` to parse the extracted helper with `ast` and record real `Call` nodes, avoiding substring/comment/string false positives. Changed `tests/test_engine_run_size.py` to compute max `run()` block depth from tokenizer `INDENT`/`DEDENT` tokens instead of leading-space division, avoiding continuation-indent false failures.
+- Validation: `UV_CACHE_DIR=/private/tmp/uv-cache-trend-5546 PYTHONPATH=src uv run --extra dev python -m pytest tests/test_engine_run_refactor_parity.py tests/test_engine_run_size.py -q` -> 5 passed, 14 existing Pandas4 warnings. `UV_CACHE_DIR=/private/tmp/uv-cache-trend-5546 uv run --extra dev ruff check tests/test_engine_run_refactor_parity.py tests/test_engine_run_size.py` -> passed.
+- Current state: recovery changes are ready to commit and push; after push, PR `#5549` should rerun Gate/guard/review on the rebased head and wait for asynchronous keepalive/closer handling.
+
 ## 2026-06-13T07:26Z - closer (codex): PR #5548 CI/review recovery pushed
 
 - Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5543`, PR `#5548`, branch `claude/issue-5543-strict-config-sections`.
