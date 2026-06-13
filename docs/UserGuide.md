@@ -331,6 +331,10 @@ realistic implementation:
    subtract these costs when computing risk/return figures. When a nested
    `portfolio.cost_model.bps_per_trade` value is supplied it overrides this
    top-level field so configs can keep transaction costs and slippage together.
+   **Single-period note:** this turnover-based cost is charged only by the
+   multi-period engine. On a single-period run it is ignored (the app emits a
+   `UserWarning`); use `run.monthly_cost`, or run multi-period, to model costs
+   for a single-period analysis.
 - `portfolio.cost_model.slippage_bps` – optional extra spread per turnover
    event to mimic fill slippage. Defaults to `0`. Positive values reduce the
    first post-rebalance return by the specified number of basis points.

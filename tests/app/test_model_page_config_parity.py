@@ -215,6 +215,7 @@ def rendered_model(monkeypatch: pytest.MonkeyPatch):
     stub.cache_data = _passthrough_decorator
     stub.cache_resource = _passthrough_decorator
     stub.expander = lambda *_args, **_kwargs: Context()
+    stub.container = lambda *_args, **_kwargs: Context()
     stub.sidebar = Context()
     stub.dialog = lambda *_args, **_kwargs: Context()
     stub.form = lambda *_args, **_kwargs: Context()
