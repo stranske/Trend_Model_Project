@@ -25,7 +25,7 @@ from pydantic import (
     model_validator,
 )
 
-from trend_analysis.config.lint_keys import lint_portfolio_keys
+from trend_analysis.config.lint_keys import lint_config_sections, lint_portfolio_keys
 from utils.paths import proj_path
 
 # ---------------------------------------------------------------------------
@@ -640,6 +640,10 @@ def validate_trend_config(data: Any, *, base_path: Path) -> TrendConfig:
         if lint_errors:
             first_error = lint_errors[0]
             raise ValueError(f"{first_error}: unexpected or inert portfolio key")
+        section_errors = lint_config_sections(data)
+        if section_errors:
+            first_error = section_errors[0]
+            raise ValueError(f"{first_error}: unexpected or inert config key")
 
     try:
         return TrendConfig.model_validate(data, context={"base_path": base_path})

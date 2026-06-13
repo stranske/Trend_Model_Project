@@ -1,3 +1,12 @@
+## 2026-06-13T07:26Z - closer (codex): PR #5548 CI/review recovery pushed
+
+- Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5543`, PR `#5548`, branch `claude/issue-5543-strict-config-sections`.
+- Batch context: PR `#5547` was already merged before this closer round; applied `verify:compare`, emitted `verify_label_applied`, and reopened source issues `#5544`/`#5545` with verifier-sequencing comments so they wait for durable verifier/provider PASS.
+- Failure evidence: Gate run `27459649584` failed Python 3.12/3.13 because `lint_config_sections` rejected real consumed top-level sections (`extra`, `signals`, `output`) in Monte Carlo strategy, pipeline env override, and spec-loader tests. Inline review also flagged the missing `signals` allowlist, stale `run.n_jobs` acceptance, missing `export.*` regression, and misleading allowlist comment.
+- Fix pushed: commit `13ce1a9b` adds consumed top-level `signals`/`output`/`extra`, removes dead `run.n_jobs`, adds strict-key regressions for `run.n_jobs`, `export.bogus`, and consumed legacy top-level sections, and corrects the allowlist comment. Resolved all four review threads and posted PR evidence comment.
+- Validation: `PYTHONPATH=src python -m pytest tests/monte_carlo/strategy/test_variant.py tests/test_pipeline.py::test_env_override tests/test_spec_loader.py -q -rA` -> 40 passed. `PYTHONPATH=src python -m pytest tests/config/test_strict_config_keys.py tests/test_parallelism_keys.py -q -rA` -> 17 passed. `python -m ruff check src/trend_analysis/config/lint_keys.py tests/config/test_strict_config_keys.py` -> passed.
+- Current state: PR `#5548` is open/non-draft, review threads resolved, mergeable `MERGEABLE`/`UNSTABLE`, fresh post-push Gate/Claude/guard checks in progress on head `13ce1a9b`. Next closer action: re-check fresh checks; if clean, merge #5548, apply `verify:compare`, and keep source issue #5543 open until verifier PASS.
+
 ## 2026-06-04T10:18Z - closer (codex): PR #5490 full-suite stale test repair
 
 - Repo/issue/PR: `stranske/Trend_Model_Project` issue `#5423`, PR `#5490`, branch `codex/issue-5423-legacy-runners`.

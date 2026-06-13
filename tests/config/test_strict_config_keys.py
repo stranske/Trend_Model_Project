@@ -120,3 +120,80 @@ def test_load_defaults_is_cached() -> None:
     after = _load_defaults.cache_info()
 
     assert after.hits == before.hits + 1
+
+
+def _valid_payload(base_dir: Path) -> dict:
+    """Minimal payload that ``validate_trend_config`` accepts."""
+
+    csv_path = _write_returns_csv(base_dir)
+    return {
+        "data": {
+            "csv_path": str(csv_path),
+            "date_column": "Date",
+            "frequency": "M",
+        },
+        "portfolio": {
+            "selection_mode": "all",
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 1.0,
+            "transaction_cost_bps": 0,
+        },
+        "vol_adjust": {
+            "target_vol": 0.1,
+        },
+    }
+
+
+def test_unknown_metrics_key_rejected(tmp_path: Path) -> None:
+    payload = _valid_payload(tmp_path)
+    payload["metrics"] = {"registry": "core", "bogus": True}
+
+    with pytest.raises(ValueError, match=r"metrics\.bogus"):
+        config_model.validate_trend_config(payload, base_path=tmp_path)
+
+
+def test_unknown_run_key_rejected(tmp_path: Path) -> None:
+    payload = _valid_payload(tmp_path)
+    payload["run"] = {"jobs": 1, "bogus": True}
+
+    with pytest.raises(ValueError, match=r"run\.bogus"):
+        config_model.validate_trend_config(payload, base_path=tmp_path)
+
+
+def test_dead_run_n_jobs_alias_rejected(tmp_path: Path) -> None:
+    payload = _valid_payload(tmp_path)
+    payload["run"] = {"n_jobs": 1}
+
+    with pytest.raises(ValueError, match=r"run\.n_jobs"):
+        config_model.validate_trend_config(payload, base_path=tmp_path)
+
+
+def test_unknown_export_key_rejected(tmp_path: Path) -> None:
+    payload = _valid_payload(tmp_path)
+    payload["export"] = {"formats": ["csv"], "bogus": True}
+
+    with pytest.raises(ValueError, match=r"export\.bogus"):
+        config_model.validate_trend_config(payload, base_path=tmp_path)
+
+
+def test_unknown_top_level_section_rejected(tmp_path: Path) -> None:
+    payload = _valid_payload(tmp_path)
+    payload["bogus"] = {"anything": 1}
+
+    with pytest.raises(ValueError, match=r"bogus"):
+        config_model.validate_trend_config(payload, base_path=tmp_path)
+
+
+def test_consumed_legacy_top_level_sections_allowed(tmp_path: Path) -> None:
+    payload = _valid_payload(tmp_path)
+    payload["signals"] = {"window": 10, "lag": 1}
+    payload["output"] = {"path": "report.html", "format": "csv"}
+    payload["extra"] = {"scenario": "smoke"}
+
+    config_model.validate_trend_config(payload, base_path=tmp_path)
+
+
+def test_shipped_demo_and_defaults_have_no_section_lint_errors() -> None:
+    for config_path in (Path("config/demo.yml"), Path("config/defaults.yml")):
+        payload = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        assert config_model.lint_config_sections(payload) == [], config_path
