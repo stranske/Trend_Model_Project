@@ -94,6 +94,92 @@ _DYNAMIC_PORTFOLIO_SUBTREES = {
     "constraints.allowed_assets",
 }
 
+# Top-level config sections recognised by the engine. Sourced from the generated
+# ``config.schema.json`` ``properties`` plus every top-level section shipped in
+# ``config/*.yml`` (those keys are guarded as consumed by
+# ``tests/config/test_no_inert_keys.py``). Unknown top-level sections are silent
+# no-ops, so ``lint_config_sections`` rejects them (#5543, follow-up to A1/#5389).
+_DECLARED_TOP_LEVEL_SECTIONS = {
+    "benchmarks",
+    "checkpoint_dir",
+    "data",
+    "export",
+    "identity",
+    "jobs",
+    "metrics",
+    "multi_period",
+    "performance",
+    "portfolio",
+    "preprocessing",
+    "regime",
+    "run",
+    "sample_split",
+    "seed",
+    "strategy",
+    "version",
+    "vol_adjust",
+    "walk_forward",
+}
+
+# Closed-field key sets for the ``metrics``/``export``/``run`` sections, which the
+# minimal ``TrendConfig`` does not model and therefore silently drops unknown keys
+# under. Each set is the union of keys shipped in ``config/*.yml`` (consumed-key
+# guarded by ``test_no_inert_keys.py``) plus the ``schema_generator`` declarations.
+# Only immediate children are validated; nested mappings (registries, format
+# lists, ...) carry user-supplied values and are left to their consumers.
+_DECLARED_METRICS_KEYS = {"registry", "rf_override_enabled", "rf_rate_annual"}
+_DECLARED_EXPORT_KEYS = {
+    "directory",
+    "disable_narrative_generation",
+    "filename",
+    "formats",
+    "include_figures",
+}
+_DECLARED_RUN_KEYS = {
+    "checkpoint_dir",
+    "jobs",
+    "monthly_cost",
+    "n_jobs",
+    "name",
+    "output_dir",
+    "seed",
+}
+
+_CLOSED_SECTIONS: dict[str, set[str]] = {
+    "metrics": _DECLARED_METRICS_KEYS,
+    "export": _DECLARED_EXPORT_KEYS,
+    "run": _DECLARED_RUN_KEYS,
+}
+
+
+def lint_config_sections(config: Mapping[str, Any]) -> list[str]:
+    """Return unexpected top-level sections and unknown closed-section keys.
+
+    The minimal :class:`~trend_analysis.config.model.TrendConfig` only models
+    ``data``/``portfolio``/``vol_adjust`` with ``extra="ignore"``, so unknown
+    top-level sections and unknown keys under ``metrics``/``export``/``run`` load
+    silently. This lint makes those fail loudly (#5543, follow-up to A1/#5389)
+    while leaving the engine's free-form portfolio surface to
+    :func:`lint_portfolio_keys`.
+
+    Only immediate children of the closed sections are checked; nested mappings
+    hold user-supplied values, not fixed schema keys.
+    """
+
+    unknown: list[str] = []
+    for raw_key in config:
+        key = str(raw_key)
+        if key not in _DECLARED_TOP_LEVEL_SECTIONS:
+            unknown.append(key)
+    for section, allowed in _CLOSED_SECTIONS.items():
+        block = config.get(section)
+        if isinstance(block, Mapping):
+            for raw_child in block:
+                child = str(raw_child)
+                if child not in allowed:
+                    unknown.append(f"{section}.{child}")
+    return sorted(unknown)
+
 
 def lint_portfolio_keys(
     config: Mapping[str, Any],
