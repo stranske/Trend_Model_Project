@@ -207,8 +207,10 @@ def test_run_signature_matches_pre_refactor_contract() -> None:
     assert signature.parameters["membership"].default is None
 
 
-def test_extracted_helpers_are_called_in_required_order() -> None:
-    source_lines, start_line = inspect.getsourcelines(engine.run)
+def test_threshold_path_extracted_helpers_are_called_in_required_order() -> None:
+    source_lines, start_line = inspect.getsourcelines(
+        engine._run_threshold_hold_multi_periods
+    )
     call_lines: dict[str, int] = {}
     for offset, line in enumerate(source_lines):
         for helper in (

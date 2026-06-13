@@ -1968,6 +1968,36 @@ def run(
             resolved_monthly_cost=resolved_monthly_cost,
         )
 
+    return _run_threshold_hold_multi_periods(
+        cfg,
+        df,
+        data_settings=data_settings,
+        missing_policy_metadata=missing_policy_metadata,
+        missing_policy_diagnostic=missing_policy_diagnostic,
+        risk_free_column_cfg=risk_free_column_cfg,
+        allow_risk_free_fallback_cfg=allow_risk_free_fallback_cfg,
+        regime_cfg=regime_cfg,
+        trend_spec=trend_spec,
+        tc_bps=tc_bps,
+        slippage_bps=slippage_bps,
+    )
+
+
+def _run_threshold_hold_multi_periods(
+    cfg: Any,
+    df: pd.DataFrame,
+    *,
+    data_settings: Mapping[str, Any],
+    missing_policy_metadata: Mapping[str, Any],
+    missing_policy_diagnostic: Mapping[str, Any],
+    risk_free_column_cfg: str | None,
+    allow_risk_free_fallback_cfg: bool,
+    regime_cfg: Mapping[str, Any],
+    trend_spec: Any,
+    tc_bps: float,
+    slippage_bps: float,
+) -> List[MultiPeriodPeriodResult]:
+    """Run the threshold-hold multi-period path."""
     # Threshold-hold path with Bayesian weighting
     periods = generate_periods(cfg.model_dump())
 
