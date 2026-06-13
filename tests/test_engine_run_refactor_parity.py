@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import ast
 import inspect
+import textwrap
 from types import SimpleNamespace
 from typing import Any
 
@@ -207,18 +209,24 @@ def test_run_signature_matches_pre_refactor_contract() -> None:
     assert signature.parameters["membership"].default is None
 
 
-def test_extracted_helpers_are_called_in_required_order() -> None:
-    source_lines, start_line = inspect.getsourcelines(engine.run)
+def test_threshold_path_extracted_helpers_are_called_in_required_order() -> None:
+    helpers = (
+        "_setup_period",
+        "_weight_period",
+        "_apply_turnover_and_cost",
+        "_assemble_period_result",
+    )
+    source = textwrap.dedent(inspect.getsource(engine._run_threshold_hold_multi_periods))
+    tree = ast.parse(source)
     call_lines: dict[str, int] = {}
-    for offset, line in enumerate(source_lines):
-        for helper in (
-            "_setup_period",
-            "_weight_period",
-            "_apply_turnover_and_cost",
-            "_assemble_period_result",
-        ):
-            if helper not in call_lines and f"{helper}(" in line:
-                call_lines[helper] = start_line + offset
+
+    class HelperCallVisitor(ast.NodeVisitor):
+        def visit_Call(self, node: ast.Call) -> None:
+            if isinstance(node.func, ast.Name) and node.func.id in helpers:
+                call_lines.setdefault(node.func.id, node.lineno)
+            self.generic_visit(node)
+
+    HelperCallVisitor().visit(tree)
 
     assert list(call_lines) == [
         "_setup_period",
