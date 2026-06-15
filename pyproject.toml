@@ -112,18 +112,18 @@ notebooks = [
 dev = [
     "pre-commit==4.6.0",
     "black>=26.5.1",
-    "ruff>=0.15.14",
+    "ruff>=0.15.17",
     "isort==8.0.1",
     "docformatter>=1.7.8",
     "mypy>=2.1.0",
     "flake8==7.3.0",
-    "pytest==9.0.3",
+    "pytest>=9.1.0",
     "pytest-cov==7.1.0",
     "pytest-regressions==2.11.0",
     # Shared app behavior baseline harness (also pulls pytest-regressions). Pinned to
     # the Workflows default branch; move to a tagged ref once the package is versioned.
     "app-baseline-kit @ git+https://github.com/stranske/Workflows.git#subdirectory=packages/app-baseline-kit",
-    "coverage>=7.14.0",
+    "coverage>=7.14.1",
     "pytest-rerunfailures==16.3",
     "pytest-xdist==3.8.0",
     "packaging==26.2",
