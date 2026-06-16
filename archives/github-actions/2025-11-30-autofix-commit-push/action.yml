@@ -110,7 +110,7 @@ runs:
 
     - name: Upload patch artifact
       if: ${{ inputs.same_repo != 'true' && steps.autofix.outputs.changed == 'true' }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: autofix-patch-pr-${{ inputs.pr }}
         path: autofix.patch
