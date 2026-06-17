@@ -6,7 +6,7 @@
   "postStartCommand": "./scripts/setup_env.sh",
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {},
-    "ghcr.io/devcontainers/features/node:1": {
+    "ghcr.io/devcontainers/features/node:2": {
       "version": "20"
     },
     "ghcr.io/devcontainers/features/docker-in-docker:2": {
