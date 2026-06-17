@@ -1,6 +1,6 @@
 {
   "name": "analysis‑env",
-  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "image": "mcr.microsoft.com/devcontainers/python:3.14",
   "onCreateCommand": "sudo apt-get update && sudo apt-get install -y python3-venv",
   "postCreateCommand": "./scripts/setup_env.sh && python -c 'import numpy, pandas'",
   "postStartCommand": "./scripts/setup_env.sh",
