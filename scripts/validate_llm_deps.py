@@ -38,8 +38,8 @@ def main() -> int:
         "langchain_community": "langchain-community",
     }
     expected_major_minor = {
-        "langchain": ((1, 2),),
-        "langchain-core": ((1, 2), (1, 3)),
+        "langchain": ((1, 3),),
+        "langchain-core": ((1, 4),),
         "langchain-community": ((0, 4),),
     }
     present = _find_first_installed(llm_packages)
@@ -114,7 +114,7 @@ def main() -> int:
     if incompatible_langchain:
         print(
             "LangChain packages must match pyproject.toml pins: "
-            "langchain 1.2.x; langchain-core 1.2.x or 1.3.x; "
+            "langchain 1.3.x; langchain-core 1.4.x; "
             "langchain-community 0.4.x. "
             f"Detected {', '.join(incompatible_langchain)}.",
             file=sys.stderr,
