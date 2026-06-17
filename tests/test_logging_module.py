@@ -54,13 +54,19 @@ def test_log_step_without_handlers_is_noop(isolated_run_logger: None) -> None:
     crash."""
 
     logger = logging.getLogger(RUN_LOGGER_NAME)
-    assert not logger.handlers
+    app_handlers = [
+        handler for handler in logger.handlers if handler.__class__.__module__ != "_pytest.logging"
+    ]
+    assert not app_handlers
 
     # Should simply return; exercising the defensive branch where no handlers
     # are configured yet.
     log_step("run-123", "bootstrap", "starting")
 
-    assert not logger.handlers
+    app_handlers = [
+        handler for handler in logger.handlers if handler.__class__.__module__ != "_pytest.logging"
+    ]
+    assert not app_handlers
 
 
 def test_jsonl_logging_roundtrip(isolated_run_logger: None, tmp_path: Path) -> None:
