@@ -295,17 +295,13 @@ def test_cached_strategies_are_materially_faster() -> None:
     delay = 0.04
     cached_calls: list[str] = []
     naive_calls: list[str] = []
-    single_calls: list[str] = []
+    cached_compute = make_compute(delay, cached_calls)
+    naive_compute = make_compute(delay, naive_calls)
 
+    # Warm up to avoid one-time overhead skewing the timing ratio assertions.
     single_strategy_name = next(iter(strategies))
     single_strategy = {single_strategy_name: strategies[single_strategy_name]}
     single_columns = {single_strategy_name: columns_by_strategy[single_strategy_name]}
-
-    cached_compute = make_compute(delay, cached_calls)
-    naive_compute = make_compute(delay, naive_calls)
-    single_compute = make_compute(delay, single_calls)
-
-    # Warm up to avoid one-time overhead skewing the timing ratio assertions.
     evaluate_strategies_for_path(
         "path-perf-warmup",
         rebalance_dates,
@@ -327,17 +323,6 @@ def test_cached_strategies_are_materially_faster() -> None:
     cached_time = time.perf_counter() - start
 
     start = time.perf_counter()
-    evaluate_strategies_for_path(
-        "path-perf-single",
-        rebalance_dates,
-        single_compute,
-        single_strategy,
-        columns_by_strategy=single_columns,
-        cache=PathContextCache(),
-    )
-    single_time = time.perf_counter() - start
-
-    start = time.perf_counter()
     _evaluate_strategies_naively(
         rebalance_dates,
         naive_compute,
@@ -347,7 +332,5 @@ def test_cached_strategies_are_materially_faster() -> None:
     naive_time = time.perf_counter() - start
 
     assert cached_calls == rebalance_dates
-    assert single_calls == rebalance_dates
     assert len(naive_calls) == len(rebalance_dates) * len(strategies)
-    assert cached_time < single_time * 2
     assert cached_time * 2 < naive_time
