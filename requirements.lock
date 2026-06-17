@@ -195,7 +195,7 @@ kiwisolver==1.5.0
     # via matplotlib
 langchain==1.3.9
     # via trend-model (pyproject.toml)
-langchain-anthropic==1.4.1
+langchain-anthropic==1.4.6
     # via trend-model (pyproject.toml)
 langchain-classic==1.0.4
     # via langchain-community
@@ -513,10 +513,8 @@ types-requests==2.33.0.20260508
     # via trend-model (pyproject.toml)
 typing-extensions==4.15.0
     # via
-    #   aiosignal
     #   altair
     #   anthropic
-    #   anyio
     #   fastapi
     #   langchain-core
     #   langchain-protocol
@@ -525,9 +523,7 @@ typing-extensions==4.15.0
     #   pandera
     #   pydantic
     #   pydantic-core
-    #   referencing
     #   sqlalchemy
-    #   starlette
     #   streamlit
     #   typeguard
     #   typing-inspect
