@@ -38,7 +38,7 @@ classifiers = [
 dependencies = [
     "PyYAML==6.0.3",
     "fpdf2==2.8.7",
-    "hypothesis==6.155.3",
+    "hypothesis==6.155.4",
     "ipywidgets==8.1.8",
     "joblib==1.5.3",
     "jsonschema==4.26.0",
