@@ -92,7 +92,7 @@ execnet==2.1.2
     # via pytest-xdist
 executing==2.2.1
     # via stack-data
-fastapi==0.137.1
+fastapi==0.137.2
     # via trend-model (pyproject.toml)
 fastjsonschema==2.21.2
     # via nbformat
