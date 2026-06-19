@@ -312,7 +312,7 @@ pandas==3.0.3
     # via
     #   trend-model (pyproject.toml)
     #   streamlit
-pandera==0.31.1
+pandera==0.32.0
     # via trend-model (pyproject.toml)
 parso==0.8.6
     # via jedi
