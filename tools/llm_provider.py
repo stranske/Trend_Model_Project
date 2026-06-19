@@ -28,9 +28,6 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
-
-from pydantic import SecretStr
 
 logger = logging.getLogger(__name__)
 
@@ -82,11 +79,6 @@ def _ensure_langsmith_enabled() -> bool:
     if os.environ.get("LANGSMITH_API_KEY"):
         LANGSMITH_ENABLED = _setup_langsmith_tracing()
     return LANGSMITH_ENABLED
-
-
-def _secret_from_env(name: str) -> SecretStr | None:
-    value = os.environ.get(name)
-    return SecretStr(value) if value else None
 
 
 def build_langsmith_metadata(
@@ -159,7 +151,7 @@ def derive_langsmith_trace_url(trace_id: str | None) -> str | None:
     return f"{LANGSMITH_TRACE_URL_BASE}{trace_id}"
 
 
-def extract_trace_id(response: Any) -> str | None:
+def extract_trace_id(response) -> str | None:
     """Extract LangSmith trace ID from a LangChain response object.
 
     Works with responses from ChatOpenAI, ChatAnthropic, and other LangChain clients.
@@ -337,7 +329,7 @@ class GitHubModelsProvider(LLMProvider):
     def supports_quality_context(self) -> bool:
         return True
 
-    def _get_client(self) -> Any | None:
+    def _get_client(self):
         """Get LangChain ChatOpenAI client configured for GitHub Models."""
         try:
             from langchain_openai import ChatOpenAI
@@ -348,7 +340,7 @@ class GitHubModelsProvider(LLMProvider):
         return ChatOpenAI(
             model="gpt-4.1",  # Battle-tested, reliable, available on GitHub Models
             base_url=GITHUB_MODELS_BASE_URL,
-            api_key=_secret_from_env("GITHUB_TOKEN"),
+            api_key=os.environ.get("GITHUB_TOKEN"),
             temperature=0.1,  # Low temperature for consistent analysis
         )
 
@@ -517,7 +509,7 @@ Be conservative - if unsure, don't mark as completed."""
 
     def _parse_response(
         self,
-        content: str | list[Any],
+        content: str | list,
         _tasks: list[str],
         quality_context: SessionQualityContext | None = None,
     ) -> CompletionAnalysis:
@@ -590,7 +582,7 @@ class OpenAIProvider(LLMProvider):
     def supports_quality_context(self) -> bool:
         return True
 
-    def _get_client(self) -> Any | None:
+    def _get_client(self):
         """Get LangChain ChatOpenAI client."""
         try:
             from langchain_openai import ChatOpenAI
@@ -600,7 +592,7 @@ class OpenAIProvider(LLMProvider):
 
         return ChatOpenAI(
             model="gpt-5.1-codex",  # Purpose-built for analyzing Codex coding sessions
-            api_key=_secret_from_env("OPENAI_API_KEY"),
+            api_key=os.environ.get("OPENAI_API_KEY"),
             temperature=0.1,
         )
 
@@ -657,7 +649,7 @@ class AnthropicProvider(LLMProvider):
     def supports_quality_context(self) -> bool:
         return True
 
-    def _get_client(self) -> Any | None:
+    def _get_client(self):
         try:
             from langchain_anthropic import ChatAnthropic
         except ImportError:
