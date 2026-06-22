@@ -92,7 +92,9 @@ class DummyStreamlit:
     def expander(self, *_args, **_kwargs) -> "ColumnContext":
         return ColumnContext(self)
 
-    def checkbox(self, label: str, value: bool = False, key: str | None = None, **_kwargs) -> bool:
+    def checkbox(
+        self, label: str, value: bool = False, key: str | None = None, **_kwargs
+    ) -> bool:
         self.checkbox_labels.append(label)
         if key is None:
             return bool(value)
@@ -652,7 +654,12 @@ def test_demo_run_marks_or_hides_inapplicable_tabs(
     monkeypatch.setattr(
         page.explain_results, "render_explain_results", lambda *_args, **_kwargs: None
     )
-    monkeypatch.setattr(page, "_render_download_section", lambda *_args, **_kwargs: None)
+    download_calls: list[tuple[object, dict[str, object]]] = []
+
+    def render_download_spy(*args, **kwargs):
+        download_calls.append((args, kwargs))
+
+    monkeypatch.setattr(page, "_render_download_section", render_download_spy)
     monkeypatch.setattr(stub, "button", lambda *_args, **_kwargs: False)
     monkeypatch.setattr(
         page.analysis_runner,
@@ -665,14 +672,29 @@ def test_demo_run_marks_or_hides_inapplicable_tabs(
     labels = stub.tab_groups[-1]
     assert any("Summary" in label for label in labels)
     assert any("Visualizations" in label for label in labels)
-    assert any("Period Analysis" in label and "multi-period only" in label for label in labels)
-    assert any("Fund Details" in label and "multi-period/custom only" in label for label in labels)
+    assert any(
+        "Period Analysis" in label and "multi-period only" in label for label in labels
+    )
+    assert any(
+        "Fund Details" in label and "multi-period/custom only" in label
+        for label in labels
+    )
     assert any("Export" in label and "multi-period only" in label for label in labels)
-    assert any("Compare" in label and "needs saved configs" in label for label in labels)
-    assert any("Run a multi-period analysis to enable" in msg for msg in stub.info_messages)
+    assert any(
+        "Compare" in label and "needs saved configs" in label for label in labels
+    )
+    assert any(
+        "Run a multi-period analysis to enable" in msg for msg in stub.info_messages
+    )
+    assert any(
+        "Export requires a multi-period analysis" in msg for msg in stub.info_messages
+    )
+    assert not download_calls
 
 
-def test_period_count_uses_period_results_when_explicit_count_missing(results_page) -> None:
+def test_period_count_uses_period_results_when_explicit_count_missing(
+    results_page,
+) -> None:
     page, _stub = results_page
 
     result = SimpleNamespace(
