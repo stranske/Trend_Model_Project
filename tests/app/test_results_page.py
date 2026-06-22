@@ -30,6 +30,7 @@ class DummyStreamlit:
         self.dataframes: list[pd.DataFrame] = []
         self.metrics: list[tuple[str, object]] = []
         self.checkbox_labels: list[str] = []
+        self.tab_groups: list[list[str]] = []
 
     # Basic UI primitives -------------------------------------------------
     def title(self, _text: str) -> None:  # pragma: no cover - trivial
@@ -82,6 +83,7 @@ class DummyStreamlit:
         self.caption_messages.append(message)
 
     def tabs(self, labels: list[str]):
+        self.tab_groups.append(list(labels))
         return [ColumnContext(self) for _ in labels]
 
     def metric(self, label: str, value: object) -> None:
@@ -594,3 +596,82 @@ def test_demo_run_renders_results_end_to_end(
 
     assert rerun_columns == ["FundA", "FundB", "RF"]
     assert rerun_model_states[-1]["risk_free_column"] == "RF"
+
+
+def test_demo_run_marks_or_hides_inapplicable_tabs(
+    monkeypatch: pytest.MonkeyPatch, results_page
+) -> None:
+    page, stub = results_page
+    returns = _sample_returns()
+    result = SimpleNamespace(
+        metrics=pd.DataFrame({"Sharpe": [1.23]}),
+        details={
+            "portfolio_equal_weight_combined": returns["FundA"],
+            "risk_diagnostics": {
+                "turnover": pd.Series([0.1, 0.2], index=returns.index[:2]),
+                "final_weights": pd.Series({"FundA": 0.6, "FundB": 0.4}),
+            },
+        },
+        fallback_info=None,
+        portfolio=returns["FundA"],
+        weights=pd.Series({"FundA": 0.6, "FundB": 0.4}),
+    )
+
+    from streamlit_app.components import demo_runner
+
+    setup = demo_runner.DemoSetup(
+        config_state={"preset_name": "Balanced"},
+        sim_config={"preset_name": "Balanced"},
+        pipeline_config=SimpleNamespace(),
+        benchmark=None,
+    )
+    demo_runner._update_session_state(stub, setup, returns, {})
+    demo_runner._store_demo_result_state(stub, setup, returns, result)
+
+    for chart in [
+        "equity_chart",
+        "drawdown_chart",
+        "rolling_sharpe_chart",
+        "turnover_chart",
+        "exposure_chart",
+    ]:
+        monkeypatch.setattr(
+            getattr(page, "charts"), chart, lambda *_args, chart_name=chart: chart_name
+        )
+    monkeypatch.setattr(
+        page.explain_results, "render_explain_results", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(stub, "button", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(
+        page.analysis_runner,
+        "run_analysis",
+        lambda *_args, **_kwargs: pytest.fail("demo result should be reused"),
+    )
+
+    page.render_results_page()
+
+    labels = stub.tab_groups[-1]
+    assert any("Summary" in label for label in labels)
+    assert any("Visualizations" in label for label in labels)
+    assert any("Period Analysis" in label and "multi-period only" in label for label in labels)
+    assert any("Fund Details" in label and "multi-period/custom only" in label for label in labels)
+    assert any("Export" in label and "multi-period only" in label for label in labels)
+    assert any("Compare" in label and "needs saved configs" in label for label in labels)
+    assert any("Run a multi-period analysis to enable" in msg for msg in stub.info_messages)
+
+
+def test_period_count_uses_period_results_when_explicit_count_missing(results_page) -> None:
+    page, _stub = results_page
+
+    result = SimpleNamespace(
+        details={
+            "period_count": 0,
+            "period_results": [
+                {"period": ("2024-01-01", "2024-01-31", "2024-02-01", "2024-02-29")},
+                {"period": ("2024-02-01", "2024-02-29", "2024-03-01", "2024-03-31")},
+            ],
+        },
+        period_count=0,
+    )
+
+    assert page._result_period_count(result, result.details) == 2
