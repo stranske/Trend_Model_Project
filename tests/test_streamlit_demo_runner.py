@@ -56,6 +56,21 @@ def test_run_one_click_demo_updates_state(monkeypatch):
     assert state["demo_show_export_prompt"] is True
 
 
+def test_demo_presentation_safe_yields_results():
+    df, _ = demo_runner._load_demo_returns()
+    setup = demo_runner._prepare_demo_setup(df)
+    returns = df.reset_index().rename(columns={df.index.name or "index": "Date"})
+
+    result = demo_runner.run_simulation(setup.pipeline_config, returns)
+    selected_funds = result.details.get("selected_funds", [])
+
+    assert result.diagnostic is None
+    assert result.metrics.shape[0] >= 1
+    assert selected_funds
+    assert all(str(fund).startswith("Mgr_") for fund in selected_funds)
+    assert "SPX" not in selected_funds
+
+
 def test_app_demo_button_triggers_navigation(monkeypatch):
     class MockStreamlit(ModuleType):
         def __init__(self) -> None:  # noqa: D401 - helper

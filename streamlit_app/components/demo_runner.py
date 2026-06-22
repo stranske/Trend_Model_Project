@@ -174,6 +174,7 @@ def _build_pipeline_config(
     }
 
     portfolio = {
+        "indices_list": [benchmark] if benchmark else [],
         "selection_mode": "rank",
         "rank": {
             "inclusion_approach": "top_n",
