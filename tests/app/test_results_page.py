@@ -92,7 +92,9 @@ class DummyStreamlit:
     def expander(self, *_args, **_kwargs) -> "ColumnContext":
         return ColumnContext(self)
 
-    def checkbox(self, label: str, value: bool = False, key: str | None = None, **_kwargs) -> bool:
+    def checkbox(
+        self, label: str, value: bool = False, key: str | None = None, **_kwargs
+    ) -> bool:
         self.checkbox_labels.append(label)
         if key is None:
             return bool(value)
@@ -606,12 +608,23 @@ def test_demo_run_marks_or_hides_inapplicable_tabs(
     result = SimpleNamespace(
         metrics=pd.DataFrame({"Sharpe": [1.23]}),
         details={
+            "period_count": 1,
+            "period_results": [
+                {
+                    "period": ("2024-01-01", "2024-01-31", "2024-02-01", "2024-02-29"),
+                    "in_sample_scaled": returns.iloc[:2],
+                    "out_sample_scaled": returns.iloc[2:],
+                    "ew_weights": {"FundA": 0.5, "FundB": 0.5},
+                    "fund_weights": {"FundA": 0.6, "FundB": 0.4},
+                }
+            ],
             "portfolio_equal_weight_combined": returns["FundA"],
             "risk_diagnostics": {
                 "turnover": pd.Series([0.1, 0.2], index=returns.index[:2]),
                 "final_weights": pd.Series({"FundA": 0.6, "FundB": 0.4}),
             },
         },
+        period_count=1,
         fallback_info=None,
         portfolio=returns["FundA"],
         weights=pd.Series({"FundA": 0.6, "FundB": 0.4}),
@@ -641,6 +654,12 @@ def test_demo_run_marks_or_hides_inapplicable_tabs(
     monkeypatch.setattr(
         page.explain_results, "render_explain_results", lambda *_args, **_kwargs: None
     )
+    download_calls: list[tuple[object, dict[str, object]]] = []
+
+    def render_download_spy(*args, **kwargs):
+        download_calls.append((args, kwargs))
+
+    monkeypatch.setattr(page, "_render_download_section", render_download_spy)
     monkeypatch.setattr(stub, "button", lambda *_args, **_kwargs: False)
     monkeypatch.setattr(
         page.analysis_runner,
@@ -653,14 +672,29 @@ def test_demo_run_marks_or_hides_inapplicable_tabs(
     labels = stub.tab_groups[-1]
     assert any("Summary" in label for label in labels)
     assert any("Visualizations" in label for label in labels)
-    assert any("Period Analysis" in label and "multi-period only" in label for label in labels)
-    assert any("Fund Details" in label and "multi-period/custom only" in label for label in labels)
+    assert any(
+        "Period Analysis" in label and "multi-period only" in label for label in labels
+    )
+    assert any(
+        "Fund Details" in label and "multi-period/custom only" in label
+        for label in labels
+    )
     assert any("Export" in label and "multi-period only" in label for label in labels)
-    assert any("Compare" in label and "needs saved configs" in label for label in labels)
-    assert any("Run a multi-period analysis to enable" in msg for msg in stub.info_messages)
+    assert any(
+        "Compare" in label and "needs saved configs" in label for label in labels
+    )
+    assert any(
+        "Run a multi-period analysis to enable" in msg for msg in stub.info_messages
+    )
+    assert any(
+        "Export requires a multi-period analysis" in msg for msg in stub.info_messages
+    )
+    assert not download_calls
 
 
-def test_period_count_uses_period_results_when_explicit_count_missing(results_page) -> None:
+def test_period_count_uses_period_results_when_explicit_count_missing(
+    results_page,
+) -> None:
     page, _stub = results_page
 
     result = SimpleNamespace(
