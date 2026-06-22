@@ -180,7 +180,7 @@ jsonpatch==1.33
     # via langchain-core
 jsonpointer==3.1.1
     # via jsonpatch
-jsonschema==4.22.0
+jsonschema==4.26.0
     # via
     #   trend-model (pyproject.toml)
     #   altair
