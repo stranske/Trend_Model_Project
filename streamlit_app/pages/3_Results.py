@@ -683,7 +683,10 @@ def _render_manager_changes(result) -> None:
     decisions_df = _extract_manager_decisions(result)
 
     if changes_df.empty and decisions_df.empty:
-        st.caption("No manager changes during simulation period.")
+        st.caption(
+            "Manager change history is not included in this sample run; use a custom "
+            "multi-period analysis to review hiring and termination decisions."
+        )
         return
 
     initial = len(changes_df[changes_df["Action"] == "Initial"]) if not changes_df.empty else 0
@@ -949,7 +952,10 @@ def _render_fund_holdings(result) -> None:
     summary_df, risk_df = _compute_fund_holding_periods(result)
 
     if summary_df.empty:
-        st.caption("No fund holding data available.")
+        st.caption(
+            "Holding-period detail is not included in this sample run; use a custom "
+            "multi-period analysis to inspect manager tenure and holdings."
+        )
         return
 
     # Format summary
@@ -1663,7 +1669,9 @@ def _render_download_section(result, *, include_narrative: bool = True) -> None:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
     else:
-        st.caption("Run a multi-period analysis to enable workbook export.")
+        st.caption(
+            "Run a multi-period analysis from the Model page to enable workbook export."
+        )
 
     # CSV equivalent of the Excel workbook
     st.divider()
@@ -1834,7 +1842,7 @@ def _render_download_section(result, *, include_narrative: bool = True) -> None:
             mime="application/zip",
         )
     else:
-        st.caption("Run a multi-period analysis to enable CSV export.")
+        st.caption("Run a multi-period analysis from the Model page to enable CSV export.")
 
 
 # =============================================================================
@@ -2092,17 +2100,32 @@ def render_results_page() -> None:
             f"✅ Simulation complete: **{period_count} periods** from {sim_start} to {sim_end}"
         )
 
-    # Create main tabs for organized navigation
-    main_tabs = st.tabs(
-        [
+    single_period_result = period_count <= 0
+    tab_labels = [
+        "📊 Summary",
+        "🔬 Period Analysis",
+        "📈 Visualizations",
+        "📋 Fund Details",
+        "💾 Export",
+        "🆚 Compare",
+    ]
+    if single_period_result:
+        st.info(
+            "Single-period demo results include Summary and Visualizations. "
+            "Run a multi-period analysis to enable Period Analysis, Fund Details, Export, "
+            "and Compare."
+        )
+        tab_labels = [
             "📊 Summary",
-            "🔬 Period Analysis",
+            "🔬 Period Analysis — multi-period only",
             "📈 Visualizations",
-            "📋 Fund Details",
-            "💾 Export",
-            "🆚 Compare",
+            "📋 Fund Details — multi-period/custom only",
+            "💾 Export — multi-period only",
+            "🆚 Compare — needs saved configs",
         ]
-    )
+
+    # Create main tabs for organized navigation
+    main_tabs = st.tabs(tab_labels)
 
     # ==========================================================================
     # TAB 1: SUMMARY - Total portfolio performance
@@ -2158,7 +2181,10 @@ def render_results_page() -> None:
         if period_count > 0:
             _render_period_breakdown(result)
         else:
-            st.info("Single-period analysis does not have period breakdown.")
+            st.info(
+                "Set Lookback/periods above 1 on the Model page for a period-by-period "
+                "breakdown."
+            )
             # Show single period data if available
             if details:
                 score_frame = details.get("score_frame")
@@ -2304,7 +2330,9 @@ def render_results_page() -> None:
         saved_names = sorted(saved_states)
 
         if len(saved_names) < 2:
-            st.info("Save at least two configurations on the Model page to enable A/B comparison.")
+            st.info(
+                "Save at least two configurations on the Model page to enable A/B comparison."
+            )
         else:
             col_a, col_b = st.columns(2)
             with col_a:
