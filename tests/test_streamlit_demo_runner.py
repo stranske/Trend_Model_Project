@@ -67,7 +67,7 @@ def test_demo_presentation_safe_yields_results():
     assert result.diagnostic is None
     assert result.metrics.shape[0] >= 1
     assert selected_funds
-    assert any(str(fund).startswith("Mgr_") for fund in selected_funds)
+    assert all(str(fund).startswith("Mgr_") for fund in selected_funds)
     assert "SPX" not in selected_funds
 
 
