@@ -497,3 +497,100 @@ def test_current_run_key_changes_with_risk_free(results_page) -> None:
     key_two = page._current_run_key(model_state, None)
 
     assert key_one != key_two
+
+
+def test_demo_run_renders_results_end_to_end(
+    monkeypatch: pytest.MonkeyPatch, results_page
+) -> None:
+    page, stub = results_page
+    returns = _sample_returns()
+    returns["RF"] = [0.001, 0.001, 0.001]
+    result = SimpleNamespace(
+        metrics=pd.DataFrame({"Sharpe": [1.23]}),
+        details={
+            "portfolio_equal_weight_combined": returns["FundA"],
+            "risk_diagnostics": {
+                "turnover": pd.Series([0.1, 0.2], index=returns.index[:2]),
+                "final_weights": pd.Series({"FundA": 0.6, "FundB": 0.4}),
+            },
+        },
+        fallback_info=None,
+        portfolio=returns["FundA"],
+        weights=pd.Series({"FundA": 0.6, "FundB": 0.4}),
+    )
+
+    from streamlit_app.components import demo_runner
+
+    setup = demo_runner.DemoSetup(
+        config_state={"preset_name": "Balanced"},
+        sim_config={"preset_name": "Balanced"},
+        pipeline_config=SimpleNamespace(),
+        benchmark=None,
+    )
+    demo_runner._update_session_state(stub, setup, returns, {})
+    demo_runner._store_demo_result_state(stub, setup, returns, result)
+
+    for chart in [
+        "equity_chart",
+        "drawdown_chart",
+        "rolling_sharpe_chart",
+        "turnover_chart",
+        "exposure_chart",
+    ]:
+        monkeypatch.setattr(
+            getattr(page, "charts"), chart, lambda *_args, chart_name=chart: chart_name
+        )
+    monkeypatch.setattr(
+        page.explain_results, "render_explain_results", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(stub, "button", lambda *_args, **_kwargs: False)
+
+    recompute_calls: list[tuple[object, ...]] = []
+
+    def fail_recompute(*args, **_kwargs):
+        recompute_calls.append(args)
+        raise AssertionError("demo result should be reused without recomputing")
+
+    monkeypatch.setattr(page.analysis_runner, "run_analysis", fail_recompute)
+
+    original_current_run_key = page._current_run_key
+    render_run_keys: list[str] = []
+
+    def recording_run_key(model_state, benchmark):
+        key = original_current_run_key(model_state, benchmark)
+        render_run_keys.append(key)
+        return key
+
+    monkeypatch.setattr(page, "_current_run_key", recording_run_key)
+
+    expected_run_key = page._current_run_key(
+        stub.session_state["model_state"], stub.session_state["selected_benchmark"]
+    )
+    assert stub.session_state["analysis_result_key"] == expected_run_key
+
+    page.render_results_page()
+
+    assert render_run_keys[-1] == stub.session_state["analysis_result_key"]
+    assert not recompute_calls
+    assert stub.session_state["analysis_fund_columns"] == ["FundA", "FundB"]
+    assert stub.session_state["selected_risk_free"] == "RF"
+    assert stub.session_state["analysis_result"] is result
+    assert stub.session_state["analysis_result_key"] == expected_run_key
+    assert any("Using 2 selected funds" in msg for msg in stub.caption_messages)
+    assert not stub.error_messages
+
+    rerun_columns: list[str] = []
+    rerun_model_states: list[dict] = []
+
+    def record_rerun(df, model_state, _benchmark, **_kwargs):
+        rerun_columns.extend(list(df.columns))
+        rerun_model_states.append(dict(model_state))
+        return result
+
+    monkeypatch.setattr(page.analysis_runner, "run_analysis", record_rerun)
+    monkeypatch.setattr(stub, "button", lambda *_args, **_kwargs: True)
+
+    page.render_results_page()
+
+    assert rerun_columns == ["FundA", "FundB", "RF"]
+    assert rerun_model_states[-1]["risk_free_column"] == "RF"

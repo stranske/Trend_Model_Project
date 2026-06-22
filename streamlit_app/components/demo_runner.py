@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, Mapping, MutableMapping, Tuple
@@ -13,6 +15,7 @@ from streamlit_app.components.analysis_runner import ModelSettings
 from streamlit_app.components.data_schema import (
     SchemaMeta,
     infer_benchmarks,
+    infer_risk_free_candidates,
     load_and_validate_file,
 )
 from streamlit_app.components.policy_engine import MetricSpec, PolicyConfig
@@ -349,6 +352,66 @@ def _update_session_state(
     state["selected_benchmark"] = setup.benchmark
 
 
+def _selected_funds_from_result(result: Any, df: pd.DataFrame, benchmark: str | None) -> list[str]:
+    selected: list[str] = []
+    for attr in ("weights", "exposures", "portfolio"):
+        series = getattr(result, attr, None)
+        if isinstance(series, pd.Series):
+            selected.extend(str(item) for item in series.index if str(item) in df.columns)
+    if not selected:
+        selected = [str(col) for col in df.columns]
+
+    excluded = {benchmark, None, ""}
+    return [fund for fund in dict.fromkeys(selected) if fund not in excluded]
+
+
+def _selected_risk_free_from_demo(df: pd.DataFrame, benchmark: str | None) -> str | None:
+    for candidate in infer_risk_free_candidates(list(df.columns)):
+        if candidate != benchmark:
+            return candidate
+    return None
+
+
+def _analysis_run_key(
+    state: Mapping[str, Any], model_state: Mapping[str, Any], benchmark: str | None
+) -> str:
+    fingerprint = state.get("data_fingerprint", "unknown")
+    model_blob = json.dumps(model_state, sort_keys=True, default=str)
+    bench = benchmark or "__none__"
+    selected_rf = state.get("selected_risk_free")
+    selected_rf_key = selected_rf or "__none__"
+    applied_funds = state.get("analysis_fund_columns")
+    if not isinstance(applied_funds, list):
+        applied_funds = state.get("fund_columns")
+    if not isinstance(applied_funds, list):
+        applied_funds = []
+
+    info_ratio_benchmark = model_state.get("info_ratio_benchmark")
+    prohibited = {selected_rf, benchmark, info_ratio_benchmark} - {None}
+    sanitized_funds = [c for c in applied_funds if c not in prohibited]
+    funds_blob = json.dumps(list(sanitized_funds), sort_keys=False, default=str)
+    funds_hash = hashlib.sha256(funds_blob.encode("utf-8")).hexdigest()[:12]
+    return f"{fingerprint}:{bench}:{selected_rf_key}:{funds_hash}:{model_blob}"
+
+
+def _store_demo_result_state(st_module: Any, setup: DemoSetup, df: pd.DataFrame, result: Any) -> None:
+    from streamlit_app.components.data_cache import cache_key_for_frame
+
+    state: MutableMapping[str, Any] = st_module.session_state
+    selected_rf = _selected_risk_free_from_demo(df, setup.benchmark)
+    state["selected_risk_free"] = selected_rf
+    selected_funds = _selected_funds_from_result(result, df, setup.benchmark)
+    state["selected_fund_columns"] = list(selected_funds)
+    state["fund_columns"] = list(selected_funds)
+    state["analysis_fund_columns"] = list(selected_funds)
+    state["sim_results"] = result
+    state["analysis_result"] = result
+    state["data_fingerprint"] = cache_key_for_frame(df)
+    model_state = state.get("model_state")
+    if isinstance(model_state, Mapping):
+        state["analysis_result_key"] = _analysis_run_key(state, model_state, setup.benchmark)
+
+
 def run_one_click_demo(st_module: Any | None = None) -> bool:
     """Execute the demo pipeline and stash results in ``st.session_state``."""
 
@@ -378,13 +441,7 @@ def run_one_click_demo(st_module: Any | None = None) -> bool:
         return False
 
     _update_session_state(st_module, setup, df, meta)
-    st_module.session_state["sim_results"] = result
-    # Also store as analysis_result so Results page can display it directly
-    st_module.session_state["analysis_result"] = result
-    # Set a fingerprint for the data so cache key can match
-    from streamlit_app.components.data_cache import cache_key_for_frame
-
-    st_module.session_state["data_fingerprint"] = cache_key_for_frame(df)
+    _store_demo_result_state(st_module, setup, df, result)
     return True
 
 
@@ -544,11 +601,6 @@ def run_demo_with_overrides(
 
     # Update session state
     _update_session_state(st_module, setup, df, meta)
-    st_module.session_state["sim_results"] = result
-    st_module.session_state["analysis_result"] = result
-
-    from streamlit_app.components.data_cache import cache_key_for_frame
-
-    st_module.session_state["data_fingerprint"] = cache_key_for_frame(df)
+    _store_demo_result_state(st_module, setup, df, result)
 
     return True
