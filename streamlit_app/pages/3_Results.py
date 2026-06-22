@@ -2118,7 +2118,7 @@ def render_results_page() -> None:
             f"✅ Simulation complete: **{period_count} periods** from {sim_start} to {sim_end}"
         )
 
-    single_period_result = period_count <= 0
+    single_period_result = period_count <= 1
     tab_labels = [
         "📊 Summary",
         "🔬 Period Analysis",

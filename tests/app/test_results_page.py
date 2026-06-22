@@ -606,12 +606,23 @@ def test_demo_run_marks_or_hides_inapplicable_tabs(
     result = SimpleNamespace(
         metrics=pd.DataFrame({"Sharpe": [1.23]}),
         details={
+            "period_count": 1,
+            "period_results": [
+                {
+                    "period": ("2024-01-01", "2024-01-31", "2024-02-01", "2024-02-29"),
+                    "in_sample_scaled": returns.iloc[:2],
+                    "out_sample_scaled": returns.iloc[2:],
+                    "ew_weights": {"FundA": 0.5, "FundB": 0.5},
+                    "fund_weights": {"FundA": 0.6, "FundB": 0.4},
+                }
+            ],
             "portfolio_equal_weight_combined": returns["FundA"],
             "risk_diagnostics": {
                 "turnover": pd.Series([0.1, 0.2], index=returns.index[:2]),
                 "final_weights": pd.Series({"FundA": 0.6, "FundB": 0.4}),
             },
         },
+        period_count=1,
         fallback_info=None,
         portfolio=returns["FundA"],
         weights=pd.Series({"FundA": 0.6, "FundB": 0.4}),
@@ -641,6 +652,7 @@ def test_demo_run_marks_or_hides_inapplicable_tabs(
     monkeypatch.setattr(
         page.explain_results, "render_explain_results", lambda *_args, **_kwargs: None
     )
+    monkeypatch.setattr(page, "_render_download_section", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(stub, "button", lambda *_args, **_kwargs: False)
     monkeypatch.setattr(
         page.analysis_runner,
