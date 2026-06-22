@@ -15,6 +15,7 @@ from streamlit_app.components.analysis_runner import ModelSettings
 from streamlit_app.components.data_schema import (
     SchemaMeta,
     infer_benchmarks,
+    infer_risk_free_candidates,
     load_and_validate_file,
 )
 from streamlit_app.components.policy_engine import MetricSpec, PolicyConfig
@@ -364,6 +365,13 @@ def _selected_funds_from_result(result: Any, df: pd.DataFrame, benchmark: str | 
     return [fund for fund in dict.fromkeys(selected) if fund not in excluded]
 
 
+def _selected_risk_free_from_demo(df: pd.DataFrame, benchmark: str | None) -> str | None:
+    for candidate in infer_risk_free_candidates(list(df.columns)):
+        if candidate != benchmark:
+            return candidate
+    return None
+
+
 def _analysis_run_key(
     state: Mapping[str, Any], model_state: Mapping[str, Any], benchmark: str | None
 ) -> str:
@@ -390,6 +398,8 @@ def _store_demo_result_state(st_module: Any, setup: DemoSetup, df: pd.DataFrame,
     from streamlit_app.components.data_cache import cache_key_for_frame
 
     state: MutableMapping[str, Any] = st_module.session_state
+    selected_rf = _selected_risk_free_from_demo(df, setup.benchmark)
+    state["selected_risk_free"] = selected_rf
     selected_funds = _selected_funds_from_result(result, df, setup.benchmark)
     state["selected_fund_columns"] = list(selected_funds)
     state["fund_columns"] = list(selected_funds)

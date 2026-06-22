@@ -504,6 +504,7 @@ def test_demo_run_renders_results_end_to_end(
 ) -> None:
     page, stub = results_page
     returns = _sample_returns()
+    returns["RF"] = [0.001, 0.001, 0.001]
     result = SimpleNamespace(
         metrics=pd.DataFrame({"Sharpe": [1.23]}),
         details={
@@ -572,7 +573,24 @@ def test_demo_run_renders_results_end_to_end(
     assert render_run_keys[-1] == stub.session_state["analysis_result_key"]
     assert not recompute_calls
     assert stub.session_state["analysis_fund_columns"] == ["FundA", "FundB"]
+    assert stub.session_state["selected_risk_free"] == "RF"
     assert stub.session_state["analysis_result"] is result
     assert stub.session_state["analysis_result_key"] == expected_run_key
     assert any("Using 2 selected funds" in msg for msg in stub.caption_messages)
     assert not stub.error_messages
+
+    rerun_columns: list[str] = []
+    rerun_model_states: list[dict] = []
+
+    def record_rerun(df, model_state, _benchmark, **_kwargs):
+        rerun_columns.extend(list(df.columns))
+        rerun_model_states.append(dict(model_state))
+        return result
+
+    monkeypatch.setattr(page.analysis_runner, "run_analysis", record_rerun)
+    monkeypatch.setattr(stub, "button", lambda *_args, **_kwargs: True)
+
+    page.render_results_page()
+
+    assert rerun_columns == ["FundA", "FundB", "RF"]
+    assert rerun_model_states[-1]["risk_free_column"] == "RF"
