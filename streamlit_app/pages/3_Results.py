@@ -95,6 +95,30 @@ def _diagnostic_message(result: Any) -> tuple[str | None, str | None]:
     return None, None
 
 
+def _completed_state_line(result: Any, fund_count: int) -> str:
+    """Summarize a cached result before rendering detailed tabs."""
+    prefix = (
+        "Demo results loaded"
+        if st.session_state.get("demo_preset")
+        else "Results loaded"
+    )
+    parts = [prefix]
+    if fund_count > 0:
+        parts.append(f"{fund_count} funds")
+
+    metrics = getattr(result, "metrics", None)
+    if isinstance(metrics, pd.DataFrame) and not metrics.empty:
+        sharpe = None
+        for column in ("Sharpe", "sharpe"):
+            if column in metrics.columns:
+                sharpe = pd.to_numeric(metrics[column], errors="coerce").dropna()
+                break
+        if sharpe is not None and not sharpe.empty:
+            parts.append(f"Sharpe {_fmt_ratio(float(sharpe.iloc[0]))}")
+
+    return " — ".join(parts) + "."
+
+
 def _coerce_weight_mapping(raw: Any) -> dict[str, float]:
     return normalize_weights(raw)
 
@@ -2108,8 +2132,12 @@ def render_results_page() -> None:
 
     data_hash = _data_hash_for_analysis(df_for_analysis)
 
-    st.markdown("Run the analysis to generate performance and risk diagnostics.")
-    run_clicked = st.button("Run analysis", type="primary")
+    if result is None:
+        st.markdown("Run the analysis to generate performance and risk diagnostics.")
+        run_clicked = st.button("Run analysis", type="primary")
+    else:
+        st.success(_completed_state_line(result, len(sanitized_funds)))
+        run_clicked = st.button("Re-run with custom settings")
 
     if run_clicked or result is None:
         with st.spinner("Running analysis…"):

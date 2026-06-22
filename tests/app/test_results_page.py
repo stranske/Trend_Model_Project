@@ -25,11 +25,14 @@ class DummyStreamlit:
         self.caption_messages: list[str] = []
         self.warning_messages: list[str] = []
         self.info_messages: list[str] = []
+        self.success_messages: list[str] = []
+        self.markdown_messages: list[str] = []
         self.subheaders: list[str] = []
         self.altair_payloads: list[object] = []
         self.dataframes: list[pd.DataFrame] = []
         self.metrics: list[tuple[str, object]] = []
         self.checkbox_labels: list[str] = []
+        self.button_labels: list[str] = []
         self.tab_groups: list[list[str]] = []
 
     # Basic UI primitives -------------------------------------------------
@@ -39,10 +42,11 @@ class DummyStreamlit:
     def header(self, _text: str) -> None:  # pragma: no cover - trivial
         return None
 
-    def markdown(self, *_args, **_kwargs) -> None:  # pragma: no cover - trivial
-        return None
+    def markdown(self, text: str, *_args, **_kwargs) -> None:
+        self.markdown_messages.append(text)
 
-    def button(self, *_args, **_kwargs) -> bool:
+    def button(self, label: str, *_args, **_kwargs) -> bool:
+        self.button_labels.append(label)
         if self.button_responses:
             return self.button_responses.pop(0)
         return False
@@ -58,8 +62,8 @@ class DummyStreamlit:
     def subheader(self, text: str) -> None:
         self.subheaders.append(text)
 
-    def success(self, _text: str) -> None:  # pragma: no cover - trivial
-        return None
+    def success(self, text: str) -> None:
+        self.success_messages.append(text)
 
     def divider(self) -> None:  # pragma: no cover - trivial
         return None
@@ -501,6 +505,79 @@ def test_current_run_key_changes_with_risk_free(results_page) -> None:
     key_two = page._current_run_key(model_state, None)
 
     assert key_one != key_two
+
+
+def test_results_hides_empty_state_when_result_present(
+    monkeypatch: pytest.MonkeyPatch, results_page
+) -> None:
+    page, stub = results_page
+    returns = _sample_returns()
+    result = SimpleNamespace(
+        metrics=pd.DataFrame({"Sharpe": [1.23]}),
+        details={
+            "portfolio_equal_weight_combined": returns["FundA"],
+            "risk_diagnostics": {
+                "turnover": pd.Series([0.1, 0.2], index=returns.index[:2]),
+                "final_weights": pd.Series({"FundA": 0.6, "FundB": 0.4}),
+            },
+        },
+        fallback_info=None,
+        portfolio=returns["FundA"],
+        weights=pd.Series({"FundA": 0.6, "FundB": 0.4}),
+    )
+
+    stub.session_state.update(
+        {
+            "model_state": {
+                "trend_spec": {"window": 63, "lag": 1},
+                "metric_weights": {"sharpe": 1.0},
+            },
+            "analysis_fund_columns": ["FundA", "FundB"],
+            "fund_columns": ["FundA", "FundB"],
+            "selected_benchmark": None,
+            "data_fingerprint": "abc123",
+            "returns_df": returns,
+            "schema_meta": {},
+            "upload_status": "success",
+            "demo_preset": "Balanced",
+        }
+    )
+    stub.session_state["analysis_result"] = result
+    stub.session_state["analysis_result_key"] = page._current_run_key(
+        stub.session_state["model_state"], stub.session_state["selected_benchmark"]
+    )
+
+    for chart in [
+        "equity_chart",
+        "drawdown_chart",
+        "rolling_sharpe_chart",
+        "turnover_chart",
+        "exposure_chart",
+    ]:
+        monkeypatch.setattr(
+            getattr(page, "charts"), chart, lambda *_args, chart_name=chart: chart_name
+        )
+    monkeypatch.setattr(
+        page.explain_results, "render_explain_results", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        page.analysis_runner,
+        "run_analysis",
+        lambda *_args, **_kwargs: pytest.fail("cached result should render directly"),
+    )
+
+    page.render_results_page()
+
+    assert not any(
+        "Run the analysis to generate performance and risk diagnostics." in msg
+        for msg in stub.markdown_messages
+    )
+    assert "Run analysis" not in stub.button_labels
+    assert "Re-run with custom settings" in stub.button_labels
+    assert any(
+        "Demo results loaded — 2 funds — Sharpe 1.23." in msg
+        for msg in stub.success_messages
+    )
 
 
 def test_demo_run_renders_results_end_to_end(
