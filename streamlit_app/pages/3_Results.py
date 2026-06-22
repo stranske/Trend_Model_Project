@@ -150,6 +150,24 @@ def _portfolio_series_from_details(details: dict[str, Any]) -> pd.Series:
     return pd.Series(dtype=float)
 
 
+def _result_period_count(result: Any, details: dict[str, Any]) -> int:
+    """Return the best available count of analyzed periods."""
+    raw_count = getattr(result, "period_count", None)
+    if raw_count is None:
+        raw_count = details.get("period_count", 0)
+
+    try:
+        period_count = int(raw_count or 0)
+    except (TypeError, ValueError):
+        period_count = 0
+
+    period_results = details.get("period_results")
+    if isinstance(period_results, list):
+        period_count = max(period_count, len(period_results))
+
+    return period_count
+
+
 def _current_run_key(model_state: dict[str, Any], benchmark: str | None) -> str:
     fingerprint = st.session_state.get("data_fingerprint", "unknown")
     model_blob = json.dumps(model_state, sort_keys=True, default=str)
@@ -2087,7 +2105,7 @@ def render_results_page() -> None:
             returns = _portfolio_series_from_details(details)
 
     # Multi-period info
-    period_count = getattr(result, "period_count", 0) or details.get("period_count", 0)
+    period_count = _result_period_count(result, details)
     sim_start, sim_end = _get_simulation_date_range(result)
 
     # ==========================================================================

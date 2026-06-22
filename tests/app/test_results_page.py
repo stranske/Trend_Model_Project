@@ -658,3 +658,20 @@ def test_demo_run_marks_or_hides_inapplicable_tabs(
     assert any("Export" in label and "multi-period only" in label for label in labels)
     assert any("Compare" in label and "needs saved configs" in label for label in labels)
     assert any("Run a multi-period analysis to enable" in msg for msg in stub.info_messages)
+
+
+def test_period_count_uses_period_results_when_explicit_count_missing(results_page) -> None:
+    page, _stub = results_page
+
+    result = SimpleNamespace(
+        details={
+            "period_count": 0,
+            "period_results": [
+                {"period": ("2024-01-01", "2024-01-31", "2024-02-01", "2024-02-29")},
+                {"period": ("2024-02-01", "2024-02-29", "2024-03-01", "2024-03-31")},
+            ],
+        },
+        period_count=0,
+    )
+
+    assert page._result_period_count(result, result.details) == 2
