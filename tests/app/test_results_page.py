@@ -6,6 +6,8 @@ from types import ModuleType, SimpleNamespace
 import pandas as pd
 import pytest
 
+from trend_analysis.diagnostics import PipelineReasonCode, pipeline_failure
+
 
 class _ContextManager:
     def __enter__(self):
@@ -388,6 +390,19 @@ def test_results_page_reports_plain_language_error(
         "message": "We couldn't run the analysis with the current data or settings. Please review the configuration and try again.",
         "detail": "No returns available after filtering",
     }
+
+
+def test_results_error_summary_hides_reason_code(results_page) -> None:
+    page, _stub = results_page
+    result = pipeline_failure(PipelineReasonCode.NO_FUNDS_SELECTED)
+
+    summary, detail = page._diagnostic_message(result)
+
+    assert summary == "Analysis did not produce results."
+    assert "PIPELINE_NO_FUNDS_SELECTED" not in summary
+    assert detail is not None
+    assert "No investable funds satisfy the selection filters." in detail
+    assert "Try another preset, or adjust Customize Demo Settings." in detail
 
 
 def test_results_page_renders_explain_results(

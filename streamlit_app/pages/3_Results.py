@@ -20,6 +20,7 @@ from streamlit_app.components import (
     comparison_llm,
     explain_results,
 )
+from trend_analysis.diagnostics import PipelineReasonCode
 from trend_analysis.util.weights import normalize_weights
 
 # =============================================================================
@@ -84,12 +85,12 @@ def _diagnostic_message(result: Any) -> tuple[str | None, str | None]:
         message = getattr(diag, "message", None)
         code = getattr(diag, "reason_code", None)
         if message:
-            summary = (
-                f"Analysis did not produce results ({code})."
-                if code
-                else "Analysis did not produce results."
-            )
-            return summary, str(message)
+            detail = str(message)
+            if code == PipelineReasonCode.NO_FUNDS_SELECTED.value:
+                detail = (
+                    f"{detail} Try another preset, or adjust Customize Demo Settings."
+                )
+            return "Analysis did not produce results.", detail
 
     return None, None
 
