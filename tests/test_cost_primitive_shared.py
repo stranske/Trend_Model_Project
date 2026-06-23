@@ -21,7 +21,9 @@ def test_linear_cost_sites_share_canonical_primitive() -> None:
     assert CostModel(
         bps_per_trade=trade_bps,
         slippage_bps=slippage_bps,
-    ).apply(turnover) == pytest.approx(expected)
+    ).apply(
+        turnover
+    ) == pytest.approx(expected)
     assert TurnoverCapStrategy({"cost_bps": effective_bps})._calculate_cost(
         turnover
     ) == pytest.approx(expected)

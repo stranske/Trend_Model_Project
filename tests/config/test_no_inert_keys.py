@@ -117,7 +117,9 @@ def _config_leaf_paths(paths: Iterable[Path]) -> list[tuple[Path, str, str]]:
     leaves: list[tuple[Path, str, str]] = []
     for path in paths:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        assert isinstance(data, dict) and data, f"{path.relative_to(REPO_ROOT)} did not parse to a mapping"
+        assert (
+            isinstance(data, dict) and data
+        ), f"{path.relative_to(REPO_ROOT)} did not parse to a mapping"
         leaves.extend((path, dotted, leaf) for dotted, leaf in _leaf_paths(data))
     return leaves
 

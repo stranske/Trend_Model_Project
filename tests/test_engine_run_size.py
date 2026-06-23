@@ -5,13 +5,8 @@ import io
 import tokenize
 from pathlib import Path
 
-
 ENGINE_PATH = (
-    Path(__file__).resolve().parents[1]
-    / "src"
-    / "trend_analysis"
-    / "multi_period"
-    / "engine.py"
+    Path(__file__).resolve().parents[1] / "src" / "trend_analysis" / "multi_period" / "engine.py"
 )
 MAX_RUN_BODY_LINES = 1_500
 MAX_RUN_INDENT_DEPTH = 6

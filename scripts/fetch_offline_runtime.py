@@ -52,9 +52,7 @@ def _load_lock() -> dict[str, dict]:
 def _vendored_package_names(packages: dict[str, dict]) -> set[str]:
     vendored_files = {path.name for path in VENDOR_DIR.iterdir() if path.is_file()}
     return {
-        name
-        for name, package in packages.items()
-        if package.get("file_name") in vendored_files
+        name for name, package in packages.items() if package.get("file_name") in vendored_files
     }
 
 
@@ -68,9 +66,7 @@ def _seed_names(packages: dict[str, dict]) -> set[str]:
     already_vendored_names = _vendored_package_names(packages)
     return {
         name
-        for name in (
-            manifest_requirement_names | pyodide_runtime_names | already_vendored_names
-        )
+        for name in (manifest_requirement_names | pyodide_runtime_names | already_vendored_names)
         if name in packages
     }
 
@@ -98,12 +94,7 @@ def _sha256(path: Path) -> str:
 def _safe_package_file_name(package: dict[str, str]) -> str:
     file_name = package["file_name"]
     path = Path(file_name)
-    if (
-        path.is_absolute()
-        or path.name != file_name
-        or ".." in path.parts
-        or "\\" in file_name
-    ):
+    if path.is_absolute() or path.name != file_name or ".." in path.parts or "\\" in file_name:
         raise ValueError(f"unsafe package file_name: {file_name!r}")
     return file_name
 
@@ -123,9 +114,7 @@ def _download(package: dict[str, str]) -> str:
     try:
         with tempfile.NamedTemporaryFile(dir=VENDOR_DIR, delete=False) as tmp:
             tmp_path = Path(tmp.name)
-            with urllib.request.urlopen(
-                url, timeout=DOWNLOAD_TIMEOUT_SECONDS
-            ) as response:
+            with urllib.request.urlopen(url, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response:
                 while True:
                     chunk = response.read(1024 * 1024)
                     if not chunk:
@@ -170,9 +159,7 @@ def _download_pypi_wheel(file_name: str, target_dir: Path) -> str:
     try:
         with tempfile.NamedTemporaryFile(dir=target_dir, delete=False) as tmp:
             tmp_path = Path(tmp.name)
-            with urllib.request.urlopen(
-                url, timeout=DOWNLOAD_TIMEOUT_SECONDS
-            ) as response:
+            with urllib.request.urlopen(url, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response:
                 while True:
                     chunk = response.read(1024 * 1024)
                     if not chunk:

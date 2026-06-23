@@ -27,24 +27,18 @@ def test_streamlit_proxy_default_bind_is_localhost(monkeypatch) -> None:
         captured.update(kwargs)
 
     monkeypatch.setattr(streamlit_proxy_cli, "run_proxy", fake_run_proxy)
-    monkeypatch.setattr(
-        streamlit_proxy_cli, "setup_logging", lambda **_: Path("/tmp/proxy.log")
-    )
+    monkeypatch.setattr(streamlit_proxy_cli, "setup_logging", lambda **_: Path("/tmp/proxy.log"))
     monkeypatch.setattr(sys, "argv", ["trend-proxy"])
 
     assert streamlit_proxy_cli.main() == 0
 
     assert captured["proxy_host"] == "127.0.0.1"
     assert (
-        inspect.signature(streamlit_proxy_server.StreamlitProxy.start)
-        .parameters["host"]
-        .default
+        inspect.signature(streamlit_proxy_server.StreamlitProxy.start).parameters["host"].default
         == "127.0.0.1"
     )
     assert (
-        inspect.signature(streamlit_proxy_server.run_proxy)
-        .parameters["proxy_host"]
-        .default
+        inspect.signature(streamlit_proxy_server.run_proxy).parameters["proxy_host"].default
         == "127.0.0.1"
     )
 
@@ -83,13 +77,9 @@ def test_llm_proxy_default_bind_is_localhost(monkeypatch) -> None:
 
     assert captured["host"] == "127.0.0.1"
     assert (
-        inspect.signature(llm_proxy_server.LLMProxy.start).parameters["host"].default
-        == "127.0.0.1"
+        inspect.signature(llm_proxy_server.LLMProxy.start).parameters["host"].default == "127.0.0.1"
     )
-    assert (
-        inspect.signature(llm_proxy_server.run_proxy).parameters["host"].default
-        == "127.0.0.1"
-    )
+    assert inspect.signature(llm_proxy_server.run_proxy).parameters["host"].default == "127.0.0.1"
 
 
 def test_llm_proxy_all_interfaces_requires_explicit_host(monkeypatch) -> None:

@@ -178,12 +178,8 @@ def test_presentation_safe_pyodide_dependency_closure_is_vendored() -> None:
         if not _is_wheel_requirement(requirement)
     ]
     seed_names.extend(["micropip", "packaging"])
-    missing_from_lock = sorted(
-        {name for name in seed_names if _lock_key(name) not in packages}
-    )
-    assert missing_from_lock == [], (
-        f"requirements missing from pyodide lock: {missing_from_lock}"
-    )
+    missing_from_lock = sorted({name for name in seed_names if _lock_key(name) not in packages})
+    assert missing_from_lock == [], f"requirements missing from pyodide lock: {missing_from_lock}"
     seed_names = [_lock_key(name) for name in seed_names]
 
     missing: list[str] = []
@@ -217,9 +213,7 @@ def test_index_html_resolves_wheel_requirements_to_absolute_urls() -> None:
     absolute same-origin URL via ``new URL(req, window.location.href)``."""
     html = DEMO_HTML.read_text(encoding="utf-8")
     assert re.search(r"""endsWith\(\s*["']\.whl["']\s*\)""", html), html
-    assert re.search(
-        r"new URL\(\s*\w+\s*,\s*window\.location\.href\s*\)", html
-    ), html
+    assert re.search(r"new URL\(\s*\w+\s*,\s*window\.location\.href\s*\)", html), html
 
 
 def test_lock_narwhals_is_bumped_for_plotly_express() -> None:

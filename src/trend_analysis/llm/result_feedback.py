@@ -40,18 +40,12 @@ def build_deterministic_feedback(
     entry_map = {entry.path: entry for entry in entries}
 
     turnover_warn = read_env_float(_TURNOVER_WARN_ENV, default=_DEFAULT_TURNOVER_WARN)
-    max_weight_warn = read_env_float(
-        _MAX_WEIGHT_WARN_ENV, default=_DEFAULT_MAX_WEIGHT_WARN
-    )
+    max_weight_warn = read_env_float(_MAX_WEIGHT_WARN_ENV, default=_DEFAULT_MAX_WEIGHT_WARN)
     max_dd_warn = read_env_float(_MAX_DD_WARN_ENV, default=_DEFAULT_MAX_DD_WARN)
 
     turnover_entry = _first_entry(entry_map, _TURNOVER_PATHS)
     turnover_value = _as_float(turnover_entry.value) if turnover_entry else None
-    if (
-        turnover_entry
-        and turnover_value is not None
-        and turnover_value >= turnover_warn
-    ):
+    if turnover_entry and turnover_value is not None and turnover_value >= turnover_warn:
         source = turnover_entry.source or "unknown"
         bullets.append(
             "High turnover: "
@@ -61,11 +55,7 @@ def build_deterministic_feedback(
 
     weight_entries = _select_weight_entries(entries)
     max_weight_entry, max_weight_value = _max_abs_weight(weight_entries)
-    if (
-        max_weight_entry
-        and max_weight_value is not None
-        and max_weight_value >= max_weight_warn
-    ):
+    if max_weight_entry and max_weight_value is not None and max_weight_value >= max_weight_warn:
         fund_label = _fund_from_weight_path(max_weight_entry.path)
         source = max_weight_entry.source or "unknown"
         bullets.append(

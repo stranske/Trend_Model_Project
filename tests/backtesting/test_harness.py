@@ -722,9 +722,7 @@ def test_compute_metrics_sortino_matches_canonical_metric() -> None:
         active_mask=pd.Series(True, index=index),
     )
 
-    assert metrics["sortino"] == pytest.approx(
-        sortino_ratio(active_returns, periods_per_year=12)
-    )
+    assert metrics["sortino"] == pytest.approx(sortino_ratio(active_returns, periods_per_year=12))
 
 
 def test_rolling_sharpe_and_series_weights_dict_helpers() -> None:

@@ -394,7 +394,9 @@ def _analysis_run_key(
     return f"{fingerprint}:{bench}:{selected_rf_key}:{funds_hash}:{model_blob}"
 
 
-def _store_demo_result_state(st_module: Any, setup: DemoSetup, df: pd.DataFrame, result: Any) -> None:
+def _store_demo_result_state(
+    st_module: Any, setup: DemoSetup, df: pd.DataFrame, result: Any
+) -> None:
     from streamlit_app.components.data_cache import cache_key_for_frame
 
     state: MutableMapping[str, Any] = st_module.session_state

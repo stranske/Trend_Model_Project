@@ -99,7 +99,9 @@ class _Rebalancer:
     def __init__(self, *_cfg: Any) -> None:
         pass
 
-    def apply_triggers(self, prev_weights: pd.Series, _sf: pd.DataFrame, **_kwargs: Any) -> pd.Series:
+    def apply_triggers(
+        self, prev_weights: pd.Series, _sf: pd.DataFrame, **_kwargs: Any
+    ) -> pd.Series:
         return prev_weights.astype(float)
 
 
@@ -114,9 +116,7 @@ _METRIC_MAPS = {
 
 
 def _make_df() -> pd.DataFrame:
-    dates = pd.to_datetime(
-        ["2020-01-31", "2020-02-29", "2020-03-31", "2020-04-30", "2020-05-31"]
-    )
+    dates = pd.to_datetime(["2020-01-31", "2020-02-29", "2020-03-31", "2020-04-30", "2020-05-31"])
     return pd.DataFrame(
         {
             "Date": dates,
@@ -140,9 +140,7 @@ def _wire_engine(monkeypatch: pytest.MonkeyPatch) -> None:
 
     import trend_analysis.selector as selector_mod
 
-    monkeypatch.setattr(
-        selector_mod, "create_selector_by_name", lambda *a, **k: _Selector()
-    )
+    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: _Selector())
 
     import trend_analysis.core.rank_selection as rank_sel
 

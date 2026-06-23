@@ -6,7 +6,6 @@ import warnings
 
 from streamlit_app.components import data_cache
 
-
 APP_MODULES = (
     "streamlit_app.components.guardrails",
     "streamlit_app.components.csv_validation",
