@@ -41,6 +41,7 @@ engine source changes:
 ```bash
 python scripts/build_wasm_demo.py          # writes demo/wasm/manifest.json
 python scripts/build_wasm_demo.py --check   # CI guard: fail if stale
+python scripts/smoke_wasm_demo_assets.py    # smoke-check the local URL graph
 ```
 
 `index.html` fetches `manifest.json`, then fetches each listed source file from
