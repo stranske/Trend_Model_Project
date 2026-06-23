@@ -32,6 +32,9 @@ st.set_page_config(
 
 from streamlit_app import state as app_state  # noqa: E402
 from streamlit_app.components import analysis_runner  # noqa: E402
+from streamlit_app.theme import apply_ds_theme  # noqa: E402
+
+apply_ds_theme()
 
 # =============================================================================
 # Setting Definitions

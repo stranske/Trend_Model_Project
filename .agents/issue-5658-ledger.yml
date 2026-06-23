@@ -1,0 +1,211 @@
+version: 1
+issue: 5658
+base: phase-3
+branch: codex/issue-5658
+tasks:
+  - id: task-01
+    title: "Add a small adopter such as `streamlit_app/theme.py` or a shared util\
+      \ that puts `design-system/` on `sys.path`, imports `ds_streamlit`, and exposes\
+      \ `apply_ds_theme()` \u2192 `ds_streamlit.inject_theme()`."
+    status: done
+    started_at: '2026-06-23T16:07:41Z'
+    finished_at: '2026-06-23T16:07:56Z'
+    commit: 0f2a6a3e1b7d7c6b258bf253a33ec01cf94da862
+    notes: []
+  - id: task-02
+    title: Update the adopter import to use an alias if the app already defines `apply_theme`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Update `.streamlit/config.toml` to set `[theme] base = "light"`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Update every Streamlit page/entry-point to call `apply_ds_theme()` at the
+      top.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Identify (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'document all Streamlit page entry points in the application (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Add the apply_ds_theme() call to the main streamlit_app entry point (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Add the apply_ds_theme() call to each secondary page module (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Verify that each page successfully loads the theme without errors
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Update data-dense table screens to use `density-compact` per `design-system/PRESENTATION_PATTERNS.md`
+      P1.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Identify all screens that display tabular data in the application (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Review the density-compact pattern specification in PRESENTATION_PATTERNS.md
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Apply the density-compact styling to each identified table screen (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Verify that density-compact rendering displays correctly on each screen
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Add `tests/test_design_system_theme.py::test_theme_adopted` to assert `.streamlit/config.toml`
+      has `base = "light"` and the entry-point module references `inject_theme` or
+      `apply_ds_theme`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: '`.streamlit/config.toml` contains `[theme] base = "light"`.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Every Streamlit page/entry-point calls `apply_ds_theme()` at the top.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: '`tests/test_design_system_theme.py::test_theme_adopted` exists and passes.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Changing `.streamlit/config.toml` to `base="dark"` or removing the injector
+      call causes `tests/test_design_system_theme.py::test_theme_adopted` to fail;
+      reverting restores a passing result.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Serving the app shows the light theme rendering.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: "Add a small adopter (e.g. `streamlit_app/theme.py` or a shared util) that\
+      \ puts `design-system/` on `sys.path`, `import ds_streamlit`, and exposes `apply_ds_theme()`\
+      \ \u2192 `ds_streamlit.inject_theme()`. **Alias the import** if the app already\
+      \ defines an `apply_theme` (see PA #2046)."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: '`.streamlit/config.toml`: `[theme] base = "light"` (retire the default-dark
+      theme).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: Call `apply_ds_theme()` at the top of **every** page/entry (Streamlit CSS
+      does not persist across pages); use `density-compact` on the data-dense table
+      screens per PRESENTATION_PATTERNS P1.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: "Named test gate: `tests/test_design_system_theme.py::test_theme_adopted`\
+      \ \u2014 asserts `.streamlit/config.toml` has `base = \"light\"` AND the entry-point\
+      \ module references the shared injector (`inject_theme` / `apply_ds_theme`)."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: "**Deliberate-break \u2192 revert:** flip `config.toml` to `base=\"dark\"\
+      ` (or remove the injector call) \u2192 the test **FAILS** \u2192 revert \u2192\
+      \ it passes. Capture both runs in the PR."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: 'Live: serve the app, confirm the light theme renders (screenshot).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []

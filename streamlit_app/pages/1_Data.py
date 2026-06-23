@@ -31,8 +31,11 @@ from streamlit_app.components.upload_guard import (
     guard_and_buffer_upload,
     hash_path,
 )
+from streamlit_app.theme import apply_ds_theme
 from trend.input_validation import InputValidationError
 from trend_analysis.io.market_data import MarketDataValidationError
+
+apply_ds_theme()
 
 DATE_COLUMN = "Date"
 REQUIRED_UPLOAD_COLUMNS = (DATE_COLUMN,)
