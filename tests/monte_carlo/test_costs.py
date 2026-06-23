@@ -78,7 +78,9 @@ def test_cost_process_fixed_distribution_applies_slippage() -> None:
 def test_cost_process_normal_distribution_reasonable_mean() -> None:
     config = {
         "default_regime": "base",
-        "regimes": {"base": {"distribution": {"kind": "normal", "mean": 8.0, "std": 0.5}}},
+        "regimes": {
+            "base": {"distribution": {"kind": "normal", "mean": 8.0, "std": 0.5}}
+        },
     }
     process = CostProcess.from_config(config)
     assert process is not None
@@ -96,7 +98,9 @@ def test_cost_process_lognormal_stress_higher_mean_and_variance() -> None:
         "default_regime": "calm",
         "regimes": {
             "calm": {"distribution": {"kind": "lognormal", "mean": 1.0, "sigma": 0.1}},
-            "stress": {"distribution": {"kind": "lognormal", "mean": 1.3, "sigma": 0.4}},
+            "stress": {
+                "distribution": {"kind": "lognormal", "mean": 1.3, "sigma": 0.4}
+            },
         },
     }
     process = CostProcess.from_config(config)
@@ -112,6 +116,42 @@ def test_cost_process_lognormal_stress_higher_mean_and_variance() -> None:
     assert calm.mean() > 0
     assert stress.mean() > calm.mean()
     assert stress.var() > calm.var()
+
+
+def test_cost_process_lognormal_mean_is_arithmetic_bps_target() -> None:
+    config = {
+        "default_regime": "base",
+        "regimes": {
+            "base": {"distribution": {"kind": "lognormal", "mean": 20.0, "sigma": 0.35}}
+        },
+    }
+    process = CostProcess.from_config(config)
+    assert process is not None
+
+    rng = np.random.default_rng(123)
+    regimes = pd.Series(["base"] * 20000)
+    output = process.sample(regimes=regimes, turnover=0.1, index=None, rng=rng)
+
+    mean = float(output.cost_bps.mean())
+    assert 19.5 < mean < 20.5
+    assert float(output.cost_bps.quantile(0.99)) < 50.0
+
+
+def test_cost_process_lognormal_rejects_non_positive_arithmetic_mean() -> None:
+    with np.testing.assert_raises_regex(ValueError, "lognormal mean must be > 0"):
+        CostProcess.from_config(
+            {
+                "regimes": {
+                    "base": {
+                        "distribution": {
+                            "kind": "lognormal",
+                            "mean": 0.0,
+                            "sigma": 0.35,
+                        }
+                    }
+                }
+            }
+        )
 
 
 def test_cost_process_canonical_regime_stochastic_trade_cost_bps_dist() -> None:
@@ -168,7 +208,9 @@ def test_runner_integration_records_costs(monkeypatch: Any) -> None:
         metrics = pd.DataFrame({"annual_return": [0.1]}, index=["user_weight"])
         out_index = pd.date_range("2021-01-31", periods=3, freq="ME")
         details = {
-            "out_sample_scaled": pd.DataFrame({"A": [0.01, 0.02, 0.03]}, index=out_index),
+            "out_sample_scaled": pd.DataFrame(
+                {"A": [0.01, 0.02, 0.03]}, index=out_index
+            ),
             "regime_labels_out": pd.Series(
                 ["calm", "stress", "calm"], index=out_index, dtype="string"
             ),
@@ -205,7 +247,9 @@ def test_runner_integration_records_costs(monkeypatch: Any) -> None:
     )
     expected_costs.name = transaction_costs.name
     pd.testing.assert_series_equal(transaction_costs, expected_costs)
-    total_cost_drag = pd.to_numeric(results.results_frame["total_cost_drag"], errors="coerce")
+    total_cost_drag = pd.to_numeric(
+        results.results_frame["total_cost_drag"], errors="coerce"
+    )
     assert total_cost_drag.notna().all()
     assert bool((total_cost_drag.abs() > 0.0).all())
 
@@ -263,13 +307,16 @@ def test_cost_regime_example_fixture_produces_exact_deterministic_outputs() -> N
     assert sampled.slippage_multiplier.tolist() == [1.0, 1.8, 1.0]
     np.testing.assert_allclose(
         sampled.cost_bps.to_numpy(dtype=float, copy=False),
-        np.array([126.64343064753369, 249828634.21277088, 155.7285234063499]),
+        np.array([4.1820996013544685, 9.686837945111462, 5.142565961196969]),
         rtol=0.0,
         atol=1e-12,
     )
+    assert float(sampled.cost_bps.max()) < 100.0
     np.testing.assert_allclose(
         sampled.transaction_costs.to_numpy(dtype=float, copy=False),
-        np.array([0.001266434306475337, 8993.830831659752, 0.004671855702190497]),
+        np.array(
+            [4.182099601354469e-05, 0.0003487261660240126, 0.00015427697883590907]
+        ),
         rtol=0.0,
         atol=1e-12,
     )
@@ -310,11 +357,15 @@ def test_runner_injects_cash_series_when_override_enabled(monkeypatch: Any) -> N
         cash_series = returns["CASH"]
         assert pd.api.types.is_numeric_dtype(cash_series)
         assert np.isfinite(cash_series.to_numpy(dtype=float, copy=False)).all()
-        expected = pd.Series(expected_periodic_rf, index=returns.index, name="CASH", dtype=float)
+        expected = pd.Series(
+            expected_periodic_rf, index=returns.index, name="CASH", dtype=float
+        )
         pd.testing.assert_series_equal(cash_series, expected)
 
 
-def test_inject_cash_warns_when_override_disabled(monkeypatch: Any, caplog: Any) -> None:
+def test_inject_cash_warns_when_override_disabled(
+    monkeypatch: Any, caplog: Any
+) -> None:
     """When rf_override_enabled is False the runner should log a skip warning."""
     scenario = load_scenario("cost_regime_example")
     scenario.monte_carlo.n_paths = 10
@@ -348,19 +399,23 @@ def test_inject_cash_warns_when_override_disabled(monkeypatch: Any, caplog: Any)
 
     assert captured_returns
     for returns in captured_returns:
-        assert (
-            "CASH" not in returns.columns
-        ), "CASH should not be injected when metrics.rf_override_enabled is False"
+        assert "CASH" not in returns.columns, (
+            "CASH should not be injected when metrics.rf_override_enabled is False"
+        )
 
-    warning_messages = [r.message for r in caplog.records if r.levelno >= logging.WARNING]
-    fallback_warnings = [m for m in warning_messages if "metrics.rf_override_enabled" in m]
-    assert (
-        fallback_warnings
-    ), f"Expected a warning about metrics.rf_override_enabled, got: {warning_messages}"
+    warning_messages = [
+        r.message for r in caplog.records if r.levelno >= logging.WARNING
+    ]
+    fallback_warnings = [
+        m for m in warning_messages if "metrics.rf_override_enabled" in m
+    ]
+    assert fallback_warnings, (
+        f"Expected a warning about metrics.rf_override_enabled, got: {warning_messages}"
+    )
     # P2 fix: The warning should be emitted only once, not per path.
-    assert (
-        len(fallback_warnings) == 1
-    ), f"Expected exactly 1 fallback warning but got {len(fallback_warnings)}"
+    assert len(fallback_warnings) == 1, (
+        f"Expected exactly 1 fallback warning but got {len(fallback_warnings)}"
+    )
 
 
 def test_scenario_data_and_metrics_overrides_merge_into_base_config() -> None:
@@ -379,9 +434,9 @@ def test_scenario_data_and_metrics_overrides_merge_into_base_config() -> None:
     )
 
     # The merged base config should now have the override applied.
-    assert (
-        runner.base_config["data"]["allow_risk_free_fallback"] is True
-    ), "Scenario-level data.allow_risk_free_fallback should override defaults"
+    assert runner.base_config["data"]["allow_risk_free_fallback"] is True, (
+        "Scenario-level data.allow_risk_free_fallback should override defaults"
+    )
     assert runner.base_config["metrics"]["rf_override_enabled"] is True
     assert abs(runner.base_config["metrics"]["rf_rate_annual"] - 0.03) < 1e-12
     frequency = str(runner.base_config["data"].get("frequency", "M"))

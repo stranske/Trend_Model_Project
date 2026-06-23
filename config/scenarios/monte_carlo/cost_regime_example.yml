@@ -37,16 +37,16 @@ costs:
     # Baseline all-in trading cost in basis points (bps) in normal markets.
     trade_cost_bps:
       kind: lognormal
-      mean: 5
-      sigma: 0.20
+      mean: 5      # arithmetic mean cost in bps; converted to log-space for sampling
+      sigma: 0.20  # log-space volatility
     # Multiplies modeled slippage under calm liquidity conditions.
     slippage_multiplier: 1.0
   stress:
     # Elevated all-in trading cost in basis points (bps) during stress regimes.
     trade_cost_bps:
       kind: lognormal
-      mean: 20
-      sigma: 0.35
+      mean: 20     # arithmetic mean cost in bps; converted to log-space for sampling
+      sigma: 0.35  # log-space volatility
     # Multiplies modeled slippage when liquidity worsens in stress.
     slippage_multiplier: 1.8
 

@@ -373,6 +373,7 @@ Canonical schema (required):
 - `kind`: Must be `regime_stochastic`.
 - `trade_cost_bps`: Required under each regime; defines the basis-point cost distribution.
 - Top-level regime blocks: regime names (for example `calm`, `stress`) are direct keys under `costs`, and each regime block must include `trade_cost_bps`.
+- For `kind: lognormal`, `mean` is the target arithmetic mean in basis points. The runner converts it to NumPy's log-space `mu` internally before sampling. Use `mu` or `log_mean` only for explicit log-space configuration.
 
 Concrete canonical example:
 
@@ -383,13 +384,13 @@ costs:
   calm:
     trade_cost_bps:
       kind: lognormal
-      mean: 6
-      sigma: 0.25
+      mean: 6      # arithmetic mean all-in cost, in bps
+      sigma: 0.25  # log-space volatility
   stress:
     trade_cost_bps:
       kind: lognormal
-      mean: 18
-      sigma: 0.35
+      mean: 18     # arithmetic mean all-in cost, in bps
+      sigma: 0.35  # log-space volatility
     slippage_multiplier: 1.5  # Optional
 ```
 
@@ -573,13 +574,13 @@ scenario:
     calm:
       trade_cost_bps:
         kind: lognormal
-        mean: 6
-        sigma: 0.25
+        mean: 6      # arithmetic mean all-in cost, in bps
+        sigma: 0.25  # log-space volatility
     stress:
       trade_cost_bps:
         kind: lognormal
-        mean: 18
-        sigma: 0.35
+        mean: 18     # arithmetic mean all-in cost, in bps
+        sigma: 0.35  # log-space volatility
       slippage_multiplier: 1.5
 
 # Reference to base pipeline config
