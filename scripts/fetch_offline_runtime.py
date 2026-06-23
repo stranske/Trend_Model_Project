@@ -16,13 +16,25 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-from build_wasm_demo import REPO_ROOT, REQUIREMENTS
+from build_wasm_demo import (
+    PYODIDE_LOCK_PYPI_OVERRIDES,
+    PYPI_WHEEL_DIR,
+    PYPI_WHEELS,
+    REPO_ROOT,
+    REQUIREMENTS,
+)
 
 PYODIDE_VERSION = "0.27.2"
 CDN_BASE_URL = f"https://cdn.jsdelivr.net/pyodide/v{PYODIDE_VERSION}/full"
 VENDOR_DIR = REPO_ROOT / "demo" / "wasm" / "vendor" / f"pyodide-{PYODIDE_VERSION}"
 LOCK_PATH = VENDOR_DIR / "pyodide-lock.json"
 DOWNLOAD_TIMEOUT_SECONDS = 30
+
+#: ``plotly`` is not in the Pyodide lock, so it is fetched from PyPI
+#: (files.pythonhosted.org) by its pinned filename and committed under
+#: ``demo/wasm/vendor/pypi/`` for offline boot.
+PYPI_VENDOR_DIR = REPO_ROOT / "demo" / "wasm" / "vendor" / PYPI_WHEEL_DIR
+PYPI_JSON_URL = "https://pypi.org/pypi/{name}/{version}/json"
 
 
 def _package_name(requirement: str) -> str:
@@ -129,11 +141,67 @@ def _download(package: dict[str, str]) -> str:
     return f"downloaded {file_name}"
 
 
+def _download_pypi_wheel(file_name: str, target_dir: Path) -> str:
+    """Fetch one pinned PyPI wheel into ``target_dir`` (sha256-verified)."""
+
+    target = target_dir / file_name
+    rel = f"{target_dir.name}/{file_name}"
+    if target.is_file():
+        return f"skip existing {rel}"
+
+    # Wheel filename is ``{name}-{version}-{pytag}-{abitag}-{plat}.whl``.
+    name, version = file_name[: -len(".whl")].split("-")[:2]
+    meta = json.loads(
+        urllib.request.urlopen(
+            PYPI_JSON_URL.format(name=name, version=version),
+            timeout=DOWNLOAD_TIMEOUT_SECONDS,
+        ).read()
+    )
+    wheel = next(item for item in meta["urls"] if item["filename"] == file_name)
+    url = wheel["url"]
+    if "files.pythonhosted.org" not in url:
+        raise RuntimeError(f"unexpected wheel host for {file_name}: {url}")
+
+    target_dir.mkdir(parents=True, exist_ok=True)
+    tmp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=target_dir, delete=False) as tmp:
+            tmp_path = Path(tmp.name)
+            with urllib.request.urlopen(
+                url, timeout=DOWNLOAD_TIMEOUT_SECONDS
+            ) as response:
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    tmp.write(chunk)
+    except Exception:
+        if tmp_path is not None:
+            tmp_path.unlink(missing_ok=True)
+        raise
+
+    expected_sha = wheel.get("digests", {}).get("sha256")
+    if expected_sha and _sha256(tmp_path) != expected_sha:
+        tmp_path.unlink(missing_ok=True)
+        raise RuntimeError(f"sha256 mismatch for {file_name}")
+
+    tmp_path.replace(target)
+    return f"downloaded {rel}"
+
+
 def main() -> int:
     packages = _load_lock()
+    # Lock packages whose vendored wheel is sourced from PyPI rather than the
+    # Pyodide CDN (the CDN has no build for these versions) must be fetched first
+    # so the CDN closure loop below skips them as already-present.
+    for name, version in PYODIDE_LOCK_PYPI_OVERRIDES.items():
+        file_name = f"{name}-{version}-py3-none-any.whl"
+        print(_download_pypi_wheel(file_name, VENDOR_DIR))
     package_names = _dependency_closure(_seed_names(packages), packages)
     for name in package_names:
         print(_download(packages[name]))
+    for file_name in PYPI_WHEELS:
+        print(_download_pypi_wheel(file_name, PYPI_VENDOR_DIR))
     return 0
 
 

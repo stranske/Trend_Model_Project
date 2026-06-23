@@ -7,15 +7,30 @@ import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEMO_HTML = REPO_ROOT / "demo" / "wasm" / "index.html"
-MANIFEST_PATH = REPO_ROOT / "demo" / "wasm" / "manifest.json"
-PYODIDE_VENDOR_DIR = REPO_ROOT / "demo" / "wasm" / "vendor" / "pyodide-0.27.2"
-STLITE_VENDOR_DIR = REPO_ROOT / "demo" / "wasm" / "vendor" / "stlite@0.79.4"
+DEMO_DIR = REPO_ROOT / "demo" / "wasm"
+DEMO_HTML = DEMO_DIR / "index.html"
+MANIFEST_PATH = DEMO_DIR / "manifest.json"
+PYODIDE_VENDOR_DIR = DEMO_DIR / "vendor" / "pyodide-0.27.2"
+STLITE_VENDOR_DIR = DEMO_DIR / "vendor" / "stlite@0.79.4"
+PYPI_VENDOR_DIR = DEMO_DIR / "vendor" / "pypi"
+
+#: Lowest narwhals the plotly 6.x ``plotly.express`` path needs (it calls
+#: ``narwhals.from_native(..., pass_through=...)``, absent in the lock's 1.10.0).
+MIN_NARWHALS = (1, 15, 1)
 
 
 def _assert_non_empty(path: Path) -> None:
     assert path.is_file(), f"missing vendored runtime file: {path}"
     assert path.stat().st_size > 0, f"vendored runtime file is empty: {path}"
+
+
+def _is_wheel_requirement(requirement: str) -> bool:
+    """A requirement that is a vendored wheel path rather than a PyPI name."""
+    return requirement.endswith(".whl")
+
+
+def _version_tuple(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in re.findall(r"\d+", version))
 
 
 def _package_name(requirement: str) -> str:
@@ -127,6 +142,9 @@ def test_stlite_runtime_is_vendored() -> None:
 def test_presentation_safe_pyodide_dependency_closure_is_vendored() -> None:
     manifest = _manifest()
     packages = _pyodide_lock_packages()
+    # Wheel-path requirements (plotly, under vendor/pypi/) are not in the Pyodide
+    # lock, so they are dropped by the ``_lock_key(name) in packages`` filter
+    # below and asserted separately in test_plotly_wheel_is_vendored.
     seed_names = [
         _package_name(requirement)
         for requirements in manifest["requirements"].values()
@@ -142,3 +160,41 @@ def test_presentation_safe_pyodide_dependency_closure_is_vendored() -> None:
             missing.append(f"{name}: {file_name}")
 
     assert missing == []
+
+
+def test_plotly_wheel_is_vendored() -> None:
+    """plotly is pure-PyPI (not in the lock); it is committed under vendor/pypi/
+    and listed in every profile's requirements as a repo-relative wheel path."""
+    manifest = _manifest()
+    for profile, requirements in manifest["requirements"].items():
+        wheels = [r for r in requirements if _is_wheel_requirement(r)]
+        plotly_wheels = [w for w in wheels if "plotly-" in w]
+        assert plotly_wheels, f"{profile}: no plotly wheel requirement ({wheels})"
+        for wheel in wheels:
+            # repo-relative path under demo/wasm/, NOT a bare/absolute/CDN URL —
+            # index.html resolves these to absolute same-origin URLs at runtime.
+            assert wheel.startswith("vendor/pypi/"), wheel
+            assert not wheel.startswith(("http://", "https://", "./", "/")), wheel
+            _assert_non_empty(DEMO_DIR / wheel)
+
+
+def test_index_html_resolves_wheel_requirements_to_absolute_urls() -> None:
+    """The stlite worker's micropip rejects a bare-relative wheel URL (treats it
+    as file://), so index.html must rewrite every ``*.whl`` requirement to an
+    absolute same-origin URL via ``new URL(req, window.location.href)``."""
+    html = DEMO_HTML.read_text(encoding="utf-8")
+    assert re.search(r"""endsWith\(\s*["']\.whl["']\s*\)""", html), html
+    assert re.search(
+        r"new URL\(\s*\w+\s*,\s*window\.location\.href\s*\)", html
+    ), html
+
+
+def test_lock_narwhals_is_bumped_for_plotly_express() -> None:
+    """plotly 6.x's plotly.express calls narwhals.from_native(pass_through=...),
+    which the Pyodide 0.27.2 lock's narwhals 1.10.0 lacks. The lock is bumped in
+    place to >=1.15.1 (a single narwhals also serves the lock's altair)."""
+    packages = _pyodide_lock_packages()
+    narwhals = packages["narwhals"]
+    assert _version_tuple(narwhals["version"]) >= MIN_NARWHALS, narwhals["version"]
+    assert narwhals["version"] in narwhals["file_name"], narwhals
+    _assert_non_empty(PYODIDE_VENDOR_DIR / narwhals["file_name"])
