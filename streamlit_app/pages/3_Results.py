@@ -2179,7 +2179,7 @@ def render_results_page() -> None:
     if result is None:
         st.markdown("Run the analysis to generate performance and risk diagnostics.")
         run_clicked = st.button("Run analysis", type="primary")
-    elif diagnostic_summary:
+    elif diagnostic_summary is not None:
         run_clicked = st.button("Run analysis")
     else:
         st.success(_completed_state_line(result, len(sanitized_funds)))
@@ -2220,9 +2220,9 @@ def render_results_page() -> None:
         st.info("Click Run Analysis to generate a report.")
         return
 
-    if diagnostic_summary:
+    if diagnostic_summary is not None:
         st.error(diagnostic_summary)
-        if diagnostic_detail:
+        if diagnostic_detail is not None:
             st.caption(diagnostic_detail)
         return
 
