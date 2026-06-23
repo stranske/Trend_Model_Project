@@ -40,6 +40,7 @@ from streamlit_app.components.progress_eta import (
     progress_ratio_and_remaining,
     update_eta_seconds,
 )
+from streamlit_app.theme import apply_ds_theme
 from trend_analysis.config.patch import apply_config_patch, diff_configs
 from trend_analysis.llm import (
     ConfigPatchChain,
@@ -50,6 +51,8 @@ from trend_analysis.llm import (
     create_llm,
 )
 from trend_analysis.llm.schema import load_compact_schema
+
+apply_ds_theme()
 
 # Extended metric fields for ranking
 METRIC_FIELDS = [

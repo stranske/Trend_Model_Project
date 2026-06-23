@@ -6,6 +6,10 @@ import streamlit as st
 
 st.set_page_config(page_title="Help - Portfolio Simulator", page_icon="📖", layout="wide")
 
+from streamlit_app.theme import apply_ds_theme  # noqa: E402
+
+apply_ds_theme()
+
 
 def render_help_page() -> None:
     st.title("📖 Configuration Reference")

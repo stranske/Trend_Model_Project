@@ -25,12 +25,14 @@ from streamlit_app.components.demo_runner import (  # noqa: E402
     load_preset_config,
     run_demo_with_overrides,
 )
+from streamlit_app.theme import apply_ds_theme  # noqa: E402
 
 st.set_page_config(
     page_title="Portfolio Simulator",
     page_icon=":chart_with_upwards_trend:",
     layout="wide",
 )
+apply_ds_theme()
 
 # Resolve the active demo profile and render the sidebar mode switcher. In
 # ``presentation_safe`` (the default) LLM, custom-analysis, and upload surfaces
