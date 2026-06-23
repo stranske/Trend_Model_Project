@@ -35,6 +35,26 @@ from typing import Iterable
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = REPO_ROOT / "demo" / "wasm" / "manifest.json"
+WASM_VENDOR_DIR = REPO_ROOT / "demo" / "wasm" / "vendor"
+
+VENDORED_RUNTIME_FILES = (
+    "stlite@0.79.4/stlite.js",
+    "stlite@0.79.4/style.css",
+    "stlite@0.79.4/wheels/stlite_lib-0.1.0-py3-none-any.whl",
+    "stlite@0.79.4/wheels/streamlit-1.41.0-cp312-none-any.whl",
+    "pyodide-0.27.2/pyodide.mjs",
+    "pyodide-0.27.2/pyodide.asm.js",
+    "pyodide-0.27.2/pyodide.asm.wasm",
+    "pyodide-0.27.2/python_stdlib.zip",
+    "pyodide-0.27.2/pyodide-lock.json",
+    "pyodide-0.27.2/micropip-0.8.0-py3-none-any.whl",
+    "pyodide-0.27.2/packaging-24.2-py3-none-any.whl",
+    "pyodide-0.27.2/numpy-2.0.2-cp312-cp312-pyodide_2024_0_wasm32.whl",
+    "pyodide-0.27.2/pandas-2.2.3-cp312-cp312-pyodide_2024_0_wasm32.whl",
+    "pyodide-0.27.2/python_dateutil-2.9.0.post0-py2.py3-none-any.whl",
+    "pyodide-0.27.2/pytz-2024.1-py2.py3-none-any.whl",
+    "pyodide-0.27.2/six-1.16.0-py2.py3-none-any.whl",
+)
 
 #: Streamlit entrypoint, repo-relative.
 ENTRYPOINT = "streamlit_app/app.py"
@@ -56,14 +76,12 @@ DATA_FILES = ("demo/demo_returns.csv",)
 #: stack pinned in ``pyproject.toml``.
 REQUIREMENTS = {
     "presentation_safe": [
-        "streamlit==1.57.0",
-        "numpy==2.4.6",
-        "pandas==3.0.3",
+        "numpy",
+        "pandas",
     ],
     "public_llm_demo": [
-        "streamlit==1.57.0",
-        "numpy==2.4.6",
-        "pandas==3.0.3",
+        "numpy",
+        "pandas",
         "langchain>=1.3,<1.4",
         "langchain-core>=1.4,<1.5",
         "langchain-community>=0.4,<0.5",
@@ -72,6 +90,13 @@ REQUIREMENTS = {
         "langchain-ollama>=1.0,<1.1",
     ],
 }
+
+
+def missing_runtime_files(repo_root: Path = REPO_ROOT) -> list[str]:
+    """Return vendored runtime files that are required for offline boot."""
+
+    vendor_dir = repo_root / "demo" / "wasm" / "vendor"
+    return [rel for rel in VENDORED_RUNTIME_FILES if not (vendor_dir / rel).is_file()]
 
 
 def _iter_source_files(repo_root: Path) -> Iterable[str]:
@@ -118,6 +143,14 @@ def main(argv: list[str] | None = None) -> int:
 
     fresh = build_manifest()
     if args.check:
+        missing = missing_runtime_files()
+        if missing:
+            print(
+                "vendored wasm runtime is incomplete:\n"
+                + "\n".join(f"- demo/wasm/vendor/{rel}" for rel in missing),
+                file=sys.stderr,
+            )
+            return 1
         if not MANIFEST_PATH.is_file():
             print(f"manifest missing: {MANIFEST_PATH}", file=sys.stderr)
             return 1

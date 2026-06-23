@@ -30,10 +30,7 @@
       `?base=`). See README.md in this directory for the full deploy and
       verification checklist.
     -->
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/@stlite/browser@0.79.3/build/stlite.css"
-    />
+    <link rel="stylesheet" href="./vendor/stlite@0.79.4/style.css" />
     <style>
       html, body, #root { margin: 0; height: 100%; }
       #boot { font-family: system-ui, sans-serif; padding: 1.5rem; }
@@ -42,7 +39,7 @@
   <body>
     <div id="root"><div id="boot">Loading browser demo… (first load compiles Python in your browser and can take a minute)</div></div>
     <script type="module">
-      import { mount } from "https://cdn.jsdelivr.net/npm/@stlite/browser@0.79.3/build/stlite.js";
+      import { mount } from "./vendor/stlite@0.79.4/stlite.js";
 
       const params = new URLSearchParams(window.location.search);
       const VALID_PROFILES = ["presentation_safe", "public_llm_demo"];
@@ -82,6 +79,10 @@
           mount(
             {
               entrypoint: manifest.entrypoint,
+              pyodideUrl: new URL(
+                "./vendor/pyodide-0.27.2/pyodide.mjs",
+                window.location.href
+              ).href,
               // Pass the resolved profile through to the app. demo_profile.py
               // reads ?profile= from st.query_params on first render.
               args: ["--", `profile=${profile}`],

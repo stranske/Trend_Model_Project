@@ -48,6 +48,13 @@ the publish base (default `./app/`, override with `?base=`), reconstructs the
 in-browser filesystem, installs the profile's requirements under Pyodide, and
 mounts the app.
 
+The runtime itself is vendored under `demo/wasm/vendor/`: stlite
+`@0.79.4`, Pyodide `0.27.2`, and the Pyodide wheels required by the default
+`presentation_safe` profile. The originally referenced stlite `0.79.3` package
+is not published on npm/jsDelivr, so the local bundle uses the nearest
+available patch release and `build_wasm_demo.py --check` verifies the required
+runtime files are present.
+
 ## Deploy
 
 The demo is a static bundle plus the published application source subset:
@@ -60,13 +67,12 @@ The demo is a static bundle plus the published application source subset:
 4. Open `index.html` — defaults to `presentation_safe`; append
    `?profile=public_llm_demo` for the LLM mode.
 
-> **Pyodide compatibility spike (follow-up).** `streamlit==1.57.0`,
-> `pandas==3.0.3`, and `numpy==2.4.6` must resolve to Pyodide-compatible wheels
-> at the pinned stlite version. If a provider-specific LangChain wheel is not
-> browser-compatible, keep the stlite app and isolate the provider call behind a
+> **Public LLM profile compatibility spike (follow-up).** The default
+> `presentation_safe` profile uses only vendored Pyodide packages. If a
+> provider-specific LangChain wheel is not browser-compatible for
+> `public_llm_demo`, keep the stlite app and isolate the provider call behind a
 > runtime-configured endpoint/adapter (per the issue's implementation notes)
-> rather than removing LangChain from the public profile. Pinning the exact
-> browser-resolvable wheel set is tracked as keepalive/reviewer follow-up.
+> rather than removing LangChain from the public profile.
 
 ## Verification checklist
 
@@ -75,8 +81,8 @@ Capture this evidence on the deployed URL (PR acceptance criteria for #5343):
 - [ ] Live URL loads `index.html` in a browser with no local install.
 - [ ] `presentation_safe`: deterministic synthetic-data demo runs end to end;
       no LLM, custom-analysis, or upload controls are visible.
-- [ ] `presentation_safe`: browser network panel shows **no unexpected egress**
-      after page load (only static asset / wheel fetches).
+- [ ] `presentation_safe`: browser network panel shows no `cdn.jsdelivr.net`
+      requests and no unexpected egress after the local static bundle loads.
 - [ ] `public_llm_demo`: the LangChain LLM UI is visible; switching modes in the
       sidebar changes the visible surfaces.
 - [ ] `public_llm_demo`: network panel shows only the expected configured
