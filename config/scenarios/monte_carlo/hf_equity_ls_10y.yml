@@ -19,13 +19,13 @@ costs:
   calm:
     trade_cost_bps:
       kind: lognormal
-      mean: 6
-      sigma: 0.25
+      mean: 6      # arithmetic mean cost in bps; converted to log-space for sampling
+      sigma: 0.25  # log-space volatility
   stress:
     trade_cost_bps:
       kind: lognormal
-      mean: 18
-      sigma: 0.35
+      mean: 18     # arithmetic mean cost in bps; converted to log-space for sampling
+      sigma: 0.35  # log-space volatility
     slippage_multiplier: 1.5
 
 strategy_set:

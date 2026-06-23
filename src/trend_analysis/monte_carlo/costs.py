@@ -102,11 +102,17 @@ class NormalCostDistribution(CostDistribution):
 class LognormalCostDistribution(CostDistribution):
     mean: float = 0.0
     sigma: float = 1.0
+    log_mean: float | None = None
 
     def sample(self, rng: np.random.Generator, size: int) -> NDArray[np.float64]:
         if size <= 0:
             return np.array([], dtype=float)
-        values = rng.lognormal(mean=float(self.mean), sigma=float(self.sigma), size=size)
+        log_mean = (
+            float(self.log_mean)
+            if self.log_mean is not None
+            else _lognormal_mu_from_arithmetic_mean(float(self.mean), float(self.sigma))
+        )
+        values = rng.lognormal(mean=log_mean, sigma=float(self.sigma), size=size)
         return self._apply_clip(values)
 
 
@@ -190,8 +196,12 @@ class CostProcess:
             regimes[str(label)] = _parse_regime_spec(spec, name=str(label))
 
         if not regimes:
-            fallback_spec = config.get("default") or config.get("distribution") or config
-            regimes[default_regime] = _parse_regime_spec(fallback_spec, name=default_regime)
+            fallback_spec = (
+                config.get("default") or config.get("distribution") or config
+            )
+            regimes[default_regime] = _parse_regime_spec(
+                fallback_spec, name=default_regime
+            )
 
         return cls(regimes, default_regime=default_regime)
 
@@ -224,7 +234,9 @@ class CostProcess:
             total_cost_drag=total_cost_drag,
         )
 
-    def _sample_cost_bps(self, regime_series: pd.Series, rng: np.random.Generator) -> pd.Series:
+    def _sample_cost_bps(
+        self, regime_series: pd.Series, rng: np.random.Generator
+    ) -> pd.Series:
         values = np.empty(len(regime_series), dtype=float)
         for label in pd.unique(regime_series):
             spec = self._select_spec(label)
@@ -282,7 +294,9 @@ def _coerce_regime_series(
     return pd.Series(values, index=index, dtype="string")
 
 
-def _coerce_turnover_series(turnover: pd.Series | float | None, index: pd.Index) -> pd.Series:
+def _coerce_turnover_series(
+    turnover: pd.Series | float | None, index: pd.Index
+) -> pd.Series:
     if turnover is None:
         return pd.Series(0.0, index=index, name="turnover")
     if isinstance(turnover, pd.Series):
@@ -310,14 +324,18 @@ def _parse_distribution(spec: Any, *, regime: str) -> CostDistribution:
     if isinstance(spec, (int, float)) and not isinstance(spec, bool):
         return FixedCostDistribution(kind="fixed", value=float(spec))
     if not isinstance(spec, Mapping):
-        raise ValueError(f"distribution for regime '{regime}' must be a mapping or number")
+        raise ValueError(
+            f"distribution for regime '{regime}' must be a mapping or number"
+        )
     kind = str(spec.get("kind") or spec.get("dist") or "fixed").strip().lower()
     clip_min = _coerce_optional_float(spec.get("clip_min"), "clip_min")
     clip_max = _coerce_optional_float(spec.get("clip_max"), "clip_max")
 
     if kind == "fixed":
         value = _coerce_float(spec.get("value", spec.get("bps", 0.0)), "value")
-        return FixedCostDistribution(kind=kind, value=value, clip_min=clip_min, clip_max=clip_max)
+        return FixedCostDistribution(
+            kind=kind, value=value, clip_min=clip_min, clip_max=clip_max
+        )
 
     if kind == "normal":
         mean = _coerce_float(spec.get("mean", 0.0), "mean")
@@ -331,17 +349,29 @@ def _parse_distribution(spec: Any, *, regime: str) -> CostDistribution:
         )
 
     if kind == "lognormal":
-        mean = _coerce_float(spec.get("mean", 0.0), "mean")
+        mean = _coerce_float(spec.get("mean", 0.0), "mean", minimum=0.0)
         sigma = _coerce_float(spec.get("sigma", 1.0), "sigma", minimum=0.0)
+        if "mu" in spec or "log_mean" in spec:
+            log_mean = _coerce_float(spec.get("mu", spec.get("log_mean")), "log_mean")
+            mean = float(np.exp(log_mean + 0.5 * sigma * sigma))
+        else:
+            log_mean = _lognormal_mu_from_arithmetic_mean(mean, sigma)
         return LognormalCostDistribution(
             kind=kind,
             mean=mean,
             sigma=sigma,
+            log_mean=log_mean,
             clip_min=clip_min,
             clip_max=clip_max,
         )
 
     raise ValueError(f"Unsupported distribution kind '{kind}' for regime '{regime}'")
+
+
+def _lognormal_mu_from_arithmetic_mean(mean_bps: float, sigma: float) -> float:
+    if mean_bps <= 0.0:
+        raise ValueError("lognormal mean must be > 0 basis points")
+    return float(np.log(mean_bps) - 0.5 * sigma * sigma)
 
 
 def _extract_top_level_regimes(config: Mapping[str, Any]) -> dict[str, Any]:
@@ -360,7 +390,9 @@ def _extract_top_level_regimes(config: Mapping[str, Any]) -> dict[str, Any]:
         if not label or label in reserved:
             continue
         if isinstance(value, Mapping) and (
-            "trade_cost_bps" in value or "distribution" in value or "slippage_multiplier" in value
+            "trade_cost_bps" in value
+            or "distribution" in value
+            or "slippage_multiplier" in value
         ):
             top_level[label] = value
     return top_level
