@@ -125,7 +125,8 @@ def _completed_state_sharpe(result: Any) -> float | None:
     if isinstance(metrics, pd.DataFrame) and not metrics.empty:
         for column in ("Sharpe", "sharpe"):
             if column in metrics.columns:
-                sharpe = pd.to_numeric(metrics[column], errors="coerce").dropna()
+                sharpe = pd.to_numeric(metrics[column], errors="coerce")
+                sharpe = sharpe[np.isfinite(sharpe)].dropna()
                 if not sharpe.empty:
                     return float(sharpe.iloc[0])
     return None

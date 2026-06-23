@@ -581,6 +581,67 @@ def test_results_hides_empty_state_when_result_present(
     )
 
 
+def test_results_completed_state_skips_non_finite_fallback_sharpe(
+    monkeypatch: pytest.MonkeyPatch, results_page
+) -> None:
+    page, stub = results_page
+    returns = _sample_returns()
+    result = SimpleNamespace(
+        metrics=pd.DataFrame({"Sharpe": [float("inf"), 1.23]}),
+        details={"portfolio_equal_weight_combined": returns["FundA"]},
+        fallback_info=None,
+        portfolio=returns["FundA"],
+        weights=pd.Series({"FundA": 0.6, "FundB": 0.4}),
+    )
+    stub.session_state.update(
+        {
+            "model_state": {
+                "trend_spec": {"window": 63, "lag": 1},
+                "metric_weights": {"sharpe": 1.0},
+            },
+            "analysis_fund_columns": ["FundA", "FundB"],
+            "fund_columns": ["FundA", "FundB"],
+            "selected_benchmark": None,
+            "data_fingerprint": "abc123",
+            "returns_df": returns,
+            "schema_meta": {},
+            "upload_status": "success",
+            "demo_preset": "Balanced",
+        }
+    )
+    stub.session_state["analysis_result"] = result
+    stub.session_state["analysis_result_key"] = page._current_run_key(
+        stub.session_state["model_state"], stub.session_state["selected_benchmark"]
+    )
+
+    for chart in [
+        "equity_chart",
+        "drawdown_chart",
+        "rolling_sharpe_chart",
+        "turnover_chart",
+        "exposure_chart",
+    ]:
+        monkeypatch.setattr(
+            getattr(page, "charts"), chart, lambda *_args, chart_name=chart: chart_name
+        )
+    monkeypatch.setattr(
+        page.explain_results, "render_explain_results", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        page.analysis_runner,
+        "run_analysis",
+        lambda *_args, **_kwargs: pytest.fail("cached result should render directly"),
+    )
+
+    page.render_results_page()
+
+    assert any(
+        "Demo results loaded — 2 funds — Sharpe 1.23." in msg
+        for msg in stub.success_messages
+    )
+    assert not any("Sharpe —" in msg for msg in stub.success_messages)
+
+
 def test_demo_run_renders_results_end_to_end(
     monkeypatch: pytest.MonkeyPatch, results_page
 ) -> None:
