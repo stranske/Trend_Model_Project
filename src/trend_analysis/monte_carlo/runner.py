@@ -30,6 +30,7 @@ from __future__ import annotations
 import logging
 import math
 import random
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -928,6 +929,13 @@ class MonteCarloRunner:
         return max(n_periods, 1)
 
     def _resolve_jobs(self, jobs: int | None) -> int:
+        # Pyodide/WASM (e.g. the offline stlite browser demo) has no OS-level
+        # threads, so ``_execute_paths``' ThreadPoolExecutor cannot run there.
+        # Force sequential execution regardless of the requested/scenario value
+        # (scenarios such as example_scenario ship ``jobs: 8``). This is the only
+        # job-count choke point: ``run`` and the CLI both route through here.
+        if sys.platform == "emscripten":
+            return 1
         requested = jobs if jobs is not None else self._settings().jobs
         if requested is None:
             return 1

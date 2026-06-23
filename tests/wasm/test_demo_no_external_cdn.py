@@ -198,3 +198,77 @@ def test_lock_narwhals_is_bumped_for_plotly_express() -> None:
     assert _version_tuple(narwhals["version"]) >= MIN_NARWHALS, narwhals["version"]
     assert narwhals["version"] in narwhals["file_name"], narwhals
     _assert_non_empty(PYODIDE_VENDOR_DIR / narwhals["file_name"])
+
+
+MC_REGISTRY_REL = "config/scenarios/monte_carlo/index.yml"
+
+
+def _resolve_repo_relative(ref: str, *, base_file_rel: str) -> str | None:
+    """Mirror the registry's path resolution and return a repo-relative posix path.
+
+    The scenario registry resolves a referenced ``ref`` against the referencing
+    file's directory, its parent, and the repo root (see
+    ``trend_analysis.monte_carlo.registry._resolve_path`` /
+    ``_resolve_base_config`` / ``_resolve_strategy_pack``). Replicate that here so
+    the guard tracks the same files the runtime will read. Returns ``None`` if no
+    candidate exists on disk.
+    """
+    base_dir = (REPO_ROOT / base_file_rel).parent
+    candidates = [base_dir / ref, base_dir.parent / ref, REPO_ROOT / ref]
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if resolved.is_file():
+            return resolved.relative_to(REPO_ROOT).as_posix()
+    return None
+
+
+def test_monte_carlo_scenario_configs_are_bundled() -> None:
+    """The Monte Carlo page lists/loads scenarios from
+    ``config/scenarios/monte_carlo/index.yml`` via ``proj_path`` (the FS root the
+    stlite manifest mounts files at). If the registry, the scenarios it
+    references, their ``base_config``, and their curated strategy packs are not in
+    the manifest, the page raises "Scenario registry '...' does not exist" (the
+    pre-fix offline failure for issue #5643). Assert the whole reachable config
+    closure is bundled.
+    """
+    import yaml
+
+    manifest = _manifest()
+    files = set(manifest["files"])
+
+    # Anchors that must always be present.
+    for anchor in (
+        MC_REGISTRY_REL,
+        "config/scenarios/example_scenario.yml",
+        "config/defaults.yml",
+        "config/scenarios/monte_carlo/strategies/hf_equity_curated.yml",
+    ):
+        assert anchor in files, f"{anchor} missing from demo manifest files"
+
+    # Every scenario the registry references -- plus its base_config and curated
+    # strategy pack -- must be bundled too, so newly registered scenarios that
+    # the build glob would miss fail this guard.
+    registry = yaml.safe_load((REPO_ROOT / MC_REGISTRY_REL).read_text(encoding="utf-8"))
+    entries = registry["scenarios"]
+    assert isinstance(entries, list) and entries
+
+    for entry in entries:
+        scenario_rel = _resolve_repo_relative(entry["path"], base_file_rel=MC_REGISTRY_REL)
+        assert scenario_rel is not None, f"registry path {entry['path']!r} not found on disk"
+        assert scenario_rel in files, f"scenario {scenario_rel} missing from demo manifest files"
+
+        scenario = yaml.safe_load((REPO_ROOT / scenario_rel).read_text(encoding="utf-8"))
+
+        base_config = scenario.get("base_config")
+        if isinstance(base_config, str):
+            base_rel = _resolve_repo_relative(base_config, base_file_rel=scenario_rel)
+            assert base_rel is not None, f"{scenario_rel}: base_config {base_config!r} not found"
+            assert base_rel in files, f"base_config {base_rel} missing from demo manifest files"
+
+        strategy_set = scenario.get("strategy_set")
+        if isinstance(strategy_set, dict):
+            pack = strategy_set.get("curated_pack")
+            if isinstance(pack, str):
+                pack_rel = _resolve_repo_relative(pack, base_file_rel=scenario_rel)
+                assert pack_rel is not None, f"{scenario_rel}: curated_pack {pack!r} not found"
+                assert pack_rel in files, f"curated_pack {pack_rel} missing from manifest files"

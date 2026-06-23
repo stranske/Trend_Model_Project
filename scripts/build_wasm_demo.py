@@ -131,6 +131,29 @@ SOURCE_DIRS = (
 #: Bundled synthetic data shipped with the demo (presentation-safe default).
 DATA_FILES = ("demo/demo_returns.csv",)
 
+#: Non-Python config trees the demo must load into the in-browser FS so the
+#: Monte Carlo page can list/load/run scenarios offline. Without these the page
+#: raises "Scenario registry 'config/scenarios/monte_carlo/index.yml' does not
+#: exist". The registry resolves every path through
+#: ``src/utils/paths.py::proj_path`` (the repository root), which under stlite is
+#: the filesystem root the manifest mounts files at -- so bundling them at their
+#: repo-relative paths makes ``proj_path("config", ...)`` resolve identically in
+#: the browser. Entries may be literal files or glob patterns (``*``/``?``/``[]``):
+#:
+#: * ``config/scenarios/monte_carlo/*.yml`` -- the registry ``index.yml`` plus
+#:   every scenario it references that lives in that directory.
+#: * ``config/scenarios/monte_carlo/strategies/*.yml`` -- curated strategy packs
+#:   referenced via ``strategy_set.curated_pack``.
+#: * ``config/scenarios/example_scenario.yml`` -- referenced by ``index.yml`` as
+#:   ``../example_scenario.yml``.
+#: * ``config/defaults.yml`` -- every scenario's ``base_config``.
+CONFIG_FILES = (
+    "config/defaults.yml",
+    "config/scenarios/example_scenario.yml",
+    "config/scenarios/monte_carlo/*.yml",
+    "config/scenarios/monte_carlo/strategies/*.yml",
+)
+
 #: Python requirements installed under Pyodide, per runtime profile. The
 #: presentation-safe set intentionally omits LangChain so the default load is
 #: lean and has no LLM dependency footprint; public_llm_demo adds the LangChain
@@ -184,6 +207,29 @@ def _iter_source_files(repo_root: Path) -> Iterable[str]:
             yield path.relative_to(repo_root).as_posix()
 
 
+def _iter_config_files(repo_root: Path) -> Iterable[str]:
+    """Yield repo-relative config files (``CONFIG_FILES``), deduped and sorted.
+
+    Each entry is either a literal repo-relative file or a glob pattern. Glob
+    matches are sorted so the manifest is deterministic for ``--check``.
+    """
+
+    seen: set[str] = set()
+    for pattern in CONFIG_FILES:
+        if any(ch in pattern for ch in "*?[]"):
+            matches = sorted(repo_root.glob(pattern))
+        else:
+            candidate = repo_root / pattern
+            matches = [candidate] if candidate.is_file() else []
+        for path in matches:
+            if not path.is_file():
+                continue
+            rel = path.relative_to(repo_root).as_posix()
+            if rel not in seen:
+                seen.add(rel)
+                yield rel
+
+
 def build_manifest(repo_root: Path = REPO_ROOT) -> dict:
     """Return the demo manifest as a JSON-serialisable dict (pure)."""
 
@@ -191,6 +237,7 @@ def build_manifest(repo_root: Path = REPO_ROOT) -> dict:
     for rel in DATA_FILES:
         if (repo_root / rel).is_file():
             files.append(rel)
+    files.extend(_iter_config_files(repo_root))
     return {
         "entrypoint": ENTRYPOINT,
         "default_profile": "presentation_safe",
