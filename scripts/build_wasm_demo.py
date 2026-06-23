@@ -122,6 +122,7 @@ ENTRYPOINT = "streamlit_app/app.py"
 #: Source directories whose ``*.py`` files are loaded into the browser FS.
 SOURCE_DIRS = (
     "streamlit_app",
+    "design-system",  # ds_streamlit.py — theme.apply_ds_theme() imports it
     "analysis",
     "src/trend_analysis",
     "src/trend",
