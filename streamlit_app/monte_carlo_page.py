@@ -90,6 +90,15 @@ def _analysis_frame_from_session(
     sanitized_funds = [
         c for c in applied_funds if c in returns.columns and c not in prohibited
     ]
+    if not sanitized_funds:
+        # The one-click demo (and any flow that never visited the Data page)
+        # leaves no explicit fund selection in session. Without this fallback
+        # ``keep_cols`` would contain only the benchmark, so Monte Carlo would
+        # run on a single non-investable column, select zero funds, and produce
+        # empty NAV paths plus a Sharpe "distribution" that is really the path
+        # index. Default to the full investable universe (every column that is
+        # not the benchmark / risk-free / regime proxy) instead.
+        sanitized_funds = [c for c in returns.columns if c not in prohibited]
     keep_cols = list(sanitized_funds)
     for extra in (selected_rf, benchmark, regime_proxy):
         if extra and extra in returns.columns and extra not in keep_cols:

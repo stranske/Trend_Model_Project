@@ -889,3 +889,43 @@ def test_empty_filtered_results_short_circuits(monkeypatch: pytest.MonkeyPatch) 
     assert any("No results available" in message for message in stub.warning_messages)
     assert not stub.dataframes
     assert not stub.downloads
+
+
+def _universe_returns() -> pd.DataFrame:
+    idx = pd.date_range("2015-01-31", periods=24, freq="ME")
+    cols = {f"Mgr_{i:02d}": [0.01] * len(idx) for i in range(1, 6)}
+    cols["SPX"] = [0.008] * len(idx)
+    cols["RF"] = [0.001] * len(idx)
+    return pd.DataFrame(cols, index=idx)
+
+
+def test_analysis_frame_defaults_to_full_universe_when_no_selection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """One-click demo sets no fund_columns; MC must still use the fund universe.
+
+    Without the fallback the frame would contain only the benchmark column, so
+    Monte Carlo selects zero funds (empty NAV paths, path-index Sharpe axis).
+    """
+    page, stub = _load_page(monkeypatch)
+    returns = _universe_returns()
+    stub.session_state.clear()  # emulate a fresh one-click demo session
+
+    frame = page._analysis_frame_from_session(returns, {}, "SPX")
+
+    assert [c for c in frame.columns if c.startswith("Mgr_")], "managers must be kept"
+    assert frame.shape[1] > 1, "frame must not collapse to the benchmark alone"
+
+
+def test_analysis_frame_respects_explicit_fund_selection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    page, stub = _load_page(monkeypatch)
+    returns = _universe_returns()
+    stub.session_state.clear()
+    stub.session_state["fund_columns"] = ["Mgr_01", "Mgr_02"]
+
+    frame = page._analysis_frame_from_session(returns, {}, "SPX")
+
+    fund_cols = [c for c in frame.columns if c.startswith("Mgr_")]
+    assert fund_cols == ["Mgr_01", "Mgr_02"]
