@@ -144,8 +144,9 @@ def test_run_price_frames_combines_and_sorts(monkeypatch: pytest.MonkeyPatch) ->
 
     dup_row = combined.loc[combined["Date"] == pd.Timestamp("2020-02-29")]
     assert dup_row.shape[0] == 1
-    # Latest observation should win when de-duplicating on Date.
-    assert pd.isna(dup_row["FundA"].iloc[0])
+    # Duplicate dates from separate frames should preserve non-null values from
+    # both frames instead of keeping only the last whole row.
+    assert dup_row["FundA"].iloc[0] == pytest.approx(0.02)
     assert dup_row["FundB"].iloc[0] == pytest.approx(0.03)
 
 
