@@ -515,6 +515,7 @@ def test_results_hides_empty_state_when_result_present(
     result = SimpleNamespace(
         metrics=pd.DataFrame({"Sharpe": [1.23]}),
         details={
+            "out_user_stats": {"sharpe": 2.34},
             "portfolio_equal_weight_combined": returns["FundA"],
             "risk_diagnostics": {
                 "turnover": pd.Series([0.1, 0.2], index=returns.index[:2]),
@@ -575,7 +576,7 @@ def test_results_hides_empty_state_when_result_present(
     assert "Run analysis" not in stub.button_labels
     assert "Re-run with custom settings" in stub.button_labels
     assert any(
-        "Demo results loaded — 2 funds — Sharpe 1.23." in msg
+        "Demo results loaded — 2 funds — Sharpe 2.34." in msg
         for msg in stub.success_messages
     )
 

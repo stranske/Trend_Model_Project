@@ -106,17 +106,57 @@ def _completed_state_line(result: Any, fund_count: int) -> str:
     if fund_count > 0:
         parts.append(f"{fund_count} funds")
 
+    sharpe = _completed_state_sharpe(result)
+    if sharpe is not None:
+        parts.append(f"Sharpe {_fmt_ratio(sharpe)}")
+
+    return " — ".join(parts) + "."
+
+
+def _completed_state_sharpe(result: Any) -> float | None:
+    """Return portfolio-level Sharpe for the completed-state banner."""
+    raw_details = getattr(result, "details", None)
+    details = raw_details if isinstance(raw_details, dict) else {}
+    portfolio_sharpe = _stats_value(details.get("out_user_stats"), "sharpe")
+    if portfolio_sharpe is not None:
+        return portfolio_sharpe
+
     metrics = getattr(result, "metrics", None)
     if isinstance(metrics, pd.DataFrame) and not metrics.empty:
-        sharpe = None
         for column in ("Sharpe", "sharpe"):
             if column in metrics.columns:
                 sharpe = pd.to_numeric(metrics[column], errors="coerce").dropna()
-                break
-        if sharpe is not None and not sharpe.empty:
-            parts.append(f"Sharpe {_fmt_ratio(float(sharpe.iloc[0]))}")
+                if not sharpe.empty:
+                    return float(sharpe.iloc[0])
+    return None
 
-    return " — ".join(parts) + "."
+
+def _stats_value(stats: Any, name: str) -> float | None:
+    """Extract a finite numeric stat from dict/object/Series-like containers."""
+    raw: Any = None
+    if isinstance(stats, dict):
+        for key in (name, name.title(), name.upper()):
+            if key in stats:
+                raw = stats[key]
+                break
+    elif isinstance(stats, pd.Series):
+        for key in (name, name.title(), name.upper()):
+            if key in stats:
+                raw = stats[key]
+                break
+    elif stats is not None:
+        raw = getattr(stats, name, None)
+        if raw is None:
+            raw = getattr(stats, name.title(), None)
+        if raw is None:
+            raw = getattr(stats, name.upper(), None)
+    if raw is None:
+        return None
+    value = pd.to_numeric(pd.Series([raw]), errors="coerce").dropna()
+    if value.empty:
+        return None
+    parsed = float(value.iloc[0])
+    return parsed if np.isfinite(parsed) else None
 
 
 def _coerce_weight_mapping(raw: Any) -> dict[str, float]:
