@@ -40,8 +40,10 @@ WASM_VENDOR_DIR = REPO_ROOT / "demo" / "wasm" / "vendor"
 VENDORED_RUNTIME_FILES = (
     "stlite@0.79.4/stlite.js",
     "stlite@0.79.4/style.css",
+    "stlite@0.79.4/wheels/blinker-1.9.0-py3-none-any.whl",
     "stlite@0.79.4/wheels/stlite_lib-0.1.0-py3-none-any.whl",
     "stlite@0.79.4/wheels/streamlit-1.41.0-cp312-none-any.whl",
+    "stlite@0.79.4/wheels/tenacity-9.1.4-py3-none-any.whl",
     "pyodide-0.27.2/pyodide.mjs",
     "pyodide-0.27.2/pyodide.asm.js",
     "pyodide-0.27.2/pyodide.asm.wasm",

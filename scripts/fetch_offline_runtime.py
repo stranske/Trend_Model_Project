@@ -99,8 +99,12 @@ def _safe_package_file_name(package: dict[str, str]) -> str:
 def _download(package: dict[str, str]) -> str:
     file_name = _safe_package_file_name(package)
     target = VENDOR_DIR / file_name
+    expected_sha = package.get("sha256")
     if target.is_file():
-        return f"skip existing {file_name}"
+        if expected_sha and _sha256(target) != expected_sha:
+            target.unlink(missing_ok=True)
+        else:
+            return f"skip existing {file_name}"
 
     url = f"{CDN_BASE_URL}/{file_name}"
     tmp_path: Path | None = None
@@ -120,7 +124,6 @@ def _download(package: dict[str, str]) -> str:
             tmp_path.unlink(missing_ok=True)
         raise
 
-    expected_sha = package.get("sha256")
     if expected_sha and _sha256(tmp_path) != expected_sha:
         tmp_path.unlink(missing_ok=True)
         raise RuntimeError(f"sha256 mismatch for {file_name}")

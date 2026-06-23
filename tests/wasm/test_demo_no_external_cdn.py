@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import re
+import zipfile
+from email.parser import Parser
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -124,16 +126,46 @@ def test_stlite_runtime_is_vendored() -> None:
         _assert_non_empty(path)
 
 
+def test_stlite_wheel_metadata_dependencies_are_vendored() -> None:
+    wheel_dir = STLITE_VENDOR_DIR / "wheels"
+    wheel_files = {path.name for path in wheel_dir.glob("*.whl")}
+    streamlit_wheels = list(wheel_dir.glob("streamlit-*.whl"))
+    assert streamlit_wheels, "missing vendored streamlit wheel"
+
+    with zipfile.ZipFile(streamlit_wheels[0]) as archive:
+        metadata_name = next(
+            name for name in archive.namelist() if name.endswith(".dist-info/METADATA")
+        )
+        metadata = Parser().parsestr(archive.read(metadata_name).decode("utf-8"))
+
+    pure_python_deps = {
+        _lock_key(_package_name(requirement))
+        for requirement in metadata.get_all("Requires-Dist", [])
+        if _lock_key(_package_name(requirement)) in {"blinker", "tenacity"}
+    }
+    missing = [
+        name
+        for name in sorted(pure_python_deps)
+        if not any(file_name.startswith(f"{name}-") for file_name in wheel_files)
+    ]
+    assert missing == []
+
+
 def test_presentation_safe_pyodide_dependency_closure_is_vendored() -> None:
     manifest = _manifest()
     packages = _pyodide_lock_packages()
     seed_names = [
         _package_name(requirement)
-        for requirements in manifest["requirements"].values()
-        for requirement in requirements
+        for requirement in manifest["requirements"]["presentation_safe"]
     ]
     seed_names.extend(["micropip", "packaging"])
-    seed_names = [name for name in seed_names if _lock_key(name) in packages]
+    missing_from_lock = sorted(
+        {name for name in seed_names if _lock_key(name) not in packages}
+    )
+    assert missing_from_lock == [], (
+        f"requirements missing from pyodide lock: {missing_from_lock}"
+    )
+    seed_names = [_lock_key(name) for name in seed_names]
 
     missing: list[str] = []
     for name in sorted(_dependency_closure(seed_names, packages)):
