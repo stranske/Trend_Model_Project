@@ -675,3 +675,72 @@ def test_period_count_uses_period_results_when_explicit_count_missing(results_pa
     )
 
     assert page._result_period_count(result, result.details) == 2
+
+
+def test_results_hides_prerun_prompt_when_result_present(
+    monkeypatch: pytest.MonkeyPatch, results_page
+) -> None:
+    """P2 / issue #5628: once a completed result is present, the page must not
+    show the pre-run 'Run the analysis to generate...' prompt + primary CTA; it
+    shows a completed-state caption + an explicit re-run instead (and does not
+    recompute when re-run is not clicked)."""
+    page, stub = results_page
+    returns = _sample_returns()
+    stub.session_state.update(
+        {
+            "model_state": {
+                "trend_spec": {"window": 63, "lag": 1},
+                "metric_weights": {"sharpe": 1.0},
+            },
+            "selected_benchmark": "BenchA",
+            "data_fingerprint": "abc123",
+            "returns_df": returns,
+            "schema_meta": {},
+            "upload_status": "success",
+        }
+    )
+
+    run_calls: list[bool] = []
+
+    def fake_run(df, model_state, benchmark, **_kwargs):
+        run_calls.append(True)
+        return SimpleNamespace(
+            metrics=pd.DataFrame({"Sharpe": [1.23]}),
+            details={
+                "portfolio_equal_weight_combined": df["FundA"],
+                "risk_diagnostics": {
+                    "turnover": pd.Series([0.1, 0.2], index=returns.index[:2]),
+                    "final_weights": pd.Series({"FundA": 0.6, "FundB": 0.4}),
+                },
+            },
+            fallback_info=None,
+        )
+
+    for chart in [
+        "equity_chart",
+        "drawdown_chart",
+        "rolling_sharpe_chart",
+        "turnover_chart",
+        "exposure_chart",
+    ]:
+        monkeypatch.setattr(
+            getattr(page, "charts"), chart, lambda *_args, chart_name=chart: chart_name
+        )
+    monkeypatch.setattr(page.analysis_runner, "run_analysis", fake_run)
+
+    # First render: click "Run analysis" -> result + key get cached.
+    stub.button_responses = [True]
+    page.render_results_page()
+    assert stub.session_state.get("analysis_result_key")
+    assert run_calls == [True]
+
+    # Second render: re-run NOT clicked -> the cached result is reused, the
+    # completed-state caption shows, and there is no recompute.
+    stub.button_responses = [False]
+    stub.caption_messages.clear()
+    run_calls.clear()
+    page.render_results_page()
+
+    captions = " ".join(stub.caption_messages)
+    assert "Analysis complete" in captions
+    assert run_calls == []

@@ -2035,8 +2035,16 @@ def render_results_page() -> None:
 
     data_hash = _data_hash_for_analysis(df_for_analysis)
 
-    st.markdown("Run the analysis to generate performance and risk diagnostics.")
-    run_clicked = st.button("Run analysis", type="primary")
+    # P2 (design-system presentation pattern): show the pre-run prompt + primary
+    # "Run analysis" CTA ONLY when there is no result yet. When results are already
+    # present, surface a completed-state caption + an explicit "Re-run" control
+    # instead of a prompt that reads as if nothing has run (issue #5628).
+    if result is None:
+        st.markdown("Run the analysis to generate performance and risk diagnostics.")
+        run_clicked = st.button("Run analysis", type="primary")
+    else:
+        st.caption("Analysis complete. Adjust the settings above and re-run to refresh these results.")
+        run_clicked = st.button("Re-run analysis", type="secondary")
 
     if run_clicked or result is None:
         with st.spinner("Running analysis…"):
