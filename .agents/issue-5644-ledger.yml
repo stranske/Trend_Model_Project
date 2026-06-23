@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Update `streamlit_app/pages/3_Results.py:2176-2181` to gate the completed-state
       `st.success(...)` banner on `_diagnostic_message(result)[0] is None`.
-    status: doing
+    status: done
     started_at: '2026-06-23T04:52:42Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-06-23T04:52:53Z'
+    commit: 1974ea351041b904ece6927d9ffd1d08993f6e3a
     notes: []
   - id: task-02
     title: Update `streamlit_app/pages/3_Results.py` so a non-None failed result does
