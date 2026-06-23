@@ -651,10 +651,10 @@ class MonteCarloRunner:
         context: _PathContext,
     ) -> StrategyEvaluation:
         strategy_seed = self._strategy_seed(context.path_id, strategy.name)
-        config = self._build_strategy_config(strategy, strategy_seed)
+        config = self._build_strategy_config(strategy, strategy_seed, context)
         self._apply_regime_turnover_caps(config, context)
         run_result = run_simulation(config, context.returns)
-        metrics, source = self._extract_metrics(run_result.metrics)
+        metrics, source = self._extract_portfolio_metrics(run_result)
         cost_payload = self._maybe_sample_costs(run_result, context, strategy)
         if cost_payload is not None:
             metrics = dict(metrics)
@@ -1124,13 +1124,159 @@ class MonteCarloRunner:
         ]
         return path_seeds, strategy_seeds
 
-    def _build_strategy_config(self, strategy: StrategyVariant, seed: int | None) -> ConfigType:
+    def _build_strategy_config(
+        self,
+        strategy: StrategyVariant,
+        seed: int | None,
+        context: _PathContext | None = None,
+    ) -> ConfigType:
         merged = strategy.apply_to(self._base_config)
         self._apply_strategy_guards(merged)
         self._apply_turnover_guard_distribution(merged, strategy, seed)
+        self._align_path_windows(merged, context)
         if seed is not None:
             merged["seed"] = int(seed)
         return Config(**merged)
+
+    def _align_path_windows(
+        self, merged: dict[str, Any], context: _PathContext | None = None
+    ) -> None:
+        """Align a simulated path's analysis windows to the path's own dates.
+
+        A Monte Carlo path is a *forward* projection over the simulation horizon
+        (e.g. ``2025``..``2026``), so the windows used to score and evaluate it
+        must be derived from the path itself. The historical windows baked into
+        ``base_config`` -- the ``multi_period`` schedule (e.g. ``1990``..
+        ``2024``) and a fixed-date ``sample_split`` (e.g. ``2017-12-31``) -- do
+        not overlap the simulated horizon, so every in/out window comes back
+        empty: the multi-period engine returns no periods (no NAV paths) and the
+        single-period split yields no metrics.
+
+        We therefore:
+
+        * Replace ``sample_split`` with a data-relative *ratio* split, which
+          derives the in/out boundary from whatever returns ``run_simulation``
+          receives and so always lands inside the simulated horizon. An existing
+          ratio split's ratio is preserved; otherwise it defaults to 0.7.
+        * Re-base ``multi_period`` onto the simulated path's dates and keep it
+          only when its schedule still yields at least one window over that span
+          (see :meth:`_align_multi_period`); a long historical schedule that
+          cannot fit the horizon is dropped so the ratio split takes over.
+        * Cap the rolling lookbacks ``vol_adjust.window`` and the trend
+          ``signals.window`` -- tuned for long real history (defaults.yml and
+          the UI both use 63 periods) -- at half the horizon. Left uncapped they
+          never fill on a short path, the volatility estimate / trend signal is
+          all-NaN, and the weights collapse to a 100% cash portfolio (flat NAV,
+          NaN Sharpe). Windows that already fit are untouched.
+        """
+        ratio = 0.7
+        existing = merged.get("sample_split")
+        if isinstance(existing, Mapping) and str(existing.get("method", "")).lower() == "ratio":
+            try:
+                candidate = float(existing.get("ratio"))
+            except (TypeError, ValueError):
+                candidate = None
+            if candidate is not None and 0.0 < candidate < 1.0:
+                ratio = candidate
+        merged["sample_split"] = {"method": "ratio", "ratio": ratio}
+        self._align_multi_period(merged, context)
+        max_window = max(2, self._compute_n_periods() // 2)
+        self._fit_vol_adjust_window(merged, max_window)
+        self._fit_signal_window(merged, max_window)
+
+    def _align_multi_period(
+        self, merged: dict[str, Any], context: _PathContext | None
+    ) -> None:
+        """Re-base ``multi_period`` onto the path span, keeping it only if viable.
+
+        The base config's multi-period window is expressed in absolute historical
+        dates. Re-base its ``start``/``end`` onto the simulated path's date span
+        and keep the schedule only when it still produces at least one rolling
+        window there (e.g. a monthly 2-in/2-out schedule over a 6-month path). A
+        long schedule that cannot fit the horizon (e.g. defaults.yml's annual
+        3-in/1-out over a sub-2-year path) is dropped so the data-relative ratio
+        split drives a single in/out evaluation instead.
+        """
+        multi_period = merged.get("multi_period")
+        if not isinstance(multi_period, Mapping):
+            merged.pop("multi_period", None)
+            return
+        span = self._path_period_span(context)
+        if span is None:
+            merged.pop("multi_period", None)
+            return
+        start, end = span
+        rewritten = {**multi_period, "start": start, "end": end}
+        from ..multi_period.scheduler import generate_periods
+
+        try:
+            periods = generate_periods({"multi_period": rewritten})
+        except Exception as exc:  # pragma: no cover - defensive
+            self._logger.debug("multi_period re-base failed; dropping for path eval: %s", exc)
+            periods = []
+        if periods:
+            merged["multi_period"] = rewritten
+        else:
+            merged.pop("multi_period", None)
+
+    @staticmethod
+    def _path_period_span(context: _PathContext | None) -> tuple[str, str] | None:
+        """Return the (start, end) ``YYYY-MM`` span of a path's simulated dates."""
+        if context is None:
+            return None
+        returns = getattr(context, "returns", None)
+        if not isinstance(returns, pd.DataFrame) or "Date" not in returns.columns:
+            return None
+        dates = pd.to_datetime(returns["Date"], errors="coerce").dropna()
+        if dates.empty:
+            return None
+        return dates.min().strftime("%Y-%m"), dates.max().strftime("%Y-%m")
+
+    def _fit_vol_adjust_window(self, merged: dict[str, Any], max_window: int) -> None:
+        """Cap an over-long vol-adjust rolling window at ``max_window``.
+
+        See :meth:`_align_path_windows`: a window longer than the simulated
+        horizon leaves the rolling volatility estimate all-NaN, collapsing the
+        vol-scaled weights to a 100% cash portfolio.
+        """
+        vol_adjust = merged.get("vol_adjust")
+        if not isinstance(vol_adjust, Mapping) or not vol_adjust.get("enabled", False):
+            return
+        window = vol_adjust.get("window")
+        if isinstance(window, Mapping):
+            try:
+                length = int(window.get("length"))
+            except (TypeError, ValueError):
+                return
+            if length > max_window:
+                new_window = dict(window)
+                new_window["length"] = max_window
+                merged["vol_adjust"] = {**vol_adjust, "window": new_window}
+        elif window is not None:
+            try:
+                length = int(window)
+            except (TypeError, ValueError):
+                return
+            if length > max_window:
+                merged["vol_adjust"] = {**vol_adjust, "window": max_window}
+
+    def _fit_signal_window(self, merged: dict[str, Any], max_window: int) -> None:
+        """Cap an over-long trend ``signals.window`` at ``max_window``.
+
+        See :meth:`_align_path_windows`: the UI builds a ``tsmom`` signal with a
+        63-period window, which is entirely NaN on a short simulated in-sample
+        so no fund earns a position and the portfolio is 100% cash.
+        """
+        signals = merged.get("signals")
+        if not isinstance(signals, Mapping):
+            return
+        window = signals.get("window")
+        try:
+            length = int(window)
+        except (TypeError, ValueError):
+            return
+        if length > max_window:
+            merged["signals"] = {**signals, "window": max_window}
 
     def _apply_strategy_guards(self, merged: dict[str, Any]) -> None:
         strategy_set = self._strategy_set()
@@ -1324,6 +1470,50 @@ class MonteCarloRunner:
     def _inject_cash_returns(self, returns: pd.DataFrame) -> pd.DataFrame:
         """Backward-compatible alias for cash injection behavior."""
         return self._apply_cash_handling(returns)
+
+    def _extract_portfolio_metrics(
+        self, run_result: Any
+    ) -> tuple[dict[str, float], str | None]:
+        """Return per-path metrics for the evaluated strategy's portfolio.
+
+        The single-period ``run_simulation`` metrics frame is indexed *per
+        fund*, so ``_extract_metrics`` (written for the multi-period frame keyed
+        by weighting scheme) falls through to its first row -- an arbitrary
+        constituent fund rather than the strategy. For the Monte Carlo summary
+        and Sharpe distribution we want the out-of-sample *portfolio* stats, so
+        prefer the user-weighted result, then the equal-weighted fallback, and
+        only then the metrics frame for callers/tests that populate just that.
+        """
+        details = getattr(run_result, "details", None)
+        if isinstance(details, Mapping):
+            for key in ("out_user_stats", "out_ew_stats"):
+                metrics = self._stats_to_metrics(details.get(key))
+                if metrics:
+                    return metrics, key
+        return self._extract_metrics(getattr(run_result, "metrics", None))
+
+    @staticmethod
+    def _stats_to_metrics(stats: Any) -> dict[str, float]:
+        """Coerce a portfolio stats object/mapping into a flat float metrics dict."""
+        if stats is None:
+            return {}
+        if isinstance(stats, Mapping):
+            items: Iterable[tuple[Any, Any]] = stats.items()
+        elif hasattr(stats, "__dict__"):
+            items = vars(stats).items()
+        else:
+            return {}
+        metrics: dict[str, float] = {}
+        for key, value in items:
+            if value is None or isinstance(value, bool):
+                continue
+            if not isinstance(value, (int, float, np.floating, np.integer)):
+                continue
+            numeric = float(value)
+            if math.isnan(numeric):
+                continue
+            metrics[str(key)] = numeric
+        return metrics
 
     def _extract_metrics(self, metrics_df: pd.DataFrame) -> tuple[dict[str, float], str | None]:
         if metrics_df is None or metrics_df.empty:

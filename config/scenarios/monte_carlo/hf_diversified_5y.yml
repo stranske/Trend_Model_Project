@@ -5,6 +5,13 @@ scenario:
 
 base_config: config/defaults.yml
 
+# Simulated paths are forward projections that carry no explicitly-configured
+# risk-free column, so enable the opt-in fallback for the per-path score-frame
+# and portfolio stats (matches cost_regime_example.yml). CASH injection stays
+# gated separately by metrics.rf_override_enabled.
+data:
+  allow_risk_free_fallback: true
+
 monte_carlo:
   mode: two_layer
   n_paths: 300
