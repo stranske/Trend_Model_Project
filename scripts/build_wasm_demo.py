@@ -133,6 +133,18 @@ SOURCE_DIRS = (
 #: Bundled synthetic data shipped with the demo (presentation-safe default).
 DATA_FILES = ("demo/demo_returns.csv",)
 
+#: Non-Python config globbed into the browser FS so the Monte Carlo page can load
+#: its scenario registry (``config/scenarios/monte_carlo/index.yml``) and run a
+#: scenario offline. Scenarios reference ``config/defaults.yml`` (their
+#: ``base_config``) and ``../example_scenario.yml``. Price history is supplied at
+#: run time from the session's loaded demo returns (``monte_carlo_page`` injects
+#: ``price_history``), so no source-data CSVs need bundling.
+DATA_GLOBS = (
+    "config/defaults.yml",
+    "config/scenarios/example_scenario.yml",
+    "config/scenarios/monte_carlo/**/*.yml",
+)
+
 #: Python requirements installed under Pyodide, per runtime profile. The
 #: presentation-safe set intentionally omits LangChain so the default load is
 #: lean and has no LLM dependency footprint; public_llm_demo adds the LangChain
@@ -193,6 +205,10 @@ def build_manifest(repo_root: Path = REPO_ROOT) -> dict:
     for rel in DATA_FILES:
         if (repo_root / rel).is_file():
             files.append(rel)
+    for pattern in DATA_GLOBS:
+        for path in sorted(repo_root.glob(pattern)):
+            if path.is_file():
+                files.append(path.relative_to(repo_root).as_posix())
     return {
         "entrypoint": ENTRYPOINT,
         "default_profile": "presentation_safe",

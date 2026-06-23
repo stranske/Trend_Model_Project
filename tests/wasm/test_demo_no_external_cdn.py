@@ -170,11 +170,12 @@ def test_presentation_safe_pyodide_dependency_closure_is_vendored() -> None:
     manifest = _manifest()
     packages = _pyodide_lock_packages()
     # Wheel-path requirements (plotly, under vendor/pypi/) are not in the Pyodide
-    # lock, so they are dropped by the ``_lock_key(name) in packages`` filter
-    # below and asserted separately in test_plotly_wheel_is_vendored.
+    # lock; they are excluded here and asserted separately in
+    # test_plotly_wheel_is_vendored.
     seed_names = [
         _package_name(requirement)
         for requirement in manifest["requirements"]["presentation_safe"]
+        if not _is_wheel_requirement(requirement)
     ]
     seed_names.extend(["micropip", "packaging"])
     missing_from_lock = sorted(
@@ -230,3 +231,32 @@ def test_lock_narwhals_is_bumped_for_plotly_express() -> None:
     assert _version_tuple(narwhals["version"]) >= MIN_NARWHALS, narwhals["version"]
     assert narwhals["version"] in narwhals["file_name"], narwhals
     _assert_non_empty(PYODIDE_VENDOR_DIR / narwhals["file_name"])
+
+
+def test_monte_carlo_scenario_configs_are_bundled() -> None:
+    """The Monte Carlo page loads its scenario registry from
+    ``config/scenarios/monte_carlo/index.yml`` and each scenario's
+    ``base_config`` (``config/defaults.yml``). These non-Python config files must
+    be bundled into the browser FS for the page to run a scenario offline."""
+    manifest = _manifest()
+    files = set(manifest["files"])
+    required = {
+        "config/defaults.yml",
+        "config/scenarios/monte_carlo/index.yml",
+    }
+    missing = sorted(required - files)
+    assert missing == [], f"unbundled Monte Carlo config: {missing}"
+    # At least one runnable scenario yml beyond the index is bundled.
+    scenario_files = [
+        f
+        for f in files
+        if f.startswith("config/scenarios/monte_carlo/")
+        and f.endswith(".yml")
+        and not f.endswith("index.yml")
+    ]
+    assert scenario_files, "no Monte Carlo scenario ymls bundled"
+    # The manifest lists repo-relative paths; the deploy publishes these source
+    # files under the app base. Verify the source files the manifest points to
+    # actually exist and are non-empty.
+    for rel in sorted(required | set(scenario_files)):
+        _assert_non_empty(REPO_ROOT / rel)
