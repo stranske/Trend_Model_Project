@@ -80,6 +80,11 @@ selected_preset = st.selectbox(
     help=DEMO_PRESET_SELECTOR_HELP,
 )
 st.session_state["demo_preset"] = selected_preset
+if _active_profile == demo_profile.PRESENTATION_SAFE and len(preset_names) == 1:
+    st.caption(
+        "Presentation-safe mode includes one preset — switch to public_llm_demo "
+        "for the full preset library."
+    )
 
 # Load preset config for display and modification
 preset_config = load_preset_config(selected_preset)
@@ -248,7 +253,9 @@ if demo_profile.custom_analysis_enabled(_active_profile):
     if st.button("📂 Go to Data Upload", use_container_width=True):
         st.switch_page("pages/1_Data.py")
 
-    st.caption("The Model page uses a different analysis pipeline with more configuration options.")
+    st.caption(
+        "The Model page uses a different analysis pipeline with more configuration options."
+    )
 else:
     st.subheader("🔒 Presentation-safe mode")
     st.caption(
