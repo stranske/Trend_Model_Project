@@ -3,6 +3,7 @@ handling."""
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
@@ -159,8 +160,15 @@ def test_run_combines_price_frames_and_invokes_analysis(
 
 def test_stable_period_seed_does_not_use_python_hash_randomization() -> None:
     period = "2020-01/2020-02"
+    expected_offset = (
+        int.from_bytes(
+            hashlib.blake2b(period.encode("utf-8"), digest_size=8).digest(),
+            "big",
+        )
+        % 10000
+    )
 
-    assert mp_engine._stable_period_seed(123, period) == mp_engine._stable_period_seed(123, period)
+    assert mp_engine._stable_period_seed(123, period) == 123 + expected_offset
     assert mp_engine._stable_period_seed(124, period) != mp_engine._stable_period_seed(123, period)
 
 
