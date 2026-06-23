@@ -779,3 +779,44 @@ def test_empty_filtered_results_short_circuits(monkeypatch: pytest.MonkeyPatch) 
     assert any("No results available" in message for message in stub.warning_messages)
     assert not stub.dataframes
     assert not stub.downloads
+
+
+def test_monte_carlo_entrypoint_degrades_without_plotly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The numbered MC entrypoint must not crash when Plotly is unavailable.
+
+    Plotly is intentionally excluded from the lean offline (stlite/Pyodide) demo
+    bundle, so importing ``monte_carlo_page`` -- which pulls Plotly transitively
+    via the viz adapters / chart export bundle -- raises ModuleNotFoundError
+    there and the whole page crashes with a red traceback. The entrypoint must
+    detect the missing Plotly and show a clear message instead.
+    """
+    import importlib.util
+
+    stub = _install_streamlit_stub(monkeypatch)
+
+    # Stub the theme module the entrypoint imports.
+    theme_module = ModuleType("streamlit_app.theme")
+    theme_module.apply_ds_theme = lambda: None
+    monkeypatch.setitem(sys.modules, "streamlit_app.theme", theme_module)
+
+    # Simulate Plotly being absent from the bundle.
+    monkeypatch.setitem(sys.modules, "plotly", None)
+    monkeypatch.setitem(sys.modules, "plotly.graph_objects", None)
+
+    entrypoint = (
+        Path(__file__).resolve().parents[2]
+        / "streamlit_app"
+        / "pages"
+        / "5_Monte_Carlo.py"
+    )
+    spec = importlib.util.spec_from_file_location("_mc_entrypoint_under_test", entrypoint)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+
+    # Must not raise -- no ModuleNotFoundError surfacing to the user.
+    spec.loader.exec_module(module)
+
+    assert module._PLOTLY_AVAILABLE is False
+    assert any("Plotly" in message for message in stub.info_messages)
