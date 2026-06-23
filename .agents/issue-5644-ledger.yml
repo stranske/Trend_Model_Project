@@ -1,0 +1,87 @@
+version: 1
+issue: 5644
+base: phase-3
+branch: codex/issue-5644
+tasks:
+  - id: task-01
+    title: Update `streamlit_app/pages/3_Results.py:2176-2181` to gate the completed-state
+      `st.success(...)` banner on `_diagnostic_message(result)[0] is None`.
+    status: done
+    started_at: '2026-06-23T04:52:42Z'
+    finished_at: '2026-06-23T04:52:53Z'
+    commit: 1974ea351041b904ece6927d9ffd1d08993f6e3a
+    notes: []
+  - id: task-02
+    title: Update `streamlit_app/pages/3_Results.py` so a non-None failed result does
+      not show the success banner and offers a plain retry labeled "Run analysis"
+      instead.
+    status: done
+    started_at: '2026-06-23T05:10:00Z'
+    finished_at: '2026-06-23T05:25:52Z'
+    commit: current-branch-commit
+    notes:
+      - Failed non-None cached results now render a plain "Run analysis" retry instead
+        of the completed-state success banner.
+  - id: task-03
+    title: Add `tests/app/test_results_page.py::test_results_failed_result_is_not_marked_complete`
+      to render a cached non-None failed result and assert the page does not show
+      the completed-state success banner and does show the diagnostic error.
+    status: done
+    started_at: '2026-06-23T05:10:00Z'
+    finished_at: '2026-06-23T05:25:52Z'
+    commit: current-branch-commit
+    notes:
+      - Added `test_results_failed_result_is_not_marked_complete`.
+  - id: task-04
+    title: Test the deliberate-break case by making `st.success(...)` unconditional
+      for non-None results, confirm `tests/app/test_results_page.py::test_results_failed_result_is_not_marked_complete`
+      fails, then revert.
+    status: done
+    started_at: '2026-06-23T05:10:00Z'
+    finished_at: '2026-06-23T05:25:52Z'
+    commit: current-branch-commit
+    notes:
+      - Deliberate unconditional-success break failed the new test, then the fix was
+        restored.
+  - id: task-05
+    title: In `streamlit_app/pages/3_Results.py`, the completed-state `st.success(...)`
+      banner is shown only when `_diagnostic_message(result)[0] is None`.
+    status: done
+    started_at: '2026-06-23T05:10:00Z'
+    finished_at: '2026-06-23T05:25:52Z'
+    commit: current-branch-commit
+    notes:
+      - Completed-state success banner is gated by a missing diagnostic summary.
+  - id: task-06
+    title: Rendering a cached non-None failed result in `tests/app/test_results_page.py::test_results_failed_result_is_not_marked_complete`
+      does not show the completed-state success banner and does show the diagnostic
+      error.
+    status: done
+    started_at: '2026-06-23T05:10:00Z'
+    finished_at: '2026-06-23T05:25:52Z'
+    commit: current-branch-commit
+    notes:
+      - Regression renders a cached failed result, sees no success banner, and sees
+        the diagnostic.
+  - id: task-07
+    title: If `st.success(...)` is made unconditional for non-None results, `tests/app/test_results_page.py::test_results_failed_result_is_not_marked_complete`
+      fails; after reverting, the test passes.
+    status: done
+    started_at: '2026-06-23T05:10:00Z'
+    finished_at: '2026-06-23T05:25:52Z'
+    commit: current-branch-commit
+    notes:
+      - Deliberate break validation failed as expected before revert.
+  - id: task-08
+    title: "`streamlit_app/pages/3_Results.py:2176-2181` \u2014 gate the completed-state\
+      \ `st.success(...)` banner on the result being a **success**: only show it when\
+      \ `_diagnostic_message(result)[0] is None`. For a non-None but failed result,\
+      \ do NOT show the success banner (the diagnostic at `:2217-2219` already explains\
+      \ it); offer a plain retry (\"Run analysis\") instead."
+    status: done
+    started_at: '2026-06-23T05:10:00Z'
+    finished_at: '2026-06-23T05:25:52Z'
+    commit: current-branch-commit
+    notes:
+      - Same implementation evidence as task-02/task-05; retained for duplicate
+        original-issue task tracking.
