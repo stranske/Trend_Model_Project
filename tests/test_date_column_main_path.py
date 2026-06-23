@@ -2,8 +2,8 @@ from types import SimpleNamespace
 
 import pandas as pd
 import pytest
-from trend.diagnostics import DiagnosticResult
 
+from trend.diagnostics import DiagnosticResult
 from trend_analysis import pipeline_entrypoints
 from trend_analysis.data import load_csv
 from trend_analysis.io.market_data import MarketDataValidationError

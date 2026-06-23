@@ -27,8 +27,8 @@ from trend.validation import (
 )
 
 from .diagnostics import PipelineReasonCode, coerce_pipeline_result
-from .logging import log_step as _log_step  # lightweight import
 from .llm.analysis_fleet import record_analysis_run
+from .logging import log_step as _log_step  # lightweight import
 from .pipeline import (
     _build_trend_spec,
     _policy_from_config,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import logging
 import inspect
+import logging
 from dataclasses import dataclass
 from typing import Any, Mapping, cast
 

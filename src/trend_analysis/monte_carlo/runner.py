@@ -1184,9 +1184,7 @@ class MonteCarloRunner:
         self._fit_vol_adjust_window(merged, max_window)
         self._fit_signal_window(merged, max_window)
 
-    def _align_multi_period(
-        self, merged: dict[str, Any], context: _PathContext | None
-    ) -> None:
+    def _align_multi_period(self, merged: dict[str, Any], context: _PathContext | None) -> None:
         """Re-base ``multi_period`` onto the path span, keeping it only if viable.
 
         The base config's multi-period window is expressed in absolute historical
@@ -1471,9 +1469,7 @@ class MonteCarloRunner:
         """Backward-compatible alias for cash injection behavior."""
         return self._apply_cash_handling(returns)
 
-    def _extract_portfolio_metrics(
-        self, run_result: Any
-    ) -> tuple[dict[str, float], str | None]:
+    def _extract_portfolio_metrics(self, run_result: Any) -> tuple[dict[str, float], str | None]:
         """Return per-path metrics for the evaluated strategy's portfolio.
 
         The single-period ``run_simulation`` metrics frame is indexed *per

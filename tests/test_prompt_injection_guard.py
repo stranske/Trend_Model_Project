@@ -10,7 +10,10 @@ pytest.importorskip("langchain_core")
 
 from langchain_core.runnables import RunnableLambda  # noqa: E402
 
-from trend_analysis.llm.chain import ConfigPatchChain, ConfigPatchVariantsChain  # noqa: E402
+from trend_analysis.llm.chain import (  # noqa: E402
+    ConfigPatchChain,
+    ConfigPatchVariantsChain,
+)
 from trend_analysis.llm.injection import (  # noqa: E402
     DEFAULT_BLOCK_SUMMARY,
     detect_prompt_injection,

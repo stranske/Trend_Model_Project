@@ -17,7 +17,6 @@ import pandas as pd
 from trend_analysis.api import RunResult
 from trend_analysis.monte_carlo.runner import MonteCarloRunner, _PathContext
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario
-from trend_analysis.monte_carlo.strategy import StrategyVariant
 
 
 def _demo_like_config() -> dict[str, Any]:

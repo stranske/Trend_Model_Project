@@ -19,6 +19,11 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from trend.cli_helpers import (
+    _apply_trend_spec_preset,
+    _apply_universe_mask,
+    _attach_universe_paths,
+)
 from trend.config_schema import CoreConfigError, load_core_config
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 from trend.reporting import generate_unified_report
@@ -77,11 +82,6 @@ from trend_analysis.presets import (
     apply_trend_preset,
     get_trend_preset,
     list_preset_slugs,
-)
-from trend.cli_helpers import (
-    _apply_trend_spec_preset,
-    _apply_universe_mask,
-    _attach_universe_paths,
 )
 from trend_analysis.reporting.portfolio_series import select_primary_portfolio_series
 from trend_analysis.reporting.run_artifacts import write_run_artifacts

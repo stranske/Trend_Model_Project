@@ -14,6 +14,7 @@ from typing import Any, Iterable, Mapping
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+
 from streamlit_app.components.data_cache import cache_key_for_frame
 from streamlit_app.components.guardrails import infer_frequency
 from streamlit_app.components.progress_eta import progress_ratio_and_remaining

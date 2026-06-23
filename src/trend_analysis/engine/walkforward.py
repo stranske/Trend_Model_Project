@@ -9,7 +9,9 @@ import numpy as np
 import pandas as pd
 
 from trend_analysis.metrics import information_ratio
-from trend_analysis.util.frequency import infer_periods_per_year as _infer_periods_per_year
+from trend_analysis.util.frequency import (
+    infer_periods_per_year as _infer_periods_per_year,
+)
 
 
 @dataclass

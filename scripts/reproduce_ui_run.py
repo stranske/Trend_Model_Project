@@ -43,10 +43,10 @@ from streamlit_app.components.data_cache import (  # noqa: E402
     load_dataset_from_bytes,
     load_dataset_from_path,
 )
+from trend_analysis.api import run_simulation  # noqa: E402
 from trend_analysis.io.date_correction import (  # noqa: E402
     apply_date_corrections,
 )
-from trend_analysis.api import run_simulation  # noqa: E402
 
 
 def _norm_cdf(z: float) -> float:

@@ -6,7 +6,8 @@ from types import ModuleType
 import pandas as pd
 import pytest
 
-from tests.app.test_data_page import DummyStreamlit, data_page as _shared_data_page
+from tests.app.test_data_page import DummyStreamlit
+from tests.app.test_data_page import data_page as _shared_data_page
 
 
 @pytest.fixture(name="data_page")

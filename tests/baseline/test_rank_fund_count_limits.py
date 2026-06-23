@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import pandas as pd
-from trend.diagnostics import DiagnosticResult
 
+from trend.diagnostics import DiagnosticResult
 from trend_analysis.config import load
 from trend_analysis.multi_period import engine as mp_engine
 from trend_analysis.multi_period import run_from_config
