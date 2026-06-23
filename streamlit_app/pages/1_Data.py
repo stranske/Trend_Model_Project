@@ -800,7 +800,9 @@ def render_data_page() -> None:
                 if previous_analysis_selection is not None:
                     analysis_runner.clear_cached_analysis()
             fund_label = "fund" if len(sanitized_selection) == 1 else "funds"
-            st.caption(f"Applied automatically for analysis: {len(sanitized_selection)} {fund_label}")
+            st.caption(
+                f"Applied automatically for analysis: {len(sanitized_selection)} {fund_label}"
+            )
 
             # Show current configuration summary
             st.markdown("---")

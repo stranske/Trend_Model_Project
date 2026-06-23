@@ -81,7 +81,9 @@ class NoOpRebalancer:
     def __init__(self, *_cfg: Any) -> None:
         pass
 
-    def apply_triggers(self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs: Any) -> pd.Series:
+    def apply_triggers(
+        self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs: Any
+    ) -> pd.Series:
         del _sf, kwargs
         return prev_weights.astype(float)
 
@@ -129,7 +131,9 @@ def test_cost_model_bps_feed_multi_period_transaction_cost(
         return pd.Series(values[metric], dtype=float).reindex(frame.columns)
 
     monkeypatch.setattr(rank_selection, "_compute_metric_series", metric_series)
-    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *_args, **_kwargs: StaticSelector())
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *_args, **_kwargs: StaticSelector()
+    )
     monkeypatch.setattr(
         mp_engine,
         "_run_analysis",
@@ -173,7 +177,9 @@ def test_cost_model_bps_feed_non_threshold_pipeline_cost(
 
 
 def test_invalid_cost_model_bps_raises_core_config_error() -> None:
-    with pytest.raises(CoreConfigError, match="portfolio.cost_model.bps_per_trade cannot be negative"):
+    with pytest.raises(
+        CoreConfigError, match="portfolio.cost_model.bps_per_trade cannot be negative"
+    ):
         mp_engine._resolve_portfolio_cost_bps(
             {"cost_model": {"bps_per_trade": -1.0, "slippage_bps": 0.0}}
         )

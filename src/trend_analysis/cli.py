@@ -1086,9 +1086,7 @@ def _handle_run_command(args: argparse.Namespace) -> int:
             if not _maybe_track_config_coverage(config_path, args.input):
                 return 1
             wrap_config_for_coverage(cfg, coverage_tracker)
-        if not _maybe_validate_config(
-            cfg, base_path=config_path.parent, config_path=config_path
-        ):
+        if not _maybe_validate_config(cfg, base_path=config_path.parent, config_path=config_path):
             return 1
         if args.preset:
             try:

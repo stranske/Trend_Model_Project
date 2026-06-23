@@ -69,9 +69,7 @@ def test_missing_policy_layers_reject_undocumented_aliases(value: str) -> None:
 
 
 @pytest.mark.parametrize("value", ["bfill", "backfill", "both", "zero_fill", "zeros"])
-def test_load_csv_rejects_undocumented_missing_policy_aliases(
-    tmp_path: Path, value: str
-) -> None:
+def test_load_csv_rejects_undocumented_missing_policy_aliases(tmp_path: Path, value: str) -> None:
     csv_path = tmp_path / "returns.csv"
     csv_path.write_text(
         "Date,Fund\n2024-01-31,1.0\n2024-02-29,\n",

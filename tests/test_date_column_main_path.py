@@ -67,9 +67,7 @@ def _pipeline_bindings(captured: dict[str, object]) -> pipeline_entrypoints.Conf
 def test_load_csv_honors_configured_date_column(tmp_path):
     csv_path = tmp_path / "returns.csv"
     csv_path.write_text(
-        "Timestamp,ManagerA,ManagerB\n"
-        "2024-01-31,0.01,0.02\n"
-        "2024-02-29,0.03,0.04\n"
+        "Timestamp,ManagerA,ManagerB\n" "2024-01-31,0.01,0.02\n" "2024-02-29,0.03,0.04\n"
     )
 
     frame = load_csv(str(csv_path), errors="raise", date_column="Timestamp")
@@ -91,11 +89,7 @@ def test_load_csv_still_accepts_standard_date_column(tmp_path):
 
 def test_load_csv_rejects_missing_configured_date_column(tmp_path):
     csv_path = tmp_path / "returns.csv"
-    csv_path.write_text(
-        "Date,ManagerA\n"
-        "2024-01-31,0.01\n"
-        "2024-02-29,0.03\n"
-    )
+    csv_path.write_text("Date,ManagerA\n" "2024-01-31,0.01\n" "2024-02-29,0.03\n")
 
     with pytest.raises(MarketDataValidationError, match="Timestamp"):
         load_csv(str(csv_path), errors="raise", date_column="Timestamp")

@@ -462,9 +462,7 @@ def _check_data_required_fields(data: Mapping[str, Any], errors: list[Validation
         _append_issue(errors, issue)
 
 
-def _check_data_frequency_supported(
-    data: Mapping[str, Any], errors: list[ValidationError]
-) -> None:
+def _check_data_frequency_supported(data: Mapping[str, Any], errors: list[ValidationError]) -> None:
     value = data.get("frequency")
     if not _is_present(value):
         return

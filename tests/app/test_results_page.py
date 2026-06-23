@@ -96,9 +96,7 @@ class DummyStreamlit:
     def expander(self, *_args, **_kwargs) -> "ColumnContext":
         return ColumnContext(self)
 
-    def checkbox(
-        self, label: str, value: bool = False, key: str | None = None, **_kwargs
-    ) -> bool:
+    def checkbox(self, label: str, value: bool = False, key: str | None = None, **_kwargs) -> bool:
         self.checkbox_labels.append(label)
         if key is None:
             return bool(value)
@@ -444,8 +442,7 @@ def test_results_failed_result_is_not_marked_complete(results_page) -> None:
     assert not stub.success_messages
     assert stub.error_messages == ["Analysis did not produce results."]
     assert any(
-        "No investable funds satisfy the selection filters." in msg
-        for msg in stub.caption_messages
+        "No investable funds satisfy the selection filters." in msg for msg in stub.caption_messages
     )
     assert "Run analysis" in stub.button_labels
     assert "Re-run with custom settings" not in stub.button_labels
@@ -478,9 +475,7 @@ def test_results_empty_diagnostic_summary_is_not_marked_complete(
     stub.session_state["analysis_result_key"] = page._current_run_key(
         stub.session_state["model_state"], stub.session_state["selected_benchmark"]
     )
-    monkeypatch.setattr(
-        page, "_diagnostic_message", lambda _result: ("", "empty detail")
-    )
+    monkeypatch.setattr(page, "_diagnostic_message", lambda _result: ("", "empty detail"))
 
     page.render_results_page()
 
@@ -654,8 +649,7 @@ def test_results_hides_empty_state_when_result_present(
     assert "Run analysis" not in stub.button_labels
     assert "Re-run with custom settings" in stub.button_labels
     assert any(
-        "Demo results loaded — 2 funds — Sharpe 2.34." in msg
-        for msg in stub.success_messages
+        "Demo results loaded — 2 funds — Sharpe 2.34." in msg for msg in stub.success_messages
     )
 
 
@@ -714,15 +708,12 @@ def test_results_completed_state_skips_non_finite_fallback_sharpe(
     page.render_results_page()
 
     assert any(
-        "Demo results loaded — 2 funds — Sharpe 1.23." in msg
-        for msg in stub.success_messages
+        "Demo results loaded — 2 funds — Sharpe 1.23." in msg for msg in stub.success_messages
     )
     assert not any("Sharpe —" in msg for msg in stub.success_messages)
 
 
-def test_demo_run_renders_results_end_to_end(
-    monkeypatch: pytest.MonkeyPatch, results_page
-) -> None:
+def test_demo_run_renders_results_end_to_end(monkeypatch: pytest.MonkeyPatch, results_page) -> None:
     page, stub = results_page
     returns = _sample_returns()
     returns["RF"] = [0.001, 0.001, 0.001]
@@ -889,23 +880,12 @@ def test_demo_run_marks_or_hides_inapplicable_tabs(
     labels = stub.tab_groups[-1]
     assert any("Summary" in label for label in labels)
     assert any("Visualizations" in label for label in labels)
-    assert any(
-        "Period Analysis" in label and "multi-period only" in label for label in labels
-    )
-    assert any(
-        "Fund Details" in label and "multi-period/custom only" in label
-        for label in labels
-    )
+    assert any("Period Analysis" in label and "multi-period only" in label for label in labels)
+    assert any("Fund Details" in label and "multi-period/custom only" in label for label in labels)
     assert any("Export" in label and "multi-period only" in label for label in labels)
-    assert any(
-        "Compare" in label and "needs saved configs" in label for label in labels
-    )
-    assert any(
-        "Run a multi-period analysis to enable" in msg for msg in stub.info_messages
-    )
-    assert any(
-        "Export requires a multi-period analysis" in msg for msg in stub.info_messages
-    )
+    assert any("Compare" in label and "needs saved configs" in label for label in labels)
+    assert any("Run a multi-period analysis to enable" in msg for msg in stub.info_messages)
+    assert any("Export requires a multi-period analysis" in msg for msg in stub.info_messages)
     assert not download_calls
 
 

@@ -91,9 +91,7 @@ def _run_analysis(*args: Any, **kwargs: Any) -> PipelineResult:
     return _invoke_analysis_with_diag(*args, **kwargs)
 
 
-def _call_pipeline_with_diag(
-    *args: Any, **kwargs: Any
-) -> DiagnosticResult[dict[str, Any] | None]:
+def _call_pipeline_with_diag(*args: Any, **kwargs: Any) -> DiagnosticResult[dict[str, Any] | None]:
     """Execute ``_run_analysis`` and normalise into a ``DiagnosticResult``.
 
     Tests and legacy callers monkeypatch ``_run_analysis`` to return raw dict
@@ -337,10 +335,7 @@ def _resolve_pipeline_monthly_cost(
 ) -> float:
     """Return decimal per-period cost for delegated non-threshold analysis."""
 
-    if any(
-        key in portfolio_cfg
-        for key in ("cost_model", "transaction_cost_bps", "slippage_bps")
-    ):
+    if any(key in portfolio_cfg for key in ("cost_model", "transaction_cost_bps", "slippage_bps")):
         return (tc_bps + slippage_bps) / 10000.0
     try:
         return float(run_cfg.get("monthly_cost", 0.0) or 0.0)
@@ -449,9 +444,7 @@ def _weight_period(
 
     weights_df = compute_weights(score_frame, holdings, period_ts, returns_window)
     raw_weight_series = _as_weight_series(weights_df)
-    signal_slice = (
-        score_frame.loc[holdings, metric] if metric in score_frame.columns else None
-    )
+    signal_slice = score_frame.loc[holdings, metric] if metric in score_frame.columns else None
     weight_series = apply_policy_to_weights_fn(weights_df, signal_slice)
     weight_series = ensure_holdings_weights_fn(
         weight_series,
@@ -541,9 +534,7 @@ def _apply_turnover_and_cost(
         # This prevents below-threshold holdings from lingering indefinitely
         # solely because turnover is capped.
         forced_ix = [
-            ix
-            for ix in desired_trades.index
-            if str(ix) in forced_exits or ix in mandatory_entries
+            ix for ix in desired_trades.index if str(ix) in forced_exits or ix in mandatory_entries
         ]
         mandatory = desired_trades.copy()
         if forced_ix:
@@ -711,13 +702,9 @@ def _resolve_max_turnover_cap(
     regime_frequency: str,
     regime_ppy: float,
 ) -> float:
-    allowed_types = (
-        "numeric scalars: int/float/numpy numeric types, or a valid regime mapping"
-    )
+    allowed_types = "numeric scalars: int/float/numpy numeric types, or a valid regime mapping"
 
-    def _raise_invalid_max_turnover(
-        value: Any, *, cause: Exception | None = None
-    ) -> None:
+    def _raise_invalid_max_turnover(value: Any, *, cause: Exception | None = None) -> None:
         value_repr = repr(value)
         value_type = type(value).__name__
         message = f"max_turnover must be {allowed_types}; got {value_repr} (type {value_type})"
@@ -746,9 +733,7 @@ def _resolve_max_turnover_cap(
     )
     try:
         parsed = parse_regime_turnover_caps(max_turnover_cfg, regime_settings)
-        resolved = _resolve_turnover_cap_from_parsed(
-            parsed, regime_label, regime_settings
-        )
+        resolved = _resolve_turnover_cap_from_parsed(parsed, regime_label, regime_settings)
     except (CoreConfigError, KeyError) as exc:
         _raise_invalid_max_turnover(max_turnover_cfg, cause=exc)
     if resolved is None:
@@ -767,9 +752,7 @@ def _membership_table_from_frame(frame: pd.DataFrame) -> MembershipTable:
     eff_col = lookup.get("effective_date")
     end_col = lookup.get("end_date")
     if not fund_col or not eff_col or not end_col:
-        raise ValueError(
-            "membership data must include fund, effective_date, and end_date columns"
-        )
+        raise ValueError("membership data must include fund, effective_date, and end_date columns")
 
     normalised = frame.rename(
         columns={fund_col: "fund", eff_col: "effective_date", end_col: "end_date"}
@@ -828,9 +811,9 @@ def _compute_turnover_state(
     new_aligned: FloatArray = new_series.reindex(union_index, fill_value=0.0).to_numpy(
         dtype=float, copy=False
     )
-    prev_aligned: FloatArray = prev_series.reindex(
-        union_index, fill_value=0.0
-    ).to_numpy(dtype=float, copy=False)
+    prev_aligned: FloatArray = prev_series.reindex(union_index, fill_value=0.0).to_numpy(
+        dtype=float, copy=False
+    )
 
     turnover = float(np.abs(new_aligned - prev_aligned).sum())
     return turnover, nidx, nvals
@@ -914,9 +897,9 @@ def _apply_weight_bounds(
                 room = (max_w_bound - receivers).clip(lower=0.0)
                 rm = room.sum()
                 if rm > 0:
-                    floored.loc[receivers.index] = (
-                        receivers + (room / rm) * deficit
-                    ).clip(upper=max_w_bound)
+                    floored.loc[receivers.index] = (receivers + (room / rm) * deficit).clip(
+                        upper=max_w_bound
+                    )
 
     return floored
 
@@ -956,12 +939,7 @@ def _enforce_max_active_positions(
                 .index
             )
     else:
-        keep = (
-            active.abs()
-            .sort_values(ascending=False, kind="mergesort")
-            .head(max_active)
-            .index
-        )
+        keep = active.abs().sort_values(ascending=False, kind="mergesort").head(max_active).index
     trimmed = weights.copy()
     trimmed.loc[~trimmed.index.isin(keep)] = 0.0
 
@@ -1164,11 +1142,7 @@ def run_schedule(
         turnover = float(np.abs(new_aligned - prev_aligned).sum())
         return turnover, nidx, nvals
 
-    col = (
-        rank_column
-        or getattr(selector, "rank_column", None)
-        or getattr(selector, "column", None)
-    )
+    col = rank_column or getattr(selector, "rank_column", None) or getattr(selector, "column", None)
 
     for date in sorted(score_frames):
         sf = score_frames[date]
@@ -1202,9 +1176,7 @@ def run_schedule(
 
         # Apply rebalancing strategies if configured
         if rebalance_strategies and rebalance_params:
-            current_weights = (
-                prev_weights if prev_weights is not None else pd.Series(dtype=float)
-            )
+            current_weights = prev_weights if prev_weights is not None else pd.Series(dtype=float)
             target_weight_series = target_weights["weight"].astype(float)
 
             # Get scores for priority-based strategies
@@ -1229,9 +1201,7 @@ def run_schedule(
             cost = 0.0
             weights = target_weights
             tw = target_weights["weight"].astype(float)
-            turnover, prev_tidx, prev_tvals = _compute_turnover_state(
-                prev_tidx, prev_tvals, tw
-            )
+            turnover, prev_tidx, prev_tvals = _compute_turnover_state(prev_tidx, prev_tvals, tw)
             prev_weights = tw
 
         pf.rebalance(date, weights, turnover, cost)
@@ -1266,9 +1236,7 @@ def run_schedule(
                     pv = prev.reindex(u, fill_value=0.0).to_numpy()
                     expected = float(np.abs(dv - pv).sum())
                 got = pf.turnover[d]
-                if not np.isclose(
-                    expected, got, rtol=0, atol=1e-12
-                ):  # pragma: no cover
+                if not np.isclose(expected, got, rtol=0, atol=1e-12):  # pragma: no cover
                     raise AssertionError(
                         f"Turnover mismatch for {d}: expected {expected} got {got}"
                     )
@@ -1300,9 +1268,7 @@ def _run_phase1_multi_periods(
 
     periods = generate_periods(cfg_dump)
     if not periods:
-        logger.warning(
-            "generate_periods produced no periods; skipping multi-period run"
-        )
+        logger.warning("generate_periods produced no periods; skipping multi-period run")
         return []
     out_results: List[MultiPeriodPeriodResult] = []
     perf_flags = getattr(cfg, "performance", {}) or {}
@@ -1318,9 +1284,7 @@ def _run_phase1_multi_periods(
         except Exception:  # pragma: no cover - defensive
             cov_cache_obj = None
     prev_in_df = None
-    prev_weights_for_pipeline = _coerce_previous_weights(
-        cfg.portfolio.get("previous_weights")
-    )
+    prev_weights_for_pipeline = _coerce_previous_weights(cfg.portfolio.get("previous_weights"))
 
     for pt in periods:
         analysis_res = _call_pipeline_with_diag(
@@ -1397,26 +1361,14 @@ def _run_phase1_multi_periods(
             edate = pd.to_datetime(f"{in_end}-01", utc=True).tz_localize(
                 None
             ) + pd.offsets.MonthEnd(0)
-            in_df_full = sub[(sub["Date"] >= sdate) & (sub["Date"] <= edate)].set_index(
-                "Date"
-            )
-            fund_cols = [
-                c
-                for c in in_df_full.columns
-                if c not in (cfg.benchmarks or {}).values()
-            ]
+            in_df_full = sub[(sub["Date"] >= sdate) & (sub["Date"] <= edate)].set_index("Date")
+            fund_cols = [c for c in in_df_full.columns if c not in (cfg.benchmarks or {}).values()]
             in_df_full = in_df_full[fund_cols]
             in_df_prepared = _prepare_returns_frame(in_df_full)
 
-            if (
-                incremental_cov
-                and prev_cov_payload is not None
-                and prev_in_df is not None
-            ):
+            if incremental_cov and prev_cov_payload is not None and prev_in_df is not None:
                 same_len = prev_in_df.shape[0] == in_df_prepared.shape[0]
-                same_cols = (
-                    prev_in_df.columns.tolist() == in_df_prepared.columns.tolist()
-                )
+                same_cols = prev_in_df.columns.tolist() == in_df_prepared.columns.tolist()
                 n_rows = in_df_prepared.shape[0]
                 if same_cols and n_rows >= 3:
                     k = None
@@ -1449,9 +1401,9 @@ def _run_phase1_multi_periods(
                         try:
                             for step in range(k):
                                 old_row = prev_in_df.iloc[step].to_numpy(dtype=float)
-                                new_row = in_df_prepared.iloc[
-                                    n_rows - k + step
-                                ].to_numpy(dtype=float)
+                                new_row = in_df_prepared.iloc[n_rows - k + step].to_numpy(
+                                    dtype=float
+                                )
                                 prev_cov_payload = incremental_cov_update(
                                     prev_cov_payload, old_row, new_row
                                 )
@@ -1469,9 +1421,7 @@ def _run_phase1_multi_periods(
             else:
                 from ..perf.cache import compute_cov_payload as _ccp
 
-                prev_cov_payload = _ccp(
-                    in_df_prepared, materialise_aggregates=incremental_cov
-                )
+                prev_cov_payload = _ccp(in_df_prepared, materialise_aggregates=incremental_cov)
             prev_in_df = in_df_prepared
             res_dict["cov_diag"] = prev_cov_payload.cov.diagonal().tolist()
             if cov_cache_obj is not None:
@@ -1513,9 +1463,7 @@ def _build_rebalance_frame(
         if schedule.empty:
             return None
 
-        in_len_years = int(
-            (getattr(cfg, "multi_period", {}) or {}).get("in_sample_len", 3) or 3
-        )
+        in_len_years = int((getattr(cfg, "multi_period", {}) or {}).get("in_sample_len", 3) or 3)
         in_months = max(1, in_len_years * 12)
 
         try:
@@ -1534,9 +1482,7 @@ def _build_rebalance_frame(
         prev_reb_w = effective_w.copy()
         for reb_date in pd.DatetimeIndex(schedule):
             end_dt = pd.Timestamp(reb_date)
-            start_dt = (
-                end_dt - pd.DateOffset(months=in_months - 1)
-            ) + pd.offsets.MonthEnd(0)
+            start_dt = (end_dt - pd.DateOffset(months=in_months - 1)) + pd.offsets.MonthEnd(0)
 
             window = df_indexed.reindex(columns=realised_holdings).loc[
                 (df_indexed.index >= start_dt) & (df_indexed.index <= end_dt)
@@ -1560,17 +1506,13 @@ def _build_rebalance_frame(
                             periods_per_year=int(periods_per_year),
                         )
                         sf_roll = ensure_zscore_fn(sf_roll, metric)
-                        weights_df_roll = weighting.weight(
-                            sf_roll.loc[realised_holdings], end_dt
-                        )
+                        weights_df_roll = weighting.weight(sf_roll.loc[realised_holdings], end_dt)
                         signal_slice = (
                             sf_roll.loc[realised_holdings, metric]
                             if metric in sf_roll.columns
                             else None
                         )
-                        w_series = apply_policy_to_weights_fn(
-                            weights_df_roll, signal_slice
-                        )
+                        w_series = apply_policy_to_weights_fn(weights_df_roll, signal_slice)
                     bounded = _apply_weight_bounds(
                         w_series.reindex(realised_holdings).fillna(0.0),
                         min_w_bound,
@@ -1674,13 +1616,9 @@ def run(
             raise TypeError("price_frames must be a dict[str, pd.DataFrame] or None")
         for date_key, frame in price_frames.items():
             if not isinstance(frame, pd.DataFrame):
-                raise TypeError(
-                    f"price_frames['{date_key}'] must be a pandas DataFrame"
-                )
+                raise TypeError(f"price_frames['{date_key}'] must be a pandas DataFrame")
             required_columns = ["Date"]
-            missing_columns = [
-                col for col in required_columns if col not in frame.columns
-            ]
+            missing_columns = [col for col in required_columns if col not in frame.columns]
             if missing_columns:
                 raise ValueError(
                     (
@@ -1697,9 +1635,7 @@ def run(
         # columns are included, handling missing data gracefully.
         combined_frames = [frame.copy() for frame in price_frames.values()]
         if combined_frames:
-            df = pd.concat(
-                combined_frames, axis=0, join="outer", ignore_index=True, sort=True
-            )
+            df = pd.concat(combined_frames, axis=0, join="outer", ignore_index=True, sort=True)
             # Sort by Date to ensure proper ordering
             df = df.sort_values("Date").reset_index(drop=True)
             # Remove any duplicates created during concatenation
@@ -1889,8 +1825,7 @@ def run(
         # Persist for debugging/export consumers.
         cleaned.attrs = dict(cleaned.attrs)
         cleaned.attrs["inception_dates"] = {
-            k: (v.strftime("%Y-%m-%d") if v is not None else None)
-            for k, v in inception_raw.items()
+            k: (v.strftime("%Y-%m-%d") if v is not None else None) for k, v in inception_raw.items()
         }
     except Exception:  # pragma: no cover - defensive
         pass
@@ -2062,14 +1997,12 @@ def _run_threshold_hold_multi_periods(
                 continue
             seen.add(resolved)
             benchmark_cols.append(resolved)
-    resolved_rf_col, _resolver_fund_cols, resolved_rf_source = (
-        _resolve_risk_free_column(
-            df,
-            date_col="Date",
-            indices_list=indices_list,
-            risk_free_column=risk_free_column_cfg,
-            allow_risk_free_fallback=allow_risk_free_fallback_cfg,
-        )
+    resolved_rf_col, _resolver_fund_cols, resolved_rf_source = _resolve_risk_free_column(
+        df,
+        date_col="Date",
+        indices_list=indices_list,
+        risk_free_column=risk_free_column_cfg,
+        allow_risk_free_fallback=allow_risk_free_fallback_cfg,
     )
 
     # Build a stable investable universe list.
@@ -2082,9 +2015,7 @@ def _run_threshold_hold_multi_periods(
     idx_set |= {str(c) for c in benchmark_cols}
     resolved_fund_candidates = [c for c in numeric_cols_all if c not in idx_set]
     if resolved_rf_source == "configured" and resolved_rf_col:
-        resolved_fund_candidates = [
-            c for c in resolved_fund_candidates if c != resolved_rf_col
-        ]
+        resolved_fund_candidates = [c for c in resolved_fund_candidates if c != resolved_rf_col]
     elif resolved_rf_source == "fallback" and resolved_rf_col:
         # Fallback RF selection can legitimately pick a true cash proxy (flat
         # zero-return series). Treat such near-constant columns as non-investable
@@ -2101,9 +2032,7 @@ def _run_threshold_hold_multi_periods(
 
     # --- helpers --------------------------------------------------------
     def _parse_month(s: str) -> pd.Timestamp:
-        return pd.to_datetime(f"{s}-01", utc=True).tz_localize(
-            None
-        ) + pd.offsets.MonthEnd(0)
+        return pd.to_datetime(f"{s}-01", utc=True).tz_localize(None) + pd.offsets.MonthEnd(0)
 
     regime_settings = normalise_settings(regime_cfg)
     regime_frequency = str(data_settings.get("frequency") or "M")
@@ -2125,22 +2054,16 @@ def _run_threshold_hold_multi_periods(
         sub.sort_values(date_col, inplace=True)
         in_sdate, in_edate = _parse_month(in_start), _parse_month(in_end)
         out_sdate, out_edate = _parse_month(out_start), _parse_month(out_end)
-        in_df = sub[
-            (sub[date_col] >= in_sdate) & (sub[date_col] <= in_edate)
-        ].set_index(date_col)
-        out_df = sub[
-            (sub[date_col] >= out_sdate) & (sub[date_col] <= out_edate)
-        ].set_index(date_col)
+        in_df = sub[(sub[date_col] >= in_sdate) & (sub[date_col] <= in_edate)].set_index(date_col)
+        out_df = sub[(sub[date_col] >= out_sdate) & (sub[date_col] <= out_edate)].set_index(
+            date_col
+        )
         if in_df.empty or out_df.empty:
             return in_df, out_df, [], ""
         numeric_cols = [c for c in sub.select_dtypes("number").columns if c != date_col]
         idx_set = {str(c) for c in indices_list}
         idx_set |= {str(c) for c in benchmark_cols}
-        fund_cols = [
-            c
-            for c in resolved_fund_candidates
-            if c in numeric_cols and c not in idx_set
-        ]
+        fund_cols = [c for c in resolved_fund_candidates if c in numeric_cols and c not in idx_set]
 
         if not fund_cols:
             return in_df, out_df, [], resolved_rf_col
@@ -2159,9 +2082,7 @@ def _run_threshold_hold_multi_periods(
         if require_out_sample:
             out_ok = ~out_df[fund_cols].isna().any()
             fund_cols = [
-                c
-                for c in fund_cols
-                if bool(in_ok.get(c, False)) and bool(out_ok.get(c, False))
+                c for c in fund_cols if bool(in_ok.get(c, False)) and bool(out_ok.get(c, False))
             ]
         else:
             # For scoring purposes (e.g., hiring candidates), only require
@@ -2297,9 +2218,7 @@ def _run_threshold_hold_multi_periods(
     )
     seed_metric = cast(
         str,
-        (cfg.portfolio.get("selector", {}) or {})
-        .get("params", {})
-        .get("rank_column", "Sharpe"),
+        (cfg.portfolio.get("selector", {}) or {}).get("params", {}).get("rank_column", "Sharpe"),
     )
     selector = create_selector_by_name("rank", top_n=target_n, rank_column=seed_metric)
 
@@ -2341,9 +2260,7 @@ def _run_threshold_hold_multi_periods(
     if cooldown_periods_raw is None:
         cooldown_periods_raw = mp_cfg.get("cooldown_months")
     try:
-        cooldown_periods = (
-            int(cooldown_periods_raw) if cooldown_periods_raw is not None else 0
-        )
+        cooldown_periods = int(cooldown_periods_raw) if cooldown_periods_raw is not None else 0
     except (TypeError, ValueError):
         cooldown_periods = 0
     cooldown_periods = max(0, cooldown_periods)
@@ -2371,9 +2288,7 @@ def _run_threshold_hold_multi_periods(
     if raw_max_active is None:
         raw_max_active = constraints.get("max_active")
     try:
-        max_active_positions = (
-            int(raw_max_active) if raw_max_active is not None else None
-        )
+        max_active_positions = int(raw_max_active) if raw_max_active is not None else None
     except (TypeError, ValueError):
         max_active_positions = None
     if max_active_positions is not None and max_active_positions <= 0:
@@ -2429,9 +2344,7 @@ def _run_threshold_hold_multi_periods(
     # --- main loop ------------------------------------------------------
     # Pre-index returns once for intra-period rebalance snapshots.
     df_indexed = df.copy()
-    df_indexed["Date"] = pd.to_datetime(df_indexed["Date"], utc=True).dt.tz_localize(
-        None
-    )
+    df_indexed["Date"] = pd.to_datetime(df_indexed["Date"], utc=True).dt.tz_localize(None)
     df_indexed.sort_values("Date", inplace=True)
     df_indexed = df_indexed.set_index("Date")
 
@@ -2467,9 +2380,7 @@ def _run_threshold_hold_multi_periods(
             return True
         return int(add_streaks.get(manager, 0)) >= sticky_add_periods
 
-    def _min_tenure_protected(
-        holdings: Iterable[str], score_frame: pd.DataFrame
-    ) -> set[str]:
+    def _min_tenure_protected(holdings: Iterable[str], score_frame: pd.DataFrame) -> set[str]:
         if min_tenure_n <= 0:
             return set()
         protected: set[str] = set()
@@ -2538,9 +2449,7 @@ def _run_threshold_hold_multi_periods(
                 int(cooldown_periods) + 1,
             )
 
-    def _dedupe_one_per_firm(
-        sf: pd.DataFrame, holdings: list[str], metric: str
-    ) -> list[str]:
+    def _dedupe_one_per_firm(sf: pd.DataFrame, holdings: list[str], metric: str) -> list[str]:
         if not holdings:
             return holdings
         col = metric if metric in sf.columns else "Sharpe"
@@ -2676,9 +2585,7 @@ def _run_threshold_hold_multi_periods(
         keep = ordered[:-bottom_k]
         return filtered.loc[keep]
 
-    def _filter_entry_candidates(
-        candidates: list[str], score_frame: pd.DataFrame
-    ) -> list[str]:
+    def _filter_entry_candidates(candidates: list[str], score_frame: pd.DataFrame) -> list[str]:
         if not candidates:
             return candidates
         eligible_frame = _filter_entry_frame(score_frame)
@@ -2687,9 +2594,7 @@ def _run_threshold_hold_multi_periods(
         eligible = {str(ix) for ix in eligible_frame.index}
         return [str(ix) for ix in candidates if str(ix) in eligible]
 
-    def _hard_exit_forced(
-        holdings: Iterable[str], score_frame: pd.DataFrame
-    ) -> set[str]:
+    def _hard_exit_forced(holdings: Iterable[str], score_frame: pd.DataFrame) -> set[str]:
         if z_exit_hard is None or "zscore" not in score_frame.columns:
             return set()
         z = pd.to_numeric(score_frame["zscore"], errors="coerce")
@@ -2826,9 +2731,7 @@ def _run_threshold_hold_multi_periods(
             # Risk-based weighting requires returns data
             try:
                 if returns_window is not None and not returns_window.empty:
-                    subset = returns_window.reindex(columns=holdings).dropna(
-                        axis=1, how="all"
-                    )
+                    subset = returns_window.reindex(columns=holdings).dropna(axis=1, how="all")
                 else:
                     # Fall back to score frame data if no returns window provided
                     subset = sf.loc[holdings]
@@ -2921,9 +2824,7 @@ def _run_threshold_hold_multi_periods(
         rf_rate_annual = float(metrics_cfg.get("rf_rate_annual", 0.0) or 0.0)
         # Convert annualised RF to a per-period return.
         # Use geometric conversion so 2% annual becomes ~0.165% monthly.
-        rf_rate_periodic = (1.0 + rf_rate_annual) ** (
-            1.0 / float(periods_per_year)
-        ) - 1.0
+        rf_rate_periodic = (1.0 + rf_rate_annual) ** (1.0 / float(periods_per_year)) - 1.0
 
         # UI semantics:
         # - override disabled: use the selected risk-free column series (if available)
@@ -2992,16 +2893,12 @@ def _run_threshold_hold_multi_periods(
                     holdings = []
                 else:
                     # Seed varies per period to get different selections
-                    period_seed = abs(getattr(cfg, "seed", 42) or 42) + abs(
-                        hash(str(pt)) % 10000
-                    )
+                    period_seed = abs(getattr(cfg, "seed", 42) or 42) + abs(hash(str(pt)) % 10000)
                     rng = np.random.default_rng(period_seed)
                     n_select = max(1, min(target_n, len(available)))
                     holdings = list(rng.choice(available, size=n_select, replace=False))
                     # Enforce one-per-firm constraint
-                    holdings = _dedupe_one_per_firm_with_events(
-                        sf, holdings, metric, events
-                    )
+                    holdings = _dedupe_one_per_firm_with_events(sf, holdings, metric, events)
                     # If dedupe reduced us, refill with random selection
                     if len(holdings) < n_select:
                         candidates = [c for c in available if c not in holdings]
@@ -3026,15 +2923,11 @@ def _run_threshold_hold_multi_periods(
                     holdings = []
                 elif buy_hold_initial == "random":
                     # Random initial selection
-                    period_seed = abs(
-                        (getattr(cfg, "seed", 42) or 42) + hash(str(pt)) % 10000
-                    )
+                    period_seed = abs((getattr(cfg, "seed", 42) or 42) + hash(str(pt)) % 10000)
                     rng = np.random.default_rng(period_seed)
                     n_select = max(1, min(buy_hold_n, len(available)))
                     holdings = list(rng.choice(available, size=n_select, replace=False))
-                    holdings = _dedupe_one_per_firm_with_events(
-                        sf, holdings, metric, events
-                    )
+                    holdings = _dedupe_one_per_firm_with_events(sf, holdings, metric, events)
                     # Refill if dedupe reduced holdings
                     if len(holdings) < n_select:
                         candidates = [c for c in available if c not in holdings]
@@ -3057,9 +2950,7 @@ def _run_threshold_hold_multi_periods(
                     if rank_score_by == "blended" and rank_blended_weights:
                         total_w = sum(rank_blended_weights.values())
                         if total_w > 0:
-                            norm_w = {
-                                k: v / total_w for k, v in rank_blended_weights.items()
-                            }
+                            norm_w = {k: v / total_w for k, v in rank_blended_weights.items()}
                         else:
                             norm_w = {"Sharpe": 1.0}
                         combo = pd.Series(0.0, index=eligible_sf.index, dtype=float)
@@ -3079,9 +2970,7 @@ def _run_threshold_hold_multi_periods(
                         scores = combo
                     else:
                         score_col = (
-                            rank_score_by
-                            if rank_score_by in eligible_sf.columns
-                            else "Sharpe"
+                            rank_score_by if rank_score_by in eligible_sf.columns else "Sharpe"
                         )
                         scores = eligible_sf[score_col].astype(float)
 
@@ -3094,10 +2983,7 @@ def _run_threshold_hold_multi_periods(
                             scores = pd.Series(0.0, index=scores.index)
 
                     ascending = False
-                    if (
-                        rank_score_by in ASCENDING_METRICS
-                        and buy_hold_initial != "threshold"
-                    ):
+                    if rank_score_by in ASCENDING_METRICS and buy_hold_initial != "threshold":
                         ascending = True
 
                     sorted_scores = scores.sort_values(ascending=ascending)
@@ -3122,9 +3008,7 @@ def _run_threshold_hold_multi_periods(
                         holdings = all_candidates[:buy_hold_n]
 
                     # Enforce one-per-firm constraint
-                    holdings = _dedupe_one_per_firm_with_events(
-                        sf, holdings, metric, events
-                    )
+                    holdings = _dedupe_one_per_firm_with_events(sf, holdings, metric, events)
                     # Historical weighting call
                     if holdings:
                         try:
@@ -3155,9 +3039,7 @@ def _run_threshold_hold_multi_periods(
                         and rank_col in selected.columns
                     ):
                         ascending = rank_col in ASCENDING_METRICS
-                        ordered = selected.sort_values(
-                            rank_col, ascending=ascending
-                        ).index
+                        ordered = selected.sort_values(rank_col, ascending=ascending).index
                         holdings = [str(x) for x in ordered.tolist()]
                     else:
                         holdings = [str(x) for x in selected.index.tolist()]
@@ -3178,10 +3060,7 @@ def _run_threshold_hold_multi_periods(
                             # Normalize weights
                             total_w = sum(rank_blended_weights.values())
                             if total_w > 0:
-                                norm_w = {
-                                    k: v / total_w
-                                    for k, v in rank_blended_weights.items()
-                                }
+                                norm_w = {k: v / total_w for k, v in rank_blended_weights.items()}
                             else:
                                 norm_w = {"Sharpe": 1.0}
                             # Compute blended score from the score frame
@@ -3195,9 +3074,7 @@ def _run_threshold_hold_multi_periods(
                         else:
                             # Single metric
                             score_col = (
-                                rank_score_by
-                                if rank_score_by in score_frame.columns
-                                else "Sharpe"
+                                rank_score_by if rank_score_by in score_frame.columns else "Sharpe"
                             )
                             scores = score_frame[score_col].astype(float)
 
@@ -3211,10 +3088,7 @@ def _run_threshold_hold_multi_periods(
 
                         # Determine sort order
                         ascending = False  # Higher score is better for blended/zscore
-                        if (
-                            rank_score_by in ASCENDING_METRICS
-                            and rank_transform != "zscore"
-                        ):
+                        if rank_score_by in ASCENDING_METRICS and rank_transform != "zscore":
                             ascending = True
 
                         # Sort scores
@@ -3272,16 +3146,12 @@ def _run_threshold_hold_multi_periods(
                 if target_n_is_explicit and len(holdings) > target_n:
                     holdings = holdings[:target_n]
                 # Enforce one-per-firm on seed
-                holdings = _dedupe_one_per_firm_with_events(
-                    sf, holdings, metric, events
-                )
+                holdings = _dedupe_one_per_firm_with_events(sf, holdings, metric, events)
                 desired_target = target_n if target_n_is_explicit else max_funds
                 desired_seed = min(max_funds, desired_target)
                 # If we're still above the desired size, trim by zscore (best-first).
                 if len(holdings) > desired_seed:
-                    zsorted = (
-                        sf.loc[holdings].sort_values("zscore", ascending=False).index
-                    )
+                    zsorted = sf.loc[holdings].sort_values("zscore", ascending=False).index
                     holdings = list(zsorted[:desired_seed])
 
                 # If dedupe reduced us below the target size, fill from the remaining
@@ -3291,12 +3161,8 @@ def _run_threshold_hold_multi_periods(
                 # that percentage of the universe.
                 if len(holdings) < desired_seed and inclusion_approach != "top_pct":
                     candidates = [c for c in sf.index if c not in holdings]
-                    candidates = _filter_entry_candidates(
-                        [str(c) for c in candidates], sf
-                    )
-                    add_from = (
-                        sf.loc[candidates].sort_values("zscore", ascending=False).index
-                    )
+                    candidates = _filter_entry_candidates([str(c) for c in candidates], sf)
+                    add_from = sf.loc[candidates].sort_values("zscore", ascending=False).index
                     seen_firms = {_firm(h) for h in holdings}
                     for f in add_from:
                         if len(holdings) >= desired_seed:
@@ -3316,9 +3182,7 @@ def _run_threshold_hold_multi_periods(
                     and resolved_rf_col in holdings
                 ):
                     candidates = [c for c in sf.index if c not in holdings]
-                    candidates = _filter_entry_candidates(
-                        [str(c) for c in candidates], sf
-                    )
+                    candidates = _filter_entry_candidates([str(c) for c in candidates], sf)
                     add_from = (
                         sf.loc[candidates].sort_values("zscore", ascending=False).index
                         if candidates
@@ -3402,16 +3266,12 @@ def _run_threshold_hold_multi_periods(
                 # Replace exited funds using the same initial selection method
                 n_needed = buy_hold_n - len(current_holdings)
                 if n_needed > 0:
-                    available = [
-                        str(c) for c in sf.index if str(c) not in current_holdings
-                    ]
+                    available = [str(c) for c in sf.index if str(c) not in current_holdings]
                     # Only consider funds that still have out-of-sample data;
                     # prevents re-adding funds whose data has disappeared.
                     if isinstance(out_df, pd.DataFrame) and not out_df.empty:
                         available = [
-                            c
-                            for c in available
-                            if c in out_df.columns and out_df[c].notna().any()
+                            c for c in available if c in out_df.columns and out_df[c].notna().any()
                         ]
                     if cooldown_periods > 0 and cooldown_book:
                         available = [c for c in available if c not in cooldown_book]
@@ -3439,10 +3299,7 @@ def _run_threshold_hold_multi_periods(
                         if rank_score_by == "blended" and rank_blended_weights:
                             total_w = sum(rank_blended_weights.values())
                             if total_w > 0:
-                                norm_w = {
-                                    k: v / total_w
-                                    for k, v in rank_blended_weights.items()
-                                }
+                                norm_w = {k: v / total_w for k, v in rank_blended_weights.items()}
                             else:
                                 norm_w = {"Sharpe": 1.0}
                             combo = pd.Series(0.0, index=sf.index, dtype=float)
@@ -3452,11 +3309,7 @@ def _run_threshold_hold_multi_periods(
                                     combo += w * (-z if m in ASCENDING_METRICS else z)
                             scores = combo
                         else:
-                            score_col = (
-                                rank_score_by
-                                if rank_score_by in sf.columns
-                                else "Sharpe"
-                            )
+                            score_col = rank_score_by if rank_score_by in sf.columns else "Sharpe"
                             scores = sf[score_col].astype(float)
 
                         # Apply zscore transform if threshold mode
@@ -3468,16 +3321,11 @@ def _run_threshold_hold_multi_periods(
                                 scores = pd.Series(0.0, index=scores.index)
 
                         ascending = False
-                        if (
-                            rank_score_by in ASCENDING_METRICS
-                            and buy_hold_initial != "threshold"
-                        ):
+                        if rank_score_by in ASCENDING_METRICS and buy_hold_initial != "threshold":
                             ascending = True
 
                         # Sort scores and filter to available candidates
-                        sorted_scores = scores.loc[available].sort_values(
-                            ascending=ascending
-                        )
+                        sorted_scores = scores.loc[available].sort_values(ascending=ascending)
 
                         # Select replacements respecting threshold if applicable
                         if buy_hold_initial == "threshold":
@@ -3520,9 +3368,7 @@ def _run_threshold_hold_multi_periods(
                 # each period. This is essential to avoid survivorship bias - we select
                 # from the available universe at each point in time, not funds we know
                 # will survive.
-                period_seed = abs(getattr(cfg, "seed", 42) or 42) + abs(
-                    hash(str(pt)) % 10000
-                )
+                period_seed = abs(getattr(cfg, "seed", 42) or 42) + abs(hash(str(pt)) % 10000)
                 rebased = rebalancer.apply_triggers(
                     prev_weights.astype(float),
                     sf,
@@ -3539,9 +3385,7 @@ def _run_threshold_hold_multi_periods(
                 ]
 
             if hard_exit_forced:
-                proposed_holdings = [
-                    m for m in proposed_holdings if m not in hard_exit_forced
-                ]
+                proposed_holdings = [m for m in proposed_holdings if m not in hard_exit_forced]
 
             raw_proposed_holdings = [str(h) for h in proposed_holdings]
 
@@ -3614,8 +3458,7 @@ def _run_threshold_hold_multi_periods(
                                 "firm": _firm(mgr),
                                 "reason": "sticky_add",
                                 "detail": (
-                                    f"streak={add_streaks.get(mgr, 0)}/"
-                                    f"{sticky_add_periods}"
+                                    f"streak={add_streaks.get(mgr, 0)}/" f"{sticky_add_periods}"
                                 ),
                             }
                         )
@@ -3636,8 +3479,7 @@ def _run_threshold_hold_multi_periods(
                                 "firm": _firm(mgr),
                                 "reason": "sticky_drop",
                                 "detail": (
-                                    f"streak={drop_streaks.get(mgr, 0)}/"
-                                    f"{sticky_drop_periods}"
+                                    f"streak={drop_streaks.get(mgr, 0)}/" f"{sticky_drop_periods}"
                                 ),
                             }
                         )
@@ -3671,8 +3513,7 @@ def _run_threshold_hold_multi_periods(
                             "firm": _firm(mgr),
                             "reason": "min_tenure",
                             "detail": (
-                                f"tenure={int(holdings_tenure.get(mgr, 0))}/"
-                                f"{min_tenure_n}"
+                                f"tenure={int(holdings_tenure.get(mgr, 0))}/" f"{min_tenure_n}"
                             ),
                         }
                     )
@@ -3736,18 +3577,12 @@ def _run_threshold_hold_multi_periods(
                 candidates = _filter_entry_candidates(candidates, sf)
                 if candidates:
                     if is_random_mode:
-                        period_seed = abs(
-                            (getattr(cfg, "seed", 42) or 42) + hash(str(pt)) % 10000
-                        )
+                        period_seed = abs((getattr(cfg, "seed", 42) or 42) + hash(str(pt)) % 10000)
                         rng = np.random.default_rng(period_seed)
                         rng.shuffle(candidates)
                         ranked = candidates
                     else:
-                        ranked = (
-                            sf.loc[candidates]
-                            .sort_values("zscore", ascending=False)
-                            .index
-                        )
+                        ranked = sf.loc[candidates].sort_values("zscore", ascending=False).index
                     for c in ranked:
                         if len(proposed_holdings) >= desired_size:
                             break
@@ -3766,12 +3601,8 @@ def _run_threshold_hold_multi_periods(
             pruned_existing: set[str] = set()
             if desired_size > 0:
                 current_set = {str(x) for x in before_reb}
-                kept_existing = [
-                    str(h) for h in proposed_holdings if str(h) in current_set
-                ]
-                new_candidates = [
-                    str(h) for h in proposed_holdings if str(h) not in current_set
-                ]
+                kept_existing = [str(h) for h in proposed_holdings if str(h) in current_set]
+                new_candidates = [str(h) for h in proposed_holdings if str(h) not in current_set]
 
                 def _zscore(mgr: str) -> float:
                     try:
@@ -3794,20 +3625,14 @@ def _run_threshold_hold_multi_periods(
                 # not happen), prune incumbents by weakest zscore.
                 # In random mode, prune randomly instead.
                 if len(kept_existing) > desired_size:
-                    protected_existing = [
-                        mgr for mgr in kept_existing if mgr in protected_holdings
-                    ]
+                    protected_existing = [mgr for mgr in kept_existing if mgr in protected_holdings]
                     unprotected_existing = [
                         mgr for mgr in kept_existing if mgr not in protected_holdings
                     ]
                     if is_random_mode:
-                        unprotected_sorted = sorted(
-                            unprotected_existing, key=_random_key
-                        )
+                        unprotected_sorted = sorted(unprotected_existing, key=_random_key)
                     else:
-                        unprotected_sorted = sorted(
-                            unprotected_existing, key=_zscore, reverse=True
-                        )
+                        unprotected_sorted = sorted(unprotected_existing, key=_zscore, reverse=True)
                     if protected_existing:
                         slots = max(0, desired_size - len(protected_existing))
                         if slots > 0:
@@ -3863,15 +3688,11 @@ def _run_threshold_hold_multi_periods(
                 selected, _ = selector.select(_filter_entry_frame(sf))
                 proposed_holdings = [str(x) for x in selected.index.tolist()]
                 if cooldown_periods > 0 and cooldown_book:
-                    filtered = [
-                        mgr for mgr in proposed_holdings if mgr not in cooldown_book
-                    ]
+                    filtered = [mgr for mgr in proposed_holdings if mgr not in cooldown_book]
                     if filtered:
                         for mgr in proposed_holdings:
                             if mgr in cooldown_book:
-                                events.append(
-                                    _cooldown_reseed_skip_event(mgr, _firm(mgr))
-                                )
+                                events.append(_cooldown_reseed_skip_event(mgr, _firm(mgr)))
                         proposed_holdings = filtered
                 proposed_holdings = _dedupe_one_per_firm_with_events(
                     sf, proposed_holdings, metric, events
@@ -4107,8 +3928,7 @@ def _run_threshold_hold_multi_periods(
                         "firm": _firm(f),
                         "reason": "low_weight_strikes",
                         "detail": (
-                            f"below min {min_w_bound:.2%} for "
-                            f"{low_min_strikes_req} periods"
+                            f"below min {min_w_bound:.2%} for " f"{low_min_strikes_req} periods"
                         ),
                     }
                 )
@@ -4121,17 +3941,11 @@ def _run_threshold_hold_multi_periods(
             need = max(0, desired_after_low_weight - len(holdings))
             if need > 0:
                 candidates = [
-                    c
-                    for c in sf.index
-                    if c not in holdings and _eligible_sticky_add(str(c))
+                    c for c in sf.index if c not in holdings and _eligible_sticky_add(str(c))
                 ]
                 if cooldown_periods > 0 and cooldown_book:
                     candidates = [c for c in candidates if str(c) not in cooldown_book]
-                add_from = (
-                    sf.loc[candidates]
-                    .sort_values("zscore", ascending=False)
-                    .index.tolist()
-                )
+                add_from = sf.loc[candidates].sort_values("zscore", ascending=False).index.tolist()
                 for f in add_from:
                     if len(holdings) >= desired_after_low_weight:
                         break
@@ -4168,9 +3982,7 @@ def _run_threshold_hold_multi_periods(
             holdings = _enforce_min_funds(
                 sf,
                 holdings,
-                before_reb=(
-                    set(prev_weights.index) if prev_weights is not None else None
-                ),
+                before_reb=(set(prev_weights.index) if prev_weights is not None else None),
                 cooldowns=cooldown_book,
                 desired_min=min_funds,
                 events=events,
@@ -4199,9 +4011,7 @@ def _run_threshold_hold_multi_periods(
         # Use the holdings list so newly hired funds are included even if
         # their weights were altered by turnover/bounds logic.
         manual_holdings = (
-            [str(x) for x in holdings]
-            if holdings
-            else [str(x) for x in bounded_w.index.tolist()]
+            [str(x) for x in holdings] if holdings else [str(x) for x in bounded_w.index.tolist()]
         )
 
         turnover_cost = _apply_turnover_and_cost(
@@ -4277,10 +4087,7 @@ def _run_threshold_hold_multi_periods(
         # consumers can audit soft-entry/soft-exit decisions without
         # recomputation.
         score_frame_payload = res_dict.get("score_frame")
-        if (
-            isinstance(score_frame_payload, pd.DataFrame)
-            and not score_frame_payload.empty
-        ):
+        if isinstance(score_frame_payload, pd.DataFrame) and not score_frame_payload.empty:
             score_frame_out = score_frame_payload.copy()
             if "zscore" in sf.columns and "zscore" not in score_frame_out.columns:
                 score_frame_out = score_frame_out.join(sf[["zscore"]], how="left")
@@ -4438,9 +4245,7 @@ def _run_threshold_hold_multi_periods(
         realised_holdings = [str(x) for x in effective_nonzero.index]
         # Do not emit zero-weight positions: they are not real holdings and
         # confuse downstream audits (e.g., a dropped fund showing up with 0.0).
-        res_dict["fund_weights"] = {
-            str(k): float(v) for k, v in effective_nonzero.items()
-        }
+        res_dict["fund_weights"] = {str(k): float(v) for k, v in effective_nonzero.items()}
 
         # Record cooldowns for any managers that exited based on realised holdings.
         if cooldown_periods > 0 and prev_final_weights is not None:
@@ -4485,9 +4290,7 @@ def _run_threshold_hold_multi_periods(
         if rebalance_frame is not None and not rebalance_frame.empty:
             out_scaled = res_dict.get("out_sample_scaled")
             if isinstance(out_scaled, pd.DataFrame) and not out_scaled.empty:
-                weights_by_date = (
-                    rebalance_frame.reindex(out_scaled.index).ffill().fillna(0.0)
-                )
+                weights_by_date = rebalance_frame.reindex(out_scaled.index).ffill().fillna(0.0)
                 weights_by_date = weights_by_date.reindex(
                     columns=out_scaled.columns, fill_value=0.0
                 )
@@ -4499,9 +4302,7 @@ def _run_threshold_hold_multi_periods(
                     rf_out = pd.Series(0.0, index=out_scaled.index)
 
                 cash_weight_series = 1.0 - weights_by_date.sum(axis=1)
-                cash_weight_series = cash_weight_series.where(
-                    cash_weight_series > 1e-10, 0.0
-                )
+                cash_weight_series = cash_weight_series.where(cash_weight_series > 1e-10, 0.0)
                 res_dict["cash_weight_series"] = cash_weight_series
 
                 rebalance_returns = (out_scaled * weights_by_date).sum(axis=1)
@@ -4517,12 +4318,8 @@ def _run_threshold_hold_multi_periods(
 
                 out_raw = out_df.reindex(columns=out_scaled.columns)
                 if isinstance(out_raw, pd.DataFrame) and not out_raw.empty:
-                    weights_raw = (
-                        rebalance_frame.reindex(out_raw.index).ffill().fillna(0.0)
-                    )
-                    weights_raw = weights_raw.reindex(
-                        columns=out_raw.columns, fill_value=0.0
-                    )
+                    weights_raw = rebalance_frame.reindex(out_raw.index).ffill().fillna(0.0)
+                    weights_raw = weights_raw.reindex(columns=out_raw.columns, fill_value=0.0)
                     rebalance_raw = (out_raw * weights_raw).sum(axis=1)
                     rebalance_raw = rebalance_raw + (
                         rf_out.reindex(out_raw.index).fillna(0.0) * cash_weight_series

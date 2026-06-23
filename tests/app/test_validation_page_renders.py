@@ -68,7 +68,9 @@ class DummyStreamlit:
     def button(self, *args: Any, **kwargs: Any) -> bool:
         return False
 
-    def cache_data(self, *args: Any, **kwargs: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    def cache_data(
+        self, *args: Any, **kwargs: Any
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             return func
 

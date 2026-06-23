@@ -242,6 +242,5 @@ def _is_allowed_portfolio_path(path: str, allowed: set[str]) -> bool:
     if path in allowed:
         return True
     return any(
-        path == subtree or path.startswith(f"{subtree}.")
-        for subtree in _DYNAMIC_PORTFOLIO_SUBTREES
+        path == subtree or path.startswith(f"{subtree}.") for subtree in _DYNAMIC_PORTFOLIO_SUBTREES
     )
