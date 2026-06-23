@@ -55,6 +55,18 @@ is not published on npm/jsDelivr, so the local bundle uses the nearest
 available patch release and `build_wasm_demo.py --check` verifies the required
 runtime files are present.
 
+`plotly` (used by the **Monte Carlo** page's `st.plotly_chart` surfaces) is
+pure-PyPI and not in the Pyodide lock, so its wheel is vendored separately under
+`demo/wasm/vendor/pypi/` and installed by passing an absolute same-origin wheel
+URL to micropip — `index.html` rewrites every `*.whl` requirement to
+`new URL(path, location.href)` because micropip refuses a bare-relative wheel
+URL (it treats it as `file://`). plotly 6.x's `plotly.express` requires
+`narwhals>=1.15.1`, newer than the lock's 1.10.0, so the lock is bumped in place
+to narwhals 1.15.1 (a single narwhals also satisfies the lock's altair).
+Plotly.js renders inside the bundled stlite frontend — no `cdn.plot.ly` fetch —
+so it does not need separate vendoring. Re-fetch all of the above with
+`python scripts/fetch_offline_runtime.py`.
+
 ## Deploy
 
 The demo is a static bundle plus the published application source subset:

@@ -37,7 +37,35 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = REPO_ROOT / "demo" / "wasm" / "manifest.json"
 WASM_VENDOR_DIR = REPO_ROOT / "demo" / "wasm" / "vendor"
 
+#: Pure-PyPI wheels that are NOT in the Pyodide lock and so cannot be resolved by
+#: name like the lock-backed requirements. They are committed under
+#: ``demo/wasm/vendor/pypi/`` and installed by passing absolute same-origin wheel
+#: URLs to micropip (``index.html`` rewrites every ``*.whl`` requirement entry).
+#: ``plotly`` powers the Monte Carlo page's ``st.plotly_chart`` surfaces; it is
+#: pure-PyPI for this runtime. (plotly 6 dropped the ``tenacity`` dependency that
+#: plotly 5 carried; its only runtime deps are ``narwhals`` and ``packaging``,
+#: both already in the vendored Pyodide lock — see ``PYODIDE_LOCK_PYPI_OVERRIDES``
+#: for the narwhals version bump that plotly 6.x's express module needs.)
+PYPI_WHEEL_DIR = "pypi"
+PYPI_WHEELS = ("plotly-6.8.0-py3-none-any.whl",)
+
+#: The Pyodide 0.27.2 lock ships narwhals 1.10.0, which predates the
+#: ``from_native(..., pass_through=...)`` API that plotly 6.x's ``plotly.express``
+#: calls (``go``/graph_objects works on 1.10.0, ``px`` does not). micropip will
+#: not upgrade a package the stlite bootstrap already installed from the lock, so
+#: the lock itself is bumped in place to narwhals 1.15.1 (the floor plotly 6.8.0
+#: declares). A single narwhals then serves both the lock's altair and plotly.
+#: The wheel is pure-PyPI (not on the Pyodide CDN); see fetch_offline_runtime.py.
+PYODIDE_LOCK_PYPI_OVERRIDES = {"narwhals": "1.15.1"}
+
+#: Manifest requirement strings for the vendored PyPI wheels: repo-relative paths
+#: (resolved to absolute same-origin URLs at runtime in ``index.html``).
+PYPI_WHEEL_REQUIREMENTS = tuple(
+    f"vendor/{PYPI_WHEEL_DIR}/{name}" for name in PYPI_WHEELS
+)
+
 VENDORED_RUNTIME_FILES = (
+    *(f"{PYPI_WHEEL_DIR}/{name}" for name in PYPI_WHEELS),
     "stlite@0.79.4/stlite.js",
     "stlite@0.79.4/style.css",
     "stlite@0.79.4/wheels/blinker-1.9.0-py3-none-any.whl",
@@ -68,7 +96,7 @@ VENDORED_RUNTIME_FILES = (
     "pyodide-0.27.2/matplotlib-3.8.4-cp312-cp312-pyodide_2024_0_wasm32.whl",
     "pyodide-0.27.2/matplotlib_pyodide-0.2.3-py3-none-any.whl",
     "pyodide-0.27.2/micropip-0.8.0-py3-none-any.whl",
-    "pyodide-0.27.2/narwhals-1.10.0-py3-none-any.whl",
+    "pyodide-0.27.2/narwhals-1.15.1-py3-none-any.whl",
     "pyodide-0.27.2/numpy-2.0.2-cp312-cp312-pyodide_2024_0_wasm32.whl",
     "pyodide-0.27.2/packaging-24.2-py3-none-any.whl",
     "pyodide-0.27.2/pandas-2.2.3-cp312-cp312-pyodide_2024_0_wasm32.whl",
@@ -105,6 +133,18 @@ SOURCE_DIRS = (
 #: Bundled synthetic data shipped with the demo (presentation-safe default).
 DATA_FILES = ("demo/demo_returns.csv",)
 
+#: Non-Python config globbed into the browser FS so the Monte Carlo page can load
+#: its scenario registry (``config/scenarios/monte_carlo/index.yml``) and run a
+#: scenario offline. Scenarios reference ``config/defaults.yml`` (their
+#: ``base_config``) and ``../example_scenario.yml``. Price history is supplied at
+#: run time from the session's loaded demo returns (``monte_carlo_page`` injects
+#: ``price_history``), so no source-data CSVs need bundling.
+DATA_GLOBS = (
+    "config/defaults.yml",
+    "config/scenarios/example_scenario.yml",
+    "config/scenarios/monte_carlo/**/*.yml",
+)
+
 #: Python requirements installed under Pyodide, per runtime profile. The
 #: presentation-safe set intentionally omits LangChain so the default load is
 #: lean and has no LLM dependency footprint; public_llm_demo adds the LangChain
@@ -117,6 +157,10 @@ REQUIREMENTS = {
         "pydantic",
         "scipy",
         "matplotlib",
+        # plotly (vendored wheel, resolved to an absolute URL in index.html) so
+        # the Monte Carlo page's st.plotly_chart surfaces render offline. Its
+        # narwhals/packaging deps are satisfied by the vendored Pyodide lock.
+        *PYPI_WHEEL_REQUIREMENTS,
     ],
     "public_llm_demo": [
         "numpy",
@@ -131,6 +175,7 @@ REQUIREMENTS = {
         "langchain-openai>=1.0,<1.1",
         "langchain-anthropic>=1.2,<1.3",
         "langchain-ollama>=1.0,<1.1",
+        *PYPI_WHEEL_REQUIREMENTS,
     ],
 }
 
@@ -160,6 +205,10 @@ def build_manifest(repo_root: Path = REPO_ROOT) -> dict:
     for rel in DATA_FILES:
         if (repo_root / rel).is_file():
             files.append(rel)
+    for pattern in DATA_GLOBS:
+        for path in sorted(repo_root.glob(pattern)):
+            if path.is_file():
+                files.append(path.relative_to(repo_root).as_posix())
     return {
         "entrypoint": ENTRYPOINT,
         "default_profile": "presentation_safe",

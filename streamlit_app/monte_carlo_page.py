@@ -439,6 +439,21 @@ def _render_results(
         st.download_button(**payload)
 
 
+class _KeepOpenBytesIO(BytesIO):
+    """A ``BytesIO`` whose ``close()`` is a no-op.
+
+    pandas' parquet writer hands the buffer to the parquet engine, and the
+    engine available under Pyodide (fastparquet — pyarrow is not vendored)
+    *closes* the file object when it finishes writing. A subsequent
+    ``getvalue()`` on a real ``BytesIO`` then raises ``ValueError: I/O operation
+    on closed file``. Suppressing ``close()`` keeps the written bytes readable;
+    the buffer is freed when it goes out of scope.
+    """
+
+    def close(self) -> None:  # pragma: no cover - trivial override
+        pass
+
+
 def _build_download_payloads(
     summary_table: pd.DataFrame,
     filtered_results: pd.DataFrame,
@@ -448,7 +463,7 @@ def _build_download_payloads(
     summary_csv = summary_table.to_csv(index=False)
     path_frame = aggregate_monte_carlo_results(filtered_results).path_frame
 
-    parquet_buffer = BytesIO()
+    parquet_buffer = _KeepOpenBytesIO()
     path_frame.to_parquet(parquet_buffer, index=False)
     parquet_bytes = parquet_buffer.getvalue()
     parquet_buffer.seek(0)
