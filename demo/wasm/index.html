@@ -73,8 +73,21 @@
       (async () => {
         try {
           const manifest = await loadManifest();
-          const requirements =
+          const rawRequirements =
             manifest.requirements[profile] || manifest.requirements.presentation_safe;
+          // Requirements that are bare PyPI names (numpy, pandas, …) resolve
+          // against the vendored Pyodide lock and pass through untouched.
+          // Requirements ending in ``.whl`` are wheels vendored OUTSIDE the lock
+          // (plotly, under ./vendor/pypi/) and listed in the manifest as
+          // repo-relative paths. The stlite web worker's micropip treats a
+          // bare-relative wheel URL as ``file://`` and refuses it, so each must
+          // be resolved to an ABSOLUTE same-origin URL here — exactly as the
+          // pyodideUrl below is. (Same gotcha, same fix.)
+          const requirements = rawRequirements.map((req) =>
+            req.endsWith(".whl")
+              ? new URL(req, window.location.href).href
+              : req
+          );
           const files = await loadFiles(manifest.files);
           mount(
             {
