@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import re
 import json
+import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -126,9 +126,14 @@ def test_stlite_runtime_is_vendored() -> None:
 
 def test_presentation_safe_pyodide_dependency_closure_is_vendored() -> None:
     manifest = _manifest()
-    requirements = manifest["requirements"]["presentation_safe"]
-    seed_names = [_package_name(requirement) for requirement in requirements]
     packages = _pyodide_lock_packages()
+    seed_names = [
+        _package_name(requirement)
+        for requirements in manifest["requirements"].values()
+        for requirement in requirements
+    ]
+    seed_names.extend(["micropip", "packaging"])
+    seed_names = [name for name in seed_names if _lock_key(name) in packages]
 
     missing: list[str] = []
     for name in sorted(_dependency_closure(seed_names, packages)):

@@ -22,6 +22,7 @@ PYODIDE_VERSION = "0.27.2"
 CDN_BASE_URL = f"https://cdn.jsdelivr.net/pyodide/v{PYODIDE_VERSION}/full"
 VENDOR_DIR = REPO_ROOT / "demo" / "wasm" / "vendor" / f"pyodide-{PYODIDE_VERSION}"
 LOCK_PATH = VENDOR_DIR / "pyodide-lock.json"
+DOWNLOAD_TIMEOUT_SECONDS = 30
 
 
 def _package_name(requirement: str) -> str:
@@ -82,21 +83,42 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _download(package: dict[str, str]) -> str:
+def _safe_package_file_name(package: dict[str, str]) -> str:
     file_name = package["file_name"]
+    path = Path(file_name)
+    if (
+        path.is_absolute()
+        or path.name != file_name
+        or ".." in path.parts
+        or "\\" in file_name
+    ):
+        raise ValueError(f"unsafe package file_name: {file_name!r}")
+    return file_name
+
+
+def _download(package: dict[str, str]) -> str:
+    file_name = _safe_package_file_name(package)
     target = VENDOR_DIR / file_name
     if target.is_file():
         return f"skip existing {file_name}"
 
     url = f"{CDN_BASE_URL}/{file_name}"
-    with tempfile.NamedTemporaryFile(dir=VENDOR_DIR, delete=False) as tmp:
-        tmp_path = Path(tmp.name)
-        with urllib.request.urlopen(url) as response:
-            while True:
-                chunk = response.read(1024 * 1024)
-                if not chunk:
-                    break
-                tmp.write(chunk)
+    tmp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=VENDOR_DIR, delete=False) as tmp:
+            tmp_path = Path(tmp.name)
+            with urllib.request.urlopen(
+                url, timeout=DOWNLOAD_TIMEOUT_SECONDS
+            ) as response:
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    tmp.write(chunk)
+    except Exception:
+        if tmp_path is not None:
+            tmp_path.unlink(missing_ok=True)
+        raise
 
     expected_sha = package.get("sha256")
     if expected_sha and _sha256(tmp_path) != expected_sha:
