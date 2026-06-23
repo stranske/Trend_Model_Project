@@ -1,0 +1,76 @@
+version: 1
+issue: 5644
+base: phase-3
+branch: codex/issue-5644
+tasks:
+  - id: task-01
+    title: Update `streamlit_app/pages/3_Results.py:2176-2181` to gate the completed-state
+      `st.success(...)` banner on `_diagnostic_message(result)[0] is None`.
+    status: doing
+    started_at: '2026-06-23T04:52:42Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Update `streamlit_app/pages/3_Results.py` so a non-None failed result does
+      not show the success banner and offers a plain retry labeled "Run analysis"
+      instead.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Add `tests/app/test_results_page.py::test_results_failed_result_is_not_marked_complete`
+      to render a cached non-None failed result and assert the page does not show
+      the completed-state success banner and does show the diagnostic error.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Test the deliberate-break case by making `st.success(...)` unconditional
+      for non-None results, confirm `tests/app/test_results_page.py::test_results_failed_result_is_not_marked_complete`
+      fails, then revert.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: In `streamlit_app/pages/3_Results.py`, the completed-state `st.success(...)`
+      banner is shown only when `_diagnostic_message(result)[0] is None`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Rendering a cached non-None failed result in `tests/app/test_results_page.py::test_results_failed_result_is_not_marked_complete`
+      does not show the completed-state success banner and does show the diagnostic
+      error.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: If `st.success(...)` is made unconditional for non-None results, `tests/app/test_results_page.py::test_results_failed_result_is_not_marked_complete`
+      fails; after reverting, the test passes.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: "`streamlit_app/pages/3_Results.py:2176-2181` \u2014 gate the completed-state\
+      \ `st.success(...)` banner on the result being a **success**: only show it when\
+      \ `_diagnostic_message(result)[0] is None`. For a non-None but failed result,\
+      \ do NOT show the success banner (the diagnostic at `:2217-2219` already explains\
+      \ it); offer a plain retry (\"Run analysis\") instead."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
