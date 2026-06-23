@@ -413,6 +413,44 @@ def test_results_error_summary_hides_reason_code(results_page) -> None:
     assert "Try another preset, or adjust Customize Demo Settings." in detail
 
 
+def test_results_failed_result_is_not_marked_complete(results_page) -> None:
+    page, stub = results_page
+    returns = _sample_returns()
+    result = pipeline_failure(PipelineReasonCode.NO_FUNDS_SELECTED)
+
+    stub.session_state.update(
+        {
+            "model_state": {
+                "trend_spec": {"window": 63, "lag": 1},
+                "metric_weights": {"sharpe": 1.0},
+            },
+            "analysis_fund_columns": ["FundA", "FundB"],
+            "fund_columns": ["FundA", "FundB"],
+            "selected_benchmark": None,
+            "data_fingerprint": "abc123",
+            "returns_df": returns,
+            "schema_meta": {},
+            "upload_status": "success",
+            "demo_preset": "Balanced",
+        }
+    )
+    stub.session_state["analysis_result"] = result
+    stub.session_state["analysis_result_key"] = page._current_run_key(
+        stub.session_state["model_state"], stub.session_state["selected_benchmark"]
+    )
+
+    page.render_results_page()
+
+    assert not stub.success_messages
+    assert stub.error_messages == ["Analysis did not produce results."]
+    assert any(
+        "No investable funds satisfy the selection filters." in msg
+        for msg in stub.caption_messages
+    )
+    assert "Run analysis" in stub.button_labels
+    assert "Re-run with custom settings" not in stub.button_labels
+
+
 def test_results_page_renders_explain_results(
     monkeypatch: pytest.MonkeyPatch, results_page
 ) -> None:

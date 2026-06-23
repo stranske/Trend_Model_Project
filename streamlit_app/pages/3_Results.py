@@ -2172,10 +2172,15 @@ def render_results_page() -> None:
     result = st.session_state.get("analysis_result") if cached_key == run_key else None
 
     data_hash = _data_hash_for_analysis(df_for_analysis)
+    diagnostic_summary, diagnostic_detail = (
+        _diagnostic_message(result) if result is not None else (None, None)
+    )
 
     if result is None:
         st.markdown("Run the analysis to generate performance and risk diagnostics.")
         run_clicked = st.button("Run analysis", type="primary")
+    elif diagnostic_summary:
+        run_clicked = st.button("Run analysis")
     else:
         st.success(_completed_state_line(result, len(sanitized_funds)))
         run_clicked = st.button("Re-run with custom settings")
@@ -2209,16 +2214,16 @@ def render_results_page() -> None:
         st.session_state["analysis_result"] = result
         st.session_state["analysis_result_key"] = run_key
         st.session_state.pop("analysis_error", None)
+        diagnostic_summary, diagnostic_detail = _diagnostic_message(result)
 
     if result is None:
         st.info("Click Run Analysis to generate a report.")
         return
 
-    summary, detail = _diagnostic_message(result)
-    if summary:
-        st.error(summary)
-        if detail:
-            st.caption(detail)
+    if diagnostic_summary:
+        st.error(diagnostic_summary)
+        if diagnostic_detail:
+            st.caption(diagnostic_detail)
         return
 
     fallback = getattr(result, "fallback_info", None)
