@@ -17,6 +17,7 @@ multi-period run path. When ``cfg.portfolio.policy == 'threshold_hold'`` we:
 
 from __future__ import annotations  # mypy: ignore-errors
 
+import hashlib
 import inspect
 import logging
 import os
@@ -77,6 +78,12 @@ from .scheduler import generate_periods
 # intent of ``MultiPeriodPeriodResult`` using a simple mapping alias so the
 # engine remains importable without introducing a new module dependency.
 MultiPeriodPeriodResult = Dict[str, Any]
+
+
+def _stable_period_seed(base_seed: int, period_key: str, *, modulo: int = 10000) -> int:
+    digest = hashlib.blake2b(period_key.encode("utf-8"), digest_size=8).digest()
+    return abs(int(base_seed)) + (int.from_bytes(digest, "big") % modulo)
+
 
 SHIFT_DETECTION_MAX_STEPS_DEFAULT = 10
 _DEFAULT_LOAD_CSV = load_csv
@@ -1636,10 +1643,13 @@ def run(
         combined_frames = [frame.copy() for frame in price_frames.values()]
         if combined_frames:
             df = pd.concat(combined_frames, axis=0, join="outer", ignore_index=True, sort=True)
-            # Sort by Date to ensure proper ordering
-            df = df.sort_values("Date").reset_index(drop=True)
-            # Remove any duplicates created during concatenation
-            df = df.drop_duplicates(subset=["Date"], keep="last").reset_index(drop=True)
+            df["Date"] = pd.to_datetime(df["Date"])
+            df = (
+                df.sort_values("Date")
+                .groupby("Date", as_index=False, sort=True)
+                .last()
+                .reset_index(drop=True)
+            )
             user_supplied_df = True
         else:
             raise ValueError("price_frames is empty - no data to process")
@@ -2689,7 +2699,7 @@ def _run_threshold_hold_multi_periods(
         # Use a period-specific seed so different periods get different shuffles.
         if is_random_mode:
             period_seed_base = getattr(cfg, "seed", 42) or 42
-            period_seed = abs(period_seed_base + hash(str(pt)) % 10000)
+            period_seed = _stable_period_seed(period_seed_base, str(pt))
             rng = np.random.default_rng(period_seed)
             rng.shuffle(candidates)
             ranked = candidates
@@ -2893,7 +2903,7 @@ def _run_threshold_hold_multi_periods(
                     holdings = []
                 else:
                     # Seed varies per period to get different selections
-                    period_seed = abs(getattr(cfg, "seed", 42) or 42) + abs(hash(str(pt)) % 10000)
+                    period_seed = _stable_period_seed(getattr(cfg, "seed", 42) or 42, str(pt))
                     rng = np.random.default_rng(period_seed)
                     n_select = max(1, min(target_n, len(available)))
                     holdings = list(rng.choice(available, size=n_select, replace=False))
@@ -2923,7 +2933,7 @@ def _run_threshold_hold_multi_periods(
                     holdings = []
                 elif buy_hold_initial == "random":
                     # Random initial selection
-                    period_seed = abs((getattr(cfg, "seed", 42) or 42) + hash(str(pt)) % 10000)
+                    period_seed = _stable_period_seed(getattr(cfg, "seed", 42) or 42, str(pt))
                     rng = np.random.default_rng(period_seed)
                     n_select = max(1, min(buy_hold_n, len(available)))
                     holdings = list(rng.choice(available, size=n_select, replace=False))
@@ -3280,9 +3290,7 @@ def _run_threshold_hold_multi_periods(
 
                     if buy_hold_initial == "random":
                         # Random replacement
-                        period_seed = abs(getattr(cfg, "seed", 42) or 42) + abs(
-                            hash(str(pt)) % 10000
-                        )
+                        period_seed = _stable_period_seed(getattr(cfg, "seed", 42) or 42, str(pt))
                         rng = np.random.default_rng(period_seed)
                         rng.shuffle(available)
                         replacements: list[str] = []
@@ -3368,7 +3376,7 @@ def _run_threshold_hold_multi_periods(
                 # each period. This is essential to avoid survivorship bias - we select
                 # from the available universe at each point in time, not funds we know
                 # will survive.
-                period_seed = abs(getattr(cfg, "seed", 42) or 42) + abs(hash(str(pt)) % 10000)
+                period_seed = _stable_period_seed(getattr(cfg, "seed", 42) or 42, str(pt))
                 rebased = rebalancer.apply_triggers(
                     prev_weights.astype(float),
                     sf,
@@ -3577,7 +3585,7 @@ def _run_threshold_hold_multi_periods(
                 candidates = _filter_entry_candidates(candidates, sf)
                 if candidates:
                     if is_random_mode:
-                        period_seed = abs((getattr(cfg, "seed", 42) or 42) + hash(str(pt)) % 10000)
+                        period_seed = _stable_period_seed(getattr(cfg, "seed", 42) or 42, str(pt))
                         rng = np.random.default_rng(period_seed)
                         rng.shuffle(candidates)
                         ranked = candidates
