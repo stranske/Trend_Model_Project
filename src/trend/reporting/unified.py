@@ -23,7 +23,6 @@ from trend_analysis.reporting.narrative import (
 )
 from trend_analysis.reporting.portfolio_series import select_primary_portfolio_series
 
-
 plt = init_matplotlib()
 
 if TYPE_CHECKING:  # pragma: no cover - typing only

@@ -39,7 +39,9 @@ def test_fund_selection_commits_visible_checkbox_state(
 
     monkeypatch.setattr(page.data_cache, "default_sample_dataset", lambda: sample)
     monkeypatch.setattr(page.data_cache, "dataset_choices", lambda: {sample.label: sample})
-    monkeypatch.setattr(page.data_cache, "load_dataset_from_path", lambda path: (_sample_frame(), meta))
+    monkeypatch.setattr(
+        page.data_cache, "load_dataset_from_path", lambda path: (_sample_frame(), meta)
+    )
     monkeypatch.setattr(page, "infer_benchmarks", lambda columns: ["SPX Index"])
 
     stub.selectbox_map["Choose a sample"] = sample.label
@@ -70,7 +72,9 @@ def test_fund_selection_preserves_imported_committed_subset(
 
     monkeypatch.setattr(page.data_cache, "default_sample_dataset", lambda: sample)
     monkeypatch.setattr(page.data_cache, "dataset_choices", lambda: {sample.label: sample})
-    monkeypatch.setattr(page.data_cache, "load_dataset_from_path", lambda path: (_sample_frame(), meta))
+    monkeypatch.setattr(
+        page.data_cache, "load_dataset_from_path", lambda path: (_sample_frame(), meta)
+    )
     monkeypatch.setattr(page, "infer_benchmarks", lambda columns: ["SPX Index"])
 
     stub.selectbox_map["Choose a sample"] = sample.label

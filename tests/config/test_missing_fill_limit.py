@@ -81,9 +81,7 @@ def test_load_config_mapping_canonicalizes_missing_fill_limit(tmp_path: Path) ->
 
 
 def test_load_config_mapping_preserves_canonical_missing_limit(tmp_path: Path) -> None:
-    cfg = load_config(
-        _config_payload(tmp_path, {"missing_fill_limit": 2, "missing_limit": 4})
-    )
+    cfg = load_config(_config_payload(tmp_path, {"missing_fill_limit": 2, "missing_limit": 4}))
 
     assert cfg.data["missing_limit"] == 4
     assert "missing_fill_limit" not in cfg.data

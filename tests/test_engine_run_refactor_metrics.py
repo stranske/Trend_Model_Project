@@ -3,7 +3,6 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-
 ENGINE_PATH = Path(__file__).resolve().parents[1] / "src/trend_analysis/multi_period/engine.py"
 
 BASELINE_RUN_BODY_LINES = 3620

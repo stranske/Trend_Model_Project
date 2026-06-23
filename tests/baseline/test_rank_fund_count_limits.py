@@ -20,9 +20,7 @@ def test_multi_period_max_funds_caps_realised_holdings_per_period() -> None:
     for result in results:
         fund_weights = result.get("fund_weights")
         assert isinstance(fund_weights, dict)
-        selected = [
-            fund for fund, weight in fund_weights.items() if abs(float(weight)) > 1e-9
-        ]
+        selected = [fund for fund, weight in fund_weights.items() if abs(float(weight)) > 1e-9]
         assert len(selected) <= 5
 
 
@@ -32,12 +30,8 @@ def test_portfolio_rank_n_controls_selected_fund_count_per_period() -> None:
     variant_cfg = load(str(REPO_ROOT / "config/demo.yml"))
     apply_patch(variant_cfg, {"portfolio.rank.n": 5})
 
-    control_counts = [
-        len(result["selected_funds"]) for result in run_from_config(control_cfg)
-    ]
-    variant_counts = [
-        len(result["selected_funds"]) for result in run_from_config(variant_cfg)
-    ]
+    control_counts = [len(result["selected_funds"]) for result in run_from_config(control_cfg)]
+    variant_counts = [len(result["selected_funds"]) for result in run_from_config(variant_cfg)]
 
     assert control_counts
     assert len(control_counts) == len(variant_counts)

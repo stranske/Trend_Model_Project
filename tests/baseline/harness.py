@@ -101,9 +101,7 @@ class ScenarioOutput:
         out["min_weight"] = float(w.min()) if len(w) else float("nan")
         nonzero_count = int((w.abs() > _WEIGHT_EPS).sum())
         out["num_selected"] = (
-            self.selected_count
-            if self.selected_count is not None
-            else nonzero_count
+            self.selected_count if self.selected_count is not None else nonzero_count
         )
         out["num_negative_weights"] = int((w < -_WEIGHT_EPS).sum())
         out["max_turnover"] = float(self.turnover.max()) if len(self.turnover) else float("nan")

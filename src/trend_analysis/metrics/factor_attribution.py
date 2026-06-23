@@ -31,9 +31,7 @@ def factor_exposures(
     aligned_index = returns.index.intersection(factors.index)
     aligned_returns = returns.loc[aligned_index]
     aligned_factors = factors.loc[aligned_index]
-    valid_rows = aligned_returns.notna().all(axis=1) & aligned_factors.notna().all(
-        axis=1
-    )
+    valid_rows = aligned_returns.notna().all(axis=1) & aligned_factors.notna().all(axis=1)
     clean_returns_all = aligned_returns.loc[valid_rows]
     clean_factors = aligned_factors.loc[valid_rows]
 
@@ -48,9 +46,7 @@ def factor_exposures(
 
         factor_matrix = clean_factors.to_numpy(dtype=float)
         if add_intercept:
-            design = np.column_stack(
-                [np.ones(len(clean_factors), dtype=float), factor_matrix]
-            )
+            design = np.column_stack([np.ones(len(clean_factors), dtype=float), factor_matrix])
         else:
             design = factor_matrix
 

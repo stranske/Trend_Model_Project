@@ -27,6 +27,4 @@ def test_dead_shim_module_is_absent() -> None:
 
     package_init = Path(reb.__file__)
     shim_module = package_init.parent.with_name("rebalancing.py")
-    assert not shim_module.exists(), (
-        f"dead shim shadowed by package exists: {shim_module}"
-    )
+    assert not shim_module.exists(), f"dead shim shadowed by package exists: {shim_module}"

@@ -60,9 +60,7 @@ PYODIDE_LOCK_PYPI_OVERRIDES = {"narwhals": "1.15.1"}
 
 #: Manifest requirement strings for the vendored PyPI wheels: repo-relative paths
 #: (resolved to absolute same-origin URLs at runtime in ``index.html``).
-PYPI_WHEEL_REQUIREMENTS = tuple(
-    f"vendor/{PYPI_WHEEL_DIR}/{name}" for name in PYPI_WHEELS
-)
+PYPI_WHEEL_REQUIREMENTS = tuple(f"vendor/{PYPI_WHEEL_DIR}/{name}" for name in PYPI_WHEELS)
 
 VENDORED_RUNTIME_FILES = (
     *(f"{PYPI_WHEEL_DIR}/{name}" for name in PYPI_WHEELS),

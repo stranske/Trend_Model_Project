@@ -28,9 +28,7 @@ from tests.app.test_data_page import DummyStreamlit, data_page  # noqa: F401
 _PERF_MARKER = "Perf: total"
 
 
-def _load_sample(
-    monkeypatch: pytest.MonkeyPatch, page: ModuleType, stub: DummyStreamlit
-) -> None:
+def _load_sample(monkeypatch: pytest.MonkeyPatch, page: ModuleType, stub: DummyStreamlit) -> None:
     """Drive the Data page into the loaded-dataset state that renders the
     fund-selection section (where the perf caption lives)."""
     stub.session_state.clear()
@@ -44,12 +42,8 @@ def _load_sample(
     sample = page.data_cache.SampleDataset("demo.csv", Path("demo/demo_returns.csv"))
 
     monkeypatch.setattr(page.data_cache, "default_sample_dataset", lambda: sample)
-    monkeypatch.setattr(
-        page.data_cache, "dataset_choices", lambda: {sample.label: sample}
-    )
-    monkeypatch.setattr(
-        page.data_cache, "load_dataset_from_path", lambda path: (df, meta)
-    )
+    monkeypatch.setattr(page.data_cache, "dataset_choices", lambda: {sample.label: sample})
+    monkeypatch.setattr(page.data_cache, "load_dataset_from_path", lambda path: (df, meta))
     stub.selectbox_map["Choose a sample"] = sample.label
     stub.selectbox_map["Benchmark column (optional)"] = "SPX Index"
     monkeypatch.setattr(page, "infer_benchmarks", lambda columns: ["SPX Index"])

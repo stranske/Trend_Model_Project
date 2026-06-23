@@ -3,7 +3,6 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DATA_DENSE_ENTRYPOINTS = (
     "streamlit_app/pages/1_Data.py",

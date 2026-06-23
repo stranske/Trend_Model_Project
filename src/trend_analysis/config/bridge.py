@@ -88,9 +88,7 @@ def validate_payload(
     semantic_portfolio["transaction_cost_bps"] = core.costs.transaction_cost_bps
     semantic_portfolio["max_turnover"] = trend_config.portfolio.max_turnover
     semantic_data = dict(payload.get("data") or {})
-    semantic_data["csv_path"] = (
-        str(core.data.csv_path) if core.data.csv_path is not None else None
-    )
+    semantic_data["csv_path"] = str(core.data.csv_path) if core.data.csv_path is not None else None
     semantic_data["universe_membership_path"] = (
         str(core.data.universe_membership_path)
         if core.data.universe_membership_path is not None

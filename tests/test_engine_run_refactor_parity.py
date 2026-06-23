@@ -86,12 +86,8 @@ def test_run_refactor_preserves_period_parity(monkeypatch) -> None:
         ),
     ]
     monkeypatch.setattr(engine, "generate_periods", lambda _cfg: periods)
-    monkeypatch.setattr(
-        engine, "apply_missing_policy", lambda frame, **_kwargs: (frame, {})
-    )
-    monkeypatch.setattr(
-        engine, "Rebalancer", lambda *_args, **_kwargs: RebalancerStub()
-    )
+    monkeypatch.setattr(engine, "apply_missing_policy", lambda frame, **_kwargs: (frame, {}))
+    monkeypatch.setattr(engine, "Rebalancer", lambda *_args, **_kwargs: RebalancerStub())
 
     from trend_analysis import selector as selector_mod
 
@@ -127,9 +123,7 @@ def test_run_refactor_preserves_period_parity(monkeypatch) -> None:
         turnover_cost_calls.append(tuple(kwargs["manual_holdings"]))
         return original_apply_turnover_and_cost(**kwargs)
 
-    monkeypatch.setattr(
-        engine, "_apply_turnover_and_cost", wrapped_apply_turnover_and_cost
-    )
+    monkeypatch.setattr(engine, "_apply_turnover_and_cost", wrapped_apply_turnover_and_cost)
 
     def wrapped_assemble_period_result(
         **kwargs: Any,
@@ -137,13 +131,9 @@ def test_run_refactor_preserves_period_parity(monkeypatch) -> None:
         assemble_period_calls.append(tuple(kwargs["realised_holdings"]))
         return original_assemble_period_result(**kwargs)
 
-    monkeypatch.setattr(
-        engine, "_assemble_period_result", wrapped_assemble_period_result
-    )
+    monkeypatch.setattr(engine, "_assemble_period_result", wrapped_assemble_period_result)
 
-    pipeline_calls: list[
-        tuple[str, tuple[str, ...], tuple[tuple[str, float], ...]]
-    ] = []
+    pipeline_calls: list[tuple[str, tuple[str, ...], tuple[tuple[str, float], ...]]] = []
 
     def fake_run_analysis(
         _df_arg: pd.DataFrame,
@@ -159,9 +149,7 @@ def test_run_refactor_preserves_period_parity(monkeypatch) -> None:
         pipeline_calls.append((out_start, manual_funds, custom_weights))
         return {
             "fund_weights": dict(kwargs["custom_weights"]),
-            "out_sample_scaled": pd.DataFrame(
-                index=pd.date_range(f"{out_start}-28", periods=1)
-            ),
+            "out_sample_scaled": pd.DataFrame(index=pd.date_range(f"{out_start}-28", periods=1)),
             "score_frame": pd.DataFrame(index=manual_funds),
         }
 
@@ -249,12 +237,8 @@ def test_run_refactor_output_schema_and_deliberate_break(monkeypatch) -> None:
         ),
     ]
     monkeypatch.setattr(engine, "generate_periods", lambda _cfg: periods)
-    monkeypatch.setattr(
-        engine, "apply_missing_policy", lambda frame, **_kwargs: (frame, {})
-    )
-    monkeypatch.setattr(
-        engine, "Rebalancer", lambda *_args, **_kwargs: RebalancerStub()
-    )
+    monkeypatch.setattr(engine, "apply_missing_policy", lambda frame, **_kwargs: (frame, {}))
+    monkeypatch.setattr(engine, "Rebalancer", lambda *_args, **_kwargs: RebalancerStub())
 
     from trend_analysis import selector as selector_mod
 
@@ -275,9 +259,7 @@ def test_run_refactor_output_schema_and_deliberate_break(monkeypatch) -> None:
     ) -> dict[str, Any]:
         return {
             "fund_weights": dict(kwargs["custom_weights"]),
-            "out_sample_scaled": pd.DataFrame(
-                index=pd.date_range(f"{out_start}-28", periods=1)
-            ),
+            "out_sample_scaled": pd.DataFrame(index=pd.date_range(f"{out_start}-28", periods=1)),
             "score_frame": pd.DataFrame(index=tuple(kwargs["manual_funds"])),
         }
 

@@ -3,6 +3,7 @@ handling."""
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
@@ -120,6 +121,7 @@ def test_run_combines_price_frames_and_invokes_analysis(
 
     captured_dates: list[pd.Timestamp] = []
     captured_columns: list[List[str]] = []
+    captured_duplicate_row: list[pd.Series] = []
 
     def fake_run_analysis(df: pd.DataFrame, *args: Any, **kwargs: Any) -> Dict[str, Any]:
         # ``run`` should provide a DataFrame that is date-ordered and deduplicated.
@@ -127,6 +129,8 @@ def test_run_combines_price_frames_and_invokes_analysis(
         assert not df["Date"].duplicated().any()
         captured_dates.extend(df["Date"].tolist())
         captured_columns.append(sorted(df.columns))
+        duplicate_date = pd.Timestamp("2020-02-29")
+        captured_duplicate_row.append(df.loc[df["Date"] == duplicate_date].iloc[0])
         return {"analysis": "ok"}
 
     monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
@@ -147,6 +151,26 @@ def test_run_combines_price_frames_and_invokes_analysis(
     # The combined data should cover all unique dates from both frames.
     expected_dates = pd.to_datetime(["2020-01-31", "2020-02-29", "2020-03-31"])
     assert set(captured_dates) == set(expected_dates)
+    # Duplicate dates from separate frames should preserve non-null values from
+    # both frames instead of keeping only the last whole row.
+    assert captured_duplicate_row
+    assert captured_duplicate_row[0]["FundA"] == 0.2
+    assert captured_duplicate_row[0]["FundB"] == 0.3
+
+
+def test_stable_period_seed_does_not_use_python_hash_randomization() -> None:
+    period = "2020-01/2020-02"
+    expected_offset = (
+        int.from_bytes(
+            hashlib.blake2b(period.encode("utf-8"), digest_size=8).digest(),
+            "big",
+        )
+        % 10000
+    )
+
+    assert mp_engine._stable_period_seed(123, period) == 123 + expected_offset
+    assert mp_engine._stable_period_seed(124, period) != mp_engine._stable_period_seed(123, period)
+    assert mp_engine._stable_period_seed(-123, period) == 123 + expected_offset
 
 
 def test_run_requires_csv_path_when_frame_not_provided() -> None:

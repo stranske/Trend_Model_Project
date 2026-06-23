@@ -28,7 +28,6 @@ from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 from trend.reporting._matplotlib import init_matplotlib
 from trend_analysis.reporting.portfolio_series import select_primary_portfolio_series
 
-
 plt = init_matplotlib()
 
 
