@@ -20,11 +20,12 @@ from streamlit_app.components import (
     comparison_llm,
     explain_results,
 )
-from streamlit_app.theme import apply_ds_theme
+from streamlit_app.theme import apply_density_compact, apply_ds_theme
 from trend_analysis.diagnostics import PipelineReasonCode
 from trend_analysis.util.weights import normalize_weights
 
 apply_ds_theme()
+apply_density_compact()
 
 # =============================================================================
 # Formatting Helpers

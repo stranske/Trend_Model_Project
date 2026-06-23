@@ -20,3 +20,25 @@ def apply_ds_theme() -> None:
     import ds_streamlit
 
     ds_streamlit.inject_theme()
+
+
+def apply_density_compact() -> None:
+    """Tighten Streamlit table spacing on data-dense screens."""
+
+    _ensure_design_system_on_path()
+    import streamlit as st
+
+    st.markdown(
+        """<style>
+        /* density-compact: Streamlit table/dataframe adaptation. */
+        [data-testid="stDataFrame"] {
+            font-size: 0.86rem;
+        }
+        [data-testid="stDataFrame"] [role="gridcell"],
+        [data-testid="stDataFrame"] [role="columnheader"] {
+            padding-top: 0.25rem;
+            padding-bottom: 0.25rem;
+        }
+        </style>""",
+        unsafe_allow_html=True,
+    )
