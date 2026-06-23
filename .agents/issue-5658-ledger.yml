@@ -7,10 +7,10 @@ tasks:
     title: "Add a small adopter such as `streamlit_app/theme.py` or a shared util\
       \ that puts `design-system/` on `sys.path`, imports `ds_streamlit`, and exposes\
       \ `apply_ds_theme()` \u2192 `ds_streamlit.inject_theme()`."
-    status: doing
+    status: done
     started_at: '2026-06-23T16:07:41Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-06-23T16:07:56Z'
+    commit: 0f2a6a3e1b7d7c6b258bf253a33ec01cf94da862
     notes: []
   - id: task-02
     title: Update the adopter import to use an alias if the app already defines `apply_theme`.
