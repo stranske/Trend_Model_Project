@@ -170,6 +170,7 @@ def test_stable_period_seed_does_not_use_python_hash_randomization() -> None:
 
     assert mp_engine._stable_period_seed(123, period) == 123 + expected_offset
     assert mp_engine._stable_period_seed(124, period) != mp_engine._stable_period_seed(123, period)
+    assert mp_engine._stable_period_seed(-123, period) == 123 + expected_offset
 
 
 def test_run_requires_csv_path_when_frame_not_provided() -> None:
