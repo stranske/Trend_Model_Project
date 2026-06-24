@@ -113,7 +113,9 @@ class DummyStreamlit:
             return self.multiselect_returns.pop(0)
         return []
 
-    def selectbox(self, label: str, options: list[str], index: int = 0, **_kwargs: Any) -> str:
+    def selectbox(
+        self, label: str, options: list[str], index: int = 0, **_kwargs: Any
+    ) -> str:
         self.selectbox_calls.append((label, list(options)))
         if self.selectbox_returns:
             return self.selectbox_returns.pop(0)
@@ -298,7 +300,9 @@ def test_scenario_picker_and_tag_filtering(monkeypatch: pytest.MonkeyPatch) -> N
 
     calls: list[dict[str, Any]] = []
 
-    def fake_list_scenarios(*, tags: list[str] | None = None) -> list[ScenarioRegistryEntry]:
+    def fake_list_scenarios(
+        *, tags: list[str] | None = None
+    ) -> list[ScenarioRegistryEntry]:
         calls.append({"tags": tags})
         if tags:
             return [entry for entry in scenarios if set(tags) & set(entry.tags)]
@@ -577,7 +581,9 @@ def test_progress_updates_throttled(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_download_link_generation(monkeypatch: pytest.MonkeyPatch) -> None:
     page, stub = _load_page(monkeypatch)
     monkeypatch.setattr(
-        page, "save_chart_bundle", lambda *_args, **_kwargs: BytesIO(b"PK\x05\x06" + b"\x00" * 18)
+        page,
+        "save_chart_bundle",
+        lambda *_args, **_kwargs: BytesIO(b"PK\x05\x06" + b"\x00" * 18),
     )
 
     results = _sample_results()
@@ -595,12 +601,16 @@ def test_download_link_generation(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "application/x-parquet" in mimes
     assert "application/zip" in mimes
 
-    csv_entry = next(entry for entry in stub.downloads if entry.get("mime") == "text/csv")
+    csv_entry = next(
+        entry for entry in stub.downloads if entry.get("mime") == "text/csv"
+    )
     assert isinstance(csv_entry.get("data"), str)
     assert "Strategy" in csv_entry.get("data")
 
     parquet_entry = next(
-        entry for entry in stub.downloads if entry.get("mime") == "application/x-parquet"
+        entry
+        for entry in stub.downloads
+        if entry.get("mime") == "application/x-parquet"
     )
     parquet_data = parquet_entry.get("data")
     assert hasattr(parquet_data, "getvalue")
@@ -623,7 +633,9 @@ def test_download_link_generation(monkeypatch: pytest.MonkeyPatch) -> None:
         assert "Strategy" in summary_text
 
 
-def test_render_results_surfaces_png_export_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_render_results_surfaces_png_export_warning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     page, stub = _load_page(monkeypatch)
 
     buffer = BytesIO(b"PK\x05\x06" + b"\x00" * 18)
@@ -649,10 +661,14 @@ def test_render_results_surfaces_png_export_warning(monkeypatch: pytest.MonkeyPa
     page._render_results(_sample_results(), fold_selection=None)
 
     assert any("PNG export warnings" in message for message in stub.warning_messages)
-    assert any(entry.get("label") == "Download charts bundle" for entry in stub.downloads)
+    assert any(
+        entry.get("label") == "Download charts bundle" for entry in stub.downloads
+    )
 
 
-def test_download_payload_file_names_use_timestamp(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_download_payload_file_names_use_timestamp(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     page, _stub = _load_page(monkeypatch)
 
     from datetime import datetime as real_datetime
@@ -706,7 +722,9 @@ def test_build_download_payloads_csv_content(monkeypatch: pytest.MonkeyPatch) ->
     assert "A,1.1" in csv_payload["data"]
 
 
-def test_build_download_payloads_parquet_content(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_download_payloads_parquet_content(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     page, _stub = _load_page(monkeypatch)
 
     summary_table = pd.DataFrame({"Strategy": ["A"], "Sharpe (median)": [1.1]})
@@ -727,14 +745,18 @@ def test_build_download_payloads_parquet_content(monkeypatch: pytest.MonkeyPatch
     assert set(loaded.columns) >= {"strategy", "path", "fold", "terminal_wealth"}
 
 
-def test_build_download_payloads_zip_bundle_content(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_download_payloads_zip_bundle_content(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     page, _stub = _load_page(monkeypatch)
 
     summary_table = pd.DataFrame({"Strategy": ["A"], "Sharpe (median)": [1.1]})
     filtered_results = _sample_results().results_frame
 
     payloads = page._build_download_payloads(summary_table, filtered_results)
-    zip_payload = next(payload for payload in payloads if payload["mime"] == "application/zip")
+    zip_payload = next(
+        payload for payload in payloads if payload["mime"] == "application/zip"
+    )
     zip_buffer = zip_payload["data"]
 
     assert zip_payload["label"] == "Download ZIP bundle"
@@ -758,7 +780,9 @@ def test_build_download_payloads_binary_buffers_are_rewound(
     parquet_payload = next(
         payload for payload in payloads if payload["mime"] == "application/x-parquet"
     )
-    zip_payload = next(payload for payload in payloads if payload["mime"] == "application/zip")
+    zip_payload = next(
+        payload for payload in payloads if payload["mime"] == "application/zip"
+    )
 
     parquet_buffer = parquet_payload["data"]
     zip_buffer = zip_payload["data"]
@@ -767,6 +791,92 @@ def test_build_download_payloads_binary_buffers_are_rewound(
     assert hasattr(zip_buffer, "tell")
     assert parquet_buffer.tell() == 0
     assert zip_buffer.tell() == 0
+
+
+def test_build_download_payloads_tolerates_buffer_closing_engine(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression: a Parquet engine that CLOSES its buffer must not crash render.
+
+    The offline WASM/Pyodide demo vendors ``fastparquet``, which closes the
+    ``BytesIO`` it is handed during ``to_parquet``; the old code then called
+    ``getvalue()`` on the now-closed buffer and raised
+    ``ValueError: I/O operation on closed file``, aborting the whole results
+    render after the charts had drawn. CI uses ``pyarrow``, which never closes
+    the buffer, so the bug was invisible locally (a cross-env failure). This
+    test simulates a buffer-closing engine and asserts the function tolerates
+    it and still produces a valid Parquet payload.
+    """
+    page, _stub = _load_page(monkeypatch)
+
+    real_to_parquet = pd.DataFrame.to_parquet
+
+    def closing_to_parquet(
+        self: pd.DataFrame, path: Any = None, *args: Any, **kwargs: Any
+    ) -> Any:
+        result = real_to_parquet(self, path, *args, **kwargs)
+        # fastparquet closes any open file object it is handed (a path does not).
+        if hasattr(path, "close"):
+            path.close()
+        return result
+
+    monkeypatch.setattr(pd.DataFrame, "to_parquet", closing_to_parquet)
+
+    summary_table = pd.DataFrame({"Strategy": ["A"], "Sharpe (median)": [1.1]})
+    filtered_results = _sample_results().results_frame
+
+    # Must not raise ValueError: I/O operation on closed file.
+    payloads = page._build_download_payloads(summary_table, filtered_results)
+
+    parquet_payload = next(
+        payload for payload in payloads if payload["mime"] == "application/x-parquet"
+    )
+    parquet_bytes = parquet_payload["data"].getvalue()
+    assert parquet_bytes[:4] == b"PAR1"
+
+    zip_payload = next(
+        payload for payload in payloads if payload["mime"] == "application/zip"
+    )
+    with zipfile.ZipFile(BytesIO(zip_payload["data"].getvalue())) as bundle:
+        assert set(bundle.namelist()) == {"summary.csv", "representative_paths.parquet"}
+
+
+def test_build_download_payloads_degrades_when_parquet_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """If Parquet export fails entirely, keep the CSV downloads and don't crash."""
+    page, _stub = _load_page(monkeypatch)
+
+    monkeypatch.setattr(page, "_export_parquet_bytes", lambda _frame: None)
+
+    summary_table = pd.DataFrame({"Strategy": ["A"], "Sharpe (median)": [1.1]})
+    filtered_results = _sample_results().results_frame
+
+    payloads = page._build_download_payloads(summary_table, filtered_results)
+
+    mimes = [payload["mime"] for payload in payloads]
+    assert "text/csv" in mimes
+    assert "application/x-parquet" not in mimes  # parquet omitted, not crashing
+
+    zip_payload = next(
+        payload for payload in payloads if payload["mime"] == "application/zip"
+    )
+    with zipfile.ZipFile(BytesIO(zip_payload["data"].getvalue())) as bundle:
+        assert bundle.namelist() == ["summary.csv"]
+
+
+def test_export_parquet_bytes_returns_none_on_engine_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``_export_parquet_bytes`` swallows engine errors and returns None."""
+    page, _stub = _load_page(monkeypatch)
+
+    def boom(*_args: Any, **_kwargs: Any) -> None:
+        raise ImportError("no parquet engine available")
+
+    monkeypatch.setattr(pd.DataFrame, "to_parquet", boom)
+
+    assert page._export_parquet_bytes(_sample_results().results_frame) is None
 
 
 def test_empty_filtered_results_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:

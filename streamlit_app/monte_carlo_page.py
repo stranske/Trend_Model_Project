@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import tempfile
 import zipfile
 from datetime import datetime
 from io import BytesIO
@@ -85,7 +86,9 @@ def _analysis_frame_from_session(
         regime_proxy = model_state.get("regime_proxy")
     prohibited = {selected_rf, benchmark, info_ratio_benchmark, regime_proxy} - {None}
 
-    sanitized_funds = [c for c in applied_funds if c in returns.columns and c not in prohibited]
+    sanitized_funds = [
+        c for c in applied_funds if c in returns.columns and c not in prohibited
+    ]
     keep_cols = list(sanitized_funds)
     for extra in (selected_rf, benchmark, regime_proxy):
         if extra and extra in returns.columns and extra not in keep_cols:
@@ -171,7 +174,9 @@ def _collect_tags(entries: Iterable[ScenarioRegistryEntry]) -> list[str]:
     return sorted(tags)
 
 
-def _scenario_lookup(entries: Iterable[ScenarioRegistryEntry]) -> dict[str, ScenarioRegistryEntry]:
+def _scenario_lookup(
+    entries: Iterable[ScenarioRegistryEntry],
+) -> dict[str, ScenarioRegistryEntry]:
     return {entry.name: entry for entry in entries}
 
 
@@ -242,7 +247,9 @@ def _fold_options(scenario: MonteCarloScenario) -> list[str]:
     return options
 
 
-def _filter_results_by_fold(results: pd.DataFrame, selection: str | None) -> pd.DataFrame:
+def _filter_results_by_fold(
+    results: pd.DataFrame, selection: str | None
+) -> pd.DataFrame:
     if not selection or selection == "All folds":
         return results
     if results.empty:
@@ -296,7 +303,9 @@ def _fold_selection_for_adapters(selection: str | None) -> int | str | None:
     return selection
 
 
-def _render_diagnostic_charts(summary: pd.DataFrame, paths: pd.DataFrame) -> dict[str, go.Figure]:
+def _render_diagnostic_charts(
+    summary: pd.DataFrame, paths: pd.DataFrame
+) -> dict[str, go.Figure]:
     charts: dict[str, go.Figure] = {}
     if summary.empty:
         st.warning("Diagnostics unavailable: summary frame is empty.")
@@ -308,12 +317,16 @@ def _render_diagnostic_charts(summary: pd.DataFrame, paths: pd.DataFrame) -> dic
     from trend_analysis.viz import sharpe_ladder as sharpe_ladder_chart
     from trend_analysis.viz.charts import corr_heatmap as corr_heatmap_chart
     from trend_analysis.viz.charts import rolling_panel as rolling_panel_chart
-    from trend_analysis.viz.charts import seasonality_heatmap as seasonality_heatmap_chart
+    from trend_analysis.viz.charts import (
+        seasonality_heatmap as seasonality_heatmap_chart,
+    )
 
     try:
         sharpe_fig = sharpe_ladder_chart.make(summary, metric="sharpe")
     except Exception:
-        st.warning("Sharpe ladder unavailable: summary does not include a usable 'sharpe' metric.")
+        st.warning(
+            "Sharpe ladder unavailable: summary does not include a usable 'sharpe' metric."
+        )
         sharpe_fig = go.Figure()
     corr_fig = corr_heatmap_chart.build_figure(paths, window=60)
     rolling_fig = rolling_panel_chart.build_figure(
@@ -408,7 +421,9 @@ def _render_results(
         if tokens and tokens[-1].isdigit():
             fold_id = int(tokens[-1])
     nav_paths = _extract_nav_paths(results, fold_id=fold_id)
-    canonical_paths = _cached_make_paths(nav_paths) if not nav_paths.empty else pd.DataFrame()
+    canonical_paths = (
+        _cached_make_paths(nav_paths) if not nav_paths.empty else pd.DataFrame()
+    )
 
     st.subheader("Charts")
     chart_bundle_inputs: dict[str, go.Figure] = {}
@@ -416,20 +431,28 @@ def _render_results(
     with tabs[0]:
         if nav_paths.empty:
             st.warning("No NAV paths available for the selected fold.")
-        chart_bundle_inputs["Sharpe Histogram"] = mc_plots.render_sharpe_histogram(filtered_results)
-        chart_bundle_inputs["Fan Chart"] = mc_plots.render_fan_chart(nav_paths)
-        chart_bundle_inputs["Path Distribution"] = mc_plots.render_path_distribution_chart(
+        chart_bundle_inputs["Sharpe Histogram"] = mc_plots.render_sharpe_histogram(
             filtered_results
         )
-        chart_bundle_inputs["Risk Return"] = mc_plots.render_risk_return_chart(filtered_results)
-        chart_bundle_inputs["Strategy Box Plot"] = mc_plots.render_box_plot(filtered_results)
+        chart_bundle_inputs["Fan Chart"] = mc_plots.render_fan_chart(nav_paths)
+        chart_bundle_inputs["Path Distribution"] = (
+            mc_plots.render_path_distribution_chart(filtered_results)
+        )
+        chart_bundle_inputs["Risk Return"] = mc_plots.render_risk_return_chart(
+            filtered_results
+        )
+        chart_bundle_inputs["Strategy Box Plot"] = mc_plots.render_box_plot(
+            filtered_results
+        )
         chart_bundle_inputs["Outcome CDF"] = mc_plots.render_cdf_plot(filtered_results)
     with tabs[1]:
         chart_bundle_inputs.update(_render_diagnostic_charts(summary, canonical_paths))
 
     st.subheader("Downloads")
     payloads = _build_download_payloads(summary_table, filtered_results)
-    chart_bundle_payload, chart_bundle_warnings = _build_chart_bundle_payload(chart_bundle_inputs)
+    chart_bundle_payload, chart_bundle_warnings = _build_chart_bundle_payload(
+        chart_bundle_inputs
+    )
     if chart_bundle_payload is not None:
         payloads.append(chart_bundle_payload)
     warning_text = _png_export_warning_message(chart_bundle_warnings)
@@ -439,63 +462,89 @@ def _render_results(
         st.download_button(**payload)
 
 
-class _KeepOpenBytesIO(BytesIO):
-    """A ``BytesIO`` whose ``close()`` is a no-op.
+def _export_parquet_bytes(frame: pd.DataFrame) -> bytes | None:
+    """Serialize ``frame`` to Parquet bytes in an engine-agnostic way.
 
-    pandas' parquet writer hands the buffer to the parquet engine, and the
-    engine available under Pyodide (fastparquet — pyarrow is not vendored)
-    *closes* the file object when it finishes writing. A subsequent
-    ``getvalue()`` on a real ``BytesIO`` then raises ``ValueError: I/O operation
-    on closed file``. Suppressing ``close()`` keeps the written bytes readable;
-    the buffer is freed when it goes out of scope.
+    Returns ``None`` (instead of raising) when Parquet export is unavailable
+    in the current environment, so callers can degrade gracefully to CSV-only.
+
+    Why this exists: ``DataFrame.to_parquet(BytesIO())`` then ``getvalue()`` is
+    NOT portable across Parquet engines. The offline WASM/Pyodide demo vendors
+    ``fastparquet``, which CLOSES the ``BytesIO`` it is handed during the write,
+    so the subsequent ``getvalue()`` raises ``ValueError: I/O operation on
+    closed file`` and aborts the whole results render. ``pyarrow`` (used on CI)
+    does not close the buffer, so the bug never surfaced locally — a classic
+    cross-env failure. ``to_parquet(path=None)`` does not help either: pandas
+    uses an internal ``BytesIO`` and calls ``getvalue()`` itself, hitting the
+    same close. Writing to a real file PATH sidesteps it entirely: pandas (and
+    the engine) own the file handle, and we read the bytes back afterwards.
     """
 
-    def close(self) -> None:  # pragma: no cover - trivial override
-        pass
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as handle:
+            tmp_path = Path(handle.name)
+        try:
+            frame.to_parquet(tmp_path, index=False)
+            return tmp_path.read_bytes()
+        finally:
+            tmp_path.unlink(missing_ok=True)
+    except Exception:  # noqa: BLE001 - any engine failure degrades to CSV-only
+        return None
 
 
 def _build_download_payloads(
     summary_table: pd.DataFrame,
     filtered_results: pd.DataFrame,
 ) -> list[dict[str, Any]]:
-    """Return download button payloads for CSV, Parquet, and ZIP bundles."""
+    """Return download button payloads for CSV, Parquet, and ZIP bundles.
+
+    Parquet export is best-effort: if it fails (e.g. a buffer-closing engine or
+    no Parquet engine at all), the Parquet download and the ZIP's Parquet entry
+    are omitted but the CSV downloads still render, so the page never crashes.
+    """
 
     summary_csv = summary_table.to_csv(index=False)
     path_frame = aggregate_monte_carlo_results(filtered_results).path_frame
-
-    parquet_buffer = _KeepOpenBytesIO()
-    path_frame.to_parquet(parquet_buffer, index=False)
-    parquet_bytes = parquet_buffer.getvalue()
-    parquet_buffer.seek(0)
+    parquet_bytes = _export_parquet_bytes(path_frame)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    zip_buffer = BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
-        bundle.writestr("summary.csv", summary_csv)
-        bundle.writestr("representative_paths.parquet", parquet_bytes)
-    zip_buffer.seek(0)
-
-    return [
+    payloads: list[dict[str, Any]] = [
         {
             "label": "Download summary CSV",
             "data": summary_csv,
             "file_name": f"mc_summary_{timestamp}.csv",
             "mime": "text/csv",
-        },
-        {
-            "label": "Download representative paths (parquet)",
-            "data": parquet_buffer,
-            "file_name": f"mc_representative_paths_{timestamp}.parquet",
-            "mime": "application/x-parquet",
-        },
+        }
+    ]
+
+    if parquet_bytes is not None:
+        payloads.append(
+            {
+                "label": "Download representative paths (parquet)",
+                "data": BytesIO(parquet_bytes),
+                "file_name": f"mc_representative_paths_{timestamp}.parquet",
+                "mime": "application/x-parquet",
+            }
+        )
+
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
+        bundle.writestr("summary.csv", summary_csv)
+        if parquet_bytes is not None:
+            bundle.writestr("representative_paths.parquet", parquet_bytes)
+    zip_buffer.seek(0)
+
+    payloads.append(
         {
             "label": "Download ZIP bundle",
             "data": zip_buffer,
             "file_name": f"mc_bundle_{timestamp}.zip",
             "mime": "application/zip",
-        },
-    ]
+        }
+    )
+
+    return payloads
 
 
 def _build_chart_bundle_payload(
