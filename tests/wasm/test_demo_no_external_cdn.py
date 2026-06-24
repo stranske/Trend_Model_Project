@@ -254,3 +254,20 @@ def test_monte_carlo_scenario_configs_are_bundled() -> None:
     # actually exist and are non-empty.
     for rel in sorted(required | set(scenario_files)):
         _assert_non_empty(REPO_ROOT / rel)
+
+
+def test_design_system_theme_module_is_bundled() -> None:
+    """Every Streamlit entry point calls ``theme.apply_ds_theme()``, which adds
+    ``design-system/`` to ``sys.path`` and imports the first-party ``ds_streamlit``
+    module. ``ds_streamlit`` is not a PyPI package, so vendoring wheels does not
+    cover it -- the ``design-system`` source must be bundled into the browser FS
+    or the demo crashes at startup with ``ModuleNotFoundError: No module named
+    'ds_streamlit'`` before any page renders."""
+    manifest = _manifest()
+    files = set(manifest["files"])
+    assert "design-system/ds_streamlit.py" in files, (
+        "ds_streamlit theme module is not bundled; the offline demo crashes at "
+        "startup (theme.apply_ds_theme imports it). Add 'design-system' to "
+        "SOURCE_DIRS in scripts/build_wasm_demo.py."
+    )
+    _assert_non_empty(REPO_ROOT / "design-system" / "ds_streamlit.py")
