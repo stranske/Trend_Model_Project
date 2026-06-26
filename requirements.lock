@@ -94,7 +94,7 @@ execnet==2.1.2
     # via pytest-xdist
 executing==2.2.1
     # via stack-data
-fastapi==0.138.0
+fastapi==0.138.1
     # via trend-model (pyproject.toml)
 fastjsonschema==2.21.2
     # via nbformat
@@ -237,7 +237,7 @@ langgraph-prebuilt==1.1.0
     # via langgraph
 langgraph-sdk==0.4.2
     # via langgraph
-langsmith==0.9.2
+langsmith==0.9.3
     # via
     #   trend-model (pyproject.toml)
     #   langchain-classic
