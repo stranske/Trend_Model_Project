@@ -915,6 +915,7 @@ def test_analysis_frame_defaults_to_full_universe_when_no_selection(
 
     expected_managers = [c for c in returns.columns if c.startswith("Mgr_")]
     assert set(expected_managers).issubset(frame.columns), "all managers must be kept"
+    assert "SPX" in frame.columns, "benchmark must be retained for analysis"
     assert frame.shape[1] > 1, "frame must not collapse to the benchmark alone"
 
 

@@ -9,7 +9,7 @@ an empty summary, and a Sharpe "distribution" that is really the path index.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping
 
 import numpy as np
 import pandas as pd
@@ -163,6 +163,52 @@ def test_align_path_windows_caps_to_retained_multi_period_in_sample_span() -> No
     assert merged["vol_adjust"]["window"]["length"] == 2
     assert merged["signals"]["window"] == 2
     assert merged["signals"]["min_periods"] == 2
+
+
+def test_path_context_score_frame_uses_path_aligned_windows(
+    monkeypatch: Any,
+) -> None:
+    runner = _runner(horizon_years=0.5)
+    dates = pd.date_range("2025-01-31", periods=6, freq="ME")
+    returns = pd.DataFrame(
+        {
+            "AssetA": [0.01, 0.02, -0.01, 0.03, 0.01, 0.02],
+            "AssetB": [0.02, -0.01, 0.01, 0.02, 0.03, -0.01],
+        },
+        index=dates,
+    )
+
+    class _PathResult:
+        prices = (1.0 + returns).cumprod() * 100.0
+        log_returns = np.log1p(returns)
+
+    captured: dict[str, Mapping[str, Any] | None] = {}
+
+    def fake_score_frame(
+        _returns: pd.DataFrame,
+        config_data: Mapping[str, Any] | None = None,
+    ) -> pd.DataFrame:
+        captured["config"] = config_data
+        return pd.DataFrame({"sharpe_ratio": [1.0]}, index=["AssetA"])
+
+    monkeypatch.setattr(runner, "_compute_score_frame", fake_score_frame)
+
+    context = runner._generate_path_context(
+        path_id=0,
+        seed=1,
+        model=None,
+        n_periods=6,
+        path_result=_PathResult(),
+        fold_id=None,
+        fold_label=None,
+    )
+
+    score_config = captured["config"]
+    assert isinstance(score_config, Mapping)
+    assert score_config["sample_split"] == {"method": "ratio", "ratio": 0.7}
+    assert "multi_period" not in score_config
+    assert not context.score_frame.empty
+    assert "sharpe_ratio" in context.score_frame.columns
 
 
 def test_align_multi_period_dropped_without_context() -> None:

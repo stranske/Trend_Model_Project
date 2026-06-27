@@ -632,8 +632,21 @@ class MonteCarloRunner:
         returns = np.expm1(log_returns)
         returns_df = self._returns_with_date(returns)
         returns_df = self._apply_cash_handling(returns_df)
-        score_frame = self._compute_score_frame(returns_df)
         path_hash = self._hash_frame(prices)
+        score_context = _PathContext(
+            fold_id=fold_id,
+            fold_label=fold_label,
+            path_id=path_id,
+            prices=prices,
+            returns=returns_df,
+            score_frame=pd.DataFrame(),
+            path_hash=path_hash,
+            seed=seed,
+        )
+        score_frame = self._compute_score_frame(
+            returns_df,
+            config_data=self._path_aligned_base_config(score_context),
+        )
         return _PathContext(
             fold_id=fold_id,
             fold_label=fold_label,
@@ -1138,6 +1151,11 @@ class MonteCarloRunner:
             merged["seed"] = int(seed)
         return Config(**merged)
 
+    def _path_aligned_base_config(self, context: _PathContext) -> dict[str, Any]:
+        merged = dict(self._base_config)
+        self._align_path_windows(merged, context)
+        return merged
+
     def _align_path_windows(
         self, merged: dict[str, Any], context: _PathContext | None = None
     ) -> None:
@@ -1390,9 +1408,11 @@ class MonteCarloRunner:
         _coerce_turnover_guard(guard_value)
         return None
 
-    def _compute_score_frame(self, returns: pd.DataFrame) -> pd.DataFrame:
+    def _compute_score_frame(
+        self, returns: pd.DataFrame, config_data: Mapping[str, Any] | None = None
+    ) -> pd.DataFrame:
         try:
-            config = Config(**self._base_config)
+            config = Config(**(config_data or self._base_config))
         except (TypeError, ValueError) as exc:
             self._logger.warning("Failed to parse base config for score frame: %s", exc)
             return pd.DataFrame()
