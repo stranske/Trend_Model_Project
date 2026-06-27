@@ -162,7 +162,7 @@ def _stub_mixture_path_evaluation(
     monkeypatch.setattr(
         runner,
         "_compute_score_frame",
-        lambda _returns: pd.DataFrame({"score": [1.0]}, index=["AssetA"]),
+        lambda _returns, config_data=None: pd.DataFrame({"score": [1.0]}, index=["AssetA"]),
     )
 
     def _fake_evaluate_strategy(

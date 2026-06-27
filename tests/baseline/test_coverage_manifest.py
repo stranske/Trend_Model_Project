@@ -10,7 +10,6 @@ issue automation can later read to raise "untested input element" issues.
 
 from __future__ import annotations
 
-
 from . import manifest
 from .conftest import load_catalog
 from .harness import REPO_ROOT

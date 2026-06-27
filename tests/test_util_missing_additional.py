@@ -8,8 +8,10 @@ import pandas as pd
 import pytest
 
 from trend_analysis.data import load_csv
-from trend_analysis.io.market_data import MarketDataValidationError
-from trend_analysis.io.market_data import _normalise_policy_value
+from trend_analysis.io.market_data import (
+    MarketDataValidationError,
+    _normalise_policy_value,
+)
 from trend_analysis.util import missing
 
 

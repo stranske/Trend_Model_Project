@@ -16,13 +16,13 @@ from typing import Any, Callable, cast
 import numpy as np
 import pandas as pd
 
-from trend.config_schema import CoreConfigError, validate_core_config
-from trend.diagnostics import DiagnosticPayload
 from trend.cli_helpers import (
     _apply_trend_spec_preset,
     _apply_universe_mask,
     _attach_universe_paths,
 )
+from trend.config_schema import CoreConfigError, validate_core_config
+from trend.diagnostics import DiagnosticPayload
 
 from . import export, pipeline
 from . import logging as run_logging

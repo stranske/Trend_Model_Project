@@ -3,8 +3,7 @@ from __future__ import annotations
 import pytest
 
 from trend_analysis.multi_period.engine import _resolve_portfolio_weighting
-from trend_analysis.weighting import EqualWeight
-from trend_analysis.weighting import ScorePropSimple
+from trend_analysis.weighting import EqualWeight, ScorePropSimple
 from trend_analysis.weights.risk_parity import RiskParity
 
 

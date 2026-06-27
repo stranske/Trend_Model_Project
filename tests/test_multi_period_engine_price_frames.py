@@ -173,6 +173,16 @@ def test_stable_period_seed_does_not_use_python_hash_randomization() -> None:
     assert mp_engine._stable_period_seed(-123, period) == 123 + expected_offset
 
 
+def test_seed_or_default_preserves_explicit_zero_seed() -> None:
+    period = "2020-01/2020-02"
+
+    assert mp_engine._seed_or_default(0) == 0
+    assert mp_engine._seed_or_default(None) == 42
+    assert mp_engine._stable_period_seed(mp_engine._seed_or_default(0), period) != (
+        mp_engine._stable_period_seed(mp_engine._seed_or_default(None), period)
+    )
+
+
 def test_run_requires_csv_path_when_frame_not_provided() -> None:
     cfg = DummyConfig()
     cfg.data = {}

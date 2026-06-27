@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import pandas as pd
 
-from trend_analysis.backtesting.harness import _infer_periods_per_year as harness_periods
+from trend_analysis.backtesting.harness import (
+    _infer_periods_per_year as harness_periods,
+)
 from trend_analysis.engine.walkforward import _infer_periods_per_year as engine_periods
 from trend_analysis.util.frequency import infer_periods_per_year
 

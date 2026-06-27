@@ -7,7 +7,10 @@ import pandas as pd
 
 from trend_analysis import api
 from trend_analysis.config import Config
-from trend_analysis.config.coverage import ConfigCoverageTracker, wrap_config_for_coverage
+from trend_analysis.config.coverage import (
+    ConfigCoverageTracker,
+    wrap_config_for_coverage,
+)
 from trend_analysis.llm.analysis_fleet import _config_fingerprint
 from trend_analysis.llm.tracing import load_fleet_records
 

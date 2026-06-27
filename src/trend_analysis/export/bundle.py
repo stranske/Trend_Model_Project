@@ -12,13 +12,13 @@ import matplotlib
 import pandas as pd
 
 from trend_analysis.backtesting import BacktestResult, CostModel, bootstrap_equity
+from trend_analysis.util.git import git_hash
 from trend_analysis.util.hash import (
     content_run_id,
     normalise_for_json,
     sha256_config,
     sha256_file,
 )
-from trend_analysis.util.git import git_hash
 
 
 def _git_hash() -> str:
