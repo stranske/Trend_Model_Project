@@ -1201,7 +1201,11 @@ class MonteCarloRunner:
                 ratio = candidate
         merged["sample_split"] = {"method": "ratio", "ratio": ratio}
         multi_period_max_window = self._align_multi_period(merged, context)
-        max_window = multi_period_max_window or max(2, self._compute_n_periods() // 2)
+        horizon_rows = self._compute_n_periods()
+        if context is not None and isinstance(context.returns, pd.DataFrame):
+            horizon_rows = max(1, len(context.returns))
+        fallback_window = min(max(2, horizon_rows // 2), horizon_rows)
+        max_window = multi_period_max_window or fallback_window
         self._fit_vol_adjust_window(merged, max_window)
         self._fit_signal_window(merged, max_window)
 
@@ -1566,8 +1570,11 @@ class MonteCarloRunner:
         """Coerce a portfolio stats object/mapping into a flat float metrics dict."""
         if stats is None:
             return {}
-        if isinstance(stats, Mapping):
-            items: Iterable[tuple[Any, Any]] = stats.items()
+        items: Iterable[tuple[Any, Any]]
+        if isinstance(stats, pd.Series):
+            items = stats.items()
+        elif isinstance(stats, Mapping):
+            items = stats.items()
         elif hasattr(stats, "__dict__"):
             items = vars(stats).items()
         else:

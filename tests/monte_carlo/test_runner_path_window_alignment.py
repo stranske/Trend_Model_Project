@@ -165,6 +165,21 @@ def test_align_path_windows_caps_to_retained_multi_period_in_sample_span() -> No
     assert merged["signals"]["min_periods"] == 2
 
 
+def test_align_path_windows_clamps_fallback_cap_to_path_length() -> None:
+    runner = _runner(horizon_years=2.0)
+    merged = {
+        "sample_split": {"method": "date", "date": "2017-12-31"},
+        "vol_adjust": {"enabled": True, "window": {"length": 63}},
+        "signals": {"kind": "tsmom", "window": 63, "min_periods": 63},
+    }
+    dates = pd.date_range("2025-01-31", periods=1, freq="ME")
+    runner._align_path_windows(merged, _context(dates))
+
+    assert merged["vol_adjust"]["window"]["length"] == 1
+    assert merged["signals"]["window"] == 1
+    assert merged["signals"]["min_periods"] == 1
+
+
 def test_path_context_score_frame_uses_path_aligned_windows(
     monkeypatch: Any,
 ) -> None:
@@ -251,6 +266,26 @@ def test_extract_portfolio_metrics_prefers_out_user_stats() -> None:
     assert source == "out_user_stats"
     assert metrics["sharpe"] == 1.5
     assert "is_avg_corr" not in metrics
+
+
+def test_extract_portfolio_metrics_accepts_series_stats() -> None:
+    runner = _runner()
+    per_fund = pd.DataFrame({"sharpe": [0.1, 0.2]}, index=["FundA", "FundB"])
+    run_result = RunResult(
+        metrics=per_fund,
+        details={
+            "out_user_stats": pd.Series(
+                {"sharpe": 1.5, "bad_inf": np.inf, "is_avg_corr": True}
+            )
+        },
+        seed=0,
+        environment={},
+    )
+
+    metrics, source = runner._extract_portfolio_metrics(run_result)
+
+    assert source == "out_user_stats"
+    assert metrics == {"sharpe": 1.5}
 
 
 def test_extract_portfolio_metrics_falls_back_to_metrics_frame() -> None:
