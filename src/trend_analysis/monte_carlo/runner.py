@@ -1164,10 +1164,12 @@ class MonteCarloRunner:
           cannot fit the horizon is dropped so the ratio split takes over.
         * Cap the rolling lookbacks ``vol_adjust.window`` and the trend
           ``signals.window`` -- tuned for long real history (defaults.yml and
-          the UI both use 63 periods) -- at half the horizon. Left uncapped they
-          never fill on a short path, the volatility estimate / trend signal is
-          all-NaN, and the weights collapse to a 100% cash portfolio (flat NAV,
-          NaN Sharpe). Windows that already fit are untouched.
+          the UI both use 63 periods) -- at the active multi-period in-sample
+          span when one is retained, otherwise at half the horizon. Left
+          uncapped they never fill on a short path, the volatility estimate /
+          trend signal is all-NaN, and the weights collapse to a 100% cash
+          portfolio (flat NAV, NaN Sharpe). Windows that already fit are
+          untouched.
         """
         ratio = 0.7
         existing = merged.get("sample_split")
@@ -1179,12 +1181,14 @@ class MonteCarloRunner:
             if candidate is not None and 0.0 < candidate < 1.0:
                 ratio = candidate
         merged["sample_split"] = {"method": "ratio", "ratio": ratio}
-        self._align_multi_period(merged, context)
-        max_window = max(2, self._compute_n_periods() // 2)
+        multi_period_max_window = self._align_multi_period(merged, context)
+        max_window = multi_period_max_window or max(2, self._compute_n_periods() // 2)
         self._fit_vol_adjust_window(merged, max_window)
         self._fit_signal_window(merged, max_window)
 
-    def _align_multi_period(self, merged: dict[str, Any], context: _PathContext | None) -> None:
+    def _align_multi_period(
+        self, merged: dict[str, Any], context: _PathContext | None
+    ) -> int | None:
         """Re-base ``multi_period`` onto the path span, keeping it only if viable.
 
         The base config's multi-period window is expressed in absolute historical
@@ -1198,11 +1202,11 @@ class MonteCarloRunner:
         multi_period = merged.get("multi_period")
         if not isinstance(multi_period, Mapping):
             merged.pop("multi_period", None)
-            return
+            return None
         span = self._path_period_span(context)
         if span is None:
             merged.pop("multi_period", None)
-            return
+            return None
         start, end = span
         rewritten = {**multi_period, "start": start, "end": end}
         from ..multi_period.scheduler import generate_periods
@@ -1214,8 +1218,38 @@ class MonteCarloRunner:
             periods = []
         if periods:
             merged["multi_period"] = rewritten
+            return self._multi_period_in_sample_cap(context, periods)
         else:
             merged.pop("multi_period", None)
+        return None
+
+    @staticmethod
+    def _multi_period_in_sample_cap(
+        context: _PathContext | None, periods: Sequence[Any]
+    ) -> int | None:
+        """Return the shortest retained in-sample row count for path windows."""
+        if context is None:
+            return None
+        returns = getattr(context, "returns", None)
+        if not isinstance(returns, pd.DataFrame) or "Date" not in returns.columns:
+            return None
+        dates = pd.to_datetime(returns["Date"], errors="coerce").dropna()
+        if dates.empty:
+            return None
+        caps: list[int] = []
+        for period in periods:
+            in_start = getattr(period, "in_start", None)
+            in_end = getattr(period, "in_end", None)
+            if in_start is None or in_end is None:
+                continue
+            start = pd.to_datetime(in_start, errors="coerce")
+            end = pd.to_datetime(in_end, errors="coerce")
+            if pd.isna(start) or pd.isna(end):
+                continue
+            count = int(((dates >= start) & (dates <= end)).sum())
+            if count > 0:
+                caps.append(count)
+        return max(1, min(caps)) if caps else None
 
     @staticmethod
     def _path_period_span(context: _PathContext | None) -> tuple[str, str] | None:
@@ -1273,8 +1307,21 @@ class MonteCarloRunner:
             length = int(window)
         except (TypeError, ValueError):
             return
+        updated: dict[str, Any] | None = None
+        effective_window = length
         if length > max_window:
-            merged["signals"] = {**signals, "window": max_window}
+            updated = {**signals, "window": max_window}
+            effective_window = max_window
+        min_periods = signals.get("min_periods")
+        try:
+            min_length = int(min_periods)
+        except (TypeError, ValueError):
+            min_length = None
+        if min_length is not None and min_length > effective_window:
+            updated = {**signals} if updated is None else updated
+            updated["min_periods"] = effective_window
+        if updated is not None:
+            merged["signals"] = updated
 
     def _apply_strategy_guards(self, merged: dict[str, Any]) -> None:
         strategy_set = self._strategy_set()
@@ -1506,7 +1553,7 @@ class MonteCarloRunner:
             if not isinstance(value, (int, float, np.floating, np.integer)):
                 continue
             numeric = float(value)
-            if math.isnan(numeric):
+            if not math.isfinite(numeric):
                 continue
             metrics[str(key)] = numeric
         return metrics

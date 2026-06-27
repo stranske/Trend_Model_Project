@@ -142,6 +142,29 @@ def test_align_multi_period_keeps_fitting_schedule_rebased_to_path() -> None:
     assert merged["multi_period"]["in_sample_len"] == 2
 
 
+def test_align_path_windows_caps_to_retained_multi_period_in_sample_span() -> None:
+    runner = _runner(horizon_years=0.5)  # n_periods=6, half-horizon cap would be 3
+    merged = {
+        "sample_split": {"method": "date", "date": "2017-12-31"},
+        "vol_adjust": {"enabled": True, "window": {"length": 63}},
+        "signals": {"kind": "tsmom", "window": 63, "min_periods": 63},
+        "multi_period": {
+            "frequency": "M",
+            "in_sample_len": 2,
+            "out_sample_len": 2,
+            "start": "1990-01",
+            "end": "1990-06",
+        },
+    }
+    dates = pd.date_range("2025-01-31", periods=6, freq="ME")
+    runner._align_path_windows(merged, _context(dates))
+
+    assert merged["multi_period"]["start"] == "2025-01"
+    assert merged["vol_adjust"]["window"]["length"] == 2
+    assert merged["signals"]["window"] == 2
+    assert merged["signals"]["min_periods"] == 2
+
+
 def test_align_multi_period_dropped_without_context() -> None:
     runner = _runner()
     merged = {"multi_period": {"frequency": "A", "in_sample_len": 3, "out_sample_len": 1}}
