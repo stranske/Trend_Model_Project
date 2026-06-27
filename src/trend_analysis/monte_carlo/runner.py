@@ -1174,8 +1174,9 @@ class MonteCarloRunner:
         ratio = 0.7
         existing = merged.get("sample_split")
         if isinstance(existing, Mapping) and str(existing.get("method", "")).lower() == "ratio":
+            ratio_value = existing.get("ratio")
             try:
-                candidate = float(existing.get("ratio"))
+                candidate = float(ratio_value) if ratio_value is not None else None
             except (TypeError, ValueError):
                 candidate = None
             if candidate is not None and 0.0 < candidate < 1.0:
@@ -1276,9 +1277,12 @@ class MonteCarloRunner:
             return
         window = vol_adjust.get("window")
         if isinstance(window, Mapping):
+            window_length = window.get("length")
             try:
-                length = int(window.get("length"))
+                length = int(window_length) if window_length is not None else None
             except (TypeError, ValueError):
+                return
+            if length is None:
                 return
             if length > max_window:
                 new_window = dict(window)
@@ -1303,6 +1307,8 @@ class MonteCarloRunner:
         if not isinstance(signals, Mapping):
             return
         window = signals.get("window")
+        if window is None:
+            return
         try:
             length = int(window)
         except (TypeError, ValueError):
@@ -1314,7 +1320,7 @@ class MonteCarloRunner:
             effective_window = max_window
         min_periods = signals.get("min_periods")
         try:
-            min_length = int(min_periods)
+            min_length = int(min_periods) if min_periods is not None else None
         except (TypeError, ValueError):
             min_length = None
         if min_length is not None and min_length > effective_window:
