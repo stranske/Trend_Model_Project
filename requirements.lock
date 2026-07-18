@@ -23,7 +23,7 @@ anyio==4.13.0
     #   starlette
     #   streamlit
     #   watchfiles
-ast-serialize==0.3.0
+ast-serialize==0.6.0
     # via mypy
 asttokens==3.0.1
     # via stack-data
@@ -58,7 +58,7 @@ comm==0.2.3
     # via ipywidgets
 contourpy==1.3.3
     # via matplotlib
-coverage==7.15.0
+coverage==7.15.2
     # via
     #   trend-model (pyproject.toml)
     #   pytest-cov
@@ -234,7 +234,7 @@ langsmith==0.9.3
     #   langchain-classic
     #   langchain-community
     #   langchain-core
-librt==0.11.0
+librt==0.13.0
     # via mypy
 markupsafe==3.0.3
     # via jinja2
@@ -250,7 +250,7 @@ multidict==6.7.1
     # via
     #   aiohttp
     #   yarl
-mypy==2.1.0
+mypy==2.3.0
     # via trend-model (pyproject.toml)
 mypy-extensions==1.1.0
     # via
@@ -448,7 +448,7 @@ rpds-py==0.30.0
     # via
     #   jsonschema
     #   referencing
-ruff==0.15.20
+ruff==0.15.22
     # via trend-model (pyproject.toml)
 scipy==1.18.0
     # via trend-model (pyproject.toml)
