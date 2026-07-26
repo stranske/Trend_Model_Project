@@ -228,7 +228,7 @@ langgraph-prebuilt==1.1.0
     # via langgraph
 langgraph-sdk==0.4.2
     # via langgraph
-langsmith==0.9.3
+langsmith==0.10.9
     # via
     #   trend-model (pyproject.toml)
     #   langchain-classic
