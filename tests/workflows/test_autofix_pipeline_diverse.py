@@ -54,6 +54,9 @@ def test_autofix_pipeline_handles_diverse_errors(
         dedent("""
             [tool.black]
             line-length = 88
+
+            [tool.ruff.lint]
+            select = ["E4", "E7", "E9", "F"]
             """).lstrip(),
         encoding="utf-8",
     )
