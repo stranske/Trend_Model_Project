@@ -136,6 +136,10 @@ dev = [
 ]
 
 [tool.black]
+# Must equal the CI gate in ci.yml (black --check --line-length 100). Because the pre-commit
+# hook and scripts/style_gate_local.sh both invoke black with no --line-length flag, they read
+# this value - so setting it here is what keeps local formatting and CI in agreement.
+line-length = 100
 extend-exclude = '''
 /(
         Old

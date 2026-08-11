@@ -113,9 +113,7 @@ class DummyStreamlit:
             return self.multiselect_returns.pop(0)
         return []
 
-    def selectbox(
-        self, label: str, options: list[str], index: int = 0, **_kwargs: Any
-    ) -> str:
+    def selectbox(self, label: str, options: list[str], index: int = 0, **_kwargs: Any) -> str:
         self.selectbox_calls.append((label, list(options)))
         if self.selectbox_returns:
             return self.selectbox_returns.pop(0)
@@ -300,9 +298,7 @@ def test_scenario_picker_and_tag_filtering(monkeypatch: pytest.MonkeyPatch) -> N
 
     calls: list[dict[str, Any]] = []
 
-    def fake_list_scenarios(
-        *, tags: list[str] | None = None
-    ) -> list[ScenarioRegistryEntry]:
+    def fake_list_scenarios(*, tags: list[str] | None = None) -> list[ScenarioRegistryEntry]:
         calls.append({"tags": tags})
         if tags:
             return [entry for entry in scenarios if set(tags) & set(entry.tags)]
@@ -601,16 +597,12 @@ def test_download_link_generation(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "application/x-parquet" in mimes
     assert "application/zip" in mimes
 
-    csv_entry = next(
-        entry for entry in stub.downloads if entry.get("mime") == "text/csv"
-    )
+    csv_entry = next(entry for entry in stub.downloads if entry.get("mime") == "text/csv")
     assert isinstance(csv_entry.get("data"), str)
     assert "Strategy" in csv_entry.get("data")
 
     parquet_entry = next(
-        entry
-        for entry in stub.downloads
-        if entry.get("mime") == "application/x-parquet"
+        entry for entry in stub.downloads if entry.get("mime") == "application/x-parquet"
     )
     parquet_data = parquet_entry.get("data")
     assert hasattr(parquet_data, "getvalue")
@@ -661,9 +653,7 @@ def test_render_results_surfaces_png_export_warning(
     page._render_results(_sample_results(), fold_selection=None)
 
     assert any("PNG export warnings" in message for message in stub.warning_messages)
-    assert any(
-        entry.get("label") == "Download charts bundle" for entry in stub.downloads
-    )
+    assert any(entry.get("label") == "Download charts bundle" for entry in stub.downloads)
 
 
 def test_download_payload_file_names_use_timestamp(
@@ -754,9 +744,7 @@ def test_build_download_payloads_zip_bundle_content(
     filtered_results = _sample_results().results_frame
 
     payloads = page._build_download_payloads(summary_table, filtered_results)
-    zip_payload = next(
-        payload for payload in payloads if payload["mime"] == "application/zip"
-    )
+    zip_payload = next(payload for payload in payloads if payload["mime"] == "application/zip")
     zip_buffer = zip_payload["data"]
 
     assert zip_payload["label"] == "Download ZIP bundle"
@@ -780,9 +768,7 @@ def test_build_download_payloads_binary_buffers_are_rewound(
     parquet_payload = next(
         payload for payload in payloads if payload["mime"] == "application/x-parquet"
     )
-    zip_payload = next(
-        payload for payload in payloads if payload["mime"] == "application/zip"
-    )
+    zip_payload = next(payload for payload in payloads if payload["mime"] == "application/zip")
 
     parquet_buffer = parquet_payload["data"]
     zip_buffer = zip_payload["data"]
@@ -811,9 +797,7 @@ def test_build_download_payloads_tolerates_buffer_closing_engine(
 
     real_to_parquet = pd.DataFrame.to_parquet
 
-    def closing_to_parquet(
-        self: pd.DataFrame, path: Any = None, *args: Any, **kwargs: Any
-    ) -> Any:
+    def closing_to_parquet(self: pd.DataFrame, path: Any = None, *args: Any, **kwargs: Any) -> Any:
         result = real_to_parquet(self, path, *args, **kwargs)
         # fastparquet closes any open file object it is handed (a path does not).
         if hasattr(path, "close"):
@@ -834,9 +818,7 @@ def test_build_download_payloads_tolerates_buffer_closing_engine(
     parquet_bytes = parquet_payload["data"].getvalue()
     assert parquet_bytes[:4] == b"PAR1"
 
-    zip_payload = next(
-        payload for payload in payloads if payload["mime"] == "application/zip"
-    )
+    zip_payload = next(payload for payload in payloads if payload["mime"] == "application/zip")
     with zipfile.ZipFile(BytesIO(zip_payload["data"].getvalue())) as bundle:
         assert set(bundle.namelist()) == {"summary.csv", "representative_paths.parquet"}
 
@@ -858,9 +840,7 @@ def test_build_download_payloads_degrades_when_parquet_unavailable(
     assert "text/csv" in mimes
     assert "application/x-parquet" not in mimes  # parquet omitted, not crashing
 
-    zip_payload = next(
-        payload for payload in payloads if payload["mime"] == "application/zip"
-    )
+    zip_payload = next(payload for payload in payloads if payload["mime"] == "application/zip")
     with zipfile.ZipFile(BytesIO(zip_payload["data"].getvalue())) as bundle:
         assert bundle.namelist() == ["summary.csv"]
 

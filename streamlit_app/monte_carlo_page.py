@@ -87,9 +87,7 @@ def _analysis_frame_from_session(
         regime_proxy = model_state.get("regime_proxy")
     prohibited = {selected_rf, benchmark, info_ratio_benchmark, regime_proxy} - {None}
 
-    sanitized_funds = [
-        c for c in applied_funds if c in returns.columns and c not in prohibited
-    ]
+    sanitized_funds = [c for c in applied_funds if c in returns.columns and c not in prohibited]
     if not sanitized_funds:
         # The one-click demo (and any flow that never visited the Data page)
         # leaves no explicit fund selection in session. Without this fallback
@@ -257,9 +255,7 @@ def _fold_options(scenario: MonteCarloScenario) -> list[str]:
     return options
 
 
-def _filter_results_by_fold(
-    results: pd.DataFrame, selection: str | None
-) -> pd.DataFrame:
+def _filter_results_by_fold(results: pd.DataFrame, selection: str | None) -> pd.DataFrame:
     if not selection or selection == "All folds":
         return results
     if results.empty:
@@ -313,9 +309,7 @@ def _fold_selection_for_adapters(selection: str | None) -> int | str | None:
     return selection
 
 
-def _render_diagnostic_charts(
-    summary: pd.DataFrame, paths: pd.DataFrame
-) -> dict[str, go.Figure]:
+def _render_diagnostic_charts(summary: pd.DataFrame, paths: pd.DataFrame) -> dict[str, go.Figure]:
     charts: dict[str, go.Figure] = {}
     if summary.empty:
         st.warning("Diagnostics unavailable: summary frame is empty.")
@@ -334,9 +328,7 @@ def _render_diagnostic_charts(
     try:
         sharpe_fig = sharpe_ladder_chart.make(summary, metric="sharpe")
     except Exception:
-        st.warning(
-            "Sharpe ladder unavailable: summary does not include a usable 'sharpe' metric."
-        )
+        st.warning("Sharpe ladder unavailable: summary does not include a usable 'sharpe' metric.")
         sharpe_fig = go.Figure()
     corr_fig = corr_heatmap_chart.build_figure(paths, window=60)
     rolling_fig = rolling_panel_chart.build_figure(
@@ -431,9 +423,7 @@ def _render_results(
         if tokens and tokens[-1].isdigit():
             fold_id = int(tokens[-1])
     nav_paths = _extract_nav_paths(results, fold_id=fold_id)
-    canonical_paths = (
-        _cached_make_paths(nav_paths) if not nav_paths.empty else pd.DataFrame()
-    )
+    canonical_paths = _cached_make_paths(nav_paths) if not nav_paths.empty else pd.DataFrame()
 
     st.subheader("Charts")
     chart_bundle_inputs: dict[str, go.Figure] = {}
@@ -441,28 +431,20 @@ def _render_results(
     with tabs[0]:
         if nav_paths.empty:
             st.warning("No NAV paths available for the selected fold.")
-        chart_bundle_inputs["Sharpe Histogram"] = mc_plots.render_sharpe_histogram(
-            filtered_results
-        )
+        chart_bundle_inputs["Sharpe Histogram"] = mc_plots.render_sharpe_histogram(filtered_results)
         chart_bundle_inputs["Fan Chart"] = mc_plots.render_fan_chart(nav_paths)
-        chart_bundle_inputs["Path Distribution"] = (
-            mc_plots.render_path_distribution_chart(filtered_results)
-        )
-        chart_bundle_inputs["Risk Return"] = mc_plots.render_risk_return_chart(
+        chart_bundle_inputs["Path Distribution"] = mc_plots.render_path_distribution_chart(
             filtered_results
         )
-        chart_bundle_inputs["Strategy Box Plot"] = mc_plots.render_box_plot(
-            filtered_results
-        )
+        chart_bundle_inputs["Risk Return"] = mc_plots.render_risk_return_chart(filtered_results)
+        chart_bundle_inputs["Strategy Box Plot"] = mc_plots.render_box_plot(filtered_results)
         chart_bundle_inputs["Outcome CDF"] = mc_plots.render_cdf_plot(filtered_results)
     with tabs[1]:
         chart_bundle_inputs.update(_render_diagnostic_charts(summary, canonical_paths))
 
     st.subheader("Downloads")
     payloads = _build_download_payloads(summary_table, filtered_results)
-    chart_bundle_payload, chart_bundle_warnings = _build_chart_bundle_payload(
-        chart_bundle_inputs
-    )
+    chart_bundle_payload, chart_bundle_warnings = _build_chart_bundle_payload(chart_bundle_inputs)
     if chart_bundle_payload is not None:
         payloads.append(chart_bundle_payload)
     warning_text = _png_export_warning_message(chart_bundle_warnings)
