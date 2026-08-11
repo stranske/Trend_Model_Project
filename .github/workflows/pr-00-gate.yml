@@ -71,7 +71,12 @@ jobs:
     with:
       python-versions: '["3.12", "3.13"]'
       coverage-min: "80"
-      format_check: false  # Using ruff for formatting
+      # Must stay true: ci.yml enforces `black --check --line-length 100` on push to phase-3,
+      # so a PR gate that skips the format check lets unformatted code merge green and redden
+      # the default branch on the very next push. The old comment here ("Using ruff for
+      # formatting") was inaccurate - this repo does not run `ruff format`, and its ruff config
+      # is lint.select = ["E4","E7","E9","F"], which performs no formatting at all.
+      format_check: true
       working-directory: "."
       artifact-prefix: "gate-"
       # Keep PR Gate fast: the MC-viz CLI integration suite runs in a dedicated
