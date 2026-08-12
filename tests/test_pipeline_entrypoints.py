@@ -231,15 +231,31 @@ def test_run_full_propagates_analysis_payload(
     monkeypatch.setattr(pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split)
     monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
 
+    base_config["portfolio"] = {
+        "weighting_scheme": "equal",
+        "weighting": {"name": "score_prop_bayes"},
+        "cost_model": {"per_trade_bps": 12, "half_spread_bps": 3},
+    }
     payload = {
         "out_sample_stats": {"FundA": _sample_stats(0.4)},
         "benchmark_ir": {},
         "risk_diagnostics": {"entries": 1},
     }
-    monkeypatch.setattr(pipeline, "_run_analysis", lambda *_, **__: payload)
+    captured_kwargs: dict[str, object] = {}
+    captured_args: tuple[object, ...] = ()
+
+    def fake_run_analysis(*_args, **kwargs):
+        nonlocal captured_args
+        captured_args = _args
+        captured_kwargs.update(kwargs)
+        return payload
+
+    monkeypatch.setattr(pipeline, "_run_analysis", fake_run_analysis)
 
     result = pipeline.run_full(base_config)
     assert result.unwrap() is payload
+    assert captured_kwargs["weighting_scheme"] == "score_prop_bayes"
+    assert captured_args[6] == pytest.approx(0.0015)
 
 
 def test_run_full_returns_empty_when_analysis_none(
