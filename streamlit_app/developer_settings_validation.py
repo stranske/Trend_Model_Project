@@ -548,9 +548,8 @@ def render_validation_page() -> None:
     """Render the developer Settings Validation page."""
 
     active_profile = demo_profile.get_active_profile()
-    if (
-        not demo_profile.custom_analysis_enabled(active_profile)
-        and not st.session_state.get("show_perf_diagnostics")
+    if not demo_profile.custom_analysis_enabled(active_profile) and not st.session_state.get(
+        "show_perf_diagnostics"
     ):
         st.warning(
             "Developer settings validation is disabled in **presentation_safe** mode. "

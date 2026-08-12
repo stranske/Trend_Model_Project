@@ -172,9 +172,9 @@ def test_other_page_entrypoints_initialize_demo_profile(page: str) -> None:
 
 
 def test_developer_validation_entrypoint_initializes_demo_profile() -> None:
-    source = (
-        REPO_ROOT / "streamlit_app" / "developer_settings_validation.py"
-    ).read_text(encoding="utf-8")
+    source = (REPO_ROOT / "streamlit_app" / "developer_settings_validation.py").read_text(
+        encoding="utf-8"
+    )
 
     assert "demo_profile.initialize_profile(st)" in source
 
