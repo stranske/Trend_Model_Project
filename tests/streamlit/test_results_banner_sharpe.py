@@ -12,9 +12,7 @@ def test_banner_sharpe_is_portfolio_level_or_absent(monkeypatch) -> None:
     monkeypatch.setattr(page.st, "session_state", {})
     result = SimpleNamespace(
         details={
-            "out_sample_scaled": pd.DataFrame(
-                {"Fund A": [0.02, 0.01], "Fund B": [0.01, 0.02]}
-            ),
+            "out_sample_scaled": pd.DataFrame({"Fund A": [0.02, 0.01], "Fund B": [0.01, 0.02]}),
             "fund_weights": {"Fund A": 0.5, "Fund B": 0.5},
         },
         metrics=pd.DataFrame({"Sharpe": [-2.04, 1.14]}, index=["Fund A", "Fund B"]),
