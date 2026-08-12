@@ -364,7 +364,8 @@ def _trend_spec_summary(spec: Any | None) -> list[tuple[str, str]]:
     if isinstance(zscore, bool):
         zscore_text = "Enabled" if zscore else "Disabled"
     elif isinstance(zscore, (int, float)):
-        zscore_text = f"Scale {float(zscore):g}"
+        scale = float(zscore)
+        zscore_text = f"Scale {scale:g}" if math.isfinite(scale) and scale > 0 else "Disabled"
     else:
         zscore_text = "Disabled"
     entries.append(("Signal z-score", zscore_text))

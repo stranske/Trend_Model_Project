@@ -42,3 +42,15 @@ def test_shared_parser_agrees_across_entrypoints() -> None:
 
 def test_runtime_no_signals_policy_is_preserved() -> None:
     assert build_runtime_trend_spec({"risk_window": 126}, {"enabled": True}) is None
+
+
+def test_compatibility_no_signals_spec_uses_runtime_fallback() -> None:
+    spec = build_compatibility_trend_spec({"vol_adjust": {"enabled": True}})
+
+    assert spec.vol_adjust is False
+
+
+def test_report_disables_invalid_numeric_zscore_scales() -> None:
+    for invalid_scale in (0.0, -1.0, float("nan"), float("inf")):
+        params = dict(unified._trend_spec_summary(TrendSpec(zscore=invalid_scale)))
+        assert params["Signal z-score"] == "Disabled"
