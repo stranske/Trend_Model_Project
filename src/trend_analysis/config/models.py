@@ -58,6 +58,8 @@ class ConfigProtocol(Protocol):
     ALL_FIELDS: ClassVar[List[str]]
 
     version: str
+    identity: dict[str, Any]
+    extra: dict[str, Any]
     data: dict[str, Any]
     preprocessing: dict[str, Any]
     vol_adjust: dict[str, Any]
@@ -69,6 +71,8 @@ class ConfigProtocol(Protocol):
     export: dict[str, Any]
     output: dict[str, Any] | None
     run: dict[str, Any]
+    strategy: dict[str, Any]
+    walk_forward: dict[str, Any]
     multi_period: dict[str, Any] | None
     jobs: int | None
     checkpoint_dir: str | None
@@ -205,7 +209,19 @@ if _HAS_PYDANTIC:
         """Typed access to the YAML configuration (Pydantic mode)."""
 
         # Field lists generated dynamically from model fields to prevent maintenance burden
-        OPTIONAL_DICT_FIELDS: ClassVar[set[str]] = {"performance", "signals", "regime"}
+        # These sections are accepted by the closed top-level schema but are
+        # optional in the shipped and legacy configurations.  Keep this list in
+        # sync with the fallback model: ``_dict_field_names`` drives
+        # ``REQUIRED_DICT_FIELDS`` for the runtime validation layer.
+        OPTIONAL_DICT_FIELDS: ClassVar[set[str]] = {
+            "extra",
+            "identity",
+            "performance",
+            "regime",
+            "signals",
+            "strategy",
+            "walk_forward",
+        }
 
         @classmethod
         def _dict_field_names(cls) -> List[str]:
@@ -270,7 +286,10 @@ if _HAS_PYDANTIC:
 
         # Use a plain dict for model_config to avoid type-checker issues when
         # Pydantic is not installed (tests toggle availability).
-        model_config = {"extra": "ignore"}
+        # Keep the production model closed at the top level.  Every supported
+        # top-level section is declared below, so a misspelled section cannot be
+        # silently discarded before the pipeline sees it.
+        model_config = {"extra": "forbid"}
         # ``version`` must be a non-empty string. ``min_length`` handles the empty
         # string case and produces the standard pydantic error message
         # "String should have at least 1 character". A separate validator below
@@ -287,9 +306,13 @@ if _HAS_PYDANTIC:
         signals: dict[str, Any] = Field(default_factory=dict)
         export: dict[str, Any] = Field(default_factory=dict)
         performance: dict[str, Any] = Field(default_factory=dict)
+        identity: dict[str, Any] = Field(default_factory=dict)
+        extra: dict[str, Any] = Field(default_factory=dict)
         output: dict[str, Any] | None = None
         run: dict[str, Any] = Field(default_factory=dict)
         multi_period: dict[str, Any] | None = None
+        strategy: dict[str, Any] = Field(default_factory=dict)
+        walk_forward: dict[str, Any] = Field(default_factory=dict)
         jobs: int | None = None
         checkpoint_dir: str | None = None
         seed: int = 42
@@ -447,14 +470,27 @@ else:  # Fallback mode for tests without pydantic
             "signals",
             "export",
             "performance",
+            "identity",
+            "extra",
             "output",
             "run",
+            "multi_period",
+            "strategy",
+            "walk_forward",
             "jobs",
             "checkpoint_dir",
             "seed",
         ]
 
-        OPTIONAL_DICT_FIELDS: ClassVar[set[str]] = {"performance", "signals", "regime"}
+        OPTIONAL_DICT_FIELDS: ClassVar[set[str]] = {
+            "extra",
+            "identity",
+            "performance",
+            "regime",
+            "signals",
+            "strategy",
+            "walk_forward",
+        }
 
         # Attribute declarations for linters/type-checkers
         version: str
@@ -469,9 +505,13 @@ else:  # Fallback mode for tests without pydantic
         signals: Dict[str, Any]
         export: Dict[str, Any]
         performance: Dict[str, Any]
+        identity: Dict[str, Any]
+        extra: Dict[str, Any]
         output: Dict[str, Any] | None
         run: Dict[str, Any]
         multi_period: Dict[str, Any] | None
+        strategy: Dict[str, Any]
+        walk_forward: Dict[str, Any]
         jobs: int | None
         checkpoint_dir: str | None
         seed: int
@@ -489,8 +529,13 @@ else:  # Fallback mode for tests without pydantic
                 "signals": {},
                 "export": {},
                 "performance": {},
+                "identity": {},
+                "extra": {},
                 "output": None,
                 "run": {},
+                "multi_period": None,
+                "strategy": {},
+                "walk_forward": {},
                 "jobs": None,
                 "checkpoint_dir": None,
                 "seed": 42,
@@ -523,6 +568,12 @@ else:  # Fallback mode for tests without pydantic
                     raise ValueError(f"{field} section is required")
                 if not isinstance(value, dict):
                     raise ValueError(f"{field} must be a dictionary")
+            for optional_field in self.OPTIONAL_DICT_FIELDS:
+                value = getattr(self, optional_field, None)
+                if value is None:
+                    continue
+                if not isinstance(value, dict):
+                    raise ValueError(f"{optional_field} must be a dictionary")
             # Light-weight validation for turnover / cost controls
             port = getattr(self, "portfolio", {})
             if isinstance(port, dict):

@@ -145,10 +145,20 @@ _DECLARED_RUN_KEYS = {
     "output_dir",
     "seed",
 }
+_DECLARED_PREPROCESSING_KEYS = {
+    "de_duplicate",
+    "holiday_calendar",
+    "log_prices",
+    "missing_data",
+    "resample",
+    "steps",
+    "winsorise",
+}
 
 _CLOSED_SECTIONS: dict[str, set[str]] = {
     "metrics": _DECLARED_METRICS_KEYS,
     "export": _DECLARED_EXPORT_KEYS,
+    "preprocessing": _DECLARED_PREPROCESSING_KEYS,
     "run": _DECLARED_RUN_KEYS,
 }
 

@@ -13,7 +13,7 @@ import pandas as pd
 import yaml
 
 from ..config import Config
-from ..config.models import DEFAULTS
+from ..config.models import DEFAULTS, Config as ConfigModel
 from ..diagnostics import coerce_pipeline_result
 from .plugins import discover_plugins, iter_plugins
 from .store import ParamStore
@@ -351,6 +351,64 @@ def reset_weight_state(store: ParamStore) -> None:
         WEIGHT_STATE_FILE.unlink()
 
 
+_GUI_STORE_KEYS = frozenset({"mode", "rank", "use_ranking", "use_vol_adjust"})
+
+
+def _as_dict(v: Any) -> Dict[str, Any]:
+    return dict(v) if isinstance(v, dict) else {}
+
+
+_REQUIRED_MAPPING_SECTIONS = (
+    "data",
+    "preprocessing",
+    "vol_adjust",
+    "sample_split",
+    "portfolio",
+    "benchmarks",
+    "metrics",
+    "export",
+    "run",
+)
+
+
+def _ensure_mapping_sections(cfg: Dict[str, Any]) -> None:
+    """Best-effort ensure mapping types for top-level config sections."""
+    for section in _REQUIRED_MAPPING_SECTIONS:
+        cfg[section] = _as_dict(cfg.get(section))
+    if "multi_period" not in cfg:
+        cfg["multi_period"] = {}
+    elif cfg["multi_period"] is not None:
+        cfg["multi_period"] = _as_dict(cfg.get("multi_period"))
+
+
+def _normalize_gui_store_cfg(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Translate legacy GUI store keys into the strict top-level Config schema."""
+    normalized = dict(cfg)
+    portfolio = _as_dict(normalized.get("portfolio"))
+
+    mode = normalized.pop("mode", None)
+    if mode is not None and "selection_mode" not in portfolio:
+        portfolio["selection_mode"] = mode
+
+    rank = normalized.pop("rank", None)
+    if isinstance(rank, dict):
+        existing_rank = portfolio.get("rank")
+        portfolio["rank"] = (
+            {**_as_dict(existing_rank), **rank} if isinstance(existing_rank, dict) else dict(rank)
+        )
+
+    for gui_key in _GUI_STORE_KEYS:
+        normalized.pop(gui_key, None)
+
+    if portfolio:
+        normalized["portfolio"] = portfolio
+
+    # ``Config`` remains an injectable factory for GUI tests and callers; use
+    # the concrete schema class to identify the strict top-level fields.
+    allowed = set(ConfigModel.ALL_FIELDS)
+    return {key: value for key, value in normalized.items() if key in allowed}
+
+
 def build_config_dict(store: ParamStore) -> Dict[str, Any]:
     """Return the config dictionary kept in ``store`` as a plain dict."""
     cfg = dict(store.cfg)
@@ -360,20 +418,7 @@ def build_config_dict(store: ParamStore) -> Dict[str, Any]:
     if set(cfg.keys()) <= {"mode", "output"}:
         return cfg
 
-    # Best-effort ensure mapping types for top-level sections
-    def as_dict(v: Any) -> Dict[str, Any]:
-        return dict(v) if isinstance(v, dict) else {}
-
-    cfg.setdefault("data", as_dict(cfg.get("data")))
-    cfg.setdefault("preprocessing", as_dict(cfg.get("preprocessing")))
-    cfg.setdefault("vol_adjust", as_dict(cfg.get("vol_adjust")))
-    cfg.setdefault("sample_split", as_dict(cfg.get("sample_split")))
-    cfg.setdefault("portfolio", as_dict(cfg.get("portfolio")))
-    cfg.setdefault("benchmarks", as_dict(cfg.get("benchmarks")))
-    cfg.setdefault("metrics", as_dict(cfg.get("metrics")))
-    cfg.setdefault("export", as_dict(cfg.get("export")))
-    cfg.setdefault("run", as_dict(cfg.get("run")))
-    cfg.setdefault("multi_period", as_dict(cfg.get("multi_period")))
+    _ensure_mapping_sections(cfg)
     return cfg
 
 
@@ -409,6 +454,8 @@ def _ensure_version(cfg: Dict[str, Any]) -> None:
 def build_config_from_store(store: ParamStore) -> ConfigType:
     """Convert ``store`` into a :class:`Config` object."""
     cfg: Dict[str, Any] = build_config_dict(store)
+    cfg = _normalize_gui_store_cfg(cfg)
+    _ensure_mapping_sections(cfg)
     _ensure_version(cfg)
     return Config(**cfg)
 
