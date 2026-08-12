@@ -123,6 +123,23 @@ def get_active_profile() -> str:
     return _active_profile_from_module(st)
 
 
+def initialize_profile(st_module=None) -> str:
+    """Resolve and persist a valid deep-link profile without rendering controls.
+
+    Every Streamlit page must call this at entry so a valid ``?profile=`` is
+    retained even when a visitor lands on a page that does not show the demo
+    mode switcher.  Keeping this separate from :func:`render_profile_controls`
+    lets informational pages preserve the profile without adding duplicate UI.
+    """
+
+    if st_module is None:
+        try:
+            import streamlit as st_module  # noqa: PLC0415
+        except ModuleNotFoundError:
+            return get_active_profile()
+    return _active_profile_from_module(st_module)
+
+
 def _active_profile_from_module(st_module) -> str:
     """Resolve the active profile from an injected Streamlit-like module."""
 
@@ -221,6 +238,10 @@ def render_profile_controls(st_module=None) -> str:
 
     active = _active_profile_from_module(st_module)
     sidebar = getattr(st_module, "sidebar", st_module)
+    # Lightweight test adapters and embedded hosts may expose ``sidebar`` as a
+    # layout context but keep widgets on the root module.
+    if not hasattr(sidebar, "selectbox"):
+        sidebar = st_module
     try:
         index = VALID_PROFILES.index(active)
     except ValueError:

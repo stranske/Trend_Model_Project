@@ -30,12 +30,14 @@ st.set_page_config(
     layout="wide",
 )
 
+from streamlit_app import demo_profile  # noqa: E402
 from streamlit_app import state as app_state  # noqa: E402
 from streamlit_app.components import analysis_runner  # noqa: E402
 from streamlit_app.theme import apply_density_compact, apply_ds_theme  # noqa: E402
 
 apply_ds_theme()
 apply_density_compact()
+demo_profile.initialize_profile(st)
 
 # =============================================================================
 # Setting Definitions
