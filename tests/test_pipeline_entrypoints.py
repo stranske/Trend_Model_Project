@@ -3,6 +3,10 @@ import pandas as pd
 import pytest
 
 import trend_analysis.pipeline as pipeline
+from trend_analysis.pipeline_entrypoints import (
+    _resolve_single_period_monthly_cost,
+    _resolve_single_period_weighting_scheme,
+)
 
 
 def _sample_stats(value: float = 0.1) -> pipeline._Stats:  # type: ignore[name-defined]
@@ -23,6 +27,49 @@ def _sample_stats(value: float = 0.1) -> pipeline._Stats:  # type: ignore[name-d
 def test_run_requires_csv_path() -> None:
     with pytest.raises(KeyError):
         pipeline.run({})
+
+
+def test_same_config_same_numbers_across_entrypoints() -> None:
+    """Single-period config resolution matches the multi-period cost contract."""
+
+    portfolio = {
+        "transaction_cost_bps": 12,
+        "cost_model": {"slippage_bps": 3},
+        "weighting": {"name": "score_prop_bayes"},
+    }
+
+    assert _resolve_single_period_weighting_scheme(portfolio, dict.get) == "score_prop_bayes"
+    assert _resolve_single_period_monthly_cost(portfolio, {}) == pytest.approx(0.0015)
+
+
+@pytest.mark.parametrize("invalid", [float("nan"), float("inf"), -1])
+def test_single_period_costs_reject_non_finite_and_negative_values(invalid: float) -> None:
+    with pytest.raises(ValueError, match="finite and non-negative"):
+        _resolve_single_period_monthly_cost({"transaction_cost_bps": invalid}, {})
+    with pytest.raises(ValueError, match="finite and non-negative"):
+        _resolve_single_period_monthly_cost({}, {"monthly_cost": invalid})
+
+
+def test_single_period_cost_model_honours_effective_override_fields() -> None:
+    portfolio = {
+        "cost_model": {
+            "bps_per_trade": 1,
+            "per_trade_bps": 12,
+            "slippage_bps": 2,
+            "half_spread_bps": 3,
+        }
+    }
+
+    assert _resolve_single_period_monthly_cost(portfolio, {}) == pytest.approx(0.0015)
+
+
+def test_single_period_legacy_weighting_scheme_overrides_nested_name() -> None:
+    portfolio = {
+        "weighting_scheme": "risk_parity",
+        "weighting": {"name": "score_prop_bayes"},
+    }
+
+    assert _resolve_single_period_weighting_scheme(portfolio, dict.get) == "risk_parity"
 
 
 @pytest.fixture(name="sample_frame")
@@ -184,15 +231,31 @@ def test_run_full_propagates_analysis_payload(
     monkeypatch.setattr(pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split)
     monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
 
+    base_config["portfolio"] = {
+        "weighting_scheme": "equal",
+        "weighting": {"name": "score_prop_bayes"},
+        "cost_model": {"per_trade_bps": 12, "half_spread_bps": 3},
+    }
     payload = {
         "out_sample_stats": {"FundA": _sample_stats(0.4)},
         "benchmark_ir": {},
         "risk_diagnostics": {"entries": 1},
     }
-    monkeypatch.setattr(pipeline, "_run_analysis", lambda *_, **__: payload)
+    captured_kwargs: dict[str, object] = {}
+    captured_args: tuple[object, ...] = ()
+
+    def fake_run_analysis(*_args, **kwargs):
+        nonlocal captured_args
+        captured_args = _args
+        captured_kwargs.update(kwargs)
+        return payload
+
+    monkeypatch.setattr(pipeline, "_run_analysis", fake_run_analysis)
 
     result = pipeline.run_full(base_config)
     assert result.unwrap() is payload
+    assert captured_kwargs["weighting_scheme"] == "score_prop_bayes"
+    assert captured_args[6] == pytest.approx(0.0015)
 
 
 def test_run_full_returns_empty_when_analysis_none(

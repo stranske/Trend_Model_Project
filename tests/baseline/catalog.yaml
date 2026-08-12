@@ -37,7 +37,9 @@ scenarios:
     tier: 1
     param: portfolio.constraints.max_weight
     description: Lowering the max-weight cap should lower the largest held weight.
-    base: {}
+    # demo.yml keeps vol_adjust disabled for speed; this scenario needs targeting on
+    # so max_weight constraints bind on vol-adjusted (non-equal) weights.
+    base: {vol_adjust.enabled: true}
     control: {portfolio.constraints.max_weight: 0.25}
     vary: {portfolio.constraints.max_weight: 0.05}   # 0.05 binds on the demo (0.10 did not)
     metric: max_weight

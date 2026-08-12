@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import logging
+import math
 from dataclasses import dataclass
 from typing import Any, Mapping, cast
 
@@ -40,6 +41,69 @@ def _accepts_keyword(func: Any, keyword: str) -> bool:
     return keyword in params or any(
         param.kind is inspect.Parameter.VAR_KEYWORD for param in params.values()
     )
+
+
+def _resolve_single_period_weighting_scheme(portfolio_cfg: Any, section_get: Any) -> str:
+    """Use the same public weighting-key precedence as the multi-period engine."""
+
+    weighting_cfg = section_get(portfolio_cfg, "weighting", {})
+    nested_name = section_get(weighting_cfg, "name") if isinstance(weighting_cfg, Mapping) else None
+    legacy_name = section_get(portfolio_cfg, "weighting_scheme")
+    if legacy_name not in (None, "", "equal", "custom"):
+        return _normalise_single_period_weighting_name(legacy_name)
+    if nested_name not in (None, ""):
+        return _normalise_single_period_weighting_name(nested_name)
+    return _normalise_single_period_weighting_name(legacy_name)
+
+
+def _normalise_single_period_weighting_name(value: Any) -> str:
+    return {"ew": "equal", "robust": "robust_mv"}.get(
+        str(value or "equal").strip().lower(), str(value or "equal").strip().lower()
+    )
+
+
+def _optional_cost_bps(value: Any, *, field: str) -> float | None:
+    if value in (None, "", "null"):
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"portfolio.{field} must be numeric") from exc
+    if not math.isfinite(parsed) or parsed < 0:
+        raise ValueError(f"portfolio.{field} must be finite and non-negative")
+    return parsed
+
+
+def _resolve_single_period_monthly_cost(portfolio_cfg: Any, run_cfg: Any) -> float:
+    """Translate the canonical portfolio cost model for the single-period path."""
+
+    portfolio = dict(portfolio_cfg) if isinstance(portfolio_cfg, Mapping) else {}
+    run = dict(run_cfg) if isinstance(run_cfg, Mapping) else {}
+    cost_model = portfolio.get("cost_model")
+    cost_model = cost_model if isinstance(cost_model, Mapping) else {}
+    tc_bps = _optional_cost_bps(
+        cost_model.get("per_trade_bps", cost_model.get("bps_per_trade")),
+        field="cost_model.per_trade_bps",
+    )
+    if tc_bps is None:
+        tc_bps = _optional_cost_bps(
+            portfolio.get("transaction_cost_bps", 0.0), field="transaction_cost_bps"
+        )
+    slippage_bps = _optional_cost_bps(
+        cost_model.get("half_spread_bps", cost_model.get("slippage_bps")),
+        field="cost_model.half_spread_bps",
+    )
+    if slippage_bps is None:
+        slippage_bps = _optional_cost_bps(portfolio.get("slippage_bps", 0.0), field="slippage_bps")
+    if any(key in portfolio for key in ("cost_model", "transaction_cost_bps", "slippage_bps")):
+        return (float(tc_bps or 0.0) + float(slippage_bps or 0.0)) / 10000.0
+    try:
+        monthly_cost = float(run.get("monthly_cost", 0.0) or 0.0)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("run.monthly_cost must be numeric") from exc
+    if not math.isfinite(monthly_cost) or monthly_cost < 0:
+        raise ValueError("run.monthly_cost must be finite and non-negative")
+    return monthly_cost
 
 
 def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
@@ -106,7 +170,7 @@ def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
     vol_adjust = bindings.cfg_section(cfg, "vol_adjust")
     run_settings = bindings.cfg_section(cfg, "run")
     portfolio_cfg = bindings.cfg_section(cfg, "portfolio")
-    weighting_scheme = bindings.section_get(portfolio_cfg, "weighting_scheme", "equal")
+    weighting_scheme = _resolve_single_period_weighting_scheme(portfolio_cfg, bindings.section_get)
     robustness_cfg = bindings.section_get(portfolio_cfg, "robustness")
     if not isinstance(robustness_cfg, Mapping):
         robustness_cfg = bindings.cfg_section(cfg, "robustness")
@@ -126,7 +190,7 @@ def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
         resolved_split["out_start"],
         resolved_split["out_end"],
         bindings.resolve_target_vol(vol_adjust),
-        bindings.section_get(run_settings, "monthly_cost", 0.0),
+        _resolve_single_period_monthly_cost(portfolio_cfg, run_settings),
         floor_vol=bindings.section_get(vol_adjust, "floor_vol"),
         warmup_periods=int(bindings.section_get(vol_adjust, "warmup_periods", 0) or 0),
         selection_mode=bindings.section_get(portfolio_cfg, "selection_mode", "all"),
@@ -243,7 +307,7 @@ def run_full_from_config(cfg: Any, *, bindings: ConfigBindings) -> PipelineResul
     vol_adjust = bindings.cfg_section(cfg, "vol_adjust")
     run_settings = bindings.cfg_section(cfg, "run")
     portfolio_cfg = bindings.cfg_section(cfg, "portfolio")
-    weighting_scheme = bindings.section_get(portfolio_cfg, "weighting_scheme", "equal")
+    weighting_scheme = _resolve_single_period_weighting_scheme(portfolio_cfg, bindings.section_get)
     robustness_cfg = bindings.section_get(portfolio_cfg, "robustness")
     if not isinstance(robustness_cfg, Mapping):
         robustness_cfg = bindings.cfg_section(cfg, "robustness")
@@ -263,7 +327,7 @@ def run_full_from_config(cfg: Any, *, bindings: ConfigBindings) -> PipelineResul
         resolved_split["out_start"],
         resolved_split["out_end"],
         bindings.resolve_target_vol(vol_adjust),
-        bindings.section_get(run_settings, "monthly_cost", 0.0),
+        _resolve_single_period_monthly_cost(portfolio_cfg, run_settings),
         floor_vol=bindings.section_get(vol_adjust, "floor_vol"),
         warmup_periods=int(bindings.section_get(vol_adjust, "warmup_periods", 0) or 0),
         selection_mode=bindings.section_get(portfolio_cfg, "selection_mode", "all"),
