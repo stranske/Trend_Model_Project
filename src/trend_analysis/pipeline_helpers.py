@@ -10,7 +10,7 @@ from trend.config_schema import CoreConfigError
 
 from .regime_utils import alias_regime_key, normalize_regime_key
 from .regimes import compute_regimes, normalise_settings
-from .signals import TrendSpec
+from .signals import TrendSpec, trend_spec_from_mapping
 from .stages.preprocessing import _PreprocessStage, _WindowStage
 
 logger = logging.getLogger("trend_analysis.pipeline")
@@ -406,66 +406,8 @@ def _build_trend_spec(
     if not signals_cfg:
         return None
 
-    def _signal_setting(key: str, alias: str | None, default: Any = None) -> Any:
-        value = _section_get(signals_cfg, key, None)
-        if value is None and alias:
-            value = _section_get(signals_cfg, alias, None)
-        return default if value is None else value
-
-    kind = str(_section_get(signals_cfg, "kind", "tsmom") or "tsmom").lower()
-    if kind != "tsmom":  # pragma: no cover - future extension guard
-        raise ValueError(f"Unsupported trend signal kind: {kind}")
-
-    try:
-        window_raw = _signal_setting("window", "trend_window", 63)
-        window = int(window_raw)
-    except (TypeError, ValueError):
-        window = 63
-    min_periods_raw = _signal_setting("min_periods", "trend_min_periods")
-    try:
-        min_periods = int(min_periods_raw) if min_periods_raw is not None else None
-    except (TypeError, ValueError):
-        min_periods = None
-
-    try:
-        lag_raw = _signal_setting("lag", "trend_lag", 1)
-        lag = max(1, int(lag_raw))
-    except (TypeError, ValueError):
-        lag = 1
-
-    vol_adjust_default = bool(_section_get(vol_adjust_cfg, "enabled", False))
-    vol_adjust_flag = bool(_signal_setting("vol_adjust", "trend_vol_adjust", vol_adjust_default))
-    vol_target_raw = _signal_setting("vol_target", "trend_vol_target")
-    if vol_target_raw is None and vol_adjust_flag:
-        vol_target_raw = _section_get(vol_adjust_cfg, "target_vol")
-    try:
-        vol_target = float(vol_target_raw) if vol_target_raw is not None else None
-        if vol_target is not None and vol_target <= 0:
-            vol_target = None
-    except (TypeError, ValueError):
-        vol_target = None
-
-    zscore_setting = _signal_setting("zscore", "trend_zscore", False)
-    if isinstance(zscore_setting, bool):
-        zscore_flag: bool | float = zscore_setting
-    else:
-        try:
-            zscore_value = float(zscore_setting)
-        except (TypeError, ValueError):
-            zscore_flag = False
-        else:
-            zscore_flag = zscore_value if np.isfinite(zscore_value) else False
-            if isinstance(zscore_flag, float) and zscore_flag <= 0:
-                zscore_flag = False
-
-    return TrendSpec(
-        kind="tsmom",
-        window=max(1, window),
-        min_periods=min_periods,
-        lag=lag,
-        vol_adjust=vol_adjust_flag,
-        vol_target=vol_target,
-        zscore=zscore_flag,
+    return trend_spec_from_mapping(
+        signals_cfg, vol_adjust=vol_adjust_cfg, retain_disabled_vol_target=True
     )
 
 

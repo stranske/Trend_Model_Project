@@ -360,7 +360,14 @@ def _trend_spec_summary(spec: Any | None) -> list[tuple[str, str]]:
     target = getattr(spec, "vol_target", None)
     if spec.vol_adjust and isinstance(target, (int, float)):
         entries.append(("Signal vol target", _format_percent(float(target))))
-    entries.append(("Signal z-score", "Enabled" if spec.zscore else "Disabled"))
+    zscore = getattr(spec, "zscore", False)
+    if isinstance(zscore, bool):
+        zscore_text = "Enabled" if zscore else "Disabled"
+    elif isinstance(zscore, (int, float)):
+        zscore_text = f"Scale {float(zscore):g}"
+    else:
+        zscore_text = "Disabled"
+    entries.append(("Signal z-score", zscore_text))
     return entries
 
 
@@ -431,7 +438,12 @@ def _backtest_spec_summary(spec: Any | None) -> list[tuple[str, str]]:
     return entries
 
 
-def _build_param_summary(config: Any, spec: TrendRunSpec | None = None) -> list[tuple[str, str]]:
+def _build_param_summary(
+    config: Any,
+    spec: TrendRunSpec | None = None,
+    *,
+    effective_trend_spec: Any | None = None,
+) -> list[tuple[str, str]]:
     def _get(section: Any, key: str, default: Any = None) -> Any:
         if section is None:
             return default
@@ -485,7 +497,9 @@ def _build_param_summary(config: Any, spec: TrendRunSpec | None = None) -> list[
     if bench_count:
         params.append(("Benchmarks", str(bench_count)))
     resolved_spec = spec or getattr(config, "_trend_run_spec", None)
-    trend_spec_obj = getattr(resolved_spec, "trend", None) if resolved_spec else None
+    trend_spec_obj = effective_trend_spec
+    if trend_spec_obj is None:
+        trend_spec_obj = getattr(resolved_spec, "trend", None) if resolved_spec else None
     if trend_spec_obj is None:
         trend_spec_obj = getattr(config, "trend_spec", None)
     backtest_spec_obj = getattr(resolved_spec, "backtest", None) if resolved_spec else None
@@ -961,7 +975,9 @@ def generate_unified_report(
     exec_summary = _build_exec_summary(result, backtest)
     metrics_df = getattr(result, "metrics", pd.DataFrame())
     metrics_html, metrics_text = _metrics_table_html(metrics_df)
-    params = _build_param_summary(config, spec)
+    details = getattr(result, "details", {})
+    effective_trend_spec = details.get("signal_spec") if isinstance(details, Mapping) else None
+    params = _build_param_summary(config, spec, effective_trend_spec=effective_trend_spec)
     caveats = _build_caveats(result, backtest)
     if backtest_result.diagnostic:
         caveats.append(backtest_result.diagnostic.message)
