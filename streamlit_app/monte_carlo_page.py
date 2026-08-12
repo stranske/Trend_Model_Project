@@ -69,6 +69,16 @@ def _scenario_provenance_message(*, uses_session_state: bool) -> str:
     )
 
 
+def _link_to_page(path: str, *, label: str) -> None:
+    """Link to another multipage entry when the runtime exposes page metadata."""
+
+    try:
+        st.page_link(path, label=label)
+    except KeyError:
+        # AppTest smoke runs a single page file without multipage registration.
+        st.markdown(f"**{label}**")
+
+
 def _session_frequency(returns: pd.DataFrame) -> str:
     meta = st.session_state.get("schema_meta")
     if isinstance(meta, Mapping):
@@ -691,7 +701,7 @@ def render() -> None:
     provenance = _scenario_provenance_message(uses_session_state=bool(runner_kwargs))
     st.info(provenance)
     if not runner_kwargs:
-        st.page_link("pages/1_Data.py", label="Open the Data page")
+        _link_to_page("pages/1_Data.py", label="Open the Data page")
     if session_error:
         st.warning("Current Data/Model state could not be applied to Monte Carlo.")
         with st.expander("Details"):
