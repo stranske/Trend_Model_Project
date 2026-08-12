@@ -115,19 +115,7 @@ def _completed_state_sharpe(result: Any) -> float | None:
     """Return portfolio-level Sharpe for the completed-state banner."""
     raw_details = getattr(result, "details", None)
     details = raw_details if isinstance(raw_details, dict) else {}
-    portfolio_sharpe = _stats_value(details.get("out_user_stats"), "sharpe")
-    if portfolio_sharpe is not None:
-        return portfolio_sharpe
-
-    metrics = getattr(result, "metrics", None)
-    if isinstance(metrics, pd.DataFrame) and not metrics.empty:
-        for column in ("Sharpe", "sharpe"):
-            if column in metrics.columns:
-                sharpe = pd.to_numeric(metrics[column], errors="coerce")
-                sharpe = sharpe[np.isfinite(sharpe)].dropna()
-                if not sharpe.empty:
-                    return float(sharpe.iloc[0])
-    return None
+    return _stats_value(details.get("out_user_stats"), "sharpe")
 
 
 def _stats_value(stats: Any, name: str) -> float | None:
