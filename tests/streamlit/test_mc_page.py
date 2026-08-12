@@ -506,7 +506,9 @@ def test_completed_run_exports_keep_their_original_provenance(
     stub.button_responses = [False, False]
     page.render()
 
-    summary_csv = next(download for download in stub.downloads if download["mime"] == "text/csv")["data"]
+    summary_csv = next(download for download in stub.downloads if download["mime"] == "text/csv")[
+        "data"
+    ]
     assert "Load data and configure a model" in summary_csv
     assert "supplied as runtime input" not in summary_csv
 

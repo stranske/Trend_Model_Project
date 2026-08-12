@@ -13,7 +13,8 @@ import pandas as pd
 import yaml
 
 from ..config import Config
-from ..config.models import DEFAULTS, Config as ConfigModel
+from ..config.models import DEFAULTS
+from ..config.models import Config as ConfigModel
 from ..diagnostics import coerce_pipeline_result
 from .plugins import discover_plugins, iter_plugins
 from .store import ParamStore
