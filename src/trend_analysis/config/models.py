@@ -270,7 +270,10 @@ if _HAS_PYDANTIC:
 
         # Use a plain dict for model_config to avoid type-checker issues when
         # Pydantic is not installed (tests toggle availability).
-        model_config = {"extra": "ignore"}
+        # Keep the production model closed at the top level.  Every supported
+        # top-level section is declared below, so a misspelled section cannot be
+        # silently discarded before the pipeline sees it.
+        model_config = {"extra": "forbid"}
         # ``version`` must be a non-empty string. ``min_length`` handles the empty
         # string case and produces the standard pydantic error message
         # "String should have at least 1 character". A separate validator below
@@ -287,9 +290,13 @@ if _HAS_PYDANTIC:
         signals: dict[str, Any] = Field(default_factory=dict)
         export: dict[str, Any] = Field(default_factory=dict)
         performance: dict[str, Any] = Field(default_factory=dict)
+        identity: dict[str, Any] = Field(default_factory=dict)
+        extra: dict[str, Any] = Field(default_factory=dict)
         output: dict[str, Any] | None = None
         run: dict[str, Any] = Field(default_factory=dict)
         multi_period: dict[str, Any] | None = None
+        strategy: dict[str, Any] = Field(default_factory=dict)
+        walk_forward: dict[str, Any] = Field(default_factory=dict)
         jobs: int | None = None
         checkpoint_dir: str | None = None
         seed: int = 42
