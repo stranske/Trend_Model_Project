@@ -1026,6 +1026,7 @@ def _llm_env_var_status(provider: str) -> dict[str, bool]:
 
 
 def _render_llm_status_panel() -> None:
+    """Show optional LLM diagnostics only when a user expands them."""
     provider_labels = {
         "openai": "OpenAI",
         "anthropic": "Anthropic",
@@ -1037,25 +1038,26 @@ def _render_llm_status_panel() -> None:
         _normalize_cache_str(st.session_state.get("selected_model")) or _DEFAULT_CONFIG_CHAT_MODEL
     )
     provider_label = provider_labels.get(selected_provider, selected_provider)
-    st.info(f"Active provider: {provider_label}")
-    st.info(f"Active model: {selected_model}")
-    required_vars = _llm_required_env_vars(selected_provider)
-    if required_vars is None:
-        st.warning(f"Unknown provider: {selected_provider}. Update your LLM settings.")
-        return
-    if not required_vars:
-        st.caption("Expected environment variables: None required.")
-        return
-    missing_vars = [name for name in required_vars if not _llm_env_var_present(name)]
-    st.caption("Expected environment variables (values hidden):")
-    for name in required_vars:
-        icon = "✓" if name not in missing_vars else "✗"
-        st.write(f"{icon} `{name}`")
-    if missing_vars:
-        missing_list = ", ".join(missing_vars)
-        st.warning(
-            f"Missing required environment variables for {provider_label}. " f"Set: {missing_list}."
-        )
+    with st.expander("Optional LLM connection status", expanded=False):
+        st.info(f"Active provider: {provider_label}")
+        st.info(f"Active model: {selected_model}")
+        required_vars = _llm_required_env_vars(selected_provider)
+        if required_vars is None:
+            st.warning(f"Unknown provider: {selected_provider}. Update your LLM settings.")
+            return
+        if not required_vars:
+            st.caption("Expected environment variables: None required.")
+            return
+        missing_vars = [name for name in required_vars if not _llm_env_var_present(name)]
+        st.caption("Expected environment variables (values hidden):")
+        for name in required_vars:
+            icon = "✓" if name not in missing_vars else "✗"
+            st.write(f"{icon} `{name}`")
+        if missing_vars:
+            missing_list = ", ".join(missing_vars)
+            st.warning(
+                f"Missing required environment variables for {provider_label}. " f"Set: {missing_list}."
+            )
 
 
 def _sync_llm_selection_from_overrides() -> None:

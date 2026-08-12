@@ -71,6 +71,7 @@ class DummyStreamlit:
         self.column_config = DummyStreamlit._ColumnConfig()
         self.rerun_called = False
         self.metrics: list[tuple[str, Any]] = []
+        self.expander_labels: list[str] = []
 
     def title(self, text: str) -> None:
         self.title_calls.append(text)
@@ -127,7 +128,8 @@ class DummyStreamlit:
     def markdown(self, text: str, *args: Any, **kwargs: Any) -> None:  # pragma: no cover - trivial
         self.markdowns.append(str(text))
 
-    def expander(self, *_args: Any, **_kwargs: Any) -> "DummyStreamlit._Column":
+    def expander(self, label: str, **_kwargs: Any) -> "DummyStreamlit._Column":
+        self.expander_labels.append(label)
         return DummyStreamlit._Column(self)
 
     def container(self, *_args: Any, **_kwargs: Any) -> "DummyStreamlit._Column":
@@ -274,6 +276,38 @@ def test_data_page_autoloads_sample(monkeypatch: pytest.MonkeyPatch, data_page) 
     assert stub.clear_calls == initial_clears + 1
     for key in ["analysis_result", "analysis_result_key", "analysis_error"]:
         assert key not in page.st.session_state
+
+
+def test_debug_surfaces_hidden_without_flag(monkeypatch: pytest.MonkeyPatch, data_page) -> None:
+    page, stub = data_page
+    source = (Path(__file__).resolve().parents[2] / "streamlit_app" / "pages" / "1_Data.py").read_text(
+        encoding="utf-8"
+    )
+    assert (
+        "never expose selection counters or timing data in the end-user UI.\n"
+        '            if st.session_state.get("show_perf_diagnostics"):\n'
+        '                with st.expander("Debug: Fund selection state"'
+    ) in source
+    stub.session_state.clear()
+    df = pd.DataFrame(
+        {"FundA": [0.01, 0.02, -0.01], "SPX Index": [0.03, -0.02, 0.01]},
+        index=pd.date_range("2024-01-31", periods=3, freq="ME"),
+    )
+    sample = page.data_cache.SampleDataset("demo.csv", Path("demo/demo_returns.csv"))
+    monkeypatch.setattr(page.data_cache, "default_sample_dataset", lambda: sample)
+    monkeypatch.setattr(page.data_cache, "dataset_choices", lambda: {sample.label: sample})
+    monkeypatch.setattr(
+        page.data_cache,
+        "load_dataset_from_path",
+        lambda _path: (df, {"validation": {"issues": [], "warnings": []}}),
+    )
+    monkeypatch.setattr(page, "infer_benchmarks", lambda _columns: ["SPX Index"])
+    stub.selectbox_map["Choose a sample"] = sample.label
+    stub.selectbox_map["Benchmark column (optional)"] = "SPX Index"
+
+    page.render_data_page()
+
+    assert not any(label.startswith("Debug:") for label in stub.expander_labels)
 
 
 def test_data_page_upload_failure(monkeypatch: pytest.MonkeyPatch, data_page) -> None:

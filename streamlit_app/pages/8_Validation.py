@@ -1,4 +1,4 @@
-"""Settings Validation page for systematically testing UI settings.
+"""Developer settings-validation page for systematically testing UI settings.
 
 This page allows interactive testing of individual settings to verify
 they are properly wired into the analysis pipeline. Each test:
@@ -25,7 +25,7 @@ import streamlit as st
 # evaluates an ``@st.cache_data`` decorator at import time, so configure the
 # page before importing them.
 st.set_page_config(
-    page_title="Settings Validation",
+    page_title="Developer: Settings Validation",
     page_icon="🔧",
     layout="wide",
 )
@@ -545,10 +545,10 @@ def format_value(value: Any) -> str:
 
 
 def render_validation_page() -> None:
-    """Render the Settings Validation page."""
+    """Render the developer Settings Validation page."""
 
     app_state.initialize_session_state()
-    st.title("🔧 Settings Validation")
+    st.title("🔧 Developer: Settings Validation")
     st.markdown("""
     This page systematically tests each UI setting to verify it's properly
     connected to the analysis pipeline. Select a setting, choose test values,
