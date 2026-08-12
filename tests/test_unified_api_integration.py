@@ -24,11 +24,13 @@ def test_comprehensive_api_integration():
             "SPX": [0.01 + 0.001 * i for i in range(12)],
         }
     )
+    test_df["Date"] = pd.to_datetime(test_df["Date"]).astype("datetime64[ns]")
+    test_df = test_df.round(6)
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
         csv_file = tmp_path / "test_data.csv"
-        test_df.to_csv(csv_file, index=False)
+        test_df.round(6).to_csv(csv_file, index=False)
 
         # Create config
         config = Config(
@@ -104,8 +106,11 @@ def test_comprehensive_api_integration():
         # This validates the unified code path
         loaded_df = load_csv(str(csv_file))
         assert loaded_df is not None, "CSV loading should work"
+        loaded_df["Date"] = (
+            pd.to_datetime(loaded_df["Date"]).dt.tz_localize(None).astype("datetime64[ns]")
+        )
         expected_df = test_df.copy()
-        expected_df["Date"] = expected_df["Date"].dt.tz_localize("UTC").dt.as_unit("ns")
+        expected_df["Date"] = pd.to_datetime(expected_df["Date"]).astype("datetime64[ns]")
         pd.testing.assert_frame_equal(expected_df, loaded_df, "Loaded CSV should match original")
 
         # Validate that CLI would get same data

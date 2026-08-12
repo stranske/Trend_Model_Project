@@ -248,7 +248,12 @@ def compute_constrained_weights(
     group_caps: Mapping[str, float] | None = None,
     groups: Mapping[str, str] | None = None,
 ) -> tuple[pd.Series, RiskDiagnostics]:
-    """Apply risk controls and return final weights plus diagnostics."""
+    """Apply risk controls and return final weights plus diagnostics.
+
+    Volatility targeting has one owner: this allocation step tilts capital
+    weights by inverse realised volatility.  Callers must apply the returned
+    weights to raw asset returns rather than rescaling those returns again.
+    """
 
     if returns.empty:
         raise ValueError("returns cannot be empty")
@@ -293,14 +298,45 @@ def compute_constrained_weights(
     constrained = optimizer_mod.apply_constraints(scaled, constraint_payload)
     constrained = _normalise(constrained)
 
+    aligned_returns = returns.reindex(columns=constrained.index, fill_value=0.0)
+    fully_invested_returns = aligned_returns.mul(constrained, axis=1).sum(axis=1)
+    fully_invested_vol = realised_volatility(
+        fully_invested_returns.to_frame("portfolio"),
+        window,
+        periods_per_year=periods_per_year,
+    )["portfolio"]
+
+    # Inverse-volatility weights determine the relative allocation.  Preserve
+    # the target's *magnitude* separately as an exposure limit: otherwise the
+    # normalisation above cancels a common target_vol multiplier and every
+    # positive target produces the same fully invested portfolio.  This engine
+    # is long-only and has no leverage path, so high targets remain fully
+    # invested while lower targets leave the residual in the stage's cash leg.
+    exposure = 1.0
+    try:
+        target = float(target_vol) if target_vol is not None else None
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        target = None
+    latest_portfolio_vol = (
+        float(fully_invested_vol.dropna().iloc[-1])
+        if not fully_invested_vol.dropna().empty
+        else float("nan")
+    )
+    if (
+        target is not None
+        and target > 0
+        and np.isfinite(latest_portfolio_vol)
+        and latest_portfolio_vol > 0
+    ):
+        exposure = min(1.0, target / latest_portfolio_vol)
+    constrained = constrained * exposure
+
     prev_series = _ensure_series(previous_weights) if previous_weights is not None else None
     constrained = _apply_turnover_penalty(constrained, prev_series, lambda_tc)
     constrained, turnover_value = _enforce_turnover_cap(constrained, prev_series, max_turnover)
     constrained = constrained.reindex(base.index, fill_value=0.0)
     constrained = _enforce_max_active(constrained, max_active_positions)
-    constrained = _normalise(constrained)
 
-    aligned_returns = returns.reindex(columns=constrained.index, fill_value=0.0)
     portfolio_returns = aligned_returns.mul(constrained, axis=1).sum(axis=1)
     portfolio_vol = realised_volatility(
         portfolio_returns.to_frame("portfolio"),

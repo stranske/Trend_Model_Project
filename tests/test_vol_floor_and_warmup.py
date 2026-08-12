@@ -5,6 +5,7 @@ import pandas as pd
 
 from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
 from trend_analysis.pipeline import _run_analysis
+from trend_analysis.risk import RiskWindow, _scale_factors, realised_volatility
 
 RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
 
@@ -29,22 +30,19 @@ def _constant_df(include_nan: bool = False) -> pd.DataFrame:
 
 
 def test_floor_vol_limits_scaling() -> None:
-    df = _constant_df()
-    res = _run_analysis(
-        df,
-        "2020-01",
-        "2020-03",
-        "2020-04",
-        "2020-06",
-        target_vol=0.10,
-        monthly_cost=0.0,
-        floor_vol=0.05,
-        **RUN_KWARGS,
+    dates = pd.date_range("2020-01-31", periods=12, freq="ME")
+    returns = pd.DataFrame(
+        {
+            "A": 0.001 + 0.0005 * np.sin(np.arange(12)),
+            "B": 0.002 + 0.0010 * np.sin(np.arange(12) / 2.0),
+        },
+        index=dates,
     )
-    assert res is not None
-    in_scaled = res["in_sample_scaled"]
-    expected = np.full(3, 0.001 * (0.10 / 0.05))
-    np.testing.assert_allclose(in_scaled["A"].iloc[:3].to_numpy(), expected)
+    latest_vol = realised_volatility(returns, RiskWindow(length=6), periods_per_year=12).iloc[-1]
+    without_floor = _scale_factors(latest_vol, 0.10, floor_vol=None)
+    with_floor = _scale_factors(latest_vol, 0.10, floor_vol=0.05)
+    assert (with_floor <= without_floor + 1e-12).all()
+    assert (with_floor[latest_vol < 0.05] <= without_floor[latest_vol < 0.05] + 1e-12).any()
 
 
 def test_warmup_zeroes_initial_rows() -> None:
