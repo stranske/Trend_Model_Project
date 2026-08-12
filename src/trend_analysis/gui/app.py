@@ -358,18 +358,27 @@ def _as_dict(v: Any) -> Dict[str, Any]:
     return dict(v) if isinstance(v, dict) else {}
 
 
+_REQUIRED_MAPPING_SECTIONS = (
+    "data",
+    "preprocessing",
+    "vol_adjust",
+    "sample_split",
+    "portfolio",
+    "benchmarks",
+    "metrics",
+    "export",
+    "run",
+)
+
+
 def _ensure_mapping_sections(cfg: Dict[str, Any]) -> None:
     """Best-effort ensure mapping types for top-level config sections."""
-    cfg.setdefault("data", _as_dict(cfg.get("data")))
-    cfg.setdefault("preprocessing", _as_dict(cfg.get("preprocessing")))
-    cfg.setdefault("vol_adjust", _as_dict(cfg.get("vol_adjust")))
-    cfg.setdefault("sample_split", _as_dict(cfg.get("sample_split")))
-    cfg.setdefault("portfolio", _as_dict(cfg.get("portfolio")))
-    cfg.setdefault("benchmarks", _as_dict(cfg.get("benchmarks")))
-    cfg.setdefault("metrics", _as_dict(cfg.get("metrics")))
-    cfg.setdefault("export", _as_dict(cfg.get("export")))
-    cfg.setdefault("run", _as_dict(cfg.get("run")))
-    cfg.setdefault("multi_period", _as_dict(cfg.get("multi_period")))
+    for section in _REQUIRED_MAPPING_SECTIONS:
+        cfg[section] = _as_dict(cfg.get(section))
+    if "multi_period" not in cfg:
+        cfg["multi_period"] = {}
+    elif cfg["multi_period"] is not None:
+        cfg["multi_period"] = _as_dict(cfg.get("multi_period"))
 
 
 def _normalize_gui_store_cfg(cfg: Dict[str, Any]) -> Dict[str, Any]:
