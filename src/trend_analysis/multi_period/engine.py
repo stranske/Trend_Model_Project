@@ -33,7 +33,11 @@ from trend.diagnostics import DiagnosticResult
 from .._typing import FloatArray
 from ..config_contract import (
     resolve_pipeline_monthly_cost as _shared_resolve_pipeline_monthly_cost,
+)
+from ..config_contract import (
     resolve_portfolio_cost_bps as _shared_resolve_portfolio_cost_bps,
+)
+from ..config_contract import (
     resolve_portfolio_weighting_name,
 )
 from ..constants import NUMERICAL_TOLERANCE_HIGH

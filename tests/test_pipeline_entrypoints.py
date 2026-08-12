@@ -61,6 +61,8 @@ def test_single_period_cost_model_honours_effective_override_fields() -> None:
     }
 
     assert _resolve_single_period_monthly_cost(portfolio, {}) == pytest.approx(0.0015)
+
+
 def test_single_period_legacy_weighting_scheme_overrides_nested_name() -> None:
     portfolio = {
         "weighting_scheme": "risk_parity",

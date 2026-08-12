@@ -39,8 +39,6 @@ def test_same_config_same_numbers_across_entrypoints() -> None:
     assert _resolve_single_period_weighting_scheme(portfolio, dict.get) == multi_weighting
 
     gross_return = 0.01
-    zero_cost = _resolve_single_period_monthly_cost(
-        {"transaction_cost_bps": 0}, run
-    )
+    zero_cost = _resolve_single_period_monthly_cost({"transaction_cost_bps": 0}, run)
     assert gross_return - single_cost < gross_return - zero_cost
     assert gross_return - multi_cost < gross_return - zero_cost

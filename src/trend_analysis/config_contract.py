@@ -102,9 +102,7 @@ def resolve_pipeline_monthly_cost(
 ) -> float:
     """Resolve the decimal per-period cost sent to the shared analysis pipeline."""
 
-    tc_bps, slippage_bps = resolve_portfolio_cost_bps(
-        portfolio_cfg, section_get=section_get
-    )
+    tc_bps, slippage_bps = resolve_portfolio_cost_bps(portfolio_cfg, section_get=section_get)
     if any(
         section_get(portfolio_cfg, key) is not None
         for key in ("cost_model", "transaction_cost_bps", "slippage_bps")
