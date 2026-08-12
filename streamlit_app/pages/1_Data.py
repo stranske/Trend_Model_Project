@@ -731,15 +731,6 @@ def render_data_page() -> None:
                             st.session_state[f"{include_prefix}{fund}"] = False
                         st.rerun()
 
-            # Stats (live)
-            n_selected = sum(
-                1
-                for fund in available_funds
-                if bool(st.session_state.get(f"{include_prefix}{fund}", False))
-            )
-            n_total = len(available_funds)
-            st.markdown(f"**{n_selected} of {n_total}** funds selected")
-
             # Seed checkbox widget values from canonical selection (vectorized).
             _t_seed_start = time.perf_counter()
             defaults = {
@@ -751,6 +742,16 @@ def render_data_page() -> None:
                 st.session_state.update(defaults)
 
             _t_seed_done = time.perf_counter()
+
+            # Stats (live).  Seed before counting so a newly loaded dataset
+            # reports the same selection that its checkboxes will render.
+            n_selected = sum(
+                1
+                for fund in available_funds
+                if bool(st.session_state.get(f"{include_prefix}{fund}", False))
+            )
+            n_total = len(available_funds)
+            st.markdown(f"**{n_selected} of {n_total}** funds selected")
 
             # Faster rendering: one widget per row (avoid per-row columns/write).
             _t_render_start = time.perf_counter()
