@@ -1056,7 +1056,8 @@ def _render_llm_status_panel() -> None:
         if missing_vars:
             missing_list = ", ".join(missing_vars)
             st.warning(
-                f"Missing required environment variables for {provider_label}. " f"Set: {missing_list}."
+                f"Missing required environment variables for {provider_label}. "
+                f"Set: {missing_list}."
             )
 
 

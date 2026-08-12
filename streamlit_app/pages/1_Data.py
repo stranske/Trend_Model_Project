@@ -843,7 +843,9 @@ def render_data_page() -> None:
                         "perf_ms": {
                             "derive_funds": round((_t_funds_derived - _t_fund_start) * 1000, 2),
                             "seed_defaults": round((_t_seed_done - _t_seed_start) * 1000, 2),
-                            "render_checkboxes": round((_t_render_done - _t_render_start) * 1000, 2),
+                            "render_checkboxes": round(
+                                (_t_render_done - _t_render_start) * 1000, 2
+                            ),
                             "fund_total": round((_t_render_done - _t_fund_start) * 1000, 2),
                         },
                         "selected_fund_columns_count": len(

@@ -56,7 +56,9 @@ if custom_analysis_available:
             "For full control over all parameters, use the Custom Analysis flow.",
         ]
     )
-quick_start.append("The demo uses a specialized policy-based engine optimized for the sample dataset.")
+quick_start.append(
+    "The demo uses a specialized policy-based engine optimized for the sample dataset."
+)
 st.markdown("\n".join(quick_start))
 
 st.markdown("---")
