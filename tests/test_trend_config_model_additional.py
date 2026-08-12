@@ -267,8 +267,6 @@ def test_risk_settings_enabled_defaults_to_true() -> None:
     settings = RiskSettings.model_validate({"target_vol": 0.1})
 
     assert settings.enabled is True
-
-
 def test_resolve_config_path_variants(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     default_path = _resolve_config_path("demo")
     assert default_path.name == "demo.yml"
