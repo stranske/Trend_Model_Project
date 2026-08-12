@@ -61,3 +61,12 @@ def test_unknown_top_level_and_nested_keys_are_rejected(tmp_path: Path) -> None:
     # by the two canonical configurations.
     for config_path in ("config/defaults.yml", "config/demo.yml"):
         assert models.load(config_path).version
+
+
+def test_declared_legacy_sections_remain_optional(tmp_path: Path) -> None:
+    payload = _valid_payload(tmp_path)
+
+    validated = validate_trend_config(payload, base_path=tmp_path)
+
+    assert validated.data.csv_path.name == "returns.csv"
+    assert not ({"identity", "extra", "strategy", "walk_forward"} & set(models.Config.REQUIRED_DICT_FIELDS))

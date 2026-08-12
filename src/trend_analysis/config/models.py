@@ -205,7 +205,19 @@ if _HAS_PYDANTIC:
         """Typed access to the YAML configuration (Pydantic mode)."""
 
         # Field lists generated dynamically from model fields to prevent maintenance burden
-        OPTIONAL_DICT_FIELDS: ClassVar[set[str]] = {"performance", "signals", "regime"}
+        # These sections are accepted by the closed top-level schema but are
+        # optional in the shipped and legacy configurations.  Keep this list in
+        # sync with the fallback model: ``_dict_field_names`` drives
+        # ``REQUIRED_DICT_FIELDS`` for the runtime validation layer.
+        OPTIONAL_DICT_FIELDS: ClassVar[set[str]] = {
+            "extra",
+            "identity",
+            "performance",
+            "regime",
+            "signals",
+            "strategy",
+            "walk_forward",
+        }
 
         @classmethod
         def _dict_field_names(cls) -> List[str]:
@@ -454,14 +466,27 @@ else:  # Fallback mode for tests without pydantic
             "signals",
             "export",
             "performance",
+            "identity",
+            "extra",
             "output",
             "run",
+            "multi_period",
+            "strategy",
+            "walk_forward",
             "jobs",
             "checkpoint_dir",
             "seed",
         ]
 
-        OPTIONAL_DICT_FIELDS: ClassVar[set[str]] = {"performance", "signals", "regime"}
+        OPTIONAL_DICT_FIELDS: ClassVar[set[str]] = {
+            "extra",
+            "identity",
+            "performance",
+            "regime",
+            "signals",
+            "strategy",
+            "walk_forward",
+        }
 
         # Attribute declarations for linters/type-checkers
         version: str
@@ -476,9 +501,13 @@ else:  # Fallback mode for tests without pydantic
         signals: Dict[str, Any]
         export: Dict[str, Any]
         performance: Dict[str, Any]
+        identity: Dict[str, Any]
+        extra: Dict[str, Any]
         output: Dict[str, Any] | None
         run: Dict[str, Any]
         multi_period: Dict[str, Any] | None
+        strategy: Dict[str, Any]
+        walk_forward: Dict[str, Any]
         jobs: int | None
         checkpoint_dir: str | None
         seed: int
@@ -496,8 +525,13 @@ else:  # Fallback mode for tests without pydantic
                 "signals": {},
                 "export": {},
                 "performance": {},
+                "identity": {},
+                "extra": {},
                 "output": None,
                 "run": {},
+                "multi_period": None,
+                "strategy": {},
+                "walk_forward": {},
                 "jobs": None,
                 "checkpoint_dir": None,
                 "seed": 42,
