@@ -1,14 +1,21 @@
 from types import SimpleNamespace
 
 from trend.reporting import unified
-from trend_analysis.pipeline_helpers import _build_trend_spec as build_runtime_trend_spec
+from trend_analysis.pipeline_helpers import (
+    _build_trend_spec as build_runtime_trend_spec,
+)
 from trend_analysis.signals import TrendSpec
 from trend_model.spec import _build_trend_spec as build_compatibility_trend_spec
 
 
 def test_report_uses_runtime_numeric_zscore_spec() -> None:
     config = SimpleNamespace(
-        sample_split={}, vol_adjust={}, portfolio={}, run={}, benchmarks={}, trend_spec=TrendSpec(zscore=True)
+        sample_split={},
+        vol_adjust={},
+        portfolio={},
+        run={},
+        benchmarks={},
+        trend_spec=TrendSpec(zscore=True),
     )
     result = SimpleNamespace(details={"signal_spec": TrendSpec(zscore=2.0)})
 
