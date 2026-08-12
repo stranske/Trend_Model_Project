@@ -63,6 +63,7 @@ class DummyStreamlit:
         self.error_messages: list[str] = []
         self.warning_messages: list[str] = []
         self.captions: list[str] = []
+        self.markdowns: list[str] = []
         self.code_blocks: list[tuple[str, str | None]] = []
         self.dataframes: list[pd.DataFrame] = []
         self.selectbox_map: dict[str, Any] = {}
@@ -123,8 +124,8 @@ class DummyStreamlit:
     def dataframe(self, df: pd.DataFrame) -> None:
         self.dataframes.append(df)
 
-    def markdown(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover - trivial
-        return None
+    def markdown(self, text: str, *args: Any, **kwargs: Any) -> None:  # pragma: no cover - trivial
+        self.markdowns.append(str(text))
 
     def expander(self, *_args: Any, **_kwargs: Any) -> "DummyStreamlit._Column":
         return DummyStreamlit._Column(self)
