@@ -991,7 +991,7 @@ def test_build_config_from_store_uses_config_factory(monkeypatch):
     monkeypatch.setattr(app_module, "Config", fake_config)
     cfg_obj = app_module.build_config_from_store(store)
 
-    assert created and cfg_obj.mode == "rank"
+    assert created and cfg_obj.portfolio["selection_mode"] == "rank"
 
 
 def test_build_step0_datagrid_callbacks(monkeypatch, tmp_path):

@@ -13,7 +13,7 @@ import pandas as pd
 import yaml
 
 from ..config import Config
-from ..config.models import DEFAULTS
+from ..config.models import DEFAULTS, Config as ConfigModel
 from ..diagnostics import coerce_pipeline_result
 from .plugins import discover_plugins, iter_plugins
 from .store import ParamStore
@@ -394,7 +394,9 @@ def _normalize_gui_store_cfg(cfg: Dict[str, Any]) -> Dict[str, Any]:
     if portfolio:
         normalized["portfolio"] = portfolio
 
-    allowed = set(Config.ALL_FIELDS)
+    # ``Config`` remains an injectable factory for GUI tests and callers; use
+    # the concrete schema class to identify the strict top-level fields.
+    allowed = set(ConfigModel.ALL_FIELDS)
     return {key: value for key, value in normalized.items() if key in allowed}
 
 
