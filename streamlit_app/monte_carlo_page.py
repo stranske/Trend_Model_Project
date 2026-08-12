@@ -44,10 +44,40 @@ def _should_auto_render() -> bool:
 
 
 MC_RESULTS_KEY = "mc_results"
+MC_RESULTS_PROVENANCE_KEY = "mc_results_provenance"
 MC_RUNNING_KEY = "mc_running"
 MC_CANCEL_KEY = "mc_cancel_requested"
 MC_LAST_ERROR_KEY = "mc_last_error"
 MC_LAST_VALIDATION_KEY = "mc_last_validation"
+
+REGISTRY_SCENARIO_PROVENANCE = (
+    "Monte Carlo provenance: this is a standalone registry scenario, not a forecast "
+    "derived from the Data → Model → Results portfolio."
+)
+
+
+def _scenario_provenance_message(*, uses_session_state: bool) -> str:
+    """Explain whether the active run uses the current Data/Model session state."""
+
+    if uses_session_state:
+        return (
+            f"{REGISTRY_SCENARIO_PROVENANCE} The loaded Data and Model state is "
+            "supplied as runtime input, while the scenario assumptions remain registry-defined."
+        )
+    return (
+        f"{REGISTRY_SCENARIO_PROVENANCE} Load data and configure a model on the "
+        "Data page to supply current session state as runtime input."
+    )
+
+
+def _link_to_page(path: str, *, label: str) -> None:
+    """Link to another multipage entry when the runtime exposes page metadata."""
+
+    try:
+        st.page_link(path, label=label)
+    except KeyError:
+        # AppTest smoke runs a single page file without multipage registration.
+        st.markdown(f"[{label}]({path})")
 
 
 def _session_frequency(returns: pd.DataFrame) -> str:
@@ -390,6 +420,7 @@ def _render_results(
     results: object,
     *,
     fold_selection: str | None,
+    provenance: str = REGISTRY_SCENARIO_PROVENANCE,
 ) -> None:
     results_frame = None
     if hasattr(results, "results_frame"):
@@ -443,8 +474,15 @@ def _render_results(
         chart_bundle_inputs.update(_render_diagnostic_charts(summary, canonical_paths))
 
     st.subheader("Downloads")
-    payloads = _build_download_payloads(summary_table, filtered_results)
-    chart_bundle_payload, chart_bundle_warnings = _build_chart_bundle_payload(chart_bundle_inputs)
+    payloads = _build_download_payloads(
+        summary_table,
+        filtered_results,
+        provenance=provenance,
+    )
+    chart_bundle_payload, chart_bundle_warnings = _build_chart_bundle_payload(
+        chart_bundle_inputs,
+        provenance=provenance,
+    )
     if chart_bundle_payload is not None:
         payloads.append(chart_bundle_payload)
     warning_text = _png_export_warning_message(chart_bundle_warnings)
@@ -487,6 +525,8 @@ def _export_parquet_bytes(frame: pd.DataFrame) -> bytes | None:
 def _build_download_payloads(
     summary_table: pd.DataFrame,
     filtered_results: pd.DataFrame,
+    *,
+    provenance: str = REGISTRY_SCENARIO_PROVENANCE,
 ) -> list[dict[str, Any]]:
     """Return download button payloads for CSV, Parquet, and ZIP bundles.
 
@@ -495,8 +535,11 @@ def _build_download_payloads(
     are omitted but the CSV downloads still render, so the page never crashes.
     """
 
-    summary_csv = summary_table.to_csv(index=False)
-    path_frame = aggregate_monte_carlo_results(filtered_results).path_frame
+    summary_for_export = summary_table.copy()
+    summary_for_export["Scenario provenance"] = provenance
+    summary_csv = summary_for_export.to_csv(index=False)
+    path_frame = aggregate_monte_carlo_results(filtered_results).path_frame.copy()
+    path_frame["Scenario provenance"] = provenance
     parquet_bytes = _export_parquet_bytes(path_frame)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -523,6 +566,7 @@ def _build_download_payloads(
     zip_buffer = BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
         bundle.writestr("summary.csv", summary_csv)
+        bundle.writestr("README.txt", provenance)
         if parquet_bytes is not None:
             bundle.writestr("representative_paths.parquet", parquet_bytes)
     zip_buffer.seek(0)
@@ -541,6 +585,8 @@ def _build_download_payloads(
 
 def _build_chart_bundle_payload(
     charts: Mapping[str, go.Figure],
+    *,
+    provenance: str = REGISTRY_SCENARIO_PROVENANCE,
 ) -> tuple[dict[str, Any] | None, list[str]]:
     if not charts:
         return None, []
@@ -553,7 +599,9 @@ def _build_chart_bundle_payload(
         payload.seek(0)
     else:
         payload = bundle_buffer
-        payload.seek(0)
+    with zipfile.ZipFile(payload, "a", compression=zipfile.ZIP_DEFLATED) as bundle:
+        bundle.writestr("README.txt", provenance)
+    payload.seek(0)
     return (
         {
             "label": "Download charts bundle",
@@ -651,6 +699,10 @@ def render() -> None:
         st.error("Scenario settings are not resolved.")
         return
     runner_kwargs, session_error = _session_runner_kwargs()
+    provenance = _scenario_provenance_message(uses_session_state=bool(runner_kwargs))
+    st.info(provenance)
+    if not runner_kwargs:
+        _link_to_page("pages/1_Data.py", label="Open the Data page")
     if session_error:
         st.warning("Current Data/Model state could not be applied to Monte Carlo.")
         with st.expander("Details"):
@@ -777,10 +829,14 @@ def render() -> None:
             results = runner.run(progress_callback=progress_callback, jobs=jobs)
             progress_bar.progress(1.0, text="Simulation complete.")
             st.session_state[MC_RESULTS_KEY] = results
+            # The Data/Model session can change after a completed run.  Keep the
+            # exports tied to the inputs that actually produced these results.
+            st.session_state[MC_RESULTS_PROVENANCE_KEY] = provenance
             st.success("Simulation completed.")
         except _RunCancelled:
             st.warning("Simulation cancelled.")
             st.session_state[MC_RESULTS_KEY] = None
+            st.session_state[MC_RESULTS_PROVENANCE_KEY] = None
         except Exception as exc:
             st.error("Simulation failed.")
             st.session_state[MC_LAST_ERROR_KEY] = str(exc)
@@ -792,4 +848,7 @@ def render() -> None:
     results = st.session_state.get(MC_RESULTS_KEY)
     if results is not None:
         st.divider()
-        _render_results(results, fold_selection=fold_selection)
+        result_provenance = st.session_state.get(MC_RESULTS_PROVENANCE_KEY)
+        if not isinstance(result_provenance, str):
+            result_provenance = provenance
+        _render_results(results, fold_selection=fold_selection, provenance=result_provenance)

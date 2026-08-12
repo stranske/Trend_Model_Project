@@ -65,6 +65,8 @@ class DummyStreamlit:
         self.error_messages: list[str] = []
         self.warning_messages: list[str] = []
         self.info_messages: list[str] = []
+        self.page_links: list[tuple[str, str]] = []
+        self.markdown_messages: list[str] = []
         self.caption_messages: list[str] = []
         self.write_messages: list[str] = []
         self.progress_calls: list[tuple[float, str | None]] = []
@@ -94,6 +96,12 @@ class DummyStreamlit:
 
     def info(self, message: str) -> None:
         self.info_messages.append(message)
+
+    def page_link(self, path: str, *, label: str, **_kwargs: Any) -> None:
+        self.page_links.append((path, label))
+
+    def markdown(self, message: str, **_kwargs: Any) -> None:
+        self.markdown_messages.append(message)
 
     def success(self, _message: str) -> None:
         return None
@@ -318,6 +326,47 @@ def test_scenario_picker_and_tag_filtering(monkeypatch: pytest.MonkeyPatch) -> N
     assert stub.selectbox_calls[0][1] == ["macro"]
 
 
+def test_mc_page_declares_scenario_provenance(monkeypatch: pytest.MonkeyPatch) -> None:
+    page, stub = _load_page(monkeypatch)
+    scenario_entry = ScenarioRegistryEntry(
+        name="macro",
+        path=Path("config/scenarios/monte_carlo/example.yml"),
+        description="Macro scenario",
+        tags=("production",),
+    )
+    monkeypatch.setattr(page, "list_scenarios", lambda **_kwargs: [scenario_entry])
+    monkeypatch.setattr(page, "load_scenario", lambda _name: _make_scenario("macro"))
+    monkeypatch.setattr(page, "_session_runner_kwargs", lambda: ({}, None))
+
+    page.render()
+
+    assert any("standalone registry scenario" in message for message in stub.info_messages)
+    assert stub.page_links == [("pages/1_Data.py", "Open the Data page")]
+
+    monkeypatch.setattr(page, "_session_runner_kwargs", lambda: ({"base_config": object()}, None))
+    page.render()
+
+    assert any(
+        "loaded Data and Model state is supplied as runtime input" in message
+        for message in stub.info_messages
+    )
+
+
+def test_link_to_page_falls_back_to_markdown_when_page_link_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    page, stub = _load_page(monkeypatch)
+
+    def raise_key_error(_path: str, *, label: str, **_kwargs: Any) -> None:
+        raise KeyError("url_pathname")
+
+    monkeypatch.setattr(page.st, "page_link", raise_key_error)
+
+    page._link_to_page("pages/1_Data.py", label="Open the Data page")
+
+    assert stub.markdown_messages == ["[Open the Data page](pages/1_Data.py)"]
+
+
 def test_runtime_override_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     page, stub = _load_page(monkeypatch)
 
@@ -429,6 +478,9 @@ def test_run_button_flow_with_progress(monkeypatch: pytest.MonkeyPatch) -> None:
     assert ["Core", "Diagnostics"] in stub.tabs_calls
     assert all(call.get("use_container_width") is True for call in stub.plotly_calls)
     assert stub.dataframes
+    assert stub.session_state[page.MC_RESULTS_PROVENANCE_KEY].startswith(
+        "Monte Carlo provenance: this is a standalone registry scenario"
+    )
 
     columns = list(stub.dataframes[0].columns)
     assert columns == [
@@ -439,6 +491,45 @@ def test_run_button_flow_with_progress(monkeypatch: pytest.MonkeyPatch) -> None:
         "Max DD (5th)",
         "Terminal Wealth",
     ]
+
+
+def test_completed_run_exports_keep_their_original_provenance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Changing Data/Model state later must not relabel cached run exports."""
+    page, stub = _load_page(monkeypatch)
+    scenario_entry = ScenarioRegistryEntry(
+        name="macro",
+        path=Path("config/scenarios/monte_carlo/example.yml"),
+        description="Macro scenario",
+        tags=("macro",),
+    )
+    monkeypatch.setattr(page, "list_scenarios", lambda **_kwargs: [scenario_entry])
+    monkeypatch.setattr(page, "load_scenario", lambda _name: _make_scenario("macro"))
+    session_inputs: dict[str, object] = {}
+    monkeypatch.setattr(page, "_session_runner_kwargs", lambda: (session_inputs, None))
+
+    class FakeRunner:
+        def __init__(self, _scenario: MonteCarloScenario, **_kwargs: object) -> None:
+            return None
+
+        def run(self, **_kwargs: object) -> DummyResults:
+            return _sample_results()
+
+    monkeypatch.setattr(page, "MonteCarloRunner", FakeRunner)
+    stub.button_responses = [True, False]
+    page.render()
+
+    session_inputs["base_config"] = object()
+    stub.downloads.clear()
+    stub.button_responses = [False, False]
+    page.render()
+
+    summary_csv = next(download for download in stub.downloads if download["mime"] == "text/csv")[
+        "data"
+    ]
+    assert "Load data and configure a model" in summary_csv
+    assert "supplied as runtime input" not in summary_csv
 
 
 def test_validate_button_flow(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -620,9 +711,28 @@ def test_download_link_generation(monkeypatch: pytest.MonkeyPatch) -> None:
     if hasattr(zip_data, "seek"):
         zip_data.seek(0)
     with zipfile.ZipFile(zip_data) as bundle:
-        assert set(bundle.namelist()) == {"summary.csv", "representative_paths.parquet"}
+        assert set(bundle.namelist()) == {
+            "README.txt",
+            "summary.csv",
+            "representative_paths.parquet",
+        }
+        assert "standalone registry scenario" in bundle.read("README.txt").decode()
         summary_text = bundle.read("summary.csv").decode("utf-8")
         assert "Strategy" in summary_text
+
+    charts_zip_entry = next(
+        entry
+        for entry in stub.downloads
+        if entry.get("mime") == "application/zip"
+        and str(entry.get("label")) == "Download charts bundle"
+    )
+    charts_zip_data = charts_zip_entry.get("data")
+    assert hasattr(charts_zip_data, "getvalue")
+    if hasattr(charts_zip_data, "seek"):
+        charts_zip_data.seek(0)
+    with zipfile.ZipFile(charts_zip_data) as charts_bundle:
+        assert "README.txt" in charts_bundle.namelist()
+        assert "standalone registry scenario" in charts_bundle.read("README.txt").decode()
 
 
 def test_render_results_surfaces_png_export_warning(
@@ -639,7 +749,7 @@ def test_render_results_surfaces_png_export_warning(
     monkeypatch.setattr(
         page,
         "_build_chart_bundle_payload",
-        lambda _charts: (
+        lambda _charts, **_kwargs: (
             {
                 "label": "Download charts bundle",
                 "data": buffer,
@@ -750,7 +860,12 @@ def test_build_download_payloads_zip_bundle_content(
     assert zip_payload["label"] == "Download ZIP bundle"
     assert hasattr(zip_buffer, "getvalue")
     with zipfile.ZipFile(BytesIO(zip_buffer.getvalue())) as bundle:
-        assert set(bundle.namelist()) == {"summary.csv", "representative_paths.parquet"}
+        assert set(bundle.namelist()) == {
+            "README.txt",
+            "summary.csv",
+            "representative_paths.parquet",
+        }
+        assert "standalone registry scenario" in bundle.read("README.txt").decode()
         summary_text = bundle.read("summary.csv").decode("utf-8")
         assert "Strategy,Sharpe (median)" in summary_text
         assert bundle.read("representative_paths.parquet")[:4] == b"PAR1"
@@ -820,7 +935,11 @@ def test_build_download_payloads_tolerates_buffer_closing_engine(
 
     zip_payload = next(payload for payload in payloads if payload["mime"] == "application/zip")
     with zipfile.ZipFile(BytesIO(zip_payload["data"].getvalue())) as bundle:
-        assert set(bundle.namelist()) == {"summary.csv", "representative_paths.parquet"}
+        assert set(bundle.namelist()) == {
+            "README.txt",
+            "summary.csv",
+            "representative_paths.parquet",
+        }
 
 
 def test_build_download_payloads_degrades_when_parquet_unavailable(
@@ -842,7 +961,8 @@ def test_build_download_payloads_degrades_when_parquet_unavailable(
 
     zip_payload = next(payload for payload in payloads if payload["mime"] == "application/zip")
     with zipfile.ZipFile(BytesIO(zip_payload["data"].getvalue())) as bundle:
-        assert bundle.namelist() == ["summary.csv"]
+        assert bundle.namelist() == ["summary.csv", "README.txt"]
+        assert "standalone registry scenario" in bundle.read("README.txt").decode()
 
 
 def test_export_parquet_bytes_returns_none_on_engine_failure(
