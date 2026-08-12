@@ -274,9 +274,7 @@ def test_extract_portfolio_metrics_accepts_series_stats() -> None:
     run_result = RunResult(
         metrics=per_fund,
         details={
-            "out_user_stats": pd.Series(
-                {"sharpe": 1.5, "bad_inf": np.inf, "is_avg_corr": True}
-            )
+            "out_user_stats": pd.Series({"sharpe": 1.5, "bad_inf": np.inf, "is_avg_corr": True})
         },
         seed=0,
         environment={},

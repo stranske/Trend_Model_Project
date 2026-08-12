@@ -3963,8 +3963,7 @@ def _run_threshold_hold_multi_periods(
                 candidates = [
                     str(c)
                     for c in sf.index
-                    if str(c) not in {str(h) for h in holdings}
-                    and _eligible_sticky_add(str(c))
+                    if str(c) not in {str(h) for h in holdings} and _eligible_sticky_add(str(c))
                 ]
                 if cooldown_periods > 0 and cooldown_book:
                     candidates = [c for c in candidates if str(c) not in cooldown_book]
