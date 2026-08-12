@@ -261,7 +261,7 @@ def test_data_page_autoloads_sample(monkeypatch: pytest.MonkeyPatch, data_page) 
     monkeypatch.setattr(page.data_cache, "load_dataset_from_path", lambda path: (df, meta))
 
     stub.selectbox_map["Choose a sample"] = sample.label
-    stub.selectbox_map["Benchmark column (optional)"] = "SPX Index"
+    stub.selectbox_map["Benchmark Column (optional)"] = "SPX Index"
     monkeypatch.setattr(page, "infer_benchmarks", lambda columns: ["SPX Index"])
 
     initial_clears = stub.clear_calls
@@ -303,7 +303,7 @@ def test_debug_surfaces_hidden_without_flag(monkeypatch: pytest.MonkeyPatch, dat
     )
     monkeypatch.setattr(page, "infer_benchmarks", lambda _columns: ["SPX Index"])
     stub.selectbox_map["Choose a sample"] = sample.label
-    stub.selectbox_map["Benchmark column (optional)"] = "SPX Index"
+    stub.selectbox_map["Benchmark Column (optional)"] = "SPX Index"
 
     page.render_data_page()
 

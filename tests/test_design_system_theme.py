@@ -9,7 +9,7 @@ DATA_DENSE_ENTRYPOINTS = (
     "streamlit_app/pages/2_Model.py",
     "streamlit_app/pages/3_Results.py",
     "streamlit_app/pages/5_Monte_Carlo.py",
-    "streamlit_app/pages/8_Validation.py",
+    "streamlit_app/developer_settings_validation.py",
 )
 
 
@@ -36,7 +36,7 @@ def test_theme_adopted() -> None:
 def test_streamlit_entrypoint_discovery_covers_every_page() -> None:
     discovered = {str(path.relative_to(REPO_ROOT)) for path in _streamlit_entrypoints()}
     assert "streamlit_app/app.py" in discovered
-    assert "streamlit_app/pages/8_Validation.py" in discovered
+    assert "streamlit_app/developer_settings_validation.py" not in discovered
     assert not any("pages/6_" in path or "pages/7_" in path for path in discovered)
 
 

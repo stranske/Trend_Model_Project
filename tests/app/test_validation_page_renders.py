@@ -131,9 +131,9 @@ def _reload_validation_page(monkeypatch: pytest.MonkeyPatch, streamlit_module: M
     from streamlit_app import state as app_state
 
     monkeypatch.setattr(app_state, "st", streamlit_module)
-    sys.modules.pop("streamlit_app.pages.8_Validation", None)
+    sys.modules.pop("streamlit_app.developer_settings_validation", None)
     importlib.invalidate_caches()
-    return importlib.import_module("streamlit_app.pages.8_Validation")
+    return importlib.import_module("streamlit_app.developer_settings_validation")
 
 
 def test_validation_page_auto_renders_with_uploaded_returns(
@@ -142,6 +142,7 @@ def test_validation_page_auto_renders_with_uploaded_returns(
     stub = DummyStreamlit()
     stub.session_state.update(
         {
+            "show_perf_diagnostics": True,
             "returns_df": pd.DataFrame(
                 {"FundA": [0.01, -0.02], "FundB": [0.03, 0.01]},
                 index=pd.date_range("2024-01-31", periods=2, freq="ME"),
@@ -159,7 +160,7 @@ def test_validation_page_auto_renders_with_uploaded_returns(
     _reload_validation_page(monkeypatch, streamlit_module)
 
     assert stub.page_config_calls
-    assert any("Settings Validation" in call for call in stub.title_calls)
+    assert any("Developer: Settings Validation" in call for call in stub.title_calls)
     assert "returns_df" in stub.session_state.get_keys
     assert "app_data" not in stub.session_state.get_keys
     assert not any("Please load data" in message for message in stub.warning_messages)

@@ -547,6 +547,18 @@ def format_value(value: Any) -> str:
 def render_validation_page() -> None:
     """Render the developer Settings Validation page."""
 
+    active_profile = demo_profile.get_active_profile()
+    if (
+        not demo_profile.custom_analysis_enabled(active_profile)
+        and not st.session_state.get("show_perf_diagnostics")
+    ):
+        st.warning(
+            "Developer settings validation is disabled in **presentation_safe** mode. "
+            "Switch to **public_llm_demo** in the sidebar, or enable "
+            "`show_perf_diagnostics` for QA access."
+        )
+        st.stop()
+
     app_state.initialize_session_state()
     st.title("🔧 Developer: Settings Validation")
     st.markdown("""
