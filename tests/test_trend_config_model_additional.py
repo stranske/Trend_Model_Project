@@ -257,6 +257,12 @@ def test_risk_settings_validator_errors() -> None:
         RiskSettings.model_validate({"target_vol": 0.1, "floor_vol": 0.01, "warmup_periods": -1})
 
 
+def test_risk_settings_preserves_enabled_flag() -> None:
+    settings = RiskSettings.model_validate({"enabled": False, "target_vol": 0.1})
+
+    assert settings.enabled is False
+
+
 def test_resolve_config_path_variants(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     default_path = _resolve_config_path("demo")
     assert default_path.name == "demo.yml"

@@ -13,7 +13,7 @@ import pandas as pd
 
 from backtest import shift_by_execution_lag
 
-from ..metrics import sortino_ratio
+from ..metrics import sharpe_ratio, sortino_ratio, volatility
 from ..metrics.turnover import linear_turnover_cost
 from ..schedules import normalize_frequency
 from ..schedules import rebalance_calendar as _rebalance_calendar
@@ -594,12 +594,9 @@ def _compute_metrics(
     else:
         cagr = float("nan")
 
-    vol = active_returns.std(ddof=0) * np.sqrt(periods_per_year)
-    sharpe = (
-        active_returns.mean() / active_returns.std(ddof=0) * np.sqrt(periods_per_year)
-        if active_returns.std(ddof=0)
-        else float("nan")
-    )
+    # Keep reporting aligned with the public metric contract (sample ddof=1).
+    vol = float(volatility(active_returns, periods_per_year=periods_per_year))
+    sharpe = float(sharpe_ratio(active_returns, periods_per_year=periods_per_year))
     sortino = sortino_ratio(active_returns, periods_per_year=periods_per_year)
     max_drawdown = float(drawdown.min()) if len(drawdown) else float("nan")
     calmar = cagr / abs(max_drawdown) if max_drawdown and not np.isnan(cagr) else float("nan")

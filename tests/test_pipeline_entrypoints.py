@@ -3,6 +3,10 @@ import pandas as pd
 import pytest
 
 import trend_analysis.pipeline as pipeline
+from trend_analysis.pipeline_entrypoints import (
+    _resolve_single_period_monthly_cost,
+    _resolve_single_period_weighting_scheme,
+)
 
 
 def _sample_stats(value: float = 0.1) -> pipeline._Stats:  # type: ignore[name-defined]
@@ -23,6 +27,28 @@ def _sample_stats(value: float = 0.1) -> pipeline._Stats:  # type: ignore[name-d
 def test_run_requires_csv_path() -> None:
     with pytest.raises(KeyError):
         pipeline.run({})
+
+
+def test_same_config_same_numbers_across_entrypoints() -> None:
+    """Single-period config resolution matches the multi-period cost contract."""
+
+    portfolio = {
+        "transaction_cost_bps": 12,
+        "cost_model": {"slippage_bps": 3},
+        "weighting": {"name": "score_prop_bayes"},
+    }
+
+    assert _resolve_single_period_weighting_scheme(portfolio, dict.get) == "score_prop_bayes"
+    assert _resolve_single_period_monthly_cost(portfolio, {}) == pytest.approx(0.0015)
+
+
+def test_single_period_legacy_weighting_scheme_overrides_nested_name() -> None:
+    portfolio = {
+        "weighting_scheme": "risk_parity",
+        "weighting": {"name": "score_prop_bayes"},
+    }
+
+    assert _resolve_single_period_weighting_scheme(portfolio, dict.get) == "risk_parity"
 
 
 @pytest.fixture(name="sample_frame")

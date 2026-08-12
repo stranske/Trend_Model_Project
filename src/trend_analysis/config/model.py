@@ -542,6 +542,7 @@ class PortfolioSettings(BaseModel):
 class RiskSettings(BaseModel):
     """Risk target configuration for volatility control."""
 
+    enabled: bool = Field(default=True)
     target_vol: float = Field()
     floor_vol: float = Field(default=0.015)
     warmup_periods: int = Field(default=0)
@@ -554,7 +555,6 @@ class RiskSettings(BaseModel):
         if not isinstance(data, Mapping):
             return data
         cleaned = dict(data)
-        cleaned.pop("enabled", None)
         cleaned.pop("window", None)
         return cleaned
 
