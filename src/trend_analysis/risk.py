@@ -248,7 +248,12 @@ def compute_constrained_weights(
     group_caps: Mapping[str, float] | None = None,
     groups: Mapping[str, str] | None = None,
 ) -> tuple[pd.Series, RiskDiagnostics]:
-    """Apply risk controls and return final weights plus diagnostics."""
+    """Apply risk controls and return final weights plus diagnostics.
+
+    Volatility targeting has one owner: this allocation step tilts capital
+    weights by inverse realised volatility.  Callers must apply the returned
+    weights to raw asset returns rather than rescaling those returns again.
+    """
 
     if returns.empty:
         raise ValueError("returns cannot be empty")

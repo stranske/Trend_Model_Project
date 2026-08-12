@@ -568,8 +568,11 @@ def _compute_weights_and_stats(
             cash_weight = 0.0
     scale_factors = risk_diagnostics.scale_factors.reindex(fund_cols).fillna(0.0)
 
-    in_scaled = window.in_df[fund_cols].mul(scale_factors, axis=1) - monthly_cost
-    out_scaled = window.out_df[fund_cols].mul(scale_factors, axis=1) - monthly_cost
+    # ``compute_constrained_weights`` owns volatility targeting by tilting
+    # capital weights.  Returns remain raw here: multiplying them by the same
+    # per-asset factors would apply the volatility adjustment twice.
+    in_scaled = window.in_df[fund_cols] - monthly_cost
+    out_scaled = window.out_df[fund_cols] - monthly_cost
     in_scaled = in_scaled.clip(lower=-1.0)
     out_scaled = out_scaled.clip(lower=-1.0)
 
@@ -661,6 +664,14 @@ def _compute_weights_and_stats(
         cash_weight=cash_weight,
         cash_returns=rf_out,
     )
+
+    # The published diagnostic must describe the exported user-return series,
+    # after the final allocation policy and cash treatment have been applied.
+    risk_diagnostics.portfolio_volatility = realised_volatility(
+        out_user.to_frame("portfolio"),
+        window_spec,
+        periods_per_year=window.periods_per_year,
+    )["portfolio"]
 
     in_user_stats = _compute_stats(pd.DataFrame({"user": in_user}), rf_in)["user"]
     out_user_stats = _compute_stats(pd.DataFrame({"user": out_user}), rf_out)["user"]

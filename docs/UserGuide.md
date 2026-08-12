@@ -140,11 +140,11 @@ Volatility targeting and basic constraints live under the `vol_adjust` and
 
 | Setting | Type | Effect |
 |---------|------|--------|
-| `vol_adjust.target_vol` | float | Annualised volatility target applied to the portfolio. |
+| `vol_adjust.target_vol` | float | Annualised per-asset volatility target used to tilt capital weights; it is applied once in allocation and never again to return series. |
 | `vol_adjust.window.length` | integer | Lookback window (in periods) for realised-vol calculations. |
 | `vol_adjust.window.decay` | string | `simple` for rolling window or `ewma` for exponentially weighted volatility. |
 | `vol_adjust.window.lambda` | float | EWMA decay factor when `decay: ewma` (0 < λ < 1). |
-| `vol_adjust.floor_vol` | float | Minimum annualised volatility per asset to avoid excessive leverage. |
+| `vol_adjust.floor_vol` | float | Minimum annualised volatility per asset when forming the allocation tilt, avoiding excessive leverage. |
 | `vol_adjust.warmup_periods` | integer | Number of initial rows with zero exposure after re-scaling. |
 | `portfolio.max_turnover` | float or mapping | Turnover cap (fraction of the book) enforced at each rebalance. A mapping may provide regime-specific caps keyed by labels such as `Risk-On` and `Risk-Off`. |
 | `portfolio.constraints.long_only` | bool | Clip negative weights before normalisation; relevant for `custom_weights` or weight engines configured to allow shorts (e.g., `robust_mv` with `min_weight < 0`). |
