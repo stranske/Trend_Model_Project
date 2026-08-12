@@ -127,6 +127,32 @@ def test_render_profile_controls_presentation_safe_caption() -> None:
     assert any("Presentation-safe" in c for c in fake.sidebar.captions)
 
 
+def test_query_param_profile_persists_across_navigation() -> None:
+    fake = _FakeStreamlit(dp.PRESENTATION_SAFE)
+    fake.query_params[dp.PROFILE_QUERY_PARAM] = dp.PUBLIC_LLM_DEMO
+
+    assert dp._active_profile_from_module(fake) == dp.PUBLIC_LLM_DEMO
+    assert fake.session_state[dp.PROFILE_SESSION_KEY] == dp.PUBLIC_LLM_DEMO
+
+    fake.query_params.clear()
+    assert dp._active_profile_from_module(fake) == dp.PUBLIC_LLM_DEMO
+
+
+def test_invalid_query_param_is_not_persisted() -> None:
+    fake = _FakeStreamlit(dp.PRESENTATION_SAFE)
+    fake.query_params[dp.PROFILE_QUERY_PARAM] = "bogus"
+
+    assert dp._active_profile_from_module(fake) == dp.PRESENTATION_SAFE
+    assert dp.PROFILE_SESSION_KEY not in fake.session_state
+
+
+@pytest.mark.parametrize("page", ["1_Data.py", "2_Model.py"])
+def test_gated_pages_render_profile_controls(page: str) -> None:
+    source = (REPO_ROOT / "streamlit_app" / "pages" / page).read_text(encoding="utf-8")
+
+    assert "demo_profile.render_profile_controls(st)" in source
+
+
 # ---------------------------------------------------------------------------
 # Browser-demo artifact + build manifest
 # ---------------------------------------------------------------------------

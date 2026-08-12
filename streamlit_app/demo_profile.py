@@ -116,23 +116,11 @@ def get_active_profile() -> str:
     only the environment variable and default are consulted.
     """
 
-    session_value: Optional[str] = None
-    query_value: Optional[str] = None
     try:
         import streamlit as st  # noqa: PLC0415 -- lazy, optional dependency
     except ModuleNotFoundError:
-        st = None
-    if st is not None:
-        try:
-            session_value = st.session_state.get(PROFILE_SESSION_KEY)
-        except (AttributeError, TypeError):
-            session_value = None
-        query_value = _query_param_value(st)
-    return resolve_profile(
-        session=session_value,
-        query_param=query_value,
-        env=os.environ.get(PROFILE_ENV_VAR),
-    )
+        return resolve_profile(env=os.environ.get(PROFILE_ENV_VAR))
+    return _active_profile_from_module(st)
 
 
 def _active_profile_from_module(st_module) -> str:
@@ -143,11 +131,21 @@ def _active_profile_from_module(st_module) -> str:
         session_value = st_module.session_state.get(PROFILE_SESSION_KEY)
     except (AttributeError, TypeError):
         session_value = None
-    return resolve_profile(
+    query_value = _query_param_value(st_module)
+    active = resolve_profile(
         session=session_value,
-        query_param=_query_param_value(st_module),
+        query_param=query_value,
         env=os.environ.get(PROFILE_ENV_VAR),
     )
+    # Streamlit drops query parameters when a user changes pages. Persist only
+    # valid deep-link values, leaving malformed input as a safe fallback.
+    if (
+        session_value is None
+        and isinstance(query_value, str)
+        and query_value.strip().lower() in VALID_PROFILES
+    ):
+        _store_profile_on_module(st_module, active)
+    return active
 
 
 def _store_profile_on_module(st_module, profile: str) -> str:

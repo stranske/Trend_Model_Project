@@ -37,6 +37,7 @@ from trend_analysis.io.market_data import MarketDataValidationError
 
 apply_ds_theme()
 apply_density_compact()
+demo_profile.render_profile_controls(st)
 
 DATE_COLUMN = "Date"
 REQUIRED_UPLOAD_COLUMNS = (DATE_COLUMN,)
