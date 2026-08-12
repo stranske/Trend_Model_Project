@@ -44,6 +44,7 @@ def _should_auto_render() -> bool:
 
 
 MC_RESULTS_KEY = "mc_results"
+MC_RESULTS_PROVENANCE_KEY = "mc_results_provenance"
 MC_RUNNING_KEY = "mc_running"
 MC_CANCEL_KEY = "mc_cancel_requested"
 MC_LAST_ERROR_KEY = "mc_last_error"
@@ -828,10 +829,14 @@ def render() -> None:
             results = runner.run(progress_callback=progress_callback, jobs=jobs)
             progress_bar.progress(1.0, text="Simulation complete.")
             st.session_state[MC_RESULTS_KEY] = results
+            # The Data/Model session can change after a completed run.  Keep the
+            # exports tied to the inputs that actually produced these results.
+            st.session_state[MC_RESULTS_PROVENANCE_KEY] = provenance
             st.success("Simulation completed.")
         except _RunCancelled:
             st.warning("Simulation cancelled.")
             st.session_state[MC_RESULTS_KEY] = None
+            st.session_state[MC_RESULTS_PROVENANCE_KEY] = None
         except Exception as exc:
             st.error("Simulation failed.")
             st.session_state[MC_LAST_ERROR_KEY] = str(exc)
@@ -843,4 +848,7 @@ def render() -> None:
     results = st.session_state.get(MC_RESULTS_KEY)
     if results is not None:
         st.divider()
-        _render_results(results, fold_selection=fold_selection, provenance=provenance)
+        result_provenance = st.session_state.get(MC_RESULTS_PROVENANCE_KEY)
+        if not isinstance(result_provenance, str):
+            result_provenance = provenance
+        _render_results(results, fold_selection=fold_selection, provenance=result_provenance)

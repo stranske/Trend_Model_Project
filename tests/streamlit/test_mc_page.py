@@ -459,6 +459,9 @@ def test_run_button_flow_with_progress(monkeypatch: pytest.MonkeyPatch) -> None:
     assert ["Core", "Diagnostics"] in stub.tabs_calls
     assert all(call.get("use_container_width") is True for call in stub.plotly_calls)
     assert stub.dataframes
+    assert stub.session_state[page.MC_RESULTS_PROVENANCE_KEY].startswith(
+        "Monte Carlo provenance: this is a standalone registry scenario"
+    )
 
     columns = list(stub.dataframes[0].columns)
     assert columns == [
@@ -469,6 +472,43 @@ def test_run_button_flow_with_progress(monkeypatch: pytest.MonkeyPatch) -> None:
         "Max DD (5th)",
         "Terminal Wealth",
     ]
+
+
+def test_completed_run_exports_keep_their_original_provenance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Changing Data/Model state later must not relabel cached run exports."""
+    page, stub = _load_page(monkeypatch)
+    scenario_entry = ScenarioRegistryEntry(
+        name="macro",
+        path=Path("config/scenarios/monte_carlo/example.yml"),
+        description="Macro scenario",
+        tags=("macro",),
+    )
+    monkeypatch.setattr(page, "list_scenarios", lambda **_kwargs: [scenario_entry])
+    monkeypatch.setattr(page, "load_scenario", lambda _name: _make_scenario("macro"))
+    session_inputs: dict[str, object] = {}
+    monkeypatch.setattr(page, "_session_runner_kwargs", lambda: (session_inputs, None))
+
+    class FakeRunner:
+        def __init__(self, _scenario: MonteCarloScenario, **_kwargs: object) -> None:
+            return None
+
+        def run(self, **_kwargs: object) -> DummyResults:
+            return _sample_results()
+
+    monkeypatch.setattr(page, "MonteCarloRunner", FakeRunner)
+    stub.button_responses = [True, False]
+    page.render()
+
+    session_inputs["base_config"] = object()
+    stub.downloads.clear()
+    stub.button_responses = [False, False]
+    page.render()
+
+    summary_csv = next(download for download in stub.downloads if download["mime"] == "text/csv")["data"]
+    assert "Load data and configure a model" in summary_csv
+    assert "supplied as runtime input" not in summary_csv
 
 
 def test_validate_button_flow(monkeypatch: pytest.MonkeyPatch) -> None:
