@@ -77,7 +77,10 @@ def test_empty_cost_model_keeps_run_monthly_cost() -> None:
     [
         ({"weighting": {"name": "ew"}}, "equal"),
         ({"weighting": {"name": "score_prop_bayes"}, "weighting_scheme": "robust"}, "robust_mv"),
-        ({"weighting": {"name": "score_prop_bayes"}, "weighting_scheme": "equal"}, "score_prop_bayes"),
+        (
+            {"weighting": {"name": "score_prop_bayes"}, "weighting_scheme": "equal"},
+            "score_prop_bayes",
+        ),
     ],
 )
 def test_weighting_aliases_and_precedence_match_both_entrypoints(

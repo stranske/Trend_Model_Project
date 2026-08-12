@@ -131,9 +131,7 @@ def resolve_pipeline_monthly_cost(
 ) -> float:
     """Resolve the decimal per-period cost sent to the shared analysis pipeline."""
 
-    tc_bps, slippage_bps = resolve_portfolio_cost_bps(
-        portfolio_cfg, section_get=section_get
-    )
+    tc_bps, slippage_bps = resolve_portfolio_cost_bps(portfolio_cfg, section_get=section_get)
     cost_model = section_get(portfolio_cfg, "cost_model", None)
     cost_values = (
         *(
