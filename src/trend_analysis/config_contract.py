@@ -45,8 +45,8 @@ def resolve_portfolio_weighting_name(
     """Resolve legacy and nested weighting keys with one documented precedence."""
 
     weighting_cfg = section_get(portfolio_cfg, "weighting", {})
-    nested_name = section_get(weighting_cfg, "name")
-    legacy_name = section_get(portfolio_cfg, "weighting_scheme")
+    nested_name = section_get(weighting_cfg, "name", None)
+    legacy_name = section_get(portfolio_cfg, "weighting_scheme", None)
     if legacy_name not in (None, ""):
         resolved_legacy = normalise_weighting_name(legacy_name)
         if resolved_legacy not in _WEIGHTING_SCHEME_PLACEHOLDERS or not nested_name:
@@ -61,9 +61,26 @@ def optional_cost_bps(value: Any, *, field: str) -> float | None:
         parsed = float(value)
     except (TypeError, ValueError) as exc:
         raise CoreConfigError(f"portfolio.{field} must be numeric") from exc
-    if not math.isfinite(parsed) or parsed < 0:
-        raise CoreConfigError(f"portfolio.{field} must be finite and non-negative")
+    if not math.isfinite(parsed):
+        raise CoreConfigError(f"portfolio.{field} must be finite")
+    if parsed < 0:
+        raise CoreConfigError(f"portfolio.{field} cannot be negative")
     return parsed
+
+
+def first_configured_cost(
+    section: Any,
+    primary_key: str,
+    legacy_key: str,
+    *,
+    section_get: SectionGet,
+) -> tuple[Any, str]:
+    """Return the preferred configured cost alias and its diagnostic field name."""
+
+    primary_value = section_get(section, primary_key, None)
+    if primary_value is not None:
+        return primary_value, primary_key
+    return section_get(section, legacy_key, None), legacy_key
 
 
 def resolve_portfolio_cost_bps(
@@ -73,14 +90,26 @@ def resolve_portfolio_cost_bps(
 ) -> tuple[float, float]:
     """Return canonical transaction-cost and slippage inputs in basis points."""
 
-    cost_model = section_get(portfolio_cfg, "cost_model")
+    cost_model = section_get(portfolio_cfg, "cost_model", None)
+    bps_per_trade_value, bps_per_trade_key = first_configured_cost(
+        cost_model,
+        "per_trade_bps",
+        "bps_per_trade",
+        section_get=section_get,
+    )
     bps_per_trade = optional_cost_bps(
-        section_get(cost_model, "per_trade_bps", section_get(cost_model, "bps_per_trade")),
-        field="cost_model.per_trade_bps",
+        bps_per_trade_value,
+        field=f"cost_model.{bps_per_trade_key}",
+    )
+    slippage_bps_value, slippage_bps_key = first_configured_cost(
+        cost_model,
+        "half_spread_bps",
+        "slippage_bps",
+        section_get=section_get,
     )
     slippage_bps = optional_cost_bps(
-        section_get(cost_model, "half_spread_bps", section_get(cost_model, "slippage_bps")),
-        field="cost_model.half_spread_bps",
+        slippage_bps_value,
+        field=f"cost_model.{slippage_bps_key}",
     )
     if bps_per_trade is None:
         bps_per_trade = optional_cost_bps(
@@ -102,11 +131,24 @@ def resolve_pipeline_monthly_cost(
 ) -> float:
     """Resolve the decimal per-period cost sent to the shared analysis pipeline."""
 
-    tc_bps, slippage_bps = resolve_portfolio_cost_bps(portfolio_cfg, section_get=section_get)
-    if any(
-        section_get(portfolio_cfg, key) is not None
-        for key in ("cost_model", "transaction_cost_bps", "slippage_bps")
-    ):
+    tc_bps, slippage_bps = resolve_portfolio_cost_bps(
+        portfolio_cfg, section_get=section_get
+    )
+    cost_model = section_get(portfolio_cfg, "cost_model", None)
+    cost_values = (
+        *(
+            section_get(cost_model, key, None)
+            for key in (
+                "per_trade_bps",
+                "bps_per_trade",
+                "half_spread_bps",
+                "slippage_bps",
+            )
+        ),
+        section_get(portfolio_cfg, "transaction_cost_bps", None),
+        section_get(portfolio_cfg, "slippage_bps", None),
+    )
+    if any(value is not None for value in cost_values):
         return (tc_bps + slippage_bps) / 10000.0
     try:
         monthly_cost = float(section_get(run_cfg, "monthly_cost", 0.0) or 0.0)
