@@ -298,13 +298,6 @@ def compute_constrained_weights(
     constrained = optimizer_mod.apply_constraints(scaled, constraint_payload)
     constrained = _normalise(constrained)
 
-    prev_series = _ensure_series(previous_weights) if previous_weights is not None else None
-    constrained = _apply_turnover_penalty(constrained, prev_series, lambda_tc)
-    constrained, turnover_value = _enforce_turnover_cap(constrained, prev_series, max_turnover)
-    constrained = constrained.reindex(base.index, fill_value=0.0)
-    constrained = _enforce_max_active(constrained, max_active_positions)
-    constrained = _normalise(constrained)
-
     aligned_returns = returns.reindex(columns=constrained.index, fill_value=0.0)
     fully_invested_returns = aligned_returns.mul(constrained, axis=1).sum(axis=1)
     fully_invested_vol = realised_volatility(
@@ -337,6 +330,12 @@ def compute_constrained_weights(
     ):
         exposure = min(1.0, target / latest_portfolio_vol)
     constrained = constrained * exposure
+
+    prev_series = _ensure_series(previous_weights) if previous_weights is not None else None
+    constrained = _apply_turnover_penalty(constrained, prev_series, lambda_tc)
+    constrained, turnover_value = _enforce_turnover_cap(constrained, prev_series, max_turnover)
+    constrained = constrained.reindex(base.index, fill_value=0.0)
+    constrained = _enforce_max_active(constrained, max_active_positions)
 
     portfolio_returns = aligned_returns.mul(constrained, axis=1).sum(axis=1)
     portfolio_vol = realised_volatility(

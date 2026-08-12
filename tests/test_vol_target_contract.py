@@ -17,16 +17,21 @@ def _heterogeneous_returns(periods: int = 24) -> pd.DataFrame:
     )
 
 
-def _analysis_with_heterogeneous_returns() -> tuple[dict[object, object], pd.DataFrame]:
-    returns = _heterogeneous_returns().assign(RF=0.0).reset_index(names="Date")
+def _analysis_with_heterogeneous_returns(
+    *,
+    target_vol: float = 0.12,
+    monthly_cost: float = 0.0,
+    risk_free_rate: float = 0.0,
+) -> tuple[dict[object, object], pd.DataFrame]:
+    returns = _heterogeneous_returns().assign(RF=risk_free_rate).reset_index(names="Date")
     result = _run_analysis(
         returns,
         in_start="2022-01",
         in_end="2022-12",
         out_start="2023-01",
         out_end="2023-12",
-        target_vol=0.12,
-        monthly_cost=0.0,
+        target_vol=target_vol,
+        monthly_cost=monthly_cost,
         selection_mode="all",
         risk_free_column="RF",
         allow_risk_free_fallback=False,
@@ -126,3 +131,37 @@ def test_equal_weight_comparison_uses_documented_scaling_contract() -> None:
     pd.testing.assert_series_equal(
         result["portfolio_equal_weight"], expected_equal_weight, check_names=False, check_freq=False
     )
+
+
+def test_partial_exposure_and_cash_returns_match_reported_volatility() -> None:
+    result, _returns = _analysis_with_heterogeneous_returns(
+        target_vol=0.001,
+        monthly_cost=0.0005,
+        risk_free_rate=0.01,
+    )
+    reported = result["risk_diagnostics"]["portfolio_volatility"]
+    expected = realised_volatility(
+        result["portfolio_user_weight"].to_frame("portfolio"),
+        RiskWindow(length=12),
+        periods_per_year=12,
+    )["portfolio"]
+    expected.index.name = None
+    pd.testing.assert_series_equal(reported, expected, check_freq=False)
+
+
+def test_turnover_respects_exposure_scaled_final_weights() -> None:
+    returns = _heterogeneous_returns()
+    prev = pd.Series({"Steady": 0.5, "Volatile": 0.5})
+    _, diagnostics = compute_constrained_weights(
+        prev,
+        returns,
+        window=RiskWindow(length=6),
+        target_vol=0.001,
+        periods_per_year=12,
+        floor_vol=None,
+        long_only=True,
+        max_weight=None,
+        previous_weights=prev,
+        max_turnover=0.01,
+    )
+    assert diagnostics.turnover_value <= 0.01 + 1e-9
