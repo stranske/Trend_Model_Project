@@ -65,10 +65,24 @@ def test_unknown_top_level_and_nested_keys_are_rejected(tmp_path: Path) -> None:
 
 def test_declared_legacy_sections_remain_optional(tmp_path: Path) -> None:
     payload = _valid_payload(tmp_path)
+    payload.update(
+        {
+            "version": "1",
+            "identity": {"name": "legacy-identity"},
+            "extra": {"note": "legacy-extra"},
+            "strategy": {"name": "legacy-strategy"},
+            "walk_forward": {"enabled": False},
+        }
+    )
 
     validated = validate_trend_config(payload, base_path=tmp_path)
+    model = models.Config.model_validate(payload)
 
     assert validated.data.csv_path.name == "returns.csv"
     assert not (
         {"identity", "extra", "strategy", "walk_forward"} & set(models.Config.REQUIRED_DICT_FIELDS)
     )
+    assert model.identity == {"name": "legacy-identity"}
+    assert model.extra == {"note": "legacy-extra"}
+    assert model.strategy == {"name": "legacy-strategy"}
+    assert model.walk_forward == {"enabled": False}

@@ -58,6 +58,8 @@ class ConfigProtocol(Protocol):
     ALL_FIELDS: ClassVar[List[str]]
 
     version: str
+    identity: dict[str, Any]
+    extra: dict[str, Any]
     data: dict[str, Any]
     preprocessing: dict[str, Any]
     vol_adjust: dict[str, Any]
@@ -69,6 +71,8 @@ class ConfigProtocol(Protocol):
     export: dict[str, Any]
     output: dict[str, Any] | None
     run: dict[str, Any]
+    strategy: dict[str, Any]
+    walk_forward: dict[str, Any]
     multi_period: dict[str, Any] | None
     jobs: int | None
     checkpoint_dir: str | None
@@ -564,6 +568,12 @@ else:  # Fallback mode for tests without pydantic
                     raise ValueError(f"{field} section is required")
                 if not isinstance(value, dict):
                     raise ValueError(f"{field} must be a dictionary")
+            for optional_field in self.OPTIONAL_DICT_FIELDS:
+                value = getattr(self, optional_field, None)
+                if value is None:
+                    continue
+                if not isinstance(value, dict):
+                    raise ValueError(f"{optional_field} must be a dictionary")
             # Light-weight validation for turnover / cost controls
             port = getattr(self, "portfolio", {})
             if isinstance(port, dict):
