@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import inspect
 import logging
-import math
 from dataclasses import dataclass
 from typing import Any, Mapping, cast
 
@@ -10,6 +9,10 @@ import pandas as pd
 
 from trend.diagnostics import DiagnosticResult
 
+from .config_contract import (
+    resolve_pipeline_monthly_cost,
+    resolve_portfolio_weighting_name,
+)
 from .diagnostics import PipelineResult, coerce_pipeline_result
 from .util.risk_free import resolve_risk_free_settings
 
@@ -45,65 +48,12 @@ def _accepts_keyword(func: Any, keyword: str) -> bool:
 
 def _resolve_single_period_weighting_scheme(portfolio_cfg: Any, section_get: Any) -> str:
     """Use the same public weighting-key precedence as the multi-period engine."""
-
-    weighting_cfg = section_get(portfolio_cfg, "weighting", {})
-    nested_name = section_get(weighting_cfg, "name") if isinstance(weighting_cfg, Mapping) else None
-    legacy_name = section_get(portfolio_cfg, "weighting_scheme")
-    if legacy_name not in (None, "", "equal", "custom"):
-        return _normalise_single_period_weighting_name(legacy_name)
-    if nested_name not in (None, ""):
-        return _normalise_single_period_weighting_name(nested_name)
-    return _normalise_single_period_weighting_name(legacy_name)
-
-
-def _normalise_single_period_weighting_name(value: Any) -> str:
-    return {"ew": "equal", "robust": "robust_mv"}.get(
-        str(value or "equal").strip().lower(), str(value or "equal").strip().lower()
-    )
-
-
-def _optional_cost_bps(value: Any, *, field: str) -> float | None:
-    if value in (None, "", "null"):
-        return None
-    try:
-        parsed = float(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"portfolio.{field} must be numeric") from exc
-    if not math.isfinite(parsed) or parsed < 0:
-        raise ValueError(f"portfolio.{field} must be finite and non-negative")
-    return parsed
+    return resolve_portfolio_weighting_name(portfolio_cfg, section_get=section_get)
 
 
 def _resolve_single_period_monthly_cost(portfolio_cfg: Any, run_cfg: Any) -> float:
     """Translate the canonical portfolio cost model for the single-period path."""
-
-    portfolio = dict(portfolio_cfg) if isinstance(portfolio_cfg, Mapping) else {}
-    run = dict(run_cfg) if isinstance(run_cfg, Mapping) else {}
-    cost_model = portfolio.get("cost_model")
-    cost_model = cost_model if isinstance(cost_model, Mapping) else {}
-    tc_bps = _optional_cost_bps(
-        cost_model.get("per_trade_bps", cost_model.get("bps_per_trade")),
-        field="cost_model.per_trade_bps",
-    )
-    if tc_bps is None:
-        tc_bps = _optional_cost_bps(
-            portfolio.get("transaction_cost_bps", 0.0), field="transaction_cost_bps"
-        )
-    slippage_bps = _optional_cost_bps(
-        cost_model.get("half_spread_bps", cost_model.get("slippage_bps")),
-        field="cost_model.half_spread_bps",
-    )
-    if slippage_bps is None:
-        slippage_bps = _optional_cost_bps(portfolio.get("slippage_bps", 0.0), field="slippage_bps")
-    if any(key in portfolio for key in ("cost_model", "transaction_cost_bps", "slippage_bps")):
-        return (float(tc_bps or 0.0) + float(slippage_bps or 0.0)) / 10000.0
-    try:
-        monthly_cost = float(run.get("monthly_cost", 0.0) or 0.0)
-    except (TypeError, ValueError) as exc:
-        raise ValueError("run.monthly_cost must be numeric") from exc
-    if not math.isfinite(monthly_cost) or monthly_cost < 0:
-        raise ValueError("run.monthly_cost must be finite and non-negative")
-    return monthly_cost
+    return resolve_pipeline_monthly_cost(run_cfg, portfolio_cfg)
 
 
 def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:

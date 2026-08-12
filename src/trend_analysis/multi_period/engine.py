@@ -31,6 +31,15 @@ from trend.config_schema import CoreConfigError
 from trend.diagnostics import DiagnosticResult
 
 from .._typing import FloatArray
+from ..config_contract import (
+    resolve_pipeline_monthly_cost as _shared_resolve_pipeline_monthly_cost,
+)
+from ..config_contract import (
+    resolve_portfolio_cost_bps as _shared_resolve_portfolio_cost_bps,
+)
+from ..config_contract import (
+    resolve_portfolio_weighting_name,
+)
 from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv
@@ -192,18 +201,7 @@ def _resolve_portfolio_weighting(
     if not isinstance(raw_params, Mapping):
         raise ValueError("portfolio.weighting.params must be a mapping")
     w_params = cast(Mapping[str, Any], raw_params)
-    weighting_scheme = portfolio_cfg.get("weighting_scheme")
-    if "weighting_scheme" in portfolio_cfg and weighting_scheme not in (
-        None,
-        "",
-    ):
-        scheme_name = _normalise_weighting_name(weighting_scheme)
-        if scheme_name in _WEIGHTING_SCHEME_PLACEHOLDERS and w_cfg.get("name"):
-            weighting_name = _normalise_weighting_name(w_cfg.get("name"))
-        else:
-            weighting_name = scheme_name
-    else:
-        weighting_name = _normalise_weighting_name(w_cfg.get("name", "equal"))
+    weighting_name = resolve_portfolio_weighting_name(portfolio_cfg)
 
     if weighting_name not in _SUPPORTED_NORMALISED_WEIGHTING_NAMES:
         allowed = ", ".join(sorted(_SUPPORTED_WEIGHTING_NAMES))
@@ -311,31 +309,7 @@ def _resolve_portfolio_cost_bps(
     portfolio_cfg: Mapping[str, Any],
 ) -> tuple[float, float]:
     """Resolve canonical turnover-cost inputs for the multi-period engine."""
-
-    cost_model = portfolio_cfg.get("cost_model")
-    bps_per_trade = None
-    slippage_bps = None
-    if cost_model is not None:
-        bps_per_trade = _optional_cost_bps(
-            _mapping_or_attr_get(cost_model, "bps_per_trade"),
-            field="cost_model.bps_per_trade",
-        )
-        slippage_bps = _optional_cost_bps(
-            _mapping_or_attr_get(cost_model, "slippage_bps"),
-            field="cost_model.slippage_bps",
-        )
-
-    if bps_per_trade is None:
-        bps_per_trade = _optional_cost_bps(
-            portfolio_cfg.get("transaction_cost_bps", 0.0),
-            field="transaction_cost_bps",
-        )
-    if slippage_bps is None:
-        slippage_bps = _optional_cost_bps(
-            portfolio_cfg.get("slippage_bps", 0.0),
-            field="slippage_bps",
-        )
-    return float(bps_per_trade or 0.0), float(slippage_bps or 0.0)
+    return _shared_resolve_portfolio_cost_bps(portfolio_cfg)
 
 
 def _resolve_pipeline_monthly_cost(
@@ -347,12 +321,8 @@ def _resolve_pipeline_monthly_cost(
 ) -> float:
     """Return decimal per-period cost for delegated non-threshold analysis."""
 
-    if any(key in portfolio_cfg for key in ("cost_model", "transaction_cost_bps", "slippage_bps")):
-        return (tc_bps + slippage_bps) / 10000.0
-    try:
-        return float(run_cfg.get("monthly_cost", 0.0) or 0.0)
-    except (TypeError, ValueError) as exc:
-        raise CoreConfigError("run.monthly_cost must be numeric") from exc
+    del tc_bps, slippage_bps
+    return _shared_resolve_pipeline_monthly_cost(run_cfg, portfolio_cfg)
 
 
 def _period_turnover_cost(

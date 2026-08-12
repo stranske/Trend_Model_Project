@@ -42,11 +42,16 @@ def test_same_config_same_numbers_across_entrypoints() -> None:
     assert _resolve_single_period_monthly_cost(portfolio, {}) == pytest.approx(0.0015)
 
 
-@pytest.mark.parametrize("invalid", [float("nan"), float("inf"), -1])
-def test_single_period_costs_reject_non_finite_and_negative_values(invalid: float) -> None:
-    with pytest.raises(ValueError, match="finite and non-negative"):
+@pytest.mark.parametrize(
+    ("invalid", "error_fragment"),
+    [(float("nan"), "finite"), (float("inf"), "finite"), (-1, "negative")],
+)
+def test_single_period_costs_reject_non_finite_and_negative_values(
+    invalid: float, error_fragment: str
+) -> None:
+    with pytest.raises(ValueError, match=error_fragment):
         _resolve_single_period_monthly_cost({"transaction_cost_bps": invalid}, {})
-    with pytest.raises(ValueError, match="finite and non-negative"):
+    with pytest.raises(ValueError, match=error_fragment):
         _resolve_single_period_monthly_cost({}, {"monthly_cost": invalid})
 
 
