@@ -140,7 +140,7 @@ Volatility targeting and basic constraints live under the `vol_adjust` and
 
 | Setting | Type | Effect |
 |---------|------|--------|
-| `vol_adjust.target_vol` | float | Annualised portfolio-volatility ceiling used once in allocation to cap total risky-asset exposure; residual capital stays in the cash leg. It tilts relative weights via inverse realised volatility and is never applied again to return series. |
+| `vol_adjust.target_vol` | float | Annualised portfolio-volatility ceiling used once in allocation to cap total risky-asset exposure; residual capital stays in the cash leg. Inverse realised volatility determines relative weights separately, and target volatility is never applied again to return series. |
 | `vol_adjust.window.length` | integer | Lookback window (in periods) for realised-vol calculations. |
 | `vol_adjust.window.decay` | string | `simple` for rolling window or `ewma` for exponentially weighted volatility. |
 | `vol_adjust.window.lambda` | float | EWMA decay factor when `decay: ewma` (0 < λ < 1). |

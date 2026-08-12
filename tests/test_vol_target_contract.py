@@ -156,7 +156,7 @@ def test_partial_exposure_and_cash_returns_match_reported_volatility() -> None:
 def test_turnover_respects_exposure_scaled_final_weights() -> None:
     returns = _heterogeneous_returns()
     prev = pd.Series({"Steady": 0.5, "Volatile": 0.5})
-    _, diagnostics = compute_constrained_weights(
+    final_weights, diagnostics = compute_constrained_weights(
         prev,
         returns,
         window=RiskWindow(length=6),
@@ -168,4 +168,6 @@ def test_turnover_respects_exposure_scaled_final_weights() -> None:
         previous_weights=prev,
         max_turnover=0.01,
     )
+    realised_turnover = float((final_weights - prev).abs().sum())
+    assert realised_turnover <= 0.01 + 1e-9
     assert diagnostics.turnover_value <= 0.01 + 1e-9
