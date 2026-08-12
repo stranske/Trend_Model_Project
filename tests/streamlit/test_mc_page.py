@@ -66,6 +66,7 @@ class DummyStreamlit:
         self.warning_messages: list[str] = []
         self.info_messages: list[str] = []
         self.page_links: list[tuple[str, str]] = []
+        self.markdown_messages: list[str] = []
         self.caption_messages: list[str] = []
         self.write_messages: list[str] = []
         self.progress_calls: list[tuple[float, str | None]] = []
@@ -98,6 +99,9 @@ class DummyStreamlit:
 
     def page_link(self, path: str, *, label: str, **_kwargs: Any) -> None:
         self.page_links.append((path, label))
+
+    def markdown(self, message: str, **_kwargs: Any) -> None:
+        self.markdown_messages.append(message)
 
     def success(self, _message: str) -> None:
         return None
@@ -346,6 +350,21 @@ def test_mc_page_declares_scenario_provenance(monkeypatch: pytest.MonkeyPatch) -
         "loaded Data and Model state is supplied as runtime input" in message
         for message in stub.info_messages
     )
+
+
+def test_link_to_page_falls_back_to_markdown_when_page_link_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    page, stub = _load_page(monkeypatch)
+
+    def raise_key_error(_path: str, *, label: str, **_kwargs: Any) -> None:
+        raise KeyError("url_pathname")
+
+    monkeypatch.setattr(page.st, "page_link", raise_key_error)
+
+    page._link_to_page("pages/1_Data.py", label="Open the Data page")
+
+    assert stub.markdown_messages == ["[Open the Data page](pages/1_Data.py)"]
 
 
 def test_runtime_override_validation(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -700,6 +719,20 @@ def test_download_link_generation(monkeypatch: pytest.MonkeyPatch) -> None:
         assert "standalone registry scenario" in bundle.read("README.txt").decode()
         summary_text = bundle.read("summary.csv").decode("utf-8")
         assert "Strategy" in summary_text
+
+    charts_zip_entry = next(
+        entry
+        for entry in stub.downloads
+        if entry.get("mime") == "application/zip"
+        and str(entry.get("label")) == "Download charts bundle"
+    )
+    charts_zip_data = charts_zip_entry.get("data")
+    assert hasattr(charts_zip_data, "getvalue")
+    if hasattr(charts_zip_data, "seek"):
+        charts_zip_data.seek(0)
+    with zipfile.ZipFile(charts_zip_data) as charts_bundle:
+        assert "README.txt" in charts_bundle.namelist()
+        assert "standalone registry scenario" in charts_bundle.read("README.txt").decode()
 
 
 def test_render_results_surfaces_png_export_warning(

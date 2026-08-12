@@ -77,7 +77,7 @@ def _link_to_page(path: str, *, label: str) -> None:
         st.page_link(path, label=label)
     except KeyError:
         # AppTest smoke runs a single page file without multipage registration.
-        st.markdown(f"**{label}**")
+        st.markdown(f"[{label}]({path})")
 
 
 def _session_frequency(returns: pd.DataFrame) -> str:
