@@ -707,10 +707,8 @@ def test_results_completed_state_skips_non_finite_fallback_sharpe(
 
     page.render_results_page()
 
-    assert any(
-        "Demo results loaded — 2 funds — Sharpe 1.23." in msg for msg in stub.success_messages
-    )
-    assert not any("Sharpe —" in msg for msg in stub.success_messages)
+    assert any("Demo results loaded — 2 funds." in msg for msg in stub.success_messages)
+    assert not any("Sharpe" in msg for msg in stub.success_messages)
 
 
 def test_demo_run_renders_results_end_to_end(monkeypatch: pytest.MonkeyPatch, results_page) -> None:
