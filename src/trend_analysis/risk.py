@@ -306,6 +306,38 @@ def compute_constrained_weights(
     constrained = _normalise(constrained)
 
     aligned_returns = returns.reindex(columns=constrained.index, fill_value=0.0)
+    fully_invested_returns = aligned_returns.mul(constrained, axis=1).sum(axis=1)
+    fully_invested_vol = realised_volatility(
+        fully_invested_returns.to_frame("portfolio"),
+        window,
+        periods_per_year=periods_per_year,
+    )["portfolio"]
+
+    # Inverse-volatility weights determine the relative allocation.  Preserve
+    # the target's *magnitude* separately as an exposure limit: otherwise the
+    # normalisation above cancels a common target_vol multiplier and every
+    # positive target produces the same fully invested portfolio.  This engine
+    # is long-only and has no leverage path, so high targets remain fully
+    # invested while lower targets leave the residual in the stage's cash leg.
+    exposure = 1.0
+    try:
+        target = float(target_vol) if target_vol is not None else None
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        target = None
+    latest_portfolio_vol = (
+        float(fully_invested_vol.dropna().iloc[-1])
+        if not fully_invested_vol.dropna().empty
+        else float("nan")
+    )
+    if (
+        target is not None
+        and target > 0
+        and np.isfinite(latest_portfolio_vol)
+        and latest_portfolio_vol > 0
+    ):
+        exposure = min(1.0, target / latest_portfolio_vol)
+    constrained = constrained * exposure
+
     portfolio_returns = aligned_returns.mul(constrained, axis=1).sum(axis=1)
     portfolio_vol = realised_volatility(
         portfolio_returns.to_frame("portfolio"),

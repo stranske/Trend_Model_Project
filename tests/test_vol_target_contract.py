@@ -87,6 +87,38 @@ def test_portfolio_volatility_diagnostic_matches_user_returns() -> None:
     pd.testing.assert_series_equal(reported, expected, check_freq=False)
 
 
+def test_target_volatility_retains_its_exposure_magnitude() -> None:
+    returns = _heterogeneous_returns()
+    low_target_weights, low_target_diagnostics = compute_constrained_weights(
+        {"Steady": 0.5, "Volatile": 0.5},
+        returns,
+        window=RiskWindow(length=6),
+        target_vol=0.001,
+        periods_per_year=12,
+        floor_vol=None,
+        long_only=True,
+        max_weight=None,
+    )
+    high_target_weights, high_target_diagnostics = compute_constrained_weights(
+        {"Steady": 0.5, "Volatile": 0.5},
+        returns,
+        window=RiskWindow(length=6),
+        target_vol=0.50,
+        periods_per_year=12,
+        floor_vol=None,
+        long_only=True,
+        max_weight=None,
+    )
+
+    assert low_target_weights.sum() < high_target_weights.sum()
+    assert low_target_weights.sum() < 1.0
+    assert high_target_weights.sum() == 1.0
+    assert (
+        low_target_diagnostics.portfolio_volatility.dropna().iloc[-1]
+        < high_target_diagnostics.portfolio_volatility.dropna().iloc[-1]
+    )
+
+
 def test_equal_weight_comparison_uses_documented_scaling_contract() -> None:
     result, returns = _analysis_with_heterogeneous_returns()
     out_returns = returns.set_index("Date").loc["2023-01-01":, ["Steady", "Volatile"]]
