@@ -15,7 +15,7 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for older interpreter
 
 from trend_analysis.backtesting import CostModel
 from trend_analysis.config import load_config
-from trend_analysis.signals import TrendSpec
+from trend_analysis.signals import TrendSpec, trend_spec_from_mapping
 
 __all__ = [
     "SampleWindow",
@@ -158,23 +158,12 @@ def _maybe_path(value: Any, *, base_path: Path | None) -> Path | None:
 
 def _build_trend_spec(cfg: Any) -> TrendSpec:
     signals = _cfg_section(cfg, "signals")
-    vol_adjust = bool(_section_get(signals, "vol_adjust", False))
-    vol_target = _coerce_float(_section_get(signals, "vol_target"))
-    if not vol_adjust:
-        vol_target = None
-    min_periods_raw = _section_get(signals, "min_periods")
-    min_periods = _coerce_int(min_periods_raw, default=0) or None
-    if min_periods is not None and min_periods <= 0:
-        min_periods = None
-    return TrendSpec(
-        kind="tsmom",
-        window=max(1, _coerce_int(_section_get(signals, "window", 63), default=63)),
-        min_periods=min_periods,
-        lag=max(1, _coerce_int(_section_get(signals, "lag", 1), default=1)),
-        vol_adjust=vol_adjust,
-        vol_target=vol_target,
-        zscore=bool(_section_get(signals, "zscore", False)),
-    )
+    # The runtime leaves ``signal_spec`` unset when there is no signals
+    # section, then uses its non-vol-adjusted fallback.  Keep this compatibility
+    # representation aligned so reports do not claim a transformation that did
+    # not run.
+    vol_adjust = _cfg_section(cfg, "vol_adjust") if signals else {}
+    return trend_spec_from_mapping(signals, vol_adjust=vol_adjust)
 
 
 def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:

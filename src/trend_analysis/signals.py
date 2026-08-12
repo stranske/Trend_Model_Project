@@ -129,6 +129,102 @@ class TrendSpec:
             raise ValueError("vol_target must be non-negative when provided")
 
 
+def _config_value(section: Any, key: str, default: Any = None) -> Any:
+    """Read a signal setting from mappings, models, or lightweight config objects."""
+
+    if section is None:
+        return default
+    if isinstance(section, dict):
+        return section.get(key, default)
+    getter = getattr(section, "get", None)
+    if callable(getter):
+        try:
+            return getter(key, default)
+        except TypeError:
+            try:
+                return getter(key)
+            except KeyError:
+                return default
+        except KeyError:
+            return default
+    return getattr(section, key, default)
+
+
+def trend_spec_from_mapping(
+    signals: Any,
+    *,
+    vol_adjust: Any = None,
+    retain_disabled_vol_target: bool = False,
+) -> TrendSpec:
+    """Build the shared signal contract from canonical keys and legacy aliases.
+
+    Callers retain responsibility for their no-signals policy; the pipeline
+    returns ``None`` in that case while compatibility parsing uses defaults.
+    """
+
+    def setting(key: str, alias: str | None = None, default: Any = None) -> Any:
+        value = _config_value(signals, key)
+        if value is None and alias:
+            value = _config_value(signals, alias)
+        return default if value is None else value
+
+    kind = str(_config_value(signals, "kind", "tsmom") or "tsmom").lower()
+    if kind != "tsmom":  # pragma: no cover - future extension guard
+        raise ValueError(f"Unsupported trend signal kind: {kind}")
+
+    try:
+        window = int(setting("window", "trend_window", 63))
+    except (TypeError, ValueError, OverflowError):
+        window = 63
+    try:
+        min_periods_raw = setting("min_periods", "trend_min_periods")
+        min_periods = int(min_periods_raw) if min_periods_raw is not None else None
+    except (TypeError, ValueError, OverflowError):
+        min_periods = None
+    if min_periods is not None and min_periods <= 0:
+        min_periods = None
+    try:
+        lag = max(1, int(setting("lag", "trend_lag", 1)))
+    except (TypeError, ValueError, OverflowError):
+        lag = 1
+
+    vol_adjust_flag = bool(
+        setting("vol_adjust", "trend_vol_adjust", _config_value(vol_adjust, "enabled", False))
+    )
+    vol_target_raw = setting("vol_target", "trend_vol_target")
+    if vol_target_raw is None and vol_adjust_flag:
+        vol_target_raw = _config_value(vol_adjust, "target_vol")
+    try:
+        vol_target = float(vol_target_raw) if vol_target_raw is not None else None
+        if vol_target is not None and (not np.isfinite(vol_target) or vol_target <= 0):
+            vol_target = None
+    except (TypeError, ValueError):
+        vol_target = None
+    if not vol_adjust_flag and not retain_disabled_vol_target:
+        vol_target = None
+
+    zscore_setting = setting("zscore", "trend_zscore", False)
+    if isinstance(zscore_setting, bool):
+        zscore: bool | float = zscore_setting
+    else:
+        try:
+            zscore_value = float(zscore_setting)
+        except (TypeError, ValueError):
+            zscore = False
+        else:
+            zscore = zscore_value if np.isfinite(zscore_value) and zscore_value > 0 else False
+
+    return TrendSpec(
+        kind="tsmom",
+        window=max(1, window),
+        min_periods=min_periods,
+        lag=lag,
+        vol_adjust=vol_adjust_flag,
+        vol_target=vol_target,
+        zscore=zscore,
+    )
+
+
 def _as_float_frame(df: pd.DataFrame) -> pd.DataFrame:
     def _build() -> pd.DataFrame:
         numeric = df.copy()
@@ -201,4 +297,4 @@ def compute_trend_signals(returns: pd.DataFrame, spec: TrendSpec) -> pd.DataFram
     return signal
 
 
-__all__ = ["TrendSpec", "SignalFrame", "compute_trend_signals"]
+__all__ = ["TrendSpec", "SignalFrame", "compute_trend_signals", "trend_spec_from_mapping"]
