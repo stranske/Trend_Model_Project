@@ -1,10 +1,12 @@
 from types import SimpleNamespace
 
+import pytest
+
 from trend.reporting import unified
 from trend_analysis.pipeline_helpers import (
     _build_trend_spec as build_runtime_trend_spec,
 )
-from trend_analysis.signals import TrendSpec
+from trend_analysis.signals import TrendSpec, trend_spec_from_mapping
 from trend_model.spec import _build_trend_spec as build_compatibility_trend_spec
 
 
@@ -54,3 +56,26 @@ def test_report_disables_invalid_numeric_zscore_scales() -> None:
     for invalid_scale in (0.0, -1.0, float("nan"), float("inf")):
         params = dict(unified._trend_spec_summary(TrendSpec(zscore=invalid_scale)))
         assert params["Signal z-score"] == "Disabled"
+
+
+@pytest.mark.parametrize(
+    ("signals", "expected_window", "expected_lag", "expected_vol_target"),
+    [
+        ({"window": float("inf")}, 63, 1, None),
+        ({"trend_window": float("nan")}, 63, 1, None),
+        ({"lag": float("inf")}, 63, 1, None),
+        ({"vol_target": float("nan")}, 63, 1, None),
+        ({"vol_target": float("inf")}, 63, 1, None),
+    ],
+)
+def test_trend_spec_from_mapping_rejects_non_finite_numeric_config(
+    signals: dict[str, float],
+    expected_window: int,
+    expected_lag: int,
+    expected_vol_target: float | None,
+) -> None:
+    spec = trend_spec_from_mapping(signals)
+
+    assert spec.window == expected_window
+    assert spec.lag == expected_lag
+    assert spec.vol_target is expected_vol_target

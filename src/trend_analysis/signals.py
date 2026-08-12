@@ -174,18 +174,18 @@ def trend_spec_from_mapping(
 
     try:
         window = int(setting("window", "trend_window", 63))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         window = 63
     try:
         min_periods_raw = setting("min_periods", "trend_min_periods")
         min_periods = int(min_periods_raw) if min_periods_raw is not None else None
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         min_periods = None
     if min_periods is not None and min_periods <= 0:
         min_periods = None
     try:
         lag = max(1, int(setting("lag", "trend_lag", 1)))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         lag = 1
 
     vol_adjust_flag = bool(
@@ -196,7 +196,7 @@ def trend_spec_from_mapping(
         vol_target_raw = _config_value(vol_adjust, "target_vol")
     try:
         vol_target = float(vol_target_raw) if vol_target_raw is not None else None
-        if vol_target is not None and vol_target <= 0:
+        if vol_target is not None and (not np.isfinite(vol_target) or vol_target <= 0):
             vol_target = None
     except (TypeError, ValueError):
         vol_target = None

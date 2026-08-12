@@ -143,6 +143,17 @@ def test_generate_unified_report_includes_spec_summary() -> None:
     assert "Rank inclusion" in params
 
 
+def test_generate_unified_report_uses_runtime_signal_spec() -> None:
+    result = _make_result()
+    result.details["signal_spec"] = TrendSpec(zscore=2.5)
+    config = _make_config()
+
+    artifacts = generate_unified_report(result, config, run_id="runtime-spec", include_pdf=False)
+    params = dict(artifacts.context["parameters"])
+
+    assert params["Signal z-score"] == "Scale 2.5"
+
+
 def test_generate_unified_report_includes_narrative_disclaimer_by_default() -> None:
     result = _make_result()
     config = _make_config()

@@ -150,6 +150,7 @@ jobs:
           # reducing the ignored count from ~81 to 76.
           # Raised 76 -> 83: #5821 shared trend_spec_from_mapping reads legacy
           # signals.trend_* alias keys during the demo coverage run.
+          # Approved repo-specific divergence per create-only gate policy.
           python scripts/check_config_coverage.py \
             --config config/demo.yml \
             --ignored-threshold 83
