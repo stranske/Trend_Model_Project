@@ -105,7 +105,9 @@ def test_comprehensive_api_integration():
         # (CLI now loads CSV and calls api.run_simulation internally)
         # This validates the unified code path
         loaded_df = load_csv(str(csv_file))
-        loaded_df["Date"] = pd.to_datetime(loaded_df["Date"]).dt.tz_localize(None).astype("datetime64[ns]")
+        loaded_df["Date"] = (
+            pd.to_datetime(loaded_df["Date"]).dt.tz_localize(None).astype("datetime64[ns]")
+        )
         assert loaded_df is not None, "CSV loading should work"
         expected_df = test_df.copy()
         expected_df["Date"] = pd.to_datetime(expected_df["Date"]).astype("datetime64[ns]")

@@ -2,7 +2,11 @@ import numpy as np
 import pandas as pd
 
 from trend_analysis.pipeline import _run_analysis
-from trend_analysis.risk import RiskWindow, compute_constrained_weights, realised_volatility
+from trend_analysis.risk import (
+    RiskWindow,
+    compute_constrained_weights,
+    realised_volatility,
+)
 
 
 def _heterogeneous_returns(periods: int = 24) -> pd.DataFrame:
