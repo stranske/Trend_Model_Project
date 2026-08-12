@@ -69,4 +69,6 @@ def test_declared_legacy_sections_remain_optional(tmp_path: Path) -> None:
     validated = validate_trend_config(payload, base_path=tmp_path)
 
     assert validated.data.csv_path.name == "returns.csv"
-    assert not ({"identity", "extra", "strategy", "walk_forward"} & set(models.Config.REQUIRED_DICT_FIELDS))
+    assert not (
+        {"identity", "extra", "strategy", "walk_forward"} & set(models.Config.REQUIRED_DICT_FIELDS)
+    )
