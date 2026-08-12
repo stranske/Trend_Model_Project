@@ -116,23 +116,28 @@ def get_active_profile() -> str:
     only the environment variable and default are consulted.
     """
 
-    session_value: Optional[str] = None
-    query_value: Optional[str] = None
     try:
         import streamlit as st  # noqa: PLC0415 -- lazy, optional dependency
     except ModuleNotFoundError:
-        st = None
-    if st is not None:
+        return resolve_profile(env=os.environ.get(PROFILE_ENV_VAR))
+    return _active_profile_from_module(st)
+
+
+def initialize_profile(st_module=None) -> str:
+    """Resolve and persist a valid deep-link profile without rendering controls.
+
+    Every Streamlit page must call this at entry so a valid ``?profile=`` is
+    retained even when a visitor lands on a page that does not show the demo
+    mode switcher.  Keeping this separate from :func:`render_profile_controls`
+    lets informational pages preserve the profile without adding duplicate UI.
+    """
+
+    if st_module is None:
         try:
-            session_value = st.session_state.get(PROFILE_SESSION_KEY)
-        except (AttributeError, TypeError):
-            session_value = None
-        query_value = _query_param_value(st)
-    return resolve_profile(
-        session=session_value,
-        query_param=query_value,
-        env=os.environ.get(PROFILE_ENV_VAR),
-    )
+            import streamlit as st_module  # noqa: PLC0415
+        except ModuleNotFoundError:
+            return get_active_profile()
+    return _active_profile_from_module(st_module)
 
 
 def _active_profile_from_module(st_module) -> str:
@@ -143,11 +148,21 @@ def _active_profile_from_module(st_module) -> str:
         session_value = st_module.session_state.get(PROFILE_SESSION_KEY)
     except (AttributeError, TypeError):
         session_value = None
-    return resolve_profile(
+    query_value = _query_param_value(st_module)
+    active = resolve_profile(
         session=session_value,
-        query_param=_query_param_value(st_module),
+        query_param=query_value,
         env=os.environ.get(PROFILE_ENV_VAR),
     )
+    # Streamlit drops query parameters when a user changes pages. Persist only
+    # valid deep-link values, leaving malformed input as a safe fallback.
+    if (
+        session_value is None
+        and isinstance(query_value, str)
+        and query_value.strip().lower() in VALID_PROFILES
+    ):
+        _store_profile_on_module(st_module, active)
+    return active
 
 
 def _store_profile_on_module(st_module, profile: str) -> str:
@@ -223,6 +238,10 @@ def render_profile_controls(st_module=None) -> str:
 
     active = _active_profile_from_module(st_module)
     sidebar = getattr(st_module, "sidebar", st_module)
+    # Lightweight test adapters and embedded hosts may expose ``sidebar`` as a
+    # layout context but keep widgets on the root module.
+    if not hasattr(sidebar, "selectbox"):
+        sidebar = st_module
     try:
         index = VALID_PROFILES.index(active)
     except ValueError:

@@ -26,6 +26,7 @@ from trend_analysis.util.weights import normalize_weights
 
 apply_ds_theme()
 apply_density_compact()
+demo_profile.initialize_profile(st)
 
 # =============================================================================
 # Formatting Helpers

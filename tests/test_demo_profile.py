@@ -97,8 +97,10 @@ class _FakeSidebar:
     def __init__(self, selected: str) -> None:
         self._selected = selected
         self.captions: list[str] = []
+        self.selectbox_calls: list[str] = []
 
     def selectbox(self, _label: str, options, index: int, **_kw):  # noqa: ANN001
+        self.selectbox_calls.append(_label)
         return self._selected
 
     def caption(self, text: str) -> None:
@@ -125,6 +127,50 @@ def test_render_profile_controls_presentation_safe_caption() -> None:
     active = dp.render_profile_controls(fake)
     assert active == dp.PRESENTATION_SAFE
     assert any("Presentation-safe" in c for c in fake.sidebar.captions)
+
+
+def test_query_param_profile_persists_across_navigation() -> None:
+    fake = _FakeStreamlit(dp.PRESENTATION_SAFE)
+    fake.query_params[dp.PROFILE_QUERY_PARAM] = dp.PUBLIC_LLM_DEMO
+
+    assert dp._active_profile_from_module(fake) == dp.PUBLIC_LLM_DEMO
+    assert fake.session_state[dp.PROFILE_SESSION_KEY] == dp.PUBLIC_LLM_DEMO
+
+    fake.query_params.clear()
+    assert dp._active_profile_from_module(fake) == dp.PUBLIC_LLM_DEMO
+
+
+def test_invalid_query_param_is_not_persisted() -> None:
+    fake = _FakeStreamlit(dp.PRESENTATION_SAFE)
+    fake.query_params[dp.PROFILE_QUERY_PARAM] = "bogus"
+
+    assert dp._active_profile_from_module(fake) == dp.PRESENTATION_SAFE
+    assert dp.PROFILE_SESSION_KEY not in fake.session_state
+
+
+def test_initialize_profile_persists_deep_link_without_rendering_controls() -> None:
+    fake = _FakeStreamlit(dp.PRESENTATION_SAFE)
+    fake.query_params[dp.PROFILE_QUERY_PARAM] = dp.PUBLIC_LLM_DEMO
+
+    assert dp.initialize_profile(fake) == dp.PUBLIC_LLM_DEMO
+    assert fake.session_state[dp.PROFILE_SESSION_KEY] == dp.PUBLIC_LLM_DEMO
+    assert fake.sidebar.selectbox_calls == []
+
+
+@pytest.mark.parametrize("page", ["1_Data.py", "2_Model.py"])
+def test_gated_pages_render_profile_controls(page: str) -> None:
+    source = (REPO_ROOT / "streamlit_app" / "pages" / page).read_text(encoding="utf-8")
+
+    assert "demo_profile.render_profile_controls(st)" in source
+
+
+@pytest.mark.parametrize(
+    "page", ["3_Results.py", "4_Help.py", "5_Monte_Carlo.py", "8_Validation.py"]
+)
+def test_other_page_entrypoints_initialize_demo_profile(page: str) -> None:
+    source = (REPO_ROOT / "streamlit_app" / "pages" / page).read_text(encoding="utf-8")
+
+    assert "demo_profile.initialize_profile(st)" in source
 
 
 # ---------------------------------------------------------------------------

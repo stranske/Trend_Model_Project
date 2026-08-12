@@ -2762,6 +2762,7 @@ for the covariance matrix.
 
 
 def render_model_page() -> None:
+    demo_profile.render_profile_controls(st)
     app_state.initialize_session_state()
     if _should_auto_render() and not demo_profile.custom_analysis_enabled():
         st.title("Model Configuration")
