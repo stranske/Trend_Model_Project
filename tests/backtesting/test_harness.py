@@ -29,7 +29,7 @@ from trend_analysis.backtesting.harness import (
     _to_float,
     _weights_to_dict,
 )
-from trend_analysis.metrics import sortino_ratio
+from trend_analysis.metrics import sharpe_ratio, sortino_ratio, volatility
 from trend_analysis.schedules import normalize_frequency, rebalance_calendar
 
 
@@ -678,12 +678,13 @@ def test_compute_drawdown_and_metrics_variants() -> None:
     assert drawdown.min() <= 0
 
     returns = pd.Series([0.01, -0.02, 0.03], index=equity.index)
+    active_mask = pd.Series([True, False, True], index=equity.index)
     metrics = _compute_metrics(
         returns,
         equity,
         drawdown,
         periods_per_year=12,
-        active_mask=pd.Series([True, True, True], index=equity.index),
+        active_mask=active_mask,
     )
     assert set(metrics) == {
         "cagr",
@@ -694,6 +695,9 @@ def test_compute_drawdown_and_metrics_variants() -> None:
         "final_value",
         "sharpe",
     }
+    active_returns = returns[active_mask]
+    assert metrics["volatility"] == pytest.approx(volatility(active_returns, periods_per_year=12))
+    assert metrics["sharpe"] == pytest.approx(sharpe_ratio(active_returns, periods_per_year=12))
 
     empty_metrics = _compute_metrics(
         pd.Series(dtype=float),

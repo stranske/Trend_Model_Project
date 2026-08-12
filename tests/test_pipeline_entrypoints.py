@@ -42,6 +42,27 @@ def test_same_config_same_numbers_across_entrypoints() -> None:
     assert _resolve_single_period_monthly_cost(portfolio, {}) == pytest.approx(0.0015)
 
 
+@pytest.mark.parametrize("invalid", [float("nan"), float("inf"), -1])
+def test_single_period_costs_reject_non_finite_and_negative_values(invalid: float) -> None:
+    with pytest.raises(ValueError, match="finite and non-negative"):
+        _resolve_single_period_monthly_cost({"transaction_cost_bps": invalid}, {})
+    with pytest.raises(ValueError, match="finite and non-negative"):
+        _resolve_single_period_monthly_cost({}, {"monthly_cost": invalid})
+
+
+def test_single_period_cost_model_honours_effective_override_fields() -> None:
+    portfolio = {
+        "cost_model": {
+            "bps_per_trade": 1,
+            "per_trade_bps": 12,
+            "slippage_bps": 2,
+            "half_spread_bps": 3,
+        }
+    }
+
+    assert _resolve_single_period_monthly_cost(portfolio, {}) == pytest.approx(0.0015)
+
+
 def test_single_period_legacy_weighting_scheme_overrides_nested_name() -> None:
     portfolio = {
         "weighting_scheme": "risk_parity",
