@@ -641,6 +641,12 @@ else:
     Config = cast("type[ConfigType]", globals().get("_FallbackConfig"))
 
 
+def create_config(**kwargs: Any) -> ConfigType:
+    """Construct a runtime Config without exposing the Protocol-typed alias to mypy."""
+    impl = _PydanticConfigImpl if _HAS_PYDANTIC else _FallbackConfig
+    return cast(ConfigType, impl(**kwargs))
+
+
 class PresetConfig(SimpleBaseModel):
     """Configuration preset with validation."""
 

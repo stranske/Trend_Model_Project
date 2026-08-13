@@ -113,6 +113,7 @@ _DECLARED_TOP_LEVEL_SECTIONS = {
     "portfolio",
     "preprocessing",
     "regime",
+    "robustness",
     "run",
     "sample_split",
     "seed",
