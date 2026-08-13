@@ -28,9 +28,10 @@ def test_default_threshold_reads_named_dotenv_key(
     assert compare_perf_module._default_threshold() == 12.5
 
 
+@pytest.mark.parametrize("invalid_value", ["not-a-number", "nan", "inf", "-inf"])
 def test_default_threshold_rejects_invalid_named_value(
-    compare_perf_module, monkeypatch, capsys
+    compare_perf_module, monkeypatch, capsys, invalid_value
 ) -> None:
-    monkeypatch.setenv("TREND_PERF_THRESHOLD_PCT", "not-a-number")
+    monkeypatch.setenv("TREND_PERF_THRESHOLD_PCT", invalid_value)
     assert compare_perf_module._default_threshold() == 15.0
     assert "TREND_PERF_THRESHOLD_PCT" in capsys.readouterr().err

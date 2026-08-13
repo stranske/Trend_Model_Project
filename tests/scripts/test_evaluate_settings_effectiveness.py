@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -93,3 +94,21 @@ def test_render_markdown_report_includes_breakdown_and_recommendations() -> None
     assert "Costs" in markdown
     assert "No meaningful changes detected." in markdown
     assert "Ensure transaction costs" in markdown
+
+
+def test_write_outputs_emits_canonical_utc_timestamp(tmp_path: Path) -> None:
+    result = effectiveness.SettingResult(
+        setting="lookback_periods",
+        baseline_value=12,
+        test_value=18,
+        status="EFFECTIVE",
+        mode_specific=False,
+    )
+    output_json = tmp_path / "settings.json"
+
+    effectiveness._write_outputs(
+        [result], output_json, tmp_path / "settings.csv", None, [result.setting]
+    )
+
+    payload = json.loads(output_json.read_text(encoding="utf-8"))
+    assert payload["generated_at"].endswith("Z")

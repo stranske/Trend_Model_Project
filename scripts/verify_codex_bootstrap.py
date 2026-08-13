@@ -117,6 +117,17 @@ class ScenarioResult:
     duration_s: float | None = None
 
 
+def _utc_timestamp(value: datetime) -> str:
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _parse_utc_timestamp(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
 def create_issue(title: str, body: str, labels=None) -> int:
     labels = labels or []
     label_args = " ".join([f"--label {shlex.quote(lbl)}" for lbl in labels])
@@ -742,8 +753,8 @@ def main():
                     "skip",
                     {},
                     error="Not implemented",
-                    started=start_ts.isoformat() + "Z",
-                    ended=start_ts.isoformat() + "Z",
+                    started=_utc_timestamp(start_ts),
+                    ended=_utc_timestamp(start_ts),
                     duration_s=0.0,
                 )
             )
@@ -753,11 +764,11 @@ def main():
         except Exception as e:  # noqa
             res = ScenarioResult(name, "error", {}, error=str(e))
         end_ts = datetime.now(UTC)
-        res.started = res.started or start_ts.isoformat() + "Z"
-        res.ended = end_ts.isoformat() + "Z"
+        res.started = res.started or _utc_timestamp(start_ts)
+        res.ended = _utc_timestamp(end_ts)
         try:
-            start_dt = datetime.fromisoformat(res.started.replace("Z", ""))
-            end_dt = datetime.fromisoformat(res.ended.replace("Z", ""))
+            start_dt = _parse_utc_timestamp(res.started)
+            end_dt = _parse_utc_timestamp(res.ended)
             res.duration_s = round((end_dt - start_dt).total_seconds(), 3)
         except Exception:
             res.duration_s = None

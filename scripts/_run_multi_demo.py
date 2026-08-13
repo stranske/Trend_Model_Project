@@ -1048,8 +1048,8 @@ if not phase1_prefix.with_name(f"{phase1_prefix.stem}_metrics_summary.csv").exis
     raise SystemExit("Phase1 multi metrics metrics summary CSV missing")
 if not phase1_prefix.with_name(f"{phase1_prefix.stem}_metrics_summary.json").exists():
     raise SystemExit("Phase1 multi metrics metrics summary JSON missing")
-    if not phase1_prefix.with_name(f"{phase1_prefix.stem}_metrics_summary.txt").exists():
-        raise SystemExit("Phase1 multi metrics metrics summary TXT missing")
+if not phase1_prefix.with_name(f"{phase1_prefix.stem}_metrics_summary.txt").exists():
+    raise SystemExit("Phase1 multi metrics metrics summary TXT missing")
 
 # Additional OS summaries and churn report for convenience
 _out_dir = Path("demo/exports")
@@ -1399,7 +1399,17 @@ if direct_res.value is None or direct_res.value.get("score_frame") is None:
 fund_cfg_cls = getattr(rs, "FundSelectionConfig", None)
 quality_filter_fn = getattr(rs, "quality_filter", None)
 private_quality_filter_fn = getattr(rs, "_quality_filter", None)
-if fund_cfg_cls and quality_filter_fn and private_quality_filter_fn:
+select_funds_fn = getattr(rs, "select_funds", None)
+select_funds_extended_fn = getattr(rs, "select_funds_extended", None)
+if all(
+    (
+        fund_cfg_cls,
+        quality_filter_fn,
+        private_quality_filter_fn,
+        select_funds_fn,
+        select_funds_extended_fn,
+    )
+):
     qcfg = fund_cfg_cls(max_missing_ratio=0.5)
     eligible = quality_filter_fn(df_full, qcfg)
     if not eligible or not set(eligible).issubset(df_full.columns):
@@ -1414,44 +1424,43 @@ if fund_cfg_cls and quality_filter_fn and private_quality_filter_fn:
     )
     if not filtered:
         raise SystemExit("_quality_filter returned no funds")
+    simple_sel = select_funds_fn(df_full, rf_col, mode="random", n=2)
+    if len(simple_sel) != 2:
+        raise SystemExit("select_funds simple mode failed")
+
+    cols = [c for c in df_full.columns if c not in {"Date", rf_col}]
+    ext_sel = select_funds_fn(
+        df_full,
+        rf_col,
+        cols,
+        str(cfg.sample_split["in_start"]),
+        str(cfg.sample_split["in_end"]),
+        str(cfg.sample_split["out_start"]),
+        str(cfg.sample_split["out_end"]),
+        qcfg,
+        "rank",
+        2,
+        rank_kwargs={"inclusion_approach": "top_n", "n": 2, "score_by": "Sharpe"},
+    )
+    if len(ext_sel) != 2:
+        raise SystemExit("select_funds extended mode failed")
+
+    ext_sel_direct = select_funds_extended_fn(
+        df_full,
+        rf_col,
+        cols,
+        str(cfg.sample_split["in_start"]),
+        str(cfg.sample_split["in_end"]),
+        str(cfg.sample_split["out_start"]),
+        str(cfg.sample_split["out_end"]),
+        qcfg,
+        selection_mode="rank",
+        rank_kwargs={"inclusion_approach": "top_n", "n": 2, "score_by": "Sharpe"},
+    )
+    if len(ext_sel_direct) != 2:
+        raise SystemExit("select_funds_extended direct call failed")
 else:
-    print("Skipping quality_filter checks; FundSelectionConfig is unavailable")
-
-simple_sel = rs.select_funds(df_full, rf_col, mode="random", n=2)
-if len(simple_sel) != 2:
-    raise SystemExit("select_funds simple mode failed")
-
-cols = [c for c in df_full.columns if c not in {"Date", rf_col}]
-ext_sel = rs.select_funds(
-    df_full,
-    rf_col,
-    cols,
-    str(cfg.sample_split["in_start"]),
-    str(cfg.sample_split["in_end"]),
-    str(cfg.sample_split["out_start"]),
-    str(cfg.sample_split["out_end"]),
-    qcfg,
-    "rank",
-    2,
-    rank_kwargs={"inclusion_approach": "top_n", "n": 2, "score_by": "Sharpe"},
-)
-if len(ext_sel) != 2:
-    raise SystemExit("select_funds extended mode failed")
-
-ext_sel_direct = rs.select_funds_extended(
-    df_full,
-    rf_col,
-    cols,
-    str(cfg.sample_split["in_start"]),
-    str(cfg.sample_split["in_end"]),
-    str(cfg.sample_split["out_start"]),
-    str(cfg.sample_split["out_end"]),
-    qcfg,
-    selection_mode="rank",
-    rank_kwargs={"inclusion_approach": "top_n", "n": 2, "score_by": "Sharpe"},
-)
-if len(ext_sel_direct) != 2:
-    raise SystemExit("select_funds_extended direct call failed")
+    print("Skipping selection API checks; required compatibility symbols are unavailable")
 
 abw = AdaptiveBayesWeighting(max_w=None)
 pf_abw = _check_schedule(
@@ -1515,7 +1524,7 @@ if not full_res:
 
 
 # Extract metrics DataFrame from full results using helper to avoid code duplication
-def extract_metrics_df(full_res):
+def extract_metrics_df(full_res: Mapping[str, Any]) -> pd.DataFrame:
     stats = full_res.get("out_sample_stats", {})
     if not stats:
         raise SystemExit("pipeline.run_full out_sample_stats missing")

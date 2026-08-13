@@ -63,7 +63,10 @@ def _default_threshold() -> float:
     if configured is None:
         return 15.0
     try:
-        return float(configured)
+        threshold = float(configured)
+        if not math.isfinite(threshold):
+            raise ValueError
+        return threshold
     except ValueError:
         print(
             f"WARNING: Invalid {PERF_THRESHOLD_ENV} value {configured!r} (expected a numeric value), "
