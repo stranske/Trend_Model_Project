@@ -8,13 +8,13 @@ Quick reference for common Trend Model Project operations.
 
 ```bash
 # Basic analysis with config file
-PYTHONPATH="./src" python -m trend_analysis.run_analysis -c config/demo.yml
+PYTHONPATH="./src" python -m trend.cli run -c config/demo.yml
 
 # Using environment variable
-TREND_CFG=config/demo.yml PYTHONPATH="./src" python -m trend_analysis.run_analysis
+TREND_CFG=config/demo.yml PYTHONPATH="./src" python -m trend.cli run
 
 # With default config
-PYTHONPATH="./src" python -m trend_analysis.run_analysis
+PYTHONPATH="./src" python -m trend.cli run
 ```
 
 ### Streamlit App

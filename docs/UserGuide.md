@@ -18,7 +18,7 @@ This document introduces the main features of the Trend Model Project and explai
 
 Invoke the pipeline with an optional YAML configuration file:
 ```bash
-python -m trend_analysis.run_analysis -c path/to/config.yml
+PYTHONPATH=./src python -m trend.cli run -c path/to/config.yml
 ```
 If `-c` is omitted, the tool loads `config/defaults.yml` or the file specified by the `TREND_CFG` environment variable.
 
@@ -50,7 +50,7 @@ Ready-made presets live in `config/presets/` and provide sensible defaults for c
 Select a preset on the Streamlit **Configure** page or load it from the command line:
 
 ```bash
-python -m trend_analysis.run_analysis -c config/presets/balanced.yml
+PYTHONPATH=./src python -m trend.cli run -c config/presets/balanced.yml
 ```
 
 Replace `balanced` with `conservative` or `aggressive` as needed. See
@@ -231,14 +231,14 @@ Command examples:
 
 ```bash
 # Default (creates outputs/logs/run_<id>.jsonl)
-python -m trend_analysis.run_analysis -c config/demo.yml -i demo/demo_returns.csv
+PYTHONPATH=./src python -m trend.cli run -c config/demo.yml -i demo/demo_returns.csv
 
 # Custom path
-python -m trend_analysis.run_analysis -c config/demo.yml -i demo/demo_returns.csv \
+PYTHONPATH=./src python -m trend.cli run -c config/demo.yml -i demo/demo_returns.csv \
    --log-file logs/my_run.jsonl
 
 # Disable structured logging
-python -m trend_analysis.run_analysis -c config/demo.yml -i demo/demo_returns.csv \
+PYTHONPATH=./src python -m trend.cli run -c config/demo.yml -i demo/demo_returns.csv \
    --no-structured-log
 ```
 

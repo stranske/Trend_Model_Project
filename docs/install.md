@@ -18,7 +18,7 @@ cd Trend_Model_Project
 python scripts/generate_demo.py
 
 # Run the analysis
-PYTHONPATH="./src" python -m trend_analysis.run_analysis -c config/demo.yml
+PYTHONPATH="./src" python -m trend.cli run -c config/demo.yml
 ```
 
 ## Prerequisites
@@ -69,7 +69,7 @@ After installation, verify everything works:
 ./scripts/run_tests.sh
 
 # Check CLI
-PYTHONPATH="./src" python -m trend_analysis.run_analysis --help
+PYTHONPATH="./src" python -m trend.cli --help
 
 # Launch Streamlit app
 ./scripts/run_streamlit.sh
