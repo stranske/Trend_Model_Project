@@ -3,6 +3,10 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
+import pandas as pd
+
+from streamlit_app.components.data_cache import cache_key_for_frame
+
 
 def _load_model_page():
     module_path = Path(__file__).resolve().parents[2] / "streamlit_app" / "pages" / "2_Model.py"
@@ -73,3 +77,15 @@ def test_invalidation_fields_include_connection_overrides():
     module = _load_model_page()
     assert "base_url" in module._CONFIG_CHAIN_INVALIDATION_FIELDS
     assert "organization" in module._CONFIG_CHAIN_INVALIDATION_FIELDS
+
+
+def test_dataframe_cache_key_is_digest_and_tracks_schema_index_and_data():
+    frame = pd.DataFrame({"returns": [0.1, 0.2]}, index=pd.Index(["a", "b"], name="asset"))
+
+    key = cache_key_for_frame(frame)
+
+    assert len(key) == 64
+    assert key == cache_key_for_frame(frame.copy())
+    assert key != cache_key_for_frame(frame.rename(columns={"returns": "risk"}))
+    assert key != cache_key_for_frame(frame.set_axis(["x", "y"], axis="index"))
+    assert key != cache_key_for_frame(frame.assign(returns=[0.1, 0.3]))

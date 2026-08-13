@@ -35,11 +35,14 @@ def test_validate_uploaded_csv_flags_missing_required_column() -> None:
     assert "Missing columns" in excinfo.value.issues[0]
 
 
-def test_validate_uploaded_csv_detects_invalid_dates() -> None:
+def test_validate_uploaded_csv_detects_invalid_dates(caplog: pytest.LogCaptureFixture) -> None:
     content = _csv(["not-a-date,0.01,0.02"])
-    with pytest.raises(CSVValidationError) as excinfo:
-        validate_uploaded_csv(content, ("Date",), max_rows=10)
+    with caplog.at_level("WARNING"):
+        with pytest.raises(CSVValidationError) as excinfo:
+            validate_uploaded_csv(content, ("Date",), max_rows=10)
     assert "cannot be parsed" in " ".join(excinfo.value.issues)
+    assert "CSV upload failed validation" in caplog.text
+    assert not any(record.exc_info for record in caplog.records)
 
 
 def test_validate_uploaded_csv_detects_duplicate_dates() -> None:

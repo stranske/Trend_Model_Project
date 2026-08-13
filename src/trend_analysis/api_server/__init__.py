@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, AsyncGenerator, Awaitable, Callable, Tupl
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from starlette.types import Message
 
 if TYPE_CHECKING:
     from trend_analysis.tool_layer import ToolLayer
@@ -73,6 +74,15 @@ def _bad_request(detail: str) -> JSONResponse:
     return JSONResponse(status_code=400, content={"detail": detail})
 
 
+def _request_with_replayed_body(request: Request, body: bytes) -> Request:
+    """Create a supported request wrapper that replays an already-read body."""
+
+    async def receive() -> Message:
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    return Request(request.scope, receive=receive)
+
+
 async def _risky_change_guard(
     request: Request,
     call_next: Callable[[Request], Awaitable[Response]],
@@ -89,9 +99,6 @@ async def _risky_change_guard(
     body = await request.body()
     if not body:
         return _bad_request("Request body is required.")
-
-    # Preserve the body for downstream request parsing.
-    request._body = body
 
     try:
         payload = json.loads(body)
@@ -124,7 +131,7 @@ async def _risky_change_guard(
             detail = _build_risky_detail(flags)
             return JSONResponse(status_code=400, content={"detail": detail})
 
-    return await call_next(request)
+    return await call_next(_request_with_replayed_body(request, body))
 
 
 app.middleware("http")(_risky_change_guard)

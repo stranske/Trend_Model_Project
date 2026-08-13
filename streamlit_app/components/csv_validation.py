@@ -281,5 +281,5 @@ def validate_uploaded_csv(
 
         logger.debug("CSV upload validated: %s rows × %s columns", len(df.index), len(df.columns))
     except CSVValidationError as err:
-        logger.exception("CSV upload failed validation: %s", err)
+        logger.warning("CSV upload failed validation: %s", err)
         raise

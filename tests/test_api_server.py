@@ -1,6 +1,7 @@
 """Tests for the FastAPI server."""
 
 import asyncio
+import inspect
 import runpy
 import sys
 from types import SimpleNamespace
@@ -105,6 +106,24 @@ async def test_api_allows_risky_patch_with_confirmation(client):
     body = response.json()
     assert body["status"] == "success"
     assert "portfolio" in body["config"]
+
+
+@pytest.mark.anyio
+async def test_risky_guard_replays_body_without_private_mutation(client):
+    payload = {
+        "config": {"portfolio": {"max_turnover": 1.0}},
+        "patch": {
+            "operations": [{"op": "remove", "path": "portfolio.max_turnover"}],
+            "risk_flags": [],
+            "summary": "Remove turnover cap.",
+        },
+        "confirm_risky": True,
+    }
+
+    response = await client.post("/config/patch", json=payload)
+
+    assert response.status_code == 200
+    assert "request._body" not in inspect.getsource(api_server._risky_change_guard)
 
 
 @pytest.mark.anyio
