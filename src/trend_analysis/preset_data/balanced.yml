@@ -1,0 +1,31 @@
+version: "1"
+name: Balanced
+description: Balanced risk-return profile suitable for most users
+lookback_periods: 36
+rebalance_frequency: monthly
+min_track_months: 24
+selection_count: 10
+risk_target: 0.10
+metrics:
+  sharpe_ratio: 0.3
+  return_ann: 0.3
+  max_drawdown: 0.25
+  volatility: 0.15
+signals:
+  window: 84
+  min_periods: 63
+  lag: 1
+  vol_adjust: true
+  vol_target: 0.10
+  zscore: true
+portfolio:
+  max_weight: 0.15
+  cooldown_months: 3
+vol_adjust:
+  enabled: true
+  target_vol: 0.10
+  window:
+    length: 63
+sample_split:
+  method: date
+  date: "2017-12-31"

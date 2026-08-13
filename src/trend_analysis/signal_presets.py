@@ -8,9 +8,10 @@ second authoritative name map.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Dict, List
 
-from .presets import get_trend_preset, list_trend_presets
+from .presets import _preset_registry, get_trend_preset, list_trend_presets
 from .signals import TrendSpec
 
 
@@ -54,10 +55,37 @@ class TrendSpecPreset:
 
 
 _DEFAULT_PRESET_NAME = "Balanced"
+_SIGNAL_PRESET_SLUGS = ("aggressive", "balanced", "conservative")
 
 
-def _signal_view(name: str) -> TrendSpecPreset:
-    preset = get_trend_preset(name)
+def _ordered_presets_items() -> tuple[tuple[str, TrendSpecPreset], ...]:
+    """Return the canonical signal-compatible presets by stable slug.
+
+    The full registry also includes full-config-only choices such as the cash
+    constrained preset.  This tuple is a compatibility surface selection, not
+    a second registry: each returned payload is still derived from the single
+    YAML-backed owner.
+    """
+
+    available = {preset.slug for preset in list_trend_presets()}
+    registry_identity = id(_preset_registry())
+    return tuple(
+        (slug, _signal_view(slug, registry_identity))
+        for slug in _SIGNAL_PRESET_SLUGS
+        if slug in available
+    )
+
+
+def _ordered_presets() -> tuple[TrendSpecPreset, ...]:
+    """Return canonical signal presets in the same order as their keys."""
+
+    return tuple(preset for _, preset in _ordered_presets_items())
+
+
+@lru_cache(maxsize=None)
+def _signal_view(slug: str, registry_identity: int) -> TrendSpecPreset:
+    del registry_identity  # It keys this cache to the current canonical registry generation.
+    preset = get_trend_preset(slug)
     return TrendSpecPreset(
         name=preset.label,
         description=preset.description,
@@ -74,19 +102,22 @@ def default_preset_name() -> str:
 def list_trend_spec_presets() -> List[str]:
     """Return the available TrendSpec preset names (title case)."""
 
-    return [preset.label for preset in list_trend_presets()]
+    return [preset.name for preset in _ordered_presets()]
 
 
 def list_trend_spec_keys() -> List[str]:
     """Return canonical keys for TrendSpec presets (lower case)."""
 
-    return [preset.slug for preset in list_trend_presets()]
+    return [key for key, _ in _ordered_presets_items()]
 
 
 def get_trend_spec_preset(name: str) -> TrendSpecPreset:
     """Look up a preset by name (case-insensitive)."""
 
-    return _signal_view(name)
+    preset = get_trend_preset(name)
+    if preset.slug not in _SIGNAL_PRESET_SLUGS:
+        raise KeyError(f"Unknown trend preset: {name}")
+    return _signal_view(preset.slug, id(_preset_registry()))
 
 
 def resolve_trend_spec(name: str | None) -> TrendSpecPreset:

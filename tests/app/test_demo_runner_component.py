@@ -287,6 +287,22 @@ def test_load_preset_returns_empty_for_missing(
     monkeypatch.setattr(preset_module, "_DEFAULT_PRESETS_DIR", tmp_path / "default")
     preset_module._preset_registry.cache_clear()
 
+
+def test_list_presets_skips_malformed_override(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A bad override file must not prevent the selector from rendering."""
+
+    preset_dir = tmp_path / "presets"
+    preset_dir.mkdir()
+    (preset_dir / "balanced.yml").write_text("name: Balanced\nsignals: [", encoding="utf-8")
+    monkeypatch.setattr(preset_module, "PRESETS_DIR", preset_dir)
+    monkeypatch.setattr(preset_module, "_DEFAULT_PRESETS_DIR", preset_dir / "default")
+    preset_module._preset_registry.cache_clear()
+
+    assert demo_runner.list_presets() == []
+    preset_module._preset_registry.cache_clear()
+
     assert demo_runner._load_preset("Missing") == {}
     preset_module._preset_registry.cache_clear()
 

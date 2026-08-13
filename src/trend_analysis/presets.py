@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+from copy import deepcopy
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -17,6 +18,7 @@ from .signals import TrendSpec
 LOGGER = logging.getLogger(__name__)
 
 _DEFAULT_PRESETS_DIR = Path(__file__).resolve().parents[2] / "config" / "presets"
+_BUNDLED_PRESETS_DIR = Path(__file__).with_name("preset_data")
 PRESETS_DIR = _DEFAULT_PRESETS_DIR
 
 _DEFAULT_VOL_ADJUST: Mapping[str, Any] = MappingProxyType(
@@ -152,7 +154,7 @@ class TrendPreset:
         :meth:`signals_mapping`; neither needs a parallel registry.
         """
 
-        return dict(self._config)
+        return deepcopy(dict(self._config))
 
     def form_defaults(self) -> dict[str, Any]:
         """Return UI-ready defaults derived from the preset."""
@@ -294,7 +296,7 @@ def _candidate_preset_dirs() -> tuple[Path, ...]:
             seen.add(resolved)
             candidates.append(resolved)
 
-    # Base directory within the source tree or editable install
+    # Base directory within the source tree or editable install.
     _register(PRESETS_DIR)
 
     include_defaults = PRESETS_DIR == _DEFAULT_PRESETS_DIR
@@ -302,6 +304,11 @@ def _candidate_preset_dirs() -> tuple[Path, ...]:
         for parent in current.parents:
             alt = parent / "config" / "presets"
             _register(alt)
+        # Wheels do not contain the repository-level ``config`` directory.
+        # Ship an equivalent package-local copy so normal installations retain
+        # the same built-in preset vocabulary as editable/source installs.
+        if not _DEFAULT_PRESETS_DIR.is_dir():
+            _register(_BUNDLED_PRESETS_DIR)
 
     env_dir = os.environ.get("TREND_PRESETS_DIR")
     if env_dir:
@@ -317,7 +324,11 @@ def _preset_registry() -> Mapping[str, TrendPreset]:
     for directory in _candidate_preset_dirs():
         for path in sorted(directory.glob("*.yml")):
             slug = path.stem.lower()
-            raw = _load_yaml(path)
+            try:
+                raw = _load_yaml(path)
+            except (OSError, yaml.YAMLError) as exc:
+                LOGGER.warning("Skipping unreadable trend preset %s: %s", path, exc)
+                continue
             if not raw:
                 continue
             label = str(raw.get("name") or slug.title())

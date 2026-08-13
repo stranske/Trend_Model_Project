@@ -58,6 +58,21 @@ def test_freeze_mapping_returns_immutable_view() -> None:
         frozen["c"] = 3  # type: ignore[misc]
 
 
+def test_config_mapping_deep_copies_nested_payloads() -> None:
+    preset = preset_module.TrendPreset(
+        slug="nested",
+        label="Nested",
+        description="",
+        trend_spec=preset_module.TrendSpec(),
+        _config=preset_module._freeze_mapping({"signals": {"window": 42}}),
+    )
+
+    payload = preset.config_mapping()
+    payload["signals"]["window"] = 21
+
+    assert preset.config_mapping()["signals"]["window"] == 42
+
+
 def test_normalise_metric_weights_discards_invalid_entries() -> None:
     weights = preset_module._normalise_metric_weights(
         {"sharpe_ratio": "2", "bad": "x", "drawdown": 0.5}

@@ -88,6 +88,9 @@ include = [
 # into the package search path when additional roots are added.
 exclude = ["Old*", "retired*", "**/Old*", "**/retired*"]
 
+[tool.setuptools.package-data]
+trend_analysis = ["preset_data/*.yml"]
+
 [project.optional-dependencies]
 app = [
     "streamlit==1.58.0",

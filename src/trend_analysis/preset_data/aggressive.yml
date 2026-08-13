@@ -1,0 +1,31 @@
+version: "1"
+name: Aggressive
+description: High risk-return profile for performance-oriented users
+lookback_periods: 24
+rebalance_frequency: monthly
+min_track_months: 18
+selection_count: 15
+risk_target: 0.15
+metrics:
+  return_ann: 0.4
+  sharpe_ratio: 0.3
+  max_drawdown: 0.15
+  volatility: 0.15
+signals:
+  window: 42
+  min_periods: 30
+  lag: 1
+  vol_adjust: true
+  vol_target: 0.15
+  zscore: false
+portfolio:
+  max_weight: 0.10
+  cooldown_months: 1
+vol_adjust:
+  enabled: true
+  target_vol: 0.15
+  window:
+    length: 42
+sample_split:
+  method: date
+  date: "2016-12-31"
