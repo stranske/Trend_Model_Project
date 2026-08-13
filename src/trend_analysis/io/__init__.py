@@ -1,5 +1,7 @@
 """Public IO helpers for trend analysis."""
 
+from trend_analysis.util.missing import apply_missing_policy
+
 from .market_data import (
     MarketDataMetadata,
     MarketDataMode,
@@ -11,7 +13,6 @@ from .market_data import (
     load_market_data_parquet,
     validate_market_data,
 )
-from trend_analysis.util.missing import apply_missing_policy
 from .utils import cleanup_bundle_file, export_bundle
 from .validators import (
     ValidationResult,

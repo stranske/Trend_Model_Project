@@ -25,7 +25,10 @@ import pandas as pd
 from pandas.api.types import is_numeric_dtype
 from pydantic import BaseModel, Field, model_validator
 
-from trend_analysis.io.date_correction import analyze_date_column, apply_date_corrections
+from trend_analysis.io.date_correction import (
+    analyze_date_column,
+    apply_date_corrections,
+)
 from trend_analysis.util.missing import apply_missing_policy as _apply_missing_policy
 
 logger = logging.getLogger(__name__)
@@ -669,7 +672,9 @@ def _resolve_datetime_index(
                 )
             for row, value in correction_result.unfixable:
                 logger.warning("Dropped row %d with unfixable date: %r", row + 1, value)
-            for row in correction_result.trailing_empty_rows + correction_result.droppable_empty_rows:
+            for row in (
+                correction_result.trailing_empty_rows + correction_result.droppable_empty_rows
+            ):
                 logger.warning("Dropped row %d with unfixable date: %r", row + 1, "empty date")
 
         try:
