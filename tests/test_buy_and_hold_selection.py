@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trend_analysis.config.legacy import Config
+from trend_analysis.config.models import Config
 from trend_analysis.multi_period.engine import run as multi_period_run
 
 

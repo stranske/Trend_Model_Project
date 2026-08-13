@@ -11,6 +11,16 @@ import pathlib
 
 from trend_analysis.script_logging import setup_script_logging
 
+
+def _utc_report_timestamp(now: datetime.datetime | None = None) -> str:
+    """Return the residual-report timestamp in the documented UTC format."""
+
+    current = now or datetime.datetime.now(datetime.UTC)
+    if current.tzinfo is None or current.utcoffset() is None:
+        raise ValueError("Residual report timestamps must be timezone-aware")
+    return current.astimezone(datetime.UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
 setup_script_logging(module_file=__file__, announce=False)
 
 root = pathlib.Path("ci/autofix")
@@ -23,7 +33,7 @@ except Exception:
 lines = [
     "# Residual Ruff Report",
     "",
-    f"Generated: {datetime.datetime.now(datetime.UTC):%Y-%m-%d %H:%M:%S} UTC",
+    f"Generated: {_utc_report_timestamp()}",
     "",
     f"Total diagnostics: {cls.get('total', 0)}",
     f"New diagnostics: {cls.get('new', 0)}",

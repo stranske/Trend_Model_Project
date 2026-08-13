@@ -10,10 +10,10 @@ import pandas as pd
 import pytest
 
 from trend import cli
+from trend_analysis import walk_forward
 from trend_analysis.backtesting import harness
 from trend_analysis.core import rank_selection
 from trend_analysis.util.json_compat import json_compatible, json_primitive
-from trend_analysis import walk_forward
 
 
 def test_shared_primitives_normalise_nan_and_reject_unknown_values() -> None:

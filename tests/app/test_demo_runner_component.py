@@ -10,8 +10,8 @@ import pandas as pd
 import pytest
 
 from streamlit_app.components import demo_runner, disclaimer
-from trend_analysis.config import Config
 from trend_analysis import presets as preset_module
+from trend_analysis.config import Config
 
 
 @pytest.fixture()
@@ -286,6 +286,8 @@ def test_load_preset_returns_empty_for_missing(
     monkeypatch.setattr(preset_module, "PRESETS_DIR", tmp_path)
     monkeypatch.setattr(preset_module, "_DEFAULT_PRESETS_DIR", tmp_path / "default")
     preset_module._preset_registry.cache_clear()
+    assert demo_runner._load_preset("Balanced") == {}
+    preset_module._preset_registry.cache_clear()
 
 
 def test_list_presets_skips_malformed_override(
@@ -301,9 +303,6 @@ def test_list_presets_skips_malformed_override(
     preset_module._preset_registry.cache_clear()
 
     assert demo_runner.list_presets() == []
-    preset_module._preset_registry.cache_clear()
-
-    assert demo_runner._load_preset("Missing") == {}
     preset_module._preset_registry.cache_clear()
 
 

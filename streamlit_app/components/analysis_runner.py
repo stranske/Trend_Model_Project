@@ -12,7 +12,7 @@ import pandas as pd
 import streamlit as st
 
 from trend_analysis.config.bridge import build_config_payload, validate_payload
-from trend_analysis.config.legacy import Config
+from trend_analysis.config.models import Config
 from trend_analysis.config.patch import ConfigPatch, apply_config_patch
 from trend_analysis.config.ui_mapping import METRIC_REGISTRY, build_config_from_ui_state
 from trend_analysis.signals import TrendSpec as TrendSpecModel

@@ -6,7 +6,7 @@ from typing import Any, Mapping
 
 import pandas as pd
 
-from trend_analysis.config.legacy import Config
+from trend_analysis.config.models import ConfigType, create_config
 from trend_analysis.signals import TrendSpec as TrendSpecModel
 
 METRIC_REGISTRY = {
@@ -307,7 +307,7 @@ def build_config_from_ui_state(
     benchmark: str | None,
     frequency: str,
     csv_path: str | None,
-) -> Config:
+) -> ConfigType:
     weights = normalise_metric_weights(model_state.get("metric_weights", {}))
     index = returns.index
     if not isinstance(index, pd.DatetimeIndex):
@@ -537,7 +537,7 @@ def build_config_from_ui_state(
 
     portfolio_cfg.setdefault("rebalance_calendar", "NYSE")
 
-    return Config(
+    return create_config(
         version="1",
         data=data_cfg,
         preprocessing=preprocessing_cfg,

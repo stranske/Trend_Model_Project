@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Dict, List
 
-from .presets import _preset_registry, get_trend_preset, list_trend_presets
+from .presets import TrendPreset, get_trend_preset, list_trend_presets
 from .signals import TrendSpec
 
 
@@ -67,12 +67,11 @@ def _ordered_presets_items() -> tuple[tuple[str, TrendSpecPreset], ...]:
     YAML-backed owner.
     """
 
-    available = {preset.slug for preset in list_trend_presets()}
-    registry_identity = id(_preset_registry())
+    presets = {preset.slug: preset for preset in list_trend_presets()}
     return tuple(
-        (slug, _signal_view(slug, registry_identity))
+        (slug, _signal_view_from_preset(presets[slug]))
         for slug in _SIGNAL_PRESET_SLUGS
-        if slug in available
+        if slug in presets
     )
 
 
@@ -82,15 +81,19 @@ def _ordered_presets() -> tuple[TrendSpecPreset, ...]:
     return tuple(preset for _, preset in _ordered_presets_items())
 
 
-@lru_cache(maxsize=None)
-def _signal_view(slug: str, registry_identity: int) -> TrendSpecPreset:
-    del registry_identity  # It keys this cache to the current canonical registry generation.
-    preset = get_trend_preset(slug)
+@lru_cache(maxsize=32)
+def _signal_view(slug: str, label: str, description: str, spec: TrendSpec) -> TrendSpecPreset:
     return TrendSpecPreset(
-        name=preset.label,
-        description=preset.description,
-        spec=preset.trend_spec,
+        name=label,
+        description=description,
+        spec=spec,
     )
+
+
+def _signal_view_from_preset(preset: TrendPreset) -> TrendSpecPreset:
+    """Return a cached view keyed by current preset content, not object identity."""
+
+    return _signal_view(preset.slug, preset.label, preset.description, preset.trend_spec)
 
 
 def default_preset_name() -> str:
@@ -117,7 +120,7 @@ def get_trend_spec_preset(name: str) -> TrendSpecPreset:
     preset = get_trend_preset(name)
     if preset.slug not in _SIGNAL_PRESET_SLUGS:
         raise KeyError(f"Unknown trend preset: {name}")
-    return _signal_view(preset.slug, id(_preset_registry()))
+    return _signal_view_from_preset(preset)
 
 
 def resolve_trend_spec(name: str | None) -> TrendSpecPreset:

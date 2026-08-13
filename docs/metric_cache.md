@@ -24,7 +24,7 @@ If the nested `cache.metrics` flag is absent it defaults to `false` (non‑break
 
 ## Enabling Programmatically
 ```python
-from trend_analysis.config.legacy import load
+from trend_analysis.config.models import load
 from trend_analysis.core.rank_selection import RiskStatsConfig
 
 cfg = load("config/demo.yml")

@@ -15,7 +15,11 @@ import yaml
 
 from trend_analysis.metrics import annual_return, max_drawdown, sharpe_ratio
 from trend_analysis.util.frequency import infer_periods_per_year
-from trend_analysis.util.json_compat import JSON_UNSUPPORTED, json_compatible, json_primitive
+from trend_analysis.util.json_compat import (
+    JSON_UNSUPPORTED,
+    json_compatible,
+    json_primitive,
+)
 
 
 @dataclass(slots=True)

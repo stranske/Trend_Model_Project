@@ -38,7 +38,7 @@ from scripts.evaluate_settings_effectiveness import (  # noqa: E402
     MODEL_PAGE,
     extract_settings_from_model_page,
 )
-from trend_analysis.config.legacy import Config  # noqa: E402
+from trend_analysis.config.models import Config  # noqa: E402
 
 # =============================================================================
 # Setting Definitions with Expected Behaviors

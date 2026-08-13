@@ -28,6 +28,17 @@ def test_default_threshold_reads_named_dotenv_key(
     assert compare_perf_module._default_threshold() == 12.5
 
 
+def test_default_threshold_prefers_process_environment(
+    compare_perf_module, monkeypatch, tmp_path
+) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("TREND_PERF_THRESHOLD_PCT=12.5\n", encoding="utf-8")
+    monkeypatch.setenv("TREND_PERF_THRESHOLD_PCT", "10")
+    monkeypatch.setattr(compare_perf_module, "proj_path", lambda *_parts: env_file)
+
+    assert compare_perf_module._default_threshold() == 10.0
+
+
 @pytest.mark.parametrize("invalid_value", ["not-a-number", "nan", "inf", "-inf"])
 def test_default_threshold_rejects_invalid_named_value(
     compare_perf_module, monkeypatch, capsys, invalid_value

@@ -81,6 +81,8 @@ def test_fallback_config_provides_defaults(fallback_models: ModuleType) -> None:
     ]:
         assert getattr(cfg, field) == {}
     # Optional/nullable defaults
+    assert cfg.robustness == {}
+    assert cfg.model_dump()["robustness"] == {}
     assert cfg.output is None
 
 
