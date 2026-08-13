@@ -478,11 +478,12 @@ def load_parquet(
     *,
     errors: ValidationErrorMode = "log",
     include_date_column: bool = True,
+    date_column: str = "Date",
     missing_policy: str | Mapping[str, str] | None = None,
     missing_limit: MissingLimitArg = None,
     **_legacy_kwargs: object,
 ) -> Optional[pd.DataFrame]:
-    """Load and validate a Parquet file containing market data."""
+    """Load and validate a Parquet file using ``date_column`` as the date field."""
 
     if missing_policy is None and "nan_policy" in _legacy_kwargs:
         missing_policy = _coerce_policy_kwarg(_legacy_kwargs.pop("nan_policy"))
@@ -503,7 +504,7 @@ def load_parquet(
         if not _is_readable(mode):
             raise PermissionError(f"Permission denied accessing file: {path}")
 
-        raw = pd.read_parquet(str(p))
+        raw = _canonicalise_date_column(pd.read_parquet(str(p)), date_column)
         result = _validate_payload(
             raw,
             origin=str(p),
