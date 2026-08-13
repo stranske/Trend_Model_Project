@@ -466,7 +466,7 @@ def test_mc_viz_cli_fails_when_png_only_and_kaleido_missing(
         png=True,
     )
 
-    assert result.returncode == 2
+    assert result.returncode == 1
     assert "PNG export requires a working kaleido installation" in result.stderr
     assert "pip install kaleido" in result.stderr
     assert not (out_dir / "plots").exists()
