@@ -205,22 +205,18 @@ def apply_missing_policy(
             limit_used[column_key] = col_limit
             continue
         if col_policy == "ffill":
-            if (
-                enforce_completeness
-                and col_limit is not None
-                and _max_consecutive_missing(series) > col_limit
-            ):
-                dropped.append(column_key)
-                limit_used[column_key] = col_limit
-                continue
             filled_before = int(series.isna().sum())
-            series = series.ffill(limit=col_limit).bfill(limit=col_limit)
+            series = series.ffill(limit=col_limit)
+            if col_limit is None:
+                series = series.bfill()
             filled_after = int(series.isna().sum())
             filled_counts[column_key] = filled_before - filled_after
             limit_used[column_key] = col_limit
-            if series.isna().any() and enforce_completeness:
-                dropped.append(column_key)
-                continue
+            if series.isna().any():
+                has_alternative = len(cols) > 1 or result_columns
+                if enforce_completeness and has_alternative:
+                    dropped.append(column_key)
+                    continue
             result_columns[col] = series
             continue
         if col_policy == "zero":

@@ -29,7 +29,6 @@ from trend_analysis.io.date_correction import (
     analyze_date_column,
     apply_date_corrections,
 )
-from trend_analysis.util.missing import apply_missing_policy as _apply_missing_policy
 
 logger = logging.getLogger(__name__)
 
@@ -379,13 +378,56 @@ def _legacy_apply_missing_policy(
         frame.columns, policy, limit
     )
 
-    result, canonical = _apply_missing_policy(frame, policy, limit=limit)
-    filled = {
-        column: MissingPolicyFillDetails(method=canonical.policy[column], count=count)
-        for column, count in canonical.filled.items()
-    }
-    missing_counts = {column: int(frame[column].isna().sum()) for column in frame.columns}
-    max_gaps = {column: _max_consecutive_nans(frame[column]) for column in frame.columns}
+    result = frame.copy()
+    dropped: list[str] = []
+    filled: dict[str, MissingPolicyFillDetails] = {}
+    missing_counts: dict[str, int] = {}
+    max_gaps: dict[str, int] = {}
+
+    for column in frame.columns:
+        column_key = str(column)
+        col_policy = policy_map[column_key]
+        col_limit = limit_map[column_key]
+        series = result[column]
+        na_mask = series.isna()
+        missing_total = int(na_mask.sum())
+        missing_counts[column] = missing_total
+        max_gap = _max_consecutive_nans(series)
+        max_gaps[column] = max_gap
+
+        if missing_total == 0:
+            continue
+
+        if col_policy == "drop":
+            dropped.append(column)
+            continue
+
+        limit_for_fill = col_limit if col_limit is not None else None
+
+        if limit_for_fill is not None and max_gap > limit_for_fill:
+            dropped.append(column)
+            continue
+
+        if col_policy == "ffill":
+            filled_series = series.ffill(limit=limit_for_fill)
+            # Handle leading NaNs that ffill cannot reach
+            filled_series = filled_series.bfill(limit=limit_for_fill)
+            if filled_series.isna().any():
+                dropped.append(column)
+                continue
+            result[column] = filled_series
+            filled[column] = MissingPolicyFillDetails(method="ffill", count=missing_total)
+            continue
+
+        if col_policy == "zero":
+            result[column] = series.fillna(0.0)
+            filled[column] = MissingPolicyFillDetails(method="zero", count=missing_total)
+            continue
+
+        raise ValueError(f"Unhandled missing-data policy '{col_policy}'.")
+
+    if dropped:
+        result = result.drop(columns=dropped, errors="ignore")
 
     summary = {
         "policy": default_policy,
@@ -393,7 +435,7 @@ def _legacy_apply_missing_policy(
         "limit": default_limit,
         "limit_map": limit_map,
         "filled": filled,
-        "dropped": list(canonical.dropped_assets),
+        "dropped": dropped,
         "missing_counts": missing_counts,
         "max_consecutive_gaps": max_gaps,
     }
@@ -857,27 +899,13 @@ def validate_market_data(
         raise MarketDataValidationError(_format_issues(numeric_issues), numeric_issues)
 
     try:
-        policy_frame, canonical_policy = _apply_missing_policy(
+        policy_frame, policy_info = _legacy_apply_missing_policy(
             numeric_frame, missing_policy, limit=missing_limit
         )
     except ValueError as exc:
         if str(exc).startswith("Unsupported missing-data policy"):
             raise ValueError(str(exc).replace("Unsupported", "Unknown", 1)) from exc
         raise
-    policy_info: dict[str, Any] = {
-        "policy": canonical_policy.default_policy,
-        "policy_map": canonical_policy.policy,
-        "limit": canonical_policy.default_limit,
-        "limit_map": canonical_policy.limit,
-        "filled": {
-            column: MissingPolicyFillDetails(
-                method=canonical_policy.policy.get(column, canonical_policy.default_policy),
-                count=count,
-            )
-            for column, count in canonical_policy.filled.items()
-        },
-        "dropped": list(canonical_policy.dropped_assets),
-    }
 
     if policy_frame.empty:
         dropped = [str(item) for item in policy_info.get("dropped", [])]
