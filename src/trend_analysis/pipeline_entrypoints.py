@@ -56,6 +56,16 @@ def _resolve_single_period_monthly_cost(portfolio_cfg: Any, run_cfg: Any) -> flo
     return resolve_pipeline_monthly_cost(run_cfg, portfolio_cfg)
 
 
+def _prepare_risk_free_settings(data_settings: Any, section_get: Any) -> tuple[str | None, bool]:
+    """Resolve the risk-free contract shared by both public config entry points."""
+    return resolve_risk_free_settings(
+        {
+            "risk_free_column": section_get(data_settings, "risk_free_column"),
+            "allow_risk_free_fallback": section_get(data_settings, "allow_risk_free_fallback"),
+        }
+    )
+
+
 def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
     """Run the analysis pipeline using a config-like object.
 
@@ -129,8 +139,8 @@ def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
     )
     trend_spec = bindings.build_trend_spec(cfg, vol_adjust)
     lambda_tc_val = bindings.section_get(portfolio_cfg, "lambda_tc", 0.0)
-    risk_free_column, allow_risk_free_fallback = resolve_risk_free_settings(
-        data_settings if isinstance(data_settings, Mapping) else None
+    risk_free_column, allow_risk_free_fallback = _prepare_risk_free_settings(
+        data_settings, bindings.section_get
     )
 
     diag_res = bindings.invoke_analysis_with_diag(
@@ -264,11 +274,11 @@ def run_full_from_config(cfg: Any, *, bindings: ConfigBindings) -> PipelineResul
     weight_engine_params = bindings.weight_engine_params_from_robustness(
         weighting_scheme, robustness_cfg
     )
-    risk_free_column = bindings.section_get(data_settings, "risk_free_column")
     trend_spec = bindings.build_trend_spec(cfg, vol_adjust)
     lambda_tc_val = bindings.section_get(portfolio_cfg, "lambda_tc", 0.0)
-    risk_free_column = bindings.section_get(data_settings, "risk_free_column")
-    allow_risk_free_fallback = bindings.section_get(data_settings, "allow_risk_free_fallback")
+    risk_free_column, allow_risk_free_fallback = _prepare_risk_free_settings(
+        data_settings, bindings.section_get
+    )
 
     diag_res = bindings.invoke_analysis_with_diag(
         df,

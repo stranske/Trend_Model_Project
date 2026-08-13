@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -224,6 +226,86 @@ def test_run_resolves_risk_free_defaults(
     pipeline.run(base_config)
 
     assert captured_kwargs["allow_risk_free_fallback"] is expected_allow
+
+
+@pytest.mark.parametrize(
+    ("data_overrides", "expected"),
+    [
+        ({"risk_free_column": "RF", "allow_risk_free_fallback": True}, ("RF", False)),
+        ({"allow_risk_free_fallback": True}, (None, True)),
+        ({"allow_risk_free_fallback": False}, (None, False)),
+        ({}, (None, False)),
+    ],
+    ids=["explicit-column", "fallback-enabled", "fallback-disabled", "missing-column"],
+)
+def test_both_entrypoints_share_risk_free_resolution(
+    data_overrides: dict[str, object],
+    expected: tuple[str | None, bool],
+    monkeypatch: pytest.MonkeyPatch,
+    sample_frame: pd.DataFrame,
+    sample_split: dict[str, str],
+) -> None:
+    config: dict[str, object] = {
+        "data": {"csv_path": "dummy.csv", **data_overrides},
+        "sample_split": {},
+        "preprocessing": {},
+        "run": {},
+        "portfolio": {},
+        "vol_adjust": {},
+    }
+    captured: list[dict[str, object]] = []
+
+    monkeypatch.setattr(pipeline, "load_csv", lambda *_, **__: sample_frame)
+    monkeypatch.setattr(pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split)
+    monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
+
+    def fake_run_analysis(*_args: object, **kwargs: object) -> dict[str, object]:
+        captured.append(kwargs)
+        return pipeline._empty_run_full_result()
+
+    monkeypatch.setattr(pipeline, "_run_analysis", fake_run_analysis)
+
+    pipeline.run(config)
+    pipeline.run_full(config)
+
+    observed = [
+        (kwargs["risk_free_column"], kwargs["allow_risk_free_fallback"]) for kwargs in captured
+    ]
+    assert observed == [expected, expected]
+
+
+def test_both_entrypoints_preserve_object_backed_risk_free_settings(
+    monkeypatch: pytest.MonkeyPatch,
+    sample_frame: pd.DataFrame,
+    sample_split: dict[str, str],
+) -> None:
+    config = SimpleNamespace(
+        data=SimpleNamespace(
+            csv_path="dummy.csv", risk_free_column="RF", allow_risk_free_fallback=True
+        ),
+        sample_split={},
+        preprocessing={},
+        run={},
+        portfolio={},
+        vol_adjust={},
+    )
+    captured: list[dict[str, object]] = []
+
+    monkeypatch.setattr(pipeline, "load_csv", lambda *_, **__: sample_frame)
+    monkeypatch.setattr(pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split)
+    monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        pipeline,
+        "_run_analysis",
+        lambda *_, **kwargs: captured.append(kwargs) or pipeline._empty_run_full_result(),
+    )
+
+    pipeline.run(config)
+    pipeline.run_full(config)
+
+    assert [
+        (kwargs["risk_free_column"], kwargs["allow_risk_free_fallback"]) for kwargs in captured
+    ] == [("RF", False), ("RF", False)]
 
 
 def test_run_full_propagates_analysis_payload(
