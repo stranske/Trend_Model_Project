@@ -338,12 +338,19 @@ class RobustRiskParity(WeightEngine):
         # Check for problematic values
         cov_array = cov.values.astype(float, copy=True)
 
+        # Track every operation, rather than inferring it later from the
+        # condition threshold.  A non-positive diagonal is a distinct reason
+        # to load the covariance matrix and can be repaired before the
+        # threshold check runs.
+        diagonal_loading_reasons: list[str] = []
+
         # Check for non-positive diagonal elements
         diag_vals = np.diag(cov_array)
         if np.any(diag_vals <= 0):
             logger.warning("Non-positive diagonal elements detected. Applying diagonal loading.")
             cov_array = diagonal_loading(cov_array, self.diagonal_loading_factor)
             diag_vals = np.diag(cov_array)
+            diagonal_loading_reasons.append("non_positive_diagonal")
 
         # Check condition number
         condition_num = _safe_condition_number(cov_array)
@@ -355,6 +362,7 @@ class RobustRiskParity(WeightEngine):
             )
             cov_array = diagonal_loading(cov_array, self.diagonal_loading_factor)
             diag_vals = np.diag(cov_array)
+            diagonal_loading_reasons.append("condition_threshold_exceeded")
 
         # Compute inverse volatility weights
         diag_vals = np.where(diag_vals > 0, diag_vals, 0.0)
@@ -382,7 +390,8 @@ class RobustRiskParity(WeightEngine):
         self.diagnostics = {
             "condition_number": condition_num,
             "condition_threshold": self.condition_threshold,
-            "used_diagonal_loading": condition_num >= self.condition_threshold,
+            "used_diagonal_loading": bool(diagonal_loading_reasons),
+            "diagonal_loading_reasons": diagonal_loading_reasons,
             "diagonal_loading_factor": self.diagonal_loading_factor,
         }
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -11,14 +12,30 @@ from ..plugins import WeightEngine, weight_engine_registry
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class EqualRiskContributionPolicy:
+    """Numerical regularisation policy for :class:`EqualRiskContribution`."""
+
+    condition_threshold: float = 1e12
+    condition_loading_factor: float = 1e-6
+    nonpositive_eigen_loading_factor: float = 1e-4
+
+
 @weight_engine_registry.register("erc")
 class EqualRiskContribution(WeightEngine):
     """Equal risk contribution weighting via iterative scaling with robustness
     checks."""
 
-    def __init__(self, *, max_iter: int = 1000, tol: float = 1e-8) -> None:
+    def __init__(
+        self,
+        *,
+        max_iter: int = 1000,
+        tol: float = 1e-8,
+        policy: EqualRiskContributionPolicy | None = None,
+    ) -> None:
         self.max_iter = int(max_iter)
         self.tol = float(tol)
+        self.policy = policy or EqualRiskContributionPolicy()
 
     def weight(self, cov: pd.DataFrame) -> pd.Series:
         if cov.empty:
@@ -33,12 +50,12 @@ class EqualRiskContribution(WeightEngine):
         condition_num = np.linalg.cond(cov_mat)
         logger.debug(f"ERC input covariance condition number: {condition_num:.2e}")
 
-        if condition_num > 1e12:
+        if condition_num > self.policy.condition_threshold:
             logger.warning(
                 f"Ill-conditioned covariance matrix in ERC (condition: {condition_num:.2e}), adding regularization"
             )
             # Add small diagonal loading
-            regularization = np.trace(cov_mat) / n * 1e-6
+            regularization = np.trace(cov_mat) / n * self.policy.condition_loading_factor
             cov_mat = cov_mat + regularization * np.eye(n)
 
         # Check for non-positive definite matrix
@@ -48,7 +65,10 @@ class EqualRiskContribution(WeightEngine):
                 logger.warning("Non-positive definite covariance matrix detected in ERC")
                 # Apply more aggressive regularization
                 min_eigenval = np.abs(np.min(eigenvals))
-                regularization = min_eigenval + np.trace(cov_mat) / n * 1e-4
+                regularization = (
+                    min_eigenval
+                    + np.trace(cov_mat) / n * self.policy.nonpositive_eigen_loading_factor
+                )
                 cov_mat = cov_mat + regularization * np.eye(n)
         except np.linalg.LinAlgError:
             logger.error("Failed to compute eigenvalues in ERC, using equal weights")

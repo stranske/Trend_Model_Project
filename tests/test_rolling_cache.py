@@ -102,3 +102,4 @@ def test_rolling_cache_emits_timing_logs(monkeypatch, tmp_path):
     cache.get_or_compute(dataset_hash, 3, "M", "method_a", lambda: series)
 
     assert [entry[1]["status"] for entry in logged] == ["miss", "hit"]
+    assert [entry[1]["storage"] for entry in logged] == ["primary", "primary"]

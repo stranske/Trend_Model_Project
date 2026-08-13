@@ -8,7 +8,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trend_analysis.weights.equal_risk_contribution import EqualRiskContribution
+from trend_analysis.weights.equal_risk_contribution import (
+    EqualRiskContribution,
+    EqualRiskContributionPolicy,
+)
 from trend_analysis.weights.hierarchical_risk_parity import HierarchicalRiskParity
 from trend_analysis.weights.robust_weighting import (
     RobustMeanVariance,
@@ -27,6 +30,16 @@ def _make_covariance(values: np.ndarray, labels: list[str] | None = None) -> pd.
 
 
 class TestEqualRiskContribution:
+    def test_policy_exposes_regularization_contract(self):
+        policy = EqualRiskContributionPolicy(
+            condition_threshold=10.0,
+            condition_loading_factor=1e-5,
+            nonpositive_eigen_loading_factor=1e-3,
+        )
+        engine = EqualRiskContribution(policy=policy)
+
+        assert engine.policy == policy
+
     def test_weighting_handles_empty_input(self) -> None:
         engine = EqualRiskContribution()
         result = engine.weight(pd.DataFrame())

@@ -41,6 +41,9 @@ def _cov_to_corr(cov: pd.DataFrame) -> pd.DataFrame:
 class HierarchicalRiskParity(WeightEngine):
     """Hierarchical risk parity weighting with enhanced robustness."""
 
+    def __init__(self) -> None:
+        self.diagnostics: dict[str, object] = {}
+
     def weight(self, cov: pd.DataFrame) -> pd.Series:
         if cov.empty:
             return pd.Series(dtype=float)
@@ -134,7 +137,16 @@ class HierarchicalRiskParity(WeightEngine):
             logger.debug("Successfully computed HRP weights")
             return w
 
-        except Exception as e:
-            logger.error(f"HRP computation failed: {e}, falling back to equal weights")
+        except Exception as exc:
+            # Keep the original exception attached to the log record.  The
+            # equal-weight fallback remains safe, but callers and operators
+            # can now distinguish a degraded HRP result from normal output.
+            self.diagnostics = {
+                "fallback_used": True,
+                "fallback_reason": "hrp_computation_error",
+                "exception_type": type(exc).__name__,
+                "exception_message": str(exc),
+            }
+            logger.exception("HRP computation failed; falling back to equal weights")
             n = len(cov)
             return pd.Series(np.ones(n) / n, index=cov.index)
