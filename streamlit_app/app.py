@@ -39,18 +39,30 @@ apply_ds_theme()
 # are hidden; ``public_llm_demo`` exposes the LangChain UI. See
 # ``streamlit_app/demo_profile.py`` and ``demo/wasm/``.
 _active_profile = demo_profile.render_profile_controls(st)
+custom_analysis_available = demo_profile.custom_analysis_enabled(_active_profile)
 
 st.title("Portfolio Simulator")
-st.markdown("""
-Welcome! This app analyzes trend-following fund portfolios with volatility adjustment.
-
-**Quick Start:**
-- Use the **Demo** section below to run analysis on sample data with preset configurations
-- Use the **Custom Analysis** section to load your own data and configure every parameter
-
-The demo uses a specialized policy-based engine optimized for the sample dataset.
-For full control over all parameters, use the Custom Analysis flow.
-    """)
+quick_start = [
+    "Welcome! This app analyzes trend-following fund portfolios with volatility adjustment.",
+    "",
+    "**Quick Start:**",
+    "- Use the **Demo** section below to run analysis on sample data with preset configurations",
+]
+if custom_analysis_available:
+    quick_start.extend(
+        [
+            "- Use the **Custom Analysis** section to load your own data and configure every parameter",
+            "",
+            "For full control over all parameters, use the Custom Analysis flow.",
+        ]
+    )
+quick_start.extend(
+    [
+        "",
+        "The demo uses a specialized policy-based engine optimized for the sample dataset.",
+    ]
+)
+st.markdown("\n".join(quick_start))
 
 st.markdown("---")
 
@@ -243,7 +255,7 @@ st.markdown("---")
 # The custom-analysis flow loads user-supplied data and exposes the full
 # parameter/LLM surface. It is hidden in ``presentation_safe`` so a presentation
 # or locked-down PC only ever sees the deterministic synthetic-data demo above.
-if demo_profile.custom_analysis_enabled(_active_profile):
+if custom_analysis_available:
     st.subheader("🔧 Custom Analysis")
     st.markdown("""
         For full control over all parameters, use the manual workflow:

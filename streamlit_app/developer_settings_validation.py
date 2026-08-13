@@ -1,4 +1,4 @@
-"""Settings Validation page for systematically testing UI settings.
+"""Developer settings-validation page for systematically testing UI settings.
 
 This page allows interactive testing of individual settings to verify
 they are properly wired into the analysis pipeline. Each test:
@@ -25,7 +25,7 @@ import streamlit as st
 # evaluates an ``@st.cache_data`` decorator at import time, so configure the
 # page before importing them.
 st.set_page_config(
-    page_title="Settings Validation",
+    page_title="Developer: Settings Validation",
     page_icon="🔧",
     layout="wide",
 )
@@ -545,10 +545,21 @@ def format_value(value: Any) -> str:
 
 
 def render_validation_page() -> None:
-    """Render the Settings Validation page."""
+    """Render the developer Settings Validation page."""
+
+    active_profile = demo_profile.get_active_profile()
+    if not demo_profile.custom_analysis_enabled(active_profile) and not st.session_state.get(
+        "show_perf_diagnostics"
+    ):
+        st.warning(
+            "Developer settings validation is disabled in **presentation_safe** mode. "
+            "Switch to **public_llm_demo** in the sidebar, or enable "
+            "`show_perf_diagnostics` for QA access."
+        )
+        st.stop()
 
     app_state.initialize_session_state()
-    st.title("🔧 Settings Validation")
+    st.title("🔧 Developer: Settings Validation")
     st.markdown("""
     This page systematically tests each UI setting to verify it's properly
     connected to the analysis pipeline. Select a setting, choose test values,
