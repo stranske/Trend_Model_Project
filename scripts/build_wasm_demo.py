@@ -47,7 +47,16 @@ WASM_VENDOR_DIR = REPO_ROOT / "demo" / "wasm" / "vendor"
 #: both already in the vendored Pyodide lock — see ``PYODIDE_LOCK_PYPI_OVERRIDES``
 #: for the narwhals version bump that plotly 6.x's express module needs.)
 PYPI_WHEEL_DIR = "pypi"
-PYPI_WHEELS = ("plotly-6.8.0-py3-none-any.whl",)
+PLOTLY_WHEEL = "plotly-6.8.0-py3-none-any.whl"
+LANGCHAIN_CORE_WHEEL = "langchain_core-0.1.0-py3-none-any.whl"
+LANGCHAIN_SUPPORT_WHEELS = (
+    "anyio-4.8.0-py3-none-any.whl",
+    "sniffio-1.3.1-py3-none-any.whl",
+    "jsonpatch-1.33-py2.py3-none-any.whl",
+    "jsonpointer-3.0.0-py2.py3-none-any.whl",
+    "langsmith-0.0.92-py3-none-any.whl",
+)
+PYPI_WHEELS = (PLOTLY_WHEEL, LANGCHAIN_CORE_WHEEL, *LANGCHAIN_SUPPORT_WHEELS)
 
 #: The Pyodide 0.27.2 lock ships narwhals 1.10.0, which predates the
 #: ``from_native(..., pass_through=...)`` API that plotly 6.x's ``plotly.express``
@@ -58,9 +67,12 @@ PYPI_WHEELS = ("plotly-6.8.0-py3-none-any.whl",)
 #: The wheel is pure-PyPI (not on the Pyodide CDN); see fetch_offline_runtime.py.
 PYODIDE_LOCK_PYPI_OVERRIDES = {"narwhals": "1.15.1"}
 
+
 #: Manifest requirement strings for the vendored PyPI wheels: repo-relative paths
 #: (resolved to absolute same-origin URLs at runtime in ``index.html``).
-PYPI_WHEEL_REQUIREMENTS = tuple(f"vendor/{PYPI_WHEEL_DIR}/{name}" for name in PYPI_WHEELS)
+def _pypi_wheel_requirement(name: str) -> str:
+    return f"vendor/{PYPI_WHEEL_DIR}/{name}"
+
 
 VENDORED_RUNTIME_FILES = (
     *(f"{PYPI_WHEEL_DIR}/{name}" for name in PYPI_WHEELS),
@@ -152,8 +164,9 @@ DATA_GLOBS = (
 
 #: Python requirements installed under Pyodide, per runtime profile. The
 #: presentation-safe set intentionally omits LangChain so the default load is
-#: lean and has no LLM dependency footprint; public_llm_demo adds the LangChain
-#: stack pinned in ``pyproject.toml``.
+#: lean and has no LLM dependency footprint; public_llm_demo adds a pure-Python
+#: LangChain core plus Pyodide's browser HTTP bridge. Provider SDKs are excluded
+#: because their transitive native wheels cannot run in Pyodide.
 REQUIREMENTS = {
     "presentation_safe": [
         "numpy",
@@ -165,7 +178,7 @@ REQUIREMENTS = {
         # plotly (vendored wheel, resolved to an absolute URL in index.html) so
         # the Monte Carlo page's st.plotly_chart surfaces render offline. Its
         # narwhals/packaging deps are satisfied by the vendored Pyodide lock.
-        *PYPI_WHEEL_REQUIREMENTS,
+        _pypi_wheel_requirement(PLOTLY_WHEEL),
     ],
     "public_llm_demo": [
         "numpy",
@@ -174,13 +187,10 @@ REQUIREMENTS = {
         "pydantic",
         "scipy",
         "matplotlib",
-        "langchain>=1.3,<1.4",
-        "langchain-core>=1.4,<1.5",
-        "langchain-community>=0.4,<0.5",
-        "langchain-openai>=1.0,<1.1",
-        "langchain-anthropic>=1.2,<1.3",
-        "langchain-ollama>=1.0,<1.1",
-        *PYPI_WHEEL_REQUIREMENTS,
+        _pypi_wheel_requirement(LANGCHAIN_CORE_WHEEL),
+        *(_pypi_wheel_requirement(name) for name in LANGCHAIN_SUPPORT_WHEELS),
+        "pyodide-http==0.2.1",
+        _pypi_wheel_requirement(PLOTLY_WHEEL),
     ],
 }
 

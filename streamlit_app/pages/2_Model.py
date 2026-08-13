@@ -9,6 +9,7 @@ import html
 import json
 import logging
 import os
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from dataclasses import dataclass
@@ -114,6 +115,7 @@ _LLM_PROVIDER_OVERRIDE_KEY = "llm_provider_override"
 _LLM_MODEL_OVERRIDE_KEY = "llm_model_override"
 _LLM_BASE_URL_OVERRIDE_KEY = "llm_base_url_override"
 _LLM_ORG_OVERRIDE_KEY = "llm_org_override"
+_LLM_API_KEY_OVERRIDE_KEY = "llm_api_key_override"
 _LLM_TEMPERATURE_OVERRIDE_KEY = "llm_temperature_override"
 _LLM_OVERRIDE_SNAPSHOT_KEY = "llm_override_snapshot"
 
@@ -846,8 +848,17 @@ def _apply_config_wrapper(wrapper: Mapping[str, Any]) -> None:
 
 def _resolve_llm_provider_config() -> LLMProviderConfig:
     overrides = _resolve_llm_session_overrides()
+    if sys.platform == "emscripten":
+        return LLMProviderConfig(
+            provider="openai",
+            model=overrides.get("model") or _DEFAULT_CONFIG_CHAT_MODEL,
+            api_key=overrides.get("api_key"),
+            base_url=overrides.get("base_url"),
+            organization=overrides.get("organization"),
+        )
     return _resolve_llm_provider_config_shared(
         overrides.get("provider"),
+        api_key=overrides.get("api_key"),
         model=overrides.get("model"),
         base_url=overrides.get("base_url"),
         organization=overrides.get("organization"),
@@ -903,6 +914,7 @@ def _resolve_llm_session_overrides() -> dict[str, str | None]:
     model = st.session_state.get(_LLM_MODEL_OVERRIDE_KEY)
     base_url = st.session_state.get(_LLM_BASE_URL_OVERRIDE_KEY)
     organization = st.session_state.get(_LLM_ORG_OVERRIDE_KEY)
+    api_key = st.session_state.get(_LLM_API_KEY_OVERRIDE_KEY)
     provider_override = _normalize_cache_str(str(provider)) if provider else None
     if provider_override:
         provider_override = provider_override.lower()
@@ -911,6 +923,7 @@ def _resolve_llm_session_overrides() -> dict[str, str | None]:
         "model": _normalize_cache_str(str(model)) if model else None,
         "base_url": _normalize_cache_str(str(base_url)) if base_url else None,
         "organization": (_normalize_cache_str(str(organization)) if organization else None),
+        "api_key": _sanitize_api_key(str(api_key)) if api_key else None,
     }
 
 
@@ -932,6 +945,8 @@ def _fallback_llm_provider_config() -> LLMProviderConfig:
         kwargs["base_url"] = base_url
     if organization:
         kwargs["organization"] = organization
+    if overrides.get("api_key"):
+        kwargs["api_key"] = overrides["api_key"]
     return LLMProviderConfig(**kwargs)
 
 
@@ -1041,6 +1056,12 @@ def _render_llm_status_panel() -> None:
     with st.expander("Optional LLM connection status", expanded=False):
         st.info(f"Active provider: {provider_label}")
         st.info(f"Active model: {selected_model}")
+        if sys.platform == "emscripten":
+            endpoint = _normalize_cache_str(st.session_state.get(_LLM_BASE_URL_OVERRIDE_KEY))
+            session_key = _sanitize_api_key(st.session_state.get(_LLM_API_KEY_OVERRIDE_KEY))
+            st.caption("Browser endpoint: " + ("configured" if endpoint else "not configured"))
+            st.caption("Session API key: " + ("present" if session_key else "not entered"))
+            return
         required_vars = _llm_required_env_vars(selected_provider)
         if required_vars is None:
             st.warning(f"Unknown provider: {selected_provider}. Update your LLM settings.")
@@ -1080,17 +1101,22 @@ def _sync_llm_selection_from_overrides() -> None:
 
 def _render_llm_session_overrides_panel() -> None:
     with st.expander("LLM Settings (Session Only)", expanded=False):
-        st.caption("Overrides apply only to this session and do not store or display API keys.")
-        provider_options = [None, "openai", "anthropic", "ollama"]
+        browser_runtime = sys.platform == "emscripten"
+        st.caption(
+            "Overrides live only in this browser session; API keys are masked and not bundled."
+        )
+        provider_options = (
+            ["openai"] if browser_runtime else [None, "openai", "anthropic", "ollama"]
+        )
         provider_labels = {
             None: "Use env default",
-            "openai": "OpenAI",
+            "openai": "OpenAI-compatible endpoint" if browser_runtime else "OpenAI",
             "anthropic": "Anthropic",
             "ollama": "Ollama",
         }
         current_override = st.session_state.get(_LLM_PROVIDER_OVERRIDE_KEY)
         if current_override not in provider_options:
-            current_override = None
+            current_override = provider_options[0]
         st.selectbox(
             "Provider",
             provider_options,
@@ -1101,15 +1127,25 @@ def _render_llm_session_overrides_panel() -> None:
             on_change=_sync_llm_selection_from_overrides,
         )
         st.text_input(
+            "API key (session only)",
+            type="password",
+            key=_LLM_API_KEY_OVERRIDE_KEY,
+            help="Sent only to the configured endpoint when you run an LLM action.",
+        )
+        st.text_input(
             "Model (optional)",
             key=_LLM_MODEL_OVERRIDE_KEY,
             help="Overrides TREND_LLM_MODEL for this session only.",
             on_change=_sync_llm_selection_from_overrides,
         )
         st.text_input(
-            "Base URL (optional)",
+            "Base URL (required in browser)" if browser_runtime else "Base URL (optional)",
             key=_LLM_BASE_URL_OVERRIDE_KEY,
-            help="Overrides TREND_LLM_BASE_URL for this session only.",
+            help=(
+                "Enter an explicit CORS-enabled OpenAI-compatible base URL."
+                if browser_runtime
+                else "Overrides TREND_LLM_BASE_URL for this session only."
+            ),
         )
         st.text_input(
             "Organization (optional)",

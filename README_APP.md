@@ -48,8 +48,8 @@ Runtime modes are selected with the sidebar **Demo mode** switcher or the
 - `presentation_safe` (default): bundled synthetic data only; LLM,
   custom-analysis, and upload surfaces are hidden; no LangChain in the
   requirement set, so a presentation/locked-down PC load has no LLM footprint.
-- `public_llm_demo`: exposes the LangChain LLM UI; provider keys/endpoints are
-  runtime-only and never bundled.
+- `public_llm_demo`: exposes the LangChain LLM UI; an explicit CORS-enabled
+  OpenAI-compatible endpoint and masked API key are runtime-only and never bundled.
 
 Public demo: <https://stranske.github.io/Trend_Model_Project/>
 

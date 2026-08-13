@@ -1801,6 +1801,7 @@ def test_llm_session_overrides_win_over_env(
     stub.session_state[model_module._LLM_MODEL_OVERRIDE_KEY] = "gpt-4o-mini"
     stub.session_state[model_module._LLM_BASE_URL_OVERRIDE_KEY] = "https://override.example.com"
     stub.session_state[model_module._LLM_ORG_OVERRIDE_KEY] = "override-org"
+    stub.session_state[model_module._LLM_API_KEY_OVERRIDE_KEY] = "session-only-key"
 
     config = model_module._resolve_llm_provider_config()
 
@@ -1808,6 +1809,7 @@ def test_llm_session_overrides_win_over_env(
     assert config.model == "gpt-4o-mini"
     assert config.base_url == "https://override.example.com"
     assert config.organization == "override-org"
+    assert config.api_key == "session-only-key"
 
 
 def test_llm_session_override_normalizes_whitespace(model_module: ModuleType) -> None:
@@ -1816,11 +1818,32 @@ def test_llm_session_override_normalizes_whitespace(model_module: ModuleType) ->
 
     stub.session_state[model_module._LLM_PROVIDER_OVERRIDE_KEY] = "  OpenAI  "
     stub.session_state[model_module._LLM_MODEL_OVERRIDE_KEY] = "  gpt-4o-mini  "
+    stub.session_state[model_module._LLM_API_KEY_OVERRIDE_KEY] = "  session-key  "
 
     overrides = model_module._resolve_llm_session_overrides()
 
     assert overrides["provider"] == "openai"
     assert overrides["model"] == "gpt-4o-mini"
+    assert overrides["api_key"] == "session-key"
+
+
+def test_browser_llm_config_uses_only_session_values(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+    stub.session_state.clear()
+    monkeypatch.setattr(model_module.sys, "platform", "emscripten")
+    monkeypatch.setenv("TREND_LLM_PROVIDER", "anthropic")
+    stub.session_state[model_module._LLM_MODEL_OVERRIDE_KEY] = "browser-model"
+    stub.session_state[model_module._LLM_BASE_URL_OVERRIDE_KEY] = "https://llm.example.test/v1"
+    stub.session_state[model_module._LLM_API_KEY_OVERRIDE_KEY] = "browser-session-key"
+
+    config = model_module._resolve_llm_provider_config()
+
+    assert config.provider == "openai"
+    assert config.model == "browser-model"
+    assert config.base_url == "https://llm.example.test/v1"
+    assert config.api_key == "browser-session-key"
 
 
 def test_build_nl_chain_updates_selected_provider_model_for_llm_instance(

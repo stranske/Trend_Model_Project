@@ -3,17 +3,21 @@
 
 The wheels are COMMITTED so the demo boots offline with zero network access;
 this script regenerates or updates them from the Pyodide CDN when maintainers
-intentionally refresh the vendored runtime. Plotly is not in the Pyodide lock
-(it is pure-PyPI for this runtime) and is intentionally excluded.
+intentionally refresh the vendored runtime. Pure-PyPI wheels outside the lock
+are fetched separately from PyPI using pinned filenames.
 """
 
 from __future__ import annotations
 
 import hashlib
+import base64
+import csv
+import io
 import json
 import re
 import tempfile
 import urllib.request
+import zipfile
 from pathlib import Path
 
 from build_wasm_demo import (
@@ -30,11 +34,12 @@ VENDOR_DIR = REPO_ROOT / "demo" / "wasm" / "vendor" / f"pyodide-{PYODIDE_VERSION
 LOCK_PATH = VENDOR_DIR / "pyodide-lock.json"
 DOWNLOAD_TIMEOUT_SECONDS = 30
 
-#: ``plotly`` is not in the Pyodide lock, so it is fetched from PyPI
-#: (files.pythonhosted.org) by its pinned filename and committed under
+#: Pure-PyPI packages outside the Pyodide lock are fetched from PyPI
+#: (files.pythonhosted.org) by pinned filename and committed under
 #: ``demo/wasm/vendor/pypi/`` for offline boot.
 PYPI_VENDOR_DIR = REPO_ROOT / "demo" / "wasm" / "vendor" / PYPI_WHEEL_DIR
 PYPI_JSON_URL = "https://pypi.org/pypi/{name}/{version}/json"
+LANGCHAIN_CORE_WHEEL = "langchain_core-0.1.0-py3-none-any.whl"
 
 
 def _package_name(requirement: str) -> str:
@@ -179,6 +184,55 @@ def _download_pypi_wheel(file_name: str, target_dir: Path) -> str:
     return f"downloaded {rel}"
 
 
+def _patch_langchain_core_metadata(path: Path) -> str:
+    """Relax two conservative bounds that conflict with the stlite bootstrap.
+
+    LangChain core 0.1.0 runs with the lock's packaging 24.2 and stlite's
+    tenacity 9.1.4, but its wheel metadata caps both versions. Pyodide refuses
+    to downgrade packages that stlite already imported, so the committed wheel
+    removes only those upper bounds and updates its RECORD hash.
+    """
+
+    metadata_name = "langchain_core-0.1.0.dist-info/METADATA"
+    record_name = "langchain_core-0.1.0.dist-info/RECORD"
+    with zipfile.ZipFile(path) as source:
+        entries = [(info, source.read(info.filename)) for info in source.infolist()]
+    payloads = {info.filename: payload for info, payload in entries}
+    metadata = payloads[metadata_name].decode("utf-8")
+    patched = metadata.replace(
+        "Requires-Dist: packaging (>=23.2,<24.0)",
+        "Requires-Dist: packaging (>=23.2)",
+    ).replace(
+        "Requires-Dist: tenacity (>=8.1.0,<9.0.0)",
+        "Requires-Dist: tenacity (>=8.1.0)",
+    )
+    if patched == metadata:
+        return f"skip compatible metadata {path.name}"
+    metadata_bytes = patched.encode("utf-8")
+    digest = base64.urlsafe_b64encode(hashlib.sha256(metadata_bytes).digest()).rstrip(b"=")
+    rows = list(csv.reader(io.StringIO(payloads[record_name].decode("utf-8"))))
+    for row in rows:
+        if row and row[0] == metadata_name:
+            row[1] = f"sha256={digest.decode('ascii')}"
+            row[2] = str(len(metadata_bytes))
+            break
+    record_buffer = io.StringIO(newline="")
+    csv.writer(record_buffer, lineterminator="\n").writerows(rows)
+    payloads[metadata_name] = metadata_bytes
+    payloads[record_name] = record_buffer.getvalue().encode("utf-8")
+    with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as tmp:
+        tmp_path = Path(tmp.name)
+    try:
+        with zipfile.ZipFile(tmp_path, "w") as target:
+            for info, _payload in entries:
+                target.writestr(info, payloads[info.filename])
+        tmp_path.replace(path)
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
+        raise
+    return f"patched compatible metadata {path.name}"
+
+
 def main() -> int:
     packages = _load_lock()
     # Lock packages whose vendored wheel is sourced from PyPI rather than the
@@ -192,6 +246,8 @@ def main() -> int:
         print(_download(packages[name]))
     for file_name in PYPI_WHEELS:
         print(_download_pypi_wheel(file_name, PYPI_VENDOR_DIR))
+        if file_name == LANGCHAIN_CORE_WHEEL:
+            print(_patch_langchain_core_metadata(PYPI_VENDOR_DIR / file_name))
     return 0
 
 
