@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from trend_analysis import pipeline
 from trend_analysis.pipeline import PipelineResult, RiskStatsConfig
@@ -118,3 +119,64 @@ def test_stage_isolation_matches_pipeline_output() -> None:
     assert expected["fund_weights"] == actual["fund_weights"]
     assert expected["out_sample_stats"] == actual["out_sample_stats"]
     pd.testing.assert_frame_equal(expected["out_sample_scaled"], actual["out_sample_scaled"])
+
+
+def test_rank_selection_uses_window_cadence_without_mutating_caller_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    df = _sample_frame()
+    caller_cfg = RiskStatsConfig(periods_per_year=12, risk_free=0.0)
+    preprocess = preprocessing_stage._prepare_preprocess_stage(
+        df,
+        floor_vol=None,
+        warmup_periods=0,
+        missing_policy=None,
+        missing_limit=None,
+        stats_cfg=caller_cfg,
+        periods_per_year_override=52,
+        allow_risk_free_fallback=True,
+    )
+    assert not isinstance(preprocess, PipelineResult)
+    window = preprocessing_stage._build_sample_windows(
+        preprocess,
+        in_start="2020-01",
+        in_end="2020-03",
+        out_start="2020-04",
+        out_end="2020-06",
+    )
+    assert not isinstance(window, PipelineResult)
+
+    observed_periods: list[int] = []
+
+    def _rank_stub(_: pd.DataFrame, stats_cfg: RiskStatsConfig, **__: object) -> list[str]:
+        observed_periods.append(stats_cfg.periods_per_year)
+        return ["A"]
+
+    def _score_stub(_: pd.DataFrame, *args: object, **kwargs: object) -> pd.DataFrame:
+        stats_cfg = kwargs["stats_cfg"]
+        assert isinstance(stats_cfg, RiskStatsConfig)
+        observed_periods.append(stats_cfg.periods_per_year)
+        return pd.DataFrame({"Sharpe": [1.0]}, index=["A"])
+
+    monkeypatch.setattr(selection_stage, "rank_select_funds", _rank_stub)
+    monkeypatch.setattr(selection_stage, "single_period_run", _score_stub)
+    selection = selection_stage._select_universe(
+        preprocess,
+        window,
+        in_label="2020-01",
+        in_end_label="2020-03",
+        selection_mode="rank",
+        random_n=1,
+        custom_weights=None,
+        rank_kwargs=None,
+        manual_funds=None,
+        indices_list=None,
+        seed=1,
+        stats_cfg=caller_cfg,
+        risk_free_column="rf",
+        allow_risk_free_fallback=True,
+    )
+
+    assert not isinstance(selection, PipelineResult)
+    assert observed_periods == [52, 52]
+    assert caller_cfg.periods_per_year == 12

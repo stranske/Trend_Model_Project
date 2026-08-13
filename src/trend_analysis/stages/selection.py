@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Mapping
 
 import numpy as np
@@ -442,6 +442,10 @@ def _select_universe(
 
     if stats_cfg is None:
         stats_cfg = RiskStatsConfig(risk_free=0.0)
+    # The selection metrics must use the same cadence as the portfolio output.
+    # Keep a caller-supplied configuration immutable so it can be reused across
+    # separate analyses without leaking a prior window's annualisation.
+    stats_cfg = replace(stats_cfg, periods_per_year=int(window.periods_per_year))
 
     if risk_free_override is None:
         risk_free_override = window.in_df[rf_col]

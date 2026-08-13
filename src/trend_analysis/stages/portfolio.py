@@ -160,22 +160,23 @@ def _compute_stats(
     df: pd.DataFrame,
     rf: pd.Series,
     *,
-    periods_per_year: int = 12,
+    periods_per_year: float = 12,
     in_sample_avg_corr: dict[str, float] | None = None,
     out_sample_avg_corr: dict[str, float] | None = None,
 ) -> dict[str, _Stats]:
     # Metrics expect 1D Series; iterating keeps the logic simple for a handful
     # of columns and avoids reshaping into higher-dimensional arrays.
+    annualisation_periods = int(periods_per_year)
     stats: dict[str, _Stats] = {}
     for col in df:
         key = str(col)
         stats[key] = _Stats(
-            cagr=float(annual_return(df[col], periods_per_year)),
-            vol=float(volatility(df[col], periods_per_year)),
-            sharpe=float(sharpe_ratio(df[col], rf, periods_per_year)),
-            sortino=float(sortino_ratio(df[col], rf, periods_per_year)),
+            cagr=float(annual_return(df[col], annualisation_periods)),
+            vol=float(volatility(df[col], annualisation_periods)),
+            sharpe=float(sharpe_ratio(df[col], rf, annualisation_periods)),
+            sortino=float(sortino_ratio(df[col], rf, annualisation_periods)),
             max_drawdown=float(max_drawdown(df[col])),
-            information_ratio=float(information_ratio(df[col], rf, periods_per_year)),
+            information_ratio=float(information_ratio(df[col], rf, annualisation_periods)),
             is_avg_corr=(in_sample_avg_corr or {}).get(col),
             os_avg_corr=(out_sample_avg_corr or {}).get(col),
         )

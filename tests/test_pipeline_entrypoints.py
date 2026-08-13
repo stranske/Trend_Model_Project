@@ -308,7 +308,7 @@ def test_compute_stats_includes_optional_avg_corr() -> None:
 
 
 def test_portfolio_stats_use_window_periods_per_year() -> None:
-    returns = pd.DataFrame({"FundA": [0.01] * 12})
+    returns = pd.DataFrame({"FundA": [0.015, -0.004, 0.005, -0.008] * 3})
     risk_free = pd.Series(0.0, index=returns.index)
 
     monthly = pipeline._compute_stats(returns, risk_free, periods_per_year=12)["FundA"]
