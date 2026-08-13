@@ -25,3 +25,16 @@ def test_run_multi_demo_import_has_no_side_effects(monkeypatch) -> None:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     assert callable(module.main)
+
+    calls: list[tuple[str, str | None]] = []
+
+    def record_run_path(path, *, run_name=None, **_kwargs):
+        calls.append((str(path), run_name))
+        return {}
+
+    monkeypatch.setattr(runpy, "run_path", record_run_path)
+    module.main()
+    assert len(calls) == 1
+    called_path, run_name = calls[0]
+    assert Path(called_path).name == "_run_multi_demo.py"
+    assert run_name == "__main__"

@@ -102,6 +102,12 @@ def _filter_columns(df: pd.DataFrame, columns: Iterable[str]) -> pd.DataFrame:
     return df[cols].copy()
 
 
+def _new_run_id(now: datetime | None = None) -> str:
+    """Return the UTC run-directory identifier used by parameter sweeps."""
+
+    return (now or datetime.now(UTC)).strftime("%Y%m%dT%H%M%SZ")
+
+
 def _serialise_value(value: Any) -> Any:
     if isinstance(value, pd.DataFrame):
         return {
@@ -294,7 +300,7 @@ def main() -> int:
     model_state = base_config.get("model_state", {})
     benchmark = base_config.get("selected_benchmark")
 
-    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    run_id = _new_run_id()
     output_dir = Path(args.output_dir) / run_id
     output_dir.mkdir(parents=True, exist_ok=True)
 

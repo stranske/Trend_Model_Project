@@ -442,6 +442,8 @@ def _check_misc(
         raise SystemExit("Config optional fields not parsed")
 
     df_demo = load_csv(cfg.data["csv_path"])
+    if df_demo is None:
+        raise SystemExit("Failed to load demo CSV in _check_misc")
     df_demo = ensure_datetime(df_demo)
     sf_single = pipeline.single_period_run(
         df_demo[["Date", "Mgr_01", "Mgr_02"]],
