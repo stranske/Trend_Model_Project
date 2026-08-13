@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -73,7 +73,7 @@ def run_single_setting_test(
         "setting_name": setting_name,
         "category": setting_config.get("category", "Uncategorized"),
         "description": setting_config.get("description", ""),
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "status": "UNKNOWN",
         "baseline_value": None,
         "test_value": None,
@@ -367,7 +367,7 @@ def generate_summary_report(all_evidence: list[dict[str, Any]]) -> str:
     lines = [
         "# Settings Wiring Evidence Summary",
         "",
-        f"**Generated:** {datetime.now().isoformat()}",
+        f"**Generated:** {datetime.now(UTC).isoformat()}",
         "**Data Source:** Trend Universe Data",
         "",
         "## Overview",
