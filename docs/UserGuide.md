@@ -280,8 +280,8 @@ regime:
   method: "rolling_return"
   lookback: 126          # number of observations to compound
   smoothing: 3           # optional moving average over the rolling return
-  threshold: 0.0         # per-period cut-over; scaled with volatility if annualised
-  neutral_band: 0.001    # per-period neutral buffer; scaled with volatility too
+  threshold: 0.0         # rolling-return boundary in compounded-signal units
+  neutral_band: 0.001    # rolling-return neutral buffer in compounded-signal units
   min_observations: 4    # minimum rows required to compute metrics
   annualise_volatility: true  # only used when method: volatility
 ```

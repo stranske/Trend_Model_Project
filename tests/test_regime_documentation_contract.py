@@ -16,4 +16,10 @@ def test_user_guide_matches_regime_annualisation_contract() -> None:
         assert "rolling-return boundary in compounded-signal units" in config
         assert "rolling-return neutral buffer in compounded-signal units" in config
         assert "only for method: volatility" in config
+
+    rolling_return_block = guide.split('method: "rolling_return"', 1)[1].split("```", 1)[0]
+    assert "rolling-return boundary in compounded-signal units" in rolling_return_block
+    assert "rolling-return neutral buffer in compounded-signal units" in rolling_return_block
+    assert "per-period cut-over" not in rolling_return_block
+    assert "per-period neutral buffer" not in rolling_return_block
     assert "threshold is interpreted as\nannualised volatility" not in guide
