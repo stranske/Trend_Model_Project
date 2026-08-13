@@ -393,10 +393,13 @@ def test_stage_and_commit_uses_git(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
         calls.append((tuple(cmd), cwd))
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
+    captured_tz: list[object] = []
+
     class FakeDateTime:
         @staticmethod
-        def utcnow() -> dt_datetime:
-            return dt_datetime(2024, 1, 2, 3, 4, 5)
+        def now(tz) -> dt_datetime:
+            captured_tz.append(tz)
+            return dt_datetime(2024, 1, 2, 3, 4, 5, tzinfo=tz)
 
     monkeypatch.setattr(ci_cosmetic_repair, "_run", fake_run)
     monkeypatch.setattr(ci_cosmetic_repair, "datetime", FakeDateTime)
@@ -407,6 +410,7 @@ def test_stage_and_commit_uses_git(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     )
 
     assert branch == f"{ci_cosmetic_repair.BRANCH_PREFIX}-20240102030405"
+    assert captured_tz == [ci_cosmetic_repair.UTC]
     assert calls[0][0] == ("git", "checkout", "-B", branch)
     assert calls[1][0][:2] == ("git", "add")
     assert calls[2][0] == ("git", "commit", "-m", "Cosmetic repair: summary")

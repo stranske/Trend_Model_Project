@@ -10,7 +10,7 @@ import math
 import re
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Iterable, cast
 
@@ -727,7 +727,7 @@ def _write_outputs(
         )
 
     payload = {
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "total_settings": total,
         "status_counts": status_counts,
         "effectiveness_rate": effectiveness_rate,

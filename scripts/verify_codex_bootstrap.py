@@ -47,7 +47,7 @@ import subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 SRC_ROOT = REPO_ROOT / "src"
@@ -115,6 +115,17 @@ class ScenarioResult:
     started: str | None = None  # ISO8601
     ended: str | None = None
     duration_s: float | None = None
+
+
+def _utc_timestamp(value: datetime) -> str:
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _parse_utc_timestamp(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def create_issue(title: str, body: str, labels=None) -> int:
@@ -734,7 +745,7 @@ def main():
     shared_ctx: dict = {}
     for name in requested:
         func = SCENARIOS_IMPL.get(name)
-        start_ts = datetime.utcnow()
+        start_ts = datetime.now(UTC)
         if not func:
             results.append(
                 ScenarioResult(
@@ -742,8 +753,8 @@ def main():
                     "skip",
                     {},
                     error="Not implemented",
-                    started=start_ts.isoformat() + "Z",
-                    ended=start_ts.isoformat() + "Z",
+                    started=_utc_timestamp(start_ts),
+                    ended=_utc_timestamp(start_ts),
                     duration_s=0.0,
                 )
             )
@@ -752,15 +763,19 @@ def main():
             res = func(shared_ctx)
         except Exception as e:  # noqa
             res = ScenarioResult(name, "error", {}, error=str(e))
-        end_ts = datetime.utcnow()
-        res.started = res.started or start_ts.isoformat() + "Z"
-        res.ended = end_ts.isoformat() + "Z"
+        end_ts = datetime.now(UTC)
+        res.started = res.started or _utc_timestamp(start_ts)
+        res.ended = _utc_timestamp(end_ts)
         try:
-            start_dt = datetime.fromisoformat(res.started.replace("Z", ""))
-            end_dt = datetime.fromisoformat(res.ended.replace("Z", ""))
+            start_dt = _parse_utc_timestamp(res.started)
+            end_dt = _parse_utc_timestamp(res.ended)
             res.duration_s = round((end_dt - start_dt).total_seconds(), 3)
-        except Exception:
+        except ValueError as exc:
             res.duration_s = None
+            parse_error = f"Invalid timestamp for duration calculation: {exc}"
+            res.error = f"{res.error}; {parse_error}" if res.error else parse_error
+            if res.status == "pass":
+                res.status = "fail"
         results.append(res)
     # Write reports
     data = [asdict(r) for r in results]

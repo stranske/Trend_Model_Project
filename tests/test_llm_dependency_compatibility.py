@@ -45,6 +45,15 @@ def _get_declared_version_range(package: str) -> SpecifierSet:
     return SpecifierSet()
 
 
+def _load_dependency_validator():
+    script = Path(__file__).parents[1] / "scripts" / "validate_llm_deps.py"
+    spec = importlib.util.spec_from_file_location("validate_llm_deps_test", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def test_llm_extras_require_python_310_plus() -> None:
     assert sys.version_info >= (3, 10)
 
@@ -91,3 +100,43 @@ def test_langchain_versions_match_pyproject(distribution: str) -> None:
         f"{distribution} version {installed_version} not in declared range {declared_range}. "
         f"Check pyproject.toml and requirements.lock for consistency."
     )
+
+
+def test_validate_llm_deps_accepts_declared_lower_boundaries(monkeypatch) -> None:
+    validator = _load_dependency_validator()
+    versions = {
+        "pydantic": "2.0.0",
+        "langchain": "1.3",
+        "langchain-core": "1.4",
+        "langchain-community": "0.4",
+    }
+    monkeypatch.setattr(validator, "_find_first_installed", lambda _packages: "langchain")
+    monkeypatch.setattr(validator.importlib.metadata, "version", versions.__getitem__)
+
+    assert validator.main() == 0
+
+
+@pytest.mark.parametrize(
+    ("distribution", "version"),
+    [
+        ("langchain", "1.4"),
+        ("langchain-core", "1.5"),
+        ("langchain-community", "0.5"),
+        ("langchain", "not-a-version"),
+    ],
+)
+def test_validate_llm_deps_rejects_upper_boundary_and_invalid_versions(
+    monkeypatch, distribution: str, version: str
+) -> None:
+    validator = _load_dependency_validator()
+    versions = {
+        "pydantic": "2.0.0",
+        "langchain": "1.3",
+        "langchain-core": "1.4",
+        "langchain-community": "0.4",
+    }
+    versions[distribution] = version
+    monkeypatch.setattr(validator, "_find_first_installed", lambda _packages: "langchain")
+    monkeypatch.setattr(validator.importlib.metadata, "version", versions.__getitem__)
+
+    assert validator.main() == 1

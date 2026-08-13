@@ -6,7 +6,12 @@ import importlib.metadata
 import importlib.util
 import re
 import sys
+import tomllib
+from pathlib import Path
 from typing import Iterable
+
+from packaging.specifiers import SpecifierSet
+from packaging.version import Version
 
 
 def _find_first_installed(packages: Iterable[str]) -> str | None:
@@ -30,6 +35,20 @@ def _parse_major_minor(version: str) -> tuple[int, int]:
     return int(match.group(1)), int(match.group(2))
 
 
+def _declared_llm_ranges() -> dict[str, SpecifierSet]:
+    """Load supported LangChain ranges from the project metadata."""
+    pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    with pyproject.open("rb") as handle:
+        requirements = tomllib.load(handle)["project"]["optional-dependencies"]["llm"]
+
+    ranges: dict[str, SpecifierSet] = {}
+    for requirement in requirements:
+        name = re.split(r"[<>=!~\[]", requirement, maxsplit=1)[0].strip()
+        if name in {"langchain", "langchain-core", "langchain-community"}:
+            ranges[name] = SpecifierSet(requirement.removeprefix(name))
+    return ranges
+
+
 def main() -> int:
     llm_packages = ("langchain", "langchain_core", "langchain_community")
     langchain_distributions = {
@@ -37,11 +56,7 @@ def main() -> int:
         "langchain_core": "langchain-core",
         "langchain_community": "langchain-community",
     }
-    expected_major_minor = {
-        "langchain": ((1, 3),),
-        "langchain-core": ((1, 4),),
-        "langchain-community": ((0, 4),),
-    }
+    declared_ranges = _declared_llm_ranges()
     present = _find_first_installed(llm_packages)
     if present is None:
         print("LLM extras not installed; skipping compatibility checks.")
@@ -83,25 +98,19 @@ def main() -> int:
             missing_langchain.append(distribution)
             continue
 
-        try:
-            major, minor = _parse_major_minor(version)
-        except ValueError as exc:
-            print(str(exc), file=sys.stderr)
-            return 1
-
-        expected = expected_major_minor.get(distribution)
+        expected = declared_ranges.get(distribution)
         if expected is None:
             incompatible_langchain.append(
                 f"{distribution}=={version} (no expected version range configured)"
             )
             continue
 
-        if (major, minor) not in expected:
-            expected_ranges = " or ".join(
-                f"{expected_major}.{expected_minor}.x"
-                for expected_major, expected_minor in expected
-            )
-            incompatible_langchain.append(f"{distribution}=={version} (expected {expected_ranges})")
+        try:
+            compatible = Version(version) in expected
+        except ValueError:
+            compatible = False
+        if not compatible:
+            incompatible_langchain.append(f"{distribution}=={version} (expected {expected})")
 
     if missing_langchain:
         print(
@@ -113,9 +122,7 @@ def main() -> int:
 
     if incompatible_langchain:
         print(
-            "LangChain packages must match pyproject.toml pins: "
-            "langchain 1.3.x; langchain-core 1.4.x; "
-            "langchain-community 0.4.x. "
+            "LangChain packages must be within the pyproject.toml declared ranges. "
             f"Detected {', '.join(incompatible_langchain)}.",
             file=sys.stderr,
         )
