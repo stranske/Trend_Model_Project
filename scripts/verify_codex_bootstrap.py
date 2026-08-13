@@ -770,8 +770,12 @@ def main():
             start_dt = _parse_utc_timestamp(res.started)
             end_dt = _parse_utc_timestamp(res.ended)
             res.duration_s = round((end_dt - start_dt).total_seconds(), 3)
-        except Exception:
+        except ValueError as exc:
             res.duration_s = None
+            parse_error = f"Invalid timestamp for duration calculation: {exc}"
+            res.error = f"{res.error}; {parse_error}" if res.error else parse_error
+            if res.status == "pass":
+                res.status = "fail"
         results.append(res)
     # Write reports
     data = [asdict(r) for r in results]

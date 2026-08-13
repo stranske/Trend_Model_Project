@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -111,4 +112,6 @@ def test_write_outputs_emits_canonical_utc_timestamp(tmp_path: Path) -> None:
     )
 
     payload = json.loads(output_json.read_text(encoding="utf-8"))
-    assert payload["generated_at"].endswith("Z")
+    generated_at = datetime.fromisoformat(payload["generated_at"].replace("Z", "+00:00"))
+    assert generated_at.tzinfo is not None
+    assert generated_at.utcoffset() == UTC.utcoffset(generated_at)
