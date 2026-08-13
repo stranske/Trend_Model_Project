@@ -77,7 +77,7 @@ def handle_mc_command(args: argparse.Namespace) -> int:
             )
         except TrendCLIError as exc:
             print(f"Error: {exc}", file=sys.stderr)
-            return 2
+            return 1
         except (OSError, ValueError) as exc:
             print(str(exc), file=sys.stderr)
             return 1
