@@ -14,7 +14,7 @@ import math
 import sys
 import zipfile
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -294,7 +294,7 @@ def main() -> int:
     model_state = base_config.get("model_state", {})
     benchmark = base_config.get("selected_benchmark")
 
-    run_id = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     output_dir = Path(args.output_dir) / run_id
     output_dir.mkdir(parents=True, exist_ok=True)
 

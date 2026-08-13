@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, List
@@ -37,16 +38,36 @@ if SRC_ROOT.exists():
 
 from utils.paths import proj_path  # noqa: E402
 
+PERF_THRESHOLD_ENV = "TREND_PERF_THRESHOLD_PCT"
+
+
+def _read_env_value(env_path: Path, key: str) -> str | None:
+    """Return a single dotenv value without interpreting unrelated settings."""
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line.removeprefix("export ").lstrip()
+        name, separator, value = line.partition("=")
+        if separator and name.strip() == key:
+            return value.strip().strip('"').strip("'")
+    return None
+
 
 def _default_threshold() -> float:
+    configured = os.environ.get(PERF_THRESHOLD_ENV)
     env_path = proj_path(".env")
-    if not env_path.exists():
+    if configured is None and env_path.exists():
+        configured = _read_env_value(env_path, PERF_THRESHOLD_ENV)
+    if configured is None:
         return 15.0
     try:
-        return float(env_path.read_text().strip())
+        return float(configured)
     except ValueError:
         print(
-            f"WARNING: Invalid threshold value in {env_path} (expected a numeric value), defaulting to 15.0",
+            f"WARNING: Invalid {PERF_THRESHOLD_ENV} value {configured!r} (expected a numeric value), "
+            "defaulting to 15.0",
             file=sys.stderr,
         )
         return 15.0

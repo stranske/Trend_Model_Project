@@ -47,7 +47,7 @@ import subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 SRC_ROOT = REPO_ROOT / "src"
@@ -734,7 +734,7 @@ def main():
     shared_ctx: dict = {}
     for name in requested:
         func = SCENARIOS_IMPL.get(name)
-        start_ts = datetime.utcnow()
+        start_ts = datetime.now(UTC)
         if not func:
             results.append(
                 ScenarioResult(
@@ -752,7 +752,7 @@ def main():
             res = func(shared_ctx)
         except Exception as e:  # noqa
             res = ScenarioResult(name, "error", {}, error=str(e))
-        end_ts = datetime.utcnow()
+        end_ts = datetime.now(UTC)
         res.started = res.started or start_ts.isoformat() + "Z"
         res.ended = end_ts.isoformat() + "Z"
         try:

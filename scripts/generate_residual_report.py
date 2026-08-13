@@ -23,7 +23,7 @@ except Exception:
 lines = [
     "# Residual Ruff Report",
     "",
-    f"Generated: {datetime.datetime.utcnow():%Y-%m-%d %H:%M:%S} UTC",
+    f"Generated: {datetime.datetime.now(datetime.UTC):%Y-%m-%d %H:%M:%S} UTC",
     "",
     f"Total diagnostics: {cls.get('total', 0)}",
     f"New diagnostics: {cls.get('new', 0)}",
