@@ -40,6 +40,13 @@ def test_read_bool_variants(summarize: ModuleType) -> None:
     assert summarize._read_bool("surprise") is True
 
 
+def test_public_exports_are_non_private_and_callable(summarize: ModuleType) -> None:
+    assert summarize.__all__ == ["Args", "build_signature_hash", "main"]
+    assert all(not name.startswith("_") for name in summarize.__all__)
+    assert callable(summarize.build_signature_hash)
+    assert callable(summarize.main)
+
+
 def test_load_json_handles_missing_and_invalid(summarize: ModuleType, tmp_path: Path) -> None:
     missing = tmp_path / "missing.json"
     assert summarize._load_json(missing) is None

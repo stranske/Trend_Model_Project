@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from streamlit_app.components import demo_runner
+from trend_analysis.presets import get_trend_preset
+from trend_analysis.signal_presets import get_trend_spec_preset
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -24,3 +26,15 @@ def test_home_demo_preset_label_is_distinct_from_model_preset_label() -> None:
     assert "Strategy Preset" not in demo_runner_source
     assert "Preset Configuration" in model_source
     assert demo_runner.DEMO_PRESET_SELECTOR_LABEL != "Preset Configuration"
+
+
+def test_cli_and_streamlit_share_preset_resolution() -> None:
+    """The signal view and UI payload must derive from one canonical preset."""
+
+    full_preset = get_trend_preset("balanced")
+    signal_preset = get_trend_spec_preset("balanced")
+    ui_payload = demo_runner._load_preset("balanced")
+
+    assert signal_preset.spec == full_preset.trend_spec
+    assert ui_payload == full_preset.config_mapping()
+    assert ui_payload["signals"]["window"] == signal_preset.spec.window

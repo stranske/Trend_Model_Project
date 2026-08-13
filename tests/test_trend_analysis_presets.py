@@ -58,6 +58,21 @@ def test_freeze_mapping_returns_immutable_view() -> None:
         frozen["c"] = 3  # type: ignore[misc]
 
 
+def test_config_mapping_deep_copies_nested_payloads() -> None:
+    preset = preset_module.TrendPreset(
+        slug="nested",
+        label="Nested",
+        description="",
+        trend_spec=preset_module.TrendSpec(),
+        _config=preset_module._freeze_mapping({"signals": {"window": 42}}),
+    )
+
+    payload = preset.config_mapping()
+    payload["signals"]["window"] = 21
+
+    assert preset.config_mapping()["signals"]["window"] == 42
+
+
 def test_normalise_metric_weights_discards_invalid_entries() -> None:
     weights = preset_module._normalise_metric_weights(
         {"sharpe_ratio": "2", "bad": "x", "drawdown": 0.5}
@@ -305,6 +320,22 @@ def test_candidate_preset_dirs_includes_repository_defaults(
     candidates = preset_module._candidate_preset_dirs()
     assert preset_module._DEFAULT_PRESETS_DIR in candidates
     assert isinstance(candidates, tuple)
+
+
+def test_registry_recovers_after_temporary_empty_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A temporary override must not cache an empty registry for later callers."""
+
+    default_dir = preset_module.PRESETS_DIR
+    empty_dir = tmp_path / "empty"
+    empty_dir.mkdir()
+    monkeypatch.setattr(preset_module, "PRESETS_DIR", empty_dir)
+    preset_module._preset_registry.cache_clear()
+    assert preset_module.list_preset_slugs() == ()
+
+    monkeypatch.setattr(preset_module, "PRESETS_DIR", default_dir)
+    assert {"aggressive", "balanced", "conservative"}.issubset(preset_module.list_preset_slugs())
 
 
 def test_preset_registry_loads_yaml_and_handles_overrides(

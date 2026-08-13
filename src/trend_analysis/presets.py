@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+from copy import deepcopy
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -17,6 +18,7 @@ from .signals import TrendSpec
 LOGGER = logging.getLogger(__name__)
 
 _DEFAULT_PRESETS_DIR = Path(__file__).resolve().parents[2] / "config" / "presets"
+_BUNDLED_PRESETS_DIR = Path(__file__).with_name("preset_data")
 PRESETS_DIR = _DEFAULT_PRESETS_DIR
 
 _DEFAULT_VOL_ADJUST: Mapping[str, Any] = MappingProxyType(
@@ -143,6 +145,16 @@ class TrendPreset:
     description: str
     trend_spec: TrendSpec
     _config: Mapping[str, Any]
+
+    def config_mapping(self) -> dict[str, Any]:
+        """Return a mutable full-config payload for UI and CLI consumers.
+
+        ``TrendPreset`` is the single preset owner.  Callers that need the
+        complete configuration receive a copy, while signal-only callers use
+        :meth:`signals_mapping`; neither needs a parallel registry.
+        """
+
+        return deepcopy(dict(self._config))
 
     def form_defaults(self) -> dict[str, Any]:
         """Return UI-ready defaults derived from the preset."""
@@ -284,7 +296,7 @@ def _candidate_preset_dirs() -> tuple[Path, ...]:
             seen.add(resolved)
             candidates.append(resolved)
 
-    # Base directory within the source tree or editable install
+    # Base directory within the source tree or editable install.
     _register(PRESETS_DIR)
 
     include_defaults = PRESETS_DIR == _DEFAULT_PRESETS_DIR
@@ -292,6 +304,11 @@ def _candidate_preset_dirs() -> tuple[Path, ...]:
         for parent in current.parents:
             alt = parent / "config" / "presets"
             _register(alt)
+        # Wheels do not contain the repository-level ``config`` directory.
+        # Ship an equivalent package-local copy so normal installations retain
+        # the same built-in preset vocabulary as editable/source installs.
+        if not _DEFAULT_PRESETS_DIR.is_dir():
+            _register(_BUNDLED_PRESETS_DIR)
 
     env_dir = os.environ.get("TREND_PRESETS_DIR")
     if env_dir:
@@ -301,13 +318,19 @@ def _candidate_preset_dirs() -> tuple[Path, ...]:
 
 
 @lru_cache(maxsize=None)
-def _preset_registry() -> Mapping[str, TrendPreset]:
+def _preset_registry_for_dirs(
+    directories: tuple[Path, ...],
+) -> Mapping[str, TrendPreset]:
     registry: dict[str, TrendPreset] = {}
     origins: dict[str, Path] = {}
-    for directory in _candidate_preset_dirs():
+    for directory in directories:
         for path in sorted(directory.glob("*.yml")):
             slug = path.stem.lower()
-            raw = _load_yaml(path)
+            try:
+                raw = _load_yaml(path)
+            except (OSError, yaml.YAMLError) as exc:
+                LOGGER.warning("Skipping unreadable trend preset %s: %s", path, exc)
+                continue
             if not raw:
                 continue
             label = str(raw.get("name") or slug.title())
@@ -333,6 +356,21 @@ def _preset_registry() -> Mapping[str, TrendPreset]:
     return MappingProxyType(registry)
 
 
+def _preset_registry() -> Mapping[str, TrendPreset]:
+    """Return the cached registry for the current preset-directory selection.
+
+    ``PRESETS_DIR`` and ``TREND_PRESETS_DIR`` are intentionally configurable for
+    editable installs and tests.  Keying the cache by the resolved candidate
+    directories prevents a temporary override from leaking an empty registry
+    after that override has been removed.
+    """
+
+    return _preset_registry_for_dirs(_candidate_preset_dirs())
+
+
+_preset_registry.cache_clear = _preset_registry_for_dirs.cache_clear  # type: ignore[attr-defined]
+
+
 def list_trend_presets() -> tuple[TrendPreset, ...]:
     """Return all presets sorted by display label."""
 
@@ -351,7 +389,7 @@ def get_trend_preset(name: str) -> TrendPreset:
 
     if not name:
         raise KeyError("Preset name must be provided")
-    lowered = name.lower()
+    lowered = name.strip().lower()
     registry = _preset_registry()
     if lowered in registry:
         return registry[lowered]

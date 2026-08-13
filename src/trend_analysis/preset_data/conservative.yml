@@ -1,0 +1,31 @@
+version: "1"
+name: Conservative
+description: Low risk profile with stable selection criteria
+lookback_periods: 60
+rebalance_frequency: quarterly
+min_track_months: 36
+selection_count: 5
+risk_target: 0.08
+metrics:
+  sharpe_ratio: 0.4
+  max_drawdown: 0.3
+  volatility: 0.2
+  return_ann: 0.1
+signals:
+  window: 126
+  min_periods: 90
+  lag: 1
+  vol_adjust: true
+  vol_target: 0.08
+  zscore: true
+portfolio:
+  max_weight: 0.25
+  cooldown_months: 6
+vol_adjust:
+  enabled: true
+  target_vol: 0.08
+  window:
+    length: 126
+sample_split:
+  method: date
+  date: "2018-12-31"

@@ -1,10 +1,17 @@
-"""Named TrendSpec presets shared between CLI and UI layers."""
+"""Signal-only view of the canonical YAML-backed preset registry.
+
+``trend_analysis.presets`` owns full preset payloads.  This module preserves
+the small signal-only type used by older CLI call sites without maintaining a
+second authoritative name map.
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, List
+from functools import lru_cache
+from typing import Dict, List
 
+from .presets import _preset_registry, get_trend_preset, list_trend_presets
 from .signals import TrendSpec
 
 
@@ -48,45 +55,42 @@ class TrendSpecPreset:
 
 
 _DEFAULT_PRESET_NAME = "Balanced"
+_SIGNAL_PRESET_SLUGS = ("aggressive", "balanced", "conservative")
 
-_PRESETS: Dict[str, TrendSpecPreset] = {
-    "conservative": TrendSpecPreset(
-        name="Conservative",
-        description="Longer window with heavier smoothing and lower volatility target.",
-        spec=TrendSpec(
-            window=126,
-            min_periods=90,
-            lag=1,
-            vol_adjust=True,
-            vol_target=0.08,
-            zscore=True,
-        ),
-    ),
-    "balanced": TrendSpecPreset(
-        name="Balanced",
-        description="Default configuration offering a balance between responsiveness and stability.",
-        spec=TrendSpec(
-            window=84,
-            min_periods=63,
-            lag=1,
-            vol_adjust=True,
-            vol_target=0.10,
-            zscore=True,
-        ),
-    ),
-    "aggressive": TrendSpecPreset(
-        name="Aggressive",
-        description="Shorter window prioritising responsiveness with higher volatility allowance.",
-        spec=TrendSpec(
-            window=42,
-            min_periods=30,
-            lag=1,
-            vol_adjust=True,
-            vol_target=0.15,
-            zscore=False,
-        ),
-    ),
-}
+
+def _ordered_presets_items() -> tuple[tuple[str, TrendSpecPreset], ...]:
+    """Return the canonical signal-compatible presets by stable slug.
+
+    The full registry also includes full-config-only choices such as the cash
+    constrained preset.  This tuple is a compatibility surface selection, not
+    a second registry: each returned payload is still derived from the single
+    YAML-backed owner.
+    """
+
+    available = {preset.slug for preset in list_trend_presets()}
+    registry_identity = id(_preset_registry())
+    return tuple(
+        (slug, _signal_view(slug, registry_identity))
+        for slug in _SIGNAL_PRESET_SLUGS
+        if slug in available
+    )
+
+
+def _ordered_presets() -> tuple[TrendSpecPreset, ...]:
+    """Return canonical signal presets in the same order as their keys."""
+
+    return tuple(preset for _, preset in _ordered_presets_items())
+
+
+@lru_cache(maxsize=None)
+def _signal_view(slug: str, registry_identity: int) -> TrendSpecPreset:
+    del registry_identity  # It keys this cache to the current canonical registry generation.
+    preset = get_trend_preset(slug)
+    return TrendSpecPreset(
+        name=preset.label,
+        description=preset.description,
+        spec=preset.trend_spec,
+    )
 
 
 def default_preset_name() -> str:
@@ -110,28 +114,17 @@ def list_trend_spec_keys() -> List[str]:
 def get_trend_spec_preset(name: str) -> TrendSpecPreset:
     """Look up a preset by name (case-insensitive)."""
 
-    key = name.strip().lower()
-    if key not in _PRESETS:
-        raise KeyError(f"Unknown TrendSpec preset: {name}")
-    return _PRESETS[key]
+    preset = get_trend_preset(name)
+    if preset.slug not in _SIGNAL_PRESET_SLUGS:
+        raise KeyError(f"Unknown trend preset: {name}")
+    return _signal_view(preset.slug, id(_preset_registry()))
 
 
 def resolve_trend_spec(name: str | None) -> TrendSpecPreset:
     """Return preset by name falling back to the default when ``name`` is
     falsy."""
 
-    if not name:
-        return _PRESETS[_DEFAULT_PRESET_NAME.lower()]
-    return get_trend_spec_preset(name)
-
-
-def _ordered_presets() -> Iterable[TrendSpecPreset]:
-    for _, preset in _ordered_presets_items():
-        yield preset
-
-
-def _ordered_presets_items() -> List[tuple[str, TrendSpecPreset]]:
-    return sorted(_PRESETS.items(), key=lambda item: item[0])
+    return get_trend_spec_preset(name or _DEFAULT_PRESET_NAME)
 
 
 __all__ = [
