@@ -37,10 +37,10 @@ Pre-configured analysis presets for common use cases.
 
 ```bash
 # Run with specific config
-python -m trend_analysis.run_analysis -c config/demo.yml
+PYTHONPATH=./src python -m trend.cli run -c config/demo.yml
 
 # Use environment variable
-TREND_CFG=config/defaults.yml python -m trend_analysis.run_analysis
+TREND_CFG=config/defaults.yml PYTHONPATH=./src python -m trend.cli run
 ```
 
 ---

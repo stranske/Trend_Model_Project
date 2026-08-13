@@ -150,14 +150,16 @@ python -c "import trend_analysis; print(trend_analysis.__version__)"
 
 ## CLI Commands
 
-The package provides CLI commands after installation:
+The supported release surface is the `trend` command. Compatibility aliases
+remain removal-bound and are not release examples:
 
 ```bash
-# Single-period analysis
-trend-analysis -c config.yml
+# Analysis and reports
+trend run -c config.yml
+trend report -c config.yml --out reports
 
-# Multi-period analysis  
-trend-multi-analysis -c config.yml
+# Scenario work
+trend mc list
 ```
 
 ## Troubleshooting

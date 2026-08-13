@@ -1,7 +1,8 @@
 # Trend Model CLI Quickstart
 
-This guide walks through the two console entry points exposed by the Trend Model
-package after it has been installed (for example via `pip install -e .`).
+This guide defines the supported command surface after installation (for example
+via `pip install -e .`). The supported entry point is `trend`; compatibility
+aliases remain removal-bound and must not be used in new documentation or automation.
 
 ## Prerequisites
 
@@ -12,8 +13,7 @@ package after it has been installed (for example via `pip install -e .`).
    pip install -e .[app]
    ```
 
-   The optional `app` extra pulls in Streamlit so that the `trend-app` command
-   can launch the interactive UI.
+   The optional `app` extra pulls in Streamlit for `trend app`.
 
 3. Generate the demo dataset that the sample configuration relies on:
 
@@ -24,13 +24,31 @@ package after it has been installed (for example via `pip install -e .`).
    This writes `demo/demo_returns.csv`, which the sample configuration file
    references.
 
-## Launching the Streamlit UI (`trend-app`)
+## Supported surface
 
-Run the `trend-app` console script to launch the Streamlit interface bundled in
-`streamlit_app/app.py`:
+| Command | Supported purpose | Current state |
+| --- | --- | --- |
+| `trend run` | Execute an analysis from YAML, TOML, or a Streamlit JSON export. | Supported |
+| `trend report` | Generate report artefacts from a configuration. | Supported |
+| `trend quick-report` | Build a compact report from existing run artefacts. | Supported |
+| `trend app` | Launch the Streamlit application. | Supported |
+| `trend check` | Print environment and dependency diagnostics. | Supported |
+| `trend mc viz` | Render charts from an existing Monte Carlo bundle. | Supported. |
+| `python -m trend_analysis.cli mc` | List, validate, and run registered Monte Carlo scenarios. | Transitional compatibility surface until those commands move into `trend`. |
+
+Compatibility commands such as `trend-analysis`, `trend-multi-analysis`,
+`trend-model`, `trend-app`, and `trend-run` are transitional aliases only and
+will be removed. The scenario examples below intentionally invoke
+`python -m trend_analysis.cli` because its `mc list`, `mc validate`, and `mc run`
+subcommands have not yet moved to `trend`; `trend mc` currently supports only
+`viz`.
+
+## Launching the Streamlit UI (`trend app`)
+
+Run the supported command to launch the Streamlit interface:
 
 ```bash
-trend-app
+trend app
 ```
 
 The command proxies directly to `streamlit run streamlit_app/app.py`, so any
@@ -38,15 +56,14 @@ arguments you provide are forwarded to Streamlit itself. For example, to launch
 headless on a specific port:
 
 ```bash
-trend-app --server.headless true --server.port 8502
+trend app --server.headless true --server.port 8502
 ```
 
-## Running analyses headlessly (`trend-run`)
+## Running analyses headlessly (`trend run`)
 
-The `trend-run` console script executes the full volatility-adjusted trend
-pipeline using a YAML or TOML configuration file and produces an HTML report by
-default. The repository now ships with a TOML example at `config/trend.toml`
-that mirrors the demonstration YAML configuration.
+The `trend run` command executes the full volatility-adjusted trend pipeline
+using a YAML configuration file. The repository now ships with a TOML example
+at `config/trend.toml` for configuration reference.
 
 If you pass a Streamlit JSON export instead of YAML/TOML, the `run` command will
 auto-detect it and replay the UI settings using the same mapping logic as the
@@ -56,39 +73,25 @@ Generate the demo dataset first (see the prerequisites above), then invoke the
 command:
 
 ```bash
-trend-run -c config/trend.toml -o reports/cli_demo.html
+trend run -c config/trend.toml
 ```
 
-The example configuration writes the report to the location provided via
-`-o/--output`. You can also direct the command to export CSV, JSON, XLSX, or TXT
-artefacts by pointing `--artefacts` at a directory and optionally specifying the
-formats to emit.
+Use `trend report` when you need an HTML report or summary artefacts. It accepts
+`--output` for the HTML path, `--out` for the artefact directory, and
+`--formats` for the emitted artefact formats.
 
 Example:
 
 ```bash
-trend-run -c config/trend.toml \
-  -o reports/cli_demo.html \
-  --artefacts reports/artefacts \
+trend report -c config/trend.toml \
+  --output reports/cli_demo.html \
+  --out reports/artefacts \
   --formats csv json xlsx
 ```
 
-If your CSV contains fixable date issues (e.g., 11/31/2024), you can opt into
-the Streamlit-style correction pass:
-
-```bash
-trend-model run \
-  -c config/trend.toml \
-  -i demo/demo_returns.csv \
-  --auto-fix-dates
-```
-
-You will be prompted to confirm the corrections. Use `--yes` to skip the
-interactive prompt in automation.
-
 ### PDF export
 
-Pass `--pdf` to render a PDF alongside the HTML report. This requires the
+Pass `--pdf` to `trend report` to render a PDF alongside the HTML report. This requires the
 `fpdf2` dependency (install with `pip install "fpdf2>=2.7"`). When enabled, the
 command writes `<output>.pdf` next to the HTML file.
 
@@ -113,20 +116,19 @@ configuration schema in `config/defaults.yml`.
 
 ## Replaying Streamlit JSON runs
 
-Use `trend-model run` with the JSON file exported from the Streamlit Model page.
+Use `trend run` with the JSON file exported from the Streamlit Model page.
 The CLI auto-detects the JSON format and applies the same UI mapping and data
 contract checks.
 
-The deprecated `trend-model run-ui` command continues to work but will be
-removed in a future release.
+Historical compatibility aliases are removal-bound; use `trend run` for all
+new replay instructions.
 
 ## Monte Carlo Commands
 
-Use the Monte Carlo module CLI for the scenario workflow: discover registered
-scenarios, validate scenario files, execute simulations, and export charts from
-completed bundles. These commands are exposed by `trend_analysis.cli`; run them
-with `python -m trend_analysis.cli mc ...` from an installed checkout. Scenario
-authoring and output interpretation stay in `docs/phase-3/MonteCarlo.md`.
+Use `python -m trend_analysis.cli mc` for scenario discovery, validation, and
+simulation until those commands move to the unified CLI. Use `trend mc viz` to
+export charts from completed bundles. Scenario authoring and output interpretation stay in
+`docs/phase-3/MonteCarlo.md`.
 
 ### List Scenarios (`python -m trend_analysis.cli mc list`)
 
@@ -194,13 +196,13 @@ python -m trend_analysis.cli mc run --scenario cost_regime_example \
   --dry-run --n-paths 10
 ```
 
-### Export Charts (`python -m trend_analysis.cli mc viz`)
+### Export Charts (`trend mc viz`)
 
 Render chart artifacts from an existing Monte Carlo bundle. `--bundle` points
 to the bundle directory and `--out` points to the export directory.
 
 ```bash
-python -m trend_analysis.cli mc viz \
+trend mc viz \
   --bundle outputs/mc_run_1 \
   --out outputs/mc_run_1_exports \
   --charts fan,path_dist,risk_return \

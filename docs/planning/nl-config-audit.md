@@ -20,7 +20,7 @@ Purpose: map the current YAML configuration flow, validation, and runtime entryp
 - Use: `_run_pipeline` in `src/trend/cli.py`, which calls `run_simulation(cfg, returns)` in `src/trend_analysis/api.py`.
 
 ### CLI (trend-analysis-multi)
-- Entry: `src/trend_analysis/run_multi_analysis.py` (`trend-analysis-multi`).
+- Historical compatibility note: the removed multi-analysis runner is no longer an entry point; use `trend mc` for the supported Monte Carlo workflow.
 - Load: `load(args.config)` from `src/trend_analysis/config/models.py`.
   - Reads YAML via `yaml.safe_load`, validates required sections, merges legacy `output` into `export`, then runs `validate_trend_config` when available.
 - Use: `trend_analysis.multi_period.run_from_config(cfg)` to run the multi-period engine.

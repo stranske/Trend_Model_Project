@@ -28,7 +28,7 @@ Use when seeking higher returns and willing to accept larger drawdowns. Shorter 
 To run the pipeline with a preset on demo data:
 
 ```bash
-python -m trend_analysis.run_analysis -c config/presets/balanced.yml
+PYTHONPATH=./src python -m trend.cli run -c config/presets/balanced.yml
 ```
 
 Replace `balanced` with `conservative` or `aggressive` as needed.

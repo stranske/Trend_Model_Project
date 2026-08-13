@@ -64,7 +64,7 @@ To ensure reproducible hash behavior across runs:
 1. **Set `PYTHONHASHSEED` before starting Python:**
    ```bash
    export PYTHONHASHSEED=0
-   python -m trend_analysis.run_analysis -c config/demo.yml
+   PYTHONPATH=./src python -m trend.cli run -c config/demo.yml
    ```
 
 2. **Use in test environments:**
@@ -77,7 +77,7 @@ To ensure reproducible hash behavior across runs:
    ```bash
    #!/bin/bash
    export PYTHONHASHSEED=0
-   exec python -m trend_analysis.run_analysis "$@"
+   exec env PYTHONPATH=./src python -m trend.cli run "$@"
    ```
 
 ### CI/CD Considerations
@@ -112,11 +112,11 @@ To verify that your setup produces reproducible results:
 ```bash
 # Run 1
 export PYTHONHASHSEED=0
-python -m trend_analysis.run_analysis -c config/demo.yml > results1.txt
+PYTHONPATH=./src python -m trend.cli run -c config/demo.yml > results1.txt
 
 # Run 2  
 export PYTHONHASHSEED=0
-python -m trend_analysis.run_analysis -c config/demo.yml > results2.txt
+PYTHONPATH=./src python -m trend.cli run -c config/demo.yml > results2.txt
 
 # Compare
 diff results1.txt results2.txt

@@ -79,8 +79,8 @@ uvicorn trend_analysis.api_server:app --host 0.0.0.0 --port 8000
 | `/docs` | GET | OpenAPI documentation |
 
 The REST surface is scoped to config-patch preview and apply. Running an
-analysis is not exposed over HTTP — use the [`trend-run`](CLI.md) CLI
-(`trend-run -c <config>`) or the Python API at the top of this document
+analysis is not exposed over HTTP — use the [`trend run`](CLI.md) CLI
+(`trend run -c <config>`) or the Python API at the top of this document
 instead.
 
 ### Example Request

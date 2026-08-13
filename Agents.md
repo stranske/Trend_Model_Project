@@ -32,7 +32,7 @@ See [docs/DemoMaintenance.md](docs/DemoMaintenance.md) for the full checklist.
 
 | Purpose | Command |
 |---------|---------|
-| CLI analysis | `PYTHONPATH="./src" python -m trend_analysis.run_analysis -c config/demo.yml` |
+| CLI analysis | `PYTHONPATH="./src" python -m trend.cli run -c config/demo.yml` |
 | Streamlit app | `./scripts/run_streamlit.sh` |
 | Tests | `./scripts/run_tests.sh` |
 | Fast validation | `./scripts/dev_check.sh --fix` |

@@ -156,7 +156,7 @@ Pre-built risk profiles in `config/presets/`:
 ### Using Presets
 
 ```bash
-PYTHONPATH="./src" python -m trend_analysis.run_analysis -c config/presets/balanced.yml
+PYTHONPATH="./src" python -m trend.cli run -c config/presets/balanced.yml
 ```
 
 ## Environment Variables

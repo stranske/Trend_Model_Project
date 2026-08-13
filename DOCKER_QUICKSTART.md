@@ -39,7 +39,7 @@ docker run --rm trend-model:local python scripts/generate_demo.py
 
 # Run trend analysis with demo config
 docker run --rm -v $(pwd):/workspace trend-model:local \
-  trend-analysis -c config/demo.yml
+  trend run -c config/demo.yml
 ```
 
 When using the published image, replace `trend-model:local` with
@@ -87,7 +87,7 @@ whenever you modify `pyproject.toml`.
 
 ### Included Components
 - **Streamlit Web App**: Full-featured interactive interface at port 8501
-- **CLI Tools**: `trend-analysis`, `trend-multi-analysis`, and `trend-model` commands
+- **CLI Tools**: the supported `trend` command and its `run`, `report`, `quick-report`, `app`, `check`, and `mc` subcommands
 - **Demo Data**: Built-in demo datasets for testing
 - **All Dependencies**: Pandas, NumPy, PyYAML, and all required packages
 
@@ -104,17 +104,15 @@ whenever you modify `pyproject.toml`.
 Inside the container, you can use:
 
 ```bash
-# Main analysis command
-trend-analysis -c config/demo.yml
+# Supported analysis command
+trend run -c config/demo.yml
 
-# Multi-period analysis
-trend-multi-analysis -c config/demo.yml
+# Inspect the supported command surface
+trend --help
+trend mc --help
 
-# General trend model CLI
-trend-model --help
-
-# Direct Python execution
-python -m trend_analysis.run_analysis -c config/demo.yml
+# Direct Python execution from an uninstalled checkout
+PYTHONPATH=./src python -m trend.cli run -c config/demo.yml
 ```
 
 ## Development Workflow
@@ -148,7 +146,7 @@ curl -f http://localhost:8501/_stcore/health
 docker stop trend-test && docker rm trend-test
 
 # Test CLI functionality
-docker run --rm trend-model:local trend-analysis --help
+docker run --rm trend-model:local trend --help
 
 # Comprehensive test suite
 ./scripts/test_docker.sh
@@ -225,7 +223,7 @@ Override the default command for specific use cases:
 ```bash
 # Run only the analysis without web interface
 docker run --rm -v $(pwd):/workspace trend-model:local \
-  python -m trend_analysis.run_analysis -c /workspace/my-config.yml
+  trend run -c /workspace/my-config.yml
 
 # Start Jupyter notebook server instead
 docker run -p 8888:8888 trend-model:local \
