@@ -1,7 +1,11 @@
 """Focused tests for ``trend_analysis.signal_presets`` helpers."""
 
+from pathlib import Path
+
 import pytest
 
+from trend_analysis import presets as preset_module
+from trend_analysis import signal_presets as signal_module
 from trend_analysis.signal_presets import (
     TrendSpecPreset,
     default_preset_name,
@@ -29,6 +33,39 @@ def test_get_trend_spec_preset_case_insensitive_and_strips_whitespace() -> None:
 
     with pytest.raises(KeyError):
         get_trend_spec_preset("unknown")
+
+
+def test_signal_view_refreshes_after_registry_payload_changes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Signal views must follow a reloaded canonical preset payload."""
+
+    preset_dir = tmp_path / "presets"
+    preset_dir.mkdir()
+    preset_path = preset_dir / "balanced.yml"
+    preset_path.write_text(
+        "name: Balanced\ndescription: First payload\nsignals:\n  window: 42\n  lag: 1\n"
+        "  vol_adjust: false\n  zscore: true\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(preset_module, "PRESETS_DIR", preset_dir)
+    monkeypatch.setattr(preset_module, "_DEFAULT_PRESETS_DIR", tmp_path / "unused-defaults")
+    monkeypatch.delenv("TREND_PRESETS_DIR", raising=False)
+    preset_module._preset_registry.cache_clear()
+    signal_module._signal_view.cache_clear()
+
+    assert get_trend_spec_preset("balanced").description == "First payload"
+
+    preset_path.write_text(
+        "name: Balanced\ndescription: Refreshed payload\nsignals:\n  window: 96\n  lag: 1\n"
+        "  vol_adjust: false\n  zscore: true\n",
+        encoding="utf-8",
+    )
+    preset_module._preset_registry.cache_clear()
+
+    refreshed = get_trend_spec_preset("balanced")
+    assert refreshed.description == "Refreshed payload"
+    assert refreshed.spec.window == 96
 
 
 def test_resolve_trend_spec_returns_default_when_name_missing() -> None:

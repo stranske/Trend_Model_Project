@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Dict, List
 
-from .presets import get_trend_preset, list_trend_presets
+from .presets import TrendPreset, get_trend_preset, list_trend_presets
 from .signals import TrendSpec
 
 
@@ -90,7 +90,7 @@ def _signal_view(slug: str, label: str, description: str, spec: TrendSpec) -> Tr
     )
 
 
-def _signal_view_from_preset(preset) -> TrendSpecPreset:
+def _signal_view_from_preset(preset: TrendPreset) -> TrendSpecPreset:
     """Return a cached view keyed by current preset content, not object identity."""
 
     return _signal_view(preset.slug, preset.label, preset.description, preset.trend_spec)

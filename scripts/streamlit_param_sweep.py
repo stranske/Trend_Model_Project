@@ -105,7 +105,10 @@ def _filter_columns(df: pd.DataFrame, columns: Iterable[str]) -> pd.DataFrame:
 def _new_run_id(now: datetime | None = None) -> str:
     """Return the UTC run-directory identifier used by parameter sweeps."""
 
-    return (now or datetime.now(UTC)).strftime("%Y%m%dT%H%M%SZ")
+    current = now or datetime.now(UTC)
+    if current.tzinfo is None or current.utcoffset() is None:
+        raise ValueError("Parameter sweep timestamps must be timezone-aware")
+    return current.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ")
 
 
 def _serialise_value(value: Any) -> Any:
