@@ -567,12 +567,12 @@ def test_run_analysis_benchmark_ir_fallback(monkeypatch):
     original_ir = pipeline.information_ratio
     raised = {"flag": False}
 
-    def selective_boom(series_a, series_b):
+    def selective_boom(series_a, series_b, *args, **kwargs):
         target_name = getattr(series_b, "name", "")
         if target_name == "SPX" and getattr(series_a, "ndim", 1) == 1:
             raised["flag"] = True
             raise ZeroDivisionError("bad benchmark")
-        return original_ir(series_a, series_b)
+        return original_ir(series_a, series_b, *args, **kwargs)
 
     # Patch the module-level binding in pipeline.py so run_analysis sees our stub
     monkeypatch.setattr(pipeline, "information_ratio", selective_boom)

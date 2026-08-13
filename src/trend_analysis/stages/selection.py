@@ -445,7 +445,10 @@ def _select_universe(
     # The selection metrics must use the same cadence as the portfolio output.
     # Keep a caller-supplied configuration immutable so it can be reused across
     # separate analyses without leaking a prior window's annualisation.
+    extra_metrics = getattr(stats_cfg, "extra_metrics", None)
     stats_cfg = replace(stats_cfg, periods_per_year=int(window.periods_per_year))
+    if extra_metrics is not None:
+        setattr(stats_cfg, "extra_metrics", extra_metrics)
 
     if risk_free_override is None:
         risk_free_override = window.in_df[rf_col]
