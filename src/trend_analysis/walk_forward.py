@@ -14,6 +14,7 @@ import pandas as pd
 import yaml
 
 from trend_analysis.metrics import annual_return, max_drawdown, sharpe_ratio
+from trend_analysis.util.frequency import infer_periods_per_year
 
 
 @dataclass(slots=True)
@@ -138,27 +139,6 @@ def load_returns(data_cfg: DataConfig) -> pd.DataFrame:
             raise ValueError(f"Missing columns in CSV: {', '.join(missing)}")
         numeric = numeric.loc[:, list(data_cfg.columns)]
     return numeric
-
-
-def infer_periods_per_year(index: pd.DatetimeIndex) -> int:
-    if len(index) < 2:
-        return 1
-    diffs_days = np.diff(index.to_numpy()) / np.timedelta64(1, "D")
-    if len(diffs_days) == 0:
-        return 1
-    median_days = float(np.median(diffs_days))
-    if median_days <= 0:
-        return 1
-    approx = int(round(365 / median_days))
-    if approx >= 300:
-        return 252
-    if 45 <= approx <= 60:
-        return 52
-    if 10 <= approx <= 14:
-        return 12
-    if 3 <= approx <= 5:
-        return 4
-    return approx
 
 
 def _window_splits(

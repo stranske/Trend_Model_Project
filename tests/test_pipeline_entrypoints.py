@@ -307,6 +307,18 @@ def test_compute_stats_includes_optional_avg_corr() -> None:
     assert stats["FundB"].os_avg_corr == 0.25
 
 
+def test_portfolio_stats_use_window_periods_per_year() -> None:
+    returns = pd.DataFrame({"FundA": [0.01] * 12})
+    risk_free = pd.Series(0.0, index=returns.index)
+
+    monthly = pipeline._compute_stats(returns, risk_free, periods_per_year=12)["FundA"]
+    weekly = pipeline._compute_stats(returns, risk_free, periods_per_year=52)["FundA"]
+
+    assert weekly.cagr > monthly.cagr
+    assert weekly.vol > monthly.vol
+    assert weekly.sharpe > monthly.sharpe
+
+
 def test_calc_portfolio_returns_scales_weights(sample_frame: pd.DataFrame) -> None:
     weights = np.array([0.6, 0.4])
     portfolio = pipeline.calc_portfolio_returns(weights, sample_frame[["FundA", "FundB"]])
