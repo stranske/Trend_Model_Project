@@ -23,6 +23,7 @@ Pyodide, in tests, or in the CLI never requires a live Streamlit session.
 from __future__ import annotations
 
 import os
+import sys
 from typing import Optional
 
 PRESENTATION_SAFE = "presentation_safe"
@@ -43,6 +44,10 @@ _LABELS = {
     PRESENTATION_SAFE: "Presentation-safe (no LLM, no uploads)",
     PUBLIC_LLM_DEMO: "Public LLM demo (LangChain enabled)",
 }
+
+
+def _running_in_browser_runtime() -> bool:
+    return sys.platform == "emscripten"
 
 
 def normalize_profile(value: Optional[str]) -> str:
@@ -263,7 +268,9 @@ def render_profile_controls(st_module=None) -> str:
         sidebar.caption("🔓 LLM/LangChain UI enabled. Provider keys are runtime-only.")
     else:
         sidebar.caption("🔒 Presentation-safe: no LLM, custom analysis, or uploads.")
-    if custom_analysis_enabled(active) or st_module.session_state.get("show_perf_diagnostics"):
+    if not _running_in_browser_runtime() and (
+        custom_analysis_enabled(active) or st_module.session_state.get("show_perf_diagnostics")
+    ):
         if hasattr(sidebar, "page_link"):
             sidebar.page_link(
                 "developer_settings_validation.py",

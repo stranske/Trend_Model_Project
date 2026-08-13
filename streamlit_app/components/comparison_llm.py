@@ -14,7 +14,9 @@ import pandas as pd
 import streamlit as st
 
 from streamlit_app.components.llm_settings import (
+    browser_llm_runtime,
     default_api_key,
+    llm_provider_options,
     llm_zone_disabled,
     resolve_api_key_input,
     resolve_llm_provider_config,
@@ -238,13 +240,14 @@ def render_comparison_llm(
         )
         provider_default = str(provider_default).lower()
 
-        providers = ["openai", "anthropic", "ollama"]
+        browser_runtime = browser_llm_runtime()
+        providers = llm_provider_options()
         try:
             provider_index = providers.index(provider_default)
         except ValueError:
             provider_index = 0
         st.selectbox(
-            "Provider",
+            "OpenAI-compatible endpoint" if browser_runtime else "Provider",
             providers,
             index=provider_index,
             key=provider_key,
@@ -252,7 +255,7 @@ def render_comparison_llm(
         )
 
         current_api_key = st.session_state.get(api_key_key)
-        if not current_api_key or not sanitize_api_key(current_api_key):
+        if not browser_runtime and (not current_api_key or not sanitize_api_key(current_api_key)):
             env_key = default_api_key(provider_default)
             if env_key:
                 st.session_state[api_key_key] = env_key
@@ -263,14 +266,20 @@ def render_comparison_llm(
             key=api_key_key,
             type="password",
             help=(
-                "Leave blank to use a stored key, or enter a secret/env var name "
+                "Kept only in this browser session; never bundled or persisted."
+                if browser_runtime
+                else "Leave blank to use a stored key, or enter a secret/env var name "
                 "(for example OPENAI_API_KEY)."
             ),
         )
         if st.session_state.get(api_key_key):
             st.caption("✓ API key configured")
         else:
-            st.caption("⚠️ No API key found in environment or secrets")
+            st.caption(
+                "API key is optional if the configured endpoint does not require one."
+                if browser_runtime
+                else "⚠️ No API key found in environment or secrets"
+            )
 
         st.text_input(
             "Model (optional)",
@@ -278,7 +287,11 @@ def render_comparison_llm(
             key=model_key,
         )
         st.text_input(
-            "Base URL (optional)",
+            (
+                "Base URL (required; must allow browser CORS)"
+                if browser_runtime
+                else "Base URL (optional)"
+            ),
             value=st.session_state.get(base_url_key, ""),
             key=base_url_key,
         )
@@ -298,7 +311,7 @@ def render_comparison_llm(
             try:
                 raw_key = st.session_state.get(api_key_key)
                 resolved_key = resolve_api_key_input(raw_key)
-                if not resolved_key:
+                if not resolved_key and not browser_runtime:
                     resolved_key = default_api_key(st.session_state.get(provider_key) or "openai")
                 cached = generate_comparison_explanation(
                     details_a,

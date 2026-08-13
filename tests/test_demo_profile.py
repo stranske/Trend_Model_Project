@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -98,6 +99,7 @@ class _FakeSidebar:
         self._selected = selected
         self.captions: list[str] = []
         self.selectbox_calls: list[str] = []
+        self.page_link_calls: list[str] = []
 
     def selectbox(self, _label: str, options, index: int, **_kw):  # noqa: ANN001
         self.selectbox_calls.append(_label)
@@ -105,6 +107,9 @@ class _FakeSidebar:
 
     def caption(self, text: str) -> None:
         self.captions.append(text)
+
+    def page_link(self, page: str, **_kw: Any) -> None:
+        self.page_link_calls.append(page)
 
 
 class _FakeStreamlit:
@@ -127,6 +132,16 @@ def test_render_profile_controls_presentation_safe_caption() -> None:
     active = dp.render_profile_controls(fake)
     assert active == dp.PRESENTATION_SAFE
     assert any("Presentation-safe" in c for c in fake.sidebar.captions)
+
+
+def test_public_browser_profile_omits_unsupported_developer_page_link(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = _FakeStreamlit(dp.PUBLIC_LLM_DEMO)
+    monkeypatch.setattr(dp, "_running_in_browser_runtime", lambda: True)
+
+    assert dp.render_profile_controls(fake) == dp.PUBLIC_LLM_DEMO
+    assert fake.sidebar.page_link_calls == []
 
 
 def test_query_param_profile_persists_across_navigation() -> None:
@@ -213,10 +228,14 @@ def test_manifest_builder_well_formed() -> None:
     safe_reqs = " ".join(fresh["requirements"]["presentation_safe"]).lower()
     llm_reqs = " ".join(fresh["requirements"]["public_llm_demo"]).lower()
     assert "langchain" not in safe_reqs
-    assert "langchain" in llm_reqs
-    assert "langchain-openai" in llm_reqs
-    assert "langchain-anthropic" in llm_reqs
-    assert "langchain-ollama" in llm_reqs
+    assert "langchain_core-0.1.0-py3-none-any.whl" in llm_reqs
+    assert "langsmith-0.0.92-py3-none-any.whl" in llm_reqs
+    assert "anyio-4.8.0-py3-none-any.whl" in llm_reqs
+    assert "jsonpatch-1.33-py2.py3-none-any.whl" in llm_reqs
+    assert "pyodide-http==0.2.1" in llm_reqs
+    assert "langchain-openai" not in llm_reqs
+    assert "langchain-anthropic" not in llm_reqs
+    assert "langchain-ollama" not in llm_reqs
     # The entrypoint and bundled synthetic data must be in the file list.
     assert "streamlit_app/app.py" in fresh["files"]
     assert "streamlit_app/demo_profile.py" in fresh["files"]
@@ -226,3 +245,14 @@ def test_manifest_builder_well_formed() -> None:
 
     # The manifest is JSON-serialisable and stable across a round-trip.
     assert json.loads(json.dumps(fresh)) == fresh
+
+
+def test_browser_langchain_wheel_accepts_bootstrap_dependencies() -> None:
+    wheel = REPO_ROOT / "demo/wasm/vendor/pypi/langchain_core-0.1.0-py3-none-any.whl"
+    with zipfile.ZipFile(wheel) as archive:
+        metadata = archive.read("langchain_core-0.1.0.dist-info/METADATA").decode("utf-8")
+
+    assert "Requires-Dist: packaging (>=23.2)" in metadata
+    assert "Requires-Dist: tenacity (>=8.1.0)" in metadata
+    assert "packaging (>=23.2,<24.0)" not in metadata
+    assert "tenacity (>=8.1.0,<9.0.0)" not in metadata

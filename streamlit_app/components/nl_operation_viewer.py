@@ -11,6 +11,11 @@ from urllib.parse import urlsplit, urlunsplit
 
 import streamlit as st
 
+from streamlit_app.components.llm_settings import (
+    browser_llm_runtime,
+    llm_provider_options,
+    resolve_api_key_input,
+)
 from trend_analysis.config.patch import ConfigPatch
 from trend_analysis.llm.nl_logging import NLOperationLog
 from trend_analysis.llm.replay import render_prompt, replay_nl_entry
@@ -274,11 +279,32 @@ def _render_replay(entry: NLOperationLog, *, entry_id: str, run_replay: bool) ->
         )
     else:
         st.caption("Replay uses redacted prompt variables to prevent leakage.")
+    browser_runtime = browser_llm_runtime()
     provider = st.selectbox(
-        "Provider",
-        ["openai", "anthropic", "ollama"],
+        "OpenAI-compatible endpoint" if browser_runtime else "Provider",
+        llm_provider_options(),
         key=f"nl_replay_provider_{entry_id}",
     )
+    api_key: str | None = None
+    base_url: str | None = None
+    if browser_runtime:
+        api_key = resolve_api_key_input(
+            st.text_input(
+                "API Key (session only)",
+                value="",
+                type="password",
+                key=f"nl_replay_api_key_{entry_id}",
+                help="Kept only in this browser session; never bundled or persisted.",
+            )
+        )
+        base_url = (
+            st.text_input(
+                "Base URL (required; must allow browser CORS)",
+                value="",
+                key=f"nl_replay_base_url_{entry_id}",
+            ).strip()
+            or None
+        )
     model = st.text_input(
         "Model (optional)",
         value=entry.model_name or "",
@@ -300,6 +326,8 @@ def _render_replay(entry: NLOperationLog, *, entry_id: str, run_replay: bool) ->
                     provider=provider,
                     model=model or None,
                     temperature=temperature,
+                    api_key=api_key,
+                    base_url=base_url,
                 )
             except Exception as exc:
                 st.error("Replay failed. Ensure provider credentials are available.")

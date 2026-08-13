@@ -8,7 +8,12 @@ from typing import Any
 
 import pytest
 
-from trend_analysis.llm.providers import LLMProviderConfig, create_llm
+from trend_analysis.llm import providers as providers_module
+from trend_analysis.llm.providers import (
+    BrowserOpenAICompatibleChat,
+    LLMProviderConfig,
+    create_llm,
+)
 
 
 def _register_provider(
@@ -106,3 +111,134 @@ def test_create_llm_ollama_supports_base_url(monkeypatch: pytest.MonkeyPatch) ->
 def test_create_llm_rejects_unknown_provider() -> None:
     with pytest.raises(ValueError, match="Unknown provider"):
         create_llm(LLMProviderConfig(provider="unknown", model="unit-test-model"))  # type: ignore[arg-type]
+
+
+def test_create_llm_uses_browser_adapter_without_provider_sdk(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(providers_module, "_running_in_pyodide", lambda: True)
+
+    llm = create_llm(
+        LLMProviderConfig(
+            provider="openai",
+            model="browser-model",
+            api_key="session-secret",
+            base_url="https://llm.example.test/v1",
+        )
+    )
+
+    assert isinstance(llm, BrowserOpenAICompatibleChat)
+    assert llm.model == "browser-model"
+    assert llm.base_url == "https://llm.example.test/v1"
+    assert "session-secret" not in repr(llm)
+
+
+@pytest.mark.parametrize("provider", ["anthropic", "ollama"])
+def test_create_llm_rejects_non_openai_browser_providers(
+    monkeypatch: pytest.MonkeyPatch, provider: str
+) -> None:
+    monkeypatch.setattr(providers_module, "_running_in_pyodide", lambda: True)
+
+    with pytest.raises(RuntimeError, match="OpenAI-compatible endpoints only"):
+        create_llm(
+            LLMProviderConfig(provider=provider, base_url="https://llm.example.test/v1")  # type: ignore[arg-type]
+        )
+
+
+def test_create_llm_requires_explicit_browser_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(providers_module, "_running_in_pyodide", lambda: True)
+
+    with pytest.raises(RuntimeError, match="explicit CORS-enabled"):
+        create_llm(LLMProviderConfig(provider="openai"))
+
+
+def test_browser_adapter_posts_only_to_configured_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, dict[str, Any]]] = []
+    patch_calls: list[bool] = []
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, Any]:
+            return {"choices": [{"message": {"content": "response text"}}]}
+
+    requests_module = types.ModuleType("requests")
+
+    def fake_post(url: str, **kwargs: Any) -> FakeResponse:
+        calls.append((url, kwargs))
+        return FakeResponse()
+
+    requests_module.post = fake_post  # type: ignore[attr-defined]
+    pyodide_http_module = types.ModuleType("pyodide_http")
+    pyodide_http_module.patch_requests = lambda: patch_calls.append(True)  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "requests", requests_module)
+    monkeypatch.setitem(sys.modules, "pyodide_http", pyodide_http_module)
+
+    adapter = BrowserOpenAICompatibleChat(
+        base_url="https://llm.example.test/v1/",
+        model="browser-model",
+        api_key="session-secret",
+        organization="test-org",
+        timeout=12.0,
+    ).bind(temperature=0.25, max_tokens=321)
+
+    assert adapter.invoke("hello") == "response text"
+    assert patch_calls == [True]
+    assert len(calls) == 1
+    url, kwargs = calls[0]
+    assert url == "https://llm.example.test/v1/chat/completions"
+    assert kwargs["headers"] == {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer session-secret",
+        "OpenAI-Organization": "test-org",
+    }
+    assert kwargs["json"] == {
+        "model": "browser-model",
+        "messages": [{"role": "user", "content": "hello"}],
+        "temperature": 0.25,
+        "max_tokens": 321,
+    }
+    assert kwargs["timeout"] == 12.0
+
+
+def test_browser_adapter_preserves_chat_prompt_roles(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[dict[str, Any]] = []
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, Any]:
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+    requests_module = types.ModuleType("requests")
+    requests_module.post = lambda _url, **kwargs: (  # type: ignore[attr-defined]
+        calls.append(kwargs) or FakeResponse()
+    )
+    pyodide_http_module = types.ModuleType("pyodide_http")
+    pyodide_http_module.patch_requests = lambda: None  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "requests", requests_module)
+    monkeypatch.setitem(sys.modules, "pyodide_http", pyodide_http_module)
+
+    class FakePrompt:
+        def to_messages(self) -> list[Any]:
+            return [
+                types.SimpleNamespace(type="system", content="Follow policy", additional_kwargs={}),
+                types.SimpleNamespace(
+                    type="human", content="Explain results", additional_kwargs={}
+                ),
+            ]
+
+    adapter = BrowserOpenAICompatibleChat(
+        base_url="https://llm.example.test/v1", model="browser-model"
+    )
+    assert adapter.invoke(FakePrompt()) == "ok"
+    assert calls[0]["json"]["messages"] == [
+        {"role": "system", "content": "Follow policy"},
+        {"role": "user", "content": "Explain results"},
+    ]

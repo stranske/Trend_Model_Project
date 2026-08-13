@@ -24,9 +24,11 @@ by [`streamlit_app/demo_profile.py`](../../streamlit_app/demo_profile.py).
   deterministic synthetic-data flow still runs end to end. Its requirement set
   omits LangChain, so after the page loads there is no LLM dependency footprint
   and no unexpected egress.
-- **`public_llm_demo`** adds the LangChain stack (pinned to match
-  `pyproject.toml`) and exposes the LLM UI. **No secrets are bundled**; any
-  provider key/endpoint must be entered at runtime.
+- **`public_llm_demo`** adds a browser-compatible, pure-Python LangChain core
+  and exposes the LLM UI. **No secrets are bundled**; the API key and an
+  explicit CORS-enabled OpenAI-compatible endpoint are entered at runtime and
+  kept only in the browser session. Provider SDKs are intentionally excluded
+  because their transitive native wheels cannot run in Pyodide.
 
 A reviewer can switch modes live from the **Demo mode** selector in the sidebar
 (or by changing `?profile=`) and watch the LLM / custom-analysis / upload
@@ -55,10 +57,11 @@ is not published on npm/jsDelivr, so the local bundle uses the nearest
 available patch release and `build_wasm_demo.py --check` verifies the required
 runtime files are present.
 
-`plotly` (used by the **Monte Carlo** page's `st.plotly_chart` surfaces) is
-pure-PyPI and not in the Pyodide lock, so its wheel is vendored separately under
-`demo/wasm/vendor/pypi/` and installed by passing an absolute same-origin wheel
-URL to micropip — `index.html` rewrites every `*.whl` requirement to
+`plotly` (used by the **Monte Carlo** page's `st.plotly_chart` surfaces) and the
+pure-Python `langchain-core` browser dependency are not in the Pyodide lock, so
+their wheels and LangChain's small pure-Python dependency closure are vendored
+under `demo/wasm/vendor/pypi/`. They are installed using absolute same-origin
+wheel URLs — `index.html` rewrites every `*.whl` requirement to
 `new URL(path, location.href)` because micropip refuses a bare-relative wheel
 URL (it treats it as `file://`). plotly 6.x's `plotly.express` requires
 `narwhals>=1.15.1`, newer than the lock's 1.10.0, so the lock is bumped in place
@@ -66,6 +69,11 @@ to narwhals 1.15.1 (a single narwhals also satisfies the lock's altair).
 Plotly.js renders inside the bundled stlite frontend — no `cdn.plot.ly` fetch —
 so it does not need separate vendoring. Re-fetch all of the above with
 `python scripts/fetch_offline_runtime.py`.
+
+The committed LangChain core wheel differs from the upstream wheel only in two
+dependency upper bounds: its metadata accepts the already-loaded `packaging`
+24.2 and `tenacity` 9.1.4 supplied by Pyodide/stlite. The fetch script applies
+that deterministic metadata patch and refreshes the wheel RECORD hash.
 
 ## Deploy
 
@@ -95,12 +103,10 @@ The demo is a static bundle plus the published application source subset:
 4. Open `index.html` — defaults to `presentation_safe`; append
    `?profile=public_llm_demo` for the LLM mode.
 
-> **Public LLM profile compatibility spike (follow-up).** The default
-> `presentation_safe` profile uses only vendored Pyodide packages. If a
-> provider-specific LangChain wheel is not browser-compatible for
-> `public_llm_demo`, keep the stlite app and isolate the provider call behind a
-> runtime-configured endpoint/adapter (per the issue's implementation notes)
-> rather than removing LangChain from the public profile.
+The public profile keeps LangChain's prompt pipeline but routes the final call
+through a small Pyodide HTTP adapter. It sends traffic only to the endpoint a
+user explicitly enters; no provider URL, credential, or browser secret is
+committed in the deployment.
 
 ## Verification checklist
 

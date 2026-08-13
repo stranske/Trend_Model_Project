@@ -6,9 +6,11 @@ import pytest
 
 from streamlit_app.components.llm_settings import (
     anthropic_api_key_status,
+    llm_provider_options,
     resolve_anthropic_api_key,
     resolve_llm_provider_config,
 )
+from streamlit_app.components import llm_settings
 
 _ENV_KEYS = (
     "CLAUDE_API_STRANSKE",
@@ -143,3 +145,40 @@ def test_config_error_message_mentions_precedence() -> None:
     """Error message on missing key mentions CLAUDE_API_STRANSKE as preferred."""
     with pytest.raises(ValueError, match=r"CLAUDE_API_STRANSKE \(preferred\)"):
         resolve_llm_provider_config("anthropic")
+
+
+def test_browser_runtime_exposes_only_openai_compatible_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(llm_settings, "browser_llm_runtime", lambda: True)
+
+    assert llm_provider_options() == ["openai"]
+    with pytest.raises(ValueError, match="OpenAI-compatible endpoints only"):
+        resolve_llm_provider_config(
+            "anthropic",
+            api_key="session-secret",
+            base_url="https://llm.example.test/v1",
+        )
+
+
+def test_browser_config_requires_explicit_endpoint_without_secret_probes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(llm_settings, "browser_llm_runtime", lambda: True)
+    monkeypatch.setattr(
+        llm_settings,
+        "read_secret",
+        lambda _key: pytest.fail("browser resolver must not probe Streamlit secrets"),
+    )
+    monkeypatch.setenv("OPENAI_API_KEY", "environment-secret")
+
+    with pytest.raises(ValueError, match="explicit CORS-enabled"):
+        resolve_llm_provider_config("openai")
+
+    config = resolve_llm_provider_config(
+        "openai",
+        api_key="session-secret",
+        base_url="https://llm.example.test/v1",
+    )
+    assert config.api_key == "session-secret"
+    assert config.base_url == "https://llm.example.test/v1"
