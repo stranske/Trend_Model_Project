@@ -532,6 +532,7 @@ else:  # Fallback mode for tests without pydantic
                 "benchmarks": {},
                 "metrics": {},
                 "regime": {},
+                "robustness": {},
                 "signals": {},
                 "export": {},
                 "performance": {},
