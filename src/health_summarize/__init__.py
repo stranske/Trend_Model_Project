@@ -392,19 +392,6 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 __all__ = [
     "Args",
-    "_branch_row",
-    "_doc_url",
-    "_escape_table",
-    "_extract_contexts",
-    "_format_delta",
-    "_format_require_up_to_date",
-    "_load_json",
-    "_read_bool",
-    "_select_previous_section",
-    "_signature_row",
-    "_snapshot_detail",
-    "_write_json",
-    "_write_summary",
     "build_signature_hash",
     "main",
 ]

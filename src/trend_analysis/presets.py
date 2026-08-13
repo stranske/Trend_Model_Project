@@ -144,6 +144,16 @@ class TrendPreset:
     trend_spec: TrendSpec
     _config: Mapping[str, Any]
 
+    def config_mapping(self) -> dict[str, Any]:
+        """Return a mutable full-config payload for UI and CLI consumers.
+
+        ``TrendPreset`` is the single preset owner.  Callers that need the
+        complete configuration receive a copy, while signal-only callers use
+        :meth:`signals_mapping`; neither needs a parallel registry.
+        """
+
+        return dict(self._config)
+
     def form_defaults(self) -> dict[str, Any]:
         """Return UI-ready defaults derived from the preset."""
 
@@ -351,7 +361,7 @@ def get_trend_preset(name: str) -> TrendPreset:
 
     if not name:
         raise KeyError("Preset name must be provided")
-    lowered = name.lower()
+    lowered = name.strip().lower()
     registry = _preset_registry()
     if lowered in registry:
         return registry[lowered]

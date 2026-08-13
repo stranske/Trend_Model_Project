@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, Mapping, MutableMapping, Tuple
 
 import pandas as pd
-import yaml
 
 from streamlit_app.components.analysis_runner import ModelSettings
 from streamlit_app.components.data_schema import (
@@ -21,10 +20,10 @@ from streamlit_app.components.data_schema import (
 from streamlit_app.components.policy_engine import MetricSpec, PolicyConfig
 from trend_analysis.api import run_simulation
 from trend_analysis.config import Config
+from trend_analysis.presets import get_trend_preset, list_trend_presets
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEMO_DIR = REPO_ROOT / "demo"
-PRESET_DIR = REPO_ROOT / "config" / "presets"
 
 DEMO_DATA_CANDIDATES = (
     DEMO_DIR / "demo_returns.csv",
@@ -79,14 +78,12 @@ def _load_demo_returns() -> Tuple[pd.DataFrame, SchemaMeta]:
 
 
 def _load_preset(name: str) -> Dict[str, Any]:
-    """Load a preset YAML file into a mapping."""
+    """Return a copy of the canonical full-config preset payload."""
 
-    preset_path = PRESET_DIR / f"{name.lower()}.yml"
-    if not preset_path.exists():
+    try:
+        return get_trend_preset(name).config_mapping()
+    except KeyError:
         return {}
-    with preset_path.open("r", encoding="utf-8") as fh:
-        data = yaml.safe_load(fh)
-    return data if isinstance(data, dict) else {}
 
 
 def _select_benchmark(columns: Iterable[str]) -> str | None:
@@ -449,28 +446,14 @@ def run_one_click_demo(st_module: Any | None = None) -> bool:
 
 def list_presets() -> list[Dict[str, Any]]:
     """Return a list of available preset configurations."""
-    presets = []
-    if not PRESET_DIR.exists():
-        return [{"name": "Balanced", "description": "Default balanced preset"}]
-
-    for path in sorted(PRESET_DIR.glob("*.yml")):
-        try:
-            with path.open("r", encoding="utf-8") as fh:
-                data = yaml.safe_load(fh) or {}
-            presets.append(
-                {
-                    "name": data.get("name", path.stem.title()),
-                    "description": data.get("description", ""),
-                    "file": path.name,
-                }
-            )
-        except Exception:
-            continue
-
-    if not presets:
-        presets.append({"name": "Balanced", "description": "Default balanced preset"})
-
-    return presets
+    return [
+        {
+            "name": preset.label,
+            "description": preset.description,
+            "file": f"{preset.slug}.yml",
+        }
+        for preset in list_trend_presets()
+    ]
 
 
 def load_preset_config(name: str) -> Dict[str, Any]:

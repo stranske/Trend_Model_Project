@@ -11,6 +11,7 @@ import pytest
 
 from streamlit_app.components import demo_runner, disclaimer
 from trend_analysis.config import Config
+from trend_analysis import presets as preset_module
 
 
 @pytest.fixture()
@@ -268,10 +269,13 @@ def test_load_preset_reads_yaml(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) 
     preset_path = preset_dir / "balanced.yml"
     preset_path.write_text("metrics:\n  sharpe: 1.0\n")
 
-    monkeypatch.setattr(demo_runner, "PRESET_DIR", preset_dir)
+    monkeypatch.setattr(preset_module, "PRESETS_DIR", preset_dir)
+    monkeypatch.setattr(preset_module, "_DEFAULT_PRESETS_DIR", preset_dir / "default")
+    preset_module._preset_registry.cache_clear()
 
     data = demo_runner._load_preset("Balanced")
     assert data == {"metrics": {"sharpe": 1.0}}
+    preset_module._preset_registry.cache_clear()
 
 
 def test_load_preset_returns_empty_for_missing(
@@ -279,9 +283,12 @@ def test_load_preset_returns_empty_for_missing(
 ) -> None:
     """Absent preset files should return an empty mapping."""
 
-    monkeypatch.setattr(demo_runner, "PRESET_DIR", tmp_path)
+    monkeypatch.setattr(preset_module, "PRESETS_DIR", tmp_path)
+    monkeypatch.setattr(preset_module, "_DEFAULT_PRESETS_DIR", tmp_path / "default")
+    preset_module._preset_registry.cache_clear()
 
     assert demo_runner._load_preset("Missing") == {}
+    preset_module._preset_registry.cache_clear()
 
 
 def test_run_one_click_demo_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
