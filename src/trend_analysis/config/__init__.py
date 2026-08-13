@@ -31,8 +31,6 @@ from .validation import (
     validate_config,
 )
 
-# Removed import from .legacy as all symbols are available from .models
-
 __all__ = [
     "PresetConfig",
     "ColumnMapping",

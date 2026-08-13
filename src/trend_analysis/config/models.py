@@ -68,6 +68,7 @@ class ConfigProtocol(Protocol):
     benchmarks: dict[str, str]
     metrics: dict[str, Any]
     regime: dict[str, Any]
+    robustness: dict[str, Any]
     export: dict[str, Any]
     output: dict[str, Any] | None
     run: dict[str, Any]
@@ -218,6 +219,7 @@ if _HAS_PYDANTIC:
             "identity",
             "performance",
             "regime",
+            "robustness",
             "signals",
             "strategy",
             "walk_forward",
@@ -303,6 +305,7 @@ if _HAS_PYDANTIC:
         benchmarks: dict[str, str] = Field(default_factory=dict)
         metrics: dict[str, Any] = Field(default_factory=dict)
         regime: dict[str, Any] = Field(default_factory=dict)
+        robustness: dict[str, Any] = Field(default_factory=dict)
         signals: dict[str, Any] = Field(default_factory=dict)
         export: dict[str, Any] = Field(default_factory=dict)
         performance: dict[str, Any] = Field(default_factory=dict)
@@ -467,6 +470,7 @@ else:  # Fallback mode for tests without pydantic
             "benchmarks",
             "metrics",
             "regime",
+            "robustness",
             "signals",
             "export",
             "performance",
@@ -487,6 +491,7 @@ else:  # Fallback mode for tests without pydantic
             "identity",
             "performance",
             "regime",
+            "robustness",
             "signals",
             "strategy",
             "walk_forward",
@@ -502,6 +507,7 @@ else:  # Fallback mode for tests without pydantic
         benchmarks: Dict[str, str]
         metrics: Dict[str, Any]
         regime: Dict[str, Any]
+        robustness: Dict[str, Any]
         signals: Dict[str, Any]
         export: Dict[str, Any]
         performance: Dict[str, Any]

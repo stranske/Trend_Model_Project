@@ -6,7 +6,7 @@ from typing import Any, Mapping
 
 import pandas as pd
 
-from trend_analysis.config.legacy import Config
+from trend_analysis.config.models import Config
 from trend_analysis.signals import TrendSpec as TrendSpecModel
 
 METRIC_REGISTRY = {
