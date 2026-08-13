@@ -69,6 +69,22 @@ so it does not need separate vendoring. Re-fetch all of the above with
 
 ## Deploy
 
+The public GitHub Pages target is
+<https://stranske.github.io/Trend_Model_Project/>. The default profile is
+presentation-safe; the explicit LLM profile is available at
+<https://stranske.github.io/Trend_Model_Project/?profile=public_llm_demo>.
+
+Pushes to `phase-3` that change the browser-demo inputs run
+`.github/workflows/pages-wasm-demo.yml`. The workflow builds a self-contained
+artifact with:
+
+```bash
+python scripts/build_wasm_site.py --output dist/wasm-demo
+```
+
+and publishes it with GitHub Pages. The manual layout below remains valid for
+another static host.
+
 The demo is a static bundle plus the published application source subset:
 
 1. `python scripts/build_wasm_demo.py`

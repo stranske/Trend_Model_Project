@@ -105,6 +105,7 @@ ci/autofix/diagnostics.json
 !tools/requirements-llm.txt
 
 # Python package build artifacts
+dist/
 *.egg-info/
 trend_model.egg-info/
 coverage.xml

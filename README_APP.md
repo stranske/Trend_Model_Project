@@ -51,6 +51,8 @@ Runtime modes are selected with the sidebar **Demo mode** switcher or the
 - `public_llm_demo`: exposes the LangChain LLM UI; provider keys/endpoints are
   runtime-only and never bundled.
 
+Public demo: <https://stranske.github.io/Trend_Model_Project/>
+
 See [`demo/wasm/README.md`](demo/wasm/README.md) for build/deploy steps and the
 live-URL/screenshot/network-evidence verification checklist.
 

@@ -1,0 +1,72 @@
+name: Deploy stlite browser demo
+
+on:
+  push:
+    branches: [phase-3]
+    paths:
+      - ".github/workflows/pages-wasm-demo.yml"
+      - "analysis/**"
+      - "config/defaults.yml"
+      - "config/scenarios/**"
+      - "demo/demo_returns.csv"
+      - "demo/wasm/**"
+      - "design-system/**"
+      - "scripts/build_wasm_demo.py"
+      - "scripts/build_wasm_site.py"
+      - "src/backtest/**"
+      - "src/data/**"
+      - "src/trend/**"
+      - "src/trend_analysis/**"
+      - "src/utils/**"
+      - "streamlit_app/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+
+      - name: Build Pages artifact
+        run: python scripts/build_wasm_site.py --output dist/wasm-demo
+
+      - name: Install focused test tools
+        run: python -m pip install "pytest==9.1.1" "pytest-xdist==3.8.0"
+
+      - name: Verify artifact contract
+        run: pytest -q tests/wasm/test_build_wasm_site.py tests/wasm/test_demo_no_external_cdn.py
+
+      - name: Configure Pages
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        with:
+          path: dist/wasm-demo
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5
