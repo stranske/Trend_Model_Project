@@ -135,7 +135,7 @@ def test_mc_viz_requires_at_least_one_output_flag(
 ) -> None:
     exit_code = main(["mc", "viz", "--bundle", "bundle_dir", "--out", "export_dir"])
 
-    assert exit_code == 2
+    assert exit_code == 1
     err = capsys.readouterr().err
     assert "requires at least one output flag" in err
 
@@ -230,7 +230,7 @@ def test_mc_viz_errors_when_summary_missing(
         ]
     )
 
-    assert exit_code == 2
+    assert exit_code == 1
     err = capsys.readouterr().err
     assert "Missing required MC summary file" in err
 
@@ -256,7 +256,7 @@ def test_mc_viz_errors_when_results_missing(
         ]
     )
 
-    assert exit_code == 2
+    assert exit_code == 1
     err = capsys.readouterr().err
     assert "Missing required MC results file" in err
 
@@ -279,7 +279,7 @@ def test_mc_viz_errors_when_multiple_required_inputs_missing(
         ]
     )
 
-    assert exit_code == 2
+    assert exit_code == 1
     err = capsys.readouterr().err
     assert "Missing required MC input files" in err
     assert "summary" in err
@@ -308,7 +308,7 @@ def test_mc_viz_errors_when_results_file_is_corrupted(
         ]
     )
 
-    assert exit_code == 2
+    assert exit_code == 1
     err = capsys.readouterr().err
     assert "Failed to read results data" in err
 
@@ -335,7 +335,7 @@ def test_mc_viz_errors_when_results_parquet_file_is_corrupted_without_traceback(
         ]
     )
 
-    assert exit_code == 2
+    assert exit_code == 1
     err = capsys.readouterr().err
     assert "results.parquet" in err
     assert "corrupted or not a parquet file" in err
@@ -406,7 +406,7 @@ def test_mc_viz_errors_when_path_dist_requires_nav_paths_parquet(
         ]
     )
 
-    assert exit_code == 2
+    assert exit_code == 1
     err = capsys.readouterr().err
     assert "nav_paths.parquet" in err
     assert "path_dist" in err
@@ -482,7 +482,7 @@ def test_mc_viz_errors_when_fold_nav_paths_exist_but_no_selection_provided(
         ]
     )
 
-    assert exit_code == 2
+    assert exit_code == 1
     err = capsys.readouterr().err
     assert "nav_paths.parquet" in err
     assert "nav_paths_fold_" in err
@@ -566,7 +566,7 @@ def test_mc_viz_errors_when_nav_paths_override_is_not_parquet(
         ]
     )
 
-    assert exit_code == 2
+    assert exit_code == 1
     err = capsys.readouterr().err
     assert "--nav-paths" in err
     assert "Only parquet" in err
@@ -607,7 +607,7 @@ def test_mc_viz_errors_when_unsupported_nav_paths_format_detected_without_parque
         ]
     )
 
-    assert exit_code == 2
+    assert exit_code == 1
     err = capsys.readouterr().err
     assert f"nav_paths.{suffix}" in err
     assert f".{suffix}" in err
@@ -640,7 +640,7 @@ def test_mc_viz_errors_when_chart_identifier_is_invalid(
         ]
     )
 
-    assert exit_code == 2
+    assert exit_code == 1
     err = capsys.readouterr().err
     assert "Unsupported chart identifier" in err
 
