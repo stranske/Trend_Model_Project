@@ -180,3 +180,41 @@ def test_rank_selection_uses_window_cadence_without_mutating_caller_config(
     assert not isinstance(selection, PipelineResult)
     assert observed_periods == [52, 52]
     assert caller_cfg.periods_per_year == 12
+
+
+def test_run_analysis_propagates_window_cadence_to_portfolios_and_benchmark() -> None:
+    """The public entrypoint keeps every published metric on the window cadence."""
+    frame = pd.DataFrame(
+        {
+            "Date": pd.date_range("2020-01-31", periods=8, freq="ME", tz="UTC"),
+            "A": [0.01, -0.02, 0.03, -0.01, 0.02, -0.03, 0.04, -0.015],
+            "B": [-0.01, 0.015, -0.005, 0.025, -0.02, 0.01, -0.01, 0.02],
+            "Bench": [0.005, -0.01, 0.02, -0.005, 0.01, -0.02, 0.025, -0.01],
+            "rf": [0.0] * 8,
+        }
+    )
+    frame.attrs["calendar_settings"] = {"timezone": None}
+    common = dict(
+        stats_cfg=RiskStatsConfig(risk_free=0.0),
+        risk_free_column="rf",
+        allow_risk_free_fallback=True,
+        benchmarks={"bench": "Bench"},
+    )
+
+    monthly = pipeline.run_analysis(
+        frame, "2020-01", "2020-04", "2020-05", "2020-08", None, 0.0,
+        periods_per_year=12, **common,
+    ).unwrap()
+    weekly = pipeline.run_analysis(
+        frame, "2020-01", "2020-04", "2020-05", "2020-08", None, 0.0,
+        periods_per_year=52, **common,
+    ).unwrap()
+
+    assert weekly["out_sample_stats"]["A"].vol > monthly["out_sample_stats"]["A"].vol
+    assert weekly["out_sample_stats"]["A"].sortino > monthly["out_sample_stats"]["A"].sortino
+    assert weekly["out_sample_stats"]["A"].information_ratio > monthly["out_sample_stats"]["A"].information_ratio
+    assert weekly["out_sample_stats"]["A"].sharpe > monthly["out_sample_stats"]["A"].sharpe
+    assert weekly["out_ew_stats"].vol > monthly["out_ew_stats"].vol
+    assert weekly["out_user_stats"].vol > monthly["out_user_stats"].vol
+    assert weekly["benchmark_stats"]["bench"]["out_sample"].vol > monthly["benchmark_stats"]["bench"]["out_sample"].vol
+    assert weekly["benchmark_ir"]["bench"]["A"] > monthly["benchmark_ir"]["bench"]["A"]
