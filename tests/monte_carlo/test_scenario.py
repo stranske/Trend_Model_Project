@@ -6,7 +6,7 @@ from typing import Mapping
 import pytest
 import yaml
 
-from trend_analysis.cli import _validate_mc_scenario
+from trend.mc.commands import validate_mc_scenario
 from trend_analysis.monte_carlo import (
     MonteCarloScenario,
     MonteCarloSettings,
@@ -301,7 +301,7 @@ def test_validate_mc_scenario_reports_misspelled_rf_override(tmp_path: Path) -> 
         raw={"metrics": {"rf_override_enbaled": True}},
     )
 
-    errors = _validate_mc_scenario(scenario)
+    errors = validate_mc_scenario(scenario)
 
     assert any("metrics.rf_override_enbaled" in error for error in errors)
     assert not any("Strategy 'base' config invalid" in error for error in errors)

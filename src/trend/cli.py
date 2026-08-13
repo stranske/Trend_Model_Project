@@ -284,6 +284,24 @@ def _legacy_callable(name: str, fallback: Callable[..., Any]) -> Callable[..., A
 # Monte Carlo visualisation pipeline can raise the same exception type
 # regardless of which CLI entry-point invoked it.
 from trend.mc.viz import TrendCLIError  # noqa: E402
+from trend.mc.commands import (  # noqa: E402
+    add_mc_subparsers,
+    handle_mc_command,
+    is_valid_tqdm_instance,
+    write_mc_manifest,
+)
+
+
+def _write_mc_manifest(*args: Any, **kwargs: Any) -> Path:
+    """Compatibility test hook for the shared Monte Carlo manifest writer."""
+
+    return write_mc_manifest(*args, **kwargs)
+
+
+def _is_valid_tqdm_instance(candidate: Any) -> bool:
+    """Compatibility test hook for the shared Monte Carlo progress validator."""
+
+    return is_valid_tqdm_instance(candidate)
 
 
 def build_parser(
@@ -399,58 +417,8 @@ def build_parser(
         help="Report which config keys were validated vs read",
     )
 
-    mc_p = sub.add_parser("mc", help="Monte Carlo visualization workflows")
-    mc_sub = mc_p.add_subparsers(dest="mc_command", required=True)
-    mc_viz_p = mc_sub.add_parser("viz", help="Render Monte Carlo chart artifacts from a bundle")
-    mc_viz_p.add_argument(
-        "--bundle",
-        required=True,
-        help="Path to Monte Carlo bundle directory containing summary/results files",
-    )
-    mc_viz_p.add_argument(
-        "--out",
-        type=Path,
-        required=True,
-        help="Output directory for generated chart artifacts",
-    )
-    mc_viz_p.add_argument(
-        "--charts",
-        default="fan,path_dist,risk_return",
-        help="Comma-separated chart identifiers (fan,path_dist,risk_return)",
-    )
-    nav_paths_group = mc_viz_p.add_mutually_exclusive_group()
-    nav_paths_group.add_argument(
-        "--fold",
-        type=int,
-        help=(
-            "Fold id to load fold-exported NAV paths (nav_paths_fold_<id>.parquet) from "
-            "the bundle; when provided, this takes precedence over the bundle's "
-            "nav_paths.parquet."
-        ),
-    )
-    nav_paths_group.add_argument(
-        "--nav-paths",
-        type=Path,
-        dest="nav_paths",
-        help="Explicit path to a nav_paths parquet file to use instead of bundle nav_paths.parquet.",
-    )
-    mc_viz_p.add_argument(
-        "--html",
-        action="store_true",
-        help="Export chart artifacts as HTML",
-    )
-    mc_viz_p.add_argument(
-        "--json",
-        action="store_true",
-        help="Export chart artifacts as JSON",
-    )
-    mc_viz_p.add_argument(
-        "--png",
-        action="store_true",
-        help=(
-            "Best-effort PNG export; requires a working kaleido install " "(pip install kaleido)"
-        ),
-    )
+    mc_p = sub.add_parser("mc", help="Monte Carlo scenario workflows")
+    add_mc_subparsers(mc_p)
 
     sub.add_parser("app", help="Launch the Streamlit application")
     if include_gui_alias:
@@ -2207,10 +2175,8 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
             return 0
 
         if command == "mc":
-            if getattr(args, "mc_command", None) != "viz":
-                raise TrendCLIError("Unknown mc subcommand")
             _finalize_config_coverage()
-            return _run_mc_viz_command(args)
+            return handle_mc_command(args)
 
         if command not in {"run", "report", "stress", "mc"}:
             raise TrendCLIError(f"Unknown command: {command}")

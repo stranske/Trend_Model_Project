@@ -33,15 +33,12 @@ aliases remain removal-bound and must not be used in new documentation or automa
 | `trend quick-report` | Build a compact report from existing run artefacts. | Supported |
 | `trend app` | Launch the Streamlit application. | Supported |
 | `trend check` | Print environment and dependency diagnostics. | Supported |
-| `trend mc viz` | Render charts from an existing Monte Carlo bundle. | Supported. |
-| `python -m trend_analysis.cli mc` | List, validate, and run registered Monte Carlo scenarios. | Transitional compatibility surface until those commands move into `trend`. |
+| `trend mc` | List, validate, run, and render Monte Carlo scenarios and bundles. | Supported. |
 
 Compatibility commands such as `trend-analysis`, `trend-multi-analysis`,
 `trend-model`, `trend-app`, and `trend-run` are transitional aliases only and
-will be removed. The scenario examples below intentionally invoke
-`python -m trend_analysis.cli` because its `mc list`, `mc validate`, and `mc run`
-subcommands have not yet moved to `trend`; `trend mc` currently supports only
-`viz`.
+will be removed. New scenario instructions use the canonical `trend mc`
+command tree; the old `trend-analysis` entry point remains compatibility-only.
 
 ## Launching the Streamlit UI (`trend app`)
 
@@ -125,17 +122,16 @@ new replay instructions.
 
 ## Monte Carlo Commands
 
-Use `python -m trend_analysis.cli mc` for scenario discovery, validation, and
-simulation until those commands move to the unified CLI. Use `trend mc viz` to
-export charts from completed bundles. Scenario authoring and output interpretation stay in
+Use `trend mc` for scenario discovery, validation, simulation, and chart
+exports. Scenario authoring and output interpretation stay in
 `docs/phase-3/MonteCarlo.md`.
 
-### List Scenarios (`python -m trend_analysis.cli mc list`)
+### List Scenarios (`trend mc list`)
 
 List registered scenarios from the default registry.
 
 ```bash
-python -m trend_analysis.cli mc list
+trend mc list
 ```
 
 Filter by tags with `--tags`. The option accepts comma-separated values and can
@@ -144,17 +140,17 @@ listing; the default format is `table`. Use `--registry PATH` to point at a
 custom scenario registry.
 
 ```bash
-python -m trend_analysis.cli mc list --tags hedge_fund --format json
-python -m trend_analysis.cli mc list --tags hedge_fund,example \
+trend mc list --tags hedge_fund --format json
+trend mc list --tags hedge_fund,example \
   --registry config/scenarios/monte_carlo/index.yml
 ```
 
-### Validate Scenarios (`python -m trend_analysis.cli mc validate`)
+### Validate Scenarios (`trend mc validate`)
 
 Validate all registered scenarios:
 
 ```bash
-python -m trend_analysis.cli mc validate
+trend mc validate
 ```
 
 Pass a scenario name or a config path to validate a single scenario. Use
@@ -162,18 +158,18 @@ Pass a scenario name or a config path to validate a single scenario. Use
 override the registry location.
 
 ```bash
-python -m trend_analysis.cli mc validate config/scenarios/monte_carlo/cost_regime_example.yml
-python -m trend_analysis.cli mc validate cost_regime_example \
+trend mc validate config/scenarios/monte_carlo/cost_regime_example.yml
+trend mc validate cost_regime_example \
   --registry config/scenarios/monte_carlo/index.yml
 ```
 
-### Run Scenarios (`python -m trend_analysis.cli mc run`)
+### Run Scenarios (`trend mc run`)
 
 Run a scenario by name or config path with `--scenario`, and optionally choose
 the output bundle directory with `--out`.
 
 ```bash
-python -m trend_analysis.cli mc run --scenario cost_regime_example --out outputs/mc_run_1
+trend mc run --scenario cost_regime_example --out outputs/mc_run_1
 ```
 
 Runtime overrides include `--data` for an alternate CSV/Parquet input,
@@ -190,9 +186,9 @@ summaries, aggregation files such as `path_summary.<fmt>` and
 `nav_paths_fold_<id>.parquet`. No separate frozen scenario YAML file is produced.
 
 ```bash
-python -m trend_analysis.cli mc run --scenario cost_regime_example \
+trend mc run --scenario cost_regime_example \
   --n-paths 500 --jobs 4 --seed 123
-python -m trend_analysis.cli mc run --scenario cost_regime_example \
+trend mc run --scenario cost_regime_example \
   --dry-run --n-paths 10
 ```
 

@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 
 import trend_analysis.monte_carlo.runner as runner_module
-from trend_analysis import cli
+from trend import cli
 from trend_analysis.api import RunResult
 from trend_analysis.monte_carlo.results import MonteCarloResults
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
@@ -121,7 +121,7 @@ metrics:
     assert "metrics.rf_override_enbaled" in err
 
 
-def test_mc_run_overrides_and_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_trend_mc_run_dispatches_scenario(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     scenario_path = tmp_path / "scenario.yml"
     data_path = tmp_path / "prices.csv"
     output_dir = tmp_path / "bundle"
@@ -208,9 +208,7 @@ def test_mc_run_rejects_invalid_format_overrides(
     assert "format overrides contains unsupported values: xml" in err
 
 
-def test_mc_manifest_includes_required_keys_and_uses_utc_timestamp(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_mc_manifest_includes_required_keys_and_uses_utc_timestamp(tmp_path: Path) -> None:
     settings = MonteCarloSettings(
         mode="two_layer",
         n_paths=5,
@@ -236,17 +234,6 @@ def test_mc_manifest_includes_required_keys_and_uses_utc_timestamp(
         summary_frame=summary_frame,
     )
 
-    captured: dict[str, object] = {}
-    fixed_time = datetime(2024, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
-
-    class FixedDateTime(datetime):
-        @classmethod
-        def now(cls, tz=None):  # type: ignore[override]
-            captured["tz"] = tz
-            return fixed_time if tz is not None else fixed_time.replace(tzinfo=None)
-
-    monkeypatch.setattr(cli, "datetime", FixedDateTime)
-
     output_dir = tmp_path / "manifest"
     manifest_path = cli._write_mc_manifest(
         output_dir,
@@ -264,8 +251,9 @@ def test_mc_manifest_includes_required_keys_and_uses_utc_timestamp(
     assert settings_payload["n_paths"] == 5
     assert settings_payload["seed"] == 12
     assert settings_payload["jobs"] == 4
-    assert captured["tz"] is timezone.utc
-    assert manifest["created_at"] == fixed_time.isoformat()
+    created_at = datetime.fromisoformat(manifest["created_at"])
+    assert created_at.tzinfo is not None
+    assert created_at.utcoffset() == timezone.utc.utcoffset(created_at)
 
 
 def test_mc_run_shows_progress(

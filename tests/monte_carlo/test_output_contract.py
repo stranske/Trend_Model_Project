@@ -4,7 +4,7 @@ import json
 
 import pandas as pd
 
-from trend_analysis.cli import _write_mc_manifest
+from trend.mc.commands import write_mc_manifest
 from trend_analysis.monte_carlo.aggregator import aggregate_monte_carlo_results
 from trend_analysis.monte_carlo.export import export_aggregation_results
 from trend_analysis.monte_carlo.results import (
@@ -81,7 +81,7 @@ def test_mc_manifest_indexes_cli_exported_results_only(tmp_path) -> None:
         ),
     )
 
-    manifest_path = _write_mc_manifest(
+    manifest_path = write_mc_manifest(
         tmp_path,
         scenario=scenario,
         results=results,
