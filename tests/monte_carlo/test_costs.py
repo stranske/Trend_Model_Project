@@ -269,7 +269,7 @@ def test_cost_regime_scenario_documents_exact_dry_run_command() -> None:
     scenario_file = Path("config/scenarios/monte_carlo/cost_regime_example.yml")
     scenario_text = scenario_file.read_text(encoding="utf-8")
     assert (
-        "# - Run with: python -m trend_analysis.cli mc run --scenario cost_regime_example --dry-run --n-paths 10"
+        "# - Run with: trend mc run --scenario cost_regime_example --dry-run --n-paths 10"
         in scenario_text
     )
     assert (

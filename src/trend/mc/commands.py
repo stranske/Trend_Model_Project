@@ -75,7 +75,10 @@ def handle_mc_command(args: argparse.Namespace) -> int:
                 json=args.json,
                 png=args.png,
             )
-        except (TrendCLIError, OSError, ValueError) as exc:
+        except TrendCLIError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 2
+        except (OSError, ValueError) as exc:
             print(str(exc), file=sys.stderr)
             return 1
     return _legacy_cli._handle_mc_command(args)
