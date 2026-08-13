@@ -279,6 +279,27 @@ def test_validate_market_data_accepts_datetime_index() -> None:
     assert validated.index.equals(dates)
 
 
+def test_validate_market_data_corrects_and_drops_dates_with_non_range_index() -> None:
+    frame = pd.DataFrame(
+        {
+            "Date": ["2024-02-30", "not-a-date", "", "2024-03-31", ""],
+            "FundA": [0.01, 0.02, 0.03, 0.04, 0.05],
+        },
+        index=[10, 11, 12, 13, 14],
+    )
+
+    resolved = _resolve_datetime_index(frame, source=None)
+
+    assert list(resolved.index) == [pd.Timestamp("2024-02-29"), pd.Timestamp("2024-03-31")]
+
+
+def test_validate_market_data_rejects_invalid_dates_when_auto_fix_disabled() -> None:
+    frame = pd.DataFrame({"Date": ["2024-02-30", "2024-03-31"], "FundA": [0.01, 0.02]})
+
+    with pytest.raises(MarketDataValidationError, match="could not be parsed"):
+        validate_market_data(frame, auto_fix_dates=False)
+
+
 def test_normalise_policy_value_rejects_unknown() -> None:
     with pytest.raises(ValueError):
         _normalise_policy_value("invalid")

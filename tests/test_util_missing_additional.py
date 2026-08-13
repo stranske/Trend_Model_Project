@@ -151,6 +151,29 @@ def test_apply_missing_policy_ffill_retains_when_not_enforcing(
     assert result.limit["A"] == 1
 
 
+def test_apply_missing_policy_completes_leading_gap_in_single_column() -> None:
+    frame = pd.DataFrame({"A": [None, 1.0, 2.0]})
+
+    cleaned, result = missing.apply_missing_policy(frame, "ffill")
+
+    assert cleaned["A"].tolist() == [1.0, 1.0, 2.0]
+    assert result.dropped_assets == ()
+
+
+def test_apply_missing_policy_normalizes_mapping_keys_and_preserves_limits() -> None:
+    frame = pd.DataFrame({1: [None, 0.02], "B": [0.01, 0.02]})
+
+    cleaned, result = missing.apply_missing_policy(
+        frame,
+        {"1": "zero", "B": "drop"},
+        limit={"1": 2, "B": 3},
+    )
+
+    assert cleaned.loc[0, 1] == 0.0
+    assert result.policy == {"1": "zero", "B": "drop"}
+    assert result.limit == {"1": 2, "B": 3}
+
+
 def test_apply_missing_policy_guard_for_unhandled_policy(
     sample_frame: pd.DataFrame, monkeypatch: pytest.MonkeyPatch
 ) -> None:

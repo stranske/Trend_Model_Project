@@ -379,56 +379,13 @@ def _legacy_apply_missing_policy(
         frame.columns, policy, limit
     )
 
-    result = frame.copy()
-    dropped: list[str] = []
-    filled: dict[str, MissingPolicyFillDetails] = {}
-    missing_counts: dict[str, int] = {}
-    max_gaps: dict[str, int] = {}
-
-    for column in frame.columns:
-        column_key = str(column)
-        col_policy = policy_map[column_key]
-        col_limit = limit_map[column_key]
-        series = result[column]
-        na_mask = series.isna()
-        missing_total = int(na_mask.sum())
-        missing_counts[column] = missing_total
-        max_gap = _max_consecutive_nans(series)
-        max_gaps[column] = max_gap
-
-        if missing_total == 0:
-            continue
-
-        if col_policy == "drop":
-            dropped.append(column)
-            continue
-
-        limit_for_fill = col_limit if col_limit is not None else None
-
-        if limit_for_fill is not None and max_gap > limit_for_fill:
-            dropped.append(column)
-            continue
-
-        if col_policy == "ffill":
-            filled_series = series.ffill(limit=limit_for_fill)
-            # Handle leading NaNs that ffill cannot reach
-            filled_series = filled_series.bfill(limit=limit_for_fill)
-            if filled_series.isna().any():
-                dropped.append(column)
-                continue
-            result[column] = filled_series
-            filled[column] = MissingPolicyFillDetails(method="ffill", count=missing_total)
-            continue
-
-        if col_policy == "zero":
-            result[column] = series.fillna(0.0)
-            filled[column] = MissingPolicyFillDetails(method="zero", count=missing_total)
-            continue
-
-        raise ValueError(f"Unhandled missing-data policy '{col_policy}'.")
-
-    if dropped:
-        result = result.drop(columns=dropped, errors="ignore")
+    result, canonical = _apply_missing_policy(frame, policy, limit=limit)
+    filled = {
+        column: MissingPolicyFillDetails(method=canonical.policy[column], count=count)
+        for column, count in canonical.filled.items()
+    }
+    missing_counts = {column: int(frame[column].isna().sum()) for column in frame.columns}
+    max_gaps = {column: _max_consecutive_nans(frame[column]) for column in frame.columns}
 
     summary = {
         "policy": default_policy,
@@ -436,12 +393,23 @@ def _legacy_apply_missing_policy(
         "limit": default_limit,
         "limit_map": limit_map,
         "filled": filled,
-        "dropped": dropped,
+        "dropped": list(canonical.dropped_assets),
         "missing_counts": missing_counts,
         "max_consecutive_gaps": max_gaps,
     }
 
     return result, summary
+
+
+def apply_missing_policy(
+    frame: pd.DataFrame,
+    policy: str | Mapping[str, str] | None,
+    *,
+    limit: int | Mapping[str, int | None] | None = None,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Preserve the historic market-data API via the canonical policy engine."""
+
+    return _legacy_apply_missing_policy(frame, policy, limit=limit)
 
 
 def _summarise_missing_policy(info: Mapping[str, Any]) -> str:
@@ -650,6 +618,11 @@ def _resolve_datetime_index(
         # shared engine identifies as unfixable, while fixes and empty-row
         # handling come from the same analysis used by UI ingest.
         if auto_fix_dates:
+            # The shared correction engine reports positional row numbers.
+            # This ingest path consumes the Date column and replaces the index,
+            # so normalizing the temporary index preserves that contract for
+            # frames supplied with arbitrary labels.
+            working = working.reset_index(drop=True)
             correction_result = analyze_date_column(working, str(date_col))
             drop_rows = (
                 correction_result.trailing_empty_rows
