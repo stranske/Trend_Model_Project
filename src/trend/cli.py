@@ -1021,7 +1021,15 @@ def _json_default(obj: Any) -> Any:  # pragma: no cover - helper
             data[coerced_key] = json_compatible(value)
         return data
     if isinstance(obj, pd.DataFrame):
-        return json_compatible(obj.to_dict())
+        result: dict[str | int | float, Any] = {}
+        for col in obj.columns:
+            coerced_col: str | int | float
+            if isinstance(col, (str, int, float)):
+                coerced_col = col
+            else:
+                coerced_col = str(col)
+            result[coerced_col] = _json_default(obj[col])
+        return result
     primitive = json_primitive(obj)
     if primitive is not JSON_UNSUPPORTED:
         return primitive
