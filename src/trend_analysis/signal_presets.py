@@ -82,9 +82,7 @@ def _ordered_presets() -> tuple[TrendSpecPreset, ...]:
 
 
 @lru_cache(maxsize=32)
-def _signal_view(
-    slug: str, label: str, description: str, spec: TrendSpec
-) -> TrendSpecPreset:
+def _signal_view(slug: str, label: str, description: str, spec: TrendSpec) -> TrendSpecPreset:
     return TrendSpecPreset(
         name=label,
         description=description,

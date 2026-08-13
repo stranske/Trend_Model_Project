@@ -7,9 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 
-def test_residual_report_timestamp_uses_utc_with_fixed_clock(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_residual_report_timestamp_uses_utc_with_fixed_clock(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.chdir(tmp_path)
     script = Path(__file__).parents[2] / "scripts" / "generate_residual_report.py"
     symbols = runpy.run_path(str(script), run_name="generate_residual_report_test")

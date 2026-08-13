@@ -10,8 +10,8 @@ import pandas as pd
 import pytest
 
 from streamlit_app.components import demo_runner, disclaimer
-from trend_analysis.config import Config
 from trend_analysis import presets as preset_module
+from trend_analysis.config import Config
 
 
 @pytest.fixture()

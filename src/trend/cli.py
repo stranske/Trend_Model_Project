@@ -91,7 +91,11 @@ from trend_analysis.signal_presets import (
 )
 from trend_analysis.universe_catalog import load_universe
 from trend_analysis.util.hash import working_run_id
-from trend_analysis.util.json_compat import JSON_UNSUPPORTED, json_compatible, json_primitive
+from trend_analysis.util.json_compat import (
+    JSON_UNSUPPORTED,
+    json_compatible,
+    json_primitive,
+)
 from trend_analysis.viz.artifacts import extract_bundle_zip
 from trend_model.spec import ensure_run_spec
 from utils.paths import proj_path
