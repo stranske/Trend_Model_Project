@@ -22,6 +22,7 @@ def test_assemble_site_copies_runtime_manifest_and_declared_sources(tmp_path: Pa
     _write(repo / "demo/wasm/vendor/stlite.js")
     _write(repo / "streamlit_app/app.py", "print('demo')")
     _write(repo / "demo/demo_returns.csv", "date,value\n2026-01-01,1\n")
+    _write(repo / "config.schema.compact.json", '{"type": "object"}\n')
 
     manifest = assemble_site(repo_root=repo, output_dir=output)
 
@@ -29,6 +30,7 @@ def test_assemble_site_copies_runtime_manifest_and_declared_sources(tmp_path: Pa
     assert (output / "vendor/stlite.js").is_file()
     assert (output / "app/streamlit_app/app.py").is_file()
     assert (output / "app/demo/demo_returns.csv").is_file()
+    assert (output / "app/config.schema.compact.json").is_file()
     assert json.loads((output / "manifest.json").read_text(encoding="utf-8")) == manifest
 
 
@@ -56,3 +58,23 @@ def test_assemble_site_refuses_repository_root_as_output(tmp_path: Path) -> None
 
     with pytest.raises(ValueError, match="refusing broad output path"):
         assemble_site(repo_root=repo, output_dir=repo)
+
+
+@pytest.mark.parametrize("relative_output", ["demo", "demo/wasm", "streamlit_app"])
+def test_assemble_site_refuses_output_that_overlaps_sources(
+    tmp_path: Path, relative_output: str
+) -> None:
+    repo = tmp_path / "repo"
+    _write(repo / "demo/wasm/index.html", "<main>do not delete</main>")
+    _write(repo / "demo/wasm/vendor/stlite.js")
+    _write(repo / "streamlit_app/app.py", "print('do not delete')")
+    _write(repo / "demo/demo_returns.csv")
+    _write(repo / "config.schema.compact.json", "{}\n")
+
+    with pytest.raises(ValueError, match="overlaps source input"):
+        assemble_site(repo_root=repo, output_dir=repo / relative_output)
+
+    assert (repo / "demo/wasm/index.html").read_text(encoding="utf-8") == (
+        "<main>do not delete</main>"
+    )
+    assert (repo / "streamlit_app/app.py").read_text(encoding="utf-8") == ("print('do not delete')")

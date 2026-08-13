@@ -7,6 +7,7 @@ on:
       - ".github/workflows/pages-wasm-demo.yml"
       - "analysis/**"
       - "config/defaults.yml"
+      - "config.schema.compact.json"
       - "config/scenarios/**"
       - "demo/demo_returns.csv"
       - "demo/wasm/**"

@@ -15,9 +15,9 @@ import shutil
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
 if __package__:
-    from scripts.build_wasm_demo import REPO_ROOT, build_manifest
+    from scripts.build_wasm_demo import REPO_ROOT, SOURCE_DIRS, build_manifest
 else:  # Direct invocation: python scripts/build_wasm_site.py
-    from build_wasm_demo import REPO_ROOT, build_manifest
+    from build_wasm_demo import REPO_ROOT, SOURCE_DIRS, build_manifest
 
 
 DEFAULT_OUTPUT = REPO_ROOT / "dist" / "wasm-demo"
@@ -40,11 +40,23 @@ def _validated_relative_path(value: str) -> Path:
     return Path(*posix.parts)
 
 
-def _prepare_output(repo_root: Path, output_dir: Path) -> None:
+def _paths_overlap(first: Path, second: Path) -> bool:
+    """Return whether either resolved path contains the other."""
+
+    return first == second or first in second.parents or second in first.parents
+
+
+def _prepare_output(
+    repo_root: Path, output_dir: Path, *, protected_paths: tuple[Path, ...]
+) -> None:
     repo = repo_root.resolve()
     output = output_dir.resolve()
     if output == repo or output in repo.parents:
         raise ValueError(f"refusing broad output path: {output}")
+    for protected in protected_paths:
+        protected = protected.resolve()
+        if _paths_overlap(output, protected):
+            raise ValueError(f"refusing output path that overlaps source input: {output}")
     if output.exists():
         shutil.rmtree(output)
     output.mkdir(parents=True)
@@ -55,18 +67,25 @@ def assemble_site(repo_root: Path = REPO_ROOT, output_dir: Path = DEFAULT_OUTPUT
 
     repo_root = repo_root.resolve()
     output_dir = output_dir.resolve()
-    _prepare_output(repo_root, output_dir)
-
+    if output_dir == repo_root or output_dir in repo_root.parents:
+        raise ValueError(f"refusing broad output path: {output_dir}")
     demo_root = repo_root / "demo" / "wasm"
     index_path = demo_root / "index.html"
     vendor_path = demo_root / "vendor"
     if not index_path.is_file() or not vendor_path.is_dir():
         raise FileNotFoundError("demo/wasm must contain index.html and vendor/")
 
+    manifest = build_manifest(repo_root)
+    protected_paths = (
+        demo_root,
+        *(repo_root / relative for relative in SOURCE_DIRS),
+        *(repo_root / _validated_relative_path(value) for value in manifest["files"]),
+    )
+    _prepare_output(repo_root, output_dir, protected_paths=protected_paths)
+
     shutil.copy2(index_path, output_dir / "index.html")
     shutil.copytree(vendor_path, output_dir / "vendor")
 
-    manifest = build_manifest(repo_root)
     (output_dir / "manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
     )

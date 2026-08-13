@@ -130,7 +130,13 @@ SOURCE_DIRS = (
 )
 
 #: Bundled synthetic data shipped with the demo (presentation-safe default).
-DATA_FILES = ("demo/demo_returns.csv",)
+DATA_FILES = (
+    "demo/demo_returns.csv",
+    # The public-LLM profile loads this at runtime when constructing the
+    # configuration-assistant chain. Keep it in the browser filesystem next to
+    # the repository sources rather than relying on an undeployed root file.
+    "config.schema.compact.json",
+)
 
 #: Non-Python config globbed into the browser FS so the Monte Carlo page can load
 #: its scenario registry (``config/scenarios/monte_carlo/index.yml``) and run a
