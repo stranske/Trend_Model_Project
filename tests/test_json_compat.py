@@ -51,3 +51,32 @@ def test_callers_preserve_their_documented_container_shapes() -> None:
 
     with pytest.raises(TypeError, match="not JSON serialisable"):
         rank_selection._json_default(object())
+
+
+def test_backtest_to_json_normalizes_builtin_nan_metrics() -> None:
+    idx = pd.date_range("2024-01-01", periods=2, freq="D")
+    empty = pd.Series(dtype=float)
+    empty_frame = pd.DataFrame()
+    result = harness.BacktestResult(
+        returns=empty,
+        equity_curve=pd.Series([1.0], index=idx[:1]),
+        weights=empty_frame,
+        turnover=empty,
+        per_period_turnover=empty,
+        transaction_costs=empty,
+        cost_drag=empty,
+        rolling_sharpe=empty,
+        drawdown=empty,
+        metrics={"cagr": float("nan"), "sharpe": float("nan")},
+        cost_model=harness.CostModel(),
+        calendar=idx[:1],
+        window_mode="rolling",
+        window_size=1,
+        training_windows={},
+    )
+
+    encoded = result.to_json()
+    assert "NaN" not in encoded
+    parsed = json.loads(encoded)
+    assert parsed["metrics"]["cagr"] is None
+    assert parsed["metrics"]["sharpe"] is None

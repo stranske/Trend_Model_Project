@@ -19,7 +19,7 @@ from ..schedules import normalize_frequency
 from ..schedules import rebalance_calendar as _rebalance_calendar
 from ..universe import MembershipTable, build_membership_mask
 from ..util.frequency import infer_periods_per_year as _infer_periods_per_year
-from ..util.json_compat import JSON_UNSUPPORTED, json_primitive
+from ..util.json_compat import JSON_UNSUPPORTED, json_compatible, json_primitive
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +139,7 @@ class BacktestResult:
     def to_json(self, **dumps_kwargs: Any) -> str:
         """Serialise :meth:`summary` to JSON for downstream consumers."""
 
-        return json.dumps(self.summary(), default=_json_default, **dumps_kwargs)
+        return json.dumps(json_compatible(self.summary()), **dumps_kwargs)
 
 
 def run_backtest(

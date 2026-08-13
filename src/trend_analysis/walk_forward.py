@@ -15,7 +15,7 @@ import yaml
 
 from trend_analysis.metrics import annual_return, max_drawdown, sharpe_ratio
 from trend_analysis.util.frequency import infer_periods_per_year
-from trend_analysis.util.json_compat import JSON_UNSUPPORTED, json_primitive
+from trend_analysis.util.json_compat import JSON_UNSUPPORTED, json_compatible, json_primitive
 
 
 @dataclass(slots=True)
@@ -310,7 +310,7 @@ def _json_default(value: Any) -> Any:
 def _write_jsonl(path: Path, records: Iterable[Mapping[str, Any]]) -> None:
     with path.open("w", encoding="utf-8") as handle:
         for record in records:
-            handle.write(json.dumps(record, default=_json_default))
+            handle.write(json.dumps(json_compatible(dict(record))))
             handle.write("\n")
 
 
