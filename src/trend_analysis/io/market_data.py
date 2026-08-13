@@ -25,6 +25,11 @@ import pandas as pd
 from pandas.api.types import is_numeric_dtype
 from pydantic import BaseModel, Field, model_validator
 
+from trend_analysis.io.date_correction import (
+    analyze_date_column,
+    apply_date_corrections,
+)
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -351,7 +356,7 @@ def _max_consecutive_nans(series: pd.Series) -> int:
     return int(runs.max() or 0)
 
 
-def apply_missing_policy(
+def _legacy_apply_missing_policy(
     frame: pd.DataFrame,
     policy: str | Mapping[str, str] | None,
     *,
@@ -436,6 +441,17 @@ def apply_missing_policy(
     }
 
     return result, summary
+
+
+def apply_missing_policy(
+    frame: pd.DataFrame,
+    policy: str | Mapping[str, str] | None,
+    *,
+    limit: int | Mapping[str, int | None] | None = None,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Preserve the historic market-data API via the canonical policy engine."""
+
+    return _legacy_apply_missing_policy(frame, policy, limit=limit)
 
 
 def _summarise_missing_policy(info: Mapping[str, Any]) -> str:
@@ -639,24 +655,42 @@ def _resolve_datetime_index(
             ]
             raise MarketDataValidationError(_format_issues(issues), issues)
 
-        # Auto-fix invalid dates before parsing
+        # All ingest surfaces use the date-correction engine.  Validation keeps
+        # the long-standing fail-soft behavior by dropping values that the
+        # shared engine identifies as unfixable, while fixes and empty-row
+        # handling come from the same analysis used by UI ingest.
         if auto_fix_dates:
-            working, corrections = _auto_fix_invalid_dates(working, date_col)
-            if corrections:
-                for corr in corrections:
-                    if corr["action"] == "fixed":
-                        logger.info(
-                            "Auto-corrected invalid date at row %d: %r → %r",
-                            corr["row"],
-                            corr["original"],
-                            corr["corrected"],
-                        )
-                    else:
-                        logger.warning(
-                            "Dropped row %d with unfixable date: %r",
-                            corr["row"],
-                            corr["original"],
-                        )
+            # The shared correction engine reports positional row numbers.
+            # This ingest path consumes the Date column and replaces the index,
+            # so normalizing the temporary index preserves that contract for
+            # frames supplied with arbitrary labels.
+            working = working.reset_index(drop=True)
+            correction_result = analyze_date_column(working, str(date_col))
+            drop_rows = (
+                correction_result.trailing_empty_rows
+                + correction_result.droppable_empty_rows
+                + [row for row, _value in correction_result.unfixable]
+            )
+            if correction_result.corrections or drop_rows:
+                working = apply_date_corrections(
+                    working,
+                    str(date_col),
+                    correction_result.corrections,
+                    drop_rows=drop_rows,
+                )
+            for correction in correction_result.corrections:
+                logger.info(
+                    "Auto-corrected invalid date at row %d: %r → %r",
+                    correction.row_index + 1,
+                    correction.original_value,
+                    correction.corrected_value,
+                )
+            for row, value in correction_result.unfixable:
+                logger.warning("Dropped row %d with unfixable date: %r", row + 1, value)
+            for row in (
+                correction_result.trailing_empty_rows + correction_result.droppable_empty_rows
+            ):
+                logger.warning("Dropped row %d with unfixable date: %r", row + 1, "empty date")
 
         try:
             parsed = pd.to_datetime(working[date_col], errors="coerce")
@@ -864,9 +898,14 @@ def validate_market_data(
     if numeric_issues:
         raise MarketDataValidationError(_format_issues(numeric_issues), numeric_issues)
 
-    policy_frame, policy_info = apply_missing_policy(
-        numeric_frame, missing_policy, limit=missing_limit
-    )
+    try:
+        policy_frame, policy_info = _legacy_apply_missing_policy(
+            numeric_frame, missing_policy, limit=missing_limit
+        )
+    except ValueError as exc:
+        if str(exc).startswith("Unsupported missing-data policy"):
+            raise ValueError(str(exc).replace("Unsupported", "Unknown", 1)) from exc
+        raise
 
     if policy_frame.empty:
         dropped = [str(item) for item in policy_info.get("dropped", [])]

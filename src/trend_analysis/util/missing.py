@@ -89,13 +89,25 @@ def _coerce_limit(limit: Any) -> int | None:
     return value
 
 
+def _max_consecutive_missing(series: pd.Series) -> int:
+    missing = series.isna()
+    if not missing.any():
+        return 0
+    groups = missing.ne(missing.shift()).cumsum()
+    return int(missing.groupby(groups).sum().max())
+
+
 def _resolve_mapping(
     spec: str | Mapping[str, str] | None, default: str
 ) -> tuple[str, dict[str, str]]:
     if spec is None or isinstance(spec, str):
         return _coerce_policy(spec or default), {}
-    overrides = {k: _coerce_policy(v) for k, v in spec.items() if k != "default"}
-    default_policy = _coerce_policy(spec.get("default", default))
+    overrides = {
+        str(key): _coerce_policy(value)
+        for key, value in spec.items()
+        if str(key) not in {"default", "*"}
+    }
+    default_policy = _coerce_policy(spec.get("default", spec.get("*", default)))
     return default_policy, overrides
 
 
@@ -103,8 +115,12 @@ def _resolve_limits(
     limit: int | Mapping[str, int | None] | None,
 ) -> tuple[int | None, dict[str, int | None]]:
     if isinstance(limit, Mapping):
-        resolved = {k: _coerce_limit(v) for k, v in limit.items() if k != "default"}
-        default_limit = _coerce_limit(limit.get("default"))
+        resolved = {
+            str(key): _coerce_limit(value)
+            for key, value in limit.items()
+            if str(key) not in {"default", "*"}
+        }
+        default_limit = _coerce_limit(limit.get("default", limit.get("*")))
         return default_limit, resolved
     return _coerce_limit(limit), {}
 
@@ -177,26 +193,29 @@ def apply_missing_policy(
     result_columns: dict[str, pd.Series] = {col: work[col] for col in df.columns if col not in cols}
     for col in cols:
         series = work[col]
-        col_policy = per_column_policy.get(col, default_policy)
-        applied_policy[col] = col_policy
-        col_limit = per_column_limit.get(col, default_limit)
+        column_key = str(col)
+        col_policy = per_column_policy.get(column_key, default_policy)
+        applied_policy[column_key] = col_policy
+        col_limit = per_column_limit.get(column_key, default_limit)
         if col_policy == "drop":
             if series.isna().any() and enforce_completeness:
-                dropped.append(col)
+                dropped.append(column_key)
                 continue
             result_columns[col] = series
-            limit_used[col] = None
+            limit_used[column_key] = col_limit
             continue
         if col_policy == "ffill":
             filled_before = int(series.isna().sum())
             series = series.ffill(limit=col_limit)
+            if col_limit is None:
+                series = series.bfill()
             filled_after = int(series.isna().sum())
-            filled_counts[col] = filled_before - filled_after
-            limit_used[col] = col_limit
+            filled_counts[column_key] = filled_before - filled_after
+            limit_used[column_key] = col_limit
             if series.isna().any():
                 has_alternative = len(cols) > 1 or result_columns
                 if enforce_completeness and has_alternative:
-                    dropped.append(col)
+                    dropped.append(column_key)
                     continue
             result_columns[col] = series
             continue
@@ -204,8 +223,8 @@ def apply_missing_policy(
             filled_before = int(series.isna().sum())
             if filled_before:
                 series = series.fillna(0.0)
-            filled_counts[col] = filled_before
-            limit_used[col] = None
+            filled_counts[column_key] = filled_before
+            limit_used[column_key] = col_limit
             result_columns[col] = series
             continue
         raise AssertionError(f"Unhandled policy: {col_policy}")

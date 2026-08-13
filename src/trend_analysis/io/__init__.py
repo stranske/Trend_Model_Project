@@ -1,11 +1,12 @@
 """Public IO helpers for trend analysis."""
 
+from trend_analysis.util.missing import apply_missing_policy
+
 from .market_data import (
     MarketDataMetadata,
     MarketDataMode,
     MarketDataValidationError,
     ValidatedMarketData,
-    apply_missing_policy,
     attach_metadata,
     classify_frequency,
     load_market_data_csv,
