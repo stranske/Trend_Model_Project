@@ -12,7 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 if __package__:
     from scripts.build_wasm_demo import REPO_ROOT, build_manifest
@@ -26,9 +26,16 @@ DEFAULT_OUTPUT = REPO_ROOT / "dist" / "wasm-demo"
 def _validated_relative_path(value: str) -> Path:
     """Return a safe relative path from a generated manifest entry."""
 
-    raw_parts = value.split("/")
+    raw_parts = value.replace("\\", "/").split("/")
     posix = PurePosixPath(value)
-    if posix.is_absolute() or not posix.parts or any(part in {"", ".", ".."} for part in raw_parts):
+    windows = PureWindowsPath(value)
+    if (
+        posix.is_absolute()
+        or windows.is_absolute()
+        or bool(windows.drive)
+        or not posix.parts
+        or any(part in {"", ".", ".."} for part in raw_parts)
+    ):
         raise ValueError(f"unsafe manifest path: {value!r}")
     return Path(*posix.parts)
 

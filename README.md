@@ -102,7 +102,8 @@ A zero-install browser build runs the real app and the deterministic engine in
 the browser via [stlite](https://github.com/whitphx/stlite) / Pyodide.
 
 - **Live demo:** <https://stranske.github.io/Trend_Model_Project/> (presentation-safe by default)
-- **Build:** `python scripts/build_wasm_demo.py`
+- **Pages artifact build:** `python scripts/build_wasm_site.py --output dist/wasm-demo`
+- **Manifest refresh:** `python scripts/build_wasm_demo.py`
 - **Modes** (via the sidebar switcher or `?profile=`):
   - `presentation_safe` (default): bundled synthetic data only; LLM,
     custom-analysis, and upload surfaces hidden; no LLM dependency footprint.

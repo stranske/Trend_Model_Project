@@ -32,7 +32,19 @@ def test_assemble_site_copies_runtime_manifest_and_declared_sources(tmp_path: Pa
     assert json.loads((output / "manifest.json").read_text(encoding="utf-8")) == manifest
 
 
-@pytest.mark.parametrize("value", ["../secret", "/absolute", "a/../../secret", "./relative"])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "../secret",
+        "/absolute",
+        "a/../../secret",
+        "./relative",
+        r"..\secret",
+        r"C:\secret",
+        r"C:relative",
+        r"\\server\share\secret",
+    ],
+)
 def test_manifest_paths_cannot_escape_the_pages_artifact(value: str) -> None:
     with pytest.raises(ValueError, match="unsafe manifest path"):
         _validated_relative_path(value)
