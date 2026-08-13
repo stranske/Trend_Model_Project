@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 ACTIVE_DOCS = (
     Path("Agents.md"),
     Path("DOCKER_QUICKSTART.md"),
@@ -22,4 +21,6 @@ def test_active_docs_do_not_reference_removed_runners() -> None:
             if runner in text:
                 offenders.append(f"{path}: {runner}")
 
-    assert not offenders, "Active documentation references removed runner modules:\n" + "\n".join(offenders)
+    assert not offenders, "Active documentation references removed runner modules:\n" + "\n".join(
+        offenders
+    )
