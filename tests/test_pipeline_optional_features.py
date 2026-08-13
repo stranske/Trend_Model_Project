@@ -734,10 +734,10 @@ def test_run_analysis_benchmark_ir_best_effort(monkeypatch: pytest.MonkeyPatch) 
 
     original_ir = pipeline.information_ratio
 
-    def flaky_information_ratio(a, b):
+    def flaky_information_ratio(a, b, *args, **kwargs):
         if isinstance(a, pd.Series) and a.attrs.get("portfolio_role") == "equal_weight":
             raise RuntimeError("portfolio IR failure")
-        return original_ir(a, b)
+        return original_ir(a, b, *args, **kwargs)
 
     monkeypatch.setattr(pipeline, "calc_portfolio_returns", tagging_calc)
     monkeypatch.setattr(pipeline, "information_ratio", flaky_information_ratio)
@@ -833,11 +833,11 @@ def test_run_analysis_benchmark_ir_handles_scalar_response(
 
     original_ir = pipeline.information_ratio
 
-    def scalar_information_ratio(a, b):
+    def scalar_information_ratio(a, b, *args, **kwargs):
         calls.append(type(a).__name__)
         if isinstance(a, pd.DataFrame):
             return 0.42
-        return original_ir(a, b)
+        return original_ir(a, b, *args, **kwargs)
 
     monkeypatch.setattr(pipeline, "information_ratio", scalar_information_ratio)
 
@@ -911,12 +911,12 @@ def test_run_analysis_benchmark_ir_non_numeric_enrichment(
         series.attrs["portfolio_role"] = role
         return series
 
-    def fake_information_ratio(a, b):
+    def fake_information_ratio(a, b, *args, **kwargs):
         if isinstance(a, pd.DataFrame):
             return pd.Series({"FundA": 0.4, "FundB": 0.2})
         if isinstance(a, pd.Series) and a.attrs.get("portfolio_role"):
             return {"role": a.attrs["portfolio_role"]}
-        return original_ir(a, b)
+        return original_ir(a, b, *args, **kwargs)
 
     monkeypatch.setattr(pipeline, "calc_portfolio_returns", tagging_calc)
     monkeypatch.setattr(pipeline, "information_ratio", fake_information_ratio)

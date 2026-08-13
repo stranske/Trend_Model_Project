@@ -160,21 +160,23 @@ def _compute_stats(
     df: pd.DataFrame,
     rf: pd.Series,
     *,
+    periods_per_year: float = 12,
     in_sample_avg_corr: dict[str, float] | None = None,
     out_sample_avg_corr: dict[str, float] | None = None,
 ) -> dict[str, _Stats]:
     # Metrics expect 1D Series; iterating keeps the logic simple for a handful
     # of columns and avoids reshaping into higher-dimensional arrays.
+    annualisation_periods = int(periods_per_year)
     stats: dict[str, _Stats] = {}
     for col in df:
         key = str(col)
         stats[key] = _Stats(
-            cagr=float(annual_return(df[col])),
-            vol=float(volatility(df[col])),
-            sharpe=float(sharpe_ratio(df[col], rf)),
-            sortino=float(sortino_ratio(df[col], rf)),
+            cagr=float(annual_return(df[col], annualisation_periods)),
+            vol=float(volatility(df[col], annualisation_periods)),
+            sharpe=float(sharpe_ratio(df[col], rf, annualisation_periods)),
+            sortino=float(sortino_ratio(df[col], rf, annualisation_periods)),
             max_drawdown=float(max_drawdown(df[col])),
-            information_ratio=float(information_ratio(df[col], rf)),
+            information_ratio=float(information_ratio(df[col], rf, annualisation_periods)),
             is_avg_corr=(in_sample_avg_corr or {}).get(col),
             os_avg_corr=(out_sample_avg_corr or {}).get(col),
         )
@@ -617,18 +619,21 @@ def _compute_weights_and_stats(
     in_stats = _compute_stats(
         in_scaled,
         rf_in,
+        periods_per_year=window.periods_per_year,
         in_sample_avg_corr=is_avg_corr,
         out_sample_avg_corr=None,
     )
     out_stats = _compute_stats(
         out_scaled,
         rf_out,
+        periods_per_year=window.periods_per_year,
         in_sample_avg_corr=None,
         out_sample_avg_corr=os_avg_corr,
     )
     out_stats_raw = _compute_stats(
         window.out_df[fund_cols],
         rf_out,
+        periods_per_year=window.periods_per_year,
         in_sample_avg_corr=None,
         out_sample_avg_corr=os_avg_corr,
     )
@@ -639,9 +644,15 @@ def _compute_weights_and_stats(
     out_ew = calc_portfolio_returns(ew_weights, out_scaled)
     out_ew_raw = calc_portfolio_returns(ew_weights, window.out_df[fund_cols])
 
-    in_ew_stats = _compute_stats(pd.DataFrame({"ew": in_ew}), rf_in)["ew"]
-    out_ew_stats = _compute_stats(pd.DataFrame({"ew": out_ew}), rf_out)["ew"]
-    out_ew_stats_raw = _compute_stats(pd.DataFrame({"ew": out_ew_raw}), rf_out)["ew"]
+    in_ew_stats = _compute_stats(
+        pd.DataFrame({"ew": in_ew}), rf_in, periods_per_year=window.periods_per_year
+    )["ew"]
+    out_ew_stats = _compute_stats(
+        pd.DataFrame({"ew": out_ew}), rf_out, periods_per_year=window.periods_per_year
+    )["ew"]
+    out_ew_stats_raw = _compute_stats(
+        pd.DataFrame({"ew": out_ew_raw}), rf_out, periods_per_year=window.periods_per_year
+    )["ew"]
 
     user_w = weights_series.to_numpy(dtype=float, copy=False)
     user_w_dict = {c: float(weights_series[c]) for c in fund_cols}
@@ -673,9 +684,15 @@ def _compute_weights_and_stats(
         periods_per_year=window.periods_per_year,
     )["portfolio"]
 
-    in_user_stats = _compute_stats(pd.DataFrame({"user": in_user}), rf_in)["user"]
-    out_user_stats = _compute_stats(pd.DataFrame({"user": out_user}), rf_out)["user"]
-    out_user_stats_raw = _compute_stats(pd.DataFrame({"user": out_user_raw}), rf_out)["user"]
+    in_user_stats = _compute_stats(
+        pd.DataFrame({"user": in_user}), rf_in, periods_per_year=window.periods_per_year
+    )["user"]
+    out_user_stats = _compute_stats(
+        pd.DataFrame({"user": out_user}), rf_out, periods_per_year=window.periods_per_year
+    )["user"]
+    out_user_stats_raw = _compute_stats(
+        pd.DataFrame({"user": out_user_raw}), rf_out, periods_per_year=window.periods_per_year
+    )["user"]
 
     return _ComputationStage(
         weights_series=weights_series,
@@ -756,22 +773,28 @@ def _assemble_analysis_output(
         if col not in in_df.columns or col not in out_df.columns:
             continue
         benchmark_stats[label] = {
-            "in_sample": _compute_stats(pd.DataFrame({label: in_df[col]}), computation.rf_in)[
-                label
-            ],
-            "out_sample": _compute_stats(pd.DataFrame({label: out_df[col]}), computation.rf_out)[
-                label
-            ],
+            "in_sample": _compute_stats(
+                pd.DataFrame({label: in_df[col]}),
+                computation.rf_in,
+                periods_per_year=window.periods_per_year,
+            )[label],
+            "out_sample": _compute_stats(
+                pd.DataFrame({label: out_df[col]}),
+                computation.rf_out,
+                periods_per_year=window.periods_per_year,
+            )[label],
         }
-        ir_series = information_ratio(computation.out_scaled[fund_cols], out_df[col])
+        ir_series = information_ratio(
+            computation.out_scaled[fund_cols], out_df[col], window.periods_per_year
+        )
         ir_dict = (
             ir_series.to_dict()
             if isinstance(ir_series, pd.Series)
             else {fund_cols[0]: float(ir_series)}
         )
         try:
-            ir_eq = information_ratio(out_ew_raw, out_df[col])
-            ir_usr = information_ratio(out_user_raw, out_df[col])
+            ir_eq = information_ratio(out_ew_raw, out_df[col], window.periods_per_year)
+            ir_usr = information_ratio(out_user_raw, out_df[col], window.periods_per_year)
             ir_dict["equal_weight"] = (
                 float(ir_eq) if isinstance(ir_eq, (float, int, np.floating)) else float("nan")
             )
