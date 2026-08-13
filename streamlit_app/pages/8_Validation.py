@@ -548,8 +548,13 @@ def render_validation_page() -> None:
     """Render the Settings Validation page."""
 
     app_state.initialize_session_state()
-    st.title("🔧 Settings Validation")
+    # Marked as a developer tool: this is a QA harness for checking that UI settings
+    # reach the pipeline, not part of the allocator workflow. It sits in the same
+    # navigation as Data/Model/Results, so the title has to say what it is (issue #5816).
+    st.title("🔧 Settings Validation (developer tool)")
     st.markdown("""
+    **Developer/QA utility — not part of the Data → Model → Results workflow.**
+
     This page systematically tests each UI setting to verify it's properly
     connected to the analysis pipeline. Select a setting, choose test values,
     and compare the results.

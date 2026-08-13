@@ -823,49 +823,55 @@ def render_data_page() -> None:
             with summary_cols[2]:
                 st.metric("Fund Columns", final_count)
 
-            # Debug panel to inspect selection state when diagnosing persistence
-            with st.expander("Debug: Fund selection state", expanded=False):
-                st.session_state["_debug_fund_run"] = (
-                    int(st.session_state.get("_debug_fund_run", 0)) + 1
-                )
+            # Debug panel to inspect selection state when diagnosing persistence.
+            # Developer-only: gated behind the same ``show_perf_diagnostics`` flag as the
+            # perf caption above (issue #5411 gated that caption but missed this expander,
+            # so raw internal counters stayed visible to end users -- issue #5816).
+            if st.session_state.get("show_perf_diagnostics"):
+                with st.expander("Debug: Fund selection state", expanded=False):
+                    st.session_state["_debug_fund_run"] = (
+                        int(st.session_state.get("_debug_fund_run", 0)) + 1
+                    )
 
-                snapshot = {
-                    "run": st.session_state.get("_debug_fund_run"),
-                    "data_loaded_key": st.session_state.get("data_loaded_key"),
-                    "available_funds_count": len(available_funds),
-                    "index_candidates_count": len(index_candidates),
-                    "default_selected_funds_count": len(default_selected_funds),
-                    "checkbox_selected_count": len(new_selection_list),
-                    "range_funds_count": len(range_funds),
-                    "defaults_seeded_count": len(defaults),
-                    "perf_ms": {
-                        "derive_funds": round((_t_funds_derived - _t_fund_start) * 1000, 2),
-                        "seed_defaults": round((_t_seed_done - _t_seed_start) * 1000, 2),
-                        "render_checkboxes": round((_t_render_done - _t_render_start) * 1000, 2),
-                        "fund_total": round((_t_render_done - _t_fund_start) * 1000, 2),
-                    },
-                    "selected_fund_columns_count": len(
-                        st.session_state.get("selected_fund_columns") or []
-                    ),
-                    "fund_columns_count": len(st.session_state.get("fund_columns") or []),
-                }
-
-                history = st.session_state.get("_debug_fund_history", [])
-                if not isinstance(history, list):
-                    history = []
-                history.append(snapshot)
-                st.session_state["_debug_fund_history"] = history[-8:]
-
-                st.json(
-                    {
-                        "latest": snapshot,
-                        "history": st.session_state.get("_debug_fund_history", []),
-                        "available_funds": available_funds,
-                        "selected_fund_columns": st.session_state.get("selected_fund_columns"),
-                        "fund_columns": st.session_state.get("fund_columns"),
-                        "checkbox_prefix": include_prefix,
+                    snapshot = {
+                        "run": st.session_state.get("_debug_fund_run"),
+                        "data_loaded_key": st.session_state.get("data_loaded_key"),
+                        "available_funds_count": len(available_funds),
+                        "index_candidates_count": len(index_candidates),
+                        "default_selected_funds_count": len(default_selected_funds),
+                        "checkbox_selected_count": len(new_selection_list),
+                        "range_funds_count": len(range_funds),
+                        "defaults_seeded_count": len(defaults),
+                        "perf_ms": {
+                            "derive_funds": round((_t_funds_derived - _t_fund_start) * 1000, 2),
+                            "seed_defaults": round((_t_seed_done - _t_seed_start) * 1000, 2),
+                            "render_checkboxes": round(
+                                (_t_render_done - _t_render_start) * 1000, 2
+                            ),
+                            "fund_total": round((_t_render_done - _t_fund_start) * 1000, 2),
+                        },
+                        "selected_fund_columns_count": len(
+                            st.session_state.get("selected_fund_columns") or []
+                        ),
+                        "fund_columns_count": len(st.session_state.get("fund_columns") or []),
                     }
-                )
+
+                    history = st.session_state.get("_debug_fund_history", [])
+                    if not isinstance(history, list):
+                        history = []
+                    history.append(snapshot)
+                    st.session_state["_debug_fund_history"] = history[-8:]
+
+                    st.json(
+                        {
+                            "latest": snapshot,
+                            "history": st.session_state.get("_debug_fund_history", []),
+                            "available_funds": available_funds,
+                            "selected_fund_columns": st.session_state.get("selected_fund_columns"),
+                            "fund_columns": st.session_state.get("fund_columns"),
+                            "checkbox_prefix": include_prefix,
+                        }
+                    )
 
 
 render_data_page()

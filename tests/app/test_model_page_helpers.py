@@ -1923,9 +1923,21 @@ def test_llm_status_panel_allows_env_var_names_but_not_values(
         assert secret not in rendered_text
 
 
-def test_llm_status_panel_warns_once_with_all_missing_env_vars(
+def test_llm_status_panel_reports_missing_env_vars_without_warning(
     monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
 ) -> None:
+    """A missing OPTIONAL dependency must not present as a warning/error.
+
+    Issue #5816: this panel used to lead the Model page's sidebar with
+    ``Active provider``, three ``✗`` rows and a ``st.warning`` reading "Missing required
+    environment variables ...". Driving the app showed an allocator who only wanted to
+    configure a run being met by what looked like a broken required dependency, above the
+    actual configuration controls. The LLM assistant is optional, so the panel now lives in
+    a collapsed expander and reports an unconfigured provider as a caption.
+
+    The information must still be there (the variable names), but ``st.warning`` must not
+    be used for it. Restoring the warning makes this test fail.
+    """
     stub = model_module.st
     stub.session_state.clear()
     stub.session_state["selected_provider"] = "openai"
@@ -1938,12 +1950,27 @@ def test_llm_status_panel_warns_once_with_all_missing_env_vars(
     warnings: list[str] = []
     stub.warning = lambda message, **_kwargs: warnings.append(message)
 
+    calls = _capture_streamlit_calls(stub, ("info", "caption", "write"))
     model_module._render_llm_status_panel()
 
-    assert len(warnings) == 1
-    warning_text = warnings[0]
+    assert warnings == [], (
+        "an unconfigured optional LLM provider must not raise st.warning; " f"got {warnings!r}"
+    )
+
+    rendered_texts: list[str] = []
+    for _name, args, kwargs in calls:
+        for arg in args:
+            rendered_texts.extend(_extract_strings(arg))
+        for value in kwargs.values():
+            rendered_texts.extend(_extract_strings(value))
+    rendered_text = " ".join(rendered_texts)
+
     for name in ("TREND_LLM_API_KEY", "OPENAI_API_KEY"):
-        assert name in warning_text
+        assert name in rendered_text, f"{name} should still be surfaced to the user"
+    assert "optional" in rendered_text.lower(), (
+        "the panel should say the LLM assistant is optional so a missing key does not "
+        "read as a broken required dependency"
+    )
 
 
 def test_llm_required_env_vars_warns_on_unknown_provider(

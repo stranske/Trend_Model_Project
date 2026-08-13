@@ -49,6 +49,11 @@ These settings control how funds are evaluated and filtered for inclusion in the
 | **Conservative** | Longer lookback periods, more data required. Reduces noise but may lag market turns. |
 | **Aggressive** | Shorter lookbacks, faster response. More responsive but potentially noisier. |
 | **Custom** | Manually configure all parameters below. |
+
+> **Note — two separate preset sets.** The presets above belong to the **Model** page
+> (custom analysis). The **Demo with Sample Data** section on the Home page has its own,
+> separate preset list (for example *Balanced*) which drives the bundled-dataset demo
+> engine. A name appearing in one list does not imply it exists in the other.
         """)
 
     st.subheader("Lookback Window (months)")

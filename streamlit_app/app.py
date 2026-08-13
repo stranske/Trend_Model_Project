@@ -41,7 +41,13 @@ apply_ds_theme()
 _active_profile = demo_profile.render_profile_controls(st)
 
 st.title("Portfolio Simulator")
-st.markdown("""
+
+# Quick Start must describe only the sections this profile actually renders. The
+# Custom Analysis section below is conditional on ``custom_analysis_enabled``, so
+# advertising it unconditionally sent presentation_safe users looking for a section
+# that is not on the page (issue #5816).
+if demo_profile.custom_analysis_enabled(_active_profile):
+    st.markdown("""
 Welcome! This app analyzes trend-following fund portfolios with volatility adjustment.
 
 **Quick Start:**
@@ -50,6 +56,17 @@ Welcome! This app analyzes trend-following fund portfolios with volatility adjus
 
 The demo uses a specialized policy-based engine optimized for the sample dataset.
 For full control over all parameters, use the Custom Analysis flow.
+    """)
+else:
+    st.markdown("""
+Welcome! This app analyzes trend-following fund portfolios with volatility adjustment.
+
+**Quick Start:**
+- Use the **Demo** section below to run analysis on sample data with preset configurations
+
+This mode runs the bundled synthetic dataset through a deterministic policy-based engine.
+To load your own data and configure every parameter, switch **Demo mode** to
+**Public LLM demo** in the sidebar.
     """)
 
 st.markdown("---")
