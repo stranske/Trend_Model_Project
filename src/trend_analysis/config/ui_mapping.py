@@ -1,4 +1,18 @@
-"""Shared mapping from Streamlit UI state to core Config."""
+"""Shared mapping from Streamlit UI state to core Config.
+
+UI coercion policy
+------------------
+* **Reject** invalid enum-like values that have no safe default (for example an
+  unknown rebalance frequency) by raising ``ValueError``.
+* **Warn-and-default** optional numeric fields that are missing or unparsable by
+  coercing to documented defaults via ``coerce_positive_int`` /
+  ``coerce_positive_float``.
+* **Clamp** out-of-range positive numerics to their minimum instead of failing
+  the whole form submission.
+
+The volatility-risk threshold is owned by ``portfolio.threshold_hold`` and is
+stored as a unitless ratio in ``[0, 1]`` after clamping.
+"""
 
 from __future__ import annotations
 
