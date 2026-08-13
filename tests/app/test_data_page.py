@@ -278,17 +278,13 @@ def test_data_page_autoloads_sample(monkeypatch: pytest.MonkeyPatch, data_page) 
         assert key not in page.st.session_state
 
 
-def test_debug_surfaces_hidden_without_flag(monkeypatch: pytest.MonkeyPatch, data_page) -> None:
-    page, stub = data_page
-    source = (
-        Path(__file__).resolve().parents[2] / "streamlit_app" / "pages" / "1_Data.py"
-    ).read_text(encoding="utf-8")
-    assert (
-        "never expose selection counters or timing data in the end-user UI.\n"
-        '            if st.session_state.get("show_perf_diagnostics"):\n'
-        '                with st.expander("Debug: Fund selection state"'
-    ) in source
+def _load_sample_for_debug_gate(
+    monkeypatch: pytest.MonkeyPatch, page: ModuleType, stub: DummyStreamlit
+) -> None:
+    """Drive the Data page into the loaded-dataset state that renders the
+    fund-selection section, where the debug expander lives."""
     stub.session_state.clear()
+    stub.expander_labels.clear()
     df = pd.DataFrame(
         {"FundA": [0.01, 0.02, -0.01], "SPX Index": [0.03, -0.02, 0.01]},
         index=pd.date_range("2024-01-31", periods=3, freq="ME"),
@@ -305,9 +301,39 @@ def test_debug_surfaces_hidden_without_flag(monkeypatch: pytest.MonkeyPatch, dat
     stub.selectbox_map["Choose a sample"] = sample.label
     stub.selectbox_map["Benchmark Column (optional)"] = "SPX Index"
 
+
+def test_debug_surfaces_hidden_without_flag(monkeypatch: pytest.MonkeyPatch, data_page) -> None:
+    """Issue #5816: internal selection counters/timings must not reach end users.
+
+    The source-level assertion this test used to carry pinned exact indentation
+    (``'            if st.session_state.get(...)'``), so any re-indent broke it without a
+    behaviour change. The behavioural assertion below covers the same intent, so the
+    brittle string match was dropped.
+    """
+    page, stub = data_page
+    _load_sample_for_debug_gate(monkeypatch, page, stub)
+
     page.render_data_page()
 
     assert not any(label.startswith("Debug:") for label in stub.expander_labels)
+
+
+def test_debug_surfaces_visible_with_flag(monkeypatch: pytest.MonkeyPatch, data_page) -> None:
+    """The developer diagnostic must remain REACHABLE behind ``show_perf_diagnostics``.
+
+    Without this counterpart, ``test_debug_surfaces_hidden_without_flag`` also passes if
+    the expander is deleted outright, so the pair cannot distinguish "correctly gated"
+    from "removed". This pins the gate rather than the removal.
+    """
+    page, stub = data_page
+    _load_sample_for_debug_gate(monkeypatch, page, stub)
+    stub.session_state["show_perf_diagnostics"] = True
+
+    page.render_data_page()
+
+    assert any(
+        label.startswith("Debug:") for label in stub.expander_labels
+    ), "show_perf_diagnostics was set but no Debug expander rendered"
 
 
 def test_data_page_upload_failure(monkeypatch: pytest.MonkeyPatch, data_page) -> None:
