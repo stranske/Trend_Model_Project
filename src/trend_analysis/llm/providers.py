@@ -66,7 +66,7 @@ class BrowserOpenAICompatibleChat:
         """Send one OpenAI-compatible request through Pyodide's HTTP bridge."""
 
         try:
-            from pyodide_http import patch as patch_http
+            from pyodide_http import patch_requests
         except ImportError as exc:  # pragma: no cover - only reachable in browser packaging
             raise RuntimeError("The browser HTTP bridge is unavailable.") from exc
 
@@ -75,11 +75,10 @@ class BrowserOpenAICompatibleChat:
         except ImportError as exc:  # pragma: no cover - supplied by the Pyodide runtime
             raise RuntimeError("The browser HTTP client is unavailable.") from exc
 
-        patch_http()
-        prompt_text = prompt.to_string() if hasattr(prompt, "to_string") else str(prompt)
+        patch_requests()
         payload: dict[str, Any] = {
             "model": self.model,
-            "messages": [{"role": "user", "content": prompt_text}],
+            "messages": _openai_messages(prompt),
             **self.extra,
         }
         if self.temperature is not None:
@@ -107,6 +106,45 @@ class BrowserOpenAICompatibleChat:
         if not isinstance(content, str) or not content.strip():
             raise RuntimeError("The configured endpoint returned an empty chat response.")
         return content
+
+
+def _openai_messages(prompt: Any) -> list[dict[str, Any]]:
+    """Preserve LangChain chat roles when forming an OpenAI-compatible request."""
+
+    if not hasattr(prompt, "to_messages"):
+        prompt_text = prompt.to_string() if hasattr(prompt, "to_string") else str(prompt)
+        return [{"role": "user", "content": prompt_text}]
+
+    role_map = {
+        "human": "user",
+        "ai": "assistant",
+        "system": "system",
+        "tool": "tool",
+        "function": "function",
+    }
+    messages: list[dict[str, Any]] = []
+    for message in prompt.to_messages():
+        message_type = getattr(message, "type", "human")
+        role = role_map.get(message_type)
+        if role is None and message_type == "chat":
+            role = getattr(message, "role", None)
+        role = role or "user"
+        item: dict[str, Any] = {
+            "role": role,
+            "content": getattr(message, "content", str(message)),
+        }
+        additional = getattr(message, "additional_kwargs", None) or {}
+        name = getattr(message, "name", None) or additional.get("name")
+        if name:
+            item["name"] = name
+        tool_call_id = getattr(message, "tool_call_id", None)
+        if tool_call_id:
+            item["tool_call_id"] = tool_call_id
+        for key in ("tool_calls", "function_call"):
+            if key in additional:
+                item[key] = additional[key]
+        messages.append(item)
+    return messages
 
 
 def create_llm(config: LLMProviderConfig) -> Any:

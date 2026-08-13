@@ -15,7 +15,13 @@ import pandas as pd
 import streamlit as st
 
 from streamlit_app.components.llm_settings import (
+    browser_llm_runtime as _browser_llm_runtime,
+)
+from streamlit_app.components.llm_settings import (
     default_api_key as _default_api_key,
+)
+from streamlit_app.components.llm_settings import (
+    llm_provider_options as _llm_provider_options,
 )
 from streamlit_app.components.llm_settings import (
     llm_zone_disabled as _llm_zone_disabled,
@@ -276,12 +282,13 @@ def render_explain_results(
             or "openai"
         )
         provider_default = str(provider_default).lower()
-        provider_options = ["openai", "anthropic", "ollama"]
+        browser_runtime = _browser_llm_runtime()
+        provider_options = _llm_provider_options()
         if provider_default not in provider_options:
             provider_default = "openai"
 
         st.selectbox(
-            "Provider",
+            "OpenAI-compatible endpoint" if browser_runtime else "Provider",
             provider_options,
             index=provider_options.index(provider_default),
             key=provider_key,
@@ -289,7 +296,7 @@ def render_explain_results(
         )
         # Pre-populate API key from environment if empty or not set
         current_api_key = st.session_state.get(api_key_key)
-        if not current_api_key or not _sanitize_api_key(current_api_key):
+        if not browser_runtime and (not current_api_key or not _sanitize_api_key(current_api_key)):
             env_key = _default_api_key(provider_default)
             if env_key:
                 st.session_state[api_key_key] = env_key
@@ -299,7 +306,9 @@ def render_explain_results(
             key=api_key_key,
             type="password",
             help=(
-                "Leave blank to use a stored key, or enter a secret/env var name "
+                "Kept only in this browser session; never bundled or persisted."
+                if browser_runtime
+                else "Leave blank to use a stored key, or enter a secret/env var name "
                 "(for example OPENAI_API_KEY)."
             ),
         )
@@ -307,14 +316,22 @@ def render_explain_results(
         if st.session_state.get(api_key_key):
             st.caption("✓ API key configured")
         else:
-            st.caption("⚠️ No API key found in environment or secrets")
+            st.caption(
+                "API key is optional if the configured endpoint does not require one."
+                if browser_runtime
+                else "⚠️ No API key found in environment or secrets"
+            )
         st.text_input(
             "Model (optional)",
             value=st.session_state.get(model_key, ""),
             key=model_key,
         )
         st.text_input(
-            "Base URL (optional)",
+            (
+                "Base URL (required; must allow browser CORS)"
+                if browser_runtime
+                else "Base URL (optional)"
+            ),
             value=st.session_state.get(base_url_key, ""),
             key=base_url_key,
         )
@@ -350,7 +367,7 @@ def render_explain_results(
                 raw_key = st.session_state.get("explain_results_api_key")
                 resolved_key = _resolve_api_key_input(raw_key)
                 # If empty or placeholder, auto-resolve from environment
-                if not resolved_key:
+                if not resolved_key and not browser_runtime:
                     resolved_key = _default_api_key(
                         st.session_state.get("explain_results_provider") or "openai"
                     )

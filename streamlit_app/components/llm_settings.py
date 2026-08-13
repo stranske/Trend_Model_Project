@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 
 import streamlit as st
 
@@ -14,6 +15,18 @@ logger = logging.getLogger(__name__)
 LLM_ZONE_ENV = "TREND_LLM_ZONE"
 LLM_ZONE_INTERNAL = "internal_authorized"
 LLM_ZONE_DISABLED = "disabled"
+
+
+def browser_llm_runtime() -> bool:
+    """Return whether LLM controls are running in the public Pyodide demo."""
+
+    return sys.platform == "emscripten"
+
+
+def llm_provider_options() -> list[str]:
+    """Return providers that the active runtime can actually instantiate."""
+
+    return ["openai"] if browser_llm_runtime() else ["openai", "anthropic", "ollama"]
 
 
 def llm_zone() -> str:
@@ -88,6 +101,8 @@ def resolve_api_key_input(raw: str | None) -> str | None:
     trimmed = sanitize_api_key(raw)
     if not trimmed:
         return None
+    if browser_llm_runtime():
+        return trimmed
     canonical = trimmed.upper()
     if canonical in _ALLOWED_KEY_NAMES:
         secret_val = sanitize_api_key(read_secret(canonical))
@@ -144,6 +159,8 @@ def anthropic_api_key_status(
 
 
 def default_api_key(provider_name: str) -> str | None:
+    if browser_llm_runtime():
+        return None
     proxy_url = os.environ.get("TS_LLM_PROXY_URL") or os.environ.get("TREND_LLM_BASE_URL")
     if proxy_url and "llm-proxy" in proxy_url:
         token = os.environ.get("TS_LLM_PROXY_TOKEN")
@@ -190,6 +207,26 @@ def resolve_llm_provider_config(
     require_api_key: bool = True,
 ) -> LLMProviderConfig:
     provider_name = (provider or os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
+    if browser_llm_runtime():
+        if provider_name != "openai":
+            raise ValueError("The browser demo supports OpenAI-compatible endpoints only.")
+        resolved_base_url = (base_url or "").strip()
+        if not resolved_base_url:
+            raise ValueError(
+                "The browser demo requires an explicit CORS-enabled OpenAI-compatible base URL."
+            )
+        kwargs: dict[str, object] = {
+            "provider": "openai",
+            "base_url": resolved_base_url,
+        }
+        resolved_api_key = sanitize_api_key(api_key)
+        if resolved_api_key:
+            kwargs["api_key"] = resolved_api_key
+        if model:
+            kwargs["model"] = model
+        if organization:
+            kwargs["organization"] = organization
+        return LLMProviderConfig(**kwargs)
     supported = {"openai", "anthropic", "ollama"}
     if provider_name not in supported:
         raise ValueError(
@@ -247,9 +284,11 @@ __all__ = [
     "LLM_ZONE_ENV",
     "LLM_ZONE_INTERNAL",
     "anthropic_api_key_status",
+    "browser_llm_runtime",
     "default_api_key",
     "llm_zone",
     "llm_zone_disabled",
+    "llm_provider_options",
     "read_secret",
     "resolve_api_key_input",
     "resolve_anthropic_api_key",

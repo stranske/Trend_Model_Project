@@ -173,7 +173,7 @@ def test_browser_adapter_posts_only_to_configured_endpoint(
 
     requests_module.post = fake_post  # type: ignore[attr-defined]
     pyodide_http_module = types.ModuleType("pyodide_http")
-    pyodide_http_module.patch = lambda: patch_calls.append(True)  # type: ignore[attr-defined]
+    pyodide_http_module.patch_requests = lambda: patch_calls.append(True)  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "requests", requests_module)
     monkeypatch.setitem(sys.modules, "pyodide_http", pyodide_http_module)
 
@@ -202,3 +202,43 @@ def test_browser_adapter_posts_only_to_configured_endpoint(
         "max_tokens": 321,
     }
     assert kwargs["timeout"] == 12.0
+
+
+def test_browser_adapter_preserves_chat_prompt_roles(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[dict[str, Any]] = []
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, Any]:
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+    requests_module = types.ModuleType("requests")
+    requests_module.post = lambda _url, **kwargs: (  # type: ignore[attr-defined]
+        calls.append(kwargs) or FakeResponse()
+    )
+    pyodide_http_module = types.ModuleType("pyodide_http")
+    pyodide_http_module.patch_requests = lambda: None  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "requests", requests_module)
+    monkeypatch.setitem(sys.modules, "pyodide_http", pyodide_http_module)
+
+    class FakePrompt:
+        def to_messages(self) -> list[Any]:
+            return [
+                types.SimpleNamespace(type="system", content="Follow policy", additional_kwargs={}),
+                types.SimpleNamespace(
+                    type="human", content="Explain results", additional_kwargs={}
+                ),
+            ]
+
+    adapter = BrowserOpenAICompatibleChat(
+        base_url="https://llm.example.test/v1", model="browser-model"
+    )
+    assert adapter.invoke(FakePrompt()) == "ok"
+    assert calls[0]["json"]["messages"] == [
+        {"role": "system", "content": "Follow policy"},
+        {"role": "user", "content": "Explain results"},
+    ]
