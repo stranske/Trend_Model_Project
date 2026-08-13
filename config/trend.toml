@@ -77,10 +77,10 @@ proxy = "SPX"
 method = "rolling_return"
 lookback = 24
 smoothing = 3
-threshold = 0.0
-neutral_band = 0.0015
+threshold = 0.0 # per-period volatility boundary; scaled with the signal
+neutral_band = 0.0015 # per-period buffer; scaled with the signal
 min_observations = 3
-annualise_volatility = true
+annualise_volatility = true # do not pre-annualise threshold or band
 
 # ---------------------------------------------------------------------------
 # Metrics calculated for both score frames and report tables.
