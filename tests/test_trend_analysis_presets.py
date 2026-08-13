@@ -322,6 +322,22 @@ def test_candidate_preset_dirs_includes_repository_defaults(
     assert isinstance(candidates, tuple)
 
 
+def test_registry_recovers_after_temporary_empty_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A temporary override must not cache an empty registry for later callers."""
+
+    default_dir = preset_module.PRESETS_DIR
+    empty_dir = tmp_path / "empty"
+    empty_dir.mkdir()
+    monkeypatch.setattr(preset_module, "PRESETS_DIR", empty_dir)
+    preset_module._preset_registry.cache_clear()
+    assert preset_module.list_preset_slugs() == ()
+
+    monkeypatch.setattr(preset_module, "PRESETS_DIR", default_dir)
+    assert {"aggressive", "balanced", "conservative"}.issubset(preset_module.list_preset_slugs())
+
+
 def test_preset_registry_loads_yaml_and_handles_overrides(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:

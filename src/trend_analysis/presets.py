@@ -318,10 +318,12 @@ def _candidate_preset_dirs() -> tuple[Path, ...]:
 
 
 @lru_cache(maxsize=None)
-def _preset_registry() -> Mapping[str, TrendPreset]:
+def _preset_registry_for_dirs(
+    directories: tuple[Path, ...],
+) -> Mapping[str, TrendPreset]:
     registry: dict[str, TrendPreset] = {}
     origins: dict[str, Path] = {}
-    for directory in _candidate_preset_dirs():
+    for directory in directories:
         for path in sorted(directory.glob("*.yml")):
             slug = path.stem.lower()
             try:
@@ -352,6 +354,21 @@ def _preset_registry() -> Mapping[str, TrendPreset]:
             registry[slug] = preset
             origins[slug] = path
     return MappingProxyType(registry)
+
+
+def _preset_registry() -> Mapping[str, TrendPreset]:
+    """Return the cached registry for the current preset-directory selection.
+
+    ``PRESETS_DIR`` and ``TREND_PRESETS_DIR`` are intentionally configurable for
+    editable installs and tests.  Keying the cache by the resolved candidate
+    directories prevents a temporary override from leaking an empty registry
+    after that override has been removed.
+    """
+
+    return _preset_registry_for_dirs(_candidate_preset_dirs())
+
+
+_preset_registry.cache_clear = _preset_registry_for_dirs.cache_clear  # type: ignore[attr-defined]
 
 
 def list_trend_presets() -> tuple[TrendPreset, ...]:
