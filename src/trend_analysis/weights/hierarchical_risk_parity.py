@@ -45,6 +45,7 @@ class HierarchicalRiskParity(WeightEngine):
         self.diagnostics: dict[str, object] = {}
 
     def weight(self, cov: pd.DataFrame) -> pd.Series:
+        self.diagnostics = {}
         if cov.empty:
             return pd.Series(dtype=float)
         if not cov.index.equals(cov.columns):
@@ -55,6 +56,7 @@ class HierarchicalRiskParity(WeightEngine):
         logger.debug(f"HRP input covariance condition number: {condition_num:.2e}")
 
         try:
+            degradation_reasons: list[str] = []
             corr = _cov_to_corr(cov)
 
             # Check for invalid correlations
@@ -69,6 +71,7 @@ class HierarchicalRiskParity(WeightEngine):
                 # Fall back to diagonal correlation matrix
                 corr = pd.DataFrame(np.eye(len(cov)), index=cov.index, columns=cov.columns)
                 corr_values = corr.to_numpy(dtype=float, copy=True)
+                degradation_reasons.append("non_finite_correlations")
 
             # Compute distance matrix as numpy array for typing clarity
             dist_arr: FloatArray = np.sqrt(0.5 * (1.0 - corr_values))
@@ -77,6 +80,11 @@ class HierarchicalRiskParity(WeightEngine):
             if np.any(~np.isfinite(dist_arr)) or np.any(dist_arr < 0):
                 logger.warning("Invalid distance matrix in HRP, using equal weights")
                 n = len(cov)
+                self.diagnostics = {
+                    "fallback_used": True,
+                    "fallback_reason": "invalid_distance_matrix",
+                    "degradation_reasons": degradation_reasons + ["invalid_distance_matrix"],
+                }
                 return pd.Series(np.ones(n) / n, index=cov.index)
 
             condensed: FloatArray = squareform(dist_arr, checks=False)
@@ -118,6 +126,7 @@ class HierarchicalRiskParity(WeightEngine):
                         logger.warning(
                             "Numerical issues in HRP cluster allocation, using equal split"
                         )
+                        degradation_reasons.append("cluster_allocation_numerical_issue")
                         alpha = 0.5
 
                     w[left] *= alpha
@@ -131,9 +140,18 @@ class HierarchicalRiskParity(WeightEngine):
             if w.sum() == 0:
                 logger.warning("Zero sum weights in HRP, using equal weights")
                 n = len(cov)
+                self.diagnostics = {
+                    "fallback_used": True,
+                    "fallback_reason": "zero_sum_weights",
+                    "degradation_reasons": degradation_reasons + ["zero_sum_weights"],
+                }
                 return pd.Series(np.ones(n) / n, index=cov.index)
 
             w /= w.sum()
+            self.diagnostics = {
+                "fallback_used": bool(degradation_reasons),
+                "degradation_reasons": degradation_reasons,
+            }
             logger.debug("Successfully computed HRP weights")
             return w
 

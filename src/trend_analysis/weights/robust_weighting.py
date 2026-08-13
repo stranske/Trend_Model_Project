@@ -329,6 +329,7 @@ class RobustRiskParity(WeightEngine):
 
     def weight(self, cov: pd.DataFrame) -> pd.Series:
         """Compute risk parity weights with robustness checks."""
+        self.diagnostics = {}
         if cov.empty:
             return pd.Series(dtype=float)
 
@@ -373,6 +374,15 @@ class RobustRiskParity(WeightEngine):
         if max_std <= 0.0:
             # Fallback to equal weights when the covariance matrix collapses.
             logger.warning("Falling back to equal weights due to zero variance inputs")
+            self.diagnostics = {
+                "condition_number": condition_num,
+                "condition_threshold": self.condition_threshold,
+                "used_diagonal_loading": bool(diagonal_loading_reasons),
+                "diagonal_loading_reasons": diagonal_loading_reasons,
+                "diagonal_loading_factor": self.diagonal_loading_factor,
+                "fallback_used": True,
+                "fallback_reason": "zero_variance",
+            }
             return pd.Series(np.full(len(cov.index), 1.0 / len(cov.index)), index=cov.index)
 
         # Handle zero or very small standard deviations
@@ -383,6 +393,15 @@ class RobustRiskParity(WeightEngine):
         total = float(np.sum(inv_vol))
         if not np.isfinite(total) or total <= 0.0:
             logger.warning("Falling back to equal weights due to invalid inverse volatility sum")
+            self.diagnostics = {
+                "condition_number": condition_num,
+                "condition_threshold": self.condition_threshold,
+                "used_diagonal_loading": bool(diagonal_loading_reasons),
+                "diagonal_loading_reasons": diagonal_loading_reasons,
+                "diagonal_loading_factor": self.diagonal_loading_factor,
+                "fallback_used": True,
+                "fallback_reason": "invalid_inverse_volatility",
+            }
             return pd.Series(np.full(len(cov.index), 1.0 / len(cov.index)), index=cov.index)
 
         weights = inv_vol / total
@@ -393,6 +412,7 @@ class RobustRiskParity(WeightEngine):
             "used_diagonal_loading": bool(diagonal_loading_reasons),
             "diagonal_loading_reasons": diagonal_loading_reasons,
             "diagonal_loading_factor": self.diagonal_loading_factor,
+            "fallback_used": False,
         }
 
         logger.debug("Successfully computed robust risk parity weights")

@@ -101,6 +101,34 @@ class TestHierarchicalRiskParity:
         weights = engine.weight(cov)
         assert weights.sum() == pytest.approx(1.0, rel=1e-9)
         assert set(weights.index) == {"A", "B"}
+        assert engine.diagnostics["fallback_used"] is True
+        assert "non_finite_correlations" in engine.diagnostics["degradation_reasons"]
+
+    def test_weighting_resets_diagnostics_after_recovery(self) -> None:
+        engine = HierarchicalRiskParity()
+        failing_cov = _make_covariance(np.array([[0.0, 0.0], [0.0, 0.0]]), labels=["A", "B"])
+        healthy_cov = _make_covariance(np.array([[0.1, 0.02], [0.02, 0.2]]), labels=["A", "B"])
+
+        engine.weight(failing_cov)
+        weights = engine.weight(healthy_cov)
+
+        assert weights.sum() == pytest.approx(1.0, rel=1e-9)
+        assert engine.diagnostics == {"fallback_used": False, "degradation_reasons": []}
+
+    def test_weighting_records_invalid_distance_fallback(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        engine = HierarchicalRiskParity()
+        cov = _make_covariance(np.eye(2), labels=["A", "B"])
+        monkeypatch.setattr(
+            "trend_analysis.weights.hierarchical_risk_parity._cov_to_corr",
+            lambda _: pd.DataFrame([[1.0, 2.0], [2.0, 1.0]], index=["A", "B"], columns=["A", "B"]),
+        )
+
+        weights = engine.weight(cov)
+
+        assert weights.tolist() == [0.5, 0.5]
+        assert engine.diagnostics["fallback_reason"] == "invalid_distance_matrix"
 
 
 class TestShrinkageUtilities:
