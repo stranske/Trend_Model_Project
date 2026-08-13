@@ -1,4 +1,19 @@
-"""Shared mapping from Streamlit UI state to core Config."""
+"""Shared mapping from Streamlit UI state to core Config.
+
+UI coercion policy
+------------------
+* **Pass through** enum-like values such as ``rebalance_freq``; their accepted
+  aliases are validated by the downstream schedule/config consumer.
+* **Default** optional numeric fields that are missing or unparsable via
+  ``coerce_positive_int`` / ``coerce_positive_float``.  These helpers do not
+  emit a Python warning or UI notification.
+* **Floor** negative numeric inputs at the helper's lower bound instead of
+  failing the whole form submission; no upper-bound clamp is applied here.
+
+The volatility target is owned by ``vol_adjust.target_vol``.  The mapping
+preserves positive values without imposing a UI-level upper bound; downstream
+validation owns any domain-specific range constraint.
+"""
 
 from __future__ import annotations
 
