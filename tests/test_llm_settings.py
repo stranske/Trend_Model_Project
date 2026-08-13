@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import pytest
 
+from streamlit_app.components import llm_settings
 from streamlit_app.components.llm_settings import (
     anthropic_api_key_status,
     llm_provider_options,
     resolve_anthropic_api_key,
     resolve_llm_provider_config,
 )
-from streamlit_app.components import llm_settings
 
 _ENV_KEYS = (
     "CLAUDE_API_STRANSKE",

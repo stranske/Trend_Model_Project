@@ -280,8 +280,8 @@ regime:
   method: "rolling_return"
   lookback: 126          # number of observations to compound
   smoothing: 3           # optional moving average over the rolling return
-  threshold: 0.0         # shift the cut-over between regimes
-  neutral_band: 0.001    # treat small deviations as neutral noise
+  threshold: 0.0         # rolling-return boundary in compounded-signal units
+  neutral_band: 0.001    # rolling-return neutral buffer in compounded-signal units
   min_observations: 4    # minimum rows required to compute metrics
   annualise_volatility: true  # only used when method: volatility
 ```
@@ -302,9 +302,12 @@ The `regime_notes` entry in the result dictionary carries the collected
 footnotes; they are exported as a one-column table for easy auditing alongside
 the numeric breakdown. Supplying your own proxy is as simple as adding the
 column to the input data or pointing `regime.proxy` at a custom series in the
-indices bundle. When using the volatility method the threshold is interpreted as
-annualised volatility when `annualise_volatility: true` (set to `false` to work
-with per-period figures).
+indices bundle. For the volatility method, provide `regime.threshold` and
+`regime.neutral_band` on the same per-period basis as the input returns. When
+`annualise_volatility: true`, the code scales the calculated volatility,
+threshold, and neutral band together by the same factor. This keeps regime
+classification invariant when annualisation is toggled; callers must not
+pre-annualise either boundary.
 
 In multi-period portfolio runs, regime detection currently changes allocation
 behavior through regime-conditional turnover-cap lookup. A regime-conditional

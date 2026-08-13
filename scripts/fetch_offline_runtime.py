@@ -9,9 +9,9 @@ are fetched separately from PyPI using pinned filenames.
 
 from __future__ import annotations
 
-import hashlib
 import base64
 import csv
+import hashlib
 import io
 import json
 import re
