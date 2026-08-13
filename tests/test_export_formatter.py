@@ -5,6 +5,7 @@ import pytest
 
 from trend_analysis.export import (
     FORMATTERS_EXCEL,
+    SummaryResultContractError,
     _maybe_remove_openpyxl_default_sheet,
     _normalise_color,
     export_to_excel,
@@ -240,6 +241,22 @@ def test_format_summary_text_basic():
     assert "Vol-Adj Trend Analysis" in text
     assert "fund" in text
     assert "Fingerprint: feed1234beef" in text
+
+
+def test_partial_result_contract_is_explicit():
+    """Partial results render blanks, while half-pairs fail before sheet writes."""
+
+    partial = {"in_sample_stats": {}, "out_sample_stats": {}}
+    formatter = make_summary_formatter(partial, "a", "b", "c", "d")
+    ws = DummyWS()
+    formatter(ws, DummyWB())
+
+    assert any(row[2][0] == "Vol-Adj Trend Analysis" for row in ws.rows)
+    assert not any(cell[2] == "Equal Weight" for cell in ws.cells)
+    assert "Equal Weight" not in format_summary_text(partial, "a", "b", "c", "d")
+
+    with pytest.raises(SummaryResultContractError, match="in_ew_stats and out_ew_stats"):
+        make_summary_formatter({"in_ew_stats": (1, 1, 1, 1, 1, 1)}, "a", "b", "c", "d")
 
 
 def test_format_summary_text_includes_regime_breakdown():

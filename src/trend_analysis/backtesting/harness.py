@@ -19,6 +19,7 @@ from ..schedules import normalize_frequency
 from ..schedules import rebalance_calendar as _rebalance_calendar
 from ..universe import MembershipTable, build_membership_mask
 from ..util.frequency import infer_periods_per_year as _infer_periods_per_year
+from ..util.json_compat import JSON_UNSUPPORTED, json_primitive
 
 logger = logging.getLogger(__name__)
 
@@ -635,10 +636,11 @@ def _weights_to_dict(weights: pd.DataFrame) -> Dict[str, Dict[str, float]]:
 
 
 def _json_default(obj: object) -> object:
-    if isinstance(obj, (pd.Timestamp, pd.Timedelta)):
-        return obj.isoformat()
-    if isinstance(obj, (np.floating, np.integer)):
-        return float(obj)
+    primitive = json_primitive(obj)
+    if primitive is not JSON_UNSUPPORTED:
+        if isinstance(obj, np.integer):
+            return float(primitive)
+        return primitive
     raise TypeError(f"Object of type {type(obj)!r} is not JSON serializable")
 
 

@@ -41,6 +41,45 @@ _OPENPYXL_COLOR_MAP = {
 logger = logging.getLogger(__name__)
 
 
+class SummaryResultContractError(ValueError):
+    """Raised when a partial result cannot be rendered consistently."""
+
+
+def _summary_result_contract(
+    res: Mapping[str, Any],
+) -> tuple[list[tuple[str, Any, Any]], Mapping[str, Any], Mapping[str, Any]]:
+    """Validate summary inputs before a formatter can mutate a workbook.
+
+    Aggregate rows are optional, but each in/out pair is atomic.  Per-fund
+    mappings are optional and default to empty mappings so partial runs still
+    produce a labelled workbook/text report rather than an incidental KeyError.
+    """
+
+    aggregate_rows: list[tuple[str, Any, Any]] = []
+    for label, in_key, out_key in (
+        ("Equal Weight", "in_ew_stats", "out_ew_stats"),
+        ("User Weight", "in_user_stats", "out_user_stats"),
+    ):
+        in_stats = res.get(in_key)
+        out_stats = res.get(out_key)
+        if (in_stats is None) != (out_stats is None):
+            raise SummaryResultContractError(
+                f"{in_key} and {out_key} must be supplied together for {label} summary output"
+            )
+        if in_stats is not None:
+            aggregate_rows.append((label, in_stats, out_stats))
+
+    def optional_mapping(key: str) -> Mapping[str, Any]:
+        value = res.get(key)
+        if value is None:
+            return {}
+        if not isinstance(value, Mapping):
+            raise SummaryResultContractError(f"{key} must be a mapping when supplied")
+        return value
+
+    return aggregate_rows, optional_mapping("in_sample_stats"), optional_mapping("out_sample_stats")
+
+
 def _normalise_color(value: Any) -> str | None:
     """Return an ARGB hex colour string understood by openpyxl."""
 
@@ -443,6 +482,8 @@ def _build_summary_formatter(
 ) -> Callable[[Any, Any], None]:
     """Return a formatter function for a summary sheet."""
 
+    aggregate_rows, in_sample_stats, out_sample_stats = _summary_result_contract(res)
+
     def fmt_summary(ws: Any, wb: Any) -> None:
         bold = wb.add_format({"bold": True})
         num2 = wb.add_format({"num_format": "0.00"})
@@ -545,10 +586,7 @@ def _build_summary_formatter(
             return (total, int(s.shape[0]))
 
         row = header_row + 1
-        for label, ins, outs in [
-            ("Equal Weight", res["in_ew_stats"], res["out_ew_stats"]),
-            ("User Weight", res["in_user_stats"], res["out_user_stats"]),
-        ]:
+        for label, ins, outs in aggregate_rows:
             ws.write(row, 0, label, bold)
             ws.write(row, 1, safe(""))
             weights = None
@@ -577,8 +615,8 @@ def _build_summary_formatter(
         # Start fund rows immediately after the aggregate rows (no spacer),
         # so the first fund appears on row 8 (1-based indexing).
         fund_weights = cast(Mapping[str, float], res.get("fund_weights", {}))
-        for fund, stat_in in res["in_sample_stats"].items():
-            stat_out = res.get("out_sample_stats", {}).get(fund)
+        for fund, stat_in in in_sample_stats.items():
+            stat_out = out_sample_stats.get(fund)
             if stat_out is None:
                 continue
             ws.write(row, 0, fund, bold)
@@ -736,6 +774,8 @@ def format_summary_text(
 ) -> str:
     """Return a plain-text summary table similar to the Excel output."""
 
+    aggregate_rows, in_sample_stats, out_sample_stats = _summary_result_contract(res)
+
     def safe(val: float | int | str | None) -> str:
         if val is None:
             return ""
@@ -810,17 +850,7 @@ def format_summary_text(
 
     rows: list[list[str | float | None]] = []
 
-    base_rows: list[tuple[str, Any, Any]] = []
-    in_ew = res.get("in_ew_stats")
-    out_ew = res.get("out_ew_stats")
-    if in_ew is not None and out_ew is not None:
-        base_rows.append(("Equal Weight", in_ew, out_ew))
-    in_user = res.get("in_user_stats")
-    out_user = res.get("out_user_stats")
-    if in_user is not None and out_user is not None:
-        base_rows.append(("User Weight", in_user, out_user))
-
-    for label, ins, outs in base_rows:
+    for label, ins, outs in aggregate_rows:
         weights = None
         if label == "User Weight":
             weights = cast(Mapping[str, float], res.get("fund_weights", {}))
@@ -842,8 +872,6 @@ def format_summary_text(
 
     rows.append([None] * len(columns))
 
-    in_sample_stats = res.get("in_sample_stats", {})
-    out_sample_stats = res.get("out_sample_stats", {})
     fund_weights = res.get("fund_weights", {})
     for fund, stat_in in in_sample_stats.items():
         stat_out = out_sample_stats.get(fund)
@@ -1951,6 +1979,7 @@ __all__ = [
     "make_summary_formatter",
     "make_period_formatter",
     "format_summary_text",
+    "SummaryResultContractError",
     "narrative_frame_from_result",
     "append_narrative_section",
     "export_to_excel",

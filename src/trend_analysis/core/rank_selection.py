@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 
 from .. import metrics as _metrics
+from ..util.json_compat import JSON_UNSUPPORTED, json_primitive
 
 if TYPE_CHECKING:  # pragma: no cover - type checking only
     from ..perf.cache import CovCache, CovPayload
@@ -69,12 +70,13 @@ class RankSelectionDiagnostics:
 def _json_default(value: Any) -> Any:
     """Helper for JSON serialisation of stats configuration objects."""
 
-    if isinstance(value, (set, tuple)):
-        return list(value)
-    if isinstance(value, np.ndarray):
-        return value.tolist()
-    if isinstance(value, (np.floating, np.integer)):
-        return float(value)
+    primitive = json_primitive(value)
+    if primitive is not JSON_UNSUPPORTED:
+        return (
+            float(primitive)
+            if isinstance(value, np.generic) and primitive is not None
+            else primitive
+        )
     raise TypeError(f"Object of type {type(value)!r} is not JSON serialisable")
 
 
