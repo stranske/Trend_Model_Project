@@ -86,6 +86,7 @@ class RollingCache:
     def __init__(self, cache_dir: Path | None = None) -> None:
         self.cache_dir = (cache_dir or _DEFAULT_CACHE_DIR).expanduser()
         self._enabled = True
+        self._storage_status = "primary"
         self.cache_dir = self._ensure_cache_dir(self.cache_dir)
 
     def _ensure_cache_dir(self, cache_dir: Path) -> Path:
@@ -96,9 +97,11 @@ class RollingCache:
             fallback = (Path(tempfile.gettempdir()) / "trend_model" / "rolling").resolve()
             try:
                 fallback.mkdir(parents=True, exist_ok=True)
+                self._storage_status = "temporary"
                 return fallback
             except (OSError, PermissionError):
                 self._enabled = False
+                self._storage_status = "disabled"
                 return cache_dir
 
     def set_enabled(self, enabled: bool) -> None:
@@ -106,6 +109,12 @@ class RollingCache:
 
     def is_enabled(self) -> bool:
         return self._enabled
+
+    @property
+    def storage_status(self) -> str:
+        """Return a path-safe description of the cache's operating mode."""
+
+        return self._storage_status
 
     def _build_path(self, dataset_hash: str, window: int, freq: str, method: str) -> Path:
         safe_method = _normalise_component(method)
@@ -135,6 +144,7 @@ class RollingCache:
                 window=window,
                 freq=freq,
                 hash=dataset_hash[:12],
+                storage=self._storage_status,
             )
             return result
 
@@ -151,6 +161,7 @@ class RollingCache:
                         window=window,
                         freq=freq,
                         hash=dataset_hash[:12],
+                        storage=self._storage_status,
                     )
                     return cached
             except Exception:  # pragma: no cover - cache corruption fallback
@@ -168,6 +179,7 @@ class RollingCache:
             window=window,
             freq=freq,
             hash=dataset_hash[:12],
+            storage=self._storage_status,
         )
         return result
 

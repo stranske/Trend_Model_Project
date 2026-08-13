@@ -316,6 +316,44 @@ class TestRobustRiskParity:
         assert (weights >= 0).all()
         assert len(weights) == 3
 
+    def test_nonpositive_diagonal_reports_loading(self):
+        cov = pd.DataFrame(
+            [[0.04, 0.002, 0.0], [0.002, 0.09, 0.0], [0.0, 0.0, 0.0]],
+            index=["a", "b", "c"],
+            columns=["a", "b", "c"],
+        )
+        engine = create_weight_engine("robust_risk_parity", condition_threshold=float("inf"))
+
+        engine.weight(cov)
+
+        assert engine.diagnostics["used_diagonal_loading"] is True
+        assert engine.diagnostics["diagonal_loading_reasons"] == ["non_positive_diagonal"]
+
+    def test_condition_threshold_reports_loading(self):
+        cov = create_ill_conditioned_cov()
+        engine = create_weight_engine("robust_risk_parity", condition_threshold=1.0)
+
+        engine.weight(cov)
+
+        assert engine.diagnostics["used_diagonal_loading"] is True
+        assert "condition_threshold_exceeded" in engine.diagnostics["diagonal_loading_reasons"]
+
+    def test_zero_variance_fallback_publishes_loading_diagnostics(self):
+        cov = pd.DataFrame(
+            [[0.0, 0.0], [0.0, 0.0]],
+            index=["a", "b"],
+            columns=["a", "b"],
+        )
+        engine = create_weight_engine("robust_risk_parity")
+
+        weights = engine.weight(cov)
+
+        assert weights.tolist() == [0.5, 0.5]
+        assert engine.diagnostics["fallback_used"] is True
+        assert engine.diagnostics["fallback_reason"] == "zero_variance"
+        assert engine.diagnostics["used_diagonal_loading"] is True
+        assert "non_positive_diagonal" in engine.diagnostics["diagonal_loading_reasons"]
+
     def test_empty_matrix(self):
         """Test handling of empty covariance matrix."""
         cov = pd.DataFrame()
