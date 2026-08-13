@@ -461,6 +461,19 @@ def build_config_from_store(store: ParamStore) -> ConfigType:
     return Config(**cfg)
 
 
+def _clear_grid_error_border(grid: Any) -> None:
+    """Clear a transient edit error without assuming a notebook event loop exists."""
+
+    def clear_border() -> None:
+        grid.layout.border = ""
+
+    try:
+        asyncio.get_running_loop().call_later(1.0, clear_border)
+    except RuntimeError:
+        # Widget construction and tests can run outside an active asyncio loop.
+        clear_border()
+
+
 def _build_step0(store: ParamStore) -> widgets.Widget:
     """Return widgets for Step 0 (config loader/editor)."""
 
@@ -491,7 +504,7 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
             except Exception:
                 grid_df.iloc[event["row"], 1] = old
                 grid.layout.border = "2px solid red"
-                asyncio.get_event_loop().call_later(1.0, lambda: setattr(grid.layout, "border", ""))
+                _clear_grid_error_border(grid)
 
         try:
             grid.on("cell_edited", on_cell_change)

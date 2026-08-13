@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -52,8 +53,19 @@ def list_sample_datasets() -> list[SampleDataset]:
 def _hash_dataframe(df: pd.DataFrame) -> str:
     """Return a stable hash for a dataframe used as a cache key."""
 
-    payload = df.to_json(date_format="iso", date_unit="ns", orient="split")
-    return json.dumps({"data": payload})
+    payload = json.dumps(
+        {
+            "columns": [repr(column) for column in df.columns],
+            "dtypes": [str(dtype) for dtype in df.dtypes],
+            "index_dtype": str(df.index.dtype),
+            "index_type": type(df.index).__qualname__,
+            "data": df.to_json(date_format="iso", date_unit="ns", orient="split"),
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 @st.cache_data(show_spinner="Loading dataset…")

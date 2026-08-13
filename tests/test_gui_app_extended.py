@@ -156,6 +156,17 @@ def test_build_step0_upload_refresh(monkeypatch, tmp_path):
     assert grid.data == [store.cfg]
 
 
+def test_grid_error_border_clears_without_running_loop(monkeypatch):
+    grid = SimpleNamespace(layout=SimpleNamespace(border="2px solid red"))
+    monkeypatch.setattr(
+        app.asyncio, "get_running_loop", lambda: (_ for _ in ()).throw(RuntimeError())
+    )
+
+    app._clear_grid_error_border(grid)
+
+    assert grid.layout.border == ""
+
+
 def test_manual_override_grid_updates_state(monkeypatch):
     created_instances.clear()
     store = ParamStore(
