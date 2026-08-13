@@ -202,19 +202,39 @@ def test_run_analysis_propagates_window_cadence_to_portfolios_and_benchmark() ->
     )
 
     monthly = pipeline.run_analysis(
-        frame, "2020-01", "2020-04", "2020-05", "2020-08", None, 0.0,
-        periods_per_year=12, **common,
+        frame,
+        "2020-01",
+        "2020-04",
+        "2020-05",
+        "2020-08",
+        None,
+        0.0,
+        periods_per_year=12,
+        **common,
     ).unwrap()
     weekly = pipeline.run_analysis(
-        frame, "2020-01", "2020-04", "2020-05", "2020-08", None, 0.0,
-        periods_per_year=52, **common,
+        frame,
+        "2020-01",
+        "2020-04",
+        "2020-05",
+        "2020-08",
+        None,
+        0.0,
+        periods_per_year=52,
+        **common,
     ).unwrap()
 
     assert weekly["out_sample_stats"]["A"].vol > monthly["out_sample_stats"]["A"].vol
     assert weekly["out_sample_stats"]["A"].sortino > monthly["out_sample_stats"]["A"].sortino
-    assert weekly["out_sample_stats"]["A"].information_ratio > monthly["out_sample_stats"]["A"].information_ratio
+    assert (
+        weekly["out_sample_stats"]["A"].information_ratio
+        > monthly["out_sample_stats"]["A"].information_ratio
+    )
     assert weekly["out_sample_stats"]["A"].sharpe > monthly["out_sample_stats"]["A"].sharpe
     assert weekly["out_ew_stats"].vol > monthly["out_ew_stats"].vol
     assert weekly["out_user_stats"].vol > monthly["out_user_stats"].vol
-    assert weekly["benchmark_stats"]["bench"]["out_sample"].vol > monthly["benchmark_stats"]["bench"]["out_sample"].vol
+    assert (
+        weekly["benchmark_stats"]["bench"]["out_sample"].vol
+        > monthly["benchmark_stats"]["bench"]["out_sample"].vol
+    )
     assert weekly["benchmark_ir"]["bench"]["A"] > monthly["benchmark_ir"]["bench"]["A"]
