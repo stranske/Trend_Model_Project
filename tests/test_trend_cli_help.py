@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 import pytest
 
@@ -58,3 +59,12 @@ def test_trend_cli_core_help(
     assert exc.value.code == 0
     assert "usage:" in captured.out
     assert f"trend {command}" in captured.out
+
+
+def test_cli_quickstart_documents_each_command_on_its_implemented_surface() -> None:
+    quickstart = Path("docs/CLI.md").read_text(encoding="utf-8")
+
+    assert "trend report -c config/trend.toml" in quickstart
+    assert "trend run -c config/trend.toml -o" not in quickstart
+    assert "python -m trend_analysis.cli mc list" in quickstart
+    assert "trend mc list" not in quickstart
