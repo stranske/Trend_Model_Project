@@ -91,6 +91,7 @@ from trend_analysis.signal_presets import (
 )
 from trend_analysis.universe_catalog import load_universe
 from trend_analysis.util.hash import working_run_id
+from trend_analysis.util.json_compat import JSON_UNSUPPORTED, json_compatible, json_primitive
 from trend_analysis.viz.artifacts import extract_bundle_zip
 from trend_model.spec import ensure_run_spec
 from utils.paths import proj_path
@@ -1017,15 +1018,21 @@ def _json_default(obj: Any) -> Any:  # pragma: no cover - helper
                 coerced_key = key
             else:
                 coerced_key = str(key)
-            if isinstance(value, (np.floating, np.integer)):
-                data[coerced_key] = float(value)
-            else:
-                data[coerced_key] = value
+            data[coerced_key] = json_compatible(value)
         return data
     if isinstance(obj, pd.DataFrame):
-        return obj.to_dict()
-    if isinstance(obj, Path):
-        return str(obj)
+        result: dict[str | int | float, Any] = {}
+        for col in obj.columns:
+            coerced_col: str | int | float
+            if isinstance(col, (str, int, float)):
+                coerced_col = col
+            else:
+                coerced_col = str(col)
+            result[coerced_col] = _json_default(obj[col])
+        return result
+    primitive = json_primitive(obj)
+    if primitive is not JSON_UNSUPPORTED:
+        return primitive
     raise TypeError(f"Object of type {type(obj).__name__} is not JSON serialisable")
 
 
