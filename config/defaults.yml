@@ -135,15 +135,15 @@ regime:
   method: "rolling_return"
   lookback: 126
   smoothing: 3
-  threshold: 0.0               # per-period volatility boundary; scaled with the signal
-  neutral_band: 0.001          # per-period buffer; scaled with the signal
+  threshold: 0.0               # rolling-return boundary in compounded-signal units
+  neutral_band: 0.001          # rolling-return neutral buffer in compounded-signal units
   min_observations: 4
   risk_on_label: "Risk-On"
   risk_off_label: "Risk-Off"
   risk_off_target_vol_multiplier: 0.5
   risk_off_fund_count_multiplier: 0.5
   cache: true
-  annualise_volatility: true   # scales signal, threshold, and band together for volatility
+  annualise_volatility: true   # only for method: volatility; rescales signal and boundaries together
 
 # ----------------------------------------------------------------------
 # 7. PERFORMANCE METRICS
