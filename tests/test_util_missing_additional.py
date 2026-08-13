@@ -161,3 +161,18 @@ def test_apply_missing_policy_guard_for_unhandled_policy(
 
     with pytest.raises(AssertionError, match="Unhandled policy"):
         missing.apply_missing_policy(sample_frame, "drop")
+
+
+def test_wildcard_policy_is_shared_by_market_data_validation() -> None:
+    from trend_analysis.io.market_data import validate_market_data
+
+    frame = pd.DataFrame(
+        {
+            "Date": ["2024-01-31", "2024-02-29", "2024-03-31"],
+            "A": [0.01, None, 0.03],
+        }
+    )
+
+    validated = validate_market_data(frame, missing_policy={"*": "zero"})
+
+    assert validated.frame.loc[pd.Timestamp("2024-02-29"), "A"] == 0.0

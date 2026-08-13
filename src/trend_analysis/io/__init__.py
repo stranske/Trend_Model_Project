@@ -5,13 +5,13 @@ from .market_data import (
     MarketDataMode,
     MarketDataValidationError,
     ValidatedMarketData,
-    apply_missing_policy,
     attach_metadata,
     classify_frequency,
     load_market_data_csv,
     load_market_data_parquet,
     validate_market_data,
 )
+from trend_analysis.util.missing import apply_missing_policy
 from .utils import cleanup_bundle_file, export_bundle
 from .validators import (
     ValidationResult,

@@ -94,8 +94,8 @@ def _resolve_mapping(
 ) -> tuple[str, dict[str, str]]:
     if spec is None or isinstance(spec, str):
         return _coerce_policy(spec or default), {}
-    overrides = {k: _coerce_policy(v) for k, v in spec.items() if k != "default"}
-    default_policy = _coerce_policy(spec.get("default", default))
+    overrides = {k: _coerce_policy(v) for k, v in spec.items() if k not in {"default", "*"}}
+    default_policy = _coerce_policy(spec.get("default", spec.get("*", default)))
     return default_policy, overrides
 
 
@@ -103,8 +103,8 @@ def _resolve_limits(
     limit: int | Mapping[str, int | None] | None,
 ) -> tuple[int | None, dict[str, int | None]]:
     if isinstance(limit, Mapping):
-        resolved = {k: _coerce_limit(v) for k, v in limit.items() if k != "default"}
-        default_limit = _coerce_limit(limit.get("default"))
+        resolved = {k: _coerce_limit(v) for k, v in limit.items() if k not in {"default", "*"}}
+        default_limit = _coerce_limit(limit.get("default", limit.get("*")))
         return default_limit, resolved
     return _coerce_limit(limit), {}
 
