@@ -76,7 +76,9 @@ def test_load_prices_falls_back_to_nan_config(monkeypatch, tmp_path):
     monkeypatch.setattr(loaders, "coerce_to_utc", fake_coerce)
     monkeypatch.setattr(loaders, "validate_prices", fake_validate)
 
-    cfg = DummyConfig(data={"csv_path": str(csv_path), "missing_policy": "bfill", "missing_limit": 2})
+    cfg = DummyConfig(
+        data={"csv_path": str(csv_path), "missing_policy": "bfill", "missing_limit": 2}
+    )
 
     frame = loaders.load_prices(cfg)
 
