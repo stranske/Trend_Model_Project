@@ -67,7 +67,9 @@ def test_removed_compat_entrypoints_are_not_installed(installed_bin: Path) -> No
     assert "usage: trend" in result.stdout.lower()
 
 
-def test_installed_monte_carlo_list_uses_packaged_registry(installed_bin: Path, tmp_path: Path) -> None:
+def test_installed_monte_carlo_list_uses_packaged_registry(
+    installed_bin: Path, tmp_path: Path
+) -> None:
     """The installed CLI must list its shipped scenarios outside the checkout."""
     env = {**os.environ, "PATH": f"{installed_bin}:{os.environ.get('PATH', '')}"}
     env.pop("PYTHONPATH", None)
