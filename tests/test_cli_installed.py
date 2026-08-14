@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import subprocess
-import sys
 import venv
+from pathlib import Path
 
 import pytest
-
 
 REMOVED_COMMANDS = (
     "trend-analysis",
