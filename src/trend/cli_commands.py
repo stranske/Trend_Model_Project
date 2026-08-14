@@ -41,7 +41,7 @@ def run_app_command(
             file=sys.stderr,
         )
         return 127
-    return proc.returncode
+    return int(proc.returncode)
 
 
 def run_analysis_command(
@@ -65,7 +65,7 @@ def run_analysis_command(
     find_existing_run: Callable[..., Path | None],
     calculate_run_id: Callable[..., str],
     run_pipeline: Callable[..., tuple[Any, str, Path | None]],
-    write_artifacts: Callable[..., None],
+    write_artifacts: Callable[..., Path | None],
     print_summary: Callable[[Any, Any], None],
     finalize_coverage: Callable[[], None],
 ) -> int:
