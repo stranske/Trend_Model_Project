@@ -36,6 +36,14 @@ via `pip install -e .`). The supported entry point is `trend`.
 
 New scenario instructions use the canonical `trend mc` command tree.
 
+## Retired root utility commands
+
+The uninstalled root utility and its `cv` and Markdown-tearsheet commands have
+been removed. They were isolated compatibility surfaces with no active callers.
+Use `trend run` for supported analysis execution and `trend report` or `trend
+quick-report` for supported report artefacts; no replacement command is
+provided for the retired standalone cross-validation utility.
+
 ## Launching the Streamlit UI (`trend app`)
 
 Run the supported command to launch the Streamlit interface:
