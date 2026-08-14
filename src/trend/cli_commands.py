@@ -37,8 +37,7 @@ def run_app_command(
         proc = run_process(["streamlit", "run", str(app_path), *extra_args])
     except FileNotFoundError:
         print(
-            "Error: the 'streamlit' executable was not found. "
-            "Install the optional 'app' extra.",
+            "Error: the 'streamlit' executable was not found. " "Install the optional 'app' extra.",
             file=sys.stderr,
         )
         return 127
@@ -78,9 +77,7 @@ def run_analysis_command(
             spec_preset = get_spec_preset(args.preset)
         except KeyError:
             available = ", ".join(list_spec_presets())
-            raise error(
-                f"Unknown preset '{args.preset}'. Available presets: {available}"
-            )
+            raise error(f"Unknown preset '{args.preset}'. Available presets: {available}")
         apply_spec_preset(cfg, spec_preset)
         try:
             portfolio_preset = get_portfolio_preset(args.preset)
@@ -90,9 +87,7 @@ def run_analysis_command(
         apply_portfolio_preset(cfg, portfolio_preset)
     if getattr(args, "universe", None):
         mask, universe_spec = load_universe(args.universe, prices=returns_df)
-        returns_df = apply_universe_mask(
-            returns_df, mask, date_column=universe_spec.date_column
-        )
+        returns_df = apply_universe_mask(returns_df, mask, date_column=universe_spec.date_column)
         attach_universe_paths(cfg, universe_spec, csv_path=str(returns_path))
     if getattr(args, "skip_if_exists", False):
         candidate_run_id = calculate_run_id(cfg, returns_path)
