@@ -1263,3 +1263,21 @@ def test_trend_cli_has_no_legacy_module_dependency() -> None:
             legacy_references.append("trend_analysis.cli")
 
     assert not legacy_references
+
+
+def test_canonical_mc_commands_have_no_legacy_cli_dependency() -> None:
+    source = (Path(trend_cli.__file__).parent / "mc" / "commands.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    legacy_references = [
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+        if alias.name == "trend_analysis.cli"
+    ]
+    legacy_references.extend(
+        node.module
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module == "trend_analysis.cli"
+    )
+    assert not legacy_references
