@@ -306,7 +306,7 @@ def test_validate_payload_reraises_when_errors_set_to_raise() -> None:
             )
 
 
-def test_load_csv_reads_file_and_applies_legacy_kwargs(
+def test_load_csv_reads_file_and_applies_canonical_missing_data_options(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     csv_path = tmp_path / "market.csv"
@@ -319,8 +319,8 @@ def test_load_csv_reads_file_and_applies_legacy_kwargs(
 
     result = load_csv(
         str(csv_path),
-        nan_policy="zero",
-        nan_limit="7",
+        missing_policy="zero",
+        missing_limit="7",
     )
 
     assert result is not None
@@ -584,7 +584,7 @@ def test_load_parquet_logs_validation_errors_with_unable_hint(
     assert "Unable to parse Date values" in caplog.text
 
 
-def test_load_parquet_applies_legacy_kwargs(
+def test_load_parquet_applies_canonical_missing_data_options(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     parquet_path = tmp_path / "legacy.parquet"
@@ -601,8 +601,8 @@ def test_load_parquet_applies_legacy_kwargs(
 
     result = load_parquet(
         str(parquet_path),
-        nan_policy={"Value": "ffill"},
-        nan_limit={"Value": "4"},
+        missing_policy={"Value": "ffill"},
+        missing_limit={"Value": "4"},
     )
 
     assert result is not None

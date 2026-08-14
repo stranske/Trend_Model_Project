@@ -274,16 +274,12 @@ def _resolve_portfolio_weighting(
 def _get_missing_policy_settings(
     data_settings: Mapping[str, Any] | None,
 ) -> tuple[Any, Any]:
-    """Return missing-data policy/limit configs with legacy fallbacks."""
+    """Return the canonical missing-data policy and limit settings."""
 
     if not data_settings:
         return None, None
     missing_policy_cfg = data_settings.get("missing_policy")
-    if missing_policy_cfg is None:
-        missing_policy_cfg = data_settings.get("nan_policy")
     missing_limit_cfg = data_settings.get("missing_limit")
-    if missing_limit_cfg is None:
-        missing_limit_cfg = data_settings.get("nan_limit")
     return missing_policy_cfg, missing_limit_cfg
 
 

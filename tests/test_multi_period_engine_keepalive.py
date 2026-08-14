@@ -129,10 +129,10 @@ def test_run_schedule_handles_missing_rank_column(
     assert not weighting.update_calls
 
 
-def test_run_uses_nan_policy_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_uses_canonical_missing_policy(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = BasicConfig()
     cfg.performance = {"enable_cache": False}
-    cfg.data.update({"nan_policy": "bfill", "nan_limit": 7})
+    cfg.data.update({"missing_policy": "bfill", "missing_limit": 7})
 
     captured: dict[str, Any] = {}
 

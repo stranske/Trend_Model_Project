@@ -161,9 +161,9 @@ def test_run_combines_price_frames(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def test_run_uses_nan_policy_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_uses_canonical_missing_policy(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = DummyCfg()
-    cfg.data = {"csv_path": "demo.csv", "nan_policy": "drop", "nan_limit": 3}
+    cfg.data = {"csv_path": "demo.csv", "missing_policy": "drop", "missing_limit": 3}
     cfg.performance = {"enable_cache": False}
 
     period = SimpleNamespace(
@@ -350,7 +350,7 @@ def test_run_incremental_covariance(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_run_missing_policy_removal_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = DummyCfg()
-    cfg.data = {"csv_path": "demo.csv", "nan_policy": "drop", "nan_limit": 2}
+    cfg.data = {"csv_path": "demo.csv", "missing_policy": "drop", "missing_limit": 2}
     cfg.performance = {}
 
     loaded = pd.DataFrame(

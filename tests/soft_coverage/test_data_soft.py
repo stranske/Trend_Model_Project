@@ -310,8 +310,8 @@ def test_load_csv_success(
 
     result = load_csv(
         str(csv_path),
-        nan_policy="Both",
-        nan_limit="4",
+        missing_policy="Both",
+        missing_limit="4",
     )
 
     assert isinstance(result, pd.DataFrame)
@@ -396,8 +396,8 @@ def test_load_parquet_success(
     result = load_parquet(
         str(parquet_path),
         include_date_column=False,
-        nan_policy="Backfill",
-        nan_limit="5",
+        missing_policy="Backfill",
+        missing_limit="5",
     )
     expected_index = frame.set_index("Date").tz_localize("UTC").index
     assert result.index.equals(expected_index)

@@ -38,7 +38,7 @@ def _stats_payload() -> dict[str, pipeline._Stats]:  # type: ignore[attr-defined
     }
 
 
-def test_run_uses_nan_policy_fallbacks(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_uses_canonical_missing_policy(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: dict[str, object] = {}
 
     def fake_load_csv(path: str, *, errors: str, missing_policy, missing_limit):
@@ -64,8 +64,8 @@ def test_run_uses_nan_policy_fallbacks(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = {
         "data": {
             "csv_path": "dummy.csv",
-            "nan_policy": {"default": "zero"},
-            "nan_limit": {"default": 2},
+            "missing_policy": {"default": "zero"},
+            "missing_limit": {"default": 2},
             "risk_free_column": "RF",
             "allow_risk_free_fallback": True,
         },
@@ -115,8 +115,8 @@ def test_run_full_uses_nan_fallbacks(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = {
         "data": {
             "csv_path": "dummy.csv",
-            "nan_policy": {"default": "ffill"},
-            "nan_limit": {"default": 1},
+            "missing_policy": {"default": "ffill"},
+            "missing_limit": {"default": 1},
             "risk_free_column": "RF",
             "allow_risk_free_fallback": True,
         },
