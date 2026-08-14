@@ -10,7 +10,6 @@ from pathlib import Path
 
 import pytest
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ARCHIVE_ROOTS = (
     REPO_ROOT / "archives",
@@ -111,9 +110,7 @@ def test_tests_do_not_import_retired_runtime_modules() -> None:
         (("mc", "viz", "--help"), "usage: trend mc viz"),
     ],
 )
-def test_supported_cli_surface_smoke(
-    arguments: tuple[str, ...], expected_output: str
-) -> None:
+def test_supported_cli_surface_smoke(arguments: tuple[str, ...], expected_output: str) -> None:
     """The final command-tree smoke covers every supported public CLI surface."""
 
     result = subprocess.run(

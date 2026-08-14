@@ -8,7 +8,6 @@ import sys
 import zipfile
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 REMOVED_WHEEL_PREFIXES = (
     "trend/compat_entrypoints.py",
