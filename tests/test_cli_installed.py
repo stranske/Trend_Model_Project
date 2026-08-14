@@ -26,6 +26,13 @@ def installed_bin(tmp_path: Path) -> Path:
     venv.EnvBuilder(with_pip=True, system_site_packages=True).create(environment)
     python = environment / "bin" / "python"
     project_root = Path(__file__).resolve().parents[1]
+    # Match pyproject.toml build-system pins; CI venvs may not expose setuptools.
+    subprocess.run(
+        [python, "-m", "pip", "install", "setuptools==83.0.0", "wheel==0.47.0"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     subprocess.run(
         [
             python,
