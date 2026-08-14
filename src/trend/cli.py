@@ -40,6 +40,7 @@ from trend.config_schema import CoreConfigError, load_core_config
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 from trend.reporting import generate_unified_report
 from trend.reporting.quick_summary import main as quick_summary_main
+from trend.spec import ensure_run_spec
 from trend_analysis import export
 from trend_analysis import logging as run_logging
 from trend_analysis.api import RunResult, run_simulation
@@ -109,7 +110,6 @@ from trend_analysis.util.json_compat import (
     json_primitive,
 )
 from trend_analysis.viz.artifacts import extract_bundle_zip
-from trend.spec import ensure_run_spec
 from utils.paths import proj_path
 
 

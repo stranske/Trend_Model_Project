@@ -667,22 +667,6 @@ def test_main_legacy_path_builds_bundle_shim(monkeypatch, tmp_path, capsys):
     assert bundle_targets == [tmp_path / "legacy_bundle.zip"]
 
 
-def test_load_market_data_csv_applies_defaults(monkeypatch):
-    recorded: dict[str, object] = {}
-
-    def fake_load_csv(path: str, **kwargs: object):
-        recorded.update(kwargs)
-        return "loaded"
-
-    monkeypatch.setattr(cli, "load_csv", fake_load_csv)
-
-    result = cli.load_market_data_csv("data.csv")
-
-    assert result == "loaded"
-    assert recorded["errors"] == "raise"
-    assert recorded["include_date_column"] is True
-
-
 def test_apply_trend_spec_preset_handles_mapping_and_frozen(monkeypatch):
     preset_payload = {"window": 5, "lag": 2}
 

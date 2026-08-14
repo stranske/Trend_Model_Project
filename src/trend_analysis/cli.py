@@ -37,7 +37,6 @@ from .config.coverage import (
 from .config.schema_validation import load_config as load_config_yaml
 from .config.ui_mapping import build_config_from_ui_state
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
-from .data import load_csv
 from .diagnostics import coerce_pipeline_result
 from .identity import IdentityMap
 from .io.market_data import (
@@ -74,25 +73,6 @@ from .util.hash import working_run_id
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
 LOCK_PATH = Path(__file__).resolve().parents[2] / "requirements.lock"
-
-
-def load_market_data_csv(
-    path: str,
-    *,
-    errors: str | None = None,
-    include_date_column: bool | None = None,
-    **kwargs: Any,
-) -> pd.DataFrame | None:
-    """Backward-compatible shim retaining the legacy symbol for tests and
-    CLI."""
-
-    effective_kwargs = dict(kwargs)
-    effective_kwargs.setdefault("errors", errors if errors is not None else "raise")
-    effective_kwargs.setdefault(
-        "include_date_column",
-        include_date_column if include_date_column is not None else True,
-    )
-    return load_csv(path, **effective_kwargs)
 
 
 def _maybe_validate_config(

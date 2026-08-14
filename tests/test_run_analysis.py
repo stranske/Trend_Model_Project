@@ -9,7 +9,7 @@ from trend_analysis.metrics import (
     sharpe_ratio,
     sortino_ratio,
 )
-from trend_analysis.pipeline import Stats, calc_portfolio_returns, run_analysis
+from trend_analysis.pipeline import _Stats, calc_portfolio_returns, run_analysis
 
 
 def make_df():
@@ -70,7 +70,7 @@ def test_run_analysis_basic():
     assert res is not None
     assert set(res["selected_funds"]) == {"A", "B"}
     assert "in_sample_stats" in res
-    assert isinstance(res["in_ew_stats"], Stats)
+    assert isinstance(res["in_ew_stats"], _Stats)
 
 
 def test_run_analysis_random_selection():

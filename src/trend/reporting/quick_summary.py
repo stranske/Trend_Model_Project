@@ -189,10 +189,9 @@ def render_parameter_grid_heatmap(
 
 
 def _load_metrics(path: Path, run_id: str) -> pd.DataFrame:
-    candidate_files = [path / f"metrics_{run_id}.csv", path / "metrics.csv"]
-    for candidate in candidate_files:
-        if candidate.exists():
-            return pd.read_csv(candidate, index_col=0)
+    candidate = path / f"metrics_{run_id}.csv"
+    if candidate.exists():
+        return pd.read_csv(candidate, index_col=0)
     raise FileNotFoundError(f"Metrics file not found for run '{run_id}' in {path}")
 
 
@@ -200,9 +199,6 @@ def _load_summary(path: Path, run_id: str) -> str | None:
     summary_file = path / f"summary_{run_id}.txt"
     if summary_file.exists():
         return summary_file.read_text(encoding="utf-8")
-    legacy_file = path / "summary.txt"
-    if legacy_file.exists():
-        return legacy_file.read_text(encoding="utf-8")
     return None
 
 
@@ -210,10 +206,6 @@ def _load_details(path: Path, run_id: str) -> Mapping[str, Any]:
     detail_file = path / f"details_{run_id}.json"
     if detail_file.exists():
         with detail_file.open("r", encoding="utf-8") as fh:
-            return cast(Mapping[str, Any], json.load(fh))
-    legacy = path / "details.json"
-    if legacy.exists():
-        with legacy.open("r", encoding="utf-8") as fh:
             return cast(Mapping[str, Any], json.load(fh))
     raise FileNotFoundError(f"Details file not found for run '{run_id}' in {path}")
 
@@ -322,9 +314,6 @@ def _infer_run_id(artifacts_dir: Path) -> str:
         name = metrics_files[0].stem
         if name.startswith("metrics_"):
             return name.split("metrics_")[1]
-    legacy = artifacts_dir / "metrics.csv"
-    if legacy.exists():
-        return artifacts_dir.name
     raise ValueError(f"Unable to infer run identifier from artefacts in {artifacts_dir}")
 
 

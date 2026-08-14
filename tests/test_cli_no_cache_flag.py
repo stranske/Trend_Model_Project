@@ -32,7 +32,15 @@ def test_cli_respects_no_cache_flag(monkeypatch, tmp_path):
     )
 
     monkeypatch.setattr(cli, "load_config", lambda path: cfg)
-    monkeypatch.setattr(cli, "load_csv", lambda path, **_: df.copy())
+    monkeypatch.setattr(
+        cli,
+        "load_ui_dataset",
+        lambda path, **_: (
+            df.set_index("Date"),
+            SimpleNamespace(),
+            SimpleNamespace(corrected_dates=0, dropped_rows=0),
+        ),
+    )
 
     toggles: list[bool] = []
     monkeypatch.setattr(cli, "set_cache_enabled", lambda enabled: toggles.append(enabled))

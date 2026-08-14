@@ -3,7 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from trend import cli
+from trend.reporting import quick_summary
 
 
 def _write_artifacts(base_dir: Path, run_id: str) -> Path:
@@ -58,3 +61,48 @@ def test_trend_quick_report_subcommand_creates_report(tmp_path: Path) -> None:
     html = html_path.read_text(encoding="utf-8")
     assert "sample: config" in html
     assert "Quick summary text" in html
+
+
+def test_quick_report_ignores_removed_legacy_filenames(tmp_path: Path) -> None:
+    base_dir = tmp_path / "perf"
+    run_id = "canonical"
+    artifacts = _write_artifacts(base_dir, run_id)
+    (artifacts / f"summary_{run_id}.txt").unlink()
+    (artifacts / "summary.txt").write_text("legacy summary must be ignored", encoding="utf-8")
+    (artifacts / "metrics.csv").write_text("index,Sharpe\nLegacy,99.0\n", encoding="utf-8")
+    (artifacts / "details.json").write_text("not canonical JSON", encoding="utf-8")
+
+    exit_code = cli.main(
+        [
+            "quick-report",
+            "--run-id",
+            run_id,
+            "--artifacts",
+            str(artifacts),
+            "--base-dir",
+            str(base_dir),
+        ]
+    )
+
+    assert exit_code == 0
+    html = (base_dir / "reports" / f"{run_id}.html").read_text(encoding="utf-8")
+    assert "legacy summary must be ignored" not in html
+
+
+def test_quick_report_run_id_inference_uses_only_canonical_metrics(tmp_path: Path) -> None:
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    (artifacts / "metrics_canonical.csv").write_text(
+        "index,Sharpe\nFundA,0.5\n",
+        encoding="utf-8",
+    )
+    (artifacts / "metrics.csv").write_text(
+        "index,Sharpe\nLegacy,99.0\n",
+        encoding="utf-8",
+    )
+
+    assert quick_summary._infer_run_id(artifacts) == "canonical"
+
+    (artifacts / "metrics_canonical.csv").unlink()
+    with pytest.raises(ValueError, match="Unable to infer run identifier"):
+        quick_summary._infer_run_id(artifacts)

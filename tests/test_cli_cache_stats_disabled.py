@@ -40,7 +40,15 @@ def test_cli_suppresses_cache_stats_when_absent(monkeypatch, capsys, tmp_path):
 
     # Monkeypatch loaders
     monkeypatch.setattr(cli, "load_config", lambda path: cfg)
-    monkeypatch.setattr(cli, "load_csv", lambda path, **_: df.copy())
+    monkeypatch.setattr(
+        cli,
+        "load_ui_dataset",
+        lambda path, **_: (
+            df.set_index("Date"),
+            SimpleNamespace(),
+            SimpleNamespace(corrected_dates=0, dropped_rows=0),
+        ),
+    )
 
     # Fake structured logging to capture events
     log_calls = []

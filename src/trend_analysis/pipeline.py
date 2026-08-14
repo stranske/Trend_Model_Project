@@ -404,14 +404,10 @@ def position_from_signal(
     )
 
 
-# Export alias for backward compatibility
-Stats = _Stats
-
 __all__ = [
     "FrequencySummary",
     "MissingPolicyResult",
     "PipelineReasonCode",
-    "Stats",  # noqa: F822
     "_Stats",  # Direct export for type checking
     "_WindowStage",
     "_assemble_analysis_output",
@@ -445,12 +441,3 @@ __all__ = [
     "run_full",
     "single_period_run",
 ]
-
-
-def __getattr__(name: str) -> object:
-    if name == "Stats":
-        return _Stats
-    raise AttributeError(name)
-
-
-del Stats

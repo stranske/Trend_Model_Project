@@ -25,25 +25,6 @@ class FrozenConfig:
         raise ValueError("frozen config")
 
 
-def test_load_market_data_csv_defaults(monkeypatch):
-    captured = {}
-
-    def fake_load(path: str, **kwargs):
-        captured["path"] = path
-        captured["kwargs"] = kwargs
-        return "loaded"
-
-    monkeypatch.setattr(cli, "load_csv", fake_load)
-
-    result = cli.load_market_data_csv("/tmp/data.csv")
-
-    assert result == "loaded"
-    assert captured == {
-        "path": "/tmp/data.csv",
-        "kwargs": {"errors": "raise", "include_date_column": True},
-    }
-
-
 def test_apply_trend_spec_preset_handles_dict_and_frozen_object():
     preset = DummyPreset("demo", {"window": 10, "lag": 2})
     cfg_dict = {"signals": {"existing": 3}}

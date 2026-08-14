@@ -1,4 +1,9 @@
-"""Compatibility helpers for legacy validator entry points."""
+"""Internal validation adapters retained for isolated regression coverage.
+
+New IO call sites use :mod:`trend_analysis.io.market_data` or
+:mod:`trend_analysis.io.ui_ingest`; this module is intentionally not exported
+from the public ``trend_analysis.io`` surface.
+"""
 
 from __future__ import annotations
 

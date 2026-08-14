@@ -487,10 +487,12 @@ def _check_misc(
     if len(scores) != 2:
         raise SystemExit("_compute_metric_series failed")
 
-    # verify pipeline alias handling
-    stats_cls = getattr(pipeline, "Stats")
-    if stats_cls is not pipeline._Stats:
-        raise SystemExit("pipeline.Stats alias failed")
+    # The public ``Stats`` compatibility alias was intentionally retired.
+    # Keep the demo's internal structural assertion on the canonical class.
+    from trend_analysis.stages.portfolio import _Stats as CanonicalStats
+
+    if pipeline._Stats is not CanonicalStats:
+        raise SystemExit("pipeline._Stats is not the canonical class")
 
 
 def _check_config_dump(cfg: Config) -> None:
