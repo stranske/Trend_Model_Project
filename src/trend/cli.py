@@ -782,6 +782,30 @@ def _write_trend_run_artifacts(
     return manifest_dir
 
 
+def _bundle_config_payload(cfg: Any) -> dict[str, Any]:
+    """Return JSON-serializable config metadata for reproducibility bundles."""
+
+    from trend_analysis.util.hash import normalise_for_json
+
+    if hasattr(cfg, "model_dump"):
+        try:
+            payload: Any = cfg.model_dump()
+        except TypeError:  # pragma: no cover - defensive for exotic configs
+            payload = dict(getattr(cfg, "__dict__", {}))
+    elif hasattr(cfg, "__dict__"):
+        payload = dict(getattr(cfg, "__dict__"))
+    else:
+        payload = cfg if isinstance(cfg, dict) else {}
+    if isinstance(payload, dict):
+        payload = {
+            key: value
+            for key, value in payload.items()
+            if key not in {"_trend_run_spec", "trend_spec", "backtest_spec"}
+        }
+    normalised = normalise_for_json(payload)
+    return normalised if isinstance(normalised, dict) else {"config": normalised}
+
+
 def _write_bundle(
     cfg: Any,
     result: RunResult,
@@ -797,7 +821,7 @@ def _write_bundle(
         bundle_path = bundle_path / "analysis_bundle.zip"
     bundle_path.parent.mkdir(parents=True, exist_ok=True)
     # Attach metadata expected by export_bundle
-    setattr(result, "config", getattr(cfg, "__dict__", {}))
+    setattr(result, "config", _bundle_config_payload(cfg))
     if source_path is not None:
         setattr(result, "input_path", source_path)
     export_bundle(result, bundle_path)
