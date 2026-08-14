@@ -117,6 +117,41 @@ jobs:
           python scripts/validate_llm_deps.py
           pytest -q tests/test_llm_dependency_compatibility.py
 
+  legacy-surface:
+    name: Legacy Surface Contract
+    needs: detect
+    if: >-
+      ${{
+        needs.detect.outputs.is_python_code == 'true' ||
+        needs.detect.outputs.is_docs_only == 'true'
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,app]"
+
+      - name: Verify final supported surface
+        run: |
+          pytest -q \
+            tests/test_legacy_surface_absence.py \
+            tests/test_wheel_surface.py \
+            tests/test_cli_installed.py \
+            tests/test_streamlit_smoke_ci.py \
+            tests/test_export_outputs.py
+
   config-coverage:
     name: Config Coverage Check
     needs: detect
@@ -159,7 +194,7 @@ jobs:
 
   summary:
     name: gate-summary
-    needs: [detect, python-ci, llm-deps, config-coverage]
+    needs: [detect, python-ci, llm-deps, legacy-surface, config-coverage]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     permissions:
@@ -184,12 +219,14 @@ jobs:
           DETECT_RESULT: ${{ needs.detect.result || 'skipped' }}
           PYTHON_RESULT: ${{ needs.python-ci.result || 'skipped' }}
           LLM_DEPS_RESULT: ${{ needs.llm-deps.result || 'skipped' }}
+          LEGACY_SURFACE_RESULT: ${{ needs.legacy-surface.result || 'skipped' }}
           CONFIG_COV_RESULT: ${{ needs.config-coverage.result || 'skipped' }}
         run: |
           set -euo pipefail
 
           python_result="${PYTHON_RESULT:-skipped}"
           llm_deps_result="${LLM_DEPS_RESULT:-skipped}"
+          legacy_surface_result="${LEGACY_SURFACE_RESULT:-skipped}"
           config_cov_result="${CONFIG_COV_RESULT:-skipped}"
           state="success"
           description="All checks passed"
@@ -232,6 +269,28 @@ jobs:
               *)
                 state="pending"
                 description="LLM dependency compatibility status unknown"
+                ;;
+            esac
+          fi
+
+          # Check final supported-surface contracts.
+          if [ "$state" = "success" ]; then
+            case "$legacy_surface_result" in
+              success)
+                ;;
+              failure)
+                state="failure"
+                description="Legacy surface contract failed"
+                ;;
+              cancelled)
+                state="error"
+                description="Legacy surface contract was cancelled"
+                ;;
+              skipped)
+                ;;
+              *)
+                state="pending"
+                description="Legacy surface contract status unknown"
                 ;;
             esac
           fi

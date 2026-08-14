@@ -1,0 +1,23 @@
+scenario:
+  name: hf_credit_liquidity_7y
+  description: "Credit liquidity sleeve 7-year projection"
+  version: "1.0"
+
+base_config: config/defaults.yml
+
+monte_carlo:
+  mode: mixture
+  n_paths: 400
+  horizon_years: 7.0
+  frequency: Q
+  seed: 90210
+  jobs: 4
+
+return_model:
+  kind: stationary_bootstrap
+  params:
+    block_size: 4
+
+outputs:
+  directory: outputs/monte_carlo/hf_credit_liquidity_7y
+  format: parquet

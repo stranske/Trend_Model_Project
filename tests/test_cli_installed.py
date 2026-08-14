@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import json
 import subprocess
 import venv
 from pathlib import Path
@@ -65,3 +66,52 @@ def test_removed_compat_entrypoints_are_not_installed(installed_bin: Path) -> No
     )
     assert result.returncode == 0, result.stderr
     assert "usage: trend" in result.stdout.lower()
+
+
+def test_installed_monte_carlo_list_uses_packaged_registry(
+    installed_bin: Path, tmp_path: Path
+) -> None:
+    """The installed CLI must list its shipped scenarios outside the checkout."""
+    env = {**os.environ, "PATH": f"{installed_bin}:{os.environ.get('PATH', '')}"}
+    env.pop("PYTHONPATH", None)
+    env.pop("TREND_REPO_ROOT", None)
+    result = subprocess.run(
+        [installed_bin / "trend", "mc", "list"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    expected_names = {
+        "cost_regime_example",
+        "credit_stress_15y",
+        "hf_credit_liquidity_7y",
+        "hf_diversified_5y",
+        "hf_equity_ls_10y",
+        "hf_macro_20y",
+        "example_scenario",
+    }
+    assert expected_names.issubset(result.stdout.split())
+
+    registry = subprocess.run(
+        [
+            installed_bin / "python",
+            "-c",
+            (
+                "import json; import yaml; "
+                "from trend_analysis.monte_carlo.registry import list_scenarios; "
+                "print(json.dumps([(item.name, item.path.is_file() and "
+                "isinstance(yaml.safe_load(item.path.read_text(encoding='utf-8')), dict)) "
+                "for item in list_scenarios()]))"
+            ),
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert registry.returncode == 0, registry.stderr
+    scenarios = dict(json.loads(registry.stdout))
+    assert set(scenarios) == expected_names
+    assert all(scenarios.values())

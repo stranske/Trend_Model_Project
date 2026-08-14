@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from importlib.resources import files
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -19,6 +20,9 @@ __all__ = [
 ]
 
 _REGISTRY_PATH = proj_path("config", "scenarios", "monte_carlo", "index.yml")
+_PACKAGED_REGISTRY_PATH = Path(
+    str(files("trend_analysis").joinpath("preset_data", "monte_carlo", "index.yml"))
+)
 _SUPPORTED_SUFFIXES = (".yml", ".yaml")
 _MISSING = object()
 
@@ -38,7 +42,9 @@ def _ensure_mapping(value: object, *, label: str) -> Mapping[str, object]:
 
 
 def _resolve_registry_path(registry_path: Path | None) -> Path:
-    resolved = registry_path or _REGISTRY_PATH
+    resolved = registry_path or (
+        _REGISTRY_PATH if _REGISTRY_PATH.exists() else _PACKAGED_REGISTRY_PATH
+    )
     return resolved.resolve()
 
 

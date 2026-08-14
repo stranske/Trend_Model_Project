@@ -81,7 +81,7 @@ include = [
 exclude = ["Old*", "retired*", "**/Old*", "**/retired*"]
 
 [tool.setuptools.package-data]
-trend_analysis = ["preset_data/*.yml"]
+trend_analysis = ["preset_data/*.yml", "preset_data/monte_carlo/*.yml"]
 
 [project.optional-dependencies]
 app = [
