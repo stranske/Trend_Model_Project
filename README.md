@@ -268,7 +268,6 @@ Trend_Model_Project/
 │   ├── metrics.py          # Financial metrics
 │   ├── export/             # Output formatters
 │   └── config/             # Configuration models
-├── src/trend_portfolio_app/ # Streamlit application
 ├── streamlit_app/          # Streamlit pages
 ├── config/                 # YAML configuration files
 │   ├── defaults.yml

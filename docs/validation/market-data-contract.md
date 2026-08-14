@@ -44,7 +44,7 @@ via `df.attrs["market_data"]["metadata"]` for convenience.
   - `mode` / `mode_enum`: returns vs prices (string + enum).
   - `frequency` / `frequency_code`: human label and pandas offset alias.
   - `symbols`, `columns`, `rows`, and the `start`/`end` ISO-8601 timestamps.
-- The Streamlit helper (`trend_portfolio_app.data_schema.SchemaMeta`) mirrors
+- The Streamlit helper (`streamlit_app.components.data_schema.SchemaMeta`) mirrors
   those fields and stores them in `st.session_state["schema_meta"]` together
   with a lightweight validation report so downstream pages can surface mode and
   cadence hints.
@@ -60,7 +60,7 @@ acceptance criteria.
 ## Integration points
 
 - `load_market_data_csv` / `load_market_data_parquet` power the CLI and the
-  `trend_portfolio_app` upload helpers, returning validated frames and
+  supported Streamlit upload helpers, returning validated frames and
   metadata.
 - The Streamlit upload flow funnels everything through `streamlit_app.state` so
   a single error banner is shown when validation fails and successful uploads

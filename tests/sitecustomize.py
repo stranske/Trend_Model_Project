@@ -6,7 +6,7 @@ import importlib
 
 
 def _assert_package_installed() -> None:
-    for module in ("trend_analysis", "trend", "trend_portfolio_app"):
+    for module in ("trend_analysis", "trend"):
         try:
             importlib.import_module(module)
         except ModuleNotFoundError as exc:  # pragma: no cover - configuration guard

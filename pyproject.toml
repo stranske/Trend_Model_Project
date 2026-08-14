@@ -69,7 +69,6 @@ trend-llm-proxy = "trend_analysis.llm_proxy.cli:main"
 where = ["src", "."]
 include = [
     "trend_analysis*",
-    "trend_portfolio_app*",
     "trend*",
     "utils*",
     "analysis*",
@@ -211,10 +210,6 @@ disallow_untyped_decorators = false
 
 [[tool.mypy.overrides]]
 module = "health_summarize.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "examples.legacy_streamlit_app.*"
 ignore_errors = true
 
 [[tool.mypy.overrides]]

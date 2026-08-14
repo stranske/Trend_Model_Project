@@ -161,7 +161,7 @@ This script loads version pins from `.github/workflows/autofix-versions.env`, in
 
 - `black --check .`
 - `ruff check .`
-- `mypy --config-file pyproject.toml src/trend_analysis src/trend_portfolio_app`
+- `mypy --config-file pyproject.toml src/trend_analysis`
 
 If either fails, apply fixes:
 ```bash

@@ -7,7 +7,7 @@ Use this index to find the current contributor guides and to understand which ov
 ### Core Directories
 | Directory | Purpose | Key Files |
 | --- | --- | --- |
-| `src/` | Main source code | `trend_analysis/` package, `trend_portfolio_app/` |
+| `src/` | Main source code | `trend_analysis/` package |
 | `tests/` | Unit and integration tests | See tests/ organization below |
 | `config/` | Configuration files | `defaults.yml`, `demo.yml`, `presets/`, `universe/` |
 | `scripts/` | Utility and CI scripts | `setup_env.sh`, `run_tests.sh` |
@@ -15,7 +15,7 @@ Use this index to find the current contributor guides and to understand which ov
 | `analysis/` | Analysis helpers | `results.py` |
 | `assets/` | Static assets | `screenshots/` for documentation |
 | `demo/` | Demo data and outputs | Generated demo datasets |
-| `examples/` | Usage examples | Demo scripts, legacy streamlit app |
+| `examples/` | Usage examples | Demo scripts |
 | `notebooks/` | Jupyter notebooks | `Vol_Adj_Trend_Analysis1.5.TrEx.ipynb` (maintained) |
 
 ### Automation & CI
@@ -105,7 +105,6 @@ Use this index to find the current contributor guides and to understand which ov
 **`examples/` folder (reviewed 2025-11-30):**
 - Contains usage examples with clear README documentation
 - Active scripts: `demo_robust_weighting.py`, `demo_turnover_cap.py`, `debug_fund_selection.py`, `integration_example.py`, `portfolio_analysis_report.py`
-- `legacy_streamlit_app/` - Historical prototype kept for reference (documented in README_APP.md)
 
 **`notebooks/` folder (reviewed 2025-11-30):**
 - Single maintained notebook: `Vol_Adj_Trend_Analysis1.5.TrEx.ipynb`

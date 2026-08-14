@@ -17,12 +17,8 @@ the CLI, Streamlit app, demos, and automated tests.
 
 ## Layout
 - `streamlit_app/` multipage Streamlit UI (primary app)
-- `src/trend_portfolio_app/` simulation + glue layer
 - `tests/` unit tests for schema and policy logic
 - `scripts/` convenience launcher
-- `examples/legacy_streamlit_app/` archived prototype kept for reference;
-  it now contains everything that previously lived under the removed
-  `app/streamlit/` tree.
 
 Place the `src/` and `streamlit_app/` folders at the root of your repo (next to your existing `src/trend_analysis`).
 
@@ -141,7 +137,8 @@ app and CLI in sync.
   inputs or parameters change.
 
 ## Monte Carlo
-Skeletons for multi-path generation and feature sweeps live under `src/trend_portfolio_app/monte_carlo/`.
+The supported Streamlit Monte Carlo surface lives in `streamlit_app/monte_carlo_page.py`
+and its focused component modules.
 
 ## MVP Acceptance (Issue #367)
 - Load: CSV with `Date` column; basic validation via data schema. See

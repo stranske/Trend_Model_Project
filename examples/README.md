@@ -10,8 +10,8 @@ so you can explore the behaviors without polluting the root directory.
 python -m pip install -e .[app]
 ```
 
-The editable install exposes the `trend_analysis`, `trend_portfolio_app` and
-`trend` CLI entry points that every example depends on.
+The editable install exposes the `trend_analysis` package and `trend` CLI used
+by these examples. The supported interactive surface is `streamlit_app`.
 
 ## Available scripts
 
