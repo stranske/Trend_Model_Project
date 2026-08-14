@@ -70,7 +70,6 @@ where = ["src", "."]
 include = [
     "trend_analysis*",
     "trend_portfolio_app*",
-    "trend_model*",
     "trend*",
     "utils*",
     "analysis*",

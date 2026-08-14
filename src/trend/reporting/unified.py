@@ -26,8 +26,8 @@ from trend_analysis.reporting.portfolio_series import select_primary_portfolio_s
 plt = init_matplotlib()
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from trend_model.spec import TrendRunSpec
-else:  # pragma: no cover - runtime fallback when trend_model unavailable
+    from trend.spec import TrendRunSpec
+else:  # pragma: no cover - runtime fallback when trend unavailable
     TrendRunSpec = Any
 
 

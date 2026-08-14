@@ -39,11 +39,11 @@ def _get_default_cache_dir() -> Path:
         cache_path = _safe_resolve(Path(env_path))
         try:
             if not cache_path.is_relative_to(home):
-                cache_path = home / ".cache/trend_model/rolling"
+                cache_path = home / ".cache/trend/rolling"
         except ValueError:
-            cache_path = home / ".cache/trend_model/rolling"
+            cache_path = home / ".cache/trend/rolling"
         return cache_path
-    return home / ".cache/trend_model/rolling"
+    return home / ".cache/trend/rolling"
 
 
 _DEFAULT_CACHE_DIR = _get_default_cache_dir()
@@ -94,7 +94,7 @@ class RollingCache:
             cache_dir.mkdir(parents=True, exist_ok=True)
             return cache_dir
         except (OSError, PermissionError):
-            fallback = (Path(tempfile.gettempdir()) / "trend_model" / "rolling").resolve()
+            fallback = (Path(tempfile.gettempdir()) / "trend" / "rolling").resolve()
             try:
                 fallback.mkdir(parents=True, exist_ok=True)
                 self._storage_status = "temporary"

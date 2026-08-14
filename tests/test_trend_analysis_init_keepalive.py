@@ -14,21 +14,21 @@ import trend_analysis
 @pytest.fixture()
 def restore_dataclasses_is_type():
     original = dataclasses._is_type
-    original_flag = getattr(dataclasses, "_trend_model_patched", None)
+    original_flag = getattr(dataclasses, "_trend_patched", None)
     try:
         yield
     finally:
         dataclasses._is_type = original
         if original_flag is None:
-            if hasattr(dataclasses, "_trend_model_patched"):
-                delattr(dataclasses, "_trend_model_patched")
+            if hasattr(dataclasses, "_trend_patched"):
+                delattr(dataclasses, "_trend_patched")
         else:
-            dataclasses._trend_model_patched = original_flag  # type: ignore[attr-defined]
+            dataclasses._trend_patched = original_flag  # type: ignore[attr-defined]
 
 
 def _reset_guard() -> None:
-    if hasattr(dataclasses, "_trend_model_patched"):
-        delattr(dataclasses, "_trend_model_patched")
+    if hasattr(dataclasses, "_trend_patched"):
+        delattr(dataclasses, "_trend_patched")
 
 
 def test_dataclasses_guard_reimports_missing_module(monkeypatch, restore_dataclasses_is_type):

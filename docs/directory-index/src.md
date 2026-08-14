@@ -10,12 +10,11 @@
 | Package | Description |
 |---------|-------------|
 | `trend_analysis/` | Core trend analysis engine and pipeline |
-| `trend_model/` | Trend model implementation |
+| `trend/` | Trend model implementation and signal generation |
 | `trend_portfolio_app/` | Portfolio application components |
 | `backtest/` | Backtesting framework |
 | `data/` | Data loading and validation |
 | `health_summarize/` | Health check summarization |
-| `trend/` | Trend signal generation |
 | `utils/` | Shared utilities |
 
 ## 📄 Root Files

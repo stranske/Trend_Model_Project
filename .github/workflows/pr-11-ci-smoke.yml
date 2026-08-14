@@ -43,7 +43,7 @@ jobs:
           python - <<'PY'
           import importlib
 
-          modules = ("trend_analysis", "trend_model")
+          modules = ("trend_analysis", "trend")
           for module in modules:
               importlib.import_module(module)
               print(f"Imported {module} successfully")

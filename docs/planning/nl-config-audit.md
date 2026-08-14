@@ -16,7 +16,7 @@ Purpose: map the current YAML configuration flow, validation, and runtime entryp
 - Load:
   - `_load_configuration` calls `load_core_config(cfg_path)` from `src/trend/config_schema.py` for lightweight validation.
   - Then calls `load_config(cfg_path)` from `src/trend_analysis/config/models.py` for full config validation and object creation.
-  - `ensure_run_spec` from `src/trend_model/spec.py` attaches run spec metadata.
+  - `ensure_run_spec` from `src/trend/spec.py` attaches run spec metadata.
 - Use: `_run_pipeline` in `src/trend/cli.py`, which calls `run_simulation(cfg, returns)` in `src/trend_analysis/api.py`.
 
 ### CLI (trend-analysis-multi)

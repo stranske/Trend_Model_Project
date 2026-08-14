@@ -20,7 +20,7 @@ def _has_legacy_segment(module_name: str) -> bool:
 @pytest.mark.parametrize(
     "package_name",
     [
-        "trend_model",
+        "trend",
         "trend_analysis",
     ],
 )
@@ -45,7 +45,7 @@ def test_import_does_not_register_legacy_modules(package_name: str) -> None:
 @pytest.mark.parametrize(
     "package_name",
     [
-        "trend_model",
+        "trend",
         "trend_analysis",
     ],
 )

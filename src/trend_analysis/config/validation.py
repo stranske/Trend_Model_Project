@@ -103,7 +103,7 @@ def validate_config(
     _run_required_validation(config, errors, skip_required_fields)
     _run_data_semantic_validation(config, errors)
     if include_model_validation:
-        _collect_trend_model_errors(config, errors, base)
+        _collect_trend_errors(config, errors, base)
     _run_sample_split_validation(config, errors)
     _run_portfolio_validation(config, errors, warnings, base)
 
@@ -545,7 +545,7 @@ def _check_vol_adjust_required_fields(
     )
 
 
-def _collect_trend_model_errors(
+def _collect_trend_errors(
     config: Mapping[str, Any], errors: list[ValidationError], base: Path
 ) -> None:
     try:

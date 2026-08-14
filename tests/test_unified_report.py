@@ -8,7 +8,7 @@ from trend_analysis.api import RunResult
 from trend_analysis.backtesting import CostModel
 from trend_analysis.reporting.narrative import STANDARD_NARRATIVE_DISCLAIMER
 from trend_analysis.signals import TrendSpec
-from trend_model.spec import BacktestSpec, SampleWindow, TrendRunSpec
+from trend.spec import BacktestSpec, SampleWindow, TrendRunSpec
 
 
 def _make_result() -> RunResult:
