@@ -419,12 +419,20 @@ def test_load_configuration_missing_file(tmp_path: Path) -> None:
         trend_cli._load_configuration(str(tmp_path / "absent.yml"))
 
 
-def test_main_check_command_returns_environment_check_code(
+def test_main_check_flag_without_subcommand(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    received: dict[str, object] = {}
+
+    def fake_run_check_command(*, environment_check):
+        received["environment_check"] = environment_check
+        return environment_check()
+
+    monkeypatch.setattr(trend_cli, "run_check_command", fake_run_check_command)
     monkeypatch.setattr(trend_cli, "_run_environment_check", lambda: 17)
 
     assert trend_cli.main(["check"]) == 17
+    assert callable(received["environment_check"])
 
 
 def test_main_run_applies_named_universe(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -525,6 +533,40 @@ def test_main_run_command(
 
     assert exit_code == 0
     assert "Structured log" in capsys.readouterr().out
+
+
+def test_main_run_command_uses_extracted_shared_preparation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    cfg = _make_config()
+    prepared = SimpleNamespace(
+        cfg_path=tmp_path / "cfg.yml",
+        cfg=cfg,
+        returns_path=tmp_path / "returns.csv",
+        returns_df=pd.DataFrame({"x": [1]}),
+        seed=123,
+    )
+    received: dict[str, object] = {}
+
+    monkeypatch.setattr(trend_cli, "prepare_command_inputs", lambda *_args, **_kwargs: prepared)
+
+    def fake_run_analysis_command(args, cfg_path, command_cfg, returns_path, returns_df, **_kwargs):
+        received.update(
+            args=args,
+            cfg_path=cfg_path,
+            cfg=command_cfg,
+            returns_path=returns_path,
+            returns_df=returns_df,
+        )
+        return 0
+
+    monkeypatch.setattr(trend_cli, "run_analysis_command", fake_run_analysis_command)
+
+    assert trend_cli.main(["run", "--config", str(tmp_path / "cfg.yml")]) == 0
+    assert received["cfg_path"] == prepared.cfg_path
+    assert received["cfg"] is cfg
+    assert received["returns_path"] == prepared.returns_path
+    assert received["returns_df"].equals(prepared.returns_df)
 
 
 def test_main_report_command(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -1277,6 +1319,26 @@ def test_main_app_command(monkeypatch: pytest.MonkeyPatch) -> None:
     proc = types.SimpleNamespace(returncode=5)
     monkeypatch.setattr(trend_cli.subprocess, "run", lambda args: proc)
     assert trend_cli.main(["app"]) == 5
+
+
+def test_main_app_command_uses_extracted_handler(monkeypatch: pytest.MonkeyPatch) -> None:
+    received: dict[str, object] = {}
+
+    def fake_run_app_command(args, extra_args, *, app_path, run_process):
+        received.update(
+            args=args,
+            extra_args=extra_args,
+            app_path=app_path,
+            run_process=run_process,
+        )
+        return 11
+
+    monkeypatch.setattr(trend_cli, "run_app_command", fake_run_app_command)
+
+    assert trend_cli.main(["app"]) == 11
+    assert received["extra_args"] == []
+    assert received["app_path"] == trend_cli.APP_PATH
+    assert received["run_process"] is trend_cli.subprocess.run
 
 
 def test_main_handles_errors(monkeypatch: pytest.MonkeyPatch) -> None:
