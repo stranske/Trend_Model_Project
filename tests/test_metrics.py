@@ -56,6 +56,7 @@ def test_metric_golden_cases_cover_return_volatility_sharpe_and_sortino() -> Non
     assert np.isclose(metrics.annualize_return(returns), expected_return)
     assert np.isclose(metrics.annualize_volatility(returns), expected_volatility)
     assert np.isclose(
-        metrics.sharpe_ratio(returns, risk_free), expected_excess_return / expected_excess_volatility
+        metrics.sharpe_ratio(returns, risk_free),
+        expected_excess_return / expected_excess_volatility,
     )
     assert np.isclose(metrics.sortino_ratio(returns, target=0.01), expected_sortino)

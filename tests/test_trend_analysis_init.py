@@ -11,6 +11,7 @@ import pytest
 def test_import_does_not_mutate_dataclasses(monkeypatch: pytest.MonkeyPatch) -> None:
     """The package never installs the retired dataclasses compatibility marker."""
     import dataclasses
+
     import trend_analysis
 
     marker = "_trend_" + "model_patched"
