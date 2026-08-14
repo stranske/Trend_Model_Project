@@ -27,21 +27,23 @@ EXPECTED_CONSOLE_SCRIPTS = {
 
 def _build_wheel(destination: Path) -> Path:
     # ``pip wheel`` materializes ``*.egg-info`` while preparing metadata.  Build
-    # from a copy so this contract remains safe when the full suite runs under
-    # pytest-xdist and does not mutate the checkout other tests are reading.
+    # from tracked files so this contract remains safe when the full suite runs
+    # under pytest-xdist and other tests create untracked build artifacts.
     build_root = destination / "source"
-    shutil.copytree(
-        REPO_ROOT,
-        build_root,
-        ignore=shutil.ignore_patterns(
-            ".git",
-            ".mypy_cache",
-            ".pytest_cache",
-            ".ruff_cache",
-            "*.egg-info",
-            "__pycache__",
-        ),
-    )
+    tracked_files = subprocess.run(
+        ["git", "ls-files", "-z"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+    ).stdout.split(b"\0")
+    for raw_path in tracked_files:
+        if not raw_path:
+            continue
+        relative_path = Path(raw_path.decode("utf-8"))
+        target_path = build_root / relative_path
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(REPO_ROOT / relative_path, target_path)
+
     subprocess.run(
         [
             sys.executable,

@@ -115,7 +115,12 @@ def test_import_from_detection_keeps_retired_modules_absent(tmp_path: Path) -> N
         if isinstance(node, ast.ImportFrom) and node.module is not None
         for alias in node.names
     ]
-    assert "trend.compat_entrypoints" in modules
+    offenders = [
+        forbidden
+        for forbidden in FORBIDDEN_RUNTIME_IMPORTS
+        if any(name == forbidden or name.startswith(f"{forbidden}.") for name in modules)
+    ]
+    assert "trend.compat_entrypoints" in offenders
 
 
 @pytest.mark.parametrize(

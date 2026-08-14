@@ -11,6 +11,7 @@ categories:
       - "**/*.py"
       - pyproject.toml
       - requirements*.txt
+      - src/trend_analysis/preset_data/**
   workflow-change:
     require-all: false
     paths:

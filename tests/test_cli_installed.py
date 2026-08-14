@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import json
 import subprocess
 import venv
 from pathlib import Path
@@ -82,4 +83,35 @@ def test_installed_monte_carlo_list_uses_packaged_registry(
         env=env,
     )
     assert result.returncode == 0, result.stderr
-    assert "hf_macro_20y" in result.stdout
+    expected_names = {
+        "cost_regime_example",
+        "credit_stress_15y",
+        "hf_credit_liquidity_7y",
+        "hf_diversified_5y",
+        "hf_equity_ls_10y",
+        "hf_macro_20y",
+        "example_scenario",
+    }
+    assert expected_names.issubset(result.stdout.split())
+
+    registry = subprocess.run(
+        [
+            installed_bin / "python",
+            "-c",
+            (
+                "import json; import yaml; "
+                "from trend_analysis.monte_carlo.registry import list_scenarios; "
+                "print(json.dumps([(item.name, item.path.is_file() and "
+                "isinstance(yaml.safe_load(item.path.read_text(encoding='utf-8')), dict)) "
+                "for item in list_scenarios()]))"
+            ),
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert registry.returncode == 0, registry.stderr
+    scenarios = dict(json.loads(registry.stdout))
+    assert set(scenarios) == expected_names
+    assert all(scenarios.values())
