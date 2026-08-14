@@ -52,7 +52,7 @@ def test_load_prices_invokes_validators(monkeypatch, tmp_path):
     assert called["validated"] == [(("Date", "AAA"), "D")]
 
 
-def test_load_prices_falls_back_to_nan_config(monkeypatch, tmp_path):
+def test_load_prices_uses_configured_missing_policy_and_limit(monkeypatch, tmp_path):
     csv_path = tmp_path / "prices.csv"
     csv_path.write_text("Date,AAA\n2024-01-01,1.0\n")
 
