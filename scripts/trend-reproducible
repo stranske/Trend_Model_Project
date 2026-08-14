@@ -25,7 +25,7 @@ import importlib
 import sys
 
 try:
-    importlib.import_module("trend_analysis.cli")
+    importlib.import_module("trend.cli")
 except ModuleNotFoundError:  # pragma: no cover - shell wrapper guard
     sys.exit(1)
 sys.exit(0)
@@ -34,13 +34,5 @@ PY
     exit 1
 fi
 
-# Default to the supported CLI module. A leading trend_analysis.* argument can
-# still override the module for compatibility with older direct-module usage.
-MODULE="trend_analysis.cli"
-if [[ "${1:-}" =~ ^trend_analysis\. ]]; then
-    MODULE="$1"
-    shift || true
-fi
-
-# Execute Python with the specified module and remaining arguments
-exec python -m "$MODULE" "$@"
+# Execute the supported CLI module and remaining arguments.
+exec python -m trend.cli "$@"

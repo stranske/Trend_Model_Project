@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
-from types import ModuleType, SimpleNamespace
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -16,20 +15,12 @@ import trend.cli as cli
 import trend_analysis.export.bundle as _bundle_mod  # noqa: F401
 
 
-def test_refresh_legacy_cli_module_updates_cache(monkeypatch):
-    module = ModuleType("trend_analysis.cli")
-    module.maybe_log_step = lambda *a, **k: None
-    module._extract_cache_stats = lambda details: {"hits": 1}
-    monkeypatch.setitem(sys.modules, "trend_analysis.cli", module)
-    monkeypatch.setattr(cli, "_legacy_cli_module", None)
-    monkeypatch.setattr(cli, "_legacy_maybe_log_step", cli._noop_maybe_log_step)
-    monkeypatch.setattr(cli, "_legacy_extract_cache_stats", None)
+def test_refresh_legacy_cli_module_is_retired_noop():
+    """Legacy refresh hook is retained only as a transitional no-op."""
 
-    refreshed = cli._refresh_legacy_cli_module()
-
-    assert refreshed is module
-    assert cli._legacy_extract_cache_stats is module._extract_cache_stats
-    assert cli._legacy_maybe_log_step is module.maybe_log_step
+    assert cli._refresh_legacy_cli_module() is None
+    assert cli._legacy_maybe_log_step is cli.maybe_log_step
+    assert cli._legacy_extract_cache_stats is cli.extract_cache_stats
 
 
 def test_run_pipeline_captures_portfolio_and_logging(monkeypatch, tmp_path):

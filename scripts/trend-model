@@ -28,7 +28,7 @@ import importlib
 import sys
 
 try:
-    importlib.import_module("trend_analysis.cli")
+    importlib.import_module("trend.cli")
 except ModuleNotFoundError:  # pragma: no cover - shell wrapper guard
     sys.exit(1)
 sys.exit(0)
@@ -39,9 +39,9 @@ if ! can_import_cli "$PYTHON_EXEC"; then
     if [ -n "$SYSTEM_PYTHON" ] && [ "$SYSTEM_PYTHON" != "$PYTHON_EXEC" ] && can_import_cli "$SYSTEM_PYTHON"; then
         PYTHON_EXEC="$SYSTEM_PYTHON"
     else
-        echo "trend_analysis package not installed. Run 'pip install -e .' first." >&2
+        echo "trend package not installed. Run 'pip install -e .' first." >&2
         exit 1
     fi
 fi
 
-PYTHONPATH="${PROJECT_ROOT}/src:${PYTHONPATH:-}" exec "$PYTHON_EXEC" -m trend_analysis.cli "$@"
+PYTHONPATH="${PROJECT_ROOT}/src:${PYTHONPATH:-}" exec "$PYTHON_EXEC" -m trend.cli "$@"

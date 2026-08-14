@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import builtins
+import ast
 import json
 import textwrap
 import types
@@ -1232,3 +1233,51 @@ def test_main_unknown_command(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(SystemExit) as excinfo:
         trend_cli.main(["unknown", "--config", "cfg.yml", "--returns", "data.csv"])
     assert excinfo.value.code == 2
+
+
+def test_trend_cli_has_no_legacy_module_dependency() -> None:
+    source = Path(trend_cli.__file__).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    legacy_references: list[str] = []
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            legacy_references.extend(
+                alias.name for alias in node.names if alias.name == "trend_analysis.cli"
+            )
+        elif isinstance(node, ast.ImportFrom):
+            if node.module == "trend_analysis":
+                legacy_references.extend(
+                    f"{node.module}.{alias.name}" for alias in node.names if alias.name == "cli"
+                )
+            elif node.module == "trend_analysis.cli":
+                legacy_references.append(node.module)
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "import_module"
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and node.args[0].value == "trend_analysis.cli"
+        ):
+            legacy_references.append("trend_analysis.cli")
+
+    assert not legacy_references
+
+
+def test_canonical_mc_commands_have_no_legacy_cli_dependency() -> None:
+    source = (Path(trend_cli.__file__).parent / "mc" / "commands.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    legacy_references = [
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+        if alias.name == "trend_analysis.cli"
+    ]
+    legacy_references.extend(
+        node.module
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module == "trend_analysis.cli"
+    )
+    assert not legacy_references
