@@ -419,6 +419,80 @@ def test_load_configuration_missing_file(tmp_path: Path) -> None:
         trend_cli._load_configuration(str(tmp_path / "absent.yml"))
 
 
+def test_main_check_command_returns_environment_check_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(trend_cli, "_run_environment_check", lambda: 17)
+
+    assert trend_cli.main(["check"]) == 17
+
+
+def test_main_run_applies_named_universe(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    cfg = _make_config()
+    cfg_path = tmp_path / "cfg.yml"
+    returns_path = tmp_path / "returns.csv"
+    returns_path.write_text("csv", encoding="utf-8")
+    base_frame = pd.DataFrame(
+        {
+            "Date": pd.to_datetime(["2020-01-31", "2020-02-29"]),
+            "A": [0.1, 0.2],
+            "B": [0.3, 0.4],
+        }
+    )
+    mask = pd.DataFrame(
+        [[True, False], [True, True]],
+        index=pd.to_datetime(["2020-01-31", "2020-02-29"]),
+        columns=["A", "B"],
+    )
+    recorded: dict[str, object] = {}
+
+    def fake_load_universe(key: str, prices: pd.DataFrame, **_kwargs: object):
+        recorded["universe"] = key
+        recorded["prices_snapshot"] = prices.copy()
+        return mask, SimpleNamespace(date_column="Date", membership_path=Path("m.csv"))
+
+    def fake_attach_universe_paths(config: object, universe_spec: object, *, csv_path: str) -> None:
+        recorded["attach_called"] = True
+        getattr(config, "data")["universe_membership_path"] = str(
+            getattr(universe_spec, "membership_path")
+        )
+
+    pipeline_returns: dict[str, object] = {}
+
+    def fake_run_pipeline(cfg, returns_df, **_kwargs):
+        pipeline_returns["returns"] = returns_df.copy()
+        return DummyResult(), "run123", None
+
+    monkeypatch.setattr(trend_cli, "_load_configuration", lambda path: (Path(path), cfg))
+    monkeypatch.setattr(trend_cli, "_ensure_dataframe", lambda path: base_frame.copy())
+    monkeypatch.setattr(trend_cli, "_determine_seed", lambda cfg, override: 123)
+    monkeypatch.setattr(trend_cli, "load_universe", fake_load_universe)
+    monkeypatch.setattr(trend_cli, "_attach_universe_paths", fake_attach_universe_paths)
+    monkeypatch.setattr(trend_cli, "_run_pipeline", fake_run_pipeline)
+    monkeypatch.setattr(trend_cli, "_write_trend_run_artifacts", lambda **_kwargs: None)
+    monkeypatch.setattr(trend_cli, "_print_summary", lambda *args, **kwargs: None)
+
+    exit_code = trend_cli.main(
+        [
+            "run",
+            "--config",
+            str(cfg_path),
+            "--returns",
+            str(returns_path),
+            "--universe",
+            "core",
+        ]
+    )
+
+    assert exit_code == 0
+    assert recorded["universe"] == "core"
+    assert recorded["attach_called"] is True
+    assert "universe_membership_path" in getattr(cfg, "data")
+    masked_returns = pipeline_returns["returns"]
+    assert masked_returns["B"].isna().iloc[0]
+    assert not masked_returns["B"].isna().iloc[1]
+
+
 def test_main_run_command(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
