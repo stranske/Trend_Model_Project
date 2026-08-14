@@ -25,11 +25,11 @@ from trend.validation import (
     validate_prices_frame,
 )
 
-from .diagnostics import PipelineReasonCode, coerce_pipeline_result
 from .config_contract import (
     resolve_pipeline_monthly_cost,
     resolve_portfolio_weighting_name,
 )
+from .diagnostics import PipelineReasonCode, coerce_pipeline_result
 from .llm.analysis_fleet import record_analysis_run
 from .logging import log_step as _log_step  # lightweight import
 from .pipeline import (

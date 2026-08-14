@@ -11,8 +11,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from trend_analysis import cli as _legacy_cli
 from trend.mc.viz import TrendCLIError
+from trend_analysis import cli as _legacy_cli
 
 
 def add_mc_subparsers(parent: argparse.ArgumentParser) -> None:

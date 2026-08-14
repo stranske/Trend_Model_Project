@@ -137,8 +137,8 @@ def test_analysis_runner_uses_canonical_config_model(monkeypatch):
 
     monkeypatch.setitem(sys.modules, "streamlit", stub)
 
-    from trend_analysis.config.models import Config
     from streamlit_app.components.analysis_runner import AnalysisPayload, _build_config
+    from trend_analysis.config.models import Config
 
     returns = pd.DataFrame(
         {"FundA": [0.01, 0.02]},

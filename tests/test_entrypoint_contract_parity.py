@@ -8,12 +8,12 @@ import pytest
 from trend_analysis import api
 from trend_analysis.config import Config
 from trend_analysis.config.model import CostModelSettings
-from trend_analysis.multi_period import run as run_mp
 from trend_analysis.config_contract import (
     resolve_pipeline_monthly_cost,
     resolve_portfolio_cost_bps,
     resolve_portfolio_weighting_name,
 )
+from trend_analysis.multi_period import run as run_mp
 from trend_analysis.multi_period.engine import (
     _resolve_pipeline_monthly_cost,
     _resolve_portfolio_cost_bps,
