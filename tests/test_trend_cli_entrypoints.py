@@ -151,7 +151,7 @@ def test_handle_exports_invokes_exporters(monkeypatch: pytest.MonkeyPatch, tmp_p
         "export_data",
         lambda data, path, formats: export_calls.append((tuple(sorted(formats)), path)),
     )
-    monkeypatch.setattr(trend_cli, "_legacy_maybe_log_step", lambda *args, **kwargs: None)
+    monkeypatch.setattr(trend_cli, "maybe_log_step", lambda *args, **kwargs: None)
 
     trend_cli._handle_exports(cfg, result, structured_log=True, run_id="abc")
 
@@ -169,7 +169,7 @@ def test_handle_exports_without_excel(monkeypatch: pytest.MonkeyPatch, tmp_path:
         "export_data",
         lambda data, path, formats: calls.append((tuple(formats), path)),
     )
-    monkeypatch.setattr(trend_cli, "_legacy_maybe_log_step", lambda *args, **kwargs: None)
+    monkeypatch.setattr(trend_cli, "maybe_log_step", lambda *args, **kwargs: None)
 
     trend_cli._handle_exports(cfg, result, structured_log=False, run_id="abc")
     assert calls == [(("json",), str(Path(cfg.export["directory"]) / "analysis"))]
@@ -184,7 +184,7 @@ def test_run_pipeline_sets_metadata_and_bundle(
     monkeypatch.chdir(tmp_path)
 
     monkeypatch.setattr(trend_cli, "run_simulation", lambda *_: result)
-    monkeypatch.setattr(trend_cli, "_legacy_maybe_log_step", lambda *args, **kwargs: None)
+    monkeypatch.setattr(trend_cli, "maybe_log_step", lambda *args, **kwargs: None)
     handled: list[tuple] = []
     monkeypatch.setattr(trend_cli, "_handle_exports", lambda *args, **kwargs: handled.append(args))
     written: list[tuple] = []
@@ -227,7 +227,7 @@ def test_run_pipeline_requires_transaction_cost(
     returns = pd.DataFrame({"x": [1, 2, 3]})
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(trend_cli, "run_simulation", lambda *_: DummyResult())
-    monkeypatch.setattr(trend_cli, "_legacy_maybe_log_step", lambda *args, **kwargs: None)
+    monkeypatch.setattr(trend_cli, "maybe_log_step", lambda *args, **kwargs: None)
 
     with pytest.raises(trend_cli.TrendCLIError, match="transaction_cost_bps"):
         trend_cli._run_pipeline(
@@ -249,7 +249,7 @@ def test_write_bundle_normalises_directory(monkeypatch: pytest.MonkeyPatch, tmp_
         "trend_analysis.export.bundle.export_bundle",
         lambda result, path: recorded.append(path),
     )
-    monkeypatch.setattr(trend_cli, "_legacy_maybe_log_step", lambda *args, **kwargs: None)
+    monkeypatch.setattr(trend_cli, "maybe_log_step", lambda *args, **kwargs: None)
 
     result = DummyResult()
     cfg = _make_config()
@@ -272,7 +272,7 @@ def test_print_summary_emits_cache_stats(
     result = DummyResult()
     cfg = _make_config(sample_split={"in_start": "2020-01", "in_end": "2020-02"})
     monkeypatch.setattr(trend_cli.export, "format_summary_text", lambda *_: "SUMMARY")
-    monkeypatch.setattr(trend_cli, "_legacy_extract_cache_stats", lambda *_: {"hits": 2})
+    monkeypatch.setattr(trend_cli, "extract_cache_stats", lambda *_: {"hits": 2})
 
     trend_cli._print_summary(cfg, result)
     out = capsys.readouterr().out

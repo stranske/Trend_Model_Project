@@ -885,18 +885,6 @@ def test_explain_appends_diagnostics(monkeypatch, tmp_path: Path) -> None:
     assert "Deterministic diagnostics" in stub.last_payload["analysis_output"]
 
 
-def test_legacy_callable_returns_fallback_when_module_missing(monkeypatch) -> None:
-    monkeypatch.setattr(cli, "_legacy_cli_module", None)
-    monkeypatch.setattr(cli, "_refresh_legacy_cli_module", lambda: None)
-
-    def sentinel() -> str:
-        return "fallback"
-
-    resolved = cli._legacy_callable("missing", sentinel)
-
-    assert resolved is sentinel
-
-
 def test_resolve_returns_path_uses_config_directory(tmp_path: Path) -> None:
     cfg_path = tmp_path / "config.yml"
     cfg_path.write_text("", encoding="utf-8")
@@ -1435,7 +1423,7 @@ def test_handle_exports_with_excel(monkeypatch, tmp_path: Path) -> None:
     events: list[str] = []
     monkeypatch.setattr(
         cli,
-        "_legacy_maybe_log_step",
+        "maybe_log_step",
         lambda *_args, **_kwargs: events.append("logged"),
     )
 
@@ -1502,7 +1490,7 @@ def test_run_pipeline_sets_attributes(monkeypatch, tmp_path: Path) -> None:
     logs: list[str] = []
     monkeypatch.setattr(
         cli,
-        "_legacy_maybe_log_step",
+        "maybe_log_step",
         lambda *_args, **_kwargs: logs.append("logged"),
     )
 
@@ -1569,7 +1557,7 @@ def test_run_pipeline_handles_non_dict_details(monkeypatch, tmp_path: Path) -> N
         events.append(args[2] if len(args) >= 3 else kwargs.get("event", ""))
 
     monkeypatch.setattr(cli, "run_simulation", lambda *_: run_result)
-    monkeypatch.setattr(cli, "_legacy_maybe_log_step", record_event)
+    monkeypatch.setattr(cli, "maybe_log_step", record_event)
     monkeypatch.setattr(cli, "_handle_exports", lambda *_a, **_k: None)
 
     result, run_id, log_path = cli._run_pipeline(
@@ -1645,7 +1633,7 @@ def test_handle_exports_requires_both_directory_and_formats(monkeypatch) -> None
     result = RunResult(pd.DataFrame(), {}, 1, {})
 
     events: list[str] = []
-    monkeypatch.setattr(cli, "_legacy_maybe_log_step", lambda *a, **k: events.append("x"))
+    monkeypatch.setattr(cli, "maybe_log_step", lambda *a, **k: events.append("x"))
 
     cli._handle_exports(cfg, result, structured_log=True, run_id="rid")
 
@@ -1665,7 +1653,7 @@ def test_write_bundle_appends_filename(monkeypatch, tmp_path: Path, capsys) -> N
     from trend_analysis.export import bundle as export_bundle_mod
 
     monkeypatch.setattr(export_bundle_mod, "export_bundle", fake_export_bundle)
-    monkeypatch.setattr(cli, "_legacy_maybe_log_step", lambda *a, **k: None)
+    monkeypatch.setattr(cli, "maybe_log_step", lambda *a, **k: None)
 
     bundle_dir = tmp_path / "artifacts"
     bundle_dir.mkdir()
@@ -1693,7 +1681,7 @@ def test_write_bundle_accepts_explicit_file(monkeypatch, tmp_path: Path, capsys)
         "export_bundle",
         lambda res, path: recorded.update(result=res, path=path),
     )
-    monkeypatch.setattr(cli, "_legacy_maybe_log_step", lambda *a, **k: None)
+    monkeypatch.setattr(cli, "maybe_log_step", lambda *a, **k: None)
 
     bundle_file = tmp_path / "custom_bundle.zip"
     cli._write_bundle(cfg, result, None, bundle_file, False, "run00")
@@ -1710,7 +1698,7 @@ def test_print_summary_emits_cache_stats(monkeypatch, capsys) -> None:
     cfg = SimpleNamespace(sample_split={"in_start": "2020-01", "out_end": "2020-12"})
 
     monkeypatch.setattr(cli.export, "format_summary_text", lambda *a: "Summary text")
-    monkeypatch.setattr(cli, "_legacy_extract_cache_stats", lambda *_: {"hits": 3})
+    monkeypatch.setattr(cli, "extract_cache_stats", lambda *_: {"hits": 3})
 
     cli._print_summary(cfg, result)
 
@@ -1724,7 +1712,7 @@ def test_print_summary_skips_empty_cache_stats(monkeypatch, capsys) -> None:
     cfg = SimpleNamespace(sample_split={})
 
     monkeypatch.setattr(cli.export, "format_summary_text", lambda *a: "Summary text")
-    monkeypatch.setattr(cli, "_legacy_extract_cache_stats", lambda *_: {})
+    monkeypatch.setattr(cli, "extract_cache_stats", lambda *_: {})
 
     cli._print_summary(cfg, result)
 

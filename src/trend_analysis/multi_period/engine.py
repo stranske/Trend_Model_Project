@@ -105,9 +105,7 @@ _DEFAULT_LOAD_CSV = load_csv
 logger = logging.getLogger(__name__)
 
 
-# Back-compat shim so legacy tests can patch ``engine._run_analysis`` while the
-# default implementation continues to funnel through the diagnostics-aware
-# pipeline entry point.
+# Normalize the diagnostics-aware pipeline entry point for multi-period callers.
 def _run_analysis(*args: Any, **kwargs: Any) -> PipelineResult:
     return _invoke_analysis_with_diag(*args, **kwargs)
 

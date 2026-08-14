@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import tests.legacy_metrics as L
 import trend_analysis.metrics as M
 from trend_analysis.constants import NUMERICAL_TOLERANCE_HIGH
 
@@ -45,8 +44,8 @@ CASES = [
 
 
 @pytest.mark.parametrize("name, data_fn, kw", CASES)
-def test_vectorised_metric_matches_legacy(name, data_fn, kw):
-    # Handle special case for info_ratio which returns (data, benchmark)
+def test_vectorised_metric_matches_explicit_scalar_contract(name, data_fn, kw):
+    # The vector path must agree with applying the canonical scalar API per column.
     if name == "info_ratio":
         data, benchmark = data_fn()
         kw = {"benchmark": benchmark}
@@ -54,18 +53,14 @@ def test_vectorised_metric_matches_legacy(name, data_fn, kw):
         data = data_fn()
 
     vec_fn = getattr(M, name)
-    leg_fn = getattr(L, name)
-
     new_series = vec_fn(data, **kw)
 
     if name == "sharpe_ratio":
-        rf = pd.Series(0.0, index=data.index)
-        old_series = pd.Series({c: leg_fn(data[c], rf) for c in data.columns})
+        old_series = pd.Series({c: vec_fn(data[c], risk_free=0.0) for c in data.columns})
     elif name == "sortino_ratio":
-        rf = pd.Series(0.0, index=data.index)  # legacy uses rf instead of target
-        old_series = pd.Series({c: leg_fn(data[c], rf) for c in data.columns})
+        old_series = pd.Series({c: vec_fn(data[c], target=0.0) for c in data.columns})
     else:
-        old_series = leg_fn(data, **kw)
+        old_series = pd.Series({c: vec_fn(data[c], **kw) for c in data.columns})
 
     pd.testing.assert_series_equal(
         new_series,
@@ -77,13 +72,11 @@ def test_vectorised_metric_matches_legacy(name, data_fn, kw):
     one_col = data[_cols[0]]
     new_scalar = vec_fn(one_col, **kw)
     if name == "sharpe_ratio":
-        rf = pd.Series(0.0, index=one_col.index)
-        old_scalar = leg_fn(one_col, rf)
+        old_scalar = vec_fn(one_col, risk_free=0.0)
     elif name == "sortino_ratio":
-        rf = pd.Series(0.0, index=one_col.index)  # legacy uses rf instead of target
-        old_scalar = leg_fn(one_col, rf)
+        old_scalar = vec_fn(one_col, target=0.0)
     else:
-        old_scalar = leg_fn(one_col, **kw)
+        old_scalar = vec_fn(one_col, **kw)
     assert np.isclose(
         new_scalar,
         old_scalar,

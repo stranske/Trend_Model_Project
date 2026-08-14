@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 
-import tests.legacy_metrics as L
 import trend_analysis.metrics as M
 from trend_analysis.constants import NUMERICAL_TOLERANCE_HIGH
 
@@ -13,10 +12,10 @@ def _dummy_returns():
     return pd.DataFrame(data, index=rng, columns=list("ABCD"))
 
 
-def test_annual_return_vectorised_equals_legacy():
-    prices = _dummy_returns()
-    new = M.annualize_return(prices)
-    old = L.annualize_return(prices)
+def test_annual_return_vectorised_matches_geometric_golden_contract():
+    returns = _dummy_returns()
+    new = M.annualize_return(returns)
+    old = (1.0 + returns).prod() ** (12.0 / len(returns)) - 1.0
     pd.testing.assert_series_equal(
         new, old, rtol=NUMERICAL_TOLERANCE_HIGH, atol=NUMERICAL_TOLERANCE_HIGH
     )

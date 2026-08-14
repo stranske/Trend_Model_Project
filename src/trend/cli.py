@@ -125,7 +125,7 @@ def _report_pipeline_diagnostic(
     text = f"Pipeline skipped ({diagnostic.reason_code}): {diagnostic.message}"
     print(text)
     safe_fields = {k: v for k, v in context.items() if isinstance(k, str)}
-    _legacy_maybe_log_step(
+    maybe_log_step(
         structured_log,
         run_id,
         "pipeline_diagnostic",
@@ -598,7 +598,7 @@ def _run_pipeline(
     if structured_log:
         log_path = log_file or run_logging.get_default_log_path(run_id)
         run_logging.init_run_logger(run_id, log_path)
-    _legacy_maybe_log_step(structured_log, run_id, "start", "trend CLI execution started")
+    maybe_log_step(structured_log, run_id, "start", "trend CLI execution started")
 
     result = run_simulation(cfg, returns_df)
     diagnostic = getattr(result, "diagnostic", None)
@@ -626,7 +626,7 @@ def _run_pipeline(
         if weights_user is not None:
             setattr(result, "weights", weights_user)
 
-    _legacy_maybe_log_step(
+    maybe_log_step(
         structured_log,
         run_id,
         "summary_render",
@@ -686,7 +686,7 @@ def _handle_exports(cfg: Any, result: RunResult, structured_log: bool, run_id: s
             str(out_dir_path / filename),
             formats=out_formats,
         )
-    _legacy_maybe_log_step(structured_log, run_id, "export_complete", "Export done")
+    maybe_log_step(structured_log, run_id, "export_complete", "Export done")
 
 
 def _resolve_export_artifact_paths(
@@ -784,7 +784,7 @@ def _write_trend_run_artifacts(
     except Exception as exc:  # pragma: no cover - defensive parity with legacy CLI
         logger.warning("Failed to write run artifacts: %s", exc)
         return None
-    _legacy_maybe_log_step(
+    maybe_log_step(
         structured_log,
         run_id,
         "run_artifacts",
@@ -838,7 +838,7 @@ def _write_bundle(
         setattr(result, "input_path", source_path)
     export_bundle(result, bundle_path)
     print(f"Bundle written: {bundle_path}")
-    _legacy_maybe_log_step(
+    maybe_log_step(
         structured_log,
         run_id,
         "bundle_complete",
@@ -857,7 +857,7 @@ def _print_summary(cfg: Any, result: RunResult) -> None:
         str(split.get("out_end", "")),
     )
     print(text)
-    cache_stats = _legacy_extract_cache_stats(result.details)
+    cache_stats = extract_cache_stats(result.details)
     if cache_stats:
         print("\nCache statistics:")
         for key, value in cache_stats.items():
@@ -2200,24 +2200,6 @@ def _noop_maybe_log_step(
     enabled: bool, run_id: str, event: str, message: str, **fields: Any
 ) -> None:
     return None
-
-
-# Transitional aliases retained while tests migrate off legacy monkeypatch hooks.
-_legacy_cli_module = None
-_legacy_maybe_log_step = maybe_log_step
-_legacy_extract_cache_stats = extract_cache_stats
-
-
-def _refresh_legacy_cli_module() -> None:
-    """Legacy refresh hook retained for transitional tests only."""
-
-    return None
-
-
-def _legacy_callable(name: str, fallback: Callable[..., Any]) -> Callable[..., Any]:
-    """Return the canonical implementation; legacy delegation has been removed."""
-
-    return fallback
 
 
 if __name__ == "__main__":  # pragma: no cover - manual invocation
