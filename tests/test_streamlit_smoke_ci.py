@@ -238,20 +238,9 @@ def streamlit_app():
         pytest.skip("Streamlit CLI not available in this environment")
 
     # Find the main streamlit app file
-    app_paths = [
-        Path(__file__).parent.parent / "streamlit_app" / "app.py",
-        Path(__file__).parent.parent / "app" / "streamlit" / "app.py",
-        Path(__file__).parent.parent / "src" / "trend_portfolio_app" / "app.py",
-    ]
-
-    app_path = None
-    for path in app_paths:
-        if path.exists():
-            app_path = path
-            break
-
-    if not app_path:
-        pytest.skip("No Streamlit app found to test")
+    app_path = Path(__file__).parent.parent / "streamlit_app" / "app.py"
+    if not app_path.exists():
+        pytest.skip("The supported Streamlit app is unavailable")
 
     manager = StreamlitAppManager(app_path)
 
@@ -260,6 +249,15 @@ def streamlit_app():
         yield manager
     finally:
         manager.stop()
+
+
+def test_legacy_portfolio_app_is_not_shipped() -> None:
+    """Only the supported ``streamlit_app`` surface may remain in the tree."""
+    repository_root = Path(__file__).resolve().parents[1]
+    assert not (repository_root / "src" / "trend_portfolio_app").exists()
+    assert not (repository_root / "retired" / "trend_portfolio_app").exists()
+    assert not (repository_root / "retired" / "tests").exists()
+    assert not (repository_root / "examples" / "legacy_streamlit_app").exists()
 
 
 @pytest.mark.flaky(reruns=2, reruns_delay=5)

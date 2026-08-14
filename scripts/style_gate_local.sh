@@ -66,8 +66,8 @@ else
 fi
 
 if command -v mypy >/dev/null 2>&1; then
-  echo "Running mypy (core + app)" >&2
-  if ! mypy --config-file pyproject.toml src/trend_analysis src/trend_portfolio_app; then
+  echo "Running mypy (core)" >&2
+  if ! mypy --config-file pyproject.toml src/trend_analysis; then
     echo "mypy type check failed." >&2
     exit 1
   fi
@@ -75,4 +75,3 @@ else
   echo "mypy not found; skipping type check" >&2
 fi
 echo "CI style job local mirror: PASS" >&2
-

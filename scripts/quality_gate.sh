@@ -16,11 +16,11 @@ fi
 # CI style job mirror
 ./scripts/style_gate_local.sh
 
-# Type checking (mypy) – fail fast if types regress (core + app)
+# Type checking (mypy) – fail fast if types regress.
 if command -v mypy >/dev/null 2>&1; then
-  echo "Running mypy (core + app)..." >&2
-  if ! mypy --config-file pyproject.toml src/trend_analysis src/trend_portfolio_app >/dev/null; then
-    echo "mypy failed. To reproduce locally run: mypy --config-file pyproject.toml src/trend_analysis src/trend_portfolio_app" >&2
+  echo "Running mypy (core)..." >&2
+  if ! mypy --config-file pyproject.toml src/trend_analysis >/dev/null; then
+    echo "mypy failed. To reproduce locally run: mypy --config-file pyproject.toml src/trend_analysis" >&2
     exit 1
   fi
 else

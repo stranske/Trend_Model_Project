@@ -109,7 +109,6 @@ PROJECT_MODULES = {
     "analysis",
     "cli",
     "trend_analysis",
-    "trend_portfolio_app",
     "streamlit_app",
     "trend",
     "trend",
