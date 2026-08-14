@@ -239,8 +239,8 @@ def streamlit_app():
 
     # Find the main streamlit app file
     app_path = Path(__file__).parent.parent / "streamlit_app" / "app.py"
-    if not app_path.exists():
-        pytest.skip("The supported Streamlit app is unavailable")
+    if not app_path.is_file():
+        raise AssertionError(f"Missing supported Streamlit app: {app_path}")
 
     manager = StreamlitAppManager(app_path)
 
