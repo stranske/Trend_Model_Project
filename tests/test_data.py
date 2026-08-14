@@ -420,7 +420,9 @@ def test_is_readable_checks_mode_bits() -> None:
     assert not data_mod._is_readable(non_readable_mode)
 
 
-def test_load_csv_coerces_legacy_kwargs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_load_csv_preserves_canonical_missing_data_options(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     csv = tmp_path / "legacy.csv"
     csv.write_text("Date,A\n2024-01-31,1.0\n")
 
@@ -443,7 +445,9 @@ def test_load_csv_coerces_legacy_kwargs(monkeypatch: pytest.MonkeyPatch, tmp_pat
     assert captured["missing_limit"] == 3
 
 
-def test_load_csv_passes_canonical_missing_limit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_load_csv_passes_canonical_missing_limit(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     csv = tmp_path / "legacy_nan.csv"
     csv.write_text("Date,A\n2024-01-31,1.0\n")
 
@@ -587,7 +591,9 @@ def test_load_parquet_invokes_validation(monkeypatch: pytest.MonkeyPatch, tmp_pa
     assert captured["include_date_column"] is True
 
 
-def test_load_parquet_passes_canonical_missing_limit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_load_parquet_passes_canonical_missing_limit(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     parquet_file = tmp_path / "legacy.parquet"
     parquet_file.write_bytes(b"")
 
@@ -607,7 +613,9 @@ def test_load_parquet_passes_canonical_missing_limit(monkeypatch: pytest.MonkeyP
     assert captured["missing_limit"] == "4"
 
 
-def test_load_parquet_passes_canonical_missing_policy(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_load_parquet_passes_canonical_missing_policy(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     parquet_file = tmp_path / "policy.parquet"
     parquet_file.write_bytes(b"")
 

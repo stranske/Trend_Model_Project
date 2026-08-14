@@ -429,7 +429,7 @@ def test_load_csv_success(tmp_path, monkeypatch):
     assert called_kwargs["origin"] == str(csv_path)
 
 
-def test_load_csv_legacy_kwargs(tmp_path, monkeypatch):
+def test_load_csv_canonical_missing_data_options(tmp_path, monkeypatch):
     frame = pd.DataFrame({"Date": ["2024-01-01"], "AAA": [1]})
     csv_path = tmp_path / "legacy.csv"
     frame.to_csv(csv_path, index=False)
@@ -587,7 +587,7 @@ def test_load_parquet_success(tmp_path, monkeypatch):
     assert result is sentinel
 
 
-def test_load_parquet_legacy_kwargs(tmp_path, monkeypatch):
+def test_load_parquet_canonical_missing_data_options(tmp_path, monkeypatch):
     parquet_path = tmp_path / "legacy.parquet"
     parquet_path.write_bytes(b"")
 
