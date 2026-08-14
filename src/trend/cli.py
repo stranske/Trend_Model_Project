@@ -23,6 +23,12 @@ from trend.cli_helpers import (
     _apply_universe_mask,
     _attach_universe_paths,
 )
+from trend.cli_commands import (
+    run_analysis_command,
+    run_app_command,
+    run_check_command,
+    run_report_command,
+)
 from trend.cli_support import (
     check_environment,
     extract_cache_stats,
@@ -1848,21 +1854,17 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
         if command == "check":
             if coverage_tracker is not None:
                 deactivate_config_coverage()
-            return _run_environment_check()
+            return run_check_command(environment_check=_run_environment_check)
 
         if command == "app":
             if coverage_tracker is not None:
                 deactivate_config_coverage()
-            try:
-                proc = subprocess.run(["streamlit", "run", str(APP_PATH), *extra_args])
-            except FileNotFoundError:
-                print(
-                    "Error: the 'streamlit' executable was not found. "
-                    "Install the optional 'app' extra.",
-                    file=sys.stderr,
-                )
-                return 127
-            return proc.returncode
+            return run_app_command(
+                args,
+                extra_args,
+                app_path=APP_PATH,
+                run_process=subprocess.run,
+            )
 
         if command == "quick-report":
             if coverage_tracker is not None:
@@ -2106,107 +2108,47 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
         seed = _determine_seed(cfg, getattr(args, "seed", None))
 
         if command == "run":
-            set_cache_enabled(not getattr(args, "no_cache", False))
-            if getattr(args, "preset", None):
-                try:
-                    spec_preset = get_trend_spec_preset(args.preset)
-                except KeyError:
-                    available = ", ".join(list_trend_spec_presets())
-                    raise TrendCLIError(
-                        f"Unknown preset '{args.preset}'. Available presets: {available}"
-                    )
-                _apply_trend_spec_preset(cfg, spec_preset)
-                try:
-                    portfolio_preset = get_trend_preset(args.preset)
-                except KeyError:
-                    available = ", ".join(list_preset_slugs())
-                    raise TrendCLIError(f"Unknown preset '{args.preset}'. Available: {available}")
-                apply_trend_preset(cfg, portfolio_preset)
-            if getattr(args, "universe", None):
-                mask, universe_spec = load_universe(args.universe, prices=returns_df)
-                returns_df = _apply_universe_mask(
-                    returns_df, mask, date_column=universe_spec.date_column
-                )
-                _attach_universe_paths(cfg, universe_spec, csv_path=str(returns_path))
-            if getattr(args, "skip_if_exists", False):
-                candidate_run_id = working_run_id(cfg, returns_path)
-                existing_manifest = find_prior_run(cfg, candidate_run_id)
-                if existing_manifest is not None:
-                    print(f"already-done: run_id={candidate_run_id}")
-                    print(f"Existing manifest: {existing_manifest}")
-                    _finalize_config_coverage()
-                    return 0
-            run_pipeline = _run_pipeline
-            result, run_id, log_path = run_pipeline(
+            return run_analysis_command(
+                args,
+                cfg_path,
                 cfg,
+                returns_path,
                 returns_df,
-                source_path=returns_path,
-                log_file=Path(args.log_file) if args.log_file else None,
-                structured_log=not args.no_structured_log,
-                bundle=Path(args.bundle) if args.bundle else None,
+                error=TrendCLIError,
+                set_cache=set_cache_enabled,
+                get_spec_preset=get_trend_spec_preset,
+                list_spec_presets=list_trend_spec_presets,
+                apply_spec_preset=_apply_trend_spec_preset,
+                get_portfolio_preset=get_trend_preset,
+                list_portfolio_presets=list_preset_slugs,
+                apply_portfolio_preset=apply_trend_preset,
+                load_universe=load_universe,
+                apply_universe_mask=_apply_universe_mask,
+                attach_universe_paths=_attach_universe_paths,
+                find_existing_run=find_prior_run,
+                calculate_run_id=working_run_id,
+                run_pipeline=_run_pipeline,
+                write_artifacts=_write_trend_run_artifacts,
+                print_summary=_print_summary,
+                finalize_coverage=_finalize_config_coverage,
             )
-            _write_trend_run_artifacts(
-                cfg=cfg,
-                result=result,
-                config_path=cfg_path,
-                input_path=returns_path,
-                data_frame=returns_df,
-                run_id=run_id,
-                structured_log=not args.no_structured_log,
-            )
-            print_summary = _print_summary
-            print_summary(cfg, result)
-            if log_path:
-                print(f"Structured log: {log_path}")
-            _finalize_config_coverage()
-            return 0
 
         if command == "report":
-            export_dir = Path(args.out).resolve() if args.out else None
-            if export_dir is None and not args.output:
-                raise TrendCLIError(
-                    "The 'report' command requires --out for artefacts or --output for the HTML report"
-                )
-            formats = args.formats or DEFAULT_REPORT_FORMATS
-            _prepare_export_config(cfg, export_dir, formats if export_dir is not None else None)
-            run_pipeline = _run_pipeline
-            result, run_id, _ = run_pipeline(
+            return run_report_command(
+                args,
                 cfg,
+                returns_path,
                 returns_df,
-                source_path=returns_path,
-                log_file=None,
-                structured_log=False,
-                bundle=None,
+                error=TrendCLIError,
+                default_formats=DEFAULT_REPORT_FORMATS,
+                prepare_export_config=_prepare_export_config,
+                run_pipeline=_run_pipeline,
+                print_summary=_print_summary,
+                write_report_files=_write_report_files,
+                resolve_report_output_path=_resolve_report_output_path,
+                generate_report=generate_unified_report,
+                finalize_coverage=_finalize_config_coverage,
             )
-            print_summary = _print_summary
-            print_summary(cfg, result)
-            if export_dir is not None:
-                write_report = _write_report_files
-                write_report(export_dir, cfg, result, run_id=run_id)
-            report_path = _resolve_report_output_path(args.output, export_dir, run_id)
-            report_path.parent.mkdir(parents=True, exist_ok=True)
-            try:
-                artifacts = generate_unified_report(
-                    result,
-                    cfg,
-                    run_id=run_id,
-                    include_pdf=args.pdf,
-                    spec=getattr(cfg, "_trend_run_spec", None),
-                )
-            except RuntimeError as exc:
-                raise TrendCLIError(str(exc)) from exc
-            report_path.write_text(artifacts.html, encoding="utf-8")
-            print(f"Report written: {report_path}")
-            if args.pdf:
-                if artifacts.pdf_bytes is None:
-                    raise TrendCLIError(
-                        "PDF generation failed – install the 'fpdf2' dependency to enable --pdf output"
-                    )
-                pdf_path = report_path.with_suffix(".pdf")
-                pdf_path.write_bytes(artifacts.pdf_bytes)
-                print(f"PDF report written: {pdf_path}")
-            _finalize_config_coverage()
-            return 0
 
         if command == "stress":
             if not args.scenario:

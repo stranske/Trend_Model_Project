@@ -419,6 +419,12 @@ def test_load_configuration_missing_file(tmp_path: Path) -> None:
         trend_cli._load_configuration(str(tmp_path / "absent.yml"))
 
 
+def test_main_check_flag_without_subcommand(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(trend_cli, "_run_environment_check", lambda: 17)
+
+    assert trend_cli.main(["check"]) == 17
+
+
 def test_main_run_command(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
