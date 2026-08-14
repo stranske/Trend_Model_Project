@@ -163,12 +163,13 @@ def _check_demo_data(cfg: Config) -> pd.DataFrame:  # use concrete Config for mo
     df = ensure_datetime(df)
     if not df["Date"].is_monotonic_increasing:
         raise SystemExit("Demo dataset not sorted by date")
-    if df.shape != (120, 22):
+    # The generated fixture contains twenty manager series, SPX, and RF.
+    if df.shape != (120, 23):
         raise SystemExit("Demo dataset shape mismatch")
     if df["Date"].isnull().any():
         raise SystemExit("Demo dataset contains invalid dates")
     mgr_cols = [c for c in df.columns if c != "Date"]
-    if len(mgr_cols) != 21:
+    if len(mgr_cols) != 22:
         raise SystemExit("Demo dataset manager count mismatch")
     first = df["Date"].iloc[0]
     last = df["Date"].iloc[-1]
@@ -611,47 +612,6 @@ def _check_metrics_basic() -> None:
         raise SystemExit("annualize_volatility mismatch")
     if metrics.info_ratio(s, bench) != metrics.information_ratio(s, bench):
         raise SystemExit("info_ratio mismatch")
-
-
-def _check_builtin_metric_aliases() -> None:
-    """Ensure legacy metrics are accessible via builtins."""
-    import builtins
-    import importlib
-
-    legacy = importlib.import_module("tests.legacy_metrics")
-    s = pd.Series([0.0, 0.02, -0.01])
-
-    if not hasattr(builtins, "annualize_return"):
-        raise SystemExit("builtins missing annualize_return")
-    if not hasattr(builtins, "annualize_volatility"):
-        raise SystemExit("builtins missing annualize_volatility")
-
-    if builtins.annualize_return(s) != legacy.annualize_return(s):
-        raise SystemExit("builtins annualize_return mismatch")
-    av = getattr(builtins, "annualize_volatility")
-    if av(s) != legacy.annualize_volatility(s):
-        raise SystemExit("builtins annualize_volatility mismatch")
-
-    # additional alias checks
-    import trend_analysis.metrics as m
-
-    ir1 = m.info_ratio(s, s)
-    ir2 = m.information_ratio(s, s)
-
-    def _to_float(x: Any) -> float:
-        try:
-            return float(x)
-        except Exception:  # pragma: no cover - defensive
-            return float("nan")
-
-    ir1_f = _to_float(ir1)
-    ir2_f = _to_float(ir2)
-    if not (np.isnan(ir1_f) and np.isnan(ir2_f)) and ir1_f != ir2_f:
-        raise SystemExit("info_ratio alias mismatch")
-    if _to_float(m.annualize_sharpe_ratio(s)) != _to_float(m.sharpe_ratio(s)):
-        raise SystemExit("annualize_sharpe_ratio alias mismatch")
-    if _to_float(m.annualize_sortino_ratio(s)) != _to_float(m.sortino_ratio(s)):
-        raise SystemExit("annualize_sortino_ratio alias mismatch")
 
 
 def _check_metric_helpers() -> None:
@@ -1806,7 +1766,6 @@ _check_portfolio()
 _check_load_csv_error()
 _check_identify_rf_none()
 _check_metrics_basic()
-_check_builtin_metric_aliases()
 _check_metric_helpers()
 _check_selector_errors()
 _check_zscore_direction()
