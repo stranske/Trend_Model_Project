@@ -8,6 +8,19 @@ from types import ModuleType
 import pytest
 
 
+def test_import_does_not_mutate_dataclasses(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The package never installs the retired dataclasses compatibility marker."""
+    import dataclasses
+
+    import trend_analysis
+
+    marker = "_trend_" + "model_patched"
+    monkeypatch.delattr(dataclasses, marker, raising=False)
+    importlib.reload(trend_analysis)
+
+    assert not hasattr(dataclasses, marker)
+
+
 def test_ensure_registered_restores_module(monkeypatch):
     import trend_analysis as ta
 

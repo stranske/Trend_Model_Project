@@ -15,12 +15,9 @@ import trend.cli as cli
 import trend_analysis.export.bundle as _bundle_mod  # noqa: F401
 
 
-def test_refresh_legacy_cli_module_is_retired_noop():
-    """Legacy refresh hook is retained only as a transitional no-op."""
-
-    assert cli._refresh_legacy_cli_module() is None
-    assert cli._legacy_maybe_log_step is cli.maybe_log_step
-    assert cli._legacy_extract_cache_stats is cli.extract_cache_stats
+def test_cli_uses_canonical_logging_and_cache_helpers() -> None:
+    assert callable(cli.maybe_log_step)
+    assert callable(cli.extract_cache_stats)
 
 
 def test_run_pipeline_captures_portfolio_and_logging(monkeypatch, tmp_path):
@@ -49,7 +46,7 @@ def test_run_pipeline_captures_portfolio_and_logging(monkeypatch, tmp_path):
     monkeypatch.setattr(cli, "run_logging", FakeRunLogging)
 
     steps: list[tuple[tuple[object, ...], dict[str, object]]] = []
-    monkeypatch.setattr(cli, "_legacy_maybe_log_step", lambda *a, **k: steps.append((a, k)))
+    monkeypatch.setattr(cli, "maybe_log_step", lambda *a, **k: steps.append((a, k)))
 
     exports: list[tuple[bool, str]] = []
     monkeypatch.setattr(
@@ -104,7 +101,7 @@ def test_handle_exports_excel_and_remaining(monkeypatch, tmp_path):
         "export_data",
         lambda data, path, formats: export_calls.append("data:" + ",".join(formats)),
     )
-    monkeypatch.setattr(cli, "_legacy_maybe_log_step", lambda *a, **k: export_calls.append("log"))
+    monkeypatch.setattr(cli, "maybe_log_step", lambda *a, **k: export_calls.append("log"))
 
     cfg = SimpleNamespace(
         export={
@@ -136,7 +133,7 @@ def test_write_bundle_into_directory(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         cli,
-        "_legacy_maybe_log_step",
+        "maybe_log_step",
         lambda *a, **k: recorded.append(Path(k["bundle"])),
     )
 
@@ -156,7 +153,7 @@ def test_write_bundle_into_directory(monkeypatch, tmp_path):
 
 
 def test_print_summary_displays_cache_stats(monkeypatch, capsys):
-    monkeypatch.setattr(cli, "_legacy_extract_cache_stats", lambda details: {"hits": 3})
+    monkeypatch.setattr(cli, "extract_cache_stats", lambda details: {"hits": 3})
     monkeypatch.setattr(cli.export, "format_summary_text", lambda *a, **k: "Summary")
     cfg = SimpleNamespace(sample_split={})
     result = SimpleNamespace(details={}, metrics=pd.DataFrame())

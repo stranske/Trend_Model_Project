@@ -39,3 +39,24 @@ def test_max_drawdown_dataframe():
     wealth = (1 + df["a"]).cumprod()
     expected = (1 - wealth / wealth.cummax()).max()
     assert np.isclose(result["a"], expected)
+
+
+def test_metric_golden_cases_cover_return_volatility_sharpe_and_sortino() -> None:
+    returns = pd.Series([0.02, -0.01, 0.03], dtype=float)
+    risk_free = pd.Series([0.01, 0.01, 0.01], dtype=float)
+    excess = returns - risk_free
+
+    expected_return = (1.0 + returns).prod() ** (12.0 / len(returns)) - 1.0
+    expected_volatility = returns.std(ddof=1) * np.sqrt(12.0)
+    expected_excess_return = (1.0 + excess).prod() ** (12.0 / len(excess)) - 1.0
+    expected_excess_volatility = excess.std(ddof=1) * np.sqrt(12.0)
+    downside = excess[excess < 0]
+    expected_sortino = expected_excess_return / (2.0 * abs(downside.iloc[0]))
+
+    assert np.isclose(metrics.annualize_return(returns), expected_return)
+    assert np.isclose(metrics.annualize_volatility(returns), expected_volatility)
+    assert np.isclose(
+        metrics.sharpe_ratio(returns, risk_free),
+        expected_excess_return / expected_excess_volatility,
+    )
+    assert np.isclose(metrics.sortino_ratio(returns, target=0.01), expected_sortino)
