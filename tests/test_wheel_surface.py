@@ -5,7 +5,7 @@ from __future__ import annotations
 import configparser
 import shutil
 import subprocess
-import sys
+import venv
 import zipfile
 from pathlib import Path
 
@@ -26,10 +26,21 @@ EXPECTED_CONSOLE_SCRIPTS = {
 
 
 def _build_wheel(destination: Path) -> Path:
-    # ``pip wheel`` materializes ``*.egg-info`` while preparing metadata.  Build
+    # ``pip wheel`` materializes ``*.egg-info`` while preparing metadata. Build
     # from tracked files so this contract remains safe when the full suite runs
-    # under pytest-xdist and other tests create untracked build artifacts.
+    # under pytest-xdist and other tests create untracked build artifacts. The
+    # Gate interpreter need not itself expose the PEP 517 backend, so build in a
+    # small isolated environment with the project's pinned build tools.
     build_root = destination / "source"
+    environment = destination / "wheel-build-env"
+    venv.EnvBuilder(with_pip=True).create(environment)
+    python = environment / "bin" / "python"
+    subprocess.run(
+        [python, "-m", "pip", "install", "setuptools==83.0.0", "wheel==0.47.0"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     tracked_files = subprocess.run(
         ["git", "ls-files", "-z"],
         cwd=REPO_ROOT,
@@ -46,7 +57,7 @@ def _build_wheel(destination: Path) -> Path:
 
     subprocess.run(
         [
-            sys.executable,
+            python,
             "-m",
             "pip",
             "wheel",
