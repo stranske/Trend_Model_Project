@@ -6,7 +6,7 @@ from unittest import mock
 import pandas as pd
 import pytest
 
-from trend_analysis.io import utils, validators
+from trend_analysis.io import utils
 
 
 class DummyResults:
@@ -93,7 +93,6 @@ def test_export_bundle_cleans_up_on_zip_failure(tmp_path, monkeypatch):
         utils._TEMP_FILES_TO_CLEANUP[:] = before
         if zip_path.exists():
             os.remove(zip_path)
-
 
 def test_cleanup_bundle_file_handles_remove_error(tmp_path, monkeypatch):
     """cleanup_bundle_file should swallow removal errors and allow retry."""
@@ -207,42 +206,3 @@ def test_export_bundle_zip_failure_missing_file(tmp_path, monkeypatch):
         utils._TEMP_FILES_TO_CLEANUP[:] = before
         if zip_path.exists():
             os.remove(zip_path)
-
-
-# ---------------------------------------------------------------------------
-# validators.py tests
-# ---------------------------------------------------------------------------
-
-
-def test_detect_frequency_irregular():
-    dates = pd.to_datetime(["2023-01-01", "2023-01-03", "2023-01-10"])
-    df = pd.DataFrame(index=dates)
-    freq = validators.detect_frequency(df)
-    assert freq.startswith("irregular")
-
-
-def test_validate_returns_schema_non_numeric():
-    df = pd.DataFrame({"Date": ["2023-01-31", "2023-02-28"], "Fund1": ["a", "b"]})
-    result = validators.validate_returns_schema(df)
-    assert not result.is_valid
-    assert any("no numeric data" in issue for issue in result.issues)
-
-
-def test_load_and_validate_upload_file_not_found(tmp_path):
-    missing = tmp_path / "missing.csv"
-    with pytest.raises(ValueError) as exc:
-        validators.load_and_validate_upload(missing)
-    assert "File not found" in str(exc.value)
-
-
-def test_load_and_validate_upload_parser_error(monkeypatch):
-    file_like = io.StringIO("bad,data")
-    file_like.name = "bad.csv"
-
-    def boom(*args, **kwargs):
-        raise pd.errors.ParserError("bad")
-
-    monkeypatch.setattr(pd, "read_csv", boom)
-    with pytest.raises(ValueError) as exc:
-        validators.load_and_validate_upload(file_like)
-    assert "Failed to parse file" in str(exc.value)

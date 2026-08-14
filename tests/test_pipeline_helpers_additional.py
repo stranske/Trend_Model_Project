@@ -1179,7 +1179,7 @@ def test_module_getattr_invocation() -> None:
 
 
 def test_module_getattr_stats_alias() -> None:
-    assert getattr(pipeline, "Stats") is _Stats
+    assert not hasattr(pipeline, "Stats")
 
 
 def test_run_analysis_random_selection(monkeypatch: pytest.MonkeyPatch) -> None:

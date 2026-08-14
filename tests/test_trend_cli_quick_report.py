@@ -58,3 +58,27 @@ def test_trend_quick_report_subcommand_creates_report(tmp_path: Path) -> None:
     html = html_path.read_text(encoding="utf-8")
     assert "sample: config" in html
     assert "Quick summary text" in html
+
+
+def test_quick_report_ignores_removed_legacy_filenames(tmp_path: Path) -> None:
+    base_dir = tmp_path / "perf"
+    run_id = "canonical"
+    artifacts = _write_artifacts(base_dir, run_id)
+    (artifacts / f"summary_{run_id}.txt").unlink()
+    (artifacts / "summary.txt").write_text("legacy summary must be ignored", encoding="utf-8")
+
+    exit_code = cli.main(
+        [
+            "quick-report",
+            "--run-id",
+            run_id,
+            "--artifacts",
+            str(artifacts),
+            "--base-dir",
+            str(base_dir),
+        ]
+    )
+
+    assert exit_code == 0
+    html = (base_dir / "reports" / f"{run_id}.html").read_text(encoding="utf-8")
+    assert "legacy summary must be ignored" not in html
