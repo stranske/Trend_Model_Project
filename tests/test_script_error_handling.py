@@ -29,13 +29,13 @@ class TestScriptErrorHandling(unittest.TestCase):
 
         # Verify that || true patterns have been replaced
         self.assertNotIn("pre-commit install --install-hooks || true", content)
-        self.assertNotIn("chmod +x scripts/trend-model || true", content)
+        self.assertNotIn("chmod +x scripts/trend || true", content)
 
         # Verify proper error handling is in place
         self.assertIn("if ! pre-commit install --install-hooks; then", content)
         self.assertIn("::warning::pre-commit install --install-hooks failed", content)
-        self.assertIn("if ! chmod +x scripts/trend-model; then", content)
-        self.assertIn("::warning::chmod +x scripts/trend-model failed", content)
+        self.assertIn("if ! chmod +x scripts/trend; then", content)
+        self.assertIn("::warning::chmod +x scripts/trend failed", content)
 
     def test_quick_check_error_handling(self):
         """Test that quick_check.sh provides proper error handling."""

@@ -32,11 +32,11 @@ Access at http://localhost:8501
 ### CLI Tools
 
 ```bash
-# trend-app: Launch Streamlit
-trend-app
+# Launch Streamlit
+trend app
 
-# trend-run: Run analysis from TOML config
-trend-run config/trend.toml
+# Run analysis from TOML config
+trend run -c config/trend.toml
 ```
 
 ## Data

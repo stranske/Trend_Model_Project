@@ -144,14 +144,13 @@ python -c "import trend_analysis; print(trend_analysis.__version__)"
 
 ## Package Information
 
-- **Name**: `trend-analysis`
-- **PyPI URL**: https://pypi.org/project/trend-analysis/
-- **TestPyPI URL**: https://test.pypi.org/project/trend-analysis/
+- **Name**: `trend-model`
+- **PyPI URL**: https://pypi.org/project/trend-model/
+- **TestPyPI URL**: https://test.pypi.org/project/trend-model/
 
 ## CLI Commands
 
-The supported release surface is the `trend` command. Compatibility aliases
-remain removal-bound and are not release examples:
+The supported release surface is the `trend` command:
 
 ```bash
 # Analysis and reports

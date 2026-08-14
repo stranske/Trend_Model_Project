@@ -63,12 +63,6 @@ Documentation = "https://github.com/stranske/Trend_Model_Project#readme"
 
 [project.scripts]
 trend = "trend.cli:main"
-trend-analysis = "trend.compat_entrypoints:trend_analysis"
-trend-multi-analysis = "trend.compat_entrypoints:trend_multi_analysis"
-trend-model = "trend.compat_entrypoints:trend_model"
-trend-app = "trend.compat_entrypoints:trend_app"
-trend-run = "trend.compat_entrypoints:trend_run"
-trend-quick-report = "trend.compat_entrypoints:trend_quick_report"
 trend-llm-proxy = "trend_analysis.llm_proxy.cli:main"
 
 [tool.setuptools.packages.find]

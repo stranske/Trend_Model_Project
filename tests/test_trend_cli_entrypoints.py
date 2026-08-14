@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import builtins
 import ast
+import builtins
 import json
 import textwrap
 import types

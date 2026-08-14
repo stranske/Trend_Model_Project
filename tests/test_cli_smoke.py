@@ -8,7 +8,7 @@ from pathlib import Path
 def test_cli_help_smoke():
     """Smoke test: CLI --help works without errors."""
     project_root = Path(__file__).parent.parent
-    script_path = project_root / "scripts" / "trend-model"
+    script_path = project_root / "scripts" / "trend"
 
     result = subprocess.run(
         [str(script_path), "--help"], capture_output=True, text=True, cwd=project_root
@@ -23,7 +23,7 @@ def test_cli_help_smoke():
 def test_cli_run_help_smoke():
     """Smoke test: CLI run --help works without errors."""
     project_root = Path(__file__).parent.parent
-    script_path = project_root / "scripts" / "trend-model"
+    script_path = project_root / "scripts" / "trend"
 
     result = subprocess.run(
         [str(script_path), "run", "--help"],
@@ -40,7 +40,7 @@ def test_cli_run_help_smoke():
 def test_cli_app_help_smoke():
     """Smoke test: CLI app --help works without errors."""
     project_root = Path(__file__).parent.parent
-    script_path = project_root / "scripts" / "trend-model"
+    script_path = project_root / "scripts" / "trend"
 
     result = subprocess.run(
         [str(script_path), "app", "--help"],
@@ -55,7 +55,7 @@ def test_cli_app_help_smoke():
 def test_cli_gui_alias_rejected_smoke():
     """Smoke test: legacy gui alias is rejected by the modular CLI."""
     project_root = Path(__file__).parent.parent
-    script_path = project_root / "scripts" / "trend-model"
+    script_path = project_root / "scripts" / "trend"
 
     result = subprocess.run(
         [str(script_path), "gui", "--help"],
@@ -93,7 +93,7 @@ def test_cli_module_direct_smoke():
 def test_cli_run_missing_args_smoke():
     """Smoke test: CLI run command properly validates required arguments."""
     project_root = Path(__file__).parent.parent
-    script_path = project_root / "scripts" / "trend-model"
+    script_path = project_root / "scripts" / "trend"
 
     result = subprocess.run(
         [str(script_path), "run"], capture_output=True, text=True, cwd=project_root

@@ -123,7 +123,7 @@ The same registry powers the CLI. Run the analysis with a preset by supplying
 `--preset`:
 
 ```bash
-trend-model run --preset conservative -c my_config.yml -i returns.csv
+trend run --preset conservative -c my_config.yml --returns returns.csv
 ```
 
 Both surfaces share the underlying `TrendSpec` parameters, keeping the Streamlit

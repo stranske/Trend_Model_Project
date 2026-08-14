@@ -18,17 +18,17 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from trend.cli_helpers import (
-    _apply_trend_spec_preset,
-    _apply_universe_mask,
-    _attach_universe_paths,
-)
 from trend.cli_commands import (
     prepare_command_inputs,
     run_analysis_command,
     run_app_command,
     run_check_command,
     run_report_command,
+)
+from trend.cli_helpers import (
+    _apply_trend_spec_preset,
+    _apply_universe_mask,
+    _attach_universe_paths,
 )
 from trend.cli_support import (
     check_environment,

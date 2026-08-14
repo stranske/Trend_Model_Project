@@ -20,7 +20,7 @@ def test_cli_reproducible_same_seed(tmp_path: Path) -> None:
     bundle2 = tmp_path / "b2.zip"
     cmd_base = [
         "bash",
-        "scripts/trend-model",
+        "scripts/trend",
         "run",
         "-c",
         str(config),
@@ -72,7 +72,7 @@ def test_cli_seed_precedence_env_vs_flag(tmp_path: Path) -> None:
     bundle = tmp_path / "b.zip"
     cmd_base = [
         "bash",
-        "scripts/trend-model",
+        "scripts/trend",
         "run",
         "-c",
         str(config),
