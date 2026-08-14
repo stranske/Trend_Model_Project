@@ -12,7 +12,7 @@ Use this index to find the current contributor guides and to understand which ov
 | `config/` | Configuration files | `defaults.yml`, `demo.yml`, `presets/`, `universe/` |
 | `scripts/` | Utility and CI scripts | `setup_env.sh`, `run_tests.sh` |
 | `docs/` | Documentation | Guides, references, CI docs |
-| `analysis/` | Analysis helpers | `cv.py`, `results.py`, `tearsheet.py` |
+| `analysis/` | Analysis helpers | `results.py` |
 | `assets/` | Static assets | `screenshots/` for documentation |
 | `demo/` | Demo data and outputs | Generated demo datasets |
 | `examples/` | Usage examples | Demo scripts, legacy streamlit app |
@@ -85,7 +85,7 @@ Use this index to find the current contributor guides and to understand which ov
 
 **`analysis/` folder cleanup:**
 - Archived `health44-pr-run-review.md` investigation notes
-- Kept active code: `cv.py`, `results.py`, `tearsheet.py`, `__init__.py`
+- Kept active code: `results.py`, `__init__.py`
 
 **`assets/` folder cleanup:**
 - Removed empty placeholder PNG files (0 bytes)
@@ -119,7 +119,7 @@ Use this index to find the current contributor guides and to understand which ov
 - Referenced workflow `maint-52-perf-benchmark.yml` does not exist yet
 
 **`reports/` folder (reviewed 2025-11-30):**
-- `tearsheet.md` - Generated output from `analysis/tearsheet.py` (active, referenced in README)
+- `tearsheet.md` - Historical output retained after retiring the standalone tearsheet command
 - Archived `code_review.md` - one-off analysis from PR #3877
 
 **`scripts/` folder (reviewed 2025-11-30):**

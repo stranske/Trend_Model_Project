@@ -12,7 +12,8 @@ from trend import cli
 
 def test_root_src_cli_is_removed() -> None:
     """The uninstalled root utility must not return."""
-    assert not (Path("src") / "cli.py").exists()
+    repository_root = Path(__file__).resolve().parents[1]
+    assert not (repository_root / "src" / "cli.py").exists()
     assert importlib.util.find_spec("cli") is None
 
 
