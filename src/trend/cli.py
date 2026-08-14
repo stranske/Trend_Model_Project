@@ -12,8 +12,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from types import ModuleType
-from typing import Any, Callable, Iterable, Mapping, Protocol, Sequence, cast
+from typing import Any, Callable, Iterable, Mapping, Sequence, cast
 
 import numpy as np
 import pandas as pd
@@ -24,6 +23,7 @@ from trend.cli_helpers import (
     _apply_universe_mask,
     _attach_universe_paths,
 )
+from trend.cli_support import check_environment, extract_cache_stats, find_prior_run, maybe_log_step
 from trend.config_schema import CoreConfigError, load_core_config
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 from trend.reporting import generate_unified_report
@@ -100,35 +100,14 @@ from trend_analysis.viz.artifacts import extract_bundle_zip
 from trend_model.spec import ensure_run_spec
 from utils.paths import proj_path
 
-LegacyExtractCacheStats = Callable[[object], dict[str, int] | None]
 
-
-class LegacyMaybeLogStep(Protocol):
-    def __call__(self, enabled: bool, run_id: str, event: str, message: str, **fields: Any) -> None:
-        # Protocol method intentionally empty; implementors provide behaviour.
-        ...
-
-
-def _noop_maybe_log_step(
-    enabled: bool, run_id: str, event: str, message: str, **fields: Any
-) -> None:
-    return None
-
-
-_legacy_cli_module: ModuleType | None = None
-_legacy_extract_cache_stats: LegacyExtractCacheStats | None = None
-_legacy_maybe_log_step: LegacyMaybeLogStep = _noop_maybe_log_step
-_ORIGINAL_FALLBACKS: dict[str, Callable[..., Any]] = {}
-_LEGACY_BASELINES: dict[str, Callable[..., Any]] = {}
-
-
-def _report_legacy_pipeline_diagnostic(
+def _report_pipeline_diagnostic(
     diagnostic: DiagnosticPayload,
     *,
     structured_log: bool,
     run_id: str,
 ) -> None:
-    """Surface pipeline diagnostics within the legacy CLI."""
+    """Surface pipeline diagnostics within the public CLI."""
 
     context = diagnostic.context or {}
     text = f"Pipeline skipped ({diagnostic.reason_code}): {diagnostic.message}"
@@ -145,33 +124,7 @@ def _report_legacy_pipeline_diagnostic(
 
 
 def _run_environment_check() -> int:
-    from trend_analysis.cli import check_environment
-
     return check_environment()
-
-
-def _env_flag(name: str) -> bool:
-    value = os.getenv(name, "").strip().lower()
-    return value in {"1", "true", "yes", "on"}
-
-
-_USE_LEGACY_CLI = _env_flag("TREND_FORCE_LEGACY_CLI")
-
-
-def _capture_legacy_baseline(name: str) -> None:
-    module = _refresh_legacy_cli_module()
-    if module is None or name in _LEGACY_BASELINES:
-        return
-    attr = getattr(module, name, None)
-    if callable(attr):
-        _LEGACY_BASELINES[name] = attr
-
-
-def _register_fallback(name: str, fn: Callable[..., Any]) -> None:
-    """Remember the original fallback so monkeypatching works with legacy hooks."""
-
-    _ORIGINAL_FALLBACKS.setdefault(name, fn)
-    _capture_legacy_baseline(name)
 
 
 logger = logging.getLogger(__name__)
@@ -223,35 +176,6 @@ def get_last_perf_log_path() -> Path | None:
     return _PERF_LOG_STATE.last_path
 
 
-def _refresh_legacy_cli_module() -> ModuleType | None:
-    """Return the legacy CLI module, refreshing cached helpers when reloaded."""
-
-    global _legacy_cli_module, _legacy_extract_cache_stats, _legacy_maybe_log_step
-
-    module = sys.modules.get("trend_analysis.cli")
-    if module is None:
-        try:  # pragma: no cover - defensive import guard
-            import trend_analysis.cli as module
-        except Exception:  # pragma: no cover - defensive fallback
-            module = None
-
-    if module is not None and module is not _legacy_cli_module:
-        _legacy_cli_module = module
-        maybe_log_step_fn = getattr(module, "maybe_log_step", None)
-        if callable(maybe_log_step_fn):
-            _legacy_maybe_log_step = cast(LegacyMaybeLogStep, maybe_log_step_fn)
-        _legacy_extract_cache_stats = getattr(module, "_extract_cache_stats", None)
-        for name in _ORIGINAL_FALLBACKS:
-            attr = getattr(module, name, None)
-            if callable(attr) and name not in _LEGACY_BASELINES:
-                _LEGACY_BASELINES[name] = attr
-
-    return module or _legacy_cli_module
-
-
-_refresh_legacy_cli_module()
-
-
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
 
 DEFAULT_REPORT_FORMATS = ("csv", "json", "xlsx", "txt")
@@ -260,23 +184,6 @@ SCENARIO_WINDOWS: dict[str, tuple[tuple[str, str], tuple[str, str]]] = {
     "2008": (("2006-01", "2007-12"), ("2008-01", "2009-12")),
     "2020": (("2018-01", "2019-12"), ("2020-01", "2021-12")),
 }
-
-
-def _legacy_callable(name: str, fallback: Callable[..., Any]) -> Callable[..., Any]:
-    original = _ORIGINAL_FALLBACKS.get(name)
-    if original is not None and fallback is not original:
-        return fallback
-    module = _refresh_legacy_cli_module()
-    if module is not None:
-        attr = getattr(module, name, None)
-        if callable(attr):
-            baseline = _LEGACY_BASELINES.get(name)
-            if baseline is None:
-                _LEGACY_BASELINES[name] = attr
-                baseline = attr
-            if _USE_LEGACY_CLI or attr is not baseline:
-                return cast(Callable[..., Any], attr)
-    return fallback
 
 
 # TrendCLIError is the canonical user-facing error for all CLI validation
@@ -304,13 +211,8 @@ def _is_valid_tqdm_instance(candidate: Any) -> bool:
     return is_valid_tqdm_instance(candidate)
 
 
-def build_parser(
-    *, prog: str = "trend", include_gui_alias: bool | None = None
-) -> argparse.ArgumentParser:
+def build_parser(*, prog: str = "trend") -> argparse.ArgumentParser:
     """Construct the argument parser for the unified ``trend`` command."""
-    if include_gui_alias is None:
-        include_gui_alias = prog == "trend-model"
-
     parser = argparse.ArgumentParser(prog=prog)
     sub = parser.add_subparsers(dest="subcommand", required=True)
 
@@ -421,8 +323,6 @@ def build_parser(
     add_mc_subparsers(mc_p)
 
     sub.add_parser("app", help="Launch the Streamlit application")
-    if include_gui_alias:
-        sub.add_parser("gui", help="Launch the app (legacy alias for app)")
 
     quick_p = sub.add_parser("quick-report", help="Build a compact HTML report from run artefacts")
     quick_p.add_argument("--run-id", help="Run identifier (defaults to artefact inference)")
@@ -620,9 +520,6 @@ def _resolve_returns_path(config_path: Path, cfg: Any, override: str | None) -> 
     return _resolve_relative(Path(csv_path), include_config_roots=True)
 
 
-_register_fallback("_resolve_returns_path", _resolve_returns_path)
-
-
 def _ensure_dataframe(path: Path) -> pd.DataFrame:
     try:
         df = load_csv(str(path), errors="raise")
@@ -631,9 +528,6 @@ def _ensure_dataframe(path: Path) -> pd.DataFrame:
     if df is None:
         raise FileNotFoundError(str(path))
     return df
-
-
-_register_fallback("_ensure_dataframe", _ensure_dataframe)
 
 
 def _determine_seed(cfg: Any, override: int | None) -> int:
@@ -697,7 +591,7 @@ def _run_pipeline(
     result = run_simulation(cfg, returns_df)
     diagnostic = getattr(result, "diagnostic", None)
     if diagnostic and not result.details:
-        _report_legacy_pipeline_diagnostic(
+        _report_pipeline_diagnostic(
             diagnostic,
             structured_log=structured_log,
             run_id=run_id,
@@ -736,9 +630,6 @@ def _run_pipeline(
         _write_bundle(cfg, result, source_path, Path(bundle), structured_log, run_id)
 
     return result, run_id, log_path
-
-
-_register_fallback("_run_pipeline", _run_pipeline)
 
 
 def _handle_exports(cfg: Any, result: RunResult, structured_log: bool, run_id: str) -> None:
@@ -930,15 +821,11 @@ def _print_summary(cfg: Any, result: RunResult) -> None:
         str(split.get("out_end", "")),
     )
     print(text)
-    if _legacy_extract_cache_stats is not None:
-        cache_stats = _legacy_extract_cache_stats(result.details)
-        if cache_stats:
-            print("\nCache statistics:")
-            for key, value in cache_stats.items():
-                print(f"  {key.capitalize()}: {value}")
-
-
-_register_fallback("_print_summary", _print_summary)
+    cache_stats = _legacy_extract_cache_stats(result.details)
+    if cache_stats:
+        print("\nCache statistics:")
+        for key, value in cache_stats.items():
+            print(f"  {key.capitalize()}: {value}")
 
 
 def _write_report_files(out_dir: Path, cfg: Any, result: RunResult, *, run_id: str) -> None:
@@ -962,9 +849,6 @@ def _write_report_files(out_dir: Path, cfg: Any, result: RunResult, *, run_id: s
     if turnover_csv_result.diagnostic:
         logger.info(turnover_csv_result.diagnostic.message)
     print(f"Report artefacts written to {out_dir}")
-
-
-_register_fallback("_write_report_files", _write_report_files)
 
 
 def _resolve_report_output_path(output: str | None, export_dir: Path | None, run_id: str) -> Path:
@@ -1192,9 +1076,6 @@ def _load_configuration(path: str) -> Any:
     cfg = load_config(cfg_path)
     ensure_run_spec(cfg, base_path=cfg_path.parent)
     return cfg_path, cfg
-
-
-_register_fallback("_load_configuration", _load_configuration)
 
 
 def _resolve_explain_details_path(args: argparse.Namespace) -> Path:
@@ -1940,7 +1821,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                 deactivate_config_coverage()
             return _run_environment_check()
 
-        if command in {"app", "gui"}:
+        if command == "app":
             if coverage_tracker is not None:
                 deactivate_config_coverage()
             try:
@@ -2137,7 +2018,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                 returns_path = _resolve_returns_path(output_path, cfg, None)
                 returns_df = _ensure_dataframe(returns_path)
                 _determine_seed(cfg, None)
-                run_pipeline = _legacy_callable("_run_pipeline", _run_pipeline)
+                run_pipeline = _run_pipeline
                 run_started = time.perf_counter()
                 run_timestamp = datetime.now(timezone.utc)
                 run_error: str | None = None
@@ -2168,7 +2049,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                         started_at=run_started,
                         timestamp=run_timestamp,
                     )
-                print_summary = _legacy_callable("_print_summary", _print_summary)
+                print_summary = _print_summary
                 print_summary(cfg, result)
                 if log_path:
                     print(f"Structured log: {log_path}")
@@ -2184,14 +2065,14 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
         if command != "mc" and not args.config:
             raise TrendCLIError(f"The --config option is required for the '{command}' command")
 
-        load_config_fn = _legacy_callable("_load_configuration", _load_configuration)
+        load_config_fn = _load_configuration
         cfg_path, cfg = load_config_fn(args.config)
         if coverage_tracker is not None:
             wrap_config_for_coverage(cfg, coverage_tracker)
         ensure_run_spec(cfg, base_path=cfg_path.parent)
-        resolve_returns = _legacy_callable("_resolve_returns_path", _resolve_returns_path)
+        resolve_returns = _resolve_returns_path
         returns_path = resolve_returns(cfg_path, cfg, getattr(args, "returns", None))
-        ensure_df = _legacy_callable("_ensure_dataframe", _ensure_dataframe)
+        ensure_df = _ensure_dataframe
         returns_df = ensure_df(returns_path)
         seed = _determine_seed(cfg, getattr(args, "seed", None))
 
@@ -2219,8 +2100,6 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                 )
                 _attach_universe_paths(cfg, universe_spec, csv_path=str(returns_path))
             if getattr(args, "skip_if_exists", False):
-                from trend_analysis.cli import find_prior_run
-
                 candidate_run_id = working_run_id(cfg, returns_path)
                 existing_manifest = find_prior_run(cfg, candidate_run_id)
                 if existing_manifest is not None:
@@ -2228,7 +2107,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                     print(f"Existing manifest: {existing_manifest}")
                     _finalize_config_coverage()
                     return 0
-            run_pipeline = _legacy_callable("_run_pipeline", _run_pipeline)
+            run_pipeline = _run_pipeline
             result, run_id, log_path = run_pipeline(
                 cfg,
                 returns_df,
@@ -2246,7 +2125,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                 run_id=run_id,
                 structured_log=not args.no_structured_log,
             )
-            print_summary = _legacy_callable("_print_summary", _print_summary)
+            print_summary = _print_summary
             print_summary(cfg, result)
             if log_path:
                 print(f"Structured log: {log_path}")
@@ -2261,7 +2140,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                 )
             formats = args.formats or DEFAULT_REPORT_FORMATS
             _prepare_export_config(cfg, export_dir, formats if export_dir is not None else None)
-            run_pipeline = _legacy_callable("_run_pipeline", _run_pipeline)
+            run_pipeline = _run_pipeline
             result, run_id, _ = run_pipeline(
                 cfg,
                 returns_df,
@@ -2270,10 +2149,10 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                 structured_log=False,
                 bundle=None,
             )
-            print_summary = _legacy_callable("_print_summary", _print_summary)
+            print_summary = _print_summary
             print_summary(cfg, result)
             if export_dir is not None:
-                write_report = _legacy_callable("_write_report_files", _write_report_files)
+                write_report = _write_report_files
                 write_report(export_dir, cfg, result, run_id=run_id)
             report_path = _resolve_report_output_path(args.output, export_dir, run_id)
             report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2306,7 +2185,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
             _adjust_for_scenario(cfg, args.scenario)
             export_dir = Path(args.out) if args.out else None
             _prepare_export_config(cfg, export_dir, None)
-            run_pipeline = _legacy_callable("_run_pipeline", _run_pipeline)
+            run_pipeline = _run_pipeline
             result, run_id, _ = run_pipeline(
                 cfg,
                 returns_df,
@@ -2316,10 +2195,10 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                 bundle=None,
             )
             print(f"Stress scenario '{args.scenario}' completed (seed={seed}).")
-            print_summary = _legacy_callable("_print_summary", _print_summary)
+            print_summary = _print_summary
             print_summary(cfg, result)
             if export_dir:
-                write_report = _legacy_callable("_write_report_files", _write_report_files)
+                write_report = _write_report_files
                 write_report(export_dir, cfg, result, run_id=run_id)
             _finalize_config_coverage()
             return 0
@@ -2335,6 +2214,30 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
             deactivate_config_coverage()
         print(f"Error: {exc}", file=sys.stderr)
         return 2
+
+
+def _noop_maybe_log_step(
+    enabled: bool, run_id: str, event: str, message: str, **fields: Any
+) -> None:
+    return None
+
+
+# Transitional aliases retained while tests migrate off legacy monkeypatch hooks.
+_legacy_cli_module = None
+_legacy_maybe_log_step = maybe_log_step
+_legacy_extract_cache_stats = extract_cache_stats
+
+
+def _refresh_legacy_cli_module() -> None:
+    """Legacy refresh hook retained for transitional tests only."""
+
+    return None
+
+
+def _legacy_callable(name: str, fallback: Callable[..., Any]) -> Callable[..., Any]:
+    """Return the canonical implementation; legacy delegation has been removed."""
+
+    return fallback
 
 
 if __name__ == "__main__":  # pragma: no cover - manual invocation

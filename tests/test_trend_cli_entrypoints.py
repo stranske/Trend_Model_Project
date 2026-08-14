@@ -1232,3 +1232,9 @@ def test_main_unknown_command(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(SystemExit) as excinfo:
         trend_cli.main(["unknown", "--config", "cfg.yml", "--returns", "data.csv"])
     assert excinfo.value.code == 2
+
+
+def test_trend_cli_has_no_legacy_module_dependency() -> None:
+    source = Path(trend_cli.__file__).read_text(encoding="utf-8")
+    assert "from trend_analysis.cli import" not in source
+    assert "import trend_analysis.cli" not in source
