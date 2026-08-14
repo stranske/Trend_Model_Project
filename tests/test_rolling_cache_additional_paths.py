@@ -20,7 +20,7 @@ def test_default_cache_dir_rejects_paths_outside_home(monkeypatch, tmp_path: Pat
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
     _reload_cache_module()
-    expected = tmp_path / ".cache/trend_model/rolling"
+    expected = tmp_path / ".cache/trend/rolling"
     assert rolling_cache._DEFAULT_CACHE_DIR == expected
 
 

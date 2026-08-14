@@ -111,7 +111,7 @@ PROJECT_MODULES = {
     "trend_analysis",
     "trend_portfolio_app",
     "streamlit_app",
-    "trend_model",
+    "trend",
     "trend",
     "src",
     "data",

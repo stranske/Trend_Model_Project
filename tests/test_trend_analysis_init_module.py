@@ -105,13 +105,13 @@ def restore_dataclasses(monkeypatch: pytest.MonkeyPatch):
     import dataclasses
 
     original_is_type = getattr(dataclasses, "_is_type", None)
-    original_flag = getattr(dataclasses, "_trend_model_patched", False)
+    original_flag = getattr(dataclasses, "_trend_patched", False)
     if original_flag:
-        monkeypatch.delattr(dataclasses, "_trend_model_patched")
+        monkeypatch.delattr(dataclasses, "_trend_patched")
     yield dataclasses
     monkeypatch.setattr(dataclasses, "_is_type", original_is_type, raising=False)
     if original_flag:
-        monkeypatch.setattr(dataclasses, "_trend_model_patched", True, raising=False)
+        monkeypatch.setattr(dataclasses, "_trend_patched", True, raising=False)
 
 
 @pytest.fixture
@@ -121,14 +121,14 @@ def reload_trend_analysis():
     module = trend_analysis
 
     def _reload() -> ModuleType:
-        if getattr(dataclasses, "_trend_model_patched", False):
-            delattr(dataclasses, "_trend_model_patched")
+        if getattr(dataclasses, "_trend_patched", False):
+            delattr(dataclasses, "_trend_patched")
         return importlib.reload(module)
 
     yield _reload
 
-    if getattr(dataclasses, "_trend_model_patched", False):
-        delattr(dataclasses, "_trend_model_patched")
+    if getattr(dataclasses, "_trend_patched", False):
+        delattr(dataclasses, "_trend_patched")
     importlib.reload(module)
 
 
@@ -157,7 +157,7 @@ def test_patch_dataclasses_module_guard_reimports_missing_module(
 
     trend_analysis._patch_dataclasses_module_guard()
 
-    assert getattr(dataclasses, "_trend_model_patched", False) is True
+    assert getattr(dataclasses, "_trend_patched", False) is True
 
     result = dataclasses._is_type(  # type: ignore[attr-defined]
         annotation=None,
@@ -216,7 +216,7 @@ def test_patch_guard_skips_when_original_missing(
 
     monkeypatch.delattr(dataclasses, "_is_type", raising=False)
     trend_analysis._patch_dataclasses_module_guard()
-    assert not hasattr(dataclasses, "_trend_model_patched")
+    assert not hasattr(dataclasses, "_trend_patched")
 
 
 def test_patch_guard_propagates_when_module_name_missing(

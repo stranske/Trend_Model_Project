@@ -51,7 +51,7 @@ def test_safe_is_type_handles_missing_module(monkeypatch):
     original_module = importlib.import_module("trend_analysis")
 
     monkeypatch.setattr(dataclasses, "_is_type", flaky_is_type)
-    monkeypatch.setattr(dataclasses, "_trend_model_patched", False, raising=False)
+    monkeypatch.setattr(dataclasses, "_trend_patched", False, raising=False)
     monkeypatch.delitem(sys.modules, "trend_analysis", raising=False)
     monkeypatch.delitem(sys.modules, "tests.missing_mod", raising=False)
 
@@ -69,7 +69,7 @@ def test_patch_dataclasses_module_guard_respects_existing_patch(monkeypatch):
     import trend_analysis as ta
 
     sentinel = object()
-    monkeypatch.setattr(dataclasses, "_trend_model_patched", True, raising=False)
+    monkeypatch.setattr(dataclasses, "_trend_patched", True, raising=False)
     monkeypatch.setattr(dataclasses, "_is_type", sentinel)
     monkeypatch.delattr(ta, "_SAFE_IS_TYPE", raising=False)
 
@@ -85,7 +85,7 @@ def test_patch_dataclasses_module_guard_no_is_type(monkeypatch):
 
     original = getattr(dataclasses, "_is_type", None)
     monkeypatch.setattr(dataclasses, "_is_type", None)
-    monkeypatch.setattr(dataclasses, "_trend_model_patched", False, raising=False)
+    monkeypatch.setattr(dataclasses, "_trend_patched", False, raising=False)
     monkeypatch.delattr(ta, "_SAFE_IS_TYPE", raising=False)
 
     ta._patch_dataclasses_module_guard()

@@ -109,7 +109,7 @@ from trend_analysis.util.json_compat import (
     json_primitive,
 )
 from trend_analysis.viz.artifacts import extract_bundle_zip
-from trend_model.spec import ensure_run_spec
+from trend.spec import ensure_run_spec
 from utils.paths import proj_path
 
 

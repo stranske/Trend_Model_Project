@@ -18,7 +18,7 @@ from trend_analysis.config.coverage import (
     wrap_config_for_coverage,
 )
 from trend_analysis.config.models import load_config
-from trend_model.spec import ensure_run_spec
+from trend.spec import ensure_run_spec
 
 
 def _run_coverage(

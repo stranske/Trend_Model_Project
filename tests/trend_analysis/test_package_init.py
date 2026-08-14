@@ -86,16 +86,16 @@ def test_patch_skips_when_original_is_missing(monkeypatch, load_trend_analysis):
     previous_safe = module._SAFE_IS_TYPE  # type: ignore[attr-defined]
 
     monkeypatch.setattr(dataclasses, "_is_type", None, raising=False)
-    monkeypatch.setattr(dataclasses, "_trend_model_patched", False, raising=False)
+    monkeypatch.setattr(dataclasses, "_trend_patched", False, raising=False)
 
     module._patch_dataclasses_module_guard()
 
     assert module._SAFE_IS_TYPE is previous_safe  # type: ignore[attr-defined]
     assert getattr(dataclasses, "_is_type") is None
-    assert not getattr(dataclasses, "_trend_model_patched", False)
+    assert not getattr(dataclasses, "_trend_patched", False)
 
     dataclasses._is_type = original  # type: ignore[attr-defined]
-    dataclasses._trend_model_patched = False  # type: ignore[attr-defined]
+    dataclasses._trend_patched = False  # type: ignore[attr-defined]
     module._patch_dataclasses_module_guard()
 
 
@@ -137,7 +137,7 @@ def test_patch_handles_attribute_error_and_reimports(monkeypatch, load_trend_ana
         return predicate
 
     monkeypatch.setattr(dataclasses, "_is_type", stub, raising=False)
-    monkeypatch.setattr(dataclasses, "_trend_model_patched", False, raising=False)
+    monkeypatch.setattr(dataclasses, "_trend_patched", False, raising=False)
 
     module._patch_dataclasses_module_guard()
     safe = dataclasses._is_type
@@ -161,7 +161,7 @@ def test_patch_handles_attribute_error_and_reimports(monkeypatch, load_trend_ana
     assert placeholder.__dict__["__package__"] == "tests"
 
     dataclasses._is_type = module._SAFE_IS_TYPE  # type: ignore[attr-defined]
-    dataclasses._trend_model_patched = True  # type: ignore[attr-defined]
+    dataclasses._trend_patched = True  # type: ignore[attr-defined]
 
 
 def test_dataclasses_guard_re_raises_for_orphan_modules(load_trend_analysis):

@@ -53,7 +53,7 @@ def test_dataclasses_patch_recreates_missing_module(
         return True
 
     monkeypatch.setattr(dataclasses, "_is_type", fake_is_type, raising=False)
-    monkeypatch.delattr(dataclasses, "_trend_model_patched", raising=False)
+    monkeypatch.delattr(dataclasses, "_trend_patched", raising=False)
 
     _ = importlib.reload(trend_analysis)
 
@@ -95,7 +95,7 @@ def test_dataclasses_patch_reimports_available_module(
     stub_module.__package__ = module_name.rpartition(".")[0]
 
     monkeypatch.setattr(dataclasses, "_is_type", reimporting_is_type, raising=False)
-    monkeypatch.delattr(dataclasses, "_trend_model_patched", raising=False)
+    monkeypatch.delattr(dataclasses, "_trend_patched", raising=False)
 
     _ = importlib.reload(trend_analysis)
 
@@ -124,7 +124,7 @@ def test_dataclasses_patch_bubbles_when_module_unknown(
         raise AttributeError("missing module")
 
     monkeypatch.setattr(dataclasses, "_is_type", always_missing, raising=False)
-    monkeypatch.delattr(dataclasses, "_trend_model_patched", raising=False)
+    monkeypatch.delattr(dataclasses, "_trend_patched", raising=False)
 
     _ = importlib.reload(trend_analysis)
 
@@ -180,7 +180,7 @@ def test_dataclasses_patch_returns_when_module_present(
         return True
 
     monkeypatch.setattr(dataclasses, "_is_type", fake_is_type, raising=False)
-    monkeypatch.delattr(dataclasses, "_trend_model_patched", raising=False)
+    monkeypatch.delattr(dataclasses, "_trend_patched", raising=False)
 
     _ = importlib.reload(trend_analysis)
 

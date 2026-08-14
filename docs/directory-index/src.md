@@ -10,7 +10,7 @@
 | Package | Description |
 |---------|-------------|
 | `trend_analysis/` | Core trend analysis engine and pipeline |
-| `trend_model/` | Trend model implementation |
+| `trend/` | Trend model implementation |
 | `trend_portfolio_app/` | Portfolio application components |
 | `backtest/` | Backtesting framework |
 | `data/` | Data loading and validation |

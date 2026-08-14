@@ -79,7 +79,7 @@ def test_dataclasses_guard_handles_missing_is_type(monkeypatch):
     import trend_analysis
 
     trend_analysis.__dict__.pop("_SAFE_IS_TYPE", None)
-    monkeypatch.delattr(dataclasses, "_trend_model_patched", raising=False)
+    monkeypatch.delattr(dataclasses, "_trend_patched", raising=False)
     monkeypatch.setattr(dataclasses, "_is_type", None, raising=False)
 
     reloaded = importlib.reload(trend_analysis)

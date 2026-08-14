@@ -5,13 +5,20 @@ from typing import Any
 
 import pytest
 
-from trend_model import spec as spec_module
-from trend_model.spec import (
+from trend import spec as spec_module
+from trend.spec import (
     TrendRunSpec,
     ensure_run_spec,
     load_run_spec_from_file,
     load_run_spec_from_mapping,
 )
+
+
+def test_run_spec_imports_from_canonical_namespace() -> None:
+    """The relocated run-spec API has one supported public import path."""
+
+    assert spec_module.ensure_run_spec is ensure_run_spec
+    assert "ensure_run_spec" in spec_module.__all__
 
 
 def test_load_run_spec_from_file() -> None:
