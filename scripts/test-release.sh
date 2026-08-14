@@ -86,7 +86,9 @@ if [[ -n "$WHEEL_FILE" ]]; then
         if trend --help > /dev/null 2>&1; then
             echo -e "${GREEN}✓ trend CLI available${NC}"
         else
-            echo -e "${YELLOW}⚠ trend CLI not available (may need dependencies)${NC}"
+            echo -e "${RED}✗ trend CLI help failed${NC}"
+            deactivate
+            exit 1
         fi
         
     else
