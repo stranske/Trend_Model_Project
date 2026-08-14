@@ -2340,7 +2340,7 @@ subprocess.run(
 )
 
 subprocess.run(
-    ["scripts/trend-model", "check"],
+    ["scripts/trend", "check"],
     check=True,
     shell=False,
 )
@@ -2348,7 +2348,7 @@ subprocess.run(
 env = os.environ.copy()
 env["TREND_CFG"] = "config/demo.yml"
 subprocess.run(
-    ["scripts/trend-model", "check"],
+    ["scripts/trend", "check"],
     check=True,
     env=env,
     shell=False,

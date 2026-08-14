@@ -1,8 +1,7 @@
 # Trend Model CLI Quickstart
 
 This guide defines the supported command surface after installation (for example
-via `pip install -e .`). The supported entry point is `trend`; compatibility
-aliases remain removal-bound and must not be used in new documentation or automation.
+via `pip install -e .`). The supported entry point is `trend`.
 
 ## Prerequisites
 
@@ -35,10 +34,7 @@ aliases remain removal-bound and must not be used in new documentation or automa
 | `trend check` | Print environment and dependency diagnostics. | Supported |
 | `trend mc` | List, validate, run, and render Monte Carlo scenarios and bundles. | Supported. |
 
-Compatibility commands such as `trend-analysis`, `trend-multi-analysis`,
-`trend-model`, `trend-app`, and `trend-run` are transitional aliases only and
-will be removed. New scenario instructions use the canonical `trend mc`
-command tree; the old `trend-analysis` entry point remains compatibility-only.
+New scenario instructions use the canonical `trend mc` command tree.
 
 ## Launching the Streamlit UI (`trend app`)
 

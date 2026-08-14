@@ -373,7 +373,7 @@ def build_run_report(
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="trend-quick-report",
+        prog="trend quick-report",
         description="Generate a compact HTML report from trend run artefacts.",
     )
     parser.add_argument("--run-id", help="Run identifier (defaults to artefact inference)")

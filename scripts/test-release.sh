@@ -83,16 +83,10 @@ if [[ -n "$WHEEL_FILE" ]]; then
         
         # Test CLI commands
         echo -e "${BLUE}Testing CLI commands...${NC}"
-        if trend-analysis --help > /dev/null 2>&1; then
-            echo -e "${GREEN}✓ trend-analysis CLI available${NC}"
+        if trend --help > /dev/null 2>&1; then
+            echo -e "${GREEN}✓ trend CLI available${NC}"
         else
-            echo -e "${YELLOW}⚠ trend-analysis CLI not available (may need dependencies)${NC}"
-        fi
-        
-        if trend-multi-analysis --help > /dev/null 2>&1; then
-            echo -e "${GREEN}✓ trend-multi-analysis CLI available${NC}"
-        else
-            echo -e "${YELLOW}⚠ trend-multi-analysis CLI not available (may need dependencies)${NC}"
+            echo -e "${YELLOW}⚠ trend CLI not available (may need dependencies)${NC}"
         fi
         
     else
@@ -107,7 +101,7 @@ else
 fi
 
 # Test source distribution
-pip uninstall -y trend-analysis
+pip uninstall -y trend-model
 SDIST_FILE=$(find dist -name "*.tar.gz" | head -1)
 if [[ -n "$SDIST_FILE" ]]; then
     echo "Testing source distribution: $SDIST_FILE"

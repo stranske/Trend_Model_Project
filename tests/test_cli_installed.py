@@ -1,102 +1,62 @@
-"""Smoke tests for installed CLI entry points - validates console_scripts work in CI Ubuntu."""
+"""Installed-console-script contract tests for the supported CLI surface."""
 
-import shutil
+from __future__ import annotations
+
+import os
+from pathlib import Path
 import subprocess
+import sys
+import venv
 
 import pytest
 
 
-def test_installed_trend_model_available():
-    """Smoke test: trend-model command is available after package installation."""
-    # Check if trend-model command is available in PATH
-    trend_model_path = shutil.which("trend-model")
-
-    if trend_model_path is None:
-        pytest.skip("trend-model command not found in PATH - package not installed")
-
-    # Test basic help functionality
-    result = subprocess.run(["trend-model", "--help"], capture_output=True, text=True)
-
-    assert result.returncode == 0
-    assert "trend-model" in result.stdout
-    assert "app" in result.stdout
-    assert "run" in result.stdout
+REMOVED_COMMANDS = (
+    "trend-analysis",
+    "trend-multi-analysis",
+    "trend-model",
+    "trend-app",
+    "trend-run",
+    "trend-quick-report",
+)
 
 
-def test_installed_trend_model_run_help():
-    """Smoke test: trend-model run --help works after package installation."""
-    trend_model_path = shutil.which("trend-model")
-
-    if trend_model_path is None:
-        pytest.skip("trend-model command not found in PATH - package not installed")
-
-    result = subprocess.run(["trend-model", "run", "--help"], capture_output=True, text=True)
-
-    assert result.returncode == 0
-    assert "config" in result.stdout.lower()
-    assert "input" in result.stdout.lower()
-
-
-def test_installed_trend_model_gui_help():
-    """Smoke test: trend-model gui --help works after package installation."""
-    trend_model_path = shutil.which("trend-model")
-
-    if trend_model_path is None:
-        pytest.skip("trend-model command not found in PATH - package not installed")
-
-    result = subprocess.run(["trend-model", "gui", "--help"], capture_output=True, text=True)
-
-    assert result.returncode == 0
+@pytest.fixture()
+def installed_bin(tmp_path: Path) -> Path:
+    """Install this checkout into an isolated environment with shared dependencies."""
+    environment = tmp_path / "installed-package"
+    venv.EnvBuilder(with_pip=True, system_site_packages=True).create(environment)
+    python = environment / "bin" / "python"
+    project_root = Path(__file__).resolve().parents[1]
+    subprocess.run(
+        [
+            python,
+            "-m",
+            "pip",
+            "install",
+            "--no-build-isolation",
+            "--no-deps",
+            str(project_root),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return environment / "bin"
 
 
-def test_console_scripts_entry_points():
-    """Smoke test: All expected console_scripts are available after installation."""
-    expected_commands = [
-        "trend-model",
-        "trend-analysis",
-        "trend-multi-analysis",
-        "trend-app",
-        "trend-run",
-    ]
+def test_removed_compat_entrypoints_are_not_installed(installed_bin: Path) -> None:
+    """Only supported console scripts are present after an isolated installation."""
+    assert (installed_bin / "trend").is_file()
+    assert (installed_bin / "trend-llm-proxy").is_file()
+    for command in REMOVED_COMMANDS:
+        assert not (installed_bin / command).exists()
 
-    available_commands = []
-    missing_commands = []
-
-    for cmd in expected_commands:
-        if shutil.which(cmd):
-            available_commands.append(cmd)
-        else:
-            missing_commands.append(cmd)
-
-    # At minimum, trend-model should be available if package is properly installed
-    if not available_commands:
-        pytest.skip("No trend-* commands found in PATH - package not installed")
-
-    # Test at least one command works
-    result = subprocess.run([available_commands[0], "--help"], capture_output=True, text=True)
-
-    assert result.returncode == 0
-    print(f"Available commands: {available_commands}")
-    if missing_commands:
-        print(f"Missing commands: {missing_commands}")
-
-
-def test_trend_model_error_handling():
-    """Smoke test: trend-model properly handles invalid arguments."""
-    trend_model_path = shutil.which("trend-model")
-
-    if trend_model_path is None:
-        pytest.skip("trend-model command not found in PATH - package not installed")
-
-    # Test with invalid command
-    result = subprocess.run(["trend-model", "invalid-command"], capture_output=True, text=True)
-
-    # Should fail with argument error
-    assert result.returncode != 0
-
-    # Test run command without required arguments
-    result = subprocess.run(["trend-model", "run"], capture_output=True, text=True)
-
-    # Should fail due to missing required arguments
-    assert result.returncode == 2
-    assert "required" in result.stderr.lower() or "argument" in result.stderr.lower()
+    result = subprocess.run(
+        [installed_bin / "trend", "--help"],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PATH": f"{installed_bin}:{os.environ.get('PATH', '')}"},
+    )
+    assert result.returncode == 0, result.stderr
+    assert "usage: trend" in result.stdout.lower()

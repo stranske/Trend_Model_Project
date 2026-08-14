@@ -122,21 +122,6 @@ verification checklist (live URL, screenshots, network evidence).
 | **Browser demo** | `demo/wasm/index.html` (stlite/Pyodide) | Zero-install demos & presentations |
 | **Jupyter GUI** | `from trend_analysis.gui import launch; launch()` | Notebook workflows |
 
-## CLI Migration (Legacy -> trend)
-
-Legacy console scripts still work but forward to `trend` with a deprecation warning.
-
-| Legacy command | Trend equivalent |
-|---------------|------------------|
-| `trend-analysis` | `trend run` |
-| `trend-multi-analysis` | `trend run` (multi-period via config) |
-| `trend-model run` | `trend run` (use `--returns` instead of `-i/--input`) |
-| `trend-model gui` | `trend app` |
-| `trend-model --check` | `trend check` |
-| `trend-app` | `trend app` |
-| `trend-run` | `trend report` |
-| `trend-quick-report` | `trend quick-report` |
-
 ### Command-Line Examples
 
 ```bash

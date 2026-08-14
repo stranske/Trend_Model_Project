@@ -52,7 +52,7 @@ fi
 # Test 4: Test CLI functionality
 echo ""
 echo "⚙️ Test 4: Testing CLI functionality..."
-if docker run --rm "$IMAGE" trend-analysis --help > /dev/null; then
+if docker run --rm "$IMAGE" trend --help > /dev/null; then
     echo "✅ CLI help command works"
 else
     echo "❌ CLI help command failed"
@@ -84,5 +84,5 @@ echo ""
 echo "Quick start commands:"
 echo "  Health check:  curl http://localhost:8000/health"
 echo "  Web interface: docker run -p 8000:8000 -p 8501:8501 $IMAGE"
-echo "  CLI help:      docker run --rm $IMAGE trend-analysis --help"
+echo "  CLI help:      docker run --rm $IMAGE trend --help"
 echo "  Interactive:   docker run -it --rm $IMAGE bash"

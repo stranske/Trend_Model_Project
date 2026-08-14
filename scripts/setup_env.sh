@@ -55,15 +55,12 @@ if (return 0 2>/dev/null); then
                 if ! chmod +x scripts/trend; then
                         echo "::warning::chmod +x scripts/trend failed, but continuing. CLI wrapper may not be executable."
                 fi
-                if ! chmod +x scripts/trend-model; then
-                        echo "::warning::chmod +x scripts/trend-model failed, but continuing. CLI wrapper may not be executable."
-                fi
 	)
 	# Now activate in the current shell so the user can keep working
 	# shellcheck disable=SC1091
 	. ".venv/bin/activate"
 	echo "Environment ready and activated."
-        echo "CLI available as: 'trend' (if installed) or './scripts/trend' (legacy: './scripts/trend-model')"
+        echo "CLI available as: 'trend' (if installed) or './scripts/trend'"
         return 0 2>/dev/null || exit 0
 fi
 
@@ -94,9 +91,6 @@ fi
 if ! chmod +x scripts/trend; then
         echo "::warning::chmod +x scripts/trend failed, but continuing. CLI wrapper may not be executable."
 fi
-if ! chmod +x scripts/trend-model; then
-        echo "::warning::chmod +x scripts/trend-model failed, but continuing. CLI wrapper may not be executable."
-fi
 
 echo "Environment setup complete. Activate later with 'source $ENV_DIR/bin/activate'."
-echo "CLI available as: 'trend' (if installed) or './scripts/trend' (legacy: './scripts/trend-model')"
+echo "CLI available as: 'trend' (if installed) or './scripts/trend'"

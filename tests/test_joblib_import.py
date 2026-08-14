@@ -17,7 +17,6 @@ joblib = pytest.importorskip("joblib")
 ENTRYPOINT_MODULES = (
     "trend.cli",
     "trend_analysis.cli",
-    "trend.compat_entrypoints",
 )
 
 
@@ -59,18 +58,10 @@ def test_joblib_spec_origin_outside_repo() -> None:
 @pytest.mark.parametrize("module_name", ENTRYPOINT_MODULES)
 def test_cli_entrypoints_expose_help_and_external_joblib(module_name: str) -> None:
     module = importlib.import_module(module_name)
-    if module_name == "trend.compat_entrypoints":
-        entrypoints = (module.trend_analysis, module.trend_multi_analysis)
-        for entrypoint in entrypoints:
-            try:
-                entrypoint(["--help"])
-            except SystemExit as exc:  # argparse exits after printing help
-                assert exc.code == 0
-    else:
-        main = getattr(module, "main", None)
-        assert main is not None, f"Module '{module_name}' does not expose a 'main' function"
-        try:
-            main(["--help"])
-        except SystemExit as exc:  # argparse exits after printing help
-            assert exc.code == 0
+    main = getattr(module, "main", None)
+    assert main is not None, f"Module '{module_name}' does not expose a 'main' function"
+    try:
+        main(["--help"])
+    except SystemExit as exc:  # argparse exits after printing help
+        assert exc.code == 0
     _assert_external(Path(joblib.__file__))

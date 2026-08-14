@@ -150,21 +150,6 @@ The `scripts/trend` wrapper (and Docker image) force `PYTHONHASHSEED=0`
 if it is not already set, ensuring stable dict/set iteration ordering. Override
 by exporting a different value before calling the script if required.
 
-### CLI Migration (Legacy -> trend)
-
-Legacy console scripts still work but forward to `trend` with a deprecation warning.
-
-| Legacy command | Trend equivalent |
-|---------------|------------------|
-| `trend-analysis` | `trend run` |
-| `trend-multi-analysis` | `trend run` (multi-period via config) |
-| `trend-model run` | `trend run` (use `--returns` instead of `-i/--input`) |
-| `trend-model gui` | `trend app` |
-| `trend-model --check` | `trend check` |
-| `trend-app` | `trend app` |
-| `trend-run` | `trend report` |
-| `trend-quick-report` | `trend quick-report` |
-
 ### Reproducibility Bundle
 
 Add `--bundle` (optionally with a path) to produce a portable archive capturing
@@ -217,11 +202,11 @@ manifest already exists for the computed `run_id`:
 
 ```bash
 # First run computes and writes artifacts under demo/exports/runs/...
-./scripts/trend-model run -c config/demo.yml -i demo/demo_returns.csv
+./scripts/trend run -c config/demo.yml --returns demo/demo_returns.csv
 
 # Second identical run with --skip-if-exists reuses the prior result instead of
 # recomputing, printing "already-done: run_id=<id>" and the existing manifest.
-./scripts/trend-model run -c config/demo.yml -i demo/demo_returns.csv --skip-if-exists
+./scripts/trend run -c config/demo.yml --returns demo/demo_returns.csv --skip-if-exists
 ```
 
 Without `--skip-if-exists` the run always recomputes; the flag only changes
