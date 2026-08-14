@@ -1110,7 +1110,7 @@ def _load_configuration(path: str) -> Any:
         details = "\n".join(format_validation_messages(validation))
         raise TrendCLIError(f"Config validation failed:\n{details}")
     cfg = load_config(cfg_path)
-    ensure_run_spec(cfg, base_path=cfg_path.parent)
+    ensure_run_spec(cfg, base_path=cfg_path.parent, required=True)
     return cfg_path, cfg
 
 
@@ -2046,7 +2046,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                     cfg = load_config(output_path)
                 except Exception as exc:
                     raise TrendCLIError(str(exc)) from exc
-                ensure_run_spec(cfg, base_path=output_path.parent)
+                ensure_run_spec(cfg, base_path=output_path.parent, required=True)
                 returns_path = _resolve_returns_path(output_path, cfg, None)
                 returns_df = _ensure_dataframe(returns_path)
                 _determine_seed(cfg, None)

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import contextlib
+import math
 import os
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping, Sequence, cast
@@ -25,6 +27,9 @@ __all__ = [
     "load_run_spec_from_mapping",
     "ensure_run_spec",
 ]
+
+
+_CWD_LOCK = threading.RLock()
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,7 +137,8 @@ def _coerce_float(value: Any, default: float | None = None) -> float | None:
     if value in (None, ""):
         return default
     try:
-        return float(value)
+        number = float(value)
+        return number if math.isfinite(number) else default
     except (TypeError, ValueError):
         return default
 
@@ -256,19 +262,22 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
 
 @contextlib.contextmanager
 def _temporary_cwd(directory: Path | None) -> Iterator[None]:
-    if directory is None:
-        yield
-        return
-    previous = Path.cwd()
-    try:
-        os.chdir(directory)
-    except FileNotFoundError:
-        directory.mkdir(parents=True, exist_ok=True)
-        os.chdir(directory)
-    try:
-        yield
-    finally:
-        os.chdir(previous)
+    # ``os.chdir`` is process-global, so path-sensitive config validation must
+    # retain this lock until the original directory is restored.
+    with _CWD_LOCK:
+        if directory is None:
+            yield
+            return
+        previous = Path.cwd()
+        try:
+            os.chdir(directory)
+        except FileNotFoundError:
+            directory.mkdir(parents=True, exist_ok=True)
+            os.chdir(directory)
+        try:
+            yield
+        finally:
+            os.chdir(previous)
 
 
 def load_run_spec_from_mapping(
@@ -296,13 +305,17 @@ def load_run_spec_from_file(path: Path) -> TrendRunSpec:
     return load_run_spec_from_mapping(data, base_path=cfg_path.parent)
 
 
-def ensure_run_spec(cfg: Any, *, base_path: Path | None = None) -> TrendRunSpec | None:
+def ensure_run_spec(
+    cfg: Any, *, base_path: Path | None = None, required: bool = False
+) -> TrendRunSpec | None:
     """Attach resolved spec dataclasses to ``cfg`` when possible."""
 
     try:
         trend_spec = _build_trend_spec(cfg)
         backtest_spec = _build_backtest_spec(cfg, base_path=base_path)
     except Exception:
+        if required:
+            raise
         return None
     spec = TrendRunSpec(trend=trend_spec, backtest=backtest_spec, config=cfg)
     for attr, value in {
@@ -318,5 +331,12 @@ def ensure_run_spec(cfg: Any, *, base_path: Path | None = None) -> TrendRunSpec 
                 # This bypasses attribute access controls and should only be used when normal setattr fails.
                 object.__setattr__(cfg, attr, value)
             except Exception:
+                if isinstance(cfg, dict):
+                    # Mapping-backed test/adapter configs have no attribute
+                    # surface for report provenance; callers that require it
+                    # pass a typed runtime config instead.
+                    continue
+                if required:
+                    raise
                 continue
     return spec

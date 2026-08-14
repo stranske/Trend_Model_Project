@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import threading
+import time
 from typing import Any
 
 import pytest
@@ -81,6 +83,8 @@ def test_ensure_run_spec_handles_failures() -> None:
             raise RuntimeError("boom")
 
     assert ensure_run_spec(Explosive()) is None
+    with pytest.raises(RuntimeError, match="boom"):
+        ensure_run_spec(Explosive(), required=True)
 
 
 def test_ensure_run_spec_uses_object_setattr(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -134,6 +138,8 @@ def test_helper_coercion_and_mapping_behaviour(tmp_path: Path) -> None:
     assert spec_module._coerce_float("", default=1.2) == 1.2
     assert spec_module._coerce_float("3.5") == 3.5
     assert spec_module._coerce_float("bad", default=7.1) == 7.1
+    assert spec_module._coerce_float("nan", default=7.1) == 7.1
+    assert spec_module._coerce_float("inf", default=7.1) == 7.1
 
     assert spec_module._as_tuple([1, 2, 3]) == (1, 2, 3)
     assert spec_module._as_tuple(("x", "y")) == ("x", "y")
@@ -215,3 +221,39 @@ def test_temporary_cwd_creates_directory(tmp_path: Path) -> None:
             assert Path.cwd() == target
     finally:
         assert Path.cwd() == original
+
+
+def test_temporary_cwd_serializes_concurrent_path_resolution(tmp_path: Path) -> None:
+    original = Path.cwd()
+    first, second = tmp_path / "first", tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    first_entered = threading.Event()
+    release_first = threading.Event()
+    second_entered = threading.Event()
+    observed: list[Path] = []
+
+    def load_first() -> None:
+        with spec_module._temporary_cwd(first):
+            observed.append(Path.cwd())
+            first_entered.set()
+            release_first.wait(timeout=2)
+
+    def load_second() -> None:
+        with spec_module._temporary_cwd(second):
+            observed.append(Path.cwd())
+            second_entered.set()
+
+    one = threading.Thread(target=load_first)
+    two = threading.Thread(target=load_second)
+    one.start()
+    assert first_entered.wait(timeout=2)
+    two.start()
+    time.sleep(0.05)
+    assert not second_entered.is_set()
+    release_first.set()
+    one.join(timeout=2)
+    two.join(timeout=2)
+
+    assert observed == [first, second]
+    assert Path.cwd() == original

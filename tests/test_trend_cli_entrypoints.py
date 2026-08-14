@@ -396,7 +396,8 @@ def test_load_configuration_runs_core_then_full_validation(
         calls.append(("full", Path(path)))
         return {"version": "1"}
 
-    def fake_ensure_run_spec(cfg: object, base_path: Path) -> None:
+    def fake_ensure_run_spec(cfg: object, base_path: Path, required: bool = False) -> None:
+        assert required is True
         calls.append(("run_spec", base_path))
 
     monkeypatch.setattr(trend_cli, "load_core_config", fake_load_core_config)
