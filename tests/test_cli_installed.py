@@ -65,3 +65,19 @@ def test_removed_compat_entrypoints_are_not_installed(installed_bin: Path) -> No
     )
     assert result.returncode == 0, result.stderr
     assert "usage: trend" in result.stdout.lower()
+
+
+def test_installed_monte_carlo_list_uses_packaged_registry(installed_bin: Path, tmp_path: Path) -> None:
+    """The installed CLI must list its shipped scenarios outside the checkout."""
+    env = {**os.environ, "PATH": f"{installed_bin}:{os.environ.get('PATH', '')}"}
+    env.pop("PYTHONPATH", None)
+    env.pop("TREND_REPO_ROOT", None)
+    result = subprocess.run(
+        [installed_bin / "trend", "mc", "list"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "hf_macro_20y" in result.stdout

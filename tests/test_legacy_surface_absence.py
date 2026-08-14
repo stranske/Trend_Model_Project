@@ -31,6 +31,8 @@ FORBIDDEN_RUNTIME_IMPORTS = (
 )
 REMOVED_PATHS = (
     "src/trend/compat_entrypoints.py",
+    "src/trend_analysis/run_analysis.py",
+    "src/trend_analysis/run_multi_analysis.py",
     "src/trend_model",
     "src/trend_portfolio_app",
     "retired/trend_portfolio_app",
@@ -88,11 +90,32 @@ def test_tests_do_not_import_retired_runtime_modules() -> None:
             for node in ast.walk(tree)
             if isinstance(node, ast.ImportFrom) and node.module is not None
         )
+        modules.extend(
+            f"{node.module}.{alias.name}"
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom) and node.module is not None
+            for alias in node.names
+        )
         for module in FORBIDDEN_RUNTIME_IMPORTS:
             if any(name == module or name.startswith(f"{module}.") for name in modules):
                 offenders.append(f"{path.relative_to(REPO_ROOT)}: {module}")
 
     assert not offenders, "Tests import retired modules:\n" + "\n".join(offenders)
+
+
+def test_import_from_detection_keeps_retired_modules_absent(tmp_path: Path) -> None:
+    """Qualified names from ``from package import name`` must remain forbidden."""
+
+    candidate = tmp_path / "retired_import.py"
+    candidate.write_text("from trend import compat_entrypoints\n", encoding="utf-8")
+    tree = ast.parse(candidate.read_text(encoding="utf-8"), filename=str(candidate))
+    modules = [
+        f"{node.module}.{alias.name}"
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module is not None
+        for alias in node.names
+    ]
+    assert "trend.compat_entrypoints" in modules
 
 
 @pytest.mark.parametrize(

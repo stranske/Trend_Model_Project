@@ -122,8 +122,8 @@ jobs:
     needs: detect
     if: >-
       ${{
-        needs.detect.outputs.is_docs_only != 'true' &&
-        needs.detect.outputs.is_python_code == 'true'
+        needs.detect.outputs.is_python_code == 'true' ||
+        needs.detect.outputs.is_docs_only == 'true'
       }}
     runs-on: ubuntu-latest
     steps:

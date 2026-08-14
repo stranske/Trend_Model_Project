@@ -1,0 +1,21 @@
+scenario:
+  name: hf_macro_20y
+  description: "Global macro sleeve 20-year stress test"
+  version: "1.0"
+
+base_config: config/defaults.yml
+
+monte_carlo:
+  mode: mixture
+  n_paths: 300
+  horizon_years: 20
+  frequency: M
+  seed: 2020
+  jobs: 1
+
+strategy_set:
+  curated_pack: strategies/hf_macro_curated.yml
+
+outputs:
+  directory: outputs/monte_carlo/{scenario_name}/{timestamp}
+  formats: [csv]
