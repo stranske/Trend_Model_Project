@@ -487,6 +487,74 @@ def test_mc_run_dry_run_skips_execution(
     assert called["run"] is False
 
 
+def test_mc_run_invalid_formats_rejects_before_runner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    scenario_path = tmp_path / "scenario.yml"
+    _write_scenario(scenario_path)
+
+    called = {"run": False}
+
+    def _run(self, progress_callback=None):  # type: ignore[no-untyped-def]
+        called["run"] = True
+        raise AssertionError("MonteCarloRunner.run should not be invoked for invalid formats")
+
+    monkeypatch.setattr(runner_module.MonteCarloRunner, "run", _run)
+
+    rc = cli.main(
+        [
+            "mc",
+            "run",
+            "--scenario",
+            str(scenario_path),
+            "--formats",
+            "bogus",
+        ]
+    )
+
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "unsupported values" in err
+    assert called["run"] is False
+
+
+def test_mc_run_dry_run_applies_overrides_before_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from trend.mc import commands as mc_commands
+
+    scenario_path = tmp_path / "scenario.yml"
+    _write_scenario(scenario_path)
+    observed_paths: dict[str, int] = {}
+
+    original_validate = mc_commands.validate_mc_scenario
+
+    def _capture_validate(scenario: MonteCarloScenario) -> list[str]:
+        settings = scenario.monte_carlo
+        if isinstance(settings, MonteCarloSettings):
+            observed_paths["n_paths"] = settings.n_paths
+        return original_validate(scenario)
+
+    monkeypatch.setattr(mc_commands, "validate_mc_scenario", _capture_validate)
+
+    rc = cli.main(
+        [
+            "mc",
+            "run",
+            "--scenario",
+            str(scenario_path),
+            "--dry-run",
+            "--n-paths",
+            "42",
+        ]
+    )
+
+    assert rc == 0
+    assert observed_paths.get("n_paths") == 42
+    out = capsys.readouterr().out
+    assert "Dry run complete" in out
+
+
 def test_mc_list_registry_and_tags(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     registry_path = tmp_path / "index.yml"
     _write_registry(registry_path)

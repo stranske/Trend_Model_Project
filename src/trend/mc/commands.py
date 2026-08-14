@@ -139,6 +139,14 @@ def handle_mc_command(args: argparse.Namespace) -> int:
     except (ValueError, FileNotFoundError, IsADirectoryError) as exc:
         print(f"Scenario {command} failed: {exc}", file=sys.stderr)
         return 1
+    formats: list[str] = []
+    if command == "run":
+        try:
+            _apply_overrides(scenario, args)
+            formats = _parse_formats(getattr(args, "formats", None)) or ["csv"]
+        except ValueError as exc:
+            print(f"Scenario run failed: {exc}", file=sys.stderr)
+            return 1
     errors = validate_mc_scenario(scenario)
     if errors:
         print(f"Scenario '{scenario.name}' failed validation:", file=sys.stderr)
@@ -153,7 +161,6 @@ def handle_mc_command(args: argparse.Namespace) -> int:
         )
         return 0
     try:
-        _apply_overrides(scenario, args)
         price_history = (
             _load_price_history(Path(args.data)) if getattr(args, "data", None) else None
         )
@@ -163,7 +170,6 @@ def handle_mc_command(args: argparse.Namespace) -> int:
             getattr(args, "out", None)
             or f"outputs/monte_carlo/{scenario.name}/{datetime.now(timezone.utc):%Y%m%d-%H%M%S}"
         )
-        formats = _parse_formats(getattr(args, "formats", None)) or ["csv"]
         exported = export_results(results, output_dir, formats=formats)
         write_mc_manifest(
             output_dir,
@@ -225,10 +231,15 @@ def _load_scenario(raw: str, registry: Path | None) -> MonteCarloScenario:
     return load_scenario(raw, registry_path=registry)
 
 
-def _apply_overrides(scenario: MonteCarloScenario, args: argparse.Namespace) -> None:
+def _resolved_mc_settings(scenario: MonteCarloScenario) -> MonteCarloSettings:
     settings = scenario.monte_carlo
     if not isinstance(settings, MonteCarloSettings):
         raise ValueError("monte_carlo settings are not resolved")
+    return settings
+
+
+def _apply_overrides(scenario: MonteCarloScenario, args: argparse.Namespace) -> None:
+    settings = _resolved_mc_settings(scenario)
     scenario.monte_carlo = MonteCarloSettings(
         mode=settings.mode,
         n_paths=getattr(args, "n_paths", None) or settings.n_paths,
@@ -296,6 +307,7 @@ def write_mc_manifest(
 ) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = output_dir / "manifest.json"
+    mc_settings = _resolved_mc_settings(scenario)
     manifest_path.write_text(
         json.dumps(
             {
@@ -306,11 +318,11 @@ def write_mc_manifest(
                 "base_config": str(scenario.base_config),
                 "data_path": str(data_path) if data_path else None,
                 "settings": {
-                    "mode": scenario.monte_carlo.mode,
-                    "n_paths": scenario.monte_carlo.n_paths,
-                    "horizon_years": scenario.monte_carlo.horizon_years,
-                    "frequency": scenario.monte_carlo.frequency,
-                    "seed": scenario.monte_carlo.seed,
+                    "mode": mc_settings.mode,
+                    "n_paths": mc_settings.n_paths,
+                    "horizon_years": mc_settings.horizon_years,
+                    "frequency": mc_settings.frequency,
+                    "seed": mc_settings.seed,
                     "jobs": jobs_used,
                 },
                 "overrides": dict(overrides),
