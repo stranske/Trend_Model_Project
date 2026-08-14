@@ -24,6 +24,7 @@ from trend.cli_helpers import (
     _attach_universe_paths,
 )
 from trend.cli_commands import (
+    prepare_command_inputs,
     run_analysis_command,
     run_app_command,
     run_check_command,
@@ -2096,16 +2097,24 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
         if command != "mc" and not args.config:
             raise TrendCLIError(f"The --config option is required for the '{command}' command")
 
-        load_config_fn = _load_configuration
-        cfg_path, cfg = load_config_fn(args.config)
-        if coverage_tracker is not None:
-            wrap_config_for_coverage(cfg, coverage_tracker)
-        ensure_run_spec(cfg, base_path=cfg_path.parent)
-        resolve_returns = _resolve_returns_path
-        returns_path = resolve_returns(cfg_path, cfg, getattr(args, "returns", None))
-        ensure_df = _ensure_dataframe
-        returns_df = ensure_df(returns_path)
-        seed = _determine_seed(cfg, getattr(args, "seed", None))
+        def _prepare_config_for_command(cfg: Any) -> None:
+            if coverage_tracker is not None:
+                wrap_config_for_coverage(cfg, coverage_tracker)
+
+        prepared = prepare_command_inputs(
+            args,
+            load_configuration=_load_configuration,
+            prepare_config=_prepare_config_for_command,
+            ensure_run_spec=ensure_run_spec,
+            resolve_returns_path=_resolve_returns_path,
+            ensure_dataframe=_ensure_dataframe,
+            determine_seed=_determine_seed,
+        )
+        cfg_path = prepared.cfg_path
+        cfg = prepared.cfg
+        returns_path = prepared.returns_path
+        returns_df = prepared.returns_df
+        seed = prepared.seed
 
         if command == "run":
             return run_analysis_command(

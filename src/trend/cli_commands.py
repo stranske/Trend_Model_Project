@@ -11,10 +11,49 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
 ErrorFactory = Callable[[str], Exception]
+
+
+@dataclass(frozen=True)
+class PreparedCommandInputs:
+    """Shared config and data inputs prepared for run/report command handlers."""
+
+    cfg_path: Path
+    cfg: Any
+    returns_path: Path
+    returns_df: Any
+    seed: int
+
+
+def prepare_command_inputs(
+    args: argparse.Namespace,
+    *,
+    load_configuration: Callable[[str], tuple[Path, Any]],
+    prepare_config: Callable[[Any], None],
+    ensure_run_spec: Callable[..., Any],
+    resolve_returns_path: Callable[..., Path],
+    ensure_dataframe: Callable[[Path], Any],
+    determine_seed: Callable[[Any, int | None], int],
+) -> PreparedCommandInputs:
+    """Load the shared run/report inputs outside the parser front door."""
+
+    cfg_path, cfg = load_configuration(args.config)
+    prepare_config(cfg)
+    ensure_run_spec(cfg, base_path=cfg_path.parent)
+    returns_path = resolve_returns_path(cfg_path, cfg, getattr(args, "returns", None))
+    returns_df = ensure_dataframe(returns_path)
+    seed = determine_seed(cfg, getattr(args, "seed", None))
+    return PreparedCommandInputs(
+        cfg_path=cfg_path,
+        cfg=cfg,
+        returns_path=returns_path,
+        returns_df=returns_df,
+        seed=seed,
+    )
 
 
 def run_check_command(*, environment_check: Callable[[], int]) -> int:
