@@ -223,22 +223,17 @@ class TestDemoGoldenMaster:
         )
         assert result.returncode == 0, f"Demo analysis failed: {result.stderr}"
 
-        # Step 3: Optionally run multi-period demo for comprehensive outputs
-        # Skip this if it's unstable, focus on core demo functionality
-        try:
-            result = subprocess.run(
-                ["python", "scripts/run_multi_demo.py"],
-                cwd=Path.cwd(),
-                capture_output=True,
-                text=True,
-                env=env,
-                timeout=60,  # Prevent hanging
-            )
-            if result.returncode != 0:
-                print(f"Multi-demo script failed (non-critical): {result.stderr}")
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            print("Multi-demo script unavailable or timed out (non-critical)")
-            pass
+        # Step 3: Run the multi-period demo so fixture-schema regressions fail
+        # the golden contract instead of being silently ignored.
+        result = subprocess.run(
+            ["python", "scripts/run_multi_demo.py"],
+            cwd=Path.cwd(),
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=60,
+        )
+        assert result.returncode == 0, f"Multi-demo script failed: {result.stderr}"
 
         # Step 4: Validate outputs exist
         demo_exports = Path("demo/exports")
