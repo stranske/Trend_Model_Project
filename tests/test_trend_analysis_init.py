@@ -9,16 +9,23 @@ import pytest
 
 
 def test_import_does_not_mutate_dataclasses(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The package never installs the retired dataclasses compatibility marker."""
+    """The package never installs the retired dataclasses compatibility patch."""
     import dataclasses
 
     import trend_analysis
 
-    marker = "_trend_" + "model_patched"
-    monkeypatch.delattr(dataclasses, marker, raising=False)
+    original_is_type = getattr(dataclasses, "_is_type", None)
+    for marker in ("_trend_patched", "_trend_model_patched"):
+        monkeypatch.delattr(dataclasses, marker, raising=False)
+    monkeypatch.delitem(trend_analysis.__dict__, "_SAFE_IS_TYPE", raising=False)
+
     importlib.reload(trend_analysis)
 
-    assert not hasattr(dataclasses, marker)
+    assert getattr(dataclasses, "_is_type", None) is original_is_type
+    assert not hasattr(dataclasses, "_trend_patched")
+    assert not hasattr(dataclasses, "_trend_model_patched")
+    assert not hasattr(trend_analysis, "_SAFE_IS_TYPE")
+    assert not hasattr(trend_analysis, "_patch_dataclasses_module_guard")
 
 
 def test_ensure_registered_restores_module(monkeypatch):
@@ -51,61 +58,6 @@ def test_getattr_unknown_raises_attribute_error():
 
     with pytest.raises(AttributeError):
         getattr(ta, "non_existent_submodule")
-
-
-def test_safe_is_type_handles_missing_module(monkeypatch):
-    import dataclasses
-
-    def flaky_is_type(annotation, cls, a_module, a_type, predicate):
-        if cls.__module__ not in sys.modules:
-            raise AttributeError("module missing")
-        return True
-
-    original_module = importlib.import_module("trend_analysis")
-
-    monkeypatch.setattr(dataclasses, "_is_type", flaky_is_type)
-    monkeypatch.setattr(dataclasses, "_trend_patched", False, raising=False)
-    monkeypatch.delitem(sys.modules, "trend_analysis", raising=False)
-    monkeypatch.delitem(sys.modules, "tests.missing_mod", raising=False)
-
-    ta = importlib.reload(original_module)
-
-    Dummy = type("Dummy", (), {"__module__": "tests.missing_mod"})
-
-    assert ta._SAFE_IS_TYPE(None, Dummy, None, None, lambda _: False) is True
-    assert "tests.missing_mod" in sys.modules
-
-
-def test_patch_dataclasses_module_guard_respects_existing_patch(monkeypatch):
-    import dataclasses
-
-    import trend_analysis as ta
-
-    sentinel = object()
-    monkeypatch.setattr(dataclasses, "_trend_patched", True, raising=False)
-    monkeypatch.setattr(dataclasses, "_is_type", sentinel)
-    monkeypatch.delattr(ta, "_SAFE_IS_TYPE", raising=False)
-
-    ta._patch_dataclasses_module_guard()
-
-    assert ta._SAFE_IS_TYPE is sentinel
-
-
-def test_patch_dataclasses_module_guard_no_is_type(monkeypatch):
-    import dataclasses
-
-    import trend_analysis as ta
-
-    original = getattr(dataclasses, "_is_type", None)
-    monkeypatch.setattr(dataclasses, "_is_type", None)
-    monkeypatch.setattr(dataclasses, "_trend_patched", False, raising=False)
-    monkeypatch.delattr(ta, "_SAFE_IS_TYPE", raising=False)
-
-    ta._patch_dataclasses_module_guard()
-
-    assert not hasattr(ta, "_SAFE_IS_TYPE")
-    if original is not None:
-        assert dataclasses._is_type is None
 
 
 def test_spec_proxy_triggers_registration(monkeypatch):

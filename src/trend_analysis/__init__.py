@@ -8,61 +8,6 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, cast
 
-
-def _patch_dataclasses_module_guard() -> None:
-    """Ensure dataclass processing tolerates cleared ``sys.modules`` entries.
-
-    Some heavy integration tests mutate ``sys.modules`` by removing previously
-    imported ``tests.*`` packages.  When later tests define dataclasses within
-    those modules, the stdlib ``dataclasses`` helper attempts to look the module
-    back up and crashes when it is absent.  We patch the private
-    ``dataclasses._is_type`` helper so it re-imports the missing module (falling
-    back to a lightweight placeholder) before retrying the lookup.  The patch is
-    safe for production code because it only triggers when the module reference
-    truly disappeared, which should not happen during normal execution.
-    """
-
-    import dataclasses
-
-    original = getattr(dataclasses, "_is_type", None)
-    if original is None:
-        return
-    if getattr(dataclasses, "_trend_patched", False):
-        globals()["_SAFE_IS_TYPE"] = dataclasses._is_type  # type: ignore[attr-defined]
-        return
-
-    def _safe_is_type(
-        annotation: Any,
-        cls: type[Any],
-        a_module: Any,
-        a_type: Any,
-        predicate: Any,
-    ) -> bool:
-        try:
-            return bool(original(annotation, cls, a_module, a_type, predicate))
-        except AttributeError:
-            module_name = getattr(cls, "__module__", None)
-            if not module_name:
-                raise
-
-            module = sys.modules.get(module_name)
-            if module is None:
-                try:
-                    module = importlib.import_module(module_name)
-                except Exception:
-                    module = ModuleType(module_name)
-                    module.__dict__["__package__"] = module_name.rpartition(".")[0]
-                sys.modules[module_name] = module
-
-            return bool(original(annotation, cls, a_module, a_type, predicate))
-
-    dataclasses._is_type = _safe_is_type  # type: ignore[attr-defined]
-    dataclasses._trend_patched = True  # type: ignore[attr-defined]
-    globals()["_SAFE_IS_TYPE"] = _safe_is_type
-
-
-_patch_dataclasses_module_guard()
-
 _MPLCONFIGDIR_ENV = "MPLCONFIGDIR"
 _TREND_MPLCONFIGDIR_ENV = "TREND_MPLCONFIGDIR"
 _TREND_MPLCONFIGDIR_MODE_ENV = "TREND_MPLCONFIGDIR_MODE"
