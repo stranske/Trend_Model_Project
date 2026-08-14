@@ -444,8 +444,7 @@ def test_load_csv_legacy_kwargs(tmp_path, monkeypatch):
 
     data.load_csv(
         str(csv_path),
-        nan_policy="zeros",
-        nan_limit="3",
+        missing_policy="zeros",
         missing_limit="4",
     )
 
@@ -453,7 +452,7 @@ def test_load_csv_legacy_kwargs(tmp_path, monkeypatch):
     assert captured["missing_limit"] == "4"
 
 
-def test_load_csv_legacy_nan_limit(tmp_path, monkeypatch):
+def test_load_csv_passes_canonical_missing_limit(tmp_path, monkeypatch):
     frame = pd.DataFrame({"Date": ["2024-01-01"], "AAA": [1]})
     csv_path = tmp_path / "legacy_fallback.csv"
     frame.to_csv(csv_path, index=False)
@@ -463,9 +462,9 @@ def test_load_csv_legacy_nan_limit(tmp_path, monkeypatch):
         data, "_validate_payload", lambda raw, **kwargs: captured.update(kwargs) or raw
     )
 
-    data.load_csv(str(csv_path), nan_limit="7")
+    data.load_csv(str(csv_path), missing_limit="7")
 
-    assert captured["missing_limit"] == 7
+    assert captured["missing_limit"] == "7"
 
 
 def test_load_csv_missing_file_logs_error(monkeypatch, caplog):
@@ -600,8 +599,7 @@ def test_load_parquet_legacy_kwargs(tmp_path, monkeypatch):
 
     data.load_parquet(
         str(parquet_path),
-        nan_policy="bfill",
-        nan_limit="8",
+        missing_policy="bfill",
         missing_limit="9",
     )
 
@@ -609,7 +607,7 @@ def test_load_parquet_legacy_kwargs(tmp_path, monkeypatch):
     assert captured["missing_limit"] == "9"
 
 
-def test_load_parquet_legacy_nan_limit(tmp_path, monkeypatch):
+def test_load_parquet_passes_canonical_missing_limit(tmp_path, monkeypatch):
     parquet_path = tmp_path / "legacy_fallback.parquet"
     parquet_path.write_bytes(b"")
 
@@ -619,9 +617,9 @@ def test_load_parquet_legacy_nan_limit(tmp_path, monkeypatch):
     captured = {}
     monkeypatch.setattr(data, "_validate_payload", lambda *_args, **kwargs: captured.update(kwargs))
 
-    data.load_parquet(str(parquet_path), nan_limit="6")
+    data.load_parquet(str(parquet_path), missing_limit="6")
 
-    assert captured["missing_limit"] == 6
+    assert captured["missing_limit"] == "6"
 
 
 def test_load_parquet_permission_error(monkeypatch, tmp_path):

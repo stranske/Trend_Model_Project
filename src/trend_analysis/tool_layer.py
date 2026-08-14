@@ -303,11 +303,7 @@ class ToolLayer:
                     raise KeyError("cfg.data['csv_path'] must be provided")
 
                 missing_policy_cfg = data_settings.get("missing_policy")
-                if missing_policy_cfg is None:
-                    missing_policy_cfg = data_settings.get("nan_policy")
                 missing_limit_cfg = data_settings.get("missing_limit")
-                if missing_limit_cfg is None:
-                    missing_limit_cfg = data_settings.get("nan_limit")
 
                 resolved_csv = self._sandbox_path(csv_path)
                 data_frame = load_csv(

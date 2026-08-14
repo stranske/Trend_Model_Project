@@ -319,8 +319,8 @@ def test_load_csv_reads_file_and_applies_legacy_kwargs(
 
     result = load_csv(
         str(csv_path),
-        nan_policy="zero",
-        nan_limit="7",
+        missing_policy="zero",
+        missing_limit="7",
     )
 
     assert result is not None
@@ -601,8 +601,8 @@ def test_load_parquet_applies_legacy_kwargs(
 
     result = load_parquet(
         str(parquet_path),
-        nan_policy={"Value": "ffill"},
-        nan_limit={"Value": "4"},
+        missing_policy={"Value": "ffill"},
+        missing_limit={"Value": "4"},
     )
 
     assert result is not None

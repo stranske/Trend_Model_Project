@@ -1,7 +1,7 @@
 import logging
 import stat
 from pathlib import Path
-from typing import Any, Literal, Mapping, Optional, cast
+from typing import Any, Literal, Mapping, Optional
 
 import pandas as pd
 from pandas.api.types import is_datetime64_any_dtype
@@ -400,24 +400,8 @@ def load_csv(
     date_column: str = "Date",
     missing_policy: str | Mapping[str, str] | None = None,
     missing_limit: MissingLimitArg = None,
-    **_legacy_kwargs: object,
 ) -> Optional[pd.DataFrame]:
     """Load and validate a CSV using ``date_column`` as the date field."""
-
-    if missing_policy is None and "nan_policy" in _legacy_kwargs:
-        missing_policy = _coerce_policy_kwarg(_legacy_kwargs.pop("nan_policy"))
-    if missing_limit is None and "nan_limit" in _legacy_kwargs:
-        missing_limit = _coerce_limit_kwarg(_legacy_kwargs.pop("nan_limit"))
-    if missing_limit is None and "missing_limit" in _legacy_kwargs:
-        # ``missing_limit`` is also an explicit keyword argument on the public
-        # signature.  Modern Python will always bind that keyword to the
-        # dedicated parameter, meaning this compatibility branch only existed
-        # for very early call-sites that splatted dictionaries before the
-        # signature was expanded.  Retain the guard for clarity, but mark it as
-        # unreachable for coverage to avoid penalising the suite.
-        missing_limit = cast(
-            MissingLimitArg, _legacy_kwargs.pop("missing_limit")
-        )  # pragma: no cover
 
     p = Path(path)
     try:
@@ -481,18 +465,8 @@ def load_parquet(
     date_column: str = "Date",
     missing_policy: str | Mapping[str, str] | None = None,
     missing_limit: MissingLimitArg = None,
-    **_legacy_kwargs: object,
 ) -> Optional[pd.DataFrame]:
     """Load and validate a Parquet file using ``date_column`` as the date field."""
-
-    if missing_policy is None and "nan_policy" in _legacy_kwargs:
-        missing_policy = _coerce_policy_kwarg(_legacy_kwargs.pop("nan_policy"))
-    if missing_limit is None and "nan_limit" in _legacy_kwargs:
-        missing_limit = _coerce_limit_kwarg(_legacy_kwargs.pop("nan_limit"))
-    if missing_limit is None and "missing_limit" in _legacy_kwargs:
-        missing_limit = cast(
-            MissingLimitArg, _legacy_kwargs.pop("missing_limit")
-        )  # pragma: no cover
 
     p = Path(path)
     try:

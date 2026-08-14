@@ -38,12 +38,12 @@ class DummyCfg:
         }
 
 
-def test_run_uses_nan_policy_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_uses_canonical_missing_policy(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = DummyCfg()
     cfg.data = {
         "csv_path": "dummy.csv",
-        "nan_policy": "bfill",
-        "nan_limit": 3,
+        "missing_policy": "bfill",
+        "missing_limit": 3,
     }
 
     captured: dict[str, object] = {}

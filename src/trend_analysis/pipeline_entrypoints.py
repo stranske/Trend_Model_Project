@@ -86,11 +86,7 @@ def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
         raise KeyError("cfg.data['csv_path'] must be provided")
 
     missing_policy_cfg = bindings.section_get(data_settings, "missing_policy")
-    if missing_policy_cfg is None:
-        missing_policy_cfg = bindings.section_get(data_settings, "nan_policy")
     missing_limit_cfg = bindings.section_get(data_settings, "missing_limit")
-    if missing_limit_cfg is None:
-        missing_limit_cfg = bindings.section_get(data_settings, "nan_limit")
     date_column_cfg = bindings.section_get(data_settings, "date_column")
     if date_column_cfg is None:
         date_column_cfg = "Date"
@@ -223,11 +219,7 @@ def run_full_from_config(cfg: Any, *, bindings: ConfigBindings) -> PipelineResul
         raise KeyError("cfg.data['csv_path'] must be provided")
 
     missing_policy_cfg = bindings.section_get(data_settings, "missing_policy")
-    if missing_policy_cfg is None:
-        missing_policy_cfg = bindings.section_get(data_settings, "nan_policy")
     missing_limit_cfg = bindings.section_get(data_settings, "missing_limit")
-    if missing_limit_cfg is None:
-        missing_limit_cfg = bindings.section_get(data_settings, "nan_limit")
     date_column_cfg = bindings.section_get(data_settings, "date_column")
     if date_column_cfg is None:
         date_column_cfg = "Date"

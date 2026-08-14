@@ -234,15 +234,14 @@ def test_load_csv_validates_payload(tmp_path, monkeypatch):
 
     result = data_module.load_csv(
         str(path),
-        nan_policy="zero",
-        nan_limit="3",
+        missing_policy="zero",
         missing_limit=None,
     )
 
     assert "Date" in result.columns
     args = captured["kwargs"]
     assert args["missing_policy"] == "zero"
-    assert args["missing_limit"] == 3
+    assert args["missing_limit"] is None
 
 
 def test_load_csv_handles_permission_error(tmp_path, monkeypatch, caplog):
@@ -344,8 +343,6 @@ def test_load_csv_legacy_missing_limit(tmp_path, monkeypatch):
         str(path),
         missing_policy=None,
         missing_limit=5,
-        nan_limit="2",
-        nan_policy="drop",
     )
 
 
@@ -412,8 +409,6 @@ def test_load_parquet_legacy_kwargs(tmp_path, monkeypatch):
 
     data_module.load_parquet(
         str(path),
-        nan_policy="drop",
-        nan_limit="4",
         missing_limit=None,
     )
 

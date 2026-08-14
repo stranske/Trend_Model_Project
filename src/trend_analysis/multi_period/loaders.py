@@ -69,11 +69,7 @@ def load_prices(cfg: Any) -> pd.DataFrame:
         raise KeyError("cfg.data['csv_path'] must be provided")
     resolved = _coerce_path(csv_path, field="data.csv_path")
     missing_policy = data.get("missing_policy")
-    if missing_policy is None:
-        missing_policy = data.get("nan_policy")
     missing_limit = data.get("missing_limit")
-    if missing_limit is None:
-        missing_limit = data.get("nan_limit")
     date_column = str(data.get("date_column") or "Date")
     load_kwargs: dict[str, Any] = {
         "errors": "raise",

@@ -915,7 +915,7 @@ def test_compute_signal_error_paths(monthly_frame: pd.DataFrame) -> None:
         compute_signal(monthly_frame, column="A", window=2, min_periods=0)
 
 
-def test_run_uses_nan_policy_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_uses_canonical_missing_policy(monkeypatch: pytest.MonkeyPatch) -> None:
     df = pd.DataFrame(
         {
             "Date": pd.date_range("2020-01-31", periods=4, freq="ME"),
@@ -942,8 +942,8 @@ def test_run_uses_nan_policy_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = SimpleNamespace(
         data={
             "csv_path": "dummy.csv",
-            "nan_policy": {"FundA": "ffill"},
-            "nan_limit": {"FundA": 1},
+            "missing_policy": {"FundA": "ffill"},
+            "missing_limit": {"FundA": 1},
         },
         sample_split={},
         metrics={"registry": ["Sharpe"]},
@@ -1002,8 +1002,8 @@ def test_run_full_passes_through_results(monkeypatch: pytest.MonkeyPatch) -> Non
     cfg = SimpleNamespace(
         data={
             "csv_path": "dummy.csv",
-            "nan_policy": "drop",
-            "nan_limit": {"FundA": 1},
+            "missing_policy": "drop",
+            "missing_limit": {"FundA": 1},
         },
         sample_split={},
         metrics={"registry": ["Sharpe"]},
@@ -1867,7 +1867,7 @@ def test_run_missing_policy_and_limit_fallbacks(
         }
 
     cfg = SimpleNamespace(
-        data={"csv_path": "dummy.csv", "nan_policy": "drop", "nan_limit": {"FundA": 1}},
+        data={"csv_path": "dummy.csv", "missing_policy": "drop", "missing_limit": {"FundA": 1}},
         sample_split={},
         metrics={},
         preprocessing={"missing_data": "skip"},
@@ -1956,7 +1956,7 @@ def test_run_full_requires_csv_path() -> None:
         pipeline.run_full(cfg)
 
 
-def test_run_full_uses_nan_policy_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_full_uses_canonical_missing_policy(monkeypatch: pytest.MonkeyPatch) -> None:
     df = pd.DataFrame(
         {
             "Date": pd.date_range("2020-01-31", periods=4, freq="ME"),
@@ -1975,7 +1975,7 @@ def test_run_full_uses_nan_policy_defaults(monkeypatch: pytest.MonkeyPatch) -> N
         return {"selected_funds": ["FundA"], "regime_summary": "ok"}
 
     cfg = SimpleNamespace(
-        data={"csv_path": "dummy.csv", "nan_policy": "drop", "nan_limit": {"FundA": 1}},
+        data={"csv_path": "dummy.csv", "missing_policy": "drop", "missing_limit": {"FundA": 1}},
         sample_split={},
         metrics={},
         preprocessing={"missing_data": {}},
