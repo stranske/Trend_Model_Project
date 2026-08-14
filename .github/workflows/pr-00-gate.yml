@@ -150,10 +150,12 @@ jobs:
           # reducing the ignored count from ~81 to 76.
           # Raised 76 -> 83: #5821 shared trend_spec_from_mapping reads legacy
           # signals.trend_* alias keys during the demo coverage run.
+          # Raised 83 -> 85: #5813 api.run_simulation now resolves portfolio costs and
+          # weighting through the shared config_contract helpers during demo runs.
           # Approved repo-specific divergence per create-only gate policy.
           python scripts/check_config_coverage.py \
             --config config/demo.yml \
-            --ignored-threshold 83
+            --ignored-threshold 85
 
   summary:
     name: gate-summary

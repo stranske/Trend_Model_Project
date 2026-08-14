@@ -1,17 +1,9 @@
-"""Tests for single-period transaction-cost handling (issue #5394 / A14).
-
-The single-period analysis path charges ``run.monthly_cost`` and still supports
-``portfolio.max_turnover`` / ``portfolio.lambda_tc`` turnover controls; it never
-applies ``portfolio.transaction_cost_bps``, which is a multi-period-only turnover
-lever. Setting it on a single-period run is therefore a silent no-op.
-``run_simulation`` must warn loudly instead.
-"""
+"""Execution-level tests for the single-period transaction-cost contract."""
 
 from __future__ import annotations
 
-import warnings
-
 import pandas as pd
+import pytest
 
 from trend_analysis import api
 from trend_analysis.config import Config
@@ -49,41 +41,34 @@ def _make_single_period_cfg(transaction_cost_bps: float | None) -> Config:
     )
 
 
-def _tc_warnings(records: list[warnings.WarningMessage]) -> list[warnings.WarningMessage]:
-    return [
-        r
-        for r in records
-        if issubclass(r.category, UserWarning)
-        and "transaction_cost_bps" in str(r.message)
-        and "single-period" in str(r.message)
-    ]
-
-
-def test_single_period_warns_when_transaction_cost_bps_set() -> None:
-    """A non-zero ``transaction_cost_bps`` on a single-period run must warn."""
+def test_single_period_transaction_cost_bps_reduces_net_returns() -> None:
+    """The public single-period API charges configured portfolio costs."""
     df = _make_df()
-    cfg = _make_single_period_cfg(transaction_cost_bps=25.0)
+    zero_cost = api.run_simulation(_make_single_period_cfg(0.0), df)
+    charged = api.run_simulation(_make_single_period_cfg(25.0), df)
 
-    with warnings.catch_warnings(record=True) as records:
-        warnings.simplefilter("always")
-        api.run_simulation(cfg, df)
-
-    matches = _tc_warnings(records)
-    assert matches, (
-        "expected a UserWarning that single-period transaction_cost_bps is ignored; "
-        f"got categories/messages: {[(type(r.message).__name__, str(r.message)) for r in records]}"
-    )
-    assert "25.0" in str(matches[0].message)
-    assert "portfolio.lambda_tc" in str(matches[0].message)
+    assert charged.portfolio is not None
+    assert zero_cost.portfolio is not None
+    assert charged.portfolio.mean() < zero_cost.portfolio.mean()
 
 
-def test_single_period_silent_when_transaction_cost_bps_unset() -> None:
-    """No transaction-cost warning when the key is absent (avoid noise)."""
-    df = _make_df()
-    cfg = _make_single_period_cfg(transaction_cost_bps=None)
+def test_single_period_api_passes_nested_weighting_name_to_pipeline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The public API resolves nested weighting names before pipeline dispatch."""
+    cfg = _make_single_period_cfg(0.0)
+    cfg.portfolio = {"weighting": {"name": "score_prop_bayes"}}
+    captured: dict[str, object] = {}
 
-    with warnings.catch_warnings(record=True) as records:
-        warnings.simplefilter("always")
-        api.run_simulation(cfg, df)
+    def fake_run_analysis(*args: object, **kwargs: object) -> dict[str, object]:
+        captured.update(kwargs)
+        return {
+            "out_sample_stats": {},
+            "benchmark_ir": {},
+            "score_frame": pd.DataFrame(),
+        }
 
-    assert not _tc_warnings(records)
+    monkeypatch.setattr(api, "_run_analysis", fake_run_analysis)
+    api.run_simulation(cfg, _make_df())
+
+    assert captured["weighting_scheme"] == "score_prop_bayes"

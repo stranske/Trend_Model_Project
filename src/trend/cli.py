@@ -283,13 +283,13 @@ def _legacy_callable(name: str, fallback: Callable[..., Any]) -> Callable[..., A
 # failures.  It is defined in the shared ``trend.mc.viz`` module so that the
 # Monte Carlo visualisation pipeline can raise the same exception type
 # regardless of which CLI entry-point invoked it.
-from trend.mc.viz import TrendCLIError  # noqa: E402
 from trend.mc.commands import (  # noqa: E402
     add_mc_subparsers,
     handle_mc_command,
     is_valid_tqdm_instance,
     write_mc_manifest,
 )
+from trend.mc.viz import TrendCLIError  # noqa: E402
 
 
 def _write_mc_manifest(*args: Any, **kwargs: Any) -> Path:
