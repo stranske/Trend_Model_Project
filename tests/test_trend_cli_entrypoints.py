@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import builtins
+import ast
 import json
 import textwrap
 import types
@@ -1236,5 +1237,29 @@ def test_main_unknown_command(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_trend_cli_has_no_legacy_module_dependency() -> None:
     source = Path(trend_cli.__file__).read_text(encoding="utf-8")
-    assert "from trend_analysis.cli import" not in source
-    assert "import trend_analysis.cli" not in source
+    tree = ast.parse(source)
+    legacy_references: list[str] = []
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            legacy_references.extend(
+                alias.name for alias in node.names if alias.name == "trend_analysis.cli"
+            )
+        elif isinstance(node, ast.ImportFrom):
+            if node.module == "trend_analysis":
+                legacy_references.extend(
+                    f"{node.module}.{alias.name}" for alias in node.names if alias.name == "cli"
+                )
+            elif node.module == "trend_analysis.cli":
+                legacy_references.append(node.module)
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "import_module"
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and node.args[0].value == "trend_analysis.cli"
+        ):
+            legacy_references.append("trend_analysis.cli")
+
+    assert not legacy_references
