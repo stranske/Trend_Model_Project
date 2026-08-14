@@ -1,9 +1,7 @@
-import io
 import os
 import zipfile
 from unittest import mock
 
-import pandas as pd
 import pytest
 
 from trend_analysis.io import utils
@@ -93,6 +91,7 @@ def test_export_bundle_cleans_up_on_zip_failure(tmp_path, monkeypatch):
         utils._TEMP_FILES_TO_CLEANUP[:] = before
         if zip_path.exists():
             os.remove(zip_path)
+
 
 def test_cleanup_bundle_file_handles_remove_error(tmp_path, monkeypatch):
     """cleanup_bundle_file should swallow removal errors and allow retry."""

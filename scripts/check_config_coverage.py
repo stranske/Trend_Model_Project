@@ -8,6 +8,7 @@ from pathlib import Path
 
 from trend.cli import _ensure_dataframe, _resolve_returns_path
 from trend.config_schema import load_core_config
+from trend.spec import ensure_run_spec
 from trend_analysis.api import run_simulation
 from trend_analysis.config.coverage import (
     ConfigCoverageReport,
@@ -18,7 +19,6 @@ from trend_analysis.config.coverage import (
     wrap_config_for_coverage,
 )
 from trend_analysis.config.models import load_config
-from trend.spec import ensure_run_spec
 
 
 def _run_coverage(

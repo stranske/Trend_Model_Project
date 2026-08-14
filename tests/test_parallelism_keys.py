@@ -7,9 +7,9 @@ from pathlib import Path
 
 import yaml
 
+from trend.spec import load_run_spec_from_mapping
 from trend_analysis.config.schema_generator import generate_schema
 from trend_analysis.config.schema_validation import validate_config_data
-from trend.spec import load_run_spec_from_mapping
 
 
 def _defaults_payload() -> dict:

@@ -3,11 +3,11 @@ from types import SimpleNamespace
 import pytest
 
 from trend.reporting import unified
+from trend.spec import _build_trend_spec as build_compatibility_trend_spec
 from trend_analysis.pipeline_helpers import (
     _build_trend_spec as build_runtime_trend_spec,
 )
 from trend_analysis.signals import TrendSpec, trend_spec_from_mapping
-from trend.spec import _build_trend_spec as build_compatibility_trend_spec
 
 
 def test_report_uses_runtime_numeric_zscore_spec() -> None:
