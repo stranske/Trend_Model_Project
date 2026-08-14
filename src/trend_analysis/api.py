@@ -4,7 +4,6 @@ import logging
 import random
 import sys
 import time
-import warnings
 from collections.abc import Mapping, Sized
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, SupportsInt, cast
