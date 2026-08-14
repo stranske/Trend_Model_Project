@@ -13,7 +13,7 @@ import numbers
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import pandas as pd
 
@@ -164,8 +164,19 @@ def handle_mc_command(args: argparse.Namespace) -> int:
         price_history = (
             _load_price_history(Path(args.data)) if getattr(args, "data", None) else None
         )
-        runner = MonteCarloRunner(scenario, base_config=None, price_history=price_history)
-        results = runner.run(jobs=getattr(args, "jobs", None))
+        settings = _resolved_mc_settings(scenario)
+        progress_callback, close_progress = _build_progress_callback(
+            total=int(settings.n_paths) if settings.n_paths is not None else 0,
+            enabled=not getattr(args, "no_progress", False),
+        )
+        try:
+            runner = MonteCarloRunner(scenario, base_config=None, price_history=price_history)
+            results = runner.run(
+                progress_callback=progress_callback,
+                jobs=getattr(args, "jobs", None),
+            )
+        finally:
+            close_progress()
         output_dir = Path(
             getattr(args, "out", None)
             or f"outputs/monte_carlo/{scenario.name}/{datetime.now(timezone.utc):%Y%m%d-%H%M%S}"
@@ -214,10 +225,94 @@ def _parse_formats(raw: Sequence[str] | None) -> list[str]:
 def _render_table(entries: Sequence[Any]) -> str:
     if not entries:
         return "No Monte Carlo scenarios found."
-    return "\n".join(
-        f"{entry.name}\t{', '.join(entry.tags)}\t{entry.description or ''}\t{entry.path}"
+    columns = ("Name", "Tags", "Description", "Path")
+    rows = [
+        {
+            "Name": entry.name,
+            "Tags": ", ".join(
+                sorted(dict.fromkeys(tag.strip() for tag in entry.tags if tag.strip()))
+            )
+            or "-",
+            "Description": entry.description or "",
+            "Path": str(entry.path),
+        }
         for entry in entries
+    ]
+    widths = {
+        column: max(len(column), *(len(str(row[column])) for row in rows)) for column in columns
+    }
+    lines = [
+        "  ".join(column.ljust(widths[column]) for column in columns),
+        "  ".join("-" * widths[column] for column in columns),
+    ]
+    lines.extend(
+        "  ".join(str(row[column]).ljust(widths[column]) for column in columns) for row in rows
     )
+    return "\n".join(lines)
+
+
+def _is_valid_progress_instance(candidate: Any) -> bool:
+    return (
+        candidate is not None
+        and hasattr(candidate, "total")
+        and all(
+            callable(getattr(candidate, method, None)) for method in ("update", "refresh", "close")
+        )
+    )
+
+
+def _build_progress_callback(
+    *, total: int, enabled: bool
+) -> tuple[Callable[[Mapping[str, Any]], None] | None, Callable[[], None]]:
+    if not enabled:
+        return None, lambda: None
+    try:
+        from tqdm import tqdm
+    except Exception:
+        tqdm = None
+
+    if _is_valid_progress_instance(tqdm):
+        bar = tqdm
+        bar.total = total
+        if hasattr(bar, "unit"):
+            bar.unit = "path"
+        if hasattr(bar, "file"):
+            bar.file = sys.stderr
+    elif callable(tqdm):
+        try:
+            bar = tqdm(total=total, unit="path", file=sys.stderr)
+        except Exception:
+            bar = None
+    else:
+        bar = None
+
+    if not _is_valid_progress_instance(bar):
+        state = {"last": -1}
+
+        def text_callback(payload: Mapping[str, Any]) -> None:
+            completed = int(payload.get("completed", 0))
+            if completed == state["last"]:
+                return
+            state["last"] = completed
+            print(f"Progress: {completed}/{int(payload.get('total', total))}", file=sys.stderr)
+
+        return text_callback, lambda: None
+
+    state = {"completed": 0}
+
+    def callback(payload: Mapping[str, Any]) -> None:
+        completed = int(payload.get("completed", 0))
+        total_value = int(payload.get("total", total))
+        if bar.total != total_value:
+            bar.total = total_value
+        delta = completed - state["completed"]
+        if delta > 0:
+            bar.update(delta)
+        else:
+            bar.refresh()
+        state["completed"] = completed
+
+    return callback, bar.close
 
 
 def _load_scenario(raw: str, registry: Path | None) -> MonteCarloScenario:
