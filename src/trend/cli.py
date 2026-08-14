@@ -23,7 +23,12 @@ from trend.cli_helpers import (
     _apply_universe_mask,
     _attach_universe_paths,
 )
-from trend.cli_support import check_environment, extract_cache_stats, find_prior_run, maybe_log_step
+from trend.cli_support import (
+    check_environment,
+    extract_cache_stats,
+    find_prior_run,
+    maybe_log_step,
+)
 from trend.config_schema import CoreConfigError, load_core_config
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 from trend.reporting import generate_unified_report
