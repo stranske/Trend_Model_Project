@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass
 from importlib import metadata
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -670,7 +669,6 @@ def test_main_legacy_path_builds_bundle_shim(monkeypatch, tmp_path, capsys):
 def test_apply_trend_spec_preset_handles_mapping_and_frozen(monkeypatch):
     preset_payload = {"window": 5, "lag": 2}
 
-    @dataclass
     class DummyPreset:
         name: str = "Test"
 
