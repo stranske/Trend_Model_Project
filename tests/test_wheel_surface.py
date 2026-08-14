@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import configparser
+import shutil
 import subprocess
 import sys
 import zipfile
@@ -25,6 +26,22 @@ EXPECTED_CONSOLE_SCRIPTS = {
 
 
 def _build_wheel(destination: Path) -> Path:
+    # ``pip wheel`` materializes ``*.egg-info`` while preparing metadata.  Build
+    # from a copy so this contract remains safe when the full suite runs under
+    # pytest-xdist and does not mutate the checkout other tests are reading.
+    build_root = destination / "source"
+    shutil.copytree(
+        REPO_ROOT,
+        build_root,
+        ignore=shutil.ignore_patterns(
+            ".git",
+            ".mypy_cache",
+            ".pytest_cache",
+            ".ruff_cache",
+            "*.egg-info",
+            "__pycache__",
+        ),
+    )
     subprocess.run(
         [
             sys.executable,
@@ -37,7 +54,7 @@ def _build_wheel(destination: Path) -> Path:
             "--wheel-dir",
             str(destination),
         ],
-        cwd=REPO_ROOT,
+        cwd=build_root,
         check=True,
         capture_output=True,
         text=True,
