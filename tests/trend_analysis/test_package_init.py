@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import dataclasses
 import importlib
 import importlib.metadata
 import sys
@@ -43,141 +42,14 @@ def load_trend_analysis():
     sys.modules.pop("tests.fake_module_for_trend_init_retry", None)
 
 
-def _make_fake_dataclass(module_name: str) -> tuple[ModuleType, type[object]]:
-    fake_module = ModuleType(module_name)
-    fake_module.__dict__["__package__"] = module_name.rpartition(".")[0]
-    exec(
-        "from dataclasses import dataclass, InitVar\n"
-        "@dataclass\n"
-        "class Example:\n"
-        "    value: InitVar[int]\n",
-        fake_module.__dict__,
-    )
-    return fake_module, fake_module.Example
+def test_import_does_not_mutate_dataclasses(load_trend_analysis):
+    import dataclasses
 
-
-def test_dataclasses_guard_reimports_missing_module(load_trend_analysis):
-    module = load_trend_analysis()
-    assert module is sys.modules["trend_analysis"]
-
-    module_name = "tests.fake_module_for_trend_init"
-    fake_module, cls = _make_fake_dataclass(module_name)
-    sys.modules.pop(module_name, None)
-
-    result = dataclasses._is_type(
-        "InitVar",
-        cls,
-        dataclasses,
-        dataclasses.InitVar,
-        lambda candidate, module: candidate is dataclasses.InitVar,
-    )
-
-    assert result is True or result is False
-    assert module_name in sys.modules
-    placeholder = sys.modules[module_name]
-    assert isinstance(placeholder, ModuleType)
-    assert placeholder.__dict__["__package__"] == "tests"
-
-
-def test_patch_skips_when_original_is_missing(monkeypatch, load_trend_analysis):
-    module = load_trend_analysis()
-    original = dataclasses._is_type
-
-    previous_safe = module._SAFE_IS_TYPE  # type: ignore[attr-defined]
-
-    monkeypatch.setattr(dataclasses, "_is_type", None, raising=False)
-    monkeypatch.setattr(dataclasses, "_trend_patched", False, raising=False)
-
-    module._patch_dataclasses_module_guard()
-
-    assert module._SAFE_IS_TYPE is previous_safe  # type: ignore[attr-defined]
-    assert getattr(dataclasses, "_is_type") is None
-    assert not getattr(dataclasses, "_trend_patched", False)
-
-    dataclasses._is_type = original  # type: ignore[attr-defined]
-    dataclasses._trend_patched = False  # type: ignore[attr-defined]
-    module._patch_dataclasses_module_guard()
-
-
-def test_dataclasses_guard_preserves_existing_modules(load_trend_analysis):
+    original_is_type = getattr(dataclasses, "_is_type", None)
     load_trend_analysis()
-    module_name = "tests.fake_module_for_trend_init_existing"
-    fake_module, cls = _make_fake_dataclass(module_name)
-    sys.modules[module_name] = fake_module
-
-    result = dataclasses._is_type(
-        "InitVar",
-        cls,
-        dataclasses,
-        dataclasses.InitVar,
-        lambda candidate, module: candidate is dataclasses.InitVar,
-    )
-
-    assert isinstance(result, bool)
-    assert sys.modules[module_name] is fake_module
-
-
-def test_patch_handles_attribute_error_and_reimports(monkeypatch, load_trend_analysis):
-    module = load_trend_analysis()
-    module_name = "tests.fake_module_for_trend_init_retry"
-    calls: list[str] = []
-
-    def stub(
-        annotation: object,
-        cls: type[object],
-        a_module: object,
-        a_type: object,
-        predicate: object,
-    ) -> object:
-        calls.append(cls.__module__)
-        if cls.__module__ == module_name and module_name not in sys.modules:
-            raise AttributeError("missing module")
-        if callable(predicate):
-            return predicate(a_type, a_module)  # type: ignore[no-any-return]
-        return predicate
-
-    monkeypatch.setattr(dataclasses, "_is_type", stub, raising=False)
-    monkeypatch.setattr(dataclasses, "_trend_patched", False, raising=False)
-
-    module._patch_dataclasses_module_guard()
-    safe = dataclasses._is_type
-
-    fake_module, cls = _make_fake_dataclass(module_name)
-    sys.modules[module_name] = fake_module
-    sys.modules.pop(module_name, None)
-
-    result = safe(
-        "InitVar",
-        cls,
-        dataclasses,
-        dataclasses.InitVar,
-        lambda candidate, module: candidate is dataclasses.InitVar,
-    )
-
-    assert calls.count(module_name) >= 2
-    assert result is True
-    placeholder = sys.modules[module_name]
-    assert isinstance(placeholder, ModuleType)
-    assert placeholder.__dict__["__package__"] == "tests"
-
-    dataclasses._is_type = module._SAFE_IS_TYPE  # type: ignore[attr-defined]
-    dataclasses._trend_patched = True  # type: ignore[attr-defined]
-
-
-def test_dataclasses_guard_re_raises_for_orphan_modules(load_trend_analysis):
-    load_trend_analysis()
-
-    class Orphan:
-        __module__ = ""
-
-    with pytest.raises(AttributeError):
-        dataclasses._is_type(
-            "InitVar",
-            Orphan,
-            dataclasses,
-            dataclasses.InitVar,
-            lambda candidate, module: False,
-        )
+    assert getattr(dataclasses, "_is_type", None) is original_is_type
+    assert not hasattr(dataclasses, "_trend_patched")
+    assert not hasattr(dataclasses, "_trend_model_patched")
 
 
 def test_spec_proxy_restores_module_registration(load_trend_analysis):
@@ -187,14 +59,6 @@ def test_spec_proxy_restores_module_registration(load_trend_analysis):
     spec = module.__spec__
     assert spec.name == "trend_analysis"
     assert sys.modules["trend_analysis"] is module
-
-
-def test_patch_noop_when_already_wrapped(load_trend_analysis):
-    module = load_trend_analysis()
-    initial = dataclasses._is_type
-    module._patch_dataclasses_module_guard()
-    assert dataclasses._is_type is initial
-    assert module._SAFE_IS_TYPE is initial  # type: ignore[attr-defined]
 
 
 def test_lazy_loader_imports_module_on_demand(load_trend_analysis):

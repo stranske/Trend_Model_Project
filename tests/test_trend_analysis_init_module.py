@@ -101,75 +101,14 @@ def _reload_with_stubs(
 
 
 @pytest.fixture
-def restore_dataclasses(monkeypatch: pytest.MonkeyPatch):
-    import dataclasses
-
-    original_is_type = getattr(dataclasses, "_is_type", None)
-    original_flag = getattr(dataclasses, "_trend_patched", False)
-    if original_flag:
-        monkeypatch.delattr(dataclasses, "_trend_patched")
-    yield dataclasses
-    monkeypatch.setattr(dataclasses, "_is_type", original_is_type, raising=False)
-    if original_flag:
-        monkeypatch.setattr(dataclasses, "_trend_patched", True, raising=False)
-
-
-@pytest.fixture
 def reload_trend_analysis():
-    import dataclasses
-
     module = trend_analysis
 
     def _reload() -> ModuleType:
-        if getattr(dataclasses, "_trend_patched", False):
-            delattr(dataclasses, "_trend_patched")
         return importlib.reload(module)
 
     yield _reload
-
-    if getattr(dataclasses, "_trend_patched", False):
-        delattr(dataclasses, "_trend_patched")
     importlib.reload(module)
-
-
-def test_patch_dataclasses_module_guard_reimports_missing_module(
-    monkeypatch: pytest.MonkeyPatch, restore_dataclasses
-) -> None:
-    import dataclasses
-
-    sentinel_name = "tests.synthetic_dataclass_module"
-    dataclass_module = ModuleType(sentinel_name)
-    sys.modules[sentinel_name] = dataclass_module
-
-    dataclass_type = _make_dataclass_with_module("Synth", [("value", int)], sentinel_name)
-    sys.modules.pop(sentinel_name)
-
-    call_order: list[ModuleType | None] = []
-
-    def _probe_is_type(*args: object) -> bool:
-        call_order.append(sys.modules.get(sentinel_name))
-        module_present = call_order[-1] is not None
-        if not module_present:
-            raise AttributeError("module missing")
-        return True
-
-    monkeypatch.setattr(dataclasses, "_is_type", _probe_is_type, raising=False)
-
-    trend_analysis._patch_dataclasses_module_guard()
-
-    assert getattr(dataclasses, "_trend_patched", False) is True
-
-    result = dataclasses._is_type(  # type: ignore[attr-defined]
-        annotation=None,
-        cls=dataclass_type,
-        a_module=None,
-        a_type=None,
-        predicate=None,
-    )
-    assert result is True
-    assert call_order == [None, sys.modules[sentinel_name]]
-    assert isinstance(sys.modules[sentinel_name], ModuleType)
-    assert getattr(sys.modules[sentinel_name], "__package__", None) == "tests"
 
 
 def test_spec_proxy_reregisters_module(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -207,64 +146,6 @@ def test_version_fallback_when_package_metadata_missing(
 
     module = reload_trend_analysis()
     assert module.__version__ == "0.1.0-dev"
-
-
-def test_patch_guard_skips_when_original_missing(
-    monkeypatch: pytest.MonkeyPatch, restore_dataclasses
-) -> None:
-    import dataclasses
-
-    monkeypatch.delattr(dataclasses, "_is_type", raising=False)
-    trend_analysis._patch_dataclasses_module_guard()
-    assert not hasattr(dataclasses, "_trend_patched")
-
-
-def test_patch_guard_propagates_when_module_name_missing(
-    monkeypatch: pytest.MonkeyPatch, restore_dataclasses
-) -> None:
-    import dataclasses
-
-    dataclass_type = _make_dataclass_with_module("Nameless", [("value", int)], "tests.nameless")
-    dataclass_type.__module__ = ""
-
-    def _probe(*_: object) -> bool:
-        raise AttributeError("module missing")
-
-    monkeypatch.setattr(dataclasses, "_is_type", _probe, raising=False)
-    trend_analysis._patch_dataclasses_module_guard()
-
-    with pytest.raises(AttributeError):
-        # Arguments: instance, cls, args, kwargs, module
-        dataclasses._is_type(None, dataclass_type, None, None, None)  # type: ignore[attr-defined]
-
-
-def test_patch_guard_retries_when_module_already_loaded(
-    monkeypatch: pytest.MonkeyPatch, restore_dataclasses
-) -> None:
-    import dataclasses
-
-    sentinel_name = "tests.preloaded_dataclass_module"
-    module = ModuleType(sentinel_name)
-    sys.modules[sentinel_name] = module
-
-    dataclass_type = _make_dataclass_with_module("Preloaded", [("value", int)], sentinel_name)
-
-    call_counter = {"count": 0}
-
-    def _probe(*_: object) -> bool:
-        call_counter["count"] += 1
-        if call_counter["count"] == 1:
-            raise AttributeError("module missing")
-        return True
-
-    monkeypatch.setattr(dataclasses, "_is_type", _probe, raising=False)
-    trend_analysis._patch_dataclasses_module_guard()
-
-    # _is_type signature: (obj, cls, a, b, c)
-    # Here: obj=None, cls=dataclass_type, a=None, b=None, c=None
-    assert dataclasses._is_type(None, dataclass_type, None, None, None) is True  # type: ignore[attr-defined]
-    assert call_counter["count"] == 2
-    assert sys.modules[sentinel_name] is module
 
 
 def test_eager_import_skips_missing_submodule(

@@ -1,4 +1,3 @@
-import dataclasses
 import importlib
 import sys
 import types
@@ -44,97 +43,6 @@ def test_version_fallback_used_when_package_missing(
     assert module.__version__ == "0.1.0-dev"
 
 
-def test_dataclasses_patch_recreates_missing_module(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def fake_is_type(annotation, cls, a_module, a_type, predicate):  # noqa: ANN001
-        if cls.__module__ not in sys.modules:
-            raise AttributeError("missing module")
-        return True
-
-    monkeypatch.setattr(dataclasses, "_is_type", fake_is_type, raising=False)
-    monkeypatch.delattr(dataclasses, "_trend_patched", raising=False)
-
-    _ = importlib.reload(trend_analysis)
-
-    class Ghost:
-        __module__ = "missing.module"
-
-    monkeypatch.delitem(sys.modules, Ghost.__module__, raising=False)
-
-    def failing_import(name: str, package: str | None = None):  # noqa: ANN001
-        if name == Ghost.__module__:
-            raise ImportError("no module")
-        return importlib.import_module(name, package)
-
-    monkeypatch.setattr(importlib, "import_module", failing_import)
-
-    result = dataclasses._is_type(None, Ghost, None, None, lambda _: False)
-    assert result is True
-    created = sys.modules[Ghost.__module__]
-    assert isinstance(created, types.ModuleType)
-    assert created.__package__ == "missing"
-
-
-def test_dataclasses_patch_reimports_available_module(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def reimporting_is_type(
-        annotation,
-        cls,
-        a_module,
-        a_type,
-        predicate,  # noqa: ANN001
-    ) -> bool:
-        if cls.__module__ not in sys.modules:
-            raise AttributeError("missing module")
-        return False
-
-    module_name = "ghost.recoverable"
-    stub_module = types.ModuleType(module_name)
-    stub_module.__package__ = module_name.rpartition(".")[0]
-
-    monkeypatch.setattr(dataclasses, "_is_type", reimporting_is_type, raising=False)
-    monkeypatch.delattr(dataclasses, "_trend_patched", raising=False)
-
-    _ = importlib.reload(trend_analysis)
-
-    class Ghost:
-        __module__ = module_name
-
-    monkeypatch.delitem(sys.modules, module_name, raising=False)
-
-    def tracking_import(name: str, package: str | None = None):  # noqa: ANN001
-        if name == module_name:
-            return stub_module
-        return importlib.import_module(name, package)
-
-    monkeypatch.setattr(importlib, "import_module", tracking_import)
-
-    result = dataclasses._is_type(None, Ghost, None, None, lambda _: False)
-
-    assert result is False
-    assert sys.modules[module_name] is stub_module
-
-
-def test_dataclasses_patch_bubbles_when_module_unknown(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def always_missing(annotation, cls, a_module, a_type, predicate):  # noqa: ANN001
-        raise AttributeError("missing module")
-
-    monkeypatch.setattr(dataclasses, "_is_type", always_missing, raising=False)
-    monkeypatch.delattr(dataclasses, "_trend_patched", raising=False)
-
-    _ = importlib.reload(trend_analysis)
-
-    class Nameless:
-        __module__ = None
-
-    with pytest.raises(AttributeError):
-        dataclasses._is_type(None, Nameless, None, None, lambda _: False)
-
-
 def test_spec_proxy_name_restores_registration(monkeypatch: pytest.MonkeyPatch) -> None:
     module = importlib.reload(trend_analysis)
     proxy = module.__spec__
@@ -171,20 +79,3 @@ def test_eager_import_skips_missing_optional(monkeypatch: pytest.MonkeyPatch) ->
     assert "export" not in module.__dict__
     with pytest.raises(AttributeError):
         module.__getattr__("export")
-
-
-def test_dataclasses_patch_returns_when_module_present(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def fake_is_type(annotation, cls, a_module, a_type, predicate):  # noqa: ANN001
-        return True
-
-    monkeypatch.setattr(dataclasses, "_is_type", fake_is_type, raising=False)
-    monkeypatch.delattr(dataclasses, "_trend_patched", raising=False)
-
-    _ = importlib.reload(trend_analysis)
-
-    class Existing:
-        __module__ = "trend_analysis"
-
-    assert dataclasses._is_type(None, Existing, None, None, lambda _: False)

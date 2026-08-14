@@ -1,9 +1,8 @@
 """Soft coverage tests for trend_analysis.__init__ module."""
 
-import dataclasses
 import importlib
 import sys
-from types import ModuleType, SimpleNamespace
+from types import SimpleNamespace
 
 import pytest
 
@@ -15,34 +14,6 @@ def trend_analysis_module():
     module = importlib.reload(trend_analysis)
     yield module
     importlib.reload(trend_analysis)
-
-
-def test_dataclasses_guard_reimports_missing_module(trend_analysis_module, monkeypatch):
-    """The patched dataclasses helper should tolerate missing module entries."""
-
-    safe_is_type = trend_analysis_module._SAFE_IS_TYPE
-    placeholder_name = "tests.fake_missing_module"
-    example_cls = dataclasses.make_dataclass("Example", [("value", int)])
-    example_cls.__module__ = placeholder_name
-
-    monkeypatch.delitem(sys.modules, placeholder_name, raising=False)
-
-    import_calls: list[str] = []
-
-    def fake_import(name: str, package: str | None = None):
-        import_calls.append(name)
-        raise ModuleNotFoundError(name)
-
-    monkeypatch.setattr(trend_analysis_module.importlib, "import_module", fake_import)
-
-    result = safe_is_type("Example", example_cls, None, example_cls, lambda _obj, _module: True)
-
-    assert result is True
-    assert placeholder_name in sys.modules
-    placeholder_module = sys.modules[placeholder_name]
-    assert isinstance(placeholder_module, ModuleType)
-    assert placeholder_module.__dict__["__package__"] == "tests"
-    assert import_calls == [placeholder_name]
 
 
 def test_spec_proxy_restores_sys_modules_entry(trend_analysis_module, monkeypatch):
@@ -69,66 +40,6 @@ def test_lazy_import_loader_registers_modules(trend_analysis_module, monkeypatch
 
     assert loaded is sys.modules[target_name]
     assert trend_analysis_module.__dict__[lazy_attr] is loaded
-
-
-def test_dataclasses_guard_handles_missing_is_type(monkeypatch):
-    """When dataclasses lacks _is_type the guard should exit without patching."""
-
-    import dataclasses
-
-    import trend_analysis
-
-    trend_analysis.__dict__.pop("_SAFE_IS_TYPE", None)
-    monkeypatch.delattr(dataclasses, "_trend_patched", raising=False)
-    monkeypatch.setattr(dataclasses, "_is_type", None, raising=False)
-
-    reloaded = importlib.reload(trend_analysis)
-
-    try:
-        assert "_SAFE_IS_TYPE" not in reloaded.__dict__
-    finally:
-        importlib.reload(trend_analysis)
-
-
-def test_safe_is_type_requires_module_name(trend_analysis_module):
-    """Missing __module__ metadata should propagate as an AttributeError."""
-
-    safe_is_type = trend_analysis_module._SAFE_IS_TYPE
-    missing_module_cls = dataclasses.make_dataclass("MissingModule", [])
-    missing_module_cls.__module__ = ""
-
-    with pytest.raises(AttributeError):
-        safe_is_type(
-            "MissingModule",
-            missing_module_cls,
-            None,
-            missing_module_cls,
-            lambda *_: True,
-        )
-
-
-def test_safe_is_type_successful_reimport(trend_analysis_module, monkeypatch):
-    """A missing module should be re-imported when available."""
-
-    safe_is_type = trend_analysis_module._SAFE_IS_TYPE
-    placeholder_name = "tests.fake_success_module"
-    example_cls = dataclasses.make_dataclass("Example", [("value", int)])
-    example_cls.__module__ = placeholder_name
-
-    monkeypatch.delitem(sys.modules, placeholder_name, raising=False)
-
-    imported = ModuleType(placeholder_name)
-
-    def import_module(name: str, package: str | None = None):
-        assert name == placeholder_name
-        return imported
-
-    monkeypatch.setattr(trend_analysis_module.importlib, "import_module", import_module)
-
-    result = safe_is_type("Example", example_cls, None, example_cls, lambda _obj, _module: True)
-
-    assert result is True
-    assert sys.modules[placeholder_name] is imported
 
 
 def test_spec_proxy_wraps_existing_spec(monkeypatch):
