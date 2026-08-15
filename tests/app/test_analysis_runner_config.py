@@ -177,8 +177,8 @@ def test_analysis_runner_payload_round_trips_through_canonical_config(monkeypatc
     model_state = {
         "selection_count": 6,
         "weighting_scheme": "risk_parity",
-        "transaction_cost_bps": 0,
-        "slippage_bps": 0,
+        "transaction_cost_bps": 7,
+        "slippage_bps": 3,
         "metric_weights": {"sharpe": 0.6, "return_ann": 0.2, "drawdown": 0.2},
         "trend_window": 12,
         "trend_lag": 1,
@@ -200,16 +200,42 @@ def test_analysis_runner_payload_round_trips_through_canonical_config(monkeypatc
     cfg = _build_config(payload)
 
     assert isinstance(cfg, Config)
-    assert cfg.portfolio["transaction_cost_bps"] == 0
+    assert cfg.portfolio["transaction_cost_bps"] == 7
     assert cfg.portfolio["weighting_scheme"] == "risk_parity"
+    assert cfg.portfolio["cost_model"] == {"bps_per_trade": 7, "slippage_bps": 3}
+    assert cfg.portfolio["threshold_hold"]["blended_weights"] == {
+        "Sharpe": 0.6,
+        "AnnualReturn": 0.2,
+        "MaxDrawdown": 0.2,
+    }
     assert cfg.signals["window"] == 12
     assert cfg.signals["lag"] == 1
     assert cfg.signals["zscore"] is True
     assert cfg.signals["vol_adjust"] is False
-    assert cfg.sample_split["out_end"] == "2020-04"
+    assert cfg.sample_split == {
+        "in_start": "2020-01",
+        "in_end": "2020-01",
+        "out_start": "2020-02",
+        "out_end": "2020-04",
+    }
     assert cfg.vol_adjust["target_vol"] == 0.12
     assert cfg.benchmarks["SPX"] == "SPX"
+    assert cfg.multi_period == {
+        "frequency": "A",
+        "in_sample_len": 1,
+        "out_sample_len": 1,
+        "min_history_periods": 1,
+        "start": "2020-02-29",
+        "end": "2020-04-30",
+        "start_mode": "oos",
+    }
+    assert cfg.export == {"directory": "results/roundtrip"}
     dumped = cfg.model_dump()
-    assert dumped["portfolio"]["transaction_cost_bps"] == 0
+    rehydrated = Config(**dumped)
+    assert rehydrated.model_dump() == dumped
+    assert dumped["portfolio"]["transaction_cost_bps"] == 7
+    assert dumped["portfolio"]["cost_model"]["slippage_bps"] == 3
     assert dumped["signals"]["window"] == 12
-    assert dumped["sample_split"]["out_end"] == "2020-04"
+    assert dumped["sample_split"] == cfg.sample_split
+    assert dumped["multi_period"]["frequency"] == "A"
+    assert dumped["export"]["directory"] == "results/roundtrip"
