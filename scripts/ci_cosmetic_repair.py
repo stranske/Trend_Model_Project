@@ -26,18 +26,21 @@ import os
 import re
 import subprocess
 import sys
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable, Sequence
-
-from scripts.classify_test_failures import FailureRecord, classify_reports
 
 ROOT = Path(__file__).resolve().parent.parent
 GUARD_PREFIX = "# cosmetic-repair:"
 BRANCH_PREFIX = "autofix/cosmetic-repair"
 DEFAULT_REPORT = Path(".pytest-cosmetic-report.xml")
 SUMMARY_FILE = Path(".cosmetic-repair-summary.json")
+
+from scripts.classify_test_failures import (  # noqa: E402
+    FailureRecord,
+    classify_reports,
+)
 
 _LOG_PATH = ROOT / "docs" / "COSMETIC_REPAIR_LOG.md"
 _GUARD_START = "<!-- cosmetic-repair:start -->"
@@ -304,7 +307,7 @@ def stage_and_commit(
     summary: str,
     branch_suffix: str | None,
 ) -> str:
-    branch_suffix = branch_suffix or datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    branch_suffix = branch_suffix or datetime.now(UTC).strftime("%Y%m%d%H%M%S")
     branch = f"{BRANCH_PREFIX}-{branch_suffix}"
     _run(["git", "checkout", "-B", branch], cwd=root)
     _run(["git", "add", *{str(p.relative_to(root)) for p in paths}], cwd=root)
@@ -560,7 +563,4 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 if __name__ == "__main__":  # pragma: no cover
-    from trend_analysis.script_logging import setup_script_logging
-
-    setup_script_logging(module_file=__file__)
     raise SystemExit(main())
