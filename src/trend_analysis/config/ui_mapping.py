@@ -552,6 +552,11 @@ def build_config_from_ui_state(
 
     portfolio_cfg.setdefault("rebalance_calendar", "NYSE")
 
+    export_cfg: dict[str, Any] = {}
+    export_directory = model_state.get("export_directory")
+    if isinstance(export_directory, str) and export_directory.strip():
+        export_cfg["directory"] = export_directory.strip()
+
     return create_config(
         version="1",
         data=data_cfg,
@@ -578,7 +583,7 @@ def build_config_from_ui_state(
             "rf_rate_annual": rf_rate_annual,
             "rf_override_enabled": rf_override_enabled,
         },
-        export={},
+        export=export_cfg,
         run={"trend_preset": preset_name},
         seed=seed,
         multi_period=multi_period_cfg,
