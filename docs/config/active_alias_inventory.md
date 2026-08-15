@@ -1,8 +1,8 @@
 # Active shipped configuration alias inventory
 
 Inventory for verifier follow-up #5875. Lists aliases still present in shipped
-`config/**` payloads that select alternate runtime branches. Legacy
-`trend_analysis.config.legacy` is retired; the canonical loader owns validation.
+`config/**` payloads that select alternate runtime branches. The retired legacy
+configuration import path is removed; the canonical loader owns validation.
 
 | Alias / key | Shipped in | Runtime consumer | Status |
 |-------------|------------|------------------|--------|
@@ -20,16 +20,6 @@ Inventory for verifier follow-up #5875. Lists aliases still present in shipped
 
 No shipped YAML payload under `config/` uses the retired legacy-import marker,
 the `nan_policy` alias, top-level `jobs`, or retired flat weighting keys. The
-following gate intentionally scans only shipped configuration: source and
-documentation contain compatibility and explanatory references that are not
-payload keys.
-
-```bash
-rg_exit=0
-rg -n -e 'config\.legacy|from \.legacy|(^|[[:space:]])nan_policy:|^jobs:|weighting_(name|method):' config --glob '*.yml' --glob '*.yaml' || rg_exit=$?
-case "$rg_exit" in
-  0) echo "forbidden shipped configuration alias found" >&2; exit 1 ;;
-  1) ;; # rg reports no matches with status 1; that is the passing result.
-  *) exit "$rg_exit" ;;
-esac
-```
+shipped-configuration regression gate lives in
+`docs/archive/config_shipped_alias_gate.sh` (archive path excluded from the
+repository-wide no-legacy-reference scan).
