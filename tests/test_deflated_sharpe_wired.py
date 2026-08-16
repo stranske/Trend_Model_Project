@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
 import trend_analysis.walk_forward as wf
 
@@ -70,3 +71,12 @@ def test_single_trial_returns_undeflated_psr_without_raising() -> None:
     value = wf._sweep_deflated_sharpe(returns, n_trials=1)
 
     assert np.isfinite(value)
+
+
+def test_invalid_finite_moments_return_unavailable_dsr() -> None:
+    returns = pd.Series([-0.0103, -0.0103, -0.0102, -0.0102], dtype=float)
+
+    assert np.isnan(wf._sweep_deflated_sharpe(returns, n_trials=1))
+
+    with pytest.raises(ValueError, match="n_trials must be at least 1"):
+        wf._sweep_deflated_sharpe(_fixed_returns(), n_trials=0)

@@ -193,14 +193,19 @@ def _sweep_deflated_sharpe(
     sharpe, n_obs, skew, kurtosis = estimate_sharpe_moments(returns)
     if n_obs < 2 or not all(np.isfinite(value) for value in (sharpe, skew, kurtosis)):
         return float("nan")
-    return deflated_sharpe_ratio(
-        sharpe,
-        n_obs,
-        skew,
-        kurtosis,
-        n_trials,
-        sharpe_variance=sharpe_variance,
-    )
+    try:
+        return deflated_sharpe_ratio(
+            sharpe,
+            n_obs,
+            skew,
+            kurtosis,
+            n_trials,
+            sharpe_variance=sharpe_variance,
+        )
+    except ValueError as exc:
+        if str(exc) != "invalid Sharpe moment combination":
+            raise
+        return float("nan")
 
 
 def _tie_breaker(index: pd.Index, rng: np.random.Generator | None) -> pd.Series:
