@@ -133,7 +133,7 @@ def test_current_operator_instructions_do_not_restore_retired_orchestrator() -> 
 
     checklist = (ROOT / "docs/SETUP_CHECKLIST.md").read_text(encoding="utf-8")
     assert "Keepalive Sweep re-enters the Agents 81 evaluation" in checklist
-    assert "both `agent:codex` and `agents:keepalive` labels" in checklist
+    assert checklist.count("both `agent:codex` and `agents:keepalive` labels") == 2
 
     codeowners = (ROOT / ".github/CODEOWNERS").read_text(encoding="utf-8")
     assert "agents-70-orchestrator.yml" not in codeowners
