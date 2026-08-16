@@ -330,8 +330,9 @@ and where to watch the result:
    keeping the repo healthy. Maint 46 is recovery-only now: it only wakes up
    when Gate fails to emit its own summary so there is a single source of
    truth on green runs.
-4. **Issue and agents automation picks up queued work.** Registered agent labels
-   flow through Agents Issue Intake. The separate `agents:auto-pilot` route
+4. **Issue and agents automation picks up queued work.** Syntactically valid
+   assignment labels flow through Agents Issue Intake; the consumer caller does
+   not validate their suffixes against the local registry. The separate `agents:auto-pilot` route
    dispatches Agents 71 and the Agents 72 wrapper, while Agents 81 owns guarded
    post-Gate delivery. Health 45 Agents Guard independently protects changes to
    this workflow surface.

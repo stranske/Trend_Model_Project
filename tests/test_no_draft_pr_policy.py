@@ -176,6 +176,8 @@ def test_current_operator_instructions_do_not_restore_retired_orchestrator() -> 
         "docs/prompts/library.md",
         "docs/ci_reuse.md",
         "docs/SETUP_CHECKLIST.md",
+        "docs/keepalive/GoalsAndPlumbing.md",
+        "docs/keepalive/Observability_Contract.md",
         "NEXT_STEPS_MONITORING.md",
         ".github/workflows/agents-auto-pilot.yml",
     )
@@ -219,6 +221,10 @@ def test_operator_docs_match_gate_followup_runner_and_retry_topology() -> None:
     workflow = (ROOT / ".github/workflows/agents-81-gate-followups.yml").read_text(encoding="utf-8")
     labels = (ROOT / "docs/LABELS.md").read_text(encoding="utf-8")
     monitoring = (ROOT / "NEXT_STEPS_MONITORING.md").read_text(encoding="utf-8")
+    keepalive_contracts = (
+        ROOT / "docs/keepalive/GoalsAndPlumbing.md",
+        ROOT / "docs/keepalive/Observability_Contract.md",
+    )
 
     assert "reusable-codex-run.yml@main" in workflow
     assert "reusable-claude-run.yml@main" in workflow
@@ -231,6 +237,11 @@ def test_operator_docs_match_gate_followup_runner_and_retry_topology() -> None:
     assert "github.event.inputs.force_retry" in workflow
     assert "applying it alone does not set" in monitoring
     assert "-f force_retry=true" in monitoring
+    for contract in keepalive_contracts:
+        text = contract.read_text(encoding="utf-8")
+        assert "agents-80-pr-event-hub.yml" in text, contract
+        assert "agents-81-gate-followups.yml" in text, contract
+        assert "agents-keepalive-sweep.yml" in text, contract
 
     retired_dispatch_targets = (
         "agents-keepalive-loop.yml",
