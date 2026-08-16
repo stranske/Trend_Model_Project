@@ -55,6 +55,7 @@ _CONSUMED_PORTFOLIO_KEYS = {
     "constraints.max_funds",
     "constraints.max_weight",
     "constraints.min_weight",
+    "constraints.min_weight_strikes",
     "constraints.max_active_positions",
     "constraints.group_caps",
     "constraints.cash_weight",
@@ -72,6 +73,8 @@ _CONSUMED_PORTFOLIO_KEYS = {
     "robustness.logging.log_method_switches",
     "robustness.logging.log_shrinkage_intensity",
     "robustness.logging.log_condition_numbers",
+    "sticky_add_x",
+    "sticky_drop_y",
 }
 
 _DYNAMIC_PORTFOLIO_SUBTREES = {

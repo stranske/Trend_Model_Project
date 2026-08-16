@@ -120,6 +120,19 @@ def test_schema_validation_accepts_cost_model_float_bps() -> None:
     assert errors == []
 
 
+def test_schema_validation_accepts_canonical_threshold_controls() -> None:
+    schema = generate_schema()
+    payload = {
+        "portfolio": {
+            "constraints": {"min_weight_strikes": 2},
+            "sticky_add_x": 2,
+            "sticky_drop_y": 3,
+        }
+    }
+
+    assert validate_config_data(payload, schema) == []
+
+
 def test_schema_validation_rejects_misspelled_rf_override_enabled() -> None:
     schema = generate_schema()
     errors = validate_config_data({"metrics": {"rf_override_enbaled": True}}, schema)

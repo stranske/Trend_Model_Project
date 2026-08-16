@@ -50,6 +50,20 @@ def test_portfolio_keylint_flags_unknown() -> None:
     assert errors == ["portfolio.bogus_key"]
 
 
+def test_portfolio_keylint_accepts_canonical_threshold_controls() -> None:
+    errors = lint_portfolio_keys(
+        {
+            "portfolio": {
+                "constraints": {"min_weight_strikes": 2},
+                "sticky_add_x": 2,
+                "sticky_drop_y": 3,
+            }
+        }
+    )
+
+    assert errors == []
+
+
 def test_validate_trend_config_rejects_unknown_portfolio_key(tmp_path: Path) -> None:
     csv_path = _write_returns_csv(tmp_path)
     payload = {

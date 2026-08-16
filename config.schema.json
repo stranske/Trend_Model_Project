@@ -90,7 +90,8 @@
         "group_caps": {},
         "long_only": true,
         "max_active_positions": 0,
-        "max_weight": 0.25
+        "max_weight": 0.25,
+        "min_weight_strikes": 0
       },
       "cost_model": {
         "half_spread_bps": 0,
@@ -140,6 +141,8 @@
           "threshold": 1.0
         }
       },
+      "sticky_add_x": 1,
+      "sticky_drop_y": 1,
       "weighting": {
         "name": "equal",
         "params": {}
@@ -969,7 +972,8 @@
           "group_caps": {},
           "long_only": true,
           "max_active_positions": 0,
-          "max_weight": 0.25
+          "max_weight": 0.25,
+          "min_weight_strikes": 0
         },
         "cost_model": {
           "half_spread_bps": 0,
@@ -1019,6 +1023,8 @@
             "threshold": 1.0
           }
         },
+        "sticky_add_x": 1,
+        "sticky_drop_y": 1,
         "weighting": {
           "name": "equal",
           "params": {}
@@ -1041,7 +1047,8 @@
             "group_caps": {},
             "long_only": true,
             "max_active_positions": 0,
-            "max_weight": 0.25
+            "max_weight": 0.25,
+            "min_weight_strikes": 0
           },
           "description": "Portfolio constraint settings.",
           "nl_editable": true,
@@ -1154,6 +1161,13 @@
               "minimum": 0,
               "nl_editable": true,
               "type": "number"
+            },
+            "min_weight_strikes": {
+              "constraints": {},
+              "default": 0,
+              "description": "Config option for portfolio.constraints.min_weight_strikes.",
+              "nl_editable": true,
+              "type": "integer"
             }
           },
           "type": "object"
@@ -1694,6 +1708,20 @@
             }
           },
           "type": "object"
+        },
+        "sticky_add_x": {
+          "constraints": {},
+          "default": 1,
+          "description": "Config option for portfolio.sticky_add_x.",
+          "nl_editable": true,
+          "type": "integer"
+        },
+        "sticky_drop_y": {
+          "constraints": {},
+          "default": 1,
+          "description": "Config option for portfolio.sticky_drop_y.",
+          "nl_editable": true,
+          "type": "integer"
         },
         "threshold_hold": {
           "additionalProperties": false,

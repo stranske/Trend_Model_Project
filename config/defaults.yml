@@ -96,7 +96,10 @@ portfolio:
     long_only: true
     max_weight: 0.25
     max_active_positions: 0
+    min_weight_strikes: 0
     group_caps: {}
+  sticky_add_x: 1
+  sticky_drop_y: 1
   # Robustness settings for covariance matrix handling
   robustness:
     # Covariance shrinkage options
