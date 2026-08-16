@@ -2923,12 +2923,12 @@ def _run_threshold_hold_multi_periods(
                     holdings = _dedupe_one_per_firm_with_events(sf, holdings, metric, events)
                     # If dedupe reduced us, refill with random selection
                     if len(holdings) < n_select:
-                        candidates = [c for c in available if c not in holdings]
-                        if candidates:
+                        random_refill = [c for c in available if c not in holdings]
+                        if random_refill:
                             rng = np.random.default_rng(period_seed + 1)
-                            rng.shuffle(candidates)
+                            rng.shuffle(random_refill)
                             seen_firms = {_firm(h) for h in holdings}
-                            for c in candidates:
+                            for c in random_refill:
                                 if len(holdings) >= n_select:
                                     break
                                 firm = _firm(str(c))
@@ -2954,12 +2954,12 @@ def _run_threshold_hold_multi_periods(
                     holdings = _dedupe_one_per_firm_with_events(sf, holdings, metric, events)
                     # Refill if dedupe reduced holdings
                     if len(holdings) < n_select:
-                        candidates = [c for c in available if c not in holdings]
-                        if candidates:
+                        buy_hold_refill = [c for c in available if c not in holdings]
+                        if buy_hold_refill:
                             rng = np.random.default_rng(period_seed + 1)
-                            rng.shuffle(candidates)
+                            rng.shuffle(buy_hold_refill)
                             seen_firms = {_firm(h) for h in holdings}
-                            for c in candidates:
+                            for c in buy_hold_refill:
                                 if len(holdings) >= n_select:
                                     break
                                 firm = _firm(str(c))
@@ -3172,9 +3172,9 @@ def _run_threshold_hold_multi_periods(
                 # automatically fill up to target_n, as the intent is to select exactly
                 # that percentage of the universe.
                 if len(holdings) < desired_seed and inclusion_approach != "top_pct":
-                    candidates = [c for c in sf.index if c not in holdings]
-                    candidates = _filter_entry_candidates([str(c) for c in candidates], sf)
-                    add_from = sf.loc[candidates].sort_values("zscore", ascending=False).index
+                    seed_refill = [str(c) for c in sf.index if c not in holdings]
+                    seed_refill = _filter_entry_candidates(seed_refill, sf)
+                    add_from = sf.loc[seed_refill].sort_values("zscore", ascending=False).index
                     seen_firms = {_firm(h) for h in holdings}
                     for f in add_from:
                         if len(holdings) >= desired_seed:
@@ -3193,11 +3193,15 @@ def _run_threshold_hold_multi_periods(
                     and resolved_rf_col
                     and resolved_rf_col in holdings
                 ):
-                    candidates = [c for c in sf.index if c not in holdings]
-                    candidates = _filter_entry_candidates([str(c) for c in candidates], sf)
+                    rf_replacement_candidates = [str(c) for c in sf.index if c not in holdings]
+                    rf_replacement_candidates = _filter_entry_candidates(
+                        rf_replacement_candidates, sf
+                    )
                     add_from = (
-                        sf.loc[candidates].sort_values("zscore", ascending=False).index
-                        if candidates
+                        sf.loc[rf_replacement_candidates]
+                        .sort_values("zscore", ascending=False)
+                        .index
+                        if rf_replacement_candidates
                         else []
                     )
                     seen_firms = {_firm(h) for h in holdings if h != resolved_rf_col}
@@ -3585,7 +3589,7 @@ def _run_threshold_hold_multi_periods(
                 desired_size = min(desired_size, max_funds)
             if desired_size > 0 and len(proposed_holdings) < desired_size:
                 seen_firms = {_firm(str(h)) for h in proposed_holdings}
-                candidates = [
+                rebalancer_refill = [
                     str(c)
                     for c in sf.index
                     if str(c) not in proposed_holdings
@@ -3593,17 +3597,19 @@ def _run_threshold_hold_multi_periods(
                     and str(c) not in cooldown_book
                     and _eligible_sticky_add(str(c))
                 ]
-                candidates = _filter_entry_candidates(candidates, sf)
-                if candidates:
+                rebalancer_refill = _filter_entry_candidates(rebalancer_refill, sf)
+                if rebalancer_refill:
                     if is_random_mode:
                         period_seed = _stable_period_seed(
                             _seed_or_default(getattr(cfg, "seed", None)), str(pt)
                         )
                         rng = np.random.default_rng(period_seed)
-                        rng.shuffle(candidates)
-                        ranked = candidates
+                        rng.shuffle(rebalancer_refill)
+                        ranked = rebalancer_refill
                     else:
-                        ranked = sf.loc[candidates].sort_values("zscore", ascending=False).index
+                        ranked = (
+                            sf.loc[rebalancer_refill].sort_values("zscore", ascending=False).index
+                        )
                     for c in ranked:
                         if len(proposed_holdings) >= desired_size:
                             break
@@ -3947,15 +3953,19 @@ def _run_threshold_hold_multi_periods(
                 desired_after_low_weight = min(desired_after_low_weight, max_funds)
             need = max(0, desired_after_low_weight - len(holdings))
             if need > 0:
-                candidates = [
+                low_weight_refill = [
                     str(c)
                     for c in sf.index
                     if str(c) not in {str(h) for h in holdings} and _eligible_sticky_add(str(c))
                 ]
                 if cooldown_periods > 0 and cooldown_book:
-                    candidates = [c for c in candidates if str(c) not in cooldown_book]
-                candidates = _filter_entry_candidates(candidates, sf)
-                add_from = sf.loc[candidates].sort_values("zscore", ascending=False).index.tolist()
+                    low_weight_refill = [
+                        c for c in low_weight_refill if str(c) not in cooldown_book
+                    ]
+                low_weight_refill = _filter_entry_candidates(low_weight_refill, sf)
+                add_from = (
+                    sf.loc[low_weight_refill].sort_values("zscore", ascending=False).index.tolist()
+                )
                 for f in add_from:
                     if len(holdings) >= desired_after_low_weight:
                         break
