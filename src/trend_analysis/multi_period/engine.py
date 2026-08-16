@@ -2113,9 +2113,19 @@ def _run_threshold_hold_multi_periods(
             "Sharpe",
             "Sortino",
             "InformationRatio",
-            "Alpha",
             "MaxDrawdown",
         ]
+        column_names = [
+            "CAGR",
+            "Volatility",
+            "Sharpe",
+            "Sortino",
+            "InformationRatio",
+            "MaxDrawdown",
+        ]
+        if benchmark is not None:
+            metrics.append("Alpha")
+            column_names.append("Alpha")
         parts: list[pd.Series] = []
         for m in metrics:
             # Back-compat: some tests monkeypatch `_compute_metric_series` with a
@@ -2137,18 +2147,13 @@ def _run_threshold_hold_multi_periods(
                         **kwargs,
                     )
                 )
-            except TypeError:
-                parts.append(_compute_metric_series(in_df[funds], m, stats_cfg))
+            except TypeError as exc:
+                if kwargs and "unexpected keyword argument" in str(exc):
+                    parts.append(_compute_metric_series(in_df[funds], m, stats_cfg))
+                else:
+                    raise
         sf = pd.concat(parts, axis=1)
-        sf.columns = [
-            "CAGR",
-            "Volatility",
-            "Sharpe",
-            "Sortino",
-            "InformationRatio",
-            "Alpha",
-            "MaxDrawdown",
-        ]
+        sf.columns = column_names
         sf = sf.astype(float)
         # Ensure degenerate series (e.g., constant returns -> 0 volatility)
         # do not wipe the investable universe by producing NaN/Inf metrics.
