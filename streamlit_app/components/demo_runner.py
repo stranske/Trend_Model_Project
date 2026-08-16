@@ -11,7 +11,6 @@ from typing import Any, Dict, Iterable, Mapping, MutableMapping, Tuple
 import pandas as pd
 
 from streamlit_app.components.analysis_runner import ModelSettings
-from streamlit_app.components.universe_membership_input import membership_cache_fingerprint
 from streamlit_app.components.data_schema import (
     SchemaMeta,
     infer_benchmarks,
@@ -19,6 +18,9 @@ from streamlit_app.components.data_schema import (
     load_and_validate_file,
 )
 from streamlit_app.components.policy_engine import MetricSpec, PolicyConfig
+from streamlit_app.components.universe_membership_input import (
+    membership_cache_fingerprint,
+)
 from trend_analysis.api import run_simulation
 from trend_analysis.config import Config
 from trend_analysis.presets import get_trend_preset, list_trend_presets
@@ -393,8 +395,7 @@ def _analysis_run_key(
         membership_cache_fingerprint(state).encode("utf-8")
     ).hexdigest()[:12]
     return (
-        f"{fingerprint}:{bench}:{selected_rf_key}:{funds_hash}:"
-        f"{membership_hash}:{model_blob}"
+        f"{fingerprint}:{bench}:{selected_rf_key}:{funds_hash}:" f"{membership_hash}:{model_blob}"
     )
 
 
