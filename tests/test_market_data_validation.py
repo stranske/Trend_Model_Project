@@ -3,17 +3,14 @@ import pytest
 
 from trend_analysis.io.market_data import (
     MarketDataValidationError,
-    _coerce_limit_value,
     _coerce_numeric,
     _infer_mode,
-    _normalise_policy_value,
     _resolve_datetime_index,
     _strip_percent,
-    _summarise_missing_policy,
-    apply_missing_policy,
     classify_frequency,
     validate_market_data,
 )
+from trend_analysis.util.missing import MissingPolicyResult, _coerce_limit, apply_missing_policy
 
 
 def _build_returns_frame() -> pd.DataFrame:
@@ -187,7 +184,7 @@ def test_missing_policy_ffill_with_limit() -> None:
         {
             "Date": dates,
             "FundA": [0.01, 0.015, 0.02, 0.025],
-            "FundB": [None, 0.02, 0.025, None],
+            "FundB": [0.02, None, None, 0.025],
         }
     )
     validated = validate_market_data(df, missing_policy="ffill", missing_limit=2)
@@ -199,7 +196,7 @@ def test_missing_policy_ffill_with_limit() -> None:
     assert "FundB" in (meta["missing_policy_summary"] or "")
 
 
-def test_missing_policy_respects_limit() -> None:
+def test_single_series_missing_policy_preserves_partial_finite_fill() -> None:
     dates = pd.date_range("2024-01-01", periods=6, freq="D")
     df = pd.DataFrame(
         {
@@ -214,9 +211,11 @@ def test_missing_policy_respects_limit() -> None:
             ],
         }
     )
-    with pytest.raises(MarketDataValidationError) as exc:
-        validate_market_data(df, missing_policy="ffill", missing_limit=2)
-    assert "policy" in str(exc.value).lower()
+    validated = validate_market_data(df, missing_policy="ffill", missing_limit=2)
+
+    assert validated["FundA"].isna().sum() == 1
+    assert validated.metadata.missing_policy_dropped == []
+    assert validated.metadata.missing_policy_filled["FundA"].count == 2
 
 
 def test_missing_policy_per_column_overrides() -> None:
@@ -300,54 +299,50 @@ def test_validate_market_data_rejects_invalid_dates_when_auto_fix_disabled() -> 
         validate_market_data(frame, auto_fix_dates=False)
 
 
-def test_normalise_policy_value_rejects_unknown() -> None:
+def test_coerce_limit_validation() -> None:
     with pytest.raises(ValueError):
-        _normalise_policy_value("invalid")
-
-
-def test_coerce_limit_value_validation() -> None:
+        _coerce_limit("not-int")
     with pytest.raises(ValueError):
-        _coerce_limit_value("not-int")
-    with pytest.raises(ValueError):
-        _coerce_limit_value(-1)
-    assert _coerce_limit_value(5) == 5
+        _coerce_limit(-1)
+    assert _coerce_limit(5) == 5
 
 
 def test_apply_missing_policy_empty_frame_returns_defaults() -> None:
     frame = pd.DataFrame()
     result, summary = apply_missing_policy(frame, policy="drop")
     assert result.empty
-    assert summary["policy"] == "drop"
-    assert summary["limit"] is None
+    assert summary.default_policy == "drop"
+    assert summary.default_limit is None
 
 
-def test_apply_missing_policy_enforces_gap_limit() -> None:
+def test_apply_missing_policy_preserves_single_series_finite_fill() -> None:
     frame = pd.DataFrame({"A": [1.0, None, None, 2.0]})
     result, summary = apply_missing_policy(frame, policy="ffill", limit=1)
-    # Column should be dropped because gap exceeds limit
-    assert "A" not in result.columns
-    assert summary["dropped"] == ["A"]
+    assert result["A"].isna().sum() == 1
+    assert summary.dropped_assets == ()
+    assert summary.filled == {"A": 1}
 
 
 def test_apply_missing_policy_zero_fill() -> None:
     frame = pd.DataFrame({"A": [1.0, None, 2.0]})
     result, summary = apply_missing_policy(frame, policy="zero")
     assert result["A"].iloc[1] == 0.0
-    assert summary["filled"]["A"].method == "zero"
+    assert summary.filled["A"] == 1
 
 
 def test_summarise_missing_policy_handles_various_sources() -> None:
-    details = {
-        "policy": "ffill",
-        "limit": 2,
-        "policy_map": {"A": "ffill", "B": "drop"},
-        "filled": {"A": {"method": "ffill", "count": 3}},
-        "dropped": ["B"],
-    }
-    summary = _summarise_missing_policy(details)
-    assert "policy=ffill" in summary
-    assert "filled=A" in summary
-    assert "dropped=B" in summary
+    details = MissingPolicyResult(
+        policy={"A": "ffill", "B": "drop"},
+        default_policy="ffill",
+        limit={"A": 2, "B": 2},
+        default_limit=2,
+        filled={"A": 3},
+        dropped_assets=("B",),
+        summary="default=ffill(limit=2); overrides: B=drop",
+    )
+    assert "default=ffill" in details.summary
+    assert details.filled == {"A": 3}
+    assert details.dropped_assets == ("B",)
 
 
 def test_classify_frequency_irregular_spacing_raises() -> None:

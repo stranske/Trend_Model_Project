@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 
 import trend_analysis.io.market_data as market_data
+from trend_analysis.util.missing import MissingPolicyResult, apply_missing_policy
 
 
 @pytest.fixture()
@@ -62,9 +63,9 @@ def test_validated_market_data_delegates_dataframe_behaviour(
 
 def test_apply_missing_policy_ffill_drops_all_nan_columns() -> None:
     frame = pd.DataFrame({"A": [pd.NA, pd.NA, pd.NA]})
-    result, summary = market_data.apply_missing_policy(frame, policy="ffill")
+    result, summary = apply_missing_policy(frame, policy="ffill")
     assert result.empty
-    assert summary["dropped"] == ["A"]
+    assert summary.dropped_assets == ("A",)
 
 
 def test_missing_policy_overrides_accept_stringified_column_keys() -> None:
@@ -125,70 +126,21 @@ def test_missing_policy_overrides_empty_when_uniform_policy() -> None:
     assert meta["missing_policy_limits"] == {"FundA": 1, "FundB": 1}
 
 
-def test_build_policy_maps_stringifies_keys_and_applies_defaults() -> None:
-    columns = [1, "FundB", "FundC"]
-    policy = {"*": "drop", 1: "ffill", "FundC": "zero", "unused": "ffill"}
-    limits = {"*": "2", 1: "0", "FundC": None, "unused": 3}
-
-    policy_map, default_policy, limit_map, default_limit = market_data._build_policy_maps(
-        columns, policy, limits
+def test_summarise_missing_policy_uses_typed_canonical_diagnostics() -> None:
+    info = MissingPolicyResult(
+        policy={"A": "ffill", "B": "zero", "D": "drop"},
+        default_policy="ffill",
+        limit={"A": 2, "B": 2, "D": 2},
+        default_limit=2,
+        filled={"A": 3, "B": 1},
+        dropped_assets=("D",),
+        summary="default=ffill(limit=2); overrides: B=zero, D=drop",
     )
-
-    assert default_policy == "drop"
-    assert policy_map == {"1": "ffill", "FundB": "drop", "FundC": "zero"}
-    assert default_limit == 2
-    assert limit_map == {"1": 0, "FundB": 2, "FundC": None}
-
-
-def test_build_policy_maps_scalar_values_apply_to_all_columns() -> None:
-    policy_map, default_policy, limit_map, default_limit = market_data._build_policy_maps(
-        ["A", "B"], "ffill", 1
-    )
-
-    assert default_policy == "ffill"
-    assert policy_map == {"A": "ffill", "B": "ffill"}
-    assert default_limit == 1
-    assert limit_map == {"A": 1, "B": 1}
-
-
-def test_apply_missing_policy_unknown_strategy(monkeypatch: pytest.MonkeyPatch) -> None:
-    frame = pd.DataFrame({"A": [1.0, pd.NA]})
-
-    def fake_build_policy_maps(*args: object, **kwargs: object):
-        return {"A": "mystery"}, "drop", {"A": None}, None
-
-    monkeypatch.setattr(market_data, "_build_policy_maps", fake_build_policy_maps)
-
-    with pytest.raises(ValueError) as exc:
-        market_data.apply_missing_policy(frame, policy="drop")
-
-    assert "mystery" in str(exc.value)
-
-
-def test_summarise_missing_policy_handles_mixed_detail_types() -> None:
-    info = {
-        "policy": "ffill",
-        "limit": 2,
-        "policy_map": {"A": "ffill", "B": "zero"},
-        "filled": {
-            "A": market_data.MissingPolicyFillDetails(method="ffill", count=3),
-            "B": {"method": "zero", "count": "invalid"},
-            "C": object(),
-        },
-        "dropped": ["D"],
-    }
 
     summary = market_data._summarise_missing_policy(info)
 
-    assert "policy=ffill" in summary
-    # The overrides section should be present because column ``B`` differs
-    # from the default policy.
-    assert "overrides=B:zero" in summary
-    # The summary surfaces each filled column, including those that required
-    # type coercion or default fall-backs.
-    assert "filled=A (ffill: 3)" in summary
-    assert "B (zero: 0)" in summary
-    assert "C (fill: 0)" in summary
+    assert "default=ffill(limit=2)" in summary
+    assert "filled=A (ffill: 3), B (zero: 1)" in summary
     assert "dropped=D" in summary
 
 

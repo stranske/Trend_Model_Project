@@ -8,10 +8,7 @@ import pandas as pd
 import pytest
 
 from trend_analysis.data import load_csv
-from trend_analysis.io.market_data import (
-    MarketDataValidationError,
-    _normalise_policy_value,
-)
+from trend_analysis.io.market_data import MarketDataValidationError, validate_market_data
 from trend_analysis.util import missing
 
 
@@ -65,9 +62,6 @@ def test_coerce_policy_defaults_empty_to_drop(value: str | None) -> None:
 def test_missing_policy_layers_reject_undocumented_aliases(value: str) -> None:
     with pytest.raises(ValueError, match="Unsupported missing-data policy"):
         missing._coerce_policy(value)
-
-    with pytest.raises(ValueError, match="Unknown missing-data policy"):
-        _normalise_policy_value(value)
 
 
 @pytest.mark.parametrize("value", ["bfill", "backfill", "both", "zero_fill", "zeros"])
@@ -186,16 +180,32 @@ def test_apply_missing_policy_guard_for_unhandled_policy(
         missing.apply_missing_policy(sample_frame, "drop")
 
 
-def test_wildcard_policy_is_shared_by_market_data_validation() -> None:
-    from trend_analysis.io.market_data import validate_market_data
-
+def test_all_ingest_paths_share_missing_policy_contract() -> None:
     frame = pd.DataFrame(
         {
             "Date": ["2024-01-31", "2024-02-29", "2024-03-31"],
-            "A": [0.01, None, 0.03],
+            "A": [None, 0.02, 0.03],
+            "B": [0.01, 0.02, 0.03],
+            "C": [0.01, None, 0.03],
+            "D": [0.01, None, None],
         }
     )
+    numeric = frame.set_index(pd.to_datetime(frame["Date"])).drop(columns="Date")
+    numeric.index.name = "Date"
 
-    validated = validate_market_data(frame, missing_policy={"*": "zero"})
+    expected, diagnostics = missing.apply_missing_policy(
+        numeric,
+        {"*": "ffill"},
+        limit={"*": 1},
+    )
+    validated = validate_market_data(
+        frame,
+        missing_policy={"*": "ffill"},
+        missing_limit={"*": 1},
+    )
 
-    assert validated.frame.loc[pd.Timestamp("2024-02-29"), "A"] == 0.0
+    pd.testing.assert_frame_equal(validated.frame, expected)
+    assert diagnostics.dropped_assets == ("A", "D")
+    assert validated.metadata.missing_policy_dropped == ["A", "D"]
+    assert "D" not in validated.metadata.missing_policy_filled
+    assert validated.frame.loc[pd.Timestamp("2024-02-29"), "C"] == 0.01
