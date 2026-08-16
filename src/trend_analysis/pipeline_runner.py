@@ -124,6 +124,7 @@ def _run_analysis_with_diagnostics(
         rank_kwargs=rank_kwargs,
         manual_funds=manual_funds,
         indices_list=indices_list,
+        benchmarks=benchmarks,
         seed=seed,
         stats_cfg=stats_cfg,
         risk_free_column=risk_free_column,

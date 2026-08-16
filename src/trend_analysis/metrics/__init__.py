@@ -430,6 +430,9 @@ def alpha(
     if factors is None:
         return _empty_like(returns, "alpha")
 
+    if not isinstance(factors, (Series, DataFrame)):
+        return _empty_like(returns, "alpha")
+
     if isinstance(factors, Series):
         factors = factors.to_frame(name=str(factors.name or "benchmark"))
 
