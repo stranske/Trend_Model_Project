@@ -120,6 +120,7 @@ def _patch_scenario(
     *,
     metric_by_in_end: dict[str, dict[str, float]],
     period_count: int,
+    metric_by_name: dict[str, dict[str, float]] | None = None,
 ) -> None:
     import trend_analysis.core.rank_selection as rank_selection
 
@@ -132,9 +133,8 @@ def _patch_scenario(
     monkeypatch.setattr(engine, "_run_analysis", lambda *_args, **_kwargs: {})
 
     def metric_series(frame: pd.DataFrame, metric: str, _cfg: Any) -> pd.Series:
-        del metric
         end_key = pd.Timestamp(frame.index.max()).strftime("%Y-%m")
-        values = metric_by_in_end[end_key]
+        values = (metric_by_name or {}).get(metric, metric_by_in_end[end_key])
         return pd.Series(
             {str(column): float(values.get(str(column), 0.0)) for column in frame.columns},
             dtype=float,
@@ -425,50 +425,24 @@ def test_ties_at_threshold_are_backfilled_to_max_funds_characterization(
 
 
 @pytest.mark.parametrize(
-    ("selection_mode", "rank_patch", "extra_portfolio", "expected_funds"),
+    ("selection_mode", "extra_portfolio", "expected_funds"),
     [
         (
             "buy_and_hold",
-            {},
             {"buy_and_hold": {"initial_method": "threshold", "n": 2, "threshold": 0.5}},
             ["A", "B"],
         ),
-        ("random", {}, {"random_n": 2}, ["B", "E"]),
-        (
-            "rank",
-            {
-                "inclusion_approach": "top_pct",
-                "pct": 0.4,
-                "score_by": "blended",
-                "blended_weights": {"Sharpe": 0.5, "MaxDrawdown": 0.5},
-                "transform": "raw",
-            },
-            {},
-            ["A", "B"],
-        ),
-        (
-            "rank",
-            {
-                "inclusion_approach": "threshold",
-                "threshold": 0.0,
-                "score_by": "Sharpe",
-                "transform": "zscore",
-            },
-            {},
-            ["A", "B"],
-        ),
+        ("random", {"random_n": 2}, ["B", "E"]),
     ],
 )
 def test_alternate_seed_paths_golden(
     monkeypatch: pytest.MonkeyPatch,
     selection_mode: str,
-    rank_patch: dict[str, Any],
     extra_portfolio: dict[str, Any],
     expected_funds: list[str],
 ) -> None:
     cfg = ThresholdScenarioConfig()
     cfg.portfolio["selection_mode"] = selection_mode
-    cfg.portfolio["rank"].update(rank_patch)
     cfg.portfolio.update(extra_portfolio)
     _patch_scenario(
         monkeypatch,
@@ -485,6 +459,79 @@ def test_alternate_seed_paths_golden(
         "cost": 0.0,
         "events": [("added", fund, "seed") for fund in expected_funds],
         "tenure": {fund: 1 for fund in expected_funds},
+    }
+
+
+def test_blended_seed_uses_metric_specific_scores_golden(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = ThresholdScenarioConfig()
+    cfg.portfolio["rank"].update(
+        {
+            "inclusion_approach": "top_pct",
+            "pct": 0.4,
+            "score_by": "blended",
+            "blended_weights": {"Sharpe": 0.4, "MaxDrawdown": 0.6},
+            "transform": "raw",
+        }
+    )
+    fallback = {"A": 0.0, "B": 0.0, "C": 0.0, "D": 0.0, "E": 0.0}
+    _patch_scenario(
+        monkeypatch,
+        period_count=1,
+        metric_by_in_end={"2020-02": fallback},
+        metric_by_name={
+            "Sharpe": {"A": 5.0, "B": 1.0, "C": 4.0, "D": 2.0, "E": 3.0},
+            "MaxDrawdown": {"A": 0.0, "B": -5.0, "C": -4.0, "D": -1.0, "E": -2.0},
+        },
+    )
+
+    results = engine.run(cfg, df=_returns_frame())
+
+    assert _snapshot(results[0]) == {
+        "funds": ["C", "B"],
+        "weights": {"C": 0.5, "B": 0.5},
+        "turnover": 1.0,
+        "cost": 0.0,
+        "events": [("added", "C", "seed"), ("added", "B", "seed")],
+        "tenure": {"C": 1, "B": 1},
+    }
+
+
+def test_zscore_threshold_differs_from_raw_ascending_selection_golden(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = ThresholdScenarioConfig()
+    cfg.portfolio["rank"].update(
+        {
+            "inclusion_approach": "threshold",
+            "threshold": 0.0,
+            "score_by": "MaxDrawdown",
+            "transform": "zscore",
+        }
+    )
+    fallback = {"A": 0.0, "B": 0.0, "C": 0.0, "D": 0.0, "E": 0.0}
+    _patch_scenario(
+        monkeypatch,
+        period_count=1,
+        metric_by_in_end={"2020-02": fallback},
+        metric_by_name={
+            "Sharpe": {"A": 3.0, "B": 2.0, "C": 1.0, "D": 0.0, "E": -1.0},
+            "MaxDrawdown": {"A": 0.0, "B": -5.0, "C": -4.0, "D": -1.0, "E": -2.0},
+        },
+    )
+
+    results = engine.run(cfg, df=_returns_frame())
+
+    # CHARACTERIZATION: z-score transformation currently treats the larger
+    # standardized MaxDrawdown as better; raw ascending selection would choose B/C.
+    assert _snapshot(results[0]) == {
+        "funds": ["A", "D"],
+        "weights": {"A": 0.5, "D": 0.5},
+        "turnover": 1.0,
+        "cost": 0.0,
+        "events": [("added", "A", "seed"), ("added", "D", "seed")],
+        "tenure": {"A": 1, "D": 1},
     }
 
 
