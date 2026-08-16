@@ -10,6 +10,18 @@ from trend.config_schema import CoreConfigError
 SectionGet = Callable[[Any, str, Any], Any]
 
 PORTFOLIO_WEIGHTING_NAME_ALIASES = {"ew": "equal", "robust": "robust_mv"}
+SCORE_BASED_PORTFOLIO_WEIGHTING_NAMES = frozenset(
+    {
+        "adaptive",
+        "adaptive_bayes",
+        "bayes",
+        "score",
+        "score_bayes",
+        "score_prop",
+        "score_prop_bayes",
+        "score_prop_simple",
+    }
+)
 SUPPORTED_PORTFOLIO_WEIGHTING_NAMES = frozenset(
     {
         "adaptive",

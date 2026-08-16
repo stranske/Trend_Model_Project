@@ -10,6 +10,7 @@ import pandas as pd
 from trend.diagnostics import DiagnosticResult
 
 from .config_contract import (
+    SCORE_BASED_PORTFOLIO_WEIGHTING_NAMES,
     resolve_pipeline_monthly_cost,
     resolve_portfolio_weighting_name,
     resolve_portfolio_weighting_params,
@@ -131,8 +132,10 @@ def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
     robustness_cfg = bindings.section_get(portfolio_cfg, "robustness")
     if not isinstance(robustness_cfg, Mapping):
         robustness_cfg = bindings.cfg_section(cfg, "robustness")
-    weight_engine_params = resolve_portfolio_weighting_params(
-        portfolio_cfg, section_get=bindings.section_get
+    weight_engine_params = (
+        resolve_portfolio_weighting_params(portfolio_cfg, section_get=bindings.section_get)
+        if weighting_scheme in SCORE_BASED_PORTFOLIO_WEIGHTING_NAMES
+        else {}
     )
     weight_engine_params.update(
         bindings.weight_engine_params_from_robustness(weighting_scheme, robustness_cfg)
@@ -267,8 +270,10 @@ def run_full_from_config(cfg: Any, *, bindings: ConfigBindings) -> PipelineResul
     robustness_cfg = bindings.section_get(portfolio_cfg, "robustness")
     if not isinstance(robustness_cfg, Mapping):
         robustness_cfg = bindings.cfg_section(cfg, "robustness")
-    weight_engine_params = resolve_portfolio_weighting_params(
-        portfolio_cfg, section_get=bindings.section_get
+    weight_engine_params = (
+        resolve_portfolio_weighting_params(portfolio_cfg, section_get=bindings.section_get)
+        if weighting_scheme in SCORE_BASED_PORTFOLIO_WEIGHTING_NAMES
+        else {}
     )
     weight_engine_params.update(
         bindings.weight_engine_params_from_robustness(weighting_scheme, robustness_cfg)
