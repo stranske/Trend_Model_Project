@@ -57,6 +57,11 @@ def test_unknown_top_level_and_nested_keys_are_rejected(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match=r"preprocessing\.misspelled_step"):
         validate_trend_config(preprocessing, base_path=tmp_path)
 
+    retired_cooldown = _valid_payload(tmp_path)
+    retired_cooldown["multi_period"] = {"cooldown_periods": 2}
+    with pytest.raises(ValueError, match=r"multi_period\.cooldown_periods"):
+        validate_trend_config(retired_cooldown, base_path=tmp_path)
+
     # The closed production model still accepts every declared section shipped
     # by the two canonical configurations.
     for config_path in ("config/defaults.yml", "config/demo.yml"):

@@ -179,6 +179,11 @@ def lint_config_sections(config: Mapping[str, Any]) -> list[str]:
                 child = str(raw_child)
                 if child not in allowed:
                     unknown.append(f"{section}.{child}")
+    multi_period = config.get("multi_period")
+    if isinstance(multi_period, Mapping):
+        for key in ("cooldown_periods", "cooldown_months"):
+            if key in multi_period:
+                unknown.append(f"multi_period.{key}")
     return sorted(unknown)
 
 

@@ -64,6 +64,13 @@ _CONSTRAINTS: dict[str, dict[str, Any]] = {
             "score_prop_simple",
             "score_prop_bayes",
             "adaptive_bayes",
+            "adaptive",
+            "bayes",
+            "ew",
+            "robust",
+            "robust_mean_variance",
+            "score",
+            "score_bayes",
         ]
     },
     "portfolio.rebalance_freq": {"enum": ["M", "Q", "A", None]},
