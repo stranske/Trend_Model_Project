@@ -15,16 +15,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
-import pandas as pd
-
 from trend.mc.viz import TrendCLIError
 from trend_analysis.config import format_validation_messages, validate_config
-from trend_analysis.io.market_data import (
-    MarketDataMode,
-    MarketDataValidationError,
-    load_market_data_csv,
-    load_market_data_parquet,
-)
+from trend_analysis.io.market_data import MarketDataValidationError
 from trend_analysis.monte_carlo import (
     MonteCarloRunner,
     MonteCarloScenario,
@@ -32,6 +25,7 @@ from trend_analysis.monte_carlo import (
     list_scenarios,
     load_scenario,
 )
+from trend_analysis.monte_carlo.history import load_price_history
 from trend_analysis.monte_carlo.registry import load_scenario_from_path
 from trend_analysis.monte_carlo.results import MonteCarloResults, export_results
 
@@ -161,9 +155,7 @@ def handle_mc_command(args: argparse.Namespace) -> int:
         )
         return 0
     try:
-        price_history = (
-            _load_price_history(Path(args.data)) if getattr(args, "data", None) else None
-        )
+        price_history = load_price_history(Path(args.data)) if getattr(args, "data", None) else None
         settings = _resolved_mc_settings(scenario)
         progress_callback, close_progress = _build_progress_callback(
             total=int(settings.n_paths) if settings.n_paths is not None else 0,
@@ -195,7 +187,7 @@ def handle_mc_command(args: argparse.Namespace) -> int:
             data_path=Path(args.data) if getattr(args, "data", None) else None,
             jobs_used=runner._resolve_jobs(getattr(args, "jobs", None)),
         )
-    except (MarketDataValidationError, ValueError) as exc:
+    except (MarketDataValidationError, OSError, ValueError) as exc:
         print(f"Scenario run failed: {exc}", file=sys.stderr)
         return 1
     except Exception as exc:
@@ -351,20 +343,6 @@ def _apply_overrides(scenario: MonteCarloScenario, args: argparse.Namespace) -> 
             else settings.jobs
         ),
     )
-
-
-def _load_price_history(path: Path) -> pd.DataFrame:
-    validated = (
-        load_market_data_parquet(str(path))
-        if path.suffix.lower() == ".parquet"
-        else load_market_data_csv(str(path))
-    )
-    frame = validated.frame.copy()
-    if validated.metadata.mode == MarketDataMode.RETURNS:
-        if frame.empty or (frame <= -1.0).any().any():
-            raise ValueError("returns data must be non-empty and greater than -1")
-        return (1.0 + frame).cumprod() * 100.0
-    return frame
 
 
 def validate_mc_scenario(scenario: MonteCarloScenario) -> list[str]:

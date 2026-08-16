@@ -59,9 +59,9 @@ acceptance criteria.
 
 ## Integration points
 
-- `load_market_data_csv` / `load_market_data_parquet` power the CLI and the
-  supported Streamlit upload helpers, returning validated frames and
-  metadata.
+- `trend_analysis.data.load_csv` and `trend_analysis.data.load_parquet` are the
+  canonical file-loading entry points. They preserve validation metadata in
+  DataFrame attrs for CLI, Monte Carlo, and Streamlit consumers.
 - The Streamlit upload flow funnels everything through `streamlit_app.state` so
   a single error banner is shown when validation fails and successful uploads
   persist metadata/validation reports in `st.session_state` for later pages.
@@ -69,6 +69,6 @@ acceptance criteria.
   scripted pipelines can fail fast.
 
 Refer to the unit tests in `tests/test_validators.py`,
-`tests/test_io_validators_additional.py`, and
-`tests/app/test_upload_page.py` for examples covering returns vs price
+`tests/test_io_validators_extra.py`, and
+`tests/test_upload_app.py` for examples covering returns vs price
 validation, failure messaging, and the Streamlit banner contract.
