@@ -165,7 +165,7 @@ Blocks pushes if style gate fails.
 - Run `pip install -e .[dev]` to sync pinned tools.
 
 ## Getting Help
-Open a draft PR early for structural feedback or tag maintainers in issues. Provide reproduction steps, config snippet, and failing test name when reporting bugs.
+Open a ready-for-review PR early for structural feedback or tag maintainers in issues. Use labels and the PR body to mark dependencies or staging; do not use draft state. Provide reproduction steps, config snippet, and failing test name when reporting bugs.
 
 Happy contributing!
 

@@ -48,7 +48,7 @@ validation notes, and UI captures.
 
 ## 2. Create Validation Pull Request
 1. Check out a new branch and make a trivial change (e.g., update a comment) so a pull request can be opened.
-2. Open a **draft** pull request targeting `main`.
+2. Open a **ready-for-review** pull request targeting `main` and leave auto-merge disabled.
 3. From the Actions tab, cancel the Gate workflow run mid-flight or push a commit that deliberately fails one of the jobs
    (for example, run `pytest -k always_fail` and commit the failing test).
 4. Confirm the PR shows **Required — Gate / gate** in the status area and the merge button is disabled with wording similar to
@@ -65,7 +65,7 @@ validation notes, and UI captures.
    enforcement and verification).
 
 ## 4. Close Out
-- Merge or close the draft PR without merging into `main` (if using a deliberately failing change, force-push to remove it).
+- Close the validation PR without merging into `main` (if using a deliberately failing change, force-push to remove it first).
 - Attach artifacts (logs, screenshots) to the issue tracker entry for future audits.
 - If automation tokens were rotated during the process, re-run the helper with
   `--check` to ensure the rule remains intact.

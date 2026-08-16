@@ -22,7 +22,7 @@ Use this index to find the current contributor guides and to understand which ov
 | Directory | Purpose | Key Files |
 | --- | --- | --- |
 | `.github/workflows/` | GitHub Actions workflows | 36 workflow files (see `WORKFLOW_GUIDE.md`) |
-| `.github/actions/` | Custom composite actions | `autofix/`, `build-pr-comment/`, `codex-bootstrap-lite/`, `signature-verify/` |
+| `.github/actions/` | Custom composite actions | `autofix/`, `build-pr-comment/`, `signature-verify/` |
 | `.github/` | GitHub config | `CODEOWNERS`, `agents.json`, `copilot-instructions.md` |
 
 ### Archives
@@ -75,9 +75,9 @@ Use this index to find the current contributor guides and to understand which ov
 **`.github/actions/` cleanup:**
 - Archived `apply-autofix/` - superseded by `autofix/`
 - Archived `autofix-commit-push/` - superseded by `autofix/`
-- Archived `codex-bootstrap/` - superseded by `codex-bootstrap-lite/`
+- Archived `codex-bootstrap/` - superseded by the Workflows-owned reusable issue bridge
 - Archived `update-residual-history/` - no longer referenced
-- Kept: `autofix/`, `build-pr-comment/`, `codex-bootstrap-lite/`, `signature-verify/`
+- Kept locally: `autofix/`, `build-pr-comment/`, `signature-verify/`; agent bootstrap is Workflows-owned
 
 **`.github/` root cleanup:**
 - Fixed CODEOWNERS stale workflow references
@@ -209,7 +209,7 @@ Use this index to find the current contributor guides and to understand which ov
 | Configuration | `ConfigMap.md`, `config.md`, `PresetStrategies.md` | 3 |
 | CLI reference | `CLI.md`, `reference.md`, `api.md` | 3 |
 | CI/Workflow | `WORKFLOW_GUIDE.md`, `ci-workflow.md`, `ci_reuse.md`, `checks.md` | 4 |
-| Agent automation | `AGENTS_POLICY.md`, `agent-automation.md`, `codex_bootstrap_verification.md` | 3 |
+| Agent automation | `AGENTS_POLICY.md`, `agent-automation.md` | 2 |
 | Validation | `validation-scripts.md`, `efficient-validation.md`, `fast-validation-ecosystem.md` | 3 |
 | Dependencies | `DEPENDENCY_ENFORCEMENT.md`, `DEPENDENCY_MANAGEMENT.md`, `DEPENDENCY_SYNC.md`, `DEPENDENCY_WORKFLOW.md` | 4 |
 | Development | `code_ownership.md`, `release-process.md`, `pr-iteration-policy.md` | 3 |

@@ -151,6 +151,9 @@ gh pr view --json state,mergedAt,closed
 ```
 - ❌ Never push to merged/closed PRs
 - ✅ Create a new branch and PR if the original is closed
+- ✅ Open automation-created PRs ready for review and verify `isDraft=false` before handoff
+- ❌ Never use draft state or closure as a dependency, stack-order, staging, or opener-cap control
+- ✅ Represent dependencies and staging with labels, PR-body state, disabled auto-merge, required checks, and exact-head merge guards
 
 ---
 
@@ -193,7 +196,6 @@ Helper functions:
 - Rank-based manager selection mode (`mode: rank`)
 - Blended scoring with z-score normalization
 - Scalar metric memoization (opt-in via `performance.cache.metrics: true`)
-- PR draft toggle for Codex bootstrap (`codex_pr_draft` input)
 - Multi-period Phase-1 style exports
 - Selector and weighting plugin classes
 
